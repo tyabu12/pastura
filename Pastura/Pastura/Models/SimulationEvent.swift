@@ -5,7 +5,8 @@ import Foundation
 /// This enum is the contract between Engine, App, and Views layers.
 /// The App/ViewModel layer consumes these events to update UI state
 /// and persist turn records to the database.
-public enum SimulationEvent: Sendable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public enum SimulationEvent: Sendable {
   // MARK: - Round Lifecycle
 
   /// A new round has started.
@@ -76,7 +77,7 @@ public enum SimulationEvent: Sendable {
 ///
 /// Placed in Models alongside `SimulationEvent` because the event's `.error` case
 /// references this type, and Models must have no external dependencies.
-public enum SimulationError: Error, Sendable {
+nonisolated public enum SimulationError: Error, Sendable {
   /// The scenario definition failed validation (e.g., invalid phase type, too many agents).
   case scenarioValidationFailed(String)
 

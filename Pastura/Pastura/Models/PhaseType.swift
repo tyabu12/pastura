@@ -5,7 +5,8 @@ import Foundation
 /// LLM phases (`speakAll`, `speakEach`, `vote`, `choose`) require LLM inference.
 /// Code phases (`scoreCalc`, `assign`, `eliminate`, `summarize`) are processed
 /// deterministically by the engine.
-public enum PhaseType: String, Codable, Sendable, CaseIterable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   case speakAll = "speak_all"
   case speakEach = "speak_each"
   case vote

@@ -5,7 +5,8 @@ import Foundation
 /// Personas define the character traits and behavior patterns for each agent.
 /// The `description` field typically follows the 【立場】【目的】 pattern
 /// for consistent LLM persona injection.
-public struct Persona: Codable, Sendable, Equatable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public struct Persona: Codable, Sendable, Equatable {
   /// The display name of this agent.
   public let name: String
 

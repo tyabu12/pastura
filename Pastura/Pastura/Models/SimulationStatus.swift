@@ -1,7 +1,8 @@
 import Foundation
 
 /// The execution status of a simulation.
-public enum SimulationStatus: String, Codable, Sendable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public enum SimulationStatus: String, Codable, Sendable {
   /// The simulation is actively running.
   case running
 

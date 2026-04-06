@@ -5,7 +5,8 @@ import Foundation
 /// Each phase describes one step in a simulation round. The available fields
 /// depend on the phase's `type` — LLM phases use `prompt` and `outputSchema`,
 /// while code phases use type-specific fields like `logic` or `template`.
-public struct Phase: Codable, Sendable, Equatable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// The type of this phase, determining how it is processed.
   public let type: PhaseType
 

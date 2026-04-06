@@ -5,7 +5,8 @@ import Foundation
 /// Wraps a `[String: String]` dictionary with typed accessors for common fields.
 /// All values are normalized to `String` by `JSONResponseParser` regardless of
 /// the original JSON type.
-public struct TurnOutput: Codable, Sendable, Equatable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   /// The raw parsed fields from the LLM's JSON response.
   public let fields: [String: String]
 
@@ -52,7 +53,7 @@ public struct TurnOutput: Codable, Sendable, Equatable {
 }
 
 /// Errors related to accessing ``TurnOutput`` fields.
-public enum TurnOutputError: Error, Sendable, Equatable {
+nonisolated public enum TurnOutputError: Error, Sendable, Equatable {
   /// A required field was missing or empty in the LLM response.
   case missingField(String)
 }

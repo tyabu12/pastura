@@ -8,7 +8,8 @@ import Foundation
 ///
 /// Scenarios are parsed from YAML via `ScenarioLoader` in the Engine layer
 /// using manual mapping (`Yams.load()` → `[String: Any]`).
-public struct Scenario: Codable, Sendable, Equatable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public struct Scenario: Codable, Sendable, Equatable {
   /// Unique identifier for the scenario (from YAML `id` field).
   public let id: String
 

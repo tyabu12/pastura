@@ -1,7 +1,8 @@
 import Foundation
 
 /// A pair of agents matched for a phase interaction (e.g., `choose` with round-robin).
-public struct Pairing: Codable, Sendable, Equatable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public struct Pairing: Codable, Sendable, Equatable {
   /// The name of the first agent in the pair.
   public let agent1: String
 
@@ -15,7 +16,7 @@ public struct Pairing: Codable, Sendable, Equatable {
 }
 
 /// Strategy for generating agent pairings in phases that require matchups.
-public enum PairingStrategy: String, Codable, Sendable {
+nonisolated public enum PairingStrategy: String, Codable, Sendable {
   /// Each agent plays against every other agent exactly once per round.
   case roundRobin = "round_robin"
 }

@@ -4,7 +4,8 @@ import Foundation
 ///
 /// MVP includes exactly 3 scoring logics. The actual implementations
 /// live in `Engine/ScoringLogic/`. Custom logic is Phase 2 scope.
-public enum ScoreCalcLogic: String, Codable, Sendable, CaseIterable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public enum ScoreCalcLogic: String, Codable, Sendable, CaseIterable {
   /// Prisoner's dilemma payoff matrix.
   /// cooperate/cooperate = 3,3 | cooperate/betray = 0,5 | betray/betray = 1,1
   case prisonersDilemma = "prisoners_dilemma"

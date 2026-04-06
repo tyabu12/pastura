@@ -5,7 +5,8 @@ import Foundation
 /// The conversation log accumulates entries as the simulation progresses.
 /// When building LLM prompts, the Engine trims to the most recent N entries
 /// to prevent context overflow. The full log is preserved in the DB via `TurnRecord`.
-public struct ConversationEntry: Codable, Sendable, Equatable {
+// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
+nonisolated public struct ConversationEntry: Codable, Sendable, Equatable {
   /// The name of the agent who produced this entry.
   public let agentName: String
 
