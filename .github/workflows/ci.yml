@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: macos-15
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Select Xcode and Simulator
+        run: |
+          ls /Applications/Xcode*.app
+          xcodebuild -version
+          # List available iPhone simulators for diagnostics
+          xcrun simctl list devices available iPhone | head -20
+          # Pick a simulator: try common names in order
+          for name in "iPhone 16 Pro" "iPhone 16" "iPhone 15 Pro" "iPhone 15"; do
+            if xcrun simctl list devices available | grep -qF "$name"; then
+              echo "DEST=platform=iOS Simulator,name=$name" >> "$GITHUB_ENV"
+              echo "Selected simulator: $name"
+              break
+            fi
+          done
+
+      - name: Cache SPM packages
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: SwiftLint
+        run: |
+          brew install swiftlint
+          swiftlint lint --strict --reporter github-actions-logging
+
+      - name: Test with Coverage
+        run: |
+          xcodebuild test \
+            -scheme Pastura \
+            -project Pastura/Pastura.xcodeproj \
+            -destination "$DEST" \
+            -only-testing PasturaTests \
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Coverage Report
+        if: always()
+        run: |
+          if [ -d TestResults.xcresult ]; then
+            xcrun xccov view --report TestResults.xcresult
+            xcrun xccov view --report --json TestResults.xcresult > coverage.json
+          fi
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results
+          path: |
+            TestResults.xcresult
+            coverage.json
+          retention-days: 7
