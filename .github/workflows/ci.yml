@@ -17,6 +17,8 @@ jobs:
   lint-and-test:
     runs-on: macos-15
     timeout-minutes: 15
+    outputs:
+      coverage-pct: ${{ steps.coverage.outputs.pct }}
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 
@@ -64,11 +66,21 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Coverage Report
+        id: coverage
         if: always()
         run: |
           if [ -d TestResults.xcresult ]; then
             xcrun xccov view --report TestResults.xcresult
+            PCT=$(xcrun xccov view --report --json TestResults.xcresult \
+              | jq -r '.lineCoverage * 100 | . * 100 | round / 100')
             xcrun xccov view --report --json TestResults.xcresult > coverage.json
+            PCT=${PCT:-0.00}
+            if ! [[ "$PCT" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              PCT=0.00
+            fi
+            echo "pct=$PCT" >> "$GITHUB_OUTPUT"
+          else
+            echo "pct=0.00" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload Test Results
@@ -80,3 +92,26 @@ jobs:
             TestResults.xcresult
             coverage.json
           retention-days: 7
+
+  coverage:
+    name: Coverage
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # SECURITY: This condition prevents fork PRs from accessing GIST_SECRET.
+    # Do not remove or weaken without reviewing secret exposure implications.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      # GIST_SECRET must be a PAT with only the "gist" scope (classic)
+      # or "gists: write" (fine-grained). No other permissions needed.
+      - name: Update coverage badge
+        uses: schneegans/dynamic-badges-action@0e50b8bad39e7e1afd3e4e9c2b7dd145fad07501 # v1.8.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 2e86dcd3eddf5d5294d75870c9ad62e7
+          filename: pastura-coverage.json
+          label: coverage
+          message: ${{ needs.lint-and-test.outputs.coverage-pct }}%
+          valColorRange: ${{ needs.lint-and-test.outputs.coverage-pct }}
+          minColorRange: 0
+          maxColorRange: 100
