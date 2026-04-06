@@ -25,13 +25,16 @@ jobs:
         run: |
           ls /Applications/Xcode*.app
           xcodebuild -version
-          # Pick the first available iPhone simulator
-          DEST=$(xcodebuild -scheme Pastura -project Pastura/Pastura.xcodeproj \
-            -showdestinations 2>/dev/null \
-            | grep 'platform:iOS Simulator' | grep 'name:iPhone' \
-            | head -1 | sed 's/.*{ //' | sed 's/ }$//')
-          echo "DEST=$DEST" >> "$GITHUB_ENV"
-          echo "Selected destination: $DEST"
+          # List available iPhone simulators for diagnostics
+          xcrun simctl list devices available iPhone | head -20
+          # Pick a simulator: try common names in order
+          for name in "iPhone 16 Pro" "iPhone 16" "iPhone 15 Pro" "iPhone 15"; do
+            if xcrun simctl list devices available | grep -q "\"$name\""; then
+              echo "DEST=platform=iOS Simulator,name=$name" >> "$GITHUB_ENV"
+              echo "Selected simulator: $name"
+              break
+            fi
+          done
 
       - name: Cache SPM packages
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
