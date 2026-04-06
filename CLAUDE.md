@@ -1,4 +1,4 @@
-# CLAUDE.md — Pastura Development Guide
+# Pastura — AIgazing simulator
 
 > Read this file in full before starting any task.
 
@@ -63,10 +63,14 @@ Utilities/ → depends on nothing
 ## Swift Coding Conventions
 
 - **Formatting:** `swift-format` + `swiftlint --fix` auto-applied via hooks on every file edit.
-- **Error types:** Layer-specific — `SimulationError` (Engine), `LLMError` (LLM), `DataError` (Data).
-  App layer catches and maps to UI presentation.
+- **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
+  `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
   `AsyncStream` over callbacks. Engine/LLM work runs on non-main actors or default executor.
+- **Default Actor Isolation:** Project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
+  All types in `Models/`, `LLM/`, and `Engine/` **MUST** be marked `nonisolated` at the
+  type level to avoid unnecessary MainActor binding.
+  `Views/` and `App/` use the default (MainActor).
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
 
 ## Tech Stack
