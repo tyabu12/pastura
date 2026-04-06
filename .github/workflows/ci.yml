@@ -43,7 +43,7 @@ jobs:
       - name: SwiftLint
         run: |
           brew install swiftlint
-          cd Pastura && swiftlint lint --strict --reporter github-actions-logging
+          swiftlint lint --strict --reporter github-actions-logging
 
       - name: Test with Coverage
         run: |
