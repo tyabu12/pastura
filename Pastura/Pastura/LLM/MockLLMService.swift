@@ -37,17 +37,17 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   }
 
   public func generate(system: String, user: String) async throws -> String {
-    try state.withLock { s in
-      guard s.isModelLoaded else { throw LLMError.notLoaded }
-      guard s.callIndex < s.responses.count else {
+    try state.withLock { mutableState in
+      guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
+      guard mutableState.callIndex < mutableState.responses.count else {
         throw LLMError.generationFailed(
           description:
-            "MockLLMService exhausted: \(s.callIndex) calls made, only \(s.responses.count) responses available"
+            "MockLLMService exhausted: \(mutableState.callIndex) calls made, only \(mutableState.responses.count) responses available"
         )
       }
-      let response = s.responses[s.callIndex]
-      s.callIndex += 1
-      s.capturedPrompts.append((system: system, user: user))
+      let response = mutableState.responses[mutableState.callIndex]
+      mutableState.callIndex += 1
+      mutableState.capturedPrompts.append((system: system, user: user))
       return response
     }
   }
@@ -66,9 +66,9 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
 
   /// Reset the service to its initial state, rewinding the response sequence.
   public func reset() {
-    state.withLock { s in
-      s.callIndex = 0
-      s.capturedPrompts = []
+    state.withLock { locked in
+      locked.callIndex = 0
+      locked.capturedPrompts = []
     }
   }
 }

@@ -9,13 +9,13 @@ struct MockLLMServiceTests {
     let service = MockLLMService(responses: ["first", "second", "third"])
     try await service.loadModel()
 
-    let r1 = try await service.generate(system: "sys", user: "u1")
-    let r2 = try await service.generate(system: "sys", user: "u2")
-    let r3 = try await service.generate(system: "sys", user: "u3")
+    let result1 = try await service.generate(system: "sys", user: "u1")
+    let result2 = try await service.generate(system: "sys", user: "u2")
+    let result3 = try await service.generate(system: "sys", user: "u3")
 
-    #expect(r1 == "first")
-    #expect(r2 == "second")
-    #expect(r3 == "third")
+    #expect(result1 == "first")
+    #expect(result2 == "second")
+    #expect(result3 == "third")
   }
 
   // MARK: - Not loaded throws

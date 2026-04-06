@@ -6,21 +6,21 @@ struct LLMErrorTests {
   // MARK: - Equatable
 
   @Test func loadFailedEquatable() {
-    let a = LLMError.loadFailed(description: "disk read error")
-    let b = LLMError.loadFailed(description: "disk read error")
-    #expect(a == b)
+    let lhs = LLMError.loadFailed(description: "disk read error")
+    let rhs = LLMError.loadFailed(description: "disk read error")
+    #expect(lhs == rhs)
   }
 
   @Test func loadFailedNotEqualWithDifferentDescription() {
-    let a = LLMError.loadFailed(description: "disk read error")
-    let b = LLMError.loadFailed(description: "network error")
-    #expect(a != b)
+    let lhs = LLMError.loadFailed(description: "disk read error")
+    let rhs = LLMError.loadFailed(description: "network error")
+    #expect(lhs != rhs)
   }
 
   @Test func generationFailedEquatable() {
-    let a = LLMError.generationFailed(description: "timeout")
-    let b = LLMError.generationFailed(description: "timeout")
-    #expect(a == b)
+    let lhs = LLMError.generationFailed(description: "timeout")
+    let rhs = LLMError.generationFailed(description: "timeout")
+    #expect(lhs == rhs)
   }
 
   @Test func notLoadedEquatable() {
@@ -28,15 +28,15 @@ struct LLMErrorTests {
   }
 
   @Test func invalidResponseEquatable() {
-    let a = LLMError.invalidResponse(raw: "garbage")
-    let b = LLMError.invalidResponse(raw: "garbage")
-    #expect(a == b)
+    let lhs = LLMError.invalidResponse(raw: "garbage")
+    let rhs = LLMError.invalidResponse(raw: "garbage")
+    #expect(lhs == rhs)
   }
 
   @Test func networkErrorEquatable() {
-    let a = LLMError.networkError(description: "connection refused")
-    let b = LLMError.networkError(description: "connection refused")
-    #expect(a == b)
+    let lhs = LLMError.networkError(description: "connection refused")
+    let rhs = LLMError.networkError(description: "connection refused")
+    #expect(lhs == rhs)
   }
 
   // MARK: - Different cases are not equal
