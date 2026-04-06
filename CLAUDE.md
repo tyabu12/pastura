@@ -304,6 +304,9 @@ Pastura/
 
 ## Rules Reference
 
+> Note: The authoritative path mappings are in each rule file's YAML frontmatter (`paths:` field).
+> This table is a quick reference; if they diverge, frontmatter is canonical.
+
 | File | Scope | Loaded when |
 |------|-------|-------------|
 | `.claude/rules/engine.md` | Engine design, phase types, SimulationEvent, JSON parser, content filter, scoring | Editing `Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**` |

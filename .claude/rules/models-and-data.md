@@ -1,3 +1,9 @@
+---
+paths:
+  - "Pastura/Pastura/Models/**"
+  - "Pastura/Pastura/Data/**"
+---
+
 # Models & Data Layer Rules
 
 ## Key Data Types

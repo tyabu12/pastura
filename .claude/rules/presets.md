@@ -1,3 +1,8 @@
+---
+paths:
+  - "Pastura/Pastura/Resources/**"
+---
+
 # Preset YAML Scenarios
 
 These are converted from the Python prototype's hardcoded scenarios.

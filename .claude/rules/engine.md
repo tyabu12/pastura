@@ -1,3 +1,9 @@
+---
+paths:
+  - "Pastura/Pastura/Engine/**"
+  - "Pastura/Pastura/LLM/**"
+---
+
 # Engine Design Rules
 
 ## Scenario Engine Design
