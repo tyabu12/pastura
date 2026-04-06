@@ -33,9 +33,13 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
   /// Ordered list of phases executed each round.
   public let phases: [Phase]
 
-  /// Optional topic data referenced by `assign` phases via `source` field.
-  /// For example, bokete scenario uses this for photo descriptions.
-  public let topics: [String]?
+  /// Scenario-specific data beyond the standard fields.
+  ///
+  /// Holds arbitrary top-level YAML fields that phase handlers access at runtime.
+  /// For example, bokete's `topics` (string array) or word wolf's `words`
+  /// (array of dictionaries). The `assign` phase references keys here via its
+  /// `source` field. Empty if the scenario has no extra data.
+  public let extraData: [String: AnyCodableValue]
 
   public init(
     id: String,
@@ -46,7 +50,7 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     context: String,
     personas: [Persona],
     phases: [Phase],
-    topics: [String]? = nil
+    extraData: [String: AnyCodableValue] = [:]
   ) {
     self.id = id
     self.name = name
@@ -56,6 +60,6 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     self.context = context
     self.personas = personas
     self.phases = phases
-    self.topics = topics
+    self.extraData = extraData
   }
 }
