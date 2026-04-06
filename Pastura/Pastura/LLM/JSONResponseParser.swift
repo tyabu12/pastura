@@ -6,6 +6,20 @@ import Foundation
 /// markdown code blocks, and leading/trailing garbage text.
 /// All JSON values are normalized to `String` for ``TurnOutput``.
 nonisolated public struct JSONResponseParser: Sendable {
+  // Pre-compiled regexes for performance across many parse calls
+  private static let thinkingTagRegex = try? NSRegularExpression(
+    pattern: #"<\|channel>thought\n.*?<channel\|>"#,
+    options: .dotMatchesLineSeparators
+  )
+  private static let codeBlockRegex = try? NSRegularExpression(
+    pattern: #"```(?:json)?\s*\n?(.*?)\n?```"#,
+    options: .dotMatchesLineSeparators
+  )
+  private static let jsonObjectRegex = try? NSRegularExpression(
+    pattern: #"\{.*\}"#,
+    options: .dotMatchesLineSeparators
+  )
+
   public init() {}
 
   /// Parse raw LLM output text into a ``TurnOutput``.
@@ -50,30 +64,14 @@ nonisolated public struct JSONResponseParser: Sendable {
 
   /// Remove Gemma 4 thinking tags: `<|channel>thought\n...<channel|>`
   private func stripThinkingTags(_ text: String) -> String {
-    guard
-      let regex = try? NSRegularExpression(
-        pattern: #"<\|channel>thought\n.*?<channel\|>"#,
-        options: .dotMatchesLineSeparators
-      )
-    else {
-      return text
-    }
+    guard let regex = Self.thinkingTagRegex else { return text }
     let range = NSRange(text.startIndex..., in: text)
     return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
   }
 
   /// Extract content from markdown code blocks: `` ```json ... ``` `` or `` ``` ... ``` ``
   private func extractFromCodeBlock(_ text: String) -> String {
-    guard text.contains("```") else { return text }
-
-    guard
-      let regex = try? NSRegularExpression(
-        pattern: #"```(?:json)?\s*\n?(.*?)\n?```"#,
-        options: .dotMatchesLineSeparators
-      )
-    else {
-      return text
-    }
+    guard text.contains("```"), let regex = Self.codeBlockRegex else { return text }
 
     let range = NSRange(text.startIndex..., in: text)
     guard let match = regex.firstMatch(in: text, range: range),
@@ -87,14 +85,7 @@ nonisolated public struct JSONResponseParser: Sendable {
 
   /// Find the first `{...}` JSON object in text with leading garbage.
   private func extractFirstJSONObject(_ text: String) -> String {
-    guard
-      let regex = try? NSRegularExpression(
-        pattern: #"\{.*\}"#,
-        options: .dotMatchesLineSeparators
-      )
-    else {
-      return text
-    }
+    guard let regex = Self.jsonObjectRegex else { return text }
 
     let range = NSRange(text.startIndex..., in: text)
     guard let match = regex.firstMatch(in: text, range: range),

@@ -42,6 +42,10 @@ nonisolated public final class OllamaService: LLMService, @unchecked Sendable {
     self.loadedState = OSAllocatedUnfairLock(initialState: false)
   }
 
+  /// Marks the service as ready for inference.
+  ///
+  /// Does not verify server connectivity — errors surface on first ``generate(system:user:)`` call.
+  /// Callers must not call ``unloadModel()`` concurrently with ``generate(system:user:)``.
   public func loadModel() async throws {
     loadedState.withLock { $0 = true }
   }
