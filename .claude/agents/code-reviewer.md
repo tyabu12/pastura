@@ -3,6 +3,7 @@ name: code-reviewer
 description: "Expert code reviewer for Swift/SwiftUI. Reviews code changes for quality, security, dependency rule compliance, and Pastura conventions. Use proactively after writing or modifying code."
 tools: Read, Grep, Glob, Bash
 model: opus
+maxTurns: 15
 ---
 
 You are a senior code reviewer for the Pastura iOS project (Swift 6 / SwiftUI / iOS 17).

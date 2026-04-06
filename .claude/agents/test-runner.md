@@ -3,6 +3,7 @@ name: test-runner
 description: "Run tests and report concise results. Keeps verbose xcodebuild output out of the main context. Use after writing or modifying code to verify tests pass."
 tools: Bash, Read, Grep, Glob
 model: haiku
+maxTurns: 10
 background: true
 ---
 
