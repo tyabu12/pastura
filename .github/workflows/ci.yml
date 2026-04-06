@@ -18,7 +18,11 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 15
     outputs:
+      test-passed: ${{ steps.test.outputs.passed }}
+      test-failed: ${{ steps.test.outputs.failed }}
+      test-parse-error: ${{ steps.test.outputs.parse_error }}
       coverage-pct: ${{ steps.coverage.outputs.pct }}
+      lint-result: ${{ steps.lint.outputs.result }}
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 
@@ -49,13 +53,20 @@ jobs:
           restore-keys: spm-${{ runner.os }}-
 
       - name: SwiftLint
+        id: lint
         run: |
           brew install swiftlint
-          swiftlint lint --strict --reporter github-actions-logging
+          if swiftlint lint --strict --reporter github-actions-logging; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
 
       - name: Test with Coverage
+        id: test
         run: |
-          xcodebuild test \
+          OUTPUT=$(xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
@@ -63,7 +74,23 @@ jobs:
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             -quiet \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1) || TEST_EXIT=$?
+          echo "$OUTPUT"
+
+          # xcodebuild -quiet outputs per-case lines:
+          #   Test case '...' passed on '...' (X.XXX seconds)
+          #   Test case '...' failed on '...' (X.XXX seconds)
+          PASSED=$(echo "$OUTPUT" | grep -c "^Test case .* passed " || true)
+          FAILED=$(echo "$OUTPUT" | grep -c "^Test case .* failed " || true)
+          if [ "$PASSED" -eq 0 ] && [ "$FAILED" -eq 0 ]; then
+            echo "parse_error=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "parse_error=false" >> "$GITHUB_OUTPUT"
+            echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+            echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          fi
+
+          exit ${TEST_EXIT:-0}
 
       - name: Coverage Report
         id: coverage
@@ -114,3 +141,92 @@ jobs:
           valColorRange: ${{ needs.lint-and-test.outputs.coverage-pct }}
           minColorRange: 0
           maxColorRange: 100
+
+  # SECURITY: Do NOT add actions/checkout or run untrusted code in this job.
+  # This job has pull-requests: write and must never execute PR code.
+  # Do NOT change the trigger to pull_request_target.
+  pr-comment:
+    name: PR Comment
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      !cancelled()
+      && github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Generate comment body
+        env:
+          JOB_RESULT: ${{ needs.lint-and-test.result }}
+          TEST_PASSED: ${{ needs.lint-and-test.outputs.test-passed }}
+          TEST_FAILED: ${{ needs.lint-and-test.outputs.test-failed }}
+          TEST_PARSE_ERROR: ${{ needs.lint-and-test.outputs.test-parse-error }}
+          COVERAGE_PCT: ${{ needs.lint-and-test.outputs.coverage-pct }}
+          LINT_RESULT: ${{ needs.lint-and-test.outputs.lint-result }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "## CI Report"
+            echo ""
+
+            # Job-level failure banner
+            if [ "$JOB_RESULT" = "skipped" ] || [ "$JOB_RESULT" = "cancelled" ]; then
+              echo "> CI job was ${JOB_RESULT}."
+            elif [ "$JOB_RESULT" = "failure" ]; then
+              echo "> **CI job failed.** See [CI logs](${CI_RUN_URL}) for details."
+              echo ""
+            fi
+
+            # Lint results
+            echo "### Lint"
+            echo ""
+            if [ "$LINT_RESULT" = "pass" ]; then
+              echo "SwiftLint: **passed**"
+            elif [ "$LINT_RESULT" = "fail" ]; then
+              echo "SwiftLint: **FAILED**"
+            else
+              echo "SwiftLint: did not run"
+            fi
+
+            # Test results
+            echo ""
+            echo "### Test Results"
+            echo ""
+            if [ "$TEST_PARSE_ERROR" = "true" ]; then
+              echo "> Could not parse test output. Format may have changed."
+            elif [ -n "$TEST_PASSED" ]; then
+              PASSED=$(echo "${TEST_PASSED:-0}" | grep -oE '^[0-9]+$' || echo "0")
+              FAILED=$(echo "${TEST_FAILED:-0}" | grep -oE '^[0-9]+$' || echo "0")
+              if [ "$FAILED" = "0" ]; then
+                echo "**${PASSED} passed**"
+              else
+                echo "**${PASSED} passed, ${FAILED} FAILED**"
+              fi
+            else
+              echo "> Tests did not run."
+            fi
+
+            # Coverage
+            echo ""
+            echo "### Coverage"
+            echo ""
+            if [ "$COVERAGE_PCT" = "0.00" ] || [ -z "$COVERAGE_PCT" ]; then
+              echo "> Coverage measurement failed. See [CI logs](${CI_RUN_URL}) for details."
+            else
+              echo "**${COVERAGE_PCT}%** line coverage"
+            fi
+
+            echo ""
+            echo "---"
+            echo "[View full CI run](${CI_RUN_URL})"
+          } > /tmp/pr-comment.md
+
+      - name: Post PR comment
+        uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3.0.2
+        # Fork PRs have read-only GITHUB_TOKEN; comment posting will fail gracefully.
+        continue-on-error: true
+        with:
+          header: ci-report
+          path: /tmp/pr-comment.md
