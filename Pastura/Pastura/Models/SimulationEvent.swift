@@ -5,7 +5,7 @@ import Foundation
 /// This enum is the contract between Engine, App, and Views layers.
 /// The App/ViewModel layer consumes these events to update UI state
 /// and persist turn records to the database.
-nonisolated public enum SimulationEvent: Sendable {
+nonisolated public enum SimulationEvent: Sendable, Equatable {
   // MARK: - Round Lifecycle
 
   /// A new round has started.
@@ -76,12 +76,13 @@ nonisolated public enum SimulationEvent: Sendable {
 ///
 /// Placed in Models alongside `SimulationEvent` because the event's `.error` case
 /// references this type, and Models must have no external dependencies.
-nonisolated public enum SimulationError: Error, Sendable {
+nonisolated public enum SimulationError: Error, Sendable, Equatable {
   /// The scenario definition failed validation (e.g., invalid phase type, too many agents).
   case scenarioValidationFailed(String)
 
   /// The LLM backend failed to generate a response.
-  case llmGenerationFailed(underlying: any Error)
+  /// Stores the error description as a String for Sendable + Equatable conformance.
+  case llmGenerationFailed(description: String)
 
   /// The LLM response could not be parsed as valid JSON.
   case jsonParseFailed(raw: String)
