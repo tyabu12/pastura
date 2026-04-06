@@ -1,0 +1,24 @@
+# .swiftlint.yml
+included:
+  - Pastura
+
+excluded:
+  - Pastura/Resources
+
+disabled_rules:
+  - line_length          # YAML-heavy string literals exceed 120 chars
+  - todo                 # Allow TODO/FIXME during MVP development
+  - force_cast           # Needed for Yams [String: Any] manual mapping
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_filter_count
+  - fatal_error_message
+  - first_where
+  - modifier_order
+  - overridden_super_call
+  - private_action
+  - private_outlet
+  - redundant_nil_coalescing
+  - unused_import

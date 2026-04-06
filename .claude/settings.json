@@ -1,0 +1,71 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git rev-parse*)",
+      "Bash(git remote -v*)",
+      "Bash(git fetch*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git stash list*)",
+      "Bash(git stash show*)",
+      "Bash(git worktree*)",
+      "Bash(xcodebuild test*)",
+      "Bash(xcodebuild build*)",
+      "Bash(swift build*)",
+      "Bash(swift test*)",
+      "Bash(swift package*)",
+      "Bash(swiftlint*)",
+      "Bash(swift-format*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh issue view*)",
+      "Bash(gh issue list*)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "Bash(wc *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/tyabu12/Work/pastura && swiftlint lint --quiet --strict"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"additionalContext\":\"Reminder: This is Pastura (Swift/iOS). Follow CLAUDE.md hard rules. No force unwrap (!), no Engine→Data imports, TDD mandatory.\"}}'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path | select(endswith(\".swift\"))' | xargs -I {} sh -c 'swift-format format --in-place \"$1\" && swiftlint lint --fix --quiet \"$1\"' _ {}"
+          }
+        ]
+      }
+    ]
+  }
+}

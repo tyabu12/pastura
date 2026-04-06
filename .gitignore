@@ -1,0 +1,40 @@
+# Xcode
+build/
+DerivedData/
+Pastura/Pastura.xcodeproj/project.xcworkspace/xcuserdata/
+Pastura/Pastura.xcodeproj/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# CocoaPods (if used for LiteRT-LM)
+Pods/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# IDE
+*.swp
+*~
+.idea/
+.vscode/
+
+# LLM model files (large, should not be in repo)
+*.litertlm
+*.gguf
