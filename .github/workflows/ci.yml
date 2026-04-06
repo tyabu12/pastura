@@ -71,9 +71,8 @@ jobs:
         run: |
           if [ -d TestResults.xcresult ]; then
             xcrun xccov view --report TestResults.xcresult
-            PCT=$(xcrun xccov view --report --json TestResults.xcresult \
-              | jq -r '.lineCoverage * 100 | . * 100 | round / 100')
             xcrun xccov view --report --json TestResults.xcresult > coverage.json
+            PCT=$(python3 -c "import sys,json; print(round(json.load(sys.stdin)['lineCoverage']*10000)/100)" < coverage.json)
             PCT=${PCT:-0.00}
             if ! [[ "$PCT" =~ ^[0-9]+\.[0-9]+$ ]]; then
               PCT=0.00
