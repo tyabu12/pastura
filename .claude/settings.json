@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/tyabu12/Work/pastura && swiftlint lint --quiet --strict"
+            "command": "swiftlint lint --quiet --strict"
           }
         ]
       }
