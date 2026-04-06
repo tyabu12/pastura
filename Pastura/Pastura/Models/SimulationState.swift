@@ -6,7 +6,6 @@ import Foundation
 /// for pause/resume persistence in the `simulations.stateJSON` DB column.
 /// Agent state (scores, elimination) lives here rather than in a separate
 /// agents table (see ADR-001 §4).
-// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
 nonisolated public struct SimulationState: Codable, Sendable, Equatable {
   /// Current scores indexed by agent name.
   public var scores: [String: Int]

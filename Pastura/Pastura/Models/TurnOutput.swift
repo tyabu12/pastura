@@ -5,7 +5,6 @@ import Foundation
 /// Wraps a `[String: String]` dictionary with typed accessors for common fields.
 /// All values are normalized to `String` by `JSONResponseParser` regardless of
 /// the original JSON type.
-// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
 nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   /// The raw parsed fields from the LLM's JSON response.
   public let fields: [String: String]

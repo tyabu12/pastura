@@ -5,7 +5,6 @@ import Foundation
 /// This enum is the contract between Engine, App, and Views layers.
 /// The App/ViewModel layer consumes these events to update UI state
 /// and persist turn records to the database.
-// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
 nonisolated public enum SimulationEvent: Sendable {
   // MARK: - Round Lifecycle
 

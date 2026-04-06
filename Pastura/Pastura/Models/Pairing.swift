@@ -1,7 +1,6 @@
 import Foundation
 
 /// A pair of agents matched for a phase interaction (e.g., `choose` with round-robin).
-// nonisolated: Models layer must be accessible from any actor (Engine runs off-main).
 nonisolated public struct Pairing: Codable, Sendable, Equatable {
   /// The name of the first agent in the pair.
   public let agent1: String
