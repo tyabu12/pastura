@@ -42,7 +42,7 @@ After fetching the issue, check for an existing plan comment:
    - Derive `SLUG` from the branch name.
    - If **all items are already checked**: ensure you are on the feature branch or in the correct worktree, then report "All {TOTAL} items already complete. Proceeding to review." and **skip to Step 4** directly.
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
-   - **Skip Step 1 entirely** → proceed to Step 2.
+   - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
 3. If no plan comment found: proceed normally (Step 1 creates the plan, Step 2 attaches it).
 
 **Pre-flight checks** (run in order):
@@ -66,6 +66,27 @@ After fetching the issue, check for an existing plan comment:
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
 4. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation.
+
+## Step 1b: Plan Critique
+
+After the user approves the plan (G1), launch a `critic` subagent via the Agent tool to review the plan for blind spots:
+
+> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase.
+>
+> Task: {TASK_DESCRIPTION}
+>
+> Plan:
+> {PLAN_BODY}
+>
+> Read `CLAUDE.md` and `docs/ROADMAP.md` for project context. Output your full two-stage evaluation (Stage 1 axes, Stage 2 evaluation, Summary Table, Top Actions)."
+
+Handle the critic's output:
+- **Any Critical verdict**: Present the full critic report. **Ask: "Critic found critical issues — revise the plan, or proceed anyway?"** If revise → return to Step 1, regenerate plan, then re-run Step 1b. If proceed → continue to Step 2.
+- **Only OK / Warning verdicts**: Present the summary table as informational context, then proceed to Step 2 without an additional gate.
+
+*Skipped when `RESUMING=true`* (plan was already approved and critiqued in a prior session).
+
+Note: This is a conditional review step, not a numbered gate — the G1–G4 gate structure is unchanged.
 
 ## Step 2: Issue + Worktree — Gate G2
 
@@ -159,21 +180,32 @@ Fix any failures before proceeding.
 
 ## Step 4: Review — Gate G3
 
-Run a review via `Agent` tool with the following checks against changed files:
+Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch:
 
-1. **CLAUDE.md Hard Rules**: No force unwrap (`!`), no Engine → Data imports, doc comments on public protocols/types.
-2. **Dependency Rules**: Verify module boundaries (Models → nothing, LLM → Models only, Engine → LLM+Models, Data → Models only).
-3. **Access Modifiers**: Public protocols, public Models/ types, internal for implementation details.
-4. **Test Coverage**: Each new public type or function has a corresponding test.
+> **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
-**Cross-review loop:**
-1. Launch 2 parallel read-only subagents:
-   - Agent 1: Verify PASS results — check for false negatives.
-   - Agent 2: Verify FAIL results — check for false positives.
-2. If issues found, fix and re-verify. Hard limit: 3 iterations.
+**Review-verify-fix loop:**
+1. If the code-reviewer returns **PASS** → proceed directly to "Create PR?" gate.
+2. If the code-reviewer returns **FAIL**:
+   a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt).
+   b. Build the **Review Action Summary** (see below) and present it to the user.
+   c. Fix all confirmed issues. Skip false positives.
+   d. Re-run the `code-reviewer` subagent on the updated code.
+3. Hard limit: **3 iterations**. If still FAIL after 3, report remaining issues to the user.
 
-Show consolidated results. **Ask: "Create PR?"**
-- If unresolved after 3 iterations, report issues and let user decide.
+**Review Action Summary** (displayed after each iteration):
+```
+## Review Iteration N
+
+| # | Issue | Severity | Verification | Action | Reason |
+|---|-------|----------|-------------|--------|--------|
+| 1 | No doc comment on `FooProtocol` | Critical | Confirmed | Fixed | Added doc comment |
+| 2 | Force unwrap in line 42 | Critical | False positive | Skipped | Test file (exempt) |
+| 3 | Missing Sendable on `Bar` | Warning | Confirmed | Fixed | Added Sendable conformance |
+```
+
+Show the final review report. **Ask: "Create PR?"**
+- If unresolved after 3 iterations, present outstanding issues and let the user decide whether to proceed or continue fixing.
 
 ## Step 5: PR Creation — Gate G4
 
