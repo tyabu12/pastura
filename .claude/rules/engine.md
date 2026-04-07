@@ -40,7 +40,7 @@ public protocol PhaseHandler {
         phase: Phase,
         state: inout SimulationState,
         llm: LLMService,
-        emitter: (SimulationEvent) -> Void
+        emitter: @Sendable (SimulationEvent) -> Void
     ) async throws
 }
 ```
@@ -70,7 +70,8 @@ Use `ScenarioLoader.estimateInferenceCount()` to calculate before execution.
 speak_all:  agentCount per round
 speak_each: agentCount × subRounds per round
 vote:       agentCount per round
-choose:     agentCount (or agentCount*(agentCount-1)/2 for round_robin) per round
+choose:     agentCount × 2 for round_robin (N adjacent pairs, 2 calls each)
+            agentCount for individual (no pairing)
 score_calc/assign/eliminate/summarize: 0 (code phases)
 
 total = sum(phase estimates) × scenario.rounds
