@@ -84,12 +84,15 @@ Utilities/ → depends on nothing
 | Min iOS            | 17.0                          |           |
 | YAML parser        | Yams                          | 6.2.1     |
 | SQLite             | GRDB                          | 7.10.0    |
-| LLM (production)   | LiteRT-LM iOS SDK (planned)  |           |
+| LLM (TestFlight)   | llama.cpp via mattt/llama.swift | pinned   |
+| LLM (target)       | LiteRT-LM iOS SDK (planned)  |           |
 | LLM (dev)          | Ollama via OpenAI-compat API  |           |
 | LLM (test)         | MockLLMService                |           |
+| LLM model          | Gemma 4 E2B Q4_K_M (GGUF)    | ~3.1 GB   |
 
-LLM backend integration priority: LiteRT-LM Swift SDK → C API wrapper → MediaPipe (last resort).
-See ADR-001 §7 for rationale and model lifecycle details.
+LLM backend: llama.cpp is the interim backend for TestFlight (Metal GPU, on-device).
+Migrate to LiteRT-LM when Swift SDK + iOS GPU support ships.
+See ADR-001 §7 for protocol design and ADR-002 for llama.cpp decision.
 
 ## Testing Strategy
 
