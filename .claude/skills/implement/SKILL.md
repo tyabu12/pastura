@@ -156,9 +156,15 @@ Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING
 
 For each unit of work (let `K` = the current plan item number):
 1. Write test first (TDD mandatory per CLAUDE.md).
-2. `swift test` — confirm failure.
+2. Run targeted tests — confirm failure:
+   ```bash
+   DEST='platform=iOS Simulator,name=iPhone 16'
+   xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
+     -destination "$DEST" -only-testing "PasturaTests/<CurrentTestClass>"
+   ```
+   Use `-only-testing` for the specific test class being developed — full suite per red/green cycle is too slow.
 3. Write implementation.
-4. `swift test` — confirm pass.
+4. Run targeted tests — confirm pass (same command as step 2).
 5. Commit (Conventional Commits + emoji per CLAUDE.md).
 6. **Sync checkpoint to GitHub Issue** — update the plan comment to check off the completed item:
    ```bash
@@ -172,11 +178,18 @@ Note: `git commit` is NOT in the permissions allowlist — each commit triggers 
 
 SwiftLint runs automatically via PreToolUse hook on `git commit`.
 
-After all implementation, run full verification:
-```bash
-swift test && swiftlint lint --quiet --strict
-```
-Fix any failures before proceeding.
+After all implementation, run full verification using the `test-runner` subagent:
+
+1. Launch a `test-runner` subagent via the Agent tool:
+
+   > **Agent prompt:** "Run all tests for the Pastura project. Report results in your standard format including failure details."
+
+   The test-runner runs in the background (per its agent definition). Wait for the completion notification before proceeding.
+
+2. Handle the test-runner result:
+   - **PASS** → run `swiftlint lint --quiet --strict` directly. Fix any lint issues before proceeding.
+   - **FAIL** → fix the failing tests, commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items), then re-run the test-runner subagent.
+   - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
 ## Step 4: Review — Gate G3
 
