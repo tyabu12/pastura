@@ -34,27 +34,27 @@ struct ScenarioDetailViewModelTests {
         isPreset: false, createdAt: Date(), updatedAt: Date()
       ))
 
-    let vm = ScenarioDetailViewModel(repository: repo)
-    await vm.load(scenarioId: "test_scenario")
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "test_scenario")
 
-    #expect(vm.scenario != nil)
-    #expect(vm.scenario?.name == "Test")
-    #expect(vm.scenario?.agentCount == 2)
-    #expect(vm.estimatedInferences == 2)  // 2 agents * 1 round * 1 speak_all
-    #expect(vm.validationError == nil)
-    #expect(vm.canRun == true)
-    #expect(vm.errorMessage == nil)
+    #expect(viewModel.scenario != nil)
+    #expect(viewModel.scenario?.name == "Test")
+    #expect(viewModel.scenario?.agentCount == 2)
+    #expect(viewModel.estimatedInferences == 2)  // 2 agents * 1 round * 1 speak_all
+    #expect(viewModel.validationError == nil)
+    #expect(viewModel.canRun == true)
+    #expect(viewModel.errorMessage == nil)
   }
 
   @Test func loadHandlesMissingScenario() async throws {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
 
-    let vm = ScenarioDetailViewModel(repository: repo)
-    await vm.load(scenarioId: "nonexistent")
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "nonexistent")
 
-    #expect(vm.scenario == nil)
-    #expect(vm.errorMessage == "Scenario not found")
+    #expect(viewModel.scenario == nil)
+    #expect(viewModel.errorMessage == "Scenario not found")
   }
 
   @Test func loadDetectsValidationErrors() async throws {
@@ -104,12 +104,12 @@ struct ScenarioDetailViewModelTests {
         isPreset: false, createdAt: Date(), updatedAt: Date()
       ))
 
-    let vm = ScenarioDetailViewModel(repository: repo)
-    await vm.load(scenarioId: "bad")
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "bad")
 
-    #expect(vm.scenario != nil)
-    #expect(vm.validationError != nil)
-    #expect(vm.canRun == false)
+    #expect(viewModel.scenario != nil)
+    #expect(viewModel.validationError != nil)
+    #expect(viewModel.canRun == false)
   }
 
   @Test func deleteScenarioReturnsTrue() async throws {
@@ -121,9 +121,9 @@ struct ScenarioDetailViewModelTests {
         isPreset: false, createdAt: Date(), updatedAt: Date()
       ))
 
-    let vm = ScenarioDetailViewModel(repository: repo)
-    await vm.load(scenarioId: "del")
-    let deleted = await vm.deleteScenario()
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "del")
+    let deleted = await viewModel.deleteScenario()
 
     #expect(deleted == true)
     #expect(try repo.fetchById("del") == nil)

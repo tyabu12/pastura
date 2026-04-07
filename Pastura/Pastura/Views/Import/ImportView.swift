@@ -22,83 +22,29 @@ struct ImportView: View {
     .navigationTitle(editingId != nil ? "Edit Scenario" : "Import Scenario")
     .navigationBarTitleDisplayMode(.inline)
     .task {
-      let vm = ImportViewModel(repository: dependencies.scenarioRepository)
-      viewModel = vm
+      let model = ImportViewModel(repository: dependencies.scenarioRepository)
+      viewModel = model
       if let editingId {
-        await vm.loadForEditing(scenarioId: editingId)
+        await model.loadForEditing(scenarioId: editingId)
       }
     }
   }
 
   private func importContent(viewModel: ImportViewModel) -> some View {
-    @Bindable var vm = viewModel
+    @Bindable var bindable = viewModel
     return VStack(spacing: 0) {
-      // YAML editor
-      TextEditor(text: $vm.yamlText)
+      TextEditor(text: $bindable.yamlText)
         .font(.system(.body, design: .monospaced))
         .autocorrectionDisabled()
         .textInputAutocapitalization(.never)
         .padding(.horizontal, 4)
-        .onChange(of: vm.yamlText) {
+        .onChange(of: bindable.yamlText) {
           viewModel.validate()
         }
-
       Divider()
-
-      // Validation feedback
-      if !viewModel.validationErrors.isEmpty {
-        VStack(alignment: .leading, spacing: 4) {
-          ForEach(viewModel.validationErrors, id: \.self) { error in
-            Label(error, systemImage: "xmark.circle.fill")
-              .font(.caption)
-              .foregroundStyle(.red)
-          }
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-      } else if viewModel.isValid {
-        Label("Valid scenario", systemImage: "checkmark.circle.fill")
-          .font(.caption)
-          .foregroundStyle(.green)
-          .padding(.horizontal)
-          .padding(.vertical, 8)
-      }
-
+      validationFeedback(viewModel: viewModel)
       Divider()
-
-      // Action bar
-      HStack(spacing: 12) {
-        Button {
-          showFilePicker = true
-        } label: {
-          Label("File", systemImage: "doc")
-            .font(.subheadline)
-        }
-
-        Button {
-          UIPasteboard.general.string = ImportViewModel.scenarioGenerationPrompt
-          showPromptCopied = true
-        } label: {
-          Label("Copy Gen Prompt", systemImage: "doc.on.doc")
-            .font(.subheadline)
-        }
-
-        Spacer()
-
-        Button {
-          Task {
-            if await viewModel.save() {
-              dismiss()
-            }
-          }
-        } label: {
-          Text("Import")
-            .fontWeight(.semibold)
-        }
-        .buttonStyle(.borderedProminent)
-        .disabled(!viewModel.isValid || viewModel.isSaving)
-      }
-      .padding()
+      importActionBar(viewModel: viewModel)
     }
     .fileImporter(
       isPresented: $showFilePicker,
@@ -109,20 +55,81 @@ struct ImportView: View {
       }
     }
     .overlay(alignment: .top) {
-      if showPromptCopied {
-        Text("Prompt copied!")
-          .font(.caption)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 6)
-          .background(.ultraThinMaterial, in: Capsule())
-          .transition(.move(edge: .top).combined(with: .opacity))
-          .task {
-            try? await Task.sleep(for: .seconds(2))
-            showPromptCopied = false
-          }
-      }
+      promptCopiedToast
     }
     .animation(.default, value: showPromptCopied)
+  }
+
+  @ViewBuilder
+  private func validationFeedback(viewModel: ImportViewModel) -> some View {
+    if !viewModel.validationErrors.isEmpty {
+      VStack(alignment: .leading, spacing: 4) {
+        ForEach(viewModel.validationErrors, id: \.self) { error in
+          Label(error, systemImage: "xmark.circle.fill")
+            .font(.caption)
+            .foregroundStyle(.red)
+        }
+      }
+      .padding(.horizontal)
+      .padding(.vertical, 8)
+    } else if viewModel.isValid {
+      Label("Valid scenario", systemImage: "checkmark.circle.fill")
+        .font(.caption)
+        .foregroundStyle(.green)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+  }
+
+  private func importActionBar(viewModel: ImportViewModel) -> some View {
+    HStack(spacing: 12) {
+      Button {
+        showFilePicker = true
+      } label: {
+        Label("File", systemImage: "doc")
+          .font(.subheadline)
+      }
+
+      Button {
+        UIPasteboard.general.string = ImportViewModel.scenarioGenerationPrompt
+        showPromptCopied = true
+      } label: {
+        Label("Copy Gen Prompt", systemImage: "doc.on.doc")
+          .font(.subheadline)
+      }
+
+      Spacer()
+
+      Button {
+        Task {
+          if await viewModel.save() {
+            dismiss()
+          }
+        }
+      } label: {
+        Text("Import")
+          .fontWeight(.semibold)
+      }
+      .buttonStyle(.borderedProminent)
+      .disabled(!viewModel.isValid || viewModel.isSaving)
+    }
+    .padding()
+  }
+
+  @ViewBuilder
+  private var promptCopiedToast: some View {
+    if showPromptCopied {
+      Text("Prompt copied!")
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .task {
+          try? await Task.sleep(for: .seconds(2))
+          showPromptCopied = false
+        }
+    }
   }
 
   private func loadFile(url: URL, viewModel: ImportViewModel) {

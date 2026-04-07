@@ -121,99 +121,44 @@ struct SimulationView: View {
     switch entry.kind {
     case .agentOutput(let agent, let output, let phaseType):
       AgentOutputRow(
-        agent: agent,
-        output: output,
-        phaseType: phaseType,
+        agent: agent, output: output, phaseType: phaseType,
         showDebug: viewModel.showDebugOutput
       )
       .padding(.horizontal)
-
     case .phaseStarted(let phaseType):
       PhaseTypeLabel(phaseType: phaseType)
         .padding(.horizontal)
         .padding(.top, 4)
-
     case .roundStarted(let round, let total):
       roundSeparator("Round \(round)/\(total)")
-
-    case .roundCompleted(_, let scores):
+    case .roundCompleted(_, let scores), .scoreUpdate(let scores):
       scoresSummary(scores)
-
-    case .scoreUpdate(let scores):
-      scoresSummary(scores)
-
-    case .elimination(let agent, let voteCount):
-      HStack(spacing: 4) {
-        Image(systemName: "xmark.circle.fill")
-          .foregroundStyle(.red)
-        Text("\(agent) eliminated (\(voteCount) votes)")
-          .font(.subheadline)
-      }
-      .padding(.horizontal)
-
-    case .assignment(let agent, let value):
-      Text("\(agent) assigned: \(value)")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal)
-
-    case .summary(let text):
-      Text(text)
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal)
-
-    case .voteResults(_, let tallies):
-      VStack(alignment: .leading, spacing: 2) {
-        Text("Vote Results")
-          .font(.caption.bold())
-        ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
-          Text("  \(name): \(count) votes")
-            .font(.caption)
-        }
-      }
-      .foregroundStyle(.secondary)
-      .padding(.horizontal)
-
-    case .pairingResult(let a1, let act1, let a2, let act2):
-      HStack {
-        Text("\(a1)(\(act1))")
-        Text("vs")
-          .foregroundStyle(.secondary)
-        Text("\(a2)(\(act2))")
-      }
-      .font(.subheadline)
-      .padding(.horizontal)
-
     case .error(let message):
       Label(message, systemImage: "exclamationmark.triangle.fill")
         .font(.subheadline)
         .foregroundStyle(.red)
         .padding(.horizontal)
+    default:
+      secondaryLogEntryView(entry)
     }
   }
 
-  private func roundSeparator(_ text: String) -> some View {
-    HStack {
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
-      Text(text)
-        .font(.caption.bold())
-        .foregroundStyle(.secondary)
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+  @ViewBuilder
+  private func secondaryLogEntryView(_ entry: LogEntry) -> some View {
+    switch entry.kind {
+    case .elimination(let agent, let voteCount):
+      eliminationEntry(agent: agent, voteCount: voteCount)
+    case .assignment(let agent, let value):
+      assignmentEntry(agent: agent, value: value)
+    case .summary(let text):
+      summaryEntry(text: text)
+    case .voteResults(_, let tallies):
+      voteResultsEntry(tallies: tallies)
+    case .pairingResult(let agent1, let act1, let agent2, let act2):
+      pairingResultEntry(agent1: agent1, act1: act1, agent2: agent2, act2: act2)
+    default:
+      EmptyView()
     }
-    .padding(.horizontal)
-    .padding(.vertical, 4)
-  }
-
-  private func scoresSummary(_ scores: [String: Int]) -> some View {
-    HStack(spacing: 8) {
-      ForEach(scores.sorted(by: { $0.value > $1.value }).prefix(5), id: \.key) { name, score in
-        Text("\(name):\(score)")
-          .font(.caption.monospacedDigit())
-      }
-    }
-    .foregroundStyle(.secondary)
-    .padding(.horizontal)
   }
 
   // MARK: - Controls
@@ -279,14 +224,91 @@ struct SimulationView: View {
       let parsed = try loader.load(yaml: record.yamlDefinition)
       scenario = parsed
 
-      let vm = SimulationViewModel(
+      let model = SimulationViewModel(
         simulationRepository: dependencies.simulationRepository,
         turnRepository: dependencies.turnRepository
       )
-      viewModel = vm
-      await vm.run(scenario: parsed, llm: dependencies.llmService)
+      viewModel = model
+      await model.run(scenario: parsed, llm: dependencies.llmService)
     } catch {
       loadError = error.localizedDescription
     }
+  }
+}
+
+// MARK: - Log Entry Helpers
+
+extension SimulationView {
+  private func eliminationEntry(agent: String, voteCount: Int) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: "xmark.circle.fill")
+        .foregroundStyle(.red)
+      Text("\(agent) eliminated (\(voteCount) votes)")
+        .font(.subheadline)
+    }
+    .padding(.horizontal)
+  }
+
+  private func assignmentEntry(agent: String, value: String) -> some View {
+    Text("\(agent) assigned: \(value)")
+      .font(.caption)
+      .foregroundStyle(.secondary)
+      .padding(.horizontal)
+  }
+
+  private func summaryEntry(text: String) -> some View {
+    Text(text)
+      .font(.subheadline)
+      .foregroundStyle(.secondary)
+      .padding(.horizontal)
+  }
+
+  private func voteResultsEntry(tallies: [String: Int]) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text("Vote Results")
+        .font(.caption.bold())
+      ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
+        Text("  \(name): \(count) votes")
+          .font(.caption)
+      }
+    }
+    .foregroundStyle(.secondary)
+    .padding(.horizontal)
+  }
+
+  private func pairingResultEntry(
+    agent1: String, act1: String, agent2: String, act2: String
+  ) -> some View {
+    HStack {
+      Text("\(agent1)(\(act1))")
+      Text("vs")
+        .foregroundStyle(.secondary)
+      Text("\(agent2)(\(act2))")
+    }
+    .font(.subheadline)
+    .padding(.horizontal)
+  }
+
+  private func roundSeparator(_ text: String) -> some View {
+    HStack {
+      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+      Text(text)
+        .font(.caption.bold())
+        .foregroundStyle(.secondary)
+      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+    }
+    .padding(.horizontal)
+    .padding(.vertical, 4)
+  }
+
+  private func scoresSummary(_ scores: [String: Int]) -> some View {
+    HStack(spacing: 8) {
+      ForEach(scores.sorted(by: { $0.value > $1.value }).prefix(5), id: \.key) { name, score in
+        Text("\(name):\(score)")
+          .font(.caption.monospacedDigit())
+      }
+    }
+    .foregroundStyle(.secondary)
+    .padding(.horizontal)
   }
 }

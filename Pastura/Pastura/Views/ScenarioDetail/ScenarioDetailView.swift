@@ -48,9 +48,9 @@ struct ScenarioDetailView: View {
       }
     }
     .task {
-      let vm = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
-      viewModel = vm
-      await vm.load(scenarioId: scenarioId)
+      let model = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
+      viewModel = model
+      await model.load(scenarioId: scenarioId)
     }
   }
 
@@ -59,74 +59,90 @@ struct ScenarioDetailView: View {
     viewModel: ScenarioDetailViewModel
   ) -> some View {
     List {
-      // Overview
-      Section("Overview") {
-        LabeledContent("Agents", value: "\(scenario.agentCount)")
-        LabeledContent("Rounds", value: "\(scenario.rounds)")
-        LabeledContent("Est. Inferences", value: "\(viewModel.estimatedInferences)")
-        if !scenario.description.isEmpty {
-          Text(scenario.description)
-            .font(.subheadline)
+      overviewSection(scenario: scenario, viewModel: viewModel)
+      contextSection(scenario: scenario)
+      personasSection(scenario: scenario)
+      phasesSection(scenario: scenario)
+      validationSection(viewModel: viewModel)
+      actionsSection(viewModel: viewModel)
+    }
+  }
+
+  private func overviewSection(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
+    Section("Overview") {
+      LabeledContent("Agents", value: "\(scenario.agentCount)")
+      LabeledContent("Rounds", value: "\(scenario.rounds)")
+      LabeledContent("Est. Inferences", value: "\(viewModel.estimatedInferences)")
+      if !scenario.description.isEmpty {
+        Text(scenario.description)
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+    }
+  }
+
+  private func contextSection(scenario: Scenario) -> some View {
+    Section("Context") {
+      Text(scenario.context)
+        .font(.subheadline)
+    }
+  }
+
+  private func personasSection(scenario: Scenario) -> some View {
+    Section("Personas (\(scenario.personas.count))") {
+      ForEach(scenario.personas, id: \.name) { persona in
+        VStack(alignment: .leading, spacing: 4) {
+          Text(persona.name)
+            .font(.headline)
+          Text(persona.description)
+            .font(.caption)
             .foregroundStyle(.secondary)
         }
+        .padding(.vertical, 2)
       }
+    }
+  }
 
-      // Context
-      Section("Context") {
-        Text(scenario.context)
-          .font(.subheadline)
-      }
-
-      // Personas
-      Section("Personas (\(scenario.personas.count))") {
-        ForEach(scenario.personas, id: \.name) { persona in
-          VStack(alignment: .leading, spacing: 4) {
-            Text(persona.name)
-              .font(.headline)
-            Text(persona.description)
+  private func phasesSection(scenario: Scenario) -> some View {
+    Section("Phases (\(scenario.phases.count))") {
+      ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
+        HStack {
+          Text("\(index + 1).")
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+          Text(phase.type.rawValue)
+            .font(.subheadline.monospaced())
+          if phase.type.requiresLLM {
+            Image(systemName: "brain")
               .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-          .padding(.vertical, 2)
-        }
-      }
-
-      // Phases
-      Section("Phases (\(scenario.phases.count))") {
-        ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
-          HStack {
-            Text("\(index + 1).")
-              .foregroundStyle(.secondary)
-              .monospacedDigit()
-            Text(phase.type.rawValue)
-              .font(.subheadline.monospaced())
-            if phase.type.requiresLLM {
-              Image(systemName: "brain")
-                .font(.caption)
-                .foregroundStyle(.purple)
-            }
+              .foregroundStyle(.purple)
           }
         }
       }
+    }
+  }
 
-      // Validation
-      if let error = viewModel.validationError {
-        Section {
-          Label(error, systemImage: "xmark.circle.fill")
-            .foregroundStyle(.red)
-        }
-      }
-
-      // Actions
+  @ViewBuilder
+  private func validationSection(viewModel: ScenarioDetailViewModel) -> some View {
+    if let error = viewModel.validationError {
       Section {
-        NavigationLink(value: Route.simulation(scenarioId: scenarioId)) {
-          Label("Run Simulation", systemImage: "play.fill")
-        }
-        .disabled(!viewModel.canRun)
+        Label(error, systemImage: "xmark.circle.fill")
+          .foregroundStyle(.red)
+      }
+    }
+  }
 
-        NavigationLink(value: Route.results(scenarioId: scenarioId)) {
-          Label("Past Results", systemImage: "clock.arrow.circlepath")
-        }
+  private func actionsSection(viewModel: ScenarioDetailViewModel) -> some View {
+    Section {
+      NavigationLink(value: Route.simulation(scenarioId: scenarioId)) {
+        Label("Run Simulation", systemImage: "play.fill")
+      }
+      .disabled(!viewModel.canRun)
+
+      NavigationLink(value: Route.results(scenarioId: scenarioId)) {
+        Label("Past Results", systemImage: "clock.arrow.circlepath")
       }
     }
   }

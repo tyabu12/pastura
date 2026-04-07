@@ -22,14 +22,14 @@ struct HomeViewModelTests {
         isPreset: false, createdAt: Date(), updatedAt: Date()
       ))
 
-    let vm = HomeViewModel(repository: repo)
-    await vm.loadScenarios()
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
 
-    #expect(vm.presets.count == 1)
-    #expect(vm.presets.first?.id == "preset1")
-    #expect(vm.userScenarios.count == 1)
-    #expect(vm.userScenarios.first?.id == "user1")
-    #expect(vm.errorMessage == nil)
+    #expect(viewModel.presets.count == 1)
+    #expect(viewModel.presets.first?.id == "preset1")
+    #expect(viewModel.userScenarios.count == 1)
+    #expect(viewModel.userScenarios.first?.id == "user1")
+    #expect(viewModel.errorMessage == nil)
   }
 
   @Test func deleteScenarioRemovesFromList() async throws {
@@ -42,12 +42,12 @@ struct HomeViewModelTests {
         isPreset: false, createdAt: Date(), updatedAt: Date()
       ))
 
-    let vm = HomeViewModel(repository: repo)
-    await vm.loadScenarios()
-    #expect(vm.userScenarios.count == 1)
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+    #expect(viewModel.userScenarios.count == 1)
 
-    await vm.deleteScenario("user1")
-    #expect(vm.userScenarios.isEmpty)
+    await viewModel.deleteScenario("user1")
+    #expect(viewModel.userScenarios.isEmpty)
 
     // Verify deleted from DB
     let record = try repo.fetchById("user1")
@@ -58,11 +58,11 @@ struct HomeViewModelTests {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
 
-    let vm = HomeViewModel(repository: repo)
-    await vm.loadScenarios()
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
 
-    #expect(vm.presets.isEmpty)
-    #expect(vm.userScenarios.isEmpty)
-    #expect(vm.errorMessage == nil)
+    #expect(viewModel.presets.isEmpty)
+    #expect(viewModel.userScenarios.isEmpty)
+    #expect(viewModel.errorMessage == nil)
   }
 }

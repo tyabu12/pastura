@@ -5,8 +5,9 @@ import Foundation
 /// Applied in the App/ViewModel layer between Engine output and UI display.
 /// Even in debug mode, displayed output is filtered (App Store compliance).
 /// Raw (unfiltered) output is preserved in `TurnRecord.rawOutput`.
-// ContentFilter lives in App/ but is nonisolated + Sendable so it can be
-// used from both MainActor ViewModels and background tasks without friction.
+///
+/// ContentFilter lives in App/ but is nonisolated + Sendable so it can be
+/// used from both MainActor ViewModels and background tasks without friction.
 nonisolated final class ContentFilter: Sendable {
   /// Words and phrases to filter. Case-insensitive matching.
   private let blockedPatterns: [String]

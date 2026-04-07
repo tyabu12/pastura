@@ -27,50 +27,50 @@ struct ImportViewModelTests {
   @Test func validateMarksValidYAML() throws {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-    let vm = ImportViewModel(repository: repo)
+    let viewModel = ImportViewModel(repository: repo)
 
-    vm.yamlText = Self.validYAML
-    vm.validate()
+    viewModel.yamlText = Self.validYAML
+    viewModel.validate()
 
-    #expect(vm.isValid == true)
-    #expect(vm.validationErrors.isEmpty)
+    #expect(viewModel.isValid == true)
+    #expect(viewModel.validationErrors.isEmpty)
   }
 
   @Test func validateDetectsEmptyInput() throws {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-    let vm = ImportViewModel(repository: repo)
+    let viewModel = ImportViewModel(repository: repo)
 
-    vm.yamlText = ""
-    vm.validate()
+    viewModel.yamlText = ""
+    viewModel.validate()
 
-    #expect(vm.isValid == false)
-    #expect(vm.validationErrors.count == 1)
+    #expect(viewModel.isValid == false)
+    #expect(viewModel.validationErrors.count == 1)
   }
 
   @Test func validateDetectsInvalidYAML() throws {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-    let vm = ImportViewModel(repository: repo)
+    let viewModel = ImportViewModel(repository: repo)
 
-    vm.yamlText = "not: valid: yaml: {{"
-    vm.validate()
+    viewModel.yamlText = "not: valid: yaml: {{"
+    viewModel.validate()
 
-    #expect(vm.isValid == false)
-    #expect(!vm.validationErrors.isEmpty)
+    #expect(viewModel.isValid == false)
+    #expect(!viewModel.validationErrors.isEmpty)
   }
 
   @Test func savePersistsScenario() async throws {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-    let vm = ImportViewModel(repository: repo)
+    let viewModel = ImportViewModel(repository: repo)
 
-    vm.yamlText = Self.validYAML
-    vm.validate()
-    let saved = await vm.save()
+    viewModel.yamlText = Self.validYAML
+    viewModel.validate()
+    let saved = await viewModel.save()
 
     #expect(saved == true)
-    #expect(vm.savedScenarioId == "import_test")
+    #expect(viewModel.savedScenarioId == "import_test")
 
     let record = try repo.fetchById("import_test")
     #expect(record != nil)
@@ -88,13 +88,13 @@ struct ImportViewModelTests {
         isPreset: true, createdAt: Date(), updatedAt: Date()
       ))
 
-    let vm = ImportViewModel(repository: repo)
-    vm.yamlText = Self.validYAML
-    vm.validate()
-    let saved = await vm.save()
+    let viewModel = ImportViewModel(repository: repo)
+    viewModel.yamlText = Self.validYAML
+    viewModel.validate()
+    let saved = await viewModel.save()
 
     #expect(saved == false)
-    #expect(!vm.validationErrors.isEmpty)
+    #expect(!viewModel.validationErrors.isEmpty)
   }
 
   @Test func scenarioGenerationPromptIsNotEmpty() {

@@ -131,70 +131,83 @@ final class SimulationViewModel {
   private func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
     switch event {
     case .roundStarted(let round, let total):
-      currentRound = round
-      totalRounds = total
-      logEntries.append(LogEntry(kind: .roundStarted(round: round, totalRounds: total)))
-
+      handleRoundStarted(round: round, total: total)
     case .roundCompleted(let round, let newScores):
-      scores = newScores
-      logEntries.append(LogEntry(kind: .roundCompleted(round: round, scores: newScores)))
-
+      handleRoundCompleted(round: round, scores: newScores)
     case .phaseStarted(let phaseType, _):
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
-
-    case .phaseCompleted:
+    case .phaseCompleted, .simulationPaused:
       break
-
     case .agentOutput(let agent, let output, let phaseType):
-      let filtered = contentFilter.filter(output)
-      logEntries.append(
-        LogEntry(
-          kind: .agentOutput(
-            agent: agent, output: filtered, phaseType: phaseType
-          )))
-      thinkingAgents.remove(agent)
-      persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
-
-    case .scoreUpdate(let newScores):
-      scores = newScores
-      logEntries.append(LogEntry(kind: .scoreUpdate(scores: newScores)))
-
-    case .elimination(let agent, let voteCount):
-      eliminated[agent] = true
-      logEntries.append(LogEntry(kind: .elimination(agent: agent, voteCount: voteCount)))
-
-    case .assignment(let agent, let value):
-      logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
-
-    case .summary(let text):
-      logEntries.append(LogEntry(kind: .summary(text: text)))
-
-    case .voteResults(let votes, let tallies):
-      logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
-
-    case .pairingResult(let a1, let act1, let a2, let act2):
-      logEntries.append(
-        LogEntry(
-          kind: .pairingResult(
-            agent1: a1, action1: act1, agent2: a2, action2: act2
-          )))
-
+      handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .simulationCompleted:
       isCompleted = true
-
-    case .simulationPaused:
-      break
-
     case .error(let simError):
       errorMessage = "\(simError)"
       logEntries.append(LogEntry(kind: .error("\(simError)")))
-
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
-
     case .inferenceCompleted(let agent, _):
       thinkingAgents.remove(agent)
+    default:
+      handleOutputEvent(event)
     }
+  }
+
+  /// Handles score, vote, and other output-related events.
+  private func handleOutputEvent(_ event: SimulationEvent) {
+    switch event {
+    case .scoreUpdate(let newScores):
+      handleScoreUpdate(scores: newScores)
+    case .elimination(let agent, let voteCount):
+      handleElimination(agent: agent, voteCount: voteCount)
+    case .assignment(let agent, let value):
+      logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
+    case .summary(let text):
+      logEntries.append(LogEntry(kind: .summary(text: text)))
+    case .voteResults(let votes, let tallies):
+      logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
+    case .pairingResult(let agent1, let act1, let agent2, let act2):
+      logEntries.append(
+        LogEntry(
+          kind: .pairingResult(
+            agent1: agent1, action1: act1, agent2: agent2, action2: act2
+          )))
+    default:
+      break
+    }
+  }
+
+  private func handleRoundStarted(round: Int, total: Int) {
+    currentRound = round
+    totalRounds = total
+    logEntries.append(LogEntry(kind: .roundStarted(round: round, totalRounds: total)))
+  }
+
+  private func handleRoundCompleted(round: Int, scores newScores: [String: Int]) {
+    scores = newScores
+    logEntries.append(LogEntry(kind: .roundCompleted(round: round, scores: newScores)))
+  }
+
+  private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
+    let filtered = contentFilter.filter(output)
+    logEntries.append(
+      LogEntry(
+        kind: .agentOutput(
+          agent: agent, output: filtered, phaseType: phaseType
+        )))
+    thinkingAgents.remove(agent)
+    persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
+  }
+
+  private func handleScoreUpdate(scores newScores: [String: Int]) {
+    scores = newScores
+    logEntries.append(LogEntry(kind: .scoreUpdate(scores: newScores)))
+  }
+
+  private func handleElimination(agent: String, voteCount: Int) {
+    eliminated[agent] = true
+    logEntries.append(LogEntry(kind: .elimination(agent: agent, voteCount: voteCount)))
   }
 
   // MARK: - Persistence
