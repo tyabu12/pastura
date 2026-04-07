@@ -11,6 +11,20 @@ struct ScenarioValidatorTests {
     #expect(result.warnings.isEmpty)
   }
 
+  @Test func rejectsZeroAgents() {
+    let scenario = makeScenario(agents: 0, rounds: 1, phases: [Phase(type: .speakAll)])
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func rejectsSingleAgent() {
+    let scenario = makeScenario(agents: 1, rounds: 1, phases: [Phase(type: .speakAll)])
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
   @Test func rejectsMoreThan10Agents() {
     let scenario = makeScenario(agents: 11, rounds: 1, phases: [Phase(type: .speakAll)])
     #expect(throws: SimulationError.self) {
