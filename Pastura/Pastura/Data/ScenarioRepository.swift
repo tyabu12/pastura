@@ -31,7 +31,7 @@ nonisolated public final class GRDBScenarioRepository: ScenarioRepository, Senda
   public func save(_ record: ScenarioRecord) throws {
     try dbWriter.write { db in
       // save = insert or replace (upsert)
-      var mutable = record
+      let mutable = record
       try mutable.save(db)
     }
   }

@@ -41,7 +41,7 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
 
   public func save(_ record: SimulationRecord) throws {
     try dbWriter.write { db in
-      var mutable = record
+      let mutable = record
       try mutable.save(db)
     }
   }
