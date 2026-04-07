@@ -65,11 +65,15 @@ After fetching the issue, check for an existing plan comment:
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
-4. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation.
+4. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
 
-## Step 1b: Plan Critique
+After user approval, proceed to Step 1b (mandatory critic review).
 
-After the user approves the plan (G1), launch a `critic` subagent via the Agent tool to review the plan for blind spots:
+## Step 1b: Plan Critique (REQUIRED)
+
+**⚠️ MANDATORY (unless `RESUMING=true`): You MUST complete this step before proceeding to Step 2.**
+
+After the user approves the plan (G1), launch a `critic` subagent via the Agent tool to review the plan for blind spots.
 
 > **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase.
 >
@@ -86,9 +90,11 @@ Handle the critic's output:
 
 *Skipped when `RESUMING=true`* (plan was already approved and critiqued in a prior session).
 
-Note: This is a conditional review step, not a numbered gate — the G1–G4 gate structure is unchanged.
+Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step 1b (critic) → G2 → G3 → G4.
 
 ## Step 2: Issue + Worktree — Gate G2
+
+**Precondition:** Step 1b critic review completed (or `RESUMING=true`).
 
 ### 2a: Issue & Plan Comment
 
