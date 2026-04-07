@@ -23,8 +23,11 @@ in parallel because they await the handler directly without AsyncStream.
   exhausted — this is intentional to catch over/under-provisioning.
 - Use `mock.capturedPrompts` to verify prompt content in tests.
 
-## EventCollector
+## Shared Test Helpers (`EngineTestHelpers.swift`)
 
-Use the shared `EventCollector` (in `EngineTestHelpers.swift`) for collecting
-`SimulationEvent` from `@Sendable` emitter closures. Do not capture `var` arrays
-in `@Sendable` closures — Swift 6 strict concurrency forbids this.
+- **`EventCollector`**: Thread-safe event collector for `@Sendable` emitter closures.
+  Do not capture mutable local variables (e.g., `var events: [...]`) in `@Sendable`
+  closures — Swift 6 strict concurrency rejects this as a potential data race.
+- **`makeTestScenario(agentNames:rounds:phases:context:extraData:)`**: Convenience
+  factory for test scenarios. Defaults: 3 agents (`["Alice", "Bob", "Charlie"]`),
+  1 round, empty phases. Use this instead of constructing `Scenario` manually.
