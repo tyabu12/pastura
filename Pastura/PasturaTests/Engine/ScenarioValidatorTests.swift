@@ -80,6 +80,19 @@ struct ScenarioValidatorTests {
     #expect(result.estimatedInferences == 20)
   }
 
+  @Test func rejectsPersonaCountMismatch() {
+    // agentCount=3 but only 2 personas
+    let scenario = Scenario(
+      id: "test", name: "Test", description: "Test",
+      agentCount: 3, rounds: 1, context: "Context",
+      personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
+      phases: [Phase(type: .speakAll)]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
   // MARK: - Helpers
 
   private func makeScenario(agents: Int, rounds: Int, phases: [Phase]) -> Scenario {
