@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"warning\":\"CLAUDE.md not modified in this branch. Check if implementation progress or memory needs updating.\"}}'"
+            "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"warning\":\"CLAUDE.md not modified in this branch. Check if implementation progress needs updating.\"}}'"
           }
         ]
       }
@@ -70,6 +70,15 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "ExitWorktree",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"warning\":\"Check if any memory files need to be created or updated based on this session.\"}}'"
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [
