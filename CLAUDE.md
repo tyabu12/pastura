@@ -117,7 +117,7 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 ### Test Execution
 
 ```bash
-DEST='platform=iOS Simulator,OS=26.3.1,name=iPhone 16'
+source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
 
 # Run all tests
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST"
