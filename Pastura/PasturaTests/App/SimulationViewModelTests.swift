@@ -262,9 +262,9 @@ struct SimulationViewModelTests {
     sut.handleEvent(.voteResults(votes: votes, tallies: tallies), scenario: scenario)
 
     #expect(sut.logEntries.count == 1)
-    if case .voteResults(let v, let t) = sut.logEntries.first?.kind {
-      #expect(v == votes)
-      #expect(t == tallies)
+    if case .voteResults(let resultVotes, let resultTallies) = sut.logEntries.first?.kind {
+      #expect(resultVotes == votes)
+      #expect(resultTallies == tallies)
     } else {
       Issue.record("Expected .voteResults log entry")
     }
@@ -282,11 +282,12 @@ struct SimulationViewModelTests {
     )
 
     #expect(sut.logEntries.count == 1)
-    if case .pairingResult(let a1, let act1, let a2, let act2) = sut.logEntries.first?.kind {
-      #expect(a1 == "Alice")
-      #expect(act1 == "cooperate")
-      #expect(a2 == "Bob")
-      #expect(act2 == "betray")
+    if case .pairingResult(let agent1, let action1, let agent2, let action2) = sut.logEntries
+      .first?.kind {
+      #expect(agent1 == "Alice")
+      #expect(action1 == "cooperate")
+      #expect(agent2 == "Bob")
+      #expect(action2 == "betray")
     } else {
       Issue.record("Expected .pairingResult log entry")
     }
