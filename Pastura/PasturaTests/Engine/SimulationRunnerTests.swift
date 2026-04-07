@@ -137,6 +137,43 @@ struct SimulationRunnerTests {
       })
   }
 
+  // MARK: - Pause behavior
+
+  @Test func emitsPausedEventOnlyOnce() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "hi"}"#,
+      #"{"statement": "hey"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runner = SimulationRunner()
+    runner.isPaused = true
+
+    let stream = runner.run(scenario: scenario, llm: mock)
+
+    // Collect events concurrently while we control the pause state.
+    // The sleep allows the current polling implementation to emit multiple
+    // simulationPaused events (demonstrating the bug this test guards against);
+    // after the fix, only one event is emitted regardless of wait duration.
+    async let allEvents = collectAllEvents(stream)
+    try await Task.sleep(for: .milliseconds(350))
+    runner.isPaused = false
+    let events = await allEvents
+
+    let pausedEvents = events.filter {
+      if case .simulationPaused = $0 { return true }
+      return false
+    }
+    #expect(pausedEvents.count == 1)
+    #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
+  }
+
   @Test func fullPrisonersDilemmaIntegration() async throws {
     let mock = MockLLMService(responses: [
       #"{"declaration": "I'll cooperate!", "inner_thought": "lying"}"#,
