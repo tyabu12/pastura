@@ -132,6 +132,7 @@ final class SimulationViewModel {
     }
 
     // Drain persistence queue before marking simulation as completed.
+    // finish() is idempotent; defer also calls it for early-return paths.
     persistenceContinuation?.finish()
     await persistenceTask?.value
 
