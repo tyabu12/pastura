@@ -12,10 +12,8 @@ struct EliminateHandlerTests {
     state.voteResults = ["Alice": 2, "Bob": 1]
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(state.eliminated["Alice"] == true)
     #expect(state.eliminated["Bob"] != true)
@@ -28,10 +26,8 @@ struct EliminateHandlerTests {
     state.voteResults = ["Bob": 3]
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let eliminations = collector.events.compactMap { event -> (String, Int)? in
       if case .elimination(let agent, let count) = event { return (agent, count) }
@@ -48,10 +44,8 @@ struct EliminateHandlerTests {
     var state = SimulationState.initial(for: scenario)
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     // No one eliminated, no events
     #expect(state.eliminated.values.allSatisfy { $0 == false })
@@ -65,10 +59,8 @@ struct EliminateHandlerTests {
     state.voteResults = ["Alice": 2, "Bob": 2]
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     // One agent should be eliminated (deterministic: sorted by name)
     let eliminatedCount = state.eliminated.values.filter { $0 }.count

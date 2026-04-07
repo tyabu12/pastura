@@ -14,10 +14,8 @@ struct SummarizeHandlerTests {
     state.currentRound = 3
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }
@@ -41,10 +39,8 @@ struct SummarizeHandlerTests {
     ]
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }
@@ -62,10 +58,8 @@ struct SummarizeHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }

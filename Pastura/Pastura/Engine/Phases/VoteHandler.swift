@@ -10,26 +10,23 @@ nonisolated struct VoteHandler: PhaseHandler {
   private let llmCaller = LLMCaller()
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    let promptTemplate = phase.prompt ?? "最も怪しいと思う人に投票してください。"
-    let excludeSelf = phase.excludeSelf ?? true
+    let promptTemplate = context.phase.prompt ?? "最も怪しいと思う人に投票してください。"
+    let excludeSelf = context.phase.excludeSelf ?? true
 
     var votes: [String: String] = [:]  // voter -> target
     var tallies: [String: Int] = [:]
 
-    for persona in scenario.personas {
+    for persona in context.scenario.personas {
       guard state.eliminated[persona.name] != true else { continue }
 
       let systemPrompt = promptBuilder.buildSystemPrompt(
-        scenario: scenario, persona: persona, phase: phase, state: state
+        scenario: context.scenario, persona: persona, phase: context.phase, state: state
       )
 
-      let candidates = scenario.personas
+      let candidates = context.scenario.personas
         .map(\.name)
         .filter { name in
           if excludeSelf && name == persona.name { return false }
@@ -44,11 +41,12 @@ nonisolated struct VoteHandler: PhaseHandler {
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(
-        llm: llm, system: systemPrompt, user: userPrompt,
-        agentName: persona.name, emitter: emitter
+        llm: context.llm, system: systemPrompt, user: userPrompt,
+        agentName: persona.name, emitter: context.emitter
       )
 
-      emitter(.agentOutput(agent: persona.name, output: output, phaseType: phase.type))
+      context.emitter(
+        .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
 
       let votedFor = output.vote ?? ""
       votes[persona.name] = votedFor
@@ -61,7 +59,7 @@ nonisolated struct VoteHandler: PhaseHandler {
     state.voteResults = tallies
     state.variables["vote_result"] = formatScoreboard(tallies)
 
-    emitter(.voteResults(votes: votes, tallies: tallies))
+    context.emitter(.voteResults(votes: votes, tallies: tallies))
   }
 
   private func formatScoreboard(_ scores: [String: Int]) -> String {

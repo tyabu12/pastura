@@ -8,13 +8,10 @@ nonisolated struct SummarizeHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    let template = phase.template ?? "ラウンド {current_round} 完了"
+    let template = context.phase.template ?? "ラウンド {current_round} 完了"
 
     if !state.pairings.isEmpty && template.contains("{agent1}") {
       // Expand template per pairing
@@ -34,13 +31,13 @@ nonisolated struct SummarizeHandler: PhaseHandler {
         }
         lines.append(promptBuilder.expandTemplate(template, variables: variables))
       }
-      emitter(.summary(text: lines.joined(separator: "\n")))
+      context.emitter(.summary(text: lines.joined(separator: "\n")))
     } else {
       // Simple expansion
       var variables = state.variables
       variables["current_round"] = "\(state.currentRound)"
       let text = promptBuilder.expandTemplate(template, variables: variables)
-      emitter(.summary(text: text))
+      context.emitter(.summary(text: text))
     }
   }
 }

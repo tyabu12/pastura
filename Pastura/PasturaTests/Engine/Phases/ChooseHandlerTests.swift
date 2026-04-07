@@ -31,10 +31,8 @@ struct ChooseHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(mock.generateCallCount == 6)
     #expect(state.pairings.count == 3)
@@ -64,10 +62,8 @@ struct ChooseHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let pairingEvents = collector.events.compactMap { event -> String? in
       if case .pairingResult(let agent1, let action1, let agent2, let action2) = event {
@@ -103,10 +99,8 @@ struct ChooseHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     // First pair: Alice-Bob. Alice chose "invalid_action" → falls back to "cooperate"
     #expect(state.pairings[0].action1 == "cooperate")
@@ -137,10 +131,8 @@ struct ChooseHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let pair = state.pairings[0]
     #expect(pair.agent1 == "Alice")
@@ -170,10 +162,8 @@ struct ChooseHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(mock.generateCallCount == 2)
     // No pairings in individual mode

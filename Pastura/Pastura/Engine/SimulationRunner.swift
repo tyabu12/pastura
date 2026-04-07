@@ -148,10 +148,14 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
       do {
         let handler = try ctx.dispatcher.handler(for: phase.type)
-        try await handler.execute(
-          scenario: ctx.scenario, phase: phase, state: &state,
+        // PhaseContext bundles the per-phase read-only args from ExecutionContext;
+        // ExecutionContext additionally carries dispatcher and isPausedLock which
+        // are runner-internal and not exposed to handlers.
+        let phaseContext = PhaseContext(
+          scenario: ctx.scenario, phase: phase,
           llm: ctx.llm, emitter: ctx.emitter
         )
+        try await handler.execute(context: phaseContext, state: &state)
       } catch {
         ctx.emitter(
           .error(error as? SimulationError ?? .llmGenerationFailed(description: "\(error)")))

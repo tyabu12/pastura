@@ -10,24 +10,21 @@ nonisolated struct ChooseHandler: PhaseHandler {
   private let llmCaller = LLMCaller()
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    let promptTemplate = phase.prompt ?? "選択してください。"
-    let options = phase.options ?? []
+    let promptTemplate = context.phase.prompt ?? "選択してください。"
+    let options = context.phase.options ?? []
 
-    if phase.pairing == .roundRobin {
+    if context.phase.pairing == .roundRobin {
       try await executeRoundRobin(
-        scenario: scenario, phase: phase, state: &state,
-        llm: llm, emitter: emitter, promptTemplate: promptTemplate, options: options
+        scenario: context.scenario, phase: context.phase, state: &state,
+        llm: context.llm, emitter: context.emitter, promptTemplate: promptTemplate, options: options
       )
     } else {
       try await executeIndividual(
-        scenario: scenario, phase: phase, state: &state,
-        llm: llm, emitter: emitter, promptTemplate: promptTemplate
+        scenario: context.scenario, phase: context.phase, state: &state,
+        llm: context.llm, emitter: context.emitter, promptTemplate: promptTemplate
       )
     }
   }

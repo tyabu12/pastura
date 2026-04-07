@@ -25,10 +25,8 @@ struct SpeakEachHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(mock.generateCallCount == 4)
   }
@@ -54,10 +52,8 @@ struct SpeakEachHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     // All 4 entries should be in the conversation log
     #expect(state.conversationLog.count == 4)
@@ -82,10 +78,8 @@ struct SpeakEachHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(mock.generateCallCount == 2)
   }
@@ -107,10 +101,8 @@ struct SpeakEachHandlerTests {
     state.eliminated["Bob"] = true
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(mock.generateCallCount == 1)
   }

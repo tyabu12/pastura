@@ -16,6 +16,21 @@ final class EventCollector: @unchecked Sendable {
   }
 }
 
+/// Creates a ``PhaseContext`` for testing, bundling scenario, phase, LLM, and emitter.
+func makePhaseContext(
+  scenario: Scenario,
+  phaseIndex: Int = 0,
+  llm: LLMService,
+  collector: EventCollector
+) -> PhaseContext {
+  PhaseContext(
+    scenario: scenario,
+    phase: scenario.phases[phaseIndex],
+    llm: llm,
+    emitter: collector.emit
+  )
+}
+
 /// Creates a minimal test scenario with the given agents and phases.
 func makeTestScenario(
   agentNames: [String] = ["Alice", "Bob", "Charlie"],
