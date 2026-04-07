@@ -1,0 +1,137 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+/// Screen for importing YAML scenarios via paste, file picker, or editing.
+struct ImportView: View {
+  var editingId: String?
+
+  @Environment(AppDependencies.self) private var dependencies
+  @Environment(\.dismiss) private var dismiss
+  @State private var viewModel: ImportViewModel?
+  @State private var showFilePicker = false
+  @State private var showPromptCopied = false
+
+  var body: some View {
+    Group {
+      if let viewModel {
+        importContent(viewModel: viewModel)
+      } else {
+        ProgressView()
+      }
+    }
+    .navigationTitle(editingId != nil ? "Edit Scenario" : "Import Scenario")
+    .navigationBarTitleDisplayMode(.inline)
+    .task {
+      let vm = ImportViewModel(repository: dependencies.scenarioRepository)
+      viewModel = vm
+      if let editingId {
+        await vm.loadForEditing(scenarioId: editingId)
+      }
+    }
+  }
+
+  private func importContent(viewModel: ImportViewModel) -> some View {
+    @Bindable var vm = viewModel
+    return VStack(spacing: 0) {
+      // YAML editor
+      TextEditor(text: $vm.yamlText)
+        .font(.system(.body, design: .monospaced))
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.never)
+        .padding(.horizontal, 4)
+        .onChange(of: vm.yamlText) {
+          viewModel.validate()
+        }
+
+      Divider()
+
+      // Validation feedback
+      if !viewModel.validationErrors.isEmpty {
+        VStack(alignment: .leading, spacing: 4) {
+          ForEach(viewModel.validationErrors, id: \.self) { error in
+            Label(error, systemImage: "xmark.circle.fill")
+              .font(.caption)
+              .foregroundStyle(.red)
+          }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+      } else if viewModel.isValid {
+        Label("Valid scenario", systemImage: "checkmark.circle.fill")
+          .font(.caption)
+          .foregroundStyle(.green)
+          .padding(.horizontal)
+          .padding(.vertical, 8)
+      }
+
+      Divider()
+
+      // Action bar
+      HStack(spacing: 12) {
+        Button {
+          showFilePicker = true
+        } label: {
+          Label("File", systemImage: "doc")
+            .font(.subheadline)
+        }
+
+        Button {
+          UIPasteboard.general.string = ImportViewModel.scenarioGenerationPrompt
+          showPromptCopied = true
+        } label: {
+          Label("Copy Gen Prompt", systemImage: "doc.on.doc")
+            .font(.subheadline)
+        }
+
+        Spacer()
+
+        Button {
+          Task {
+            if await viewModel.save() {
+              dismiss()
+            }
+          }
+        } label: {
+          Text("Import")
+            .fontWeight(.semibold)
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!viewModel.isValid || viewModel.isSaving)
+      }
+      .padding()
+    }
+    .fileImporter(
+      isPresented: $showFilePicker,
+      allowedContentTypes: [.yaml, .plainText]
+    ) { result in
+      if case .success(let url) = result {
+        loadFile(url: url, viewModel: viewModel)
+      }
+    }
+    .overlay(alignment: .top) {
+      if showPromptCopied {
+        Text("Prompt copied!")
+          .font(.caption)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 6)
+          .background(.ultraThinMaterial, in: Capsule())
+          .transition(.move(edge: .top).combined(with: .opacity))
+          .task {
+            try? await Task.sleep(for: .seconds(2))
+            showPromptCopied = false
+          }
+      }
+    }
+    .animation(.default, value: showPromptCopied)
+  }
+
+  private func loadFile(url: URL, viewModel: ImportViewModel) {
+    guard url.startAccessingSecurityScopedResource() else { return }
+    defer { url.stopAccessingSecurityScopedResource() }
+
+    if let content = try? String(contentsOf: url, encoding: .utf8) {
+      viewModel.yamlText = content
+      viewModel.validate()
+    }
+  }
+}
