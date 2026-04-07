@@ -133,4 +133,162 @@ struct SimulationViewModelTests {
     #expect(sut.scores == ["Alice": 2, "Bob": 1])
     #expect(sut.logEntries.count == 3)
   }
+
+  // MARK: - Agent Output & Content Filter
+
+  @Test func handleEventAgentOutputAppliesContentFilter() throws {
+    let (sut, scenario) = try makeSUT()
+    let rawOutput = TurnOutput(fields: ["statement": "this is badword content"])
+
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: rawOutput, phaseType: .speakAll),
+      scenario: scenario
+    )
+
+    #expect(sut.logEntries.count == 1)
+    if case .agentOutput(_, let output, _) = sut.logEntries.first?.kind {
+      #expect(output.statement == "this is *** content")
+    } else {
+      Issue.record("Expected .agentOutput log entry")
+    }
+  }
+
+  @Test func handleEventAgentOutputRemovesFromThinkingAgents() throws {
+    let (sut, scenario) = try makeSUT()
+
+    // First mark agent as thinking
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+    #expect(sut.thinkingAgents.contains("Alice"))
+
+    // Agent output should remove from thinking set
+    sut.handleEvent(
+      .agentOutput(
+        agent: "Alice",
+        output: TurnOutput(fields: ["statement": "hello"]),
+        phaseType: .speakAll
+      ),
+      scenario: scenario
+    )
+
+    #expect(!sut.thinkingAgents.contains("Alice"))
+  }
+
+  // MARK: - Thinking Agents
+
+  @Test func handleEventInferenceStartedAddsToThinkingAgents() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+
+    #expect(sut.thinkingAgents.contains("Alice"))
+  }
+
+  @Test func handleEventInferenceCompletedRemovesFromThinkingAgents() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Alice", durationSeconds: 1.5), scenario: scenario)
+
+    #expect(sut.thinkingAgents.isEmpty)
+  }
+
+  // MARK: - Score & Elimination
+
+  @Test func handleEventScoreUpdateUpdatesScoresAndAppendsLog() throws {
+    let (sut, scenario) = try makeSUT()
+    let newScores = ["Alice": 10, "Bob": 5]
+
+    sut.handleEvent(.scoreUpdate(scores: newScores), scenario: scenario)
+
+    #expect(sut.scores == newScores)
+    #expect(sut.logEntries.count == 1)
+    if case .scoreUpdate(let scores) = sut.logEntries.first?.kind {
+      #expect(scores == newScores)
+    } else {
+      Issue.record("Expected .scoreUpdate log entry")
+    }
+  }
+
+  @Test func handleEventEliminationMarksAgentAndAppendsLog() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(.elimination(agent: "Bob", voteCount: 2), scenario: scenario)
+
+    #expect(sut.eliminated["Bob"] == true)
+    #expect(sut.logEntries.count == 1)
+    if case .elimination(let agent, let voteCount) = sut.logEntries.first?.kind {
+      #expect(agent == "Bob")
+      #expect(voteCount == 2)
+    } else {
+      Issue.record("Expected .elimination log entry")
+    }
+  }
+
+  // MARK: - Output Events (Log-only)
+
+  @Test func handleEventAssignmentAppendsLog() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(.assignment(agent: "Alice", value: "wolf"), scenario: scenario)
+
+    #expect(sut.logEntries.count == 1)
+    if case .assignment(let agent, let value) = sut.logEntries.first?.kind {
+      #expect(agent == "Alice")
+      #expect(value == "wolf")
+    } else {
+      Issue.record("Expected .assignment log entry")
+    }
+  }
+
+  @Test func handleEventSummaryAppendsLog() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(.summary(text: "Round over"), scenario: scenario)
+
+    #expect(sut.logEntries.count == 1)
+    if case .summary(let text) = sut.logEntries.first?.kind {
+      #expect(text == "Round over")
+    } else {
+      Issue.record("Expected .summary log entry")
+    }
+  }
+
+  @Test func handleEventVoteResultsAppendsLog() throws {
+    let (sut, scenario) = try makeSUT()
+    let votes = ["Alice": "Bob"]
+    let tallies = ["Bob": 1]
+
+    sut.handleEvent(.voteResults(votes: votes, tallies: tallies), scenario: scenario)
+
+    #expect(sut.logEntries.count == 1)
+    if case .voteResults(let v, let t) = sut.logEntries.first?.kind {
+      #expect(v == votes)
+      #expect(t == tallies)
+    } else {
+      Issue.record("Expected .voteResults log entry")
+    }
+  }
+
+  @Test func handleEventPairingResultAppendsLog() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(
+      .pairingResult(
+        agent1: "Alice", action1: "cooperate",
+        agent2: "Bob", action2: "betray"
+      ),
+      scenario: scenario
+    )
+
+    #expect(sut.logEntries.count == 1)
+    if case .pairingResult(let a1, let act1, let a2, let act2) = sut.logEntries.first?.kind {
+      #expect(a1 == "Alice")
+      #expect(act1 == "cooperate")
+      #expect(a2 == "Bob")
+      #expect(act2 == "betray")
+    } else {
+      Issue.record("Expected .pairingResult log entry")
+    }
+  }
 }
