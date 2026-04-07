@@ -128,7 +128,7 @@ final class SimulationViewModel {
 
   // MARK: - Event Handling
 
-  private func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
+  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
     switch event {
     case .roundStarted(let round, let total):
       handleRoundStarted(round: round, total: total)
@@ -155,7 +155,7 @@ final class SimulationViewModel {
   }
 
   /// Handles score, vote, and other output-related events.
-  private func handleOutputEvent(_ event: SimulationEvent) {
+  func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
     case .scoreUpdate(let newScores):
       handleScoreUpdate(scores: newScores)
