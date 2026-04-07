@@ -21,14 +21,7 @@ nonisolated struct ScenarioValidator: Sendable {
   /// - Returns: A ``ValidationResult`` with any warnings and the inference estimate.
   /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` if limits are exceeded.
   func validate(_ scenario: Scenario) throws -> ValidationResult {
-    // Persona count must match agentCount
-    if scenario.personas.count != scenario.agentCount {
-      throw SimulationError.scenarioValidationFailed(
-        "Persona count (\(scenario.personas.count)) does not match agent count (\(scenario.agentCount))"
-      )
-    }
-
-    // Agent count limits
+    // Agent count limits (checked first for clearer error messages)
     if scenario.agentCount < 2 {
       throw SimulationError.scenarioValidationFailed(
         "Agent count (\(scenario.agentCount)) is below minimum of 2"
@@ -37,6 +30,13 @@ nonisolated struct ScenarioValidator: Sendable {
     if scenario.agentCount > 10 {
       throw SimulationError.scenarioValidationFailed(
         "Agent count (\(scenario.agentCount)) exceeds maximum of 10"
+      )
+    }
+
+    // Persona count must match agentCount
+    if scenario.personas.count != scenario.agentCount {
+      throw SimulationError.scenarioValidationFailed(
+        "Persona count (\(scenario.personas.count)) does not match agent count (\(scenario.agentCount))"
       )
     }
 

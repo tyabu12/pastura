@@ -81,7 +81,7 @@ struct ScenarioValidatorTests {
   }
 
   @Test func rejectsPersonaCountMismatch() {
-    // agentCount=3 but only 2 personas
+    // Constructed directly because makeScenario auto-generates matching personas
     let scenario = Scenario(
       id: "test", name: "Test", description: "Test",
       agentCount: 3, rounds: 1, context: "Context",
