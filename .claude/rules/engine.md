@@ -34,14 +34,14 @@ includes them.
 ### PhaseHandler Protocol
 
 ```swift
-public struct PhaseContext: Sendable {
+nonisolated public struct PhaseContext: Sendable {
     public let scenario: Scenario
     public let phase: Phase
     public let llm: LLMService
     public let emitter: @Sendable (SimulationEvent) -> Void
 }
 
-public protocol PhaseHandler {
+nonisolated public protocol PhaseHandler: Sendable {
     func execute(context: PhaseContext, state: inout SimulationState) async throws
 }
 ```
@@ -80,6 +80,12 @@ score_calc/assign/eliminate/summarize: 0 (code phases)
 total = sum(phase estimates) × scenario.rounds
 ```
 
+### Pairing Data Flow (choose phase)
+
+`ChooseHandler` populates `Pairing.action1` / `Pairing.action2` after LLM inference
+for each agent in a round-robin pair. These fields are `nil` before execution.
+`ScoreCalcHandler` and `SummarizeHandler` read the populated actions for scoring and display.
+
 ## JSON Response Parser
 
 Port directly from Python prototype `parse_json_response()`. Must handle:
@@ -117,7 +123,7 @@ This enum is the contract between Engine, App, and Views. Define it early —
 all three layers depend on it.
 
 ```swift
-public enum SimulationEvent {
+nonisolated public enum SimulationEvent: Sendable, Equatable {
     // Round lifecycle
     case roundStarted(round: Int, totalRounds: Int)
     case roundCompleted(round: Int, scores: [String: Int])
@@ -151,9 +157,10 @@ public enum SimulationEvent {
     case inferenceCompleted(agent: String, durationSeconds: Double)
 }
 
-public enum SimulationError: Error {
+nonisolated public enum SimulationError: Error, Sendable, Equatable {
     case scenarioValidationFailed(String)
-    case llmGenerationFailed(underlying: Error)
+    /// Stores description as String (not Error) for Sendable + Equatable conformance.
+    case llmGenerationFailed(description: String)
     case jsonParseFailed(raw: String)
     case retriesExhausted
     case modelNotLoaded
