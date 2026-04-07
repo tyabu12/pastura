@@ -211,10 +211,11 @@ struct SimulationView: View {
 
   private func loadAndRun() async {
     let loader = ScenarioLoader()
+    let deps = dependencies
     do {
       guard
-        let record = try await offMain({ [dependencies] in
-          try dependencies.scenarioRepository.fetchById(scenarioId)
+        let record = try await offMain({
+          try deps.scenarioRepository.fetchById(scenarioId)
         })
       else {
         loadError = "Scenario not found"
@@ -224,12 +225,11 @@ struct SimulationView: View {
       let parsed = try loader.load(yaml: record.yamlDefinition)
       scenario = parsed
 
-      let model = SimulationViewModel(
-        simulationRepository: dependencies.simulationRepository,
-        turnRepository: dependencies.turnRepository
+      viewModel = SimulationViewModel(
+        simulationRepository: deps.simulationRepository,
+        turnRepository: deps.turnRepository
       )
-      viewModel = model
-      await model.run(scenario: parsed, llm: dependencies.llmService)
+      await viewModel?.run(scenario: parsed, llm: deps.llmService)
     } catch {
       loadError = error.localizedDescription
     }

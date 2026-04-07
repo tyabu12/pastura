@@ -27,13 +27,12 @@ struct ResultsView: View {
     }
     .navigationTitle("Past Results")
     .task {
-      let model = ResultsViewModel(
+      viewModel = ResultsViewModel(
         scenarioRepository: dependencies.scenarioRepository,
         simulationRepository: dependencies.simulationRepository,
         turnRepository: dependencies.turnRepository
       )
-      viewModel = model
-      await model.load(scenarioId: scenarioId)
+      await viewModel?.load(scenarioId: scenarioId)
     }
   }
 

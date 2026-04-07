@@ -48,9 +48,8 @@ struct ScenarioDetailView: View {
       }
     }
     .task {
-      let model = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
-      viewModel = model
-      await model.load(scenarioId: scenarioId)
+      viewModel = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
+      await viewModel?.load(scenarioId: scenarioId)
     }
   }
 

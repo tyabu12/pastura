@@ -6,7 +6,9 @@ import Foundation
 /// factory. Injected into the SwiftUI environment at the app root. Views and
 /// ViewModels access repositories and services through this container.
 @Observable
-final class AppDependencies {
+final class AppDependencies: @unchecked Sendable {
+  // @unchecked Sendable: all user-defined stored properties are `let` with Sendable types.
+  // The @Observable macro adds an ObservationRegistrar which is itself Sendable (thread-safe).
   let scenarioRepository: any ScenarioRepository
   let simulationRepository: any SimulationRepository
   let turnRepository: any TurnRepository

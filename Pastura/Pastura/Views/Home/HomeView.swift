@@ -28,9 +28,8 @@ struct HomeView: View {
       }
     }
     .task {
-      let model = HomeViewModel(repository: dependencies.scenarioRepository)
-      viewModel = model
-      await model.loadScenarios()
+      viewModel = HomeViewModel(repository: dependencies.scenarioRepository)
+      await viewModel?.loadScenarios()
     }
   }
 

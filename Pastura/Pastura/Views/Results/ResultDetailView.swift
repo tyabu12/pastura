@@ -125,9 +125,11 @@ struct ResultDetailView: View {
   }
 
   private func loadTurns() async {
+    let turnRepo = dependencies.turnRepository
+    let simId = simulationId
     do {
-      turns = try await offMain { [dependencies] in
-        try dependencies.turnRepository.fetchBySimulationId(simulationId)
+      turns = try await offMain {
+        try turnRepo.fetchBySimulationId(simId)
       }
     } catch {
       turns = []

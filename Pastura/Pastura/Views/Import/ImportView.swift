@@ -22,10 +22,9 @@ struct ImportView: View {
     .navigationTitle(editingId != nil ? "Edit Scenario" : "Import Scenario")
     .navigationBarTitleDisplayMode(.inline)
     .task {
-      let model = ImportViewModel(repository: dependencies.scenarioRepository)
-      viewModel = model
+      viewModel = ImportViewModel(repository: dependencies.scenarioRepository)
       if let editingId {
-        await model.loadForEditing(scenarioId: editingId)
+        await viewModel?.loadForEditing(scenarioId: editingId)
       }
     }
   }
