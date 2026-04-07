@@ -120,6 +120,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   }
 
   /// Returns `true` if cancelled during pause wait.
+  // TODO: Emit simulationPaused only once instead of every 100ms poll cycle
+  // to reduce event volume. UI layer should handle the single event. (#20)
   private static func checkPaused(ctx: ExecutionContext, round: Int) async -> Bool {
     while ctx.isPausedLock.withLock({ $0 }) {
       ctx.emitter(.simulationPaused(round: round, phaseIndex: 0))
