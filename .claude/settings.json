@@ -40,7 +40,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "swiftlint lint --quiet --strict"
+            "command": "cd $(git rev-parse --show-toplevel) && swiftlint lint --quiet --strict"
+          },
+          {
+            "type": "command",
+            "command": "cd $(git rev-parse --show-toplevel) && xcodebuild build -scheme Pastura -project Pastura/Pastura.xcodeproj -destination 'generic/platform=iOS Simulator' -quiet 2>&1 || (echo 'Build failed. Fix compile errors before committing.' >&2 && exit 2)"
           }
         ]
       }
