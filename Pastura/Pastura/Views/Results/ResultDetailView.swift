@@ -1,0 +1,136 @@
+import SwiftUI
+
+/// Replays a past simulation by displaying its turn records as a read-only log.
+struct ResultDetailView: View {
+  let simulationId: String
+
+  @Environment(AppDependencies.self) private var dependencies
+  @State private var turns: [TurnRecord] = []
+  @State private var isLoading = true
+  @State private var showDebug = false
+
+  var body: some View {
+    Group {
+      if isLoading {
+        ProgressView("Loading...")
+      } else if turns.isEmpty {
+        ContentUnavailableView(
+          "No Data",
+          systemImage: "tray",
+          description: Text("No turn records found for this simulation")
+        )
+      } else {
+        turnLog
+      }
+    }
+    .navigationTitle("Result Detail")
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .primaryAction) {
+        Button {
+          showDebug.toggle()
+        } label: {
+          Image(systemName: showDebug ? "ladybug.fill" : "ladybug")
+            .foregroundStyle(showDebug ? .orange : .secondary)
+        }
+      }
+    }
+    .task {
+      await loadTurns()
+    }
+  }
+
+  /// Builds a flat list of display items with round separators inserted.
+  private var displayItems: [DisplayItem] {
+    var items: [DisplayItem] = []
+    var lastRound = 0
+    for turn in turns {
+      if turn.roundNumber != lastRound {
+        lastRound = turn.roundNumber
+        items.append(.roundSeparator(round: turn.roundNumber))
+      }
+      items.append(.turn(turn))
+    }
+    return items
+  }
+
+  private enum DisplayItem: Identifiable {
+    case roundSeparator(round: Int)
+    case turn(TurnRecord)
+
+    var id: String {
+      switch self {
+      case .roundSeparator(let round): "sep-\(round)"
+      case .turn(let record): record.id
+      }
+    }
+  }
+
+  private var turnLog: some View {
+    ScrollView {
+      LazyVStack(alignment: .leading, spacing: 8) {
+        ForEach(displayItems) { item in
+          switch item {
+          case .roundSeparator(let round):
+            HStack {
+              Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+              Text("Round \(round)")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+              Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 4)
+
+          case .turn(let turn):
+            turnRow(turn)
+          }
+        }
+      }
+      .padding(.vertical, 8)
+    }
+  }
+
+  @ViewBuilder
+  private func turnRow(_ turn: TurnRecord) -> some View {
+    if let agentName = turn.agentName, let phaseType = PhaseType(rawValue: turn.phaseType) {
+      let output = decodeTurnOutput(turn)
+      AgentOutputRow(
+        agent: agentName,
+        output: output,
+        phaseType: phaseType,
+        showDebug: showDebug
+      )
+      .padding(.horizontal)
+    } else {
+      HStack(spacing: 4) {
+        Text(turn.phaseType)
+          .font(.caption.monospaced())
+          .foregroundStyle(.orange)
+        Text("Round \(turn.roundNumber)")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal)
+    }
+  }
+
+  private func decodeTurnOutput(_ turn: TurnRecord) -> TurnOutput {
+    guard let data = turn.parsedOutputJSON.data(using: .utf8),
+      let output = try? JSONDecoder().decode(TurnOutput.self, from: data)
+    else {
+      return TurnOutput(fields: ["raw": turn.rawOutput])
+    }
+    return output
+  }
+
+  private func loadTurns() async {
+    let vm = ResultsViewModel(
+      scenarioRepository: dependencies.scenarioRepository,
+      simulationRepository: dependencies.simulationRepository,
+      turnRepository: dependencies.turnRepository
+    )
+    turns = await vm.loadTurns(simulationId: simulationId)
+    isLoading = false
+  }
+}
