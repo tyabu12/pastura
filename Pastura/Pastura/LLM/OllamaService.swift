@@ -5,6 +5,9 @@ import os
 ///
 /// For development and Simulator use only. Connects to a local or network
 /// Ollama instance. Not included in production builds.
+///
+/// - Important: Not safe for concurrent `generate`/`unloadModel` calls.
+///   The Engine executes inferences sequentially, so this is fine in practice.
 nonisolated public final class OllamaService: LLMService, @unchecked Sendable {
   // @unchecked Sendable: mutable state is protected by OSAllocatedUnfairLock.
 
@@ -68,7 +71,7 @@ nonisolated public final class OllamaService: LLMService, @unchecked Sendable {
     do {
       (data, response) = try await session.data(for: request)
     } catch {
-      throw LLMError.networkError(description: error.localizedDescription)
+      throw LLMError.networkError(description: String(describing: error))
     }
 
     guard let httpResponse = response as? HTTPURLResponse else {

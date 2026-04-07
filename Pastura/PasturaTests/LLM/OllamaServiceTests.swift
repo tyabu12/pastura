@@ -7,6 +7,7 @@ import Testing
 
 /// Intercepts URLSession requests for testing without a live Ollama server.
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
+  // Safe: tests run serialized via @Suite(.serialized), no concurrent access
   nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
   override static func canInit(with request: URLRequest) -> Bool {
