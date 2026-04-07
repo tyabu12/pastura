@@ -1,12 +1,10 @@
 import Foundation
 
-// @MainActor is explicit for Xcode 16.x CI compatibility. See #37.
-
 /// ViewModel for past simulation results.
 ///
 /// Fetches simulations grouped by scenario. When `scenarioId` is empty,
 /// loads all scenarios with their simulations for the global results view.
-@MainActor @Observable
+@Observable
 final class ResultsViewModel {
   private(set) var groups: [ScenarioGroup] = []
   private(set) var isLoading = false
