@@ -34,14 +34,14 @@ nonisolated public final class GRDBTurnRepository: TurnRepository, Sendable {
 
   public func save(_ record: TurnRecord) throws {
     try dbWriter.write { db in
-      var mutable = record
+      let mutable = record
       try mutable.insert(db)
     }
   }
 
   public func saveBatch(_ records: [TurnRecord]) throws {
     try dbWriter.write { db in
-      for var record in records {
+      for record in records {
         try record.insert(db)
       }
     }
