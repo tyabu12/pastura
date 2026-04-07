@@ -110,14 +110,17 @@ final class SimulationViewModel {
     // Start serial persistence consumer before any events can arrive.
     startPersistenceConsumer()
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
-    defer { persistenceContinuation?.finish() }
+    defer {
+      persistenceContinuation?.finish()
+      isRunning = false
+    }
 
     // Load LLM model
     do {
       try await llm.loadModel()
     } catch {
       errorMessage = "Failed to load LLM: \(error.localizedDescription)"
-      isRunning = false
+      await updateSimulationStatus(completed: false)
       return
     }
 
@@ -139,7 +142,6 @@ final class SimulationViewModel {
     // Cleanup
     try? await llm.unloadModel()
     await updateSimulationStatus(completed: errorMessage == nil)
-    isRunning = false
   }
 
   // MARK: - Event Handling
@@ -171,9 +173,8 @@ final class SimulationViewModel {
     }
   }
 
-  // internal (not private) to allow direct unit testing via @testable import
   /// Handles score, vote, and other output-related events.
-  func handleOutputEvent(_ event: SimulationEvent) {
+  private func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
     case .scoreUpdate(let newScores):
       handleScoreUpdate(scores: newScores)
