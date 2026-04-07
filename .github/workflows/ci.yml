@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   lint-and-test:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 15
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
@@ -24,7 +24,7 @@ jobs:
       coverage-pct: ${{ steps.coverage.outputs.pct }}
       lint-result: ${{ steps.lint.outputs.result }}
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
 
     steps:
       - name: Checkout
