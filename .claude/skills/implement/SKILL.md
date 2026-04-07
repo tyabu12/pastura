@@ -154,7 +154,11 @@ Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step
 2. **Ask: "Create worktree and start?"**
 3. Call `EnterWorktree` with `name: "{TASK_TYPE}/{SLUG}"`.
    - On failure: suggest alternative name or cleanup. Check `git ls-remote --heads origin <branch>` for remote collisions too; append `-2` suffix if needed.
-4. Verify: `git branch --show-current`.
+4. Rename the branch to the conventional format (EnterWorktree sanitizes `/` to `+` and prepends `worktree-`):
+   ```bash
+   git branch -m "$(git branch --show-current)" "{TASK_TYPE}/{SLUG}"
+   ```
+5. Verify: `git branch --show-current`.
 
 ## Step 3: Implementation (TDD)
 
