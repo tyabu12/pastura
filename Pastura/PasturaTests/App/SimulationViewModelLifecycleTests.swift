@@ -110,10 +110,11 @@ struct SimulationViewModelLifecycleTests {
     let simId = try #require(try simRepo.fetchByScenarioId("test").first?.id)
     let allTurns = try turnRepo.fetchBySimulationId(simId)
     #expect(allTurns.count == 8)
-    for idx in 0..<(allTurns.count - 1) {
+    // sequenceNumber must be monotonically increasing (1, 2, 3, ...)
+    for (i, turn) in allTurns.enumerated() {
       #expect(
-        allTurns[idx].createdAt <= allTurns[idx + 1].createdAt,
-        "Turn \(idx) should have createdAt <= turn \(idx + 1)"
+        turn.sequenceNumber == i + 1,
+        "Turn \(i) (\(turn.agentName ?? "?")) should have sequenceNumber \(i + 1), got \(turn.sequenceNumber)"
       )
     }
   }

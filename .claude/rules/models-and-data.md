@@ -94,6 +94,7 @@ turns (
     agentName TEXT,  -- NULL for code phases
     rawOutput TEXT NOT NULL,
     parsedOutputJSON TEXT NOT NULL,
+    sequenceNumber INTEGER NOT NULL DEFAULT 0,  -- canonical ordering key
     createdAt DATETIME NOT NULL
 )
 
