@@ -38,11 +38,13 @@ enum PlaybackSpeed: Double, CaseIterable, Identifiable {
   }
 }
 
+// @MainActor is explicit for Xcode 16.x CI compatibility. See #37.
+
 /// ViewModel for the live simulation execution screen.
 ///
 /// Consumes `AsyncStream<SimulationEvent>` from `SimulationRunner`, applies
 /// `ContentFilter`, persists turn records, and manages pause/resume + LLM lifecycle.
-@Observable
+@MainActor @Observable
 final class SimulationViewModel {
   // MARK: - Published State
 

@@ -1,10 +1,13 @@
 import Foundation
 
+// @MainActor is explicit for Xcode 16.x (Swift 6.0) CI compatibility.
+// SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor covers this in Swift 6.2+. See #37.
+
 /// ViewModel for the home screen scenario list.
 ///
 /// Fetches scenarios from the repository and splits them into presets
 /// and user-created groups. Supports pull-to-refresh and deletion.
-@Observable
+@MainActor @Observable
 final class HomeViewModel {
   private(set) var presets: [ScenarioRecord] = []
   private(set) var userScenarios: [ScenarioRecord] = []

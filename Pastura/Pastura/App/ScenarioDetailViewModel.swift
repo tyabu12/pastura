@@ -1,10 +1,12 @@
 import Foundation
 
+// @MainActor is explicit for Xcode 16.x CI compatibility. See #37.
+
 /// ViewModel for the scenario detail screen.
 ///
 /// Parses the YAML definition into a `Scenario` for rich display,
 /// validates before launch, and estimates inference count.
-@Observable
+@MainActor @Observable
 final class ScenarioDetailViewModel {
   private(set) var record: ScenarioRecord?
   private(set) var scenario: Scenario?

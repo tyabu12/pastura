@@ -1,11 +1,13 @@
 import Foundation
 
+// @MainActor is explicit for Xcode 16.x CI compatibility. See #37.
+
 /// Central dependency container for the application.
 ///
 /// Initializes `DatabaseManager`, all repositories, and provides an LLM service
 /// factory. Injected into the SwiftUI environment at the app root. Views and
 /// ViewModels access repositories and services through this container.
-@Observable
+@MainActor @Observable
 final class AppDependencies: @unchecked Sendable {
   // @unchecked Sendable: all user-defined stored properties are `let` with Sendable types.
   // The @Observable macro adds an ObservationRegistrar which is itself Sendable (thread-safe).
