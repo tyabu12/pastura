@@ -13,12 +13,15 @@ paths:
 Dictionary wrapper with typed accessors for common fields:
 
 ```swift
-public struct TurnOutput: Codable {
+nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
     public let fields: [String: String]
     public var statement: String? { fields["statement"] }
     public var vote: String? { fields["vote"] }
     public var action: String? { fields["action"] }
     public var innerThought: String? { fields["inner_thought"] }
+    public var declaration: String? { fields["declaration"] }
+    public var boke: String? { fields["boke"] }
+    public var reason: String? { fields["reason"] }
 
     public func require(_ key: String) throws -> String { ... }
 }
@@ -29,21 +32,32 @@ public struct TurnOutput: Codable {
 Must be `Codable` from day one — required for pause/resume serialization to DB.
 
 ```swift
-public struct SimulationState: Codable {
-    var scores: [String: Int]
-    var eliminated: [String: Bool]
-    var conversationLog: ConversationLog
-    var lastOutputs: [String: TurnOutput]
-    var voteResults: [String: Int]
-    var pairings: [Pairing]
-    var variables: [String: String]
-    var currentRound: Int
+nonisolated public struct SimulationState: Codable, Sendable, Equatable {
+    public var scores: [String: Int]
+    public var eliminated: [String: Bool]
+    public var conversationLog: [ConversationEntry]
+    public var lastOutputs: [String: TurnOutput]
+    public var voteResults: [String: Int]
+    public var pairings: [Pairing]
+    public var variables: [String: String]
+    public var currentRound: Int
 }
 ```
 
-### ConversationLog
+### ConversationEntry
 
-Trims to most recent N entries for prompt injection (prevents context overflow).
+A single entry in the simulation's conversation log:
+
+```swift
+nonisolated public struct ConversationEntry: Codable, Sendable, Equatable {
+    public let agentName: String
+    public let content: String
+    public let phaseType: PhaseType
+    public let round: Int
+}
+```
+
+Engine trims to most recent N entries for prompts (prevents context overflow).
 Full log is preserved in DB via TurnRecord.
 
 ## Database Schema (GRDB)
