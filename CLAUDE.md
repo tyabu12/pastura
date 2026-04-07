@@ -7,7 +7,7 @@
 **Phase 1: MVP development** — See `docs/ROADMAP.md` for scope and Go/No-Go criteria.
 If a requested feature is listed under Phase 2 or Phase 3, do not implement it — reference the roadmap and defer.
 
-Implementation progress: `Models ✅ → LLM ✅ → Engine ✅ → Data ✅ → Views → App → Integration test`
+Implementation progress: `Models ✅ → LLM ✅ → Engine ✅ → Data ✅ → Views ✅ → App ✅ → Integration test`
 
 ## Language Rules
 
