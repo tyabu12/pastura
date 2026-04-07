@@ -24,9 +24,12 @@ xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination 
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
   -only-testing PasturaTests/<TestClassName>
 
-# Run a single test method
+# Run a single test method (XCTest only — see caveat below)
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
   -only-testing PasturaTests/<TestClassName>/<testMethodName>
+# ⚠️ Individual method targeting does NOT work reliably with Swift Testing (@Test).
+# Tests may silently not run while xcodebuild reports TEST SUCCEEDED.
+# For Swift Testing, use suite-level targeting (-only-testing PasturaTests/<SuiteName>).
 ```
 
 ## Process

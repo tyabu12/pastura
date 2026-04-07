@@ -15,6 +15,21 @@ concurrent Task/AsyncStream cleanup. This applies to integration tests that cons
 Individual unit tests (e.g., handler tests with `MockLLMService`) are safe to run
 in parallel because they await the handler directly without AsyncStream.
 
+## `-only-testing` and Swift Testing
+
+When using `-only-testing` with `xcodebuild`, prefer **suite-level** targeting
+(e.g., `PasturaTests/SimulationRunnerTests`) over individual test names
+(e.g., `PasturaTests/SimulationRunnerTests/myTest`). Individual Swift Testing
+(`@Test`) functions may not match reliably, causing tests to silently not run
+while `xcodebuild` still reports `TEST SUCCEEDED`.
+
+**Why:** Swift Testing uses a different identifier scheme than XCTest. `xcodebuild`
+resolves zero matching tests and reports success (0 failures = `TEST SUCCEEDED`).
+This does NOT affect XCTest (`func testXxx()` in `XCTestCase`), which individual
+targeting works correctly for.
+
+**Verify:** Always check the test count in the output to confirm tests actually ran.
+
 ## MockLLMService Usage
 
 - Always call `try await mock.loadModel()` before running any code that calls
