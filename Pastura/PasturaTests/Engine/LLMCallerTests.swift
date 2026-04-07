@@ -111,16 +111,3 @@ struct LLMCallerTests {
     }
   }
 }
-
-/// Thread-safe event collector for testing @Sendable emitter closures.
-private final class EventCollector: @unchecked Sendable {
-  private let lock = OSAllocatedUnfairLock(initialState: [SimulationEvent]())
-
-  func emit(_ event: SimulationEvent) {
-    lock.withLock { $0.append(event) }
-  }
-
-  var events: [SimulationEvent] {
-    lock.withLock { $0 }
-  }
-}
