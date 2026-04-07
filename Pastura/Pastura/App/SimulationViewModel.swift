@@ -126,7 +126,7 @@ final class SimulationViewModel {
       try await llm.loadModel()
     } catch {
       errorMessage = "Failed to load LLM: \(error.localizedDescription)"
-      await updateSimulationStatus(completed: false)
+      await finalizeSimulationStatus()
       return
     }
 
@@ -147,7 +147,7 @@ final class SimulationViewModel {
 
     // Cleanup
     try? await llm.unloadModel()
-    await updateSimulationStatus(completed: errorMessage == nil)
+    await finalizeSimulationStatus()
   }
 
   // MARK: - Event Handling
@@ -301,10 +301,10 @@ final class SimulationViewModel {
     }
   }
 
-  private func updateSimulationStatus(completed: Bool) async {
+  /// Mark the simulation as completed regardless of success or error outcome.
+  /// Errors are recorded in `stateJSON`; `.paused` is reserved for user-initiated pause.
+  private func finalizeSimulationStatus() async {
     guard let simId = simulationId else { return }
-    // Use .completed for both success and error — the error is recorded in
-    // stateJSON. .paused is reserved for user-initiated pause with intent to resume.
     let status: SimulationStatus = .completed
     do {
       try await offMain { [simulationRepository] in
