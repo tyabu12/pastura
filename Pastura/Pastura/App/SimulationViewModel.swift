@@ -77,6 +77,10 @@ final class SimulationViewModel {
   private var persistenceContinuation: AsyncStream<TurnRecord>.Continuation?
   private var persistenceTask: Task<Void, Never>?
 
+  /// Per-simulation sequence counter for deterministic TurnRecord ordering.
+  /// Incremented synchronously on MainActor — no lock needed.
+  private var turnSequence = 0
+
   init(
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
@@ -106,6 +110,8 @@ final class SimulationViewModel {
     simulationId = simId
     let initialState = SimulationState.initial(for: scenario)
     await createSimulationRecord(simId: simId, scenario: scenario, state: initialState)
+
+    turnSequence = 0
 
     // Start serial persistence consumer before any events can arrive.
     startPersistenceConsumer()
@@ -272,11 +278,12 @@ final class SimulationViewModel {
 
   private func persistTurnRecord(agent: String, output: TurnOutput, phaseType: PhaseType) {
     guard let simId = simulationId else { return }
-    // Build record synchronously on MainActor so createdAt reflects event
-    // arrival order, then enqueue for serial DB write.
+    // Build record synchronously on MainActor so sequenceNumber is assigned in
+    // event arrival order, then enqueue for serial DB write.
     do {
       let parsedJSON = try JSONEncoder().encode(output)
       let jsonString = String(data: parsedJSON, encoding: .utf8) ?? "{}"
+      turnSequence += 1
       let record = TurnRecord(
         id: UUID().uuidString,
         simulationId: simId,
@@ -285,6 +292,7 @@ final class SimulationViewModel {
         agentName: agent,
         rawOutput: jsonString,
         parsedOutputJSON: jsonString,
+        sequenceNumber: turnSequence,
         createdAt: Date()
       )
       persistenceContinuation?.yield(record)

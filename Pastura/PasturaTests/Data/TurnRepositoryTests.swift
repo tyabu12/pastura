@@ -50,9 +50,36 @@ import Testing
     #expect(turns.count == 2)
   }
 
-  @Test func fetchBySimulationIdReturnsOrderedByCreatedAt() throws {
+  @Test func fetchBySimulationIdReturnsOrderedBySequenceNumber() throws {
     let turnRepo = try makeTurnRepo()
-    // Insert in reverse order to verify ordering
+    // sequenceNumber order intentionally differs from createdAt order
+    // to prove sequenceNumber takes priority.
+    let early = Date(timeIntervalSince1970: 1000)
+    let late = Date(timeIntervalSince1970: 2000)
+
+    try turnRepo.save(
+      TurnRecord(
+        id: "t2", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Bob", rawOutput: "raw",
+        parsedOutputJSON: "{}",
+        sequenceNumber: 2, createdAt: early))
+    try turnRepo.save(
+      TurnRecord(
+        id: "t1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "raw",
+        parsedOutputJSON: "{}",
+        sequenceNumber: 1, createdAt: late))
+
+    let turns = try turnRepo.fetchBySimulationId("sim1")
+    #expect(turns.first?.id == "t1")
+    #expect(turns.last?.id == "t2")
+  }
+
+  @Test func fetchBySimulationIdFallsBackToCreatedAtWhenSequenceNumberEqual() throws {
+    let turnRepo = try makeTurnRepo()
+    // Both have sequenceNumber 0 (pre-migration data) — should fall back to createdAt.
     let early = Date(timeIntervalSince1970: 1000)
     let late = Date(timeIntervalSince1970: 2000)
 

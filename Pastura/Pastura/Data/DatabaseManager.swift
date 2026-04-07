@@ -91,5 +91,11 @@ nonisolated public final class DatabaseManager: Sendable {
         on: "turns",
         columns: ["simulationId", "roundNumber"])
     }
+
+    migrator.registerMigration("v2_addSequenceNumberToTurns") { db in
+      try db.alter(table: "turns") { t in
+        t.add(column: "sequenceNumber", .integer).notNull().defaults(to: 0)
+      }
+    }
   }
 }

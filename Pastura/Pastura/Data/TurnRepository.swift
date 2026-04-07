@@ -9,10 +9,12 @@ nonisolated public protocol TurnRepository: Sendable {
   /// Saves multiple turn records in a single transaction.
   func saveBatch(_ records: [TurnRecord]) throws
 
-  /// Fetches all turns for a simulation, ordered by `createdAt` ascending.
+  /// Fetches all turns for a simulation, ordered by `sequenceNumber` ascending
+  /// with `createdAt` as fallback (for pre-migration rows where all are `0`).
   func fetchBySimulationId(_ simulationId: String) throws -> [TurnRecord]
 
-  /// Fetches turns for a specific simulation and round number.
+  /// Fetches turns for a specific simulation and round number, ordered by
+  /// `sequenceNumber` ascending with `createdAt` as fallback.
   /// Leverages the `idx_turns_simulation_round` index.
   func fetchBySimulationAndRound(
     _ simulationId: String, round: Int
@@ -49,7 +51,7 @@ nonisolated public final class GRDBTurnRepository: TurnRepository, Sendable {
     try dbWriter.read { db in
       try TurnRecord
         .filter(Column("simulationId") == simulationId)
-        .order(Column("createdAt").asc)
+        .order(Column("sequenceNumber").asc, Column("createdAt").asc)
         .fetchAll(db)
     }
   }
@@ -63,7 +65,7 @@ nonisolated public final class GRDBTurnRepository: TurnRepository, Sendable {
           Column("simulationId") == simulationId
             && Column("roundNumber") == round
         )
-        .order(Column("createdAt").asc)
+        .order(Column("sequenceNumber").asc, Column("createdAt").asc)
         .fetchAll(db)
     }
   }

@@ -21,6 +21,9 @@ nonisolated public struct TurnRecord: Codable, Sendable, Equatable,
   public var rawOutput: String
   /// Parsed `TurnOutput.fields` serialized as JSON.
   public var parsedOutputJSON: String
+  /// Monotonically increasing per simulation — the canonical ordering key.
+  /// Pre-migration rows default to `0` and fall back to `createdAt` ordering.
+  public var sequenceNumber: Int
   public var createdAt: Date
 
   public init(
@@ -31,6 +34,7 @@ nonisolated public struct TurnRecord: Codable, Sendable, Equatable,
     agentName: String?,
     rawOutput: String,
     parsedOutputJSON: String,
+    sequenceNumber: Int = 0,
     createdAt: Date
   ) {
     self.id = id
@@ -40,6 +44,7 @@ nonisolated public struct TurnRecord: Codable, Sendable, Equatable,
     self.agentName = agentName
     self.rawOutput = rawOutput
     self.parsedOutputJSON = parsedOutputJSON
+    self.sequenceNumber = sequenceNumber
     self.createdAt = createdAt
   }
 }
