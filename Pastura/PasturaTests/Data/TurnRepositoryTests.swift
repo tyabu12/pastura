@@ -5,15 +5,11 @@ import Testing
 
 @Suite struct TurnRepositoryTests {
 
-  private func makeRepos() throws -> (
-    scenario: GRDBScenarioRepository,
-    simulation: GRDBSimulationRepository,
-    turn: GRDBTurnRepository
-  ) {
+  /// Returns a TurnRepository backed by an in-memory DB with seeded scenario and simulation.
+  private func makeTurnRepo() throws -> GRDBTurnRepository {
     let manager = try DatabaseManager.inMemory()
     let scenarioRepo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
     let simRepo = GRDBSimulationRepository(dbWriter: manager.dbWriter)
-    let turnRepo = GRDBTurnRepository(dbWriter: manager.dbWriter)
 
     // Seed scenario and simulation for FK constraints
     try scenarioRepo.save(
@@ -27,7 +23,7 @@ import Testing
         stateJSON: "{}", configJSON: nil,
         createdAt: Date(), updatedAt: Date()))
 
-    return (scenarioRepo, simRepo, turnRepo)
+    return GRDBTurnRepository(dbWriter: manager.dbWriter)
   }
 
   private func makeTurn(
@@ -46,7 +42,7 @@ import Testing
   }
 
   @Test func saveAndFetchBySimulationId() throws {
-    let (_, _, turnRepo) = try makeRepos()
+    let turnRepo = try makeTurnRepo()
     try turnRepo.save(makeTurn(id: "t1", agentName: "Alice"))
     try turnRepo.save(makeTurn(id: "t2", agentName: "Bob"))
 
@@ -55,7 +51,7 @@ import Testing
   }
 
   @Test func fetchBySimulationIdReturnsOrderedByCreatedAt() throws {
-    let (_, _, turnRepo) = try makeRepos()
+    let turnRepo = try makeTurnRepo()
     // Insert in reverse order to verify ordering
     let early = Date(timeIntervalSince1970: 1000)
     let late = Date(timeIntervalSince1970: 2000)
@@ -79,13 +75,13 @@ import Testing
   }
 
   @Test func fetchBySimulationIdReturnsEmptyForMissing() throws {
-    let (_, _, turnRepo) = try makeRepos()
+    let turnRepo = try makeTurnRepo()
     let turns = try turnRepo.fetchBySimulationId("nonexistent")
     #expect(turns.isEmpty)
   }
 
   @Test func saveBatchInsertsMultipleRecords() throws {
-    let (_, _, turnRepo) = try makeRepos()
+    let turnRepo = try makeTurnRepo()
     let records = (1...5).map { i in
       makeTurn(id: "t\(i)", agentName: "Agent\(i)")
     }
@@ -97,7 +93,7 @@ import Testing
   }
 
   @Test func fetchBySimulationAndRound() throws {
-    let (_, _, turnRepo) = try makeRepos()
+    let turnRepo = try makeTurnRepo()
     // Round 1
     try turnRepo.save(makeTurn(id: "t1", roundNumber: 1, agentName: "Alice"))
     try turnRepo.save(makeTurn(id: "t2", roundNumber: 1, agentName: "Bob"))
@@ -115,7 +111,7 @@ import Testing
   }
 
   @Test func deleteBySimulationIdRemovesAllTurns() throws {
-    let (_, _, turnRepo) = try makeRepos()
+    let turnRepo = try makeTurnRepo()
     try turnRepo.saveBatch([
       makeTurn(id: "t1"),
       makeTurn(id: "t2"),

@@ -93,13 +93,13 @@ import Testing
 @Suite struct DataErrorTests {
 
   @Test func casesAreEquatable() {
-    let a = DataError.databaseOpenFailed(description: "fail")
-    let b = DataError.databaseOpenFailed(description: "fail")
-    #expect(a == b)
+    let error1 = DataError.databaseOpenFailed(description: "fail")
+    let error2 = DataError.databaseOpenFailed(description: "fail")
+    #expect(error1 == error2)
 
-    let c = DataError.recordNotFound(type: "Scenario", id: "123")
-    let d = DataError.recordNotFound(type: "Scenario", id: "456")
-    #expect(c != d)
+    let notFound1 = DataError.recordNotFound(type: "Scenario", id: "123")
+    let notFound2 = DataError.recordNotFound(type: "Scenario", id: "456")
+    #expect(notFound1 != notFound2)
   }
 
   @Test func conformsToError() {

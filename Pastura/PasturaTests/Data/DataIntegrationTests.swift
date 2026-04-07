@@ -23,6 +23,7 @@ import Testing
       turn: GRDBTurnRepository(dbWriter: manager.dbWriter))
   }
 
+  // swiftlint:disable:next function_body_length
   @Test func fullSimulationWorkflow() throws {
     let repos = try makeRepos()
 
