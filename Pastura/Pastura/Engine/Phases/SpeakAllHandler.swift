@@ -9,19 +9,16 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
   private let llmCaller = LLMCaller()
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    let promptTemplate = phase.prompt ?? "あなたの意見を述べてください。"
+    let promptTemplate = context.phase.prompt ?? "あなたの意見を述べてください。"
 
-    for persona in scenario.personas {
+    for persona in context.scenario.personas {
       guard state.eliminated[persona.name] != true else { continue }
 
       let systemPrompt = promptBuilder.buildSystemPrompt(
-        scenario: scenario, persona: persona, phase: phase, state: state
+        scenario: context.scenario, persona: persona, phase: context.phase, state: state
       )
 
       var variables = state.variables
@@ -30,19 +27,20 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(
-        llm: llm, system: systemPrompt, user: userPrompt,
-        agentName: persona.name, emitter: emitter
+        llm: context.llm, system: systemPrompt, user: userPrompt,
+        agentName: persona.name, emitter: context.emitter
       )
 
-      emitter(.agentOutput(agent: persona.name, output: output, phaseType: phase.type))
+      context.emitter(
+        .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
 
       // Update state
-      let mainField = promptBuilder.getMainField(phase: phase)
+      let mainField = promptBuilder.getMainField(phase: context.phase)
       let content = output.fields[mainField] ?? ""
       state.conversationLog.append(
         ConversationEntry(
           agentName: persona.name, content: content,
-          phaseType: phase.type, round: state.currentRound
+          phaseType: context.phase.type, round: state.currentRound
         )
       )
       state.lastOutputs[persona.name] = output

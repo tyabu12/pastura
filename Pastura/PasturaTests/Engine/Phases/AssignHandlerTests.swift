@@ -16,10 +16,8 @@ struct AssignHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(state.variables["assigned_topic"] == "Topic A")
     #expect(state.variables["assigned_Alice"] == "Topic A")
@@ -37,10 +35,8 @@ struct AssignHandlerTests {
     state.currentRound = 2  // Should get "Second" (index 1)
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(state.variables["assigned_topic"] == "Second")
   }
@@ -60,10 +56,8 @@ struct AssignHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     // One agent should be the wolf
     let wolfName = state.variables["wolf_name"]
@@ -89,10 +83,8 @@ struct AssignHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let assignments = collector.events.compactMap { event -> String? in
       if case .assignment(let agent, _) = event { return agent }

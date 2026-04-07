@@ -7,11 +7,8 @@ import Foundation
 nonisolated struct EliminateHandler: PhaseHandler {
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
     guard !state.voteResults.isEmpty else { return }
 
@@ -23,6 +20,6 @@ nonisolated struct EliminateHandler: PhaseHandler {
     else { return }
 
     state.eliminated[mostVoted.key] = true
-    emitter(.elimination(agent: mostVoted.key, voteCount: mostVoted.value))
+    context.emitter(.elimination(agent: mostVoted.key, voteCount: mostVoted.value))
   }
 }

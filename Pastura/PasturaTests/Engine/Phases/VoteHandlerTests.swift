@@ -24,10 +24,8 @@ struct VoteHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(state.voteResults["Alice"] == 2)
     #expect(state.voteResults["Bob"] == 1)
@@ -49,10 +47,8 @@ struct VoteHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     let voteEvents = collector.events.compactMap { event -> ([String: String], [String: Int])? in
       if case .voteResults(let votes, let tallies) = event { return (votes, tallies) }
@@ -78,10 +74,8 @@ struct VoteHandlerTests {
     state.eliminated["Bob"] = true
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     #expect(mock.generateCallCount == 2)
   }
@@ -101,10 +95,8 @@ struct VoteHandlerTests {
     state.currentRound = 1
     let collector = EventCollector()
 
-    try await handler.execute(
-      scenario: scenario, phase: scenario.phases[0], state: &state,
-      llm: mock, emitter: collector.emit
-    )
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
 
     // Invalid vote counted dynamically
     #expect(state.voteResults["NonExistent"] == 1)

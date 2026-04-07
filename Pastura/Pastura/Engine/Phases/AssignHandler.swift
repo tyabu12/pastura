@@ -8,25 +8,22 @@ import Foundation
 nonisolated struct AssignHandler: PhaseHandler {
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    let sourceKey = phase.source ?? ""
-    let target = phase.target ?? "all"
-    let sourceData = scenario.extraData[sourceKey]
+    let sourceKey = context.phase.source ?? ""
+    let target = context.phase.target ?? "all"
+    let sourceData = context.scenario.extraData[sourceKey]
 
-    let active = scenario.personas.filter { state.eliminated[$0.name] != true }
+    let active = context.scenario.personas.filter { state.eliminated[$0.name] != true }
 
     if target == "random_one" {
       assignRandomOne(
-        active: active, sourceData: sourceData, state: &state, emitter: emitter
+        active: active, sourceData: sourceData, state: &state, emitter: context.emitter
       )
     } else {
       assignAll(
-        active: active, sourceData: sourceData, state: &state, emitter: emitter
+        active: active, sourceData: sourceData, state: &state, emitter: context.emitter
       )
     }
   }

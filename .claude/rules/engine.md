@@ -34,18 +34,21 @@ includes them.
 ### PhaseHandler Protocol
 
 ```swift
+public struct PhaseContext: Sendable {
+    public let scenario: Scenario
+    public let phase: Phase
+    public let llm: LLMService
+    public let emitter: @Sendable (SimulationEvent) -> Void
+}
+
 public protocol PhaseHandler {
-    func execute(
-        scenario: Scenario,
-        phase: Phase,
-        state: inout SimulationState,
-        llm: LLMService,
-        emitter: @Sendable (SimulationEvent) -> Void
-    ) async throws
+    func execute(context: PhaseContext, state: inout SimulationState) async throws
 }
 ```
 
-Handlers are registered in PhaseDispatcher as a [PhaseType: PhaseHandler] dictionary.
+`PhaseContext` bundles the read-only parameters; `state` remains `inout` as
+the only mutable argument. Handlers are registered in PhaseDispatcher as a
+[PhaseType: PhaseHandler] dictionary.
 
 ### SimulationRunner Output
 

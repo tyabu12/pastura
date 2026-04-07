@@ -6,13 +6,10 @@ import Foundation
 nonisolated struct ScoreCalcHandler: PhaseHandler {
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    guard let logic = phase.logic else {
+    guard let logic = context.phase.logic else {
       throw SimulationError.scenarioValidationFailed(
         "score_calc phase missing 'logic' field"
       )
@@ -20,11 +17,11 @@ nonisolated struct ScoreCalcHandler: PhaseHandler {
 
     switch logic {
     case .prisonersDilemma:
-      PrisonersDilemmaLogic().calculate(state: &state, emitter: emitter)
+      PrisonersDilemmaLogic().calculate(state: &state, emitter: context.emitter)
     case .voteTally:
-      VoteTallyLogic().calculate(state: &state, emitter: emitter)
+      VoteTallyLogic().calculate(state: &state, emitter: context.emitter)
     case .wordwolfJudge:
-      WordwolfJudgeLogic().calculate(state: &state, emitter: emitter)
+      WordwolfJudgeLogic().calculate(state: &state, emitter: context.emitter)
     }
   }
 }

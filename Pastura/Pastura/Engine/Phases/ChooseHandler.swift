@@ -10,38 +10,31 @@ nonisolated struct ChooseHandler: PhaseHandler {
   private let llmCaller = LLMCaller()
 
   func execute(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void
+    context: PhaseContext,
+    state: inout SimulationState
   ) async throws {
-    let promptTemplate = phase.prompt ?? "選択してください。"
-    let options = phase.options ?? []
+    let promptTemplate = context.phase.prompt ?? "選択してください。"
+    let options = context.phase.options ?? []
 
-    if phase.pairing == .roundRobin {
+    if context.phase.pairing == .roundRobin {
       try await executeRoundRobin(
-        scenario: scenario, phase: phase, state: &state,
-        llm: llm, emitter: emitter, promptTemplate: promptTemplate, options: options
+        context: context, state: &state,
+        promptTemplate: promptTemplate, options: options
       )
     } else {
       try await executeIndividual(
-        scenario: scenario, phase: phase, state: &state,
-        llm: llm, emitter: emitter, promptTemplate: promptTemplate
+        context: context, state: &state, promptTemplate: promptTemplate
       )
     }
   }
 
   // MARK: - Round Robin
 
-  // swiftlint:disable:next function_parameter_count
   private func executeRoundRobin(
-    scenario: Scenario, phase: Phase,
-    state: inout SimulationState, llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void,
+    context: PhaseContext, state: inout SimulationState,
     promptTemplate: String, options: [String]
   ) async throws {
-    let active = scenario.personas.filter { state.eliminated[$0.name] != true }
+    let active = context.scenario.personas.filter { state.eliminated[$0.name] != true }
     let pairs = (0..<active.count).map { idx in
       (active[idx], active[(idx + 1) % active.count])
     }
@@ -49,16 +42,14 @@ nonisolated struct ChooseHandler: PhaseHandler {
     for (persona1, persona2) in pairs {
       let output1 = try await callAgent(
         persona: persona1, opponent: persona2,
-        scenario: scenario, phase: phase, state: state,
-        llm: llm, emitter: emitter, promptTemplate: promptTemplate
+        context: context, state: state, promptTemplate: promptTemplate
       )
       let action1 = validateAction(output1.action ?? "", options: options)
       state.lastOutputs[persona1.name] = output1
 
       let output2 = try await callAgent(
         persona: persona2, opponent: persona1,
-        scenario: scenario, phase: phase, state: state,
-        llm: llm, emitter: emitter, promptTemplate: promptTemplate
+        context: context, state: state, promptTemplate: promptTemplate
       )
       let action2 = validateAction(output2.action ?? "", options: options)
       state.lastOutputs[persona2.name] = output2
@@ -66,7 +57,7 @@ nonisolated struct ChooseHandler: PhaseHandler {
       state.pairings.append(
         Pairing(agent1: persona1.name, agent2: persona2.name, action1: action1, action2: action2)
       )
-      emitter(
+      context.emitter(
         .pairingResult(
           agent1: persona1.name, action1: action1,
           agent2: persona2.name, action2: action2
@@ -74,16 +65,13 @@ nonisolated struct ChooseHandler: PhaseHandler {
     }
   }
 
-  // swiftlint:disable:next function_parameter_count
   private func callAgent(
     persona: Persona, opponent: Persona,
-    scenario: Scenario, phase: Phase,
-    state: SimulationState, llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void,
+    context: PhaseContext, state: SimulationState,
     promptTemplate: String
   ) async throws -> TurnOutput {
     let systemPrompt = promptBuilder.buildSystemPrompt(
-      scenario: scenario, persona: persona, phase: phase, state: state
+      scenario: context.scenario, persona: persona, phase: context.phase, state: state
     )
 
     var variables = state.variables
@@ -93,27 +81,25 @@ nonisolated struct ChooseHandler: PhaseHandler {
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
     let output = try await llmCaller.call(
-      llm: llm, system: systemPrompt, user: userPrompt,
-      agentName: persona.name, emitter: emitter
+      llm: context.llm, system: systemPrompt, user: userPrompt,
+      agentName: persona.name, emitter: context.emitter
     )
-    emitter(.agentOutput(agent: persona.name, output: output, phaseType: phase.type))
+    context.emitter(
+      .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
     return output
   }
 
   // MARK: - Individual
 
-  // swiftlint:disable:next function_parameter_count
   private func executeIndividual(
-    scenario: Scenario, phase: Phase,
-    state: inout SimulationState, llm: LLMService,
-    emitter: @Sendable (SimulationEvent) -> Void,
+    context: PhaseContext, state: inout SimulationState,
     promptTemplate: String
   ) async throws {
-    for persona in scenario.personas {
+    for persona in context.scenario.personas {
       guard state.eliminated[persona.name] != true else { continue }
 
       let systemPrompt = promptBuilder.buildSystemPrompt(
-        scenario: scenario, persona: persona, phase: phase, state: state
+        scenario: context.scenario, persona: persona, phase: context.phase, state: state
       )
 
       var variables = state.variables
@@ -122,10 +108,11 @@ nonisolated struct ChooseHandler: PhaseHandler {
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(
-        llm: llm, system: systemPrompt, user: userPrompt,
-        agentName: persona.name, emitter: emitter
+        llm: context.llm, system: systemPrompt, user: userPrompt,
+        agentName: persona.name, emitter: context.emitter
       )
-      emitter(.agentOutput(agent: persona.name, output: output, phaseType: phase.type))
+      context.emitter(
+        .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
 
       state.lastOutputs[persona.name] = output
     }

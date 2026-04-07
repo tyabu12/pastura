@@ -31,3 +31,6 @@ in parallel because they await the handler directly without AsyncStream.
 - **`makeTestScenario(agentNames:rounds:phases:context:extraData:)`**: Convenience
   factory for test scenarios. Defaults: 3 agents (`["Alice", "Bob", "Charlie"]`),
   1 round, empty phases. Use this instead of constructing `Scenario` manually.
+- **`makePhaseContext(scenario:phaseIndex:llm:collector:)`**: Convenience factory
+  for `PhaseContext`. Bundles scenario, phase, LLM, and emitter for handler tests.
+  Use this instead of constructing `PhaseContext` manually.
