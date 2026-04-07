@@ -3,7 +3,8 @@ import GRDB
 
 /// Repository for persisting and retrieving simulation records.
 nonisolated public protocol SimulationRepository: Sendable {
-  /// Saves a simulation record. Inserts if new, replaces if existing.
+  /// Saves a simulation record (full-row upsert).
+  /// Inserts if new; replaces **all** columns if the ID already exists.
   func save(_ record: SimulationRecord) throws
 
   /// Fetches a simulation by its unique ID. Returns `nil` if not found.

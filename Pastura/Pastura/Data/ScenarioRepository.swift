@@ -3,7 +3,8 @@ import GRDB
 
 /// Repository for persisting and retrieving scenario records.
 nonisolated public protocol ScenarioRepository: Sendable {
-  /// Saves a scenario record. Inserts if new, replaces if existing.
+  /// Saves a scenario record (full-row upsert).
+  /// Inserts if new; replaces **all** columns if the ID already exists.
   func save(_ record: ScenarioRecord) throws
 
   /// Fetches a scenario by its unique ID. Returns `nil` if not found.
