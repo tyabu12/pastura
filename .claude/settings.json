@@ -47,6 +47,15 @@
             "command": "cd $(git rev-parse --show-toplevel) && xcodebuild build -scheme Pastura -project Pastura/Pastura.xcodeproj -destination 'generic/platform=iOS Simulator' -quiet 2>&1 || (echo 'Build failed. Fix compile errors before committing.' >&2 && exit 2)"
           }
         ]
+      },
+      {
+        "matcher": "Bash(gh pr create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"warning\":\"CLAUDE.md not modified in this branch. Check if implementation progress or memory needs updating.\"}}'"
+          }
+        ]
       }
     ],
     "SessionStart": [
