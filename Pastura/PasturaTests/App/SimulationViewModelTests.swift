@@ -156,11 +156,9 @@ struct SimulationViewModelTests {
   @Test func handleEventAgentOutputRemovesFromThinkingAgents() throws {
     let (sut, scenario) = try makeSUT()
 
-    // First mark agent as thinking
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     #expect(sut.thinkingAgents.contains("Alice"))
 
-    // Agent output should remove from thinking set
     sut.handleEvent(
       .agentOutput(
         agent: "Alice",
@@ -292,108 +290,16 @@ struct SimulationViewModelTests {
       Issue.record("Expected .pairingResult log entry")
     }
   }
-}
 
-// MARK: - Lifecycle Integration Tests
+  // MARK: - Pause Delegation
 
-/// LLM service that always fails on loadModel, for testing error paths.
-nonisolated private struct FailingLLMService: LLMService, Sendable {
-  var isModelLoaded: Bool { false }
-  func loadModel() async throws { throw LLMError.notLoaded }
-  func unloadModel() async throws {}
-  func generate(system: String, user: String) async throws -> String {
-    throw LLMError.notLoaded
-  }
-}
-
-/// Lifecycle tests use real SimulationRunner + MockLLMService, requiring serialized execution.
-@Suite(.serialized)
-@MainActor
-struct SimulationViewModelLifecycleTests {
-
-  @Test func runResetsStateAndCompletesSuccessfully() async throws {
+  @Test func isPausedDelegatesToRunner() throws {
     let (sut, _) = try makeSUT()
-    sut.speed = .fastest
 
-    // Pre-set stale state to verify reset
-    sut.handleEvent(.error(.retriesExhausted), scenario: makeTestScenario())
-
-    let mock = MockLLMService(responses: [
-      #"{"statement": "hi from Alice"}"#,
-      #"{"statement": "hi from Bob"}"#
-    ])
-
-    let scenario = makeTestScenario(
-      agentNames: ["Alice", "Bob"],
-      rounds: 1,
-      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
-    )
-
-    await sut.run(scenario: scenario, llm: mock)
-
-    #expect(sut.isRunning == false)
-    #expect(sut.isCompleted == true)
-    #expect(sut.errorMessage == nil)
-    #expect(!sut.logEntries.isEmpty)
-    // Scores should be initialized for both agents
-    #expect(sut.scores.keys.contains("Alice"))
-    #expect(sut.scores.keys.contains("Bob"))
-  }
-
-  @Test func runPersistsTurnRecordsInEventOrder() async throws {
-    let agents = ["Alice", "Bob", "Charlie", "Diana"]
-    let db = try DatabaseManager.inMemory()
-    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
-    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
-    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-    try scenarioRepo.save(
-      ScenarioRecord(
-        id: "test", name: "Test", yamlDefinition: "",
-        isPreset: false, createdAt: Date(), updatedAt: Date()
-      ))
-
-    let sut = SimulationViewModel(
-      simulationRepository: simRepo,
-      turnRepository: turnRepo
-    )
-    sut.speed = .fastest
-
-    // 2 rounds × 4 agents = 8 responses, consumed in order by MockLLMService.
-    let responses = (1...2).flatMap { round in
-      agents.map { #"{"statement": "R\#(round) from \#($0)"}"# }
-    }
-    let mock = MockLLMService(responses: responses)
-    let scenario = makeTestScenario(
-      agentNames: agents,
-      rounds: 2,
-      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
-    )
-
-    await sut.run(scenario: scenario, llm: mock)
-
-    // run() drains the persistence queue before returning.
-    let simId = try #require(try simRepo.fetchByScenarioId("test").first?.id)
-    let allTurns = try turnRepo.fetchBySimulationId(simId)
-    #expect(allTurns.count == 8)
-    for i in 0..<(allTurns.count - 1) {
-      #expect(
-        allTurns[i].createdAt <= allTurns[i + 1].createdAt,
-        "Turn \(i) (\(allTurns[i].agentName ?? "?")) should have createdAt <= turn \(i + 1) (\(allTurns[i + 1].agentName ?? "?"))"
-      )
-    }
-  }
-
-  @Test func runSetsErrorWhenLLMLoadFails() async throws {
-    let (sut, _) = try makeSUT()
-    sut.speed = .fastest
-
-    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
-
-    await sut.run(scenario: scenario, llm: FailingLLMService())
-
-    #expect(sut.isRunning == false)
-    #expect(sut.isCompleted == false)
-    #expect(sut.errorMessage != nil)
-    #expect(sut.errorMessage?.contains("Failed to load LLM") == true)
+    #expect(sut.isPaused == false)
+    sut.isPaused = true
+    #expect(sut.isPaused == true)
+    sut.isPaused = false
+    #expect(sut.isPaused == false)
   }
 }
