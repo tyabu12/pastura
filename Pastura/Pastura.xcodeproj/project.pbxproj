@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E0BCA52B2F83E9670025BAE6 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52A2F83E9670025BAE6 /* Yams */; };
 		E0BCA52E2F83EA4C0025BAE6 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52D2F83EA4C0025BAE6 /* GRDB */; };
+		E0BCA53002F83EA4C0025BAE6 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52F02F83EA4C0025BAE6 /* GRDB */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +67,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E0BCA53002F83EA4C0025BAE6 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +146,7 @@
 			);
 			name = PasturaTests;
 			packageProductDependencies = (
+				E0BCA52F02F83EA4C0025BAE6 /* GRDB */,
 			);
 			productName = PasturaTests;
 			productReference = E0BCA4C62F83E7E10025BAE6 /* PasturaTests.xctest */;
@@ -618,6 +621,11 @@
 			productName = Yams;
 		};
 		E0BCA52D2F83EA4C0025BAE6 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E0BCA52C2F83EA4C0025BAE6 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+		E0BCA52F02F83EA4C0025BAE6 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E0BCA52C2F83EA4C0025BAE6 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;

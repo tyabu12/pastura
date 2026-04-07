@@ -7,7 +7,7 @@
 **Phase 1: MVP development** — See `docs/ROADMAP.md` for scope and Go/No-Go criteria.
 If a requested feature is listed under Phase 2 or Phase 3, do not implement it — reference the roadmap and defer.
 
-Implementation progress: `Models ✅ → LLM ✅ → Engine 🔧 → Data → Views → App → Integration test`
+Implementation progress: `Models ✅ → LLM ✅ → Engine ✅ → Data ✅ → Views → App → Integration test`
 
 ## Language Rules
 
@@ -70,7 +70,7 @@ Utilities/ → depends on nothing
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
   `AsyncStream` over callbacks. Engine/LLM work runs on non-main actors or default executor.
 - **Default Actor Isolation:** Project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
-  All types in `Models/`, `LLM/`, and `Engine/` **MUST** be marked `nonisolated` at the
+  All types in `Models/`, `LLM/`, `Engine/`, and `Data/` **MUST** be marked `nonisolated` at the
   type level to avoid unnecessary MainActor binding.
   `Views/` and `App/` use the default (MainActor).
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.

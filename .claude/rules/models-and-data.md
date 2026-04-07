@@ -99,3 +99,35 @@ turns (
 
 CREATE INDEX idx_turns_simulation_round ON turns(simulationId, roundNumber);
 ```
+
+## Data Layer Implementation
+
+### DatabaseManager
+
+`DatabaseManager` is the top-level coordinator. Factory methods:
+- `DatabaseManager.inMemory()` — for tests
+- `DatabaseManager.persistent(at:)` — for production
+
+Exposes `dbWriter: any DatabaseWriter` for repository construction.
+Migrations are applied automatically on init via `DatabaseMigrator`.
+
+### Record Types (Data/Models/)
+
+GRDB records conforming to `FetchableRecord` + `PersistableRecord`:
+- `ScenarioRecord` — maps to `scenarios` table
+- `SimulationRecord` — maps to `simulations` table; `stateJSON` stores serialized `SimulationState`
+- `TurnRecord` — maps to `turns` table; `rawOutput` stores unfiltered LLM response
+
+`SimulationRecord` has a `simulationStatus` convenience property for type-safe access.
+All records use `var` properties (GRDB convention for mutable persistence).
+
+### Repository Protocols
+
+| Protocol | Implementation | Key Operations |
+|----------|---------------|----------------|
+| `ScenarioRepository` | `GRDBScenarioRepository` | save (upsert), fetchById, fetchAll, fetchPresets, delete |
+| `SimulationRepository` | `GRDBSimulationRepository` | save, fetchById, fetchByScenarioId, updateState, updateStatus, delete |
+| `TurnRepository` | `GRDBTurnRepository` | save, saveBatch, fetchBySimulationId, fetchBySimulationAndRound, deleteBySimulationId |
+
+Repositories take `any DatabaseWriter` in their initializer. All methods are synchronous (`throws`).
+`updateState` and `updateStatus` throw `DataError.recordNotFound` for missing records.
