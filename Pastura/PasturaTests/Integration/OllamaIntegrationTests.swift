@@ -88,6 +88,17 @@ struct OllamaIntegrationTests {
     }
   }
 
+  /// Asserts that all `pairingResult` events contain valid cooperate/betray actions.
+  private func assertPairingActionsValid(in events: [SimulationEvent]) {
+    let validActions: Set<String> = ["cooperate", "betray"]
+    for event in events {
+      if case .pairingResult(let agent1, let action1, let agent2, let action2) = event {
+        #expect(validActions.contains(action1), "\(agent1) chose invalid action '\(action1)'")
+        #expect(validActions.contains(action2), "\(agent2) chose invalid action '\(action2)'")
+      }
+    }
+  }
+
   // MARK: - Test 1: Minimal speakAll
 
   @Test(.timeLimit(.minutes(2)))
@@ -199,24 +210,7 @@ struct OllamaIntegrationTests {
     #expect(!scoreUpdates.isEmpty, "No score updates emitted")
 
     // Pairing results have valid actions
-    let pairings = events.compactMap {
-      event -> (String, String, String, String)? in
-      if case .pairingResult(let a1, let act1, let a2, let act2) = event {
-        return (a1, act1, a2, act2)
-      }
-      return nil
-    }
-    let validActions: Set<String> = ["cooperate", "betray"]
-    for (agent1, action1, agent2, action2) in pairings {
-      #expect(
-        validActions.contains(action1),
-        "\(agent1) chose invalid action '\(action1)'"
-      )
-      #expect(
-        validActions.contains(action2),
-        "\(agent2) chose invalid action '\(action2)'"
-      )
-    }
+    assertPairingActionsValid(in: events)
   }
 
   // MARK: - Test 3: JSONResponseParser with real E2B output
