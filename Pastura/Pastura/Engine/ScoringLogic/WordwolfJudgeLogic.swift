@@ -2,8 +2,8 @@ import Foundation
 
 /// Word wolf judge scoring logic.
 ///
-/// Checks if the most-voted agent matches the wolf name stored in
-/// state variables. Emits a summary describing the result.
+/// Checks if the most-voted agent matches `state.variables["wolf_name"]`.
+/// Emits a summary describing the result.
 nonisolated struct WordwolfJudgeLogic: Sendable {
 
   func calculate(
