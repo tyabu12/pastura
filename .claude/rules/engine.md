@@ -60,6 +60,7 @@ Cancellation uses standard Swift `Task` cancellation.
 
 | Parameter        | Limit   | Behavior           |
 |------------------|---------|---------------------|
+| agents           | ≥ 2     | Error if below      |
 | agents           | ≤ 10    | Error if exceeded   |
 | rounds           | ≤ 30    | Error if exceeded   |
 | est. inferences  | > 50    | Warning displayed   |
