@@ -25,28 +25,12 @@ struct SimulationRunnerTests {
     let events = await collectAllEvents(runner.run(scenario: scenario, llm: mock))
 
     // Round lifecycle
-    #expect(
-      events.contains {
-        if case .roundStarted(let r, let t) = $0 { return r == 1 && t == 1 }
-        return false
-      })
-    #expect(
-      events.contains {
-        if case .roundCompleted(let r, _) = $0 { return r == 1 }
-        return false
-      })
+    #expect(events.contains { if case .roundStarted(1, 1) = $0 { true } else { false } })
+    #expect(events.contains { if case .roundCompleted(1, _) = $0 { true } else { false } })
 
     // Phase lifecycle
-    #expect(
-      events.contains {
-        if case .phaseStarted(let t, _) = $0 { return t == .speakAll }
-        return false
-      })
-    #expect(
-      events.contains {
-        if case .phaseCompleted(let t, _) = $0 { return t == .speakAll }
-        return false
-      })
+    #expect(events.contains { if case .phaseStarted(.speakAll, _) = $0 { true } else { false } })
+    #expect(events.contains { if case .phaseCompleted(.speakAll, _) = $0 { true } else { false } })
 
     // Simulation completed
     #expect(

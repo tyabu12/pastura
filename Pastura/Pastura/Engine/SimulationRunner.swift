@@ -56,99 +56,108 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
   // MARK: - Private
 
+  /// Shared context passed through the simulation execution pipeline.
+  private struct ExecutionContext: Sendable {
+    let scenario: Scenario
+    let llm: LLMService
+    let dispatcher: PhaseDispatcher
+    let isPausedLock: OSAllocatedUnfairLock<Bool>
+    let emitter: @Sendable (SimulationEvent) -> Void
+  }
+
+  // swiftlint:disable:next function_parameter_count
   private static func executeSimulation(
-    scenario: Scenario,
-    llm: LLMService,
-    dispatcher: PhaseDispatcher,
-    validator: ScenarioValidator,
+    scenario: Scenario, llm: LLMService,
+    dispatcher: PhaseDispatcher, validator: ScenarioValidator,
     isPausedLock: OSAllocatedUnfairLock<Bool>,
-    emitter: @Sendable (SimulationEvent) -> Void
+    emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
     // Validate scenario
-    let validationResult: ScenarioValidator.ValidationResult
     do {
-      validationResult = try validator.validate(scenario)
-    } catch {
-      if let simError = error as? SimulationError {
-        emitter(.error(simError))
-      } else {
-        emitter(.error(.scenarioValidationFailed("\(error)")))
+      let result = try validator.validate(scenario)
+      for warning in result.warnings {
+        emitter(.summary(text: "⚠️ \(warning)"))
       }
+    } catch {
+      emitter(.error(error as? SimulationError ?? .scenarioValidationFailed("\(error)")))
       return
     }
 
-    // Emit warnings
-    for warning in validationResult.warnings {
-      emitter(.summary(text: "⚠️ \(warning)"))
-    }
+    let ctx = ExecutionContext(
+      scenario: scenario, llm: llm, dispatcher: dispatcher,
+      isPausedLock: isPausedLock, emitter: emitter
+    )
 
-    // Initialize state
     var state = SimulationState.initial(for: scenario)
+    await runRoundLoop(ctx: ctx, state: &state)
+  }
 
-    // Round loop
-    for round in 1...scenario.rounds {
-      // Check cancellation
+  private static func runRoundLoop(ctx: ExecutionContext, state: inout SimulationState) async {
+    for round in 1...ctx.scenario.rounds {
       if Task.isCancelled {
-        emitter(.error(.cancelled))
+        ctx.emitter(.error(.cancelled))
         return
       }
 
-      // Check pause
-      while isPausedLock.withLock({ $0 }) {
-        emitter(.simulationPaused(round: round, phaseIndex: 0))
-        do {
-          try await Task.sleep(for: .milliseconds(100))
-        } catch {
-          // Task cancelled during sleep
-          emitter(.error(.cancelled))
-          return
-        }
-      }
+      if await checkPaused(ctx: ctx, round: round) { return }
 
-      // Check active agent count
       let activeCount = state.eliminated.values.filter { !$0 }.count
-      if activeCount < 2 {
-        break
-      }
+      if activeCount < 2 { break }
 
-      // Reset per-round state (matching prototype behavior)
       state.conversationLog = []
       state.pairings = []
       state.currentRound = round
       state.variables["current_round"] = "\(round)"
 
-      emitter(.roundStarted(round: round, totalRounds: scenario.rounds))
+      ctx.emitter(.roundStarted(round: round, totalRounds: ctx.scenario.rounds))
 
-      // Phase loop
-      for (phaseIndex, phase) in scenario.phases.enumerated() {
-        if Task.isCancelled {
-          emitter(.error(.cancelled))
-          return
-        }
+      if await executePhases(ctx: ctx, state: &state) { return }
 
-        emitter(.phaseStarted(phaseType: phase.type, phaseIndex: phaseIndex))
-
-        do {
-          let handler = try dispatcher.handler(for: phase.type)
-          try await handler.execute(
-            scenario: scenario, phase: phase, state: &state,
-            llm: llm, emitter: emitter
-          )
-        } catch {
-          if let simError = error as? SimulationError {
-            emitter(.error(simError))
-          } else {
-            emitter(.error(.llmGenerationFailed(description: "\(error)")))
-          }
-          return
-        }
-
-        emitter(.phaseCompleted(phaseType: phase.type, phaseIndex: phaseIndex))
-      }
-
-      emitter(.roundCompleted(round: round, scores: state.scores))
+      ctx.emitter(.roundCompleted(round: round, scores: state.scores))
     }
 
-    emitter(.simulationCompleted)
+    ctx.emitter(.simulationCompleted)
+  }
+
+  /// Returns `true` if cancelled during pause wait.
+  private static func checkPaused(ctx: ExecutionContext, round: Int) async -> Bool {
+    while ctx.isPausedLock.withLock({ $0 }) {
+      ctx.emitter(.simulationPaused(round: round, phaseIndex: 0))
+      do {
+        try await Task.sleep(for: .milliseconds(100))
+      } catch {
+        ctx.emitter(.error(.cancelled))
+        return true
+      }
+    }
+    return false
+  }
+
+  /// Returns `true` if an error occurred and the simulation should stop.
+  private static func executePhases(ctx: ExecutionContext, state: inout SimulationState) async
+    -> Bool {
+    for (phaseIndex, phase) in ctx.scenario.phases.enumerated() {
+      if Task.isCancelled {
+        ctx.emitter(.error(.cancelled))
+        return true
+      }
+
+      ctx.emitter(.phaseStarted(phaseType: phase.type, phaseIndex: phaseIndex))
+
+      do {
+        let handler = try ctx.dispatcher.handler(for: phase.type)
+        try await handler.execute(
+          scenario: ctx.scenario, phase: phase, state: &state,
+          llm: ctx.llm, emitter: ctx.emitter
+        )
+      } catch {
+        ctx.emitter(
+          .error(error as? SimulationError ?? .llmGenerationFailed(description: "\(error)")))
+        return true
+      }
+
+      ctx.emitter(.phaseCompleted(phaseType: phase.type, phaseIndex: phaseIndex))
+    }
+    return false
   }
 }

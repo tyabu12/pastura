@@ -2,6 +2,7 @@ import Testing
 
 @testable import Pastura
 
+// swiftlint:disable:next type_body_length
 struct ScenarioLoaderTests {
   let loader = ScenarioLoader()
 
@@ -53,6 +54,7 @@ struct ScenarioLoaderTests {
     #expect(phase.outputSchema?["statement"] == "string")
   }
 
+  // swiftlint:disable:next function_body_length
   @Test func parsesPhaseWithAllFields() throws {
     let yaml = """
       id: test

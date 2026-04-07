@@ -9,10 +9,8 @@ nonisolated struct VoteTallyLogic: Sendable {
     state: inout SimulationState,
     emitter: @Sendable (SimulationEvent) -> Void
   ) {
-    for (name, count) in state.voteResults {
-      if state.scores[name] != nil {
-        state.scores[name, default: 0] += count
-      }
+    for (name, count) in state.voteResults where state.scores[name] != nil {
+      state.scores[name, default: 0] += count
     }
     emitter(.scoreUpdate(scores: state.scores))
   }

@@ -70,8 +70,8 @@ struct ChooseHandlerTests {
     )
 
     let pairingEvents = collector.events.compactMap { event -> String? in
-      if case .pairingResult(let a1, let act1, let a2, let act2) = event {
-        return "\(a1)(\(act1)) vs \(a2)(\(act2))"
+      if case .pairingResult(let agent1, let action1, let agent2, let action2) = event {
+        return "\(agent1)(\(action1)) vs \(agent2)(\(action2))"
       }
       return nil
     }

@@ -45,8 +45,8 @@ nonisolated struct AssignHandler: PhaseHandler {
     let topic = topics.randomElement()!  // Safe: guard ensures non-empty
     let wolfIdx = Int.random(in: 0..<active.count)
 
-    for (i, persona) in active.enumerated() {
-      if i == wolfIdx {
+    for (index, persona) in active.enumerated() {
+      if index == wolfIdx {
         let value = topic["minority"] ?? ""
         state.variables["assigned_\(persona.name)"] = value
         state.variables["wolf_name"] = persona.name

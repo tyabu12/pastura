@@ -42,23 +42,22 @@ nonisolated struct ScenarioLoader: Sendable {
   /// - `choose`: agentCount × 2 (round_robin) or agentCount (individual)
   /// - Code phases: 0
   static func estimateInferenceCount(_ scenario: Scenario) -> Int {
-    let n = scenario.agentCount
+    let agents = scenario.agentCount
     var perRound = 0
 
     for phase in scenario.phases {
       switch phase.type {
       case .speakAll:
-        perRound += n
+        perRound += agents
       case .speakEach:
-        perRound += n * (phase.subRounds ?? 1)
+        perRound += agents * (phase.subRounds ?? 1)
       case .vote:
-        perRound += n
+        perRound += agents
       case .choose:
         if phase.pairing == .roundRobin {
-          // N adjacent pairs, 2 LLM calls each
-          perRound += n * 2
+          perRound += agents * 2
         } else {
-          perRound += n
+          perRound += agents
         }
       case .scoreCalc, .assign, .eliminate, .summarize:
         break
@@ -80,27 +79,30 @@ nonisolated struct ScenarioLoader: Sendable {
     return filtered.joined(separator: "\n")
   }
 
+  /// Extracts a required string field from a YAML dictionary.
+  private func requireString(_ dict: [String: Any], key: String) throws -> String {
+    if let value = dict[key] as? String { return value }
+    if let value = dict[key] { return "\(value)" }
+    throw SimulationError.scenarioValidationFailed("Missing required field: \(key)")
+  }
+
+  /// Extracts a required integer field from a YAML dictionary.
+  private func requireInt(_ dict: [String: Any], key: String) throws -> Int {
+    guard let value = dict[key] as? Int else {
+      throw SimulationError.scenarioValidationFailed("Missing required field: \(key)")
+    }
+    return value
+  }
+
   /// Maps a raw YAML dictionary to a ``Scenario`` model.
   private func mapToScenario(_ dict: [String: Any]) throws -> Scenario {
-    // Required fields
-    guard let id = dict["id"] as? String ?? (dict["id"].map { "\($0)" }) else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: id")
-    }
-    guard let name = dict["name"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: name")
-    }
-    guard let description = dict["description"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: description")
-    }
-    guard let agentCount = dict["agents"] as? Int else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: agents")
-    }
-    guard let rounds = dict["rounds"] as? Int else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: rounds")
-    }
-    guard let context = dict["context"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: context")
-    }
+    let id = try requireString(dict, key: "id")
+    let name = try requireString(dict, key: "name")
+    let description = try requireString(dict, key: "description")
+    let agentCount = try requireInt(dict, key: "agents")
+    let rounds = try requireInt(dict, key: "rounds")
+    let context = try requireString(dict, key: "context")
+
     guard let personasRaw = dict["personas"] as? [[String: Any]] else {
       throw SimulationError.scenarioValidationFailed("Missing or invalid field: personas")
     }
@@ -108,40 +110,35 @@ nonisolated struct ScenarioLoader: Sendable {
       throw SimulationError.scenarioValidationFailed("Missing or invalid field: phases")
     }
 
-    // Parse personas
     let personas = try personasRaw.map { try mapPersona($0) }
-
-    // Validate agent count matches personas
     if personas.count != agentCount {
       throw SimulationError.scenarioValidationFailed(
         "agents (\(agentCount)) does not match personas count (\(personas.count))"
       )
     }
 
-    // Parse phases
     let phases = try phasesRaw.enumerated().map { index, raw in
       try mapPhase(raw, index: index)
     }
 
-    // Collect extra data (non-standard top-level keys)
+    let extraData = collectExtraData(from: dict)
+
+    return Scenario(
+      id: id, name: name, description: description,
+      agentCount: agentCount, rounds: rounds, context: context,
+      personas: personas, phases: phases, extraData: extraData
+    )
+  }
+
+  /// Collects non-standard top-level keys as extra data.
+  private func collectExtraData(from dict: [String: Any]) -> [String: AnyCodableValue] {
     var extraData: [String: AnyCodableValue] = [:]
     for (key, value) in dict where !Self.standardKeys.contains(key) {
       if let converted = convertToAnyCodableValue(value) {
         extraData[key] = converted
       }
     }
-
-    return Scenario(
-      id: id,
-      name: name,
-      description: description,
-      agentCount: agentCount,
-      rounds: rounds,
-      context: context,
-      personas: personas,
-      phases: phases,
-      extraData: extraData
-    )
+    return extraData
   }
 
   private func mapPersona(_ dict: [String: Any]) throws -> Persona {

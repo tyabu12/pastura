@@ -45,10 +45,8 @@ nonisolated struct PromptBuilder: Sendable {
   /// field names. Falls back to `"statement"` to avoid non-deterministic dictionary iteration.
   func getMainField(phase: Phase) -> String {
     guard let schema = phase.outputSchema else { return "statement" }
-    for candidate in Self.mainFieldPriority {
-      if schema[candidate] != nil {
-        return candidate
-      }
+    for candidate in Self.mainFieldPriority where schema[candidate] != nil {
+      return candidate
     }
     return "statement"
   }

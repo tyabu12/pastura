@@ -21,60 +21,51 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
     if phase.pairing == .roundRobin {
       try await executeRoundRobin(
-        scenario: scenario, phase: phase, state: &state, llm: llm,
-        emitter: emitter, promptTemplate: promptTemplate, options: options
+        scenario: scenario, phase: phase, state: &state,
+        llm: llm, emitter: emitter, promptTemplate: promptTemplate, options: options
       )
     } else {
       try await executeIndividual(
-        scenario: scenario, phase: phase, state: &state, llm: llm,
-        emitter: emitter, promptTemplate: promptTemplate, options: options
+        scenario: scenario, phase: phase, state: &state,
+        llm: llm, emitter: emitter, promptTemplate: promptTemplate
       )
     }
   }
 
   // MARK: - Round Robin
 
+  // swiftlint:disable:next function_parameter_count
   private func executeRoundRobin(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
+    scenario: Scenario, phase: Phase,
+    state: inout SimulationState, llm: LLMService,
     emitter: @Sendable (SimulationEvent) -> Void,
-    promptTemplate: String,
-    options: [String]
+    promptTemplate: String, options: [String]
   ) async throws {
     let active = scenario.personas.filter { state.eliminated[$0.name] != true }
-    // Adjacent pairs matching prototype: (0,1), (1,2), ..., (N-1,0)
-    let pairs = (0..<active.count).map { i in
-      (active[i], active[(i + 1) % active.count])
+    let pairs = (0..<active.count).map { idx in
+      (active[idx], active[(idx + 1) % active.count])
     }
 
     for (persona1, persona2) in pairs {
-      var action1 = ""
-      var action2 = ""
-
-      // Agent 1 chooses
-      let output1 = try await callForAgent(
+      let output1 = try await callAgent(
         persona: persona1, opponent: persona2,
         scenario: scenario, phase: phase, state: state,
         llm: llm, emitter: emitter, promptTemplate: promptTemplate
       )
-      action1 = validateAction(output1.action ?? "", options: options)
+      let action1 = validateAction(output1.action ?? "", options: options)
       state.lastOutputs[persona1.name] = output1
 
-      // Agent 2 chooses
-      let output2 = try await callForAgent(
+      let output2 = try await callAgent(
         persona: persona2, opponent: persona1,
         scenario: scenario, phase: phase, state: state,
         llm: llm, emitter: emitter, promptTemplate: promptTemplate
       )
-      action2 = validateAction(output2.action ?? "", options: options)
+      let action2 = validateAction(output2.action ?? "", options: options)
       state.lastOutputs[persona2.name] = output2
 
       state.pairings.append(
         Pairing(agent1: persona1.name, agent2: persona2.name, action1: action1, action2: action2)
       )
-
       emitter(
         .pairingResult(
           agent1: persona1.name, action1: action1,
@@ -83,13 +74,11 @@ nonisolated struct ChooseHandler: PhaseHandler {
     }
   }
 
-  private func callForAgent(
-    persona: Persona,
-    opponent: Persona,
-    scenario: Scenario,
-    phase: Phase,
-    state: SimulationState,
-    llm: LLMService,
+  // swiftlint:disable:next function_parameter_count
+  private func callAgent(
+    persona: Persona, opponent: Persona,
+    scenario: Scenario, phase: Phase,
+    state: SimulationState, llm: LLMService,
     emitter: @Sendable (SimulationEvent) -> Void,
     promptTemplate: String
   ) async throws -> TurnOutput {
@@ -113,14 +102,12 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
   // MARK: - Individual
 
+  // swiftlint:disable:next function_parameter_count
   private func executeIndividual(
-    scenario: Scenario,
-    phase: Phase,
-    state: inout SimulationState,
-    llm: LLMService,
+    scenario: Scenario, phase: Phase,
+    state: inout SimulationState, llm: LLMService,
     emitter: @Sendable (SimulationEvent) -> Void,
-    promptTemplate: String,
-    options: [String]
+    promptTemplate: String
   ) async throws {
     for persona in scenario.personas {
       guard state.eliminated[persona.name] != true else { continue }
@@ -146,7 +133,6 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
   // MARK: - Helpers
 
-  /// Falls back to first option if action is not in the valid options list.
   private func validateAction(_ action: String, options: [String]) -> String {
     if options.isEmpty { return action }
     return options.contains(action) ? action : options[0]
