@@ -1,0 +1,85 @@
+id: word_wolf
+name: ワードウルフ
+description: >
+  5人の参加者に「お題」が配られるが、1人だけ違うお題を持つ少数派（ウルフ）。
+  会話から少数派を見抜き、投票で当てるゲーム。
+agents: 5
+rounds: 1
+context: >
+  あなたはゲーム番組「ワードウルフ」の出場者です。
+  全員にお題が1つ配られていますが、1人だけ違うお題を持っています。
+  お題の単語そのものは絶対に言ってはいけません。
+  お題について会話し、最後に投票で少数派（ウルフ）を当てます。
+  自分が多数派か少数派かは分かりません。
+
+words:
+  - majority: りんご
+    minority: みかん
+
+personas:
+  - name: ユウキ
+    description: >
+      【立場】慎重派の観察者
+      【目的】自分からは情報を出さず、他人の発言を観察する。
+      口調は落ち着いている。例:「そうですね、確かにそういう面もありますね」
+  - name: サクラ
+    description: >
+      【立場】積極的なおしゃべり
+      【目的】具体的なエピソードを交えて話す。
+      口調は明るい。例:「私この前それやったんだけど、すっごく楽しかった！」
+  - name: タクミ
+    description: >
+      【立場】分析的な推理派
+      【目的】他の人の発言の矛盾を見つけようとする。
+      口調は知的。例:「ちょっと待って、それってさっきの話と矛盾してない？」
+  - name: アオイ
+    description: >
+      【立場】のんびり屋の天然タイプ
+      【目的】あまり深く考えず素直に話す。
+      口調はゆったり。例:「えー、なんか好きだなー、あったかい感じがして」
+  - name: レン
+    description: >
+      【立場】駆け引き上手なポーカーフェイス
+      【目的】わざと曖昧な発言をして様子を見る。
+      口調はクール。例:「まあ、人それぞれだよね」
+
+phases:
+  - type: assign
+    source: words
+    target: all
+
+  - type: speak_each
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      お題について話してください。お題の単語そのものは絶対に言わないこと。
+      他の人の発言をよく観察して、少数派を見つける手がかりを探してください。
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 3
+
+  - type: vote
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      会話ログ:
+      {conversation_log}
+
+      少数派（ウルフ）だと思う人に投票してください。
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: eliminate
+  - type: score_calc
+    logic: wordwolf_judge
+
+  - type: summarize
+    template: >
+      投票結果: {vote_results}
+      判定: {scoreboard}

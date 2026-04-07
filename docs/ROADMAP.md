@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-06
+> Last updated: 2026-04-08
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -18,7 +18,7 @@
 - Scenario generation prompt created and tested
 
 ### Remaining items (carry into Phase 1)
-- Word Wolf E2B live test (preset #3 confirmation)
+- Word Wolf E2B live test (preset #3 confirmation) ✅ Confirmed in PR #36
 - E4B / Claude quality comparison (low priority)
 
 ### Key learnings (documented in pastura-phase0-assessment.md)
@@ -47,23 +47,23 @@
 
 ### MVP Scope (what's IN)
 
-| Feature                        | Status |
-|--------------------------------|--------|
-| Preset scenarios (2–3)         | To do  |
-| YAML scenario import           | To do  |
-| YAML validation + error display| To do  |
-| All 8 phase types              | To do  |
-| Foreground simulation execution| To do  |
-| Real-time log display          | To do  |
-| Inner thought (tap to reveal)  | To do  |
-| Phase type visualization       | To do  |
-| Scoreboard (modal)             | To do  |
-| Playback controls (pause/speed)| To do  |
-| Past results viewer            | To do  |
-| Debug mode (raw JSON)          | To do  |
-| NG word filter                 | To do  |
-| Scenario gen prompt (copyable) | To do  |
-| TestFlight distribution        | To do  |
+| Feature                        | Status   |
+|--------------------------------|----------|
+| Preset scenarios (2–3)         | Done     |
+| YAML scenario import           | Done     |
+| YAML validation + error display| Done     |
+| All 8 phase types              | Done     |
+| Foreground simulation execution| Done     |
+| Real-time log display          | Done     |
+| Inner thought (tap to reveal)  | Done     |
+| Phase type visualization       | Done     |
+| Scoreboard (modal)             | Done     |
+| Playback controls (pause/speed)| Done     |
+| Past results viewer            | Done     |
+| Debug mode (raw JSON)          | Done     |
+| NG word filter                 | Done     |
+| Scenario gen prompt (copyable) | Done     |
+| TestFlight distribution        | To do    |
 
 ### What is NOT in MVP (defer to Phase 2+)
 
