@@ -128,6 +128,7 @@ final class SimulationViewModel {
 
   // MARK: - Event Handling
 
+  // internal (not private) to allow direct unit testing via @testable import
   func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
     switch event {
     case .roundStarted(let round, let total):
@@ -154,6 +155,7 @@ final class SimulationViewModel {
     }
   }
 
+  // internal (not private) to allow direct unit testing via @testable import
   /// Handles score, vote, and other output-related events.
   func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
