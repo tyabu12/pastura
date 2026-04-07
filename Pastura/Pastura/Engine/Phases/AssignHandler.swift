@@ -42,7 +42,7 @@ nonisolated struct AssignHandler: PhaseHandler {
       return
     }
 
-    let topic = topics.randomElement()!  // Safe: guard ensures non-empty
+    guard let topic = topics.randomElement() else { return }
     let wolfIdx = Int.random(in: 0..<active.count)
 
     for (index, persona) in active.enumerated() {

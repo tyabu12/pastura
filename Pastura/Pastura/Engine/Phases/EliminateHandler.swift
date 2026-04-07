@@ -16,9 +16,11 @@ nonisolated struct EliminateHandler: PhaseHandler {
     guard !state.voteResults.isEmpty else { return }
 
     // Find the most-voted agent (deterministic tie-breaking: sorted name)
-    let mostVoted = state.voteResults
-      .sorted { ($0.value, $1.key) > ($1.value, $0.key) }
-      .first!
+    guard
+      let mostVoted = state.voteResults
+        .sorted(by: { ($0.value, $1.key) > ($1.value, $0.key) })
+        .first
+    else { return }
 
     state.eliminated[mostVoted.key] = true
     emitter(.elimination(agent: mostVoted.key, voteCount: mostVoted.value))
