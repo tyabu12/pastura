@@ -292,3 +292,64 @@ struct SimulationViewModelTests {
     }
   }
 }
+
+// MARK: - Lifecycle Integration Tests
+
+/// LLM service that always fails on loadModel, for testing error paths.
+nonisolated private struct FailingLLMService: LLMService, Sendable {
+  var isModelLoaded: Bool { false }
+  func loadModel() async throws { throw LLMError.notLoaded }
+  func unloadModel() async throws {}
+  func generate(system: String, user: String) async throws -> String {
+    throw LLMError.notLoaded
+  }
+}
+
+/// Lifecycle tests use real SimulationRunner + MockLLMService, requiring serialized execution.
+@Suite(.serialized)
+@MainActor
+struct SimulationViewModelLifecycleTests {
+
+  @Test func runResetsStateAndCompletesSuccessfully() async throws {
+    let (sut, _) = try makeSUT()
+    sut.speed = .fastest
+
+    // Pre-set stale state to verify reset
+    sut.handleEvent(.error(.retriesExhausted), scenario: makeTestScenario())
+
+    let mock = MockLLMService(responses: [
+      #"{"statement": "hi from Alice"}"#,
+      #"{"statement": "hi from Bob"}"#
+    ])
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    await sut.run(scenario: scenario, llm: mock)
+
+    #expect(sut.isRunning == false)
+    #expect(sut.isCompleted == true)
+    #expect(sut.errorMessage == nil)
+    #expect(!sut.logEntries.isEmpty)
+    // Scores should be initialized for both agents
+    #expect(sut.scores.keys.contains("Alice"))
+    #expect(sut.scores.keys.contains("Bob"))
+  }
+
+  @Test func runSetsErrorWhenLLMLoadFails() async throws {
+    let (sut, _) = try makeSUT()
+    sut.speed = .fastest
+
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
+
+    await sut.run(scenario: scenario, llm: FailingLLMService())
+
+    #expect(sut.isRunning == false)
+    #expect(sut.isCompleted == false)
+    #expect(sut.errorMessage != nil)
+    #expect(sut.errorMessage?.contains("Failed to load LLM") == true)
+  }
+}
