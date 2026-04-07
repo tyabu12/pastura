@@ -117,7 +117,7 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 ### Test Execution
 
 ```bash
-DEST='platform=iOS Simulator,name=iPhone 16'
+DEST='platform=iOS Simulator,OS=26.3.1,name=iPhone 16'
 
 # Run all tests
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST"
@@ -125,6 +125,12 @@ xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination 
 # Run specific test class
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
   -only-testing PasturaTests/JSONResponseParserTests
+
+# Run Ollama integration tests (requires local Ollama with target model pulled)
+# Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
+xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
+  -only-testing PasturaTests/OllamaIntegrationTests
+# These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
 ```
 
 ## Directory Structure

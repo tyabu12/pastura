@@ -189,13 +189,4 @@ struct SimulationRunnerTests {
     #expect(summaries.contains("Round 1 complete"))
   }
 
-  // MARK: - Helpers
-
-  private func collectAllEvents(_ stream: AsyncStream<SimulationEvent>) async -> [SimulationEvent] {
-    var events: [SimulationEvent] = []
-    for await event in stream {
-      events.append(event)
-    }
-    return events
-  }
 }
