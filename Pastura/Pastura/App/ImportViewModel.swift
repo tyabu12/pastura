@@ -1,11 +1,9 @@
 import Foundation
 
-// @MainActor is explicit for Xcode 16.x CI compatibility. See #37.
-
 /// ViewModel for the YAML scenario import screen.
 ///
 /// Handles YAML input validation, parsing feedback, and saving to the repository.
-@MainActor @Observable
+@Observable
 final class ImportViewModel {
   var yamlText: String = ""
   private(set) var validationErrors: [String] = []

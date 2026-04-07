@@ -12,6 +12,9 @@ _simdest_old_opts=$(set +o)
 set -euo pipefail
 
 SIMULATOR_NAMES=(
+  "iPhone 17 Pro"
+  "iPhone 17"
+  "iPhone Air"
   "iPhone 16 Pro"
   "iPhone 16"
   "iPhone 15 Pro"
