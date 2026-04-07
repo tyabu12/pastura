@@ -160,7 +160,7 @@ For each unit of work (let `K` = the current plan item number):
    ```bash
    DEST='platform=iOS Simulator,name=iPhone 16'
    xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-     -destination "$DEST" -only-testing "PasturaTests/<CurrentTestClass>"
+     -destination "$DEST" -only-testing PasturaTests/<CurrentTestClass>
    ```
    Use `-only-testing` for the specific test class being developed — full suite per red/green cycle is too slow.
 3. Write implementation.
@@ -188,7 +188,7 @@ After all implementation, run full verification using the `test-runner` subagent
 
 2. Handle the test-runner result:
    - **PASS** → run `swiftlint lint --quiet --strict` directly. Fix any lint issues before proceeding.
-   - **FAIL** → fix the failing tests, commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items), then re-run the test-runner subagent.
+   - **FAIL** → fix the failing tests, verify the fix passes targeted tests locally, then commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items) and re-run the test-runner subagent for full suite.
    - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
 ## Step 4: Review — Gate G3
