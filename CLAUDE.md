@@ -125,6 +125,13 @@ xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination 
 # Run specific test class
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
   -only-testing PasturaTests/JSONResponseParserTests
+
+# Run Ollama integration tests (requires local Ollama with target model pulled)
+OLLAMA_INTEGRATION=1 xcodebuild test -scheme Pastura \
+  -project Pastura/Pastura.xcodeproj -destination "$DEST" \
+  -only-testing PasturaTests/OllamaIntegrationTests
+# Env vars: OLLAMA_BASE_URL (default http://localhost:11434), OLLAMA_MODEL (default gemma4:e2b)
+# These tests are automatically skipped when OLLAMA_INTEGRATION is not set to "1".
 ```
 
 ## Directory Structure
