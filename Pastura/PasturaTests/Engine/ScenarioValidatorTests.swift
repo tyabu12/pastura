@@ -25,6 +25,12 @@ struct ScenarioValidatorTests {
     }
   }
 
+  @Test func acceptsExactlyTwoAgents() throws {
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [Phase(type: .speakAll)])
+    let result = try validator.validate(scenario)
+    #expect(result.warnings.isEmpty)
+  }
+
   @Test func rejectsMoreThan10Agents() {
     let scenario = makeScenario(agents: 11, rounds: 1, phases: [Phase(type: .speakAll)])
     #expect(throws: SimulationError.self) {
