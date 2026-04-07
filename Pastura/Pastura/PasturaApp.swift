@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct PasturaApp: App {
   @State private var dependencies: AppDependencies?
+  @State private var initError: String?
 
   var body: some Scene {
     WindowGroup {
@@ -10,6 +11,24 @@ struct PasturaApp: App {
         if let dependencies {
           HomeView()
             .environment(dependencies)
+        } else if let initError {
+          VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+              .font(.largeTitle)
+              .foregroundStyle(.red)
+            Text("Initialization Failed")
+              .font(.headline)
+            Text(initError)
+              .font(.subheadline)
+              .foregroundStyle(.secondary)
+              .multilineTextAlignment(.center)
+            Button("Retry") {
+              self.initError = nil
+              Task { await initialize() }
+            }
+            .buttonStyle(.borderedProminent)
+          }
+          .padding()
         } else {
           ProgressView("Initializing...")
             .task {
@@ -29,8 +48,7 @@ struct PasturaApp: App {
 
       dependencies = deps
     } catch {
-      // Fatal: cannot proceed without database
-      fatalError("Failed to initialize database: \(error)")
+      initError = "Database error: \(error.localizedDescription)"
     }
   }
 }

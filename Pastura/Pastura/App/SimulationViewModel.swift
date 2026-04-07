@@ -247,7 +247,9 @@ final class SimulationViewModel {
 
   private func updateSimulationStatus(completed: Bool) async {
     guard let simId = simulationId else { return }
-    let status: SimulationStatus = completed ? .completed : .paused
+    // Use .completed for both success and error — the error is recorded in
+    // stateJSON. .paused is reserved for user-initiated pause with intent to resume.
+    let status: SimulationStatus = .completed
     do {
       try await offMain { [simulationRepository] in
         try simulationRepository.updateStatus(simId, status: status)
