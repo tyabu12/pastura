@@ -31,6 +31,17 @@ func makePhaseContext(
   )
 }
 
+/// Collects all events from an ``AsyncStream`` into an array.
+///
+/// Useful for integration and runner tests that consume `SimulationRunner.run()`.
+func collectAllEvents(_ stream: AsyncStream<SimulationEvent>) async -> [SimulationEvent] {
+  var events: [SimulationEvent] = []
+  for await event in stream {
+    events.append(event)
+  }
+  return events
+}
+
 /// Creates a minimal test scenario with the given agents and phases.
 func makeTestScenario(
   agentNames: [String] = ["Alice", "Bob", "Charlie"],
