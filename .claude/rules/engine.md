@@ -53,7 +53,9 @@ the only mutable argument. Handlers are registered in PhaseDispatcher as a
 ### SimulationRunner Output
 
 `SimulationRunner.run()` returns `AsyncStream<SimulationEvent>`.
-Pause is implemented via an `isPaused` flag with polling in the run loop.
+Pause is implemented via an `isPaused` flag backed by `CheckedContinuation` —
+the runner suspends with zero CPU during pause and resumes when the setter
+clears the flag. Emits `simulationPaused` exactly once per pause cycle.
 Cancellation uses standard Swift `Task` cancellation.
 
 ### Validation Limits

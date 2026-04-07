@@ -137,6 +137,79 @@ struct SimulationRunnerTests {
       })
   }
 
+  // MARK: - Pause behavior
+
+  @Test func emitsPausedEventOnlyOnce() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "hi"}"#,
+      #"{"statement": "hey"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runner = SimulationRunner()
+    runner.isPaused = true
+
+    let stream = runner.run(scenario: scenario, llm: mock)
+
+    // Collect events concurrently while we control the pause state.
+    // The sleep verifies that only one event is emitted regardless of
+    // how long the pause lasts (signal-based, no polling).
+    async let allEvents = collectAllEvents(stream)
+    try await Task.sleep(for: .milliseconds(350))
+    runner.isPaused = false
+    let events = await allEvents
+
+    let pausedEvents = events.filter {
+      if case .simulationPaused = $0 { return true }
+      return false
+    }
+    #expect(pausedEvents.count == 1)
+    #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
+  }
+
+  @Test func cancellationDuringPauseDoesNotHang() async throws {
+    let mock = MockLLMService(responses: [])
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runner = SimulationRunner()
+    runner.isPaused = true
+
+    let stream = runner.run(scenario: scenario, llm: mock)
+
+    // Collect events inside the task to avoid cross-task mutable capture.
+    let consumer = Task<[SimulationEvent], Never> {
+      await collectAllEvents(stream)
+    }
+
+    // Wait for the paused event to be emitted, then cancel.
+    // When the consumer task is cancelled, the stream terminates and
+    // triggers onTermination which cancels the runner's inner task.
+    // The runner's .error(.cancelled) is emitted after the consumer stops
+    // listening, so we only verify that:
+    // 1) exactly one simulationPaused event was received, and
+    // 2) cancellation during pause does not hang (test completes).
+    try await Task.sleep(for: .milliseconds(50))
+    consumer.cancel()
+    let events = await consumer.value
+
+    let pausedEvents = events.filter {
+      if case .simulationPaused = $0 { return true }
+      return false
+    }
+    #expect(pausedEvents.count == 1)
+  }
+
   @Test func fullPrisonersDilemmaIntegration() async throws {
     let mock = MockLLMService(responses: [
       #"{"declaration": "I'll cooperate!", "inner_thought": "lying"}"#,
