@@ -13,7 +13,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// so the setter can atomically detect "unpaused while someone is waiting" and
   /// resume the continuation without a race.
   ///
-  // Sendable: all access is serialized through the enclosing OSAllocatedUnfairLock.
+  /// Sendable: all access is serialized through the enclosing `OSAllocatedUnfairLock`.
   private struct PauseState: Sendable {
     var isPaused = false
     var resumeContinuation: CheckedContinuation<Void, Never>?
