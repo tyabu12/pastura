@@ -71,6 +71,12 @@ final class SimulationViewModel {
   private let turnRepository: any TurnRepository
   private var simulationId: String?
 
+  // Serial persistence queue — guarantees TurnRecords are written to the DB in
+  // the same order events arrive. Without this, independent Task.detached calls
+  // race and createdAt-based ordering in fetchBySimulationId becomes unreliable.
+  private var persistenceContinuation: AsyncStream<TurnRecord>.Continuation?
+  private var persistenceTask: Task<Void, Never>?
+
   init(
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
@@ -101,6 +107,11 @@ final class SimulationViewModel {
     let initialState = SimulationState.initial(for: scenario)
     await createSimulationRecord(simId: simId, scenario: scenario, state: initialState)
 
+    // Start serial persistence consumer before any events can arrive.
+    startPersistenceConsumer()
+    // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
+    defer { persistenceContinuation?.finish() }
+
     // Load LLM model
     do {
       try await llm.loadModel()
@@ -119,6 +130,11 @@ final class SimulationViewModel {
 
       handleEvent(event, scenario: scenario)
     }
+
+    // Drain persistence queue before marking simulation as completed.
+    // finish() is idempotent; defer also calls it for early-return paths.
+    persistenceContinuation?.finish()
+    await persistenceTask?.value
 
     // Cleanup
     try? await llm.unloadModel()
@@ -238,25 +254,41 @@ final class SimulationViewModel {
     }
   }
 
+  private func startPersistenceConsumer() {
+    let (stream, continuation) = AsyncStream<TurnRecord>.makeStream()
+    persistenceContinuation = continuation
+    let repo = turnRepository
+    persistenceTask = Task.detached {
+      for await record in stream {
+        do {
+          try repo.save(record)
+        } catch {
+          print("⚠️ Failed to persist turn: \(error)")
+        }
+      }
+    }
+  }
+
   private func persistTurnRecord(agent: String, output: TurnOutput, phaseType: PhaseType) {
     guard let simId = simulationId else { return }
-    Task.detached { [turnRepository, currentRound] in
-      do {
-        let parsedJSON = try JSONEncoder().encode(output)
-        let record = TurnRecord(
-          id: UUID().uuidString,
-          simulationId: simId,
-          roundNumber: currentRound,
-          phaseType: phaseType.rawValue,
-          agentName: agent,
-          rawOutput: String(data: parsedJSON, encoding: .utf8) ?? "{}",
-          parsedOutputJSON: String(data: parsedJSON, encoding: .utf8) ?? "{}",
-          createdAt: Date()
-        )
-        try turnRepository.save(record)
-      } catch {
-        print("⚠️ Failed to persist turn: \(error)")
-      }
+    // Build record synchronously on MainActor so createdAt reflects event
+    // arrival order, then enqueue for serial DB write.
+    do {
+      let parsedJSON = try JSONEncoder().encode(output)
+      let jsonString = String(data: parsedJSON, encoding: .utf8) ?? "{}"
+      let record = TurnRecord(
+        id: UUID().uuidString,
+        simulationId: simId,
+        roundNumber: currentRound,
+        phaseType: phaseType.rawValue,
+        agentName: agent,
+        rawOutput: jsonString,
+        parsedOutputJSON: jsonString,
+        createdAt: Date()
+      )
+      persistenceContinuation?.yield(record)
+    } catch {
+      print("⚠️ Failed to encode turn output: \(error)")
     }
   }
 

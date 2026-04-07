@@ -340,6 +340,49 @@ struct SimulationViewModelLifecycleTests {
     #expect(sut.scores.keys.contains("Bob"))
   }
 
+  @Test func runPersistsTurnRecordsInEventOrder() async throws {
+    let agents = ["Alice", "Bob", "Charlie", "Diana"]
+    let db = try DatabaseManager.inMemory()
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "test", name: "Test", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()
+      ))
+
+    let sut = SimulationViewModel(
+      simulationRepository: simRepo,
+      turnRepository: turnRepo
+    )
+    sut.speed = .fastest
+
+    // 2 rounds × 4 agents = 8 responses, consumed in order by MockLLMService.
+    let responses = (1...2).flatMap { round in
+      agents.map { #"{"statement": "R\#(round) from \#($0)"}"# }
+    }
+    let mock = MockLLMService(responses: responses)
+    let scenario = makeTestScenario(
+      agentNames: agents,
+      rounds: 2,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    await sut.run(scenario: scenario, llm: mock)
+
+    // run() drains the persistence queue before returning.
+    let simId = try #require(try simRepo.fetchByScenarioId("test").first?.id)
+    let allTurns = try turnRepo.fetchBySimulationId(simId)
+    #expect(allTurns.count == 8)
+    for i in 0..<(allTurns.count - 1) {
+      #expect(
+        allTurns[i].createdAt <= allTurns[i + 1].createdAt,
+        "Turn \(i) (\(allTurns[i].agentName ?? "?")) should have createdAt <= turn \(i + 1) (\(allTurns[i + 1].agentName ?? "?"))"
+      )
+    }
+  }
+
   @Test func runSetsErrorWhenLLMLoadFails() async throws {
     let (sut, _) = try makeSUT()
     sut.speed = .fastest
