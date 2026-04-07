@@ -15,7 +15,7 @@ in your context — only the summary goes back.
 
 ```bash
 # Destination (Simulator)
-DEST='platform=iOS Simulator,name=iPhone 16'
+DEST='platform=iOS Simulator,OS=26.3.1,name=iPhone 16'
 
 # Run all tests
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST"
