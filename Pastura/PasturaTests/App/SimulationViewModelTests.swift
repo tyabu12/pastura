@@ -9,7 +9,7 @@ import Testing
 @MainActor
 private func makeSUT(
   contentFilter: ContentFilter = ContentFilter(blockedPatterns: ["badword"])
-) throws -> (sut: SimulationViewModel, scenario: Scenario, turnRepo: GRDBTurnRepository) {
+) throws -> (sut: SimulationViewModel, scenario: Scenario) {
   let db = try DatabaseManager.inMemory()
   let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
   let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
@@ -28,7 +28,7 @@ private func makeSUT(
     simulationRepository: simRepo,
     turnRepository: turnRepo
   )
-  return (sut, scenario, turnRepo)
+  return (sut, scenario)
 }
 
 // MARK: - Event Handling Tests
@@ -37,7 +37,7 @@ private func makeSUT(
 struct SimulationViewModelTests {
 
   @Test func handleEventRoundStartedUpdatesState() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.roundStarted(round: 1, totalRounds: 3), scenario: scenario)
 
@@ -53,7 +53,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventSimulationCompletedSetsFlag() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.simulationCompleted, scenario: scenario)
 
@@ -63,7 +63,7 @@ struct SimulationViewModelTests {
   // MARK: - Round / Phase Lifecycle
 
   @Test func handleEventRoundCompletedUpdatesScores() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
     let newScores = ["Alice": 5, "Bob": 3]
 
     sut.handleEvent(.roundCompleted(round: 1, scores: newScores), scenario: scenario)
@@ -79,7 +79,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventPhaseStartedAppendsLogEntry() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
 
@@ -92,7 +92,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventPhaseCompletedIsIgnored() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.phaseCompleted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
 
@@ -100,7 +100,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventSimulationPausedIsIgnored() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.simulationPaused(round: 1, phaseIndex: 0), scenario: scenario)
 
@@ -108,7 +108,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventErrorSetsErrorMessageAndAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.error(.retriesExhausted), scenario: scenario)
 
@@ -122,7 +122,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventMultipleRoundsProgressesState() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.roundStarted(round: 1, totalRounds: 3), scenario: scenario)
     sut.handleEvent(
@@ -137,7 +137,7 @@ struct SimulationViewModelTests {
   // MARK: - Agent Output & Content Filter
 
   @Test func handleEventAgentOutputAppliesContentFilter() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
     let rawOutput = TurnOutput(fields: ["statement": "this is badword content"])
 
     sut.handleEvent(
@@ -154,7 +154,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventAgentOutputRemovesFromThinkingAgents() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     // First mark agent as thinking
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
@@ -176,7 +176,7 @@ struct SimulationViewModelTests {
   // MARK: - Thinking Agents
 
   @Test func handleEventInferenceStartedAddsToThinkingAgents() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
 
@@ -184,7 +184,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventInferenceCompletedRemovesFromThinkingAgents() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     sut.handleEvent(
@@ -196,7 +196,7 @@ struct SimulationViewModelTests {
   // MARK: - Score & Elimination
 
   @Test func handleEventScoreUpdateUpdatesScoresAndAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
     let newScores = ["Alice": 10, "Bob": 5]
 
     sut.handleEvent(.scoreUpdate(scores: newScores), scenario: scenario)
@@ -211,7 +211,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventEliminationMarksAgentAndAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.elimination(agent: "Bob", voteCount: 2), scenario: scenario)
 
@@ -228,7 +228,7 @@ struct SimulationViewModelTests {
   // MARK: - Output Events (Log-only)
 
   @Test func handleEventAssignmentAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.assignment(agent: "Alice", value: "wolf"), scenario: scenario)
 
@@ -242,7 +242,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventSummaryAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(.summary(text: "Round over"), scenario: scenario)
 
@@ -255,7 +255,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventVoteResultsAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
     let votes = ["Alice": "Bob"]
     let tallies = ["Bob": 1]
 
@@ -271,7 +271,7 @@ struct SimulationViewModelTests {
   }
 
   @Test func handleEventPairingResultAppendsLog() throws {
-    let (sut, scenario, _) = try makeSUT()
+    let (sut, scenario) = try makeSUT()
 
     sut.handleEvent(
       .pairingResult(
@@ -312,7 +312,7 @@ nonisolated private struct FailingLLMService: LLMService, Sendable {
 struct SimulationViewModelLifecycleTests {
 
   @Test func runResetsStateAndCompletesSuccessfully() async throws {
-    let (sut, _, _) = try makeSUT()
+    let (sut, _) = try makeSUT()
     sut.speed = .fastest
 
     // Pre-set stale state to verify reset
@@ -358,16 +358,11 @@ struct SimulationViewModelLifecycleTests {
     )
     sut.speed = .fastest
 
-    // Each agent produces one response per round; 2 rounds × 4 agents = 8 responses.
-    // MockLLMService is consumed in order, one per generate() call.
-    var responses: [String] = []
-    for round in 1...2 {
-      for name in agents {
-        responses.append(#"{"statement": "R\#(round) from \#(name)"}"#)
-      }
+    // 2 rounds × 4 agents = 8 responses, consumed in order by MockLLMService.
+    let responses = (1...2).flatMap { round in
+      agents.map { #"{"statement": "R\#(round) from \#($0)"}"# }
     }
     let mock = MockLLMService(responses: responses)
-
     let scenario = makeTestScenario(
       agentNames: agents,
       rounds: 2,
@@ -376,15 +371,9 @@ struct SimulationViewModelLifecycleTests {
 
     await sut.run(scenario: scenario, llm: mock)
 
-    // run() drains the persistence queue before returning, so all records
-    // are in the DB. Look up the simulationId via SimulationRepository.
-    let sims = try simRepo.fetchByScenarioId("test")
-    let simId = try #require(sims.first?.id)
-
-    // Read all persisted turns ordered by createdAt.
+    // run() drains the persistence queue before returning.
+    let simId = try #require(try simRepo.fetchByScenarioId("test").first?.id)
     let allTurns = try turnRepo.fetchBySimulationId(simId)
-
-    // Verify records exist and are in chronological order.
     #expect(allTurns.count == 8)
     for i in 0..<(allTurns.count - 1) {
       #expect(
@@ -395,7 +384,7 @@ struct SimulationViewModelLifecycleTests {
   }
 
   @Test func runSetsErrorWhenLLMLoadFails() async throws {
-    let (sut, _, _) = try makeSUT()
+    let (sut, _) = try makeSUT()
     sut.speed = .fastest
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
