@@ -102,7 +102,10 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       if await checkPaused(ctx: ctx, round: round) { return }
 
       let activeCount = state.eliminated.values.filter { !$0 }.count
-      if activeCount < 2 { break }
+      if activeCount < 2 {
+        ctx.emitter(.summary(text: "Simulation ended early: fewer than 2 active agents remaining"))
+        break
+      }
 
       state.conversationLog = []
       state.pairings = []

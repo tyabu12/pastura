@@ -109,6 +109,13 @@ struct SimulationRunnerTests {
         if case .simulationCompleted = $0 { return true }
         return false
       })
+
+    // Should emit a summary explaining why the simulation ended early
+    let summaries = events.compactMap { event -> String? in
+      if case .summary(let text) = event { return text }
+      return nil
+    }
+    #expect(summaries.contains { $0.contains("fewer than 2") })
   }
 
   @Test func emitsValidationError() async throws {

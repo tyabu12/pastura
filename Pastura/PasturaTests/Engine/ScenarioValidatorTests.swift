@@ -11,6 +11,26 @@ struct ScenarioValidatorTests {
     #expect(result.warnings.isEmpty)
   }
 
+  @Test func rejectsZeroAgents() {
+    let scenario = makeScenario(agents: 0, rounds: 1, phases: [Phase(type: .speakAll)])
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func rejectsSingleAgent() {
+    let scenario = makeScenario(agents: 1, rounds: 1, phases: [Phase(type: .speakAll)])
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func acceptsExactlyTwoAgents() throws {
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [Phase(type: .speakAll)])
+    let result = try validator.validate(scenario)
+    #expect(result.warnings.isEmpty)
+  }
+
   @Test func rejectsMoreThan10Agents() {
     let scenario = makeScenario(agents: 11, rounds: 1, phases: [Phase(type: .speakAll)])
     #expect(throws: SimulationError.self) {
@@ -58,6 +78,19 @@ struct ScenarioValidatorTests {
     )
     let result = try validator.validate(scenario)
     #expect(result.estimatedInferences == 20)
+  }
+
+  @Test func rejectsPersonaCountMismatch() {
+    // Constructed directly because makeScenario auto-generates matching personas
+    let scenario = Scenario(
+      id: "test", name: "Test", description: "Test",
+      agentCount: 3, rounds: 1, context: "Context",
+      personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
+      phases: [Phase(type: .speakAll)]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
   }
 
   // MARK: - Helpers

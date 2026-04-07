@@ -2,7 +2,7 @@ import Foundation
 
 /// Validates a ``Scenario`` against execution limits before running.
 ///
-/// Enforces agent count (≤10), round count (≤30), and estimated inference
+/// Enforces agent count (2–10), round count (≤30), and estimated inference
 /// count (warn >50, error >100) to prevent runaway simulations.
 nonisolated struct ScenarioValidator: Sendable {
 
@@ -21,10 +21,22 @@ nonisolated struct ScenarioValidator: Sendable {
   /// - Returns: A ``ValidationResult`` with any warnings and the inference estimate.
   /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` if limits are exceeded.
   func validate(_ scenario: Scenario) throws -> ValidationResult {
-    // Agent count limit
+    // Agent count limits (checked first for clearer error messages)
+    if scenario.agentCount < 2 {
+      throw SimulationError.scenarioValidationFailed(
+        "Agent count (\(scenario.agentCount)) is below minimum of 2"
+      )
+    }
     if scenario.agentCount > 10 {
       throw SimulationError.scenarioValidationFailed(
         "Agent count (\(scenario.agentCount)) exceeds maximum of 10"
+      )
+    }
+
+    // Persona count must match agentCount
+    if scenario.personas.count != scenario.agentCount {
+      throw SimulationError.scenarioValidationFailed(
+        "Persona count (\(scenario.personas.count)) does not match agent count (\(scenario.agentCount))"
       )
     }
 
