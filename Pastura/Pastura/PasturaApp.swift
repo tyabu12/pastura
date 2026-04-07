@@ -1,17 +1,36 @@
-//
-//  PasturaApp.swift
-//  Pastura
-//
-//  Created by Tomohito Yabu on 2026/04/06.
-//
-
 import SwiftUI
 
 @main
 struct PasturaApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
+  @State private var dependencies: AppDependencies?
+
+  var body: some Scene {
+    WindowGroup {
+      Group {
+        if let dependencies {
+          HomeView()
+            .environment(dependencies)
+        } else {
+          ProgressView("Initializing...")
+            .task {
+              await initialize()
+            }
         }
+      }
     }
+  }
+
+  private func initialize() async {
+    do {
+      let deps = try AppDependencies.production()
+
+      // Load presets on first launch
+      PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
+
+      dependencies = deps
+    } catch {
+      // Fatal: cannot proceed without database
+      fatalError("Failed to initialize database: \(error)")
+    }
+  }
 }

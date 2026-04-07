@@ -109,17 +109,15 @@ struct HomeView: View {
   private func routeDestination(_ route: Route) -> some View {
     switch route {
     case .scenarioDetail(let scenarioId):
-      // Placeholder — will be replaced in commit #5
-      Text("Detail: \(scenarioId)")
-    case .importScenario:
-      // Placeholder — will be replaced in commit #6
-      Text("Import")
+      ScenarioDetailView(scenarioId: scenarioId)
+    case .importScenario(let editingId):
+      ImportView(editingId: editingId)
     case .simulation(let scenarioId):
-      Text("Simulation: \(scenarioId)")
-    case .results:
-      Text("Results")
+      SimulationView(scenarioId: scenarioId)
+    case .results(let scenarioId):
+      ResultsView(scenarioId: scenarioId)
     case .resultDetail(let simulationId):
-      Text("Result: \(simulationId)")
+      ResultDetailView(simulationId: simulationId)
     }
   }
 }
