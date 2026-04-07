@@ -31,9 +31,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       // lock during executor enqueue (lock-discipline best practice).
       let cont: CheckedContinuation<Void, Never>? = pauseState.withLock { state in
         state.isPaused = newValue
-        guard !newValue, let c = state.resumeContinuation else { return nil }
+        guard !newValue, let pending = state.resumeContinuation else { return nil }
         state.resumeContinuation = nil
-        return c
+        return pending
       }
       cont?.resume()
     }
@@ -181,9 +181,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     } onCancel: {
       // Extract continuation under lock, resume outside (lock discipline).
       let cont: CheckedContinuation<Void, Never>? = ctx.pauseState.withLock { state in
-        guard let c = state.resumeContinuation else { return nil }
+        guard let pending = state.resumeContinuation else { return nil }
         state.resumeContinuation = nil
-        return c
+        return pending
       }
       cont?.resume()
     }
