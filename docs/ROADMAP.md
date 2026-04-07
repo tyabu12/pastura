@@ -63,7 +63,7 @@
 | Debug mode (raw JSON)          | Done     |
 | NG word filter                 | Done     |
 | Scenario gen prompt (copyable) | Done     |
-| TestFlight distribution        | To do    |
+| TestFlight distribution        | In progress |
 
 ### What is NOT in MVP (defer to Phase 2+)
 
