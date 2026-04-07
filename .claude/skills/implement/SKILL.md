@@ -164,7 +164,7 @@ For each unit of work (let `K` = the current plan item number):
 1. Write test first (TDD mandatory per CLAUDE.md).
 2. Run targeted tests — confirm failure:
    ```bash
-   DEST='platform=iOS Simulator,OS=26.3.1,name=iPhone 16'
+   source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
    xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
      -destination "$DEST" -only-testing PasturaTests/<CurrentTestClass>
    ```
