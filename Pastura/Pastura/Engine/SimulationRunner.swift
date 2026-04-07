@@ -7,9 +7,17 @@ import os
 /// dispatching each phase to the appropriate handler. Supports pause/resume via
 /// `isPaused` flag and cancellation via Swift `Task` cancellation.
 nonisolated public final class SimulationRunner: @unchecked Sendable {
-  // @unchecked Sendable: mutable isPaused is protected by OSAllocatedUnfairLock.
+  // @unchecked Sendable: mutable pauseState is protected by OSAllocatedUnfairLock.
 
-  private let isPausedLock = OSAllocatedUnfairLock(initialState: false)
+  /// Bundles the pause flag and an optional resume continuation in a single lock,
+  /// so the setter can atomically detect "unpaused while someone is waiting" and
+  /// resume the continuation without a race.
+  private struct PauseState: Sendable {
+    var isPaused = false
+    var resumeContinuation: CheckedContinuation<Void, Never>?
+  }
+
+  private let pauseState = OSAllocatedUnfairLock(initialState: PauseState())
   private let dispatcher = PhaseDispatcher()
   private let validator = ScenarioValidator()
 
@@ -17,8 +25,18 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
   /// Whether the simulation is currently paused.
   public var isPaused: Bool {
-    get { isPausedLock.withLock { $0 } }
-    set { isPausedLock.withLock { $0 = newValue } }
+    get { pauseState.withLock { $0.isPaused } }
+    set {
+      // Extract continuation under lock, resume outside to avoid holding the
+      // lock during executor enqueue (lock-discipline best practice).
+      let cont: CheckedContinuation<Void, Never>? = pauseState.withLock { state in
+        state.isPaused = newValue
+        guard !newValue, let c = state.resumeContinuation else { return nil }
+        state.resumeContinuation = nil
+        return c
+      }
+      cont?.resume()
+    }
   }
 
   /// Runs a simulation and returns an `AsyncStream` of events.
@@ -35,14 +53,14 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     // Capture needed values to avoid retaining self in the Task
     let dispatcher = self.dispatcher
     let validator = self.validator
-    let isPausedLock = self.isPausedLock
+    let pauseState = self.pauseState
 
     return AsyncStream { continuation in
       let task = Task {
         await Self.executeSimulation(
           scenario: scenario, llm: llm,
           dispatcher: dispatcher, validator: validator,
-          isPausedLock: isPausedLock,
+          pauseState: pauseState,
           emitter: { continuation.yield($0) }
         )
         continuation.finish()
@@ -61,7 +79,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let scenario: Scenario
     let llm: LLMService
     let dispatcher: PhaseDispatcher
-    let isPausedLock: OSAllocatedUnfairLock<Bool>
+    let pauseState: OSAllocatedUnfairLock<PauseState>
     let emitter: @Sendable (SimulationEvent) -> Void
   }
 
@@ -69,7 +87,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private static func executeSimulation(
     scenario: Scenario, llm: LLMService,
     dispatcher: PhaseDispatcher, validator: ScenarioValidator,
-    isPausedLock: OSAllocatedUnfairLock<Bool>,
+    pauseState: OSAllocatedUnfairLock<PauseState>,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
     // Validate scenario
@@ -85,7 +103,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
-      isPausedLock: isPausedLock, emitter: emitter
+      pauseState: pauseState, emitter: emitter
     )
 
     var state = SimulationState.initial(for: scenario)
@@ -122,18 +140,57 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     ctx.emitter(.simulationCompleted)
   }
 
-  /// Returns `true` if cancelled during pause wait.
-  /// TODO: Emit simulationPaused only once instead of every 100ms poll cycle
-  /// to reduce event volume. UI layer should handle the single event. (#20)
+  /// Returns `true` if the task was cancelled while waiting for resume.
+  ///
+  /// Emits `.simulationPaused` exactly once, then suspends via
+  /// `CheckedContinuation` until `isPaused` is set to `false` or the
+  /// task is cancelled — no polling, zero CPU during pause.
   private static func checkPaused(ctx: ExecutionContext, round: Int) async -> Bool {
-    while ctx.isPausedLock.withLock({ $0 }) {
-      ctx.emitter(.simulationPaused(round: round, phaseIndex: 0))
-      do {
-        try await Task.sleep(for: .milliseconds(100))
-      } catch {
-        ctx.emitter(.error(.cancelled))
-        return true
+    guard ctx.pauseState.withLock({ $0.isPaused }) else { return false }
+
+    ctx.emitter(.simulationPaused(round: round, phaseIndex: 0))
+
+    // Why withTaskCancellationHandler + withCheckedContinuation:
+    // We need to resume the continuation on EITHER unpause (via isPaused setter)
+    // or task cancellation (via onCancel). The OSAllocatedUnfairLock serializes
+    // all three resume paths (setter, onCancel, and the in-closure isCancelled
+    // check) so the continuation is resumed exactly once.
+    //
+    // Race ordering: onCancel may fire before the continuation is stored. In that
+    // case onCancel finds nil and does nothing, but the closure then detects
+    // Task.isCancelled inside the lock and resumes immediately.
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        let shouldResumeNow = ctx.pauseState.withLock { state in
+          if !state.isPaused {
+            return true
+          }
+          state.resumeContinuation = continuation
+          // If cancelled between handler registration and here, onCancel found
+          // nil. Catch it now while we hold the lock — no one else can resume.
+          if Task.isCancelled {
+            state.resumeContinuation = nil
+            return true
+          }
+          return false
+        }
+        if shouldResumeNow {
+          continuation.resume()
+        }
       }
+    } onCancel: {
+      // Extract continuation under lock, resume outside (lock discipline).
+      let cont: CheckedContinuation<Void, Never>? = ctx.pauseState.withLock { state in
+        guard let c = state.resumeContinuation else { return nil }
+        state.resumeContinuation = nil
+        return c
+      }
+      cont?.resume()
+    }
+
+    if Task.isCancelled {
+      ctx.emitter(.error(.cancelled))
+      return true
     }
     return false
   }
