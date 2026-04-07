@@ -158,9 +158,8 @@ struct SimulationRunnerTests {
     let stream = runner.run(scenario: scenario, llm: mock)
 
     // Collect events concurrently while we control the pause state.
-    // The sleep allows the current polling implementation to emit multiple
-    // simulationPaused events (demonstrating the bug this test guards against);
-    // after the fix, only one event is emitted regardless of wait duration.
+    // The sleep verifies that only one event is emitted regardless of
+    // how long the pause lasts (signal-based, no polling).
     async let allEvents = collectAllEvents(stream)
     try await Task.sleep(for: .milliseconds(350))
     runner.isPaused = false

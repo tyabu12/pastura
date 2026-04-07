@@ -209,7 +209,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       do {
         let handler = try ctx.dispatcher.handler(for: phase.type)
         // PhaseContext bundles the per-phase read-only args from ExecutionContext;
-        // ExecutionContext additionally carries dispatcher and isPausedLock which
+        // ExecutionContext additionally carries dispatcher and pauseState which
         // are runner-internal and not exposed to handlers.
         let phaseContext = PhaseContext(
           scenario: ctx.scenario, phase: phase,
