@@ -13,10 +13,13 @@ private enum OllamaConfig {
   }
 
   static var baseURL: URL {
-    // Force unwrap is safe: either env var is a valid URL or the literal default is.
-    URL(
-      string: ProcessInfo.processInfo.environment["OLLAMA_BASE_URL"]
-        ?? "http://localhost:11434")!
+    let raw =
+      ProcessInfo.processInfo.environment["OLLAMA_BASE_URL"]
+      ?? "http://localhost:11434"
+    guard let url = URL(string: raw) else {
+      preconditionFailure("OLLAMA_BASE_URL '\(raw)' is not a valid URL")
+    }
+    return url
   }
 
   static var modelName: String {
