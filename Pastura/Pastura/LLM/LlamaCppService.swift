@@ -251,11 +251,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       } else if nChars < 0 {
         // Buffer too small; retry with required size
         var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
-        let n2 = llama_token_to_piece(
+        let retryChars = llama_token_to_piece(
           vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
         )
-        if n2 > 0 {
-          largeBuffer[Int(n2)] = 0
+        if retryChars > 0 {
+          largeBuffer[Int(retryChars)] = 0
           result += String(cString: largeBuffer)
         }
       }
