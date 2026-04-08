@@ -11,8 +11,9 @@ import os
 ///   The Engine executes inferences sequentially, so this is fine in practice.
 nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable {
   // @unchecked Sendable: isModelLoaded flag protected by OSAllocatedUnfairLock.
-  // C pointers use nonisolated(unsafe) — sequential inference contract (ADR-002 §6)
-  // guarantees no concurrent generate/unloadModel calls.
+  // C pointers use nonisolated(unsafe) — Engine calls generate() sequentially via
+  // `for await` on a single AsyncStream, and loadModel()/unloadModel() bracket the
+  // stream lifetime, guaranteeing no concurrent access to C pointers (ADR-002 §6).
 
   private let modelPath: String
 
@@ -124,7 +125,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     try prefill(context: context, tokens: tokens)
 
     // Set up sampler chain
-    let sampler = createSampler()
+    let sampler = try createSampler()
     defer { llama_sampler_free(sampler) }
 
     // Auto-regressive generation loop
@@ -160,10 +161,16 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   private func applyChatTemplate(system: String, user: String) throws -> String {
     // Build llama_chat_message array using C strings
-    let systemRole = strdup("system")!
-    let userRole = strdup("user")!
-    let systemContent = strdup(system)!
-    let userContent = strdup(user)!
+    guard
+      let systemRole = strdup("system"),
+      let userRole = strdup("user"),
+      let systemContent = strdup(system),
+      let userContent = strdup(user)
+    else {
+      throw LLMError.generationFailed(
+        description: "Memory allocation failed for chat template"
+      )
+    }
     defer {
       free(systemRole)
       free(userRole)
@@ -275,8 +282,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
     while offset < mutableTokens.count {
       let chunkSize = min(Self.batchSize, mutableTokens.count - offset)
-      let batch = mutableTokens.withUnsafeMutableBufferPointer { ptr in
-        llama_batch_get_one(ptr.baseAddress! + offset, Int32(chunkSize))
+      let batch = mutableTokens.withUnsafeMutableBufferPointer { ptr -> llama_batch in
+        // baseAddress is non-nil because the while condition guarantees non-empty remaining tokens
+        guard let base = ptr.baseAddress else {
+          preconditionFailure("Empty token buffer should have been caught by context-size check")
+        }
+        return llama_batch_get_one(base + offset, Int32(chunkSize))
       }
       let decodeResult = llama_decode(context, batch)
       guard decodeResult == 0 else {
@@ -290,10 +301,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   // MARK: - Sampler
 
-  private func createSampler() -> UnsafeMutablePointer<llama_sampler> {
+  private func createSampler() throws -> UnsafeMutablePointer<llama_sampler> {
     let sparams = llama_sampler_chain_default_params()
-    // swiftlint:disable:next force_unwrapping
-    let chain = llama_sampler_chain_init(sparams)!
+    guard let chain = llama_sampler_chain_init(sparams) else {
+      throw LLMError.generationFailed(description: "Failed to initialize sampler chain")
+    }
 
     // Order: penalties → top_k → top_p → temperature → dist
     // Penalties on full vocab first, then narrow, then temperature, then selection
