@@ -123,6 +123,7 @@
 			packageProductDependencies = (
 				E0BCA52A2F83E9670025BAE6 /* Yams */,
 				E0BCA52D2F83EA4C0025BAE6 /* GRDB */,
+				E0BCA5412F84F0000025BAE6 /* LlamaSwift */,
 			);
 			productName = Pastura;
 			productReference = E0BCA4B92F83E7DF0025BAE6 /* Pastura.app */;
@@ -210,6 +211,7 @@
 			packageReferences = (
 				E0BCA5292F83E9670025BAE6 /* XCRemoteSwiftPackageReference "Yams" */,
 				E0BCA52C2F83EA4C0025BAE6 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+				E0BCA5402F84F0000025BAE6 /* XCRemoteSwiftPackageReference "llama.swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E0BCA4BA2F83E7DF0025BAE6 /* Products */;
@@ -612,6 +614,14 @@
 				minimumVersion = 7.10.0;
 			};
 		};
+		E0BCA5402F84F0000025BAE6 /* XCRemoteSwiftPackageReference "llama.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mattt/llama.swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.8694.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -629,6 +639,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E0BCA52C2F83EA4C0025BAE6 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
+		};
+		E0BCA5412F84F0000025BAE6 /* LlamaSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E0BCA5402F84F0000025BAE6 /* XCRemoteSwiftPackageReference "llama.swift" */;
+			productName = LlamaSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
