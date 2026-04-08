@@ -49,9 +49,9 @@ nonisolated public struct JSONResponseParser: Sendable {
     // 2. Extract from code blocks
     cleaned = extractFromCodeBlock(cleaned)
 
-    // 3. Find first JSON object
+    // 3. Find first JSON object (also handles trailing garbage like <|im_end|>)
     cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !cleaned.hasPrefix("{") {
+    if !cleaned.hasPrefix("{") || !cleaned.hasSuffix("}") {
       cleaned = extractFirstJSONObject(cleaned)
     }
 

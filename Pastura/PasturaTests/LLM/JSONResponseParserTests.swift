@@ -206,7 +206,27 @@ struct JSONResponseParserTests {
     #expect(output.fields["wrong"] == nil)
   }
 
-  // MARK: - 19. <think> tags + code block combined
+  // MARK: - 19. Trailing end-of-turn token (<|im_end|>)
+
+  @Test func stripsTrailingImEndToken() throws {
+    let input = #"{"statement": "こんにちは", "inner_thought": "様子を見よう"}<|im_end|>"#
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "こんにちは")
+    #expect(output.fields["inner_thought"] == "様子を見よう")
+  }
+
+  // MARK: - 20. Trailing end-of-turn token with whitespace
+
+  @Test func stripsTrailingImEndTokenWithWhitespace() throws {
+    let input = """
+      {"statement": "hello", "action": "cooperate"} <|im_end|>
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "hello")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  // MARK: - 21. <think> tags + code block combined
 
   @Test func handlesThinkTagsAndCodeBlock() throws {
     let input = """
