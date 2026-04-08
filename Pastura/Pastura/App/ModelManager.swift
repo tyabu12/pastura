@@ -113,7 +113,8 @@ final class ModelManager {
     }
 
     if fileManager.fileExists(atPath: modelFileURL.path) {
-      // Validate file size if expected size is known
+      // Only check file size (not SHA256) at launch — hashing 3 GB blocks the UI for ~2s.
+      // SHA256 is verified once during download; corruption after download is unlikely.
       if expectedFileSize > 0 {
         let attrs = try? fileManager.attributesOfItem(atPath: modelFileURL.path)
         let fileSize = attrs?[.size] as? Int64 ?? 0
