@@ -27,10 +27,17 @@ final class ModelManager {
 
   static let modelFileName = "gemma-4-E2B-it-Q4_K_M.gguf"
   static let downloadFileName = "gemma-4-E2B-it-Q4_K_M.gguf.download"
-  // swiftlint:disable:next force_unwrapping
-  static let modelURL = URL(
-    string:
-      "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf")!
+  static let modelURL: URL = {
+    guard
+      let url = URL(
+        string:
+          "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+      )
+    else {
+      preconditionFailure("Invalid hardcoded model URL")
+    }
+    return url
+  }()
   /// Minimum RAM required for model loading (8 GB).
   static let minimumRAM: UInt64 = 8 * 1024 * 1024 * 1024
   /// Expected file size for integrity check (~3.1 GB Q4_K_M).
@@ -55,6 +62,9 @@ final class ModelManager {
     // Documents directory is the standard location for user-downloaded content.
     // It persists across app updates and is backed up by iCloud (appropriate for a 3 GB file
     // the user explicitly downloaded).
+    // Fallback to temp directory only as a safety net — .documentDirectory should always
+    // exist on iOS. Using temp would mean the model file is lost on reboot, but this
+    // path is unreachable in practice.
     fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
       ?? fileManager.temporaryDirectory
   }
@@ -106,7 +116,20 @@ final class ModelManager {
     }
   }
 
-  /// Downloads the model file from HuggingFace. Supports resume from partial downloads.
+  /// Starts downloading the model file from HuggingFace. Stores the task for cancellation.
+  func startDownload() {
+    // Allow download from .notDownloaded or .error states only
+    switch state {
+    case .notDownloaded, .error:
+      break
+    default:
+      return
+    }
+
+    downloadTask = Task { await performDownload() }
+  }
+
+  /// Downloads the model file. Supports resume from partial downloads.
   func downloadModel() async {
     // Allow download from .notDownloaded or .error states only
     switch state {
@@ -116,6 +139,10 @@ final class ModelManager {
       return
     }
 
+    await performDownload()
+  }
+
+  private func performDownload() async {
     // Determine resume offset from existing partial download
     let resumeOffset: Int64
     if fileManager.fileExists(atPath: downloadFileURL.path) {
@@ -180,6 +207,7 @@ final class ModelManager {
   func cancelDownload() {
     downloadTask?.cancel()
     downloadTask = nil
+    state = .notDownloaded
   }
 
   /// Removes both the model file and any partial download from disk.

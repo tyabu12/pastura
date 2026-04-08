@@ -2,8 +2,8 @@ import Foundation
 
 /// Abstraction over URLSession download for testability.
 ///
-/// Production implementation streams bytes to disk via `URLSession.shared`.
-/// Test doubles return immediately with a local file URL.
+/// Production implementation uses `URLSession.download(for:)` with a delegate
+/// for progress reporting. Test doubles return immediately with a local file URL.
 protocol ModelDownloader: Sendable {
   /// Downloads a file from `url` to a local temporary path.
   ///
@@ -22,10 +22,11 @@ protocol ModelDownloader: Sendable {
   ) async throws -> Int
 }
 
-/// Production downloader using `URLSession.shared.bytes(for:)`.
+/// Production downloader using `URLSession.download(for:delegate:)`.
 ///
-/// Streams the response body as `AsyncBytes` and writes chunks to disk.
-/// Supports resume via HTTP Range headers.
+/// Downloads to a temporary file, then moves it to the destination.
+/// Uses a `URLSessionDownloadDelegate` for progress reporting — avoids the
+/// byte-by-byte overhead of `AsyncBytes` iteration on multi-GB files.
 final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
   // @unchecked Sendable: URLSession.shared is thread-safe.
   private let session: URLSession
@@ -45,7 +46,11 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
       request.setValue("bytes=\(resumeOffset)-", forHTTPHeaderField: "Range")
     }
 
-    let (bytes, response) = try await session.bytes(for: request)
+    let delegate = ProgressDelegate(
+      resumeOffset: resumeOffset,
+      progressHandler: progressHandler
+    )
+    let (tempURL, response) = try await session.download(for: request, delegate: delegate)
 
     guard let httpResponse = response as? HTTPURLResponse else {
       throw URLError(.badServerResponse)
@@ -56,54 +61,68 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
       throw URLError(.badServerResponse)
     }
 
-    // Total expected bytes from Content-Length (or -1 if unknown)
-    let contentLength = httpResponse.expectedContentLength
-    let totalBytes: Int64 =
-      if contentLength > 0 {
-        statusCode == 206 ? resumeOffset + contentLength : contentLength
-      } else {
-        -1
-      }
-
-    // Open file handle — truncate if full response (200), append if partial (206)
     let fileManager = FileManager.default
-    if statusCode == 200 {
-      // Server ignored Range or this is a fresh download — start from scratch
-      fileManager.createFile(atPath: destination.path, contents: nil)
-    } else if !fileManager.fileExists(atPath: destination.path) {
-      fileManager.createFile(atPath: destination.path, contents: nil)
-    }
 
-    let fileHandle = try FileHandle(forWritingTo: destination)
-    if statusCode == 206 {
-      fileHandle.seekToEndOfFile()
-    }
-
-    defer { try? fileHandle.close() }
-
-    var bytesReceived: Int64 = statusCode == 206 ? resumeOffset : 0
-    // Buffer size: 256 KB chunks for progress reporting
-    let bufferSize = 256 * 1024
-    var buffer = Data(capacity: bufferSize)
-
-    for try await byte in bytes {
-      buffer.append(byte)
-
-      if buffer.count >= bufferSize {
-        fileHandle.write(buffer)
-        bytesReceived += Int64(buffer.count)
-        buffer.removeAll(keepingCapacity: true)
-        progressHandler(bytesReceived, totalBytes)
+    if statusCode == 200 || resumeOffset == 0 {
+      // Full download — replace destination entirely
+      if fileManager.fileExists(atPath: destination.path) {
+        try fileManager.removeItem(at: destination)
       }
-    }
-
-    // Flush remaining bytes
-    if !buffer.isEmpty {
-      fileHandle.write(buffer)
-      bytesReceived += Int64(buffer.count)
-      progressHandler(bytesReceived, totalBytes)
+      try fileManager.moveItem(at: tempURL, to: destination)
+    } else {
+      // Partial content (206) — append downloaded chunk to existing file
+      let downloadedData = try Data(contentsOf: tempURL)
+      if fileManager.fileExists(atPath: destination.path) {
+        let fileHandle = try FileHandle(forWritingTo: destination)
+        fileHandle.seekToEndOfFile()
+        fileHandle.write(downloadedData)
+        try fileHandle.close()
+      } else {
+        try downloadedData.write(to: destination)
+      }
+      try? fileManager.removeItem(at: tempURL)
     }
 
     return statusCode
+  }
+}
+
+// MARK: - Progress Delegate
+
+/// Reports download progress via a callback. Passed as the delegate to
+/// `URLSession.download(for:delegate:)`.
+private final class ProgressDelegate: NSObject, URLSessionDownloadDelegate, Sendable {
+  let resumeOffset: Int64
+  let progressHandler: @Sendable (Int64, Int64) -> Void
+
+  init(
+    resumeOffset: Int64,
+    progressHandler: @Sendable @escaping (Int64, Int64) -> Void
+  ) {
+    self.resumeOffset = resumeOffset
+    self.progressHandler = progressHandler
+  }
+
+  nonisolated func urlSession(
+    _ session: URLSession,
+    downloadTask: URLSessionDownloadTask,
+    didWriteData bytesWritten: Int64,
+    totalBytesWritten: Int64,
+    totalBytesExpectedToWrite: Int64
+  ) {
+    let received = resumeOffset + totalBytesWritten
+    let total =
+      totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown
+      ? resumeOffset + totalBytesExpectedToWrite : -1
+    progressHandler(received, total)
+  }
+
+  nonisolated func urlSession(
+    _ session: URLSession,
+    downloadTask: URLSessionDownloadTask,
+    didFinishDownloadingTo location: URL
+  ) {
+    // Required by URLSessionDownloadDelegate protocol.
+    // File handling is done in the async download() call above.
   }
 }

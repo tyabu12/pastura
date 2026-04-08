@@ -73,8 +73,9 @@ final class SimulationViewModel {
   private var simulationId: String?
 
   /// Holds the currently running simulation task for cancellation support.
+  /// Set by the caller (SimulationView) after launching `run()` in a Task.
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
-  private(set) var runTask: Task<Void, Never>?
+  var runTask: Task<Void, Never>?
 
   // Serial persistence queue — guarantees TurnRecords are written to the DB in
   // the same order events arrive. Without this, independent Task.detached calls

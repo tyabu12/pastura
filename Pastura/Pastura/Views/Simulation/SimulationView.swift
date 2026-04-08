@@ -241,11 +241,18 @@ struct SimulationView: View {
       let parsed = try loader.load(yaml: record.yamlDefinition)
       scenario = parsed
 
-      viewModel = SimulationViewModel(
+      let simViewModel = SimulationViewModel(
         simulationRepository: deps.simulationRepository,
         turnRepository: deps.turnRepository
       )
-      await viewModel?.run(scenario: parsed, llm: deps.llmService)
+      viewModel = simViewModel
+
+      // Store task reference so cancelSimulation() (e.g., on memory warning) works.
+      let runTask = Task {
+        await simViewModel.run(scenario: parsed, llm: deps.llmService)
+      }
+      simViewModel.runTask = runTask
+      await runTask.value
     } catch {
       loadError = error.localizedDescription
     }

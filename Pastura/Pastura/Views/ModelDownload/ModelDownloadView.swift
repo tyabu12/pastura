@@ -82,7 +82,7 @@ struct ModelDownloadView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       Button {
-        Task { await modelManager.downloadModel() }
+        modelManager.startDownload()
       } label: {
         Label("Download Model", systemImage: "arrow.down.circle.fill")
           .frame(maxWidth: .infinity)
@@ -137,7 +137,7 @@ struct ModelDownloadView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       Button {
-        Task { await modelManager.downloadModel() }
+        modelManager.startDownload()
       } label: {
         Label("Retry", systemImage: "arrow.clockwise")
           .frame(maxWidth: .infinity)
