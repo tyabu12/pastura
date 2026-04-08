@@ -165,10 +165,15 @@ final class ModelManager {
         progressHandler: { [weak self] bytesReceived, totalBytes in
           Task { @MainActor [weak self] in
             guard let self else { return }
+            let progress: Double
             if totalBytes > 0 {
-              let progress = Double(bytesReceived) / Double(totalBytes)
-              self.state = .downloading(progress: min(progress, 1.0))
+              progress = Double(bytesReceived) / Double(totalBytes)
+            } else {
+              // Content-Length unknown — estimate from expected file size (~3.1 GB)
+              let estimatedTotal = Double(max(Self.expectedFileSize, 3_100_000_000))
+              progress = min(Double(bytesReceived) / estimatedTotal, 0.99)
             }
+            self.state = .downloading(progress: min(progress, 1.0))
           }
         }
       )
