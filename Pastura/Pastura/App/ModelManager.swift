@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// State of the on-device LLM model.
@@ -46,6 +47,10 @@ final class ModelManager {
   /// Expected file size for integrity check (~3.1 GB Q4_K_M).
   /// Set to 0 to skip size validation (useful during initial deployment before size is known).
   static let expectedFileSize: Int64 = 0
+  /// SHA256 hash of the model file (lowercase hex), from HuggingFace LFS metadata
+  /// (unsloth/gemma-4-E2B-it-GGUF, `oid` field). nil to skip hash verification.
+  static let modelSHA256: String? =
+    "a67d147c4b461fd5ad394acffa954ecc8686970671d2de8562d6db8888181011"
 
   // MARK: - Published State
 
@@ -56,6 +61,7 @@ final class ModelManager {
   private let downloader: any ModelDownloader
   private let fileManager: FileManager
   private let physicalMemory: UInt64
+  private let expectedSHA256: String?
   private var downloadTask: Task<Void, Never>?
 
   // MARK: - Computed
@@ -85,11 +91,13 @@ final class ModelManager {
   init(
     downloader: any ModelDownloader = URLSessionModelDownloader(),
     fileManager: FileManager = .default,
-    physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory
+    physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory,
+    expectedSHA256: String? = modelSHA256
   ) {
     self.downloader = downloader
     self.fileManager = fileManager
     self.physicalMemory = physicalMemory
+    self.expectedSHA256 = expectedSHA256
   }
 
   // MARK: - Public Methods
@@ -192,6 +200,21 @@ final class ModelManager {
         }
       }
 
+      // Validate SHA256 hash if expected hash is known.
+      // Runs off MainActor to avoid UI freeze on large files (~2s for 3 GB).
+      if let expectedSHA256 {
+        let downloadURL = downloadFileURL
+        let actualSHA256 = try await Task.detached {
+          try Self.computeSHA256(of: downloadURL)
+        }.value
+        if actualSHA256 != expectedSHA256 {
+          try? fileManager.removeItem(at: downloadFileURL)
+          state = .error(
+            "Download verification failed. The file may be corrupted — please try again.")
+          return
+        }
+      }
+
       // Atomic rename from .download to final path
       // Remove existing file at destination if present (e.g., corrupt from prior attempt)
       if fileManager.fileExists(atPath: modelFileURL.path) {
@@ -214,6 +237,28 @@ final class ModelManager {
     downloadTask?.cancel()
     downloadTask = nil
     state = .notDownloaded
+  }
+
+  // MARK: - SHA256
+
+  /// Computes SHA256 of a file using streaming reads to avoid loading the full file into memory.
+  /// Returns lowercase hex string. Marked `nonisolated` because ModelManager inherits MainActor
+  /// isolation and hashing a 3 GB file on MainActor would freeze the UI.
+  nonisolated static func computeSHA256(of fileURL: URL) throws -> String {
+    let handle = try FileHandle(forReadingFrom: fileURL)
+    defer { try? handle.close() }
+
+    var hasher = SHA256()
+    let bufferSize = 1_024 * 1_024  // 1 MB chunks
+    while autoreleasepool(invoking: {
+      let data = handle.readData(ofLength: bufferSize)
+      guard !data.isEmpty else { return false }
+      hasher.update(data: data)
+      return true
+    }) {}
+
+    let digest = hasher.finalize()
+    return digest.map { String(format: "%02x", $0) }.joined()
   }
 
   /// Removes both the model file and any partial download from disk.
