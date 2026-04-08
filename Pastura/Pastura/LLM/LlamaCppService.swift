@@ -16,6 +16,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // stream lifetime, guaranteeing no concurrent access to C pointers (ADR-002 §6).
 
   private let modelPath: String
+  private let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
 
   // Sampling parameters (ADR-002 §6, matching OllamaService)
   private static let temperature: Float = 0.8
@@ -99,6 +100,14 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   }
 
   public func generate(system: String, user: String) async throws -> String {
+    // Thermal throttle: pause before inference when device is overheating (ADR-002 §5).
+    // Uses `try await` (not `try?`) so Task cancellation propagates through the sleep.
+    let thermalState = ProcessInfo.processInfo.thermalState
+    if thermalState == .serious || thermalState == .critical {
+      logger.warning("Thermal state \(String(describing: thermalState)) — inserting 200ms pause")
+      try await Task.sleep(for: .milliseconds(200))
+    }
+
     guard isModelLoaded, let model = _model, let context = _context else {
       throw LLMError.notLoaded
     }

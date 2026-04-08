@@ -4,6 +4,7 @@ import SwiftUI
 struct SimulationView: View {
   let scenarioId: String
 
+  @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: SimulationViewModel?
   @State private var scenario: Scenario?
@@ -28,6 +29,21 @@ struct SimulationView: View {
     .navigationBarTitleDisplayMode(.inline)
     .task {
       await loadAndRun()
+    }
+    .onChange(of: scenePhase) { _, newPhase in
+      // Pause simulation when app moves to background (ADR-002 §7)
+      if newPhase == .background, let viewModel, viewModel.isRunning {
+        viewModel.isPaused = true
+      }
+    }
+    .onReceive(
+      NotificationCenter.default.publisher(
+        for: UIApplication.didReceiveMemoryWarningNotification
+      )
+    ) { _ in
+      // Memory warning: cancel simulation to free model memory (ADR-002 §7).
+      // Cancellation triggers stream termination → for-await exit → unloadModel.
+      viewModel?.cancelSimulation()
     }
   }
 
