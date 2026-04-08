@@ -1,0 +1,316 @@
+import Foundation
+import LlamaSwift
+import os
+
+/// On-device LLM backend using llama.cpp with Metal GPU acceleration.
+///
+/// Loads a GGUF model file from disk and runs inference locally.
+/// Designed for TestFlight production use with Gemma 4 E2B.
+///
+/// - Important: Not safe for concurrent `generate`/`unloadModel` calls.
+///   The Engine executes inferences sequentially, so this is fine in practice.
+nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable {
+  // @unchecked Sendable: isModelLoaded flag protected by OSAllocatedUnfairLock.
+  // C pointers use nonisolated(unsafe) — sequential inference contract (ADR-002 §6)
+  // guarantees no concurrent generate/unloadModel calls.
+
+  private let modelPath: String
+
+  // Sampling parameters (ADR-002 §6, matching OllamaService)
+  private static let temperature: Float = 0.8
+  private static let maxTokens: Int = 1_000
+  private static let topK: Int32 = 40
+  private static let topP: Float = 0.95
+  private static let repeatPenalty: Float = 1.1
+  private static let contextSize: UInt32 = 8_192
+  private static let batchSize: Int = 512
+
+  private let loadedState: OSAllocatedUnfairLock<Bool>
+  // Sequential access only — protected by concurrency contract, not by lock
+  nonisolated(unsafe) private var _model: OpaquePointer?
+  nonisolated(unsafe) private var _context: OpaquePointer?
+
+  /// Creates a llama.cpp service.
+  ///
+  /// - Parameter modelPath: Absolute path to the GGUF model file on disk.
+  public init(modelPath: String) {
+    self.modelPath = modelPath
+    self.loadedState = OSAllocatedUnfairLock(initialState: false)
+  }
+
+  deinit {
+    // Safety net: free C resources if still loaded.
+    if loadedState.withLock({ $0 }) {
+      if let ctx = _context { llama_free(ctx) }
+      if let mdl = _model { llama_model_free(mdl) }
+      llama_backend_free()
+    }
+  }
+
+  // MARK: - LLMService
+
+  public func loadModel() async throws {
+    // llama_backend_init is internally ref-counted — safe to call multiple times
+    llama_backend_init()
+
+    var modelParams = llama_model_default_params()
+    modelParams.n_gpu_layers = -1  // Offload all layers to Metal GPU
+
+    guard let model = llama_model_load_from_file(modelPath, modelParams) else {
+      llama_backend_free()
+      throw LLMError.loadFailed(description: "Failed to load model from \(modelPath)")
+    }
+
+    var ctxParams = llama_context_default_params()
+    ctxParams.n_ctx = Self.contextSize
+    ctxParams.n_batch = UInt32(Self.batchSize)
+
+    guard let context = llama_init_from_model(model, ctxParams) else {
+      llama_model_free(model)
+      llama_backend_free()
+      throw LLMError.loadFailed(description: "Failed to create inference context")
+    }
+
+    _model = model
+    _context = context
+    loadedState.withLock { $0 = true }
+  }
+
+  public func unloadModel() async throws {
+    let wasLoaded = loadedState.withLock { loaded -> Bool in
+      let was = loaded
+      loaded = false
+      return was
+    }
+
+    guard wasLoaded else { return }
+
+    // Free C resources
+    if let ctx = _context { llama_free(ctx) }
+    if let mdl = _model { llama_model_free(mdl) }
+    _context = nil
+    _model = nil
+    llama_backend_free()
+  }
+
+  public var isModelLoaded: Bool {
+    loadedState.withLock { $0 }
+  }
+
+  public func generate(system: String, user: String) async throws -> String {
+    guard isModelLoaded, let model = _model, let context = _context else {
+      throw LLMError.notLoaded
+    }
+
+    let vocab = llama_model_get_vocab(model)
+
+    // Apply chat template to format system+user into model-native format
+    let formattedPrompt = try applyChatTemplate(system: system, user: user)
+
+    // Tokenize the formatted prompt
+    let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
+
+    let nCtx = Int(llama_n_ctx(context))
+    guard tokens.count <= nCtx else {
+      throw LLMError.generationFailed(
+        description: "Prompt (\(tokens.count) tokens) exceeds context size (\(nCtx))"
+      )
+    }
+
+    // Clear KV cache for independent inference (each generate() call is self-contained)
+    llama_memory_clear(llama_get_memory(context), true)
+
+    // Prefill: process prompt tokens
+    try prefill(context: context, tokens: tokens)
+
+    // Set up sampler chain
+    let sampler = createSampler()
+    defer { llama_sampler_free(sampler) }
+
+    // Auto-regressive generation loop
+    var outputTokens: [llama_token] = []
+    for _ in 0..<Self.maxTokens {
+      let newTokenId = llama_sampler_sample(sampler, context, -1)
+
+      if llama_vocab_is_eog(vocab, newTokenId) {
+        break
+      }
+
+      outputTokens.append(newTokenId)
+
+      // Decode single token for next iteration
+      var nextToken = newTokenId
+      let batch = llama_batch_get_one(&nextToken, 1)
+      let decodeResult = llama_decode(context, batch)
+      guard decodeResult == 0 else {
+        throw LLMError.generationFailed(
+          description: "llama_decode failed during generation (error \(decodeResult))"
+        )
+      }
+    }
+
+    guard !outputTokens.isEmpty else {
+      throw LLMError.generationFailed(description: "Model generated no output tokens")
+    }
+
+    return detokenize(vocab: vocab, tokens: outputTokens)
+  }
+
+  // MARK: - Chat Template
+
+  private func applyChatTemplate(system: String, user: String) throws -> String {
+    // Build llama_chat_message array using C strings
+    let systemRole = strdup("system")!
+    let userRole = strdup("user")!
+    let systemContent = strdup(system)!
+    let userContent = strdup(user)!
+    defer {
+      free(systemRole)
+      free(userRole)
+      free(systemContent)
+      free(userContent)
+    }
+
+    var messages: [llama_chat_message] = [
+      llama_chat_message(role: systemRole, content: systemContent),
+      llama_chat_message(role: userRole, content: userContent)
+    ]
+
+    // First call: determine required buffer size
+    let requiredSize = llama_chat_apply_template(
+      nil, &messages, messages.count, true, nil, 0
+    )
+    guard requiredSize > 0 else {
+      throw LLMError.generationFailed(
+        description: "llama_chat_apply_template failed to calculate buffer size"
+      )
+    }
+
+    // Second call: write formatted prompt into buffer
+    var buffer = [CChar](repeating: 0, count: Int(requiredSize) + 1)
+    let written = llama_chat_apply_template(
+      nil, &messages, messages.count, true, &buffer, Int32(buffer.count)
+    )
+    guard written > 0 else {
+      throw LLMError.generationFailed(
+        description: "llama_chat_apply_template failed"
+      )
+    }
+
+    return String(cString: buffer)
+  }
+
+  // MARK: - Tokenization
+
+  private func tokenize(
+    vocab: OpaquePointer?,
+    text: String,
+    addSpecial: Bool
+  ) throws -> [llama_token] {
+    return try text.withCString { cStr in
+      let textLen = Int32(strlen(cStr))
+      let maxTokens = textLen + 128
+
+      var tokens = [llama_token](repeating: 0, count: Int(maxTokens))
+      let nTokens = llama_tokenize(
+        vocab, cStr, textLen, &tokens, maxTokens, addSpecial,
+        true  // parse_special: handle special tokens in the template
+      )
+
+      if nTokens < 0 {
+        // Buffer was too small; retry with the required size
+        let required = -nTokens
+        tokens = [llama_token](repeating: 0, count: Int(required))
+        let nTokens2 = llama_tokenize(
+          vocab, cStr, textLen, &tokens, required, addSpecial, true
+        )
+        guard nTokens2 >= 0 else {
+          throw LLMError.generationFailed(description: "Tokenization failed")
+        }
+        return Array(tokens.prefix(Int(nTokens2)))
+      }
+
+      return Array(tokens.prefix(Int(nTokens)))
+    }
+  }
+
+  private func detokenize(
+    vocab: OpaquePointer?,
+    tokens: [llama_token]
+  ) -> String {
+    var result = ""
+    var buffer = [CChar](repeating: 0, count: 256)
+
+    for token in tokens {
+      let nChars = llama_token_to_piece(
+        vocab, token, &buffer, Int32(buffer.count), 0, false
+      )
+      if nChars > 0 {
+        buffer[Int(nChars)] = 0  // null-terminate
+        result += String(cString: buffer)
+      } else if nChars < 0 {
+        // Buffer too small; retry with required size
+        var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
+        let n2 = llama_token_to_piece(
+          vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
+        )
+        if n2 > 0 {
+          largeBuffer[Int(n2)] = 0
+          result += String(cString: largeBuffer)
+        }
+      }
+    }
+
+    return result
+  }
+
+  // MARK: - Prefill
+
+  private func prefill(
+    context: OpaquePointer,
+    tokens: [llama_token]
+  ) throws {
+    var mutableTokens = tokens
+    var offset = 0
+
+    while offset < mutableTokens.count {
+      let chunkSize = min(Self.batchSize, mutableTokens.count - offset)
+      let batch = mutableTokens.withUnsafeMutableBufferPointer { ptr in
+        llama_batch_get_one(ptr.baseAddress! + offset, Int32(chunkSize))
+      }
+      let decodeResult = llama_decode(context, batch)
+      guard decodeResult == 0 else {
+        throw LLMError.generationFailed(
+          description: "llama_decode failed during prefill (error \(decodeResult))"
+        )
+      }
+      offset += chunkSize
+    }
+  }
+
+  // MARK: - Sampler
+
+  private func createSampler() -> UnsafeMutablePointer<llama_sampler> {
+    let sparams = llama_sampler_chain_default_params()
+    // swiftlint:disable:next force_unwrapping
+    let chain = llama_sampler_chain_init(sparams)!
+
+    // Order: penalties → top_k → top_p → temperature → dist
+    // Penalties on full vocab first, then narrow, then temperature, then selection
+    llama_sampler_chain_add(
+      chain,
+      llama_sampler_init_penalties(
+        64,  // penalty_last_n: look back 64 tokens
+        Self.repeatPenalty,  // repeat_penalty: 1.1
+        0.0,  // freq_penalty: disabled
+        0.0  // presence_penalty: disabled
+      ))
+    llama_sampler_chain_add(chain, llama_sampler_init_top_k(Self.topK))
+    llama_sampler_chain_add(chain, llama_sampler_init_top_p(Self.topP, 1))
+    llama_sampler_chain_add(chain, llama_sampler_init_temp(Self.temperature))
+    llama_sampler_chain_add(
+      chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
+
+    return chain
+  }
+}
