@@ -56,10 +56,12 @@ nonisolated struct LLMCaller: Sendable {
         logger.warning(
           "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
         )
-        // Also print to stderr for reliable Xcode console visibility
-        print(
-          "[LLMCaller] JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
-        )
+        #if DEBUG
+          // print() for reliable Xcode console visibility (os.Logger may be filtered)
+          print(
+            "[LLMCaller] JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
+          )
+        #endif
         if attempt < Self.maxRetries { continue }
         throw SimulationError.retriesExhausted
       }
