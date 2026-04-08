@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Wraps LLM inference calls with retry logic and event emission.
 ///
@@ -8,6 +9,7 @@ nonisolated struct LLMCaller: Sendable {
 
   private static let maxRetries = 2
   private let parser = JSONResponseParser()
+  private let logger = Logger(subsystem: "com.pastura", category: "LLMCaller")
 
   /// Calls the LLM with retry logic and returns a parsed ``TurnOutput``.
   ///
@@ -51,6 +53,9 @@ nonisolated struct LLMCaller: Sendable {
 
       // Try to parse JSON
       guard let output = try? parser.parse(raw) else {
+        logger.warning(
+          "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw)"
+        )
         if attempt < Self.maxRetries { continue }
         throw SimulationError.retriesExhausted
       }
@@ -58,6 +63,9 @@ nonisolated struct LLMCaller: Sendable {
       // Check for empty fields ("..." or "")
       let hasEmpty = output.fields.values.contains { $0 == "..." || $0.isEmpty }
       if hasEmpty && attempt < Self.maxRetries {
+        logger.debug(
+          "Empty fields detected (attempt \(attempt + 1)/\(Self.maxRetries + 1)): fields=\(output.fields)"
+        )
         continue
       }
 
