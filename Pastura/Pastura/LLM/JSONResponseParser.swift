@@ -18,6 +18,12 @@ nonisolated public struct JSONResponseParser: Sendable {
     pattern: #"<think>.*?</think>"#,
     options: .dotMatchesLineSeparators
   )
+  // Chat template tokens — truncate everything from first occurrence onwards.
+  // Catches hallucinated continuations where the model generates past its own turn.
+  private static let chatTemplateTokenRegex = try? NSRegularExpression(
+    pattern: #"<\|im_end\|>.*"#,
+    options: .dotMatchesLineSeparators
+  )
   private static let codeBlockRegex = try? NSRegularExpression(
     pattern: #"```(?:json)?\s*\n?(.*?)\n?```"#,
     options: .dotMatchesLineSeparators
@@ -33,9 +39,10 @@ nonisolated public struct JSONResponseParser: Sendable {
   ///
   /// Processing pipeline:
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
-  /// 2. Extract content from markdown code blocks
-  /// 3. Find first `{...}` JSON object
-  /// 4. Parse JSON and normalize all values to `String`
+  /// 2. Truncate at chat template tokens (`<|im_end|>`)
+  /// 3. Extract content from markdown code blocks
+  /// 4. Find first `{...}` JSON object
+  /// 5. Parse JSON and normalize all values to `String`
   ///
   /// - Parameter text: The raw text response from the LLM.
   /// - Returns: A ``TurnOutput`` with all values normalized to `String`.
@@ -46,16 +53,20 @@ nonisolated public struct JSONResponseParser: Sendable {
     // 1. Strip thinking tags
     cleaned = stripThinkingTags(cleaned)
 
-    // 2. Extract from code blocks
+    // 2. Truncate at chat template tokens (e.g. <|im_end|>) to discard
+    //    hallucinated conversation continuations
+    cleaned = truncateAtChatTemplateToken(cleaned)
+
+    // 3. Extract from code blocks
     cleaned = extractFromCodeBlock(cleaned)
 
-    // 3. Find first JSON object (also handles trailing garbage like <|im_end|>)
+    // 4. Find first JSON object (also handles trailing garbage)
     cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     if !cleaned.hasPrefix("{") || !cleaned.hasSuffix("}") {
       cleaned = extractFirstJSONObject(cleaned)
     }
 
-    // 4. Parse and normalize
+    // 5. Parse and normalize
     guard let data = cleaned.data(using: .utf8),
       let jsonObject = try? JSONSerialization.jsonObject(with: data),
       let dictionary = jsonObject as? [String: Any]
@@ -87,6 +98,18 @@ nonisolated public struct JSONResponseParser: Sendable {
     }
 
     return result
+  }
+
+  /// Truncate at the first chat template token (`<|im_end|>`).
+  ///
+  /// When the model hallucinates past its own turn, it emits `<|im_end|>`
+  /// followed by fabricated user/assistant turns. Discarding everything from
+  /// the first such token prevents the greedy JSON regex from capturing
+  /// content across hallucinated turns.
+  private func truncateAtChatTemplateToken(_ text: String) -> String {
+    guard let regex = Self.chatTemplateTokenRegex else { return text }
+    let range = NSRange(text.startIndex..., in: text)
+    return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
   }
 
   /// Extract content from markdown code blocks: `` ```json ... ``` `` or `` ``` ... ``` ``

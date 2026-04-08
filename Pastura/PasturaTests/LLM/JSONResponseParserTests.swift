@@ -226,7 +226,23 @@ struct JSONResponseParserTests {
     #expect(output.fields["action"] == "cooperate")
   }
 
-  // MARK: - 21. <think> tags + code block combined
+  // MARK: - 21. Hallucinated conversation continuation after <|im_end|>
+
+  @Test func truncatesHallucinatedContinuation() throws {
+    let input = """
+      {"inner_thought": "考え中", "statement": "こんにちは"}<|im_end|>
+      <|im_start|>user
+      サクラ: 別の発言"}
+      <|im_end|>
+      <|im_start|>assistant
+      {"inner_thought": "次の
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["inner_thought"] == "考え中")
+    #expect(output.fields["statement"] == "こんにちは")
+  }
+
+  // MARK: - 22. <think> tags + code block combined
 
   @Test func handlesThinkTagsAndCodeBlock() throws {
     let input = """
