@@ -2,13 +2,20 @@ import Foundation
 
 /// Extracts structured data from raw LLM text responses.
 ///
-/// Handles common LLM output artifacts: Gemma 4 thinking tags,
-/// markdown code blocks, and leading/trailing garbage text.
+/// Handles common LLM output artifacts: thinking tags
+/// (`<think>`, `<|channel>thought`), markdown code blocks,
+/// and leading/trailing garbage text.
 /// All JSON values are normalized to `String` for ``TurnOutput``.
 nonisolated public struct JSONResponseParser: Sendable {
   // Pre-compiled regexes for performance across many parse calls
-  private static let thinkingTagRegex = try? NSRegularExpression(
-    pattern: #"<\|channel>thought\n.*?<channel\|>"#,
+  // Gemma 4 channel thinking: `<|channel>thought...<channel|>` (newline optional)
+  private static let channelThinkingRegex = try? NSRegularExpression(
+    pattern: #"<\|channel>thought\s*.*?<channel\|>"#,
+    options: .dotMatchesLineSeparators
+  )
+  // Common thinking model format: `<think>...</think>` (DeepSeek, Qwen, etc.)
+  private static let thinkTagRegex = try? NSRegularExpression(
+    pattern: #"<think>.*?</think>"#,
     options: .dotMatchesLineSeparators
   )
   private static let codeBlockRegex = try? NSRegularExpression(
@@ -25,7 +32,7 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Parse raw LLM output text into a ``TurnOutput``.
   ///
   /// Processing pipeline:
-  /// 1. Strip Gemma 4 thinking tags (`<|channel>thought...`)
+  /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
   /// 2. Extract content from markdown code blocks
   /// 3. Find first `{...}` JSON object
   /// 4. Parse JSON and normalize all values to `String`
@@ -62,11 +69,24 @@ nonisolated public struct JSONResponseParser: Sendable {
 
   // MARK: - Pipeline Steps
 
-  /// Remove Gemma 4 thinking tags: `<|channel>thought\n...<channel|>`
+  /// Remove thinking tags from LLM output.
+  ///
+  /// Handles two formats:
+  /// - Gemma 4 channel: `<|channel>thought...<channel|>`
+  /// - Common think tags: `<think>...</think>`
   private func stripThinkingTags(_ text: String) -> String {
-    guard let regex = Self.thinkingTagRegex else { return text }
-    let range = NSRange(text.startIndex..., in: text)
-    return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+    var result = text
+
+    if let regex = Self.channelThinkingRegex {
+      let range = NSRange(result.startIndex..., in: result)
+      result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+    }
+    if let regex = Self.thinkTagRegex {
+      let range = NSRange(result.startIndex..., in: result)
+      result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+    }
+
+    return result
   }
 
   /// Extract content from markdown code blocks: `` ```json ... ``` `` or `` ``` ... ``` ``
