@@ -57,9 +57,10 @@ struct ModelManagerTests {
 
   // MARK: - Device Check
 
-  @Test("checkModelStatus sets unsupportedDevice when RAM < 8 GB")
+  @Test("checkModelStatus sets unsupportedDevice when RAM < 7 GB threshold")
   func unsupportedDevice() {
-    let sut = makeSUT(physicalMemory: 6 * 1024 * 1024 * 1024)
+    // 5.5 GB simulates what iOS reports on a 6 GB device
+    let sut = makeSUT(physicalMemory: 5_500_000_000)
     sut.checkModelStatus()
     #expect(sut.state == .unsupportedDevice)
   }
@@ -173,9 +174,10 @@ struct ModelManagerTests {
 
   // MARK: - Edge Cases
 
-  @Test("checkModelStatus boundary: exactly 8 GB RAM is supported")
-  func exactlyMinimumRAM() {
-    let sut = makeSUT(physicalMemory: 8 * 1024 * 1024 * 1024)
+  @Test("checkModelStatus boundary: ~7.5 GB (8 GB device) is supported")
+  func realWorld8GBDevice() {
+    // iOS reports ~7.5 GB on 8 GB devices; must pass the 7 GB threshold
+    let sut = makeSUT(physicalMemory: 7_500_000_000)
     sut.checkModelStatus()
     #expect(sut.state != .unsupportedDevice)
   }

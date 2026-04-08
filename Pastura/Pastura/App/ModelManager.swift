@@ -38,8 +38,10 @@ final class ModelManager {
     }
     return url
   }()
-  /// Minimum RAM required for model loading (8 GB).
-  static let minimumRAM: UInt64 = 8 * 1024 * 1024 * 1024
+  /// Minimum physical memory reported by ProcessInfo to allow model download.
+  /// iOS reports ~7.4–7.6 GB on 8 GB devices (kernel reserves ~0.5 GB)
+  /// and ~5.4–5.6 GB on 6 GB devices. 6.5 GiB cleanly separates the two tiers.
+  static let minimumRAM: UInt64 = 6_500_000_000
   /// Expected file size for integrity check (~3.1 GB Q4_K_M).
   /// Set to 0 to skip size validation (useful during initial deployment before size is known).
   static let expectedFileSize: Int64 = 0
