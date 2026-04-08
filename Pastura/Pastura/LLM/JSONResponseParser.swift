@@ -43,7 +43,7 @@ nonisolated public struct JSONResponseParser: Sendable {
   public func parse(_ text: String) throws -> TurnOutput {
     var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    // 1. Strip Gemma 4 thinking tags
+    // 1. Strip thinking tags
     cleaned = stripThinkingTags(cleaned)
 
     // 2. Extract from code blocks

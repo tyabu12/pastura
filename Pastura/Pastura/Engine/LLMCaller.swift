@@ -54,7 +54,7 @@ nonisolated struct LLMCaller: Sendable {
       // Try to parse JSON
       guard let output = try? parser.parse(raw) else {
         logger.warning(
-          "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw)"
+          "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
         )
         if attempt < Self.maxRetries { continue }
         throw SimulationError.retriesExhausted
