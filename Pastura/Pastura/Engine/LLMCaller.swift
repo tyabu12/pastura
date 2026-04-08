@@ -64,6 +64,12 @@ nonisolated struct LLMCaller: Sendable {
         throw SimulationError.retriesExhausted
       }
 
+      // Warn when the model hallucinated past its own turn
+      if raw.contains("<|im_end|>") {
+        logger.warning(
+          "Model output contained <|im_end|> — hallucinated continuation was truncated")
+      }
+
       // Check for empty fields ("..." or "")
       let hasEmpty = output.fields.values.contains { $0 == "..." || $0.isEmpty }
       if hasEmpty && attempt < Self.maxRetries {
