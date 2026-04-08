@@ -31,7 +31,8 @@ final class ModelManager {
     guard
       let url = URL(
         string:
-          "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+          // ggml-org repo only has Q8_0/f16; Q4_K_M is provided by unsloth
+          "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
       )
     else {
       preconditionFailure("Invalid hardcoded model URL")
