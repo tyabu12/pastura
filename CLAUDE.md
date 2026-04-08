@@ -17,7 +17,8 @@ Implementation progress: `Models ✅ → LLM ✅ → Engine ✅ → Data ✅ →
 ## Project Overview
 
 Pastura is an iOS app for running AI multi-agent simulations on-device.
-Users define scenarios in YAML; the app executes them using a local LLM (Gemma 4 E2B via LiteRT-LM)
+Users define scenarios in YAML; the app executes them using a local LLM
+(Gemma 4 E2B via llama.cpp for TestFlight; LiteRT-LM planned as target backend)
 with zero cost and full offline capability. MVP is iOS-only (Swift + SwiftUI).
 
 ## Architecture
@@ -84,12 +85,15 @@ Utilities/ → depends on nothing
 | Min iOS            | 17.0                          |           |
 | YAML parser        | Yams                          | 6.2.1     |
 | SQLite             | GRDB                          | 7.10.0    |
-| LLM (production)   | LiteRT-LM iOS SDK (planned)  |           |
+| LLM (TestFlight)   | llama.cpp via mattt/llama.swift | pinned   |
+| LLM (target)       | LiteRT-LM iOS SDK (planned)  |           |
 | LLM (dev)          | Ollama via OpenAI-compat API  |           |
 | LLM (test)         | MockLLMService                |           |
+| LLM model          | Gemma 4 E2B Q4_K_M (GGUF)    | ~3.1 GB   |
 
-LLM backend integration priority: LiteRT-LM Swift SDK → C API wrapper → MediaPipe (last resort).
-See ADR-001 §7 for rationale and model lifecycle details.
+LLM backend: llama.cpp is the interim backend for TestFlight (Metal GPU, on-device).
+Migrate to LiteRT-LM when Swift SDK + iOS GPU support ships.
+See ADR-001 §7 for protocol design and ADR-002 for llama.cpp decision.
 
 ## Testing Strategy
 
@@ -178,5 +182,6 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 |---------------------------------------|---------------------------------------------|
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
 | `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
-| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                           |
+| `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
+| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification (§3.1 LLM section superseded by ADR-002) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
