@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// State of the on-device LLM model.
@@ -43,9 +44,13 @@ final class ModelManager {
   /// iOS reports ~7.4–7.6 GB on 8 GB devices (kernel reserves ~0.5 GB)
   /// and ~5.4–5.6 GB on 6 GB devices. 6.5 GiB cleanly separates the two tiers.
   static let minimumRAM: UInt64 = 6_500_000_000
-  /// Expected file size for integrity check (~3.1 GB Q4_K_M).
-  /// Set to 0 to skip size validation (useful during initial deployment before size is known).
-  static let expectedFileSize: Int64 = 0
+  /// Expected file size for integrity check (Q4_K_M GGUF from HuggingFace LFS metadata).
+  /// Set to 0 to skip size validation.
+  static let modelFileSize: Int64 = 3_106_731_392
+  /// SHA256 hash of the model file (lowercase hex), from HuggingFace LFS metadata
+  /// (unsloth/gemma-4-E2B-it-GGUF, `oid` field). nil to skip hash verification.
+  static let modelSHA256: String? =
+    "a67d147c4b461fd5ad394acffa954ecc8686970671d2de8562d6db8888181011"
 
   // MARK: - Published State
 
@@ -56,6 +61,8 @@ final class ModelManager {
   private let downloader: any ModelDownloader
   private let fileManager: FileManager
   private let physicalMemory: UInt64
+  private let expectedFileSize: Int64
+  private let expectedSHA256: String?
   private var downloadTask: Task<Void, Never>?
 
   // MARK: - Computed
@@ -85,11 +92,15 @@ final class ModelManager {
   init(
     downloader: any ModelDownloader = URLSessionModelDownloader(),
     fileManager: FileManager = .default,
-    physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory
+    physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory,
+    expectedFileSize: Int64 = modelFileSize,
+    expectedSHA256: String? = modelSHA256
   ) {
     self.downloader = downloader
     self.fileManager = fileManager
     self.physicalMemory = physicalMemory
+    self.expectedFileSize = expectedFileSize
+    self.expectedSHA256 = expectedSHA256
   }
 
   // MARK: - Public Methods
@@ -102,11 +113,12 @@ final class ModelManager {
     }
 
     if fileManager.fileExists(atPath: modelFileURL.path) {
-      // Validate file size if expected size is known
-      if Self.expectedFileSize > 0 {
+      // Only check file size (not SHA256) at launch — hashing 3 GB blocks the UI for ~2s.
+      // SHA256 is verified once during download; corruption after download is unlikely.
+      if expectedFileSize > 0 {
         let attrs = try? fileManager.attributesOfItem(atPath: modelFileURL.path)
         let fileSize = attrs?[.size] as? Int64 ?? 0
-        if fileSize != Self.expectedFileSize {
+        if fileSize != expectedFileSize {
           // Corrupt or incomplete file at final path — remove it
           try? fileManager.removeItem(at: modelFileURL)
           state = .notDownloaded
@@ -172,7 +184,7 @@ final class ModelManager {
               progress = Double(bytesReceived) / Double(totalBytes)
             } else {
               // Content-Length unknown — estimate from expected file size (~3.1 GB)
-              let estimatedTotal = Double(max(Self.expectedFileSize, 3_100_000_000))
+              let estimatedTotal = Double(max(expectedFileSize, 3_100_000_000))
               progress = min(Double(bytesReceived) / estimatedTotal, 0.99)
             }
             self.state = .downloading(progress: min(progress, 1.0))
@@ -180,16 +192,10 @@ final class ModelManager {
         }
       )
 
-      // Validate file size if expected size is known
-      if Self.expectedFileSize > 0 {
-        let attrs = try fileManager.attributesOfItem(atPath: downloadFileURL.path)
-        let fileSize = attrs[.size] as? Int64 ?? 0
-        if fileSize != Self.expectedFileSize {
-          try? fileManager.removeItem(at: downloadFileURL)
-          state = .error(
-            "Downloaded file size mismatch (expected \(Self.expectedFileSize), got \(fileSize))")
-          return
-        }
+      if let error = await verifyDownloadIntegrity() {
+        try? fileManager.removeItem(at: downloadFileURL)
+        state = .error(error)
+        return
       }
 
       // Atomic rename from .download to final path
@@ -214,6 +220,62 @@ final class ModelManager {
     downloadTask?.cancel()
     downloadTask = nil
     state = .notDownloaded
+  }
+
+  // MARK: - Download Integrity
+
+  /// Validates file size and SHA256 hash of the downloaded file.
+  /// Returns an error message if verification fails, or nil if the file is valid.
+  private func verifyDownloadIntegrity() async -> String? {
+    // Validate file size if expected size is known
+    if expectedFileSize > 0 {
+      let attrs = try? fileManager.attributesOfItem(atPath: downloadFileURL.path)
+      let fileSize = attrs?[.size] as? Int64 ?? 0
+      if fileSize != expectedFileSize {
+        return "Downloaded file size mismatch (expected \(expectedFileSize), got \(fileSize))"
+      }
+    }
+
+    // Validate SHA256 hash if expected hash is known.
+    // Runs off MainActor to avoid UI freeze on large files (~2s for 3 GB).
+    if let expectedSHA256 {
+      let downloadURL = downloadFileURL
+      let actualSHA256: String
+      do {
+        actualSHA256 = try await Task.detached {
+          try Self.computeSHA256(of: downloadURL)
+        }.value
+      } catch {
+        return "Failed to verify download: \(error.localizedDescription)"
+      }
+      if actualSHA256 != expectedSHA256 {
+        return "Download verification failed. The file may be corrupted — please try again."
+      }
+    }
+
+    return nil
+  }
+
+  // MARK: - SHA256
+
+  /// Computes SHA256 of a file using streaming reads to avoid loading the full file into memory.
+  /// Returns lowercase hex string. Marked `nonisolated` because ModelManager inherits MainActor
+  /// isolation and hashing a 3 GB file on MainActor would freeze the UI.
+  nonisolated static func computeSHA256(of fileURL: URL) throws -> String {
+    let handle = try FileHandle(forReadingFrom: fileURL)
+    defer { try? handle.close() }
+
+    var hasher = SHA256()
+    let bufferSize = 1_024 * 1_024  // 1 MB chunks
+    while autoreleasepool(invoking: {
+      let data = handle.readData(ofLength: bufferSize)
+      guard !data.isEmpty else { return false }
+      hasher.update(data: data)
+      return true
+    }) {}
+
+    let digest = hasher.finalize()
+    return digest.map { String(format: "%02x", $0) }.joined()
   }
 
   /// Removes both the model file and any partial download from disk.

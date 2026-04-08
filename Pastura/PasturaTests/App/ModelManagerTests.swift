@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 
@@ -40,18 +41,23 @@ struct MockModelDownloader: ModelDownloader, Sendable {
 
 // MARK: - Tests
 
-@Suite("ModelManager")
+// Download tests share filesystem paths (Documents directory), so serialize to avoid races.
+@Suite("ModelManager", .serialized)
 @MainActor
 struct ModelManagerTests {
 
   private func makeSUT(
     downloader: any ModelDownloader = MockModelDownloader(),
-    physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024
+    physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
+    expectedFileSize: Int64 = 0,
+    expectedSHA256: String? = nil
   ) -> ModelManager {
     ModelManager(
       downloader: downloader,
       fileManager: .default,
-      physicalMemory: physicalMemory
+      physicalMemory: physicalMemory,
+      expectedFileSize: expectedFileSize,
+      expectedSHA256: expectedSHA256
     )
   }
 
@@ -180,5 +186,91 @@ struct ModelManagerTests {
     let sut = makeSUT(physicalMemory: 7_500_000_000)
     sut.checkModelStatus()
     #expect(sut.state != .unsupportedDevice)
+  }
+
+  // MARK: - SHA256
+
+  @Test("computeSHA256 returns correct hash for known data")
+  func computeSHA256ReturnsCorrectHash() throws {
+    let tempFile = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString)
+    let data = Data(repeating: 0x42, count: 1000)
+    try data.write(to: tempFile)
+    defer { try? FileManager.default.removeItem(at: tempFile) }
+
+    let hash = try ModelManager.computeSHA256(of: tempFile)
+    // Precomputed: SHA256 of 1000 bytes of 0x42
+    #expect(hash == "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c")
+  }
+
+  @Test("downloadModel transitions to ready when SHA256 matches")
+  func downloadSuccessWithMatchingSHA256() async {
+    // MockModelDownloader writes 1000 bytes of 0x42
+    let expectedHash = "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c"
+    let sut = makeSUT(
+      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 1000),
+      expectedSHA256: expectedHash
+    )
+    sut.checkModelStatus()
+    #expect(sut.state == .notDownloaded)
+
+    await sut.downloadModel()
+    defer {
+      try? FileManager.default.removeItem(at: sut.modelFileURL)
+      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+    }
+
+    if case .ready = sut.state {
+      // Success
+    } else {
+      Issue.record("Expected .ready but got \(sut.state)")
+    }
+  }
+
+  @Test("downloadModel transitions to error when SHA256 mismatches")
+  func downloadFailureWithMismatchingSHA256() async {
+    let wrongHash = "0000000000000000000000000000000000000000000000000000000000000000"
+    let sut = makeSUT(
+      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 1000),
+      expectedSHA256: wrongHash
+    )
+    sut.checkModelStatus()
+    #expect(sut.state == .notDownloaded)
+
+    await sut.downloadModel()
+    defer {
+      try? FileManager.default.removeItem(at: sut.modelFileURL)
+      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+    }
+
+    if case .error(let message) = sut.state {
+      #expect(message.contains("verification failed"))
+    } else {
+      Issue.record("Expected .error but got \(sut.state)")
+    }
+
+    // .download file should be deleted on mismatch
+    #expect(!FileManager.default.fileExists(atPath: sut.downloadFileURL.path))
+  }
+
+  @Test("downloadModel skips SHA256 verification when expectedSHA256 is nil")
+  func downloadSuccessWithNilSHA256() async {
+    let sut = makeSUT(
+      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 100)
+    )
+    sut.checkModelStatus()
+    #expect(sut.state == .notDownloaded)
+
+    await sut.downloadModel()
+    defer {
+      try? FileManager.default.removeItem(at: sut.modelFileURL)
+      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+    }
+
+    if case .ready = sut.state {
+      // Success — no SHA256 check performed
+    } else {
+      Issue.record("Expected .ready but got \(sut.state)")
+    }
   }
 }
