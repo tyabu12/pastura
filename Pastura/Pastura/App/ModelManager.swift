@@ -44,9 +44,9 @@ final class ModelManager {
   /// iOS reports ~7.4–7.6 GB on 8 GB devices (kernel reserves ~0.5 GB)
   /// and ~5.4–5.6 GB on 6 GB devices. 6.5 GiB cleanly separates the two tiers.
   static let minimumRAM: UInt64 = 6_500_000_000
-  /// Expected file size for integrity check (~3.1 GB Q4_K_M).
-  /// Set to 0 to skip size validation (useful during initial deployment before size is known).
-  static let expectedFileSize: Int64 = 0
+  /// Expected file size for integrity check (Q4_K_M GGUF from HuggingFace LFS metadata).
+  /// Set to 0 to skip size validation.
+  static let modelFileSize: Int64 = 3_106_731_392
   /// SHA256 hash of the model file (lowercase hex), from HuggingFace LFS metadata
   /// (unsloth/gemma-4-E2B-it-GGUF, `oid` field). nil to skip hash verification.
   static let modelSHA256: String? =
@@ -61,6 +61,7 @@ final class ModelManager {
   private let downloader: any ModelDownloader
   private let fileManager: FileManager
   private let physicalMemory: UInt64
+  private let expectedFileSize: Int64
   private let expectedSHA256: String?
   private var downloadTask: Task<Void, Never>?
 
@@ -92,11 +93,13 @@ final class ModelManager {
     downloader: any ModelDownloader = URLSessionModelDownloader(),
     fileManager: FileManager = .default,
     physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory,
+    expectedFileSize: Int64 = modelFileSize,
     expectedSHA256: String? = modelSHA256
   ) {
     self.downloader = downloader
     self.fileManager = fileManager
     self.physicalMemory = physicalMemory
+    self.expectedFileSize = expectedFileSize
     self.expectedSHA256 = expectedSHA256
   }
 
@@ -111,10 +114,10 @@ final class ModelManager {
 
     if fileManager.fileExists(atPath: modelFileURL.path) {
       // Validate file size if expected size is known
-      if Self.expectedFileSize > 0 {
+      if expectedFileSize > 0 {
         let attrs = try? fileManager.attributesOfItem(atPath: modelFileURL.path)
         let fileSize = attrs?[.size] as? Int64 ?? 0
-        if fileSize != Self.expectedFileSize {
+        if fileSize != expectedFileSize {
           // Corrupt or incomplete file at final path — remove it
           try? fileManager.removeItem(at: modelFileURL)
           state = .notDownloaded
@@ -180,7 +183,7 @@ final class ModelManager {
               progress = Double(bytesReceived) / Double(totalBytes)
             } else {
               // Content-Length unknown — estimate from expected file size (~3.1 GB)
-              let estimatedTotal = Double(max(Self.expectedFileSize, 3_100_000_000))
+              let estimatedTotal = Double(max(expectedFileSize, 3_100_000_000))
               progress = min(Double(bytesReceived) / estimatedTotal, 0.99)
             }
             self.state = .downloading(progress: min(progress, 1.0))
@@ -189,13 +192,13 @@ final class ModelManager {
       )
 
       // Validate file size if expected size is known
-      if Self.expectedFileSize > 0 {
+      if expectedFileSize > 0 {
         let attrs = try fileManager.attributesOfItem(atPath: downloadFileURL.path)
         let fileSize = attrs[.size] as? Int64 ?? 0
-        if fileSize != Self.expectedFileSize {
+        if fileSize != expectedFileSize {
           try? fileManager.removeItem(at: downloadFileURL)
           state = .error(
-            "Downloaded file size mismatch (expected \(Self.expectedFileSize), got \(fileSize))")
+            "Downloaded file size mismatch (expected \(expectedFileSize), got \(fileSize))")
           return
         }
       }

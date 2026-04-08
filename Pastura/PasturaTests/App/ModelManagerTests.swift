@@ -49,12 +49,14 @@ struct ModelManagerTests {
   private func makeSUT(
     downloader: any ModelDownloader = MockModelDownloader(),
     physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
+    expectedFileSize: Int64 = 0,
     expectedSHA256: String? = nil
   ) -> ModelManager {
     ModelManager(
       downloader: downloader,
       fileManager: .default,
       physicalMemory: physicalMemory,
+      expectedFileSize: expectedFileSize,
       expectedSHA256: expectedSHA256
     )
   }
