@@ -64,10 +64,13 @@ nonisolated struct LLMCaller: Sendable {
         throw SimulationError.retriesExhausted
       }
 
-      // Warn when the model hallucinated past its own turn
-      if raw.contains("<|im_end|>") {
-        logger.warning(
-          "Model output contained <|im_end|> — hallucinated continuation was truncated")
+      // Detect chat template token leakage and hallucinated continuations
+      if raw.contains("<|im_start|>") {
+        // Model generated past its own turn into fabricated user/assistant exchanges
+        logger.warning("Model hallucinated past its turn — continuation truncated at <|im_end|>")
+      } else if raw.contains("<|im_end|>") {
+        // End-of-turn token leaked into output (llama_vocab_is_eog missed it)
+        logger.debug("Trailing <|im_end|> token stripped from output")
       }
 
       // Check for empty fields ("..." or "")
