@@ -4,6 +4,7 @@ import SwiftUI
 struct SimulationView: View {
   let scenarioId: String
 
+  @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: SimulationViewModel?
   @State private var scenario: Scenario?
@@ -28,6 +29,21 @@ struct SimulationView: View {
     .navigationBarTitleDisplayMode(.inline)
     .task {
       await loadAndRun()
+    }
+    .onChange(of: scenePhase) { _, newPhase in
+      // Pause simulation when app moves to background (ADR-002 §7)
+      if newPhase == .background, let viewModel, viewModel.isRunning {
+        viewModel.isPaused = true
+      }
+    }
+    .onReceive(
+      NotificationCenter.default.publisher(
+        for: UIApplication.didReceiveMemoryWarningNotification
+      )
+    ) { _ in
+      // Memory warning: cancel simulation to free model memory (ADR-002 §7).
+      // Cancellation triggers stream termination → for-await exit → unloadModel.
+      viewModel?.cancelSimulation()
     }
   }
 
@@ -225,11 +241,18 @@ struct SimulationView: View {
       let parsed = try loader.load(yaml: record.yamlDefinition)
       scenario = parsed
 
-      viewModel = SimulationViewModel(
+      let simViewModel = SimulationViewModel(
         simulationRepository: deps.simulationRepository,
         turnRepository: deps.turnRepository
       )
-      await viewModel?.run(scenario: parsed, llm: deps.llmService)
+      viewModel = simViewModel
+
+      // Store task reference so cancelSimulation() (e.g., on memory warning) works.
+      let runTask = Task {
+        await simViewModel.run(scenario: parsed, llm: deps.llmService)
+      }
+      simViewModel.runTask = runTask
+      await runTask.value
     } catch {
       loadError = error.localizedDescription
     }

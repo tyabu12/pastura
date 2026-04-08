@@ -54,6 +54,7 @@ final class SimulationViewModel {
   private(set) var thinkingAgents: Set<String> = []
   private(set) var isRunning = false
   private(set) var isCompleted = false
+  private(set) var isCancelled = false
   private(set) var errorMessage: String?
   var showDebugOutput = false
   var speed: PlaybackSpeed = .normal
@@ -70,6 +71,11 @@ final class SimulationViewModel {
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
   private var simulationId: String?
+
+  /// Holds the currently running simulation task for cancellation support.
+  /// Set by the caller (SimulationView) after launching `run()` in a Task.
+  /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
+  var runTask: Task<Void, Never>?
 
   // Serial persistence queue — guarantees TurnRecords are written to the DB in
   // the same order events arrive. Without this, independent Task.detached calls
@@ -95,10 +101,21 @@ final class SimulationViewModel {
 
   // MARK: - Simulation Lifecycle
 
+  /// Cancels a running simulation.
+  ///
+  /// Cancellation flows through the task: the runner's AsyncStream detects
+  /// Task cancellation and terminates, causing the `for await` loop to exit
+  /// naturally. Post-loop cleanup (unloadModel, finalize status) then runs.
+  func cancelSimulation() {
+    runTask?.cancel()
+    isCancelled = true
+  }
+
   /// Starts the simulation, consuming events and persisting results.
   func run(scenario: Scenario, llm: any LLMService) async {
     isRunning = true
     isCompleted = false
+    isCancelled = false
     errorMessage = nil
     logEntries = []
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
