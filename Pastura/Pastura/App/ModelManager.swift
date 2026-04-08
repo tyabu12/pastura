@@ -1,7 +1,7 @@
 import Foundation
 
 /// State of the on-device LLM model.
-enum ModelState: Equatable, Sendable {
+public enum ModelState: Equatable, Sendable {
   /// Checking device compatibility and model file status.
   case checking
   /// Device does not meet minimum RAM requirement (8 GB).
@@ -129,6 +129,8 @@ final class ModelManager {
       return
     }
 
+    // Set state synchronously to prevent re-entry before the Task body runs.
+    state = .downloading(progress: 0)
     downloadTask = Task { await performDownload() }
   }
 
@@ -158,7 +160,7 @@ final class ModelManager {
     state = .downloading(progress: resumeOffset > 0 ? 0.01 : 0.0)
 
     do {
-      let statusCode = try await downloader.download(
+      try await downloader.download(
         from: Self.modelURL,
         resumeOffset: resumeOffset,
         to: downloadFileURL,
@@ -177,10 +179,6 @@ final class ModelManager {
           }
         }
       )
-
-      // If server returned 200 (full file, ignored Range), that's fine — file is complete.
-      // If 206, we appended to the partial file — also complete now.
-      _ = statusCode
 
       // Validate file size if expected size is known
       if Self.expectedFileSize > 0 {

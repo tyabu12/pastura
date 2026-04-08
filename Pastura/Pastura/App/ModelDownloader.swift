@@ -1,11 +1,12 @@
 import Foundation
+import os
 
 /// Abstraction over URLSession download for testability.
 ///
 /// Production implementation uses a delegate-based `URLSession` with
 /// `URLSessionDownloadTask` for reliable progress reporting.
 /// Test doubles return immediately with a local file URL.
-protocol ModelDownloader: Sendable {
+public protocol ModelDownloader: Sendable {
   /// Downloads a file from `url` to a local temporary path.
   ///
   /// - Parameters:
@@ -49,6 +50,11 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
       request.setValue("bytes=\(resumeOffset)-", forHTTPHeaderField: "Range")
     }
 
+    // Thread-safe holder so onCancel can reach the URLSessionDownloadTask.
+    // Swift Task cancellation does NOT propagate to URLSession automatically —
+    // we must cancel the download task explicitly.
+    let taskHolder = OSAllocatedUnfairLock<URLSessionDownloadTask?>(initialState: nil)
+
     let result: DownloadResult = try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { continuation in
         let delegate = DownloadDelegate(
@@ -61,15 +67,16 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
           delegate: delegate,
           delegateQueue: nil
         )
-        // Delegate must hold references to prevent deallocation.
         delegate.session = session
-        delegate.task = session.downloadTask(with: request)
-        delegate.task?.resume()
+        let downloadTask = session.downloadTask(with: request)
+        delegate.task = downloadTask
+        taskHolder.withLock { $0 = downloadTask }
+        downloadTask.resume()
       }
     } onCancel: {
-      // Task cancellation: URLSession delegate will receive didCompleteWithError
-      // with NSURLErrorCancelled, which resumes the continuation with that error.
-      // No direct action needed here — cancellation propagates through URLSession.
+      // Cancel the URLSession task, which triggers didCompleteWithError
+      // with NSURLErrorCancelled, resuming the continuation with an error.
+      taskHolder.withLock { $0?.cancel() }
     }
 
     // File handling (after continuation resumes, on the caller's executor)
