@@ -191,31 +191,10 @@ final class ModelManager {
         }
       )
 
-      // Validate file size if expected size is known
-      if expectedFileSize > 0 {
-        let attrs = try fileManager.attributesOfItem(atPath: downloadFileURL.path)
-        let fileSize = attrs[.size] as? Int64 ?? 0
-        if fileSize != expectedFileSize {
-          try? fileManager.removeItem(at: downloadFileURL)
-          state = .error(
-            "Downloaded file size mismatch (expected \(expectedFileSize), got \(fileSize))")
-          return
-        }
-      }
-
-      // Validate SHA256 hash if expected hash is known.
-      // Runs off MainActor to avoid UI freeze on large files (~2s for 3 GB).
-      if let expectedSHA256 {
-        let downloadURL = downloadFileURL
-        let actualSHA256 = try await Task.detached {
-          try Self.computeSHA256(of: downloadURL)
-        }.value
-        if actualSHA256 != expectedSHA256 {
-          try? fileManager.removeItem(at: downloadFileURL)
-          state = .error(
-            "Download verification failed. The file may be corrupted — please try again.")
-          return
-        }
+      if let error = await verifyDownloadIntegrity() {
+        try? fileManager.removeItem(at: downloadFileURL)
+        state = .error(error)
+        return
       }
 
       // Atomic rename from .download to final path
@@ -240,6 +219,40 @@ final class ModelManager {
     downloadTask?.cancel()
     downloadTask = nil
     state = .notDownloaded
+  }
+
+  // MARK: - Download Integrity
+
+  /// Validates file size and SHA256 hash of the downloaded file.
+  /// Returns an error message if verification fails, or nil if the file is valid.
+  private func verifyDownloadIntegrity() async -> String? {
+    // Validate file size if expected size is known
+    if expectedFileSize > 0 {
+      let attrs = try? fileManager.attributesOfItem(atPath: downloadFileURL.path)
+      let fileSize = attrs?[.size] as? Int64 ?? 0
+      if fileSize != expectedFileSize {
+        return "Downloaded file size mismatch (expected \(expectedFileSize), got \(fileSize))"
+      }
+    }
+
+    // Validate SHA256 hash if expected hash is known.
+    // Runs off MainActor to avoid UI freeze on large files (~2s for 3 GB).
+    if let expectedSHA256 {
+      let downloadURL = downloadFileURL
+      let actualSHA256: String
+      do {
+        actualSHA256 = try await Task.detached {
+          try Self.computeSHA256(of: downloadURL)
+        }.value
+      } catch {
+        return "Failed to verify download: \(error.localizedDescription)"
+      }
+      if actualSHA256 != expectedSHA256 {
+        return "Download verification failed. The file may be corrupted — please try again."
+      }
+    }
+
+    return nil
   }
 
   // MARK: - SHA256
