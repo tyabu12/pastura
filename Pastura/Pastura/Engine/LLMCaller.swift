@@ -67,6 +67,8 @@ nonisolated struct LLMCaller: Sendable {
       }
 
       // Detect chat template token leakage and hallucinated continuations
+      // TODO: Move this detection into JSONResponseParser as returned metadata
+      // to avoid duplicating <|im_end|>/<|im_start|> knowledge across files.
       if raw.contains("<|im_start|>") {
         // Model generated past its own turn into fabricated user/assistant exchanges
         logger.warning("Model hallucinated past its turn — continuation truncated at <|im_end|>")

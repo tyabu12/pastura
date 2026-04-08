@@ -8,6 +8,8 @@ import Foundation
 /// All JSON values are normalized to `String` for ``TurnOutput``.
 nonisolated public struct JSONResponseParser: Sendable {
   // Pre-compiled regexes for performance across many parse calls
+  // TODO: Add assertionFailure in #if DEBUG for nil cases — these are compile-time
+  // constants that should never fail, but silent nil degrades parsing without warning.
   // Gemma 4 channel thinking: `<|channel>thought...<channel|>` (newline optional)
   private static let channelThinkingRegex = try? NSRegularExpression(
     pattern: #"<\|channel>thought\s*.*?<channel\|>"#,
