@@ -183,5 +183,5 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
 | `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
 | `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
-| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification (§3.1 LLM section superseded by ADR-002) |
+| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |

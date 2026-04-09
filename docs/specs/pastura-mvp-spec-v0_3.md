@@ -81,13 +81,12 @@ E2B実機テスト（Ollama + Gemma 4 E2B on M1 MacBook）で以下を確認:
 
 | 項目 | 仕様 |
 |------|------|
-| シミュレーション実行 | Gemma 4 E2B（ローカル、オフライン） |
+| シミュレーション実行 | Gemma 4 E2B Q4_K_M GGUF（ローカル、オフライン） |
 | シナリオ生成 | 外部LLM（Claude等）で自然言語→YAML変換（MVPはコピペ運用） |
-| ランタイム | LiteRT-LM |
-| 量子化 | Gemma quantization（2bit/4bit/8bit混合） |
-| コンテキスト | 最大32K tokens（LiteRT-LM経由） |
-| メモリ | GPU: 約1,450MB / CPU: 約607MB |
-| デコード速度 | GPU: 約56.5 tok/s / CPU: 約25.0 tok/s（iPhone 17 Pro） |
+| ランタイム | llama.cpp（mattt/llama.swift経由、Metal GPU） |
+| 量子化 | Q4_K_M（~3.1 GB） |
+| コンテキスト | 最大8K tokens（llama.cpp設定） |
+| モデルDL | アプリ初回起動時にHuggingFaceからダウンロード（SHA256検証付き） |
 
 ### 3.2 プラットフォーム
 
@@ -95,7 +94,7 @@ E2B実機テスト（Ollama + Gemma 4 E2B on M1 MacBook）で以下を確認:
 |------|------|
 | OS | iOS 17以上、RAM 8GB以上 |
 | UI | SwiftUI |
-| LLM統合 | LiteRT-LM iOS SDK |
+| LLM統合 | llama.cpp via mattt/llama.swift（LiteRT-LM移行予定、ADR-002参照） |
 | ローカルDB | SQLite |
 | シナリオ形式 | YAML |
 
