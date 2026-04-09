@@ -65,4 +65,32 @@ struct LlamaCppServiceTests {
       try await service.generate(system: "sys", user: "usr")
     }
   }
+
+  // MARK: - Concurrent access guard (no false positives)
+
+  @Test func guardAllowsSequentialGenerateCalls() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // Sequential generate() calls should not trigger the guard.
+    // Both throw notLoaded (no model loaded), but the guard itself must not fire.
+    await #expect(throws: LLMError.notLoaded) {
+      try await service.generate(system: "sys", user: "usr")
+    }
+    await #expect(throws: LLMError.notLoaded) {
+      try await service.generate(system: "sys", user: "usr")
+    }
+  }
+
+  @Test func guardAllowsLoadUnloadCycle() async throws {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // load (fails) → generate (fails) → unload → generate (fails)
+    // None of these overlap, so the guard must not fire.
+    try? await service.loadModel()
+    await #expect(throws: LLMError.notLoaded) {
+      try await service.generate(system: "sys", user: "usr")
+    }
+    try await service.unloadModel()
+    await #expect(throws: LLMError.notLoaded) {
+      try await service.generate(system: "sys", user: "usr")
+    }
+  }
 }

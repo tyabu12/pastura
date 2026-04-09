@@ -7,13 +7,18 @@ import os
 /// Loads a GGUF model file from disk and runs inference locally.
 /// Designed for TestFlight production use with Gemma 4 E2B.
 ///
-/// - Important: Not safe for concurrent `generate`/`unloadModel` calls.
+/// - Important: Not safe for concurrent `generate`/`loadModel`/`unloadModel` calls.
 ///   The Engine executes inferences sequentially, so this is fine in practice.
+///   A runtime guard (`precondition`) detects violations in both Debug and Release builds.
 nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable {
   // @unchecked Sendable: isModelLoaded flag protected by OSAllocatedUnfairLock.
   // C pointers use nonisolated(unsafe) — Engine calls generate() sequentially via
   // `for await` on a single AsyncStream, and loadModel()/unloadModel() bracket the
   // stream lifetime, guaranteeing no concurrent access to C pointers (ADR-002 §6).
+  //
+  // NOTE: Class body is at the SwiftLint type_body_length limit (250 lines).
+  // Future additions should extract helpers into private extensions or separate files
+  // (e.g., tokenization, sampler setup, or chat template logic).
 
   private let modelPath: String
   private let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
@@ -28,6 +33,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   private static let batchSize: Int = 512
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
+  // Runtime guard for the sequential access contract (ADR-002 §6).
+  // Catches concurrent generate(), or load/unload during active generation.
+  private let generatingGuard = OSAllocatedUnfairLock<Bool>(initialState: false)
   // Sequential access only — protected by concurrency contract, not by lock
   nonisolated(unsafe) private var _model: OpaquePointer?
   nonisolated(unsafe) private var _context: OpaquePointer?
@@ -52,6 +60,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // MARK: - LLMService
 
   public func loadModel() async throws {
+    precondition(!generatingGuard.withLock({ $0 }), "loadModel() during generate() — ADR-002 §6")
+
     // llama_backend_init is internally ref-counted — safe to call multiple times
     llama_backend_init()
 
@@ -79,6 +89,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   }
 
   public func unloadModel() async throws {
+    // TODO: didReceiveMemoryWarning must await simulation completion before calling this (ADR-002 §7).
+    precondition(!generatingGuard.withLock({ $0 }), "unloadModel() during generate() — ADR-002 §6")
+
     let wasLoaded = loadedState.withLock { loaded -> Bool in
       let was = loaded
       loaded = false
@@ -111,6 +124,19 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     guard isModelLoaded, let model = _model, let context = _context else {
       throw LLMError.notLoaded
     }
+
+    // Runtime enforcement of sequential access contract (ADR-002 §6).
+    // Concurrent generate() would cause use-after-free of C pointers.
+    // IMPORTANT: This guard is intentionally placed after the isModelLoaded check above.
+    // Calls that fail with .notLoaded must not touch the flag — otherwise the flag
+    // stays true and the next sequential call would be falsely flagged as concurrent.
+    let wasGenerating = generatingGuard.withLock { flag -> Bool in
+      let was = flag
+      flag = true
+      return was
+    }
+    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
+    defer { generatingGuard.withLock { $0 = false } }
 
     let vocab = llama_model_get_vocab(model)
 
