@@ -293,11 +293,13 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// Returns the token ID for `<|im_end|>`, or `nil` if unresolvable.
   /// `llama_vocab_is_eog()` misses this token on Gemma 4 E2B; checked explicitly in the loop.
   private func resolveImEndTokenId(vocab: OpaquePointer?) -> llama_token? {
-    if let t = try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false), t.count == 1 {
-      return t[0]
-    }
+    // TODO: Cache result at loadModel() time — vocab is stable for the model lifetime (#65)
+    // TODO: Consider adding <|im_start|> as stop token if hallucinated turn starts are observed (#65)
+    let t = (try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false)) ?? []
+    if t.count == 1 { return t[0] }
+    // 0 tokens = tokenization threw; >1 = unexpected multi-token encoding
     logger.warning(
-      "<|im_end|> did not resolve to a single token — stop-token optimization disabled")
+      "<|im_end|> resolved to \(t.count) tokens (expected 1) — stop-token optimization disabled")
     return nil
   }
 
