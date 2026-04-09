@@ -39,8 +39,8 @@ struct ResultDetailView: View {
         Button {
           showAllThoughts.toggle()
         } label: {
-          Image(systemName: showAllThoughts ? "eye.slash" : "eye")
-            .foregroundStyle(showAllThoughts ? .blue : .secondary)
+          Image(systemName: showAllThoughts ? "text.bubble.fill" : "text.bubble")
+            .foregroundStyle(showAllThoughts ? .purple : .secondary)
         }
       }
     }
