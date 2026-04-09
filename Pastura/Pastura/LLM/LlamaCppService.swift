@@ -15,6 +15,10 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // C pointers use nonisolated(unsafe) — Engine calls generate() sequentially via
   // `for await` on a single AsyncStream, and loadModel()/unloadModel() bracket the
   // stream lifetime, guaranteeing no concurrent access to C pointers (ADR-002 §6).
+  //
+  // NOTE: Class body is at the SwiftLint type_body_length limit (250 lines).
+  // Future additions should extract helpers into private extensions or separate files
+  // (e.g., tokenization, sampler setup, or chat template logic).
 
   private let modelPath: String
   private let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
@@ -123,6 +127,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
     // Runtime enforcement of sequential access contract (ADR-002 §6).
     // Concurrent generate() would cause use-after-free of C pointers.
+    // IMPORTANT: This guard is intentionally placed after the isModelLoaded check above.
+    // Calls that fail with .notLoaded must not touch the flag — otherwise the flag
+    // stays true and the next sequential call would be falsely flagged as concurrent.
     let wasGenerating = generatingGuard.withLock { flag -> Bool in
       let was = flag
       flag = true
