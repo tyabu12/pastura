@@ -174,9 +174,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       let newTokenId = llama_sampler_sample(sampler, context, -1)
 
       if llama_vocab_is_eog(vocab, newTokenId) || newTokenId == imEndTokenId {
-        if newTokenId == imEndTokenId {
-          logger.debug("<|im_end|> stop token hit — ending generation early")
-        }
+        if newTokenId == imEndTokenId { logger.debug("<|im_end|> stop token hit — ending early") }
         break
       }
 
@@ -314,21 +312,6 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     return result
   }
 
-  // MARK: - Stop Token Resolution
-
-  /// Returns the token ID for `<|im_end|>`, or `nil` if unresolvable.
-  /// `llama_vocab_is_eog()` misses this token on Gemma 4 E2B; checked explicitly in the loop.
-  private func resolveImEndTokenId(vocab: OpaquePointer?) -> llama_token? {
-    // TODO: Cache result at loadModel() time — vocab is stable for the model lifetime (#65)
-    // TODO: Consider adding <|im_start|> as stop token if hallucinated turn starts are observed (#65)
-    let t = (try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false)) ?? []
-    if t.count == 1 { return t[0] }
-    // 0 tokens = tokenization threw; >1 = unexpected multi-token encoding
-    logger.warning(
-      "<|im_end|> resolved to \(t.count) tokens (expected 1) — stop-token optimization disabled")
-    return nil
-  }
-
   // MARK: - Prefill
 
   private func prefill(
@@ -382,5 +365,22 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
 
     return chain
+  }
+}
+
+// MARK: - Stop Token Resolution
+
+extension LlamaCppService {
+  /// Returns the token ID for `<|im_end|>`, or `nil` if unresolvable.
+  /// `llama_vocab_is_eog()` misses this token on Gemma 4 E2B; checked explicitly in the loop.
+  fileprivate func resolveImEndTokenId(vocab: OpaquePointer?) -> llama_token? {
+    // TODO: Cache result at loadModel() time — vocab is stable for the model lifetime (#65)
+    // TODO: Consider adding <|im_start|> as stop token if hallucinated turn starts are observed (#65)
+    let t = (try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false)) ?? []
+    if t.count == 1 { return t[0] }
+    // 0 tokens = tokenization threw; >1 = unexpected multi-token encoding
+    logger.warning(
+      "<|im_end|> resolved to \(t.count) tokens (expected 1) — stop-token optimization disabled")
+    return nil
   }
 }
