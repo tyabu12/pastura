@@ -56,10 +56,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // MARK: - LLMService
 
   public func loadModel() async throws {
-    precondition(
-      !generatingGuard.withLock({ $0 }),
-      "loadModel() called during active generate() — see ADR-002 §6"
-    )
+    precondition(!generatingGuard.withLock({ $0 }), "loadModel() during generate() — ADR-002 §6")
 
     // llama_backend_init is internally ref-counted — safe to call multiple times
     llama_backend_init()
@@ -88,12 +85,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   }
 
   public func unloadModel() async throws {
-    // TODO: When didReceiveMemoryWarning handler is implemented, it must await
-    // simulation task completion before calling unloadModel() — see ADR-002 §7.
-    precondition(
-      !generatingGuard.withLock({ $0 }),
-      "unloadModel() called during active generate() — see ADR-002 §6"
-    )
+    // TODO: didReceiveMemoryWarning must await simulation completion before calling this (ADR-002 §7).
+    precondition(!generatingGuard.withLock({ $0 }), "unloadModel() during generate() — ADR-002 §6")
 
     let wasLoaded = loadedState.withLock { loaded -> Bool in
       let was = loaded
@@ -129,13 +122,13 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     }
 
     // Runtime enforcement of sequential access contract (ADR-002 §6).
-    // Fires in both Debug and Release — concurrent generate() would cause use-after-free.
+    // Concurrent generate() would cause use-after-free of C pointers.
     let wasGenerating = generatingGuard.withLock { flag -> Bool in
       let was = flag
       flag = true
       return was
     }
-    precondition(!wasGenerating, "Concurrent generate() call detected — see ADR-002 §6")
+    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
     defer { generatingGuard.withLock { $0 = false } }
 
     let vocab = llama_model_get_vocab(model)
