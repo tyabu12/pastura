@@ -95,7 +95,36 @@ struct LlamaCppIntegrationTests {
     #expect(!statement.isEmpty, "Parsed statement is empty. Raw: \(result)")
   }
 
-  // MARK: - Test 4: Multiple sequential generations (KV cache clear)
+  // MARK: - Test 4: Generation stops at <|im_end|> token
+
+  @Test(.timeLimit(.minutes(3)))
+  func generationStopsAtImEnd() async throws {
+    let service = makeService()
+    try await service.loadModel()
+    defer { Task { try? await service.unloadModel() } }
+
+    let result = try await service.generate(
+      system: """
+        You are a character in a game. Respond ONLY with a JSON object.
+        Required format: {"statement": "your statement here"}
+        """,
+      user: "Introduce yourself briefly."
+    )
+
+    // Output should not contain leaked <|im_end|> token
+    #expect(
+      !result.contains("<|im_end|>"),
+      "Raw output contains <|im_end|> — stop token not working. Output: \(result)"
+    )
+    // Output should be well under maxTokens (1000 tokens ≈ 4000 chars).
+    // A runaway generation hitting maxTokens indicates the stop token failed.
+    #expect(
+      result.count < 2000,
+      "Output suspiciously long (\(result.count) chars) — may have hit maxTokens"
+    )
+  }
+
+  // MARK: - Test 5: Multiple sequential generations (KV cache clear)
 
   @Test(.timeLimit(.minutes(5)))
   func multipleSequentialGenerations() async throws {
