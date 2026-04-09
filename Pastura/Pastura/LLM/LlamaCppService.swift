@@ -137,12 +137,28 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     let sampler = try createSampler()
     defer { llama_sampler_free(sampler) }
 
+    // Resolve <|im_end|> token ID for explicit stop detection.
+    // llama_vocab_is_eog() misses this token on Gemma 4 E2B, causing
+    // hallucinated conversation continuations until maxTokens.
+    let imEndTokenId: llama_token? = {
+      if let tokens = try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false),
+        tokens.count == 1 {
+        return tokens[0]
+      }
+      logger.warning(
+        "<|im_end|> did not resolve to a single token — stop-token optimization disabled")
+      return nil
+    }()
+
     // Auto-regressive generation loop
     var outputTokens: [llama_token] = []
     for _ in 0..<Self.maxTokens {
       let newTokenId = llama_sampler_sample(sampler, context, -1)
 
-      if llama_vocab_is_eog(vocab, newTokenId) {
+      if llama_vocab_is_eog(vocab, newTokenId) || newTokenId == imEndTokenId {
+        if newTokenId == imEndTokenId {
+          logger.debug("<|im_end|> stop token hit — ending generation early")
+        }
         break
       }
 
