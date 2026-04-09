@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, feature/llama-cpp-backend]
+    branches: [main]
   pull_request:
-    branches: [main, feature/llama-cpp-backend]
+    branches: [main]
 
 permissions:
   contents: read
