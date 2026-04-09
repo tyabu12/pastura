@@ -142,4 +142,119 @@ struct JSONResponseParserTests {
     #expect(output.fields["statement"] == "協力しましょう")
     #expect(output.fields["inner_thought"] == "本当は裏切りたい")
   }
+
+  // MARK: - 14. <think> tags (common thinking model format)
+
+  @Test func stripsThinkTags() throws {
+    let input = """
+      <think>
+      I need to cooperate because the opponent has been friendly.
+      Let me think about this carefully.
+      </think>
+      {"statement": "Let's work together", "action": "cooperate"}
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "Let's work together")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  // MARK: - 15. <think> tags on single line
+
+  @Test func stripsSingleLineThinkTags() throws {
+    let input = #"<think>short thought</think>{"statement": "hello", "action": "cooperate"}"#
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "hello")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  // MARK: - 16. <|channel>thought without mandatory newline
+
+  @Test func stripsChannelThinkingTagWithoutNewline() throws {
+    let input = """
+      <|channel>thought I need to cooperate.<channel|>{"statement": "ok", "action": "cooperate"}
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "ok")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  // MARK: - 17. Thinking content with embedded JSON-like text
+
+  @Test func stripsThinkTagsWithEmbeddedJSON() throws {
+    let input = """
+      <think>I'll respond with {"wrong": "data"} as my strategy</think>
+      {"correct": "data", "action": "cooperate"}
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["correct"] == "data")
+    #expect(output.fields["action"] == "cooperate")
+    #expect(output.fields["wrong"] == nil)
+  }
+
+  // MARK: - 18. Channel thinking tag with embedded JSON-like text
+
+  @Test func stripsChannelTagsWithEmbeddedJSON() throws {
+    let input = """
+      <|channel>thought
+      I considered {"wrong": "data"} but decided against it.
+      <channel|>
+      {"correct": "data", "action": "betray"}
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["correct"] == "data")
+    #expect(output.fields["action"] == "betray")
+    #expect(output.fields["wrong"] == nil)
+  }
+
+  // MARK: - 19. Trailing end-of-turn token (<|im_end|>)
+
+  @Test func stripsTrailingImEndToken() throws {
+    let input = #"{"statement": "こんにちは", "inner_thought": "様子を見よう"}<|im_end|>"#
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "こんにちは")
+    #expect(output.fields["inner_thought"] == "様子を見よう")
+  }
+
+  // MARK: - 20. Trailing end-of-turn token with whitespace
+
+  @Test func stripsTrailingImEndTokenWithWhitespace() throws {
+    let input = """
+      {"statement": "hello", "action": "cooperate"} <|im_end|>
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "hello")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  // MARK: - 21. Hallucinated conversation continuation after <|im_end|>
+
+  @Test func truncatesHallucinatedContinuation() throws {
+    let input = """
+      {"inner_thought": "考え中", "statement": "こんにちは"}<|im_end|>
+      <|im_start|>user
+      サクラ: 別の発言"}
+      <|im_end|>
+      <|im_start|>assistant
+      {"inner_thought": "次の
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["inner_thought"] == "考え中")
+    #expect(output.fields["statement"] == "こんにちは")
+  }
+
+  // MARK: - 22. <think> tags + code block combined
+
+  @Test func handlesThinkTagsAndCodeBlock() throws {
+    let input = """
+      <think>
+      Let me analyze the situation...
+      </think>
+      ```json
+      {"inner_thought": "I should betray", "declaration": "I will cooperate"}
+      ```
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["inner_thought"] == "I should betray")
+    #expect(output.fields["declaration"] == "I will cooperate")
+  }
 }

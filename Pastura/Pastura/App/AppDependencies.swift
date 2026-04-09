@@ -38,6 +38,16 @@ final class AppDependencies: @unchecked Sendable {
     return AppDependencies(databaseManager: manager)
   }
 
+  /// Creates a production instance with a specific LLM service.
+  ///
+  /// Used for on-device LlamaCppService where the model path is known only
+  /// after download completes. The LLM service is immutable once set.
+  static func production(llmService: any LLMService) throws -> AppDependencies {
+    let dbPath = Self.databasePath()
+    let manager = try DatabaseManager.persistent(at: dbPath)
+    return AppDependencies(databaseManager: manager, llmService: llmService)
+  }
+
   /// Creates a test/preview instance with in-memory storage.
   static func inMemory(llmService: (any LLMService)? = nil) throws -> AppDependencies {
     let manager = try DatabaseManager.inMemory()

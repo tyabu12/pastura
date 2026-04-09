@@ -2,8 +2,8 @@ import Foundation
 
 /// Abstraction over LLM inference backends.
 ///
-/// Implementations include ``OllamaService`` (development),
-/// ``MockLLMService`` (testing), and a future LiteRT-LM service (production).
+/// Implementations include ``LlamaCppService`` (on-device via llama.cpp),
+/// ``OllamaService`` (development), and ``MockLLMService`` (testing).
 /// The Engine layer depends on this protocol, never on concrete implementations.
 nonisolated public protocol LLMService: Sendable {
   /// Load the model into memory. Call before ``generate(system:user:)``.

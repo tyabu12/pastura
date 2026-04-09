@@ -63,6 +63,7 @@
 | Debug mode (raw JSON)          | Done     |
 | NG word filter                 | Done     |
 | Scenario gen prompt (copyable) | Done     |
+| On-device LLM (llama.cpp)      | Done     |
 | TestFlight distribution        | In progress |
 
 ### What is NOT in MVP (defer to Phase 2+)
@@ -105,7 +106,7 @@ If Claude Code is asked to implement any of these, decline and reference this do
 
 ### Technical Debt to Address
 - Evaluate SPM module split (if file count > 100)
-- LiteRT-LM Swift SDK integration (if released)
+- **Migrate LLM backend from llama.cpp to LiteRT-LM** when Swift SDK + iOS GPU ships (see ADR-002)
 - Conversation compaction (LLM-based summarization of old logs)
 - Performance profiling on real devices (thermal, battery)
 

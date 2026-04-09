@@ -81,13 +81,12 @@ E2B実機テスト（Ollama + Gemma 4 E2B on M1 MacBook）で以下を確認:
 
 | 項目 | 仕様 |
 |------|------|
-| シミュレーション実行 | Gemma 4 E2B（ローカル、オフライン） |
+| シミュレーション実行 | Gemma 4 E2B Q4_K_M GGUF（ローカル、オフライン） |
 | シナリオ生成 | 外部LLM（Claude等）で自然言語→YAML変換（MVPはコピペ運用） |
-| ランタイム | LiteRT-LM |
-| 量子化 | Gemma quantization（2bit/4bit/8bit混合） |
-| コンテキスト | 最大32K tokens（LiteRT-LM経由） |
-| メモリ | GPU: 約1,450MB / CPU: 約607MB |
-| デコード速度 | GPU: 約56.5 tok/s / CPU: 約25.0 tok/s（iPhone 17 Pro） |
+| ランタイム | llama.cpp（mattt/llama.swift経由、Metal GPU） |
+| 量子化 | Q4_K_M（~3.1 GB） |
+| コンテキスト | 最大8K tokens（llama.cpp設定） |
+| モデルDL | アプリ初回起動時にHuggingFaceからダウンロード（SHA256検証付き） |
 
 ### 3.2 プラットフォーム
 
@@ -95,7 +94,7 @@ E2B実機テスト（Ollama + Gemma 4 E2B on M1 MacBook）で以下を確認:
 |------|------|
 | OS | iOS 17以上、RAM 8GB以上 |
 | UI | SwiftUI |
-| LLM統合 | LiteRT-LM iOS SDK |
+| LLM統合 | llama.cpp via mattt/llama.swift（LiteRT-LM移行予定、ADR-002参照） |
 | ローカルDB | SQLite |
 | シナリオ形式 | YAML |
 
@@ -467,30 +466,31 @@ turns
 
 ## 11. 開発フェーズ
 
-### Phase 0: プロトタイプ検証（現在）
+### Phase 0: プロトタイプ検証 ✅ Complete
 
 - [x] 技術的フィージビリティ分析
 - [x] E2B実機テスト（囚人のジレンマ × 3回イテレーション、ボケて × 1回）
 - [x] プロンプト最適化（JSON安定化、無言対策）
 - [x] コンセプトピボット決定
 - [x] MVP仕様書 v0.3.0
-- [ ] ワードウルフ実機テスト
-- [ ] E4B / Claude比較テスト（品質上限の把握）
-- [ ] シナリオ生成プロンプトの作成・検証
+- [x] ワードウルフ実機テスト
+- [ ] E4B / Claude比較テスト（品質上限の把握）（低優先度）
+- [x] シナリオ生成プロンプトの作成・検証
 
-### Phase 1: MVP開発
+### Phase 1: MVP開発 🔧 In Progress
 
-- [ ] Xcodeプロジェクトセットアップ
-- [ ] LiteRT-LM iOS SDK統合
-- [ ] シナリオエンジン実装（YAMLパーサー + フェーズディスパッチャー）
-- [ ] 全フェーズタイプ実装
-- [ ] シナリオインポート機能（YAML貼り付け + バリデーション）
-- [ ] プリセットシナリオ同梱（2〜3種）
-- [ ] シミュレーション実行UI
-- [ ] 結果閲覧UI
-- [ ] デバッグモード
-- [ ] NGワードフィルタ
-- [ ] シナリオ生成プロンプトテンプレート提供
+- [x] Xcodeプロジェクトセットアップ
+- [x] llama.cpp統合（mattt/llama.swift経由、Metal GPU）
+- [x] シナリオエンジン実装（YAMLパーサー + フェーズディスパッチャー）
+- [x] 全フェーズタイプ実装
+- [x] シナリオインポート機能（YAML貼り付け + バリデーション）
+- [x] プリセットシナリオ同梱（3種）
+- [x] シミュレーション実行UI
+- [x] 結果閲覧UI
+- [x] デバッグモード
+- [x] NGワードフィルタ
+- [x] シナリオ生成プロンプトテンプレート提供
+- [x] モデルダウンロード + SHA256検証
 - [ ] TestFlight配布
 - [ ] **Go/No-Go判定**
 
@@ -502,6 +502,7 @@ turns
 - [ ] `conditional` / `event_inject` フェーズタイプ
 - [ ] シナリオ共有・マーケットプレイス
 - [ ] E4Bモデル切替
+- [ ] LLMバックエンドをllama.cppからLiteRT-LMに移行（Swift SDK + iOS GPU対応待ち、ADR-002参照）
 
 ### Phase 3: コミュニティ
 
