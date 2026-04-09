@@ -140,15 +140,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     // Resolve <|im_end|> token ID for explicit stop detection.
     // llama_vocab_is_eog() misses this token on Gemma 4 E2B, causing
     // hallucinated conversation continuations until maxTokens.
-    let imEndTokenId: llama_token? = {
-      if let tokens = try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false),
-        tokens.count == 1 {
-        return tokens[0]
-      }
-      logger.warning(
-        "<|im_end|> did not resolve to a single token — stop-token optimization disabled")
-      return nil
-    }()
+    let imEndTokenId = resolveImEndTokenId(vocab: vocab)
 
     // Auto-regressive generation loop
     var outputTokens: [llama_token] = []
@@ -294,6 +286,19 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     }
 
     return result
+  }
+
+  // MARK: - Stop Token Resolution
+
+  /// Returns the token ID for `<|im_end|>`, or `nil` if unresolvable.
+  /// `llama_vocab_is_eog()` misses this token on Gemma 4 E2B; checked explicitly in the loop.
+  private func resolveImEndTokenId(vocab: OpaquePointer?) -> llama_token? {
+    if let t = try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false), t.count == 1 {
+      return t[0]
+    }
+    logger.warning(
+      "<|im_end|> did not resolve to a single token — stop-token optimization disabled")
+    return nil
   }
 
   // MARK: - Prefill
