@@ -5,6 +5,7 @@ struct AgentOutputRow: View {
   let agent: String
   let output: TurnOutput
   let phaseType: PhaseType
+  let showAllThoughts: Bool
   let showDebug: Bool
 
   @State private var showInnerThought = false
@@ -25,23 +26,25 @@ struct AgentOutputRow: View {
           .font(.body)
       }
 
-      // Inner thought (tap to reveal)
+      // Inner thought (tap to reveal, or always shown via global toggle)
       if let thought = output.innerThought, !thought.isEmpty {
-        Button {
-          withAnimation(.easeInOut(duration: 0.2)) {
-            showInnerThought.toggle()
+        if !showAllThoughts {
+          Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              showInnerThought.toggle()
+            }
+          } label: {
+            HStack(spacing: 4) {
+              Image(systemName: showInnerThought ? "eye.slash" : "eye")
+              Text(showInnerThought ? "Hide thought" : "Show thought")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
           }
-        } label: {
-          HStack(spacing: 4) {
-            Image(systemName: showInnerThought ? "eye.slash" : "eye")
-            Text(showInnerThought ? "Hide thought" : "Show thought")
-          }
-          .font(.caption)
-          .foregroundStyle(.secondary)
+          .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
 
-        if showInnerThought {
+        if showAllThoughts || showInnerThought {
           Text(thought)
             .font(.caption)
             .foregroundStyle(.secondary)

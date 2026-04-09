@@ -8,6 +8,7 @@ struct ResultDetailView: View {
   @State private var turns: [TurnRecord] = []
   @State private var isLoading = true
   @State private var showDebug = false
+  @State private var showAllThoughts = false
 
   var body: some View {
     Group {
@@ -32,6 +33,14 @@ struct ResultDetailView: View {
         } label: {
           Image(systemName: showDebug ? "ladybug.fill" : "ladybug")
             .foregroundStyle(showDebug ? .orange : .secondary)
+        }
+      }
+      ToolbarItem(placement: .secondaryAction) {
+        Button {
+          showAllThoughts.toggle()
+        } label: {
+          Image(systemName: showAllThoughts ? "eye.slash" : "eye")
+            .foregroundStyle(showAllThoughts ? .blue : .secondary)
         }
       }
     }
@@ -99,6 +108,7 @@ struct ResultDetailView: View {
         agent: agentName,
         output: output,
         phaseType: phaseType,
+        showAllThoughts: showAllThoughts,
         showDebug: showDebug
       )
       .padding(.horizontal)

@@ -138,6 +138,7 @@ struct SimulationView: View {
     case .agentOutput(let agent, let output, let phaseType):
       AgentOutputRow(
         agent: agent, output: output, phaseType: phaseType,
+        showAllThoughts: viewModel.showAllThoughts,
         showDebug: viewModel.showDebugOutput
       )
       .padding(.horizontal)
@@ -200,6 +201,15 @@ struct SimulationView: View {
       .frame(width: 150)
 
       Spacer()
+
+      // Thought visibility toggle
+      Button {
+        viewModel.showAllThoughts.toggle()
+      } label: {
+        Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
+          .font(.title3)
+          .foregroundStyle(viewModel.showAllThoughts ? .purple : .secondary)
+      }
 
       // Debug toggle
       Button {

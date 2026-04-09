@@ -56,6 +56,7 @@ final class SimulationViewModel {
   private(set) var isCompleted = false
   private(set) var isCancelled = false
   private(set) var errorMessage: String?
+  var showAllThoughts = false
   var showDebugOutput = false
   var speed: PlaybackSpeed = .normal
 
