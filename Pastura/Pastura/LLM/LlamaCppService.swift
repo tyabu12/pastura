@@ -31,6 +31,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   private static let repeatPenalty: Float = 1.1
   private static let contextSize: UInt32 = 8_192
   private static let batchSize: Int = 512
+  // String-based, not token-ID, because Gemma 4 E2B tokenizes <|im_end|> into
+  // 6 subword tokens — single-token ID matching is impossible for this model.
+  private static let stopSequence = "<|im_end|>"
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
   // Runtime guard for the sequential access contract (ADR-002 §6).
@@ -163,22 +166,21 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     let sampler = try createSampler()
     defer { llama_sampler_free(sampler) }
 
-    // Resolve <|im_end|> token ID for explicit stop detection.
-    // llama_vocab_is_eog() misses this token on Gemma 4 E2B, causing
-    // hallucinated conversation continuations until maxTokens.
-    let imEndTokenId = resolveImEndTokenId(vocab: vocab)
-
-    // Auto-regressive generation loop
-    var outputTokens: [llama_token] = []
+    // Auto-regressive generation loop with string-based stop detection.
+    // Tokens are decoded incrementally so we can detect <|im_end|> even when
+    // the model's tokenizer splits it across multiple subword tokens.
+    var outputText = ""
     for _ in 0..<Self.maxTokens {
       let newTokenId = llama_sampler_sample(sampler, context, -1)
 
-      if llama_vocab_is_eog(vocab, newTokenId) || newTokenId == imEndTokenId {
-        if newTokenId == imEndTokenId { logger.debug("<|im_end|> stop token hit — ending early") }
+      if llama_vocab_is_eog(vocab, newTokenId) { break }
+
+      outputText += decodePiece(vocab: vocab, token: newTokenId)
+
+      if let range = outputText.range(of: Self.stopSequence) {
+        outputText = String(outputText[..<range.lowerBound])
         break
       }
-
-      outputTokens.append(newTokenId)
 
       // Decode single token for next iteration
       var nextToken = newTokenId
@@ -191,11 +193,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       }
     }
 
-    guard !outputTokens.isEmpty else {
+    guard !outputText.isEmpty else {
       throw LLMError.generationFailed(description: "Model generated no output tokens")
     }
 
-    return detokenize(vocab: vocab, tokens: outputTokens)
+    return outputText
   }
 
   // MARK: - Chat Template
@@ -372,18 +374,5 @@ extension LlamaCppService {
       }
     }
     return ""
-  }
-
-  /// Returns the token ID for `<|im_end|>`, or `nil` if unresolvable.
-  /// `llama_vocab_is_eog()` misses this token on Gemma 4 E2B; checked explicitly in the loop.
-  fileprivate func resolveImEndTokenId(vocab: OpaquePointer?) -> llama_token? {
-    // TODO: Cache result at loadModel() time — vocab is stable for the model lifetime (#65)
-    // TODO: Consider adding <|im_start|> as stop token if hallucinated turn starts are observed (#65)
-    let t = (try? tokenize(vocab: vocab, text: "<|im_end|>", addSpecial: false)) ?? []
-    if t.count == 1 { return t[0] }
-    // 0 tokens = tokenization threw; >1 = unexpected multi-token encoding
-    logger.warning(
-      "<|im_end|> resolved to \(t.count) tokens (expected 1) — stop-token optimization disabled")
-    return nil
   }
 }
