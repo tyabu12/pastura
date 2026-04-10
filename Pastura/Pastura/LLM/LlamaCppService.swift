@@ -286,30 +286,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     vocab: OpaquePointer?,
     tokens: [llama_token]
   ) -> String {
-    var result = ""
-    var buffer = [CChar](repeating: 0, count: 256)
-
-    for token in tokens {
-      let nChars = llama_token_to_piece(
-        vocab, token, &buffer, Int32(buffer.count), 0, false
-      )
-      if nChars > 0 {
-        buffer[Int(nChars)] = 0  // null-terminate
-        result += String(cString: buffer)
-      } else if nChars < 0 {
-        // Buffer too small; retry with required size
-        var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
-        let retryChars = llama_token_to_piece(
-          vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
-        )
-        if retryChars > 0 {
-          largeBuffer[Int(retryChars)] = 0
-          result += String(cString: largeBuffer)
-        }
-      }
-    }
-
-    return result
+    tokens.map { decodePiece(vocab: vocab, token: $0) }.joined()
   }
 
   // MARK: - Prefill
@@ -368,9 +345,35 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   }
 }
 
-// MARK: - Stop Token Resolution
+// MARK: - Tokenization Helpers
 
 extension LlamaCppService {
+  /// Decodes a single token ID to its string piece.
+  fileprivate func decodePiece(
+    vocab: OpaquePointer?,
+    token: llama_token
+  ) -> String {
+    var buffer = [CChar](repeating: 0, count: 256)
+    let nChars = llama_token_to_piece(
+      vocab, token, &buffer, Int32(buffer.count), 0, false
+    )
+    if nChars > 0 {
+      buffer[Int(nChars)] = 0  // null-terminate
+      return String(cString: buffer)
+    } else if nChars < 0 {
+      // Buffer too small; retry with required size
+      var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
+      let retryChars = llama_token_to_piece(
+        vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
+      )
+      if retryChars > 0 {
+        largeBuffer[Int(retryChars)] = 0
+        return String(cString: largeBuffer)
+      }
+    }
+    return ""
+  }
+
   /// Returns the token ID for `<|im_end|>`, or `nil` if unresolvable.
   /// `llama_vocab_is_eog()` misses this token on Gemma 4 E2B; checked explicitly in the loop.
   fileprivate func resolveImEndTokenId(vocab: OpaquePointer?) -> llama_token? {
