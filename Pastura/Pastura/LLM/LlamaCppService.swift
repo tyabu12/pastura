@@ -351,7 +351,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
 extension LlamaCppService {
   /// Decodes a single token ID to its string piece.
-  fileprivate func decodePiece(
+  private func decodePiece(
     vocab: OpaquePointer?,
     token: llama_token
   ) -> String {
