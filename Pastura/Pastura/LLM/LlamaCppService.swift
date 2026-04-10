@@ -33,6 +33,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   private static let batchSize: Int = 512
   // String-based, not token-ID, because Gemma 4 E2B tokenizes <|im_end|> into
   // 6 subword tokens — single-token ID matching is impossible for this model.
+  // TODO: Consider adding <|im_start|> if hallucinated turn starts are observed (#65)
   private static let stopSequence = "<|im_end|>"
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
@@ -277,13 +278,6 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
       return Array(tokens.prefix(Int(nTokens)))
     }
-  }
-
-  private func detokenize(
-    vocab: OpaquePointer?,
-    tokens: [llama_token]
-  ) -> String {
-    tokens.map { decodePiece(vocab: vocab, token: $0) }.joined()
   }
 
   // MARK: - Prefill
