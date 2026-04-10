@@ -31,6 +31,10 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   private static let repeatPenalty: Float = 1.1
   private static let contextSize: UInt32 = 8_192
   private static let batchSize: Int = 512
+  // String-based, not token-ID, because Gemma 4 E2B tokenizes <|im_end|> into
+  // 6 subword tokens — single-token ID matching is impossible for this model.
+  // TODO: Consider adding <|im_start|> if hallucinated turn starts are observed (#65)
+  private static let stopSequence = "<|im_end|>"
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
   // Runtime guard for the sequential access contract (ADR-002 §6).
@@ -113,13 +117,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   }
 
   public func generate(system: String, user: String) async throws -> String {
-    // Thermal throttle: pause before inference when device is overheating (ADR-002 §5).
-    // Uses `try await` (not `try?`) so Task cancellation propagates through the sleep.
-    let thermalState = ProcessInfo.processInfo.thermalState
-    if thermalState == .serious || thermalState == .critical {
-      logger.warning("Thermal state \(String(describing: thermalState)) — inserting 200ms pause")
-      try await Task.sleep(for: .milliseconds(200))
-    }
+    try await throttleIfOverheating()
 
     guard isModelLoaded, let model = _model, let context = _context else {
       throw LLMError.notLoaded
@@ -163,16 +161,22 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     let sampler = try createSampler()
     defer { llama_sampler_free(sampler) }
 
-    // Auto-regressive generation loop
-    var outputTokens: [llama_token] = []
+    // Auto-regressive generation loop with string-based stop detection.
+    // Tokens are decoded incrementally so we can detect <|im_end|> even when
+    // the model's tokenizer splits it across multiple subword tokens.
+    var outputText = ""
     for _ in 0..<Self.maxTokens {
       let newTokenId = llama_sampler_sample(sampler, context, -1)
 
-      if llama_vocab_is_eog(vocab, newTokenId) {
+      if llama_vocab_is_eog(vocab, newTokenId) { break }
+
+      outputText += decodePiece(vocab: vocab, token: newTokenId)
+
+      if let range = outputText.range(of: Self.stopSequence) {
+        outputText = String(outputText[..<range.lowerBound])
+        logger.debug("<|im_end|> stop sequence detected — ending generation early")
         break
       }
-
-      outputTokens.append(newTokenId)
 
       // Decode single token for next iteration
       var nextToken = newTokenId
@@ -185,11 +189,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       }
     }
 
-    guard !outputTokens.isEmpty else {
+    guard !outputText.isEmpty else {
       throw LLMError.generationFailed(description: "Model generated no output tokens")
     }
 
-    return detokenize(vocab: vocab, tokens: outputTokens)
+    return outputText
   }
 
   // MARK: - Chat Template
@@ -276,36 +280,6 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     }
   }
 
-  private func detokenize(
-    vocab: OpaquePointer?,
-    tokens: [llama_token]
-  ) -> String {
-    var result = ""
-    var buffer = [CChar](repeating: 0, count: 256)
-
-    for token in tokens {
-      let nChars = llama_token_to_piece(
-        vocab, token, &buffer, Int32(buffer.count), 0, false
-      )
-      if nChars > 0 {
-        buffer[Int(nChars)] = 0  // null-terminate
-        result += String(cString: buffer)
-      } else if nChars < 0 {
-        // Buffer too small; retry with required size
-        var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
-        let retryChars = llama_token_to_piece(
-          vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
-        )
-        if retryChars > 0 {
-          largeBuffer[Int(retryChars)] = 0
-          result += String(cString: largeBuffer)
-        }
-      }
-    }
-
-    return result
-  }
-
   // MARK: - Prefill
 
   private func prefill(
@@ -359,5 +333,49 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
 
     return chain
+  }
+}
+
+// MARK: - Thermal Throttle
+
+extension LlamaCppService {
+  /// Pauses briefly when device is overheating (ADR-002 §5).
+  /// Uses `try await` (not `try?`) so Task cancellation propagates through the sleep.
+  private func throttleIfOverheating() async throws {
+    let thermalState = ProcessInfo.processInfo.thermalState
+    if thermalState == .serious || thermalState == .critical {
+      logger.warning("Thermal state \(String(describing: thermalState)) — inserting 200ms pause")
+      try await Task.sleep(for: .milliseconds(200))
+    }
+  }
+}
+
+// MARK: - Tokenization Helpers
+
+extension LlamaCppService {
+  /// Decodes a single token ID to its string piece.
+  private func decodePiece(
+    vocab: OpaquePointer?,
+    token: llama_token
+  ) -> String {
+    var buffer = [CChar](repeating: 0, count: 256)
+    let nChars = llama_token_to_piece(
+      vocab, token, &buffer, Int32(buffer.count), 0, false
+    )
+    if nChars > 0 {
+      buffer[Int(nChars)] = 0  // null-terminate
+      return String(cString: buffer)
+    } else if nChars < 0 {
+      // Buffer too small; retry with required size
+      var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
+      let retryChars = llama_token_to_piece(
+        vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
+      )
+      if retryChars > 0 {
+        largeBuffer[Int(retryChars)] = 0
+        return String(cString: largeBuffer)
+      }
+    }
+    return ""
   }
 }
