@@ -79,11 +79,13 @@ struct ModelManagerTests {
   }
 
   @Test("checkModelStatus sets ready when model file exists")
-  func modelReady() {
+  func modelReady() throws {
     let sut = makeSUT()
 
     // Place a dummy file at the model path
     let modelPath = sut.modelFileURL
+    try FileManager.default.createDirectory(
+      at: modelPath.deletingLastPathComponent(), withIntermediateDirectories: true)
     FileManager.default.createFile(atPath: modelPath.path, contents: Data("test".utf8))
     defer { try? FileManager.default.removeItem(at: modelPath) }
 
@@ -164,10 +166,12 @@ struct ModelManagerTests {
   // MARK: - Delete
 
   @Test("deleteModel removes files and sets state to notDownloaded")
-  func deleteModel() {
+  func deleteModel() throws {
     let sut = makeSUT()
 
     // Create model file
+    try FileManager.default.createDirectory(
+      at: sut.modelFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
     FileManager.default.createFile(atPath: sut.modelFileURL.path, contents: Data("test".utf8))
     sut.checkModelStatus()
     #expect(sut.state == .ready(modelPath: sut.modelFileURL.path))
@@ -176,6 +180,63 @@ struct ModelManagerTests {
 
     #expect(sut.state == .notDownloaded)
     #expect(!FileManager.default.fileExists(atPath: sut.modelFileURL.path))
+  }
+
+  // MARK: - Storage Location
+
+  @Test("modelFileURL is in Application Support directory")
+  func modelFileInApplicationSupport() {
+    let sut = makeSUT()
+    #expect(sut.modelFileURL.path.contains("Application Support"))
+    #expect(!sut.modelFileURL.path.contains("Documents"))
+  }
+
+  @Test("downloadFileURL is in Caches directory")
+  func downloadFileInCaches() {
+    let sut = makeSUT()
+    #expect(sut.downloadFileURL.path.contains("Caches"))
+    #expect(!sut.downloadFileURL.path.contains("Documents"))
+  }
+
+  // MARK: - iCloud Backup Exclusion
+
+  @Test("checkModelStatus sets isExcludedFromBackup on existing model file")
+  func checkModelStatusExcludesFromBackup() throws {
+    let sut = makeSUT()
+
+    // Create the model directory and file
+    let modelDir = sut.modelFileURL.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: modelDir, withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: sut.modelFileURL.path, contents: Data("test".utf8))
+    defer { try? FileManager.default.removeItem(at: sut.modelFileURL) }
+
+    sut.checkModelStatus()
+
+    let values = try sut.modelFileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    #expect(values.isExcludedFromBackup == true)
+  }
+
+  @Test("downloadModel sets isExcludedFromBackup on completed model file")
+  func downloadSetsExcludeFromBackup() async throws {
+    let sut = makeSUT(
+      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 100)
+    )
+    sut.checkModelStatus()
+    #expect(sut.state == .notDownloaded)
+
+    await sut.downloadModel()
+    defer {
+      try? FileManager.default.removeItem(at: sut.modelFileURL)
+      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+    }
+
+    guard case .ready = sut.state else {
+      Issue.record("Expected .ready but got \(sut.state)")
+      return
+    }
+
+    let values = try sut.modelFileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    #expect(values.isExcludedFromBackup == true)
   }
 
   // MARK: - Edge Cases
