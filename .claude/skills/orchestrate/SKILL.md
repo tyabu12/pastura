@@ -1,12 +1,12 @@
 ---
-name: implement
+name: orchestrate
 description: Orchestrate feature implementation from plan to PR — worktree isolation, TDD, review, and PR creation.
 model: opus
 allowed-tools: Read, Grep, Glob, Bash, Agent, Write, Edit, EnterWorktree, ExitWorktree
 argument-hint: "[description | issue-number | phase N]"
 ---
 
-# /implement
+# /orchestrate
 
 Orchestrate the full development workflow: plan → issue → worktree → TDD implementation → review → PR.
 
