@@ -67,15 +67,12 @@ final class ModelManager {
 
   // MARK: - Computed
 
-  /// Full path to the model file in the Documents directory.
+  /// Directory for the completed model file: Library/Application Support/.
+  /// Application Support persists across app updates and is not purged by the OS,
+  /// unlike Library/Caches/. The model file is excluded from iCloud backup
+  /// (isExcludedFromBackup) because it can be re-downloaded (~3 GB).
   var modelDirectoryURL: URL {
-    // Documents directory is the standard location for user-downloaded content.
-    // It persists across app updates and is backed up by iCloud (appropriate for a 3 GB file
-    // the user explicitly downloaded).
-    // Fallback to temp directory only as a safety net — .documentDirectory should always
-    // exist on iOS. Using temp would mean the model file is lost on reboot, but this
-    // path is unreachable in practice.
-    fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+    fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
       ?? fileManager.temporaryDirectory
   }
 
@@ -83,8 +80,14 @@ final class ModelManager {
     modelDirectoryURL.appendingPathComponent(Self.modelFileName)
   }
 
+  /// Partial download file stored in Library/Caches/.
+  /// Caches is appropriate because: not backed up by iCloud, and if the OS purges it
+  /// under storage pressure, the download simply restarts (resume offset = 0).
   var downloadFileURL: URL {
-    modelDirectoryURL.appendingPathComponent(Self.downloadFileName)
+    let cachesDir =
+      fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+      ?? fileManager.temporaryDirectory
+    return cachesDir.appendingPathComponent(Self.downloadFileName)
   }
 
   // MARK: - Init
@@ -125,6 +128,8 @@ final class ModelManager {
           return
         }
       }
+      // Best-effort: re-apply on every launch as a safety net in case a prior attempt failed.
+      excludeFromBackup(modelFileURL)
       state = .ready(modelPath: modelFileURL.path)
     } else {
       state = .notDownloaded
@@ -198,13 +203,18 @@ final class ModelManager {
         return
       }
 
-      // Atomic rename from .download to final path
-      // Remove existing file at destination if present (e.g., corrupt from prior attempt)
+      // Ensure Application Support directory exists before moving the file.
+      let modelDir = modelFileURL.deletingLastPathComponent()
+      try fileManager.createDirectory(at: modelDir, withIntermediateDirectories: true)
+
+      // Atomic rename from Caches/.download to Application Support/ final path.
+      // Same volume on iOS, so this is an atomic rename (no copy+delete).
       if fileManager.fileExists(atPath: modelFileURL.path) {
         try fileManager.removeItem(at: modelFileURL)
       }
       try fileManager.moveItem(at: downloadFileURL, to: modelFileURL)
 
+      excludeFromBackup(modelFileURL)
       state = .ready(modelPath: modelFileURL.path)
     } catch is CancellationError {
       // Download was cancelled — keep partial file for resume
@@ -220,6 +230,18 @@ final class ModelManager {
     downloadTask?.cancel()
     downloadTask = nil
     state = .notDownloaded
+  }
+
+  // MARK: - Backup Exclusion
+
+  /// Marks a file as excluded from iCloud backup.
+  /// Best-effort: failure is non-fatal because the file is still usable,
+  /// and checkModelStatus() re-applies on every launch as a safety net.
+  private func excludeFromBackup(_ url: URL) {
+    var mutableURL = url
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    try? mutableURL.setResourceValues(values)
   }
 
   // MARK: - Download Integrity
