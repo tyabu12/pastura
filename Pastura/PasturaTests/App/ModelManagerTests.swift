@@ -79,11 +79,13 @@ struct ModelManagerTests {
   }
 
   @Test("checkModelStatus sets ready when model file exists")
-  func modelReady() {
+  func modelReady() throws {
     let sut = makeSUT()
 
     // Place a dummy file at the model path
     let modelPath = sut.modelFileURL
+    try FileManager.default.createDirectory(
+      at: modelPath.deletingLastPathComponent(), withIntermediateDirectories: true)
     FileManager.default.createFile(atPath: modelPath.path, contents: Data("test".utf8))
     defer { try? FileManager.default.removeItem(at: modelPath) }
 
@@ -164,10 +166,12 @@ struct ModelManagerTests {
   // MARK: - Delete
 
   @Test("deleteModel removes files and sets state to notDownloaded")
-  func deleteModel() {
+  func deleteModel() throws {
     let sut = makeSUT()
 
     // Create model file
+    try FileManager.default.createDirectory(
+      at: sut.modelFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
     FileManager.default.createFile(atPath: sut.modelFileURL.path, contents: Data("test".utf8))
     sut.checkModelStatus()
     #expect(sut.state == .ready(modelPath: sut.modelFileURL.path))
