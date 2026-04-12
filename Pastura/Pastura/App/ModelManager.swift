@@ -32,8 +32,9 @@ final class ModelManager {
     guard
       let url = URL(
         string:
-          // ggml-org repo only has Q8_0/f16; Q4_K_M is provided by unsloth
-          "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+          // ggml-org repo only has Q8_0/f16; Q4_K_M is provided by unsloth.
+          // Pinned to commit SHA to prevent silent breakage when upstream re-uploads the file.
+          "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/f064409f340b34190993560b2168133e5dbae558/gemma-4-E2B-it-Q4_K_M.gguf"
       )
     else {
       preconditionFailure("Invalid hardcoded model URL")
@@ -46,11 +47,11 @@ final class ModelManager {
   static let minimumRAM: UInt64 = 6_500_000_000
   /// Expected file size for integrity check (Q4_K_M GGUF from HuggingFace LFS metadata).
   /// Set to 0 to skip size validation.
-  static let modelFileSize: Int64 = 3_106_731_392
+  static let modelFileSize: Int64 = 3_106_735_776
   /// SHA256 hash of the model file (lowercase hex), from HuggingFace LFS metadata
   /// (unsloth/gemma-4-E2B-it-GGUF, `oid` field). nil to skip hash verification.
   static let modelSHA256: String? =
-    "a67d147c4b461fd5ad394acffa954ecc8686970671d2de8562d6db8888181011"
+    "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845"
 
   // MARK: - Published State
 
