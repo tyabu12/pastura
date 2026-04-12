@@ -58,10 +58,15 @@ After fetching the issue, check for an existing plan comment:
 
 1. Read `CLAUDE.md` for current phase and conventions.
 2. If phase-related, read ONLY the relevant Phase section from `docs/ROADMAP.md`.
-3. Format the plan as a numbered checkbox list (each item = one planned commit):
+3. Format the plan as a numbered checkbox list (each item = one planned commit).
+   Assign a **complexity label** to each item:
+   - 🟢 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
+   - 🔴 **complex** — Implemented by the orchestrator (Opus) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
+   - **When in doubt, classify as 🔴.** Misclassifying a complex task as simple wastes tokens on a failed Sonnet attempt + Opus fallback. The reverse (Opus doing a simple task) has no downside beyond cost.
+
    ```
-   - [ ] 1. <description> (`<primary-file-path>`)
-   - [ ] 2. <description> (`<primary-file-path>`)
+   - [ ] 1. 🟢 <description> (`<primary-file-path>`)
+   - [ ] 2. 🔴 <description> (`<primary-file-path>`)
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
@@ -164,7 +169,10 @@ Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step
 
 Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING=true`**, start from item `NEXT_ITEM` — skip already-checked items.
 
-For each unit of work (let `K` = the current plan item number):
+For each unit of work (let `K` = the current plan item number), check the item's complexity label:
+
+### 🔴 Complex items — Orchestrator implements directly (current flow)
+
 1. Write test first (TDD mandatory per CLAUDE.md).
 2. Run targeted tests — confirm failure:
    ```bash
@@ -183,6 +191,54 @@ For each unit of work (let `K` = the current plan item number):
    gh api "repos/${OWNER_REPO}/issues/comments/${COMMENT_ID}" -X PATCH -f body="$UPDATED" --jq '.url'
    ```
    If `gh` fails, **warn and continue** — never block implementation on a sync failure.
+
+### 🟢 Simple items — Delegate to Sonnet subagent
+
+Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares the orchestrator's worktree). Subagents execute **sequentially, one at a time** — never in parallel. The subagent should have access to: `Read, Grep, Glob, Bash, Write, Edit` — do NOT include `EnterWorktree` or `ExitWorktree`.
+
+> **Agent prompt template:**
+>
+> "You are implementing item {K} of a plan for the Pastura iOS project.
+>
+> **IMPORTANT: Read `CLAUDE.md` first** — it contains all project conventions you must follow.
+>
+> Key rules (also in CLAUDE.md — read it for the full list):
+> - No force unwrap (`!`) — use `guard let`, `if let`, or `?`
+> - All types in Models/, LLM/, Engine/, Data/ MUST be marked `nonisolated` at the type level
+> - Access modifiers: protocol definitions are `public`, types in Models/ are `public`, internal implementation uses default
+> - Dependency rules: {include the relevant subset for the target layer}
+> - Doc comments required on public protocols and types
+>
+> **Task:** {ITEM_DESCRIPTION}
+> **Target file(s):** {PRIMARY_FILE_PATH} (and test file if applicable)
+> **Reference:** {path to an existing similar file to follow as pattern, if applicable}
+>
+> **Procedure:**
+> - If the task involves implementation changes, follow TDD:
+>   1. Write the test first in `PasturaTests/`
+>   2. Run the test — confirm it fails:
+>      ```bash
+>      source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+>      xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
+>        -destination "$DEST" -only-testing PasturaTests/{TestClass}
+>      ```
+>   3. Write the implementation
+>   4. Run the test again — confirm it passes (same command)
+> - If the task is documentation-only (doc comments) or test-only (no implementation needed), make the changes directly — skip TDD.
+> - **Do NOT commit** — leave changes unstaged. The orchestrator will review and commit.
+>
+> If tests still fail after your best effort, return with a summary of what you tried and the error output."
+
+**After the Sonnet subagent returns:**
+1. Verify `git status` shows expected changes (no unexpected files).
+2. Read the full diff (`git diff`) to understand the changes before composing the commit message.
+3. Spot-check for obvious convention violations (nonisolated, access modifiers, dependency imports).
+4. Commit (Conventional Commits + emoji per CLAUDE.md). The commit triggers the user approval gate.
+5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above).
+
+**Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **Opus takes over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted. Then handle partial changes:
+- Run `git stash -u` to save all of Sonnet's work including untracked new files (recoverable via `git stash pop` if needed later).
+- Complete the item directly using the 🔴 complex-item flow.
 
 Note: `git commit` is NOT in the permissions allowlist — each commit triggers user approval (intentional security gate).
 
