@@ -1,12 +1,12 @@
 ---
-name: implement
+name: orchestrate
 description: Orchestrate feature implementation from plan to PR — worktree isolation, TDD, review, and PR creation.
 model: opus
 allowed-tools: Read, Grep, Glob, Bash, Agent, Write, Edit, EnterWorktree, ExitWorktree
 argument-hint: "[description | issue-number | phase N]"
 ---
 
-# /implement
+# /orchestrate
 
 Orchestrate the full development workflow: plan → issue → worktree → TDD implementation → review → PR.
 
@@ -188,17 +188,20 @@ Note: `git commit` is NOT in the permissions allowlist — each commit triggers 
 
 SwiftLint runs automatically via PreToolUse hook on `git commit`.
 
-After all implementation, run full verification using the `test-runner` subagent:
+After all implementation, run full verification directly from the main session:
 
-1. Launch a `test-runner` subagent via the Agent tool:
+1. Run the full test suite:
+   ```bash
+   source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+   xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
+     -destination "$DEST" 2>&1 | tail -80
+   ```
+   Pipe through `tail -80` to limit context window consumption. If failures need more detail,
+   re-run with `-only-testing PasturaTests/<FailingTestClass>` for the specific class (no tail).
 
-   > **Agent prompt:** "Run all tests for the Pastura project. Report results in your standard format including failure details."
-
-   The test-runner runs in the background (per its agent definition). Wait for the completion notification before proceeding.
-
-2. Handle the test-runner result:
-   - **PASS** → run `swiftlint lint --quiet --strict` directly. Fix any lint issues before proceeding.
-   - **FAIL** → fix the failing tests, verify the fix passes targeted tests locally, then commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items) and re-run the test-runner subagent for full suite.
+2. Handle the result:
+   - **PASS** (`** TEST SUCCEEDED **`) → run `swiftlint lint --quiet --strict` directly. Fix any lint issues before proceeding.
+   - **FAIL** (`** TEST FAILED **`) → fix the failing tests, verify the fix passes targeted tests locally, then commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items) and re-run the full suite.
    - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
 ## Step 4: Review — Gate G3
