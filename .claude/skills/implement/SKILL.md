@@ -190,10 +190,6 @@ SwiftLint runs automatically via PreToolUse hook on `git commit`.
 
 After all implementation, run full verification directly from the main session:
 
-<!-- TODO: Restore test-runner subagent delegation when upstream Claude Code worktree
-     permission bug is fixed. Track: anthropics/claude-code#29110, #28248, #13019.
-     The subagent kept verbose xcodebuild output out of the main context. -->
-
 1. Run the full test suite:
    ```bash
    source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
