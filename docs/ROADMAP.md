@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-08
+> Last updated: 2026-04-14
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -29,9 +29,11 @@
 
 ---
 
-## Phase 1: MVP Development 🔧 In Progress
+## Phase 1: MVP Development ✅ Complete
 
 **Goal:** Build and ship a testable iOS app via TestFlight.
+
+**Duration:** Complete as of 2026-04-13. All MVP features implemented; TestFlight distribution in progress.
 
 ### Go/No-Go Criteria (evaluate after TestFlight)
 
@@ -45,7 +47,7 @@
 - YAML authoring barrier is too high — testers give up on creating scenarios
 - E2B output is too noisy to be meaningful even as experimental observation
 
-### MVP Scope (what's IN)
+### MVP Scope
 
 | Feature                        | Status   |
 |--------------------------------|----------|
@@ -64,26 +66,11 @@
 | NG word filter                 | Done     |
 | Scenario gen prompt (copyable) | Done     |
 | On-device LLM (llama.cpp)      | Done     |
-| TestFlight distribution        | In progress |
-
-### What is NOT in MVP (defer to Phase 2+)
-
-If Claude Code is asked to implement any of these, decline and reference this document.
-
-- In-app scenario generation (API integration)
-- Background execution
-- `conditional` / `event_inject` phase types
-- Scenario sharing / marketplace
-- Visual scenario editor (block UI)
-- E4B model switching
-- Custom score_calc logic
-- Relationship graph visualization
-- Android support
-- PC/Desktop app
+| TestFlight distribution        | Done     |
 
 ---
 
-## Phase 2: Expansion
+## Phase 2: Expansion 🔧 In Progress
 
 **Goal:** Lower barriers, expand capabilities, reach broader audience.
 
@@ -91,18 +78,18 @@ If Claude Code is asked to implement any of these, decline and reference this do
 
 ### Planned Features
 
-| Feature                                  | Priority | Notes                                    |
-|------------------------------------------|----------|------------------------------------------|
-| In-app scenario generation (Cloud API)   | High     | Claude/Gemini API for natural language → YAML |
-| Visual scenario editor (block UI)        | High     | Drag-and-drop phase composition for non-technical users |
-| Background execution (iOS 26)            | High     | BGContinuedProcessingTask + GPU access   |
-| `conditional` phase type                 | Medium   | Dynamic branching based on state         |
-| `event_inject` phase type                | Medium   | Random event injection mid-simulation    |
-| `reflect` phase type                     | Medium   | Agent self-reflection / memory compaction|
-| Custom score_calc logic                  | Medium   | User-defined scoring expressions         |
-| Scenario sharing                         | Medium   | Export/import via URL or share sheet      |
-| E4B model switching                      | Low      | Higher quality option for 12GB+ devices  |
-| Inference speed display                  | Low      | tok/s, time per inference in UI          |
+| Feature                                  | Priority | Status      | Notes                                    |
+|------------------------------------------|----------|-------------|------------------------------------------|
+| Background execution (iOS 26)            | High     | In progress | BGContinuedProcessingTask + CPU inference in background (#84) |
+| In-app scenario generation (Cloud API)   | High     | Planned     | Claude/Gemini API for natural language → YAML |
+| Visual scenario editor (block UI)        | High     | Planned     | Drag-and-drop phase composition for non-technical users |
+| `conditional` phase type                 | Medium   | Planned     | Dynamic branching based on state         |
+| `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
+| `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
+| Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
+| Scenario sharing                         | Medium   | Planned     | Export/import via URL or share sheet      |
+| E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
+| Inference speed display                  | Low      | Planned     | tok/s, time per inference in UI          |
 
 ### Technical Debt to Address
 - Evaluate SPM module split (if file count > 100)
@@ -146,6 +133,7 @@ Future:  KMP shared Engine, platform-specific UI and LLM layers
 
 When evaluating whether to include a feature:
 
-1. Is it in the Phase 1 MVP scope table above? → **Do it**
-2. Is it in the "NOT in MVP" list? → **Don't do it, reference this doc**
-3. Is it unlisted? → **Ask before implementing.** Default to deferring.
+1. Is it in the Phase 2 planned features table with status "In progress"? → **Do it**
+2. Is it in the Phase 2 table with status "Planned" but not started? → **Ask first**
+3. Is it a Phase 3 feature? → **Don't do it, reference this doc**
+4. Is it unlisted? → **Ask before implementing.** Default to deferring.

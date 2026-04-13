@@ -4,10 +4,8 @@
 
 ## Current Phase
 
-**Phase 1: MVP development** — See `docs/ROADMAP.md` for scope and Go/No-Go criteria.
-If a requested feature is listed under Phase 2 or Phase 3, do not implement it — reference the roadmap and defer.
-
-Implementation progress: `Models ✅ → LLM ✅ → Engine ✅ → Data ✅ → Views ✅ → App ✅ → Integration test ✅`
+**Phase 2: Expansion** — See `docs/ROADMAP.md` for scope and planned features.
+Phase 1 (MVP) is complete. Check ROADMAP.md for current Phase 2 feature status before implementing.
 
 ## Language Rules
 
