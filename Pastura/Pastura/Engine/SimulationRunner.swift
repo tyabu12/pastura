@@ -147,10 +147,11 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// Emits `.simulationPaused` exactly once, then suspends via
   /// `CheckedContinuation` until `isPaused` is set to `false` or the
   /// task is cancelled — no polling, zero CPU during pause.
-  private static func checkPaused(ctx: ExecutionContext, round: Int) async -> Bool {
+  private static func checkPaused(ctx: ExecutionContext, round: Int, phaseIndex: Int = 0) async
+    -> Bool {
     guard ctx.pauseState.withLock({ $0.isPaused }) else { return false }
 
-    ctx.emitter(.simulationPaused(round: round, phaseIndex: 0))
+    ctx.emitter(.simulationPaused(round: round, phaseIndex: phaseIndex))
 
     // Why withTaskCancellationHandler + withCheckedContinuation:
     // We need to resume the continuation on EITHER unpause (via isPaused setter)
@@ -203,6 +204,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     for (phaseIndex, phase) in ctx.scenario.phases.enumerated() {
       if Task.isCancelled {
         ctx.emitter(.error(.cancelled))
+        return true
+      }
+
+      // Check pause between phases so background switching can take effect
+      // without waiting for the entire round to complete.
+      if await checkPaused(ctx: ctx, round: state.currentRound, phaseIndex: phaseIndex) {
         return true
       }
 

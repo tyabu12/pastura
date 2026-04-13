@@ -210,6 +210,71 @@ struct SimulationRunnerTests {
     #expect(pausedEvents.count == 1)
   }
 
+  @Test func pausesBetweenPhasesNotOnlyBetweenRounds() async throws {
+    // 2 agents, 1 round, 2 speak_all phases → 4 mock responses total
+    let mock = MockLLMService(responses: [
+      #"{"statement": "p0-alice"}"#,
+      #"{"statement": "p0-bob"}"#,
+      #"{"statement": "p1-alice"}"#,
+      #"{"statement": "p1-bob"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [
+        Phase(type: .speakAll, prompt: "Phase 0", outputSchema: ["statement": "string"]),
+        Phase(type: .speakAll, prompt: "Phase 1", outputSchema: ["statement": "string"])
+      ]
+    )
+
+    let runner = SimulationRunner()
+    runner.isPaused = true
+
+    let stream = runner.run(scenario: scenario, llm: mock)
+    async let allEvents = collectAllEvents(stream)
+
+    // Pause 1: round boundary — wait for runner to reach it
+    try await Task.sleep(for: .milliseconds(50))
+
+    // Resume + immediately re-pause: cooperative concurrency means the
+    // runner task is enqueued but hasn't executed yet, so it will see
+    // isPaused=true at the next checkpoint (executePhases phaseIndex 0).
+    runner.isPaused = false
+    runner.isPaused = true
+    try await Task.sleep(for: .milliseconds(50))
+
+    // Resume + immediately re-pause: runner executes phase 0 (fast mock),
+    // then hits checkPaused at phaseIndex 1.
+    runner.isPaused = false
+    runner.isPaused = true
+    try await Task.sleep(for: .milliseconds(100))
+
+    // Final resume — let simulation complete
+    runner.isPaused = false
+
+    let events = await allEvents
+
+    let pausedEvents = events.compactMap { event -> (Int, Int)? in
+      if case .simulationPaused(let round, let phaseIndex) = event {
+        return (round, phaseIndex)
+      }
+      return nil
+    }
+
+    // 3 pause events:
+    // 1. Round boundary (round: 1, phaseIndex: 0)
+    // 2. Before phase 0 in executePhases (round: 1, phaseIndex: 0)
+    // 3. Before phase 1 in executePhases (round: 1, phaseIndex: 1)
+    #expect(pausedEvents.count == 3, "Expected 3 pause events, got \(pausedEvents)")
+    #expect(
+      pausedEvents.contains { $0 == (1, 1) },
+      "Should pause before phase 1 with phaseIndex=1, got \(pausedEvents)"
+    )
+    #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
+  }
+
   @Test func fullPrisonersDilemmaIntegration() async throws {
     let mock = MockLLMService(responses: [
       #"{"declaration": "I'll cooperate!", "inner_thought": "lying"}"#,
