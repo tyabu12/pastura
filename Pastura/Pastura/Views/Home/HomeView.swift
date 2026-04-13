@@ -130,14 +130,43 @@ struct HomeView: View {
   }
 
   private func editorView(editingId: String?, templateYAML: String?) -> some View {
-    let viewModel = ScenarioEditorViewModel(repository: dependencies.scenarioRepository)
-    return ScenarioEditorView(viewModel: viewModel)
-      .task {
-        if let editingId {
-          await viewModel.loadForEditing(scenarioId: editingId)
-        } else if let templateYAML {
-          viewModel.loadFromTemplate(yaml: templateYAML)
-        }
+    ScenarioEditorHost(
+      repository: dependencies.scenarioRepository,
+      editingId: editingId,
+      templateYAML: templateYAML
+    )
+  }
+}
+
+/// Host view that owns a ``ScenarioEditorViewModel`` via `@State`.
+///
+/// Needed so the ViewModel is retained across HomeView re-renders — creating
+/// it inside a factory function would produce a fresh instance each time,
+/// losing editor state.
+private struct ScenarioEditorHost: View {
+  let repository: any ScenarioRepository
+  let editingId: String?
+  let templateYAML: String?
+
+  @State private var viewModel: ScenarioEditorViewModel?
+
+  var body: some View {
+    Group {
+      if let viewModel {
+        ScenarioEditorView(viewModel: viewModel)
+      } else {
+        ProgressView()
       }
+    }
+    .task {
+      guard viewModel == nil else { return }
+      let newViewModel = ScenarioEditorViewModel(repository: repository)
+      if let editingId {
+        await newViewModel.loadForEditing(scenarioId: editingId)
+      } else if let templateYAML {
+        newViewModel.loadFromTemplate(yaml: templateYAML)
+      }
+      viewModel = newViewModel
+    }
   }
 }

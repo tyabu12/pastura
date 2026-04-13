@@ -152,14 +152,18 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   // MARK: - YAML Formatting Helpers
 
-  /// Produces a YAML block scalar (using `>`) for multiline strings,
+  /// Produces a YAML literal block scalar (using `|`) for multiline strings,
   /// or an inline scalar for single-line strings.
+  ///
+  /// Uses `|` (literal) rather than `>` (folded) so single newlines are
+  /// preserved on round-trip — important for user-edited prompts and
+  /// templates where line breaks may be semantically meaningful.
   private func yamlBlockScalar(_ key: String, _ value: String, indent: Int = 0) -> String {
     let prefix = String(repeating: " ", count: indent)
 
     if value.contains("\n") {
-      // Use folded block scalar (>) for multiline
-      var lines = ["\(prefix)\(key): >"]
+      // Literal block scalar (|) preserves all newlines verbatim
+      var lines = ["\(prefix)\(key): |"]
       let contentIndent = prefix + "  "
       for line in value.split(separator: "\n", omittingEmptySubsequences: false) {
         lines.append("\(contentIndent)\(line)")

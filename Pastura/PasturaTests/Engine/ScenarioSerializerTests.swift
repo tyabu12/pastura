@@ -109,6 +109,17 @@ struct ScenarioSerializerTests {
     #expect(reloaded.context.contains("Line 2"))
   }
 
+  @Test func preservesSingleNewlinesInMultilineStrings() throws {
+    // Regression: folded scalar (>) converts SINGLE newlines to spaces,
+    // losing user-intended line breaks (only double-newlines survive as
+    // paragraph breaks). Literal scalar (|) preserves them all.
+    let scenario = makeMinimalScenario(context: "Line 1\nLine 2\nLine 3")
+    let yaml = serializer.serialize(scenario)
+    let reloaded = try loader.load(yaml: yaml)
+    // All single newlines must survive round-trip
+    #expect(reloaded.context.contains("Line 1\nLine 2"))
+  }
+
   @Test func serializesSingleLineContextInline() throws {
     let scenario = makeMinimalScenario(context: "A single line context.")
     let yaml = serializer.serialize(scenario)
