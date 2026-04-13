@@ -184,6 +184,7 @@ nonisolated struct ScenarioSerializer: Sendable {
       || value.hasPrefix("- ") || value.hasPrefix("? ")
       || value == "true" || value == "false"
       || value == "null" || value == "~"
+      || value.contains("\n") || value.contains("\r")
       || Int(value) != nil || Double(value) != nil
 
     if needsQuoting {

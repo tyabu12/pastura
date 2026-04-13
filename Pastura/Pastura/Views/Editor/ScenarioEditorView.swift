@@ -13,8 +13,8 @@ struct ScenarioEditorView: View {
   @Bindable var viewModel: ScenarioEditorViewModel
   @Environment(\.dismiss) private var dismiss
 
-  @State private var editingPersonaIndex: Int?
-  @State private var editingPhaseIndex: Int?
+  @State private var editingPersona: EditablePersona?
+  @State private var editingPhase: EditablePhase?
   @State private var showNewPersonaSheet = false
   @State private var showNewPhaseSheet = false
 
@@ -60,14 +60,15 @@ struct ScenarioEditorView: View {
         viewModel.agentCount = viewModel.personas.count
       }
     }
-    .sheet(item: $editingPersonaIndex) { index in
-      let persona = viewModel.personas[index]
+    .sheet(item: $editingPersona) { persona in
       PersonaEditorSheet(
         name: persona.name,
         description: persona.description
       ) { newName, newDescription in
-        viewModel.personas[index].name = newName
-        viewModel.personas[index].description = newDescription
+        if let idx = viewModel.personas.firstIndex(where: { $0.id == persona.id }) {
+          viewModel.personas[idx].name = newName
+          viewModel.personas[idx].description = newDescription
+        }
       }
     }
     .sheet(isPresented: $showNewPhaseSheet) {
@@ -75,9 +76,11 @@ struct ScenarioEditorView: View {
         viewModel.phases.append(phase)
       }
     }
-    .sheet(item: $editingPhaseIndex) { index in
-      PhaseEditorSheet(phase: viewModel.phases[index]) { phase in
-        viewModel.phases[index] = phase
+    .sheet(item: $editingPhase) { phase in
+      PhaseEditorSheet(phase: phase) { updated in
+        if let idx = viewModel.phases.firstIndex(where: { $0.id == phase.id }) {
+          viewModel.phases[idx] = updated
+        }
       }
     }
   }
@@ -114,9 +117,9 @@ struct ScenarioEditorView: View {
 
   private var personasSection: some View {
     Section {
-      ForEach(Array(viewModel.personas.enumerated()), id: \.element.id) { index, persona in
+      ForEach(viewModel.personas) { persona in
         Button {
-          editingPersonaIndex = index
+          editingPersona = persona
         } label: {
           VStack(alignment: .leading, spacing: 4) {
             Text(persona.name.isEmpty ? "(unnamed)" : persona.name)
@@ -154,9 +157,9 @@ struct ScenarioEditorView: View {
 
   private var phasesSection: some View {
     Section {
-      ForEach(Array(viewModel.phases.enumerated()), id: \.element.id) { index, phase in
+      ForEach(viewModel.phases) { phase in
         Button {
-          editingPhaseIndex = index
+          editingPhase = phase
         } label: {
           PhaseBlockRow(phase: phase)
         }
@@ -229,10 +232,4 @@ struct ScenarioEditorView: View {
       }
     )
   }
-}
-
-// MARK: - Int Identifiable conformance for sheet binding
-
-extension Int: @retroactive Identifiable {
-  public var id: Int { self }
 }
