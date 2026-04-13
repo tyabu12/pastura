@@ -54,6 +54,8 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   // MARK: - Phase Serialization
 
+  // Each optional field adds one branch — unavoidable for 11 Phase fields.
+  // swiftlint:disable:next cyclomatic_complexity
   private func serializePhase(_ phase: Phase) -> [String] {
     var lines: [String] = []
 
@@ -66,8 +68,8 @@ nonisolated struct ScenarioSerializer: Sendable {
     if let outputSchema = phase.outputSchema {
       lines.append("    output:")
       // Sort keys for deterministic output
-      for key in outputSchema.keys.sorted() {
-        lines.append("      \(key): \(outputSchema[key]!)")
+      for (key, value) in outputSchema.sorted(by: { $0.key < $1.key }) {
+        lines.append("      \(key): \(value)")
       }
     }
 
@@ -126,8 +128,8 @@ nonisolated struct ScenarioSerializer: Sendable {
 
     case .dictionary(let dict):
       var lines = ["\(key):"]
-      for k in dict.keys.sorted() {
-        lines.append("  \(k): \(yamlScalar(dict[k]!))")
+      for (fieldKey, fieldValue) in dict.sorted(by: { $0.key < $1.key }) {
+        lines.append("  \(fieldKey): \(yamlScalar(fieldValue))")
       }
       return lines.joined(separator: "\n")
 
@@ -135,12 +137,12 @@ nonisolated struct ScenarioSerializer: Sendable {
       var lines = ["\(key):"]
       for dict in arr {
         var isFirst = true
-        for k in dict.keys.sorted() {
+        for (fieldKey, fieldValue) in dict.sorted(by: { $0.key < $1.key }) {
           if isFirst {
-            lines.append("  - \(k): \(yamlScalar(dict[k]!))")
+            lines.append("  - \(fieldKey): \(yamlScalar(fieldValue))")
             isFirst = false
           } else {
-            lines.append("    \(k): \(yamlScalar(dict[k]!))")
+            lines.append("    \(fieldKey): \(yamlScalar(fieldValue))")
           }
         }
       }

@@ -130,13 +130,13 @@ struct HomeView: View {
   }
 
   private func editorView(editingId: String?, templateYAML: String?) -> some View {
-    let vm = ScenarioEditorViewModel(repository: dependencies.scenarioRepository)
-    return ScenarioEditorView(viewModel: vm)
+    let viewModel = ScenarioEditorViewModel(repository: dependencies.scenarioRepository)
+    return ScenarioEditorView(viewModel: viewModel)
       .task {
         if let editingId {
-          await vm.loadForEditing(scenarioId: editingId)
+          await viewModel.loadForEditing(scenarioId: editingId)
         } else if let templateYAML {
-          vm.loadFromTemplate(yaml: templateYAML)
+          viewModel.loadFromTemplate(yaml: templateYAML)
         }
       }
   }

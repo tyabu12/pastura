@@ -62,10 +62,12 @@ struct ScenarioEditorView: View {
     }
     .sheet(item: $editingPersonaIndex) { index in
       let persona = viewModel.personas[index]
-      PersonaEditorSheet(name: persona.name, description: persona.description) {
-        name, description in
-        viewModel.personas[index].name = name
-        viewModel.personas[index].description = description
+      PersonaEditorSheet(
+        name: persona.name,
+        description: persona.description
+      ) { newName, newDescription in
+        viewModel.personas[index].name = newName
+        viewModel.personas[index].description = newDescription
       }
     }
     .sheet(isPresented: $showNewPhaseSheet) {

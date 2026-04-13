@@ -23,7 +23,8 @@ struct ScenarioSerializerTests {
 
   // MARK: - Round-trip: Synthetic All-Fields Scenario
 
-  /// Exercises all 11 Phase fields and all 4 AnyCodableValue variants.
+  // Exercises all 11 Phase fields and all 4 AnyCodableValue variants.
+  // swiftlint:disable:next function_body_length
   @Test func roundTripSyntheticAllFields() throws {
     let scenario = Scenario(
       id: "synthetic_all_fields",
