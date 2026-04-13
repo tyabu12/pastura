@@ -15,26 +15,22 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // C pointers use nonisolated(unsafe) — Engine calls generate() sequentially via
   // `for await` on a single AsyncStream, and loadModel()/unloadModel() bracket the
   // stream lifetime, guaranteeing no concurrent access to C pointers (ADR-002 §6).
-  //
-  // NOTE: Class body is at the SwiftLint type_body_length limit (250 lines).
-  // Future additions should extract helpers into private extensions or separate files
-  // (e.g., tokenization, sampler setup, or chat template logic).
 
   private let modelPath: String
-  private let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
+  let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
 
   // Sampling parameters (ADR-002 §6, matching OllamaService)
-  private static let temperature: Float = 0.8
-  private static let maxTokens: Int = 1_000
-  private static let topK: Int32 = 40
-  private static let topP: Float = 0.95
-  private static let repeatPenalty: Float = 1.1
-  private static let contextSize: UInt32 = 8_192
-  private static let batchSize: Int = 512
+  static let temperature: Float = 0.8
+  static let maxTokens: Int = 1_000
+  static let topK: Int32 = 40
+  static let topP: Float = 0.95
+  static let repeatPenalty: Float = 1.1
+  static let contextSize: UInt32 = 8_192
+  static let batchSize: Int = 512
   // String-based, not token-ID, because Gemma 4 E2B tokenizes <|im_end|> into
   // 6 subword tokens — single-token ID matching is impossible for this model.
   // TODO: Consider adding <|im_start|> if hallucinated turn starts are observed (#65)
-  private static let stopSequence = "<|im_end|>"
+  static let stopSequence = "<|im_end|>"
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
   // Runtime guard for the sequential access contract (ADR-002 §6).
@@ -194,188 +190,5 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     }
 
     return outputText
-  }
-
-  // MARK: - Chat Template
-
-  private func applyChatTemplate(system: String, user: String) throws -> String {
-    // Build llama_chat_message array using C strings
-    guard
-      let systemRole = strdup("system"),
-      let userRole = strdup("user"),
-      let systemContent = strdup(system),
-      let userContent = strdup(user)
-    else {
-      throw LLMError.generationFailed(
-        description: "Memory allocation failed for chat template"
-      )
-    }
-    defer {
-      free(systemRole)
-      free(userRole)
-      free(systemContent)
-      free(userContent)
-    }
-
-    var messages: [llama_chat_message] = [
-      llama_chat_message(role: systemRole, content: systemContent),
-      llama_chat_message(role: userRole, content: userContent)
-    ]
-
-    // First call: determine required buffer size
-    let requiredSize = llama_chat_apply_template(
-      nil, &messages, messages.count, true, nil, 0
-    )
-    guard requiredSize > 0 else {
-      throw LLMError.generationFailed(
-        description: "llama_chat_apply_template failed to calculate buffer size"
-      )
-    }
-
-    // Second call: write formatted prompt into buffer
-    var buffer = [CChar](repeating: 0, count: Int(requiredSize) + 1)
-    let written = llama_chat_apply_template(
-      nil, &messages, messages.count, true, &buffer, Int32(buffer.count)
-    )
-    guard written > 0 else {
-      throw LLMError.generationFailed(
-        description: "llama_chat_apply_template failed"
-      )
-    }
-
-    return String(cString: buffer)
-  }
-
-  // MARK: - Tokenization
-
-  private func tokenize(
-    vocab: OpaquePointer?,
-    text: String,
-    addSpecial: Bool
-  ) throws -> [llama_token] {
-    return try text.withCString { cStr in
-      let textLen = Int32(strlen(cStr))
-      let maxTokens = textLen + 128
-
-      var tokens = [llama_token](repeating: 0, count: Int(maxTokens))
-      let nTokens = llama_tokenize(
-        vocab, cStr, textLen, &tokens, maxTokens, addSpecial,
-        true  // parse_special: handle special tokens in the template
-      )
-
-      if nTokens < 0 {
-        // Buffer was too small; retry with the required size
-        let required = -nTokens
-        tokens = [llama_token](repeating: 0, count: Int(required))
-        let nTokens2 = llama_tokenize(
-          vocab, cStr, textLen, &tokens, required, addSpecial, true
-        )
-        guard nTokens2 >= 0 else {
-          throw LLMError.generationFailed(description: "Tokenization failed")
-        }
-        return Array(tokens.prefix(Int(nTokens2)))
-      }
-
-      return Array(tokens.prefix(Int(nTokens)))
-    }
-  }
-
-  // MARK: - Prefill
-
-  private func prefill(
-    context: OpaquePointer,
-    tokens: [llama_token]
-  ) throws {
-    var mutableTokens = tokens
-    var offset = 0
-
-    while offset < mutableTokens.count {
-      let chunkSize = min(Self.batchSize, mutableTokens.count - offset)
-      let batch = mutableTokens.withUnsafeMutableBufferPointer { ptr -> llama_batch in
-        // baseAddress is non-nil because the while condition guarantees non-empty remaining tokens
-        guard let base = ptr.baseAddress else {
-          preconditionFailure("Empty token buffer should have been caught by context-size check")
-        }
-        return llama_batch_get_one(base + offset, Int32(chunkSize))
-      }
-      let decodeResult = llama_decode(context, batch)
-      guard decodeResult == 0 else {
-        throw LLMError.generationFailed(
-          description: "llama_decode failed during prefill (error \(decodeResult))"
-        )
-      }
-      offset += chunkSize
-    }
-  }
-
-  // MARK: - Sampler
-
-  private func createSampler() throws -> UnsafeMutablePointer<llama_sampler> {
-    let sparams = llama_sampler_chain_default_params()
-    guard let chain = llama_sampler_chain_init(sparams) else {
-      throw LLMError.generationFailed(description: "Failed to initialize sampler chain")
-    }
-
-    // Order: penalties → top_k → top_p → temperature → dist
-    // Penalties on full vocab first, then narrow, then temperature, then selection
-    llama_sampler_chain_add(
-      chain,
-      llama_sampler_init_penalties(
-        64,  // penalty_last_n: look back 64 tokens
-        Self.repeatPenalty,  // repeat_penalty: 1.1
-        0.0,  // freq_penalty: disabled
-        0.0  // presence_penalty: disabled
-      ))
-    llama_sampler_chain_add(chain, llama_sampler_init_top_k(Self.topK))
-    llama_sampler_chain_add(chain, llama_sampler_init_top_p(Self.topP, 1))
-    llama_sampler_chain_add(chain, llama_sampler_init_temp(Self.temperature))
-    llama_sampler_chain_add(
-      chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
-
-    return chain
-  }
-}
-
-// MARK: - Thermal Throttle
-
-extension LlamaCppService {
-  /// Pauses briefly when device is overheating (ADR-002 §5).
-  /// Uses `try await` (not `try?`) so Task cancellation propagates through the sleep.
-  private func throttleIfOverheating() async throws {
-    let thermalState = ProcessInfo.processInfo.thermalState
-    if thermalState == .serious || thermalState == .critical {
-      logger.warning("Thermal state \(String(describing: thermalState)) — inserting 200ms pause")
-      try await Task.sleep(for: .milliseconds(200))
-    }
-  }
-}
-
-// MARK: - Tokenization Helpers
-
-extension LlamaCppService {
-  /// Decodes a single token ID to its string piece.
-  private func decodePiece(
-    vocab: OpaquePointer?,
-    token: llama_token
-  ) -> String {
-    var buffer = [CChar](repeating: 0, count: 256)
-    let nChars = llama_token_to_piece(
-      vocab, token, &buffer, Int32(buffer.count), 0, false
-    )
-    if nChars > 0 {
-      buffer[Int(nChars)] = 0  // null-terminate
-      return String(cString: buffer)
-    } else if nChars < 0 {
-      // Buffer too small; retry with required size
-      var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
-      let retryChars = llama_token_to_piece(
-        vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
-      )
-      if retryChars > 0 {
-        largeBuffer[Int(retryChars)] = 0
-        return String(cString: largeBuffer)
-      }
-    }
-    return ""
   }
 }
