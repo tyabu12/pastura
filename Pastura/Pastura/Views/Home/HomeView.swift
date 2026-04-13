@@ -18,8 +18,15 @@ struct HomeView: View {
       .navigationTitle("Pastura")
       .toolbar {
         ToolbarItem(placement: .primaryAction) {
-          NavigationLink(value: Route.importScenario()) {
-            Label("Import", systemImage: "plus")
+          Menu {
+            NavigationLink(value: Route.editor()) {
+              Label("New Scenario", systemImage: "doc.badge.plus")
+            }
+            NavigationLink(value: Route.importScenario()) {
+              Label("Import YAML", systemImage: "doc.text")
+            }
+          } label: {
+            Label("Add", systemImage: "plus")
           }
         }
       }
@@ -111,6 +118,8 @@ struct HomeView: View {
       ScenarioDetailView(scenarioId: scenarioId)
     case .importScenario(let editingId):
       ImportView(editingId: editingId)
+    case .editor(let editingId, let templateYAML):
+      editorView(editingId: editingId, templateYAML: templateYAML)
     case .simulation(let scenarioId):
       SimulationView(scenarioId: scenarioId)
     case .results(let scenarioId):
@@ -118,5 +127,17 @@ struct HomeView: View {
     case .resultDetail(let simulationId):
       ResultDetailView(simulationId: simulationId)
     }
+  }
+
+  private func editorView(editingId: String?, templateYAML: String?) -> some View {
+    let vm = ScenarioEditorViewModel(repository: dependencies.scenarioRepository)
+    return ScenarioEditorView(viewModel: vm)
+      .task {
+        if let editingId {
+          await vm.loadForEditing(scenarioId: editingId)
+        } else if let templateYAML {
+          vm.loadFromTemplate(yaml: templateYAML)
+        }
+      }
   }
 }

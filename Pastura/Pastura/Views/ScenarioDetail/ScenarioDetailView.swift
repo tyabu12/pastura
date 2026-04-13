@@ -143,6 +143,22 @@ struct ScenarioDetailView: View {
       NavigationLink(value: Route.results(scenarioId: scenarioId)) {
         Label("Past Results", systemImage: "clock.arrow.circlepath")
       }
+
+      if let record = viewModel.record {
+        if record.isPreset {
+          NavigationLink(
+            value: Route.editor(templateYAML: record.yamlDefinition)
+          ) {
+            Label("Use as Template", systemImage: "doc.on.doc")
+          }
+        } else {
+          NavigationLink(
+            value: Route.editor(editingId: scenarioId)
+          ) {
+            Label("Edit", systemImage: "pencil")
+          }
+        }
+      }
     }
   }
 }
