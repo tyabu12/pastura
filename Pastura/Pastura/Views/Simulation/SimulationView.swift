@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Live simulation execution screen with real-time log, controls, and scoreboard.
 struct SimulationView: View {
@@ -10,6 +11,9 @@ struct SimulationView: View {
   @State private var scenario: Scenario?
   @State private var showScoreboard = false
   @State private var loadError: String?
+  @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
+  @State private var exportError: String?
+  @State private var isExporting = false
 
   var body: some View {
     Group {
@@ -44,6 +48,20 @@ struct SimulationView: View {
       // Memory warning: cancel simulation to free model memory (ADR-002 §7).
       // Cancellation triggers stream termination → for-await exit → unloadModel.
       viewModel?.cancelSimulation()
+    }
+    .sheet(item: $exportPayload) { payload in
+      ShareSheet(activityItems: [payload.text, payload.fileURL])
+    }
+    .alert(
+      "Export failed",
+      isPresented: Binding(
+        get: { exportError != nil },
+        set: { if !$0 { exportError = nil } }
+      )
+    ) {
+      Button("OK", role: .cancel) { exportError = nil }
+    } message: {
+      Text(exportError ?? "")
     }
   }
 
@@ -191,14 +209,31 @@ struct SimulationView: View {
       }
       .disabled(!viewModel.isRunning || viewModel.isCompleted)
 
-      // Speed
-      Picker("Speed", selection: Bindable(viewModel).speed) {
-        ForEach(PlaybackSpeed.allCases) { speed in
-          Text(speed.label).tag(speed)
+      // Speed picker while running; swapped with an export button once the
+      // simulation is completed because playback speed is no longer relevant.
+      if viewModel.isCompleted {
+        Button {
+          Task { await triggerExport(viewModel: viewModel) }
+        } label: {
+          if isExporting {
+            ProgressView()
+              .frame(width: 150)
+          } else {
+            Label("Export", systemImage: "square.and.arrow.up")
+              .font(.title3)
+              .frame(width: 150)
+          }
         }
+        .disabled(isExporting)
+      } else {
+        Picker("Speed", selection: Bindable(viewModel).speed) {
+          ForEach(PlaybackSpeed.allCases) { speed in
+            Text(speed.label).tag(speed)
+          }
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 150)
       }
-      .pickerStyle(.segmented)
-      .frame(width: 150)
 
       Spacer()
 
@@ -253,7 +288,8 @@ struct SimulationView: View {
 
       let simViewModel = SimulationViewModel(
         simulationRepository: deps.simulationRepository,
-        turnRepository: deps.turnRepository
+        turnRepository: deps.turnRepository,
+        scenarioRepository: deps.scenarioRepository
       )
       viewModel = simViewModel
 
@@ -265,6 +301,21 @@ struct SimulationView: View {
       await runTask.value
     } catch {
       loadError = error.localizedDescription
+    }
+  }
+
+  private func triggerExport(viewModel: SimulationViewModel) async {
+    isExporting = true
+    defer { isExporting = false }
+
+    let env = ResultMarkdownExporter.ExportEnvironment(
+      deviceModel: UIDevice.current.model,
+      osVersion: ProcessInfo.processInfo.operatingSystemVersionString)
+    do {
+      let payload = try await viewModel.fetchExportPayload(exportEnvironment: env)
+      exportPayload = payload
+    } catch {
+      exportError = error.localizedDescription
     }
   }
 }
