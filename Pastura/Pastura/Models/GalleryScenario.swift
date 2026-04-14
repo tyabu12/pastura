@@ -21,7 +21,7 @@ nonisolated public enum GalleryCategory: String, Codable, Sendable, Equatable, C
 /// Maps to one element of the `scenarios` array in `gallery.json`.
 /// `yamlURL` is decoded as `URL` for type safety; callers are responsible
 /// for verifying the download against `yamlSHA256`.
-nonisolated public struct GalleryScenario: Codable, Sendable, Equatable {
+nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashable {
   /// Canonical identifier for this gallery entry (e.g. `"asch_conformity_v1"`).
   public let id: String
 

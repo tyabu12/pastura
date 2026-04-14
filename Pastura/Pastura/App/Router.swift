@@ -23,4 +23,7 @@ enum Route: Hashable {
 
   /// Detail view for a specific past simulation run.
   case resultDetail(simulationId: String)
+
+  /// Share Board — browse a curated gallery of scenarios.
+  case shareBoard
 }

@@ -17,11 +17,15 @@ final class AppDependencies: @unchecked Sendable {
   /// Defaults to `OllamaService` for development.
   let llmService: any LLMService
 
+  /// Service that fetches the remote Share Board (gallery) index and YAMLs.
+  let galleryService: any GalleryService
+
   private let databaseManager: DatabaseManager
 
   init(
     databaseManager: DatabaseManager,
-    llmService: (any LLMService)? = nil
+    llmService: (any LLMService)? = nil,
+    galleryService: (any GalleryService)? = nil
   ) {
     self.databaseManager = databaseManager
     let writer = databaseManager.dbWriter
@@ -29,6 +33,7 @@ final class AppDependencies: @unchecked Sendable {
     self.simulationRepository = GRDBSimulationRepository(dbWriter: writer)
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
     self.llmService = llmService ?? OllamaService()
+    self.galleryService = galleryService ?? URLSessionGalleryService()
   }
 
   /// Creates a production instance with persistent SQLite storage.

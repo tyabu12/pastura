@@ -134,6 +134,8 @@ struct HomeView: View {
       ResultsView(scenarioId: scenarioId)
     case .resultDetail(let simulationId):
       ResultDetailView(simulationId: simulationId)
+    case .shareBoard:
+      ShareBoardView()
     }
   }
 
