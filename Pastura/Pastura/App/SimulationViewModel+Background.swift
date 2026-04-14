@@ -115,6 +115,8 @@ extension SimulationViewModel {
   fileprivate func switchToCPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
     await pauseAndAwaitConfirmation()
+    isReloadingModel = true
+    defer { isReloadingModel = false }
     do {
       try await llama.reloadModel(gpuAcceleration: .none)
       isOnCPU = true
@@ -128,6 +130,8 @@ extension SimulationViewModel {
   fileprivate func switchToGPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
     await pauseAndAwaitConfirmation()
+    isReloadingModel = true
+    defer { isReloadingModel = false }
     do {
       try await llama.reloadModel(gpuAcceleration: .full)
       isOnCPU = false

@@ -1,5 +1,7 @@
 import SwiftUI
 
+// swiftlint:disable type_body_length
+
 /// Live simulation execution screen with real-time log, controls, and scoreboard.
 struct SimulationView: View {
   let scenarioId: String
@@ -106,6 +108,29 @@ struct SimulationView: View {
       ScoreboardSheet(scores: viewModel.scores, eliminated: viewModel.eliminated)
         .presentationDetents([.medium])
     }
+    .overlay {
+      if viewModel.isReloadingModel {
+        modelReloadingOverlay
+      }
+    }
+  }
+
+  private var modelReloadingOverlay: some View {
+    ZStack {
+      Color.black.opacity(0.4).ignoresSafeArea()
+      VStack(spacing: 12) {
+        ProgressView()
+          .scaleEffect(1.2)
+        Text("Reloading model...")
+          .font(.subheadline)
+        Text("This can take a few seconds")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      .padding(24)
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    .transition(.opacity)
   }
 
   // MARK: - Header
@@ -362,3 +387,5 @@ extension SimulationView {
     .padding(.horizontal)
   }
 }
+
+// swiftlint:enable type_body_length

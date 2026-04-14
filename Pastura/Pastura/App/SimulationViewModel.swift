@@ -110,6 +110,12 @@ final class SimulationViewModel {
   /// Toggled by `switchToCPUInference` / `switchToGPUInference` in the BG extension.
   var isOnCPU = false
 
+  /// True while the LLM model is being reloaded (GPU↔CPU switch).
+  /// Surfaced to the UI so it can show a "Reloading model..." overlay —
+  /// reload takes 3-8 seconds (model re-read from disk), most noticeable
+  /// on foreground return from a background simulation.
+  var isReloadingModel = false
+
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
