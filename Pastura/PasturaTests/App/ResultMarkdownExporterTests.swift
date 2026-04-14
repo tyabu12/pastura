@@ -141,6 +141,27 @@ import Testing
     #expect(result.text.contains("**Inference count**: 1"))
   }
 
+  @Test func rendersInnerThoughtAsNestedBullet() throws {
+    let exporter = makeExporter()
+    let turn = makeTurn(
+      round: 1, seq: 1, phase: "speak_each",
+      agent: "Alice",
+      fields: [
+        "statement": "I pick A.",
+        "inner_thought": "Actually I believe B but am going along"
+      ])
+    let input = ResultMarkdownExporter.Input(
+      simulation: makeSimulation(),
+      scenario: makeScenario(),
+      turns: [turn],
+      state: makeState())
+
+    let result = try exporter.export(input)
+
+    #expect(result.text.contains("- **Alice**: I pick A."))
+    #expect(result.text.contains("  - 💭 _Actually I believe B but am going along_"))
+  }
+
   @Test func rendersVoteTurn() throws {
     let exporter = makeExporter()
     let turn = makeTurn(

@@ -152,7 +152,14 @@ struct ResultMarkdownExporter {
     }
     let output = decodeOutput(turn)
     let content = formatOutput(output, phaseType: turn.phaseType)
-    return "- **\(agent)**: \(content)"
+    var line = "- **\(agent)**: \(content)"
+    // Include inner_thought as a nested bullet — the gap between outward
+    // behavior and inner reasoning is often the most analyzable signal in a
+    // multi-agent run (e.g. Asch-style conformity).
+    if let thought = output.innerThought, !thought.isEmpty {
+      line += "\n  - 💭 _\(thought)_"
+    }
+    return line
   }
 
   private func decodeOutput(_ turn: TurnRecord) -> TurnOutput {
