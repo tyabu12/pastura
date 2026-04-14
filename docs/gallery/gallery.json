@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-15T00:00:00Z",
+  "scenarios": [
+    {
+      "id": "asch_conformity_v1",
+      "title": "アッシュの同調実験",
+      "category": "social_psychology",
+      "description": "4人のサクラと1人の被験者で構成される古典的同調実験の再現。",
+      "author": "tyabu12",
+      "recommended_model": "gemma4_e2b",
+      "estimated_inferences": 10,
+      "yaml_url": "https://raw.githubusercontent.com/tyabu12/pastura/main/docs/gallery/asch_conformity_v1.yaml",
+      "yaml_sha256": "8d165c4684b68dd5402319ada3165a9f30f44d3a34eb461299cce68964569dcf",
+      "added_at": "2026-04-15"
+    },
+    {
+      "id": "trolley_dilemma_v1",
+      "title": "トロッコ問題",
+      "category": "ethics",
+      "description": "4人の異なる倫理観を持つ傍観者が議論の末に行動を選ぶ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma4_e2b",
+      "estimated_inferences": 12,
+      "yaml_url": "https://raw.githubusercontent.com/tyabu12/pastura/main/docs/gallery/trolley_dilemma_v1.yaml",
+      "yaml_sha256": "f3abcd0603a52ce0700323064f60c03c082d30166f75adb3a9c285f7f5cce767",
+      "added_at": "2026-04-15"
+    },
+    {
+      "id": "detective_scene_v1",
+      "title": "探偵の推理会議",
+      "category": "roleplay",
+      "description": "容疑者4人と探偵1人による屋敷殺人事件の推理ロールプレイ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma4_e2b",
+      "estimated_inferences": 6,
+      "yaml_url": "https://raw.githubusercontent.com/tyabu12/pastura/main/docs/gallery/detective_scene_v1.yaml",
+      "yaml_sha256": "cb1830b5712431f21a45cdb5ecd8bf2f302464eeea2e61a561f0fbc6fd9a05b2",
+      "added_at": "2026-04-15"
+    }
+  ]
+}

@@ -103,7 +103,7 @@ If Claude Code is asked to implement any of these, decline and reference this do
 | `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
-| Scenario sharing                         | Medium   | Planned     | Export/import via URL or share sheet      |
+| Scenario sharing (Share Board)           | Medium   | In progress | Read-only curated gallery (#87). User submissions / ratings / share sheet deferred to Phase 3 marketplace. |
 | E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
 | Inference speed display                  | Low      | Planned     | tok/s, time per inference in UI          |
 
