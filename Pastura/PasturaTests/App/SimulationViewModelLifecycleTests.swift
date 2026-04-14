@@ -34,6 +34,8 @@ private func makeLifecycleSUT(
 /// LLM service that always fails on loadModel, for testing error paths.
 nonisolated struct FailingLLMService: LLMService, Sendable {
   var isModelLoaded: Bool { false }
+  var modelIdentifier: String { "failing-mock" }
+  var backendIdentifier: String { "mock" }
   func loadModel() async throws { throw LLMError.notLoaded }
   func unloadModel() async throws {}
   func generate(system: String, user: String) async throws -> String {

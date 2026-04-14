@@ -36,6 +36,9 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     state.withLock { $0.isModelLoaded }
   }
 
+  public let modelIdentifier = "mock"
+  public let backendIdentifier = "mock"
+
   public func generate(system: String, user: String) async throws -> String {
     try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }

@@ -61,6 +61,9 @@ nonisolated public final class OllamaService: LLMService, @unchecked Sendable {
     loadedState.withLock { $0 }
   }
 
+  public var modelIdentifier: String { modelName }
+  public let backendIdentifier = "Ollama"
+
   public func generate(system: String, user: String) async throws -> String {
     guard isModelLoaded else { throw LLMError.notLoaded }
 
