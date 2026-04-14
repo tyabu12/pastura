@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E05C33812F8E87BC007D40FD /* LlamaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA5412F84F0000025BAE6 /* LlamaSwift */; };
 		E0BCA52B2F83E9670025BAE6 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52A2F83E9670025BAE6 /* Yams */; };
 		E0BCA52E2F83EA4C0025BAE6 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52D2F83EA4C0025BAE6 /* GRDB */; };
 		E0BCA53002F83EA4C0025BAE6 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52F02F83EA4C0025BAE6 /* GRDB */; };
@@ -58,6 +59,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E05C33812F8E87BC007D40FD /* LlamaSwift in Frameworks */,
 				E0BCA52B2F83E9670025BAE6 /* Yams in Frameworks */,
 				E0BCA52E2F83EA4C0025BAE6 /* GRDB in Frameworks */,
 			);
@@ -418,10 +420,10 @@
 				DEVELOPMENT_TEAM = 52G26234A3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = ("com.tyabu12.Pastura.simulation-continuation");
+				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.tyabu12.Pastura.simulation-continuation";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIBackgroundModes = (processing);
+				INFOPLIST_KEY_UIBackgroundModes = processing;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -452,10 +454,10 @@
 				DEVELOPMENT_TEAM = 52G26234A3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = ("com.tyabu12.Pastura.simulation-continuation");
+				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.tyabu12.Pastura.simulation-continuation";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIBackgroundModes = (processing);
+				INFOPLIST_KEY_UIBackgroundModes = processing;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

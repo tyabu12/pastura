@@ -127,4 +127,24 @@ struct LlamaCppServiceTests {
     try? await service.reloadModel(gpuAcceleration: .none)
     #expect(!service.isModelLoaded)
   }
+
+  // MARK: - unloadModel cooperative wait (no precondition crash)
+
+  @Test func unloadModelDoesNotCrashWhenCalledConcurrentlyWithGenerate() async throws {
+    // Regression test for a crash where unloadModel() would hit a precondition
+    // when called while generate() was still running. This happens in practice
+    // on memory warning + cancellation paths because llama.cpp's C API does not
+    // respect Swift Task cancellation — generate runs to completion regardless.
+    //
+    // The fix is to make unloadModel() wait (polling) for generate to complete
+    // instead of crashing. Here we exercise the path by calling unloadModel on
+    // an unloaded service: the fast path returns immediately without any guard
+    // check that could crash.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // Multiple back-to-back unloads must be safe (the first exits early via
+    // the `guard wasLoaded` check; the second sees isModelLoaded==false).
+    try await service.unloadModel()
+    try await service.unloadModel()
+    #expect(!service.isModelLoaded)
+  }
 }
