@@ -56,6 +56,13 @@ final class ImportViewModel {
           validationErrors = ["Cannot overwrite preset scenario '\(existing.name)'"]
           return false
         }
+        if existing.sourceType == ScenarioSourceType.gallery {
+          validationErrors = [
+            "Cannot overwrite gallery scenario '\(existing.name)'. "
+              + "Use Share Board to update, or delete the local copy first."
+          ]
+          return false
+        }
       }
 
       let record = ScenarioRecord(
@@ -77,12 +84,20 @@ final class ImportViewModel {
     }
   }
 
-  /// Loads YAML text from an editing scenario.
+  /// Loads YAML text from an editing scenario. Gallery-sourced rows are
+  /// read-only and not opened for editing here; the user gets an error
+  /// prompt instead.
   func loadForEditing(scenarioId: String) async {
     do {
       if let record = try await offMain({ [repository] in
         try repository.fetchById(scenarioId)
       }) {
+        if record.sourceType == ScenarioSourceType.gallery {
+          validationErrors = [
+            "Gallery scenarios are read-only. Use Share Board to update."
+          ]
+          return
+        }
         yamlText = record.yamlDefinition
         validate()
       }

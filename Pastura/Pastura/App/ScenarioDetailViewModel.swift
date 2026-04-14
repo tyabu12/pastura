@@ -13,8 +13,21 @@ final class ScenarioDetailViewModel {
   private(set) var isLoading = false
   private(set) var errorMessage: String?
 
+  /// Gallery entry matching this scenario's `sourceId`, loaded from the
+  /// cached gallery index. `nil` unless the local record is gallery-sourced
+  /// and the cached index contains a matching entry.
+  private(set) var galleryScenario: GalleryScenario?
+
+  /// True when `record.sourceHash` differs from `galleryScenario?.yamlSHA256`.
+  private(set) var hasGalleryUpdate = false
+
   /// Whether the scenario can be launched (valid + within limits).
   var canRun: Bool { scenario != nil && validationError == nil }
+
+  /// True for records imported from the gallery — read-only locally.
+  var isGallerySourced: Bool {
+    record?.sourceType == ScenarioSourceType.gallery
+  }
 
   private let repository: any ScenarioRepository
   private let loader = ScenarioLoader()
@@ -56,6 +69,29 @@ final class ScenarioDetailViewModel {
     }
 
     isLoading = false
+  }
+
+  /// Populates `galleryScenario` and `hasGalleryUpdate` by matching the
+  /// current record's `sourceId` against the cached gallery index. Silent
+  /// no-op for non-gallery records or when no cache exists.
+  func refreshGalleryStatus(using service: any GalleryService) {
+    guard
+      let record,
+      record.sourceType == ScenarioSourceType.gallery,
+      let sourceId = record.sourceId
+    else {
+      galleryScenario = nil
+      hasGalleryUpdate = false
+      return
+    }
+    let cached = try? service.loadCachedIndex()
+    guard let entry = cached?.scenarios.first(where: { $0.id == sourceId }) else {
+      galleryScenario = nil
+      hasGalleryUpdate = false
+      return
+    }
+    galleryScenario = entry
+    hasGalleryUpdate = record.sourceHash != entry.yamlSHA256
   }
 
   func deleteScenario() async -> Bool {

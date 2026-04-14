@@ -85,9 +85,9 @@ struct ShareBoardView: View {
             .foregroundStyle(.secondary)
         } else {
           ForEach(viewModel.visibleScenarios, id: \.id) { scenario in
-            // Navigation to GalleryScenarioDetailView is wired in a follow-up
-            // commit. For now the row renders summary info only.
-            scenarioRow(scenario: scenario, viewModel: viewModel)
+            NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
+              scenarioRow(scenario: scenario, viewModel: viewModel)
+            }
           }
         }
       } footer: {

@@ -26,4 +26,7 @@ enum Route: Hashable {
 
   /// Share Board — browse a curated gallery of scenarios.
   case shareBoard
+
+  /// Detail view for a single gallery scenario, with Try / Update action.
+  case galleryScenarioDetail(scenario: GalleryScenario)
 }

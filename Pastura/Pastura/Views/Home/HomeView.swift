@@ -136,6 +136,8 @@ struct HomeView: View {
       ResultDetailView(simulationId: simulationId)
     case .shareBoard:
       ShareBoardView()
+    case .galleryScenarioDetail(let scenario):
+      GalleryScenarioDetailView(scenario: scenario)
     }
   }
 
