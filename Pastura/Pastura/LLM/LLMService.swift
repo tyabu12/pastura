@@ -26,6 +26,31 @@ nonisolated public protocol LLMService: Sendable {
   ///   - user: The user prompt with context and instructions for this turn.
   /// - Returns: The raw text response from the LLM.
   /// - Throws: ``LLMError/notLoaded`` if model is not loaded,
-  ///           ``LLMError/generationFailed(description:)`` on inference failure.
+  ///           ``LLMError/generationFailed(description:)`` on inference failure,
+  ///           ``LLMError/suspended`` if a ``SuspendController`` interrupted
+  ///           the call (caller should await resume and retry).
   func generate(system: String, user: String) async throws -> String
+
+  /// Attach a ``SuspendController`` so an in-flight ``generate(system:user:)``
+  /// can be interrupted from outside the LLM layer.
+  ///
+  /// Default implementation is a no-op: backends that cannot honour suspend
+  /// semantics (such as ``MockLLMService`` and ``OllamaService``) simply
+  /// ignore the controller. ``LlamaCppService`` overrides this to wire the
+  /// controller into its auto-regressive generate loop.
+  ///
+  /// - Important: Must be called before the first ``generate(system:user:)``
+  ///   in a session. Re-attaching during an in-flight generate is undefined
+  ///   behaviour.
+  ///
+  /// - Parameter controller: The controller this service should consult for
+  ///   suspend signals. Pass `nil` to detach.
+  func attachSuspendController(_ controller: SuspendController?) async
+}
+
+extension LLMService {
+  /// Default no-op so existing implementations need no changes. Backends that
+  /// support cooperative suspend (currently only ``LlamaCppService``) override
+  /// this method.
+  public func attachSuspendController(_ controller: SuspendController?) async {}
 }

@@ -102,4 +102,19 @@ struct MockLLMServiceTests {
     let service: any LLMService = MockLLMService(responses: [])
     #expect(service is MockLLMService)
   }
+
+  // MARK: - attachSuspendController default
+
+  @Test func attachSuspendControllerDefaultIsNoOp() async throws {
+    // Default protocol extension provides a no-op for backends that don't
+    // support suspend (Mock, Ollama). Calling it must be safe before/after
+    // load and must not affect generate behaviour.
+    let service: any LLMService = MockLLMService(responses: ["only"])
+    await service.attachSuspendController(SuspendController())
+    try await service.loadModel()
+    await service.attachSuspendController(nil)
+
+    let result = try await service.generate(system: "s", user: "u")
+    #expect(result == "only")
+  }
 }
