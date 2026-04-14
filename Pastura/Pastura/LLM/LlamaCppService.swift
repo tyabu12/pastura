@@ -60,13 +60,38 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // MARK: - LLMService
 
   public func loadModel() async throws {
+    try await loadModelInternal(gpuAcceleration: .full)
+  }
+
+  /// Unloads the current model (if any) and reloads with the specified GPU acceleration.
+  ///
+  /// Used to switch between full-GPU and CPU-only inference at runtime,
+  /// primarily for background execution (iOS 26 BGContinuedProcessingTask) where
+  /// GPU access may not be available.
+  ///
+  /// - Important: Must be called between `generate()` calls, not concurrently.
+  ///   The sequential access contract (ADR-002 §6) is enforced by `generatingGuard`.
+  ///   Callers (e.g., `BackgroundSimulationManager`) must pause the simulation and
+  ///   wait for any in-flight inference to complete before calling this.
+  ///
+  /// - Note: Reload takes several seconds — the model file is re-read from disk
+  ///   and buffers are re-allocated. Each `generate()` call clears the KV cache,
+  ///   so no inference state is lost across reloads.
+  ///
+  /// - Parameter gpuAcceleration: Desired GPU acceleration mode for the new load.
+  public func reloadModel(gpuAcceleration: GPUAcceleration) async throws {
+    try await unloadModel()
+    try await loadModelInternal(gpuAcceleration: gpuAcceleration)
+  }
+
+  private func loadModelInternal(gpuAcceleration: GPUAcceleration) async throws {
     precondition(!generatingGuard.withLock({ $0 }), "loadModel() during generate() — ADR-002 §6")
 
     // llama_backend_init is internally ref-counted — safe to call multiple times
     llama_backend_init()
 
     var modelParams = llama_model_default_params()
-    modelParams.n_gpu_layers = -1  // Offload all layers to Metal GPU
+    modelParams.n_gpu_layers = gpuAcceleration.nGpuLayers
 
     guard let model = llama_model_load_from_file(modelPath, modelParams) else {
       llama_backend_free()

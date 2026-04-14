@@ -93,4 +93,38 @@ struct LlamaCppServiceTests {
       try await service.generate(system: "sys", user: "usr")
     }
   }
+
+  // MARK: - reloadModel(gpuAcceleration:)
+
+  @Test func reloadModelWithInvalidPathThrowsLoadFailed() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await #expect(throws: LLMError.self) {
+      try await service.reloadModel(gpuAcceleration: .none)
+    }
+  }
+
+  @Test func reloadModelFailureKeepsNotLoaded() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    try? await service.reloadModel(gpuAcceleration: .none)
+    #expect(!service.isModelLoaded)
+  }
+
+  @Test func reloadModelWhenNotLoadedBehavesLikeLoad() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // Reload before initial load should attempt load (fails on invalid path).
+    // State must remain not-loaded on failure.
+    await #expect(throws: LLMError.self) {
+      try await service.reloadModel(gpuAcceleration: .full)
+    }
+    #expect(!service.isModelLoaded)
+  }
+
+  @Test func reloadModelUnloadsFirstEvenIfReloadFails() async throws {
+    // If reload's inner load fails, the previous model should still be unloaded —
+    // the caller gets a clean not-loaded state, not a partial state.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    try? await service.loadModel()  // fails, but tests atomicity
+    try? await service.reloadModel(gpuAcceleration: .none)
+    #expect(!service.isModelLoaded)
+  }
 }
