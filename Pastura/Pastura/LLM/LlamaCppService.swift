@@ -52,7 +52,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     /// Test-only hook for exercising the `awaitGenerateIdle` wait path.
     /// Must never be called from production code — flipping this flag during
     /// a real `generate()` call breaks the sequential-access contract.
-    func _setGeneratingForTesting(_ value: Bool) {
+    func setGeneratingForTesting(_ value: Bool) {
       generatingGuard.withLock { $0 = value }
     }
   #endif

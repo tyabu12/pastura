@@ -151,10 +151,10 @@ struct LlamaCppServiceTests {
   @Test func unloadModelWaitsForInFlightGenerate() async throws {
     // Exercises the awaitGenerateIdle polling loop: unloadModel should block
     // while generatingGuard is true, and proceed once it clears. Uses the
-    // DEBUG-only _setGeneratingForTesting hook to simulate an in-flight generate
+    // DEBUG-only setGeneratingForTesting hook to simulate an in-flight generate
     // without actually running one (which would require a real model file).
     let service = LlamaCppService(modelPath: "/nonexistent.gguf")
-    service._setGeneratingForTesting(true)
+    service.setGeneratingForTesting(true)
 
     let unloadTask = Task<Bool, Error> {
       try await service.unloadModel()
@@ -166,7 +166,7 @@ struct LlamaCppServiceTests {
     #expect(!unloadTask.isCancelled, "unloadModel should still be blocked on the guard")
 
     // Simulate generate completing — clears the flag, unloadModel's poll exits
-    service._setGeneratingForTesting(false)
+    service.setGeneratingForTesting(false)
     let completed = try await unloadTask.value
     #expect(completed)
     #expect(!service.isModelLoaded)
@@ -178,7 +178,7 @@ struct LlamaCppServiceTests {
     // (use-after-free). Verifies the Task.detached sleep pattern isn't
     // short-circuited by cancellation.
     let service = LlamaCppService(modelPath: "/nonexistent.gguf")
-    service._setGeneratingForTesting(true)
+    service.setGeneratingForTesting(true)
 
     let unloadTask = Task<Bool, Error> {
       try await service.unloadModel()
@@ -191,7 +191,7 @@ struct LlamaCppServiceTests {
 
     // unloadModel should still be waiting — confirm it hasn't returned
     try await Task.sleep(for: .milliseconds(200))
-    service._setGeneratingForTesting(false)
+    service.setGeneratingForTesting(false)
 
     // Now it should complete
     let completed = try await unloadTask.value
