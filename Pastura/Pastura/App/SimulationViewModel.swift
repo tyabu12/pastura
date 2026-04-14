@@ -144,7 +144,7 @@ final class SimulationViewModel {
       try await llm.loadModel()
     } catch {
       errorMessage = "Failed to load LLM: \(error.localizedDescription)"
-      await finalizeSimulationStatus()
+      await finalizeSimulationStatus(.failed)
       return
     }
 
@@ -165,7 +165,19 @@ final class SimulationViewModel {
 
     // Cleanup
     try? await llm.unloadModel()
-    await finalizeSimulationStatus()
+
+    // Pick the terminal status: cancellation intent trumps normal end, but an
+    // error (event-pipeline or persistence) beats both — a broken run is objectively
+    // failed even if the user also pressed cancel.
+    let terminal: SimulationStatus
+    if errorMessage != nil {
+      terminal = .failed
+    } else if isCancelled {
+      terminal = .cancelled
+    } else {
+      terminal = .completed
+    }
+    await finalizeSimulationStatus(terminal)
   }
 
   // MARK: - Event Handling
@@ -319,11 +331,10 @@ final class SimulationViewModel {
     }
   }
 
-  /// Mark the simulation as completed regardless of success or error outcome.
-  /// Errors are recorded in `stateJSON`; `.paused` is reserved for user-initiated pause.
-  private func finalizeSimulationStatus() async {
+  /// Persist the terminal status decided by the caller. `.paused` is NOT passed
+  /// here — it is reserved for the pause/resume flow in `runner.isPaused`.
+  private func finalizeSimulationStatus(_ status: SimulationStatus) async {
     guard let simId = simulationId else { return }
-    let status: SimulationStatus = .completed
     do {
       try await offMain { [simulationRepository] in
         try simulationRepository.updateStatus(simId, status: status)

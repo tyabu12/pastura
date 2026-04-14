@@ -205,7 +205,7 @@ struct SimulationViewModelLifecycleTests {
     #expect(sims.first?.simulationStatus == .completed)
   }
 
-  @Test func runMarksStatusCompletedOnEngineError() async throws {
+  @Test func runMarksStatusFailedOnEngineError() async throws {
     let db = try DatabaseManager.inMemory()
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
     let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
@@ -232,10 +232,10 @@ struct SimulationViewModelLifecycleTests {
     #expect(sut.errorMessage != nil)
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
-    #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.simulationStatus == .failed)
   }
 
-  @Test func runMarksStatusCompletedOnLLMLoadFailure() async throws {
+  @Test func runMarksStatusFailedOnLLMLoadFailure() async throws {
     let db = try DatabaseManager.inMemory()
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
     let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
@@ -256,7 +256,7 @@ struct SimulationViewModelLifecycleTests {
     #expect(sut.errorMessage != nil)
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
-    #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.simulationStatus == .failed)
   }
 
   // MARK: - Multi-Phase E2E Tests
