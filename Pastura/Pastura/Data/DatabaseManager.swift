@@ -97,5 +97,12 @@ nonisolated public final class DatabaseManager: Sendable {
         t.add(column: "sequenceNumber", .integer).notNull().defaults(to: 0)
       }
     }
+
+    migrator.registerMigration("v3_addModelInfoToSimulations") { db in
+      try db.alter(table: "simulations") { t in
+        t.add(column: "modelIdentifier", .text)
+        t.add(column: "llmBackend", .text)
+      }
+    }
   }
 }
