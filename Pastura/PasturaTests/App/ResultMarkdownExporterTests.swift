@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite @MainActor struct ResultMarkdownExporterTests {
+@Suite @MainActor struct ResultMarkdownExporterTests {  // swiftlint:disable:this type_body_length
 
   // MARK: - Fixtures
 
@@ -302,6 +302,17 @@ import Testing
 
   @Test func sanitizeFilenameHandlesEmptyInput() {
     #expect(ResultMarkdownExporter.sanitizeFilename("") == "export")
+  }
+
+  @Test func normalizeOSVersionRewritesAppleFormat() {
+    let normalized = ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
+      "Version 26.4 (Build 23E246)")
+    #expect(normalized == "iOS 26.4 (build 23E246)")
+  }
+
+  @Test func normalizeOSVersionLeavesUnfamiliarStringsUnchanged() {
+    let raw = "custom-os-26.4"
+    #expect(ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(raw) == raw)
   }
 
   @Test func writesMarkdownFileToTempDirectory() throws {

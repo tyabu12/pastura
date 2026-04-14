@@ -16,8 +16,18 @@ struct ResultMarkdownExporter {
   struct ExportEnvironment: Sendable {
     /// `UIDevice.current.model` value (e.g. "iPhone").
     let deviceModel: String
-    /// `ProcessInfo.processInfo.operatingSystemVersionString` value.
+    /// Normalized OS version string — `"iOS 26.4 (build 23E246)"` style.
+    /// Apply `normalizeOSVersion(_:)` to the raw
+    /// `ProcessInfo.operatingSystemVersionString` before constructing.
     let osVersion: String
+
+    /// Rewrites Apple's `"Version X.Y (Build ABC)"` into `"iOS X.Y (build ABC)"`
+    /// so exported metadata reads naturally. Safe on strings that don't match
+    /// the pattern — they pass through unchanged.
+    static func normalizeOSVersion(_ raw: String) -> String {
+      raw.replacingOccurrences(of: "Version ", with: "iOS ")
+        .replacingOccurrences(of: "(Build ", with: "(build ")
+    }
   }
 
   /// The exporter's output — both the Markdown text and a temp-file URL for

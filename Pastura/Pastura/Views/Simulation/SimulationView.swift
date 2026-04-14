@@ -314,7 +314,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
     let env = ResultMarkdownExporter.ExportEnvironment(
       deviceModel: UIDevice.current.model,
-      osVersion: ProcessInfo.processInfo.operatingSystemVersionString)
+      osVersion: ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
+        ProcessInfo.processInfo.operatingSystemVersionString))
     do {
       let payload = try await viewModel.fetchExportPayload(exportEnvironment: env)
       exportPayload = payload

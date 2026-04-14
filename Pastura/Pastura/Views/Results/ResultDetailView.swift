@@ -206,7 +206,8 @@ struct ResultDetailView: View {
 
     let env = ResultMarkdownExporter.ExportEnvironment(
       deviceModel: UIDevice.current.model,
-      osVersion: ProcessInfo.processInfo.operatingSystemVersionString)
+      osVersion: ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
+        ProcessInfo.processInfo.operatingSystemVersionString))
     let exporter = ResultMarkdownExporter(
       contentFilter: ContentFilter(),
       environment: env)
