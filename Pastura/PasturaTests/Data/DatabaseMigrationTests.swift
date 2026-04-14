@@ -17,17 +17,18 @@ import Testing
     return try DatabaseQueue(configuration: config)
   }
 
-  @Test func v3AddsNullableSourceColumnsPreservingExistingRows() throws {
+  @Test func v4AddsNullableSourceColumnsPreservingExistingRows() throws {
     let queue = try makeQueue()
     let migrator = DatabaseManager.makeMigrator()
 
-    // Migrate only up to v2 — mimics a TestFlight user's on-device DB.
+    // Migrate only up to v2 — mimics a TestFlight user's on-device DB
+    // before either v3 (model info) or v4 (gallery source) shipped.
     try migrator.migrate(queue, upTo: "v2_addSequenceNumberToTurns")
 
     // Seed both a preset and a user-created row.
     //
     // Use raw SQL rather than `ScenarioRecord.insert()` because the struct
-    // now knows about v3 columns; GRDB's Codable path would try to insert
+    // now knows about v4 columns; GRDB's Codable path would try to insert
     // them and SQLite would reject the unknown columns under the v2 schema.
     let now = Date()
     try queue.write { db in
@@ -45,7 +46,7 @@ import Testing
         arguments: ["my_custom", "Mine", "yaml: mine", false, now, now])
     }
 
-    // Apply remaining migrations (v3+).
+    // Apply remaining migrations (v3 + v4).
     try migrator.migrate(queue)
 
     // Existing rows survive and decode with nil source fields.

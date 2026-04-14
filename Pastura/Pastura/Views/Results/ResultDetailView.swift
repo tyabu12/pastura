@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Replays a past simulation by displaying its turn records as a read-only log.
 struct ResultDetailView: View {
@@ -6,9 +7,19 @@ struct ResultDetailView: View {
 
   @Environment(AppDependencies.self) private var dependencies
   @State private var turns: [TurnRecord] = []
+  @State private var simulation: SimulationRecord?
+  @State private var scenario: ScenarioRecord?
   @State private var isLoading = true
   @State private var showDebug = false
   @State private var showAllThoughts = false
+  @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
+  @State private var isExporting = false
+  @State private var exportError: String?
+
+  private var canExport: Bool {
+    !isExporting && simulation?.simulationStatus == .completed
+      && scenario != nil
+  }
 
   var body: some View {
     Group {
@@ -29,6 +40,18 @@ struct ResultDetailView: View {
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
         Button {
+          Task { await triggerExport() }
+        } label: {
+          if isExporting {
+            ProgressView()
+          } else {
+            Image(systemName: "square.and.arrow.up")
+          }
+        }
+        .disabled(!canExport)
+      }
+      ToolbarItem(placement: .secondaryAction) {
+        Button {
           showDebug.toggle()
         } label: {
           Image(systemName: showDebug ? "ladybug.fill" : "ladybug")
@@ -44,8 +67,22 @@ struct ResultDetailView: View {
         }
       }
     }
+    .sheet(item: $exportPayload) { payload in
+      ShareSheet(activityItems: [payload.text, payload.fileURL])
+    }
+    .alert(
+      "Export failed",
+      isPresented: Binding(
+        get: { exportError != nil },
+        set: { if !$0 { exportError = nil } }
+      )
+    ) {
+      Button("OK", role: .cancel) { exportError = nil }
+    } message: {
+      Text(exportError ?? "")
+    }
     .task {
-      await loadTurns()
+      await loadData()
     }
   }
 
@@ -134,16 +171,61 @@ struct ResultDetailView: View {
     return output
   }
 
-  private func loadTurns() async {
+  /// Bundle returned from the single `offMain` DB hop — struct avoids an N-tuple.
+  private struct LoadedData: Sendable {
+    let turns: [TurnRecord]
+    let simulation: SimulationRecord?
+    let scenario: ScenarioRecord?
+  }
+
+  private func loadData() async {
     let turnRepo = dependencies.turnRepository
+    let simRepo = dependencies.simulationRepository
+    let scenarioRepo = dependencies.scenarioRepository
     let simId = simulationId
     do {
-      turns = try await offMain {
-        try turnRepo.fetchBySimulationId(simId)
+      let fetched: LoadedData = try await offMain {
+        let sim = try simRepo.fetchById(simId)
+        let scenario = try sim.flatMap { try scenarioRepo.fetchById($0.scenarioId) }
+        let turns = try turnRepo.fetchBySimulationId(simId)
+        return LoadedData(turns: turns, simulation: sim, scenario: scenario)
       }
+      self.turns = fetched.turns
+      self.simulation = fetched.simulation
+      self.scenario = fetched.scenario
     } catch {
-      turns = []
+      self.turns = []
     }
-    isLoading = false
+    self.isLoading = false
+  }
+
+  private func triggerExport() async {
+    guard let simulation, let scenario else { return }
+    isExporting = true
+    defer { isExporting = false }
+
+    let env = ResultMarkdownExporter.ExportEnvironment(
+      deviceModel: UIDevice.current.model,
+      osVersion: ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
+        ProcessInfo.processInfo.operatingSystemVersionString))
+    let exporter = ResultMarkdownExporter(
+      contentFilter: ContentFilter(),
+      environment: env)
+    let state = decodeState(from: simulation) ?? SimulationState()
+
+    do {
+      let result = try exporter.export(
+        ResultMarkdownExporter.Input(
+          simulation: simulation, scenario: scenario,
+          turns: turns, state: state))
+      self.exportPayload = result
+    } catch {
+      self.exportError = error.localizedDescription
+    }
+  }
+
+  private func decodeState(from record: SimulationRecord) -> SimulationState? {
+    guard let data = record.stateJSON.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(SimulationState.self, from: data)
   }
 }

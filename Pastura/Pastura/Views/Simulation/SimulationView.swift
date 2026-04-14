@@ -1,7 +1,8 @@
 import SwiftUI
+import UIKit
 
 /// Live simulation execution screen with real-time log, controls, and scoreboard.
-struct SimulationView: View {
+struct SimulationView: View {  // swiftlint:disable:this type_body_length
   let scenarioId: String
 
   @Environment(\.scenePhase) private var scenePhase
@@ -10,6 +11,9 @@ struct SimulationView: View {
   @State private var scenario: Scenario?
   @State private var showScoreboard = false
   @State private var loadError: String?
+  @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
+  @State private var exportError: String?
+  @State private var isExporting = false
 
   var body: some View {
     Group {
@@ -44,6 +48,20 @@ struct SimulationView: View {
       // Memory warning: cancel simulation to free model memory (ADR-002 §7).
       // Cancellation triggers stream termination → for-await exit → unloadModel.
       viewModel?.cancelSimulation()
+    }
+    .sheet(item: $exportPayload) { payload in
+      ShareSheet(activityItems: [payload.text, payload.fileURL])
+    }
+    .alert(
+      "Export failed",
+      isPresented: Binding(
+        get: { exportError != nil },
+        set: { if !$0 { exportError = nil } }
+      )
+    ) {
+      Button("OK", role: .cancel) { exportError = nil }
+    } message: {
+      Text(exportError ?? "")
     }
   }
 
@@ -180,6 +198,32 @@ struct SimulationView: View {
 
   // MARK: - Controls
 
+  @ViewBuilder
+  private func speedOrExportControl(viewModel: SimulationViewModel) -> some View {
+    if viewModel.isCompleted {
+      Button {
+        Task { await triggerExport(viewModel: viewModel) }
+      } label: {
+        if isExporting {
+          ProgressView().frame(width: 150)
+        } else {
+          Label("Export", systemImage: "square.and.arrow.up")
+            .font(.title3)
+            .frame(width: 150)
+        }
+      }
+      .disabled(isExporting)
+    } else {
+      Picker("Speed", selection: Bindable(viewModel).speed) {
+        ForEach(PlaybackSpeed.allCases) { speed in
+          Text(speed.label).tag(speed)
+        }
+      }
+      .pickerStyle(.segmented)
+      .frame(width: 150)
+    }
+  }
+
   private func controlBar(viewModel: SimulationViewModel) -> some View {
     HStack(spacing: 16) {
       // Pause/Resume
@@ -191,14 +235,9 @@ struct SimulationView: View {
       }
       .disabled(!viewModel.isRunning || viewModel.isCompleted)
 
-      // Speed
-      Picker("Speed", selection: Bindable(viewModel).speed) {
-        ForEach(PlaybackSpeed.allCases) { speed in
-          Text(speed.label).tag(speed)
-        }
-      }
-      .pickerStyle(.segmented)
-      .frame(width: 150)
+      // Speed picker while running; swapped with an export button once the
+      // simulation is completed because playback speed is no longer relevant.
+      speedOrExportControl(viewModel: viewModel)
 
       Spacer()
 
@@ -253,7 +292,8 @@ struct SimulationView: View {
 
       let simViewModel = SimulationViewModel(
         simulationRepository: deps.simulationRepository,
-        turnRepository: deps.turnRepository
+        turnRepository: deps.turnRepository,
+        scenarioRepository: deps.scenarioRepository
       )
       viewModel = simViewModel
 
@@ -267,81 +307,22 @@ struct SimulationView: View {
       loadError = error.localizedDescription
     }
   }
+
+  private func triggerExport(viewModel: SimulationViewModel) async {
+    isExporting = true
+    defer { isExporting = false }
+
+    let env = ResultMarkdownExporter.ExportEnvironment(
+      deviceModel: UIDevice.current.model,
+      osVersion: ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
+        ProcessInfo.processInfo.operatingSystemVersionString))
+    do {
+      let payload = try await viewModel.fetchExportPayload(exportEnvironment: env)
+      exportPayload = payload
+    } catch {
+      exportError = error.localizedDescription
+    }
+  }
 }
 
-// MARK: - Log Entry Helpers
-
-extension SimulationView {
-  private func eliminationEntry(agent: String, voteCount: Int) -> some View {
-    HStack(spacing: 4) {
-      Image(systemName: "xmark.circle.fill")
-        .foregroundStyle(.red)
-      Text("\(agent) eliminated (\(voteCount) votes)")
-        .font(.subheadline)
-    }
-    .padding(.horizontal)
-  }
-
-  private func assignmentEntry(agent: String, value: String) -> some View {
-    Text("\(agent) assigned: \(value)")
-      .font(.caption)
-      .foregroundStyle(.secondary)
-      .padding(.horizontal)
-  }
-
-  private func summaryEntry(text: String) -> some View {
-    Text(text)
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
-      .padding(.horizontal)
-  }
-
-  private func voteResultsEntry(tallies: [String: Int]) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text("Vote Results")
-        .font(.caption.bold())
-      ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
-        Text("  \(name): \(count) votes")
-          .font(.caption)
-      }
-    }
-    .foregroundStyle(.secondary)
-    .padding(.horizontal)
-  }
-
-  private func pairingResultEntry(
-    agent1: String, act1: String, agent2: String, act2: String
-  ) -> some View {
-    HStack {
-      Text("\(agent1)(\(act1))")
-      Text("vs")
-        .foregroundStyle(.secondary)
-      Text("\(agent2)(\(act2))")
-    }
-    .font(.subheadline)
-    .padding(.horizontal)
-  }
-
-  private func roundSeparator(_ text: String) -> some View {
-    HStack {
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
-      Text(text)
-        .font(.caption.bold())
-        .foregroundStyle(.secondary)
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
-    }
-    .padding(.horizontal)
-    .padding(.vertical, 4)
-  }
-
-  private func scoresSummary(_ scores: [String: Int]) -> some View {
-    HStack(spacing: 8) {
-      ForEach(scores.sorted(by: { $0.value > $1.value }).prefix(5), id: \.key) { name, score in
-        Text("\(name):\(score)")
-          .font(.caption.monospacedDigit())
-      }
-    }
-    .foregroundStyle(.secondary)
-    .padding(.horizontal)
-  }
-}
+// Log-entry helpers live in SimulationView+LogEntries.swift.

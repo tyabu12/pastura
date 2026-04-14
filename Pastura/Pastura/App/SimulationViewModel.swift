@@ -43,7 +43,7 @@ enum PlaybackSpeed: Double, CaseIterable, Identifiable {
 /// Consumes `AsyncStream<SimulationEvent>` from `SimulationRunner`, applies
 /// `ContentFilter`, persists turn records, and manages pause/resume + LLM lifecycle.
 @Observable
-final class SimulationViewModel {
+final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Published State
 
   private(set) var logEntries: [LogEntry] = []
@@ -71,6 +71,7 @@ final class SimulationViewModel {
   private let contentFilter: ContentFilter
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
+  private let scenarioRepository: (any ScenarioRepository)?
   private var simulationId: String?
 
   /// Holds the currently running simulation task for cancellation support.
@@ -92,12 +93,14 @@ final class SimulationViewModel {
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
     simulationRepository: any SimulationRepository,
-    turnRepository: any TurnRepository
+    turnRepository: any TurnRepository,
+    scenarioRepository: (any ScenarioRepository)? = nil
   ) {
     self.runner = runner
     self.contentFilter = contentFilter
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
+    self.scenarioRepository = scenarioRepository
   }
 
   // MARK: - Simulation Lifecycle
@@ -127,7 +130,8 @@ final class SimulationViewModel {
     let simId = UUID().uuidString
     simulationId = simId
     let initialState = SimulationState.initial(for: scenario)
-    await createSimulationRecord(simId: simId, scenario: scenario, state: initialState)
+    await createSimulationRecord(
+      simId: simId, scenario: scenario, state: initialState, llm: llm)
 
     turnSequence = 0
 
@@ -144,7 +148,7 @@ final class SimulationViewModel {
       try await llm.loadModel()
     } catch {
       errorMessage = "Failed to load LLM: \(error.localizedDescription)"
-      await finalizeSimulationStatus()
+      await finalizeSimulationStatus(.failed)
       return
     }
 
@@ -165,7 +169,19 @@ final class SimulationViewModel {
 
     // Cleanup
     try? await llm.unloadModel()
-    await finalizeSimulationStatus()
+
+    // Pick the terminal status: cancellation intent trumps normal end, but an
+    // error (event-pipeline or persistence) beats both — a broken run is objectively
+    // failed even if the user also pressed cancel.
+    let terminal: SimulationStatus
+    if errorMessage != nil {
+      terminal = .failed
+    } else if isCancelled {
+      terminal = .cancelled
+    } else {
+      terminal = .completed
+    }
+    await finalizeSimulationStatus(terminal)
   }
 
   // MARK: - Event Handling
@@ -256,7 +272,7 @@ final class SimulationViewModel {
   // MARK: - Persistence
 
   private func createSimulationRecord(
-    simId: String, scenario: Scenario, state: SimulationState
+    simId: String, scenario: Scenario, state: SimulationState, llm: any LLMService
   ) async {
     do {
       let stateJSON = try JSONEncoder().encode(state)
@@ -269,7 +285,9 @@ final class SimulationViewModel {
         stateJSON: String(data: stateJSON, encoding: .utf8) ?? "{}",
         configJSON: nil,
         createdAt: Date(),
-        updatedAt: Date()
+        updatedAt: Date(),
+        modelIdentifier: llm.modelIdentifier,
+        llmBackend: llm.backendIdentifier
       )
       try await offMain { [simulationRepository] in
         try simulationRepository.save(record)
@@ -319,11 +337,58 @@ final class SimulationViewModel {
     }
   }
 
-  /// Mark the simulation as completed regardless of success or error outcome.
-  /// Errors are recorded in `stateJSON`; `.paused` is reserved for user-initiated pause.
-  private func finalizeSimulationStatus() async {
+  // MARK: - Export
+
+  private struct ExportRecords: Sendable {
+    let simulation: SimulationRecord
+    let scenario: ScenarioRecord
+    let turns: [TurnRecord]
+  }
+
+  /// Fetches the current simulation's records and renders them as a Markdown
+  /// export payload. Returns `nil` when the simulation is not started, not
+  /// `.completed`, or when `scenarioRepository` was not injected.
+  func fetchExportPayload(
+    exportEnvironment: ResultMarkdownExporter.ExportEnvironment
+  ) async throws -> ResultMarkdownExporter.ExportedResult? {
+    guard let simId = simulationId, let scenarioRepository else { return nil }
+    let simulationRepository = self.simulationRepository
+    let turnRepository = self.turnRepository
+
+    let records: ExportRecords? = try await offMain {
+      guard
+        let sim = try simulationRepository.fetchById(simId),
+        let scenario = try scenarioRepository.fetchById(sim.scenarioId)
+      else {
+        return nil
+      }
+      let turns = try turnRepository.fetchBySimulationId(simId)
+      return ExportRecords(simulation: sim, scenario: scenario, turns: turns)
+    }
+
+    guard let records, records.simulation.simulationStatus == .completed else { return nil }
+
+    let state = decodeState(from: records.simulation) ?? SimulationState()
+    let exporter = ResultMarkdownExporter(
+      contentFilter: contentFilter,
+      environment: exportEnvironment)
+    return try exporter.export(
+      ResultMarkdownExporter.Input(
+        simulation: records.simulation,
+        scenario: records.scenario,
+        turns: records.turns,
+        state: state))
+  }
+
+  private func decodeState(from record: SimulationRecord) -> SimulationState? {
+    guard let data = record.stateJSON.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(SimulationState.self, from: data)
+  }
+
+  /// Persist the terminal status decided by the caller. `.paused` is NOT passed
+  /// here — it is reserved for the pause/resume flow in `runner.isPaused`.
+  private func finalizeSimulationStatus(_ status: SimulationStatus) async {
     guard let simId = simulationId else { return }
-    let status: SimulationStatus = .completed
     do {
       try await offMain { [simulationRepository] in
         try simulationRepository.updateStatus(simId, status: status)
