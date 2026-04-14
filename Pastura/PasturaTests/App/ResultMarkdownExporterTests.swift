@@ -244,7 +244,29 @@ import Testing
     #expect(result.text.contains("**Status**: failed"))
     #expect(result.text.contains("**Inference count**: 0"))
     #expect(result.text.contains("_No turns recorded._"))
-    #expect(result.text.contains("_No score data._"))
+    #expect(!result.text.contains("## Final Scores"))
+  }
+
+  @Test func suppressesFinalScoresForObservationOnlyScenario() throws {
+    // Pure speak_each / observation scenarios have no score_calc phase, so
+    // all-zero scores mean "no scoring happened" rather than "everyone scored 0".
+    // Rendering a Final Scores table of all 0s would be misleading noise.
+    let exporter = makeExporter()
+    let input = ResultMarkdownExporter.Input(
+      simulation: makeSimulation(),
+      scenario: makeScenario(),
+      turns: [
+        makeTurn(
+          round: 1, seq: 1, phase: "speak_each",
+          agent: "Alice", fields: ["statement": "hello"])
+      ],
+      state: makeState(
+        scores: ["Alice": 0, "Bob": 0],
+        eliminated: ["Alice": false, "Bob": false]))
+
+    let result = try exporter.export(input)
+
+    #expect(!result.text.contains("## Final Scores"))
   }
 
   @Test func codePhaseTurnRendersWithoutAgentHeader() throws {

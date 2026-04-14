@@ -71,8 +71,20 @@ struct ResultMarkdownExporter {
     sections.append(renderMetadata(input))
     sections.append(renderScenarioYAML(input))
     sections.append(renderTurnLog(input))
-    sections.append(renderFinalScores(input))
+    if hasMeaningfulScoreData(input.state) {
+      sections.append(renderFinalScores(input))
+    }
     return sections.joined(separator: "\n\n") + "\n"
+  }
+
+  // Observation-only scenarios (e.g. pure speak_each / Asch conformity) have
+  // no scoring phase — state.scores is still initialized with 0 per agent, so
+  // suppressing the "Final Scores" section requires a semantic check rather
+  // than an emptiness check.
+  private func hasMeaningfulScoreData(_ state: SimulationState) -> Bool {
+    state.scores.values.contains(where: { $0 != 0 })
+      || state.eliminated.values.contains(true)
+      || !state.voteResults.isEmpty
   }
 
   private func renderMetadata(_ input: Input) -> String {
