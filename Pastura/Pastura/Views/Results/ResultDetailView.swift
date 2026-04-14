@@ -171,21 +171,27 @@ struct ResultDetailView: View {
     return output
   }
 
+  /// Bundle returned from the single `offMain` DB hop — struct avoids an N-tuple.
+  private struct LoadedData: Sendable {
+    let turns: [TurnRecord]
+    let simulation: SimulationRecord?
+    let scenario: ScenarioRecord?
+  }
+
   private func loadData() async {
     let turnRepo = dependencies.turnRepository
     let simRepo = dependencies.simulationRepository
     let scenarioRepo = dependencies.scenarioRepository
     let simId = simulationId
     do {
-      let fetched: (turns: [TurnRecord], sim: SimulationRecord?, scenario: ScenarioRecord?) =
-        try await offMain {
-          let sim = try simRepo.fetchById(simId)
-          let scenario = try sim.flatMap { try scenarioRepo.fetchById($0.scenarioId) }
-          let turns = try turnRepo.fetchBySimulationId(simId)
-          return (turns, sim, scenario)
-        }
+      let fetched: LoadedData = try await offMain {
+        let sim = try simRepo.fetchById(simId)
+        let scenario = try sim.flatMap { try scenarioRepo.fetchById($0.scenarioId) }
+        let turns = try turnRepo.fetchBySimulationId(simId)
+        return LoadedData(turns: turns, simulation: sim, scenario: scenario)
+      }
       self.turns = fetched.turns
-      self.simulation = fetched.sim
+      self.simulation = fetched.simulation
       self.scenario = fetched.scenario
     } catch {
       self.turns = []

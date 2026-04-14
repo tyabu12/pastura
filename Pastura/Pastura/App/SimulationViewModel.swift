@@ -43,7 +43,7 @@ enum PlaybackSpeed: Double, CaseIterable, Identifiable {
 /// Consumes `AsyncStream<SimulationEvent>` from `SimulationRunner`, applies
 /// `ContentFilter`, persists turn records, and manages pause/resume + LLM lifecycle.
 @Observable
-final class SimulationViewModel {
+final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Published State
 
   private(set) var logEntries: [LogEntry] = []
@@ -339,14 +339,15 @@ final class SimulationViewModel {
 
   // MARK: - Export
 
+  private struct ExportRecords: Sendable {
+    let simulation: SimulationRecord
+    let scenario: ScenarioRecord
+    let turns: [TurnRecord]
+  }
+
   /// Fetches the current simulation's records and renders them as a Markdown
-  /// export payload. Returns `nil` when the simulation is not in a state that
-  /// produces meaningful output (no `simulationId`, status not `.completed`,
-  /// or `scenarioRepository` was not injected).
-  ///
-  /// Intentionally runs fetches sequentially on a single `offMain` hop — the
-  /// three reads touch different tables but share the same `DatabaseQueue`, so
-  /// parallelism would not win over the serial writer.
+  /// export payload. Returns `nil` when the simulation is not started, not
+  /// `.completed`, or when `scenarioRepository` was not injected.
   func fetchExportPayload(
     exportEnvironment: ResultMarkdownExporter.ExportEnvironment
   ) async throws -> ResultMarkdownExporter.ExportedResult? {
@@ -354,29 +355,28 @@ final class SimulationViewModel {
     let simulationRepository = self.simulationRepository
     let turnRepository = self.turnRepository
 
-    let payload: (simulation: SimulationRecord, scenario: ScenarioRecord, turns: [TurnRecord])? =
-      try await offMain {
-        guard
-          let sim = try simulationRepository.fetchById(simId),
-          let scenario = try scenarioRepository.fetchById(sim.scenarioId)
-        else {
-          return nil
-        }
-        let turns = try turnRepository.fetchBySimulationId(simId)
-        return (sim, scenario, turns)
+    let records: ExportRecords? = try await offMain {
+      guard
+        let sim = try simulationRepository.fetchById(simId),
+        let scenario = try scenarioRepository.fetchById(sim.scenarioId)
+      else {
+        return nil
       }
+      let turns = try turnRepository.fetchBySimulationId(simId)
+      return ExportRecords(simulation: sim, scenario: scenario, turns: turns)
+    }
 
-    guard let payload, payload.simulation.simulationStatus == .completed else { return nil }
+    guard let records, records.simulation.simulationStatus == .completed else { return nil }
 
-    let state = decodeState(from: payload.simulation) ?? SimulationState()
+    let state = decodeState(from: records.simulation) ?? SimulationState()
     let exporter = ResultMarkdownExporter(
       contentFilter: contentFilter,
       environment: exportEnvironment)
     return try exporter.export(
       ResultMarkdownExporter.Input(
-        simulation: payload.simulation,
-        scenario: payload.scenario,
-        turns: payload.turns,
+        simulation: records.simulation,
+        scenario: records.scenario,
+        turns: records.turns,
         state: state))
   }
 
