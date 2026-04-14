@@ -155,6 +155,9 @@ final class SimulationViewModel {
   func cancelSimulation() {
     runTask?.cancel()
     isCancelled = true
+    // Events emitted after cancellation are dropped by the terminated AsyncStream,
+    // so clear UI "in-progress" state here to avoid stuck "thinking..." indicators.
+    thinkingAgents.removeAll()
   }
 
   /// Starts the simulation, consuming events and persisting results.
