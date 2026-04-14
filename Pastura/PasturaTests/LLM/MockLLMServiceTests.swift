@@ -117,4 +117,48 @@ struct MockLLMServiceTests {
     let result = try await service.generate(system: "s", user: "u")
     #expect(result == "only")
   }
+
+  // MARK: - Suspend hook
+
+  @Test func simulateSuspendOnNextGenerateThrowsSuspendedThenSucceeds() async throws {
+    let service = MockLLMService(responses: ["after-suspend"])
+    try await service.loadModel()
+
+    service.simulateSuspendOnNextGenerate()
+
+    await #expect(throws: LLMError.suspended) {
+      try await service.generate(system: "s", user: "u")
+    }
+    // Suspend throw must not consume the response slot.
+    let result = try await service.generate(system: "s", user: "u")
+    #expect(result == "after-suspend")
+  }
+
+  @Test func suspendControllerFlagCausesSuspendedThrow() async throws {
+    let service = MockLLMService(responses: ["only"])
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+    try await service.loadModel()
+
+    controller.requestSuspend()
+    await #expect(throws: LLMError.suspended) {
+      try await service.generate(system: "s", user: "u")
+    }
+
+    // After resume the controller's flag clears, generate proceeds normally.
+    controller.resume()
+    let result = try await service.generate(system: "s", user: "u")
+    #expect(result == "only")
+  }
+
+  @Test func resetClearsPendingSuspends() async throws {
+    let service = MockLLMService(responses: ["a"])
+    try await service.loadModel()
+    service.simulateSuspendOnNextGenerate()
+    service.simulateSuspendOnNextGenerate()
+    service.reset()
+    // After reset no suspend should be pending — the next call returns "a".
+    let result = try await service.generate(system: "s", user: "u")
+    #expect(result == "a")
+  }
 }
