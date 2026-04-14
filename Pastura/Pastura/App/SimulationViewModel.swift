@@ -127,7 +127,8 @@ final class SimulationViewModel {
     let simId = UUID().uuidString
     simulationId = simId
     let initialState = SimulationState.initial(for: scenario)
-    await createSimulationRecord(simId: simId, scenario: scenario, state: initialState)
+    await createSimulationRecord(
+      simId: simId, scenario: scenario, state: initialState, llm: llm)
 
     turnSequence = 0
 
@@ -268,7 +269,7 @@ final class SimulationViewModel {
   // MARK: - Persistence
 
   private func createSimulationRecord(
-    simId: String, scenario: Scenario, state: SimulationState
+    simId: String, scenario: Scenario, state: SimulationState, llm: any LLMService
   ) async {
     do {
       let stateJSON = try JSONEncoder().encode(state)
@@ -281,7 +282,9 @@ final class SimulationViewModel {
         stateJSON: String(data: stateJSON, encoding: .utf8) ?? "{}",
         configJSON: nil,
         createdAt: Date(),
-        updatedAt: Date()
+        updatedAt: Date(),
+        modelIdentifier: llm.modelIdentifier,
+        llmBackend: llm.backendIdentifier
       )
       try await offMain { [simulationRepository] in
         try simulationRepository.save(record)

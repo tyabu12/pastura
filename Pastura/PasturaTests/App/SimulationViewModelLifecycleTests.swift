@@ -205,6 +205,8 @@ struct SimulationViewModelLifecycleTests {
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
     #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.modelIdentifier == "mock")
+    #expect(sims.first?.llmBackend == "mock")
   }
 
   @Test func runMarksStatusFailedOnEngineError() async throws {
