@@ -136,9 +136,9 @@ struct LlamaCppServiceTests {
     // on memory warning + cancellation paths because llama.cpp's C API does not
     // respect Swift Task cancellation — generate runs to completion regardless.
     //
-    // The fix is to make unloadModel() wait (polling) for generate to complete
-    // instead of crashing. Here we exercise the path by calling unloadModel on
-    // an unloaded service: the fast path returns immediately without any guard
+    // The fix is to make unloadModel() wait for generate to complete instead
+    // of crashing. Here we exercise the path by calling unloadModel on an
+    // unloaded service: the fast path returns immediately without any guard
     // check that could crash.
     let service = LlamaCppService(modelPath: "/nonexistent.gguf")
     // Multiple back-to-back unloads must be safe (the first exits early via
@@ -146,5 +146,55 @@ struct LlamaCppServiceTests {
     try await service.unloadModel()
     try await service.unloadModel()
     #expect(!service.isModelLoaded)
+  }
+
+  @Test func unloadModelWaitsForInFlightGenerate() async throws {
+    // Exercises the awaitGenerateIdle polling loop: unloadModel should block
+    // while generatingGuard is true, and proceed once it clears. Uses the
+    // DEBUG-only _setGeneratingForTesting hook to simulate an in-flight generate
+    // without actually running one (which would require a real model file).
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    service._setGeneratingForTesting(true)
+
+    let unloadTask = Task<Bool, Error> {
+      try await service.unloadModel()
+      return true
+    }
+
+    // Give unload a chance to start polling
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(!unloadTask.isCancelled, "unloadModel should still be blocked on the guard")
+
+    // Simulate generate completing — clears the flag, unloadModel's poll exits
+    service._setGeneratingForTesting(false)
+    let completed = try await unloadTask.value
+    #expect(completed)
+    #expect(!service.isModelLoaded)
+  }
+
+  @Test func unloadModelDoesNotEarlyReturnOnTaskCancellation() async throws {
+    // Even if the owning task is cancelled, unloadModel must NOT return while
+    // generate is still in flight — that would free C pointers still in use
+    // (use-after-free). Verifies the Task.detached sleep pattern isn't
+    // short-circuited by cancellation.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    service._setGeneratingForTesting(true)
+
+    let unloadTask = Task<Bool, Error> {
+      try await service.unloadModel()
+      return true
+    }
+
+    // Cancel while generate is "running"
+    try await Task.sleep(for: .milliseconds(100))
+    unloadTask.cancel()
+
+    // unloadModel should still be waiting — confirm it hasn't returned
+    try await Task.sleep(for: .milliseconds(200))
+    service._setGeneratingForTesting(false)
+
+    // Now it should complete
+    let completed = try await unloadTask.value
+    #expect(completed)
   }
 }

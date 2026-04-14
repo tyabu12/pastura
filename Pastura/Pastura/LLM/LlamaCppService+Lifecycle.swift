@@ -5,7 +5,12 @@ import os
 
 extension LlamaCppService {
 
-  /// Polls `generatingGuard` until no `generate()` call is in flight.
+  /// Maximum time `awaitGenerateIdle` will wait before giving up.
+  /// A single generate is bounded by `maxTokens` × per-token latency; 30s covers
+  /// even slow CPU inference. If this ever fires, something is wrong elsewhere.
+  private static let awaitGenerateTimeoutSeconds: TimeInterval = 30
+
+  /// Waits until no `generate()` call is in flight before returning.
   ///
   /// Called by `loadModel`/`unloadModel` to make the model-lifecycle API resilient
   /// to being invoked while inference is still running. This happens in practice
@@ -15,22 +20,31 @@ extension LlamaCppService {
   /// (e.g., on `didReceiveMemoryWarning` mid-generate, user cancel mid-generate,
   /// or stream teardown during the auto-regressive loop).
   ///
-  /// The wait is brief in practice: generate returns within the `maxTokens`
-  /// budget (a few seconds at typical tok/s rates). If the caller's own `Task`
-  /// is cancelled during the wait, `Task.sleep` throws and we stop polling —
-  /// the caller can decide whether to proceed with the load/unload anyway.
+  /// Cancellation: this wait is intentionally NOT cancellable. Returning early
+  /// while generate is still running would cause `unloadModel` to free the C
+  /// model/context pointers that generate is actively dereferencing — the
+  /// original use-after-free this precondition guarded against. The wait is
+  /// bounded by a 30s timeout as a safety net.
   func awaitGenerateIdle(caller: String) async {
-    if generatingGuard.withLock({ $0 }) {
-      logger.warning("\(caller)() called while generate() in flight — awaiting completion")
-    }
-    while generatingGuard.withLock({ $0 }) {
-      do {
-        try await Task.sleep(for: .milliseconds(50))
-      } catch {
-        // Task was cancelled during the wait. Stop polling and let the caller
-        // proceed — they may still need to free resources.
+    guard isGenerating() else { return }
+
+    logger.warning("\(caller)() called while generate() in flight — awaiting completion")
+    let deadline = Date().addingTimeInterval(Self.awaitGenerateTimeoutSeconds)
+
+    while isGenerating() {
+      if Date() > deadline {
+        let timeout = Self.awaitGenerateTimeoutSeconds
+        logger.error(
+          "\(caller)() timed out after \(timeout)s — proceeding despite in-flight generate"
+        )
         return
       }
+      // Detached task inherits no cancellation, so the sleep completes even if
+      // the caller's Task is cancelled. Safety (avoid use-after-free) is more
+      // important than cooperative cancellation for cleanup paths.
+      await Task.detached {
+        try? await Task.sleep(for: .milliseconds(50))
+      }.value
     }
   }
 }

@@ -40,7 +40,22 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // Runtime guard for the sequential access contract (ADR-002 §6).
   // Catches concurrent generate(). load/unload wait for it via awaitGenerateIdle
   // (in +Lifecycle.swift) instead of crashing on concurrent access.
-  let generatingGuard = OSAllocatedUnfairLock<Bool>(initialState: false)
+  private let generatingGuard = OSAllocatedUnfairLock<Bool>(initialState: false)
+
+  /// Whether a `generate()` call is currently in flight.
+  /// Exposed so the +Lifecycle extension can poll without direct lock access.
+  func isGenerating() -> Bool {
+    generatingGuard.withLock { $0 }
+  }
+
+  #if DEBUG
+    /// Test-only hook for exercising the `awaitGenerateIdle` wait path.
+    /// Must never be called from production code — flipping this flag during
+    /// a real `generate()` call breaks the sequential-access contract.
+    func _setGeneratingForTesting(_ value: Bool) {
+      generatingGuard.withLock { $0 = value }
+    }
+  #endif
   // Sequential access only — protected by concurrency contract, not by lock
   nonisolated(unsafe) private var _model: OpaquePointer?
   nonisolated(unsafe) private var _context: OpaquePointer?
