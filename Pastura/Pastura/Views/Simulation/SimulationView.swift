@@ -31,9 +31,19 @@ struct SimulationView: View {
       await loadAndRun()
     }
     .onChange(of: scenePhase) { _, newPhase in
-      // Pause simulation when app moves to background (ADR-002 §7)
-      if newPhase == .background, let viewModel, viewModel.isRunning {
-        viewModel.isPaused = true
+      // Two-phase BG handling (ADR-003):
+      // - .background: synchronous pause for safety (stops in-flight work ASAP).
+      //   If the user enabled BG continuation, the BGTask activation will fire
+      //   asynchronously and switch inference to CPU + resume.
+      // - .active: async switch back to GPU (if we were on CPU) and complete BG task.
+      guard let viewModel, viewModel.isRunning else { return }
+      switch newPhase {
+      case .background:
+        viewModel.handleScenePhaseBackground()
+      case .active:
+        Task { await viewModel.handleScenePhaseForeground() }
+      default:
+        break
       }
     }
     .onReceive(
@@ -220,6 +230,11 @@ struct SimulationView: View {
           .foregroundStyle(viewModel.showDebugOutput ? .orange : .secondary)
       }
 
+      // Background continuation toggle (iOS 26+ with LlamaCppService only)
+      if #available(iOS 26, *), viewModel.canEnableBackgroundContinuation {
+        backgroundContinuationToggle(viewModel: viewModel)
+      }
+
       // Scoreboard
       Button {
         showScoreboard = true
@@ -231,6 +246,31 @@ struct SimulationView: View {
     .padding(.horizontal)
     .padding(.vertical, 10)
     .background(.bar)
+  }
+
+  // MARK: - Background continuation toggle
+
+  @available(iOS 26, *)
+  private func backgroundContinuationToggle(viewModel: SimulationViewModel) -> some View {
+    Button {
+      if viewModel.isBackgroundContinuationEnabled {
+        viewModel.disableBackgroundContinuation()
+      } else {
+        viewModel.enableBackgroundContinuation(
+          title: "Pastura simulation",
+          subtitle: scenario?.name ?? "Running in background"
+        )
+      }
+    } label: {
+      Image(
+        systemName: viewModel.isBackgroundContinuationEnabled
+          ? "moon.circle.fill" : "moon.circle"
+      )
+      .font(.title3)
+      .foregroundStyle(viewModel.isBackgroundContinuationEnabled ? .blue : .secondary)
+    }
+    .accessibilityLabel("Background continuation")
+    .accessibilityValue(viewModel.isBackgroundContinuationEnabled ? "enabled" : "disabled")
   }
 
   // MARK: - Load & Run
@@ -253,7 +293,8 @@ struct SimulationView: View {
 
       let simViewModel = SimulationViewModel(
         simulationRepository: deps.simulationRepository,
-        turnRepository: deps.turnRepository
+        turnRepository: deps.turnRepository,
+        backgroundManager: deps.backgroundManager
       )
       viewModel = simViewModel
 
