@@ -11,6 +11,10 @@ enum Route: Hashable {
   /// YAML import screen. Pass an existing scenario ID to edit.
   case importScenario(editingId: String? = nil)
 
+  /// Visual scenario editor. Pass a scenario ID to edit, or nil for new.
+  /// `templateYAML` pre-fills the editor from a preset (generates new ID).
+  case editor(editingId: String? = nil, templateYAML: String? = nil)
+
   /// Live simulation execution screen.
   case simulation(scenarioId: String)
 

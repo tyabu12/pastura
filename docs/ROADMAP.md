@@ -29,9 +29,12 @@
 
 ---
 
-## Phase 1: MVP Development 🔧 In Progress
+## Phase 1: MVP Development ✅ Complete
 
 **Goal:** Build and ship a testable iOS app via TestFlight.
+
+**Result:** Conditional Go (2026-04-13). Tester reaction positive but no organic scenario
+creation observed. Decision: ship to App Store to gauge wider public reaction.
 
 ### Go/No-Go Criteria (evaluate after TestFlight)
 
@@ -64,7 +67,7 @@
 | NG word filter                 | Done     |
 | Scenario gen prompt (copyable) | Done     |
 | On-device LLM (llama.cpp)      | Done     |
-| TestFlight distribution        | In progress |
+| TestFlight distribution        | Done     |
 
 ### What is NOT in MVP (defer to Phase 2+)
 
@@ -83,26 +86,26 @@ If Claude Code is asked to implement any of these, decline and reference this do
 
 ---
 
-## Phase 2: Expansion
+## Phase 2: Expansion 🔧 In Progress
 
 **Goal:** Lower barriers, expand capabilities, reach broader audience.
 
-**Prerequisite:** Phase 1 Go decision from TestFlight feedback.
+**Prerequisite:** Phase 1 Go decision from TestFlight feedback. ✅ Conditional Go (2026-04-13)
 
 ### Planned Features
 
-| Feature                                  | Priority | Notes                                    |
-|------------------------------------------|----------|------------------------------------------|
-| In-app scenario generation (Cloud API)   | High     | Claude/Gemini API for natural language → YAML |
-| Visual scenario editor (block UI)        | High     | Drag-and-drop phase composition for non-technical users |
-| Background execution (iOS 26)            | High     | BGContinuedProcessingTask + GPU access   |
-| `conditional` phase type                 | Medium   | Dynamic branching based on state         |
-| `event_inject` phase type                | Medium   | Random event injection mid-simulation    |
-| `reflect` phase type                     | Medium   | Agent self-reflection / memory compaction|
-| Custom score_calc logic                  | Medium   | User-defined scoring expressions         |
-| Scenario sharing                         | Medium   | Export/import via URL or share sheet      |
-| E4B model switching                      | Low      | Higher quality option for 12GB+ devices  |
-| Inference speed display                  | Low      | tok/s, time per inference in UI          |
+| Feature                                  | Priority | Status      | Notes                                    |
+|------------------------------------------|----------|-------------|------------------------------------------|
+| Visual scenario editor (dual-mode)       | High     | In progress | Form + block UI with YAML mode toggle (#83) |
+| In-app scenario generation (Cloud API)   | High     | Planned     | Claude/Gemini API for natural language → YAML |
+| Background execution (iOS 26)            | High     | Planned     | BGContinuedProcessingTask + GPU access   |
+| `conditional` phase type                 | Medium   | Planned     | Dynamic branching based on state         |
+| `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
+| `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
+| Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
+| Scenario sharing                         | Medium   | Planned     | Export/import via URL or share sheet      |
+| E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
+| Inference speed display                  | Low      | Planned     | tok/s, time per inference in UI          |
 
 ### Technical Debt to Address
 - Evaluate SPM module split (if file count > 100)
