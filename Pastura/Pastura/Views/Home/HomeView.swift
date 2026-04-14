@@ -37,13 +37,17 @@ struct HomeView: View {
     .task {
       viewModel = HomeViewModel(repository: dependencies.scenarioRepository)
       await viewModel?.loadScenarios()
+      await viewModel?.refreshGalleryUpdateBadges(using: dependencies.galleryService)
     }
     // Refresh the list whenever the user navigates back to root.
     // `.task` only runs on initial mount; pushed views like the editor
     // don't re-trigger it on dismiss.
     .onChange(of: navigationPath.count) { oldCount, newCount in
       if newCount < oldCount {
-        Task { await viewModel?.loadScenarios() }
+        Task {
+          await viewModel?.loadScenarios()
+          await viewModel?.refreshGalleryUpdateBadges(using: dependencies.galleryService)
+        }
       }
     }
   }
@@ -59,29 +63,12 @@ struct HomeView: View {
         }
       }
 
-      Section("My Scenarios") {
-        if viewModel.userScenarios.isEmpty {
-          ContentUnavailableView(
-            "No Scenarios",
-            systemImage: "doc.text",
-            description: Text("Tap + to import a YAML scenario")
-          )
-        } else {
-          ForEach(viewModel.userScenarios, id: \.id) { scenario in
-            scenarioRow(scenario)
-          }
-          .onDelete { offsets in
-            let ids = offsets.map { viewModel.userScenarios[$0].id }
-            Task {
-              for id in ids {
-                await viewModel.deleteScenario(id)
-              }
-            }
-          }
-        }
-      }
+      userScenariosSection(viewModel: viewModel)
 
       Section {
+        NavigationLink(value: Route.shareBoard) {
+          Label("Share Board", systemImage: "square.grid.2x2.fill")
+        }
         NavigationLink(value: Route.results(scenarioId: "")) {
           Label("Past Results", systemImage: "clock.arrow.circlepath")
         }
@@ -89,6 +76,7 @@ struct HomeView: View {
     }
     .refreshable {
       await viewModel.loadScenarios()
+      await viewModel.refreshGalleryUpdateBadges(using: dependencies.galleryService)
     }
     .overlay {
       if let error = viewModel.errorMessage {
@@ -101,11 +89,49 @@ struct HomeView: View {
     }
   }
 
-  private func scenarioRow(_ scenario: ScenarioRecord) -> some View {
+  @ViewBuilder
+  private func userScenariosSection(viewModel: HomeViewModel) -> some View {
+    Section("My Scenarios") {
+      if viewModel.userScenarios.isEmpty {
+        ContentUnavailableView(
+          "No Scenarios",
+          systemImage: "doc.text",
+          description: Text("Tap + to import a YAML scenario")
+        )
+      } else {
+        ForEach(viewModel.userScenarios, id: \.id) { scenario in
+          scenarioRow(
+            scenario, hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id))
+        }
+        .onDelete { offsets in
+          let ids = offsets.map { viewModel.userScenarios[$0].id }
+          Task {
+            for id in ids {
+              await viewModel.deleteScenario(id)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private func scenarioRow(
+    _ scenario: ScenarioRecord, hasGalleryUpdate: Bool = false
+  ) -> some View {
     NavigationLink(value: Route.scenarioDetail(scenarioId: scenario.id)) {
       VStack(alignment: .leading, spacing: 4) {
-        Text(scenario.name)
-          .font(.headline)
+        HStack(spacing: 6) {
+          Text(scenario.name)
+            .font(.headline)
+          if hasGalleryUpdate {
+            Text("Update")
+              .font(.caption2.bold())
+              .padding(.horizontal, 6)
+              .padding(.vertical, 2)
+              .background(Color.accentColor.opacity(0.2), in: Capsule())
+              .foregroundStyle(Color.accentColor)
+          }
+        }
         if scenario.isPreset {
           Text("Preset")
             .font(.caption)
