@@ -17,11 +17,17 @@ final class AppDependencies: @unchecked Sendable {
   /// Defaults to `OllamaService` for development.
   let llmService: any LLMService
 
+  /// Manager for iOS 26+ background simulation continuation.
+  /// Registered at app launch; used by `SimulationViewModel` when the user
+  /// opts into background continuation via the toggle in `SimulationView`.
+  let backgroundManager: BackgroundSimulationManager
+
   private let databaseManager: DatabaseManager
 
   init(
     databaseManager: DatabaseManager,
-    llmService: (any LLMService)? = nil
+    llmService: (any LLMService)? = nil,
+    backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager()
   ) {
     self.databaseManager = databaseManager
     let writer = databaseManager.dbWriter
@@ -29,6 +35,7 @@ final class AppDependencies: @unchecked Sendable {
     self.simulationRepository = GRDBSimulationRepository(dbWriter: writer)
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
     self.llmService = llmService ?? OllamaService()
+    self.backgroundManager = backgroundManager
   }
 
   /// Creates a production instance with persistent SQLite storage.
