@@ -38,6 +38,14 @@ struct HomeView: View {
       viewModel = HomeViewModel(repository: dependencies.scenarioRepository)
       await viewModel?.loadScenarios()
     }
+    // Refresh the list whenever the user navigates back to root.
+    // `.task` only runs on initial mount; pushed views like the editor
+    // don't re-trigger it on dismiss.
+    .onChange(of: navigationPath.count) { oldCount, newCount in
+      if newCount < oldCount {
+        Task { await viewModel?.loadScenarios() }
+      }
+    }
   }
 
   @ViewBuilder

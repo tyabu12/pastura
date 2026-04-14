@@ -103,9 +103,53 @@ struct ScenarioEditorView: View {
         .autocorrectionDisabled()
         .font(.body.monospaced())
       TextField("Name", text: $viewModel.scenarioName)
-      TextField("Description", text: $viewModel.scenarioDescription)
-      Stepper("Rounds: \(viewModel.rounds)", value: $viewModel.rounds, in: 1...30)
+      TextField("Description", text: $viewModel.scenarioDescription, axis: .vertical)
+        .lineLimit(2...5)
+      roundsControl
     }
+  }
+
+  /// Slider + stepper hybrid for discrete integer values (1...30).
+  /// Matches iOS HIG for discrete tunable values where both precise
+  /// increments (±) and quick scrubbing (drag) are desirable.
+  private var roundsControl: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("Rounds")
+        Spacer()
+        Text("\(viewModel.rounds)")
+          .monospacedDigit()
+          .foregroundStyle(.secondary)
+      }
+      HStack {
+        Button {
+          viewModel.rounds = max(1, viewModel.rounds - 1)
+        } label: {
+          Image(systemName: "minus.circle.fill")
+            .font(.title3)
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.rounds <= 1)
+
+        Slider(value: roundsSliderBinding, in: 1...30, step: 1)
+
+        Button {
+          viewModel.rounds = min(30, viewModel.rounds + 1)
+        } label: {
+          Image(systemName: "plus.circle.fill")
+            .font(.title3)
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.rounds >= 30)
+      }
+    }
+  }
+
+  private var roundsSliderBinding: Binding<Double> {
+    Binding(
+      get: { Double(viewModel.rounds) },
+      set: { viewModel.rounds = Int($0) }
+    )
   }
 
   private var contextSection: some View {
