@@ -220,6 +220,33 @@ import Testing
     }
   }
 
+  @Test func fetchScenarioYAMLResolvesRelativeURLAgainstIndex() async throws {
+    let tmp = try makeTempDir()
+    defer { cleanup(tmp) }
+    let service = makeService(cacheDirectory: tmp)
+
+    // Relative input — should be resolved against indexURL's directory.
+    // swiftlint:disable:next force_unwrapping
+    let relative = URL(string: "scenarios/asch.yaml")!
+    let expectedAbsolute = URL(
+      // swiftlint:disable:next force_unwrapping
+      string: "https://example.com/scenarios/asch.yaml")!
+
+    let yaml = "id: resolved\nname: Resolved\n"
+    let data = Data(yaml.utf8)
+    let hash = URLSessionGalleryService.sha256Hex(data)
+
+    let capturedURL = CapturedHeader()  // reuse as a string holder
+    MockURLProtocol.setHandler { request in
+      capturedURL.set(request.url?.absoluteString)
+      return (self.response(status: 200, for: expectedAbsolute), data)
+    }
+
+    let result = try await service.fetchScenarioYAML(from: relative, expectedSHA256: hash)
+    #expect(result == yaml)
+    #expect(capturedURL.get() == expectedAbsolute.absoluteString)
+  }
+
   @Test func fetchScenarioYAMLRejectsOversizeResponse() async throws {
     let tmp = try makeTempDir()
     defer { cleanup(tmp) }

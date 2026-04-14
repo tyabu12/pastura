@@ -144,7 +144,12 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   }
 
   public func fetchScenarioYAML(from url: URL, expectedSHA256: String) async throws -> String {
-    var request = URLRequest(url: url)
+    // Resolve against `indexURL` so `gallery.json` can reference siblings
+    // with relative paths (e.g. `"yaml_url": "asch_v1.yaml"`). Absolute
+    // URLs pass through untouched because URL resolution prefers the
+    // string's own scheme when present.
+    let resolved = URL(string: url.relativeString, relativeTo: indexURL) ?? url
+    var request = URLRequest(url: resolved)
     request.httpMethod = "GET"
     let (data, response) = try await performDataRequest(request, limit: Self.yamlSizeLimit)
     guard let http = response as? HTTPURLResponse else {

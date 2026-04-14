@@ -38,7 +38,7 @@ app. Fields:
       "author": "<github handle>",
       "recommended_model": "<model id>",     // e.g. "gemma4_e2b"
       "estimated_inferences": <int>,         // rough total LLM calls to complete
-      "yaml_url": "<https URL to the YAML>",
+      "yaml_url": "<filename or absolute https URL>",  // resolved relative to gallery.json
       "yaml_sha256": "<lowercase hex>",      // SHA-256 of the YAML body
       "added_at": "YYYY-MM-DD"
     }
