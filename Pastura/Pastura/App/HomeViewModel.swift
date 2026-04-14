@@ -57,20 +57,19 @@ final class HomeViewModel {
   /// index. Non-gallery rows and rows lacking a `sourceId` are ignored.
   /// Silent no-op when no cached index is available.
   func refreshGalleryUpdateBadges(using service: any GalleryService) async {
-    let cached: GalleryIndex?
-    do {
-      cached = try service.loadCachedIndex()
-    } catch {
-      cached = nil
-    }
-    guard let cached else {
+    // Cache read is file I/O — dispatch off MainActor to avoid blocking
+    // list rendering on a synchronous disk read. Double-optional: inner
+    // nil = no cache file, outer nil = offMain threw.
+    let fetched = try? await offMain { [service] in try service.loadCachedIndex() }
+    guard let cached = fetched.flatMap({ $0 }) else {
       galleryUpdateBadges = []
       return
     }
     let hashBySourceId = Dictionary(
       uniqueKeysWithValues: cached.scenarios.map { ($0.id, $0.yamlSHA256) })
     var ids: Set<String> = []
-    for record in presets + userScenarios
+    // Only `userScenarios` can be gallery-sourced — presets are bundled.
+    for record in userScenarios
     where record.sourceType == ScenarioSourceType.gallery {
       guard
         let sourceId = record.sourceId,

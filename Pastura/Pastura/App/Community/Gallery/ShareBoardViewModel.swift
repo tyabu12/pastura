@@ -234,10 +234,15 @@ final class ShareBoardViewModel {
       // transient DB error.
       return
     }
+    // Use `uniquingKeysWith` rather than `uniqueKeysWithValues` to avoid
+    // trapping if two gallery rows ever share a `sourceId` (shouldn't
+    // happen under the curation rules + readonly guard, but we prefer
+    // "first wins" over a crash).
     installedBySourceId = Dictionary(
-      uniqueKeysWithValues: rows.compactMap { record in
+      rows.compactMap { record -> (String, ScenarioRecord)? in
         guard let sourceId = record.sourceId else { return nil }
         return (sourceId, record)
-      })
+      },
+      uniquingKeysWith: { first, _ in first })
   }
 }

@@ -74,7 +74,7 @@ final class ScenarioDetailViewModel {
   /// Populates `galleryScenario` and `hasGalleryUpdate` by matching the
   /// current record's `sourceId` against the cached gallery index. Silent
   /// no-op for non-gallery records or when no cache exists.
-  func refreshGalleryStatus(using service: any GalleryService) {
+  func refreshGalleryStatus(using service: any GalleryService) async {
     guard
       let record,
       record.sourceType == ScenarioSourceType.gallery,
@@ -84,8 +84,13 @@ final class ScenarioDetailViewModel {
       hasGalleryUpdate = false
       return
     }
-    let cached = try? service.loadCachedIndex()
-    guard let entry = cached?.scenarios.first(where: { $0.id == sourceId }) else {
+    // Cache read is file I/O — dispatch off MainActor. Double-optional:
+    // inner nil = no cache file, outer nil = offMain threw.
+    let fetched = try? await offMain { [service] in try service.loadCachedIndex() }
+    guard
+      let cached = fetched.flatMap({ $0 }),
+      let entry = cached.scenarios.first(where: { $0.id == sourceId })
+    else {
       galleryScenario = nil
       hasGalleryUpdate = false
       return

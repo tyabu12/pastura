@@ -50,7 +50,7 @@ struct ScenarioDetailView: View {
     .task {
       viewModel = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
       await viewModel?.load(scenarioId: scenarioId)
-      viewModel?.refreshGalleryStatus(using: dependencies.galleryService)
+      await viewModel?.refreshGalleryStatus(using: dependencies.galleryService)
     }
   }
 

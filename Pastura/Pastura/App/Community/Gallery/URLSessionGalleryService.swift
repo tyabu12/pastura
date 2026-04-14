@@ -5,9 +5,17 @@ import Foundation
 ///
 /// Uses an ephemeral session configuration (no cookies, no credential
 /// persistence, no URLCache) plus a per-request delegate that restricts
-/// HTTP redirects to the same host. ETags are persisted alongside the
-/// cached index as a `.etag` sidecar so If-None-Match conditional GETs
-/// work across app launches.
+/// HTTP redirects to the same host. Every outgoing request is additionally
+/// required to use the `https` scheme — a compromised `gallery.json` cannot
+/// point `yaml_url` at `file://` or other schemes. ETags are persisted
+/// alongside the cached index as a `.etag` sidecar so If-None-Match
+/// conditional GETs work across app launches.
+///
+/// ### Lifecycle
+///
+/// Designed to live for the app's lifetime — `AppDependencies` owns exactly
+/// one instance. The underlying `URLSession` is invalidated via `deinit`
+/// so test instances created and discarded by unit tests don't leak.
 public final class URLSessionGalleryService: NSObject, GalleryService, @unchecked Sendable {
   // @unchecked Sendable: stored state is immutable after init.
 
@@ -49,6 +57,13 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
     self.cacheDirectory = cacheDirectory
     self.session = URLSession(configuration: sessionConfiguration ?? Self.hardenedConfiguration())
     super.init()
+  }
+
+  deinit {
+    // Release the session's resources for short-lived test instances.
+    // For the app-lifetime singleton this runs at process exit and is a
+    // no-op in practice.
+    session.invalidateAndCancel()
   }
 
   // MARK: - Configuration helpers
@@ -168,6 +183,12 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   private func performDataRequest(
     _ request: URLRequest, limit: Int
   ) async throws -> (Data, URLResponse) {
+    // Scheme allowlist: reject file:// / ftp:// / etc even if they show up
+    // in `yaml_url`. The curation trust model permits this as paranoia;
+    // in practice curators should only ever publish https URLs anyway.
+    guard request.url?.scheme?.lowercased() == "https" else {
+      throw GalleryServiceError.invalidResponse
+    }
     let delegate = RedirectPolicyDelegate(sameHost: request.url?.host)
     let (data, response) = try await session.data(for: request, delegate: delegate)
 
