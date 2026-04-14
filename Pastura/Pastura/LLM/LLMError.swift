@@ -19,4 +19,14 @@ nonisolated public enum LLMError: Error, Sendable, Equatable {
 
   /// The HTTP request to the LLM backend failed.
   case networkError(description: String)
+
+  /// Inference was interrupted by an external suspend request and may be retried.
+  ///
+  /// Thrown by ``LLMService/generate(system:user:)`` when a ``SuspendController``
+  /// signals a suspend (for example because `scenePhase` transitioned to
+  /// `.background` and iOS is about to deny GPU work). Unlike other cases,
+  /// this is not a fatal failure — the calling layer is expected to await
+  /// ``SuspendController/awaitResume()`` and retry the same prompt without
+  /// consuming retry budget.
+  case suspended
 }
