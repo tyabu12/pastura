@@ -101,15 +101,19 @@ Gallery scenarios are public and curator-endorsed. Keep content:
 
 ## Testing changes from a feature branch
 
-The app's hardcoded gallery URL points at `main`. To preview a Share Board
-change from a feature branch without merging, override the URL via a
-scheme environment variable (Debug builds only — Release ignores it):
+The app's hardcoded gallery base points at `main`. To preview a Share
+Board change from a feature branch without merging, override the base
+directory via a scheme environment variable (Debug builds only —
+Release ignores it):
 
 1. Xcode → **Edit Scheme** → **Run** → **Arguments** → **Environment Variables**.
-2. Add `PASTURA_GALLERY_URL` =
-   `https://raw.githubusercontent.com/tyabu12/pastura/<branch>/docs/gallery/gallery.json`
+2. Add `PASTURA_GALLERY_BASE_URL` =
+   `https://raw.githubusercontent.com/tyabu12/pastura/<branch>/docs/gallery/`
 3. Toggle the variable off (or delete it) before testing the production
    path.
 
-The override is enforced to be https-scheme; non-https values fall back to
-the hardcoded URL silently.
+The override is the **directory** containing `gallery.json` (trailing
+slash optional — the app normalises it). The service appends
+`gallery.json` and relative `yaml_url`s resolve against the same base,
+so one env var covers both the index and its YAML siblings. Non-https
+values fall back to the hardcoded base silently.

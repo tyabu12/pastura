@@ -30,17 +30,17 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   /// Default remote URL for the gallery index.
   ///
   /// In Debug builds, the `PASTURA_GALLERY_URL` environment variable
-  /// (set on the Run scheme) overrides the hardcoded fallback so a
-  /// developer can point the app at a feature-branch `gallery.json`
-  /// without rebuilding. Release builds always use `main`.
+  /// (set on the Run scheme) overrides the hardcoded base so a developer
+  /// can point the app at a feature-branch gallery directory without
+  /// rebuilding. The override is treated as a **directory** URL — the
+  /// service appends `gallery.json` and relative `yaml_url`s resolve
+  /// against it naturally. Release builds always use `main`.
   ///
   /// The literal is a compile-time constant; `preconditionFailure`
   /// signals an unreachable state, not a runtime error path.
   public static var defaultIndexURL: URL {
     #if DEBUG
-      if let override = ProcessInfo.processInfo.environment["PASTURA_GALLERY_URL"],
-        let url = URL(string: override),
-        url.scheme?.lowercased() == "https" {
+      if let url = indexURL(fromBaseEnv: "PASTURA_GALLERY_BASE_URL") {
         return url
       }
     #endif
@@ -52,6 +52,18 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
       preconditionFailure("Invalid gallery index URL literal")
     }
     return url
+  }
+
+  /// Reads an env var that holds a directory URL and appends `gallery.json`.
+  /// Returns `nil` if unset, malformed, or non-https.
+  private static func indexURL(fromBaseEnv name: String) -> URL? {
+    guard let raw = ProcessInfo.processInfo.environment[name] else { return nil }
+    let normalized = raw.hasSuffix("/") ? raw : raw + "/"
+    guard
+      let base = URL(string: normalized),
+      base.scheme?.lowercased() == "https"
+    else { return nil }
+    return base.appendingPathComponent("gallery.json")
   }
 
   // MARK: - State
