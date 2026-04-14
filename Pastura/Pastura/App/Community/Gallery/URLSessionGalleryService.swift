@@ -29,9 +29,21 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
 
   /// Default remote URL for the gallery index.
   ///
-  /// The literal is a compile-time constant; `preconditionFailure` signals
-  /// an unreachable state, not a runtime error path.
+  /// In Debug builds, the `PASTURA_GALLERY_URL` environment variable
+  /// (set on the Run scheme) overrides the hardcoded fallback so a
+  /// developer can point the app at a feature-branch `gallery.json`
+  /// without rebuilding. Release builds always use `main`.
+  ///
+  /// The literal is a compile-time constant; `preconditionFailure`
+  /// signals an unreachable state, not a runtime error path.
   public static var defaultIndexURL: URL {
+    #if DEBUG
+      if let override = ProcessInfo.processInfo.environment["PASTURA_GALLERY_URL"],
+        let url = URL(string: override),
+        url.scheme?.lowercased() == "https" {
+        return url
+      }
+    #endif
     guard
       let url = URL(
         string:

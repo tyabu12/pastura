@@ -98,3 +98,18 @@ Gallery scenarios are public and curator-endorsed. Keep content:
 
 - `gallery.json` — the index manifest the iOS app fetches.
 - `<id>.yaml` — individual scenario definitions, one per listed entry.
+
+## Testing changes from a feature branch
+
+The app's hardcoded gallery URL points at `main`. To preview a Share Board
+change from a feature branch without merging, override the URL via a
+scheme environment variable (Debug builds only — Release ignores it):
+
+1. Xcode → **Edit Scheme** → **Run** → **Arguments** → **Environment Variables**.
+2. Add `PASTURA_GALLERY_URL` =
+   `https://raw.githubusercontent.com/tyabu12/pastura/<branch>/docs/gallery/gallery.json`
+3. Toggle the variable off (or delete it) before testing the production
+   path.
+
+The override is enforced to be https-scheme; non-https values fall back to
+the hardcoded URL silently.
