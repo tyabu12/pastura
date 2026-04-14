@@ -104,8 +104,18 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
     // a queued task activating unexpectedly long after the user tapped the toggle.
     request.strategy = .fail
 
-    try BGTaskScheduler.shared.submit(request)
-    logger.info("Scheduled BG continuation request: \(title)")
+    do {
+      try BGTaskScheduler.shared.submit(request)
+      logger.info("Scheduled BG continuation request: \(title)")
+    } catch {
+      // Clear the callbacks we just stored so a retry with different callbacks
+      // doesn't leave stale closures around.
+      state.withLock { state in
+        state.onActivation = nil
+        state.onExpiration = nil
+      }
+      throw error
+    }
   }
 
   /// Updates the progress shown in the system UI.

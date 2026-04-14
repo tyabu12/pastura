@@ -51,6 +51,11 @@ extension SimulationViewModel {
   /// Called by `SimulationView` when `scenePhase` becomes `.background`.
   /// Immediately pauses (synchronous safety) so any in-flight generate finishes
   /// before a potential BG task activation triggers a model reload.
+  ///
+  /// Confirmation of the pause (no in-flight inference) happens later inside
+  /// `switchToCPUInference` via `pauseAndAwaitConfirmation()`.
+  ///
+  /// Safe on iOS < 26: simply pauses like the pre-BG behaviour (ADR-002 §7).
   func handleScenePhaseBackground() {
     guard isRunning else { return }
     isPaused = true
@@ -58,6 +63,9 @@ extension SimulationViewModel {
 
   /// Called by `SimulationView` when `scenePhase` becomes `.active`.
   /// If we switched to CPU for BG, switch back to GPU. Always completes any BG task.
+  ///
+  /// Safe on iOS < 26: the CPU branch never runs (isOnCPU stays false because
+  /// BG activation never fires) and `backgroundManager.completeTask` no-ops.
   func handleScenePhaseForeground() async {
     guard isRunning else { return }
 
@@ -100,6 +108,10 @@ extension SimulationViewModel {
   }
 
   /// Waits for inference to be idle, then reloads the model on CPU.
+  ///
+  /// Safe on iOS < 26: early returns if `currentLLM` isn't `LlamaCppService`.
+  /// In practice this method only fires from the BG activation callback, which
+  /// is only wired up when `canEnableBackgroundContinuation` is true (iOS 26+).
   fileprivate func switchToCPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
     await pauseAndAwaitConfirmation()
