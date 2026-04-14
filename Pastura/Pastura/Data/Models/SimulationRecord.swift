@@ -22,6 +22,12 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
   public var configJSON: String?
   public var createdAt: Date
   public var updatedAt: Date
+  /// Human-readable label for the LLM model that ran this simulation (e.g.
+  /// `"Gemma 4 E2B (Q4_K_M)"`). Nil for rows created before the v3 migration.
+  public var modelIdentifier: String?
+  /// Human-readable label for the LLM backend runtime (e.g. `"llama.cpp"`,
+  /// `"Ollama"`). Nil for rows created before the v3 migration.
+  public var llmBackend: String?
 
   public init(
     id: String,
@@ -32,7 +38,9 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
     stateJSON: String,
     configJSON: String?,
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
+    modelIdentifier: String? = nil,
+    llmBackend: String? = nil
   ) {
     self.id = id
     self.scenarioId = scenarioId
@@ -43,6 +51,8 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
     self.configJSON = configJSON
     self.createdAt = createdAt
     self.updatedAt = updatedAt
+    self.modelIdentifier = modelIdentifier
+    self.llmBackend = llmBackend
   }
 
   /// Type-safe accessor for the simulation status.

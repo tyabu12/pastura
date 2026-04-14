@@ -116,6 +116,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     loadedState.withLock { $0 }
   }
 
+  // Hardcoded in MVP because this service is wired only to the bundled Gemma 4 E2B
+  // Q4_K_M GGUF. When multiple models ship, read from GGUF metadata at loadModel().
+  public let modelIdentifier = "Gemma 4 E2B (Q4_K_M)"
+  public let backendIdentifier = "llama.cpp"
+
   public func generate(system: String, user: String) async throws -> String {
     try await throttleIfOverheating()
 

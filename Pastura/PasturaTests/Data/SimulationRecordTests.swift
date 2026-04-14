@@ -70,6 +70,54 @@ import Testing
     #expect(fetched?.simulationStatus == .paused)
   }
 
+  @Test func modelIdentifierAndLLMBackendRoundTrip() throws {
+    let manager = try makeManagerWithScenario()
+    let now = Date()
+    var record = SimulationRecord(
+      id: "sim1", scenarioId: "s1",
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 5, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: now, updatedAt: now,
+      modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
+      llmBackend: "llama.cpp")
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try SimulationRecord.fetchOne(db, key: "sim1")
+    }
+
+    #expect(fetched?.modelIdentifier == "Gemma 4 E2B (Q4_K_M)")
+    #expect(fetched?.llmBackend == "llama.cpp")
+  }
+
+  @Test func modelIdentifierAndLLMBackendDefaultToNil() throws {
+    // Rows inserted without explicit model metadata (e.g., created before the v3 migration
+    // on TestFlight devices) decode with nil for both new fields and round-trip cleanly.
+    let manager = try makeManagerWithScenario()
+    let now = Date()
+    var record = SimulationRecord(
+      id: "sim1", scenarioId: "s1",
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 0, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: now, updatedAt: now)
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try SimulationRecord.fetchOne(db, key: "sim1")
+    }
+
+    #expect(fetched?.modelIdentifier == nil)
+    #expect(fetched?.llmBackend == nil)
+  }
+
   @Test func cascadeDeleteFromScenario() throws {
     let manager = try makeManagerWithScenario()
     let now = Date()

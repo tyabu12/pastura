@@ -28,4 +28,14 @@ nonisolated public protocol LLMService: Sendable {
   /// - Throws: ``LLMError/notLoaded`` if model is not loaded,
   ///           ``LLMError/generationFailed(description:)`` on inference failure.
   func generate(system: String, user: String) async throws -> String
+
+  /// Human-readable label for the currently-loaded model (e.g.
+  /// `"Gemma 4 E2B (Q4_K_M)"`, `"gemma4:e2b"`, `"mock"`). Intended for
+  /// display / export metadata — **not** a stable parse key.
+  var modelIdentifier: String { get }
+
+  /// Human-readable label for the backend runtime driving inference (e.g.
+  /// `"llama.cpp"`, `"Ollama"`, `"mock"`). Intended for display / export
+  /// metadata — **not** a stable parse key.
+  var backendIdentifier: String { get }
 }
