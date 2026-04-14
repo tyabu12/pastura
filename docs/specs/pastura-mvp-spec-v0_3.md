@@ -477,7 +477,7 @@ turns
 - [ ] E4B / Claude比較テスト（品質上限の把握）（低優先度）
 - [x] シナリオ生成プロンプトの作成・検証
 
-### Phase 1: MVP開発 🔧 In Progress
+### Phase 1: MVP開発 ✅ Complete
 
 - [x] Xcodeプロジェクトセットアップ
 - [x] llama.cpp統合（mattt/llama.swift経由、Metal GPU）
@@ -491,8 +491,8 @@ turns
 - [x] NGワードフィルタ
 - [x] シナリオ生成プロンプトテンプレート提供
 - [x] モデルダウンロード + SHA256検証
-- [ ] TestFlight配布
-- [ ] **Go/No-Go判定**
+- [x] TestFlight配布
+- [x] **Go/No-Go判定** — Conditional Go (2026-04-13)
 
 ### Phase 2: 拡張
 

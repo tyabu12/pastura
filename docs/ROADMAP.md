@@ -33,7 +33,8 @@
 
 **Goal:** Build and ship a testable iOS app via TestFlight.
 
-**Duration:** Complete as of 2026-04-13. All MVP features implemented; TestFlight distribution in progress.
+**Result:** Conditional Go (2026-04-13). Tester reaction positive but no organic scenario
+creation observed. Decision: ship to App Store to gauge wider public reaction.
 
 ### Go/No-Go Criteria (evaluate after TestFlight)
 
@@ -74,15 +75,15 @@
 
 **Goal:** Lower barriers, expand capabilities, reach broader audience.
 
-**Prerequisite:** Phase 1 Go decision from TestFlight feedback.
+**Prerequisite:** Phase 1 Go decision from TestFlight feedback. ✅ Conditional Go (2026-04-13)
 
 ### Planned Features
 
 | Feature                                  | Priority | Status      | Notes                                    |
 |------------------------------------------|----------|-------------|------------------------------------------|
-| Background execution (iOS 26)            | High     | In progress | BGContinuedProcessingTask + CPU inference in background (#84) |
+| Visual scenario editor (dual-mode)       | High     | Done        | Form + block UI with YAML mode toggle (#83) |
+| Background execution (iOS 26)            | High     | Done        | BGContinuedProcessingTask + CPU inference in background (#84) |
 | In-app scenario generation (Cloud API)   | High     | Planned     | Claude/Gemini API for natural language → YAML |
-| Visual scenario editor (block UI)        | High     | Planned     | Drag-and-drop phase composition for non-technical users |
 | `conditional` phase type                 | Medium   | Planned     | Dynamic branching based on state         |
 | `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|

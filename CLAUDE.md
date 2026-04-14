@@ -4,8 +4,13 @@
 
 ## Current Phase
 
-**Phase 2: Expansion** — See `docs/ROADMAP.md` for scope and planned features.
-Phase 1 (MVP) is complete. Check ROADMAP.md for current Phase 2 feature status before implementing.
+**Phase 2: Expansion** — See `docs/ROADMAP.md` for scope.
+Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
+If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
+
+Completed in Phase 2 so far:
+- **Visual Scenario Editor** — dual-mode form + YAML (#83)
+- **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
 
 ## Language Rules
 
