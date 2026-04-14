@@ -206,6 +206,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     // the model's tokenizer splits it across multiple subword tokens.
     var outputText = ""
     for _ in 0..<Self.maxTokens {
+      // Respect Task cancellation. llama.cpp's C calls don't check cancellation
+      // themselves, so without this a cancelled simulation would run to maxTokens
+      // before exiting — making model reload / app teardown slow.
+      try Task.checkCancellation()
+
       let newTokenId = llama_sampler_sample(sampler, context, -1)
 
       if llama_vocab_is_eog(vocab, newTokenId) { break }

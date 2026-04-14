@@ -12,6 +12,7 @@ extension LlamaCppService {
     var offset = 0
 
     while offset < mutableTokens.count {
+      try Task.checkCancellation()
       let chunkSize = min(Self.batchSize, mutableTokens.count - offset)
       let batch = mutableTokens.withUnsafeMutableBufferPointer { ptr -> llama_batch in
         // baseAddress is non-nil because the while condition guarantees non-empty remaining tokens
