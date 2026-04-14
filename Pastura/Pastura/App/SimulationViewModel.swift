@@ -71,6 +71,7 @@ final class SimulationViewModel {
   private let contentFilter: ContentFilter
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
+  private let scenarioRepository: (any ScenarioRepository)?
   private var simulationId: String?
 
   /// Holds the currently running simulation task for cancellation support.
@@ -92,12 +93,14 @@ final class SimulationViewModel {
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
     simulationRepository: any SimulationRepository,
-    turnRepository: any TurnRepository
+    turnRepository: any TurnRepository,
+    scenarioRepository: (any ScenarioRepository)? = nil
   ) {
     self.runner = runner
     self.contentFilter = contentFilter
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
+    self.scenarioRepository = scenarioRepository
   }
 
   // MARK: - Simulation Lifecycle
@@ -332,6 +335,54 @@ final class SimulationViewModel {
     } catch {
       print("⚠️ Failed to encode turn output: \(error)")
     }
+  }
+
+  // MARK: - Export
+
+  /// Fetches the current simulation's records and renders them as a Markdown
+  /// export payload. Returns `nil` when the simulation is not in a state that
+  /// produces meaningful output (no `simulationId`, status not `.completed`,
+  /// or `scenarioRepository` was not injected).
+  ///
+  /// Intentionally runs fetches sequentially on a single `offMain` hop — the
+  /// three reads touch different tables but share the same `DatabaseQueue`, so
+  /// parallelism would not win over the serial writer.
+  func fetchExportPayload(
+    exportEnvironment: ResultMarkdownExporter.ExportEnvironment
+  ) async throws -> ResultMarkdownExporter.ExportedResult? {
+    guard let simId = simulationId, let scenarioRepository else { return nil }
+    let simulationRepository = self.simulationRepository
+    let turnRepository = self.turnRepository
+
+    let payload: (simulation: SimulationRecord, scenario: ScenarioRecord, turns: [TurnRecord])? =
+      try await offMain {
+        guard
+          let sim = try simulationRepository.fetchById(simId),
+          let scenario = try scenarioRepository.fetchById(sim.scenarioId)
+        else {
+          return nil
+        }
+        let turns = try turnRepository.fetchBySimulationId(simId)
+        return (sim, scenario, turns)
+      }
+
+    guard let payload, payload.simulation.simulationStatus == .completed else { return nil }
+
+    let state = decodeState(from: payload.simulation) ?? SimulationState()
+    let exporter = ResultMarkdownExporter(
+      contentFilter: contentFilter,
+      environment: exportEnvironment)
+    return try exporter.export(
+      ResultMarkdownExporter.Input(
+        simulation: payload.simulation,
+        scenario: payload.scenario,
+        turns: payload.turns,
+        state: state))
+  }
+
+  private func decodeState(from record: SimulationRecord) -> SimulationState? {
+    guard let data = record.stateJSON.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(SimulationState.self, from: data)
   }
 
   /// Persist the terminal status decided by the caller. `.paused` is NOT passed
