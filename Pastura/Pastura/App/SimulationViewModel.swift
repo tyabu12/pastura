@@ -1,3 +1,9 @@
+// swiftlint:disable file_length
+// File length exception: this class bundles simulation lifecycle, event
+// handling, persistence, pause confirmation, and BG continuation hooks.
+// BG continuation methods are extracted to SimulationViewModel+Background.swift;
+// remaining code is tightly-coupled lifecycle logic that would fragment poorly.
+
 import Foundation
 
 /// A single displayable entry in the simulation log.
@@ -38,6 +44,8 @@ enum PlaybackSpeed: Double, CaseIterable, Identifiable {
   }
 }
 
+// swiftlint:disable type_body_length
+
 /// ViewModel for the live simulation execution screen.
 ///
 /// Consumes `AsyncStream<SimulationEvent>` from `SimulationRunner`, applies
@@ -55,7 +63,9 @@ final class SimulationViewModel {
   private(set) var isRunning = false
   private(set) var isCompleted = false
   private(set) var isCancelled = false
-  private(set) var errorMessage: String?
+  // Set by the main run() loop and by the BG continuation extension (in a separate file);
+  // dropping private(set) allows cross-file extension access without a helper method.
+  var errorMessage: String?
   var showAllThoughts = false
   var showDebugOutput = false
   var speed: PlaybackSpeed = .normal
@@ -69,7 +79,8 @@ final class SimulationViewModel {
 
   /// Whether the user has enabled background simulation continuation.
   /// The toggle only takes effect if `canEnableBackgroundContinuation` is true.
-  private(set) var isBackgroundContinuationEnabled = false
+  /// Set by the BG continuation extension (in a separate file).
+  var isBackgroundContinuationEnabled = false
 
   /// Whether background continuation is available on this device/OS.
   /// Requires iOS 26+ and `LlamaCppService` (for GPU↔CPU switching).
@@ -86,16 +97,18 @@ final class SimulationViewModel {
   private let contentFilter: ContentFilter
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
-  private let backgroundManager: BackgroundSimulationManager?
+  // Accessed from the BG continuation extension in SimulationViewModel+Background.swift
+  let backgroundManager: BackgroundSimulationManager?
   private var simulationId: String?
 
   /// The LLM service currently driving the simulation — captured from `run(scenario:llm:)`
   /// so background transition handlers can reload the model without a new parameter.
-  private var currentLLM: (any LLMService)?
+  /// Accessed from the BG continuation extension.
+  var currentLLM: (any LLMService)?
 
   /// True if the LLM is currently loaded in CPU-only mode (for background inference).
   /// Toggled by `switchToCPUInference` / `switchToGPUInference` in the BG extension.
-  fileprivate var isOnCPU = false
+  var isOnCPU = false
 
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
@@ -203,6 +216,7 @@ final class SimulationViewModel {
   // MARK: - Event Handling
 
   // internal (not private) to allow direct unit testing via @testable import
+  // swiftlint:disable:next cyclomatic_complexity
   func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
     switch event {
     case .roundStarted(let round, let total):
@@ -372,16 +386,16 @@ final class SimulationViewModel {
   // MARK: - Pause confirmation
 
   // The event loop resumes this continuation when .simulationPaused arrives.
-  // Used by BG transition handlers to wait until the runner is safely at a
-  // checkpoint (no in-flight generate()) before calling reloadModel.
-  private var pauseConfirmationContinuation: CheckedContinuation<Void, Never>?
+  // Used by BG transition handlers (in SimulationViewModel+Background.swift) to wait
+  // until the runner is safely at a checkpoint before calling reloadModel.
+  var pauseConfirmationContinuation: CheckedContinuation<Void, Never>?
 
   /// Pauses the simulation and awaits until the runner emits `.simulationPaused`,
   /// confirming it has reached a checkpoint with no in-flight inference.
   ///
   /// Safe to call while already paused — returns immediately if simulation is
   /// already completed/cancelled (no more events coming).
-  private func pauseAndAwaitConfirmation() async {
+  func pauseAndAwaitConfirmation() async {
     // No simulation running — nothing to wait for.
     guard isRunning, !isCompleted, !isCancelled else { return }
 
@@ -398,133 +412,11 @@ final class SimulationViewModel {
   }
 
   /// Resumes any pending pause-confirmation waiter. Idempotent.
-  private func resumePauseConfirmationContinuation() {
+  func resumePauseConfirmationContinuation() {
     let cont = pauseConfirmationContinuation
     pauseConfirmationContinuation = nil
     cont?.resume()
   }
 }
 
-// MARK: - Background continuation
-
-extension SimulationViewModel {
-
-  /// Enables background continuation and schedules a BG task request.
-  /// Must be called in response to an explicit user action (toggle tap).
-  ///
-  /// - Parameters:
-  ///   - title: Shown in the system BG UI (e.g., "Simulation running").
-  ///   - subtitle: Subtitle with more detail (e.g., scenario title).
-  @available(iOS 26, *)
-  func enableBackgroundContinuation(title: String, subtitle: String) {
-    guard canEnableBackgroundContinuation else { return }
-    guard let bgManager = backgroundManager else { return }
-
-    do {
-      try bgManager.scheduleRequest(
-        title: title,
-        subtitle: subtitle,
-        onActivation: { [weak self] in
-          // BG task activated: app is in background, switch to CPU inference.
-          Task { @MainActor [weak self] in
-            await self?.handleBackgroundActivation()
-          }
-        },
-        onExpiration: { [weak self] in
-          // System needs to stop us: pause and flush.
-          Task { @MainActor [weak self] in
-            await self?.handleBackgroundExpiration()
-          }
-        }
-      )
-      isBackgroundContinuationEnabled = true
-    } catch {
-      errorMessage = "Failed to enable background continuation: \(error.localizedDescription)"
-      isBackgroundContinuationEnabled = false
-    }
-  }
-
-  /// Disables background continuation and cancels any pending BG request.
-  func disableBackgroundContinuation() {
-    backgroundManager?.cancelPendingRequest()
-    isBackgroundContinuationEnabled = false
-  }
-
-  /// Called by `SimulationView` when `scenePhase` becomes `.background`.
-  /// Immediately pauses (synchronous safety) so any in-flight generate finishes
-  /// before a potential BG task activation triggers a model reload.
-  func handleScenePhaseBackground() {
-    guard isRunning else { return }
-    isPaused = true
-  }
-
-  /// Called by `SimulationView` when `scenePhase` becomes `.active`.
-  /// If we switched to CPU for BG, switch back to GPU. Always completes any BG task.
-  func handleScenePhaseForeground() async {
-    guard isRunning else { return }
-
-    // If we're running on CPU, switch back to GPU before resuming
-    if isOnCPU {
-      await switchToGPUInference()
-    }
-
-    // Complete the BG task — we're in foreground now
-    backgroundManager?.completeTask(success: true)
-
-    // Resume simulation
-    isPaused = false
-
-    // If user still has BG continuation enabled, reschedule a new BG request
-    // for the next background transition.
-    if isBackgroundContinuationEnabled, #available(iOS 26, *) {
-      // Re-schedule with the same title/subtitle — caller of enable... should
-      // have passed stable values. We can't recover them here, so we leave this
-      // to the view to re-arm via enableBackgroundContinuation if needed.
-      // For MVP: require user to re-toggle. TODO: persist title/subtitle.
-      isBackgroundContinuationEnabled = false
-    }
-  }
-
-  /// Called when BG task activates. Switch inference to CPU and resume.
-  private func handleBackgroundActivation() async {
-    guard isRunning, !isCompleted, !isCancelled else {
-      backgroundManager?.completeTask(success: true)
-      return
-    }
-    await switchToCPUInference()
-    // Resume on CPU
-    isPaused = false
-  }
-
-  /// Called when the system expires the BG task (resource/time pressure).
-  private func handleBackgroundExpiration() async {
-    isPaused = true
-    backgroundManager?.completeTask(success: false)
-  }
-
-  /// Waits for inference to be idle, then reloads the model on CPU.
-  private func switchToCPUInference() async {
-    guard let llama = currentLLM as? LlamaCppService else { return }
-    await pauseAndAwaitConfirmation()
-    do {
-      try await llama.reloadModel(gpuAcceleration: .none)
-      isOnCPU = true
-    } catch {
-      errorMessage = "Failed to switch to CPU: \(error.localizedDescription)"
-      cancelSimulation()
-    }
-  }
-
-  /// Waits for inference to be idle, then reloads the model on GPU.
-  private func switchToGPUInference() async {
-    guard let llama = currentLLM as? LlamaCppService else { return }
-    await pauseAndAwaitConfirmation()
-    do {
-      try await llama.reloadModel(gpuAcceleration: .full)
-      isOnCPU = false
-    } catch {
-      errorMessage = "Failed to switch to GPU: \(error.localizedDescription)"
-      cancelSimulation()
-    }
-  }
-}
+// swiftlint:enable type_body_length

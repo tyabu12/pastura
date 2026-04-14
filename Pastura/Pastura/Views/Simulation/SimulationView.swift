@@ -7,7 +7,8 @@ struct SimulationView: View {
   @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: SimulationViewModel?
-  @State private var scenario: Scenario?
+  // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
+  @State var scenario: Scenario?
   @State private var showScoreboard = false
   @State private var loadError: String?
 
@@ -246,31 +247,6 @@ struct SimulationView: View {
     .padding(.horizontal)
     .padding(.vertical, 10)
     .background(.bar)
-  }
-
-  // MARK: - Background continuation toggle
-
-  @available(iOS 26, *)
-  private func backgroundContinuationToggle(viewModel: SimulationViewModel) -> some View {
-    Button {
-      if viewModel.isBackgroundContinuationEnabled {
-        viewModel.disableBackgroundContinuation()
-      } else {
-        viewModel.enableBackgroundContinuation(
-          title: "Pastura simulation",
-          subtitle: scenario?.name ?? "Running in background"
-        )
-      }
-    } label: {
-      Image(
-        systemName: viewModel.isBackgroundContinuationEnabled
-          ? "moon.circle.fill" : "moon.circle"
-      )
-      .font(.title3)
-      .foregroundStyle(viewModel.isBackgroundContinuationEnabled ? .blue : .secondary)
-    }
-    .accessibilityLabel("Background continuation")
-    .accessibilityValue(viewModel.isBackgroundContinuationEnabled ? "enabled" : "disabled")
   }
 
   // MARK: - Load & Run
