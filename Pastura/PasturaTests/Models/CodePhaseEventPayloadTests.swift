@@ -48,8 +48,8 @@ struct CodePhaseEventPayloadTests {
   }
 
   @Test func differentCasesAreNotEqual() {
-    let a = CodePhaseEventPayload.summary(text: "hello")
-    let b = CodePhaseEventPayload.elimination(agent: "hello", voteCount: 1)
-    #expect(a != b)
+    let lhs = CodePhaseEventPayload.summary(text: "hello")
+    let rhs = CodePhaseEventPayload.elimination(agent: "hello", voteCount: 1)
+    #expect(lhs != rhs)
   }
 }

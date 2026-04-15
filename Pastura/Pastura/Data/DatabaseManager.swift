@@ -58,6 +58,7 @@ nonisolated public final class DatabaseManager: Sendable {
     return config
   }
 
+  // swiftlint:disable:next function_body_length
   private static func registerMigrations(_ migrator: inout DatabaseMigrator) {
     registerV1(&migrator)
 

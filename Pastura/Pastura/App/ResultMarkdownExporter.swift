@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 
 /// Formats a completed simulation into a Markdown document for external sharing
@@ -11,7 +12,7 @@ import Foundation
 /// ContentFilter is applied as a **whole-string pass** on the final rendered
 /// Markdown, not per-field, so YAML content, persona names, and conversation
 /// log prose are all covered in one sweep.
-struct ResultMarkdownExporter {
+struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
   /// Environment metadata captured at export time.
   struct ExportEnvironment: Sendable {
     /// `UIDevice.current.model` value (e.g. "iPhone").
@@ -171,20 +172,20 @@ struct ResultMarkdownExporter {
 
     var round: Int {
       switch self {
-      case .turn(let t): return t.roundNumber
-      case .codePhase(let r, _): return r.roundNumber
+      case .turn(let turn): return turn.roundNumber
+      case .codePhase(let record, _): return record.roundNumber
       }
     }
     var sequenceNumber: Int {
       switch self {
-      case .turn(let t): return t.sequenceNumber
-      case .codePhase(let r, _): return r.sequenceNumber
+      case .turn(let turn): return turn.sequenceNumber
+      case .codePhase(let record, _): return record.sequenceNumber
       }
     }
     var phaseType: String {
       switch self {
-      case .turn(let t): return t.phaseType
-      case .codePhase(let r, _): return r.phaseType
+      case .turn(let turn): return turn.phaseType
+      case .codePhase(let record, _): return record.phaseType
       }
     }
   }
@@ -298,8 +299,8 @@ struct ResultMarkdownExporter {
         lines.append("  - \(voter) → \(target)")
       }
       return lines.joined(separator: "\n")
-    case .pairingResult(let a1, let act1, let a2, let act2):
-      return "- **\(a1)** (\(act1)) ↔ **\(a2)** (\(act2))"
+    case .pairingResult(let agent1, let action1, let agent2, let action2):
+      return "- **\(agent1)** (\(action1)) ↔ **\(agent2)** (\(action2))"
     case .assignment(let agent, let value):
       return "- **\(agent)** was assigned: \(value)"
     }

@@ -327,4 +327,9 @@ struct ResultMarkdownExporterCodePhaseTests {  // swiftlint:disable:this type_bo
     #expect(!result.text.contains("## Final Scores"))
     #expect(!result.text.contains("## Roster Status"))
   }
+
+  // The Word Wolf end-to-end fixture lives in
+  // `ResultMarkdownExporterWordWolfTests.swift` to keep this file under
+  // `file_length`. It models a realistic Word Wolf round and defends the
+  // four Acceptance Criteria from #92.
 }

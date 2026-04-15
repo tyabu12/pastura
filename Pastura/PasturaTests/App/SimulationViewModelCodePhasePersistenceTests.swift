@@ -7,10 +7,11 @@ import Testing
 /// plus the shared `sequenceNumber` invariant across turns and code-phase
 /// tables.
 @Suite(.serialized) @MainActor
+// swiftlint:disable:next type_name
 struct SimulationViewModelCodePhasePersistenceTests {
 
   private struct SUT {
-    let vm: SimulationViewModel
+    let model: SimulationViewModel
     let scenario: Scenario
     let turnRepo: GRDBTurnRepository
     let codeRepo: GRDBCodePhaseEventRepository
@@ -38,14 +39,14 @@ struct SimulationViewModelCodePhasePersistenceTests {
         createdAt: Date(), updatedAt: Date()))
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
-    let vm = SimulationViewModel(
+    let model = SimulationViewModel(
       simulationRepository: simRepo,
       turnRepository: turnRepo,
       codePhaseEventRepository: codeRepo)
-    vm.beginPersistenceForTest(simulationId: simId)
+    model.beginPersistenceForTest(simulationId: simId)
 
     return SUT(
-      vm: vm, scenario: scenario,
+      model: model, scenario: scenario,
       turnRepo: turnRepo, codeRepo: codeRepo, simId: simId)
   }
 
@@ -58,20 +59,20 @@ struct SimulationViewModelCodePhasePersistenceTests {
 
   @Test func persistsAllSixCodePhaseEventTypes() async throws {
     let sut = try makeSUT()
-    sut.vm.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
 
-    sut.vm.handleEvent(.assignment(agent: "Alice", value: "wolf"), scenario: sut.scenario)
-    sut.vm.handleEvent(.scoreUpdate(scores: ["Alice": 1]), scenario: sut.scenario)
-    sut.vm.handleEvent(.elimination(agent: "Bob", voteCount: 2), scenario: sut.scenario)
-    sut.vm.handleEvent(.summary(text: "round summary"), scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(.assignment(agent: "Alice", value: "wolf"), scenario: sut.scenario)
+    sut.model.handleEvent(.scoreUpdate(scores: ["Alice": 1]), scenario: sut.scenario)
+    sut.model.handleEvent(.elimination(agent: "Bob", voteCount: 2), scenario: sut.scenario)
+    sut.model.handleEvent(.summary(text: "round summary"), scenario: sut.scenario)
+    sut.model.handleEvent(
       .voteResults(votes: ["Alice": "Bob"], tallies: ["Bob": 1]),
       scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .pairingResult(agent1: "A", action1: "c", agent2: "B", action2: "d"),
       scenario: sut.scenario)
 
-    await sut.vm.finishPersistenceForTest()
+    await sut.model.finishPersistenceForTest()
 
     let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
     #expect(records.count == 6)
@@ -93,38 +94,38 @@ struct SimulationViewModelCodePhasePersistenceTests {
 
   @Test func interleavedAgentAndCodeEventsHaveStrictlyMonotonicSequence() async throws {
     let sut = try makeSUT()
-    sut.vm.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
 
     // Interleave: agent, code, agent, code, agent, code
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .agentOutput(
         agent: "Alice",
         output: TurnOutput(fields: ["vote": "Bob"]),
         phaseType: .vote),
       scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .voteResults(votes: ["Alice": "Bob"], tallies: ["Bob": 1]),
       scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .agentOutput(
         agent: "Bob",
         output: TurnOutput(fields: ["vote": "Alice"]),
         phaseType: .vote),
       scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .elimination(agent: "Bob", voteCount: 1),
       scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .agentOutput(
         agent: "Alice",
         output: TurnOutput(fields: ["statement": "done"]),
         phaseType: .summarize),
       scenario: sut.scenario)
-    sut.vm.handleEvent(
+    sut.model.handleEvent(
       .summary(text: "Alice won"),
       scenario: sut.scenario)
 
-    await sut.vm.finishPersistenceForTest()
+    await sut.model.finishPersistenceForTest()
 
     let turns = try sut.turnRepo.fetchBySimulationId(sut.simId)
     let codeEvents = try sut.codeRepo.fetchBySimulationId(sut.simId)
@@ -143,16 +144,16 @@ struct SimulationViewModelCodePhasePersistenceTests {
   @Test func summaryAtRoundZeroIsNotPersistedButAppearsInLog() async throws {
     let sut = try makeSUT()
     // currentRound is 0 before roundStarted fires.
-    sut.vm.handleEvent(.summary(text: "⚠️ validator warning"), scenario: sut.scenario)
+    sut.model.handleEvent(.summary(text: "⚠️ validator warning"), scenario: sut.scenario)
 
-    await sut.vm.finishPersistenceForTest()
+    await sut.model.finishPersistenceForTest()
 
     let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
     #expect(records.isEmpty)
 
     // But UI log still shows it.
     #expect(
-      sut.vm.logEntries.contains { entry in
+      sut.model.logEntries.contains { entry in
         if case .summary(let text) = entry.kind { return text.contains("validator") }
         return false
       })
@@ -164,9 +165,9 @@ struct SimulationViewModelCodePhasePersistenceTests {
     // to surface the issue in exports.
     let sut = try makeSUT()
 
-    sut.vm.handleEvent(.scoreUpdate(scores: ["Alice": 1]), scenario: sut.scenario)
+    sut.model.handleEvent(.scoreUpdate(scores: ["Alice": 1]), scenario: sut.scenario)
 
-    await sut.vm.finishPersistenceForTest()
+    await sut.model.finishPersistenceForTest()
 
     let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
     #expect(records.count == 1)

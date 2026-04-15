@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 
 /// A single displayable entry in the simulation log.
@@ -98,9 +99,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// routed to exactly one stream and increments this counter exactly once
   /// on MainActor — a single yield per event guarantees strict total order
   /// for merge-sort at export time.
-  // TODO(resume): when pause/resume lands, re-initialize from
-  // `MAX(sequenceNumber)` across both tables so resumed runs do not collide
-  // with existing persisted rows.
+  ///
+  /// TODO(resume): when pause/resume lands, re-initialize from
+  /// `MAX(sequenceNumber)` across both tables so resumed runs do not collide
+  /// with existing persisted rows.
   private var turnSequence = 0
 
   init(
