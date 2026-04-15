@@ -50,6 +50,7 @@ struct ScenarioDetailView: View {
     .task {
       viewModel = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
       await viewModel?.load(scenarioId: scenarioId)
+      await viewModel?.refreshGalleryStatus(using: dependencies.galleryService)
     }
   }
 
@@ -58,12 +59,34 @@ struct ScenarioDetailView: View {
     viewModel: ScenarioDetailViewModel
   ) -> some View {
     List {
+      galleryBannerSection(viewModel: viewModel)
       overviewSection(scenario: scenario, viewModel: viewModel)
       contextSection(scenario: scenario)
       personasSection(scenario: scenario)
       phasesSection(scenario: scenario)
       validationSection(viewModel: viewModel)
       actionsSection(viewModel: viewModel)
+    }
+  }
+
+  @ViewBuilder
+  private func galleryBannerSection(viewModel: ScenarioDetailViewModel) -> some View {
+    if viewModel.hasGalleryUpdate, let entry = viewModel.galleryScenario {
+      Section {
+        NavigationLink(value: Route.galleryScenarioDetail(scenario: entry)) {
+          Label(
+            "Update available from Share Board",
+            systemImage: "arrow.down.circle.fill"
+          )
+          .foregroundStyle(.tint)
+        }
+      }
+    } else if viewModel.isGallerySourced {
+      Section {
+        Label("From Share Board (read-only)", systemImage: "square.and.arrow.down.fill")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
     }
   }
 
@@ -145,7 +168,9 @@ struct ScenarioDetailView: View {
       }
 
       if let record = viewModel.record {
-        if record.isPreset {
+        if record.isPreset || viewModel.isGallerySourced {
+          // Preset and gallery rows are read-only; offer a clone-as-template
+          // action instead of direct edit so users can customize safely.
           NavigationLink(
             value: Route.editor(templateYAML: record.yamlDefinition)
           ) {

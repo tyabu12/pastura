@@ -71,7 +71,10 @@ scenarios (
     yamlDefinition TEXT NOT NULL,
     isPreset BOOLEAN NOT NULL DEFAULT 0,
     createdAt DATETIME NOT NULL,
-    updatedAt DATETIME NOT NULL
+    updatedAt DATETIME NOT NULL,
+    sourceType TEXT,   -- "gallery" for Share Board imports; NULL for local/preset
+    sourceId TEXT,     -- canonical id in the source system (gallery scenario id)
+    sourceHash TEXT    -- SHA256 of the fetched YAML (update-detection key)
 )
 
 simulations (

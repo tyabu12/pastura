@@ -19,4 +19,11 @@ nonisolated public enum DataError: Error, Sendable, Equatable {
 
   /// A DB record could not be decoded into its domain model.
   case decodingFailed(description: String)
+
+  /// A write was refused because the existing record is read-only.
+  ///
+  /// Used when attempting to overwrite a gallery-sourced scenario
+  /// (`sourceType == "gallery"`) with a non-gallery payload. Gallery rows
+  /// are writable only via the gallery Try/Update flow.
+  case readonly(id: String)
 }

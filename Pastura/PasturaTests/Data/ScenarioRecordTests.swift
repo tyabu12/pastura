@@ -96,4 +96,41 @@ import Testing
     }
     #expect(fetched == nil)
   }
+
+  @Test func sourceFieldsDefaultToNil() throws {
+    let record = ScenarioRecord(
+      id: "s1", name: "Test", yamlDefinition: "yaml",
+      isPreset: false, createdAt: Date(), updatedAt: Date())
+    #expect(record.sourceType == nil)
+    #expect(record.sourceId == nil)
+    #expect(record.sourceHash == nil)
+  }
+
+  @Test func sourceFieldsRoundTripThroughDB() throws {
+    let manager = try makeManager()
+    let now = Date()
+    var record = ScenarioRecord(
+      id: "gx", name: "From Gallery", yamlDefinition: "yaml: true",
+      isPreset: false, createdAt: now, updatedAt: now,
+      sourceType: ScenarioSourceType.gallery, sourceId: "asch_v1", sourceHash: "abc123")
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try ScenarioRecord.fetchOne(db, key: "gx")
+    }
+    #expect(fetched?.sourceType == ScenarioSourceType.gallery)
+    #expect(fetched?.sourceId == "asch_v1")
+    #expect(fetched?.sourceHash == "abc123")
+  }
+
+  @Test func legacyInitKeepsSourceFieldsNil() throws {
+    // Callers that don't know about provenance fields still compile.
+    let record = ScenarioRecord(
+      id: "s1", name: "Legacy", yamlDefinition: "yaml",
+      isPreset: false, createdAt: Date(), updatedAt: Date())
+    #expect(record.sourceType == nil)
+  }
 }
