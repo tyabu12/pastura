@@ -43,7 +43,28 @@ struct ResultMarkdownExporter {
     let simulation: SimulationRecord
     let scenario: ScenarioRecord
     let turns: [TurnRecord]
+    let codePhaseEvents: [CodePhaseEventRecord]
+    /// Agent name roster used for the Final Scores / Roster Status section.
+    /// Authoritative over code-phase event contents — events may omit agents
+    /// that never scored, but every persona should appear in the roster.
+    let personas: [String]
     let state: SimulationState
+
+    init(
+      simulation: SimulationRecord,
+      scenario: ScenarioRecord,
+      turns: [TurnRecord],
+      codePhaseEvents: [CodePhaseEventRecord] = [],
+      personas: [String] = [],
+      state: SimulationState
+    ) {
+      self.simulation = simulation
+      self.scenario = scenario
+      self.turns = turns
+      self.codePhaseEvents = codePhaseEvents
+      self.personas = personas
+      self.state = state
+    }
   }
 
   private let contentFilter: ContentFilter
@@ -81,20 +102,29 @@ struct ResultMarkdownExporter {
     sections.append(renderMetadata(input))
     sections.append(renderScenarioYAML(input))
     sections.append(renderTurnLog(input))
-    if hasMeaningfulScoreData(input.state) {
-      sections.append(renderFinalScores(input))
+
+    // Bifurcated final-section gating (events are authoritative; the section
+    // is independent of `SimulationState.scores` so it stays correct even when
+    // `stateJSON` has not been kept in sync during the run).
+    // - scoreUpdate event present → Final Scores table (scores + status).
+    // - elimination event present only → Roster Status (status-only, no
+    //   misleading all-zero score table for scenarios like Word Wolf).
+    // - neither → omit entirely (observation-only scenarios).
+    let payloads = decodedPayloads(input.codePhaseEvents)
+    let hasScoreUpdate = payloads.contains { payload in
+      if case .scoreUpdate = payload { return true }
+      return false
+    }
+    let hasElimination = payloads.contains { payload in
+      if case .elimination = payload { return true }
+      return false
+    }
+    if hasScoreUpdate {
+      sections.append(renderFinalScores(input, payloads: payloads))
+    } else if hasElimination {
+      sections.append(renderRosterStatus(input, payloads: payloads))
     }
     return sections.joined(separator: "\n\n") + "\n"
-  }
-
-  // Observation-only scenarios (e.g. pure speak_each / Asch conformity) have
-  // no scoring phase — state.scores is still initialized with 0 per agent, so
-  // suppressing the "Final Scores" section requires a semantic check rather
-  // than an emptiness check.
-  private func hasMeaningfulScoreData(_ state: SimulationState) -> Bool {
-    state.scores.values.contains(where: { $0 != 0 })
-      || state.eliminated.values.contains(true)
-      || !state.voteResults.isEmpty
   }
 
   private func renderMetadata(_ input: Input) -> String {
@@ -132,44 +162,95 @@ struct ResultMarkdownExporter {
     """
   }
 
+  /// Unified timeline item for merge-sorted rendering. `TurnRecord` and
+  /// `CodePhaseEventRecord` share `sequenceNumber` across both tables, so
+  /// combining them restores the original event arrival order.
+  private enum TimelineItem {
+    case turn(TurnRecord)
+    case codePhase(CodePhaseEventRecord, CodePhaseEventPayload)
+
+    var round: Int {
+      switch self {
+      case .turn(let t): return t.roundNumber
+      case .codePhase(let r, _): return r.roundNumber
+      }
+    }
+    var sequenceNumber: Int {
+      switch self {
+      case .turn(let t): return t.sequenceNumber
+      case .codePhase(let r, _): return r.sequenceNumber
+      }
+    }
+    var phaseType: String {
+      switch self {
+      case .turn(let t): return t.phaseType
+      case .codePhase(let r, _): return r.phaseType
+      }
+    }
+  }
+
   private func renderTurnLog(_ input: Input) -> String {
-    guard !input.turns.isEmpty else {
+    // Build a unified timeline. Within a `(round, phaseType)` group, items
+    // render strictly by ascending `sequenceNumber` — agent votes always
+    // precede the tally line under the same `#### Phase: vote` header.
+    var timeline: [TimelineItem] = input.turns.map { .turn($0) }
+    timeline.append(
+      contentsOf: input.codePhaseEvents.map { record in
+        if let payload = decodePayload(record) {
+          return TimelineItem.codePhase(record, payload)
+        }
+        // Defensive: unknown payload shape shouldn't happen, but if it does
+        // we skip silently rather than crash the export.
+        return TimelineItem.codePhase(record, .summary(text: "(unreadable payload)"))
+      })
+    timeline.sort { $0.sequenceNumber < $1.sequenceNumber }
+
+    guard !timeline.isEmpty else {
       return "## Turn Log\n\n_No turns recorded._"
     }
 
     var lines: [String] = ["## Turn Log"]
-    // Group turns by round while preserving sequenceNumber order within each round.
-    let sorted = input.turns.sorted { $0.sequenceNumber < $1.sequenceNumber }
-    let grouped = Dictionary(grouping: sorted, by: { $0.roundNumber })
+    let grouped = Dictionary(grouping: timeline, by: { $0.round })
     for round in grouped.keys.sorted() {
       lines.append("")
       lines.append("### Round \(round)")
-      let turnsInRound = grouped[round] ?? []
-      // Group by phase within round, preserving first-seen order.
+      let itemsInRound = (grouped[round] ?? [])
+        .sorted { $0.sequenceNumber < $1.sequenceNumber }
+      // Group by phaseType within round, preserving first-seen order.
       var phaseOrder: [String] = []
-      var byPhase: [String: [TurnRecord]] = [:]
-      for turn in turnsInRound {
-        if byPhase[turn.phaseType] == nil {
-          phaseOrder.append(turn.phaseType)
-          byPhase[turn.phaseType] = []
+      var byPhase: [String: [TimelineItem]] = [:]
+      for item in itemsInRound {
+        if byPhase[item.phaseType] == nil {
+          phaseOrder.append(item.phaseType)
+          byPhase[item.phaseType] = []
         }
-        byPhase[turn.phaseType]?.append(turn)
+        byPhase[item.phaseType]?.append(item)
       }
       for phase in phaseOrder {
         lines.append("")
         lines.append("#### Phase: \(phase)")
-        for turn in byPhase[phase] ?? [] {
-          lines.append(renderTurnLine(turn))
+        for item in byPhase[phase] ?? [] {
+          lines.append(render(item))
         }
       }
     }
     return lines.joined(separator: "\n")
   }
 
+  private func render(_ item: TimelineItem) -> String {
+    switch item {
+    case .turn(let turn):
+      return renderTurnLine(turn)
+    case .codePhase(_, let payload):
+      return renderCodePhasePayload(payload)
+    }
+  }
+
   private func renderTurnLine(_ turn: TurnRecord) -> String {
     guard let agent = turn.agentName else {
-      // Code phase turn — no agent, no LLM output to render. Emit a placeholder
-      // so the phase's presence is still visible in the log.
+      // Legacy fallback: a TurnRecord without an agent can only appear in
+      // pre-#92 databases that never existed in practice. Emit a placeholder
+      // so any stray row doesn't render as a blank bullet.
       return "- _(code phase — no agent output)_"
     }
     let output = decodeOutput(turn)
@@ -182,6 +263,57 @@ struct ResultMarkdownExporter {
       line += "\n  - 💭 _\(thought)_"
     }
     return line
+  }
+
+  private func renderCodePhasePayload(_ payload: CodePhaseEventPayload) -> String {
+    switch payload {
+    case .elimination(let agent, let voteCount):
+      return "- **\(agent)** was eliminated (\(voteCount) votes)"
+    case .scoreUpdate(let scores):
+      let ordered = scores.sorted { lhs, rhs in
+        if lhs.value != rhs.value { return lhs.value > rhs.value }
+        return lhs.key < rhs.key
+      }
+      let pairs = ordered.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+      return "- Scores — \(pairs)"
+    case .summary(let text):
+      return "- \(text)"
+    case .voteResults(let votes, let tallies):
+      var lines: [String] = []
+      lines.append("- Tallies:")
+      lines.append("")
+      lines.append("  | Candidate | Votes |")
+      lines.append("  |-----------|-------|")
+      let orderedTallies = tallies.sorted { lhs, rhs in
+        if lhs.value != rhs.value { return lhs.value > rhs.value }
+        return lhs.key < rhs.key
+      }
+      for (candidate, count) in orderedTallies {
+        lines.append("  | \(candidate) | \(count) |")
+      }
+      lines.append("")
+      lines.append("- Votes:")
+      let orderedVotes = votes.sorted { $0.key < $1.key }
+      for (voter, target) in orderedVotes {
+        lines.append("  - \(voter) → \(target)")
+      }
+      return lines.joined(separator: "\n")
+    case .pairingResult(let a1, let act1, let a2, let act2):
+      return "- **\(a1)** (\(act1)) ↔ **\(a2)** (\(act2))"
+    case .assignment(let agent, let value):
+      return "- **\(agent)** was assigned: \(value)"
+    }
+  }
+
+  private func decodePayload(_ record: CodePhaseEventRecord) -> CodePhaseEventPayload? {
+    guard let data = record.payloadJSON.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(CodePhaseEventPayload.self, from: data)
+  }
+
+  private func decodedPayloads(
+    _ records: [CodePhaseEventRecord]
+  ) -> [CodePhaseEventPayload] {
+    records.compactMap { decodePayload($0) }
   }
 
   private func decodeOutput(_ turn: TurnRecord) -> TurnOutput {
@@ -207,24 +339,106 @@ struct ResultMarkdownExporter {
     return pairs.joined(separator: ", ")
   }
 
-  private func renderFinalScores(_ input: Input) -> String {
-    let scores = input.state.scores
-    guard !scores.isEmpty else {
+  /// Renders "Final Scores" from the latest `.scoreUpdate` payload merged
+  /// onto the persona roster. Agents not present in the payload default to
+  /// 0 — the roster is authoritative so the table always covers all personas.
+  ///
+  /// Events are the source of truth here, independent of
+  /// `SimulationState.stateJSON`. This stays correct even if continuous
+  /// state persistence (pause/resume) lands later — events are append-only,
+  /// state is just a snapshot.
+  private func renderFinalScores(
+    _ input: Input, payloads: [CodePhaseEventPayload]
+  ) -> String {
+    let latestScores = latestScoreUpdate(in: payloads)
+    let eliminatedSet = eliminatedAgents(in: payloads)
+    let roster = rosterAgents(input: input, latestScores: latestScores)
+
+    guard !roster.isEmpty else {
       return "## Final Scores\n\n_No score data._"
     }
+
     var lines: [String] = [
       "## Final Scores", "", "| Agent | Score | Status |", "|-------|-------|--------|"
     ]
-    let ordered = scores.sorted { lhs, rhs in
-      if lhs.value != rhs.value { return lhs.value > rhs.value }
-      return lhs.key < rhs.key
+    // Sort by score desc, then by name asc for deterministic output.
+    let ordered = roster.sorted { lhs, rhs in
+      let lhsScore = latestScores[lhs] ?? 0
+      let rhsScore = latestScores[rhs] ?? 0
+      if lhsScore != rhsScore { return lhsScore > rhsScore }
+      return lhs < rhs
     }
-    for (agent, score) in ordered {
-      let eliminated = input.state.eliminated[agent] == true
-      let status = eliminated ? "eliminated" : "active"
+    for agent in ordered {
+      let score = latestScores[agent] ?? 0
+      let status = eliminatedSet.contains(agent) ? "eliminated" : "active"
       lines.append("| \(agent) | \(score) | \(status) |")
     }
     return lines.joined(separator: "\n")
+  }
+
+  /// Renders "Roster Status" when elimination events exist but no score
+  /// updates were emitted (e.g., Word Wolf — `wordwolf_judge` announces the
+  /// winner via `.summary` and drops elimination events without a score
+  /// delta). Shows active/eliminated per persona without a misleading
+  /// all-zero score column.
+  private func renderRosterStatus(
+    _ input: Input, payloads: [CodePhaseEventPayload]
+  ) -> String {
+    let eliminatedSet = eliminatedAgents(in: payloads)
+    let roster = rosterAgents(input: input, latestScores: [:])
+
+    guard !roster.isEmpty else {
+      return "## Roster Status\n\n_No roster data._"
+    }
+
+    var lines: [String] = [
+      "## Roster Status", "", "| Agent | Status |", "|-------|--------|"
+    ]
+    // Eliminated agents first (narrative interest), then by name.
+    let ordered = roster.sorted { lhs, rhs in
+      let lElim = eliminatedSet.contains(lhs)
+      let rElim = eliminatedSet.contains(rhs)
+      if lElim != rElim { return lElim && !rElim }
+      return lhs < rhs
+    }
+    for agent in ordered {
+      let status = eliminatedSet.contains(agent) ? "eliminated" : "active"
+      lines.append("| \(agent) | \(status) |")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  private func latestScoreUpdate(
+    in payloads: [CodePhaseEventPayload]
+  ) -> [String: Int] {
+    // payloads are in event-arrival order (caller passes `decodedPayloads`
+    // which preserves the fetched order, and the repository orders by
+    // sequenceNumber). The last scoreUpdate is authoritative for final values.
+    for payload in payloads.reversed() {
+      if case .scoreUpdate(let scores) = payload { return scores }
+    }
+    return [:]
+  }
+
+  private func eliminatedAgents(
+    in payloads: [CodePhaseEventPayload]
+  ) -> Set<String> {
+    var agents: Set<String> = []
+    for payload in payloads {
+      if case .elimination(let agent, _) = payload { agents.insert(agent) }
+    }
+    return agents
+  }
+
+  /// Union of `input.personas` and agents that appear in `latestScores`.
+  /// `input.personas` is authoritative; extra scored agents are included
+  /// defensively so a broken roster never hides data.
+  private func rosterAgents(
+    input: Input, latestScores: [String: Int]
+  ) -> [String] {
+    var set = Set(input.personas)
+    set.formUnion(latestScores.keys)
+    return Array(set)
   }
 
   // MARK: - Duration formatting

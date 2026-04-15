@@ -458,6 +458,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     let simulation: SimulationRecord
     let scenario: ScenarioRecord
     let turns: [TurnRecord]
+    let codePhaseEvents: [CodePhaseEventRecord]
   }
 
   /// Fetches the current simulation's records and renders them as a Markdown
@@ -469,6 +470,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     guard let simId = simulationId, let scenarioRepository else { return nil }
     let simulationRepository = self.simulationRepository
     let turnRepository = self.turnRepository
+    let codePhaseEventRepository = self.codePhaseEventRepository
 
     let records: ExportRecords? = try await offMain {
       guard
@@ -478,10 +480,23 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         return nil
       }
       let turns = try turnRepository.fetchBySimulationId(simId)
-      return ExportRecords(simulation: sim, scenario: scenario, turns: turns)
+      let codeEvents = try codePhaseEventRepository?.fetchBySimulationId(simId) ?? []
+      return ExportRecords(
+        simulation: sim, scenario: scenario,
+        turns: turns, codePhaseEvents: codeEvents)
     }
 
     guard let records, records.simulation.simulationStatus == .completed else { return nil }
+
+    // Parse personas from the scenario YAML. Exports stay usable even when
+    // the YAML fails to parse — the Final Scores / Roster Status section is
+    // simply omitted rather than aborting the whole export.
+    let personas: [String] = {
+      guard
+        let scenario = try? ScenarioLoader().load(yaml: records.scenario.yamlDefinition)
+      else { return [] }
+      return scenario.personas.map(\.name)
+    }()
 
     let state = decodeState(from: records.simulation) ?? SimulationState()
     let exporter = ResultMarkdownExporter(
@@ -492,6 +507,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         simulation: records.simulation,
         scenario: records.scenario,
         turns: records.turns,
+        codePhaseEvents: records.codePhaseEvents,
+        personas: personas,
         state: state))
   }
 
