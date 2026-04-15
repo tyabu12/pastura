@@ -49,13 +49,12 @@ extension SimulationViewModel {
   }
 
   /// Called by `SimulationView` when `scenePhase` becomes `.background`.
-  /// Immediately pauses (synchronous safety) so any in-flight generate finishes
-  /// before a potential BG task activation triggers a model reload.
+  /// Synchronously sets `isPaused` so the runner pauses at the next
+  /// phase-boundary checkpoint.
   ///
-  /// Confirmation of the pause (no in-flight inference) happens later inside
-  /// `switchToCPUInference` via `pauseAndAwaitConfirmation()`.
-  ///
-  /// Safe on iOS < 26: simply pauses like the pre-BG behaviour (ADR-002 §7).
+  /// - Note: Stopping in-flight inference (so iOS doesn't deny GPU work) is
+  ///   handled separately by the SuspendController, which the ViewModel will
+  ///   signal here in step 12.
   func handleScenePhaseBackground() {
     guard isRunning else { return }
     isPaused = true
@@ -114,7 +113,9 @@ extension SimulationViewModel {
   /// is only wired up when `canEnableBackgroundContinuation` is true (iOS 26+).
   fileprivate func switchToCPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
-    await pauseAndAwaitConfirmation()
+    // Quiescence is enforced inside `reloadModel` via `awaitGenerateIdle`;
+    // step 12 will additionally signal the SuspendController so an in-flight
+    // generate exits in milliseconds rather than waiting up to 30s.
     isReloadingModel = true
     defer { isReloadingModel = false }
     do {
@@ -129,7 +130,6 @@ extension SimulationViewModel {
   /// Waits for inference to be idle, then reloads the model on GPU.
   fileprivate func switchToGPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
-    await pauseAndAwaitConfirmation()
     isReloadingModel = true
     defer { isReloadingModel = false }
     do {

@@ -1,9 +1,3 @@
-// swiftlint:disable file_length
-// File length exception: this class bundles simulation lifecycle, event
-// handling, persistence, pause confirmation, and BG continuation hooks.
-// BG continuation methods are extracted to SimulationViewModel+Background.swift;
-// remaining code is tightly-coupled lifecycle logic that would fragment poorly.
-
 import Foundation
 
 /// A single displayable entry in the simulation log.
@@ -43,8 +37,6 @@ enum PlaybackSpeed: Double, CaseIterable, Identifiable {
     }
   }
 }
-
-// swiftlint:disable type_body_length
 
 /// ViewModel for the live simulation execution screen.
 ///
@@ -185,9 +177,6 @@ final class SimulationViewModel {
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
       persistenceContinuation?.finish()
-      // Wake any BG transition waiting for pause confirmation — simulation is ending,
-      // no more .simulationPaused events will arrive.
-      resumePauseConfirmationContinuation()
       backgroundManager?.completeTask(success: isCompleted)
       isRunning = false
       currentLLM = nil
@@ -231,7 +220,6 @@ final class SimulationViewModel {
   // MARK: - Event Handling
 
   // internal (not private) to allow direct unit testing via @testable import
-  // swiftlint:disable:next cyclomatic_complexity
   func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
     switch event {
     case .roundStarted(let round, let total):
@@ -240,12 +228,12 @@ final class SimulationViewModel {
       handleRoundCompleted(round: round, scores: newScores)
     case .phaseStarted(let phaseType, _):
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
-    case .phaseCompleted:
+    case .phaseCompleted, .simulationPaused:
+      // No-op — `.simulationPaused` is a runner-side acknowledgement of the
+      // user-initiated pause flow; the UI already reflects `isPaused` set
+      // synchronously by the pause button. Background-driven suspend uses
+      // the SuspendController path instead.
       break
-    case .simulationPaused:
-      // The runner has reached a checkpoint and suspended. If a BG transition
-      // is waiting for confirmation, wake it now so it can reload the model safely.
-      resumePauseConfirmationContinuation()
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .simulationCompleted:
@@ -397,41 +385,4 @@ final class SimulationViewModel {
       print("⚠️ Failed to update simulation status: \(error)")
     }
   }
-
-  // MARK: - Pause confirmation
-
-  // The event loop resumes this continuation when .simulationPaused arrives.
-  // Used by BG transition handlers (in SimulationViewModel+Background.swift) to wait
-  // until the runner is safely at a checkpoint before calling reloadModel.
-  var pauseConfirmationContinuation: CheckedContinuation<Void, Never>?
-
-  /// Pauses the simulation and awaits until the runner emits `.simulationPaused`,
-  /// confirming it has reached a checkpoint with no in-flight inference.
-  ///
-  /// Safe to call while already paused — returns immediately if simulation is
-  /// already completed/cancelled (no more events coming).
-  func pauseAndAwaitConfirmation() async {
-    // No simulation running — nothing to wait for.
-    guard isRunning, !isCompleted, !isCancelled else { return }
-
-    isPaused = true
-    await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-      // If a continuation is already stored (previous waiter), resume it.
-      // This should not normally happen — BG transitions serialize through scenePhase.
-      if let existing = pauseConfirmationContinuation {
-        pauseConfirmationContinuation = nil
-        existing.resume()
-      }
-      pauseConfirmationContinuation = cont
-    }
-  }
-
-  /// Resumes any pending pause-confirmation waiter. Idempotent.
-  func resumePauseConfirmationContinuation() {
-    let cont = pauseConfirmationContinuation
-    pauseConfirmationContinuation = nil
-    cont?.resume()
-  }
 }
-
-// swiftlint:enable type_body_length
