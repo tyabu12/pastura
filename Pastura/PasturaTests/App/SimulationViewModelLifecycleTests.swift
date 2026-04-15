@@ -404,4 +404,38 @@ struct SimulationViewModelLifecycleTests {
       Issue.record("Expected Bob's agent output")
     }
   }
+
+  @Test func cancelSimulationResumesAttachedSuspendController() async throws {
+    let (sut, _) = try makeLifecycleSUT()
+
+    // Simulate mid-run state: VM owns a controller currently parked in suspend.
+    let controller = SuspendController()
+    sut.suspendController = controller
+    controller.requestSuspend()
+    #expect(controller.isSuspendRequested() == true)
+
+    sut.cancelSimulation()
+
+    // cancelSimulation must wake the parked awaiter; awaitResume returns
+    // immediately once the controller is in the `.resumed` state.
+    await controller.awaitResume()
+    #expect(sut.isCancelled == true)
+  }
+
+  @Test func runClearsSuspendControllerOnExit() async throws {
+    let (sut, _) = try makeLifecycleSUT()
+    sut.speed = .fastest
+
+    let mock = MockLLMService(responses: [#"{"statement": "hi"}"#])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    #expect(sut.suspendController == nil)
+    await sut.run(scenario: scenario, llm: mock)
+    // Defer block in run() clears the controller regardless of exit path.
+    #expect(sut.suspendController == nil)
+  }
 }

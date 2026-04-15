@@ -113,6 +113,12 @@ final class SimulationViewModel {
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
   var runTask: Task<Void, Never>?
 
+  /// Cooperative suspend/resume channel for the active inference. Created per
+  /// `run()` call and attached to the LLM so scene-phase / BG-task handlers
+  /// (in the +Background extension) can interrupt an in-flight `generate`.
+  /// Cleared on `run()` exit.
+  var suspendController: SuspendController?
+
   // Serial persistence queue — guarantees TurnRecords are written to the DB in
   // the same order events arrive. Without this, independent Task.detached calls
   // race and createdAt-based ordering in fetchBySimulationId becomes unreliable.
@@ -140,13 +146,14 @@ final class SimulationViewModel {
   // MARK: - Simulation Lifecycle
 
   /// Cancels a running simulation.
-  ///
-  /// Cancellation flows through the task: the runner's AsyncStream detects
-  /// Task cancellation and terminates, causing the `for await` loop to exit
-  /// naturally. Post-loop cleanup (unloadModel, finalize status) then runs.
+  /// Task cancellation terminates the runner's AsyncStream; the `for await`
+  /// loop exits and post-loop cleanup runs.
   func cancelSimulation() {
     runTask?.cancel()
     isCancelled = true
+    // Release a generate currently parked in `awaitResume()` so cancellation
+    // propagates promptly from a suspended state. Idempotent per contract.
+    suspendController?.resume()
     // Events emitted after cancellation are dropped by the terminated AsyncStream,
     // so clear UI "in-progress" state here to avoid stuck "thinking..." indicators.
     thinkingAgents.removeAll()
@@ -172,14 +179,23 @@ final class SimulationViewModel {
 
     turnSequence = 0
 
+    // Attach BEFORE loadModel so scene-phase handlers can signal suspend as
+    // soon as run() is in flight.
+    let controller = SuspendController()
+    suspendController = controller
+    await llm.attachSuspendController(controller)
+
     // Start serial persistence consumer before any events can arrive.
     startPersistenceConsumer()
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
+      // Release any parked generate before tearing down state. Idempotent.
+      controller.resume()
       persistenceContinuation?.finish()
       backgroundManager?.completeTask(success: isCompleted)
       isRunning = false
       currentLLM = nil
+      suspendController = nil
     }
 
     // Load LLM model
@@ -191,13 +207,8 @@ final class SimulationViewModel {
       return
     }
 
-    // Consume event stream
-    // TODO(#84 step 12): replace inline controller with one owned by the
-    // ViewModel and attached to the LLM, so scene-phase handlers can
-    // signal suspend mid-run.
-    let suspendController = SuspendController()
     for await event in runner.run(
-      scenario: scenario, llm: llm, suspendController: suspendController
+      scenario: scenario, llm: llm, suspendController: controller
     ) {
       // Apply speed delay (for non-instant playback)
       if speed != .fastest {
