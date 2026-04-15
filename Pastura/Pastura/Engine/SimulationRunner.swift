@@ -50,8 +50,16 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// - Parameters:
   ///   - scenario: The scenario to execute.
   ///   - llm: The LLM service for inference.
+  ///   - suspendController: The suspend coordinator shared between the App
+  ///     layer and the LLM. The same instance flows into every
+  ///     ``PhaseContext`` so that a single ``SuspendController/requestSuspend()``
+  ///     call interrupts the simulation regardless of which phase is in flight.
   /// - Returns: An `AsyncStream` of ``SimulationEvent`` values.
-  public func run(scenario: Scenario, llm: LLMService) -> AsyncStream<SimulationEvent> {
+  public func run(
+    scenario: Scenario,
+    llm: LLMService,
+    suspendController: SuspendController
+  ) -> AsyncStream<SimulationEvent> {
     // Capture needed values to avoid retaining self in the Task
     let dispatcher = self.dispatcher
     let validator = self.validator
@@ -63,6 +71,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           scenario: scenario, llm: llm,
           dispatcher: dispatcher, validator: validator,
           pauseState: pauseState,
+          suspendController: suspendController,
           emitter: { continuation.yield($0) }
         )
         continuation.finish()
@@ -82,6 +91,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let llm: LLMService
     let dispatcher: PhaseDispatcher
     let pauseState: OSAllocatedUnfairLock<PauseState>
+    let suspendController: SuspendController
     let emitter: @Sendable (SimulationEvent) -> Void
   }
 
@@ -90,6 +100,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     scenario: Scenario, llm: LLMService,
     dispatcher: PhaseDispatcher, validator: ScenarioValidator,
     pauseState: OSAllocatedUnfairLock<PauseState>,
+    suspendController: SuspendController,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
     // Validate scenario
@@ -105,7 +116,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
-      pauseState: pauseState, emitter: emitter
+      pauseState: pauseState, suspendController: suspendController, emitter: emitter
     )
 
     var state = SimulationState.initial(for: scenario)
@@ -220,13 +231,10 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         // PhaseContext bundles the per-phase read-only args from ExecutionContext;
         // ExecutionContext additionally carries dispatcher and pauseState which
         // are runner-internal and not exposed to handlers.
-        // TODO(#84 step 7): replace inline controller with one owned by the
-        // runner (or supplied by the caller) so the App layer can signal
-        // suspend across phases.
         let phaseContext = PhaseContext(
           scenario: ctx.scenario, phase: phase,
           llm: ctx.llm,
-          suspendController: SuspendController(),
+          suspendController: ctx.suspendController,
           emitter: ctx.emitter
         )
         try await handler.execute(context: phaseContext, state: &state)

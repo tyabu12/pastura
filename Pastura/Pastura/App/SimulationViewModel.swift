@@ -203,7 +203,13 @@ final class SimulationViewModel {
     }
 
     // Consume event stream
-    for await event in runner.run(scenario: scenario, llm: llm) {
+    // TODO(#84 step 12): replace inline controller with one owned by the
+    // ViewModel and attached to the LLM, so scene-phase handlers can
+    // signal suspend mid-run.
+    let suspendController = SuspendController()
+    for await event in runner.run(
+      scenario: scenario, llm: llm, suspendController: suspendController
+    ) {
       // Apply speed delay (for non-instant playback)
       if speed != .fastest {
         try? await Task.sleep(for: .milliseconds(Int(200 * speed.rawValue)))

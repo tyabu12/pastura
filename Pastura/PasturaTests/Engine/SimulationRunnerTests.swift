@@ -6,6 +6,7 @@ import Testing
 // Serialized: SimulationRunner tests create Tasks and AsyncStreams that can
 // interfere with each other when run in parallel on the simulator.
 @Suite(.serialized)
+// swiftlint:disable:next type_body_length
 struct SimulationRunnerTests {
 
   @Test func emitsFullLifecycleEvents() async throws {
@@ -22,7 +23,8 @@ struct SimulationRunnerTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: mock))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
 
     // Round lifecycle
     #expect(events.contains { if case .roundStarted(1, 1) = $0 { true } else { false } })
@@ -63,7 +65,8 @@ struct SimulationRunnerTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: mock))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
 
     // Verify 2 rounds executed
     let roundStarts = events.filter {
@@ -96,7 +99,8 @@ struct SimulationRunnerTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: mock))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
 
     let roundStarts = events.filter {
       if case .roundStarted = $0 { return true }
@@ -128,7 +132,8 @@ struct SimulationRunnerTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: mock))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
 
     #expect(
       events.contains {
@@ -155,7 +160,7 @@ struct SimulationRunnerTests {
     let runner = SimulationRunner()
     runner.isPaused = true
 
-    let stream = runner.run(scenario: scenario, llm: mock)
+    let stream = runner.run(scenario: scenario, llm: mock, suspendController: SuspendController())
 
     // Collect events concurrently while we control the pause state.
     // The sleep verifies that only one event is emitted regardless of
@@ -185,7 +190,7 @@ struct SimulationRunnerTests {
     let runner = SimulationRunner()
     runner.isPaused = true
 
-    let stream = runner.run(scenario: scenario, llm: mock)
+    let stream = runner.run(scenario: scenario, llm: mock, suspendController: SuspendController())
 
     // Collect events inside the task to avoid cross-task mutable capture.
     let consumer = Task<[SimulationEvent], Never> {
@@ -232,7 +237,7 @@ struct SimulationRunnerTests {
     let runner = SimulationRunner()
     runner.isPaused = true
 
-    let stream = runner.run(scenario: scenario, llm: mock)
+    let stream = runner.run(scenario: scenario, llm: mock, suspendController: SuspendController())
     async let allEvents = collectAllEvents(stream)
 
     // Pause 1: round boundary — wait for runner to reach it
@@ -306,7 +311,8 @@ struct SimulationRunnerTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: mock))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
 
     #expect(
       events.contains {
@@ -327,4 +333,46 @@ struct SimulationRunnerTests {
     #expect(summaries.contains("Round 1 complete"))
   }
 
+  // MARK: - Suspend controller propagation
+
+  @Test func runnerPropagatesSuspendControllerToHandlers() async throws {
+    // The controller passed to runner.run must reach LLMCaller via PhaseContext —
+    // an external resume() on the same instance must unstick the parked call.
+    // If propagation broke (e.g. each phase received a fresh controller),
+    // resume on the test-owned instance would have no effect and the simulation
+    // would never complete.
+    let mock = MockLLMService(responses: [
+      #"{"statement": "hi"}"#,
+      #"{"statement": "hey"}"#
+    ])
+    try await mock.loadModel()
+
+    let controller = SuspendController()
+    await mock.attachSuspendController(controller)
+    // Pre-suspend so the very first generate throws .suspended.
+    controller.requestSuspend()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    // Resume after the first generate has parked on awaitResume.
+    Task {
+      try await Task.sleep(for: .milliseconds(50))
+      controller.resume()
+    }
+
+    let runner = SimulationRunner()
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: controller)
+    )
+
+    #expect(
+      events.contains {
+        if case .simulationCompleted = $0 { return true }
+        return false
+      })
+  }
 }
