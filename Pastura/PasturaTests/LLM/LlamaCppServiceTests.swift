@@ -172,6 +172,35 @@ struct LlamaCppServiceTests {
     #expect(!service.isModelLoaded)
   }
 
+  // MARK: - SuspendController attachment
+
+  @Test func attachSuspendControllerStoresReference() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+    #expect(service.suspendController === controller)
+  }
+
+  @Test func attachSuspendControllerReplacesPreviousReference() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let first = SuspendController()
+    let second = SuspendController()
+    await service.attachSuspendController(first)
+    await service.attachSuspendController(second)
+    #expect(service.suspendController === second)
+  }
+
+  @Test func attachSuspendControllerNilDetaches() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await service.attachSuspendController(SuspendController())
+    await service.attachSuspendController(nil)
+    #expect(service.suspendController == nil)
+  }
+
+  // Note: cooperative suspend behavior inside the generate auto-regressive
+  // loop and the prefill loop is exercised end-to-end by the integration
+  // tests in step 18 (real model required to actually enter the loop).
+
   @Test func unloadModelDoesNotEarlyReturnOnTaskCancellation() async throws {
     // Even if the owning task is cancelled, unloadModel must NOT return while
     // generate is still in flight — that would free C pointers still in use

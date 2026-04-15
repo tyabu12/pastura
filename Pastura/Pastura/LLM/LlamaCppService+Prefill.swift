@@ -13,6 +13,12 @@ extension LlamaCppService {
 
     while offset < mutableTokens.count {
       try Task.checkCancellation()
+      // Cooperative suspend, mirroring the generate loop. Prefill batches can
+      // each take 200-500ms on long prompts, so a single iteration boundary
+      // is enough headroom to honour a backgrounding signal.
+      if suspendController?.isSuspendRequested() == true {
+        throw LLMError.suspended
+      }
       let chunkSize = min(Self.batchSize, mutableTokens.count - offset)
       let batch = mutableTokens.withUnsafeMutableBufferPointer { ptr -> llama_batch in
         // baseAddress is non-nil because the while condition guarantees non-empty remaining tokens

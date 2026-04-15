@@ -59,6 +59,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // Sequential access only — protected by concurrency contract, not by lock
   nonisolated(unsafe) private var _model: OpaquePointer?
   nonisolated(unsafe) private var _context: OpaquePointer?
+  // Suspend signal source. Read in the generate/prefill auto-regressive loops
+  // at iteration boundaries to convert an external suspend request into a
+  // prompt `LLMError.suspended` throw. Same sequential access contract as
+  // `_model` / `_context` (ADR-002 §6) — `attachSuspendController` must not
+  // race with an in-flight `generate()`.
+  nonisolated(unsafe) var suspendController: SuspendController?
 
   /// Creates a llama.cpp service.
   ///
@@ -156,6 +162,14 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     loadedState.withLock { $0 }
   }
 
+  public func attachSuspendController(_ controller: SuspendController?) async {
+    // Per ADR-002 §6, callers must not invoke this concurrently with
+    // `generate()`. Same sequential contract that protects `_model` /
+    // `_context` lets us write without a lock.
+    suspendController = controller
+  }
+
+  // swiftlint:disable:next function_body_length
   public func generate(system: String, user: String) async throws -> String {
     try await throttleIfOverheating()
 
@@ -210,6 +224,13 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       // themselves, so without this a cancelled simulation would run to maxTokens
       // before exiting — making model reload / app teardown slow.
       try Task.checkCancellation()
+
+      // Cooperative suspend: convert an external `SuspendController.requestSuspend()`
+      // into an LLMError.suspended throw at the next iteration boundary. Lets the
+      // App layer interrupt GPU work before iOS denies it (scenePhase = .background).
+      if suspendController?.isSuspendRequested() == true {
+        throw LLMError.suspended
+      }
 
       let newTokenId = llama_sampler_sample(sampler, context, -1)
 
