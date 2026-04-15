@@ -220,9 +220,14 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         // PhaseContext bundles the per-phase read-only args from ExecutionContext;
         // ExecutionContext additionally carries dispatcher and pauseState which
         // are runner-internal and not exposed to handlers.
+        // TODO(#84 step 7): replace inline controller with one owned by the
+        // runner (or supplied by the caller) so the App layer can signal
+        // suspend across phases.
         let phaseContext = PhaseContext(
           scenario: ctx.scenario, phase: phase,
-          llm: ctx.llm, emitter: ctx.emitter
+          llm: ctx.llm,
+          suspendController: SuspendController(),
+          emitter: ctx.emitter
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {

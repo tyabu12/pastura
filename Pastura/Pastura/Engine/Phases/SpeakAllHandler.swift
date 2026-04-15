@@ -29,10 +29,7 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
       let output = try await llmCaller.call(
         llm: context.llm, system: systemPrompt, user: userPrompt,
         agentName: persona.name,
-        // TODO(#84 step 6): replace with context.suspendController once
-        // PhaseContext carries it. Inline instance here is inert (nothing
-        // calls requestSuspend on it) but keeps the build green.
-        suspendController: SuspendController(),
+        suspendController: context.suspendController,
         emitter: context.emitter
       )
 

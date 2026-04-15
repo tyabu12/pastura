@@ -43,8 +43,7 @@ nonisolated struct VoteHandler: PhaseHandler {
       let output = try await llmCaller.call(
         llm: context.llm, system: systemPrompt, user: userPrompt,
         agentName: persona.name,
-        // TODO(#84 step 6): replace with context.suspendController.
-        suspendController: SuspendController(),
+        suspendController: context.suspendController,
         emitter: context.emitter
       )
 
