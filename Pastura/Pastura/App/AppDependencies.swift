@@ -54,9 +54,16 @@ final class AppDependencies: @unchecked Sendable {
   }
 
   /// Creates a test/preview instance with in-memory storage.
-  static func inMemory(llmService: (any LLMService)? = nil) throws -> AppDependencies {
+  static func inMemory(
+    llmService: (any LLMService)? = nil,
+    galleryService: (any GalleryService)? = nil
+  ) throws -> AppDependencies {
     let manager = try DatabaseManager.inMemory()
-    return AppDependencies(databaseManager: manager, llmService: llmService)
+    return AppDependencies(
+      databaseManager: manager,
+      llmService: llmService,
+      galleryService: galleryService
+    )
   }
 
   // MARK: - Private
