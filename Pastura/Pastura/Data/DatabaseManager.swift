@@ -83,6 +83,24 @@ nonisolated public final class DatabaseManager: Sendable {
         t.add(column: "sourceHash", .text)
       }
     }
+
+    migrator.registerMigration("v5_createCodePhaseEventsTable") { db in
+      try db.create(table: "code_phase_events") { t in
+        t.primaryKey("id", .text)
+        t.column("simulationId", .text).notNull()
+          .references("simulations", onDelete: .cascade)
+        t.column("roundNumber", .integer).notNull()
+        t.column("phaseType", .text).notNull()
+        t.column("sequenceNumber", .integer).notNull()
+        t.column("payloadJSON", .text).notNull()
+        t.column("createdAt", .datetime).notNull()
+      }
+
+      try db.create(
+        index: "idx_code_phase_events_simulation_round",
+        on: "code_phase_events",
+        columns: ["simulationId", "roundNumber"])
+    }
   }
 
   private static func registerV1(_ migrator: inout DatabaseMigrator) {
