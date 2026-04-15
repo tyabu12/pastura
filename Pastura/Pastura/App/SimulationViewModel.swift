@@ -71,8 +71,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private let contentFilter: ContentFilter
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
+  private let codePhaseEventRepository: (any CodePhaseEventRepository)?
   private let scenarioRepository: (any ScenarioRepository)?
-  private var simulationId: String?
+  // Non-private so `@testable import` can seed persistence without invoking `run()`.
+  internal var simulationId: String?
 
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
@@ -85,8 +87,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private var persistenceContinuation: AsyncStream<TurnRecord>.Continuation?
   private var persistenceTask: Task<Void, Never>?
 
-  /// Per-simulation sequence counter for deterministic TurnRecord ordering.
-  /// Incremented synchronously on MainActor — no lock needed.
+  // Parallel queue for code-phase events. Drained alongside the turns queue
+  // before `.completed` status is persisted so exporters can fetch complete
+  // data immediately after `run()` returns.
+  private var codePhasePersistenceContinuation: AsyncStream<CodePhaseEventRecord>.Continuation?
+  private var codePhasePersistenceTask: Task<Void, Never>?
+
+  /// Per-simulation sequence counter for deterministic ordering of BOTH
+  /// `TurnRecord` (agent output) and `CodePhaseEventRecord`. Each event is
+  /// routed to exactly one stream and increments this counter exactly once
+  /// on MainActor — a single yield per event guarantees strict total order
+  /// for merge-sort at export time.
+  // TODO(resume): when pause/resume lands, re-initialize from
+  // `MAX(sequenceNumber)` across both tables so resumed runs do not collide
+  // with existing persisted rows.
   private var turnSequence = 0
 
   init(
@@ -94,12 +108,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     contentFilter: ContentFilter = ContentFilter(),
     simulationRepository: any SimulationRepository,
     turnRepository: any TurnRepository,
+    codePhaseEventRepository: (any CodePhaseEventRepository)? = nil,
     scenarioRepository: (any ScenarioRepository)? = nil
   ) {
     self.runner = runner
     self.contentFilter = contentFilter
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
+    self.codePhaseEventRepository = codePhaseEventRepository
     self.scenarioRepository = scenarioRepository
   }
 
@@ -135,11 +151,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
     turnSequence = 0
 
-    // Start serial persistence consumer before any events can arrive.
+    // Start both persistence consumers before any events can arrive.
     startPersistenceConsumer()
+    startCodePhasePersistenceConsumer()
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
       persistenceContinuation?.finish()
+      codePhasePersistenceContinuation?.finish()
       isRunning = false
     }
 
@@ -162,10 +180,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       handleEvent(event, scenario: scenario)
     }
 
-    // Drain persistence queue before marking simulation as completed.
-    // finish() is idempotent; defer also calls it for early-return paths.
+    // Drain BOTH persistence queues before marking simulation as completed.
+    // `fetchExportPayload` guards on `.completed`, so unflushed writes would
+    // race the export. finish() is idempotent; defer also calls it for
+    // early-return paths.
     persistenceContinuation?.finish()
+    codePhasePersistenceContinuation?.finish()
     await persistenceTask?.value
+    await codePhasePersistenceTask?.value
 
     // Cleanup
     try? await llm.unloadModel()
@@ -213,25 +235,54 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// Handles score, vote, and other output-related events.
+  /// Handles score, vote, and other code-phase result events. Each branch
+  /// updates UI state AND persists a `CodePhaseEventRecord` so exports can
+  /// reconstruct per-phase outcomes. See `persistCodePhaseEvent(phaseType:payload:)`
+  /// for the persistence path.
   private func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
     case .scoreUpdate(let newScores):
       handleScoreUpdate(scores: newScores)
+      persistCodePhaseEvent(
+        phaseType: PhaseType.scoreCalc.rawValue,
+        payload: .scoreUpdate(scores: newScores))
     case .elimination(let agent, let voteCount):
       handleElimination(agent: agent, voteCount: voteCount)
+      persistCodePhaseEvent(
+        phaseType: PhaseType.eliminate.rawValue,
+        payload: .elimination(agent: agent, voteCount: voteCount))
     case .assignment(let agent, let value):
       logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
+      persistCodePhaseEvent(
+        phaseType: PhaseType.assign.rawValue,
+        payload: .assignment(agent: agent, value: value))
     case .summary(let text):
       logEntries.append(LogEntry(kind: .summary(text: text)))
+      // `.summary` also fires for validator warnings (before the first round
+      // starts, currentRound == 0) and early-termination (after the round
+      // loop exits). Export intentionally drops pre-round warnings — they are
+      // diagnostic, not part of the scenario's narrative. Early-termination
+      // summaries inherit the last-started round number and are persisted.
+      if currentRound > 0 {
+        persistCodePhaseEvent(
+          phaseType: PhaseType.summarize.rawValue,
+          payload: .summary(text: text))
+      }
     case .voteResults(let votes, let tallies):
       logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
+      persistCodePhaseEvent(
+        phaseType: PhaseType.vote.rawValue,
+        payload: .voteResults(votes: votes, tallies: tallies))
     case .pairingResult(let agent1, let act1, let agent2, let act2):
       logEntries.append(
         LogEntry(
           kind: .pairingResult(
             agent1: agent1, action1: act1, agent2: agent2, action2: act2
           )))
+      persistCodePhaseEvent(
+        phaseType: PhaseType.choose.rawValue,
+        payload: .pairingResult(
+          agent1: agent1, action1: act1, agent2: agent2, action2: act2))
     default:
       break
     }
@@ -335,6 +386,70 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     } catch {
       print("⚠️ Failed to encode turn output: \(error)")
     }
+  }
+
+  private func startCodePhasePersistenceConsumer() {
+    // If no repository was injected, skip starting the consumer — yields
+    // from `persistCodePhaseEvent` become no-ops because the continuation
+    // stays nil. This keeps existing call sites (pre-#92 constructors) working.
+    guard let codePhaseRepo = codePhaseEventRepository else { return }
+    let (stream, continuation) = AsyncStream<CodePhaseEventRecord>.makeStream()
+    codePhasePersistenceContinuation = continuation
+    codePhasePersistenceTask = Task.detached {
+      for await record in stream {
+        do {
+          try codePhaseRepo.save(record)
+        } catch {
+          print("⚠️ Failed to persist code-phase event: \(error)")
+        }
+      }
+    }
+  }
+
+  private func persistCodePhaseEvent(
+    phaseType: String, payload: CodePhaseEventPayload
+  ) {
+    guard let simId = simulationId else { return }
+    guard let continuation = codePhasePersistenceContinuation else { return }
+    do {
+      let data = try JSONEncoder().encode(payload)
+      let jsonString = String(data: data, encoding: .utf8) ?? "{}"
+      turnSequence += 1
+      let record = CodePhaseEventRecord(
+        id: UUID().uuidString,
+        simulationId: simId,
+        roundNumber: currentRound,
+        phaseType: phaseType,
+        sequenceNumber: turnSequence,
+        payloadJSON: jsonString,
+        createdAt: Date()
+      )
+      continuation.yield(record)
+    } catch {
+      print("⚠️ Failed to encode code-phase payload: \(error)")
+    }
+  }
+
+  // MARK: - Test Seams
+
+  /// Initializes persistence without invoking `run()`, so unit tests can
+  /// exercise `handleEvent` directly and assert DB contents. Pair with
+  /// `finishPersistenceForTest()` to drain both queues before assertions.
+  internal func beginPersistenceForTest(simulationId: String) {
+    self.simulationId = simulationId
+    turnSequence = 0
+    startPersistenceConsumer()
+    startCodePhasePersistenceConsumer()
+  }
+
+  /// Drains both persistence queues synchronously with the caller. Use after
+  /// `beginPersistenceForTest(simulationId:)` and a series of `handleEvent`
+  /// calls before querying the DB.
+  internal func finishPersistenceForTest() async {
+    persistenceContinuation?.finish()
+    codePhasePersistenceContinuation?.finish()
+    await persistenceTask?.value
+    await codePhasePersistenceTask?.value
   }
 
   // MARK: - Export
