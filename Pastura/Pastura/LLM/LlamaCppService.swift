@@ -169,7 +169,33 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     suspendController = controller
   }
 
-  // swiftlint:disable:next function_body_length
+  /// Maps a non-zero `llama_decode` result to either ``LLMError/suspended``
+  /// (when an external suspend was requested — usually because iOS denied
+  /// background GPU work mid-decode) or ``LLMError/generationFailed(description:)``
+  /// (genuine inference error).
+  ///
+  /// The mapping is intentionally code-agnostic: any non-zero result that
+  /// coincides with `suspendController?.isSuspendRequested() == true` is
+  /// treated as suspend. Hard-coding a specific Metal error number (e.g. -3)
+  /// would be fragile across llama.cpp versions and iOS releases.
+  ///
+  /// For the suspend mapping the partial KV cache is wiped via
+  /// `llama_memory_clear` so the retried `generate()` (issued by
+  /// ``LLMCaller`` after `awaitResume`) starts from a clean state.
+  func decodeFailureError(_ result: Int32) -> LLMError {
+    if suspendController?.isSuspendRequested() == true {
+      // Wipe partial decode state so retry doesn't inherit a corrupt KV cache.
+      // Safe when context is nil (test paths) — we just skip the C call.
+      if let context = _context {
+        llama_memory_clear(llama_get_memory(context), true)
+      }
+      return .suspended
+    }
+    return .generationFailed(
+      description: "llama_decode failed (error \(result))"
+    )
+  }
+
   public func generate(system: String, user: String) async throws -> String {
     try await throttleIfOverheating()
 
@@ -249,9 +275,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       let batch = llama_batch_get_one(&nextToken, 1)
       let decodeResult = llama_decode(context, batch)
       guard decodeResult == 0 else {
-        throw LLMError.generationFailed(
-          description: "llama_decode failed during generation (error \(decodeResult))"
-        )
+        // Reactive suspend safety net: if scenePhase already moved to
+        // .background and iOS denied this Metal command, surface the failure
+        // as `.suspended` (recoverable) rather than `.generationFailed`
+        // (fatal). Cooperative check above catches most cases first; this
+        // is for the narrow window when the denial races the next iteration.
+        throw decodeFailureError(decodeResult)
       }
     }
 

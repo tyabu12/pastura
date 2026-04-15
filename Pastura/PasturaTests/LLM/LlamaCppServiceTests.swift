@@ -201,6 +201,42 @@ struct LlamaCppServiceTests {
   // loop and the prefill loop is exercised end-to-end by the integration
   // tests in step 18 (real model required to actually enter the loop).
 
+  // MARK: - Reactive suspend mapping (decodeFailureError)
+
+  @Test func decodeFailureWithoutControllerReturnsGenerationFailed() {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // No controller attached at all — every non-zero decode is fatal.
+    let mapped = service.decodeFailureError(-3)
+    if case .generationFailed = mapped { /* OK */
+    } else {
+      Issue.record("expected .generationFailed but got \(mapped)")
+    }
+  }
+
+  @Test func decodeFailureWithoutSuspendRequestReturnsGenerationFailed() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await service.attachSuspendController(SuspendController())
+    // Controller exists but no suspend was requested → still fatal.
+    let mapped = service.decodeFailureError(2)
+    if case .generationFailed = mapped { /* OK */
+    } else {
+      Issue.record("expected .generationFailed but got \(mapped)")
+    }
+  }
+
+  @Test func decodeFailureWithSuspendRequestReturnsSuspended() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+    controller.requestSuspend()
+
+    // Mapping is intentionally code-agnostic — any non-zero result under
+    // active suspend becomes .suspended, regardless of the specific error.
+    #expect(service.decodeFailureError(-3) == .suspended)
+    #expect(service.decodeFailureError(2) == .suspended)
+    #expect(service.decodeFailureError(-1000) == .suspended)
+  }
+
   @Test func unloadModelDoesNotEarlyReturnOnTaskCancellation() async throws {
     // Even if the owning task is cancelled, unloadModel must NOT return while
     // generate is still in flight — that would free C pointers still in use

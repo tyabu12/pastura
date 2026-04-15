@@ -29,9 +29,8 @@ extension LlamaCppService {
       }
       let decodeResult = llama_decode(context, batch)
       guard decodeResult == 0 else {
-        throw LLMError.generationFailed(
-          description: "llama_decode failed during prefill (error \(decodeResult))"
-        )
+        // Reactive suspend safety net — see generate() for the rationale.
+        throw decodeFailureError(decodeResult)
       }
       offset += chunkSize
     }
