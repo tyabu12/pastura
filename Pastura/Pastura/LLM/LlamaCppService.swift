@@ -122,83 +122,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   public let backendIdentifier = "llama.cpp"
 
   public func generate(system: String, user: String) async throws -> String {
-    try await throttleIfOverheating()
-
-    guard isModelLoaded, let model = _model, let context = _context else {
-      throw LLMError.notLoaded
-    }
-
-    // Runtime enforcement of sequential access contract (ADR-002 §6).
-    // Concurrent generate() would cause use-after-free of C pointers.
-    // IMPORTANT: This guard is intentionally placed after the isModelLoaded check above.
-    // Calls that fail with .notLoaded must not touch the flag — otherwise the flag
-    // stays true and the next sequential call would be falsely flagged as concurrent.
-    let wasGenerating = generatingGuard.withLock { flag -> Bool in
-      let was = flag
-      flag = true
-      return was
-    }
-    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
-    defer { generatingGuard.withLock { $0 = false } }
-
-    let vocab = llama_model_get_vocab(model)
-
-    // Apply chat template to format system+user into model-native format
-    let formattedPrompt = try applyChatTemplate(system: system, user: user)
-
-    // Tokenize the formatted prompt
-    let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
-
-    let nCtx = Int(llama_n_ctx(context))
-    guard tokens.count <= nCtx else {
-      throw LLMError.generationFailed(
-        description: "Prompt (\(tokens.count) tokens) exceeds context size (\(nCtx))"
-      )
-    }
-
-    // Clear KV cache for independent inference (each generate() call is self-contained)
-    llama_memory_clear(llama_get_memory(context), true)
-
-    // Prefill: process prompt tokens
-    try prefill(context: context, tokens: tokens)
-
-    // Set up sampler chain
-    let sampler = try createSampler()
-    defer { llama_sampler_free(sampler) }
-
-    // Auto-regressive generation loop with string-based stop detection.
-    // Tokens are decoded incrementally so we can detect <|im_end|> even when
-    // the model's tokenizer splits it across multiple subword tokens.
-    var outputText = ""
-    for _ in 0..<Self.maxTokens {
-      let newTokenId = llama_sampler_sample(sampler, context, -1)
-
-      if llama_vocab_is_eog(vocab, newTokenId) { break }
-
-      outputText += decodePiece(vocab: vocab, token: newTokenId)
-
-      if let range = outputText.range(of: Self.stopSequence) {
-        outputText = String(outputText[..<range.lowerBound])
-        logger.debug("<|im_end|> stop sequence detected — ending generation early")
-        break
-      }
-
-      // Decode single token for next iteration
-      var nextToken = newTokenId
-      let batch = llama_batch_get_one(&nextToken, 1)
-      let decodeResult = llama_decode(context, batch)
-      guard decodeResult == 0 else {
-        throw LLMError.generationFailed(
-          description: "llama_decode failed during generation (error \(decodeResult))"
-        )
-      }
-    }
-
-    guard !outputText.isEmpty else {
-      throw LLMError.generationFailed(description: "Model generated no output tokens")
-    }
-
-    return outputText
+    try await runGeneration(system: system, user: user).text
   }
 
   // MARK: - Chat Template
@@ -338,6 +262,106 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
 
     return chain
+  }
+}
+
+// MARK: - Generation (metrics-aware)
+
+extension LlamaCppService {
+  /// Token-count-aware counterpart to ``generate(system:user:)``. Shares the
+  /// same inference path and returns the generated token count for tok/s
+  /// throughput reporting.
+  public func generateWithMetrics(
+    system: String, user: String
+  ) async throws -> GenerationResult {
+    try await runGeneration(system: system, user: user)
+  }
+
+  /// Shared implementation for `generate` and `generateWithMetrics`.
+  /// Counts tokens emitted by the sampler loop (includes both real output
+  /// tokens and a trailing stop-sequence token if one is detected and trimmed).
+  private func runGeneration(  // swiftlint:disable:this function_body_length
+    system: String, user: String
+  ) async throws -> GenerationResult {
+    try await throttleIfOverheating()
+
+    guard isModelLoaded, let model = _model, let context = _context else {
+      throw LLMError.notLoaded
+    }
+
+    // Runtime enforcement of sequential access contract (ADR-002 §6).
+    // Concurrent generate() would cause use-after-free of C pointers.
+    // IMPORTANT: This guard is intentionally placed after the isModelLoaded check above.
+    // Calls that fail with .notLoaded must not touch the flag — otherwise the flag
+    // stays true and the next sequential call would be falsely flagged as concurrent.
+    let wasGenerating = generatingGuard.withLock { flag -> Bool in
+      let was = flag
+      flag = true
+      return was
+    }
+    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
+    defer { generatingGuard.withLock { $0 = false } }
+
+    let vocab = llama_model_get_vocab(model)
+
+    // Apply chat template to format system+user into model-native format
+    let formattedPrompt = try applyChatTemplate(system: system, user: user)
+
+    // Tokenize the formatted prompt
+    let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
+
+    let nCtx = Int(llama_n_ctx(context))
+    guard tokens.count <= nCtx else {
+      throw LLMError.generationFailed(
+        description: "Prompt (\(tokens.count) tokens) exceeds context size (\(nCtx))"
+      )
+    }
+
+    // Clear KV cache for independent inference (each generate() call is self-contained)
+    llama_memory_clear(llama_get_memory(context), true)
+
+    // Prefill: process prompt tokens
+    try prefill(context: context, tokens: tokens)
+
+    // Set up sampler chain
+    let sampler = try createSampler()
+    defer { llama_sampler_free(sampler) }
+
+    // Auto-regressive generation loop with string-based stop detection.
+    // Tokens are decoded incrementally so we can detect <|im_end|> even when
+    // the model's tokenizer splits it across multiple subword tokens.
+    var outputText = ""
+    var generatedTokens = 0
+    for _ in 0..<Self.maxTokens {
+      let newTokenId = llama_sampler_sample(sampler, context, -1)
+
+      if llama_vocab_is_eog(vocab, newTokenId) { break }
+
+      generatedTokens += 1
+      outputText += decodePiece(vocab: vocab, token: newTokenId)
+
+      if let range = outputText.range(of: Self.stopSequence) {
+        outputText = String(outputText[..<range.lowerBound])
+        logger.debug("<|im_end|> stop sequence detected — ending generation early")
+        break
+      }
+
+      // Decode single token for next iteration
+      var nextToken = newTokenId
+      let batch = llama_batch_get_one(&nextToken, 1)
+      let decodeResult = llama_decode(context, batch)
+      guard decodeResult == 0 else {
+        throw LLMError.generationFailed(
+          description: "llama_decode failed during generation (error \(decodeResult))"
+        )
+      }
+    }
+
+    guard !outputText.isEmpty else {
+      throw LLMError.generationFailed(description: "Model generated no output tokens")
+    }
+
+    return GenerationResult(text: outputText, completionTokens: generatedTokens)
   }
 }
 

@@ -102,4 +102,19 @@ struct MockLLMServiceTests {
     let service: any LLMService = MockLLMService(responses: [])
     #expect(service is MockLLMService)
   }
+
+  // MARK: - generateWithMetrics default dispatch
+
+  /// Mock doesn't override `generateWithMetrics`, so the protocol-extension
+  /// default must be reachable via `any LLMService` existential and return
+  /// `nil` tokens. Guards against "override silently lost" footguns.
+  @Test func generateWithMetricsDefaultReturnsNilTokens() async throws {
+    let service: any LLMService = MockLLMService(responses: ["hello"])
+    try await service.loadModel()
+
+    let result = try await service.generateWithMetrics(system: "s", user: "u")
+
+    #expect(result.text == "hello")
+    #expect(result.completionTokens == nil)
+  }
 }

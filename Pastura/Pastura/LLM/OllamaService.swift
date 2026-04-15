@@ -138,4 +138,58 @@ nonisolated public final class OllamaService: LLMService, @unchecked Sendable {
     }
     return content
   }
+
+  /// Extract content and `usage.completion_tokens` from the response.
+  /// `completion_tokens` is optional in practice: some Ollama versions / models
+  /// omit or zero the `usage` block on the OpenAI-compat endpoint, so we return
+  /// `nil` rather than substituting a fake value that would bias tok/s averages.
+  fileprivate func extractGenerationResult(from data: Data) throws -> GenerationResult {
+    guard
+      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let choices = json["choices"] as? [[String: Any]],
+      let firstChoice = choices.first,
+      let message = firstChoice["message"] as? [String: Any],
+      let content = message["content"] as? String
+    else {
+      let raw = String(data: data, encoding: .utf8) ?? "<binary>"
+      throw LLMError.invalidResponse(raw: raw)
+    }
+    let usage =
+      (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["usage"]
+      as? [String: Any]
+    let tokens = (usage?["completion_tokens"] as? Int).flatMap { $0 > 0 ? $0 : nil }
+    return GenerationResult(text: content, completionTokens: tokens)
+  }
+}
+
+// MARK: - Generation (metrics-aware)
+
+extension OllamaService {
+  /// Token-count-aware counterpart to ``generate(system:user:)``. Reads
+  /// `usage.completion_tokens` when the server provides it; otherwise reports
+  /// `nil` (Ollama's OpenAI-compat endpoint historically has inconsistent
+  /// `usage` reporting across versions).
+  public func generateWithMetrics(
+    system: String, user: String
+  ) async throws -> GenerationResult {
+    guard isModelLoaded else { throw LLMError.notLoaded }
+
+    let request = try buildRequest(system: system, user: user)
+
+    let data: Data
+    let response: URLResponse
+    do {
+      (data, response) = try await session.data(for: request)
+    } catch {
+      throw LLMError.networkError(description: String(describing: error))
+    }
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw LLMError.networkError(description: "Non-HTTP response received")
+    }
+
+    try mapHTTPStatus(httpResponse)
+
+    return try extractGenerationResult(from: data)
+  }
 }
