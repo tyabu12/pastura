@@ -167,6 +167,11 @@ Pastura/
 
 See `.claude/rules/` for detailed rules loaded automatically when editing Engine, LLM, Models, Data, or Resources files.
 
+`navigation.md` documents the `AppRouter` pattern: programmatic root-stack
+navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`,
+and `navigationDestination(item:|isPresented:)` is forbidden inside views
+pushed onto the root stack. Sheet-owned NavigationStacks are exempt.
+
 ## File Naming
 
 - Source: PascalCase matching primary type (e.g., `SpeakAllHandler.swift`)

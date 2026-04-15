@@ -3,11 +3,12 @@ import SwiftUI
 /// The main screen displaying all scenarios grouped by presets and user-created.
 struct HomeView: View {
   @Environment(AppDependencies.self) private var dependencies
+  @Environment(AppRouter.self) private var router
   @State private var viewModel: HomeViewModel?
-  @State private var navigationPath = NavigationPath()
 
   var body: some View {
-    NavigationStack(path: $navigationPath) {
+    @Bindable var router = router
+    return NavigationStack(path: $router.path) {
       Group {
         if let viewModel {
           scenarioList(viewModel: viewModel)
@@ -42,7 +43,7 @@ struct HomeView: View {
     // Refresh the list whenever the user navigates back to root.
     // `.task` only runs on initial mount; pushed views like the editor
     // don't re-trigger it on dismiss.
-    .onChange(of: navigationPath.count) { oldCount, newCount in
+    .onChange(of: router.path.count) { oldCount, newCount in
       if newCount < oldCount {
         Task {
           await viewModel?.loadScenarios()

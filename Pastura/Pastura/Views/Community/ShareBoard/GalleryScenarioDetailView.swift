@@ -3,14 +3,19 @@ import SwiftUI
 /// Detail view for a single gallery scenario. Renders the scenario metadata
 /// and the primary action button (`Try` / `Update` / `Open` depending on
 /// local install state).
+///
+/// All deep navigation goes through `AppRouter`. Mixing
+/// `navigationDestination(item:)` here previously caused a regression
+/// where `Run Simulation` from the installed `ScenarioDetailView`
+/// would re-render the gallery destination instead of advancing.
 struct GalleryScenarioDetailView: View {
   let scenario: GalleryScenario
 
   @Environment(AppDependencies.self) private var dependencies
+  @Environment(AppRouter.self) private var router
   @State private var viewModel: ShareBoardViewModel?
   @State private var isWorking = false
   @State private var outcomeAlert: OutcomeAlert?
-  @State private var installedToken: InstalledToken?
 
   var body: some View {
     Group {
@@ -30,9 +35,6 @@ struct GalleryScenarioDetailView: View {
     }
     .alert(item: $outcomeAlert) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
-    }
-    .navigationDestination(item: $installedToken) { token in
-      ScenarioDetailView(scenarioId: token.id)
     }
   }
 
@@ -98,8 +100,9 @@ struct GalleryScenarioDetailView: View {
     viewModel: ShareBoardViewModel, installed: Bool, hasUpdate: Bool
   ) async {
     if installed && !hasUpdate {
-      // Already up to date — just navigate to the stored copy.
-      installedToken = InstalledToken(id: scenario.id)
+      // Already up to date — no install needed; jump straight to the
+      // local copy via the same router pattern as the post-install path.
+      pushToInstalled(scenarioId: scenario.id)
       return
     }
     isWorking = true
@@ -111,7 +114,7 @@ struct GalleryScenarioDetailView: View {
   private func handle(_ outcome: ShareBoardViewModel.TryOutcome) {
     switch outcome {
     case .installed(let id), .updated(let id):
-      installedToken = InstalledToken(id: id)
+      pushToInstalled(scenarioId: id)
     case .conflict(let existingName, _):
       outcomeAlert = OutcomeAlert(
         title: "Cannot install",
@@ -128,14 +131,15 @@ struct GalleryScenarioDetailView: View {
       outcomeAlert = OutcomeAlert(title: "Download failed", message: description)
     }
   }
-}
 
-// MARK: - Navigation helpers
-
-/// Wraps a scenario id so it can drive `navigationDestination(item:)`
-/// without a retroactive `Identifiable` conformance on `String`.
-private struct InstalledToken: Identifiable, Hashable {
-  let id: String
+  /// Push only when this view is still on top of the path. Guards against
+  /// pushing onto an unrelated screen if the user popped back during the
+  /// async install.
+  private func pushToInstalled(scenarioId: String) {
+    router.pushIfOnTop(
+      expected: .galleryScenarioDetail(scenario: scenario),
+      next: .scenarioDetail(scenarioId: scenarioId))
+  }
 }
 
 private struct OutcomeAlert: Identifiable {
