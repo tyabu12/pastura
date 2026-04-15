@@ -57,7 +57,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private(set) var isCompleted = false
   private(set) var isCancelled = false
   private(set) var errorMessage: String?
-  var showAllThoughts = false
+  // Default ON: inner thoughts provide interpretive context without drawbacks.
+  var showAllThoughts = true
   var showDebugOutput = false
   var speed: PlaybackSpeed = .normal
 
