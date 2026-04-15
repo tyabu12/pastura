@@ -156,8 +156,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     case .agentOutput(let agent, let output, let phaseType):
       AgentOutputRow(
         agent: agent, output: output, phaseType: phaseType,
-        showAllThoughts: viewModel.showAllThoughts,
-        showDebug: viewModel.showDebugOutput
+        showAllThoughts: viewModel.showAllThoughts
       )
       .padding(.horizontal)
     case .phaseStarted(let phaseType):
@@ -248,15 +247,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
           .font(.title3)
           .foregroundStyle(viewModel.showAllThoughts ? .purple : .secondary)
-      }
-
-      // Debug toggle
-      Button {
-        viewModel.showDebugOutput.toggle()
-      } label: {
-        Image(systemName: viewModel.showDebugOutput ? "ladybug.fill" : "ladybug")
-          .font(.title3)
-          .foregroundStyle(viewModel.showDebugOutput ? .orange : .secondary)
       }
 
       // Scoreboard

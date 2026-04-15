@@ -6,7 +6,6 @@ struct AgentOutputRow: View {
   let output: TurnOutput
   let phaseType: PhaseType
   let showAllThoughts: Bool
-  let showDebug: Bool
 
   @State private var showInnerThought = false
 
@@ -54,18 +53,6 @@ struct AgentOutputRow: View {
         }
       }
 
-      // Debug: raw fields
-      if showDebug {
-        VStack(alignment: .leading, spacing: 2) {
-          ForEach(output.fields.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-            Text("\(key): \(value)")
-              .font(.caption2.monospaced())
-              .foregroundStyle(.orange)
-          }
-        }
-        .padding(6)
-        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-      }
     }
     .padding(.vertical, 4)
   }
