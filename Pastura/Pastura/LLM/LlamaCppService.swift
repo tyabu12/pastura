@@ -104,8 +104,15 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   ///   and buffers are re-allocated. Each `generate()` call clears the KV cache,
   ///   so no inference state is lost across reloads.
   ///
+  /// - Note: Any attached ``SuspendController`` is preserved across the
+  ///   unload/reload cycle, so the App layer can keep using the same
+  ///   reference. This is enforced via `defer` so the preservation also
+  ///   holds on failure paths (e.g., the new load throws).
+  ///
   /// - Parameter gpuAcceleration: Desired GPU acceleration mode for the new load.
   public func reloadModel(gpuAcceleration: GPUAcceleration) async throws {
+    let preservedController = suspendController
+    defer { suspendController = preservedController }
     try await unloadModel()
     try await loadModelInternal(gpuAcceleration: gpuAcceleration)
   }

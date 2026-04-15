@@ -197,6 +197,19 @@ struct LlamaCppServiceTests {
     #expect(service.suspendController == nil)
   }
 
+  @Test func reloadModelPreservesSuspendControllerAcrossFailure() async {
+    // Even if reload throws (invalid path), the previously attached controller
+    // must still be in place — the App layer's reference must survive the
+    // unload/load cycle without any explicit re-attach.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+
+    try? await service.reloadModel(gpuAcceleration: .none)
+
+    #expect(service.suspendController === controller)
+  }
+
   // Note: cooperative suspend behavior inside the generate auto-regressive
   // loop and the prefill loop is exercised end-to-end by the integration
   // tests in step 18 (real model required to actually enter the loop).
