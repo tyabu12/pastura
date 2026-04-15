@@ -49,6 +49,20 @@ import Testing
     #expect(router.path == [.results(scenarioId: "y"), .resultDetail(simulationId: "z")])
   }
 
+  @Test func replacePathWithEmptyClearsPath() {
+    let router = AppRouter()
+    router.push(.shareBoard)
+    router.push(.scenarioDetail(scenarioId: "x"))
+    router.replacePath([])
+    #expect(router.path.isEmpty)
+  }
+
+  @Test func replacePathFromEmptySeedsPath() {
+    let router = AppRouter()
+    router.replacePath([.shareBoard, .scenarioDetail(scenarioId: "x")])
+    #expect(router.path == [.shareBoard, .scenarioDetail(scenarioId: "x")])
+  }
+
   // MARK: - pushIfOnTop guard
 
   @Test func pushIfOnTopAppendsWhenExpectedMatches() {
@@ -86,6 +100,21 @@ import Testing
       next: .scenarioDetail(scenarioId: "x"))
     #expect(!pushed)
     #expect(router.path.isEmpty)
+  }
+
+  @Test func pushIfOnTopSkipsWhenExpectedIsMidStackNotTop() {
+    // Pins the `top` semantics: `expected` being anywhere in the path is
+    // not enough — it must be the current top. Guards against a future
+    // well-meaning refactor that loosens the check to `path.contains`.
+    let router = AppRouter()
+    router.push(.shareBoard)
+    router.push(.scenarioDetail(scenarioId: "x"))  // shareBoard is now mid-stack
+
+    let pushed = router.pushIfOnTop(
+      expected: .shareBoard,
+      next: .results(scenarioId: "y"))
+    #expect(!pushed)
+    #expect(router.path == [.shareBoard, .scenarioDetail(scenarioId: "x")])
   }
 
   // MARK: - Helpers

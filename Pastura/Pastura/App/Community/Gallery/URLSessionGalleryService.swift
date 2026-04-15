@@ -29,7 +29,7 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
 
   /// Default remote URL for the gallery index.
   ///
-  /// In Debug builds, the `PASTURA_GALLERY_URL` environment variable
+  /// In Debug builds, the `PASTURA_GALLERY_BASE_URL` environment variable
   /// (set on the Run scheme) overrides the hardcoded base so a developer
   /// can point the app at a feature-branch gallery directory without
   /// rebuilding. The override is treated as a **directory** URL — the

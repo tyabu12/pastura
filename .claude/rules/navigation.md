@@ -90,9 +90,11 @@ When reviewing changes that touch navigation:
 - [ ] Programmatic pushes from `await` callsites use `pushIfOnTop` rather
       than raw `push` (unless the call cannot be reached after the originating
       view is popped).
-- [ ] No direct `router.path.append(...)` / `router.path = ...` outside
-      `AppRouter` itself. Grep:
-      `rg 'router\.path\.' Pastura --glob '!**/AppRouter*'` should be empty.
+- [ ] No direct mutation of `router.path` outside `AppRouter` itself.
+      Grep (mutation patterns only — `.count` / `.last` / `.isEmpty` reads
+      are fine):
+      `rg 'router\.path\s*(=[^=]|\.append|\.removeLast|\.removeAll|\.insert|\.remove\b)' Pastura --glob '!**/AppRouter*'`
+      should be empty.
 - [ ] No new properties on `AppRouter` beyond navigation-path management.
 
 ## Manual QA scenarios (no UI test target yet)
@@ -108,7 +110,14 @@ Run these whenever the navigation surface changes:
    Expected: each pop returns one screen, not all the way to root.
 3. **Editor save → return to Home** — From Home, open New Scenario, save,
    confirm Home reloads with the new scenario showing (the
-   `onChange(of: router.path.count)` reload trigger).
-4. **Background → foreground during Try** — Tap Try, immediately background
-   the app, wait a few seconds, return. Expected: install completes silently,
-   no spurious push onto an unrelated screen.
+   `onChange(of: router.path.count)` reload trigger). Note: the trigger
+   only fires when `newCount < oldCount` (a pop). Flows that finish by
+   pushing forward — e.g. editor save then push to the new scenario's
+   detail — bypass this reload; if such a flow is added, surface the
+   write through the ViewModel rather than relying on the pop-trigger.
+4. **Swipe-back during Try** — Tap Try, immediately swipe back to dismiss
+   `GalleryScenarioDetailView` while the install is still running. Expected:
+   install completes in the background, the gallery's `pushIfOnTop` guard
+   sees the view is no longer on top, and no spurious push to
+   `ScenarioDetailView` occurs. (Backgrounding the app does **not** pop
+   views, so it does not exercise this guard.)

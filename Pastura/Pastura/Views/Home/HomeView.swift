@@ -7,6 +7,9 @@ struct HomeView: View {
   @State private var viewModel: HomeViewModel?
 
   var body: some View {
+    // `@Bindable` shadow: an `@Observable` injected via `@Environment` is
+    // immutable on the read side; the local `@Bindable` rebinding lets us
+    // derive `$router.path` for `NavigationStack`'s path binding.
     @Bindable var router = router
     return NavigationStack(path: $router.path) {
       Group {

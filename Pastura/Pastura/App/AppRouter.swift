@@ -48,8 +48,11 @@ final class AppRouter {
   ///
   /// Use this after an `await`ed operation to avoid landing the user on
   /// an unrelated screen if the originating view was popped during the
-  /// suspension (background → foreground, swipe-back during async load,
-  /// etc.). Returns `true` when the push happened.
+  /// suspension. Concretely: a swipe-back gesture (or a programmatic
+  /// `pop`) during the await removes the originating view from `path`;
+  /// a raw `append` afterwards would push onto whatever is now on top.
+  /// `pushIfOnTop` no-ops in that case. Returns `true` when the push
+  /// happened.
   @discardableResult
   func pushIfOnTop(expected: Route, next: Route) -> Bool {
     guard path.last == expected else { return false }
