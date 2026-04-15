@@ -415,7 +415,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     guard let continuation = codePhasePersistenceContinuation else { return }
     do {
       let data = try JSONEncoder().encode(payload)
-      let jsonString = String(data: data, encoding: .utf8) ?? "{}"
+      // JSONEncoder always produces valid UTF-8, so the conversion can't fail
+      // in practice. Bail out instead of falling back to "{}" so a bogus
+      // payload does not reserve a sequenceNumber slot.
+      guard let jsonString = String(data: data, encoding: .utf8) else {
+        print("⚠️ Failed to stringify code-phase payload JSON")
+        return
+      }
       turnSequence += 1
       let record = CodePhaseEventRecord(
         id: UUID().uuidString,
