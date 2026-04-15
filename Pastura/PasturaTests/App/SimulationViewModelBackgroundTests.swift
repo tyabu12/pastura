@@ -45,17 +45,34 @@ struct SimulationViewModelBackgroundTests {
 
   @Test func scenePhaseBackgroundIsNoOpWhenNotRunning() throws {
     let sut = try makeSUT()
+    let controller = SuspendController()
+    sut.suspendController = controller
     #expect(sut.isRunning == false)
+
     sut.handleScenePhaseBackground()
+
     #expect(sut.isPaused == false, "Should not pause when simulation is not running")
+    #expect(
+      controller.isSuspendRequested() == false,
+      "Should not signal suspend when simulation is not running"
+    )
   }
 
   @Test func scenePhaseForegroundIsNoOpWhenNotRunning() async throws {
     let sut = try makeSUT()
+    // Controller is pre-suspended to detect a spurious resume.
+    let controller = SuspendController()
+    controller.requestSuspend()
+    sut.suspendController = controller
     #expect(sut.isRunning == false)
-    // Must return quickly and not throw.
+
     await sut.handleScenePhaseForeground()
+
     #expect(sut.isPaused == false)
+    #expect(
+      controller.isSuspendRequested() == true,
+      "Should not resume a parked controller when simulation is not running"
+    )
   }
 
   // MARK: - Disable is safe
@@ -74,8 +91,8 @@ struct SimulationViewModelBackgroundTests {
     #expect(sut.isBackgroundContinuationEnabled == false)
   }
 
-  // Note: the "pauses a running simulation" behavior is covered indirectly by
-  // SimulationRunnerTests (pausesBetweenPhasesNotOnlyBetweenRounds). Testing
-  // it through the VM's scenePhase handler adds nothing beyond the runner's
-  // own pause tests and is inherently racy with MockLLMService timing.
+  // Note: the positive path (scene-phase handler signals requestSuspend /
+  // resume against an in-flight run) is exercised end-to-end by Step 18's
+  // integration test, which drives a full MockLLMService run and verifies the
+  // simulation survives a suspend/resume cycle mid-round.
 }

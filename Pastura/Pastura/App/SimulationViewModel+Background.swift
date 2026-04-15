@@ -49,35 +49,49 @@ extension SimulationViewModel {
   }
 
   /// Called by `SimulationView` when `scenePhase` becomes `.background`.
-  /// Synchronously sets `isPaused` so the runner pauses at the next
-  /// phase-boundary checkpoint.
   ///
-  /// - Note: Stopping in-flight inference (so iOS doesn't deny GPU work) is
-  ///   handled separately by the SuspendController, which the ViewModel will
-  ///   signal here in step 12.
+  /// Signals the SuspendController so an in-flight `generate` exits within
+  /// milliseconds — iOS denies Metal GPU work from background within the same
+  /// window, so waiting for the phase-boundary checkpoint would race the OS
+  /// and trigger a Metal decode failure.
+  ///
+  /// `isPaused` is intentionally NOT set here: that flag is reserved for the
+  /// user-initiated pause button. Scene-phase handling goes through the
+  /// SuspendController path end-to-end.
   func handleScenePhaseBackground() {
     guard isRunning else { return }
-    isPaused = true
+    suspendController?.requestSuspend()
   }
 
   /// Called by `SimulationView` when `scenePhase` becomes `.active`.
-  /// If we switched to CPU for BG, switch back to GPU. Always completes any BG task.
+  ///
+  /// Two paths depending on the toggle state at background time:
+  ///
+  /// - **Toggle ON** (`isOnCPU == true`): the BG task activated and the model
+  ///   was reloaded on CPU. Re-park any CPU generate via `requestSuspend()`
+  ///   so `reloadModel(.full)` can claim the sequential-access guard without
+  ///   racing, swap back to GPU, then `resume()` so the parked generate
+  ///   retries on GPU.
+  /// - **Toggle OFF** / BG activation never fired (`isOnCPU == false`):
+  ///   no model reload needed — the LLM-layer reactive path already wiped
+  ///   any partial KV state when the Metal decode failed. Just `resume()`
+  ///   so the parked generate retries on GPU.
   ///
   /// Safe on iOS < 26: the CPU branch never runs (isOnCPU stays false because
   /// BG activation never fires) and `backgroundManager.completeTask` no-ops.
   func handleScenePhaseForeground() async {
     guard isRunning else { return }
 
-    // If we're running on CPU, switch back to GPU before resuming
     if isOnCPU {
+      suspendController?.requestSuspend()
       await switchToGPUInference()
     }
 
-    // Complete the BG task — we're in foreground now
     backgroundManager?.completeTask(success: true)
 
-    // Resume simulation
-    isPaused = false
+    // Wake any generate parked in `awaitResume()` so it retries on GPU.
+    // Idempotent — safe when no suspend was active.
+    suspendController?.resume()
 
     // After a FG return, the previously scheduled BG task is consumed. Reset
     // the toggle so the user can explicitly re-arm for the next BG transition.
@@ -89,33 +103,42 @@ extension SimulationViewModel {
 
   // MARK: - Private: BG task callbacks
 
-  /// Called when BG task activates. Switch inference to CPU and resume.
+  /// Called when BG task activates. The in-flight `generate` (if any) is
+  /// parked in `awaitResume()` by now — `handleScenePhaseBackground` requested
+  /// suspend before the app was backgrounded. Reload to CPU safely, then
+  /// `resume()` so the parked generate retries on CPU.
   fileprivate func handleBackgroundActivation() async {
     guard isRunning, !isCompleted, !isCancelled else {
       backgroundManager?.completeTask(success: true)
       return
     }
     await switchToCPUInference()
-    // Resume on CPU
-    isPaused = false
+    suspendController?.resume()
   }
 
   /// Called when the system expires the BG task (resource/time pressure).
+  ///
+  /// Intentionally does NOT call `resume()` — the paused SuspendController
+  /// state holds until `scenePhase = .active` takes over. Step 15 will also
+  /// flip from `setTaskCompleted(false)` to a no-resume contract on
+  /// expiration; for now we only complete the task.
   fileprivate func handleBackgroundExpiration() async {
-    isPaused = true
     backgroundManager?.completeTask(success: false)
   }
 
-  /// Waits for inference to be idle, then reloads the model on CPU.
+  /// Reloads the model on CPU.
+  ///
+  /// Quiescence is enforced by `reloadModel`'s internal `awaitGenerateIdle`.
+  /// In the BG activation flow the in-flight generate is already parked in
+  /// `awaitResume()` (because the scene-phase handler called `requestSuspend`),
+  /// so idle is reached within milliseconds rather than waiting for a full
+  /// inference to complete.
   ///
   /// Safe on iOS < 26: early returns if `currentLLM` isn't `LlamaCppService`.
   /// In practice this method only fires from the BG activation callback, which
   /// is only wired up when `canEnableBackgroundContinuation` is true (iOS 26+).
   fileprivate func switchToCPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
-    // Quiescence is enforced inside `reloadModel` via `awaitGenerateIdle`;
-    // step 12 will additionally signal the SuspendController so an in-flight
-    // generate exits in milliseconds rather than waiting up to 30s.
     isReloadingModel = true
     defer { isReloadingModel = false }
     do {
@@ -127,7 +150,10 @@ extension SimulationViewModel {
     }
   }
 
-  /// Waits for inference to be idle, then reloads the model on GPU.
+  /// Reloads the model on GPU.
+  ///
+  /// Same quiescence contract as `switchToCPUInference`: the FG return handler
+  /// calls `requestSuspend` before this so any CPU generate is parked.
   fileprivate func switchToGPUInference() async {
     guard let llama = currentLLM as? LlamaCppService else { return }
     isReloadingModel = true
