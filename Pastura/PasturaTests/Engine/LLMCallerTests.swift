@@ -16,6 +16,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      suspendController: SuspendController(),
       emitter: collector.emit
     )
 
@@ -33,6 +34,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      suspendController: SuspendController(),
       emitter: collector.emit
     )
 
@@ -50,6 +52,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      suspendController: SuspendController(),
       emitter: collector.emit
     )
 
@@ -67,6 +70,7 @@ struct LLMCallerTests {
     await #expect(throws: SimulationError.self) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        suspendController: SuspendController(),
         emitter: collector.emit
       )
     }
@@ -82,6 +86,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     _ = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      suspendController: SuspendController(),
       emitter: collector.emit
     )
 
@@ -106,8 +111,120 @@ struct LLMCallerTests {
     await #expect(throws: SimulationError.self) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        suspendController: SuspendController(),
         emitter: collector.emit
       )
+    }
+  }
+
+  // MARK: - Suspend / resume
+
+  @Test func suspendThrowDoesNotConsumeRetryBudget() async throws {
+    // Three suspend throws then a valid response. Without the no-consume
+    // contract, the parse-retry budget (2) would be exhausted and the call
+    // would fail. With it, all suspends are absorbed transparently.
+    let mock = MockLLMService(responses: [#"{"statement": "ok"}"#])
+    try await mock.loadModel()
+    mock.simulateSuspendOnNextGenerate()
+    mock.simulateSuspendOnNextGenerate()
+    mock.simulateSuspendOnNextGenerate()
+
+    let collector = EventCollector()
+    let result = try await caller.call(
+      llm: mock, system: "s", user: "u", agentName: "Alice",
+      suspendController: SuspendController(),
+      emitter: collector.emit
+    )
+
+    #expect(result.statement == "ok")
+    // generateCallCount counts responses consumed (not generate attempts).
+    // Suspend throws don't consume a response slot, so the 3 suspends leave
+    // the counter at exactly 1 from the final successful response.
+    #expect(mock.generateCallCount == 1)
+  }
+
+  @Test func suspendCycleAwaitsControllerResume() async throws {
+    // Real controller path: mock consults the controller's suspend flag.
+    // While suspended, LLMCaller parks on awaitResume; once resumed externally
+    // the same prompt is re-issued and succeeds.
+    let mock = MockLLMService(responses: [#"{"statement": "ok"}"#])
+    try await mock.loadModel()
+    let controller = SuspendController()
+    await mock.attachSuspendController(controller)
+    controller.requestSuspend()
+
+    let collector = EventCollector()
+    let callTask = Task<TurnOutput, Error> {
+      try await caller.call(
+        llm: mock, system: "s", user: "u", agentName: "Alice",
+        suspendController: controller,
+        emitter: collector.emit
+      )
+    }
+
+    // Give the call time to hit the suspend and park.
+    try await Task.sleep(for: .milliseconds(50))
+    controller.resume()
+
+    let result = try await callTask.value
+    #expect(result.statement == "ok")
+    // One response consumed — the first generate threw .suspended without
+    // consuming a slot, the second returned the response.
+    #expect(mock.generateCallCount == 1)
+  }
+
+  @Test func inferenceEventsEmittedOncePerAttemptAcrossSuspends() async throws {
+    // Suspend retries within a single parse-attempt must NOT emit additional
+    // inferenceStarted/Completed pairs — UI would otherwise flicker the
+    // "thinking" indicator for every BG/FG cycle.
+    let mock = MockLLMService(responses: [#"{"statement": "hi"}"#])
+    try await mock.loadModel()
+    mock.simulateSuspendOnNextGenerate()
+    mock.simulateSuspendOnNextGenerate()
+
+    let collector = EventCollector()
+    _ = try await caller.call(
+      llm: mock, system: "s", user: "u", agentName: "Alice",
+      suspendController: SuspendController(),
+      emitter: collector.emit
+    )
+
+    let started = collector.events.filter {
+      if case .inferenceStarted(let name) = $0 { return name == "Alice" }
+      return false
+    }
+    let completed = collector.events.filter {
+      if case .inferenceCompleted(let name, _) = $0 { return name == "Alice" }
+      return false
+    }
+    #expect(started.count == 1, "expected exactly 1 inferenceStarted, got \(started.count)")
+    #expect(completed.count == 1, "expected exactly 1 inferenceCompleted, got \(completed.count)")
+  }
+
+  @Test func cancellationDuringAwaitResumeBailsOut() async throws {
+    // If the owning Task is cancelled while the controller is suspended,
+    // the call must throw promptly instead of looping forever.
+    let mock = MockLLMService(responses: [#"{"statement": "ok"}"#])
+    try await mock.loadModel()
+    let controller = SuspendController()
+    await mock.attachSuspendController(controller)
+    controller.requestSuspend()
+
+    let collector = EventCollector()
+    let callTask = Task<TurnOutput, Error> {
+      try await caller.call(
+        llm: mock, system: "s", user: "u", agentName: "Alice",
+        suspendController: controller,
+        emitter: collector.emit
+      )
+    }
+
+    try await Task.sleep(for: .milliseconds(50))
+    callTask.cancel()
+    // awaitResume returns on cancel; Task.checkCancellation throws → wrapped
+    // as SimulationError.llmGenerationFailed by LLMCaller.
+    await #expect(throws: SimulationError.self) {
+      _ = try await callTask.value
     }
   }
 }
