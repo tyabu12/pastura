@@ -91,6 +91,22 @@ struct SimulationViewModelBackgroundTests {
     #expect(sut.isBackgroundContinuationEnabled == false)
   }
 
+  // MARK: - Toggle OFF invariants
+
+  /// Toggle OFF means `isBackgroundContinuationEnabled` stays false and the
+  /// BG task is never scheduled. The scene-phase handlers must still function
+  /// (they signal the SuspendController regardless of toggle), but no reload
+  /// or completeTask activity should fire in the absence of a scheduled task.
+  @Test func toggleOFFDisableIsSafeWithoutSchedule() throws {
+    let bgManager = BackgroundSimulationManager()
+    let sut = try makeSUT(backgroundManager: bgManager)
+    #expect(sut.isBackgroundContinuationEnabled == false)
+
+    // With no pending BG task and no LLM, both paths must be safe.
+    sut.disableBackgroundContinuation()
+    #expect(sut.isBackgroundContinuationEnabled == false)
+  }
+
   // Note: the positive path (scene-phase handler signals requestSuspend /
   // resume against an in-flight run) is exercised end-to-end by Step 18's
   // integration test, which drives a full MockLLMService run and verifies the

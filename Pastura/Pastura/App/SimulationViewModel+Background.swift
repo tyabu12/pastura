@@ -4,6 +4,19 @@ import Foundation
 //
 // Adds iOS 26+ BGContinuedProcessingTask integration to SimulationViewModel.
 // See ADR-003 for the design and safe-reload pattern.
+//
+// Suspend/resume semantics (Step 13 / 14):
+// - `handleScenePhaseBackground` is toggle-agnostic: it always calls
+//   `suspendController?.requestSuspend()`. The difference between Toggle ON
+//   and Toggle OFF manifests at BG task activation time, not at suspend time.
+// - Toggle ON: `handleBackgroundActivation` fires (because a BG request was
+//   scheduled), reloads the model on CPU, then `resume()`s so the parked
+//   generate retries on CPU.
+// - Toggle OFF: no BG task activation. The parked generate stays parked
+//   until `handleScenePhaseForeground` calls `resume()`. Partial KV-cache
+//   cleanup on a Metal-induced decode failure is handled by the LLM layer
+//   (`LlamaCppService.decodeFailureError` → `llama_memory_clear`) so the
+//   retry on GPU starts from a clean state.
 
 extension SimulationViewModel {
 
