@@ -35,9 +35,18 @@ nonisolated public final class DatabaseManager: Sendable {
   /// Safe to call multiple times — GRDB's `DatabaseMigrator` skips
   /// already-applied migrations.
   public static func applyMigrations(to writer: any DatabaseWriter) throws {
+    try makeMigrator().migrate(writer)
+  }
+
+  /// Returns the configured `DatabaseMigrator` without applying it.
+  ///
+  /// Used by tests (via `@testable import`) to migrate up to a specific
+  /// version with `migrate(writer, upTo:)` and verify behaviour on seeded
+  /// data. Not part of the public API.
+  static func makeMigrator() -> DatabaseMigrator {
     var migrator = DatabaseMigrator()
     registerMigrations(&migrator)
-    try migrator.migrate(writer)
+    return migrator
   }
 
   // MARK: - Private
@@ -50,6 +59,51 @@ nonisolated public final class DatabaseManager: Sendable {
   }
 
   private static func registerMigrations(_ migrator: inout DatabaseMigrator) {
+    registerV1(&migrator)
+
+    migrator.registerMigration("v2_addSequenceNumberToTurns") { db in
+      try db.alter(table: "turns") { t in
+        t.add(column: "sequenceNumber", .integer).notNull().defaults(to: 0)
+      }
+    }
+
+    migrator.registerMigration("v3_addModelInfoToSimulations") { db in
+      try db.alter(table: "simulations") { t in
+        t.add(column: "modelIdentifier", .text)
+        t.add(column: "llmBackend", .text)
+      }
+    }
+
+    migrator.registerMigration("v4_addScenarioSourceColumns") { db in
+      // Nullable TEXT columns with no default: existing rows stay as NULL
+      // (locally authored / bundled preset). Non-nil only for gallery imports.
+      try db.alter(table: "scenarios") { t in
+        t.add(column: "sourceType", .text)
+        t.add(column: "sourceId", .text)
+        t.add(column: "sourceHash", .text)
+      }
+    }
+
+    migrator.registerMigration("v5_createCodePhaseEventsTable") { db in
+      try db.create(table: "code_phase_events") { t in
+        t.primaryKey("id", .text)
+        t.column("simulationId", .text).notNull()
+          .references("simulations", onDelete: .cascade)
+        t.column("roundNumber", .integer).notNull()
+        t.column("phaseType", .text).notNull()
+        t.column("sequenceNumber", .integer).notNull()
+        t.column("payloadJSON", .text).notNull()
+        t.column("createdAt", .datetime).notNull()
+      }
+
+      try db.create(
+        index: "idx_code_phase_events_simulation_round",
+        on: "code_phase_events",
+        columns: ["simulationId", "roundNumber"])
+    }
+  }
+
+  private static func registerV1(_ migrator: inout DatabaseMigrator) {
     migrator.registerMigration("v1_createTables") { db in
       try db.create(table: "scenarios") { t in
         t.primaryKey("id", .text)
@@ -90,12 +144,6 @@ nonisolated public final class DatabaseManager: Sendable {
         index: "idx_turns_simulation_round",
         on: "turns",
         columns: ["simulationId", "roundNumber"])
-    }
-
-    migrator.registerMigration("v2_addSequenceNumberToTurns") { db in
-      try db.alter(table: "turns") { t in
-        t.add(column: "sequenceNumber", .integer).notNull().defaults(to: 0)
-      }
     }
   }
 }

@@ -34,6 +34,8 @@ private func makeLifecycleSUT(
 /// LLM service that always fails on loadModel, for testing error paths.
 nonisolated struct FailingLLMService: LLMService, Sendable {
   var isModelLoaded: Bool { false }
+  var modelIdentifier: String { "failing-mock" }
+  var backendIdentifier: String { "mock" }
   func loadModel() async throws { throw LLMError.notLoaded }
   func unloadModel() async throws {}
   func generate(system: String, user: String) async throws -> String {
@@ -203,9 +205,11 @@ struct SimulationViewModelLifecycleTests {
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
     #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.modelIdentifier == "mock")
+    #expect(sims.first?.llmBackend == "mock")
   }
 
-  @Test func runMarksStatusCompletedOnEngineError() async throws {
+  @Test func runMarksStatusFailedOnEngineError() async throws {
     let db = try DatabaseManager.inMemory()
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
     let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
@@ -232,10 +236,10 @@ struct SimulationViewModelLifecycleTests {
     #expect(sut.errorMessage != nil)
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
-    #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.simulationStatus == .failed)
   }
 
-  @Test func runMarksStatusCompletedOnLLMLoadFailure() async throws {
+  @Test func runMarksStatusFailedOnLLMLoadFailure() async throws {
     let db = try DatabaseManager.inMemory()
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
     let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
@@ -256,7 +260,7 @@ struct SimulationViewModelLifecycleTests {
     #expect(sut.errorMessage != nil)
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
-    #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.simulationStatus == .failed)
   }
 
   // MARK: - Multi-Phase E2E Tests

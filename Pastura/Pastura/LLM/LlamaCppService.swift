@@ -176,6 +176,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     suspendController = controller
   }
 
+  // Hardcoded in MVP because this service is wired only to the bundled Gemma 4 E2B
+  // Q4_K_M GGUF. When multiple models ship, read from GGUF metadata at loadModel().
+  public let modelIdentifier = "Gemma 4 E2B (Q4_K_M)"
+  public let backendIdentifier = "llama.cpp"
+
   /// Maps a non-zero `llama_decode` result to either ``LLMError/suspended``
   /// (when an external suspend was requested — usually because iOS denied
   /// background GPU work mid-decode) or ``LLMError/generationFailed(description:)``

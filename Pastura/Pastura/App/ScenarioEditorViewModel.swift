@@ -164,11 +164,18 @@ final class ScenarioEditorViewModel {
   }
 
   /// Loads an existing scenario for editing (preserves original ID).
+  /// Gallery-sourced rows are read-only and refuse to load for editing.
   func loadForEditing(scenarioId: String) async {
     do {
       if let record = try await offMain({ [repository] in
         try repository.fetchById(scenarioId)
       }) {
+        if record.sourceType == ScenarioSourceType.gallery {
+          validationErrors = [
+            "Gallery scenarios are read-only. Use Share Board to update."
+          ]
+          return
+        }
         let scenario = try loader.load(yaml: record.yamlDefinition)
         populateFromScenario(scenario)
         yamlText = record.yamlDefinition
@@ -285,6 +292,13 @@ final class ScenarioEditorViewModel {
       }) {
         if existing.isPreset {
           validationErrors = ["Cannot overwrite preset scenario '\(existing.name)'"]
+          return false
+        }
+        if existing.sourceType == ScenarioSourceType.gallery {
+          validationErrors = [
+            "Cannot overwrite gallery scenario '\(existing.name)'. "
+              + "Use Share Board to update, or delete the local copy first."
+          ]
           return false
         }
       }

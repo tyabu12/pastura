@@ -12,6 +12,7 @@ final class AppDependencies: @unchecked Sendable {
   let scenarioRepository: any ScenarioRepository
   let simulationRepository: any SimulationRepository
   let turnRepository: any TurnRepository
+  let codePhaseEventRepository: any CodePhaseEventRepository
 
   /// The LLM service used for simulation execution.
   /// Defaults to `OllamaService` for development.
@@ -22,20 +23,26 @@ final class AppDependencies: @unchecked Sendable {
   /// opts into background continuation via the toggle in `SimulationView`.
   let backgroundManager: BackgroundSimulationManager
 
+  /// Service that fetches the remote Share Board (gallery) index and YAMLs.
+  let galleryService: any GalleryService
+
   private let databaseManager: DatabaseManager
 
   init(
     databaseManager: DatabaseManager,
     llmService: (any LLMService)? = nil,
-    backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager()
+    backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager(),
+    galleryService: (any GalleryService)? = nil
   ) {
     self.databaseManager = databaseManager
     let writer = databaseManager.dbWriter
     self.scenarioRepository = GRDBScenarioRepository(dbWriter: writer)
     self.simulationRepository = GRDBSimulationRepository(dbWriter: writer)
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
+    self.codePhaseEventRepository = GRDBCodePhaseEventRepository(dbWriter: writer)
     self.llmService = llmService ?? OllamaService()
     self.backgroundManager = backgroundManager
+    self.galleryService = galleryService ?? URLSessionGalleryService()
   }
 
   /// Creates a production instance with persistent SQLite storage.

@@ -46,6 +46,16 @@ nonisolated public protocol LLMService: Sendable {
   /// - Parameter controller: The controller this service should consult for
   ///   suspend signals. Pass `nil` to detach.
   func attachSuspendController(_ controller: SuspendController?) async
+
+  /// Human-readable label for the currently-loaded model (e.g.
+  /// `"Gemma 4 E2B (Q4_K_M)"`, `"gemma4:e2b"`, `"mock"`). Intended for
+  /// display / export metadata — **not** a stable parse key.
+  var modelIdentifier: String { get }
+
+  /// Human-readable label for the backend runtime driving inference (e.g.
+  /// `"llama.cpp"`, `"Ollama"`, `"mock"`). Intended for display / export
+  /// metadata — **not** a stable parse key.
+  var backendIdentifier: String { get }
 }
 
 extension LLMService {
