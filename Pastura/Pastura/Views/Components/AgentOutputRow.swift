@@ -167,15 +167,48 @@ struct AgentOutputRow: View {
 
     animationTask?.cancel()
     let delayNanos = UInt64(1_000_000_000.0 / cps)
+    let primaryLen = primaryText?.count ?? 0
+    // Full content string for character lookup. `showAllThoughts` may toggle
+    // mid-typing; `targetLength` controls the cap, but the underlying
+    // characters are always here.
+    let fullContent = (primaryText ?? "") + (output.innerThought ?? "")
+
     animationTask = Task { @MainActor in
       // Re-read `targetLength` each tick so a mid-typing `showAllThoughts`
       // flip to true extends the animation into the thought without restart.
       while !Task.isCancelled && visibleChars < targetLength {
         try? await Task.sleep(nanoseconds: delayNanos)
         if Task.isCancelled { return }
-        visibleChars = min(visibleChars + 1, targetLength)
+        let newPosition = min(visibleChars + 1, targetLength)
+        visibleChars = newPosition
+
+        // Punctuation-aware pause: after revealing a sentence terminator or
+        // comma, wait a little longer so the reader registers the beat.
+        let revealed = characterAt(index: newPosition - 1, in: fullContent)
+        let extraMs = revealed.map(punctuationPauseMs(after:)) ?? 0
+        if extraMs > 0 {
+          try? await Task.sleep(nanoseconds: UInt64(extraMs) * 1_000_000)
+          if Task.isCancelled { return }
+        }
+
+        // Statement → thought boundary beat: when we've just finished the
+        // primary text and there's thought still to type, insert a rhetorical
+        // pause before switching to italic thought reveal.
+        if newPosition == primaryLen && primaryLen < targetLength {
+          try? await Task.sleep(
+            nanoseconds: UInt64(statementToThoughtPauseMs) * 1_000_000)
+          if Task.isCancelled { return }
+        }
       }
     }
+  }
+
+  /// Returns the character at `index` in `text`, or nil if out of range.
+  /// O(index) because Swift's `String.Index` is not a constant-time offset,
+  /// but tolerable here (typical outputs are a few hundred chars).
+  private func characterAt(index: Int, in text: String) -> Character? {
+    guard index >= 0, index < text.count else { return nil }
+    return text[text.index(text.startIndex, offsetBy: index)]
   }
 
   private func snapToFull() {
