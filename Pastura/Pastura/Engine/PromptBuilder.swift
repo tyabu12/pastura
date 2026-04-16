@@ -25,6 +25,17 @@ nonisolated struct PromptBuilder: Sendable {
     return result
   }
 
+  // MARK: - Scoreboard
+
+  /// Serializes a score dictionary into a compact JSON-like string for template injection.
+  ///
+  /// Keys are sorted alphabetically so output is deterministic regardless of dictionary order.
+  func formatScoreboard(_ scores: [String: Int]) -> String {
+    let pairs = scores.sorted { $0.key < $1.key }
+      .map { "\"\($0.key)\": \($0.value)" }
+    return "{\(pairs.joined(separator: ", "))}"
+  }
+
   // MARK: - Conversation Log
 
   /// Serializes structured conversation entries into a plain text string for prompt injection.

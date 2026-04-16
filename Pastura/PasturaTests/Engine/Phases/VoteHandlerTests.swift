@@ -80,6 +80,30 @@ struct VoteHandlerTests {
     #expect(mock.generateCallCount == 2)
   }
 
+  @Test func populatesVoteResultsStateVariable() async throws {
+    // Key must be "vote_results" (plural) to match the {vote_results} placeholder
+    // documented in PhaseEditorSheet and used by the word_wolf preset.
+    let mock = MockLLMService(responses: [
+      #"{"vote": "Bob"}"#,
+      #"{"vote": "Alice"}"#,
+      #"{"vote": "Alice"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      phases: [Phase(type: .vote, prompt: "Vote!", outputSchema: ["vote": "string"])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(state.variables["vote_results"] == #"{"Alice": 2, "Bob": 1}"#)
+    #expect(state.variables["vote_result"] == nil)
+  }
+
   @Test func acceptsInvalidVoteTarget() async throws {
     let mock = MockLLMService(responses: [
       #"{"vote": "NonExistent"}"#,
