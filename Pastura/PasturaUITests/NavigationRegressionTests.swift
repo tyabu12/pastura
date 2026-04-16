@@ -14,6 +14,14 @@ final class NavigationRegressionTests: XCTestCase {
     continueAfterFailure = false
   }
 
+  override func tearDownWithError() throws {
+    // Explicitly terminate so the simulator releases the app process before
+    // the next test class launches a fresh one. Helps avoid "Failed to get
+    // background assertion" infrastructure errors on resource-tight CI
+    // simulators.
+    XCUIApplication().terminate()
+  }
+
   func testGalleryInstallThenRunSimulationReachesSimulationView() throws {
     let app = XCUIApplication()
     app.launchArguments = ["--ui-test"]

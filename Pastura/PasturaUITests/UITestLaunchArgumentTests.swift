@@ -4,9 +4,18 @@ import XCTest
 /// branch in `PasturaApp.initialize()` completes setup and transitions past
 /// the "Initializing..." progress view, without requiring the real LLM or
 /// network-backed `GalleryService`.
+@MainActor
 final class UITestLaunchArgumentTests: XCTestCase {
   override func setUpWithError() throws {
     continueAfterFailure = false
+  }
+
+  override func tearDownWithError() throws {
+    // Explicitly terminate so the simulator releases the app process before
+    // the next test class launches a fresh one. Helps avoid "Failed to get
+    // background assertion" infrastructure errors on resource-tight CI
+    // simulators.
+    XCUIApplication().terminate()
   }
 
   func testAppLaunchesPastInitializingWithUITestArgument() throws {

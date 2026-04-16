@@ -165,11 +165,19 @@ jobs:
           # Coverage intentionally omitted — UI tests inflate line coverage
           # without adding meaningful unit-level signal, and disabling it
           # shaves a non-trivial amount off the run.
+          # -retry-tests-on-failure auto-reruns failing tests up to
+          # -test-iterations N total times. Combined with the per-test
+          # tearDown that terminates the app, this absorbs intermittent
+          # CI-only infrastructure errors like "Failed to get background
+          # assertion" without masking real test failures (those fail on
+          # every retry).
           OUTPUT=$(xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
             -only-testing PasturaUITests \
+            -retry-tests-on-failure \
+            -test-iterations 2 \
             -resultBundlePath UITestResults.xcresult \
             -quiet \
             CODE_SIGNING_ALLOWED=NO 2>&1) || TEST_EXIT=$?
