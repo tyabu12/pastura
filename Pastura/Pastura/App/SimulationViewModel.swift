@@ -198,6 +198,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   ///   knows *why* they were paused (e.g., memoryWarning). Pass `nil` for
   ///   user-initiated pauses where no log entry is needed.
   func pauseSimulation(reason: String? = nil) {
+    // Defensive: the BG-task expiration callback may fire after run() has
+    // already exited (e.g., user cancelled, then iOS expired the BG task
+    // shortly after). Don't append spurious log entries or mutate runner
+    // state in that window.
+    guard isRunning else {
+      lifecycleLogger.info(
+        "pauseSimulation: skipped (not running). reason=\(reason ?? "user", privacy: .public)"
+      )
+      return
+    }
     lifecycleLogger.info(
       "pauseSimulation: reason=\(reason ?? "user", privacy: .public), isPaused=\(self.isPaused)"
     )

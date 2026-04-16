@@ -22,9 +22,13 @@ import os
 //   cleanup on a Metal-induced decode failure is handled by the LLM layer
 //   (`LlamaCppService.decodeFailureError` → `llama_memory_clear`) so the
 //   retry on GPU starts from a clean state.
-// - BG task expiration is deliberately NOT routed through the VM. The
-//   manager completes the task synchronously and the SuspendController stays
-//   paused until scenePhase = .active resumes it normally. See Step 15.
+// - BG task expiration: the manager completes the task synchronously, then
+//   notifies the VM via `handleBackgroundExpiration` which calls
+//   `pauseSimulation(reason:)`. This makes the expired state visible to the
+//   user on FG return (header pill + log entry) instead of leaving the
+//   simulation silently parked. The expiration callback never calls
+//   `resume()` — that path is reserved for VM-local lifecycle events
+//   (ADR-003 §10 invariant 4).
 
 extension SimulationViewModel {
 
@@ -48,12 +52,16 @@ extension SimulationViewModel {
           Task { @MainActor [weak self] in
             await self?.handleBackgroundActivation()
           }
+        },
+        onExpiration: { [weak self] in
+          // BG time exceeded: pause so the user sees a clear state on FG
+          // return. pauseSimulation only calls requestSuspend (never
+          // resume) so the §10 invariant 4 contract holds.
+          Task { @MainActor [weak self] in
+            self?.handleBackgroundExpiration()
+          }
         }
       )
-      // Expiration is handled entirely inside BackgroundSimulationManager —
-      // the VM intentionally has no expiration hook. Late-firing expiration
-      // must not race with (or be mistaken for) a normal resume, so we route
-      // all resume() calls through scenePhase = .active only.
       isBackgroundContinuationEnabled = true
     } catch {
       errorMessage = "Failed to enable background continuation: \(error.localizedDescription)"
@@ -167,6 +175,26 @@ extension SimulationViewModel {
     await switchToCPUInference()
     lifecycleLogger.info("BG task activation: switchToCPU returned, calling resume()")
     suspendController?.resume()
+  }
+
+  /// Called when the system expires the BG continuation task (time/resource
+  /// pressure). Pauses the simulation so the user sees the expired state on
+  /// FG return — without this hook the simulation appeared silently stuck
+  /// per #84 device repro.
+  ///
+  /// Goes through `pauseSimulation` (which only calls `requestSuspend()`,
+  /// never `resume()`) so the §10 invariant 4 contract — "BG task expiration
+  /// never calls `resume()`" — is preserved. The actual model reload back
+  /// to GPU happens via the normal `handleScenePhaseForeground` path on FG
+  /// return; the user can then tap the resume button to continue.
+  ///
+  /// Exposed at internal access for unit-test coverage of the no-run guard
+  /// (the BG task's expiration callback may fire after `run()` has exited).
+  func handleBackgroundExpiration() {
+    lifecycleLogger.info(
+      "BG task expiration: isRunning=\(self.isRunning), isPaused=\(self.isPaused)"
+    )
+    pauseSimulation(reason: "Background time exceeded — tap resume to continue.")
   }
 
   /// Reloads the model on CPU.

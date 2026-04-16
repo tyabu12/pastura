@@ -105,6 +105,24 @@ struct SimulationViewModelBackgroundTests {
     #expect(sut.isBackgroundContinuationEnabled == false)
   }
 
+  // MARK: - BG task expiration
+
+  /// `handleBackgroundExpiration` may fire after `run()` has already exited
+  /// (e.g., user cancelled, then iOS expired the BG task shortly after).
+  /// `pauseSimulation`'s `isRunning` guard must short-circuit the entire
+  /// callback path — no spurious log entry, no stale paused state.
+  @Test func backgroundExpirationIgnoredWhenNotRunning() throws {
+    let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
+    #expect(sut.isRunning == false)
+    #expect(sut.isPaused == false)
+
+    sut.handleBackgroundExpiration()
+
+    #expect(sut.isPaused == false, "Guard should prevent isPaused mutation")
+    #expect(sut.logEntries.isEmpty, "Guard should prevent reason log entry")
+    #expect(sut.errorMessage == nil, "Expiration must never set errorMessage")
+  }
+
   // MARK: - Toggle OFF invariants
 
   /// Toggle OFF means `isBackgroundContinuationEnabled` stays false and the
