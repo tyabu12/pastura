@@ -14,6 +14,7 @@ Completed in Phase 2 so far:
 - **Share Board** — read-only curated scenario gallery (#87/#93)
 - **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
 - **Inference speed display** — tok/s + simulation playback UX (#99)
+- **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
 
 ## Language Rules
 

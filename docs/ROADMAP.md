@@ -91,6 +91,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
 | Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
+| Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
 | E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 
