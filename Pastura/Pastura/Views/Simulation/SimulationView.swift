@@ -272,7 +272,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     HStack(spacing: 16) {
       // Pause/Resume
       Button {
-        viewModel.isPaused.toggle()
+        if viewModel.isPaused {
+          viewModel.resumeSimulation()
+        } else {
+          viewModel.pauseSimulation()
+        }
       } label: {
         Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
           .font(.title3)

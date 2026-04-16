@@ -64,10 +64,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   var showDebugOutput = false
   var speed: PlaybackSpeed = .normal
 
-  var isPaused: Bool {
-    get { runner.isPaused }
-    set { runner.isPaused = newValue }
-  }
+  /// Read-only view of the runner's pause state. Views observe this to drive
+  /// the pause-button label and "Paused" pill. **Mutation must go through
+  /// ``pauseSimulation(reason:)`` / ``resumeSimulation()``** — those methods
+  /// co-manage `runner.isPaused` and `suspendController` so an in-flight
+  /// generate is interrupted cooperatively rather than waiting for the next
+  /// phase boundary (ADR-003 §10 invariant 6).
+  var isPaused: Bool { runner.isPaused }
 
   // MARK: - Background continuation state
 
@@ -184,6 +187,36 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// `caller` defaults to the source-location `#function` of the caller, so logs
   /// immediately reveal which path triggered the cancel — invaluable for
   /// distinguishing memory-warning vs reload-failure vs explicit user cancel.
+  /// Pauses the simulation, interrupting any in-flight `generate` cooperatively.
+  ///
+  /// Co-manages `runner.isPaused` (so the runner waits at the next phase
+  /// boundary) and `suspendController` (so the in-flight generate exits within
+  /// milliseconds rather than running to completion). Pair with
+  /// ``resumeSimulation()``.
+  ///
+  /// - Parameter reason: Optional message appended to the log so the user
+  ///   knows *why* they were paused (e.g., memoryWarning). Pass `nil` for
+  ///   user-initiated pauses where no log entry is needed.
+  func pauseSimulation(reason: String? = nil) {
+    lifecycleLogger.info(
+      "pauseSimulation: reason=\(reason ?? "user", privacy: .public), isPaused=\(self.isPaused)"
+    )
+    if let reason {
+      logEntries.append(LogEntry(kind: .summary(text: reason)))
+    }
+    runner.isPaused = true
+    suspendController?.requestSuspend()
+  }
+
+  /// Resumes a paused simulation. Symmetric counterpart to
+  /// ``pauseSimulation(reason:)`` — wakes any parked generate and unblocks
+  /// the runner's phase-boundary checkpoint.
+  func resumeSimulation() {
+    lifecycleLogger.info("resumeSimulation: isPaused=\(self.isPaused)")
+    runner.isPaused = false
+    suspendController?.resume()
+  }
+
   func cancelSimulation(caller: String = #function) {
     lifecycleLogger.info(
       "cancelSimulation called by \(caller, privacy: .public): isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"

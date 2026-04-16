@@ -293,13 +293,13 @@ struct SimulationViewModelTests {
 
   // MARK: - Pause Delegation
 
-  @Test func isPausedDelegatesToRunner() throws {
+  @Test func pauseAndResumeDelegateToRunner() throws {
     let (sut, _) = try makeSUT()
 
     #expect(sut.isPaused == false)
-    sut.isPaused = true
+    sut.pauseSimulation()
     #expect(sut.isPaused == true)
-    sut.isPaused = false
+    sut.resumeSimulation()
     #expect(sut.isPaused == false)
   }
 }
