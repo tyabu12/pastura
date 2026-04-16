@@ -15,12 +15,16 @@ import os
 /// Flow:
 /// 1. App launch: `register()` registers the task handler with `BGTaskScheduler`.
 /// 2. User taps "Background continuation" toggle in the simulation view.
-/// 3. VM calls `scheduleRequest(...)` with activation/expiration callbacks.
+/// 3. VM calls `scheduleRequest(...)` with the activation callback.
 /// 4. App is backgrounded; the system activates the task and calls the registered
-///    handler, which invokes the `onActivation` callback.
-/// 5. VM handles activation: pause sim, reload model on CPU, resume sim.
+///    handler, which invokes `onActivation`.
+/// 5. VM handles activation: reload model on CPU, resume the suspended generate.
 /// 6. VM periodically calls `updateProgress(...)` so the system doesn't auto-expire.
-/// 7. On expiration, completion, or foreground return, VM calls `completeTask(success:)`.
+/// 7. On foreground return / completion, VM calls `completeTask(success:)`.
+/// 8. On expiration (resource/time pressure), the manager's internal expiration
+///    handler synchronously calls `setTaskCompleted(success: false)` and clears
+///    state — the VM is NOT notified. This prevents any expiration-triggered
+///    resume() from racing with the normal scenePhase-driven resume path.
 ///
 /// - Important: All methods are no-ops before iOS 26. Check `isSupported` before use.
 nonisolated public final class BackgroundSimulationManager: @unchecked Sendable {
@@ -39,7 +43,6 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
     // actual type is `BGContinuedProcessingTask` when set (only on iOS 26+).
     var activeTask: Any?
     var onActivation: (@Sendable () -> Void)?
-    var onExpiration: (@Sendable () -> Void)?
   }
 
   public init() {}
@@ -72,27 +75,29 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
   /// Schedules a background continuation request.
   ///
   /// Must be called in response to an explicit user action (BGContinuedProcessingTask
-  /// requires user initiation). The callbacks are invoked when the system activates
-  /// the task (after app backgrounds) or needs to expire it.
+  /// requires user initiation). `onActivation` is invoked when the system
+  /// activates the task after the app backgrounds.
+  ///
+  /// Expiration is handled internally: when the system expires the task, the
+  /// manager synchronously calls `setTaskCompleted(success: false)` and clears
+  /// state. The caller is **not** notified — the SuspendController remains
+  /// paused until `scenePhase = .active` triggers the foreground-resume path.
+  /// This avoids any possibility of expiration racing with resume.
   ///
   /// - Parameters:
   ///   - title: Short title shown in the system UI (e.g., "Simulation running").
   ///   - subtitle: Subtitle with more detail (e.g., scenario title).
   ///   - onActivation: Called when the task becomes active after backgrounding.
   ///     This is where the VM should switch from GPU to CPU inference.
-  ///   - onExpiration: Called when the system needs to end the task (resource
-  ///     pressure, time limit, user stop). VM should pause and flush state.
   /// - Throws: `BGTaskScheduler.Error` if the request is rejected.
   @available(iOS 26, *)
   public func scheduleRequest(
     title: String,
     subtitle: String,
-    onActivation: @escaping @Sendable () -> Void,
-    onExpiration: @escaping @Sendable () -> Void
+    onActivation: @escaping @Sendable () -> Void
   ) throws {
     state.withLock { state in
       state.onActivation = onActivation
-      state.onExpiration = onExpiration
     }
 
     let request = BGContinuedProcessingTaskRequest(
@@ -108,11 +113,10 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
       try BGTaskScheduler.shared.submit(request)
       logger.info("Scheduled BG continuation request: \(title)")
     } catch {
-      // Clear the callbacks we just stored so a retry with different callbacks
-      // doesn't leave stale closures around.
+      // Clear the callback we just stored so a retry with different callbacks
+      // doesn't leave a stale closure around.
       state.withLock { state in
         state.onActivation = nil
-        state.onExpiration = nil
       }
       throw error
     }
@@ -146,7 +150,6 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
       let active = state.activeTask as? BGContinuedProcessingTask
       state.activeTask = nil
       state.onActivation = nil
-      state.onExpiration = nil
       return active
     }
     task?.setTaskCompleted(success: success)
@@ -164,7 +167,6 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
     BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskIdentifier)
     state.withLock { state in
       state.onActivation = nil
-      state.onExpiration = nil
     }
   }
 
@@ -178,11 +180,20 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
       return
     }
 
+    // Expiration handling is fully contained here: we complete the task
+    // synchronously and clear state, with no out-bound callback. The VM's
+    // SuspendController stays paused until scenePhase = .active drives a
+    // normal foreground resume. Rationale: late-firing expiration must not
+    // race with — or be mistaken for — a normal resume, so we deliberately
+    // give the VM no expiration hook that could call `resume()`.
     continuedTask.expirationHandler = { [weak self] in
       guard let self else { return }
       self.logger.warning("BG continuation task expiring")
-      let onExpiration = self.state.withLock { $0.onExpiration }
-      onExpiration?()
+      self.state.withLock { state in
+        state.activeTask = nil
+        state.onActivation = nil
+      }
+      continuedTask.setTaskCompleted(success: false)
     }
 
     let onActivation = state.withLock { state -> (@Sendable () -> Void)? in

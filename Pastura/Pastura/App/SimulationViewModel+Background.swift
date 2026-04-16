@@ -5,7 +5,7 @@ import Foundation
 // Adds iOS 26+ BGContinuedProcessingTask integration to SimulationViewModel.
 // See ADR-003 for the design and safe-reload pattern.
 //
-// Suspend/resume semantics (Step 13 / 14):
+// Suspend/resume semantics (Step 13 / 14 / 15):
 // - `handleScenePhaseBackground` is toggle-agnostic: it always calls
 //   `suspendController?.requestSuspend()`. The difference between Toggle ON
 //   and Toggle OFF manifests at BG task activation time, not at suspend time.
@@ -17,6 +17,9 @@ import Foundation
 //   cleanup on a Metal-induced decode failure is handled by the LLM layer
 //   (`LlamaCppService.decodeFailureError` → `llama_memory_clear`) so the
 //   retry on GPU starts from a clean state.
+// - BG task expiration is deliberately NOT routed through the VM. The
+//   manager completes the task synchronously and the SuspendController stays
+//   paused until scenePhase = .active resumes it normally. See Step 15.
 
 extension SimulationViewModel {
 
@@ -40,14 +43,12 @@ extension SimulationViewModel {
           Task { @MainActor [weak self] in
             await self?.handleBackgroundActivation()
           }
-        },
-        onExpiration: { [weak self] in
-          // System needs to stop us: pause and flush.
-          Task { @MainActor [weak self] in
-            await self?.handleBackgroundExpiration()
-          }
         }
       )
+      // Expiration is handled entirely inside BackgroundSimulationManager —
+      // the VM intentionally has no expiration hook. Late-firing expiration
+      // must not race with (or be mistaken for) a normal resume, so we route
+      // all resume() calls through scenePhase = .active only.
       isBackgroundContinuationEnabled = true
     } catch {
       errorMessage = "Failed to enable background continuation: \(error.localizedDescription)"
@@ -127,16 +128,6 @@ extension SimulationViewModel {
     }
     await switchToCPUInference()
     suspendController?.resume()
-  }
-
-  /// Called when the system expires the BG task (resource/time pressure).
-  ///
-  /// Intentionally does NOT call `resume()` — the paused SuspendController
-  /// state holds until `scenePhase = .active` takes over. Step 15 will also
-  /// flip from `setTaskCompleted(false)` to a no-resume contract on
-  /// expiration; for now we only complete the task.
-  fileprivate func handleBackgroundExpiration() async {
-    backgroundManager?.completeTask(success: false)
   }
 
   /// Reloads the model on CPU.
