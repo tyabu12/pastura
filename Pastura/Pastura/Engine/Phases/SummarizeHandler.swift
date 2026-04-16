@@ -17,27 +17,34 @@ nonisolated struct SummarizeHandler: PhaseHandler {
       // Expand template per pairing
       var lines: [String] = []
       for pairing in state.pairings {
-        var variables: [String: String] = [
-          "agent1": pairing.agent1,
-          "action1": pairing.action1 ?? "?",
-          "agent2": pairing.agent2,
-          "action2": pairing.action2 ?? "?",
-          "score1": "\(state.scores[pairing.agent1] ?? 0)",
-          "score2": "\(state.scores[pairing.agent2] ?? 0)"
-        ]
-        // Merge state variables
-        for (key, value) in state.variables {
-          variables[key] = value
-        }
+        // Precedence: state.variables first, derived vars overwrite (prototype parity).
+        // Ensures pair-specific keys like {agent1} are never shadowed by a
+        // user-defined state.variables["agent1"].
+        var variables = state.variables
+        variables["agent1"] = pairing.agent1
+        variables["action1"] = pairing.action1 ?? "?"
+        variables["agent2"] = pairing.agent2
+        variables["action2"] = pairing.action2 ?? "?"
+        variables["score1"] = "\(state.scores[pairing.agent1] ?? 0)"
+        variables["score2"] = "\(state.scores[pairing.agent2] ?? 0)"
+        variables["scoreboard"] = formatScoreboard(state.scores)
+        variables["current_round"] = "\(state.currentRound)"
         lines.append(promptBuilder.expandTemplate(template, variables: variables))
       }
       context.emitter(.summary(text: lines.joined(separator: "\n")))
     } else {
       // Simple expansion
       var variables = state.variables
+      variables["scoreboard"] = formatScoreboard(state.scores)
       variables["current_round"] = "\(state.currentRound)"
       let text = promptBuilder.expandTemplate(template, variables: variables)
       context.emitter(.summary(text: text))
     }
+  }
+
+  private func formatScoreboard(_ scores: [String: Int]) -> String {
+    let pairs = scores.sorted { $0.key < $1.key }
+      .map { "\"\($0.key)\": \($0.value)" }
+    return "{\(pairs.joined(separator: ", "))}"
   }
 }

@@ -57,7 +57,9 @@ nonisolated struct VoteHandler: PhaseHandler {
     }
 
     state.voteResults = tallies
-    state.variables["vote_result"] = formatScoreboard(tallies)
+    // Key matches {vote_results} placeholder documented in PhaseEditorSheet
+    // and used by the word_wolf preset's summarize template.
+    state.variables["vote_results"] = formatScoreboard(tallies)
 
     context.emitter(.voteResults(votes: votes, tallies: tallies))
   }
