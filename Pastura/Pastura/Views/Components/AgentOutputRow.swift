@@ -34,6 +34,11 @@ struct AgentOutputRow: View {
   var isLatest: Bool = false
   /// Characters revealed per second during typing. `nil` = no animation.
   var charsPerSecond: Double?
+  /// Invoked when this row's typing animation starts (`true`) or finishes /
+  /// cancels / snaps to full (`false`). Parent uses this to gate other UI
+  /// (e.g., "is thinking..." indicators) so they don't appear while text is
+  /// still rendering.
+  var onAnimatingChange: ((Bool) -> Void)?
 
   @State private var showInnerThought = false
   @State private var visibleChars: Int = 0
@@ -173,7 +178,9 @@ struct AgentOutputRow: View {
     // characters are always here.
     let fullContent = (primaryText ?? "") + (output.innerThought ?? "")
 
+    onAnimatingChange?(true)
     animationTask = Task { @MainActor in
+      defer { onAnimatingChange?(false) }
       // Re-read `targetLength` each tick so a mid-typing `showAllThoughts`
       // flip to true extends the animation into the thought without restart.
       while !Task.isCancelled && visibleChars < targetLength {

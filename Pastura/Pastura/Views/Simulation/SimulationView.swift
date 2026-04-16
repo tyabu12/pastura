@@ -14,6 +14,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
   @State private var isExporting = false
+  /// Whether the latest agent-output row is still typing. Used to suppress
+  /// "X is thinking..." indicators so they don't appear above text that's
+  /// still being revealed.
+  @State private var latestRowIsAnimating = false
 
   var body: some View {
     Group {
@@ -81,16 +85,20 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 .id(entry.id)
             }
 
-            // Thinking indicators
-            ForEach(Array(viewModel.thinkingAgents), id: \.self) { agent in
-              HStack(spacing: 8) {
-                ProgressView()
-                  .scaleEffect(0.7)
-                Text("\(agent) is thinking...")
-                  .font(.subheadline)
-                  .foregroundStyle(.secondary)
+            // Thinking indicators — suppressed while the latest row is still
+            // typing, so "X is thinking..." doesn't jump ahead of text the
+            // user is still reading.
+            if !latestRowIsAnimating {
+              ForEach(Array(viewModel.thinkingAgents), id: \.self) { agent in
+                HStack(spacing: 8) {
+                  ProgressView()
+                    .scaleEffect(0.7)
+                  Text("\(agent) is thinking...")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
               }
-              .padding(.horizontal)
             }
           }
           .padding(.vertical, 8)
@@ -179,11 +187,19 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   private func logEntryView(_ entry: LogEntry, viewModel: SimulationViewModel) -> some View {
     switch entry.kind {
     case .agentOutput(let agent, let output, let phaseType):
+      let isLatest = viewModel.latestAgentOutputId == entry.id
       AgentOutputRow(
         agent: agent, output: output, phaseType: phaseType,
         showAllThoughts: viewModel.showAllThoughts,
-        isLatest: viewModel.latestAgentOutputId == entry.id,
-        charsPerSecond: viewModel.speed.charsPerSecond
+        isLatest: isLatest,
+        charsPerSecond: viewModel.speed.charsPerSecond,
+        // Only the latest row drives the typing-state gate; older rows
+        // never animate so their callbacks would be no-ops, but we guard
+        // here anyway to keep the signal unambiguous.
+        onAnimatingChange: { animating in
+          guard isLatest else { return }
+          latestRowIsAnimating = animating
+        }
       )
       .padding(.horizontal)
     case .phaseStarted(let phaseType):
@@ -245,27 +261,22 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       }
       .disabled(isExporting)
     } else {
-      // Menu picker: segmented style truncated "Normal" / "Instant" at any
-      // reasonable width. Menu shows the current selection only and saves
-      // horizontal room for the remaining controls.
-      Menu {
-        Picker(selection: Bindable(viewModel).speed) {
+      // Picker with `.menu` style: avoids the `_UIReparentingView` warning
+      // logged when a Picker is nested inside a wrapping `Menu`. The picker
+      // shows the current selection as the trigger automatically.
+      HStack(spacing: 4) {
+        Image(systemName: "gauge.with.dots.needle.50percent")
+          .foregroundStyle(.secondary)
+          .font(.subheadline)
+        Picker("Speed", selection: Bindable(viewModel).speed) {
           ForEach(PlaybackSpeed.allCases) { speed in
             Text(speed.label).tag(speed)
           }
-        } label: {
-          Text("Playback speed")
         }
-      } label: {
-        HStack(spacing: 4) {
-          Image(systemName: "gauge.with.dots.needle.50percent")
-          Text(viewModel.speed.label)
-          Image(systemName: "chevron.down")
-            .font(.caption2)
-        }
-        .font(.subheadline)
-        .frame(minWidth: Self.controlSlotMinWidth)
+        .pickerStyle(.menu)
+        .labelsHidden()
       }
+      .frame(minWidth: Self.controlSlotMinWidth)
     }
   }
 
