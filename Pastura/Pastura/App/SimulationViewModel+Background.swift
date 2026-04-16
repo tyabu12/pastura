@@ -144,11 +144,14 @@ extension SimulationViewModel {
       await switchToGPUInference()
     }
 
-    backgroundManager?.completeTask(success: true)
-
     // Wake any generate parked in `awaitResume()` so it retries on GPU.
     // Idempotent — safe when no suspend was active.
+    // Order: resume() BEFORE completeTask(). Between these two sync calls
+    // there is no MainActor interleaving; the ordering matters semantically
+    // so the generate is already unparked by the time we release the BG task.
     suspendController?.resume()
+
+    backgroundManager?.completeTask(success: true)
 
     // After a FG return where the BG task actually activated, the scheduled
     // request has been consumed — reset the toggle so the user can explicitly
@@ -208,8 +211,17 @@ extension SimulationViewModel {
   /// (the BG task's expiration callback may fire after `run()` has exited).
   func handleBackgroundExpiration() {
     lifecycleLogger.info(
-      "BG task expiration: isRunning=\(self.isRunning), isPaused=\(self.isPaused)"
+      "BG task expiration: isRunning=\(self.isRunning), isPaused=\(self.isPaused), isAppBackgrounded=\(self.isAppBackgrounded)"
     )
+    // Skip when the user has already returned to the foreground. The
+    // expiration callback can race a FG transition — `handleScenePhaseForeground`
+    // will resume the parked generate cleanly, and a stale pause here would
+    // strand the user with `runner.isPaused = true` plus a misleading log
+    // entry appearing after they've already foregrounded.
+    guard isAppBackgrounded else {
+      lifecycleLogger.info("BG task expiration: skipped (app is foregrounded)")
+      return
+    }
     pauseSimulation(reason: "Background time exceeded — tap resume to continue.")
   }
 

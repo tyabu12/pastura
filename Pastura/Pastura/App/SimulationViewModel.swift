@@ -154,6 +154,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// in a separate file writes it.
   var didActivateBGTask = false
 
+  /// Mirror of the app's scene-phase (`true` while `scenePhase == .background`).
+  /// Updated by `SimulationView`'s `.onChange(of: scenePhase)` observer BEFORE
+  /// it dispatches the FG/BG handler Tasks — so any queued BG expiration
+  /// callback running on the MainActor afterwards sees the fresh value.
+  ///
+  /// Gates `handleBackgroundExpiration`: when the system fires the expiration
+  /// closure during/after a FG return, the pause it would apply is stale and
+  /// would leave the user stranded with `runner.isPaused = true` plus a
+  /// misleading "Background time exceeded" log after they've already returned.
+  var isAppBackgrounded = false
+
   /// Whether background continuation is available on this device/OS.
   /// Requires iOS 26+ and `LlamaCppService` (for GPU↔CPU switching).
   var canEnableBackgroundContinuation: Bool {

@@ -139,6 +139,30 @@ struct SimulationViewModelBackgroundTests {
     #expect(sut.isBackgroundContinuationEnabled == false)
   }
 
+  // MARK: - BG expiration FG gate
+
+  /// The FG gate on `handleBackgroundExpiration` must short-circuit before
+  /// `pauseSimulation` when the app is foregrounded. Without this gate, a
+  /// race between BG expiration and FG return can strand the user with
+  /// `runner.isPaused = true` plus a misleading "Background time exceeded"
+  /// log appearing after they've already foregrounded.
+  ///
+  /// Limitation: `isRunning` is `private(set)` and only flipped by a real
+  /// `run()` call, so this test cannot distinguish "gate fired" from "the
+  /// pre-existing `isRunning` guard inside `pauseSimulation` fired". It
+  /// does lock the default value of `isAppBackgrounded` (must be `false`,
+  /// matching a foregrounded app) and the no-state-mutation contract.
+  @Test func backgroundExpirationSkippedWhenAppIsForegrounded() throws {
+    let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
+    #expect(sut.isAppBackgrounded == false, "Default must reflect foregrounded app.")
+
+    sut.handleBackgroundExpiration()
+
+    #expect(sut.isPaused == false, "Gate must skip pause when foregrounded.")
+    #expect(sut.logEntries.isEmpty, "Gate must short-circuit before pauseSimulation logs.")
+    #expect(sut.errorMessage == nil, "Expiration must never set errorMessage.")
+  }
+
   // MARK: - BG activation flag
 
   /// The activation flag must be set BEFORE the `isRunning / !isCompleted /

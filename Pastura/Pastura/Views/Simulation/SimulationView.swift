@@ -55,8 +55,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       guard let viewModel, viewModel.isRunning else { return }
       switch newPhase {
       case .background:
+        // Update flag synchronously before dispatching the handler so any
+        // concurrently-queued BG expiration callback sees the fresh value.
+        viewModel.isAppBackgrounded = true
         viewModel.handleScenePhaseBackground()
       case .active:
+        viewModel.isAppBackgrounded = false
         Task { await viewModel.handleScenePhaseForeground() }
       default:
         break
