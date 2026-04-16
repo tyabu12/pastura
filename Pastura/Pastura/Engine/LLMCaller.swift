@@ -122,13 +122,27 @@ nonisolated struct LLMCaller: Sendable {
     user: String,
     controller: SuspendController
   ) async throws -> String {
+    var attempt = 0
     while true {
+      attempt += 1
+      logger.info("generateWithSuspendRetry: attempt #\(attempt) — calling llm.generate")
       do {
-        return try await llm.generate(system: system, user: user)
+        let result = try await llm.generate(system: system, user: user)
+        logger.info("generateWithSuspendRetry: attempt #\(attempt) — generate returned ok")
+        return result
       } catch LLMError.suspended {
-        logger.info("Inference suspended — awaiting resume")
+        logger.info(
+          "generateWithSuspendRetry: attempt #\(attempt) — caught .suspended, awaiting resume"
+        )
         await controller.awaitResume()
+        logger.info(
+          "generateWithSuspendRetry: attempt #\(attempt) — resumed, re-checking cancellation")
         try Task.checkCancellation()
+      } catch {
+        logger.error(
+          "generateWithSuspendRetry: attempt #\(attempt) — generate threw non-suspend error: \(error.localizedDescription, privacy: .public)"
+        )
+        throw error
       }
     }
   }

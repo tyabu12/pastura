@@ -26,7 +26,13 @@ extension LlamaCppService {
   /// original use-after-free this precondition guarded against. The wait is
   /// bounded by a 30s timeout as a safety net.
   func awaitGenerateIdle(caller: String) async {
-    guard isGenerating() else { return }
+    guard isGenerating() else {
+      // Diagnostic log for #84 Bug 3: confirms whether reload raced through
+      // during throttle's 200ms sleep (in which case isGenerating() == false
+      // even though a generate is logically about to run).
+      logger.info("\(caller)() awaitGenerateIdle: idle on entry — proceeding immediately")
+      return
+    }
 
     logger.warning("\(caller)() called while generate() in flight — awaiting completion")
     let deadline = Date().addingTimeInterval(Self.awaitGenerateTimeoutSeconds)

@@ -216,10 +216,21 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     )
   }
 
-  public func generate(system: String, user: String) async throws -> String {
+  public func generate(system: String, user: String) async throws -> String {  // swiftlint:disable:this function_body_length
+    // Diagnostic log for #84 Bug 3: capture state before/after throttle so we
+    // can see if reloadModel raced through during throttle's 200ms sleep.
+    logger.info(
+      "generate enter: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
+    )
     try await throttleIfOverheating()
+    logger.info(
+      "generate post-throttle: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
+    )
 
     guard isModelLoaded, let model = _model, let context = _context else {
+      logger.error(
+        "generate throwing .notLoaded: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
+      )
       throw LLMError.notLoaded
     }
 
