@@ -105,6 +105,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// with existing persisted rows.
   private var turnSequence = 0
 
+  /// The phase currently executing, tracked via `.phaseStarted` events.
+  /// `.summary` has multiple emitters (`SummarizeHandler` and scoring logics
+  /// like `wordwolf_judge` that live inside `ScoreCalcHandler`), so the
+  /// phaseType column of the persisted `CodePhaseEventRecord` must come from
+  /// the engine's execution context rather than the event shape.
+  private var currentPhaseType: PhaseType?
+
   init(
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
@@ -218,6 +225,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .roundCompleted(let round, let newScores):
       handleRoundCompleted(round: round, scores: newScores)
     case .phaseStarted(let phaseType, _):
+      currentPhaseType = phaseType
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
     case .phaseCompleted, .simulationPaused:
       break
@@ -239,41 +247,45 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   /// Handles score, vote, and other code-phase result events. Each branch
   /// updates UI state AND persists a `CodePhaseEventRecord` so exports can
-  /// reconstruct per-phase outcomes. See `persistCodePhaseEvent(phaseType:payload:)`
-  /// for the persistence path.
+  /// reconstruct per-phase outcomes.
+  ///
+  /// The persisted `phaseType` column uses `currentPhaseType` (tracked from
+  /// `.phaseStarted`) with a per-event fallback. This is essential for
+  /// `.summary`, which fires from both `SummarizeHandler` and scoring logics
+  /// like `wordwolf_judge` inside `ScoreCalcHandler` — hard-coding would
+  /// bucket the judge verdict into the wrong phase in exports.
   private func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
     case .scoreUpdate(let newScores):
       handleScoreUpdate(scores: newScores)
       persistCodePhaseEvent(
-        phaseType: PhaseType.scoreCalc.rawValue,
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.scoreCalc.rawValue,
         payload: .scoreUpdate(scores: newScores))
     case .elimination(let agent, let voteCount):
       handleElimination(agent: agent, voteCount: voteCount)
       persistCodePhaseEvent(
-        phaseType: PhaseType.eliminate.rawValue,
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.eliminate.rawValue,
         payload: .elimination(agent: agent, voteCount: voteCount))
     case .assignment(let agent, let value):
       logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
       persistCodePhaseEvent(
-        phaseType: PhaseType.assign.rawValue,
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
         payload: .assignment(agent: agent, value: value))
     case .summary(let text):
       logEntries.append(LogEntry(kind: .summary(text: text)))
       // `.summary` also fires for validator warnings (before the first round
       // starts, currentRound == 0) and early-termination (after the round
-      // loop exits). Export intentionally drops pre-round warnings — they are
-      // diagnostic, not part of the scenario's narrative. Early-termination
-      // summaries inherit the last-started round number and are persisted.
+      // loop exits). Export intentionally drops pre-round warnings — they
+      // are diagnostic, not part of the scenario's narrative.
       if currentRound > 0 {
         persistCodePhaseEvent(
-          phaseType: PhaseType.summarize.rawValue,
+          phaseType: currentPhaseType?.rawValue ?? PhaseType.summarize.rawValue,
           payload: .summary(text: text))
       }
     case .voteResults(let votes, let tallies):
       logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
       persistCodePhaseEvent(
-        phaseType: PhaseType.vote.rawValue,
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.vote.rawValue,
         payload: .voteResults(votes: votes, tallies: tallies))
     case .pairingResult(let agent1, let act1, let agent2, let act2):
       logEntries.append(
@@ -282,7 +294,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
             agent1: agent1, action1: act1, agent2: agent2, action2: act2
           )))
       persistCodePhaseEvent(
-        phaseType: PhaseType.choose.rawValue,
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.choose.rawValue,
         payload: .pairingResult(
           agent1: agent1, action1: act1, agent2: agent2, action2: act2))
     default:

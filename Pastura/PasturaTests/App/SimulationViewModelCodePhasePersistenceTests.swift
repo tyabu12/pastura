@@ -159,6 +159,42 @@ struct SimulationViewModelCodePhasePersistenceTests {
       })
   }
 
+  // MARK: - currentPhaseType tracking
+
+  @Test func summaryInheritsActivePhaseTypeNotHardcodedSummarize() async throws {
+    // wordwolf_judge emits .summary INSIDE the score_calc phase; a separate
+    // SummarizeHandler emits .summary inside the summarize phase. Both must
+    // be persisted under the phase that actually emitted them so the exporter
+    // groups them correctly.
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+
+    // score_calc phase: judge verdict summary
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .scoreCalc, phaseIndex: 0), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .summary(text: "多数派の勝ち！"), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseCompleted(phaseType: .scoreCalc, phaseIndex: 0), scenario: sut.scenario)
+
+    // summarize phase: round wrap summary
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .summarize, phaseIndex: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .summary(text: "Round 1 ends."), scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
+    #expect(records.count == 2)
+    let judgeRecord = try #require(
+      records.first { $0.payloadJSON.contains("多数派の勝ち") })
+    let wrapRecord = try #require(
+      records.first { $0.payloadJSON.contains("Round 1 ends") })
+    #expect(judgeRecord.phaseType == "score_calc")
+    #expect(wrapRecord.phaseType == "summarize")
+  }
+
   @Test func otherCodePhaseEventsAtRoundZeroArePersisted() async throws {
     // Only .summary is suppressed at round==0 (validator warning / early-term);
     // other events would be genuine bugs if they fired pre-round, so persist them
