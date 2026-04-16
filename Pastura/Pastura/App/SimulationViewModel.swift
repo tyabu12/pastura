@@ -97,8 +97,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// would otherwise drag the average down for no reason. `nil` until at
   /// least one token-bearing event has been seen.
   var averageTokensPerSecond: Double? {
-    guard tokTotalTokens > 0, tokTotalSeconds > 0 else { return nil }
-    return Double(tokTotalTokens) / tokTotalSeconds
+    guard totalCompletionTokens > 0, totalInferenceSeconds > 0 else { return nil }
+    return Double(totalCompletionTokens) / totalInferenceSeconds
   }
 
   /// The log-entry id of the most recent `.agentOutput` event. Used by
@@ -107,8 +107,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private(set) var latestAgentOutputId: UUID?
 
   // Running totals for weighted tok/s. See `averageTokensPerSecond`.
-  private var tokTotalTokens = 0
-  private var tokTotalSeconds: Double = 0
+  private var totalCompletionTokens = 0
+  private var totalInferenceSeconds: Double = 0
   // Default ON: inner thoughts provide interpretive context without drawbacks.
   var showAllThoughts = true
   var speed: PlaybackSpeed = .normal
@@ -398,8 +398,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // Only accumulate when tokens are known. Adding the seconds of a
     // nil-token event without its tokens would drag tok/s below reality.
     if let tokenCount, tokenCount > 0 {
-      tokTotalTokens += tokenCount
-      tokTotalSeconds += durationSeconds
+      totalCompletionTokens += tokenCount
+      totalInferenceSeconds += durationSeconds
     }
   }
 

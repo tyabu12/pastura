@@ -244,6 +244,23 @@ struct SimulationViewModelTests {
     #expect(abs(avg - 50.0) < 0.001)
   }
 
+  /// LLMCaller emits `.inferenceCompleted` with `tokenCount: nil` from its
+  /// error path (the backend never finished generating). Those events must
+  /// update the displayed "last duration" but must not enter the weighted
+  /// tok/s average — otherwise a failed long inference would make the
+  /// displayed throughput look unrealistically low.
+  @Test func inferenceStatsExcludesFailedGenerationFromTokensPerSecond() throws {
+    let (sut, scenario) = try makeSUT()
+
+    // Simulates LLMCaller's error-path emit: long duration, nil tokens.
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Alice", durationSeconds: 30.0, tokenCount: nil),
+      scenario: scenario)
+
+    #expect(sut.lastInferenceDurationSeconds == 30.0)
+    #expect(sut.averageTokensPerSecond == nil)
+  }
+
   // MARK: - Score & Elimination
 
   @Test func handleEventScoreUpdateUpdatesScoresAndAppendsLog() throws {

@@ -154,9 +154,7 @@ nonisolated public final class OllamaService: LLMService, @unchecked Sendable {
       let raw = String(data: data, encoding: .utf8) ?? "<binary>"
       throw LLMError.invalidResponse(raw: raw)
     }
-    let usage =
-      (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["usage"]
-      as? [String: Any]
+    let usage = json["usage"] as? [String: Any]
     let tokens = (usage?["completion_tokens"] as? Int).flatMap { $0 > 0 ? $0 : nil }
     return GenerationResult(text: content, completionTokens: tokens)
   }
