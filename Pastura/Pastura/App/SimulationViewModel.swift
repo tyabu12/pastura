@@ -141,6 +141,19 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Set by the BG continuation extension (in a separate file).
   var isBackgroundContinuationEnabled = false
 
+  /// Whether the most recent BG task activation callback has fired for the
+  /// current toggle cycle. Set by `handleBackgroundActivation` (before its
+  /// guards so the one-shot scheduled request is considered consumed even if
+  /// the VM is no longer running). Reset on each `enableBackgroundContinuation`
+  /// success and on `disableBackgroundContinuation`.
+  ///
+  /// Gates the toggle-disarm path in `handleScenePhaseForeground`: a transient
+  /// `.inactive → .active` (Control Center pull, notification drawer) must not
+  /// disarm the user's armed toggle — only a real BG activation does.
+  /// Plain `var` (not `private(set)`) because the BG continuation extension
+  /// in a separate file writes it.
+  var didActivateBGTask = false
+
   /// Whether background continuation is available on this device/OS.
   /// Requires iOS 26+ and `LlamaCppService` (for GPU↔CPU switching).
   var canEnableBackgroundContinuation: Bool {

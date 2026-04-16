@@ -62,6 +62,9 @@ extension SimulationViewModel {
           }
         }
       )
+      // New cycle begins — clear the activation flag so a prior cycle's
+      // activation doesn't disarm this toggle on the next FG return.
+      didActivateBGTask = false
       isBackgroundContinuationEnabled = true
     } catch {
       errorMessage = "Failed to enable background continuation: \(error.localizedDescription)"
@@ -73,6 +76,7 @@ extension SimulationViewModel {
   func disableBackgroundContinuation() {
     backgroundManager?.cancelPendingRequest()
     isBackgroundContinuationEnabled = false
+    didActivateBGTask = false
   }
 
   /// Called by `SimulationView` when `scenePhase` becomes `.background`.
@@ -146,10 +150,13 @@ extension SimulationViewModel {
     // Idempotent — safe when no suspend was active.
     suspendController?.resume()
 
-    // After a FG return, the previously scheduled BG task is consumed. Reset
-    // the toggle so the user can explicitly re-arm for the next BG transition.
+    // After a FG return where the BG task actually activated, the scheduled
+    // request has been consumed — reset the toggle so the user can explicitly
+    // re-arm for the next BG transition. Gated on `didActivateBGTask` so that
+    // transient `.inactive → .active` transitions (Control Center pull,
+    // notification drawer) don't silently disarm the armed toggle.
     // TODO: persist title/subtitle to auto-rearm without user re-tap (#84 follow-up).
-    if isBackgroundContinuationEnabled {
+    if didActivateBGTask && isBackgroundContinuationEnabled {
       isBackgroundContinuationEnabled = false
     }
     lifecycleLogger.info(
@@ -163,7 +170,16 @@ extension SimulationViewModel {
   /// parked in `awaitResume()` by now — `handleScenePhaseBackground` requested
   /// suspend before the app was backgrounded. Reload to CPU safely, then
   /// `resume()` so the parked generate retries on CPU.
-  fileprivate func handleBackgroundActivation() async {
+  ///
+  /// Exposed at internal access for unit-test coverage of the guard-failure
+  /// flag-set path (see `bgActivationSetsFlagEvenWhenGuardFails`).
+  func handleBackgroundActivation() async {
+    // Set BEFORE the guard: the OS consumes the one-shot scheduled request
+    // the moment it calls this closure, regardless of whether we do useful
+    // work with it. Recording that consumption is what gates the toggle
+    // disarm on FG return — a transient `.inactive → .active` (Control
+    // Center pull) that never reached here must leave the toggle armed.
+    didActivateBGTask = true
     lifecycleLogger.info(
       "BG task activation: isRunning=\(self.isRunning), isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled)"
     )

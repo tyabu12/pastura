@@ -139,6 +139,26 @@ struct SimulationViewModelBackgroundTests {
     #expect(sut.isBackgroundContinuationEnabled == false)
   }
 
+  // MARK: - BG activation flag
+
+  /// The activation flag must be set BEFORE the `isRunning / !isCompleted /
+  /// !isCancelled` guard inside `handleBackgroundActivation`, because the OS
+  /// consumes the one-shot scheduled request on the activation callback
+  /// regardless of whether the VM does useful work with it. Guarding the
+  /// flag-set below would leave the toggle stuck armed on the next FG return
+  /// after a cancelled simulation.
+  @Test func bgActivationSetsFlagEvenWhenGuardFails() async throws {
+    let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
+    #expect(sut.isRunning == false)
+    #expect(sut.didActivateBGTask == false)
+
+    await sut.handleBackgroundActivation()
+
+    #expect(
+      sut.didActivateBGTask == true,
+      "Flag must record activation even when the VM guard short-circuits.")
+  }
+
   // Note: the positive path (scene-phase handler signals requestSuspend /
   // resume against an in-flight run) is exercised end-to-end by Step 18's
   // integration test, which drives a full MockLLMService run and verifies the
