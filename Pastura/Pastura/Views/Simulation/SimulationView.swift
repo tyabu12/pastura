@@ -69,6 +69,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     VStack(spacing: 0) {
       // Header bar
       headerBar(viewModel: viewModel)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("simulation.header")
 
       Divider()
 
@@ -118,11 +120,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // MARK: - Header
 
   private func headerBar(viewModel: SimulationViewModel) -> some View {
-    return headerBarContent(viewModel: viewModel)
-      .accessibilityIdentifier("simulation.header")
-  }
-
-  private func headerBarContent(viewModel: SimulationViewModel) -> some View {
     HStack {
       if viewModel.totalRounds > 0 {
         Text("Round \(viewModel.currentRound)/\(viewModel.totalRounds)")

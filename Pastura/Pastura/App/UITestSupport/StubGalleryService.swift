@@ -30,4 +30,57 @@
     }
   }
 
+  // MARK: - UI test fixture
+
+  extension StubGalleryService {
+    /// Canonical URL used by the canary fixture. Exposed so tests can assert
+    /// against it if needed; never reached because `StubGalleryService` serves
+    /// from memory.
+    public static let canaryYAMLURL = URL(string: "stub://gallery/canary.yaml")!
+
+    /// A minimal gallery YAML that parses cleanly through `ScenarioLoader`.
+    /// Designed to reach `SimulationView` — running the simulation to
+    /// completion is not a goal (MockLLMService has no canned responses).
+    public static let canaryYAML: String = """
+      id: ui_test_canary
+      name: UITest Canary
+      description: Minimal scenario used by PasturaUITests navigation regression coverage.
+      agents: 2
+      rounds: 1
+      context: UI test canary scenario.
+      personas:
+        - name: Alice
+          description: First UI test persona.
+        - name: Bob
+          description: Second UI test persona.
+      phases:
+        - type: speak_all
+          prompt: Say hello.
+          output:
+            statement: string
+      """
+
+    /// Returns a `StubGalleryService` seeded with a single installable scenario
+    /// used by the canary navigation test. Hash is intentionally left as a
+    /// placeholder — the stub skips SHA-256 verification.
+    public static func uiTestPreset() -> StubGalleryService {
+      let scenario = GalleryScenario(
+        id: "ui_test_canary",
+        title: "UITest Canary",
+        category: .experimental,
+        description: "Minimal fixture for UI tests.",
+        author: "UITest",
+        recommendedModel: "mock",
+        estimatedInferences: 2,
+        yamlURL: canaryYAMLURL,
+        yamlSHA256: "0000000000000000000000000000000000000000000000000000000000000000",
+        addedAt: "2026-04-15"
+      )
+      let index = GalleryIndex(
+        version: 1, updatedAt: "2026-04-15", scenarios: [scenario])
+      return StubGalleryService(
+        index: index, yamlsByURL: [canaryYAMLURL: canaryYAML])
+    }
+  }
+
 #endif

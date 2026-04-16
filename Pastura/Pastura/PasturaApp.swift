@@ -129,9 +129,7 @@ private struct RootView: View {
     private func setupUITestState() async {
       do {
         let llm = MockLLMService(responses: [])
-        let gallery = StubGalleryService(
-          index: GalleryIndex(version: 1, updatedAt: "2026-04-15", scenarios: [])
-        )
+        let gallery = StubGalleryService.uiTestPreset()
         let deps = try AppDependencies.inMemory(llmService: llm, galleryService: gallery)
         appState = .ready(deps)
       } catch {
