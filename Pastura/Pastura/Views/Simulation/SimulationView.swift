@@ -15,6 +15,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
   @State private var isExporting = false
+  @State private var memoryThrottle = MemoryWarningThrottle()
 
   var body: some View {
     Group {
@@ -56,12 +57,28 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         for: UIApplication.didReceiveMemoryWarningNotification
       )
     ) { _ in
-      // Memory warning: cancel simulation to free model memory (ADR-002 §7).
-      // Cancellation triggers stream termination → for-await exit → unloadModel.
-      // Diagnostic log for #84 Bug 3: confirm whether memoryWarning is the
-      // trigger of the spurious cancellations seen on device.
-      print("[SimulationView] didReceiveMemoryWarningNotification → cancelSimulation")
-      viewModel?.cancelSimulation(caller: "memoryWarning")
+      // Policy in MemoryWarningThrottle. See that file for rationale.
+      guard let viewModel, viewModel.isRunning, !viewModel.isCancelled else { return }
+      let decision = memoryThrottle.decide(
+        isActive: scenePhase == .active, isPaused: viewModel.isPaused, now: Date()
+      )
+      switch decision {
+      case .ignore: break
+      case .pauseAndLog:
+        viewModel.pauseSimulation(
+          reason: "Memory warning — simulation paused. Tap resume to continue."
+        )
+      case .cancelDueToBackground:
+        viewModel.cancelSimulation(caller: "memoryWarning-bg")
+      case .cancelDueToEscalation:
+        viewModel.cancelSimulation(caller: "memoryWarning-escalated")
+      }
+    }
+    .onChange(of: viewModel?.isPaused ?? false) { _, isPaused in
+      // After the user resumes, treat the previous pressure as resolved so a
+      // delayed warning doesn't immediately escalate to cancel (closes the
+      // "user just resumed and got cancelled" trap from critic Axis 2).
+      if !isPaused { memoryThrottle.reset() }
     }
     // willResignActive fires earlier than scenePhase = .background, beating
     // the iOS Metal-deny window. Backstopped by handleScenePhaseBackground.
