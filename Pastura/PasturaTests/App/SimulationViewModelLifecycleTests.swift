@@ -422,6 +422,70 @@ struct SimulationViewModelLifecycleTests {
     #expect(sut.isCancelled == true)
   }
 
+  @Test func simulationSurvivesSuspendResumeCycleMidRound() async throws {
+    let (sut, _) = try makeLifecycleSUT()
+    sut.speed = .fastest
+
+    // 2 agents × 1 phase × 1 round = 2 generate calls. The first generate will
+    // throw `.suspended` (via simulateSuspendOnNextGenerate); the retry after
+    // resume delivers the first response. The second agent's generate runs
+    // normally.
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    mock.simulateSuspendOnNextGenerate()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    sut.runTask = runTask
+
+    // Wait for run() to attach the SuspendController (happens synchronously
+    // between two await points inside run(), so once observable it's stable).
+    while sut.suspendController == nil {
+      await Task.yield()
+    }
+    guard let controller = sut.suspendController else {
+      Issue.record("Expected suspendController to be attached")
+      return
+    }
+
+    // Put the controller into `.suspended` BEFORE the first generate runs so
+    // LLMCaller's awaitResume() parks (otherwise mock's suspended throw would
+    // hot-loop via idle-state awaitResume returning immediately).
+    sut.handleWillResignActive()
+    #expect(controller.isSuspendRequested() == true)
+
+    // Give runTask time to reach awaitResume() and park. Not strictly
+    // required for correctness (resume() is idempotent across states) — but
+    // it exercises the park-then-wake path we actually care about.
+    try await Task.sleep(for: .milliseconds(50))
+
+    // Toggle OFF foreground path: resume() only, no reload.
+    await sut.handleScenePhaseForeground()
+
+    await runTask.value
+
+    #expect(sut.isCompleted == true)
+    #expect(sut.isCancelled == false)
+    #expect(sut.errorMessage == nil)
+    // Both agents produced output despite the mid-run suspend/resume cycle.
+    let agents: Set<String> = Set(
+      sut.logEntries.compactMap { entry in
+        if case .agentOutput(let agent, _, _) = entry.kind { return agent }
+        return nil
+      })
+    #expect(agents == Set(["Alice", "Bob"]))
+    // Mock was called exactly twice (first throw doesn't consume callIndex,
+    // retry + second agent each increment it).
+    #expect(mock.generateCallCount == 2)
+  }
+
   @Test func runClearsSuspendControllerOnExit() async throws {
     let (sut, _) = try makeLifecycleSUT()
     sut.speed = .fastest
