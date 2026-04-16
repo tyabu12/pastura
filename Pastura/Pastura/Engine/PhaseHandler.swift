@@ -2,22 +2,29 @@ import Foundation
 
 /// Bundles the read-only parameters passed to every phase handler.
 ///
-/// Groups ``Scenario``, ``Phase``, ``LLMService``, and the event emitter
-/// so that ``PhaseHandler/execute(context:state:)`` takes only two parameters.
+/// Groups ``Scenario``, ``Phase``, ``LLMService``, the event emitter, and a
+/// ``SuspendController`` so that ``PhaseHandler/execute(context:state:)``
+/// takes only two parameters.
+///
+/// `suspendController` is a pass-through for ``LLMCaller`` only. Handlers
+/// should not interact with it directly — just forward it to `LLMCaller.call`.
 nonisolated public struct PhaseContext: Sendable {
   public let scenario: Scenario
   public let phase: Phase
   public let llm: LLMService
+  public let suspendController: SuspendController
   public let emitter: @Sendable (SimulationEvent) -> Void
 
   public init(
     scenario: Scenario, phase: Phase,
     llm: LLMService,
+    suspendController: SuspendController,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) {
     self.scenario = scenario
     self.phase = phase
     self.llm = llm
+    self.suspendController = suspendController
     self.emitter = emitter
   }
 }

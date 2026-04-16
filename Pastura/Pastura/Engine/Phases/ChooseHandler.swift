@@ -82,7 +82,9 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
     let output = try await llmCaller.call(
       llm: context.llm, system: systemPrompt, user: userPrompt,
-      agentName: persona.name, emitter: context.emitter
+      agentName: persona.name,
+      suspendController: context.suspendController,
+      emitter: context.emitter
     )
     context.emitter(
       .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
@@ -109,7 +111,9 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
       let output = try await llmCaller.call(
         llm: context.llm, system: systemPrompt, user: userPrompt,
-        agentName: persona.name, emitter: context.emitter
+        agentName: persona.name,
+        suspendController: context.suspendController,
+        emitter: context.emitter
       )
       context.emitter(
         .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))

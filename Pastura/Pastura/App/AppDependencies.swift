@@ -18,6 +18,11 @@ final class AppDependencies: @unchecked Sendable {
   /// Defaults to `OllamaService` for development.
   let llmService: any LLMService
 
+  /// Manager for iOS 26+ background simulation continuation.
+  /// Registered at app launch; used by `SimulationViewModel` when the user
+  /// opts into background continuation via the toggle in `SimulationView`.
+  let backgroundManager: BackgroundSimulationManager
+
   /// Service that fetches the remote Share Board (gallery) index and YAMLs.
   let galleryService: any GalleryService
 
@@ -26,6 +31,7 @@ final class AppDependencies: @unchecked Sendable {
   init(
     databaseManager: DatabaseManager,
     llmService: (any LLMService)? = nil,
+    backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager(),
     galleryService: (any GalleryService)? = nil
   ) {
     self.databaseManager = databaseManager
@@ -35,6 +41,7 @@ final class AppDependencies: @unchecked Sendable {
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
     self.codePhaseEventRepository = GRDBCodePhaseEventRepository(dbWriter: writer)
     self.llmService = llmService ?? OllamaService()
+    self.backgroundManager = backgroundManager
     self.galleryService = galleryService ?? URLSessionGalleryService()
   }
 

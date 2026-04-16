@@ -39,12 +39,24 @@ struct LLMErrorTests {
     #expect(lhs == rhs)
   }
 
+  @Test func suspendedEquatable() {
+    #expect(LLMError.suspended == LLMError.suspended)
+  }
+
   // MARK: - Different cases are not equal
 
   @Test func differentCasesNotEqual() {
     let loadFailed = LLMError.loadFailed(description: "error")
     let generationFailed = LLMError.generationFailed(description: "error")
     #expect(loadFailed != generationFailed)
+  }
+
+  @Test func suspendedNotEqualToOtherCases() {
+    // Regression guard: pattern matching for `.suspended` must not accidentally
+    // match other cases (e.g., generationFailed) when the engine layer branches
+    // on retry-eligible vs fatal errors.
+    #expect(LLMError.suspended != LLMError.notLoaded)
+    #expect(LLMError.suspended != LLMError.generationFailed(description: ""))
   }
 
   // MARK: - Conforms to Error

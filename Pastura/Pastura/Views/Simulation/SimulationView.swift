@@ -14,12 +14,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: SimulationViewModel?
-  @State private var scenario: Scenario?
+  // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
+  @State var scenario: Scenario?
   @State private var showScoreboard = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
   @State private var isExporting = false
+  @State private var memoryThrottle = MemoryWarningThrottle()
   /// Whether the latest agent-output row is still typing. Used to suppress
   /// "X is thinking..." indicators so they don't appear above text that's
   /// still being revealed.
@@ -45,9 +47,23 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       await loadAndRun()
     }
     .onChange(of: scenePhase) { _, newPhase in
-      // Pause simulation when app moves to background (ADR-002 §7)
-      if newPhase == .background, let viewModel, viewModel.isRunning {
-        viewModel.isPaused = true
+      // Two-phase BG handling (ADR-003):
+      // - .background: synchronous pause for safety (stops in-flight work ASAP).
+      //   If the user enabled BG continuation, the BGTask activation will fire
+      //   asynchronously and switch inference to CPU + resume.
+      // - .active: async switch back to GPU (if we were on CPU) and complete BG task.
+      guard let viewModel, viewModel.isRunning else { return }
+      switch newPhase {
+      case .background:
+        // Update flag synchronously before dispatching the handler so any
+        // concurrently-queued BG expiration callback sees the fresh value.
+        viewModel.isAppBackgrounded = true
+        viewModel.handleScenePhaseBackground()
+      case .active:
+        viewModel.isAppBackgrounded = false
+        Task { await viewModel.handleScenePhaseForeground() }
+      default:
+        break
       }
     }
     .onReceive(
@@ -55,9 +71,35 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         for: UIApplication.didReceiveMemoryWarningNotification
       )
     ) { _ in
-      // Memory warning: cancel simulation to free model memory (ADR-002 §7).
-      // Cancellation triggers stream termination → for-await exit → unloadModel.
-      viewModel?.cancelSimulation()
+      // Policy in MemoryWarningThrottle. See that file for rationale.
+      guard let viewModel, viewModel.isRunning, !viewModel.isCancelled else { return }
+      let decision = memoryThrottle.decide(
+        isActive: scenePhase == .active, isPaused: viewModel.isPaused, now: Date()
+      )
+      switch decision {
+      case .ignore: break
+      case .pauseAndLog:
+        viewModel.pauseSimulation(
+          reason: "Memory warning — simulation paused. Tap resume to continue."
+        )
+      case .cancelDueToBackground:
+        viewModel.cancelSimulation(caller: "memoryWarning-bg")
+      case .cancelDueToEscalation:
+        viewModel.cancelSimulation(caller: "memoryWarning-escalated")
+      }
+    }
+    .onChange(of: viewModel?.isPaused ?? false) { _, isPaused in
+      // After the user resumes, treat the previous pressure as resolved so a
+      // delayed warning doesn't immediately escalate to cancel (closes the
+      // "user just resumed and got cancelled" trap from critic Axis 2).
+      if !isPaused { memoryThrottle.reset() }
+    }
+    // willResignActive fires earlier than scenePhase = .background, beating
+    // the iOS Metal-deny window. Backstopped by handleScenePhaseBackground.
+    .onReceive(
+      NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
+    ) { _ in
+      viewModel?.handleWillResignActive()
     }
     .sheet(item: $exportPayload) { payload in
       ShareSheet(activityItems: [payload.text, payload.fileURL])
@@ -75,7 +117,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  private func simulationContent(viewModel: SimulationViewModel) -> some View {
+  private func simulationContent(  // swiftlint:disable:this function_body_length
+    viewModel: SimulationViewModel
+  ) -> some View {
     VStack(spacing: 0) {
       // Header bar
       headerBar(viewModel: viewModel)
@@ -143,6 +187,29 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       ScoreboardSheet(scores: viewModel.scores, eliminated: viewModel.eliminated)
         .presentationDetents([.medium])
     }
+    .overlay {
+      if viewModel.isReloadingModel {
+        modelReloadingOverlay
+      }
+    }
+  }
+
+  private var modelReloadingOverlay: some View {
+    ZStack {
+      Color.black.opacity(0.4).ignoresSafeArea()
+      VStack(spacing: 12) {
+        ProgressView()
+          .scaleEffect(1.2)
+        Text("Reloading model...")
+          .font(.subheadline)
+        Text("This can take a few seconds")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      .padding(24)
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    .transition(.opacity)
   }
 
   // MARK: - Header
@@ -328,7 +395,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     HStack(spacing: 16) {
       // Pause/Resume
       Button {
-        viewModel.isPaused.toggle()
+        if viewModel.isPaused {
+          viewModel.resumeSimulation()
+        } else {
+          viewModel.pauseSimulation()
+        }
       } label: {
         Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
           .font(.title3)
@@ -348,6 +419,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
           .font(.title3)
           .foregroundStyle(viewModel.showAllThoughts ? .purple : .secondary)
+      }
+
+      // Background continuation toggle (iOS 26+ with LlamaCppService only)
+      if #available(iOS 26, *), viewModel.canEnableBackgroundContinuation {
+        backgroundContinuationToggle(viewModel: viewModel)
       }
 
       // Scoreboard
@@ -385,7 +461,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         simulationRepository: deps.simulationRepository,
         turnRepository: deps.turnRepository,
         codePhaseEventRepository: deps.codePhaseEventRepository,
-        scenarioRepository: deps.scenarioRepository
+        scenarioRepository: deps.scenarioRepository,
+        backgroundManager: deps.backgroundManager
       )
       viewModel = simViewModel
 
@@ -394,7 +471,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         await simViewModel.run(scenario: parsed, llm: deps.llmService)
       }
       simViewModel.runTask = runTask
-      await runTask.value
+      // Propagate `.task` cancellation to `runTask`. `Task { }` is unstructured
+      // and does not inherit cancellation, so a plain `await runTask.value`
+      // would leak the simulation when the user navigates back from this view
+      // — the old run() keeps driving the shared LLMService while a newly
+      // pushed SimulationView starts its own run(), corrupting the model state.
+      await withTaskCancellationHandler {
+        await runTask.value
+      } onCancel: {
+        runTask.cancel()
+      }
     } catch {
       loadError = error.localizedDescription
     }

@@ -33,7 +33,9 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
 
         let output = try await llmCaller.call(
           llm: context.llm, system: systemPrompt, user: userPrompt,
-          agentName: persona.name, emitter: context.emitter
+          agentName: persona.name,
+          suspendController: context.suspendController,
+          emitter: context.emitter
         )
 
         context.emitter(

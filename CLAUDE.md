@@ -8,7 +8,9 @@
 Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
 If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
 
-Current focus: **Visual Scenario Editor** (dual-mode form + YAML, Issue #83)
+Completed in Phase 2 so far:
+- **Visual Scenario Editor** — dual-mode form + YAML (#83)
+- **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
 
 ## Language Rules
 

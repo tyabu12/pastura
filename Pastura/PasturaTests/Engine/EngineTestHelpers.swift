@@ -17,16 +17,22 @@ final class EventCollector: @unchecked Sendable {
 }
 
 /// Creates a ``PhaseContext`` for testing, bundling scenario, phase, LLM, and emitter.
+///
+/// `suspendController` defaults to a fresh, never-signalled instance so existing
+/// handler tests don't need to opt into the suspend machinery. Tests that
+/// exercise suspend/resume should pass an explicit controller.
 func makePhaseContext(
   scenario: Scenario,
   phaseIndex: Int = 0,
   llm: LLMService,
+  suspendController: SuspendController = SuspendController(),
   collector: EventCollector
 ) -> PhaseContext {
   PhaseContext(
     scenario: scenario,
     phase: scenario.phases[phaseIndex],
     llm: llm,
+    suspendController: suspendController,
     emitter: collector.emit
   )
 }
