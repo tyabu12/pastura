@@ -58,6 +58,20 @@ struct SimulationViewModelBackgroundTests {
     )
   }
 
+  @Test func willResignActiveIsNoOpWhenNotRunning() throws {
+    let sut = try makeSUT()
+    let controller = SuspendController()
+    sut.suspendController = controller
+    #expect(sut.isRunning == false)
+
+    sut.handleWillResignActive()
+
+    #expect(
+      controller.isSuspendRequested() == false,
+      "Should not signal suspend when simulation is not running"
+    )
+  }
+
   @Test func scenePhaseForegroundIsNoOpWhenNotRunning() async throws {
     let sut = try makeSUT()
     // Controller is pre-suspended to detect a spurious resume.

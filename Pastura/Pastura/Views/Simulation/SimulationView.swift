@@ -58,6 +58,13 @@ struct SimulationView: View {
       // Cancellation triggers stream termination → for-await exit → unloadModel.
       viewModel?.cancelSimulation()
     }
+    // willResignActive fires earlier than scenePhase = .background, beating
+    // the iOS Metal-deny window. Backstopped by handleScenePhaseBackground.
+    .onReceive(
+      NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
+    ) { _ in
+      viewModel?.handleWillResignActive()
+    }
   }
 
   private func simulationContent(viewModel: SimulationViewModel) -> some View {

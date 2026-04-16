@@ -5,10 +5,14 @@ import Foundation
 // Adds iOS 26+ BGContinuedProcessingTask integration to SimulationViewModel.
 // See ADR-003 for the design and safe-reload pattern.
 //
-// Suspend/resume semantics (Step 13 / 14 / 15):
-// - `handleScenePhaseBackground` is toggle-agnostic: it always calls
-//   `suspendController?.requestSuspend()`. The difference between Toggle ON
-//   and Toggle OFF manifests at BG task activation time, not at suspend time.
+// Suspend/resume semantics (Step 13 / 14 / 15 / 16):
+// - `handleWillResignActive` is the earliest suspend signal — fires before
+//   scenePhase = .background, giving the GPU loop a head start on exiting
+//   ahead of the iOS Metal-deny window.
+// - `handleScenePhaseBackground` is a backstop to `handleWillResignActive`
+//   and is toggle-agnostic: it always calls `suspendController?.requestSuspend()`.
+//   The difference between Toggle ON and Toggle OFF manifests at BG task
+//   activation time, not at suspend time.
 // - Toggle ON: `handleBackgroundActivation` fires (because a BG request was
 //   scheduled), reloads the model on CPU, then `resume()`s so the parked
 //   generate retries on CPU.
@@ -69,10 +73,29 @@ extension SimulationViewModel {
   /// window, so waiting for the phase-boundary checkpoint would race the OS
   /// and trigger a Metal decode failure.
   ///
+  /// Serves as a backstop to `handleWillResignActive` for cases where the
+  /// earlier notification was missed (or never fires, e.g. direct
+  /// `.active → .background` transitions on iPad split view). `requestSuspend`
+  /// is idempotent so the double call is cheap.
+  ///
   /// `isPaused` is intentionally NOT set here: that flag is reserved for the
   /// user-initiated pause button. Scene-phase handling goes through the
   /// SuspendController path end-to-end.
   func handleScenePhaseBackground() {
+    guard isRunning else { return }
+    suspendController?.requestSuspend()
+  }
+
+  /// Called by `SimulationView` on `UIApplication.willResignActiveNotification`,
+  /// which fires earlier than `scenePhase = .background`.
+  ///
+  /// Requesting suspend here gives the in-flight `generate` a head start on
+  /// exiting the GPU loop before iOS begins denying Metal work. If the app
+  /// returns to `.active` without ever going to `.background` (e.g. a
+  /// Control Center pull), `handleScenePhaseForeground` will `resume()` the
+  /// controller and the parked generate retries on GPU — at most one wasted
+  /// inference, which is an acceptable price for robust BG handling.
+  func handleWillResignActive() {
     guard isRunning else { return }
     suspendController?.requestSuspend()
   }
