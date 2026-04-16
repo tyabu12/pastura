@@ -201,19 +201,38 @@ import Testing
 
   @Test func includesFinalScoresSection() throws {
     let exporter = makeExporter()
+    let scoreEvent = makeCodePhaseEventForFinalScoresFixture(
+      seq: 1, payload: .scoreUpdate(scores: ["Alice": 10, "Bob": 3]))
+    let elimEvent = makeCodePhaseEventForFinalScoresFixture(
+      seq: 2, payload: .elimination(agent: "Bob", voteCount: 2))
     let input = ResultMarkdownExporter.Input(
       simulation: makeSimulation(),
       scenario: makeScenario(),
       turns: [],
-      state: makeState(
-        scores: ["Alice": 10, "Bob": 3],
-        eliminated: ["Bob": true]))
+      codePhaseEvents: [scoreEvent, elimEvent],
+      personas: ["Alice", "Bob"],
+      state: makeState())
 
     let result = try exporter.export(input)
 
     #expect(result.text.contains("## Final Scores"))
     #expect(result.text.contains("| Alice | 10 | active |"))
     #expect(result.text.contains("| Bob | 3 | eliminated |"))
+  }
+
+  private func makeCodePhaseEventForFinalScoresFixture(
+    seq: Int, payload: CodePhaseEventPayload
+  ) -> CodePhaseEventRecord {
+    let json =
+      (try? JSONEncoder().encode(payload)).flatMap {
+        String(data: $0, encoding: .utf8)
+      } ?? "{}"
+    return CodePhaseEventRecord(
+      id: UUID().uuidString, simulationId: "sim1",
+      roundNumber: 2,
+      phaseType: "score_calc",
+      sequenceNumber: seq, payloadJSON: json,
+      createdAt: Date())
   }
 
   @Test func unknownModelAndBackendFallBackToPlaceholder() throws {
