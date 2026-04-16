@@ -216,9 +216,35 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     )
   }
 
-  public func generate(system: String, user: String) async throws -> String {  // swiftlint:disable:this function_body_length
-    // Diagnostic log for #84 Bug 3: capture state before/after throttle so we
-    // can see if reloadModel raced through during throttle's 200ms sleep.
+  public func generate(system: String, user: String) async throws -> String {
+    try await runGeneration(system: system, user: user).text
+  }
+
+}
+
+// MARK: - Generation (metrics-aware)
+
+extension LlamaCppService {
+  /// Token-count-aware counterpart to ``generate(system:user:)``. Shares the
+  /// same inference path and returns the generated token count for tok/s
+  /// throughput reporting.
+  public func generateWithMetrics(
+    system: String, user: String
+  ) async throws -> GenerationResult {
+    try await runGeneration(system: system, user: user)
+  }
+
+  /// Shared implementation for `generate` and `generateWithMetrics`.
+  /// Counts tokens emitted by the sampler loop (excludes the trailing
+  /// stop-sequence token when detected). Cooperative suspend check at each
+  /// iteration boundary lets the App layer interrupt GPU work before iOS
+  /// denies it (`scenePhase = .background`); reactive failure via
+  /// `decodeFailureError` covers the narrow window where denial races the
+  /// next iteration.
+  fileprivate func runGeneration(  // swiftlint:disable:this function_body_length
+    system: String, user: String
+  ) async throws -> GenerationResult {
+    // Diagnostic log for #84 Bug 3 — see decodeFailureError comment.
     logger.info(
       "generate enter: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
     )
@@ -276,6 +302,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     // Tokens are decoded incrementally so we can detect <|im_end|> even when
     // the model's tokenizer splits it across multiple subword tokens.
     var outputText = ""
+    var generatedTokens = 0
     for _ in 0..<Self.maxTokens {
       // Respect Task cancellation. llama.cpp's C calls don't check cancellation
       // themselves, so without this a cancelled simulation would run to maxTokens
@@ -293,6 +320,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
+      generatedTokens += 1
       outputText += decodePiece(vocab: vocab, token: newTokenId)
 
       if let range = outputText.range(of: Self.stopSequence) {
@@ -319,6 +347,6 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       throw LLMError.generationFailed(description: "Model generated no output tokens")
     }
 
-    return outputText
+    return GenerationResult(text: outputText, completionTokens: generatedTokens)
   }
 }

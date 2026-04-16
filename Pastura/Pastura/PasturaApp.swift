@@ -80,6 +80,12 @@ private struct RootView: View {
   }
 
   private func initialize() async {
+    #if DEBUG
+      if CommandLine.arguments.contains("--ui-test") {
+        await setupUITestState()
+        return
+      }
+    #endif
     #if targetEnvironment(simulator)
       // On simulator, use OllamaService directly — no model download needed.
       do {
@@ -118,4 +124,22 @@ private struct RootView: View {
       appState = .error("Database error: \(error.localizedDescription)")
     }
   }
+
+  #if DEBUG
+    /// UI-test-only bootstrap: constructs an in-memory `AppDependencies` with a
+    /// deterministic `MockLLMService` and `StubGalleryService`, skips preset
+    /// loading, and transitions directly to `.ready`. Avoids network, disk
+    /// persistence, and the real LLM — all of which introduce non-determinism
+    /// that would make navigation regressions hard to catch reliably.
+    private func setupUITestState() async {
+      do {
+        let llm = MockLLMService(responses: [])
+        let gallery = StubGalleryService.uiTestPreset()
+        let deps = try AppDependencies.inMemory(llmService: llm, galleryService: gallery)
+        appState = .ready(deps)
+      } catch {
+        appState = .error("UI test setup failed: \(error.localizedDescription)")
+      }
+    }
+  #endif
 }

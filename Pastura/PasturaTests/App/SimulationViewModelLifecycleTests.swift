@@ -53,7 +53,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func runResetsStateAndCompletesSuccessfully() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     sut.handleEvent(.error(.retriesExhausted), scenario: makeTestScenario())
 
@@ -93,7 +93,7 @@ struct SimulationViewModelLifecycleTests {
       simulationRepository: simRepo,
       turnRepository: turnRepo
     )
-    sut.speed = .fastest
+    sut.speed = .instant
 
     // 2 rounds × 4 agents = 8 responses, consumed in order by MockLLMService.
     let responses = (1...2).flatMap { round in
@@ -123,7 +123,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func runResetsStaleStateBeforeExecution() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     sut.handleEvent(.error(.retriesExhausted), scenario: makeTestScenario())
     sut.handleEvent(.roundStarted(round: 2, totalRounds: 5), scenario: makeTestScenario())
@@ -161,7 +161,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func runSetsErrorWhenLLMLoadFails() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
 
@@ -188,7 +188,7 @@ struct SimulationViewModelLifecycleTests {
 
     let sut = SimulationViewModel(
       simulationRepository: simRepo, turnRepository: turnRepo)
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [
       #"{"statement": "hello from Alice"}"#,
@@ -222,7 +222,7 @@ struct SimulationViewModelLifecycleTests {
 
     let sut = SimulationViewModel(
       simulationRepository: simRepo, turnRepository: turnRepo)
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [])
     let scenario = makeTestScenario(
@@ -252,7 +252,7 @@ struct SimulationViewModelLifecycleTests {
 
     let sut = SimulationViewModel(
       simulationRepository: simRepo, turnRepository: turnRepo)
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
     await sut.run(scenario: scenario, llm: FailingLLMService())
@@ -267,7 +267,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func runMultiPhaseScenarioProducesCorrectLogSequence() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [
       #"{"statement": "Alice speaks"}"#,
@@ -318,7 +318,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func runMultiRoundScenarioUpdatesState() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [
       #"{"statement": "Alice r1"}"#,
@@ -368,7 +368,7 @@ struct SimulationViewModelLifecycleTests {
       simulationRepository: simRepo,
       turnRepository: turnRepo
     )
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [
       #"{"statement": "this is forbidden content"}"#,
@@ -428,7 +428,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func simulationSurvivesSuspendResumeCycleMidRound() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     // 2 agents × 1 phase × 1 round = 2 generate calls. The first generate will
     // throw `.suspended` (via simulateSuspendOnNextGenerate); the retry after
@@ -508,7 +508,7 @@ struct SimulationViewModelLifecycleTests {
 
     let sut = SimulationViewModel(
       simulationRepository: simRepo, turnRepository: turnRepo)
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [
       #"{"statement": "first"}"#,
@@ -561,7 +561,7 @@ struct SimulationViewModelLifecycleTests {
 
   @Test func runClearsSuspendControllerOnExit() async throws {
     let (sut, _) = try makeLifecycleSUT()
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [#"{"statement": "hi"}"#])
     let scenario = makeTestScenario(

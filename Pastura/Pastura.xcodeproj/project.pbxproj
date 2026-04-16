@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E05C33812F8E87BC007D40FD /* LlamaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA5412F84F0000025BAE6 /* LlamaSwift */; };
 		E0BCA52B2F83E9670025BAE6 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52A2F83E9670025BAE6 /* Yams */; };
 		E0BCA52E2F83EA4C0025BAE6 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52D2F83EA4C0025BAE6 /* GRDB */; };
 		E0BCA53002F83EA4C0025BAE6 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA52F02F83EA4C0025BAE6 /* GRDB */; };
+		E0FC8B882F90724F00A37916 /* LlamaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = E0BCA5412F84F0000025BAE6 /* LlamaSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,7 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E05C33812F8E87BC007D40FD /* LlamaSwift in Frameworks */,
+				E0FC8B882F90724F00A37916 /* LlamaSwift in Frameworks */,
 				E0BCA52B2F83E9670025BAE6 /* Yams in Frameworks */,
 				E0BCA52E2F83EA4C0025BAE6 /* GRDB in Frameworks */,
 			);

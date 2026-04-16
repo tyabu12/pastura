@@ -84,6 +84,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Visual scenario editor (dual-mode)       | High     | Done        | Form + block UI with YAML mode toggle (#83) |
 | Background execution (iOS 26)            | High     | Done        | BGContinuedProcessingTask + CPU inference in background (#84) |
 | In-app scenario generation (Cloud API)   | High     | Planned     | Claude/Gemini API for natural language → YAML |
+| Real-time LLM token streaming            | High     | Planned     | Replace pseudo-typing with actual token-by-token streaming from llama.cpp. Requires `LLMService` protocol extension (new streaming method), partial-JSON or dual-channel parsing, retry-state rework, and `AgentOutputRow` rewrite. Eliminates the pre-first-character "thinking..." wait — high UX impact. |
 | `conditional` phase type                 | Medium   | Planned     | Dynamic branching based on state         |
 | `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|

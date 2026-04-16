@@ -186,9 +186,79 @@ struct SimulationViewModelTests {
 
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     sut.handleEvent(
-      .inferenceCompleted(agent: "Alice", durationSeconds: 1.5), scenario: scenario)
+      .inferenceCompleted(agent: "Alice", durationSeconds: 1.5, tokenCount: nil),
+      scenario: scenario)
 
     #expect(sut.thinkingAgents.isEmpty)
+  }
+
+  // MARK: - Inference Throughput
+
+  @Test func inferenceStatsInitiallyNil() throws {
+    let (sut, _) = try makeSUT()
+    #expect(sut.lastInferenceDurationSeconds == nil)
+    #expect(sut.averageTokensPerSecond == nil)
+  }
+
+  @Test func inferenceStatsIgnoreNilTokenEvents() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Alice", durationSeconds: 1.0, tokenCount: nil),
+      scenario: scenario)
+
+    // Duration always updates (it's known); tok/s stays nil without tokens.
+    #expect(sut.lastInferenceDurationSeconds == 1.0)
+    #expect(sut.averageTokensPerSecond == nil)
+  }
+
+  @Test func inferenceStatsComputeWeightedTokensPerSecond() throws {
+    let (sut, scenario) = try makeSUT()
+
+    // 60 tokens in 2s → 30 tok/s. Then 40 tokens in 1s → 40 tok/s.
+    // Weighted average = (60+40) / (2+1) = 33.33 tok/s.
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Alice", durationSeconds: 2.0, tokenCount: 60),
+      scenario: scenario)
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Bob", durationSeconds: 1.0, tokenCount: 40),
+      scenario: scenario)
+
+    #expect(sut.lastInferenceDurationSeconds == 1.0)
+    let avg = try #require(sut.averageTokensPerSecond)
+    #expect(abs(avg - (100.0 / 3.0)) < 0.001)
+  }
+
+  @Test func inferenceStatsMixNilAndValidExcludesNilFromBoth() throws {
+    let (sut, scenario) = try makeSUT()
+
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Alice", durationSeconds: 10.0, tokenCount: nil),
+      scenario: scenario)
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Bob", durationSeconds: 2.0, tokenCount: 100),
+      scenario: scenario)
+
+    // The 10s nil-token event must NOT drag the tok/s denominator. 100/2 = 50.
+    let avg = try #require(sut.averageTokensPerSecond)
+    #expect(abs(avg - 50.0) < 0.001)
+  }
+
+  /// LLMCaller emits `.inferenceCompleted` with `tokenCount: nil` from its
+  /// error path (the backend never finished generating). Those events must
+  /// update the displayed "last duration" but must not enter the weighted
+  /// tok/s average — otherwise a failed long inference would make the
+  /// displayed throughput look unrealistically low.
+  @Test func inferenceStatsExcludesFailedGenerationFromTokensPerSecond() throws {
+    let (sut, scenario) = try makeSUT()
+
+    // Simulates LLMCaller's error-path emit: long duration, nil tokens.
+    sut.handleEvent(
+      .inferenceCompleted(agent: "Alice", durationSeconds: 30.0, tokenCount: nil),
+      scenario: scenario)
+
+    #expect(sut.lastInferenceDurationSeconds == 30.0)
+    #expect(sut.averageTokensPerSecond == nil)
   }
 
   // MARK: - Score & Elimination

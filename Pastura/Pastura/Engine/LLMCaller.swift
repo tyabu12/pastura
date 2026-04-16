@@ -40,25 +40,30 @@ nonisolated struct LLMCaller: Sendable {
       emitter(.inferenceStarted(agent: agentName))
       let startTime = ContinuousClock.now
 
-      let raw: String
+      let result: GenerationResult
       do {
-        raw = try await generateWithSuspendRetry(
+        result = try await generateWithSuspendRetry(
           llm: llm, system: system, user: user, controller: suspendController
         )
       } catch {
-        let duration = ContinuousClock.now - startTime
-        let seconds =
-          Double(duration.components.seconds)
-          + Double(duration.components.attoseconds) / 1e18
-        emitter(.inferenceCompleted(agent: agentName, durationSeconds: seconds))
+        let seconds = elapsedSeconds(since: startTime)
+        // Tokens are unknown on failure — the backend didn't complete generation.
+        emitter(
+          .inferenceCompleted(
+            agent: agentName, durationSeconds: seconds, tokenCount: nil))
         throw SimulationError.llmGenerationFailed(description: "\(error)")
       }
 
-      let duration = ContinuousClock.now - startTime
-      let seconds =
-        Double(duration.components.seconds)
-        + Double(duration.components.attoseconds) / 1e18
-      emitter(.inferenceCompleted(agent: agentName, durationSeconds: seconds))
+      let seconds = elapsedSeconds(since: startTime)
+      // Retry inferences contribute to tok/s averages — this reflects real
+      // device throughput (the "what did I observe" metric), not net-productive
+      // throughput. Retries are rare in practice.
+      emitter(
+        .inferenceCompleted(
+          agent: agentName, durationSeconds: seconds,
+          tokenCount: result.completionTokens))
+
+      let raw = result.text
 
       // Try to parse JSON
       guard let output = try? parser.parse(raw) else {
@@ -104,8 +109,8 @@ nonisolated struct LLMCaller: Sendable {
 
   // swiftlint:enable function_parameter_count
 
-  /// Wraps `llm.generate` to convert ``LLMError/suspended`` into a transparent
-  /// re-issue of the same prompt after the controller resumes.
+  /// Wraps `llm.generateWithMetrics` to convert ``LLMError/suspended`` into a
+  /// transparent re-issue of the same prompt after the controller resumes.
   ///
   /// Suspend cycles are invisible to the parse-retry loop above and to the UI
   /// (no extra `inferenceStarted`/`inferenceCompleted` pair is emitted), so
@@ -121,13 +126,13 @@ nonisolated struct LLMCaller: Sendable {
     system: String,
     user: String,
     controller: SuspendController
-  ) async throws -> String {
+  ) async throws -> GenerationResult {
     var attempt = 0
     while true {
       attempt += 1
-      logger.info("generateWithSuspendRetry: attempt #\(attempt) — calling llm.generate")
+      logger.info("generateWithSuspendRetry: attempt #\(attempt) — calling llm.generateWithMetrics")
       do {
-        let result = try await llm.generate(system: system, user: user)
+        let result = try await llm.generateWithMetrics(system: system, user: user)
         logger.info("generateWithSuspendRetry: attempt #\(attempt) — generate returned ok")
         return result
       } catch LLMError.suspended {
@@ -145,5 +150,11 @@ nonisolated struct LLMCaller: Sendable {
         throw error
       }
     }
+  }
+
+  private func elapsedSeconds(since start: ContinuousClock.Instant) -> Double {
+    let duration = ContinuousClock.now - start
+    return Double(duration.components.seconds)
+      + Double(duration.components.attoseconds) / 1e18
   }
 }

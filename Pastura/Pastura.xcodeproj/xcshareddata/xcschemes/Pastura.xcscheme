@@ -41,6 +41,17 @@
                ReferencedContainer = "container:Pastura.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E0BCA4CF2F83E7E10025BAE6"
+               BuildableName = "PasturaUITests.xctest"
+               BlueprintName = "PasturaUITests"
+               ReferencedContainer = "container:Pastura.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
