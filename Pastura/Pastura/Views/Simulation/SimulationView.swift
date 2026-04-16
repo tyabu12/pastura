@@ -293,6 +293,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       let simViewModel = SimulationViewModel(
         simulationRepository: deps.simulationRepository,
         turnRepository: deps.turnRepository,
+        codePhaseEventRepository: deps.codePhaseEventRepository,
         scenarioRepository: deps.scenarioRepository
       )
       viewModel = simViewModel
