@@ -1,5 +1,6 @@
 // swiftlint:disable file_length
 import Foundation
+import os
 
 /// A single displayable entry in the simulation log.
 struct LogEntry: Identifiable {
@@ -94,6 +95,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private let scenarioRepository: (any ScenarioRepository)?
   // Accessed from the BG continuation extension in SimulationViewModel+Background.swift
   let backgroundManager: BackgroundSimulationManager?
+  // Lifecycle logger — accessed from the +Background extension. Use `info` for
+  // routine state transitions and `error` for unexpected paths so device logs
+  // stay readable.
+  let lifecycleLogger = Logger(subsystem: "com.pastura", category: "SimulationVM")
   // Non-private so `@testable import` can seed persistence without invoking `run()`.
   internal var simulationId: String?
 
@@ -177,6 +182,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Task cancellation terminates the runner's AsyncStream; the `for await`
   /// loop exits and post-loop cleanup runs.
   func cancelSimulation() {
+    lifecycleLogger.info(
+      "cancelSimulation called: isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
+    )
     runTask?.cancel()
     isCancelled = true
     // Release a generate currently parked in `awaitResume()` so cancellation
@@ -217,8 +225,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // Start both persistence consumers before any events can arrive.
     startPersistenceConsumer()
     startCodePhasePersistenceConsumer()
+    lifecycleLogger.info("run() entered: simId=\(simId)")
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
+      lifecycleLogger.info(
+        "run() defer: isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled), errorMessage=\(self.errorMessage ?? "nil")"
+      )
       // Release any parked generate before tearing down state. Idempotent.
       controller.resume()
       persistenceContinuation?.finish()

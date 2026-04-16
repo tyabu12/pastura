@@ -195,7 +195,15 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// `llama_memory_clear` so the retried `generate()` (issued by
   /// ``LLMCaller`` after `awaitResume`) starts from a clean state.
   func decodeFailureError(_ result: Int32) -> LLMError {
-    if suspendController?.isSuspendRequested() == true {
+    let suspendRequested = suspendController?.isSuspendRequested() ?? false
+    // Diagnostic log for #84 Bug 1/3 root-cause confirmation: distinguishes
+    // "Metal denied us mid-decode while we knew we were suspending" from
+    // "Metal context invalidated by OS suspend without our suspend flag set".
+    // Remove once the two bugs are root-caused and fixed.
+    logger.error(
+      "decodeFailureError: result=\(result), suspendRequested=\(suspendRequested)"
+    )
+    if suspendRequested {
       // Wipe partial decode state so retry doesn't inherit a corrupt KV cache.
       // Safe when context is nil (test paths) — we just skip the C call.
       if let context = _context {
