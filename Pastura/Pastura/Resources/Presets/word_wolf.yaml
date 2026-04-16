@@ -70,6 +70,7 @@ phases:
       {conversation_log}
 
       少数派（ウルフ）だと思う人に投票してください。
+      投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
     output:
       vote: string
       reason: string
