@@ -90,6 +90,9 @@ private struct RootView: View {
       // On simulator, use OllamaService directly — no model download needed.
       do {
         let deps = try AppDependencies.production()
+        // Register BG task handler early so iOS 26+ can launch us in background.
+        // Must be called before the first scene activates.
+        deps.backgroundManager.register()
         PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
         appState = .ready(deps)
       } catch {
@@ -113,6 +116,8 @@ private struct RootView: View {
     do {
       let llm = LlamaCppService(modelPath: modelPath)
       let deps = try AppDependencies.production(llmService: llm)
+      // Register BG task handler early so iOS 26+ can launch us in background.
+      deps.backgroundManager.register()
       PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
       appState = .ready(deps)
     } catch {

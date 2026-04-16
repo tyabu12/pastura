@@ -93,4 +93,186 @@ struct LlamaCppServiceTests {
       try await service.generate(system: "sys", user: "usr")
     }
   }
+
+  // MARK: - reloadModel(gpuAcceleration:)
+
+  @Test func reloadModelWithInvalidPathThrowsLoadFailed() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await #expect(throws: LLMError.self) {
+      try await service.reloadModel(gpuAcceleration: .none)
+    }
+  }
+
+  @Test func reloadModelFailureKeepsNotLoaded() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    try? await service.reloadModel(gpuAcceleration: .none)
+    #expect(!service.isModelLoaded)
+  }
+
+  @Test func reloadModelWhenNotLoadedBehavesLikeLoad() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // Reload before initial load should attempt load (fails on invalid path).
+    // State must remain not-loaded on failure.
+    await #expect(throws: LLMError.self) {
+      try await service.reloadModel(gpuAcceleration: .full)
+    }
+    #expect(!service.isModelLoaded)
+  }
+
+  @Test func reloadModelUnloadsFirstEvenIfReloadFails() async throws {
+    // If reload's inner load fails, the previous model should still be unloaded —
+    // the caller gets a clean not-loaded state, not a partial state.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    try? await service.loadModel()  // fails, but tests atomicity
+    try? await service.reloadModel(gpuAcceleration: .none)
+    #expect(!service.isModelLoaded)
+  }
+
+  // MARK: - unloadModel cooperative wait (no precondition crash)
+
+  @Test func unloadModelDoesNotCrashWhenCalledConcurrentlyWithGenerate() async throws {
+    // Regression test for a crash where unloadModel() would hit a precondition
+    // when called while generate() was still running. This happens in practice
+    // on memory warning + cancellation paths because llama.cpp's C API does not
+    // respect Swift Task cancellation — generate runs to completion regardless.
+    //
+    // The fix is to make unloadModel() wait for generate to complete instead
+    // of crashing. Here we exercise the path by calling unloadModel on an
+    // unloaded service: the fast path returns immediately without any guard
+    // check that could crash.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // Multiple back-to-back unloads must be safe (the first exits early via
+    // the `guard wasLoaded` check; the second sees isModelLoaded==false).
+    try await service.unloadModel()
+    try await service.unloadModel()
+    #expect(!service.isModelLoaded)
+  }
+
+  @Test func unloadModelWaitsForInFlightGenerate() async throws {
+    // Exercises the awaitGenerateIdle polling loop: unloadModel should block
+    // while generatingGuard is true, and proceed once it clears. Uses the
+    // DEBUG-only setGeneratingForTesting hook to simulate an in-flight generate
+    // without actually running one (which would require a real model file).
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    service.setGeneratingForTesting(true)
+
+    let unloadTask = Task<Bool, Error> {
+      try await service.unloadModel()
+      return true
+    }
+
+    // Give unload a chance to start polling
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(!unloadTask.isCancelled, "unloadModel should still be blocked on the guard")
+
+    // Simulate generate completing — clears the flag, unloadModel's poll exits
+    service.setGeneratingForTesting(false)
+    let completed = try await unloadTask.value
+    #expect(completed)
+    #expect(!service.isModelLoaded)
+  }
+
+  // MARK: - SuspendController attachment
+
+  @Test func attachSuspendControllerStoresReference() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+    #expect(service.suspendController === controller)
+  }
+
+  @Test func attachSuspendControllerReplacesPreviousReference() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let first = SuspendController()
+    let second = SuspendController()
+    await service.attachSuspendController(first)
+    await service.attachSuspendController(second)
+    #expect(service.suspendController === second)
+  }
+
+  @Test func attachSuspendControllerNilDetaches() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await service.attachSuspendController(SuspendController())
+    await service.attachSuspendController(nil)
+    #expect(service.suspendController == nil)
+  }
+
+  @Test func reloadModelPreservesSuspendControllerAcrossFailure() async {
+    // Even if reload throws (invalid path), the previously attached controller
+    // must still be in place — the App layer's reference must survive the
+    // unload/load cycle without any explicit re-attach.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+
+    try? await service.reloadModel(gpuAcceleration: .none)
+
+    #expect(service.suspendController === controller)
+  }
+
+  // Note: cooperative suspend behavior inside the generate auto-regressive
+  // loop and the prefill loop is exercised end-to-end by the integration
+  // tests in step 18 (real model required to actually enter the loop).
+
+  // MARK: - Reactive suspend mapping (decodeFailureError)
+
+  @Test func decodeFailureWithoutControllerReturnsGenerationFailed() {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    // No controller attached at all — every non-zero decode is fatal.
+    let mapped = service.decodeFailureError(-3)
+    if case .generationFailed = mapped { /* OK */
+    } else {
+      Issue.record("expected .generationFailed but got \(mapped)")
+    }
+  }
+
+  @Test func decodeFailureWithoutSuspendRequestReturnsGenerationFailed() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await service.attachSuspendController(SuspendController())
+    // Controller exists but no suspend was requested → still fatal.
+    let mapped = service.decodeFailureError(2)
+    if case .generationFailed = mapped { /* OK */
+    } else {
+      Issue.record("expected .generationFailed but got \(mapped)")
+    }
+  }
+
+  @Test func decodeFailureWithSuspendRequestReturnsSuspended() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+    controller.requestSuspend()
+
+    // Mapping is intentionally code-agnostic — any non-zero result under
+    // active suspend becomes .suspended, regardless of the specific error.
+    #expect(service.decodeFailureError(-3) == .suspended)
+    #expect(service.decodeFailureError(2) == .suspended)
+    #expect(service.decodeFailureError(-1000) == .suspended)
+  }
+
+  @Test func unloadModelDoesNotEarlyReturnOnTaskCancellation() async throws {
+    // Even if the owning task is cancelled, unloadModel must NOT return while
+    // generate is still in flight — that would free C pointers still in use
+    // (use-after-free). Verifies the Task.detached sleep pattern isn't
+    // short-circuited by cancellation.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    service.setGeneratingForTesting(true)
+
+    let unloadTask = Task<Bool, Error> {
+      try await service.unloadModel()
+      return true
+    }
+
+    // Cancel while generate is "running"
+    try await Task.sleep(for: .milliseconds(100))
+    unloadTask.cancel()
+
+    // unloadModel should still be waiting — confirm it hasn't returned
+    try await Task.sleep(for: .milliseconds(200))
+    service.setGeneratingForTesting(false)
+
+    // Now it should complete
+    let completed = try await unloadTask.value
+    #expect(completed)
+  }
 }

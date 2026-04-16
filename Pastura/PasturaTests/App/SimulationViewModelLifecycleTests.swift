@@ -408,4 +408,171 @@ struct SimulationViewModelLifecycleTests {
       Issue.record("Expected Bob's agent output")
     }
   }
+
+  @Test func cancelSimulationResumesAttachedSuspendController() async throws {
+    let (sut, _) = try makeLifecycleSUT()
+
+    // Simulate mid-run state: VM owns a controller currently parked in suspend.
+    let controller = SuspendController()
+    sut.suspendController = controller
+    controller.requestSuspend()
+    #expect(controller.isSuspendRequested() == true)
+
+    sut.cancelSimulation()
+
+    // cancelSimulation must wake the parked awaiter; awaitResume returns
+    // immediately once the controller is in the `.resumed` state.
+    await controller.awaitResume()
+    #expect(sut.isCancelled == true)
+  }
+
+  @Test func simulationSurvivesSuspendResumeCycleMidRound() async throws {
+    let (sut, _) = try makeLifecycleSUT()
+    sut.speed = .instant
+
+    // 2 agents × 1 phase × 1 round = 2 generate calls. The first generate will
+    // throw `.suspended` (via simulateSuspendOnNextGenerate); the retry after
+    // resume delivers the first response. The second agent's generate runs
+    // normally.
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    mock.simulateSuspendOnNextGenerate()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    sut.runTask = runTask
+
+    // Wait for run() to attach the SuspendController (happens synchronously
+    // between two await points inside run(), so once observable it's stable).
+    while sut.suspendController == nil {
+      await Task.yield()
+    }
+    guard let controller = sut.suspendController else {
+      Issue.record("Expected suspendController to be attached")
+      return
+    }
+
+    // Put the controller into `.suspended` BEFORE the first generate runs so
+    // LLMCaller's awaitResume() parks (otherwise mock's suspended throw would
+    // hot-loop via idle-state awaitResume returning immediately).
+    sut.handleWillResignActive()
+    #expect(controller.isSuspendRequested() == true)
+
+    // Give runTask time to reach awaitResume() and park. Not strictly
+    // required for correctness (resume() is idempotent across states) — but
+    // it exercises the park-then-wake path we actually care about.
+    try await Task.sleep(for: .milliseconds(50))
+
+    // Toggle OFF foreground path: resume() only, no reload.
+    await sut.handleScenePhaseForeground()
+
+    await runTask.value
+
+    #expect(sut.isCompleted == true)
+    #expect(sut.isCancelled == false)
+    #expect(sut.errorMessage == nil)
+    // Both agents produced output despite the mid-run suspend/resume cycle.
+    let agents: Set<String> = Set(
+      sut.logEntries.compactMap { entry in
+        if case .agentOutput(let agent, _, _) = entry.kind { return agent }
+        return nil
+      })
+    #expect(agents == Set(["Alice", "Bob"]))
+    // Mock was called exactly twice (first throw doesn't consume callIndex,
+    // retry + second agent each increment it).
+    #expect(mock.generateCallCount == 2)
+  }
+
+  @Test func pauseAndResumeMidRunCompletesNormally() async throws {
+    // Critical regression test for #84: previously, "pausing" the simulation
+    // (e.g., on memoryWarning) corrupted terminal status because the old
+    // proposal set `errorMessage` which `run()` defer interprets as `.failed`.
+    // The new pauseSimulation/resumeSimulation API must NOT touch errorMessage
+    // and a paused-then-resumed run must be persisted as `.completed`.
+    let db = try DatabaseManager.inMemory()
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "test", name: "Test", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()
+      ))
+
+    let sut = SimulationViewModel(
+      simulationRepository: simRepo, turnRepository: turnRepo)
+    sut.speed = .instant
+
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    sut.runTask = runTask
+
+    // Wait for run() to attach the SuspendController.
+    while sut.suspendController == nil {
+      await Task.yield()
+    }
+
+    // Pause via the unified API (mirrors what the memoryWarning handler does).
+    sut.pauseSimulation(reason: "Memory warning — test pause")
+    #expect(sut.isPaused == true)
+    #expect(sut.suspendController?.isSuspendRequested() == true)
+
+    // Reason was appended to the log so the user sees why.
+    let summaryBeforeResume = sut.logEntries.last { entry in
+      if case .summary(let text) = entry.kind { return text.contains("Memory warning") }
+      return false
+    }
+    #expect(summaryBeforeResume != nil, "Expected pause reason logged as a summary entry")
+
+    // Give the runner time to observe the pause / generate to park.
+    try await Task.sleep(for: .milliseconds(50))
+
+    // Resume — symmetric counterpart of pauseSimulation.
+    sut.resumeSimulation()
+    #expect(sut.isPaused == false)
+
+    await runTask.value
+
+    // Critical assertions — no terminal status corruption.
+    #expect(sut.isCompleted == true)
+    #expect(sut.isCancelled == false)
+    #expect(sut.errorMessage == nil, "pauseSimulation must not set errorMessage")
+
+    // DB row reflects the truth: the run completed, not failed.
+    let sims = try simRepo.fetchByScenarioId("test")
+    #expect(sims.first?.simulationStatus == .completed)
+  }
+
+  @Test func runClearsSuspendControllerOnExit() async throws {
+    let (sut, _) = try makeLifecycleSUT()
+    sut.speed = .instant
+
+    let mock = MockLLMService(responses: [#"{"statement": "hi"}"#])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    #expect(sut.suspendController == nil)
+    await sut.run(scenario: scenario, llm: mock)
+    // Defer block in run() clears the controller regardless of exit path.
+    #expect(sut.suspendController == nil)
+  }
 }

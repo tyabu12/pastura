@@ -124,7 +124,8 @@ struct OllamaIntegrationTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: ollama))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: ollama, suspendController: SuspendController()))
 
     try await ollama.unloadModel()
 
@@ -191,7 +192,8 @@ struct OllamaIntegrationTests {
     )
 
     let runner = SimulationRunner()
-    let events = await collectAllEvents(runner.run(scenario: scenario, llm: ollama))
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: ollama, suspendController: SuspendController()))
 
     try await ollama.unloadModel()
 

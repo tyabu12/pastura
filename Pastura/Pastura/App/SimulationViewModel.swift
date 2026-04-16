@@ -5,6 +5,7 @@
 // many `private` repository/state members to internal, which trades the
 // file-length limit for weaker encapsulation.
 import Foundation
+import os
 
 /// A single displayable entry in the simulation log.
 struct LogEntry: Identifiable {
@@ -94,7 +95,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private(set) var isRunning = false
   private(set) var isCompleted = false
   private(set) var isCancelled = false
-  private(set) var errorMessage: String?
+  // Internal `var` (not `private(set)`) because the BG continuation extension
+  // in a separate file writes errorMessage from its switchToCPU/GPU error
+  // catches. Cross-file extension access can't reach `private(set)`.
+  var errorMessage: String?
 
   /// Most recent inference duration in seconds. `nil` until the first
   /// `.inferenceCompleted` event arrives.
@@ -122,9 +126,52 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   var showAllThoughts = true
   var speed: PlaybackSpeed = .normal
 
-  var isPaused: Bool {
-    get { runner.isPaused }
-    set { runner.isPaused = newValue }
+  /// Read-only view of the runner's pause state. Views observe this to drive
+  /// the pause-button label and "Paused" pill. **Mutation must go through
+  /// ``pauseSimulation(reason:)`` / ``resumeSimulation()``** — those methods
+  /// co-manage `runner.isPaused` and `suspendController` so an in-flight
+  /// generate is interrupted cooperatively rather than waiting for the next
+  /// phase boundary (ADR-003 §10 invariant 6).
+  var isPaused: Bool { runner.isPaused }
+
+  // MARK: - Background continuation state
+
+  /// Whether the user has enabled background simulation continuation.
+  /// The toggle only takes effect if `canEnableBackgroundContinuation` is true.
+  /// Set by the BG continuation extension (in a separate file).
+  var isBackgroundContinuationEnabled = false
+
+  /// Whether the most recent BG task activation callback has fired for the
+  /// current toggle cycle. Set by `handleBackgroundActivation` (before its
+  /// guards so the one-shot scheduled request is considered consumed even if
+  /// the VM is no longer running). Reset on each `enableBackgroundContinuation`
+  /// success and on `disableBackgroundContinuation`.
+  ///
+  /// Gates the toggle-disarm path in `handleScenePhaseForeground`: a transient
+  /// `.inactive → .active` (Control Center pull, notification drawer) must not
+  /// disarm the user's armed toggle — only a real BG activation does.
+  /// Plain `var` (not `private(set)`) because the BG continuation extension
+  /// in a separate file writes it.
+  var didActivateBGTask = false
+
+  /// Mirror of the app's scene-phase (`true` while `scenePhase == .background`).
+  /// Updated by `SimulationView`'s `.onChange(of: scenePhase)` observer BEFORE
+  /// it dispatches the FG/BG handler Tasks — so any queued BG expiration
+  /// callback running on the MainActor afterwards sees the fresh value.
+  ///
+  /// Gates `handleBackgroundExpiration`: when the system fires the expiration
+  /// closure during/after a FG return, the pause it would apply is stale and
+  /// would leave the user stranded with `runner.isPaused = true` plus a
+  /// misleading "Background time exceeded" log after they've already returned.
+  var isAppBackgrounded = false
+
+  /// Whether background continuation is available on this device/OS.
+  /// Requires iOS 26+ and `LlamaCppService` (for GPU↔CPU switching).
+  var canEnableBackgroundContinuation: Bool {
+    guard #available(iOS 26, *) else { return false }
+    guard backgroundManager?.isSupported == true else { return false }
+    // Only LlamaCppService supports reloadModel; other backends can't switch modes.
+    return currentLLM is LlamaCppService
   }
 
   // MARK: - Dependencies
@@ -135,13 +182,40 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private let turnRepository: any TurnRepository
   private let codePhaseEventRepository: (any CodePhaseEventRepository)?
   private let scenarioRepository: (any ScenarioRepository)?
+  // Accessed from the BG continuation extension in SimulationViewModel+Background.swift
+  let backgroundManager: BackgroundSimulationManager?
+  // Lifecycle logger — accessed from the +Background extension. Use `info` for
+  // routine state transitions and `error` for unexpected paths so device logs
+  // stay readable.
+  let lifecycleLogger = Logger(subsystem: "com.pastura", category: "SimulationVM")
   // Non-private so `@testable import` can seed persistence without invoking `run()`.
   internal var simulationId: String?
+
+  /// The LLM service currently driving the simulation — captured from `run(scenario:llm:)`
+  /// so background transition handlers can reload the model without a new parameter.
+  /// Accessed from the BG continuation extension.
+  var currentLLM: (any LLMService)?
+
+  /// True if the LLM is currently loaded in CPU-only mode (for background inference).
+  /// Toggled by `switchToCPUInference` / `switchToGPUInference` in the BG extension.
+  var isOnCPU = false
+
+  /// True while the LLM model is being reloaded (GPU↔CPU switch).
+  /// Surfaced to the UI so it can show a "Reloading model..." overlay —
+  /// reload takes 3-8 seconds (model re-read from disk), most noticeable
+  /// on foreground return from a background simulation.
+  var isReloadingModel = false
 
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
   var runTask: Task<Void, Never>?
+
+  /// Cooperative suspend/resume channel for the active inference. Created per
+  /// `run()` call and attached to the LLM so scene-phase / BG-task handlers
+  /// (in the +Background extension) can interrupt an in-flight `generate`.
+  /// Cleared on `run()` exit.
+  var suspendController: SuspendController?
 
   // Serial persistence queue — guarantees TurnRecords are written to the DB in
   // the same order events arrive. Without this, independent Task.detached calls
@@ -179,7 +253,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     simulationRepository: any SimulationRepository,
     turnRepository: any TurnRepository,
     codePhaseEventRepository: (any CodePhaseEventRepository)? = nil,
-    scenarioRepository: (any ScenarioRepository)? = nil
+    scenarioRepository: (any ScenarioRepository)? = nil,
+    backgroundManager: BackgroundSimulationManager? = nil
   ) {
     self.runner = runner
     self.contentFilter = contentFilter
@@ -187,22 +262,74 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     self.turnRepository = turnRepository
     self.codePhaseEventRepository = codePhaseEventRepository
     self.scenarioRepository = scenarioRepository
+    self.backgroundManager = backgroundManager
   }
 
   // MARK: - Simulation Lifecycle
 
   /// Cancels a running simulation.
+  /// Task cancellation terminates the runner's AsyncStream; the `for await`
+  /// loop exits and post-loop cleanup runs.
+  /// `caller` defaults to the source-location `#function` of the caller, so logs
+  /// immediately reveal which path triggered the cancel — invaluable for
+  /// distinguishing memory-warning vs reload-failure vs explicit user cancel.
+  /// Pauses the simulation, interrupting any in-flight `generate` cooperatively.
   ///
-  /// Cancellation flows through the task: the runner's AsyncStream detects
-  /// Task cancellation and terminates, causing the `for await` loop to exit
-  /// naturally. Post-loop cleanup (unloadModel, finalize status) then runs.
-  func cancelSimulation() {
+  /// Co-manages `runner.isPaused` (so the runner waits at the next phase
+  /// boundary) and `suspendController` (so the in-flight generate exits within
+  /// milliseconds rather than running to completion). Pair with
+  /// ``resumeSimulation()``.
+  ///
+  /// - Parameter reason: Optional message appended to the log so the user
+  ///   knows *why* they were paused (e.g., memoryWarning). Pass `nil` for
+  ///   user-initiated pauses where no log entry is needed.
+  func pauseSimulation(reason: String? = nil) {
+    // Defensive: the BG-task expiration callback may fire after run() has
+    // already exited (e.g., user cancelled, then iOS expired the BG task
+    // shortly after). Don't append spurious log entries or mutate runner
+    // state in that window.
+    guard isRunning else {
+      lifecycleLogger.info(
+        "pauseSimulation: skipped (not running). reason=\(reason ?? "user", privacy: .public)"
+      )
+      return
+    }
+    lifecycleLogger.info(
+      "pauseSimulation: reason=\(reason ?? "user", privacy: .public), isPaused=\(self.isPaused)"
+    )
+    if let reason {
+      logEntries.append(LogEntry(kind: .summary(text: reason)))
+    }
+    runner.isPaused = true
+    suspendController?.requestSuspend()
+  }
+
+  /// Resumes a paused simulation. Symmetric counterpart to
+  /// ``pauseSimulation(reason:)`` — wakes any parked generate and unblocks
+  /// the runner's phase-boundary checkpoint.
+  func resumeSimulation() {
+    lifecycleLogger.info("resumeSimulation: isPaused=\(self.isPaused)")
+    runner.isPaused = false
+    suspendController?.resume()
+  }
+
+  func cancelSimulation(caller: String = #function) {
+    lifecycleLogger.info(
+      "cancelSimulation called by \(caller, privacy: .public): isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
+    )
     runTask?.cancel()
     isCancelled = true
+    // Release a generate currently parked in `awaitResume()` so cancellation
+    // propagates promptly from a suspended state. Idempotent per contract.
+    suspendController?.resume()
+    // Events emitted after cancellation are dropped by the terminated AsyncStream,
+    // so clear UI "in-progress" state here to avoid stuck "thinking..." indicators.
+    thinkingAgents.removeAll()
   }
 
   /// Starts the simulation, consuming events and persisting results.
-  func run(scenario: Scenario, llm: any LLMService) async {
+  func run(scenario: Scenario, llm: any LLMService) async {  // swiftlint:disable:this function_body_length
+    currentLLM = llm
     isRunning = true
     isCompleted = false
     isCancelled = false
@@ -221,14 +348,29 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
     turnSequence = 0
 
+    // Attach BEFORE loadModel so scene-phase handlers can signal suspend as
+    // soon as run() is in flight.
+    let controller = SuspendController()
+    suspendController = controller
+    await llm.attachSuspendController(controller)
+
     // Start both persistence consumers before any events can arrive.
     startPersistenceConsumer()
     startCodePhasePersistenceConsumer()
+    lifecycleLogger.info("run() entered: simId=\(simId)")
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
+      lifecycleLogger.info(
+        "run() defer: isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled), errorMessage=\(self.errorMessage ?? "nil")"
+      )
+      // Release any parked generate before tearing down state. Idempotent.
+      controller.resume()
       persistenceContinuation?.finish()
       codePhasePersistenceContinuation?.finish()
+      backgroundManager?.completeTask(success: isCompleted)
       isRunning = false
+      currentLLM = nil
+      suspendController = nil
     }
 
     // Load LLM model
@@ -244,7 +386,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation in AgentOutputRow; other events (phase/round separators,
     // code-phase results) get a small fixed delay so they stay on-screen
     // long enough to read. `.instant` skips both.
-    for await event in runner.run(scenario: scenario, llm: llm) {
+    for await event in runner.run(
+      scenario: scenario, llm: llm, suspendController: controller
+    ) {
       if case .agentOutput = event {
         // no inter-event sleep — typing animation handles pacing
       } else if speed.interEventDelayMs > 0 {
@@ -293,6 +437,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       currentPhaseType = phaseType
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
     case .phaseCompleted, .simulationPaused:
+      // No-op — `.simulationPaused` is a runner-side acknowledgement of the
+      // user-initiated pause flow; the UI already reflects `isPaused` set
+      // synchronously by the pause button. Background-driven suspend uses
+      // the SuspendController path instead.
       break
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)

@@ -50,8 +50,16 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// - Parameters:
   ///   - scenario: The scenario to execute.
   ///   - llm: The LLM service for inference.
+  ///   - suspendController: The suspend coordinator shared between the App
+  ///     layer and the LLM. The same instance flows into every
+  ///     ``PhaseContext`` so that a single ``SuspendController/requestSuspend()``
+  ///     call interrupts the simulation regardless of which phase is in flight.
   /// - Returns: An `AsyncStream` of ``SimulationEvent`` values.
-  public func run(scenario: Scenario, llm: LLMService) -> AsyncStream<SimulationEvent> {
+  public func run(
+    scenario: Scenario,
+    llm: LLMService,
+    suspendController: SuspendController
+  ) -> AsyncStream<SimulationEvent> {
     // Capture needed values to avoid retaining self in the Task
     let dispatcher = self.dispatcher
     let validator = self.validator
@@ -63,6 +71,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           scenario: scenario, llm: llm,
           dispatcher: dispatcher, validator: validator,
           pauseState: pauseState,
+          suspendController: suspendController,
           emitter: { continuation.yield($0) }
         )
         continuation.finish()
@@ -82,6 +91,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let llm: LLMService
     let dispatcher: PhaseDispatcher
     let pauseState: OSAllocatedUnfairLock<PauseState>
+    let suspendController: SuspendController
     let emitter: @Sendable (SimulationEvent) -> Void
   }
 
@@ -90,6 +100,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     scenario: Scenario, llm: LLMService,
     dispatcher: PhaseDispatcher, validator: ScenarioValidator,
     pauseState: OSAllocatedUnfairLock<PauseState>,
+    suspendController: SuspendController,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
     // Validate scenario
@@ -105,7 +116,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
-      pauseState: pauseState, emitter: emitter
+      pauseState: pauseState, suspendController: suspendController, emitter: emitter
     )
 
     var state = SimulationState.initial(for: scenario)
@@ -147,10 +158,11 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// Emits `.simulationPaused` exactly once, then suspends via
   /// `CheckedContinuation` until `isPaused` is set to `false` or the
   /// task is cancelled — no polling, zero CPU during pause.
-  private static func checkPaused(ctx: ExecutionContext, round: Int) async -> Bool {
+  private static func checkPaused(ctx: ExecutionContext, round: Int, phaseIndex: Int = 0) async
+    -> Bool {
     guard ctx.pauseState.withLock({ $0.isPaused }) else { return false }
 
-    ctx.emitter(.simulationPaused(round: round, phaseIndex: 0))
+    ctx.emitter(.simulationPaused(round: round, phaseIndex: phaseIndex))
 
     // Why withTaskCancellationHandler + withCheckedContinuation:
     // We need to resume the continuation on EITHER unpause (via isPaused setter)
@@ -206,6 +218,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         return true
       }
 
+      // Check pause between phases so background switching can take effect
+      // without waiting for the entire round to complete.
+      if await checkPaused(ctx: ctx, round: state.currentRound, phaseIndex: phaseIndex) {
+        return true
+      }
+
       ctx.emitter(.phaseStarted(phaseType: phase.type, phaseIndex: phaseIndex))
 
       do {
@@ -215,7 +233,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         // are runner-internal and not exposed to handlers.
         let phaseContext = PhaseContext(
           scenario: ctx.scenario, phase: phase,
-          llm: ctx.llm, emitter: ctx.emitter
+          llm: ctx.llm,
+          suspendController: ctx.suspendController,
+          emitter: ctx.emitter
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {

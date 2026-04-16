@@ -363,13 +363,20 @@ struct SimulationViewModelTests {
 
   // MARK: - Pause Delegation
 
-  @Test func isPausedDelegatesToRunner() throws {
+  /// `pauseSimulation` carries a defensive `isRunning` guard so the BG-task
+  /// expiration callback (which may fire after run() has exited — e.g., user
+  /// cancelled then iOS expired) doesn't leave a stale paused state or
+  /// append spurious log entries. The positive path (pause/resume during an
+  /// active run) is covered by `pauseAndResumeMidRunCompletesNormally` in
+  /// `SimulationViewModelLifecycleTests`.
+  @Test func pauseSimulationIgnoredWhenNotRunning() throws {
     let (sut, _) = try makeSUT()
+    #expect(sut.isPaused == false)
+    #expect(sut.isRunning == false)
 
-    #expect(sut.isPaused == false)
-    sut.isPaused = true
-    #expect(sut.isPaused == true)
-    sut.isPaused = false
-    #expect(sut.isPaused == false)
+    sut.pauseSimulation(reason: "should not appear")
+
+    #expect(sut.isPaused == false, "Guard should prevent isPaused mutation")
+    #expect(sut.logEntries.isEmpty, "Guard should prevent reason from being logged")
   }
 }

@@ -26,7 +26,9 @@ nonisolated public protocol LLMService: Sendable {
   ///   - user: The user prompt with context and instructions for this turn.
   /// - Returns: The raw text response from the LLM.
   /// - Throws: ``LLMError/notLoaded`` if model is not loaded,
-  ///           ``LLMError/generationFailed(description:)`` on inference failure.
+  ///           ``LLMError/generationFailed(description:)`` on inference failure,
+  ///           ``LLMError/suspended`` if a ``SuspendController`` interrupted
+  ///           the call (caller should await resume and retry).
   func generate(system: String, user: String) async throws -> String
 
   /// Generate a completion and return it with optional token-count metrics.
@@ -43,6 +45,21 @@ nonisolated public protocol LLMService: Sendable {
   /// - Returns: A ``GenerationResult`` with the text and optional token count.
   /// - Throws: Same error domain as ``generate(system:user:)``.
   func generateWithMetrics(system: String, user: String) async throws -> GenerationResult
+
+  /// Attach a ``SuspendController`` so an in-flight inference can be
+  /// interrupted from outside the LLM layer.
+  ///
+  /// Default implementation is a no-op: backends that cannot honour suspend
+  /// semantics (such as ``MockLLMService`` and ``OllamaService``) simply
+  /// ignore the controller. ``LlamaCppService`` overrides this to wire the
+  /// controller into its auto-regressive generate loop.
+  ///
+  /// - Important: Must be called before the first inference in a session.
+  ///   Re-attaching during an in-flight generate is undefined behaviour.
+  ///
+  /// - Parameter controller: The controller this service should consult for
+  ///   suspend signals. Pass `nil` to detach.
+  func attachSuspendController(_ controller: SuspendController?) async
 
   /// Human-readable label for the currently-loaded model (e.g.
   /// `"Gemma 4 E2B (Q4_K_M)"`, `"gemma4:e2b"`, `"mock"`). Intended for
@@ -65,4 +82,9 @@ extension LLMService {
     let text = try await generate(system: system, user: user)
     return GenerationResult(text: text, completionTokens: nil)
   }
+
+  /// Default no-op so existing implementations need no changes. Backends that
+  /// support cooperative suspend (currently only ``LlamaCppService``) override
+  /// this method.
+  public func attachSuspendController(_ controller: SuspendController?) async {}
 }
