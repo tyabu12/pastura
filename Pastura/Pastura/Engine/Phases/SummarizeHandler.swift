@@ -17,9 +17,11 @@ nonisolated struct SummarizeHandler: PhaseHandler {
       // Expand template per pairing
       var lines: [String] = []
       for pairing in state.pairings {
-        // Precedence: state.variables first, derived vars overwrite (prototype parity).
-        // Ensures pair-specific keys like {agent1} are never shadowed by a
-        // user-defined state.variables["agent1"].
+        // Superset of the prototype's pair path: we also merge state.variables so
+        // shared placeholders like {scoreboard}, {current_round}, {vote_results}
+        // resolve inside pair expansion. Pair-specific keys (agent1, action1, …)
+        // are written *after* the merge so they can never be shadowed by a
+        // user-defined state.variables entry with the same name.
         var variables = state.variables
         variables["agent1"] = pairing.agent1
         variables["action1"] = pairing.action1 ?? "?"

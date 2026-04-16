@@ -46,6 +46,7 @@ struct SummarizeHandlerTests {
       if case .summary(let text) = event { return text }
       return nil
     }
+    #expect(summaries.count == 1)
     #expect(summaries[0] == "Alice(cooperate) vs Bob(betray)")
   }
 
@@ -87,6 +88,7 @@ struct SummarizeHandlerTests {
       if case .summary(let text) = event { return text }
       return nil
     }
+    #expect(summaries.count == 1)
     #expect(summaries[0] == #"Score: {"Alice": 2, "Bob": 1}"#)
   }
 
@@ -107,6 +109,7 @@ struct SummarizeHandlerTests {
       if case .summary(let text) = event { return text }
       return nil
     }
+    #expect(summaries.count == 1)
     #expect(summaries[0] == #"Votes: {"Alice": 2}"#)
   }
 
@@ -128,6 +131,7 @@ struct SummarizeHandlerTests {
       if case .summary(let text) = event { return text }
       return nil
     }
+    #expect(summaries.count == 1)
     #expect(summaries[0] == "Votes: {vote_results}")
   }
 
@@ -155,6 +159,7 @@ struct SummarizeHandlerTests {
       if case .summary(let text) = event { return text }
       return nil
     }
+    #expect(summaries.count == 1)
     #expect(summaries[0] == #"Alice vs Bob | board: {"Alice": 3, "Bob": 0}"#)
   }
 
@@ -181,6 +186,7 @@ struct SummarizeHandlerTests {
       if case .summary(let text) = event { return text }
       return nil
     }
+    #expect(summaries.count == 1)
     #expect(summaries[0] == "Alice(cooperate)")
   }
 }
