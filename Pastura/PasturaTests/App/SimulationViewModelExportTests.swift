@@ -39,7 +39,7 @@ struct SimulationViewModelExportTests {
       simulationRepository: simRepo,
       turnRepository: turnRepo,
       scenarioRepository: scenarioRepo)
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [
       #"{"statement": "hello from Alice"}"#,
@@ -77,7 +77,7 @@ struct SimulationViewModelExportTests {
       simulationRepository: simRepo,
       turnRepository: turnRepo,
       scenarioRepository: scenarioRepo)
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
     await sut.run(scenario: scenario, llm: FailingLLMService())
@@ -100,7 +100,7 @@ struct SimulationViewModelExportTests {
     let sut = SimulationViewModel(
       simulationRepository: simRepo,
       turnRepository: turnRepo)  // no scenarioRepository
-    sut.speed = .fastest
+    sut.speed = .instant
 
     let mock = MockLLMService(responses: [#"{"statement": "hi"}"#, #"{"statement": "hi"}"#])
     let scenario = makeTestScenario(

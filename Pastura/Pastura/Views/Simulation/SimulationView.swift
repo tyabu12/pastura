@@ -126,6 +126,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
       Spacer()
 
+      inferenceStatsLabel(viewModel: viewModel)
+
       if viewModel.isCompleted {
         Label("Completed", systemImage: "checkmark.circle.fill")
           .font(.subheadline)
@@ -146,6 +148,29 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .padding(.horizontal)
     .padding(.vertical, 8)
     .background(.bar)
+  }
+
+  @ViewBuilder
+  private func inferenceStatsLabel(viewModel: SimulationViewModel) -> some View {
+    let duration = viewModel.lastInferenceDurationSeconds
+    let tps = viewModel.averageTokensPerSecond
+    if duration != nil || tps != nil {
+      HStack(spacing: 4) {
+        Image(systemName: "speedometer")
+          .font(.caption)
+        Text(formatInferenceStats(durationSeconds: duration, tokensPerSecond: tps))
+          .font(.caption.monospacedDigit())
+      }
+      .foregroundStyle(.secondary)
+    }
+  }
+
+  private func formatInferenceStats(
+    durationSeconds: Double?, tokensPerSecond: Double?
+  ) -> String {
+    let tpsPart = tokensPerSecond.map { String(format: "%.1f tok/s", $0) } ?? "— tok/s"
+    let durationPart = durationSeconds.map { String(format: "%.1fs", $0) } ?? "—"
+    return "\(tpsPart) • \(durationPart)"
   }
 
   // MARK: - Log Entries
