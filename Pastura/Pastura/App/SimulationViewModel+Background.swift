@@ -196,7 +196,7 @@ extension SimulationViewModel {
       lifecycleLogger.error(
         "switchToCPU: failed with \(error.localizedDescription, privacy: .public)")
       errorMessage = "Failed to switch to CPU: \(error.localizedDescription)"
-      cancelSimulation()
+      cancelSimulation(caller: "switchToCPUInference-error")
     }
   }
 
@@ -220,7 +220,7 @@ extension SimulationViewModel {
       lifecycleLogger.error(
         "switchToGPU: failed with \(error.localizedDescription, privacy: .public)")
       errorMessage = "Failed to switch to GPU: \(error.localizedDescription)"
-      cancelSimulation()
+      cancelSimulation(caller: "switchToGPUInference-error")
     }
   }
 }

@@ -181,9 +181,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Cancels a running simulation.
   /// Task cancellation terminates the runner's AsyncStream; the `for await`
   /// loop exits and post-loop cleanup runs.
-  func cancelSimulation() {
+  /// `caller` defaults to the source-location `#function` of the caller, so logs
+  /// immediately reveal which path triggered the cancel — invaluable for
+  /// distinguishing memory-warning vs reload-failure vs explicit user cancel.
+  func cancelSimulation(caller: String = #function) {
     lifecycleLogger.info(
-      "cancelSimulation called: isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
+      "cancelSimulation called by \(caller, privacy: .public): isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
     )
     runTask?.cancel()
     isCancelled = true

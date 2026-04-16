@@ -58,7 +58,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     ) { _ in
       // Memory warning: cancel simulation to free model memory (ADR-002 §7).
       // Cancellation triggers stream termination → for-await exit → unloadModel.
-      viewModel?.cancelSimulation()
+      // Diagnostic log for #84 Bug 3: confirm whether memoryWarning is the
+      // trigger of the spurious cancellations seen on device.
+      print("[SimulationView] didReceiveMemoryWarningNotification → cancelSimulation")
+      viewModel?.cancelSimulation(caller: "memoryWarning")
     }
     // willResignActive fires earlier than scenePhase = .background, beating
     // the iOS Metal-deny window. Backstopped by handleScenePhaseBackground.
