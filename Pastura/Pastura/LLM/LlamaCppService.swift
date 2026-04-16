@@ -1,3 +1,8 @@
+// swiftlint:disable file_length
+// Deliberately long: this file is llama.cpp's C-interop glue. Splitting
+// across files requires elevating several `private` members (pointers,
+// locks, logger) to internal for cross-file access, which is a worse
+// trade-off than a single annotated over-limit file.
 import Foundation
 import LlamaSwift
 import os
@@ -280,7 +285,7 @@ extension LlamaCppService {
   /// Shared implementation for `generate` and `generateWithMetrics`.
   /// Counts tokens emitted by the sampler loop (includes both real output
   /// tokens and a trailing stop-sequence token if one is detected and trimmed).
-  private func runGeneration(  // swiftlint:disable:this function_body_length
+  private func runGeneration(
     system: String, user: String
   ) async throws -> GenerationResult {
     try await throttleIfOverheating()

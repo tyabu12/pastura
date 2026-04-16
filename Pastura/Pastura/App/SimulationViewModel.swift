@@ -1,4 +1,9 @@
 // swiftlint:disable file_length
+// Deliberately long: this view model is the hinge between the event-producing
+// Engine, the SwiftUI view, persistence, content filtering, and the export
+// pipeline. Splitting into extensions across files would require elevating
+// many `private` repository/state members to internal, which trades the
+// file-length limit for weaker encapsulation.
 import Foundation
 
 /// A single displayable entry in the simulation log.

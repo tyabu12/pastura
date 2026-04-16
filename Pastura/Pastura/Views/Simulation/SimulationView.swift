@@ -181,7 +181,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     case .agentOutput(let agent, let output, let phaseType):
       AgentOutputRow(
         agent: agent, output: output, phaseType: phaseType,
-        showAllThoughts: viewModel.showAllThoughts
+        showAllThoughts: viewModel.showAllThoughts,
+        isLatest: viewModel.latestAgentOutputId == entry.id,
+        charsPerSecond: viewModel.speed.charsPerSecond
       )
       .padding(.horizontal)
     case .phaseStarted(let phaseType):
