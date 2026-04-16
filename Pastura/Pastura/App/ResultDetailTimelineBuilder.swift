@@ -36,16 +36,16 @@ nonisolated enum ResultDetailTimelineBuilder {
     fileprivate var sequenceNumber: Int {
       switch self {
       case .roundSeparator: Int.min
-      case .turn(let r): r.sequenceNumber
-      case .codePhase(let r, _): r.sequenceNumber
+      case .turn(let turn): turn.sequenceNumber
+      case .codePhase(let record, _): record.sequenceNumber
       }
     }
 
     fileprivate var roundNumber: Int {
       switch self {
-      case .roundSeparator(let r): r
-      case .turn(let t): t.roundNumber
-      case .codePhase(let r, _): r.roundNumber
+      case .roundSeparator(let round): round
+      case .turn(let turn): turn.roundNumber
+      case .codePhase(let record, _): record.roundNumber
       }
     }
   }

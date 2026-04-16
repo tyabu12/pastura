@@ -61,28 +61,28 @@ struct ResultDetailTimelineBuilderTests {
     let result = ResultDetailTimelineBuilder.build(turns: turns, events: [])
 
     #expect(result.count == 5)
-    if case .roundSeparator(let r0) = result[0] {
-      #expect(r0 == 1)
+    if case .roundSeparator(let round) = result[0] {
+      #expect(round == 1)
     } else {
       Issue.record("0 not separator")
     }
-    if case .turn(let t1) = result[1] {
-      #expect(t1.sequenceNumber == 1)
+    if case .turn(let turn) = result[1] {
+      #expect(turn.sequenceNumber == 1)
     } else {
       Issue.record("1 not turn")
     }
-    if case .turn(let t2) = result[2] {
-      #expect(t2.sequenceNumber == 2)
+    if case .turn(let turn) = result[2] {
+      #expect(turn.sequenceNumber == 2)
     } else {
       Issue.record("2 not turn")
     }
-    if case .roundSeparator(let r3) = result[3] {
-      #expect(r3 == 2)
+    if case .roundSeparator(let round) = result[3] {
+      #expect(round == 2)
     } else {
       Issue.record("3 not separator")
     }
-    if case .turn(let t4) = result[4] {
-      #expect(t4.sequenceNumber == 3)
+    if case .turn(let turn) = result[4] {
+      #expect(turn.sequenceNumber == 3)
     } else {
       Issue.record("4 not turn")
     }
@@ -103,13 +103,13 @@ struct ResultDetailTimelineBuilderTests {
     let result = ResultDetailTimelineBuilder.build(turns: [], events: events)
 
     #expect(result.count == 4)
-    if case .roundSeparator(let r) = result[0] {
-      #expect(r == 1)
+    if case .roundSeparator(let round) = result[0] {
+      #expect(round == 1)
     } else {
       Issue.record("0 not sep")
     }
-    if case .codePhase(_, let p) = result[1] {
-      if case .summary(let text) = p {
+    if case .codePhase(_, let payload) = result[1] {
+      if case .summary(let text) = payload {
         #expect(text == "round 1 summary")
       } else {
         Issue.record("1 wrong payload")
@@ -117,8 +117,8 @@ struct ResultDetailTimelineBuilderTests {
     } else {
       Issue.record("1 not codePhase")
     }
-    if case .roundSeparator(let r) = result[2] {
-      #expect(r == 2)
+    if case .roundSeparator(let round) = result[2] {
+      #expect(round == 2)
     } else {
       Issue.record("2 not sep")
     }
@@ -141,18 +141,18 @@ struct ResultDetailTimelineBuilderTests {
 
     #expect(result.count == 4)
     // [separator(1), turn(seq=1), codePhase(seq=2), turn(seq=3)]
-    if case .turn(let t) = result[1] {
-      #expect(t.sequenceNumber == 1)
+    if case .turn(let turn) = result[1] {
+      #expect(turn.sequenceNumber == 1)
     } else {
       Issue.record("1 not turn")
     }
-    if case .codePhase(let r, _) = result[2] {
-      #expect(r.sequenceNumber == 2)
+    if case .codePhase(let record, _) = result[2] {
+      #expect(record.sequenceNumber == 2)
     } else {
       Issue.record("2 not codePhase")
     }
-    if case .turn(let t) = result[3] {
-      #expect(t.sequenceNumber == 3)
+    if case .turn(let turn) = result[3] {
+      #expect(turn.sequenceNumber == 3)
     } else {
       Issue.record("3 not turn")
     }
@@ -176,11 +176,23 @@ struct ResultDetailTimelineBuilderTests {
 
     // Expected: sep(1), turn(seq=1), sep(2), event(seq=2), sep(3), turn(seq=3)
     #expect(result.count == 6)
-    if case .roundSeparator(let r) = result[0] { #expect(r == 1) } else { Issue.record("0") }
+    if case .roundSeparator(let round) = result[0] {
+      #expect(round == 1)
+    } else {
+      Issue.record("0")
+    }
     if case .turn = result[1] {} else { Issue.record("1") }
-    if case .roundSeparator(let r) = result[2] { #expect(r == 2) } else { Issue.record("2") }
+    if case .roundSeparator(let round) = result[2] {
+      #expect(round == 2)
+    } else {
+      Issue.record("2")
+    }
     if case .codePhase = result[3] {} else { Issue.record("3") }
-    if case .roundSeparator(let r) = result[4] { #expect(r == 3) } else { Issue.record("4") }
+    if case .roundSeparator(let round) = result[4] {
+      #expect(round == 3)
+    } else {
+      Issue.record("4")
+    }
     if case .turn = result[5] {} else { Issue.record("5") }
   }
 
