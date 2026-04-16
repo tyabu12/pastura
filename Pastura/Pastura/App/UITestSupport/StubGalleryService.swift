@@ -36,7 +36,14 @@
     /// Canonical URL used by the canary fixture. Exposed so tests can assert
     /// against it if needed; never reached because `StubGalleryService` serves
     /// from memory.
-    public static let canaryYAMLURL = URL(string: "stub://gallery/canary.yaml")!
+    public static let canaryYAMLURL: URL = {
+      // Hardcoded literal — failure is structurally impossible, but the
+      // project bans `!` so the guard makes the invariant explicit.
+      guard let url = URL(string: "stub://gallery/canary.yaml") else {
+        fatalError("Canary YAML URL literal failed to parse")
+      }
+      return url
+    }()
 
     /// A minimal gallery YAML that parses cleanly through `ScenarioLoader`.
     /// Designed to reach `SimulationView` — running the simulation to
