@@ -224,6 +224,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Controls
 
+  // Shared width so the control slot doesn't jump when the simulation
+  // completes and the Speed menu is swapped for the Export button.
+  // `minWidth` (not exact) so Dynamic Type / future localization can expand.
+  private static let controlSlotMinWidth: CGFloat = 110
+
   @ViewBuilder
   private func speedOrExportControl(viewModel: SimulationViewModel) -> some View {
     if viewModel.isCompleted {
@@ -231,22 +236,36 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         Task { await triggerExport(viewModel: viewModel) }
       } label: {
         if isExporting {
-          ProgressView().frame(width: 150)
+          ProgressView().frame(minWidth: Self.controlSlotMinWidth)
         } else {
           Label("Export", systemImage: "square.and.arrow.up")
             .font(.title3)
-            .frame(width: 150)
+            .frame(minWidth: Self.controlSlotMinWidth)
         }
       }
       .disabled(isExporting)
     } else {
-      Picker("Speed", selection: Bindable(viewModel).speed) {
-        ForEach(PlaybackSpeed.allCases) { speed in
-          Text(speed.label).tag(speed)
+      // Menu picker: segmented style truncated "Normal" / "Instant" at any
+      // reasonable width. Menu shows the current selection only and saves
+      // horizontal room for the remaining controls.
+      Menu {
+        Picker(selection: Bindable(viewModel).speed) {
+          ForEach(PlaybackSpeed.allCases) { speed in
+            Text(speed.label).tag(speed)
+          }
+        } label: {
+          Text("Playback speed")
         }
+      } label: {
+        HStack(spacing: 4) {
+          Image(systemName: "gauge.with.dots.needle.50percent")
+          Text(viewModel.speed.label)
+          Image(systemName: "chevron.down")
+            .font(.caption2)
+        }
+        .font(.subheadline)
+        .frame(minWidth: Self.controlSlotMinWidth)
       }
-      .pickerStyle(.segmented)
-      .frame(width: 150)
     }
   }
 
