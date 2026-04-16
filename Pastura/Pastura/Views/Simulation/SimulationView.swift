@@ -471,7 +471,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         await simViewModel.run(scenario: parsed, llm: deps.llmService)
       }
       simViewModel.runTask = runTask
-      await runTask.value
+      // Propagate `.task` cancellation to `runTask`. `Task { }` is unstructured
+      // and does not inherit cancellation, so a plain `await runTask.value`
+      // would leak the simulation when the user navigates back from this view
+      // — the old run() keeps driving the shared LLMService while a newly
+      // pushed SimulationView starts its own run(), corrupting the model state.
+      await withTaskCancellationHandler {
+        await runTask.value
+      } onCancel: {
+        runTask.cancel()
+      }
     } catch {
       loadError = error.localizedDescription
     }
