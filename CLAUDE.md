@@ -11,6 +11,9 @@ If a requested feature is listed under Phase 3, do not implement it — referenc
 Completed in Phase 2 so far:
 - **Visual Scenario Editor** — dual-mode form + YAML (#83)
 - **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
+- **Share Board** — read-only curated scenario gallery (#87/#93)
+- **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
+- **Inference speed display** — tok/s + simulation playback UX (#99)
 
 ## Language Rules
 

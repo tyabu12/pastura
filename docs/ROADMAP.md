@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-14
+> Last updated: 2026-04-17
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -89,9 +89,10 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
-| Scenario sharing (Share Board)           | Medium   | In progress | Read-only curated gallery (#87). User submissions / ratings / share sheet deferred to Phase 3 marketplace. |
+| Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
+| Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
 | E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
-| Inference speed display                  | Low      | Planned     | tok/s, time per inference in UI          |
+| Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 
 ### Technical Debt to Address
 - Evaluate SPM module split (if file count > 100)
@@ -115,8 +116,8 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Scenario rankings / popular templates| Trending, most-run, highest-rated          |
 | Simulation result auto-summary       | LLM-generated summary of what happened     |
 | Relationship graph visualization     | Agent interaction network diagram          |
-| Android support                      | Kotlin + LiteRT-LM Android SDK            |
-| PC companion app                     | Python CLI or Tauri/Electron GUI           |
+| Android support                      | Direction under evaluation — see [ADR-004 (Draft)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + LiteRT-LM Kotlin SDK. |
+| PC companion app                     | Form factor decided at Phase 3.2 — KMP-shared Engine + Compose Desktop is the current lean (see ADR-004). |
 | Localization (English)               | Expand beyond Japanese-speaking users      |
 
 ---
@@ -126,9 +127,10 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 ```
 Phase 1: iOS only (Swift + SwiftUI)
 Phase 2: iOS + background execution (iOS 26)
-Phase 3: iOS + Android (Kotlin, LiteRT-LM Android SDK)
-         PC via Python CLI (already exists as prototype)
-Future:  KMP shared Engine, platform-specific UI and LLM layers
+Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluation)
+         See ADR-004 (Draft) — platform-specific UI (SwiftUI / Compose / Compose Desktop)
+         and platform-specific LLM actuals (llama.cpp → LiteRT-LM Swift; LiteRT-LM Kotlin)
+         Final decision at Phase 2 → Phase 3 transition.
 ```
 
 ## Scope Decision Quick Reference
