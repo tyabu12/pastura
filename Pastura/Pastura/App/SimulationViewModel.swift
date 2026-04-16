@@ -29,10 +29,17 @@ struct LogEntry: Identifiable {
 
 /// Typing-animation speed tiers for simulation playback.
 ///
+/// Rates are calibrated for Japanese text (higher information density per
+/// character than English) and match contemporary Switch/PS visual-novel
+/// conventions: x0.5 / x1 / x1.5 / Max. `x1` ≈ 30 char/sec feels natural for
+/// mixed kana/kanji content; Ren'Py's 40 char/sec default is slightly too
+/// fast on real devices.
+///
 /// Controls (1) per-character typing rate for agent outputs and (2) a small
 /// delay between non-agentOutput events so phase/round transitions remain
 /// perceptible. `.instant` skips both for developer-style rapid playback.
 enum PlaybackSpeed: String, CaseIterable, Identifiable {
+  case slow
   case normal
   case fast
   case instant
@@ -43,8 +50,9 @@ enum PlaybackSpeed: String, CaseIterable, Identifiable {
   /// `nil` means "render full text immediately" (`.instant`).
   var charsPerSecond: Double? {
     switch self {
-    case .normal: 40
-    case .fast: 80
+    case .slow: 15
+    case .normal: 30
+    case .fast: 45
     case .instant: nil
     }
   }
@@ -54,16 +62,17 @@ enum PlaybackSpeed: String, CaseIterable, Identifiable {
   /// Keeps round separators and phase labels on-screen long enough to read.
   var interEventDelayMs: Int {
     switch self {
-    case .normal, .fast: 120
+    case .slow, .normal, .fast: 120
     case .instant: 0
     }
   }
 
   var label: String {
     switch self {
-    case .normal: "Normal"
-    case .fast: "Fast"
-    case .instant: "Instant"
+    case .slow: "x0.5"
+    case .normal: "x1"
+    case .fast: "x1.5"
+    case .instant: "Max"
     }
   }
 }
