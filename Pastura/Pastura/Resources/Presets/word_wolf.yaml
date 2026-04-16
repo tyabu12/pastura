@@ -46,7 +46,7 @@ personas:
 phases:
   - type: assign
     source: words
-    target: all
+    target: random_one
 
   - type: speak_each
     prompt: >

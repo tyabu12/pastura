@@ -115,6 +115,9 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 ### Git Conventions
 
 - **Branch:** `feature/<description>`, `fix/<description>`
+- **Branch ops:** Prefer `git switch <branch>` / `git switch -c <branch>` over `git checkout`.
+  Never use `git switch` with `--discard-changes`, `--force`, `-f`, or `-C` — they discard
+  uncommitted work or overwrite branch refs.
 - **Commits:** Conventional Commits with emoji prefix, under 72 chars.
   `✨ feat:`, `🐛 fix:`, `♻️ refactor:` — add body when "why" isn't obvious.
 - **Small and focused** — one logical change per commit.

@@ -63,6 +63,36 @@ struct PresetLoaderTests {
     }
   }
 
+  /// Regression test for the word_wolf bug: an `assign` phase whose `source`
+  /// resolves to `.arrayOfDictionaries` in `scenario.extraData` MUST use
+  /// `target: "random_one"`. Using `target: "all"` produces empty assignments
+  /// because the handler expects a flat array when distributing to all agents.
+  @Test func assignPhaseWithDictSourceMustUseRandomOneTarget() throws {
+    let loader = ScenarioLoader()
+    let bundle = Bundle(for: DatabaseManager.self)
+
+    for fileName in PresetLoader.presetFileNames {
+      guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
+        continue  // Missing file is caught by presetYAMLsAreParseable
+      }
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+
+      for (index, phase) in scenario.phases.enumerated() {
+        guard phase.type == .assign, let sourceKey = phase.source else {
+          continue
+        }
+        let extraValue = scenario.extraData[sourceKey]
+        if case .arrayOfDictionaries = extraValue {
+          #expect(
+            phase.target == "random_one",
+            "\(fileName).yaml phase[\(index)]: assign with arrayOfDictionaries source '\(sourceKey)' must use target 'random_one', got '\(phase.target ?? "nil")'"
+          )
+        }
+      }
+    }
+  }
+
   @Test func presetYAMLsAreParseable() throws {
     let loader = ScenarioLoader()
     let bundle = Bundle(for: DatabaseManager.self)

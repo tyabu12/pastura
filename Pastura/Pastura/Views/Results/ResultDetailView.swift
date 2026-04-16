@@ -10,8 +10,7 @@ struct ResultDetailView: View {
   @State private var simulation: SimulationRecord?
   @State private var scenario: ScenarioRecord?
   @State private var isLoading = true
-  @State private var showDebug = false
-  @State private var showAllThoughts = false
+  @State private var showAllThoughts = true
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var isExporting = false
   @State private var exportError: String?
@@ -49,14 +48,6 @@ struct ResultDetailView: View {
           }
         }
         .disabled(!canExport)
-      }
-      ToolbarItem(placement: .secondaryAction) {
-        Button {
-          showDebug.toggle()
-        } label: {
-          Image(systemName: showDebug ? "ladybug.fill" : "ladybug")
-            .foregroundStyle(showDebug ? .orange : .secondary)
-        }
       }
       ToolbarItem(placement: .secondaryAction) {
         Button {
@@ -145,8 +136,7 @@ struct ResultDetailView: View {
         agent: agentName,
         output: output,
         phaseType: phaseType,
-        showAllThoughts: showAllThoughts,
-        showDebug: showDebug
+        showAllThoughts: showAllThoughts
       )
       .padding(.horizontal)
     } else {

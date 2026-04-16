@@ -12,6 +12,7 @@ final class AppDependencies: @unchecked Sendable {
   let scenarioRepository: any ScenarioRepository
   let simulationRepository: any SimulationRepository
   let turnRepository: any TurnRepository
+  let codePhaseEventRepository: any CodePhaseEventRepository
 
   /// The LLM service used for simulation execution.
   /// Defaults to `OllamaService` for development.
@@ -32,6 +33,7 @@ final class AppDependencies: @unchecked Sendable {
     self.scenarioRepository = GRDBScenarioRepository(dbWriter: writer)
     self.simulationRepository = GRDBSimulationRepository(dbWriter: writer)
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
+    self.codePhaseEventRepository = GRDBCodePhaseEventRepository(dbWriter: writer)
     self.llmService = llmService ?? OllamaService()
     self.galleryService = galleryService ?? URLSessionGalleryService()
   }

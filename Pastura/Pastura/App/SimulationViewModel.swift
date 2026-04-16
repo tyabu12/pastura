@@ -1,3 +1,9 @@
+// swiftlint:disable file_length
+// Deliberately long: this view model is the hinge between the event-producing
+// Engine, the SwiftUI view, persistence, content filtering, and the export
+// pipeline. Splitting into extensions across files would require elevating
+// many `private` repository/state members to internal, which trades the
+// file-length limit for weaker encapsulation.
 import Foundation
 
 /// A single displayable entry in the simulation log.
@@ -21,19 +27,52 @@ struct LogEntry: Identifiable {
   }
 }
 
-/// Speed multiplier options for simulation playback.
-enum PlaybackSpeed: Double, CaseIterable, Identifiable {
-  case normal = 1.0
-  case fast = 0.5
-  case fastest = 0.0
+/// Typing-animation speed tiers for simulation playback.
+///
+/// Rates are calibrated for Japanese text (higher information density per
+/// character than English) and match contemporary Switch/PS visual-novel
+/// conventions: x0.5 / x1 / x1.5 / Max. `x1` ≈ 30 char/sec feels natural for
+/// mixed kana/kanji content; Ren'Py's 40 char/sec default is slightly too
+/// fast on real devices.
+///
+/// Controls (1) per-character typing rate for agent outputs and (2) a small
+/// delay between non-agentOutput events so phase/round transitions remain
+/// perceptible. `.instant` skips both for developer-style rapid playback.
+enum PlaybackSpeed: String, CaseIterable, Identifiable {
+  case slow
+  case normal
+  case fast
+  case instant
 
-  var id: Double { rawValue }
+  var id: String { rawValue }
+
+  /// Characters revealed per second during typing animation.
+  /// `nil` means "render full text immediately" (`.instant`).
+  var charsPerSecond: Double? {
+    switch self {
+    case .slow: 15
+    case .normal: 30
+    case .fast: 45
+    case .instant: nil
+    }
+  }
+
+  /// Delay inserted between consumed simulation events other than agent
+  /// outputs (agent outputs are paced by the typing animation instead).
+  /// Keeps round separators and phase labels on-screen long enough to read.
+  var interEventDelayMs: Int {
+    switch self {
+    case .slow, .normal, .fast: 120
+    case .instant: 0
+    }
+  }
 
   var label: String {
     switch self {
-    case .normal: "1x"
-    case .fast: "1.5x"
-    case .fastest: "Max"
+    case .slow: "x0.5"
+    case .normal: "x1"
+    case .fast: "x1.5"
+    case .instant: "Max"
     }
   }
 }
@@ -56,8 +95,31 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private(set) var isCompleted = false
   private(set) var isCancelled = false
   private(set) var errorMessage: String?
-  var showAllThoughts = false
-  var showDebugOutput = false
+
+  /// Most recent inference duration in seconds. `nil` until the first
+  /// `.inferenceCompleted` event arrives.
+  private(set) var lastInferenceDurationSeconds: Double?
+
+  /// Weighted average generation throughput (Σtokens / Σseconds).
+  /// Events with `tokenCount == nil` are excluded from both numerator and
+  /// denominator — substituting zero tokens with their elapsed seconds
+  /// would otherwise drag the average down for no reason. `nil` until at
+  /// least one token-bearing event has been seen.
+  var averageTokensPerSecond: Double? {
+    guard totalCompletionTokens > 0, totalInferenceSeconds > 0 else { return nil }
+    return Double(totalCompletionTokens) / totalInferenceSeconds
+  }
+
+  /// The log-entry id of the most recent `.agentOutput` event. Used by
+  /// `AgentOutputRow` to decide whether to animate typing (only the latest
+  /// row animates; earlier rows render full text immediately).
+  private(set) var latestAgentOutputId: UUID?
+
+  // Running totals for weighted tok/s. See `averageTokensPerSecond`.
+  private var totalCompletionTokens = 0
+  private var totalInferenceSeconds: Double = 0
+  // Default ON: inner thoughts provide interpretive context without drawbacks.
+  var showAllThoughts = true
   var speed: PlaybackSpeed = .normal
 
   var isPaused: Bool {
@@ -71,8 +133,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private let contentFilter: ContentFilter
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
+  private let codePhaseEventRepository: (any CodePhaseEventRepository)?
   private let scenarioRepository: (any ScenarioRepository)?
-  private var simulationId: String?
+  // Non-private so `@testable import` can seed persistence without invoking `run()`.
+  internal var simulationId: String?
 
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
@@ -85,21 +149,43 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private var persistenceContinuation: AsyncStream<TurnRecord>.Continuation?
   private var persistenceTask: Task<Void, Never>?
 
-  /// Per-simulation sequence counter for deterministic TurnRecord ordering.
-  /// Incremented synchronously on MainActor — no lock needed.
+  // Parallel queue for code-phase events. Drained alongside the turns queue
+  // before `.completed` status is persisted so exporters can fetch complete
+  // data immediately after `run()` returns.
+  private var codePhasePersistenceContinuation: AsyncStream<CodePhaseEventRecord>.Continuation?
+  private var codePhasePersistenceTask: Task<Void, Never>?
+
+  /// Per-simulation sequence counter for deterministic ordering of BOTH
+  /// `TurnRecord` (agent output) and `CodePhaseEventRecord`. Each event is
+  /// routed to exactly one stream and increments this counter exactly once
+  /// on MainActor — a single yield per event guarantees strict total order
+  /// for merge-sort at export time.
+  ///
+  /// TODO(resume): when pause/resume lands, re-initialize from
+  /// `MAX(sequenceNumber)` across both tables so resumed runs do not collide
+  /// with existing persisted rows.
   private var turnSequence = 0
+
+  /// The phase currently executing, tracked via `.phaseStarted` events.
+  /// `.summary` has multiple emitters (`SummarizeHandler` and scoring logics
+  /// like `wordwolf_judge` that live inside `ScoreCalcHandler`), so the
+  /// phaseType column of the persisted `CodePhaseEventRecord` must come from
+  /// the engine's execution context rather than the event shape.
+  private var currentPhaseType: PhaseType?
 
   init(
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
     simulationRepository: any SimulationRepository,
     turnRepository: any TurnRepository,
+    codePhaseEventRepository: (any CodePhaseEventRepository)? = nil,
     scenarioRepository: (any ScenarioRepository)? = nil
   ) {
     self.runner = runner
     self.contentFilter = contentFilter
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
+    self.codePhaseEventRepository = codePhaseEventRepository
     self.scenarioRepository = scenarioRepository
   }
 
@@ -135,11 +221,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
     turnSequence = 0
 
-    // Start serial persistence consumer before any events can arrive.
+    // Start both persistence consumers before any events can arrive.
     startPersistenceConsumer()
+    startCodePhasePersistenceConsumer()
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
       persistenceContinuation?.finish()
+      codePhasePersistenceContinuation?.finish()
       isRunning = false
     }
 
@@ -152,20 +240,28 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       return
     }
 
-    // Consume event stream
+    // Consume event stream. Agent outputs are paced by the per-row typing
+    // animation in AgentOutputRow; other events (phase/round separators,
+    // code-phase results) get a small fixed delay so they stay on-screen
+    // long enough to read. `.instant` skips both.
     for await event in runner.run(scenario: scenario, llm: llm) {
-      // Apply speed delay (for non-instant playback)
-      if speed != .fastest {
-        try? await Task.sleep(for: .milliseconds(Int(200 * speed.rawValue)))
+      if case .agentOutput = event {
+        // no inter-event sleep — typing animation handles pacing
+      } else if speed.interEventDelayMs > 0 {
+        try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
       }
 
       handleEvent(event, scenario: scenario)
     }
 
-    // Drain persistence queue before marking simulation as completed.
-    // finish() is idempotent; defer also calls it for early-return paths.
+    // Drain BOTH persistence queues before marking simulation as completed.
+    // `fetchExportPayload` guards on `.completed`, so unflushed writes would
+    // race the export. finish() is idempotent; defer also calls it for
+    // early-return paths.
     persistenceContinuation?.finish()
+    codePhasePersistenceContinuation?.finish()
     await persistenceTask?.value
+    await codePhasePersistenceTask?.value
 
     // Cleanup
     try? await llm.unloadModel()
@@ -194,6 +290,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .roundCompleted(let round, let newScores):
       handleRoundCompleted(round: round, scores: newScores)
     case .phaseStarted(let phaseType, _):
+      currentPhaseType = phaseType
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
     case .phaseCompleted, .simulationPaused:
       break
@@ -206,32 +303,66 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       logEntries.append(LogEntry(kind: .error("\(simError)")))
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
-    case .inferenceCompleted(let agent, _):
+    case .inferenceCompleted(let agent, let seconds, let tokens):
       thinkingAgents.remove(agent)
+      handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
     default:
       handleOutputEvent(event)
     }
   }
 
-  /// Handles score, vote, and other output-related events.
+  /// Handles score, vote, and other code-phase result events. Each branch
+  /// updates UI state AND persists a `CodePhaseEventRecord` so exports can
+  /// reconstruct per-phase outcomes.
+  ///
+  /// The persisted `phaseType` column uses `currentPhaseType` (tracked from
+  /// `.phaseStarted`) with a per-event fallback. This is essential for
+  /// `.summary`, which fires from both `SummarizeHandler` and scoring logics
+  /// like `wordwolf_judge` inside `ScoreCalcHandler` — hard-coding would
+  /// bucket the judge verdict into the wrong phase in exports.
   private func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
     case .scoreUpdate(let newScores):
       handleScoreUpdate(scores: newScores)
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.scoreCalc.rawValue,
+        payload: .scoreUpdate(scores: newScores))
     case .elimination(let agent, let voteCount):
       handleElimination(agent: agent, voteCount: voteCount)
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.eliminate.rawValue,
+        payload: .elimination(agent: agent, voteCount: voteCount))
     case .assignment(let agent, let value):
       logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
+        payload: .assignment(agent: agent, value: value))
     case .summary(let text):
       logEntries.append(LogEntry(kind: .summary(text: text)))
+      // `.summary` also fires for validator warnings (before the first round
+      // starts, currentRound == 0) and early-termination (after the round
+      // loop exits). Export intentionally drops pre-round warnings — they
+      // are diagnostic, not part of the scenario's narrative.
+      if currentRound > 0 {
+        persistCodePhaseEvent(
+          phaseType: currentPhaseType?.rawValue ?? PhaseType.summarize.rawValue,
+          payload: .summary(text: text))
+      }
     case .voteResults(let votes, let tallies):
       logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.vote.rawValue,
+        payload: .voteResults(votes: votes, tallies: tallies))
     case .pairingResult(let agent1, let act1, let agent2, let act2):
       logEntries.append(
         LogEntry(
           kind: .pairingResult(
             agent1: agent1, action1: act1, agent2: agent2, action2: act2
           )))
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.choose.rawValue,
+        payload: .pairingResult(
+          agent1: agent1, action1: act1, agent2: agent2, action2: act2))
     default:
       break
     }
@@ -250,11 +381,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
     let filtered = contentFilter.filter(output)
-    logEntries.append(
-      LogEntry(
-        kind: .agentOutput(
-          agent: agent, output: filtered, phaseType: phaseType
-        )))
+    let entry = LogEntry(
+      kind: .agentOutput(agent: agent, output: filtered, phaseType: phaseType))
+    logEntries.append(entry)
+    // Track the newest agentOutput so AgentOutputRow can gate the typing
+    // animation to only the latest row — older rows snap to full text when
+    // this id flips.
+    latestAgentOutputId = entry.id
     thinkingAgents.remove(agent)
     persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
   }
@@ -267,6 +400,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private func handleElimination(agent: String, voteCount: Int) {
     eliminated[agent] = true
     logEntries.append(LogEntry(kind: .elimination(agent: agent, voteCount: voteCount)))
+  }
+
+  private func handleInferenceCompleted(durationSeconds: Double, tokenCount: Int?) {
+    lastInferenceDurationSeconds = durationSeconds
+    // Only accumulate when tokens are known. Adding the seconds of a
+    // nil-token event without its tokens would drag tok/s below reality.
+    if let tokenCount, tokenCount > 0 {
+      totalCompletionTokens += tokenCount
+      totalInferenceSeconds += durationSeconds
+    }
   }
 
   // MARK: - Persistence
@@ -337,12 +480,83 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
+  private func startCodePhasePersistenceConsumer() {
+    // If no repository was injected, skip starting the consumer — yields
+    // from `persistCodePhaseEvent` become no-ops because the continuation
+    // stays nil. This keeps existing call sites (pre-#92 constructors) working.
+    guard let codePhaseRepo = codePhaseEventRepository else { return }
+    let (stream, continuation) = AsyncStream<CodePhaseEventRecord>.makeStream()
+    codePhasePersistenceContinuation = continuation
+    codePhasePersistenceTask = Task.detached {
+      for await record in stream {
+        do {
+          try codePhaseRepo.save(record)
+        } catch {
+          print("⚠️ Failed to persist code-phase event: \(error)")
+        }
+      }
+    }
+  }
+
+  private func persistCodePhaseEvent(
+    phaseType: String, payload: CodePhaseEventPayload
+  ) {
+    guard let simId = simulationId else { return }
+    guard let continuation = codePhasePersistenceContinuation else { return }
+    do {
+      let data = try JSONEncoder().encode(payload)
+      // JSONEncoder always produces valid UTF-8, so the conversion can't fail
+      // in practice. Bail out instead of falling back to "{}" so a bogus
+      // payload does not reserve a sequenceNumber slot.
+      guard let jsonString = String(data: data, encoding: .utf8) else {
+        print("⚠️ Failed to stringify code-phase payload JSON")
+        return
+      }
+      turnSequence += 1
+      let record = CodePhaseEventRecord(
+        id: UUID().uuidString,
+        simulationId: simId,
+        roundNumber: currentRound,
+        phaseType: phaseType,
+        sequenceNumber: turnSequence,
+        payloadJSON: jsonString,
+        createdAt: Date()
+      )
+      continuation.yield(record)
+    } catch {
+      print("⚠️ Failed to encode code-phase payload: \(error)")
+    }
+  }
+
+  // MARK: - Test Seams
+
+  /// Initializes persistence without invoking `run()`, so unit tests can
+  /// exercise `handleEvent` directly and assert DB contents. Pair with
+  /// `finishPersistenceForTest()` to drain both queues before assertions.
+  internal func beginPersistenceForTest(simulationId: String) {
+    self.simulationId = simulationId
+    turnSequence = 0
+    startPersistenceConsumer()
+    startCodePhasePersistenceConsumer()
+  }
+
+  /// Drains both persistence queues synchronously with the caller. Use after
+  /// `beginPersistenceForTest(simulationId:)` and a series of `handleEvent`
+  /// calls before querying the DB.
+  internal func finishPersistenceForTest() async {
+    persistenceContinuation?.finish()
+    codePhasePersistenceContinuation?.finish()
+    await persistenceTask?.value
+    await codePhasePersistenceTask?.value
+  }
+
   // MARK: - Export
 
   private struct ExportRecords: Sendable {
     let simulation: SimulationRecord
     let scenario: ScenarioRecord
     let turns: [TurnRecord]
+    let codePhaseEvents: [CodePhaseEventRecord]
   }
 
   /// Fetches the current simulation's records and renders them as a Markdown
@@ -354,6 +568,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     guard let simId = simulationId, let scenarioRepository else { return nil }
     let simulationRepository = self.simulationRepository
     let turnRepository = self.turnRepository
+    let codePhaseEventRepository = self.codePhaseEventRepository
 
     let records: ExportRecords? = try await offMain {
       guard
@@ -363,10 +578,23 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         return nil
       }
       let turns = try turnRepository.fetchBySimulationId(simId)
-      return ExportRecords(simulation: sim, scenario: scenario, turns: turns)
+      let codeEvents = try codePhaseEventRepository?.fetchBySimulationId(simId) ?? []
+      return ExportRecords(
+        simulation: sim, scenario: scenario,
+        turns: turns, codePhaseEvents: codeEvents)
     }
 
     guard let records, records.simulation.simulationStatus == .completed else { return nil }
+
+    // Parse personas from the scenario YAML. Exports stay usable even when
+    // the YAML fails to parse — the Final Scores / Roster Status section is
+    // simply omitted rather than aborting the whole export.
+    let personas: [String] = {
+      guard
+        let scenario = try? ScenarioLoader().load(yaml: records.scenario.yamlDefinition)
+      else { return [] }
+      return scenario.personas.map(\.name)
+    }()
 
     let state = decodeState(from: records.simulation) ?? SimulationState()
     let exporter = ResultMarkdownExporter(
@@ -377,6 +605,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         simulation: records.simulation,
         scenario: records.scenario,
         turns: records.turns,
+        codePhaseEvents: records.codePhaseEvents,
+        personas: personas,
         state: state))
   }
 
