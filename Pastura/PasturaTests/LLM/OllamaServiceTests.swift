@@ -230,4 +230,70 @@ struct OllamaServiceTests {
     let service: any LLMService = makeService(session: session)
     #expect(service is OllamaService)
   }
+
+  // MARK: - generateWithMetrics
+
+  @Test func generateWithMetricsReadsUsageCompletionTokens() async throws {
+    let session = makeSession()
+    let service = makeService(session: session)
+    try await service.loadModel()
+
+    MockURLProtocol.requestHandler = { _ in
+      let body: [String: Any] = [
+        "choices": [["message": ["content": "hello"]]],
+        "usage": ["completion_tokens": 42]
+      ]
+      // swiftlint:disable:next force_try
+      let data = try! JSONSerialization.data(withJSONObject: body)
+      // swiftlint:disable:next force_unwrapping
+      let response = HTTPURLResponse(
+        url: URL(string: "http://localhost:11434/v1/chat/completions")!,
+        statusCode: 200, httpVersion: nil, headerFields: nil)!
+      return (response, data)
+    }
+
+    let result = try await service.generateWithMetrics(system: "s", user: "u")
+
+    #expect(result.text == "hello")
+    #expect(result.completionTokens == 42)
+  }
+
+  @Test func generateWithMetricsReturnsNilWhenUsageAbsent() async throws {
+    let session = makeSession()
+    let service = makeService(session: session)
+    try await service.loadModel()
+
+    MockURLProtocol.requestHandler = { _ in
+      self.makeSuccessResponse(content: "ok")
+    }
+
+    let result = try await service.generateWithMetrics(system: "s", user: "u")
+
+    #expect(result.text == "ok")
+    #expect(result.completionTokens == nil)
+  }
+
+  @Test func generateWithMetricsReturnsNilWhenCompletionTokensZero() async throws {
+    let session = makeSession()
+    let service = makeService(session: session)
+    try await service.loadModel()
+
+    MockURLProtocol.requestHandler = { _ in
+      let body: [String: Any] = [
+        "choices": [["message": ["content": "ok"]]],
+        "usage": ["completion_tokens": 0]
+      ]
+      // swiftlint:disable:next force_try
+      let data = try! JSONSerialization.data(withJSONObject: body)
+      // swiftlint:disable:next force_unwrapping
+      let response = HTTPURLResponse(
+        url: URL(string: "http://localhost:11434/v1/chat/completions")!,
+        statusCode: 200, httpVersion: nil, headerFields: nil)!
+      return (response, data)
+    }
+
+    let result = try await service.generateWithMetrics(system: "s", user: "u")
+
+    #expect(result.completionTokens == nil)
+  }
 }

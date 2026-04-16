@@ -1,3 +1,9 @@
+// swiftlint:disable file_length
+// Deliberately long: this view orchestrates the entire live simulation
+// surface — header, log + typing + thinking indicators, scroll handling,
+// control bar, scoreboard sheet, export flow, and lifecycle hooks. Log-
+// entry rendering is already split into SimulationView+LogEntries.swift;
+// further extraction would scatter state bindings across files.
 import SwiftUI
 import UIKit
 
@@ -14,6 +20,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
   @State private var isExporting = false
+  /// Whether the latest agent-output row is still typing. Used to suppress
+  /// "X is thinking..." indicators so they don't appear above text that's
+  /// still being revealed.
+  @State private var latestRowIsAnimating = false
 
   var body: some View {
     Group {
@@ -81,26 +91,44 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 .id(entry.id)
             }
 
-            // Thinking indicators
-            ForEach(Array(viewModel.thinkingAgents), id: \.self) { agent in
-              HStack(spacing: 8) {
-                ProgressView()
-                  .scaleEffect(0.7)
-                Text("\(agent) is thinking...")
-                  .font(.subheadline)
-                  .foregroundStyle(.secondary)
+            // Thinking indicators — suppressed while the latest row is still
+            // typing, so "X is thinking..." doesn't jump ahead of text the
+            // user is still reading.
+            if !latestRowIsAnimating {
+              ForEach(Array(viewModel.thinkingAgents), id: \.self) { agent in
+                HStack(spacing: 8) {
+                  ProgressView()
+                    .scaleEffect(0.7)
+                  Text("\(agent) is thinking...")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
               }
-              .padding(.horizontal)
             }
+
+            // Bottom sentinel: scrollTo target that stays below every other
+            // section (log entries, thinking indicators). Scrolling here
+            // reliably reveals whatever just appeared last — anchoring to
+            // the last LogEntry wouldn't follow a newly-shown thinking row.
+            Color.clear
+              .frame(height: 1)
+              .id(Self.bottomSentinelID)
           }
           .padding(.vertical, 8)
         }
-        .onChange(of: viewModel.logEntries.count) {
-          if let last = viewModel.logEntries.last {
-            withAnimation {
-              proxy.scrollTo(last.id, anchor: .bottom)
-            }
-          }
+        .onChange(of: viewModel.logEntries.count) { _, _ in
+          scrollToBottom(proxy)
+        }
+        .onChange(of: viewModel.thinkingAgents) { _, _ in
+          // New or cleared thinking agent — when the sentinel is currently
+          // rendered (i.e., typing is done), follow it.
+          if !latestRowIsAnimating { scrollToBottom(proxy) }
+        }
+        .onChange(of: latestRowIsAnimating) { _, nowAnimating in
+          // Typing just finished: the thinking indicator (if any) became
+          // visible; bring it into view.
+          if !nowAnimating { scrollToBottom(proxy) }
         }
       }
 
@@ -126,6 +154,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
       Spacer()
 
+      inferenceStatsLabel(viewModel: viewModel)
+
       if viewModel.isCompleted {
         Label("Completed", systemImage: "checkmark.circle.fill")
           .font(.subheadline)
@@ -148,16 +178,48 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .background(.bar)
   }
 
+  @ViewBuilder
+  private func inferenceStatsLabel(viewModel: SimulationViewModel) -> some View {
+    let duration = viewModel.lastInferenceDurationSeconds
+    let tps = viewModel.averageTokensPerSecond
+    if duration != nil || tps != nil {
+      HStack(spacing: 4) {
+        Image(systemName: "speedometer")
+          .font(.caption)
+        Text(formatInferenceStats(durationSeconds: duration, tokensPerSecond: tps))
+          .font(.caption.monospacedDigit())
+      }
+      .foregroundStyle(.secondary)
+    }
+  }
+
+  private func formatInferenceStats(
+    durationSeconds: Double?, tokensPerSecond: Double?
+  ) -> String {
+    let tpsPart = tokensPerSecond.map { String(format: "%.1f tok/s", $0) } ?? "— tok/s"
+    let durationPart = durationSeconds.map { String(format: "%.1fs", $0) } ?? "—"
+    return "\(tpsPart) • \(durationPart)"
+  }
+
   // MARK: - Log Entries
 
   @ViewBuilder
   private func logEntryView(_ entry: LogEntry, viewModel: SimulationViewModel) -> some View {
     switch entry.kind {
     case .agentOutput(let agent, let output, let phaseType):
+      let isLatest = viewModel.latestAgentOutputId == entry.id
       AgentOutputRow(
         agent: agent, output: output, phaseType: phaseType,
         showAllThoughts: viewModel.showAllThoughts,
-        showDebug: viewModel.showDebugOutput
+        isLatest: isLatest,
+        charsPerSecond: viewModel.speed.charsPerSecond,
+        // Only the latest row drives the typing-state gate; older rows
+        // never animate so their callbacks would be no-ops, but we guard
+        // here anyway to keep the signal unambiguous.
+        onAnimatingChange: { animating in
+          guard isLatest else { return }
+          latestRowIsAnimating = animating
+        }
       )
       .padding(.horizontal)
     case .phaseStarted(let phaseType):
@@ -198,6 +260,20 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Controls
 
+  // Shared width so the control slot doesn't jump when the simulation
+  // completes and the Speed menu is swapped for the Export button.
+  // `minWidth` (not exact) so Dynamic Type / future localization can expand.
+  private static let controlSlotMinWidth: CGFloat = 110
+
+  /// Identifier for the invisible bottom sentinel used by auto-scroll.
+  private static let bottomSentinelID = "pastura.simulation.log.bottom"
+
+  private func scrollToBottom(_ proxy: ScrollViewProxy) {
+    withAnimation {
+      proxy.scrollTo(Self.bottomSentinelID, anchor: .bottom)
+    }
+  }
+
   @ViewBuilder
   private func speedOrExportControl(viewModel: SimulationViewModel) -> some View {
     if viewModel.isCompleted {
@@ -205,22 +281,44 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         Task { await triggerExport(viewModel: viewModel) }
       } label: {
         if isExporting {
-          ProgressView().frame(width: 150)
+          ProgressView().frame(minWidth: Self.controlSlotMinWidth)
         } else {
           Label("Export", systemImage: "square.and.arrow.up")
             .font(.title3)
-            .frame(width: 150)
+            .frame(minWidth: Self.controlSlotMinWidth)
         }
       }
       .disabled(isExporting)
     } else {
-      Picker("Speed", selection: Bindable(viewModel).speed) {
+      // Menu + explicit Button rows instead of Menu-wrapped Picker or
+      // Picker.pickerStyle(.menu). Both of those trigger SwiftUI quirks on
+      // iOS 17/18: the nested Picker logs `_UIReparentingView` warnings,
+      // and `.pickerStyle(.menu) + .labelsHidden()` reserves internal
+      // label space that wraps short selections like "x1" to a second line.
+      // Manual Button rows with a checkmark on the active choice side-step
+      // both and keep full control of the trigger layout.
+      Menu {
         ForEach(PlaybackSpeed.allCases) { speed in
-          Text(speed.label).tag(speed)
+          Button {
+            viewModel.speed = speed
+          } label: {
+            if speed == viewModel.speed {
+              Label(speed.label, systemImage: "checkmark")
+            } else {
+              Text(speed.label)
+            }
+          }
         }
+      } label: {
+        HStack(spacing: 4) {
+          Image(systemName: "gauge.with.dots.needle.50percent")
+          Text(viewModel.speed.label)
+          Image(systemName: "chevron.down")
+            .font(.caption2)
+        }
+        .font(.subheadline)
+        .frame(minWidth: Self.controlSlotMinWidth)
       }
-      .pickerStyle(.segmented)
-      .frame(width: 150)
     }
   }
 
@@ -248,15 +346,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
           .font(.title3)
           .foregroundStyle(viewModel.showAllThoughts ? .purple : .secondary)
-      }
-
-      // Debug toggle
-      Button {
-        viewModel.showDebugOutput.toggle()
-      } label: {
-        Image(systemName: viewModel.showDebugOutput ? "ladybug.fill" : "ladybug")
-          .font(.title3)
-          .foregroundStyle(viewModel.showDebugOutput ? .orange : .secondary)
       }
 
       // Scoreboard

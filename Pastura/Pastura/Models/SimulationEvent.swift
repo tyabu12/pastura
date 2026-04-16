@@ -68,8 +68,11 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// LLM inference has started for an agent. Used to show thinking indicators.
   case inferenceStarted(agent: String)
 
-  /// LLM inference has completed for an agent with timing info.
-  case inferenceCompleted(agent: String, durationSeconds: Double)
+  /// LLM inference has completed for an agent with timing + optional token info.
+  /// `tokenCount` is `nil` when the backend did not report completion tokens
+  /// (e.g., Ollama without `usage` metadata). Consumers computing tok/s must
+  /// treat nil as "unknown" rather than substituting zero.
+  case inferenceCompleted(agent: String, durationSeconds: Double, tokenCount: Int?)
 }
 
 /// Errors that can occur during simulation execution.
