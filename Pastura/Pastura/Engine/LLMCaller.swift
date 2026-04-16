@@ -33,23 +33,28 @@ nonisolated struct LLMCaller: Sendable {
       emitter(.inferenceStarted(agent: agentName))
       let startTime = ContinuousClock.now
 
-      let raw: String
+      let result: GenerationResult
       do {
-        raw = try await llm.generate(system: system, user: user)
+        result = try await llm.generateWithMetrics(system: system, user: user)
       } catch {
-        let duration = ContinuousClock.now - startTime
-        let seconds =
-          Double(duration.components.seconds)
-          + Double(duration.components.attoseconds) / 1e18
-        emitter(.inferenceCompleted(agent: agentName, durationSeconds: seconds))
+        let seconds = elapsedSeconds(since: startTime)
+        // Tokens are unknown on failure — the backend didn't complete generation.
+        emitter(
+          .inferenceCompleted(
+            agent: agentName, durationSeconds: seconds, tokenCount: nil))
         throw SimulationError.llmGenerationFailed(description: "\(error)")
       }
 
-      let duration = ContinuousClock.now - startTime
-      let seconds =
-        Double(duration.components.seconds)
-        + Double(duration.components.attoseconds) / 1e18
-      emitter(.inferenceCompleted(agent: agentName, durationSeconds: seconds))
+      let seconds = elapsedSeconds(since: startTime)
+      // Retry inferences contribute to tok/s averages — this reflects real
+      // device throughput (the "what did I observe" metric), not net-productive
+      // throughput. Retries are rare in practice.
+      emitter(
+        .inferenceCompleted(
+          agent: agentName, durationSeconds: seconds,
+          tokenCount: result.completionTokens))
+
+      let raw = result.text
 
       // Try to parse JSON
       guard let output = try? parser.parse(raw) else {
@@ -91,5 +96,11 @@ nonisolated struct LLMCaller: Sendable {
 
     // Should not reach here, but satisfy compiler
     throw SimulationError.retriesExhausted
+  }
+
+  private func elapsedSeconds(since start: ContinuousClock.Instant) -> Double {
+    let duration = ContinuousClock.now - start
+    return Double(duration.components.seconds)
+      + Double(duration.components.attoseconds) / 1e18
   }
 }

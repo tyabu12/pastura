@@ -186,7 +186,8 @@ struct SimulationViewModelTests {
 
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     sut.handleEvent(
-      .inferenceCompleted(agent: "Alice", durationSeconds: 1.5), scenario: scenario)
+      .inferenceCompleted(agent: "Alice", durationSeconds: 1.5, tokenCount: nil),
+      scenario: scenario)
 
     #expect(sut.thinkingAgents.isEmpty)
   }

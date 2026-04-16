@@ -238,7 +238,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       logEntries.append(LogEntry(kind: .error("\(simError)")))
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
-    case .inferenceCompleted(let agent, _):
+    case .inferenceCompleted(let agent, _, _):
       thinkingAgents.remove(agent)
     default:
       handleOutputEvent(event)

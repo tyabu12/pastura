@@ -91,7 +91,7 @@ struct LLMCallerTests {
       return false
     }
     let completeEvents = events.filter {
-      if case .inferenceCompleted(let name, _) = $0 { return name == "Alice" }
+      if case .inferenceCompleted(let name, _, _) = $0 { return name == "Alice" }
       return false
     }
     #expect(startEvents.count >= 1)
