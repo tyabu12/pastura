@@ -66,6 +66,7 @@ jobs:
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
             -only-testing PasturaTests \
+            -only-testing PasturaUITests \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             -quiet \
