@@ -196,11 +196,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// ``LLMCaller`` after `awaitResume`) starts from a clean state.
   func decodeFailureError(_ result: Int32) -> LLMError {
     let suspendRequested = suspendController?.isSuspendRequested() ?? false
-    // Diagnostic log for #84 Bug 1/3 root-cause confirmation: distinguishes
+    // Diagnostic signal for Metal decode failures: distinguishes
     // "Metal denied us mid-decode while we knew we were suspending" from
     // "Metal context invalidated by OS suspend without our suspend flag set".
-    // Remove once the two bugs are root-caused and fixed.
-    logger.error(
+    // Kept at debug level so it stays available for future investigation
+    // without polluting production console output.
+    logger.debug(
       "decodeFailureError: result=\(result), suspendRequested=\(suspendRequested)"
     )
     if suspendRequested {
@@ -244,12 +245,13 @@ extension LlamaCppService {
   fileprivate func runGeneration(  // swiftlint:disable:this function_body_length
     system: String, user: String
   ) async throws -> GenerationResult {
-    // Diagnostic log for #84 Bug 3 — see decodeFailureError comment.
-    logger.info(
+    // Debug trace of generate() preconditions — kept at debug level so
+    // load/reload race investigations can re-enable it without code edits.
+    logger.debug(
       "generate enter: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
     )
     try await throttleIfOverheating()
-    logger.info(
+    logger.debug(
       "generate post-throttle: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
     )
 
