@@ -40,7 +40,11 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
   }
 
   /// Bundled inputs describing the simulation to export.
-  struct Input {
+  ///
+  /// `nonisolated` so callers off the main actor (e.g. the background
+  /// export assemblers) can construct `Input` without hopping to MainActor.
+  /// Pure data — no isolated state.
+  nonisolated struct Input: Sendable {
     let simulation: SimulationRecord
     let scenario: ScenarioRecord
     let turns: [TurnRecord]

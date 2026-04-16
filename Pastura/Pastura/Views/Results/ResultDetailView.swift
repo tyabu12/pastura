@@ -209,15 +209,15 @@ struct ResultDetailView: View {
       osVersion: ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
         ProcessInfo.processInfo.operatingSystemVersionString))
     let exporter = ResultMarkdownExporter(
-      contentFilter: ContentFilter(),
+      contentFilter: contentFilter,
       environment: env)
     let state = decodeState(from: simulation) ?? SimulationState()
+    let input = ResultDetailExportAssembler.assemble(
+      simulation: simulation, scenario: scenario,
+      turns: turns, events: events, state: state)
 
     do {
-      let result = try exporter.export(
-        ResultMarkdownExporter.Input(
-          simulation: simulation, scenario: scenario,
-          turns: turns, state: state))
+      let result = try exporter.export(input)
       self.exportPayload = result
     } catch {
       self.exportError = error.localizedDescription
