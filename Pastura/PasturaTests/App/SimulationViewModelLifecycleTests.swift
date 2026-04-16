@@ -490,6 +490,75 @@ struct SimulationViewModelLifecycleTests {
     #expect(mock.generateCallCount == 2)
   }
 
+  @Test func pauseAndResumeMidRunCompletesNormally() async throws {
+    // Critical regression test for #84: previously, "pausing" the simulation
+    // (e.g., on memoryWarning) corrupted terminal status because the old
+    // proposal set `errorMessage` which `run()` defer interprets as `.failed`.
+    // The new pauseSimulation/resumeSimulation API must NOT touch errorMessage
+    // and a paused-then-resumed run must be persisted as `.completed`.
+    let db = try DatabaseManager.inMemory()
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "test", name: "Test", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()
+      ))
+
+    let sut = SimulationViewModel(
+      simulationRepository: simRepo, turnRepository: turnRepo)
+    sut.speed = .fastest
+
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    sut.runTask = runTask
+
+    // Wait for run() to attach the SuspendController.
+    while sut.suspendController == nil {
+      await Task.yield()
+    }
+
+    // Pause via the unified API (mirrors what the memoryWarning handler does).
+    sut.pauseSimulation(reason: "Memory warning — test pause")
+    #expect(sut.isPaused == true)
+    #expect(sut.suspendController?.isSuspendRequested() == true)
+
+    // Reason was appended to the log so the user sees why.
+    let summaryBeforeResume = sut.logEntries.last { entry in
+      if case .summary(let text) = entry.kind { return text.contains("Memory warning") }
+      return false
+    }
+    #expect(summaryBeforeResume != nil, "Expected pause reason logged as a summary entry")
+
+    // Give the runner time to observe the pause / generate to park.
+    try await Task.sleep(for: .milliseconds(50))
+
+    // Resume — symmetric counterpart of pauseSimulation.
+    sut.resumeSimulation()
+    #expect(sut.isPaused == false)
+
+    await runTask.value
+
+    // Critical assertions — no terminal status corruption.
+    #expect(sut.isCompleted == true)
+    #expect(sut.isCancelled == false)
+    #expect(sut.errorMessage == nil, "pauseSimulation must not set errorMessage")
+
+    // DB row reflects the truth: the run completed, not failed.
+    let sims = try simRepo.fetchByScenarioId("test")
+    #expect(sims.first?.simulationStatus == .completed)
+  }
+
   @Test func runClearsSuspendControllerOnExit() async throws {
     let (sut, _) = try makeLifecycleSUT()
     sut.speed = .fastest
