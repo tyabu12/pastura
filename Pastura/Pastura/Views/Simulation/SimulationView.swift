@@ -79,6 +79,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     VStack(spacing: 0) {
       // Header bar
       headerBar(viewModel: viewModel)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("simulation.header")
 
       Divider()
 

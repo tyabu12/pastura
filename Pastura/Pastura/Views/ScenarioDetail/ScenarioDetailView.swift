@@ -162,6 +162,7 @@ struct ScenarioDetailView: View {
         Label("Run Simulation", systemImage: "play.fill")
       }
       .disabled(!viewModel.canRun)
+      .accessibilityIdentifier("scenarioDetail.runSimulationButton")
 
       NavigationLink(value: Route.results(scenarioId: scenarioId)) {
         Label("Past Results", systemImage: "clock.arrow.circlepath")
