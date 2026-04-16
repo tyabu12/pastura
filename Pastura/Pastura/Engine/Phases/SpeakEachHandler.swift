@@ -26,7 +26,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
         )
 
         var variables = state.variables
-        variables["scoreboard"] = formatScoreboard(state.scores)
+        variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["conversation_log"] = promptBuilder.formatConversationLog(
           state.conversationLog)
         let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
@@ -53,11 +53,5 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
         state.lastOutputs[persona.name] = output
       }
     }
-  }
-
-  private func formatScoreboard(_ scores: [String: Int]) -> String {
-    let pairs = scores.sorted { $0.key < $1.key }
-      .map { "\"\($0.key)\": \($0.value)" }
-    return "{\(pairs.joined(separator: ", "))}"
   }
 }
