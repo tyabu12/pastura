@@ -27,7 +27,7 @@ nonisolated struct SummarizeHandler: PhaseHandler {
         variables["action2"] = pairing.action2 ?? "?"
         variables["score1"] = "\(state.scores[pairing.agent1] ?? 0)"
         variables["score2"] = "\(state.scores[pairing.agent2] ?? 0)"
-        variables["scoreboard"] = formatScoreboard(state.scores)
+        variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["current_round"] = "\(state.currentRound)"
         lines.append(promptBuilder.expandTemplate(template, variables: variables))
       }
@@ -35,16 +35,10 @@ nonisolated struct SummarizeHandler: PhaseHandler {
     } else {
       // Simple expansion
       var variables = state.variables
-      variables["scoreboard"] = formatScoreboard(state.scores)
+      variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["current_round"] = "\(state.currentRound)"
       let text = promptBuilder.expandTemplate(template, variables: variables)
       context.emitter(.summary(text: text))
     }
-  }
-
-  private func formatScoreboard(_ scores: [String: Int]) -> String {
-    let pairs = scores.sorted { $0.key < $1.key }
-      .map { "\"\($0.key)\": \($0.value)" }
-    return "{\(pairs.joined(separator: ", "))}"
   }
 }

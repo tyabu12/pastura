@@ -35,7 +35,7 @@ nonisolated struct VoteHandler: PhaseHandler {
         }
 
       var variables = state.variables
-      variables["scoreboard"] = formatScoreboard(state.scores)
+      variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["conversation_log"] = promptBuilder.formatConversationLog(state.conversationLog)
       variables["candidates"] = candidates.joined(separator: ", ")
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
@@ -59,14 +59,8 @@ nonisolated struct VoteHandler: PhaseHandler {
     state.voteResults = tallies
     // Key matches {vote_results} placeholder documented in PhaseEditorSheet
     // and used by the word_wolf preset's summarize template.
-    state.variables["vote_results"] = formatScoreboard(tallies)
+    state.variables["vote_results"] = promptBuilder.formatScoreboard(tallies)
 
     context.emitter(.voteResults(votes: votes, tallies: tallies))
-  }
-
-  private func formatScoreboard(_ scores: [String: Int]) -> String {
-    let pairs = scores.sorted { $0.key < $1.key }
-      .map { "\"\($0.key)\": \($0.value)" }
-    return "{\(pairs.joined(separator: ", "))}"
   }
 }
