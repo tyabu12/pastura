@@ -1,12 +1,20 @@
 import SwiftUI
 import UIKit
 
-/// Replays a past simulation by displaying its turn records as a read-only log.
+/// Replays a past simulation by displaying its turn records and code-phase
+/// events as a read-only timeline.
+///
+/// Both `TurnRecord` and `CodePhaseEventRecord` are loaded once on appear,
+/// merged by `sequenceNumber` via `ResultDetailTimelineBuilder`, and the
+/// result is cached in `@State` to avoid re-decoding `CodePhaseEventPayload`
+/// JSON on every body re-render (e.g. when `showAllThoughts` toggles).
 struct ResultDetailView: View {
   let simulationId: String
 
   @Environment(AppDependencies.self) private var dependencies
   @State private var turns: [TurnRecord] = []
+  @State private var events: [CodePhaseEventRecord] = []
+  @State private var items: [ResultDetailTimelineBuilder.Item] = []
   @State private var simulation: SimulationRecord?
   @State private var scenario: ScenarioRecord?
   @State private var isLoading = true
@@ -14,6 +22,13 @@ struct ResultDetailView: View {
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var isExporting = false
   @State private var exportError: String?
+
+  // Per-view filter for code-phase row rendering. Mirrors the exporter's
+  // whole-string Markdown sweep (`ResultMarkdownExporter.export` filters the
+  // rendered output) so view and export agree on what the user sees.
+  // ContentFilter is `nonisolated Sendable` and effectively immutable, so a
+  // per-view instance is cheap.
+  let contentFilter = ContentFilter()
 
   private var canExport: Bool {
     !isExporting && simulation?.simulationStatus == .completed
@@ -24,14 +39,14 @@ struct ResultDetailView: View {
     Group {
       if isLoading {
         ProgressView("Loading...")
-      } else if turns.isEmpty {
+      } else if items.isEmpty {
         ContentUnavailableView(
           "No Data",
           systemImage: "tray",
           description: Text("No turn records found for this simulation")
         )
       } else {
-        turnLog
+        timelineLog
       }
     }
     .navigationTitle("Result Detail")
@@ -77,55 +92,34 @@ struct ResultDetailView: View {
     }
   }
 
-  /// Builds a flat list of display items with round separators inserted.
-  private var displayItems: [DisplayItem] {
-    var items: [DisplayItem] = []
-    var lastRound = 0
-    for turn in turns {
-      if turn.roundNumber != lastRound {
-        lastRound = turn.roundNumber
-        items.append(.roundSeparator(round: turn.roundNumber))
-      }
-      items.append(.turn(turn))
-    }
-    return items
-  }
-
-  private enum DisplayItem: Identifiable {
-    case roundSeparator(round: Int)
-    case turn(TurnRecord)
-
-    var id: String {
-      switch self {
-      case .roundSeparator(let round): "sep-\(round)"
-      case .turn(let record): record.id
-      }
-    }
-  }
-
-  private var turnLog: some View {
+  private var timelineLog: some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: 8) {
-        ForEach(displayItems) { item in
+        ForEach(items) { item in
           switch item {
           case .roundSeparator(let round):
-            HStack {
-              Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
-              Text("Round \(round)")
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-              Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 4)
-
+            roundSeparator(round)
           case .turn(let turn):
             turnRow(turn)
+          case .codePhase(_, let payload):
+            codePhaseRow(payload)
           }
         }
       }
       .padding(.vertical, 8)
     }
+  }
+
+  private func roundSeparator(_ round: Int) -> some View {
+    HStack {
+      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+      Text("Round \(round)")
+        .font(.caption.bold())
+        .foregroundStyle(.secondary)
+      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+    }
+    .padding(.horizontal)
+    .padding(.vertical, 4)
   }
 
   @ViewBuilder
@@ -140,6 +134,9 @@ struct ResultDetailView: View {
       )
       .padding(.horizontal)
     } else {
+      // Pre-#92 fallback: TurnRecord without agentName. Newer code phases
+      // emit CodePhaseEventRecord rows instead, so this path is only hit
+      // by legacy data.
       HStack(spacing: 4) {
         Text(turn.phaseType)
           .font(.caption.monospaced())
@@ -162,14 +159,19 @@ struct ResultDetailView: View {
   }
 
   /// Bundle returned from the single `offMain` DB hop — struct avoids an N-tuple.
+  /// Pre-builds `items` inside the off-main task so the view never decodes
+  /// `CodePhaseEventPayload` JSON on the main thread.
   private struct LoadedData: Sendable {
     let turns: [TurnRecord]
+    let events: [CodePhaseEventRecord]
+    let items: [ResultDetailTimelineBuilder.Item]
     let simulation: SimulationRecord?
     let scenario: ScenarioRecord?
   }
 
   private func loadData() async {
     let turnRepo = dependencies.turnRepository
+    let eventRepo = dependencies.codePhaseEventRepository
     let simRepo = dependencies.simulationRepository
     let scenarioRepo = dependencies.scenarioRepository
     let simId = simulationId
@@ -178,13 +180,21 @@ struct ResultDetailView: View {
         let sim = try simRepo.fetchById(simId)
         let scenario = try sim.flatMap { try scenarioRepo.fetchById($0.scenarioId) }
         let turns = try turnRepo.fetchBySimulationId(simId)
-        return LoadedData(turns: turns, simulation: sim, scenario: scenario)
+        let events = try eventRepo.fetchBySimulationId(simId)
+        let items = ResultDetailTimelineBuilder.build(turns: turns, events: events)
+        return LoadedData(
+          turns: turns, events: events, items: items,
+          simulation: sim, scenario: scenario)
       }
       self.turns = fetched.turns
+      self.events = fetched.events
+      self.items = fetched.items
       self.simulation = fetched.simulation
       self.scenario = fetched.scenario
     } catch {
       self.turns = []
+      self.events = []
+      self.items = []
     }
     self.isLoading = false
   }
