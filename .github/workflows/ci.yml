@@ -136,6 +136,21 @@ jobs:
           xcodebuild -version
           source scripts/sim-dest.sh
           echo "DEST=$DEST" >> "$GITHUB_ENV"
+          # Extract UDID for the pre-boot step. DEST format:
+          # "platform=iOS Simulator,id=<UDID>"
+          SIM_UDID=$(echo "$DEST" | sed -n 's/.*id=\([^,]*\).*/\1/p')
+          echo "SIM_UDID=$SIM_UDID" >> "$GITHUB_ENV"
+
+      - name: Pre-boot Simulator
+        # UI tests on GitHub Actions macOS runners frequently fail with
+        # "Simulator device failed to launch ... xctrunner (RequestDenied)"
+        # when xcodebuild test tries to boot, install, and launch the
+        # runner all at once on a fresh VM. Booting explicitly first and
+        # waiting for the system to be fully up ("-b") avoids the race.
+        run: |
+          xcrun simctl shutdown all || true
+          xcrun simctl boot "$SIM_UDID" || true
+          xcrun simctl bootstatus "$SIM_UDID" -b
 
       - name: Cache SPM packages
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
