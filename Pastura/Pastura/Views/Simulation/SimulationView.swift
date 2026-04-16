@@ -1,3 +1,9 @@
+// swiftlint:disable file_length
+// Deliberately long: this view orchestrates the entire live simulation
+// surface — header, log + typing + thinking indicators, scroll handling,
+// control bar, scoreboard sheet, export flow, and lifecycle hooks. Log-
+// entry rendering is already split into SimulationView+LogEntries.swift;
+// further extraction would scatter state bindings across files.
 import SwiftUI
 import UIKit
 
@@ -100,15 +106,29 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 .padding(.horizontal)
               }
             }
+
+            // Bottom sentinel: scrollTo target that stays below every other
+            // section (log entries, thinking indicators). Scrolling here
+            // reliably reveals whatever just appeared last — anchoring to
+            // the last LogEntry wouldn't follow a newly-shown thinking row.
+            Color.clear
+              .frame(height: 1)
+              .id(Self.bottomSentinelID)
           }
           .padding(.vertical, 8)
         }
-        .onChange(of: viewModel.logEntries.count) {
-          if let last = viewModel.logEntries.last {
-            withAnimation {
-              proxy.scrollTo(last.id, anchor: .bottom)
-            }
-          }
+        .onChange(of: viewModel.logEntries.count) { _, _ in
+          scrollToBottom(proxy)
+        }
+        .onChange(of: viewModel.thinkingAgents) { _, _ in
+          // New or cleared thinking agent — when the sentinel is currently
+          // rendered (i.e., typing is done), follow it.
+          if !latestRowIsAnimating { scrollToBottom(proxy) }
+        }
+        .onChange(of: latestRowIsAnimating) { _, nowAnimating in
+          // Typing just finished: the thinking indicator (if any) became
+          // visible; bring it into view.
+          if !nowAnimating { scrollToBottom(proxy) }
         }
       }
 
@@ -245,6 +265,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // `minWidth` (not exact) so Dynamic Type / future localization can expand.
   private static let controlSlotMinWidth: CGFloat = 110
 
+  /// Identifier for the invisible bottom sentinel used by auto-scroll.
+  private static let bottomSentinelID = "pastura.simulation.log.bottom"
+
+  private func scrollToBottom(_ proxy: ScrollViewProxy) {
+    withAnimation {
+      proxy.scrollTo(Self.bottomSentinelID, anchor: .bottom)
+    }
+  }
+
   @ViewBuilder
   private func speedOrExportControl(viewModel: SimulationViewModel) -> some View {
     if viewModel.isCompleted {
@@ -261,22 +290,35 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       }
       .disabled(isExporting)
     } else {
-      // Picker with `.menu` style: avoids the `_UIReparentingView` warning
-      // logged when a Picker is nested inside a wrapping `Menu`. The picker
-      // shows the current selection as the trigger automatically.
-      HStack(spacing: 4) {
-        Image(systemName: "gauge.with.dots.needle.50percent")
-          .foregroundStyle(.secondary)
-          .font(.subheadline)
-        Picker("Speed", selection: Bindable(viewModel).speed) {
-          ForEach(PlaybackSpeed.allCases) { speed in
-            Text(speed.label).tag(speed)
+      // Menu + explicit Button rows instead of Menu-wrapped Picker or
+      // Picker.pickerStyle(.menu). Both of those trigger SwiftUI quirks on
+      // iOS 17/18: the nested Picker logs `_UIReparentingView` warnings,
+      // and `.pickerStyle(.menu) + .labelsHidden()` reserves internal
+      // label space that wraps short selections like "x1" to a second line.
+      // Manual Button rows with a checkmark on the active choice side-step
+      // both and keep full control of the trigger layout.
+      Menu {
+        ForEach(PlaybackSpeed.allCases) { speed in
+          Button {
+            viewModel.speed = speed
+          } label: {
+            if speed == viewModel.speed {
+              Label(speed.label, systemImage: "checkmark")
+            } else {
+              Text(speed.label)
+            }
           }
         }
-        .pickerStyle(.menu)
-        .labelsHidden()
+      } label: {
+        HStack(spacing: 4) {
+          Image(systemName: "gauge.with.dots.needle.50percent")
+          Text(viewModel.speed.label)
+          Image(systemName: "chevron.down")
+            .font(.caption2)
+        }
+        .font(.subheadline)
+        .frame(minWidth: Self.controlSlotMinWidth)
       }
-      .frame(minWidth: Self.controlSlotMinWidth)
     }
   }
 
