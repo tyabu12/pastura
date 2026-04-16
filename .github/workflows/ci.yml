@@ -114,6 +114,95 @@ jobs:
             coverage.json
           retention-days: 7
 
+  ui-test:
+    runs-on: macos-26
+    # UI tests are 5-6x slower on CI simulators (no GPU acceleration). Locally
+    # the suite runs in ~2 min; on CI it takes ~12 min. The 25 min budget
+    # leaves headroom for build + simulator boot and future test additions.
+    timeout-minutes: 25
+    outputs:
+      test-passed: ${{ steps.test.outputs.passed }}
+      test-failed: ${{ steps.test.outputs.failed }}
+      test-parse-error: ${{ steps.test.outputs.parse_error }}
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Select Xcode and Simulator
+        run: |
+          xcodebuild -version
+          source scripts/sim-dest.sh
+          echo "DEST=$DEST" >> "$GITHUB_ENV"
+          # Extract UDID for the pre-boot step. DEST format:
+          # "platform=iOS Simulator,id=<UDID>"
+          SIM_UDID=$(echo "$DEST" | sed -n 's/.*id=\([^,]*\).*/\1/p')
+          echo "SIM_UDID=$SIM_UDID" >> "$GITHUB_ENV"
+
+      - name: Pre-boot Simulator
+        # UI tests on GitHub Actions macOS runners frequently fail with
+        # "Simulator device failed to launch ... xctrunner (RequestDenied)"
+        # when xcodebuild test tries to boot, install, and launch the
+        # runner all at once on a fresh VM. Booting explicitly first and
+        # waiting for the system to be fully up ("-b") avoids the race.
+        run: |
+          xcrun simctl shutdown all || true
+          xcrun simctl boot "$SIM_UDID" || true
+          xcrun simctl bootstatus "$SIM_UDID" -b
+
+      - name: Cache SPM packages
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Test PasturaUITests
+        id: test
+        run: |
+          # Coverage intentionally omitted — UI tests inflate line coverage
+          # without adding meaningful unit-level signal, and disabling it
+          # shaves a non-trivial amount off the run.
+          # -retry-tests-on-failure auto-reruns failing tests up to
+          # -test-iterations N total times. Combined with the per-test
+          # tearDown that terminates the app, this absorbs intermittent
+          # CI-only infrastructure errors like "Failed to get background
+          # assertion" without masking real test failures (those fail on
+          # every retry).
+          OUTPUT=$(xcodebuild test \
+            -scheme Pastura \
+            -project Pastura/Pastura.xcodeproj \
+            -destination "$DEST" \
+            -only-testing PasturaUITests \
+            -retry-tests-on-failure \
+            -test-iterations 2 \
+            -resultBundlePath UITestResults.xcresult \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO 2>&1) || TEST_EXIT=$?
+          echo "$OUTPUT"
+
+          PASSED=$(echo "$OUTPUT" | grep -c "^Test case .* passed " || true)
+          FAILED=$(echo "$OUTPUT" | grep -c "^Test case .* failed " || true)
+          if [ "$PASSED" -eq 0 ] && [ "$FAILED" -eq 0 ]; then
+            echo "parse_error=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "parse_error=false" >> "$GITHUB_OUTPUT"
+            echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+            echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          fi
+
+          exit ${TEST_EXIT:-0}
+
+      - name: Upload UI Test Results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ui-test-results
+          path: UITestResults.xcresult
+          retention-days: 7
+
   coverage:
     name: Coverage
     needs: lint-and-test
@@ -142,7 +231,7 @@ jobs:
   # Do NOT change the trigger to pull_request_target.
   pr-comment:
     name: PR Comment
-    needs: lint-and-test
+    needs: [lint-and-test, ui-test]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: >-
@@ -154,10 +243,14 @@ jobs:
     steps:
       - name: Generate comment body
         env:
-          JOB_RESULT: ${{ needs.lint-and-test.result }}
+          UNIT_JOB_RESULT: ${{ needs.lint-and-test.result }}
+          UI_JOB_RESULT: ${{ needs.ui-test.result }}
           TEST_PASSED: ${{ needs.lint-and-test.outputs.test-passed }}
           TEST_FAILED: ${{ needs.lint-and-test.outputs.test-failed }}
           TEST_PARSE_ERROR: ${{ needs.lint-and-test.outputs.test-parse-error }}
+          UI_TEST_PASSED: ${{ needs.ui-test.outputs.test-passed }}
+          UI_TEST_FAILED: ${{ needs.ui-test.outputs.test-failed }}
+          UI_TEST_PARSE_ERROR: ${{ needs.ui-test.outputs.test-parse-error }}
           COVERAGE_PCT: ${{ needs.lint-and-test.outputs.coverage-pct }}
           LINT_RESULT: ${{ needs.lint-and-test.outputs.lint-result }}
           CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -167,9 +260,14 @@ jobs:
             echo ""
 
             # Job-level failure banner
-            if [ "$JOB_RESULT" = "skipped" ] || [ "$JOB_RESULT" = "cancelled" ]; then
-              echo "> CI job was ${JOB_RESULT}."
-            elif [ "$JOB_RESULT" = "failure" ]; then
+            for job_result in "$UNIT_JOB_RESULT" "$UI_JOB_RESULT"; do
+              if [ "$job_result" = "skipped" ] || [ "$job_result" = "cancelled" ]; then
+                echo "> One or more CI jobs were ${job_result}."
+                echo ""
+                break
+              fi
+            done
+            if [ "$UNIT_JOB_RESULT" = "failure" ] || [ "$UI_JOB_RESULT" = "failure" ]; then
               echo "> **CI job failed.** See [CI logs](${CI_RUN_URL}) for details."
               echo ""
             fi
@@ -185,22 +283,37 @@ jobs:
               echo "SwiftLint: did not run"
             fi
 
-            # Test results
+            # Test results — unit + UI shown separately so a slow UI suite
+            # never blocks fast unit-test feedback signalling
             echo ""
             echo "### Test Results"
             echo ""
             if [ "$TEST_PARSE_ERROR" = "true" ]; then
-              echo "> Could not parse test output. Format may have changed."
+              echo "- Unit: > Could not parse test output."
             elif [ -n "$TEST_PASSED" ]; then
               PASSED=$(echo "${TEST_PASSED:-0}" | grep -oE '^[0-9]+$' || echo "0")
               FAILED=$(echo "${TEST_FAILED:-0}" | grep -oE '^[0-9]+$' || echo "0")
               if [ "$FAILED" = "0" ]; then
-                echo "**${PASSED} passed**"
+                echo "- Unit: **${PASSED} passed**"
               else
-                echo "**${PASSED} passed, ${FAILED} FAILED**"
+                echo "- Unit: **${PASSED} passed, ${FAILED} FAILED**"
               fi
             else
-              echo "> Tests did not run."
+              echo "- Unit: > did not run"
+            fi
+
+            if [ "$UI_TEST_PARSE_ERROR" = "true" ]; then
+              echo "- UI: > Could not parse test output."
+            elif [ -n "$UI_TEST_PASSED" ]; then
+              UI_PASSED=$(echo "${UI_TEST_PASSED:-0}" | grep -oE '^[0-9]+$' || echo "0")
+              UI_FAILED=$(echo "${UI_TEST_FAILED:-0}" | grep -oE '^[0-9]+$' || echo "0")
+              if [ "$UI_FAILED" = "0" ]; then
+                echo "- UI: **${UI_PASSED} passed**"
+              else
+                echo "- UI: **${UI_PASSED} passed, ${UI_FAILED} FAILED**"
+              fi
+            else
+              echo "- UI: > did not run"
             fi
 
             # Coverage

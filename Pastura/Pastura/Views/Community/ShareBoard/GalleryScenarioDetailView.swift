@@ -92,6 +92,7 @@ struct GalleryScenarioDetailView: View {
     }
     .buttonStyle(.borderedProminent)
     .disabled(isWorking)
+    .accessibilityIdentifier("galleryDetail.tryButton")
   }
 
   // MARK: - Actions

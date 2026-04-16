@@ -26,6 +26,7 @@ struct HomeView: View {
             NavigationLink(value: Route.editor()) {
               Label("New Scenario", systemImage: "doc.badge.plus")
             }
+            .accessibilityIdentifier("home.newScenarioButton")
             NavigationLink(value: Route.importScenario()) {
               Label("Import YAML", systemImage: "doc.text")
             }
@@ -73,6 +74,7 @@ struct HomeView: View {
         NavigationLink(value: Route.shareBoard) {
           Label("Share Board", systemImage: "square.grid.2x2.fill")
         }
+        .accessibilityIdentifier("home.shareBoardButton")
         NavigationLink(value: Route.results(scenarioId: "")) {
           Label("Past Results", systemImage: "clock.arrow.circlepath")
         }
@@ -123,30 +125,37 @@ struct HomeView: View {
     _ scenario: ScenarioRecord, hasGalleryUpdate: Bool = false
   ) -> some View {
     NavigationLink(value: Route.scenarioDetail(scenarioId: scenario.id)) {
-      VStack(alignment: .leading, spacing: 4) {
-        HStack(spacing: 6) {
-          Text(scenario.name)
-            .font(.headline)
-          if hasGalleryUpdate {
-            Text("Update")
-              .font(.caption2.bold())
-              .padding(.horizontal, 6)
-              .padding(.vertical, 2)
-              .background(Color.accentColor.opacity(0.2), in: Capsule())
-              .foregroundStyle(Color.accentColor)
-          }
-        }
-        if scenario.isPreset {
-          Text("Preset")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+      scenarioRowLabel(scenario, hasGalleryUpdate: hasGalleryUpdate)
+    }
+    .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
+  }
+
+  private func scenarioRowLabel(
+    _ scenario: ScenarioRecord, hasGalleryUpdate: Bool
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 6) {
+        Text(scenario.name)
+          .font(.headline)
+        if hasGalleryUpdate {
+          Text("Update")
+            .font(.caption2.bold())
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(.secondary.opacity(0.15), in: Capsule())
+            .background(Color.accentColor.opacity(0.2), in: Capsule())
+            .foregroundStyle(Color.accentColor)
         }
       }
-      .padding(.vertical, 2)
+      if scenario.isPreset {
+        Text("Preset")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .padding(.horizontal, 6)
+          .padding(.vertical, 2)
+          .background(.secondary.opacity(0.15), in: Capsule())
+      }
     }
+    .padding(.vertical, 2)
   }
 
   @ViewBuilder

@@ -52,6 +52,7 @@ struct ScenarioEditorView: View {
           }
         }
         .disabled(viewModel.isSaving)
+        .accessibilityIdentifier("editor.saveButton")
       }
     }
     .sheet(isPresented: $showNewPersonaSheet) {
@@ -103,6 +104,7 @@ struct ScenarioEditorView: View {
         .autocorrectionDisabled()
         .font(.body.monospaced())
       TextField("Name", text: $viewModel.scenarioName)
+        .accessibilityIdentifier("editor.titleField")
       TextField("Description", text: $viewModel.scenarioDescription, axis: .vertical)
         .lineLimit(2...5)
       roundsControl

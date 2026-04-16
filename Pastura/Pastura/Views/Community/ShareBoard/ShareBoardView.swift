@@ -88,6 +88,7 @@ struct ShareBoardView: View {
             NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
               scenarioRow(scenario: scenario, viewModel: viewModel)
             }
+            .accessibilityIdentifier("shareBoard.galleryCell.\(scenario.id)")
           }
         }
       } footer: {
