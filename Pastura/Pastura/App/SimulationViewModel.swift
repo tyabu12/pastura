@@ -119,6 +119,30 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// row animates; earlier rows render full text immediately).
   private(set) var latestAgentOutputId: UUID?
 
+  /// In-flight streaming snapshot for the currently-generating agent.
+  ///
+  /// Populated by ``SimulationEvent/agentOutputStream(agent:primary:thought:)``
+  /// when the partial parser has confirmed a primary key's opening
+  /// quote (i.e., `primary != nil`). `SimulationView` renders this as a
+  /// live row below the committed log entries; the reveal animation in
+  /// `AgentOutputRow` tracks the growing buffer at the user's chosen
+  /// `charsPerSecond`.
+  ///
+  /// Cleared on ``SimulationEvent/agentOutput(agent:output:phaseType:)``
+  /// (finalization — the committed `LogEntry` takes over display) and
+  /// on ``SimulationEvent/inferenceStarted(agent:)`` (stale snapshot
+  /// from a previous attempt should not leak across inferences).
+  /// Only one is live at a time because the Engine runs inferences
+  /// sequentially (ADR-002 §6).
+  private(set) var streamingSnapshot: StreamingSnapshot?
+
+  nonisolated struct StreamingSnapshot: Equatable, Sendable {
+    let agent: String
+    let primary: String
+    let thought: String?
+    let phaseType: PhaseType
+  }
+
   // Running totals for weighted tok/s. See `averageTokensPerSecond`.
   private var totalCompletionTokens = 0
   private var totalInferenceSeconds: Double = 0
@@ -427,7 +451,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Event Handling
 
   // internal (not private) to allow direct unit testing via @testable import
-  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
+  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {  // swiftlint:disable:this cyclomatic_complexity
+
     switch event {
     case .roundStarted(let round, let total):
       handleRoundStarted(round: round, total: total)
@@ -444,6 +469,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       break
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
+    case .agentOutputStream(let agent, let primary, let thought):
+      handleAgentOutputStream(agent: agent, primary: primary, thought: thought)
     case .simulationCompleted:
       isCompleted = true
     case .error(let simError):
@@ -451,6 +478,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       logEntries.append(LogEntry(kind: .error("\(simError)")))
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
+      // A new inference starts: any leftover snapshot from a previous
+      // attempt (parse retry, different agent) must not linger in the UI.
+      streamingSnapshot = nil
     case .inferenceCompleted(let agent, let seconds, let tokens):
       thinkingAgents.remove(agent)
       handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
@@ -529,6 +559,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
     let filtered = contentFilter.filter(output)
+    // Divergence telemetry: compare the last streamed snapshot against
+    // the canonical parser result for the same inference. A mismatch
+    // here means the partial extractor showed the user something that
+    // the canonical parse later contradicted — exactly the failure
+    // mode the critic flagged. Debug-level so it stays available for
+    // future investigation without polluting production logs.
+    if let snapshot = streamingSnapshot, snapshot.agent == agent {
+      let canonicalPrimary = filtered.primaryText(for: phaseType) ?? ""
+      if !canonicalPrimary.hasPrefix(snapshot.primary) {
+        lifecycleLogger.debug(
+          "stream divergence: agent=\(agent, privacy: .public), snapshot primary \(snapshot.primary.prefix(40), privacy: .public) is not a prefix of canonical \(canonicalPrimary.prefix(40), privacy: .public)"
+        )
+      }
+    }
+    streamingSnapshot = nil
     let entry = LogEntry(
       kind: .agentOutput(agent: agent, output: filtered, phaseType: phaseType))
     logEntries.append(entry)
@@ -538,6 +583,25 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     latestAgentOutputId = entry.id
     thinkingAgents.remove(agent)
     persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
+  }
+
+  /// Update the in-flight streaming snapshot from a partial-parser
+  /// emission. `nil` primary means the primary key's opening quote has
+  /// not arrived yet — we keep `thinkingAgents` populated so the UI
+  /// continues to show the "thinking" indicator.
+  private func handleAgentOutputStream(
+    agent: String, primary: String?, thought: String?
+  ) {
+    guard let primary else { return }
+    // Past the opening quote — the streaming row now has real content.
+    // Remove the "thinking" indicator (the live row takes over display).
+    thinkingAgents.remove(agent)
+    streamingSnapshot = StreamingSnapshot(
+      agent: agent,
+      primary: primary,
+      thought: thought,
+      phaseType: currentPhaseType ?? .speakAll
+    )
   }
 
   private func handleScoreUpdate(scores newScores: [String: Int]) {

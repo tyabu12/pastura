@@ -137,6 +137,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 .id(entry.id)
             }
 
+            // Live streaming row for the in-flight inference (if any).
+            // Appears once the partial parser has confirmed the primary
+            // key's opening quote; before that, the "thinking" indicator
+            // below stays visible. Rendered ABOVE the thinking indicators
+            // so users never see "X is thinking..." and live tokens for
+            // X at the same time.
+            if let snapshot = viewModel.streamingSnapshot {
+              AgentOutputRow(
+                agent: snapshot.agent,
+                output: TurnOutput(fields: [:]),
+                phaseType: snapshot.phaseType,
+                showAllThoughts: viewModel.showAllThoughts,
+                isLatest: false,
+                charsPerSecond: viewModel.speed.charsPerSecond,
+                streamingPrimary: snapshot.primary,
+                streamingThought: snapshot.thought
+              )
+              .padding(.horizontal)
+              .id("streaming-\(snapshot.agent)")
+            }
+
             // Thinking indicators — suppressed while the latest row is still
             // typing, so "X is thinking..." doesn't jump ahead of text the
             // user is still reading.
@@ -175,6 +196,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           // Typing just finished: the thinking indicator (if any) became
           // visible; bring it into view.
           if !nowAnimating { scrollToBottom(proxy) }
+        }
+        // Live streaming row appeared / disappeared / switched agents —
+        // follow it. Per-character growth during the same stream is not
+        // watched here to avoid scroll spam; AgentOutputRow's internal
+        // reveal keeps the text on-screen because the row itself stays
+        // in place while chars fill in.
+        .onChange(of: viewModel.streamingSnapshot?.agent) { _, _ in
+          scrollToBottom(proxy)
         }
       }
 
