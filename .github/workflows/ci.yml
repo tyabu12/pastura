@@ -79,10 +79,17 @@ jobs:
           # xcodebuild outputs per-case lines:
           #   Test case '...' passed on '...' (X.XXX seconds)
           #   Test case '...' failed on '...' (X.XXX seconds)
-          # `2>/dev/null || echo 0` guards against a missing log file on
-          # timeout-kill so the numeric comparisons below don't break.
-          PASSED=$(grep -c "^Test case .* passed " /tmp/xctest-unit.log 2>/dev/null || echo 0)
-          FAILED=$(grep -c "^Test case .* failed " /tmp/xctest-unit.log 2>/dev/null || echo 0)
+          # `|| true` swallows grep's exit-1 on zero matches and exit-2 on
+          # missing file (timeout-kill case). Do NOT use `|| echo 0` here —
+          # grep -c already prints "0" on zero matches, so appending another
+          # "0" via echo yields a two-line "0\n0" value that corrupts
+          # `$GITHUB_OUTPUT` and breaks the numeric comparison below. The
+          # `:-0` default covers the missing-file case where grep produced no
+          # stdout at all.
+          PASSED=$(grep -c "^Test case .* passed " /tmp/xctest-unit.log 2>/dev/null || true)
+          FAILED=$(grep -c "^Test case .* failed " /tmp/xctest-unit.log 2>/dev/null || true)
+          PASSED=${PASSED:-0}
+          FAILED=${FAILED:-0}
           if [ "$PASSED" -eq 0 ] && [ "$FAILED" -eq 0 ]; then
             echo "parse_error=true" >> "$GITHUB_OUTPUT"
           else
@@ -189,8 +196,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-ui.log || true
           TEST_EXIT=${PIPESTATUS[0]}
 
-          PASSED=$(grep -c "^Test case .* passed " /tmp/xctest-ui.log 2>/dev/null || echo 0)
-          FAILED=$(grep -c "^Test case .* failed " /tmp/xctest-ui.log 2>/dev/null || echo 0)
+          PASSED=$(grep -c "^Test case .* passed " /tmp/xctest-ui.log 2>/dev/null || true)
+          FAILED=$(grep -c "^Test case .* failed " /tmp/xctest-ui.log 2>/dev/null || true)
+          PASSED=${PASSED:-0}
+          FAILED=${FAILED:-0}
           if [ "$PASSED" -eq 0 ] && [ "$FAILED" -eq 0 ]; then
             echo "parse_error=true" >> "$GITHUB_OUTPUT"
           else
