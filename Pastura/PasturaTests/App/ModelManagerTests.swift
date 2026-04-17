@@ -8,14 +8,11 @@ import Testing
 
 /// A test double for `ModelDownloader` that returns immediately or throws.
 struct MockModelDownloader: ModelDownloader, Sendable {
-  let result: @Sendable () throws -> Int
+  let result: @Sendable () throws -> Void
   let simulateBytes: Int64
 
-  init(
-    statusCode: Int = 200,
-    simulateBytes: Int64 = 1000
-  ) {
-    self.result = { statusCode }
+  init(simulateBytes: Int64 = 1000) {
+    self.result = {}
     self.simulateBytes = simulateBytes
   }
 
@@ -29,13 +26,12 @@ struct MockModelDownloader: ModelDownloader, Sendable {
     resumeOffset: Int64,
     to destination: URL,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
-  ) async throws -> Int {
-    let statusCode = try result()
+  ) async throws {
+    try result()
     // Write dummy bytes to the destination to simulate a completed download
     let data = Data(repeating: 0x42, count: Int(simulateBytes))
     try data.write(to: destination)
     progressHandler(simulateBytes, simulateBytes)
-    return statusCode
   }
 }
 
@@ -98,7 +94,7 @@ struct ModelManagerTests {
   @Test("downloadModel transitions from notDownloaded to ready on success")
   func downloadSuccess() async {
     let sut = makeSUT(
-      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 100)
+      downloader: MockModelDownloader(simulateBytes: 100)
     )
     sut.checkModelStatus()
     #expect(sut.state == .notDownloaded)
@@ -219,7 +215,7 @@ struct ModelManagerTests {
   @Test("downloadModel sets isExcludedFromBackup on completed model file")
   func downloadSetsExcludeFromBackup() async throws {
     let sut = makeSUT(
-      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 100)
+      downloader: MockModelDownloader(simulateBytes: 100)
     )
     sut.checkModelStatus()
     #expect(sut.state == .notDownloaded)
@@ -269,7 +265,7 @@ struct ModelManagerTests {
     // MockModelDownloader writes 1000 bytes of 0x42
     let expectedHash = "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c"
     let sut = makeSUT(
-      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 1000),
+      downloader: MockModelDownloader(simulateBytes: 1000),
       expectedSHA256: expectedHash
     )
     sut.checkModelStatus()
@@ -292,7 +288,7 @@ struct ModelManagerTests {
   func downloadFailureWithMismatchingSHA256() async {
     let wrongHash = "0000000000000000000000000000000000000000000000000000000000000000"
     let sut = makeSUT(
-      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 1000),
+      downloader: MockModelDownloader(simulateBytes: 1000),
       expectedSHA256: wrongHash
     )
     sut.checkModelStatus()
@@ -317,7 +313,7 @@ struct ModelManagerTests {
   @Test("downloadModel skips SHA256 verification when expectedSHA256 is nil")
   func downloadSuccessWithNilSHA256() async {
     let sut = makeSUT(
-      downloader: MockModelDownloader(statusCode: 200, simulateBytes: 100)
+      downloader: MockModelDownloader(simulateBytes: 100)
     )
     sut.checkModelStatus()
     #expect(sut.state == .notDownloaded)
