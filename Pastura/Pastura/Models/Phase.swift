@@ -33,8 +33,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// References a top-level field in the scenario definition.
   public let source: String?
 
-  /// Target specification for `assign` phases (e.g., `"all"`).
-  public let target: String?
+  /// Target specification for `assign` phases. `nil` defaults to `.all`.
+  public let target: AssignTarget?
 
   /// Whether agents are excluded from voting for themselves in `vote` phases.
   public let excludeSelf: Bool?
@@ -51,7 +51,7 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     logic: ScoreCalcLogic? = nil,
     template: String? = nil,
     source: String? = nil,
-    target: String? = nil,
+    target: AssignTarget? = nil,
     excludeSelf: Bool? = nil,
     subRounds: Int? = nil
   ) {

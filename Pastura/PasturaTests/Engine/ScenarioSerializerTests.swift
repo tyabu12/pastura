@@ -40,7 +40,7 @@ struct ScenarioSerializerTests {
       ],
       phases: [
         // assign: source + target
-        Phase(type: .assign, source: "words", target: "random_one"),
+        Phase(type: .assign, source: "words", target: .randomOne),
         // speak_each: prompt + outputSchema + subRounds
         Phase(
           type: .speakEach,

@@ -9,7 +9,7 @@ struct AssignHandlerTests {
     let mock = MockLLMService(responses: [])
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
-      phases: [Phase(type: .assign, source: "topics", target: "all")],
+      phases: [Phase(type: .assign, source: "topics", target: .all)],
       extraData: ["topics": .array(["Topic A", "Topic B"])]
     )
     var state = SimulationState.initial(for: scenario)
@@ -28,7 +28,7 @@ struct AssignHandlerTests {
     let mock = MockLLMService(responses: [])
     let scenario = makeTestScenario(
       agentNames: ["Alice"],
-      phases: [Phase(type: .assign, source: "topics", target: "all")],
+      phases: [Phase(type: .assign, source: "topics", target: .all)],
       extraData: ["topics": .array(["First", "Second", "Third"])]
     )
     var state = SimulationState.initial(for: scenario)
@@ -45,7 +45,7 @@ struct AssignHandlerTests {
     let mock = MockLLMService(responses: [])
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob", "Charlie"],
-      phases: [Phase(type: .assign, source: "words", target: "random_one")],
+      phases: [Phase(type: .assign, source: "words", target: .randomOne)],
       extraData: [
         "words": .arrayOfDictionaries([
           ["majority": "りんご", "minority": "みかん"]
@@ -76,7 +76,7 @@ struct AssignHandlerTests {
     let mock = MockLLMService(responses: [])
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
-      phases: [Phase(type: .assign, source: "topics", target: "all")],
+      phases: [Phase(type: .assign, source: "topics", target: .all)],
       extraData: ["topics": .array(["Topic"])]
     )
     var state = SimulationState.initial(for: scenario)

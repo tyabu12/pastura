@@ -85,8 +85,8 @@ struct PresetLoaderTests {
         let extraValue = scenario.extraData[sourceKey]
         if case .arrayOfDictionaries = extraValue {
           #expect(
-            phase.target == "random_one",
-            "\(fileName).yaml phase[\(index)]: assign with arrayOfDictionaries source '\(sourceKey)' must use target 'random_one', got '\(phase.target ?? "nil")'"
+            phase.target == .randomOne,
+            "\(fileName).yaml phase[\(index)]: assign with arrayOfDictionaries source '\(sourceKey)' must use target 'random_one', got '\(phase.target?.rawValue ?? "nil")'"
           )
         }
       }
