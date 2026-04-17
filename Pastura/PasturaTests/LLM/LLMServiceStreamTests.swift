@@ -78,4 +78,73 @@ struct LLMServiceStreamTests {
       for try await _ in mock.generateStream(system: "s", user: "u") {}
     }
   }
+
+  // MARK: - MockLLMService streaming mode
+
+  @Test func mockStreamingEmitsConfiguredDeltasThenFinal() async throws {
+    let mock = MockLLMService(responses: [])
+    mock.setStreamChunks([["hel", "lo ", "world"]])
+    try await mock.loadModel()
+
+    var deltas: [String] = []
+    var finalCount = 0
+    for try await chunk in mock.generateStream(system: "s", user: "u") {
+      if chunk.isFinal {
+        finalCount += 1
+        #expect(chunk.delta.isEmpty)
+        #expect(chunk.completionTokens == nil)
+      } else {
+        deltas.append(chunk.delta)
+      }
+    }
+
+    #expect(deltas == ["hel", "lo ", "world"])
+    #expect(finalCount == 1)
+    #expect(mock.streamCallCount == 1)
+  }
+
+  @Test func mockStreamingCapturesPromptsLikeGenerate() async throws {
+    let mock = MockLLMService(responses: [])
+    mock.setStreamChunks([["a"], ["b"]])
+    try await mock.loadModel()
+
+    for try await _ in mock.generateStream(system: "SYS1", user: "USR1") {}
+    for try await _ in mock.generateStream(system: "SYS2", user: "USR2") {}
+
+    let prompts = mock.capturedPrompts
+    #expect(prompts.count == 2)
+    #expect(prompts[0].system == "SYS1")
+    #expect(prompts[1].user == "USR2")
+  }
+
+  @Test func mockStreamingExhaustionThrows() async throws {
+    let mock = MockLLMService(responses: [])
+    mock.setStreamChunks([["only one call"]])
+    try await mock.loadModel()
+
+    for try await _ in mock.generateStream(system: "s", user: "u") {}
+
+    await #expect(throws: (any Error).self) {
+      for try await _ in mock.generateStream(system: "s", user: "u") {}
+    }
+  }
+
+  @Test func mockStreamingHonorsPendingSuspend() async throws {
+    let mock = MockLLMService(responses: [])
+    mock.setStreamChunks([["x"]])
+    try await mock.loadModel()
+    mock.simulateSuspendOnNextGenerate()
+
+    await #expect(throws: LLMError.suspended) {
+      for try await _ in mock.generateStream(system: "s", user: "u") {}
+    }
+
+    // Suspend consumed — next call succeeds.
+    var deltas: [String] = []
+    for try await chunk in mock.generateStream(system: "s", user: "u")
+    where !chunk.isFinal {
+      deltas.append(chunk.delta)
+    }
+    #expect(deltas == ["x"])
+  }
 }
