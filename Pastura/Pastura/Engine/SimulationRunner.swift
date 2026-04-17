@@ -17,6 +17,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private struct PauseState: Sendable {
     var isPaused = false
     var resumeContinuation: CheckedContinuation<Void, Never>?
+    /// Set by `resumeOnce()` when called in the narrow window after the runner
+    /// emits `.simulationPaused` but before it stores its continuation.
+    /// The next store attempt inside `checkPaused` consumes this flag and
+    /// short-circuits without suspending — mirrors the existing
+    /// `Task.isCancelled` race handling.
+    var pendingResume = false
   }
 
   private let pauseState = OSAllocatedUnfairLock(initialState: PauseState())
@@ -33,6 +39,11 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       // lock during executor enqueue (lock-discipline best practice).
       let cont: CheckedContinuation<Void, Never>? = pauseState.withLock { state in
         state.isPaused = newValue
+        // Clear stale pendingResume on unpause so it can't leak into the
+        // next pause cycle if the user re-pauses later.
+        if !newValue {
+          state.pendingResume = false
+        }
         guard !newValue, let pending = state.resumeContinuation else { return nil }
         state.resumeContinuation = nil
         return pending
@@ -40,6 +51,32 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       cont?.resume()
     }
   }
+
+  #if DEBUG
+    /// Test-only: advance exactly one pause checkpoint without clearing `isPaused`.
+    ///
+    /// Resumes the stored continuation (if one is waiting) so the runner progresses
+    /// to the next `checkPaused` call, where `isPaused == true` makes it pause again.
+    /// If called in the window after `.simulationPaused` has been emitted but before
+    /// the continuation is stored, records a `pendingResume` flag that the next
+    /// store attempt consumes via short-circuit — closes the same race the existing
+    /// `Task.isCancelled` handling already covers.
+    ///
+    /// Lets tests step through pause checkpoints deterministically instead of
+    /// relying on `isPaused = false; isPaused = true` toggle timing, which races
+    /// with the runner task on multi-core executors.
+    internal func resumeOnce() {
+      let cont: CheckedContinuation<Void, Never>? = pauseState.withLock { state in
+        guard let pending = state.resumeContinuation else {
+          state.pendingResume = true
+          return nil
+        }
+        state.resumeContinuation = nil
+        return pending
+      }
+      cont?.resume()
+    }
+  #endif
 
   /// Runs a simulation and returns an `AsyncStream` of events.
   ///
@@ -177,6 +214,13 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       await withCheckedContinuation { continuation in
         let shouldResumeNow = ctx.pauseState.withLock { state in
           if !state.isPaused {
+            return true
+          }
+          // If resumeOnce() fired between emit and here, no continuation was
+          // stored for it to extract — it set pendingResume instead. Consume
+          // it now and short-circuit, mirroring the isCancelled handling below.
+          if state.pendingResume {
+            state.pendingResume = false
             return true
           }
           state.resumeContinuation = continuation
