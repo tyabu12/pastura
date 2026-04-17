@@ -15,13 +15,12 @@ public protocol ModelDownloader: Sendable {
   ///   - destination: The local file path to write to (caller manages temp naming).
   ///   - progressHandler: Called periodically with (bytesWritten, totalBytes).
   ///     `totalBytes` is -1 if the server did not provide Content-Length.
-  /// - Returns: The HTTP status code (206 for partial, 200 for full).
   func download(
     from url: URL,
     resumeOffset: Int64,
     to destination: URL,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
-  ) async throws -> Int
+  ) async throws
 }
 
 /// Production downloader using delegate-based `URLSession` + `URLSessionDownloadTask`.
@@ -44,7 +43,7 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
     resumeOffset: Int64,
     to destination: URL,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
-  ) async throws -> Int {
+  ) async throws {
     var request = URLRequest(url: url)
     if resumeOffset > 0 {
       request.setValue("bytes=\(resumeOffset)-", forHTTPHeaderField: "Range")
@@ -102,8 +101,6 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
       }
       try? fileManager.removeItem(at: tempURL)
     }
-
-    return statusCode
   }
 }
 
