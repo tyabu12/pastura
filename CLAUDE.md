@@ -11,6 +11,10 @@ If a requested feature is listed under Phase 3, do not implement it — referenc
 Completed in Phase 2 so far:
 - **Visual Scenario Editor** — dual-mode form + YAML (#83)
 - **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
+- **Share Board** — read-only curated scenario gallery (#87/#93)
+- **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
+- **Inference speed display** — tok/s + simulation playback UX (#99)
+- **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
 
 ## Language Rules
 
@@ -143,6 +147,41 @@ xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination 
 # These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
 ```
 
+#### Running xcodebuild from an agent session
+
+`xcodebuild test` takes minutes. A few operational guardrails to avoid
+burning wall-clock and orphaning processes:
+
+**Prevention (do this up-front):**
+
+- Narrow scope whenever possible — `-only-testing PasturaTests/<Suite>`.
+- If the change doesn't touch UI code, add `-skip-testing:PasturaUITests`
+  (UI tests are not required for MVP; CI will still cover them).
+- Always pass an explicit bash `timeout` — the default 120s is shorter
+  than even a focused suite. Guideline: `timeout: 180000` (3 min) for a
+  single suite, `timeout: 600000` (10 min) for the full unit suite,
+  `timeout: 900000` (15 min) when UI tests are included.
+- For runs expected to exceed 5 minutes, prefer `run_in_background: true`
+  and poll with Monitor / BashOutput rather than blocking the session.
+
+**Recovery (if a run hangs or a retry immediately stalls):**
+
+- The session's bash timeout kills the shell wrapper, but spawned
+  `xcodebuild` / `testmanagerd` / `XCTRunner` processes can outlive it
+  and keep the simulator destination busy. Subsequent `xcodebuild test`
+  calls then queue behind them and appear to hang.
+- Before killing, **read the full command lines** so you don't clobber a
+  concurrent run from another worktree:
+  `pgrep -af "xcodebuild|XCTRunner|testmanagerd"`.
+- Only if you're sure every listed process belongs to your session:
+  `pkill -f "xcodebuild test"`; then reset the simulator with
+  `xcrun simctl shutdown "$(echo "$DEST" | sed -n 's/.*id=//p')"`.
+- If UI tests fail with
+  `FBSOpenApplicationServiceErrorDomain Code=1 — com.tyabu12.PasturaUITests.xctrunner`,
+  try `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
+  are real bugs (signing, plist, or app-state regression), not flakes —
+  do not swallow them.
+
 ## Directory Structure
 
 ```
@@ -194,5 +233,7 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
 | `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
 | `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
+| `docs/decisions/ADR-003.md`           | BG execution (iOS 26 BGContinuedProcessingTask) |
+| `docs/decisions/ADR-004.md`           | Multi-platform strategy (Draft)             |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |

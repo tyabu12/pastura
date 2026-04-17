@@ -131,6 +131,28 @@ struct LlamaCppServiceTests {
     #expect(!service.isModelLoaded)
   }
 
+  // MARK: - loadModel idempotency (issue #114)
+
+  @Test func loadModelTwiceOnInvalidPathPreservesSuspendController() async {
+    // Regression test for issue #114. Calling loadModel() while already loaded
+    // must unload the prior model first to avoid leaking ~3GB of Gemma buffers.
+    // With an invalid path both calls throw, so this test locks in the
+    // observable invariants that hold when the defensive unload path runs:
+    //   - Service ends not-loaded after each failure
+    //   - Attached SuspendController survives the unload/load cycle
+    // The actual leak-prevention path requires a loaded model — see
+    // LlamaCppIntegrationTests.loadModelTwiceIsIdempotent for that coverage.
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    let controller = SuspendController()
+    await service.attachSuspendController(controller)
+
+    try? await service.loadModel()
+    try? await service.loadModel()
+
+    #expect(!service.isModelLoaded)
+    #expect(service.suspendController === controller)
+  }
+
   @Test func reloadModelUnloadsFirstEvenIfReloadFails() async throws {
     // If reload's inner load fails, the previous model should still be unloaded —
     // the caller gets a clean not-loaded state, not a partial state.

@@ -57,6 +57,28 @@ struct LlamaCppIntegrationTests {
     #expect(!service.isModelLoaded)
   }
 
+  // MARK: - Test 1b: loadModel idempotency (issue #114)
+
+  @Test(.timeLimit(.minutes(3)))
+  func loadModelTwiceIsIdempotent() async throws {
+    // Regression test for issue #114: calling loadModel() while already loaded
+    // must free the prior _model/_context, not leak ~3GB of Gemma buffers.
+    // A memory leak is not directly assertable without Instruments, so this
+    // test verifies the happy-path invariants that lock in the defensive
+    // unload: both loads succeed, state stays consistent, and the final
+    // unload completes cleanly (a stale dangling pointer would crash here).
+    let service = makeService()
+
+    try await service.loadModel()
+    #expect(service.isModelLoaded)
+
+    try await service.loadModel()
+    #expect(service.isModelLoaded)
+
+    try await service.unloadModel()
+    #expect(!service.isModelLoaded)
+  }
+
   // MARK: - Test 2: Simple generation
 
   @Test(.timeLimit(.minutes(3)))

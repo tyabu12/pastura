@@ -12,16 +12,17 @@ nonisolated struct AssignHandler: PhaseHandler {
     state: inout SimulationState
   ) async throws {
     let sourceKey = context.phase.source ?? ""
-    let target = context.phase.target ?? "all"
     let sourceData = context.scenario.extraData[sourceKey]
 
     let active = context.scenario.personas.filter { state.eliminated[$0.name] != true }
 
-    if target == "random_one" {
+    // nil target → .all matches the documented default at the type's doc comment.
+    switch context.phase.target ?? .all {
+    case .randomOne:
       assignRandomOne(
         active: active, sourceData: sourceData, state: &state, emitter: context.emitter
       )
-    } else {
+    case .all:
       assignAll(
         active: active, sourceData: sourceData, state: &state, emitter: context.emitter
       )
@@ -29,6 +30,11 @@ nonisolated struct AssignHandler: PhaseHandler {
   }
 
   /// Assigns minority value to one random agent, majority to the rest.
+  ///
+  /// Precondition: `sourceData` is `.arrayOfDictionaries`. `ScenarioValidator`
+  /// rejects mismatched shapes upstream — the `guard` fall-through is a no-op
+  /// safety net for scenarios constructed in tests or future code paths that
+  /// bypass validation.
   private func assignRandomOne(
     active: [Persona],
     sourceData: AnyCodableValue?,
@@ -57,6 +63,11 @@ nonisolated struct AssignHandler: PhaseHandler {
   }
 
   /// Assigns the same round-indexed item to all agents.
+  ///
+  /// Precondition: `sourceData` is `.array` or `.string`. `ScenarioValidator`
+  /// rejects `.arrayOfDictionaries` / `.dictionary` upstream — the `default`
+  /// branch's empty-string fallback is a no-op safety net for scenarios
+  /// constructed in tests or future code paths that bypass validation.
   private func assignAll(
     active: [Persona],
     sourceData: AnyCodableValue?,
