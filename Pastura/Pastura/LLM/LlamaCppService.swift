@@ -85,7 +85,23 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   // MARK: - LLMService
 
+  /// Loads the GGUF model with full GPU acceleration.
+  ///
+  /// - Important: Idempotent — if a model is already loaded, it is unloaded
+  ///   before the new load. Prevents a ~3GB buffer leak when concurrent
+  ///   navigation / BG-task lifecycle races re-enter this method (issue #114).
+  ///
+  /// - Note: On double-call, the prior loaded model is freed before the new
+  ///   load is attempted. If the new load fails, the service ends in a clean
+  ///   not-loaded state — callers must not assume a prior successful load
+  ///   survives a subsequent failed `loadModel()`.
+  ///
+  /// - Note: Any attached ``SuspendController`` is preserved across the
+  ///   unload/load cycle via `defer`, matching ``reloadModel(gpuAcceleration:)``.
   public func loadModel() async throws {
+    let preservedController = suspendController
+    defer { suspendController = preservedController }
+    try await unloadModel()
     try await loadModelInternal(gpuAcceleration: .full)
   }
 
