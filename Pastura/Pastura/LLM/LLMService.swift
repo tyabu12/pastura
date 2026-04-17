@@ -70,6 +70,38 @@ nonisolated public protocol LLMService: Sendable {
   /// `"llama.cpp"`, `"Ollama"`, `"mock"`). Intended for display / export
   /// metadata — **not** a stable parse key.
   var backendIdentifier: String { get }
+
+  /// Generate a completion as a sequence of incremental chunks.
+  ///
+  /// Backends that can deliver tokens as they are sampled (currently
+  /// ``LlamaCppService``) override this for true token-by-token streaming.
+  /// The default implementation wraps ``generateWithMetrics(system:user:)``
+  /// and yields a single terminal chunk with the full response — so
+  /// backends that lack streaming (``MockLLMService``, ``OllamaService``)
+  /// still satisfy the contract without custom code.
+  ///
+  /// Exactly one chunk per stream has ``LLMStreamChunk/isFinal`` set to
+  /// `true` and it is always the last chunk observed. ``LLMStreamChunk/completionTokens``
+  /// is populated only on that final chunk, and only when the backend can
+  /// cheaply report it.
+  ///
+  /// Cancellation: the returned stream terminates on iterator cancellation
+  /// (normal `AsyncThrowingStream` semantics). The default wrap cancels
+  /// the in-flight `generate` task on iterator cancellation, but note
+  /// that ``LlamaCppService`` cannot interrupt its C-API generate from
+  /// Swift Task cancellation (ADR-002 §6) — use
+  /// ``attachSuspendController(_:)`` for cooperative mid-inference stops.
+  ///
+  /// - Parameters:
+  ///   - system: The system prompt defining the agent's persona and rules.
+  ///   - user: The user prompt with context and instructions for this turn.
+  /// - Returns: An `AsyncThrowingStream` of ``LLMStreamChunk`` values.
+  /// - Throws: Errors from the underlying `generate` call propagate
+  ///   through the stream via `finish(throwing:)` — same error domain as
+  ///   ``generate(system:user:)``.
+  func generateStream(
+    system: String, user: String
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error>
 }
 
 extension LLMService {
@@ -87,4 +119,39 @@ extension LLMService {
   /// support cooperative suspend (currently only ``LlamaCppService``) override
   /// this method.
   public func attachSuspendController(_ controller: SuspendController?) async {}
+
+  /// Default `generateStream` implementation: runs the existing
+  /// `generateWithMetrics` and yields a single terminal chunk carrying
+  /// the full response. Backends that can deliver real token-by-token
+  /// output override this (see ``LlamaCppService``).
+  ///
+  /// Explicitly `nonisolated` because the project sets
+  /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; without it the default
+  /// impl inherits MainActor isolation and blocks the nonisolated
+  /// ``LlamaCppService`` conformance.
+  nonisolated public func generateStream(
+    system: String, user: String
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          let result = try await generateWithMetrics(system: system, user: user)
+          continuation.yield(
+            LLMStreamChunk(
+              delta: result.text,
+              isFinal: true,
+              completionTokens: result.completionTokens))
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      // Propagate iterator cancellation to the underlying generate call so
+      // abandoned streams don't leak a running inference task. For
+      // backends whose `generate` can't actually be interrupted by Task
+      // cancellation (llama.cpp), this at least cancels the surrounding
+      // Swift Task so the yield attempt is short-circuited.
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
 }
