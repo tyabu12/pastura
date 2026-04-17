@@ -17,11 +17,11 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private struct PauseState: Sendable {
     var isPaused = false
     var resumeContinuation: CheckedContinuation<Void, Never>?
-    /// Set by `resumeOnce()` when called in the narrow window after the runner
-    /// emits `.simulationPaused` but before it stores its continuation.
+    /// Set by `resumeOnce()` whenever no continuation is currently stored.
     /// The next store attempt inside `checkPaused` consumes this flag and
     /// short-circuits without suspending — mirrors the existing
-    /// `Task.isCancelled` race handling.
+    /// `Task.isCancelled` race handling. Covers both the emit-before-store
+    /// window and any pre-arm from outside an active pause cycle.
     var pendingResume = false
   }
 
@@ -57,10 +57,11 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     ///
     /// Resumes the stored continuation (if one is waiting) so the runner progresses
     /// to the next `checkPaused` call, where `isPaused == true` makes it pause again.
-    /// If called in the window after `.simulationPaused` has been emitted but before
-    /// the continuation is stored, records a `pendingResume` flag that the next
-    /// store attempt consumes via short-circuit — closes the same race the existing
-    /// `Task.isCancelled` handling already covers.
+    /// If no continuation is currently stored — either because the runner has
+    /// emitted `.simulationPaused` but not yet stored, or because this is a
+    /// pre-arm before the runner reaches any checkpoint — records a `pendingResume`
+    /// flag that the next store attempt consumes via short-circuit, closing the
+    /// same race the existing `Task.isCancelled` handling already covers.
     ///
     /// Lets tests step through pause checkpoints deterministically instead of
     /// relying on `isPaused = false; isPaused = true` toggle timing, which races
@@ -219,6 +220,10 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           // If resumeOnce() fired between emit and here, no continuation was
           // stored for it to extract — it set pendingResume instead. Consume
           // it now and short-circuit, mirroring the isCancelled handling below.
+          // Order vs. isCancelled: consuming pendingResume first is safe
+          // because the outer `if Task.isCancelled` at the bottom of the
+          // function still fires, so a cancel that races a pendingResume is
+          // not lost — just observed one statement later.
           if state.pendingResume {
             state.pendingResume = false
             return true

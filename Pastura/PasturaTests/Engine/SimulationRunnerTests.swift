@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Testing
 
@@ -280,6 +281,55 @@ struct SimulationRunnerTests {
         pausedEvents.contains { $0 == (1, 1) },
         "Should pause before phase 1 with phaseIndex=1, got \(pausedEvents)"
       )
+      #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
+    }
+
+    @Test func resumeOncePreArmShortCircuitsFirstCheckpoint() async throws {
+      // Pre-arming `pendingResume` via `resumeOnce()` BEFORE the runner reaches
+      // any checkpoint exercises the short-circuit branch in `checkPaused` that
+      // the main pause test only coincidentally hits. If the short-circuit
+      // logic were broken, the runner would block forever waiting for a
+      // continuation that was never stored and this test would hang.
+      let mock = MockLLMService(responses: [
+        #"{"statement": "alice"}"#,
+        #"{"statement": "bob"}"#
+      ])
+      try await mock.loadModel()
+
+      let scenario = makeTestScenario(
+        agentNames: ["Alice", "Bob"],
+        rounds: 1,
+        phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+      )
+
+      let runner = SimulationRunner()
+      runner.isPaused = true
+      // Sets pendingResume — the first `checkPaused` store attempt consumes it
+      // without ever suspending the runner task.
+      runner.resumeOnce()
+
+      let stream = runner.run(scenario: scenario, llm: mock, suspendController: SuspendController())
+
+      var events: [SimulationEvent] = []
+      var pauseCount = 0
+      for await event in stream {
+        events.append(event)
+        if case .simulationPaused = event {
+          pauseCount += 1
+          // First pause consumed pendingResume; subsequent pauses need a
+          // normal resume driver. The phase 0 checkpoint is the only other.
+          if pauseCount == 1 {
+            runner.resumeOnce()
+          } else {
+            runner.isPaused = false
+          }
+        }
+      }
+
+      // Two pause events (round boundary + phase 0) both emitted; simulation
+      // completed. The first fired through the pendingResume short-circuit,
+      // the second through the normal stored-continuation path.
+      #expect(pauseCount == 2)
       #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
     }
   #endif
