@@ -589,9 +589,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// emission. `nil` primary means the primary key's opening quote has
   /// not arrived yet — we keep `thinkingAgents` populated so the UI
   /// continues to show the "thinking" indicator.
+  ///
+  /// Gated by ``FeatureFlags/realtimeStreamingEnabled``. When disabled,
+  /// events are silently dropped so the UI falls back to the
+  /// pre-streaming flow (thinking indicator → committed row at
+  /// `.agentOutput`). LLMCaller still produces the events but they
+  /// become no-ops here; the cost is negligible.
   private func handleAgentOutputStream(
     agent: String, primary: String?, thought: String?
   ) {
+    guard FeatureFlags.realtimeStreamingEnabled else { return }
     guard let primary else { return }
     // Past the opening quote — the streaming row now has real content.
     // Remove the "thinking" indicator (the live row takes over display).
