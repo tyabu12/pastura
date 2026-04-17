@@ -160,6 +160,27 @@ nonisolated struct ScenarioLoader: Sendable {
     return parsed
   }
 
+  private func parsePairing(_ raw: Any?, phaseIndex: Int) throws -> PairingStrategy? {
+    guard let str = raw as? String else { return nil }
+    guard let parsed = PairingStrategy(rawValue: str) else {
+      throw SimulationError.scenarioValidationFailed(
+        "Phase \(phaseIndex) has invalid pairing: '\(str)'. Use 'round_robin'."
+      )
+    }
+    return parsed
+  }
+
+  private func parseLogic(_ raw: Any?, phaseIndex: Int) throws -> ScoreCalcLogic? {
+    guard let str = raw as? String else { return nil }
+    guard let parsed = ScoreCalcLogic(rawValue: str) else {
+      let allowed = ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")
+      throw SimulationError.scenarioValidationFailed(
+        "Phase \(phaseIndex) has invalid logic: '\(str)'. Expected one of: \(allowed)."
+      )
+    }
+    return parsed
+  }
+
   private func mapPhase(_ dict: [String: Any], index: Int) throws -> Phase {
     guard let typeString = dict["type"] as? String else {
       throw SimulationError.scenarioValidationFailed("Phase \(index) missing 'type'")
@@ -187,17 +208,8 @@ nonisolated struct ScenarioLoader: Sendable {
       }
     }
 
-    // pairing
-    var pairing: PairingStrategy?
-    if let pairingStr = dict["pairing"] as? String {
-      pairing = PairingStrategy(rawValue: pairingStr)
-    }
-
-    // logic
-    var logic: ScoreCalcLogic?
-    if let logicStr = dict["logic"] as? String {
-      logic = ScoreCalcLogic(rawValue: logicStr)
-    }
+    let pairing = try parsePairing(dict["pairing"], phaseIndex: index)
+    let logic = try parseLogic(dict["logic"], phaseIndex: index)
 
     // speak_each rounds → subRounds
     let subRounds = dict["rounds"] as? Int

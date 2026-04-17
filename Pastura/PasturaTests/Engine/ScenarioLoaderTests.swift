@@ -383,6 +383,33 @@ struct ScenarioLoaderTests {
     _ = try loader.load(yaml: makeYAMLWithAssignTarget("random_one"))
   }
 
+  // MARK: - Pairing / logic parsing (strict)
+
+  @Test func rejectsChooseWithUnknownPairing() {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: choose
+            pairing: roundRobin
+            options: [a, b]
+        """)
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+  }
+
+  @Test func rejectsScoreCalcWithUnknownLogic() {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: score_calc
+            logic: made_up_logic
+        """)
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+  }
+
   @Test func estimatesZeroForCodePhases() {
     let scenario = Scenario(
       id: "t", name: "T", description: "T", agentCount: 5, rounds: 3, context: "C",
@@ -418,6 +445,23 @@ struct ScenarioLoaderTests {
         target: \(target)
     topics:
       - x
+    """
+  }
+
+  private func makeMinimalYAML(phasesBlock: String) -> String {
+    """
+    id: t
+    name: T
+    description: T
+    agents: 2
+    rounds: 1
+    context: C
+    personas:
+      - name: A
+        description: D
+      - name: B
+        description: D
+    \(phasesBlock)
     """
   }
 
