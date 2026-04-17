@@ -82,13 +82,14 @@ struct EditablePhase: Identifiable, Sendable {
     self.logic = phase.logic
     self.template = phase.template ?? ""
     self.source = phase.source ?? ""
-    self.target = phase.target ?? ""
+    self.target = phase.target?.rawValue ?? ""
     self.excludeSelf = phase.excludeSelf ?? false
     self.subRounds = phase.subRounds
   }
 
   func toPhase() -> Phase {
-    Phase(
+    let trimmedTarget = target.trimmingCharacters(in: .whitespacesAndNewlines)
+    return Phase(
       type: type,
       prompt: prompt.isEmpty ? nil : prompt,
       outputSchema: outputFields.isEmpty ? nil : outputFields,
@@ -97,7 +98,9 @@ struct EditablePhase: Identifiable, Sendable {
       logic: logic,
       template: template.isEmpty ? nil : template,
       source: source.isEmpty ? nil : source,
-      target: target.isEmpty ? nil : target,
+      // Invalid strings silently nil here — the editor's `validate()` surfaces
+      // a user-visible error before this point so typos don't reach the engine.
+      target: trimmedTarget.isEmpty ? nil : AssignTarget(rawValue: trimmedTarget),
       excludeSelf: excludeSelf ? true : nil,
       subRounds: subRounds
     )
@@ -256,6 +259,9 @@ final class ScenarioEditorViewModel {
       if phases.isEmpty {
         validationErrors.append("At least one phase is required")
       }
+
+      validationErrors.append(contentsOf: invalidAssignTargetErrors())
+
       if !validationErrors.isEmpty { return }
 
       scenario = buildScenario()
@@ -323,6 +329,22 @@ final class ScenarioEditorViewModel {
   }
 
   // MARK: - Private
+
+  /// Visual editor uses a free-text TextField for `target` (#83 will replace
+  /// with a Picker). Surface typos as user-visible errors so they do not silently
+  /// nil through `EditablePhase.toPhase()` and reach the engine as `.all`.
+  private func invalidAssignTargetErrors() -> [String] {
+    var errors: [String] = []
+    for (idx, phase) in phases.enumerated() where phase.type == .assign {
+      let trimmed = phase.target.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty, AssignTarget(rawValue: trimmed) == nil {
+        errors.append(
+          "Phase \(idx + 1) (assign): unknown target '\(trimmed)'. Use 'all' or 'random_one'."
+        )
+      }
+    }
+    return errors
+  }
 
   /// Builds a ``Scenario`` from the current visual editor state.
   private func buildScenario() -> Scenario {
