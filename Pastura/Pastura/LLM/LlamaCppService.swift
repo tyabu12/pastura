@@ -305,6 +305,16 @@ extension LlamaCppService {
     // the model's tokenizer splits it across multiple subword tokens.
     var outputText = ""
     var generatedTokens = 0
+
+    #if DEBUG
+      // Token-piece tracing for partial-extractor test corpus. Off unless
+      // PASTURA_TRACE_LLM is set. Scoped to this generate() so each call
+      // produces one fixture file; a failed inference emits nothing.
+      let traceCollector: TraceCollector? =
+        LlamaCppTraceCapture.isEnabled
+        ? TraceCollector(system: system, user: user) : nil
+    #endif
+
     for _ in 0..<Self.maxTokens {
       // Respect Task cancellation. llama.cpp's C calls don't check cancellation
       // themselves, so without this a cancelled simulation would run to maxTokens
@@ -324,6 +334,14 @@ extension LlamaCppService {
 
       generatedTokens += 1
       outputText += decodePiece(vocab: vocab, token: newTokenId)
+
+      #if DEBUG
+        if let collector = traceCollector {
+          collector.append(
+            tokenId: Int(newTokenId),
+            bytes: decodePieceRaw(vocab: vocab, token: newTokenId))
+        }
+      #endif
 
       if let range = outputText.range(of: Self.stopSequence) {
         outputText = String(outputText[..<range.lowerBound])
@@ -348,6 +366,15 @@ extension LlamaCppService {
     guard !outputText.isEmpty else {
       throw LLMError.generationFailed(description: "Model generated no output tokens")
     }
+
+    #if DEBUG
+      if let collector = traceCollector {
+        writeTrace(
+          collector: collector,
+          finalText: outputText,
+          completionTokens: generatedTokens)
+      }
+    #endif
 
     return GenerationResult(text: outputText, completionTokens: generatedTokens)
   }
