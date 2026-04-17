@@ -27,6 +27,29 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// An agent produced output from an LLM phase.
   case agentOutput(agent: String, output: TurnOutput, phaseType: PhaseType)
 
+  /// Incremental snapshot of an agent's in-flight LLM output.
+  ///
+  /// Emitted during token-by-token streaming (see `LLMCaller` + the
+  /// streaming ``LLMService/generateStream(system:user:)`` path). Carries
+  /// the best-effort partial primary value (e.g., `statement`) and
+  /// optional `inner_thought` extracted from the model's still-arriving
+  /// JSON response.
+  ///
+  /// Semantics:
+  /// - The event replaces — rather than appends to — the agent's current
+  ///   stream snapshot. Consumers overwrite their per-agent buffer on
+  ///   each emission.
+  /// - `primary == nil` means the primary key's opening quote has not
+  ///   yet been observed; the UI should keep the "thinking…" indicator
+  ///   visible. Once `primary` becomes non-nil (even as `""`), the
+  ///   indicator should yield to the streaming row.
+  /// - On retry / suspend re-issue, a new snapshot for the same agent
+  ///   naturally overwrites — no separate reset event is required.
+  /// - ``agentOutput(agent:output:phaseType:)`` still fires exactly once
+  ///   at stream end with the final parsed ``TurnOutput``; consumers that
+  ///   need canonical data (handlers, persistence) read from that event.
+  case agentOutputStream(agent: String, primary: String?, thought: String?)
+
   // MARK: - Code Phase Results
 
   /// Scores have been updated (from `score_calc` phase).
