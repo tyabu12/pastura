@@ -61,22 +61,28 @@ jobs:
       - name: Test with Coverage
         id: test
         run: |
-          OUTPUT=$(xcodebuild test \
+          # Stream xcodebuild output to the job log via tee so per-test lines
+          # are visible live (command substitution would buffer until exit,
+          # losing all output on timeout-kill). Trailing `|| true` prevents
+          # `set -eo pipefail` (GHA default) from aborting the script before
+          # PIPESTATUS is captured.
+          xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
             -only-testing PasturaTests \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
-            -quiet \
-            CODE_SIGNING_ALLOWED=NO 2>&1) || TEST_EXIT=$?
-          echo "$OUTPUT"
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-unit.log || true
+          TEST_EXIT=${PIPESTATUS[0]}
 
-          # xcodebuild -quiet outputs per-case lines:
+          # xcodebuild outputs per-case lines:
           #   Test case '...' passed on '...' (X.XXX seconds)
           #   Test case '...' failed on '...' (X.XXX seconds)
-          PASSED=$(echo "$OUTPUT" | grep -c "^Test case .* passed " || true)
-          FAILED=$(echo "$OUTPUT" | grep -c "^Test case .* failed " || true)
+          # `2>/dev/null || echo 0` guards against a missing log file on
+          # timeout-kill so the numeric comparisons below don't break.
+          PASSED=$(grep -c "^Test case .* passed " /tmp/xctest-unit.log 2>/dev/null || echo 0)
+          FAILED=$(grep -c "^Test case .* failed " /tmp/xctest-unit.log 2>/dev/null || echo 0)
           if [ "$PASSED" -eq 0 ] && [ "$FAILED" -eq 0 ]; then
             echo "parse_error=true" >> "$GITHUB_OUTPUT"
           else
@@ -171,7 +177,8 @@ jobs:
           # CI-only infrastructure errors like "Failed to get background
           # assertion" without masking real test failures (those fail on
           # every retry).
-          OUTPUT=$(xcodebuild test \
+          # See unit-test step for rationale on tee / PIPESTATUS / || true.
+          xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
@@ -179,12 +186,11 @@ jobs:
             -retry-tests-on-failure \
             -test-iterations 2 \
             -resultBundlePath UITestResults.xcresult \
-            -quiet \
-            CODE_SIGNING_ALLOWED=NO 2>&1) || TEST_EXIT=$?
-          echo "$OUTPUT"
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-ui.log || true
+          TEST_EXIT=${PIPESTATUS[0]}
 
-          PASSED=$(echo "$OUTPUT" | grep -c "^Test case .* passed " || true)
-          FAILED=$(echo "$OUTPUT" | grep -c "^Test case .* failed " || true)
+          PASSED=$(grep -c "^Test case .* passed " /tmp/xctest-ui.log 2>/dev/null || echo 0)
+          FAILED=$(grep -c "^Test case .* failed " /tmp/xctest-ui.log 2>/dev/null || echo 0)
           if [ "$PASSED" -eq 0 ] && [ "$FAILED" -eq 0 ]; then
             echo "parse_error=true" >> "$GITHUB_OUTPUT"
           else
