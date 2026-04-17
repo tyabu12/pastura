@@ -70,18 +70,16 @@ nonisolated struct ScenarioValidator: Sendable {
     return ValidationResult(warnings: warnings, estimatedInferences: estimated)
   }
 
+  /// Per-phase semantic checks beyond execution-limit validation.
+  ///
+  /// Today only `assign` phases need this: the target/source shape combination
+  /// must produce a usable assignment. Unknown `target` values are caught
+  /// earlier by `ScenarioLoader` (compile-time enforced via `AssignTarget`).
   private func validatePhases(_ scenario: Scenario) throws {
     for (index, phase) in scenario.phases.enumerated() {
       guard phase.type == .assign else { continue }
 
       let phaseLabel = "Phase \(index + 1) (assign)"
-
-      let target = phase.target
-      if let target, target != "all", target != "random_one" {
-        throw SimulationError.scenarioValidationFailed(
-          "\(phaseLabel): unknown target '\(target)'. Use 'all' or 'random_one'."
-        )
-      }
 
       // Shape validation requires both a source key and a resolved value.
       // Skip if source is nil or key is absent from extraData (Visual Editor compat).
@@ -89,9 +87,12 @@ nonisolated struct ScenarioValidator: Sendable {
         continue
       }
 
-      let effectiveTarget = target ?? "all"
+      let effectiveTarget = phase.target ?? .all
 
-      if effectiveTarget == "all" {
+      // Exhaustive switches on AssignTarget and AnyCodableValue: adding a case
+      // forces a validation decision here — do not paper over with `default:`.
+      switch effectiveTarget {
+      case .all:
         switch sourceValue {
         case .array, .string:
           break
@@ -102,7 +103,7 @@ nonisolated struct ScenarioValidator: Sendable {
               + "Use target: all only for a flat list of strings or a single string."
           )
         }
-      } else {
+      case .randomOne:
         switch sourceValue {
         case .arrayOfDictionaries:
           break

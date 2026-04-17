@@ -149,6 +149,17 @@ nonisolated struct ScenarioLoader: Sendable {
     return Persona(name: name, description: description)
   }
 
+  /// Strict-throw on unknown, mirroring PhaseType. See issue #108.
+  private func parseAssignTarget(_ raw: Any?, phaseIndex: Int) throws -> AssignTarget? {
+    guard let targetStr = raw as? String else { return nil }
+    guard let parsed = AssignTarget(rawValue: targetStr) else {
+      throw SimulationError.scenarioValidationFailed(
+        "Phase \(phaseIndex) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
+      )
+    }
+    return parsed
+  }
+
   private func mapPhase(_ dict: [String: Any], index: Int) throws -> Phase {
     guard let typeString = dict["type"] as? String else {
       throw SimulationError.scenarioValidationFailed("Phase \(index) missing 'type'")
@@ -162,9 +173,10 @@ nonisolated struct ScenarioLoader: Sendable {
     let prompt = dict["prompt"] as? String
     let template = dict["template"] as? String
     let source = dict["source"] as? String
-    let target = dict["target"] as? String
     let excludeSelf = dict["exclude_self"] as? Bool
     let options = dict["options"] as? [String]
+
+    let target = try parseAssignTarget(dict["target"], phaseIndex: index)
 
     // output → outputSchema
     var outputSchema: [String: String]?

@@ -97,7 +97,7 @@ nonisolated struct ScenarioSerializer: Sendable {
     }
 
     if let target = phase.target {
-      lines.append("    target: \(target)")
+      lines.append("    target: \(target.rawValue)")
     }
 
     if let excludeSelf = phase.excludeSelf {

@@ -93,20 +93,12 @@ struct ScenarioValidatorTests {
     }
   }
 
-  // MARK: - Assign phase: target validation
-
-  @Test func rejectsAssignWithUnknownTarget() {
-    let scenario = makeAssignScenario(target: "randomOne", source: nil, extraData: [:])
-    #expect(throws: SimulationError.self) {
-      try validator.validate(scenario)
-    }
-  }
-
   // MARK: - Assign phase: target "all" (or nil) shape checks
+  // Unknown-target rejection now lives in ScenarioLoaderTests (caught at parse).
 
   @Test func acceptsAssignAllWithStringSource() throws {
     let scenario = makeAssignScenario(
-      target: "all", source: "topic",
+      target: .all, source: "topic",
       extraData: ["topic": .string("Hi")]
     )
     _ = try validator.validate(scenario)
@@ -114,7 +106,7 @@ struct ScenarioValidatorTests {
 
   @Test func acceptsAssignAllWithArraySource() throws {
     let scenario = makeAssignScenario(
-      target: "all", source: "topics",
+      target: .all, source: "topics",
       extraData: ["topics": .array(["A", "B"])]
     )
     _ = try validator.validate(scenario)
@@ -122,18 +114,18 @@ struct ScenarioValidatorTests {
 
   @Test func acceptsAssignAllWithMissingSourceKey() throws {
     // Visual Editor compat: extraData is empty, skip shape check
-    let scenario = makeAssignScenario(target: "all", source: "topics", extraData: [:])
+    let scenario = makeAssignScenario(target: .all, source: "topics", extraData: [:])
     _ = try validator.validate(scenario)
   }
 
   @Test func acceptsAssignAllWithNilSource() throws {
     // Visual Editor compat: no source specified, skip shape check
-    let scenario = makeAssignScenario(target: "all", source: nil, extraData: [:])
+    let scenario = makeAssignScenario(target: .all, source: nil, extraData: [:])
     _ = try validator.validate(scenario)
   }
 
   @Test func acceptsAssignWithDefaultTarget() throws {
-    // nil target defaults to "all" behaviour; valid array source should pass
+    // nil target defaults to .all behaviour; valid array source should pass
     let scenario = makeAssignScenario(
       target: nil, source: "topics",
       extraData: ["topics": .array(["A", "B"])]
@@ -143,7 +135,7 @@ struct ScenarioValidatorTests {
 
   @Test func rejectsAssignAllWithArrayOfDictionariesSource() {
     let scenario = makeAssignScenario(
-      target: "all", source: "words",
+      target: .all, source: "words",
       extraData: ["words": .arrayOfDictionaries([["majority": "x", "minority": "y"]])]
     )
     #expect(throws: SimulationError.self) {
@@ -153,7 +145,7 @@ struct ScenarioValidatorTests {
 
   @Test func rejectsAssignAllWithDictionarySource() {
     let scenario = makeAssignScenario(
-      target: "all", source: "w",
+      target: .all, source: "w",
       extraData: ["w": .dictionary(["a": "b"])]
     )
     #expect(throws: SimulationError.self) {
@@ -161,11 +153,29 @@ struct ScenarioValidatorTests {
     }
   }
 
+  /// User-facing error must include 1-based phase index and source key
+  /// — these end up in editor / import UI verbatim.
+  @Test func rejectAssignAllWithBadShapeIncludesPhaseIndexAndSourceKey() {
+    let scenario = makeAssignScenario(
+      target: .all, source: "words",
+      extraData: ["words": .arrayOfDictionaries([["majority": "x", "minority": "y"]])]
+    )
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (assign)"))
+      #expect(message.contains("'words'"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
   // MARK: - Assign phase: target "random_one" shape checks
 
   @Test func acceptsAssignRandomOneWithArrayOfDictionariesSource() throws {
     let scenario = makeAssignScenario(
-      target: "random_one", source: "words",
+      target: .randomOne, source: "words",
       extraData: ["words": .arrayOfDictionaries([["majority": "x", "minority": "y"]])]
     )
     _ = try validator.validate(scenario)
@@ -173,7 +183,7 @@ struct ScenarioValidatorTests {
 
   @Test func rejectsAssignRandomOneWithArraySource() {
     let scenario = makeAssignScenario(
-      target: "random_one", source: "topics",
+      target: .randomOne, source: "topics",
       extraData: ["topics": .array(["A", "B"])]
     )
     #expect(throws: SimulationError.self) {
@@ -183,7 +193,7 @@ struct ScenarioValidatorTests {
 
   @Test func rejectsAssignRandomOneWithStringSource() {
     let scenario = makeAssignScenario(
-      target: "random_one", source: "topic",
+      target: .randomOne, source: "topic",
       extraData: ["topic": .string("Hi")]
     )
     #expect(throws: SimulationError.self) {
@@ -193,7 +203,7 @@ struct ScenarioValidatorTests {
 
   @Test func acceptsAssignRandomOneWithMissingSourceKey() throws {
     // Visual Editor compat: extraData is empty, skip shape check
-    let scenario = makeAssignScenario(target: "random_one", source: "words", extraData: [:])
+    let scenario = makeAssignScenario(target: .randomOne, source: "words", extraData: [:])
     _ = try validator.validate(scenario)
   }
 
@@ -209,7 +219,7 @@ struct ScenarioValidatorTests {
   }
 
   private func makeAssignScenario(
-    target: String?,
+    target: AssignTarget?,
     source: String?,
     extraData: [String: AnyCodableValue]
   ) -> Scenario {
