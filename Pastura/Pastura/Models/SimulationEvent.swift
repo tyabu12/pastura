@@ -122,3 +122,26 @@ nonisolated public enum SimulationError: Error, Sendable, Equatable {
   /// The simulation was cancelled via Task cancellation.
   case cancelled
 }
+
+/// Provides human-readable descriptions so UI alert handlers can show
+/// `error.localizedDescription` without mapping each case manually.
+extension SimulationError: LocalizedError {
+  public var errorDescription: String? {
+    switch self {
+    case .scenarioValidationFailed(let message):
+      return message
+    case .llmGenerationFailed(let description):
+      return String(localized: "LLM generation failed: \(description)")
+    case .jsonParseFailed(let raw):
+      let snippet = raw.count > 200 ? String(raw.prefix(200)) + "..." : raw
+      return String(localized: "JSON parse failed: \(snippet)")
+    case .retriesExhausted:
+      return String(
+        localized: "LLM returned invalid output after retries. Try again or check model health.")
+    case .modelNotLoaded:
+      return String(localized: "Model not loaded")
+    case .cancelled:
+      return String(localized: "Simulation cancelled")
+    }
+  }
+}
