@@ -76,14 +76,23 @@ _simdest_name=$(echo "$_simdest_result" | cut -d'|' -f2)
 _simdest_os=$(echo "$_simdest_result" | cut -d'|' -f3)
 
 export DEST="platform=iOS Simulator,id=$_simdest_udid"
+
 # Matches the Xcode.app GUI's Workspace-relative DerivedData layout
 # (Pastura/DerivedData/), so the CLI and GUI share one build cache per
 # worktree. Removing a worktree therefore cleans both.
-export DERIVED_DATA="$(git rev-parse --show-toplevel)/Pastura/DerivedData"
+# Guard: if sourced from outside a git worktree, fail loud and restore
+# the caller's shell options before returning (otherwise set -e would
+# abort the script with pipefail still active in the caller's shell).
+_simdest_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "Error: scripts/sim-dest.sh must be sourced from inside the git worktree." >&2
+  eval "$_simdest_old_opts"
+  return 1 2>/dev/null || exit 1
+}
+export DERIVED_DATA="$_simdest_repo_root/Pastura/DerivedData"
 echo "Selected simulator: $_simdest_name ($_simdest_os) [id=$_simdest_udid]"
 echo "DerivedData path: $DERIVED_DATA"
 
-unset _simdest_result _simdest_udid _simdest_name _simdest_os _simdest_errfile
+unset _simdest_result _simdest_udid _simdest_name _simdest_os _simdest_errfile _simdest_repo_root
 eval "$_simdest_old_opts"
 # return when sourced, exit when executed directly
 return 0 2>/dev/null || exit 0

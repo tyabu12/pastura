@@ -40,6 +40,11 @@ jobs:
           source scripts/sim-dest.sh
           echo "DEST=$DEST" >> "$GITHUB_ENV"
 
+      # NOTE: CI intentionally uses the default ~/Library DerivedData path so
+      # this cache key keeps hitting. Local dev builds go to
+      # Pastura/DerivedData/ via -derivedDataPath — see CLAUDE.md
+      # "DerivedData location". If CI ever adopts -derivedDataPath, update
+      # this cache path to match (and both instances of it in this file).
       - name: Cache SPM packages
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
@@ -165,6 +170,11 @@ jobs:
           xcrun simctl boot "$SIM_UDID" || true
           xcrun simctl bootstatus "$SIM_UDID" -b
 
+      # NOTE: CI intentionally uses the default ~/Library DerivedData path so
+      # this cache key keeps hitting. Local dev builds go to
+      # Pastura/DerivedData/ via -derivedDataPath — see CLAUDE.md
+      # "DerivedData location". If CI ever adopts -derivedDataPath, update
+      # this cache path to match (and both instances of it in this file).
       - name: Cache SPM packages
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
