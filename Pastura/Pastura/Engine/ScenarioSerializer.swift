@@ -109,6 +109,50 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append("    rounds: \(subRounds)")
     }
 
+    // Conditional-specific fields — emitted at the end of the phase block
+    // with 4-space indentation for nested sub-phase bodies.
+    if let condition = phase.condition {
+      lines.append("    if: \(yamlScalar(condition))")
+    }
+    // Empty arrays round-trip as `nil` (YAML has no disambiguator between
+    // "key with empty list" and "key absent" under our manual-mapping parse
+    // path). Skip emitting the key at all in that case so the output is
+    // valid YAML and the loader's branch-shape check doesn't fire.
+    if let thenPhases = phase.thenPhases, !thenPhases.isEmpty {
+      lines.append("    then:")
+      lines.append(contentsOf: serializeBranch(thenPhases, indent: 6))
+    }
+    if let elsePhases = phase.elsePhases, !elsePhases.isEmpty {
+      lines.append("    else:")
+      lines.append(contentsOf: serializeBranch(elsePhases, indent: 6))
+    }
+
+    return lines
+  }
+
+  /// Serializes an array of branch sub-phases at the given indent depth.
+  ///
+  /// Reuses `serializePhase` but replaces the top-level two-space `  -`
+  /// prefix with a deeper indent so nested phases align under their
+  /// `then:` / `else:` key.
+  private func serializeBranch(_ phases: [Phase], indent: Int) -> [String] {
+    var lines: [String] = []
+    let prefix = String(repeating: " ", count: indent)
+    for phase in phases {
+      let inner = serializePhase(phase)
+      // `serializePhase` emits `  - type: ...` then `    key: ...` lines.
+      // Re-indent those to sit under the parent's then/else block.
+      for (offset, line) in inner.enumerated() {
+        if offset == 0 {
+          // First line starts with "  - "; re-emit at the new indent.
+          let stripped = line.drop(while: { $0 == " " })
+          lines.append("\(prefix.dropLast(2))\(stripped)")
+        } else {
+          let stripped = line.drop(while: { $0 == " " })
+          lines.append("\(prefix)\(stripped)")
+        }
+      }
+    }
     return lines
   }
 

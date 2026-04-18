@@ -186,14 +186,15 @@ nonisolated struct ScenarioLoader: Sendable {
   }
 
   private func mapPhase(_ dict: [String: Any], index: Int) throws -> Phase {
-    guard let typeString = dict["type"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Phase \(index) missing 'type'")
-    }
-    guard let phaseType = PhaseType(rawValue: typeString) else {
-      throw SimulationError.scenarioValidationFailed(
-        "Phase \(index) has invalid type: '\(typeString)'"
-      )
-    }
+    try mapPhase(dict, index: index, depth: 0)
+  }
+
+  /// Maps a phase dictionary, recursively descending into conditional
+  /// branches. `depth == 0` is top-level; `depth >= 1` rejects nested
+  /// `.conditional` to defend the depth-1 rule at parse time
+  /// (the validator has the same check for non-YAML construction paths).
+  private func mapPhase(_ dict: [String: Any], index: Int, depth: Int) throws -> Phase {
+    let phaseType = try parsePhaseType(dict, index: index, depth: depth)
 
     let prompt = dict["prompt"] as? String
     let template = dict["template"] as? String
@@ -202,21 +203,20 @@ nonisolated struct ScenarioLoader: Sendable {
     let options = dict["options"] as? [String]
 
     let target = try parseAssignTarget(dict["target"], phaseIndex: index)
-
-    // output → outputSchema
-    var outputSchema: [String: String]?
-    if let output = dict["output"] as? [String: Any] {
-      outputSchema = [:]
-      for (key, value) in output {
-        outputSchema?[key] = "\(value)"
-      }
-    }
-
+    let outputSchema = parseOutputSchema(dict)
     let pairing = try parsePairing(dict["pairing"], phaseIndex: index)
     let logic = try parseLogic(dict["logic"], phaseIndex: index)
 
     // speak_each rounds → subRounds
     let subRounds = dict["rounds"] as? Int
+
+    // Conditional-specific fields (`if:` expression + `then:` / `else:` sub-phase arrays).
+    // Recursively descend with depth+1 so nested conditional is rejected here.
+    let condition = dict["if"] as? String
+    let thenPhases = try mapBranch(
+      dict["then"], branchLabel: "then", parentIndex: index, depth: depth)
+    let elsePhases = try mapBranch(
+      dict["else"], branchLabel: "else", parentIndex: index, depth: depth)
 
     return Phase(
       type: phaseType,
@@ -229,8 +229,54 @@ nonisolated struct ScenarioLoader: Sendable {
       source: source,
       target: target,
       excludeSelf: excludeSelf,
-      subRounds: subRounds
+      subRounds: subRounds,
+      condition: condition,
+      thenPhases: thenPhases,
+      elsePhases: elsePhases
     )
+  }
+
+  private func parsePhaseType(
+    _ dict: [String: Any], index: Int, depth: Int
+  ) throws -> PhaseType {
+    guard let typeString = dict["type"] as? String else {
+      throw SimulationError.scenarioValidationFailed("Phase \(index) missing 'type'")
+    }
+    guard let phaseType = PhaseType(rawValue: typeString) else {
+      throw SimulationError.scenarioValidationFailed(
+        "Phase \(index) has invalid type: '\(typeString)'"
+      )
+    }
+    if phaseType == .conditional && depth > 0 {
+      throw SimulationError.scenarioValidationFailed(
+        "Phase \(index): nested 'conditional' inside another conditional is not "
+          + "allowed (depth-1 rule)."
+      )
+    }
+    return phaseType
+  }
+
+  private func parseOutputSchema(_ dict: [String: Any]) -> [String: String]? {
+    guard let output = dict["output"] as? [String: Any] else { return nil }
+    var result: [String: String] = [:]
+    for (key, value) in output {
+      result[key] = "\(value)"
+    }
+    return result
+  }
+
+  private func mapBranch(
+    _ raw: Any?, branchLabel: String, parentIndex: Int, depth: Int
+  ) throws -> [Phase]? {
+    guard let phasesRaw = raw else { return nil }
+    guard let list = phasesRaw as? [[String: Any]] else {
+      throw SimulationError.scenarioValidationFailed(
+        "Phase \(parentIndex): '\(branchLabel)' must be an array of phase objects"
+      )
+    }
+    return try list.enumerated().map { subIndex, subRaw in
+      try mapPhase(subRaw, index: subIndex, depth: depth + 1)
+    }
   }
 
   /// Converts a raw YAML value to ``AnyCodableValue``.
