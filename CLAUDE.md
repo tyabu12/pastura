@@ -136,18 +136,37 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
 
 # Run all tests
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST"
+xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
+  -destination "$DEST" -derivedDataPath "$DERIVED_DATA"
 
 # Run specific test class
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
+xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
+  -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
   -only-testing PasturaTests/JSONResponseParserTests
 
 # Run Ollama integration tests (requires local Ollama with target model pulled)
 # Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj -destination "$DEST" \
+xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
+  -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
   -only-testing PasturaTests/OllamaIntegrationTests
 # These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
 ```
+
+#### DerivedData location
+
+`sim-dest.sh` exports `DERIVED_DATA` pointing at `Pastura/DerivedData/` inside
+the current worktree. Always pass `-derivedDataPath "$DERIVED_DATA"` to
+`xcodebuild` so the CLI matches the Xcode.app Workspace-relative layout
+configured in `project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings`.
+This keeps GUI and CLI builds sharing one cache per worktree and makes
+`git worktree remove` auto-clean all build artifacts. Two gotchas:
+
+- **Pass `-derivedDataPath` with a space**, not `=`. The `=` form is silently
+  ignored by `xcodebuild` (known since Xcode 15.4).
+- **CI is intentionally left on the default `~/Library/...` path** so its
+  existing SPM cache (`actions/cache` keyed on that path) keeps hitting. If
+  CI ever starts passing `-derivedDataPath`, update both cache paths in
+  `.github/workflows/ci.yml` in the same PR.
 
 #### Running xcodebuild from an agent session
 
