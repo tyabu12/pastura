@@ -121,3 +121,14 @@ Run these whenever the navigation surface changes:
    sees the view is no longer on top, and no spurious push to
    `ScenarioDetailView` occurs. (Backgrounding the app does **not** pop
    views, so it does not exercise this guard.)
+5. **Conditional phase — nested sub-phase editor** — In the scenario editor,
+   add a `conditional` phase, tap it to open `PhaseEditorSheet`, enter a
+   condition, tap **Add sub-phase** inside the Then branch. Expected: a
+   nested `PhaseEditorSheet` presents with the `conditional` option
+   *absent* from the type picker (depth-1 UI enforcement). Change the
+   sub-phase type, save, return to the outer editor. Save the outer
+   phase and confirm the top-level scenario list shows the condition
+   summary with `then:N else:M` counts. The nested sheet is sheet-owned,
+   so its own NavigationStack is fine — this QA just confirms that the
+   presentation chain (outer sheet → inner sheet) dismisses cleanly
+   without leaking `.conditional` into nested depths.

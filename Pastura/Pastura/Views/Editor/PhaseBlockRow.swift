@@ -46,9 +46,19 @@ struct PhaseBlockRow: View {
     case .summarize:
       return phase.template.prefix(50).trimmingCharacters(in: .whitespacesAndNewlines)
     case .conditional:
-      // Placeholder — the full editor experience for conditional (nested
-      // then/else rendering) lands with the Visual Editor support commit.
-      return ""
+      // Compact summary: condition expression + branch counts. Nested
+      // sub-phases are edited via a nested sheet from `PhaseEditorSheet`
+      // so we don't render them here (single row per top-level phase).
+      let condition =
+        phase.condition
+        .prefix(40)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      let then = phase.thenPhases.count
+      let elseCount = phase.elsePhases.count
+      if condition.isEmpty {
+        return "(no condition)"
+      }
+      return "\(condition) → then:\(then) else:\(elseCount)"
     }
   }
 }

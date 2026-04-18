@@ -33,6 +33,12 @@ struct EditablePersona: Identifiable, Sendable {
 ///
 /// Separates editing state from the immutable ``Phase`` domain model.
 /// Exposes all phase fields; type-dependent visibility is handled by the UI.
+///
+/// Conditional-specific fields (`condition`, `thenPhases`, `elsePhases`)
+/// hold nested `EditablePhase` values so the editor can recursively render
+/// sub-phase blocks. Depth-1 is enforced at the editor layer by filtering
+/// `.conditional` out of the type picker when `PhaseEditorSheet` is opened
+/// for a nested phase.
 struct EditablePhase: Identifiable, Sendable {
   let id = UUID()
   var type: PhaseType
@@ -46,7 +52,11 @@ struct EditablePhase: Identifiable, Sendable {
   var target: String
   var excludeSelf: Bool
   var subRounds: Int?
+  var condition: String
+  var thenPhases: [EditablePhase]
+  var elsePhases: [EditablePhase]
 
+  // swiftlint:disable:next function_default_parameter_at_end
   init(
     type: PhaseType = .speakAll,
     prompt: String = "",
@@ -58,7 +68,10 @@ struct EditablePhase: Identifiable, Sendable {
     source: String = "",
     target: String = "",
     excludeSelf: Bool = false,
-    subRounds: Int? = nil
+    subRounds: Int? = nil,
+    condition: String = "",
+    thenPhases: [EditablePhase] = [],
+    elsePhases: [EditablePhase] = []
   ) {
     self.type = type
     self.prompt = prompt
@@ -71,6 +84,9 @@ struct EditablePhase: Identifiable, Sendable {
     self.target = target
     self.excludeSelf = excludeSelf
     self.subRounds = subRounds
+    self.condition = condition
+    self.thenPhases = thenPhases
+    self.elsePhases = elsePhases
   }
 
   init(from phase: Phase) {
@@ -85,10 +101,14 @@ struct EditablePhase: Identifiable, Sendable {
     self.target = phase.target?.rawValue ?? ""
     self.excludeSelf = phase.excludeSelf ?? false
     self.subRounds = phase.subRounds
+    self.condition = phase.condition ?? ""
+    self.thenPhases = phase.thenPhases?.map { EditablePhase(from: $0) } ?? []
+    self.elsePhases = phase.elsePhases?.map { EditablePhase(from: $0) } ?? []
   }
 
   func toPhase() -> Phase {
     let trimmedTarget = target.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedCondition = condition.trimmingCharacters(in: .whitespacesAndNewlines)
     return Phase(
       type: type,
       prompt: prompt.isEmpty ? nil : prompt,
@@ -102,7 +122,10 @@ struct EditablePhase: Identifiable, Sendable {
       // a user-visible error before this point so typos don't reach the engine.
       target: trimmedTarget.isEmpty ? nil : AssignTarget(rawValue: trimmedTarget),
       excludeSelf: excludeSelf ? true : nil,
-      subRounds: subRounds
+      subRounds: subRounds,
+      condition: trimmedCondition.isEmpty ? nil : trimmedCondition,
+      thenPhases: thenPhases.isEmpty ? nil : thenPhases.map { $0.toPhase() },
+      elsePhases: elsePhases.isEmpty ? nil : elsePhases.map { $0.toPhase() }
     )
   }
 }
