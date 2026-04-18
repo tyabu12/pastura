@@ -1,5 +1,6 @@
 import Foundation
 import LlamaSwift
+import os
 
 // MARK: - Tokenization
 
@@ -96,6 +97,9 @@ extension LlamaCppService {
           return Data(bytes: base, count: Int(retryChars))
         }
       }
+      logger.warning(
+        "decodePieceRaw: retry also returned non-positive (\(retryChars)) — a token was silently dropped from the stream"
+      )
     }
     return Data()
   }

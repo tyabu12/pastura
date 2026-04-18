@@ -600,6 +600,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   ) {
     guard FeatureFlags.realtimeStreamingEnabled else { return }
     guard let primary else { return }
+    // Defensive: drop the event if we somehow see a stream before
+    // `.phaseStarted`. The snapshot needs a correct `phaseType` so
+    // `AgentOutputRow.primaryText` pulls the right fields on the
+    // committed row; a silent fallback to `.speakAll` would hide the
+    // ordering bug. Symmetric with the `primary == nil` drop above —
+    // if any required precondition is missing, defer to `.agentOutput`
+    // for display instead of rendering a partial row under the wrong
+    // phase.
+    guard let phaseType = currentPhaseType else { return }
     // Past the opening quote — the streaming row now has real content.
     // Remove the "thinking" indicator (the live row takes over display).
     thinkingAgents.remove(agent)
@@ -607,7 +616,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       agent: agent,
       primary: primary,
       thought: thought,
-      phaseType: currentPhaseType ?? .speakAll
+      phaseType: phaseType
     )
   }
 

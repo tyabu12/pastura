@@ -46,9 +46,20 @@ nonisolated public struct PartialSnapshot: Sendable, Equatable {
 /// preceded by `{` or `,` (ignoring whitespace). This rejects key-like
 /// substrings that appear inside string values.
 nonisolated public struct PartialOutputExtractor: Sendable {
-  /// Recognised primary-output keys. First match in the input wins.
+  /// Recognised primary-output keys in the order they are checked.
+  ///
+  /// Ordered so that first-match-wins aligns with
+  /// ``TurnOutput/primaryText(for:)``'s phase-specific preferences:
+  /// - speak phases: `statement ?? declaration ?? boke`
+  /// - choose phase: `action ?? declaration`
+  /// - vote phase: `vote`
+  ///
+  /// By putting `action` before `declaration`, a `.choose`-phase
+  /// buffer containing both keys reports `action` — matching the
+  /// canonical parser. Speak phases don't typically carry `action`,
+  /// so the earlier-in-list priority is harmless there.
   public static let primaryKeys = [
-    "statement", "declaration", "boke", "action", "vote"
+    "statement", "action", "declaration", "boke", "vote"
   ]
   public static let thoughtKey = "inner_thought"
 

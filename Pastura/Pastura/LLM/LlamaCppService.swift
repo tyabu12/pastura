@@ -423,6 +423,13 @@ extension LlamaCppService {
   /// - Stop-sequence `<|im_end|>` never appears in emitted deltas.
   /// - Final chunk carries ``LLMStreamChunk/completionTokens`` — llama.cpp
   ///   is one of the few backends that can report this cheaply.
+  ///
+  /// - Important: Callers must fully drain (or cancel + await) the
+  ///   returned `AsyncThrowingStream` before starting the next
+  ///   `generate`/`generateStream` call. The `generatingGuard` clears
+  ///   in a `defer` after `continuation.finish()`, so back-to-back calls
+  ///   issued in the narrow window between the last yielded chunk and
+  ///   the Task's exit will `precondition`-crash.
   public func generateStream(
     system: String, user: String
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
