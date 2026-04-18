@@ -197,13 +197,28 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           // visible; bring it into view.
           if !nowAnimating { scrollToBottom(proxy) }
         }
-        // Live streaming row appeared / disappeared / switched agents —
-        // follow it. Per-character growth during the same stream is not
-        // watched here to avoid scroll spam; AgentOutputRow's internal
-        // reveal keeps the text on-screen because the row itself stays
-        // in place while chars fill in.
-        .onChange(of: viewModel.streamingSnapshot?.agent) { _, _ in
-          scrollToBottom(proxy)
+        // Live streaming row lifecycle + growth.
+        //
+        // Unlike the pseudo-typing path (where the concat trick
+        // `Text(visible) + Text(hidden).clear` pre-establishes the final
+        // layout, so the row height stays fixed as chars fill in), the
+        // streaming row's `streamingPrimary` itself grows per token, so
+        // the row height grows too — without following it, long outputs
+        // disappear past the bottom of the viewport.
+        //
+        // Branches:
+        // - Agent transition (`nil → X`, `X → nil`, or `X → Y`): animated
+        //   scroll to mark the "new speaker" / commit moment.
+        // - Content growth within the same agent: raw `scrollTo` without
+        //   `withAnimation`. The default 0.35s implicit animation would
+        //   compound across token arrivals (~20/s) into visible stutter.
+        //   `bottomSentinelID` is idempotent when already pinned to bottom.
+        .onChange(of: viewModel.streamingSnapshot) { old, new in
+          if old?.agent != new?.agent {
+            scrollToBottom(proxy)
+          } else if new != nil {
+            proxy.scrollTo(Self.bottomSentinelID, anchor: .bottom)
+          }
         }
       }
 
