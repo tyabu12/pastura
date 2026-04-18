@@ -4,7 +4,7 @@ import Testing
 @testable import Pastura
 
 @MainActor
-@Suite struct AppRouterTests {
+@Suite(.timeLimit(.minutes(1))) struct AppRouterTests {
 
   @Test func startsEmpty() {
     let router = AppRouter()

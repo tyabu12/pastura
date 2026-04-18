@@ -33,6 +33,7 @@ private func makeSUT(
 
 // MARK: - Event Handling Tests
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct SimulationViewModelTests {
 

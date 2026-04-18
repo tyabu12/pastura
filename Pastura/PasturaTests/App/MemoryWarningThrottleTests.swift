@@ -6,6 +6,7 @@ import Testing
 /// Pure-value tests for the memoryWarning policy. Independently testable so
 /// we can exercise edge cases (burst firing, escalation window boundaries,
 /// already-paused, BG branch) without synthesizing SwiftUI scenePhase.
+@Suite(.timeLimit(.minutes(1)))
 struct MemoryWarningThrottleTests {
 
   // MARK: - Already-paused no-op

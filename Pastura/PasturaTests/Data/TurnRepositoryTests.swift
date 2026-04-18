@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct TurnRepositoryTests {
+@Suite(.timeLimit(.minutes(1))) struct TurnRepositoryTests {
 
   /// Returns a TurnRepository backed by an in-memory DB with seeded scenario and simulation.
   private func makeTurnRepo() throws -> GRDBTurnRepository {

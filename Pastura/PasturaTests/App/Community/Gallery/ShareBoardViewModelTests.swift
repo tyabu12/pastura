@@ -5,7 +5,7 @@ import Testing
 @testable import Pastura
 
 @MainActor
-@Suite struct ShareBoardViewModelTests {
+@Suite(.timeLimit(.minutes(1))) struct ShareBoardViewModelTests {
 
   // MARK: - Fixtures
 

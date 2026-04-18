@@ -6,7 +6,7 @@ import Testing
 /// Tests persistence of code-phase events to `code_phase_events` table,
 /// plus the shared `sequenceNumber` invariant across turns and code-phase
 /// tables.
-@Suite(.serialized) @MainActor
+@Suite(.serialized, .timeLimit(.minutes(1))) @MainActor
 // swiftlint:disable:next type_name
 struct SimulationViewModelCodePhasePersistenceTests {
 

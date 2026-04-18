@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct ScenarioSerializerTests {
   let serializer = ScenarioSerializer()
   let loader = ScenarioLoader()

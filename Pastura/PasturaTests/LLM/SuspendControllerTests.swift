@@ -9,7 +9,7 @@ import os
 /// Serialized because several tests spawn child `Task`s that wait on the
 /// controller; concurrent execution of unrelated tests is still fine, but
 /// interleaving inside this suite risks flaky timings.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct SuspendControllerTests {
 
   // MARK: - Initial state

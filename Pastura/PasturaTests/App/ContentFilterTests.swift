@@ -2,6 +2,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct ContentFilterTests {
   @Test func filterReplacesBlockedJapaneseWords() {
     let filter = ContentFilter(blockedPatterns: ["殺す", "死ね"])

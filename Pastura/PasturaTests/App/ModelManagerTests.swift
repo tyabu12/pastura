@@ -38,7 +38,7 @@ struct MockModelDownloader: ModelDownloader, Sendable {
 // MARK: - Tests
 
 // Download tests share filesystem paths (Documents directory), so serialize to avoid races.
-@Suite("ModelManager", .serialized)
+@Suite("ModelManager", .serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct ModelManagerTests {
 

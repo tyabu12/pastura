@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct ResultDetailExportAssemblerTests {
 
   // MARK: - Fixtures

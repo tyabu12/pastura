@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct SimulationStateTests {
   @Test func codableRoundTrip() throws {
     let entry = ConversationEntry(

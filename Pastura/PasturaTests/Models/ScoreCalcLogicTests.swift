@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct ScoreCalcLogicTests {
   @Test func rawValues() {
     #expect(ScoreCalcLogic.prisonersDilemma.rawValue == "prisoners_dilemma")

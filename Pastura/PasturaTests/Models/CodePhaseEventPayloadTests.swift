@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct CodePhaseEventPayloadTests {
   private func roundTrip(_ payload: CodePhaseEventPayload) throws -> CodePhaseEventPayload {
     let data = try JSONEncoder().encode(payload)

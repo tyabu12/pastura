@@ -39,7 +39,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 
 // MARK: - Tests
 
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct OllamaServiceTests {
   private func makeSession() -> URLSession {
     let config = URLSessionConfiguration.ephemeral

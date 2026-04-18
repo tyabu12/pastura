@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct GalleryScenarioTests {
+@Suite(.timeLimit(.minutes(1))) struct GalleryScenarioTests {
 
   // MARK: - Fixtures
 
