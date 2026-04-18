@@ -136,6 +136,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// sequentially (ADR-002 §6).
   private(set) var streamingSnapshot: StreamingSnapshot?
 
+  /// Entry IDs whose primary text was already revealed live via
+  /// ``SimulationEvent/agentOutputStream(agent:primary:thought:)`` before
+  /// the committing ``SimulationEvent/agentOutput(agent:output:phaseType:)``
+  /// arrived. ``effectiveCharsPerSecond(forEntryId:)`` returns `nil` for
+  /// these so `AgentOutputRow` snaps to full instead of retyping content
+  /// the user already watched stream.
+  ///
+  /// Side-set rather than a flag on `LogEntry.Kind` because this is a
+  /// display-only concern — `LogEntry.Kind` sits next to the persistence /
+  /// export boundary and should not grow display-layer fields. Reset per
+  /// `run()`; never persisted. See #133 for the longer-term redesign of
+  /// the streaming display path.
+  private(set) var prerevealedAgentOutputIds: Set<UUID> = []
+
   nonisolated struct StreamingSnapshot: Equatable, Sendable {
     let agent: String
     let primary: String
@@ -149,6 +163,25 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // Default ON: inner thoughts provide interpretive context without drawbacks.
   var showAllThoughts = true
   var speed: PlaybackSpeed = .normal
+
+  /// Chars-per-second to use for the committed `AgentOutputRow` of `entryId`,
+  /// or `nil` when the row must not animate.
+  ///
+  /// Centralising this decision here (rather than inlining the conditional
+  /// in `SimulationView`) keeps the regression from #132-QA — committed
+  /// rows retyping text the user just watched stream — pinned at the VM
+  /// boundary where it can be unit-tested. The view has one call site,
+  /// and any future code that renders an `.agentOutput` entry must go
+  /// through this helper to get the display timing right.
+  ///
+  /// Returns `nil` when:
+  /// - the entry was pre-revealed via streaming (`prerevealedAgentOutputIds`),
+  ///   or
+  /// - the user has chosen `.instant` playback (`speed.charsPerSecond == nil`).
+  func effectiveCharsPerSecond(forEntryId entryId: UUID) -> Double? {
+    if prerevealedAgentOutputIds.contains(entryId) { return nil }
+    return speed.charsPerSecond
+  }
 
   /// Read-only view of the runner's pause state. Views observe this to drive
   /// the pause-button label and "Paused" pill. **Mutation must go through
@@ -365,6 +398,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // stale in-flight row under a brand-new scenario.
     latestAgentOutputId = nil
     streamingSnapshot = nil
+    prerevealedAgentOutputIds = []
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
     totalRounds = scenario.rounds
@@ -579,6 +613,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         )
       }
     }
+    // If snapshot was active for this agent the user has already watched
+    // the primary stream live, so the committed AgentOutputRow must not
+    // retype it (see `effectiveCharsPerSecond(forEntryId:)`).
+    //
+    // Note: `contentFilter.filter(output)` above may rewrite the primary,
+    // so the committed snap can differ from what streamed. Acceptable:
+    // filter rewrites are rare and already surface via divergence
+    // telemetry; any transition UX on that edge belongs to the #133
+    // streaming-display redesign, not here.
+    let wasStreamed = streamingSnapshot?.agent == agent
     streamingSnapshot = nil
     let entry = LogEntry(
       kind: .agentOutput(agent: agent, output: filtered, phaseType: phaseType))
@@ -587,6 +631,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation to only the latest row — older rows snap to full text when
     // this id flips.
     latestAgentOutputId = entry.id
+    if wasStreamed { prerevealedAgentOutputIds.insert(entry.id) }
     thinkingAgents.remove(agent)
     persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
   }

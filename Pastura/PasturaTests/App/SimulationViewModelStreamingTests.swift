@@ -124,4 +124,122 @@ struct SimulationViewModelStreamingTests {
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     #expect(sut.streamingSnapshot == nil)
   }
+
+  // MARK: - Pre-reveal tracking (committed rows that streamed live)
+
+  @Test func effectiveCpsIsNilForPrerevealedEntry() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.speed = .normal  // non-instant → helper fallback would otherwise be non-nil
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
+      scenario: scenario)
+
+    let output = TurnOutput(fields: ["statement": "hello"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+
+    let committedId = try #require(sut.latestAgentOutputId)
+    #expect(sut.prerevealedAgentOutputIds.contains(committedId))
+    #expect(sut.effectiveCharsPerSecond(forEntryId: committedId) == nil)
+  }
+
+  @Test func effectiveCpsFallsBackToSpeedForNonStreamedEntry() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.speed = .normal
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    // No .agentOutputStream — commit directly.
+    let output = TurnOutput(fields: ["statement": "hello"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+
+    let committedId = try #require(sut.latestAgentOutputId)
+    #expect(!sut.prerevealedAgentOutputIds.contains(committedId))
+    #expect(
+      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
+  }
+
+  @Test func agentOutputForDifferentAgentDoesNotMark() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.speed = .normal
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    // Snapshot is for Alice…
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
+      scenario: scenario)
+    // …but the commit is for Bob. Snapshot.agent != agent → do not mark.
+    let output = TurnOutput(fields: ["statement": "hi"])
+    sut.handleEvent(
+      .agentOutput(agent: "Bob", output: output, phaseType: .speakAll),
+      scenario: scenario)
+
+    let bobId = try #require(sut.latestAgentOutputId)
+    #expect(!sut.prerevealedAgentOutputIds.contains(bobId))
+    #expect(sut.effectiveCharsPerSecond(forEntryId: bobId) == PlaybackSpeed.normal.charsPerSecond)
+  }
+
+  @Test func parseRetryAfterStreamMarksOnlyRetryEntry() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    // Attempt 1 — partial streams but never commits (parse fails).
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hel", thought: nil),
+      scenario: scenario)
+    // Retry clears the stale snapshot.
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+    #expect(sut.streamingSnapshot == nil)
+    // Attempt 2 — partial streams and then commits.
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
+      scenario: scenario)
+    let output = TurnOutput(fields: ["statement": "hello"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+
+    // Exactly the retry's committed entry is marked; no orphan ids remain.
+    let committedId = try #require(sut.latestAgentOutputId)
+    #expect(sut.prerevealedAgentOutputIds == [committedId])
+  }
+
+  @Test func featureFlagOffLeavesSetEmpty() throws {
+    let key = "realtimeStreamingEnabled"
+    let original = UserDefaults.standard.object(forKey: key)
+    UserDefaults.standard.set(false, forKey: key)
+    defer {
+      if let original {
+        UserDefaults.standard.set(original, forKey: key)
+      } else {
+        UserDefaults.standard.removeObject(forKey: key)
+      }
+    }
+
+    let (sut, scenario) = try makeSUT()
+    sut.speed = .normal
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    // Flag off → stream events no-op → snapshot stays nil.
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
+      scenario: scenario)
+    #expect(sut.streamingSnapshot == nil)
+
+    let output = TurnOutput(fields: ["statement": "hello"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+
+    let committedId = try #require(sut.latestAgentOutputId)
+    #expect(sut.prerevealedAgentOutputIds.isEmpty)
+    #expect(
+      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
+  }
 }

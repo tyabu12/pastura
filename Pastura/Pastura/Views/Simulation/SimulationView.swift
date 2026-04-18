@@ -310,7 +310,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         agent: agent, output: output, phaseType: phaseType,
         showAllThoughts: viewModel.showAllThoughts,
         isLatest: isLatest,
-        charsPerSecond: viewModel.speed.charsPerSecond,
+        // Display timing is a VM decision — rows whose primary was
+        // already revealed via streaming must not retype (returns nil).
+        charsPerSecond: viewModel.effectiveCharsPerSecond(forEntryId: entry.id),
         // Only the latest row drives the typing-state gate; older rows
         // never animate so their callbacks would be no-ops, but we guard
         // here anyway to keep the signal unambiguous.
