@@ -46,7 +46,7 @@ nonisolated struct FailingLLMService: LLMService, Sendable {
 // MARK: - Lifecycle Integration Tests
 
 /// Lifecycle tests use real SimulationRunner + MockLLMService, requiring serialized execution.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 @MainActor
 // swiftlint:disable:next type_body_length
 struct SimulationViewModelLifecycleTests {

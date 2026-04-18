@@ -4,7 +4,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct DatabaseManagerTests {
+@Suite(.timeLimit(.minutes(1))) struct DatabaseManagerTests {
 
   @Test func inMemoryCreatesWithoutError() throws {
     // Verifies that inMemory() doesn't throw and returns a usable manager
@@ -90,7 +90,7 @@ import Testing
   }
 }
 
-@Suite struct DataErrorTests {
+@Suite(.timeLimit(.minutes(1))) struct DataErrorTests {
 
   @Test func casesAreEquatable() {
     let error1 = DataError.databaseOpenFailed(description: "fail")

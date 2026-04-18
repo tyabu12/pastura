@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite @MainActor
+@Suite(.timeLimit(.minutes(1))) @MainActor
 struct ResultMarkdownExporterCodePhaseTests {  // swiftlint:disable:this type_body_length
 
   // MARK: - Fixtures

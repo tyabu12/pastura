@@ -11,7 +11,7 @@ import Testing
 /// inferences safety is covered indirectly by SimulationRunnerTests
 /// (pausesBetweenPhasesNotOnlyBetweenRounds) and LlamaCppServiceTests
 /// (reloadModelFailureKeepsNotLoaded).
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct SimulationViewModelBackgroundTests {
 

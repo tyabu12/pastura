@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct ScenarioDetailViewModelTests {
   private static let validYAML = """

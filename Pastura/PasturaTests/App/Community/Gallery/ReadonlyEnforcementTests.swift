@@ -7,7 +7,7 @@ import Testing
 /// three editor entry points. Each test seeds a gallery row, then drives
 /// the relevant VM and asserts the gate fires with a user-visible error.
 @MainActor
-@Suite struct ReadonlyEnforcementTests {
+@Suite(.timeLimit(.minutes(1))) struct ReadonlyEnforcementTests {
 
   private static let validYAML = """
     id: gallery_test

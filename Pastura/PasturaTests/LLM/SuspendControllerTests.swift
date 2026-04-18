@@ -9,7 +9,7 @@ import os
 /// Serialized because several tests spawn child `Task`s that wait on the
 /// controller; concurrent execution of unrelated tests is still fine, but
 /// interleaving inside this suite risks flaky timings.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct SuspendControllerTests {
 
   // MARK: - Initial state
@@ -136,6 +136,30 @@ struct SuspendControllerTests {
     // Must not crash — this is the double-resume guard.
     controller.resume()
     #expect(!controller.isSuspendRequested())
+  }
+
+  @Test func awaitResumeBailsOutWhenTaskIsAlreadyCancelledAtEntry() async {
+    // Regression: `withTaskCancellationHandler` fires `onCancel` synchronously
+    // when the Task is already cancelled at entry, but the body still runs
+    // normally. If onCancel sees the pre-install state (.suspended(nil)) it
+    // no-ops — and the subsequently-installed continuation parks forever.
+    // The fix is a post-install Task.isCancelled self-check in awaitResume.
+    //
+    // This test is timing-independent: the yield-loop guarantees the child
+    // observes cancellation BEFORE entering awaitResume.
+    let controller = SuspendController()
+    controller.requestSuspend()
+
+    let awaitTask = Task<Void, Never> {
+      // Wait until cancellation is observable before calling awaitResume.
+      while !Task.isCancelled {
+        await Task.yield()
+      }
+      await controller.awaitResume()
+    }
+
+    awaitTask.cancel()
+    await awaitTask.value  // must not hang
   }
 
   // MARK: - Lifecycle cycling

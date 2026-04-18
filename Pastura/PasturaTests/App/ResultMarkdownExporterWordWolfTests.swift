@@ -8,7 +8,7 @@ import Testing
 /// Models a realistic Word Wolf round (assign → speak → vote → eliminate →
 /// score_calc/judge verdict → summarize) to defend the four Acceptance
 /// Criteria from #92 in a single integration-style test.
-@Suite @MainActor
+@Suite(.timeLimit(.minutes(1))) @MainActor
 struct ResultMarkdownExporterWordWolfTests {
 
   private let createdAt = Date(timeIntervalSince1970: 1_712_000_000)

@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct SimulationRepositoryTests {
+@Suite(.timeLimit(.minutes(1))) struct SimulationRepositoryTests {
 
   private func makeRepos() throws -> (
     scenario: GRDBScenarioRepository, simulation: GRDBSimulationRepository

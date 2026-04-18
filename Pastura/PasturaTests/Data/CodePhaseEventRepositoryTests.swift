@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct CodePhaseEventRepositoryTests {
+@Suite(.timeLimit(.minutes(1))) struct CodePhaseEventRepositoryTests {
 
   private func makeRepo() throws -> GRDBCodePhaseEventRepository {
     let manager = try DatabaseManager.inMemory()

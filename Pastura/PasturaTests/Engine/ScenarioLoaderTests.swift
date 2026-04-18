@@ -3,6 +3,7 @@ import Testing
 @testable import Pastura
 
 // swiftlint:disable file_length
+@Suite(.timeLimit(.minutes(1)))
 // swiftlint:disable:next type_body_length
 struct ScenarioLoaderTests {
   let loader = ScenarioLoader()

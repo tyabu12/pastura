@@ -2,6 +2,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct PlaybackSpeedTests {
   @Test func allCasesEnumerated() {

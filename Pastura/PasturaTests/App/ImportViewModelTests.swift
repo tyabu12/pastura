@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct ImportViewModelTests {
   private static let validYAML = """

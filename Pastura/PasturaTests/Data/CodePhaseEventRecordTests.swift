@@ -4,7 +4,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct CodePhaseEventRecordTests {
+@Suite(.timeLimit(.minutes(1))) struct CodePhaseEventRecordTests {
   private func makeManagerWithSimulation() throws -> DatabaseManager {
     let manager = try DatabaseManager.inMemory()
     let now = Date()
