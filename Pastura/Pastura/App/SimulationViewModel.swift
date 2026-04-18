@@ -436,11 +436,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .phaseStarted(let phaseType, _):
       currentPhaseType = phaseType
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
-    case .phaseCompleted, .simulationPaused:
+    case .phaseCompleted, .simulationPaused, .conditionalEvaluated:
       // No-op — `.simulationPaused` is a runner-side acknowledgement of the
       // user-initiated pause flow; the UI already reflects `isPaused` set
       // synchronously by the pause button. Background-driven suspend uses
       // the SuspendController path instead.
+      //
+      // `.conditionalEvaluated` is visible via the bracketing
+      // `.phaseStarted(.conditional, _)` + inner sub-phase events; UI
+      // surfacing of the condition/result pair is deferred, and persistence
+      // waits on the follow-up TurnRecord-phase-path migration.
       break
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)

@@ -40,31 +40,35 @@ nonisolated struct ScenarioLoader: Sendable {
   /// - `speak_each`: agentCount × subRounds
   /// - `vote`: agentCount
   /// - `choose`: agentCount × 2 (round_robin) or agentCount (individual)
+  /// - `conditional`: `max(sum(thenPhases), sum(elsePhases))` — only one branch
+  ///   runs per invocation, so `max` matches execution semantics. Using `sum`
+  ///   would artificially block scenarios designed with asymmetric branches
+  ///   (e.g. an expensive reflect phase gated behind a rare condition).
   /// - Code phases: 0
   static func estimateInferenceCount(_ scenario: Scenario) -> Int {
     let agents = scenario.agentCount
-    var perRound = 0
-
-    for phase in scenario.phases {
-      switch phase.type {
-      case .speakAll:
-        perRound += agents
-      case .speakEach:
-        perRound += agents * (phase.subRounds ?? 1)
-      case .vote:
-        perRound += agents
-      case .choose:
-        if phase.pairing == .roundRobin {
-          perRound += agents * 2
-        } else {
-          perRound += agents
-        }
-      case .scoreCalc, .assign, .eliminate, .summarize:
-        break
-      }
-    }
-
+    let perRound = scenario.phases.reduce(0) { $0 + estimatePhase($1, agents: agents) }
     return perRound * scenario.rounds
+  }
+
+  /// Per-phase estimate used by both top-level and conditional-branch recursion.
+  private static func estimatePhase(_ phase: Phase, agents: Int) -> Int {
+    switch phase.type {
+    case .speakAll:
+      return agents
+    case .speakEach:
+      return agents * (phase.subRounds ?? 1)
+    case .vote:
+      return agents
+    case .choose:
+      return phase.pairing == .roundRobin ? agents * 2 : agents
+    case .scoreCalc, .assign, .eliminate, .summarize:
+      return 0
+    case .conditional:
+      let thenCost = (phase.thenPhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
+      let elseCost = (phase.elsePhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
+      return max(thenCost, elseCost)
+    }
   }
 
   // MARK: - Private

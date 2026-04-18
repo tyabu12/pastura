@@ -45,6 +45,10 @@ struct PhaseBlockRow: View {
       return ""
     case .summarize:
       return phase.template.prefix(50).trimmingCharacters(in: .whitespacesAndNewlines)
+    case .conditional:
+      // Placeholder — the full editor experience for conditional (nested
+      // then/else rendering) lands with the Visual Editor support commit.
+      return ""
     }
   }
 }

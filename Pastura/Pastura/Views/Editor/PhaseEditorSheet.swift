@@ -128,6 +128,10 @@ struct PhaseEditorSheet: View {
       summarizeSection
     case .speakAll, .eliminate:
       EmptyView()
+    case .conditional:
+      // Full conditional editor (condition field + nested then/else blocks)
+      // lands with the Visual Editor support commit.
+      EmptyView()
     }
   }
 
@@ -260,6 +264,7 @@ struct PhaseEditorSheet: View {
     case .assign: return "Distribute info to agents (code)"
     case .eliminate: return "Remove most-voted agent (code)"
     case .summarize: return "Format round summary (code)"
+    case .conditional: return "Branch on state (code, then/else sub-phases)"
     }
   }
 }

@@ -60,6 +60,18 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// Result of a paired interaction in a `choose` phase with round-robin pairing.
   case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
 
+  // MARK: - Conditional Evaluation
+
+  /// A `conditional` phase evaluated its condition expression.
+  ///
+  /// Emitted once per conditional phase invocation, immediately before the
+  /// selected branch's sub-phases begin. The surrounding
+  /// `phaseStarted` / `phaseCompleted` events (which carry the
+  /// conditional's own `phasePath`) bracket the whole evaluation + branch
+  /// execution; nested sub-phase events carry `[K, N]` paths so their
+  /// origin branch is identifiable from the event stream.
+  case conditionalEvaluated(condition: String, result: Bool)
+
   // MARK: - Simulation Lifecycle
 
   /// The simulation has completed all rounds successfully.

@@ -42,6 +42,24 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// Number of sub-rounds for `speak_each` phases. Defaults to 1 if not specified.
   public let subRounds: Int?
 
+  /// Single-comparison condition expression for `conditional` phases.
+  ///
+  /// Grammar: `Identifier(.Identifier)? OP (Number | "String" | Identifier)` where
+  /// `OP` is one of `==`, `!=`, `<`, `<=`, `>`, `>=`. Evaluated by
+  /// `ConditionEvaluator` at handler dispatch time. `&&` / `||` combinators
+  /// are deliberately not supported in v1 — see follow-up issue.
+  public let condition: String?
+
+  /// Sub-phases executed when `condition` evaluates to true. May be `nil`
+  /// (then-branch empty, handler no-ops) or an array of any phase type
+  /// except `.conditional` itself (depth-1 rule enforced by
+  /// `ScenarioValidator` and `ScenarioLoader`).
+  public let thenPhases: [Phase]?
+
+  /// Sub-phases executed when `condition` evaluates to false. See
+  /// `thenPhases` for shape constraints.
+  public let elsePhases: [Phase]?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -53,7 +71,10 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     source: String? = nil,
     target: AssignTarget? = nil,
     excludeSelf: Bool? = nil,
-    subRounds: Int? = nil
+    subRounds: Int? = nil,
+    condition: String? = nil,
+    thenPhases: [Phase]? = nil,
+    elsePhases: [Phase]? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -66,5 +87,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.target = target
     self.excludeSelf = excludeSelf
     self.subRounds = subRounds
+    self.condition = condition
+    self.thenPhases = thenPhases
+    self.elsePhases = elsePhases
   }
 }
