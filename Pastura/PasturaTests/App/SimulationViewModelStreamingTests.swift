@@ -7,6 +7,7 @@ import Testing
 /// (``SimulationEvent/agentOutputStream(agent:primary:thought:)``).
 /// Split from `SimulationViewModelTests.swift` to keep that suite under
 /// its per-file lint budget.
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct SimulationViewModelStreamingTests {
 

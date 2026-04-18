@@ -9,6 +9,7 @@ import Testing
 /// (item 3); those tests live elsewhere. These tests assert the default
 /// wrap behaves correctly so backends that don't override — `MockLLMService`
 /// and `OllamaService` today — still satisfy the streaming contract.
+@Suite(.timeLimit(.minutes(1)))
 struct LLMServiceStreamTests {
 
   // MARK: - Chunk value semantics

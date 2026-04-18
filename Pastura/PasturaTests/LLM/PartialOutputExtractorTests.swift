@@ -9,6 +9,7 @@ import Testing
 /// matters) and asserts the extracted snapshot at each prefix is
 /// consistent with what the canonical `JSONResponseParser` would return
 /// on the final buffer.
+@Suite(.timeLimit(.minutes(1)))
 struct PartialOutputExtractorTests {
 
   let extractor = PartialOutputExtractor()

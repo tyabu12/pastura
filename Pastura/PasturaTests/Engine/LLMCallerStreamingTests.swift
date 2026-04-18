@@ -6,6 +6,7 @@ import os
 
 /// Streaming-path tests for ``LLMCaller``. Split from `LLMCallerTests`
 /// to keep each suite under its type-body-length lint budget.
+@Suite(.timeLimit(.minutes(1)))
 struct LLMCallerStreamingTests {
   let caller = LLMCaller()
 

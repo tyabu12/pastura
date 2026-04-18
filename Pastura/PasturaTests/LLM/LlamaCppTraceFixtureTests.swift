@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct LlamaCppTraceFixtureTests {
 
   // MARK: - Round-trip
