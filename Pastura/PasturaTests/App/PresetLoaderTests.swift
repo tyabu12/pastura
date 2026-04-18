@@ -15,15 +15,16 @@ struct PresetLoaderTests {
     )
 
     let all = try repo.fetchAll()
-    #expect(all.count == 3)
+    #expect(all.count == 4)
 
     let presets = try repo.fetchPresets()
-    #expect(presets.count == 3)
+    #expect(presets.count == 4)
 
     let ids = Set(presets.map(\.id))
     #expect(ids.contains("prisoners_dilemma"))
     #expect(ids.contains("bokete"))
     #expect(ids.contains("word_wolf"))
+    #expect(ids.contains("target_score_race"))
   }
 
   @Test func loadPresetsSkipsExistingRecords() throws {
@@ -46,7 +47,7 @@ struct PresetLoaderTests {
     let second = try repo.fetchById("prisoners_dilemma")
 
     #expect(second?.createdAt == firstDate)
-    #expect(try repo.fetchAll().count == 3)
+    #expect(try repo.fetchAll().count == 4)
   }
 
   @Test func loadPresetsMarksRecordsAsPreset() throws {
