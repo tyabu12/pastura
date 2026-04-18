@@ -82,7 +82,8 @@ extension LlamaCppService {
     )
     if nChars > 0 {
       return buffer.withUnsafeBufferPointer { ptr in
-        Data(bytes: ptr.baseAddress!, count: Int(nChars))
+        guard let base = ptr.baseAddress else { return Data() }
+        return Data(bytes: base, count: Int(nChars))
       }
     } else if nChars < 0 {
       var largeBuffer = [CChar](repeating: 0, count: Int(-nChars))
@@ -91,7 +92,8 @@ extension LlamaCppService {
       )
       if retryChars > 0 {
         return largeBuffer.withUnsafeBufferPointer { ptr in
-          Data(bytes: ptr.baseAddress!, count: Int(retryChars))
+          guard let base = ptr.baseAddress else { return Data() }
+          return Data(bytes: base, count: Int(retryChars))
         }
       }
     }
