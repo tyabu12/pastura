@@ -5,6 +5,7 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
+// swiftlint:disable:next type_body_length
 struct ScenarioEditorViewModelTests {
   private static let validYAML = """
     id: editor_test
