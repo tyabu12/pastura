@@ -113,10 +113,18 @@ struct ScenarioValidatorTests {
     _ = try validator.validate(scenario)
   }
 
-  @Test func acceptsAssignAllWithMissingSourceKey() throws {
-    // Visual Editor compat: extraData is empty, skip shape check
+  @Test func rejectsAssignAllWhenSourceKeyMissingFromExtraData() throws {
     let scenario = makeAssignScenario(target: .all, source: "topics", extraData: [:])
-    _ = try validator.validate(scenario)
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (assign)"))
+      #expect(message.contains("'topics'"))
+      #expect(message.contains("not found"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
   }
 
   @Test func acceptsAssignAllWithNilSource() throws {
@@ -202,10 +210,18 @@ struct ScenarioValidatorTests {
     }
   }
 
-  @Test func acceptsAssignRandomOneWithMissingSourceKey() throws {
-    // Visual Editor compat: extraData is empty, skip shape check
+  @Test func rejectsAssignRandomOneWhenSourceKeyMissingFromExtraData() throws {
     let scenario = makeAssignScenario(target: .randomOne, source: "words", extraData: [:])
-    _ = try validator.validate(scenario)
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (assign)"))
+      #expect(message.contains("'words'"))
+      #expect(message.contains("not found"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
   }
 
   // MARK: - Helpers
