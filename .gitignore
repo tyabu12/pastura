@@ -1,6 +1,8 @@
 # Xcode
 build/
 DerivedData/
+# Xcode writes this metadata file adjacent to workspace-relative DerivedData
+.derived-data-log-*
 Pastura/Pastura.xcodeproj/project.xcworkspace/xcuserdata/
 Pastura/Pastura.xcodeproj/xcuserdata/
 *.pbxuser
