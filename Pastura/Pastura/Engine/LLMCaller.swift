@@ -4,11 +4,18 @@ import os
 /// Wraps LLM inference calls with retry logic and event emission.
 ///
 /// Retries up to 2 times on JSON parse failure or empty fields ("..." or "").
-/// Emits `inferenceStarted`/`inferenceCompleted` events for UI progress feedback.
+/// Emits `inferenceStarted` / `inferenceCompleted` events plus per-chunk
+/// `agentOutputStream` snapshots for UI progress feedback.
+///
+/// Consumes the streaming ``LLMService/generateStream(system:user:)`` path.
+/// Backends that don't stream (MockLLMService without configured chunks,
+/// OllamaService) yield a single terminal chunk via the protocol's default
+/// wrap — this caller handles both shapes uniformly.
 nonisolated struct LLMCaller: Sendable {
 
   private static let maxRetries = 2
   private let parser = JSONResponseParser()
+  private let extractor = PartialOutputExtractor()
   private let logger = Logger(subsystem: "com.pastura", category: "LLMCaller")
 
   // swiftlint:disable function_parameter_count
@@ -40,11 +47,12 @@ nonisolated struct LLMCaller: Sendable {
       emitter(.inferenceStarted(agent: agentName))
       let startTime = ContinuousClock.now
 
-      let result: GenerationResult
+      let streamResult: StreamResult
       do {
-        result = try await generateWithSuspendRetry(
-          llm: llm, system: system, user: user, controller: suspendController
-        )
+        streamResult = try await consumeStreamWithSuspendRetry(
+          llm: llm, system: system, user: user,
+          controller: suspendController, agentName: agentName,
+          emitter: emitter)
       } catch {
         let seconds = elapsedSeconds(since: startTime)
         // Tokens are unknown on failure — the backend didn't complete generation.
@@ -61,9 +69,9 @@ nonisolated struct LLMCaller: Sendable {
       emitter(
         .inferenceCompleted(
           agent: agentName, durationSeconds: seconds,
-          tokenCount: result.completionTokens))
+          tokenCount: streamResult.completionTokens))
 
-      let raw = result.text
+      let raw = streamResult.rawText
 
       // Try to parse JSON
       guard let output = try? parser.parse(raw) else {
@@ -80,14 +88,14 @@ nonisolated struct LLMCaller: Sendable {
         throw SimulationError.retriesExhausted
       }
 
-      // Detect chat template token leakage and hallucinated continuations
-      // TODO: Move this detection into JSONResponseParser as returned metadata
-      // to avoid duplicating <|im_end|>/<|im_start|> knowledge across files.
+      // Detect chat template token leakage and hallucinated continuations.
+      // LlamaCppService's streaming path strips <|im_end|> before emission,
+      // so this primarily catches non-streaming backends (Mock wrap path,
+      // Ollama) where the raw string may still contain template tokens.
       if raw.contains("<|im_start|>") {
-        // Model generated past its own turn into fabricated user/assistant exchanges
-        logger.warning("Model hallucinated past its turn — continuation truncated at <|im_end|>")
+        logger.warning(
+          "Model hallucinated past its turn — continuation truncated at <|im_end|>")
       } else if raw.contains("<|im_end|>") {
-        // End-of-turn token leaked into output (llama_vocab_is_eog missed it)
         logger.debug("Trailing <|im_end|> token stripped from output")
       }
 
@@ -109,45 +117,68 @@ nonisolated struct LLMCaller: Sendable {
 
   // swiftlint:enable function_parameter_count
 
-  /// Wraps `llm.generateWithMetrics` to convert ``LLMError/suspended`` into a
-  /// transparent re-issue of the same prompt after the controller resumes.
+  /// Result of draining one stream successfully.
+  private struct StreamResult {
+    let rawText: String
+    let completionTokens: Int?
+  }
+
+  /// Drain one `generateStream` cycle, emitting per-snapshot UI events
+  /// as chunks arrive. On ``LLMError/suspended``, awaits the controller's
+  /// resume and re-issues the stream from scratch — same transparent
+  /// retry behaviour the previous non-streaming implementation had for
+  /// suspend cycles. On any other error, propagates.
   ///
-  /// Suspend cycles are invisible to the parse-retry loop above and to the UI
-  /// (no extra `inferenceStarted`/`inferenceCompleted` pair is emitted), so
-  /// users who background and foreground the app multiple times during one
-  /// inference still see a single "thinking..." indicator until the inference
-  /// either succeeds or fails for a non-suspend reason.
+  /// Each chunk's non-empty delta is accumulated, run through
+  /// ``PartialOutputExtractor``, and emitted as an
+  /// ``SimulationEvent/agentOutputStream(agent:primary:thought:)``.
+  /// Consumers replace their per-agent buffer on each emission — a new
+  /// stream (retry after parse failure, or re-issue after resume)
+  /// naturally overwrites prior snapshots without a separate reset event.
   ///
-  /// `Task.checkCancellation()` after `awaitResume()` ensures the calling task
-  /// can still be cancelled (e.g., user explicitly stops the simulation while
-  /// the controller is suspended).
-  private func generateWithSuspendRetry(
+  /// Handles both true streaming (LlamaCpp: many non-final chunks plus
+  /// a final chunk carrying only tokens) and the wrap fallback (Mock
+  /// wrap path / Ollama: one chunk with `isFinal=true` carrying the full
+  /// text). In the wrap case, a single snapshot fires at the end — still
+  /// consistent with the replacement semantics.
+  private func consumeStreamWithSuspendRetry(  // swiftlint:disable:this function_parameter_count
     llm: LLMService,
     system: String,
     user: String,
-    controller: SuspendController
-  ) async throws -> GenerationResult {
-    var attempt = 0
+    controller: SuspendController,
+    agentName: String,
+    emitter: @Sendable (SimulationEvent) -> Void
+  ) async throws -> StreamResult {
+    var suspendCount = 0
     while true {
-      attempt += 1
-      logger.info("generateWithSuspendRetry: attempt #\(attempt) — calling llm.generateWithMetrics")
+      var rawText = ""
+      var completionTokens: Int?
+      let stream = llm.generateStream(system: system, user: user)
       do {
-        let result = try await llm.generateWithMetrics(system: system, user: user)
-        logger.info("generateWithSuspendRetry: attempt #\(attempt) — generate returned ok")
-        return result
+        for try await chunk in stream {
+          if !chunk.delta.isEmpty {
+            rawText += chunk.delta
+            let snap = extractor.extract(from: rawText)
+            emitter(
+              .agentOutputStream(
+                agent: agentName,
+                primary: snap.primary,
+                thought: snap.thought))
+          }
+          if chunk.isFinal {
+            completionTokens = chunk.completionTokens
+          }
+        }
+        return StreamResult(rawText: rawText, completionTokens: completionTokens)
       } catch LLMError.suspended {
+        suspendCount += 1
         logger.info(
-          "generateWithSuspendRetry: attempt #\(attempt) — caught .suspended, awaiting resume"
-        )
+          "stream: caught .suspended (count=\(suspendCount)), awaiting resume")
         await controller.awaitResume()
-        logger.info(
-          "generateWithSuspendRetry: attempt #\(attempt) — resumed, re-checking cancellation")
         try Task.checkCancellation()
-      } catch {
-        logger.error(
-          "generateWithSuspendRetry: attempt #\(attempt) — generate threw non-suspend error: \(error.localizedDescription, privacy: .public)"
-        )
-        throw error
+        // Loop: re-issue a fresh stream. Any partial snapshot emitted
+        // before the suspend is naturally replaced by the new stream's
+        // snapshots on the consumer side.
       }
     }
   }

@@ -1,3 +1,11 @@
+// swiftlint:disable file_length
+// Deliberately long: LlamaCppService owns sequential-access contract, chat
+// template, sampler / prefill / suspend wiring, the non-streaming generate
+// loop, AND the streaming variant. Streaming lives here (not in a +Stream
+// extension) because it touches private _model / _context / generatingGuard
+// that must stay private to enforce the sequential-access invariant
+// (ADR-002 §6). Splitting into a separate file would require relaxing that
+// access.
 import Foundation
 import LlamaSwift
 import os
@@ -321,6 +329,16 @@ extension LlamaCppService {
     // the model's tokenizer splits it across multiple subword tokens.
     var outputText = ""
     var generatedTokens = 0
+
+    #if DEBUG
+      // Token-piece tracing for partial-extractor test corpus. Off unless
+      // PASTURA_TRACE_LLM is set. Scoped to this generate() so each call
+      // produces one fixture file; a failed inference emits nothing.
+      let traceCollector: TraceCollector? =
+        LlamaCppTraceCapture.isEnabled
+        ? TraceCollector(system: system, user: user) : nil
+    #endif
+
     for _ in 0..<Self.maxTokens {
       // Respect Task cancellation. llama.cpp's C calls don't check cancellation
       // themselves, so without this a cancelled simulation would run to maxTokens
@@ -340,6 +358,14 @@ extension LlamaCppService {
 
       generatedTokens += 1
       outputText += decodePiece(vocab: vocab, token: newTokenId)
+
+      #if DEBUG
+        if let collector = traceCollector {
+          collector.append(
+            tokenId: Int(newTokenId),
+            bytes: decodePieceRaw(vocab: vocab, token: newTokenId))
+        }
+      #endif
 
       if let range = outputText.range(of: Self.stopSequence) {
         outputText = String(outputText[..<range.lowerBound])
@@ -365,6 +391,251 @@ extension LlamaCppService {
       throw LLMError.generationFailed(description: "Model generated no output tokens")
     }
 
+    #if DEBUG
+      if let collector = traceCollector {
+        writeTrace(
+          collector: collector,
+          finalText: outputText,
+          completionTokens: generatedTokens)
+      }
+    #endif
+
     return GenerationResult(text: outputText, completionTokens: generatedTokens)
+  }
+}
+
+// MARK: - Streaming generation
+
+extension LlamaCppService {
+  /// True token-by-token streaming implementation for
+  /// ``LLMService/generateStream(system:user:)``.
+  ///
+  /// Replaces the default protocol wrap (which yields a single chunk at
+  /// completion) with real incremental output. Each decoded token piece
+  /// either emits as a new delta or is held back briefly while we wait
+  /// to see if it completes the stop sequence `<|im_end|>` or a
+  /// multi-byte UTF-8 character.
+  ///
+  /// Contract preserved from ``generate(system:user:)``:
+  /// - Sequential access (ADR-002 §6) — `precondition` fires on concurrent entry.
+  /// - Cooperative ``SuspendController`` check at each iteration boundary.
+  /// - Task cancellation at iteration boundary.
+  /// - Stop-sequence `<|im_end|>` never appears in emitted deltas.
+  /// - Final chunk carries ``LLMStreamChunk/completionTokens`` — llama.cpp
+  ///   is one of the few backends that can report this cheaply.
+  ///
+  /// - Important: Callers must fully drain (or cancel + await) the
+  ///   returned `AsyncThrowingStream` before starting the next
+  ///   `generate`/`generateStream` call. The `generatingGuard` clears
+  ///   in a `defer` after `continuation.finish()`, so back-to-back calls
+  ///   issued in the narrow window between the last yielded chunk and
+  ///   the Task's exit will `precondition`-crash.
+  public func generateStream(
+    system: String, user: String
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          try await runStreamGeneration(
+            system: system, user: user, continuation: continuation)
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
+  /// Core streaming loop. Emits chunks via `continuation` and throws on
+  /// cancel, suspend, or inference failure. Caller wraps via
+  /// `finish(throwing:)` so errors propagate through the async sequence.
+  fileprivate func runStreamGeneration(  // swiftlint:disable:this function_body_length cyclomatic_complexity
+    system: String, user: String,
+    continuation: AsyncThrowingStream<LLMStreamChunk, Error>.Continuation
+  ) async throws {
+    try await throttleIfOverheating()
+
+    guard isModelLoaded, let model = _model, let context = _context else {
+      throw LLMError.notLoaded
+    }
+
+    let wasGenerating = generatingGuard.withLock { flag -> Bool in
+      let was = flag
+      flag = true
+      return was
+    }
+    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
+    defer { generatingGuard.withLock { $0 = false } }
+
+    let vocab = llama_model_get_vocab(model)
+    let formattedPrompt = try applyChatTemplate(system: system, user: user)
+    let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
+
+    let nCtx = Int(llama_n_ctx(context))
+    guard tokens.count <= nCtx else {
+      throw LLMError.generationFailed(
+        description: "Prompt (\(tokens.count) tokens) exceeds context size (\(nCtx))"
+      )
+    }
+
+    llama_memory_clear(llama_get_memory(context), true)
+    try prefill(context: context, tokens: tokens)
+
+    let sampler = try createSampler()
+    defer { llama_sampler_free(sampler) }
+
+    // Byte-level accumulation so UTF-8 characters split across pieces
+    // (common for CJK / emoji) never emit as partial replacement
+    // characters. `decodedText` always holds the longest valid UTF-8
+    // prefix of `outputBytes`.
+    var outputBytes = Data()
+    var decodedText = ""
+    var emittedCharCount = 0
+    var generatedTokens = 0
+
+    #if DEBUG
+      let traceCollector: TraceCollector? =
+        LlamaCppTraceCapture.isEnabled
+        ? TraceCollector(system: system, user: user) : nil
+    #endif
+
+    for _ in 0..<Self.maxTokens {
+      try Task.checkCancellation()
+      if suspendController?.isSuspendRequested() == true {
+        throw LLMError.suspended
+      }
+
+      let newTokenId = llama_sampler_sample(sampler, context, -1)
+      if llama_vocab_is_eog(vocab, newTokenId) { break }
+
+      generatedTokens += 1
+      let pieceBytes = decodePieceRaw(vocab: vocab, token: newTokenId)
+      outputBytes.append(pieceBytes)
+
+      #if DEBUG
+        traceCollector?.append(tokenId: Int(newTokenId), bytes: pieceBytes)
+      #endif
+
+      if let refreshed = Self.longestValidUtf8Prefix(outputBytes) {
+        decodedText = refreshed
+      }
+
+      // Stop-sequence match: flush everything before it, terminate.
+      if let range = decodedText.range(of: Self.stopSequence) {
+        let beforeStop = String(decodedText[..<range.lowerBound])
+        Self.emitDelta(
+          from: beforeStop, alreadyEmitted: emittedCharCount,
+          through: beforeStop.count, continuation: continuation)
+        emittedCharCount = beforeStop.count
+        decodedText = beforeStop
+        logger.debug("<|im_end|> stop sequence detected — ending stream early")
+        break
+      }
+
+      // Conservative emission: hold back any tail that could still
+      // become the beginning of the stop sequence. `<` alone holds back
+      // one char; `<|` holds back two; the next iteration either
+      // completes the match (handled above) or disambiguates, at which
+      // point holdback drops to zero and the queued chars flush.
+      let holdback = Self.stopSequenceHoldbackLength(in: decodedText)
+      let safeCount = decodedText.count - holdback
+      if safeCount > emittedCharCount {
+        Self.emitDelta(
+          from: decodedText, alreadyEmitted: emittedCharCount,
+          through: safeCount, continuation: continuation)
+        emittedCharCount = safeCount
+      }
+
+      var nextToken = newTokenId
+      let batch = llama_batch_get_one(&nextToken, 1)
+      let decodeResult = llama_decode(context, batch)
+      guard decodeResult == 0 else {
+        throw decodeFailureError(decodeResult)
+      }
+    }
+
+    // Flush any characters still held back for stop-sequence matching.
+    // Reached when the loop exits via EOG or maxTokens without ever
+    // seeing the stop marker — the held-back tail is legitimate output.
+    if emittedCharCount < decodedText.count {
+      Self.emitDelta(
+        from: decodedText, alreadyEmitted: emittedCharCount,
+        through: decodedText.count, continuation: continuation)
+      emittedCharCount = decodedText.count
+    }
+
+    guard !decodedText.isEmpty else {
+      throw LLMError.generationFailed(
+        description: "Model generated no output tokens")
+    }
+
+    #if DEBUG
+      if let collector = traceCollector {
+        writeTrace(
+          collector: collector,
+          finalText: decodedText,
+          completionTokens: generatedTokens)
+      }
+    #endif
+
+    // Terminal chunk: empty delta, carries the final token count.
+    // Keeping the terminator separate from text-bearing chunks means
+    // consumers can trust `isFinal` as a pure termination signal
+    // without having to track deltas.
+    continuation.yield(
+      LLMStreamChunk(
+        delta: "", isFinal: true, completionTokens: generatedTokens))
+  }
+
+  /// Emit a delta covering `decoded[alreadyEmitted..<through]` as a
+  /// non-final chunk. No-op if the range is empty.
+  fileprivate static func emitDelta(
+    from decoded: String, alreadyEmitted: Int, through: Int,
+    continuation: AsyncThrowingStream<LLMStreamChunk, Error>.Continuation
+  ) {
+    guard through > alreadyEmitted else { return }
+    let start = decoded.index(decoded.startIndex, offsetBy: alreadyEmitted)
+    let end = decoded.index(decoded.startIndex, offsetBy: through)
+    let delta = String(decoded[start..<end])
+    continuation.yield(
+      LLMStreamChunk(delta: delta, isFinal: false, completionTokens: nil))
+  }
+
+  /// Longest UTF-8-decodable prefix of `bytes`. Trims up to 3 trailing
+  /// bytes (the max continuation-byte length in UTF-8) to recover a
+  /// valid decoding when a multi-byte character is split across pieces.
+  /// Returns nil only if even the empty prefix fails — impossible for
+  /// `Data` and therefore a bug signal.
+  fileprivate static func longestValidUtf8Prefix(_ bytes: Data) -> String? {
+    for trim in 0...min(3, bytes.count) {
+      let slice = bytes.prefix(bytes.count - trim)
+      if let text = String(data: slice, encoding: .utf8) {
+        return text
+      }
+    }
+    return nil
+  }
+
+  /// Length of the longest suffix of `decoded` that is also a strict
+  /// prefix of ``stopSequence``. Those characters are held back from
+  /// emission until the next token disambiguates whether we are
+  /// actually starting `<|im_end|>`.
+  ///
+  /// Returns 0 when the tail shares nothing with the stop sequence — the
+  /// common case, producing immediate emission and zero UX lag. Capped
+  /// at `stopSequence.count - 1` because a full match is handled
+  /// directly by the caller.
+  fileprivate static func stopSequenceHoldbackLength(in decoded: String) -> Int {
+    let stop = stopSequence
+    let maxLen = min(decoded.count, stop.count - 1)
+    if maxLen == 0 { return 0 }
+    for length in stride(from: maxLen, through: 1, by: -1) {
+      let tailStart = decoded.index(decoded.endIndex, offsetBy: -length)
+      if stop.hasPrefix(decoded[tailStart...]) {
+        return length
+      }
+    }
+    return 0
   }
 }
