@@ -45,10 +45,15 @@ Apply to both suite forms:
 **Exceptions (document inline when skipping):**
 
 - Integration suites gated out of CI by env var (`OLLAMA_INTEGRATION`,
-  `LLAMACPP_INTEGRATION`) already carry per-test `.timeLimit(.minutes(2-5))`
-  sized for real-LLM inference. A blanket suite-level 1-minute cap would be
-  resolved as the tighter bound and silently break local integration runs.
-- Helper-only files (no `@Test` / `@Suite` declarations) don't need the trait.
+  `LLAMACPP_INTEGRATION`) are exempt from the suite-level 1-minute cap
+  because it would be resolved as the tighter bound and silently break
+  local integration runs against real LLMs. Each `@Test` in these suites
+  **must** carry its own `.timeLimit(.minutes(2-5))` sized for real-LLM
+  inference — without a per-test bound, a hung integration test would be
+  unbounded by *both* rules. (See `OllamaIntegrationTests.swift` and
+  `LlamaCppIntegrationTests.swift` for the current shape.)
+- Helper-only files (no `@Test` / `@Suite` declarations, e.g.
+  `EngineTestHelpers.swift`) don't need the trait.
 
 **If a unit test legitimately needs more than 1 minute:** override at the
 `@Test` level (`@Test(.timeLimit(.minutes(N))) func ...`). Swift Testing
