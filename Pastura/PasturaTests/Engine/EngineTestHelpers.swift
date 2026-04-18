@@ -21,19 +21,30 @@ final class EventCollector: @unchecked Sendable {
 /// `suspendController` defaults to a fresh, never-signalled instance so existing
 /// handler tests don't need to opt into the suspend machinery. Tests that
 /// exercise suspend/resume should pass an explicit controller.
+///
+/// The `phaseIndex` parameter is an array subscript into `scenario.phases` —
+/// it is deliberately not renamed to match `SimulationEvent.phasePath` because
+/// these are distinct concepts (a convenience index into the top-level phases
+/// array vs. the structured path emitted in lifecycle events).
+///
+/// `pauseCheck` defaults to an always-false stub so handler unit tests don't
+/// need to set up the pause machinery. Tests that exercise nested pause
+/// semantics should pass an explicit closure.
 func makePhaseContext(
   scenario: Scenario,
   phaseIndex: Int = 0,
   llm: LLMService,
   suspendController: SuspendController = SuspendController(),
-  collector: EventCollector
+  collector: EventCollector,
+  pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool = { _ in false }
 ) -> PhaseContext {
   PhaseContext(
     scenario: scenario,
     phase: scenario.phases[phaseIndex],
     llm: llm,
     suspendController: suspendController,
-    emitter: collector.emit
+    emitter: collector.emit,
+    pauseCheck: pauseCheck
   )
 }
 

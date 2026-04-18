@@ -131,9 +131,11 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
     case roundStarted(round: Int, totalRounds: Int)
     case roundCompleted(round: Int, scores: [String: Int])
 
-    // Phase lifecycle
-    case phaseStarted(phaseType: PhaseType, phaseIndex: Int)
-    case phaseCompleted(phaseType: PhaseType, phaseIndex: Int)
+    // Phase lifecycle. `phasePath` is `[K]` for top-level phase K; nested
+    // sub-phases carry `[K, N]` so future phase types with sub-phases
+    // (conditional / event_inject / reflect) share one identifier shape.
+    case phaseStarted(phaseType: PhaseType, phasePath: [Int])
+    case phaseCompleted(phaseType: PhaseType, phasePath: [Int])
 
     // Agent outputs (LLM phases)
     case agentOutput(agent: String, output: TurnOutput, phaseType: PhaseType)
@@ -152,7 +154,11 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
 
     // Simulation lifecycle
     case simulationCompleted
-    case simulationPaused(round: Int, phaseIndex: Int)
+    // Emitted only by `SimulationRunner.checkPaused`; handlers must not
+    // emit this case directly. Nested handlers invoke pause through
+    // `PhaseContext.pauseCheck`, which routes back to the single runner-
+    // owned emit point.
+    case simulationPaused(round: Int, phasePath: [Int])
     case error(SimulationError)
 
     // Progress (for UI feedback during long inferences)

@@ -82,7 +82,7 @@ struct SimulationViewModelTests {
   @Test func handleEventPhaseStartedAppendsLogEntry() throws {
     let (sut, scenario) = try makeSUT()
 
-    sut.handleEvent(.phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    sut.handleEvent(.phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
 
     #expect(sut.logEntries.count == 1)
     if case .phaseStarted(let phaseType) = sut.logEntries.first?.kind {
@@ -95,7 +95,7 @@ struct SimulationViewModelTests {
   @Test func handleEventPhaseCompletedIsIgnored() throws {
     let (sut, scenario) = try makeSUT()
 
-    sut.handleEvent(.phaseCompleted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    sut.handleEvent(.phaseCompleted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
 
     #expect(sut.logEntries.isEmpty)
   }
@@ -103,7 +103,7 @@ struct SimulationViewModelTests {
   @Test func handleEventSimulationPausedIsIgnored() throws {
     let (sut, scenario) = try makeSUT()
 
-    sut.handleEvent(.simulationPaused(round: 1, phaseIndex: 0), scenario: scenario)
+    sut.handleEvent(.simulationPaused(round: 1, phasePath: [0]), scenario: scenario)
 
     #expect(sut.logEntries.isEmpty)
   }

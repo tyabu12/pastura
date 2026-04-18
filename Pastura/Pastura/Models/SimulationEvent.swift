@@ -17,10 +17,18 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   // MARK: - Phase Lifecycle
 
   /// A phase is about to begin execution.
-  case phaseStarted(phaseType: PhaseType, phaseIndex: Int)
+  ///
+  /// `phasePath` uniquely identifies the phase's position in the scenario.
+  /// Top-level phase K has path `[K]`; a sub-phase at index N inside a
+  /// conditional at top-level K has path `[K, N]`. The array form lets
+  /// future phase types (e.g. `event_inject`, `reflect`) reuse the same
+  /// identifier shape without widening the event signature again.
+  case phaseStarted(phaseType: PhaseType, phasePath: [Int])
 
   /// A phase has finished execution.
-  case phaseCompleted(phaseType: PhaseType, phaseIndex: Int)
+  ///
+  /// See `phaseStarted` for `phasePath` semantics.
+  case phaseCompleted(phaseType: PhaseType, phasePath: [Int])
 
   // MARK: - Agent Outputs (LLM Phases)
 
@@ -58,7 +66,10 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   case simulationCompleted
 
   /// The simulation has been paused at the given position.
-  case simulationPaused(round: Int, phaseIndex: Int)
+  ///
+  /// See `phaseStarted` for `phasePath` semantics. Emitted only by
+  /// `SimulationRunner`; handlers must not emit this event directly.
+  case simulationPaused(round: Int, phasePath: [Int])
 
   /// An error occurred during simulation execution.
   case error(SimulationError)
