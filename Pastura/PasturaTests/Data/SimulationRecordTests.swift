@@ -4,7 +4,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct SimulationRecordTests {
+@Suite(.timeLimit(.minutes(1))) struct SimulationRecordTests {
 
   private func makeManagerWithScenario() throws -> DatabaseManager {
     let manager = try DatabaseManager.inMemory()

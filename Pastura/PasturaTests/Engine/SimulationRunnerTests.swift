@@ -6,7 +6,7 @@ import Testing
 
 // Serialized: SimulationRunner tests create Tasks and AsyncStreams that can
 // interfere with each other when run in parallel on the simulator.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 // swiftlint:disable:next type_body_length
 struct SimulationRunnerTests {
 

@@ -9,7 +9,7 @@ import Testing
 /// Exercises `DatabaseManager.makeMigrator()` by migrating up to a specific
 /// version, seeding realistic data, then applying the next migration and
 /// asserting existing rows survive.
-@Suite struct DatabaseMigrationTests {
+@Suite(.timeLimit(.minutes(1))) struct DatabaseMigrationTests {
 
   private func makeQueue() throws -> DatabaseQueue {
     var config = Configuration()

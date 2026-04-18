@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct PhaseTypeTests {
   @Test func rawValues() {
     #expect(PhaseType.speakAll.rawValue == "speak_all")

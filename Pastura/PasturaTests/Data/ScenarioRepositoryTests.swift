@@ -4,7 +4,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite struct ScenarioRepositoryTests {
+@Suite(.timeLimit(.minutes(1))) struct ScenarioRepositoryTests {
 
   private func makeRepo() throws -> GRDBScenarioRepository {
     let manager = try DatabaseManager.inMemory()

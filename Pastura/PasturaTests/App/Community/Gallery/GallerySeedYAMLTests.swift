@@ -6,7 +6,7 @@ import Testing
 /// Smoke test: every YAML committed under `docs/gallery/` must parse via
 /// `ScenarioLoader` and pass `ScenarioValidator`. Guards against shipping
 /// a gallery entry that the app rejects at Try time.
-@Suite struct GallerySeedYAMLTests {
+@Suite(.timeLimit(.minutes(1))) struct GallerySeedYAMLTests {
 
   @Test func allSeedYAMLsParseAndValidate() throws {
     let loader = ScenarioLoader()

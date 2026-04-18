@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct HomeViewModelTests {
   @Test func loadScenariosPopulatesPresetsAndUserLists() async throws {

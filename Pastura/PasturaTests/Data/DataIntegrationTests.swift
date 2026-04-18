@@ -5,7 +5,7 @@ import Testing
 
 /// End-to-end test exercising the full Data layer workflow
 /// as the App layer would use it.
-@Suite struct DataIntegrationTests {
+@Suite(.timeLimit(.minutes(1))) struct DataIntegrationTests {
 
   private struct Repos {
     let manager: DatabaseManager

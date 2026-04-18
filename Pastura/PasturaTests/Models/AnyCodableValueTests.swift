@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct AnyCodableValueTests {
   @Test func stringRoundTrip() throws {
     let original = AnyCodableValue.string("hello")

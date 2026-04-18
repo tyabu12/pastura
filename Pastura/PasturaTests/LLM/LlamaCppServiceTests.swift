@@ -7,7 +7,7 @@ import Testing
 /// These tests validate lifecycle, error paths, and protocol conformance
 /// without requiring a real GGUF model file. Tests that call `loadModel()`
 /// use a non-existent path, which exercises the C API error handling.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct LlamaCppServiceTests {
 
   // MARK: - Protocol conformance

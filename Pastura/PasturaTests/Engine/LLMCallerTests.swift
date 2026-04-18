@@ -4,6 +4,7 @@ import os
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct LLMCallerTests {
   let caller = LLMCaller()
 

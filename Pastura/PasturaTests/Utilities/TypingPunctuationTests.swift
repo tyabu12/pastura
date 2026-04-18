@@ -2,6 +2,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct TypingPunctuationTests {
   @Test func sentenceTerminatorsGet300ms() {
     #expect(punctuationPauseMs(after: "。") == 300)

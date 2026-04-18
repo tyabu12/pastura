@@ -54,6 +54,7 @@ private func seedScenarioWithSimulation(
 
 // MARK: - Tests
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct ResultsViewModelTests {
 

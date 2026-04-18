@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct TurnOutputTests {
   @Test func typedAccessorsReturnCorrectValues() {
     let output = TurnOutput(fields: [

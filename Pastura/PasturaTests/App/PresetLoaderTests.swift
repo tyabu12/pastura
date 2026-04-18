@@ -3,6 +3,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct PresetLoaderTests {
   @Test func loadPresetsCreatesRecordsInEmptyDB() throws {
     let db = try DatabaseManager.inMemory()

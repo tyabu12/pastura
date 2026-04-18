@@ -8,7 +8,7 @@ import Testing
 ///
 /// `.serialized` because MockURLProtocol shares static handler state across
 /// tests. Each test sets its own handler before exercising the service.
-@Suite(.serialized) struct GalleryServiceTests {
+@Suite(.serialized, .timeLimit(.minutes(1))) struct GalleryServiceTests {
 
   // MARK: - Fixtures
 

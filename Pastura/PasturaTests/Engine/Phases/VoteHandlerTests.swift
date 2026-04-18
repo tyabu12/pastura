@@ -2,6 +2,7 @@ import Testing
 
 @testable import Pastura
 
+@Suite(.timeLimit(.minutes(1)))
 struct VoteHandlerTests {
   let handler = VoteHandler()
 

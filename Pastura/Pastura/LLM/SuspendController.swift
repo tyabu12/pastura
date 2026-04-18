@@ -35,8 +35,9 @@ import os
 /// - **Idempotent resume.** ``resume()`` is safe to call multiple times, including when
 ///   no suspend has been requested. This is essential for cleanup paths
 ///   (cancellation, `defer` blocks) that may race with normal resume.
-/// - **Cancellation honored.** If the awaiting task is cancelled, the continuation is
-///   resumed and ``awaitResume()`` returns. Callers detect cancellation via
+/// - **Cancellation honored at any point.** If the awaiting task is cancelled — before
+///   ``awaitResume()`` is entered, between entry and installing the continuation, or
+///   while parked — ``awaitResume()`` returns promptly. Callers detect cancellation via
 ///   `Task.checkCancellation()` or `Task.isCancelled` after the await.
 nonisolated public final class SuspendController: @unchecked Sendable {
   // @unchecked Sendable: all mutable state protected by OSAllocatedUnfairLock.
@@ -103,8 +104,9 @@ nonisolated public final class SuspendController: @unchecked Sendable {
   /// Suspends the calling task until ``resume()`` is called, or returns immediately
   /// if the controller is not in a suspended state.
   ///
-  /// Cancellation: if the owning `Task` is cancelled while parked, the continuation
-  /// is resumed via the cancellation handler and this method returns normally.
+  /// Cancellation: if the owning `Task` is cancelled at any point — before this
+  /// method is entered, between entry and installing the continuation, or while
+  /// parked — the continuation is resumed and this method returns promptly.
   /// Callers should subsequently check `Task.isCancelled` (or call
   /// `Task.checkCancellation()`) to distinguish cancellation from a normal resume.
   ///
@@ -128,18 +130,32 @@ nonisolated public final class SuspendController: @unchecked Sendable {
         }
         if resumeNow {
           continuation.resume()
+          return
+        }
+        // The cancellation handler may have fired BEFORE the continuation was
+        // installed — `withTaskCancellationHandler` documents that if the Task
+        // is already cancelled at entry, `onCancel` runs synchronously while
+        // the body still runs normally. In that case onCancel saw
+        // `.suspended(nil)` and no-op'd; without this check the just-installed
+        // continuation would park forever. Self-resume to close the race.
+        if Task.isCancelled {
+          extractStoredContinuation()?.resume()
         }
       }
     } onCancel: {
-      // Extract stored continuation under lock, resume outside.
-      // Leave state as `.suspended(nil)` so a subsequent resume() doesn't crash
-      // trying to resume a nil or already-resumed continuation.
-      let continuation: CheckedContinuation<Void, Never>? = state.withLock { state in
-        guard case .suspended(let stored) = state, let cont = stored else { return nil }
-        state = .suspended(nil)
-        return cont
-      }
-      continuation?.resume()
+      extractStoredContinuation()?.resume()
+    }
+  }
+
+  /// Atomically extracts the currently-stored awaiter continuation (if any) and
+  /// transitions state to `.suspended(nil)` so subsequent `resume()` / cancel
+  /// paths do not attempt to resume the same continuation twice. Caller must
+  /// invoke `resume()` on the returned continuation outside any lock.
+  private func extractStoredContinuation() -> CheckedContinuation<Void, Never>? {
+    state.withLock { state in
+      guard case .suspended(let stored) = state, let cont = stored else { return nil }
+      state = .suspended(nil)
+      return cont
     }
   }
 }

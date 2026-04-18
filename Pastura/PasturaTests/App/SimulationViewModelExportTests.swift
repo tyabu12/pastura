@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-@Suite(.serialized) @MainActor
+@Suite(.serialized, .timeLimit(.minutes(1))) @MainActor
 struct SimulationViewModelExportTests {
 
   private let env = ResultMarkdownExporter.ExportEnvironment(
