@@ -145,6 +145,13 @@ final class ScenarioEditorViewModel {
   private let serializer = ScenarioSerializer()
   private let validator = ScenarioValidator()
 
+  /// Stores top-level YAML keys that the visual editor has no UI for.
+  ///
+  /// Captured in `populateFromScenario` so `buildScenario` can pass them
+  /// through unchanged — preventing a silent data loss on every visual-mode save
+  /// for scenarios with custom fields (e.g. bokete `topics`, word_wolf `words`).
+  private var carriedExtraData: [String: AnyCodableValue] = [:]
+
   init(repository: any ScenarioRepository) {
     self.repository = repository
   }
@@ -356,7 +363,8 @@ final class ScenarioEditorViewModel {
       rounds: rounds,
       context: context,
       personas: personas.map { $0.toPersona() },
-      phases: phases.map { $0.toPhase() }
+      phases: phases.map { $0.toPhase() },
+      extraData: carriedExtraData
     )
   }
 
@@ -370,5 +378,6 @@ final class ScenarioEditorViewModel {
     context = scenario.context
     personas = scenario.personas.map { EditablePersona(from: $0) }
     phases = scenario.phases.map { EditablePhase(from: $0) }
+    carriedExtraData = scenario.extraData
   }
 }
