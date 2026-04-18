@@ -10,7 +10,8 @@ nonisolated enum PresetLoader {
   static let presetFileNames = [
     "prisoners_dilemma",
     "bokete",
-    "word_wolf"
+    "word_wolf",
+    "target_score_race"
   ]
 
   /// Loads all bundled presets into the repository if they don't already exist.

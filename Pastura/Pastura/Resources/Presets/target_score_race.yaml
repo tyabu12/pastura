@@ -1,0 +1,66 @@
+id: target_score_race
+name: 先取りゲーム
+description: >
+  投票で得点を奪い合い、先に目標点に達した人が勝ち。各ラウンド末に
+  「勝者決定」か「続行」を分岐で切り替えるデモ（conditional phase）。
+agents: 3
+rounds: 4
+context: >
+  あなたは得点争いゲームの参加者です。
+  各ラウンドで他参加者に投票し、得票数がそのまま自分の得点になります。
+  （投票先は相手の得点に加算される形式）
+  先に3点に達した参加者がゲームの「優勢」になります。
+  各ラウンド末に、優勢が出たかどうかによって異なる総括が出ます。
+  自分の立場に沿って駆け引きしてください。
+
+personas:
+  - name: アオイ
+    description: >
+      【立場】戦術家。同盟と裏切りを使い分けて一歩抜け出したい。
+      口調は冷静で論理的。例:「確率論で言うとここは…」
+  - name: ハルト
+    description: >
+      【立場】正直者。自分が一番面白いと思った相手に素直に投票する。
+      口調は素朴で率直。例:「今のは純粋にうまかった」
+  - name: リオ
+    description: >
+      【立場】ムードメーカー。場を盛り上げつつ漁夫の利を狙うタイプ。
+      口調は明るくお調子者。例:「みんな仲良くしようよー(裏では計算)」
+
+phases:
+  - type: speak_all
+    prompt: >
+      現在のスコア: {scoreboard}
+      ラウンド {current_round} 開始。1〜2文で戦略を宣言してください。
+      ブラフや誘導もOK。
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      現在のスコア: {scoreboard}
+      これまでの宣言:
+      {conversation_log}
+      自分以外で最も応援したい／活躍したと思う相手に投票してください。
+      投票先は次のいずれかを正確に書くこと: {candidates}
+    exclude_self: true
+    output:
+      vote: string
+      reason: string
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: conditional
+    if: "max_score >= 3"
+    then:
+      - type: summarize
+        template: >
+          🏆 ラウンド {current_round} 終了：誰かが目標点に到達しました！
+          スコア: {scoreboard}
+    else:
+      - type: summarize
+        template: >
+          ラウンド {current_round} 終了：まだ勝者なし。
+          スコア: {scoreboard}
