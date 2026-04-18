@@ -81,6 +81,8 @@ Utilities/ → depends on nothing
   All types in `Models/`, `LLM/`, `Engine/`, and `Data/` **MUST** be marked `nonisolated` at the
   type level to avoid unnecessary MainActor binding.
   `Views/` and `App/` use the default (MainActor).
+  Protocol-extension default implementations may additionally need explicit `nonisolated`
+  when their body builds escaping closures — see `.claude/rules/llm.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
 
 ## Tech Stack

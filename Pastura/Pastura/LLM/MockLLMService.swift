@@ -20,6 +20,15 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     /// When set, generate() also honours the controller's suspend flag — this
     /// lets tests exercise the same code path as LlamaCppService.
     var controller: SuspendController?
+    /// Per-inference delta sequences for ``generateStream(system:user:)``.
+    /// `nil` means "use the default wrap" (generate + single chunk).
+    /// Independent from `responses` — streaming tests that need specific
+    /// chunk boundaries configure this explicitly.
+    var streamChunks: [[String]]?
+    /// Number of successful `generateStream` completions. Tracked
+    /// separately from `callIndex` (which counts `generate` calls) so
+    /// tests that mix both paths can assert each count independently.
+    var streamCallIndex: Int = 0
   }
 
   private let state: OSAllocatedUnfairLock<State>
@@ -77,6 +86,88 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     state.withLock { $0.controller = controller }
   }
 
+  // MARK: - Streaming
+
+  /// Override the default protocol wrap so tests can exercise streaming
+  /// consumers with explicit delta boundaries.
+  ///
+  /// Behaviour depends on whether ``setStreamChunks(_:)`` has been called:
+  ///
+  /// - **Streaming mode (stream chunks configured):** Each delta in the
+  ///   configured sequence yields as a non-final chunk, followed by a
+  ///   terminal chunk with empty delta and `nil` completion tokens. Obeys
+  ///   the same suspend / not-loaded / exhausted semantics as
+  ///   ``generate(system:user:)``.
+  /// - **Wrap mode (no stream chunks):** Invokes ``generate(system:user:)``
+  ///   and yields the full response as a single terminal chunk — same
+  ///   observable behaviour as the protocol default wrap.
+  public func generateStream(
+    system: String, user: String
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task { [weak self] in
+        guard let self else {
+          continuation.finish()
+          return
+        }
+        do {
+          let deltas = try self.consumeStreamChunks(system: system, user: user)
+          if let deltas {
+            for delta in deltas {
+              try Task.checkCancellation()
+              continuation.yield(
+                LLMStreamChunk(
+                  delta: delta, isFinal: false, completionTokens: nil))
+            }
+            continuation.yield(
+              LLMStreamChunk(
+                delta: "", isFinal: true, completionTokens: nil))
+            continuation.finish()
+          } else {
+            let text = try await self.generate(system: system, user: user)
+            continuation.yield(
+              LLMStreamChunk(
+                delta: text, isFinal: true, completionTokens: nil))
+            continuation.finish()
+          }
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
+  /// Drain one inference's worth of stream chunks from the configured
+  /// sequence, applying the same throw-semantics as ``generate(system:user:)``.
+  /// Returns `nil` when no stream chunks are configured — signalling that
+  /// the caller should fall back to the wrap mode (call `generate`).
+  private func consumeStreamChunks(
+    system: String, user: String
+  ) throws -> [String]? {
+    try state.withLock { mutableState in
+      guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
+      if mutableState.pendingSuspendCount > 0 {
+        mutableState.pendingSuspendCount -= 1
+        throw LLMError.suspended
+      }
+      if mutableState.controller?.isSuspendRequested() == true {
+        throw LLMError.suspended
+      }
+      guard let chunks = mutableState.streamChunks else { return nil }
+      guard mutableState.streamCallIndex < chunks.count else {
+        throw LLMError.generationFailed(
+          description:
+            "MockLLMService streamChunks exhausted: \(mutableState.streamCallIndex) stream calls made, only \(chunks.count) configured"
+        )
+      }
+      let deltas = chunks[mutableState.streamCallIndex]
+      mutableState.streamCallIndex += 1
+      mutableState.capturedPrompts.append((system: system, user: user))
+      return deltas
+    }
+  }
+
   // MARK: - Test Helpers
 
   /// The number of times ``generate(system:user:)`` has been called successfully.
@@ -93,9 +184,31 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   public func reset() {
     state.withLock { locked in
       locked.callIndex = 0
+      locked.streamCallIndex = 0
       locked.capturedPrompts = []
       locked.pendingSuspendCount = 0
     }
+  }
+
+  /// Configure the delta sequences used by ``generateStream(system:user:)``.
+  /// Outer array index maps to the Nth `generateStream` call; inner array
+  /// is the delta sequence emitted for that call (followed by a terminal
+  /// empty-delta final chunk).
+  ///
+  /// Pass `nil` to revert to default-wrap behaviour (call `generate` and
+  /// emit one terminal chunk with the full response).
+  ///
+  /// - Parameter chunks: Per-call delta sequences, or `nil` to clear.
+  public func setStreamChunks(_ chunks: [[String]]?) {
+    state.withLock { $0.streamChunks = chunks }
+  }
+
+  /// The number of times ``generateStream(system:user:)`` has been
+  /// drained to completion while stream chunks were configured.
+  /// `generateStream` calls that fell back to the wrap path are counted
+  /// via ``generateCallCount`` instead.
+  public var streamCallCount: Int {
+    state.withLock { $0.streamCallIndex }
   }
 
   /// Schedule the next ``generate(system:user:)`` call to throw

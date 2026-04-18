@@ -33,6 +33,18 @@ struct LlamaCppServiceTests {
     }
   }
 
+  // MARK: - generateStream() before load
+
+  /// Errors from the underlying generate path must surface through the
+  /// stream via `finish(throwing:)` — not silently end. A missing model is
+  /// the cheapest way to exercise this without a real GGUF file.
+  @Test func generateStreamPropagatesNotLoadedBeforeLoadModel() async {
+    let service = LlamaCppService(modelPath: "/nonexistent.gguf")
+    await #expect(throws: LLMError.notLoaded) {
+      for try await _ in service.generateStream(system: "sys", user: "usr") {}
+    }
+  }
+
   // MARK: - loadModel with invalid path
 
   @Test func loadModelWithInvalidPathThrowsLoadFailed() async {
