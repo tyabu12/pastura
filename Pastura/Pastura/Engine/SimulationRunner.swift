@@ -302,7 +302,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
             // sub-phase granularity. Routes through the single `checkPaused`
             // so there's exactly one `.simulationPaused` emitter.
             await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
-          }
+          },
+          phasePath: phasePath
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {

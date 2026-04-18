@@ -44,7 +44,8 @@ func makePhaseContext(
     llm: llm,
     suspendController: suspendController,
     emitter: collector.emit,
-    pauseCheck: pauseCheck
+    pauseCheck: pauseCheck,
+    phasePath: [phaseIndex]
   )
 }
 

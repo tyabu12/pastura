@@ -24,12 +24,20 @@ nonisolated public struct PhaseContext: Sendable {
   public let emitter: @Sendable (SimulationEvent) -> Void
   public let pauseCheck: @Sendable (_ phasePath: [Int]) async -> Bool
 
+  /// The path identifying this handler's position in the scenario. Top-level
+  /// handlers run with `[K]`; sub-phases inside a conditional run with
+  /// `[K, N]`. Handlers that dispatch nested sub-phases (conditional today,
+  /// event_inject / reflect tomorrow) must append the sub-phase index when
+  /// constructing lifecycle events for the inner work.
+  public let phasePath: [Int]
+
   public init(
     scenario: Scenario, phase: Phase,
     llm: LLMService,
     suspendController: SuspendController,
     emitter: @escaping @Sendable (SimulationEvent) -> Void,
-    pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool
+    pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool,
+    phasePath: [Int]
   ) {
     self.scenario = scenario
     self.phase = phase
@@ -37,6 +45,7 @@ nonisolated public struct PhaseContext: Sendable {
     self.suspendController = suspendController
     self.emitter = emitter
     self.pauseCheck = pauseCheck
+    self.phasePath = phasePath
   }
 }
 
