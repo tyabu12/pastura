@@ -81,10 +81,18 @@ nonisolated struct ScenarioValidator: Sendable {
 
       let phaseLabel = "Phase \(index + 1) (assign)"
 
-      // Shape validation requires both a source key and a resolved value.
-      // Skip if source is nil or key is absent from extraData (Visual Editor compat).
-      guard let sourceKey = phase.source, let sourceValue = scenario.extraData[sourceKey] else {
-        continue
+      // Phases without a `source` reference persona indices instead of extraData
+      // — nothing to shape-check.
+      guard let sourceKey = phase.source else { continue }
+
+      // The Visual Editor now round-trips extraData (#129), so a missing key
+      // here means the scenario YAML genuinely lacks the referenced field —
+      // the assign would silently no-op at runtime. Surface it early.
+      guard let sourceValue = scenario.extraData[sourceKey] else {
+        throw SimulationError.scenarioValidationFailed(
+          "\(phaseLabel): source '\(sourceKey)' not found in scenario data. "
+            + "Add a top-level '\(sourceKey)' field to the scenario YAML."
+        )
       }
 
       let effectiveTarget = phase.target ?? .all
