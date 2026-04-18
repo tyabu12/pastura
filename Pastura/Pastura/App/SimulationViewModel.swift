@@ -359,6 +359,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     isCancelled = false
     errorMessage = nil
     logEntries = []
+    // Latent: a second `run()` on the same VM instance would otherwise inherit
+    // these from the previous simulation — `latestAgentOutputId` points at a
+    // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
+    // stale in-flight row under a brand-new scenario.
+    latestAgentOutputId = nil
+    streamingSnapshot = nil
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
     totalRounds = scenario.rounds
