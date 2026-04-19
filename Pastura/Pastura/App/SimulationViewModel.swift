@@ -663,10 +663,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // Past the opening quote — the streaming row now has real content.
     // Remove the "thinking" indicator (the live row takes over display).
     thinkingAgents.remove(agent)
+    // Match the filtering that `handleAgentOutput` applies at commit — the
+    // in-flight snapshot is a user-visible display surface, so it must
+    // pass through ContentFilter for App Store compliance. A partial
+    // prefix of a blocked pattern still displays raw until the pattern
+    // completes (e.g. "fu" then "fuck" → "***"); that residual leakage
+    // is inherent to streaming and tracked in #133.
     streamingSnapshot = StreamingSnapshot(
       agent: agent,
-      primary: primary,
-      thought: thought,
+      primary: contentFilter.filter(primary),
+      thought: thought.map { contentFilter.filter($0) },
       phaseType: phaseType
     )
   }
