@@ -59,8 +59,7 @@ nonisolated struct LLMCaller: Sendable {
         emitter(
           .inferenceCompleted(
             agent: agentName, durationSeconds: seconds, tokenCount: nil))
-        throw SimulationError.llmGenerationFailed(
-          description: readableDescription(error))
+        throw SimulationError.llmGenerationFailed(description: readableDescription(error))
       }
 
       let seconds = elapsedSeconds(since: startTime)
