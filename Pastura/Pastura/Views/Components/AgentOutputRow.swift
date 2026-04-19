@@ -69,10 +69,10 @@ struct AgentOutputRow: View {
   var debugRowID: String?
 
   @State private var showInnerThought = false
+  // Internal-only so `AgentOutputRow+Diagnostic.swift` can read — mutation surface is the animation-control methods below.
   @State var visibleChars: Int = 0
   @State var animationTask: Task<Void, Never>?
-  /// Fresh UUID per `@State` reinitialisation; different value on successive
-  /// `.onAppear` for the same `debugRowID` = LazyVStack recycle evidence.
+  /// Fresh UUID per `@State` recreation → LazyVStack recycle evidence (#133 Hyp B).
   @State var debugInstanceID = UUID()
   /// Monotonic counter bumped once per reveal-task creation. The task's
   /// `defer` uses it to skip both the `animationTask` nil-out and the
