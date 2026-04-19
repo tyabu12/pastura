@@ -53,3 +53,23 @@ nonisolated public enum GalleryServiceError: Error, Sendable, Equatable {
   /// The cached file exists but could not be decoded (corrupted or schema shift).
   case corruptedCache
 }
+
+/// Provides human-readable descriptions so UI alert handlers can show
+/// `error.localizedDescription` without mapping each case manually.
+extension GalleryServiceError: LocalizedError {
+  public var errorDescription: String? {
+    switch self {
+    case .responseTooLarge(let limit):
+      return String(localized: "Gallery response exceeds size limit (\(limit) bytes)")
+    case .hashMismatch(let expected, let actual):
+      return String(
+        localized: "Gallery scenario hash mismatch (expected \(expected), got \(actual))")
+    case .invalidResponse:
+      return String(localized: "Gallery response was malformed")
+    case .unexpectedStatus(let code):
+      return String(localized: "Gallery server returned unexpected status \(code)")
+    case .corruptedCache:
+      return String(localized: "Gallery cache is corrupted")
+    }
+  }
+}
