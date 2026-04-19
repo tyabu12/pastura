@@ -55,10 +55,14 @@ struct AgentOutputRow: View {
   @State private var showInnerThought = false
   @State private var visibleChars: Int = 0
   @State private var animationTask: Task<Void, Never>?
-  /// Monotonic counter bumped once per reveal-task creation. Used by
-  /// the task's `defer` to clear `animationTask` only when the task
-  /// completing (naturally or via cancel) is still the current one —
-  /// otherwise a stale completion could clobber a newer task's reference.
+  /// Monotonic counter bumped once per reveal-task creation. The task's
+  /// `defer` uses it to skip both the `animationTask` nil-out and the
+  /// `onAnimatingChange?(false)` notification when a newer task has
+  /// already replaced it — otherwise a stale completion could clobber
+  /// the reference, or flip the parent's animating-state back to `false`
+  /// while the newer task is still revealing (`SimulationView` gates
+  /// its thinking-indicator visibility and `scrollToBottom` on the
+  /// parent-side `latestRowIsAnimating` flag).
   @State private var animationGeneration: Int = 0
 
   var body: some View {
@@ -215,8 +219,12 @@ struct AgentOutputRow: View {
     onAnimatingChange?(true)
     animationTask = Task { @MainActor in
       defer {
-        onAnimatingChange?(false)
-        if animationGeneration == myGeneration { animationTask = nil }
+        // Gated on generation so a superseded task doesn't clobber the
+        // newer task's reference or animating-state signal.
+        if animationGeneration == myGeneration {
+          onAnimatingChange?(false)
+          animationTask = nil
+        }
       }
       // Re-read `targetLength`, `primaryText`, and `resolvedThought`
       // every tick. `targetLength` covers `showAllThoughts` mid-typing
