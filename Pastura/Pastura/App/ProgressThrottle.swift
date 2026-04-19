@@ -5,15 +5,11 @@
 /// ~10 Hz, preventing MainActor saturation during long downloads.
 ///
 /// **Usage pattern — why `OSAllocatedUnfairLock`:**
-/// The caller must wrap `ProgressThrottle` inside an `OSAllocatedUnfairLock` rather
-/// than relying on the struct's value-type copy semantics. Two distinct callsites
-/// require this protection:
-/// - **Production** URLSession download delegate: the delegate callbacks arrive on
-///   URLSession's internal serial queue (not MainActor), so a lock guards mutation
-///   against any concurrent resume/cancel calls.
-/// - **`MockModelDownloader`** in `@MainActor`-isolated tests: the mock drives
-///   progress from MainActor, but a future refactor could move it off; the lock
-///   makes the invariant explicit and keeps the test callsite identical to production.
+/// The caller must wrap `ProgressThrottle` inside an `OSAllocatedUnfairLock` so the
+/// closure that reads it can safely cross actor boundaries via `@Sendable` capture.
+/// In production, the URLSession download delegate invokes the closure from
+/// URLSession's internal serial queue (not MainActor); the lock makes that mutation
+/// safe to share with the MainActor-isolated `ModelManager` that owns the lock.
 ///
 /// Uses `ContinuousClock.Instant` (monotonic) rather than `Date` because wall-clock
 /// time can step backwards under NTP correction — a risk over a multi-minute download.

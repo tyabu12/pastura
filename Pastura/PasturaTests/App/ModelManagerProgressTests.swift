@@ -69,7 +69,11 @@ struct ModelManagerProgressTests {
       try? FileManager.default.removeItem(at: sut.downloadFileURL)
     }
 
-    // Drain any pending observer Tasks so the final transitions are recorded.
+    // Let the `StateSnapshots` re-arm Tasks settle. Progress callbacks were
+    // already drained when `downloadModel()` returned, but the `withObservationTracking`
+    // re-arm hops through `Task { @MainActor }`, so a few yields ensure any
+    // post-`.ready` snapshot is recorded before we read `snapshots.progresses`.
+    // Five yields is empirical headroom over the typical one-or-two it takes.
     for _ in 0..<5 { await Task.yield() }
 
     guard case .ready = sut.state else {
