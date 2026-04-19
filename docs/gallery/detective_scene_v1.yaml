@@ -46,5 +46,38 @@ phases:
       statement: string
       inner_thought: string
 
-  - type: summarize
-    template: "最終発言まとめ: {conversation_log}"
+  - type: vote
+    prompt: >
+      これまでの発言ログ:
+      {conversation_log}
+
+      誰が犯人だと思いますか？ 最も疑わしい人物を選んでください。
+      投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
+    exclude_self: false
+    output:
+      vote: string
+      reason: string
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: conditional
+    if: "max_score >= 3"
+    then:
+      - type: summarize
+        template: >
+          🔎 決定的証拠！ 5人中3票以上が {vote_winner} を指名しました（{vote_results}）。
+          多数の同意により、{vote_winner} が犯人として断定されました。
+    else:
+      - type: speak_each
+        prompt: >
+          投票は割れました: {vote_results}
+          疑惑を受けた人は反論を、他の人は追加の観察点を1〜2文で述べてください。
+        output:
+          statement: string
+          inner_thought: string
+      - type: summarize
+        template: >
+          ⚖️ 決定打に欠ける… 最初の投票は割れ（{vote_results}）、
+          反論を経ても暫定的な最多疑惑は {vote_winner} です。
+          真相は闇の中…
