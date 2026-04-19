@@ -267,7 +267,225 @@ is treated as a kind of drift.
 
 ## 4. Replay Architecture
 
-*(Section stub — filled in subsequent commit.)*
+### 4.1 Layer overview
+
+All replay components live in `App/`, co-located with
+`SimulationViewModel` and `ContentFilter`. Engine/ is *not* the right
+layer: replay has no inference, no scoring, no phase dispatch — it is a
+UI concern that happens to reuse Models/ types (`SimulationEvent`,
+`TurnOutput`, `Scenario`). Placing it in Engine/ would require Engine/
+to depend on `Resources/`-bundle loading, which is an App-layer
+responsibility.
+
+The live simulation path (`Engine/SimulationRunner` → `SimulationEvent`
+stream → `App/SimulationViewModel` → `Views/...`) and the replay path
+(`App/BundledDemoReplaySource` → `SimulationEvent` stream →
+`App/ReplayViewModel` → `Views/...`) converge at the render layer: both
+feed `AgentOutputRow` and phase-header components. The VM layer is
+deliberately separate because the live VM is entangled with production
+persistence (§4.2).
+
+### 4.2 `ReplayViewModel` (new, App/)
+
+`ReplayViewModel` is a new `@Observable` `@MainActor` class under
+`Pastura/Pastura/App/ReplayViewModel.swift`. It is **not** a subset or
+subclass of `SimulationViewModel` — the two are siblings that share
+rendering components (§4.7) but not VM logic.
+
+Why not reuse `SimulationViewModel`:
+
+- `SimulationViewModel.handleAgentOutput` calls `persistTurnRecord`
+  (live at roughly `SimulationViewModel.swift:605-641`) which yields to
+  `persistenceContinuation` writing `TurnRecord` to the production DB.
+  A replayed demo running through the live VM would pollute the
+  production `turns` / `simulations` tables and leak into Past Results
+  Viewer as extraneous simulation entries.
+- `SimulationViewModel` also owns `ContentFilter` application, thinking-
+  indicator state, streaming-snapshot buffers, and engine-error
+  escalation — most of which are irrelevant for replay and complicate
+  reasoning about the replay state machine.
+
+A dedicated `ReplayViewModel` is simpler to reason about, trivially
+testable (no DB stubs needed), and future-proof: the live VM can evolve
+its persistence contract without breaking replay.
+
+Responsibilities of `ReplayViewModel`:
+
+- Subscribe to `ReplaySource.events()` (an `AsyncStream<SimulationEvent>`).
+- Apply `ContentFilter` at render time to every `agentOutput` /
+  `summary` / `assignment` event's user-visible strings (§3.4).
+- Maintain the observable view state (`currentAgentOutputs: [AgentOutputRow.State]`,
+  `currentPhase: PhaseType?`, etc.) that `AgentOutputRow` and phase
+  headers consume — the **same state shape** the live VM exposes, so
+  view components require no branching on "live vs replay".
+- Drive the playback state machine (§4.9).
+- Accept an external "download complete" signal and initiate the
+  transition hand-off (ADR-007 §3 owns the transition animation; this
+  VM just exposes a `shouldTransition: Bool` observable).
+
+### 4.3 `ReplaySource` protocol (new, App/)
+
+```swift
+public protocol ReplaySource: Sendable {
+  /// Scenario this replay renders against; supplies persona names,
+  /// phase structure, and score-display context to the view.
+  var scenario: Scenario { get }
+
+  /// Event stream yielding pre-recorded events in order, with natural
+  /// pacing embedded via the delay semantics described in §3.2.
+  /// The source is responsible for sleeping between events;
+  /// `ReplayViewModel` multiplies delays by the playback speed before
+  /// the source emits (via `ReplayPlaybackConfig`).
+  func events() -> AsyncStream<SimulationEvent>
+}
+```
+
+Design notes:
+
+- The source owns *both* the scenario context and the event stream so
+  a caller can swap implementations without extra coordination.
+- `events()` returns a fresh stream per call — a single source can be
+  played multiple times (required for loop behaviour in §4.9).
+- The source does not emit `SimulationEvent.error(...)` cases;
+  replay-time failures are surfaced through the VM's state machine
+  rather than the event stream.
+
+### 4.4 `BundledDemoReplaySource` (this PR)
+
+The Phase 2 concrete `ReplaySource` implementation. Responsibilities:
+
+- Parse a bundled YAML file (`Resources/DemoReplays/<slug>.yaml`) via
+  Yams.
+- Verify `preset_ref.yaml_sha256` against the currently shipped preset
+  (fail to `nil` / skip if mismatch — §3.3 silent skip).
+- Resolve `preset_ref.id` to a bundled `Scenario` via the existing
+  `PresetLoader` / scenario repository.
+- Emit `SimulationEvent`s in the order defined by the recorded `turns`
+  (+ `code_phase_events` interleaved by round), with delays applied.
+
+Design notes:
+
+- The source holds the pre-parsed event plan (not the raw YAML) so
+  `events()` can be called multiple times without re-parsing.
+- YAML parsing happens at construction time; construction failures
+  bubble up to the caller (typically `DemoReplayLoader`, which is the
+  thing that builds a rotation of sources).
+
+### 4.5 `UserSimulationReplaySource` (future scaffolding)
+
+This PR does **not** implement `UserSimulationReplaySource`. The
+protocol shape is committed to so that Phase 2.5+ user-replay becomes a
+drop-in: construct from a `SimulationRecord.id`, read `TurnRecord`
+rows via the existing repository, synthesise `SimulationEvent`s with
+reasonable default delays (e.g. turn timestamps or a flat cadence).
+
+Known future concerns to flag now (tracked in §7 Risks):
+
+- Legacy `SimulationRecord` rows that predate a scenario-definition
+  change: `UserSimulationReplaySource` must handle the case where the
+  referenced scenario no longer exists or has drifted — likely by
+  refusing to build the source and surfacing a user-facing "this
+  simulation cannot be replayed" message.
+- Delay synthesis: `SimulationRecord` does not currently store inter-
+  turn timestamps. The future implementation either adds a schema
+  column or applies a flat pacing heuristic.
+
+### 4.6 `ReplayPlaybackConfig`
+
+```swift
+public struct ReplayPlaybackConfig: Sendable {
+  public var speedMultiplier: Double          // delays are divided by this
+  public var loopBehaviour: LoopBehaviour     // .loop / .stopAfterLast
+  public var onComplete: CompletionAction     // .awaitTransitionSignal / .stopPlayback
+
+  public enum LoopBehaviour: Sendable { case loop, stopAfterLast }
+  public enum CompletionAction: Sendable {
+    case awaitTransitionSignal    // used by DL-time demo — transition triggered by DL completion
+    case stopPlayback             // used by future user-initiated replay
+  }
+
+  public static let demoDefault = ReplayPlaybackConfig(
+    speedMultiplier: 2.0,
+    loopBehaviour: .loop,
+    onComplete: .awaitTransitionSignal)
+}
+```
+
+The DL-time demo uses `demoDefault`. Future user-replay would use
+`.stopAfterLast` + `.stopPlayback` + a user-selectable speed.
+
+### 4.7 View integration — shared render components
+
+`ReplayViewModel` exposes the same observable state shape as the live
+`SimulationViewModel` for the slice the view layer reads:
+
+- Per-agent rendered output rows consumed by `AgentOutputRow`.
+- Current phase descriptor consumed by the phase-header view.
+- Content-filtered strings only (no raw output exposed).
+
+This means the DL-time demo screen composes existing view components
+unchanged — no `if isReplay { ... } else { ... }` branches in
+`AgentOutputRow`. The new view type is only the DL-time host
+(`DemoReplayHostView` or similar — final name in the implementation PR)
+that embeds `ReplayViewModel`-driven content alongside the DL progress
+UI (ADR-007 §3).
+
+Sharing is at the render-component level **only**, not at the VM layer.
+Live VM's thinking-indicator state, streaming snapshot, error
+recovery — none of those are consumed by the replay host.
+
+### 4.8 Relationship to `ResultDetailView` (Past Results Viewer)
+
+Past Results Viewer (#102 / #113) renders saved simulations via
+`ResultDetailView` — a **static** timeline builder that loads
+`TurnRecord` + `CodePhaseEventRecord` arrays on appear and renders them
+as a scrollable list.
+
+Demo replay is a **streaming** pattern: events arrive over time with
+pacing, the view updates reactively. The two patterns are intentionally
+different:
+
+- Past Results: "review mode" — user wants to jump to specific turns,
+  scroll freely, inspect raw JSON. Static list is the right shape.
+- DL-time demo (and future user-replay, §4.5): "playback mode" — user
+  wants the live-simulation feel, timed pacing, natural reveal. Event
+  stream is the right shape.
+
+Both patterns can coexist over the same saved data in the future: the
+static `ResultDetailView` for inspection, the streaming
+`ReplayViewModel` for playback. This spec does not design the user-
+facing entry points for the future mode — that is Phase 2.5+ UX.
+
+### 4.9 Playback state machine
+
+The `ReplayViewModel` exposes a state machine with four observable
+states:
+
+```
+.idle             ──(start)──▶   .playing(demoIndex: 0, turnCursor: 0)
+.playing(i, t)    ──(turn)──▶    .playing(i, t+1)              // advance within demo
+.playing(i, last) ──(next)──▶    .playing((i+1) % N, 0)        // advance to next demo
+.playing(*)       ──(download complete signal)──▶ .transitioning
+.transitioning    ──(done)──▶    (view removed by host)
+.playing(*)       ──(foreground lost)──▶ .paused(i, t)
+.paused(*)        ──(foreground regained)──▶ .playing(i, t)    // resume from position
+```
+
+Key properties:
+
+- **Loop continues indefinitely** until the DL-complete signal arrives
+  (`CompletionAction.awaitTransitionSignal`).
+- **Pause on backgrounding** — when the scene phase drops below
+  `.active`, the VM transitions to `.paused(i, t)` and cancels its
+  outstanding sleep. On re-entering `.active`, it resumes from the
+  same position (ADR-007 §3 details the iOS lifecycle interactions).
+- **No user-triggered transitions** in MVP — skip/pause/seek are
+  explicitly out of scope (§2 Decision 6).
+
+The `.transitioning` state exists so ADR-007's animated hand-off to the
+setup-complete screen has a named state to key view-disappear logic
+against; the animation itself is owned by the DL-time host view, not
+the VM.
 
 ---
 
