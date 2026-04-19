@@ -80,7 +80,15 @@ phases:
   - type: score_calc
     logic: wordwolf_judge
 
-  - type: summarize
-    template: >
-      投票結果: {vote_results}
-      判定: {scoreboard}
+  - type: conditional
+    if: "vote_winner == wolf_name"
+    then:
+      - type: summarize
+        template: >
+          🎯 ウルフ発見！ 最多得票の {wolf_name} が少数派でした（{vote_results}）。
+          多数派の勝利です。
+    else:
+      - type: summarize
+        template: >
+          😈 ウルフ逃げ切り！ 実際の少数派は {wolf_name} でしたが投票は別の人に集中しました（{vote_results}）。
+          少数派の勝利です。

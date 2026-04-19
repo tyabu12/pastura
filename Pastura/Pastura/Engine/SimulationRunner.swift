@@ -199,11 +199,16 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// Emits `.simulationPaused` exactly once, then suspends via
   /// `CheckedContinuation` until `isPaused` is set to `false` or the
   /// task is cancelled — no polling, zero CPU during pause.
-  private static func checkPaused(ctx: ExecutionContext, round: Int, phaseIndex: Int = 0) async
+  ///
+  /// `phasePath` identifies where the pause occurred. Top-level pauses
+  /// pass `[phaseIndex]`; nested handlers reach this via the `pauseCheck`
+  /// closure on ``PhaseContext`` so the runner remains the sole emitter
+  /// of `.simulationPaused`.
+  private static func checkPaused(ctx: ExecutionContext, round: Int, phasePath: [Int] = []) async
     -> Bool {
     guard ctx.pauseState.withLock({ $0.isPaused }) else { return false }
 
-    ctx.emitter(.simulationPaused(round: round, phaseIndex: phaseIndex))
+    ctx.emitter(.simulationPaused(round: round, phasePath: phasePath))
 
     // Why withTaskCancellationHandler + withCheckedContinuation:
     // We need to resume the continuation on EITHER unpause (via isPaused setter)
@@ -270,13 +275,19 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         return true
       }
 
+      let phasePath = [phaseIndex]
+      // Capture round by value for the pauseCheck closure: `state` is inout
+      // and cannot be captured by an @escaping @Sendable closure, and round
+      // does not change during a single top-level phase's execution.
+      let currentRound = state.currentRound
+
       // Check pause between phases so background switching can take effect
       // without waiting for the entire round to complete.
-      if await checkPaused(ctx: ctx, round: state.currentRound, phaseIndex: phaseIndex) {
+      if await checkPaused(ctx: ctx, round: currentRound, phasePath: phasePath) {
         return true
       }
 
-      ctx.emitter(.phaseStarted(phaseType: phase.type, phaseIndex: phaseIndex))
+      ctx.emitter(.phaseStarted(phaseType: phase.type, phasePath: phasePath))
 
       do {
         let handler = try ctx.dispatcher.handler(for: phase.type)
@@ -287,7 +298,15 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           scenario: ctx.scenario, phase: phase,
           llm: ctx.llm,
           suspendController: ctx.suspendController,
-          emitter: ctx.emitter
+          emitter: ctx.emitter,
+          pauseCheck: { nestedPath in
+            // Handlers that execute nested sub-phases (e.g. conditional) call
+            // this between sub-phases so user pause requests are honored at
+            // sub-phase granularity. Routes through the single `checkPaused`
+            // so there's exactly one `.simulationPaused` emitter.
+            await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
+          },
+          phasePath: phasePath
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {
@@ -298,7 +317,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         return true
       }
 
-      ctx.emitter(.phaseCompleted(phaseType: phase.type, phaseIndex: phaseIndex))
+      ctx.emitter(.phaseCompleted(phaseType: phase.type, phasePath: phasePath))
     }
     return false
   }

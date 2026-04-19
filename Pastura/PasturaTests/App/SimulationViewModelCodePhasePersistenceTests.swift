@@ -171,15 +171,15 @@ struct SimulationViewModelCodePhasePersistenceTests {
 
     // score_calc phase: judge verdict summary
     sut.model.handleEvent(
-      .phaseStarted(phaseType: .scoreCalc, phaseIndex: 0), scenario: sut.scenario)
+      .phaseStarted(phaseType: .scoreCalc, phasePath: [0]), scenario: sut.scenario)
     sut.model.handleEvent(
       .summary(text: "多数派の勝ち！"), scenario: sut.scenario)
     sut.model.handleEvent(
-      .phaseCompleted(phaseType: .scoreCalc, phaseIndex: 0), scenario: sut.scenario)
+      .phaseCompleted(phaseType: .scoreCalc, phasePath: [0]), scenario: sut.scenario)
 
     // summarize phase: round wrap summary
     sut.model.handleEvent(
-      .phaseStarted(phaseType: .summarize, phaseIndex: 1), scenario: sut.scenario)
+      .phaseStarted(phaseType: .summarize, phasePath: [1]), scenario: sut.scenario)
     sut.model.handleEvent(
       .summary(text: "Round 1 ends."), scenario: sut.scenario)
 

@@ -40,31 +40,35 @@ nonisolated struct ScenarioLoader: Sendable {
   /// - `speak_each`: agentCount × subRounds
   /// - `vote`: agentCount
   /// - `choose`: agentCount × 2 (round_robin) or agentCount (individual)
+  /// - `conditional`: `max(sum(thenPhases), sum(elsePhases))` — only one branch
+  ///   runs per invocation, so `max` matches execution semantics. Using `sum`
+  ///   would artificially block scenarios designed with asymmetric branches
+  ///   (e.g. an expensive reflect phase gated behind a rare condition).
   /// - Code phases: 0
   static func estimateInferenceCount(_ scenario: Scenario) -> Int {
     let agents = scenario.agentCount
-    var perRound = 0
-
-    for phase in scenario.phases {
-      switch phase.type {
-      case .speakAll:
-        perRound += agents
-      case .speakEach:
-        perRound += agents * (phase.subRounds ?? 1)
-      case .vote:
-        perRound += agents
-      case .choose:
-        if phase.pairing == .roundRobin {
-          perRound += agents * 2
-        } else {
-          perRound += agents
-        }
-      case .scoreCalc, .assign, .eliminate, .summarize:
-        break
-      }
-    }
-
+    let perRound = scenario.phases.reduce(0) { $0 + estimatePhase($1, agents: agents) }
     return perRound * scenario.rounds
+  }
+
+  /// Per-phase estimate used by both top-level and conditional-branch recursion.
+  private static func estimatePhase(_ phase: Phase, agents: Int) -> Int {
+    switch phase.type {
+    case .speakAll:
+      return agents
+    case .speakEach:
+      return agents * (phase.subRounds ?? 1)
+    case .vote:
+      return agents
+    case .choose:
+      return phase.pairing == .roundRobin ? agents * 2 : agents
+    case .scoreCalc, .assign, .eliminate, .summarize:
+      return 0
+    case .conditional:
+      let thenCost = (phase.thenPhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
+      let elseCost = (phase.elsePhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
+      return max(thenCost, elseCost)
+    }
   }
 
   // MARK: - Private
@@ -150,46 +154,51 @@ nonisolated struct ScenarioLoader: Sendable {
   }
 
   /// Strict-throw on unknown, mirroring PhaseType. See issue #108.
-  private func parseAssignTarget(_ raw: Any?, phaseIndex: Int) throws -> AssignTarget? {
+  private func parseAssignTarget(_ raw: Any?, label: String) throws -> AssignTarget? {
     guard let targetStr = raw as? String else { return nil }
     guard let parsed = AssignTarget(rawValue: targetStr) else {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(phaseIndex) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
+        "\(label) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
       )
     }
     return parsed
   }
 
-  private func parsePairing(_ raw: Any?, phaseIndex: Int) throws -> PairingStrategy? {
+  private func parsePairing(_ raw: Any?, label: String) throws -> PairingStrategy? {
     guard let str = raw as? String else { return nil }
     guard let parsed = PairingStrategy(rawValue: str) else {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(phaseIndex) has invalid pairing: '\(str)'. Use 'round_robin'."
+        "\(label) has invalid pairing: '\(str)'. Use 'round_robin'."
       )
     }
     return parsed
   }
 
-  private func parseLogic(_ raw: Any?, phaseIndex: Int) throws -> ScoreCalcLogic? {
+  private func parseLogic(_ raw: Any?, label: String) throws -> ScoreCalcLogic? {
     guard let str = raw as? String else { return nil }
     guard let parsed = ScoreCalcLogic(rawValue: str) else {
       let allowed = ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(phaseIndex) has invalid logic: '\(str)'. Expected one of: \(allowed)."
+        "\(label) has invalid logic: '\(str)'. Expected one of: \(allowed)."
       )
     }
     return parsed
   }
 
   private func mapPhase(_ dict: [String: Any], index: Int) throws -> Phase {
-    guard let typeString = dict["type"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Phase \(index) missing 'type'")
-    }
-    guard let phaseType = PhaseType(rawValue: typeString) else {
-      throw SimulationError.scenarioValidationFailed(
-        "Phase \(index) has invalid type: '\(typeString)'"
-      )
-    }
+    try mapPhase(dict, label: "Phase \(index)", depth: 0)
+  }
+
+  /// Maps a phase dictionary, recursively descending into conditional
+  /// branches. `depth == 0` is top-level; `depth >= 1` rejects nested
+  /// `.conditional` to defend the depth-1 rule at parse time
+  /// (the validator has the same check for non-YAML construction paths).
+  ///
+  /// `label` is used in error messages: top-level calls pass `"Phase K"`,
+  /// nested calls pass `"Phase K.then[N]"` / `"Phase K.else[N]"` so the
+  /// user can locate the offending sub-phase in their YAML.
+  private func mapPhase(_ dict: [String: Any], label: String, depth: Int) throws -> Phase {
+    let phaseType = try parsePhaseType(dict, label: label, depth: depth)
 
     let prompt = dict["prompt"] as? String
     let template = dict["template"] as? String
@@ -197,22 +206,21 @@ nonisolated struct ScenarioLoader: Sendable {
     let excludeSelf = dict["exclude_self"] as? Bool
     let options = dict["options"] as? [String]
 
-    let target = try parseAssignTarget(dict["target"], phaseIndex: index)
-
-    // output → outputSchema
-    var outputSchema: [String: String]?
-    if let output = dict["output"] as? [String: Any] {
-      outputSchema = [:]
-      for (key, value) in output {
-        outputSchema?[key] = "\(value)"
-      }
-    }
-
-    let pairing = try parsePairing(dict["pairing"], phaseIndex: index)
-    let logic = try parseLogic(dict["logic"], phaseIndex: index)
+    let target = try parseAssignTarget(dict["target"], label: label)
+    let outputSchema = parseOutputSchema(dict)
+    let pairing = try parsePairing(dict["pairing"], label: label)
+    let logic = try parseLogic(dict["logic"], label: label)
 
     // speak_each rounds → subRounds
     let subRounds = dict["rounds"] as? Int
+
+    // Conditional-specific fields (`if:` expression + `then:` / `else:` sub-phase arrays).
+    // Recursively descend with depth+1 so nested conditional is rejected here.
+    let condition = dict["if"] as? String
+    let thenPhases = try mapBranch(
+      dict["then"], branchLabel: "then", parentLabel: label, depth: depth)
+    let elsePhases = try mapBranch(
+      dict["else"], branchLabel: "else", parentLabel: label, depth: depth)
 
     return Phase(
       type: phaseType,
@@ -225,8 +233,58 @@ nonisolated struct ScenarioLoader: Sendable {
       source: source,
       target: target,
       excludeSelf: excludeSelf,
-      subRounds: subRounds
+      subRounds: subRounds,
+      condition: condition,
+      thenPhases: thenPhases,
+      elsePhases: elsePhases
     )
+  }
+
+  private func parsePhaseType(
+    _ dict: [String: Any], label: String, depth: Int
+  ) throws -> PhaseType {
+    guard let typeString = dict["type"] as? String else {
+      throw SimulationError.scenarioValidationFailed("\(label) missing 'type'")
+    }
+    guard let phaseType = PhaseType(rawValue: typeString) else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label) has invalid type: '\(typeString)'"
+      )
+    }
+    if phaseType == .conditional && depth > 0 {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): nested 'conditional' inside another conditional is not "
+          + "allowed (depth-1 rule)."
+      )
+    }
+    return phaseType
+  }
+
+  private func parseOutputSchema(_ dict: [String: Any]) -> [String: String]? {
+    guard let output = dict["output"] as? [String: Any] else { return nil }
+    var result: [String: String] = [:]
+    for (key, value) in output {
+      result[key] = "\(value)"
+    }
+    return result
+  }
+
+  private func mapBranch(
+    _ raw: Any?, branchLabel: String, parentLabel: String, depth: Int
+  ) throws -> [Phase]? {
+    guard let phasesRaw = raw else { return nil }
+    guard let list = phasesRaw as? [[String: Any]] else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(parentLabel): '\(branchLabel)' must be an array of phase objects"
+      )
+    }
+    return try list.enumerated().map { subIndex, subRaw in
+      try mapPhase(
+        subRaw,
+        label: "\(parentLabel).\(branchLabel)[\(subIndex)]",
+        depth: depth + 1
+      )
+    }
   }
 
   /// Converts a raw YAML value to ``AnyCodableValue``.

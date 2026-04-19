@@ -139,9 +139,9 @@ struct OllamaIntegrationTests {
     // Full lifecycle events present
     #expect(events.contains { if case .roundStarted(1, 1) = $0 { true } else { false } })
     #expect(
-      events.contains { if case .phaseStarted(.speakAll, 0) = $0 { true } else { false } })
+      events.contains { if case .phaseStarted(.speakAll, [0]) = $0 { true } else { false } })
     #expect(
-      events.contains { if case .phaseCompleted(.speakAll, 0) = $0 { true } else { false } })
+      events.contains { if case .phaseCompleted(.speakAll, [0]) = $0 { true } else { false } })
     #expect(events.contains { if case .roundCompleted(1, _) = $0 { true } else { false } })
     #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
 

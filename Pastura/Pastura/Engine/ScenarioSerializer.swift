@@ -109,6 +109,59 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append("    rounds: \(subRounds)")
     }
 
+    // Conditional-specific fields — emitted at the end of the phase block
+    // with 4-space indentation for nested sub-phase bodies.
+    if let condition = phase.condition {
+      lines.append("    if: \(yamlScalar(condition))")
+    }
+    // Empty arrays round-trip as `nil` (YAML has no disambiguator between
+    // "key with empty list" and "key absent" under our manual-mapping parse
+    // path). Skip emitting the key at all in that case so the output is
+    // valid YAML and the loader's branch-shape check doesn't fire.
+    if let thenPhases = phase.thenPhases, !thenPhases.isEmpty {
+      lines.append("    then:")
+      lines.append(contentsOf: serializeBranch(thenPhases, indent: 6))
+    }
+    if let elsePhases = phase.elsePhases, !elsePhases.isEmpty {
+      lines.append("    else:")
+      lines.append(contentsOf: serializeBranch(elsePhases, indent: 6))
+    }
+
+    return lines
+  }
+
+  /// Serializes an array of branch sub-phases at the given indent depth.
+  ///
+  /// Reuses `serializePhase` (which emits lines at "top-level" indentation:
+  /// `  - type: ...` for the list marker and `    key: ...` for body lines,
+  /// with block-scalar continuation lines at `      ...`). Nested branches
+  /// need the same lines shifted uniformly by `indent - 2` spaces so that
+  /// block-scalar continuation offsets are preserved.
+  ///
+  /// `serializePhase` returns an array of strings, but individual elements
+  /// may themselves contain embedded `\n` (block scalars are pre-joined by
+  /// `yamlBlockScalar`). We split on `\n` before padding so every emitted
+  /// YAML line gets the shift — otherwise multi-line `prompt:` / `template:`
+  /// values would lose their content-indent and produce unparseable YAML.
+  private func serializeBranch(_ phases: [Phase], indent: Int) -> [String] {
+    // `serializePhase` starts its first line at column 2 (`  - type: ...`).
+    // The caller wants the list marker at `indent - 2` spaces (so body
+    // lines land at `indent`, and block-scalar content lands at `indent + 2`).
+    let shift = indent - 2
+    guard shift > 0 else {
+      // Branch indent ≤ top-level indent means no shift is needed; return
+      // the inner lines verbatim.
+      return phases.flatMap { serializePhase($0) }
+    }
+    let pad = String(repeating: " ", count: shift)
+    var lines: [String] = []
+    for phase in phases {
+      for chunk in serializePhase(phase) {
+        for line in chunk.split(separator: "\n", omittingEmptySubsequences: false) {
+          lines.append(pad + line)
+        }
+      }
+    }
     return lines
   }
 

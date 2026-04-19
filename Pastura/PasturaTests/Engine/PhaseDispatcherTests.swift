@@ -6,26 +6,27 @@ import Testing
 struct PhaseDispatcherTests {
   let dispatcher = PhaseDispatcher()
 
-  @Test func dispatchesAllEightPhaseTypes() throws {
+  @Test func dispatchesAllRegisteredPhaseTypes() throws {
     for phaseType in PhaseType.allCases {
-      let handler = try dispatcher.handler(for: phaseType)
       switch phaseType {
       case .speakAll:
-        #expect(handler is SpeakAllHandler)
+        #expect(try dispatcher.handler(for: phaseType) is SpeakAllHandler)
       case .speakEach:
-        #expect(handler is SpeakEachHandler)
+        #expect(try dispatcher.handler(for: phaseType) is SpeakEachHandler)
       case .vote:
-        #expect(handler is VoteHandler)
+        #expect(try dispatcher.handler(for: phaseType) is VoteHandler)
       case .choose:
-        #expect(handler is ChooseHandler)
+        #expect(try dispatcher.handler(for: phaseType) is ChooseHandler)
       case .scoreCalc:
-        #expect(handler is ScoreCalcHandler)
+        #expect(try dispatcher.handler(for: phaseType) is ScoreCalcHandler)
       case .assign:
-        #expect(handler is AssignHandler)
+        #expect(try dispatcher.handler(for: phaseType) is AssignHandler)
       case .eliminate:
-        #expect(handler is EliminateHandler)
+        #expect(try dispatcher.handler(for: phaseType) is EliminateHandler)
       case .summarize:
-        #expect(handler is SummarizeHandler)
+        #expect(try dispatcher.handler(for: phaseType) is SummarizeHandler)
+      case .conditional:
+        #expect(try dispatcher.handler(for: phaseType) is ConditionalHandler)
       }
     }
   }

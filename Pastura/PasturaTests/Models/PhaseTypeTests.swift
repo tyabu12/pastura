@@ -14,10 +14,11 @@ struct PhaseTypeTests {
     #expect(PhaseType.assign.rawValue == "assign")
     #expect(PhaseType.eliminate.rawValue == "eliminate")
     #expect(PhaseType.summarize.rawValue == "summarize")
+    #expect(PhaseType.conditional.rawValue == "conditional")
   }
 
   @Test func allCasesCount() {
-    #expect(PhaseType.allCases.count == 8)
+    #expect(PhaseType.allCases.count == 9)
   }
 
   @Test func llmPhasesRequireLLM() {
@@ -32,6 +33,8 @@ struct PhaseTypeTests {
     #expect(!PhaseType.assign.requiresLLM)
     #expect(!PhaseType.eliminate.requiresLLM)
     #expect(!PhaseType.summarize.requiresLLM)
+    // conditional is control-flow; the handler itself does no inference.
+    #expect(!PhaseType.conditional.requiresLLM)
   }
 
   @Test func decodableFromJSON() throws {

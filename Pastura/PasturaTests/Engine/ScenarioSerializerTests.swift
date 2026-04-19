@@ -22,6 +22,10 @@ struct ScenarioSerializerTests {
     try assertRoundTrip(presetNamed: "word_wolf")
   }
 
+  @Test func roundTripTargetScoreRace() throws {
+    try assertRoundTrip(presetNamed: "target_score_race")
+  }
+
   // MARK: - Round-trip: Synthetic All-Fields Scenario
 
   // Exercises all 11 Phase fields and all 4 AnyCodableValue variants.

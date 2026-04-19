@@ -55,7 +55,7 @@ struct SimulationViewModelStreamingTests {
   @Test func agentOutputStreamWithPrimaryRemovesThinkingAndSetsSnapshot() throws {
     let (sut, scenario) = try makeSUT()
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
 
     sut.handleEvent(
@@ -79,7 +79,7 @@ struct SimulationViewModelStreamingTests {
     let (sut, scenario) = try makeSUT(
       contentFilter: ContentFilter(blockedPatterns: ["fuck"], replacement: "***"))
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     sut.handleEvent(
       .agentOutputStream(
         agent: "Alice", primary: "what the fuck", thought: "fuck it"),
@@ -97,7 +97,7 @@ struct SimulationViewModelStreamingTests {
     let (sut, scenario) = try makeSUT(
       contentFilter: ContentFilter(blockedPatterns: ["fuck"], replacement: "***"))
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
       scenario: scenario)
@@ -108,7 +108,7 @@ struct SimulationViewModelStreamingTests {
   @Test func agentOutputStreamProgressivelyUpdatesSnapshot() throws {
     let (sut, scenario) = try makeSUT()
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
 
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "hel", thought: nil),
@@ -125,7 +125,7 @@ struct SimulationViewModelStreamingTests {
   @Test func agentOutputFinalizationClearsSnapshot() throws {
     let (sut, scenario) = try makeSUT()
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
       scenario: scenario)
@@ -149,7 +149,7 @@ struct SimulationViewModelStreamingTests {
   @Test func inferenceStartedClearsStaleStreamingSnapshot() throws {
     let (sut, scenario) = try makeSUT()
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "partial", thought: nil),
       scenario: scenario)
@@ -167,7 +167,7 @@ struct SimulationViewModelStreamingTests {
     let (sut, scenario) = try makeSUT()
     sut.speed = .normal  // non-instant → helper fallback would otherwise be non-nil
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
@@ -187,7 +187,7 @@ struct SimulationViewModelStreamingTests {
     let (sut, scenario) = try makeSUT()
     sut.speed = .normal
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     // No .agentOutputStream — commit directly.
     let output = TurnOutput(fields: ["statement": "hello"])
     sut.handleEvent(
@@ -204,7 +204,7 @@ struct SimulationViewModelStreamingTests {
     let (sut, scenario) = try makeSUT()
     sut.speed = .normal
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     // Snapshot is for Alice…
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
@@ -223,7 +223,7 @@ struct SimulationViewModelStreamingTests {
   @Test func parseRetryAfterStreamMarksOnlyRetryEntry() throws {
     let (sut, scenario) = try makeSUT()
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     // Attempt 1 — partial streams but never commits (parse fails).
     sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
     sut.handleEvent(
@@ -261,7 +261,7 @@ struct SimulationViewModelStreamingTests {
     let (sut, scenario) = try makeSUT()
     sut.speed = .normal
     sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
     // Flag off → stream events no-op → snapshot stays nil.
     sut.handleEvent(
       .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),

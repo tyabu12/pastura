@@ -265,21 +265,21 @@ struct SimulationRunnerTests {
         }
       }
 
-      let pausedEvents = events.compactMap { event -> (Int, Int)? in
-        if case .simulationPaused(let round, let phaseIndex) = event {
-          return (round, phaseIndex)
+      let pausedEvents = events.compactMap { event -> (Int, [Int])? in
+        if case .simulationPaused(let round, let phasePath) = event {
+          return (round, phasePath)
         }
         return nil
       }
 
       // 3 pause events:
-      // 1. Round boundary (round: 1, phaseIndex: 0)
-      // 2. Before phase 0 in executePhases (round: 1, phaseIndex: 0)
-      // 3. Before phase 1 in executePhases (round: 1, phaseIndex: 1)
+      // 1. Round boundary (round: 1, phasePath: [])
+      // 2. Before phase 0 in executePhases (round: 1, phasePath: [0])
+      // 3. Before phase 1 in executePhases (round: 1, phasePath: [1])
       #expect(pausedEvents.count == 3, "Expected 3 pause events, got \(pausedEvents)")
       #expect(
-        pausedEvents.contains { $0 == (1, 1) },
-        "Should pause before phase 1 with phaseIndex=1, got \(pausedEvents)"
+        pausedEvents.contains { $0.0 == 1 && $0.1 == [1] },
+        "Should pause before phase 1 with phasePath=[1], got \(pausedEvents)"
       )
       #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
     }

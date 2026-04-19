@@ -2,7 +2,7 @@ import Foundation
 
 /// Routes ``PhaseType`` values to their corresponding ``PhaseHandler`` implementations.
 ///
-/// All 8 phase types are registered at initialization. Used by ``SimulationRunner``
+/// All 9 phase types are registered at initialization. Used by ``SimulationRunner``
 /// to dispatch each phase in the simulation loop.
 nonisolated struct PhaseDispatcher: Sendable {
   private let handlers: [PhaseType: any PhaseHandler]
@@ -16,7 +16,8 @@ nonisolated struct PhaseDispatcher: Sendable {
       .scoreCalc: ScoreCalcHandler(),
       .assign: AssignHandler(),
       .eliminate: EliminateHandler(),
-      .summarize: SummarizeHandler()
+      .summarize: SummarizeHandler(),
+      .conditional: ConditionalHandler()
     ]
   }
 

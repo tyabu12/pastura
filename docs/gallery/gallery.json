@@ -30,12 +30,12 @@
       "id": "detective_scene_v1",
       "title": "探偵の推理会議",
       "category": "roleplay",
-      "description": "容疑者4人と探偵1人による屋敷殺人事件の推理ロールプレイ。",
+      "description": "容疑者4人と探偵1人による屋敷殺人事件の推理ロールプレイ。投票が割れれば反論ラウンドに進む分岐あり。",
       "author": "tyabu12",
       "recommended_model": "gemma4_e2b",
-      "estimated_inferences": 6,
+      "estimated_inferences": 15,
       "yaml_url": "detective_scene_v1.yaml",
-      "yaml_sha256": "cb1830b5712431f21a45cdb5ecd8bf2f302464eeea2e61a561f0fbc6fd9a05b2",
+      "yaml_sha256": "ec28d433ae5db0064d1eaa57443587efd61386785f17b5557b9983416d9b7abd",
       "added_at": "2026-04-15"
     }
   ]

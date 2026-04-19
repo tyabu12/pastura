@@ -1,5 +1,20 @@
 import SwiftUI
 
+/// Which branch of a conditional phase a nested sub-phase editor is editing.
+/// Lifted to file scope to satisfy SwiftLint's nesting rule (types nested
+/// deeper than 1 level are disallowed).
+private enum ConditionalBranch { case then, `else` }
+
+/// Identifies which branch's sub-phase is currently being edited via a
+/// nested `PhaseEditorSheet`. `.sheet(item:)` drives the presentation;
+/// `onSave` on the nested sheet writes back to the right branch.
+private struct SubPhaseEditContext: Identifiable {
+  let id = UUID()
+  let branch: ConditionalBranch
+  var phase: EditablePhase
+}
+
+// swiftlint:disable type_body_length
 /// A modal sheet for creating or editing a single phase.
 ///
 /// Displays a type picker at the top, then type-dependent fields below.
@@ -10,8 +25,16 @@ struct PhaseEditorSheet: View {
   @State var phase: EditablePhase
   let onSave: (EditablePhase) -> Void
 
+  /// Phase types selectable in the picker. Call sites pass
+  /// `PhaseType.allCases.filter { $0 != .conditional }` when opening the
+  /// sheet for a nested sub-phase of a conditional — this is how the
+  /// depth-1 rule is enforced at the UI layer. The validator and loader
+  /// have the same check as a safety net.
+  var availableTypes: [PhaseType] = PhaseType.allCases
+
   @State private var newOutputFieldName: String = ""
   @State private var newOptionText: String = ""
+  @State private var editingSubPhase: SubPhaseEditContext?
 
   var body: some View {
     NavigationStack {
@@ -36,6 +59,31 @@ struct PhaseEditorSheet: View {
           }
         }
       }
+      .sheet(item: $editingSubPhase) { context in
+        // Nested editor — filter `.conditional` out of the picker so the
+        // depth-1 rule is enforced at the UI layer (the validator + loader
+        // also reject nested conditional as defense in depth).
+        PhaseEditorSheet(
+          phase: context.phase,
+          onSave: { edited in
+            writeBackSubPhase(edited, context: context)
+          },
+          availableTypes: PhaseType.allCases.filter { $0 != .conditional }
+        )
+      }
+    }
+  }
+
+  private func writeBackSubPhase(_ edited: EditablePhase, context: SubPhaseEditContext) {
+    switch context.branch {
+    case .then:
+      if let index = phase.thenPhases.firstIndex(where: { $0.id == context.phase.id }) {
+        phase.thenPhases[index] = edited
+      }
+    case .else:
+      if let index = phase.elsePhases.firstIndex(where: { $0.id == context.phase.id }) {
+        phase.elsePhases[index] = edited
+      }
     }
   }
 
@@ -44,7 +92,7 @@ struct PhaseEditorSheet: View {
   private var typeSection: some View {
     Section {
       Picker("Type", selection: $phase.type) {
-        ForEach(PhaseType.allCases, id: \.self) { type in
+        ForEach(availableTypes, id: \.self) { type in
           HStack {
             Text(type.rawValue)
             if type.requiresLLM {
@@ -128,6 +176,85 @@ struct PhaseEditorSheet: View {
       summarizeSection
     case .speakAll, .eliminate:
       EmptyView()
+    case .conditional:
+      conditionalSection
+    }
+  }
+
+  private var conditionalSection: some View {
+    Group {
+      Section {
+        TextField(
+          "e.g. max_score >= 10",
+          text: $phase.condition,
+          axis: .vertical
+        )
+        .font(.body.monospaced())
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+      } header: {
+        Text("Condition")
+      } footer: {
+        Text(
+          "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. "
+            + "Identifiers: current_round, total_rounds, max_score, min_score, "
+            + "eliminated_count, active_count, vote_winner, scores.<Name>, "
+            + "or any template variable. Wrap string literals in double quotes."
+        )
+        .font(.caption)
+      }
+
+      branchSection(
+        title: "Then branch (condition true)",
+        phases: $phase.thenPhases,
+        branch: .then
+      )
+      branchSection(
+        title: "Else branch (condition false)",
+        phases: $phase.elsePhases,
+        branch: .else
+      )
+    }
+  }
+
+  @ViewBuilder
+  private func branchSection(
+    title: String,
+    phases: Binding<[EditablePhase]>,
+    branch: ConditionalBranch
+  ) -> some View {
+    Section(title) {
+      ForEach(phases.wrappedValue) { subPhase in
+        Button {
+          editingSubPhase = SubPhaseEditContext(branch: branch, phase: subPhase)
+        } label: {
+          HStack {
+            Text(subPhase.type.rawValue)
+              .font(.body.monospaced())
+              .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+              .foregroundStyle(.secondary)
+              .font(.caption)
+          }
+        }
+      }
+      .onDelete { indexSet in
+        phases.wrappedValue.remove(atOffsets: indexSet)
+      }
+      .onMove { source, destination in
+        // Within-branch reorder only — cross-branch drag is deliberately
+        // unsupported in v1 (tracked as a follow-up).
+        phases.wrappedValue.move(fromOffsets: source, toOffset: destination)
+      }
+
+      Button {
+        let newPhase = EditablePhase()
+        phases.wrappedValue.append(newPhase)
+        editingSubPhase = SubPhaseEditContext(branch: branch, phase: newPhase)
+      } label: {
+        Label("Add sub-phase", systemImage: "plus.circle")
+      }
     }
   }
 
@@ -260,6 +387,8 @@ struct PhaseEditorSheet: View {
     case .assign: return "Distribute info to agents (code)"
     case .eliminate: return "Remove most-voted agent (code)"
     case .summarize: return "Format round summary (code)"
+    case .conditional: return "Branch on state (code, then/else sub-phases)"
     }
   }
 }
+// swiftlint:enable type_body_length

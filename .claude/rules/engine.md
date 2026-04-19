@@ -30,6 +30,7 @@ includes them.
 | assign      | Code       | Distribute info to agents            |
 | eliminate   | Code       | Remove most-voted agent              |
 | summarize   | Code       | Format round summary                 |
+| conditional | Control    | Branch on state DSL; nests sub-phases |
 
 ### PhaseHandler Protocol
 
@@ -38,7 +39,10 @@ nonisolated public struct PhaseContext: Sendable {
     public let scenario: Scenario
     public let phase: Phase
     public let llm: LLMService
+    public let suspendController: SuspendController
     public let emitter: @Sendable (SimulationEvent) -> Void
+    public let pauseCheck: @Sendable (_ phasePath: [Int]) async -> Bool
+    public let phasePath: [Int]
 }
 
 nonisolated public protocol PhaseHandler: Sendable {
@@ -49,6 +53,20 @@ nonisolated public protocol PhaseHandler: Sendable {
 `PhaseContext` bundles the read-only parameters; `state` remains `inout` as
 the only mutable argument. Handlers are registered in PhaseDispatcher as a
 [PhaseType: PhaseHandler] dictionary.
+
+`phasePath` identifies the handler's position in the scenario. Top-level
+handlers get `[K]`; handlers that dispatch sub-phases (conditional today,
+event_inject / reflect later) append the sub-phase index so inner lifecycle
+events can be attributed to their enclosing branch. `pauseCheck` is a narrow
+bridge onto `SimulationRunner.checkPaused`; handlers running sub-phases
+must call it between each one so the user's pause request is honored at
+sub-phase granularity, and `.simulationPaused` remains single-emitter
+(the runner, never a handler).
+
+Since `SimulationViewModel.currentPhaseType` is set from `.phaseStarted`
+events, a nested `.phaseStarted` temporarily shadows `currentPhaseType`
+with the inner phase type. Consumers that need exact phase attribution for
+a given event must read the event's own `phaseType`, not `currentPhaseType`.
 
 ### SimulationRunner Output
 
@@ -79,15 +97,54 @@ vote:       agentCount per round
 choose:     agentCount × 2 for round_robin (N adjacent pairs, 2 calls each)
             agentCount for individual (no pairing)
 score_calc/assign/eliminate/summarize: 0 (code phases)
+conditional: max(sum(thenPhases), sum(elsePhases))  — only one branch
+             runs per invocation, so `max` matches execution semantics
+             and doesn't artificially block asymmetric-branch designs
 
 total = sum(phase estimates) × scenario.rounds
 ```
+
+The same `max` reduction is used for BOTH the >50 warning and the >100
+hard cap (see `ScenarioLoader.estimatePhase`). Using `sum(both)` anywhere
+would over-count by construction — a rarely-taken expensive branch would
+reject scenarios that in practice spend ≤ `max` inferences per round.
 
 ### Pairing Data Flow (choose phase)
 
 `ChooseHandler` populates `Pairing.action1` / `Pairing.action2` after LLM inference
 for each agent in a round-robin pair. These fields are `nil` before execution.
 `ScoreCalcHandler` and `SummarizeHandler` read the populated actions for scoring and display.
+
+### Conditional Phase (depth-1 only)
+
+YAML shape:
+
+```yaml
+- type: conditional
+  if: "max_score >= 10"       # single-comparison DSL, see ConditionEvaluator
+  then:
+    - type: summarize
+      template: "Game over — someone hit the threshold"
+  else:
+    - type: speak_all
+      prompt: "Keep going"
+      output: { statement: string }
+```
+
+Rules enforced at both `ScenarioLoader` (YAML path) and `ScenarioValidator`
+(programmatic construction path):
+
+- `if:` must be non-empty after trimming whitespace
+- at least one of `then:` / `else:` must contain at least one sub-phase
+- nested `conditional` inside a branch is rejected (**depth-1 only**). Follow-up
+  issues relax this once `&&` / `||` combinators land in the DSL.
+
+`ConditionalHandler` additionally enforces depth-1 structurally — it holds
+a sub-handler dict that omits `.conditional`, so a nested conditional that
+slipped past both validators would throw at dispatch time rather than
+recurse. Data-layer `SimulationRecord.currentPhaseIndex: Int` remains the
+top-level resume marker for now; distinguishing sub-phase turns in the
+persistence layer is tracked as a follow-up issue.
 
 ## JSON Response Parser
 
@@ -131,9 +188,11 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
     case roundStarted(round: Int, totalRounds: Int)
     case roundCompleted(round: Int, scores: [String: Int])
 
-    // Phase lifecycle
-    case phaseStarted(phaseType: PhaseType, phaseIndex: Int)
-    case phaseCompleted(phaseType: PhaseType, phaseIndex: Int)
+    // Phase lifecycle. `phasePath` is `[K]` for top-level phase K; nested
+    // sub-phases carry `[K, N]` so future phase types with sub-phases
+    // (conditional / event_inject / reflect) share one identifier shape.
+    case phaseStarted(phaseType: PhaseType, phasePath: [Int])
+    case phaseCompleted(phaseType: PhaseType, phasePath: [Int])
 
     // Agent outputs (LLM phases)
     case agentOutput(agent: String, output: TurnOutput, phaseType: PhaseType)
@@ -152,7 +211,11 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
 
     // Simulation lifecycle
     case simulationCompleted
-    case simulationPaused(round: Int, phaseIndex: Int)
+    // Emitted only by `SimulationRunner.checkPaused`; handlers must not
+    // emit this case directly. Nested handlers invoke pause through
+    // `PhaseContext.pauseCheck`, which routes back to the single runner-
+    // owned emit point.
+    case simulationPaused(round: Int, phasePath: [Int])
     case error(SimulationError)
 
     // Progress (for UI feedback during long inferences)
