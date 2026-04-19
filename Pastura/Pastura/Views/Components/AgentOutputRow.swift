@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if DEBUG
+  import os
+#endif
+
 /// Displays a single agent's output with an optional inner thought and an
 /// LLM-chat-style typing animation for the latest row.
 ///
@@ -64,9 +68,27 @@ struct AgentOutputRow: View {
   /// ``streamingPrimary``.
   var streamingThought: String?
 
+  /// Row-identity tag surfaced in `#if DEBUG` diagnostics (StreamingDiag
+  /// category). `nil` in release — the param itself is non-gated so call
+  /// sites don't need conditional compilation. Pass `entry.id.uuidString`
+  /// for committed rows or `"stream-<agent>"` for the in-flight row.
+  /// Consumed only by the onAppear / onDisappear / handleStreamTargetChange
+  /// log sites so #133 PR#4 device-run sessions can distinguish "same
+  /// entry recycled" from "different entry shown in the same slot."
+  var debugRowID: String?
+
   @State private var showInnerThought = false
   @State private var visibleChars: Int = 0
   @State private var animationTask: Task<Void, Never>?
+  #if DEBUG
+    /// Per-`@State`-lifecycle UUID for the row. Fresh value on every
+    /// `@State` reinitialisation (e.g., `LazyVStack` recycles the view off
+    /// and on screen) — Hypothesis B evidence. Correlate with `debugRowID`:
+    /// same `debugRowID` but different `debugInstanceID` on successive
+    /// `.onAppear` = the view was torn down and rebuilt, and `visibleChars`
+    /// reset to 0 is the observable symptom.
+    @State private var debugInstanceID = UUID()
+  #endif
   /// Monotonic counter bumped once per reveal-task creation. The task's
   /// `defer` uses it to skip both the `animationTask` nil-out and the
   /// `onAnimatingChange?(false)` notification when a newer task has
@@ -103,7 +125,10 @@ struct AgentOutputRow: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .fixedSize(horizontal: false, vertical: true)
     .padding(.vertical, 4)
-    .onAppear { startAnimationIfNeeded() }
+    .onAppear {
+      logDebugLifecycle(event: "onAppear")
+      startAnimationIfNeeded()
+    }
     .onChange(of: isLatest) { _, newValue in
       if !newValue { snapToFull() }
     }
@@ -117,7 +142,10 @@ struct AgentOutputRow: View {
     // also kick it back on.
     .onChange(of: streamingPrimary) { _, _ in handleStreamTargetChange() }
     .onChange(of: streamingThought) { _, _ in handleStreamTargetChange() }
-    .onDisappear { animationTask?.cancel() }
+    .onDisappear {
+      logDebugLifecycle(event: "onDisappear")
+      animationTask?.cancel()
+    }
   }
 
   // MARK: - Subviews
@@ -320,6 +348,15 @@ struct AgentOutputRow: View {
   /// branch instead of freezing until commit.
   private func handleStreamTargetChange() {
     let target = targetLength
+    #if DEBUG
+      // Emit before the gate so the device log shows every streaming-growth
+      // notification regardless of whether it triggers a task restart.
+      let taskNil = animationTask == nil
+      let taskCancelled = animationTask?.isCancelled == true
+      SimulationViewModel.streamingDiagLogger.info(
+        "streamTargetChange rowID=\(self.debugRowID ?? "nil", privacy: .public) agent=\(self.agent, privacy: .public) visibleChars=\(self.visibleChars) newTarget=\(target) taskNil=\(taskNil) taskCancelled=\(taskCancelled)"
+      )
+    #endif
     if !shouldAnimate {
       visibleChars = target
       return
@@ -377,4 +414,18 @@ struct AgentOutputRow: View {
   private var resolvedThought: String? {
     streamingThought ?? output.innerThought
   }
+
+  #if DEBUG
+    /// Emit a lifecycle breadcrumb for #133 PR#4 Hyp B (LazyVStack `@State`
+    /// recycle) investigation. Reads `debugInstanceID` into a local so the
+    /// log line carries a stable UUID for the current `@State` lifetime; a
+    /// second onAppear with a different UUID for the same `debugRowID`
+    /// indicates the row was torn down and rebuilt.
+    private func logDebugLifecycle(event: String) {
+      let streaming = streamingPrimary != nil || streamingThought != nil
+      SimulationViewModel.streamingDiagLogger.info(
+        "\(event, privacy: .public) rowID=\(self.debugRowID ?? "nil", privacy: .public) agent=\(self.agent, privacy: .public) phase=\(self.phaseType.rawValue, privacy: .public) visibleChars=\(self.visibleChars) target=\(self.targetLength) streaming=\(streaming) instance=\(self.debugInstanceID.uuidString, privacy: .public)"
+      )
+    }
+  #endif
 }
