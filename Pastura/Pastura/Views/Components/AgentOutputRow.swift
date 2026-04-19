@@ -134,7 +134,11 @@ struct AgentOutputRow: View {
       .font(.body)
       // Streaming grows `streamingPrimary` token-by-token; SwiftUI would
       // otherwise animate the Text's string change implicitly and the
-      // re-laid-out glyphs cross-fade visibly. No-op on replay.
+      // re-laid-out glyphs cross-fade visibly. Keyed on `streamingPrimary`
+      // (not `fullText`) so the replay path — where `streamingPrimary`
+      // stays nil and the typing-reveal concat trick drives visible
+      // changes through `visibleChars` — keeps its default animation
+      // behaviour unchanged.
       .animation(nil, value: streamingPrimary)
   }
 
