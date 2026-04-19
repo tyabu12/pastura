@@ -77,11 +77,22 @@ nonisolated struct ConditionalHandler: PhaseHandler {
         return
       }
 
+      // Resolve the handler BEFORE emitting `phaseStarted` so a
+      // missing-handler throw doesn't leave a dangling started-without-
+      // completed event in the stream (the outer `.phaseStarted(.conditional)`
+      // / `.phaseCompleted(.conditional)` pair from the runner still brackets
+      // the whole failure path).
+      guard let handler = subHandlers[subPhase.type] else {
+        throw SimulationError.scenarioValidationFailed(
+          "Phase type '\(subPhase.type.rawValue)' is not allowed inside a "
+            + "conditional branch (depth-1 rule)."
+        )
+      }
+
       context.emitter(.phaseStarted(phaseType: subPhase.type, phasePath: innerPath))
 
-      // Scope each sub-phase's context to itself — the dispatcher resolves
-      // a handler based on `phase.type`, and the sub-handler sees the
-      // nested path as its own `phasePath`.
+      // Scope each sub-phase's context to itself — the sub-handler sees
+      // the nested path as its own `phasePath`.
       let subContext = PhaseContext(
         scenario: context.scenario,
         phase: subPhase,
@@ -92,13 +103,14 @@ nonisolated struct ConditionalHandler: PhaseHandler {
         phasePath: innerPath
       )
 
-      guard let handler = subHandlers[subPhase.type] else {
-        throw SimulationError.scenarioValidationFailed(
-          "Phase type '\(subPhase.type.rawValue)' is not allowed inside a "
-            + "conditional branch (depth-1 rule)."
-        )
+      do {
+        try await handler.execute(context: subContext, state: &state)
+      } catch {
+        // Ensure lifecycle pairing even when the sub-handler throws, then
+        // rethrow so the runner can surface the error.
+        context.emitter(.phaseCompleted(phaseType: subPhase.type, phasePath: innerPath))
+        throw error
       }
-      try await handler.execute(context: subContext, state: &state)
 
       context.emitter(.phaseCompleted(phaseType: subPhase.type, phasePath: innerPath))
     }

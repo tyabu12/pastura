@@ -154,47 +154,51 @@ nonisolated struct ScenarioLoader: Sendable {
   }
 
   /// Strict-throw on unknown, mirroring PhaseType. See issue #108.
-  private func parseAssignTarget(_ raw: Any?, phaseIndex: Int) throws -> AssignTarget? {
+  private func parseAssignTarget(_ raw: Any?, label: String) throws -> AssignTarget? {
     guard let targetStr = raw as? String else { return nil }
     guard let parsed = AssignTarget(rawValue: targetStr) else {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(phaseIndex) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
+        "\(label) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
       )
     }
     return parsed
   }
 
-  private func parsePairing(_ raw: Any?, phaseIndex: Int) throws -> PairingStrategy? {
+  private func parsePairing(_ raw: Any?, label: String) throws -> PairingStrategy? {
     guard let str = raw as? String else { return nil }
     guard let parsed = PairingStrategy(rawValue: str) else {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(phaseIndex) has invalid pairing: '\(str)'. Use 'round_robin'."
+        "\(label) has invalid pairing: '\(str)'. Use 'round_robin'."
       )
     }
     return parsed
   }
 
-  private func parseLogic(_ raw: Any?, phaseIndex: Int) throws -> ScoreCalcLogic? {
+  private func parseLogic(_ raw: Any?, label: String) throws -> ScoreCalcLogic? {
     guard let str = raw as? String else { return nil }
     guard let parsed = ScoreCalcLogic(rawValue: str) else {
       let allowed = ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(phaseIndex) has invalid logic: '\(str)'. Expected one of: \(allowed)."
+        "\(label) has invalid logic: '\(str)'. Expected one of: \(allowed)."
       )
     }
     return parsed
   }
 
   private func mapPhase(_ dict: [String: Any], index: Int) throws -> Phase {
-    try mapPhase(dict, index: index, depth: 0)
+    try mapPhase(dict, label: "Phase \(index)", depth: 0)
   }
 
   /// Maps a phase dictionary, recursively descending into conditional
   /// branches. `depth == 0` is top-level; `depth >= 1` rejects nested
   /// `.conditional` to defend the depth-1 rule at parse time
   /// (the validator has the same check for non-YAML construction paths).
-  private func mapPhase(_ dict: [String: Any], index: Int, depth: Int) throws -> Phase {
-    let phaseType = try parsePhaseType(dict, index: index, depth: depth)
+  ///
+  /// `label` is used in error messages: top-level calls pass `"Phase K"`,
+  /// nested calls pass `"Phase K.then[N]"` / `"Phase K.else[N]"` so the
+  /// user can locate the offending sub-phase in their YAML.
+  private func mapPhase(_ dict: [String: Any], label: String, depth: Int) throws -> Phase {
+    let phaseType = try parsePhaseType(dict, label: label, depth: depth)
 
     let prompt = dict["prompt"] as? String
     let template = dict["template"] as? String
@@ -202,10 +206,10 @@ nonisolated struct ScenarioLoader: Sendable {
     let excludeSelf = dict["exclude_self"] as? Bool
     let options = dict["options"] as? [String]
 
-    let target = try parseAssignTarget(dict["target"], phaseIndex: index)
+    let target = try parseAssignTarget(dict["target"], label: label)
     let outputSchema = parseOutputSchema(dict)
-    let pairing = try parsePairing(dict["pairing"], phaseIndex: index)
-    let logic = try parseLogic(dict["logic"], phaseIndex: index)
+    let pairing = try parsePairing(dict["pairing"], label: label)
+    let logic = try parseLogic(dict["logic"], label: label)
 
     // speak_each rounds → subRounds
     let subRounds = dict["rounds"] as? Int
@@ -214,9 +218,9 @@ nonisolated struct ScenarioLoader: Sendable {
     // Recursively descend with depth+1 so nested conditional is rejected here.
     let condition = dict["if"] as? String
     let thenPhases = try mapBranch(
-      dict["then"], branchLabel: "then", parentIndex: index, depth: depth)
+      dict["then"], branchLabel: "then", parentLabel: label, depth: depth)
     let elsePhases = try mapBranch(
-      dict["else"], branchLabel: "else", parentIndex: index, depth: depth)
+      dict["else"], branchLabel: "else", parentLabel: label, depth: depth)
 
     return Phase(
       type: phaseType,
@@ -237,19 +241,19 @@ nonisolated struct ScenarioLoader: Sendable {
   }
 
   private func parsePhaseType(
-    _ dict: [String: Any], index: Int, depth: Int
+    _ dict: [String: Any], label: String, depth: Int
   ) throws -> PhaseType {
     guard let typeString = dict["type"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Phase \(index) missing 'type'")
+      throw SimulationError.scenarioValidationFailed("\(label) missing 'type'")
     }
     guard let phaseType = PhaseType(rawValue: typeString) else {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(index) has invalid type: '\(typeString)'"
+        "\(label) has invalid type: '\(typeString)'"
       )
     }
     if phaseType == .conditional && depth > 0 {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(index): nested 'conditional' inside another conditional is not "
+        "\(label): nested 'conditional' inside another conditional is not "
           + "allowed (depth-1 rule)."
       )
     }
@@ -266,16 +270,20 @@ nonisolated struct ScenarioLoader: Sendable {
   }
 
   private func mapBranch(
-    _ raw: Any?, branchLabel: String, parentIndex: Int, depth: Int
+    _ raw: Any?, branchLabel: String, parentLabel: String, depth: Int
   ) throws -> [Phase]? {
     guard let phasesRaw = raw else { return nil }
     guard let list = phasesRaw as? [[String: Any]] else {
       throw SimulationError.scenarioValidationFailed(
-        "Phase \(parentIndex): '\(branchLabel)' must be an array of phase objects"
+        "\(parentLabel): '\(branchLabel)' must be an array of phase objects"
       )
     }
     return try list.enumerated().map { subIndex, subRaw in
-      try mapPhase(subRaw, index: subIndex, depth: depth + 1)
+      try mapPhase(
+        subRaw,
+        label: "\(parentLabel).\(branchLabel)[\(subIndex)]",
+        depth: depth + 1
+      )
     }
   }
 

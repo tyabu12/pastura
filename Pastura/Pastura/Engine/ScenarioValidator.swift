@@ -81,7 +81,7 @@ nonisolated struct ScenarioValidator: Sendable {
       case .assign:
         try validateAssignPhase(phase, index: index, scenario: scenario)
       case .conditional:
-        try validateConditionalPhase(phase, index: index, depth: 0)
+        try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
       case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
       }
@@ -91,41 +91,8 @@ nonisolated struct ScenarioValidator: Sendable {
   private func validateAssignPhase(
     _ phase: Phase, index: Int, scenario: Scenario
   ) throws {
-    let phaseLabel = "Phase \(index + 1) (assign)"
-
-    // Shape validation requires both a source key and a resolved value.
-    // Skip if source is nil or key is absent from extraData (Visual Editor compat).
-    guard let sourceKey = phase.source, let sourceValue = scenario.extraData[sourceKey] else {
-      return
-    }
-
-    let effectiveTarget = phase.target ?? .all
-
-    // Exhaustive switches on AssignTarget and AnyCodableValue: adding a case
-    // forces a validation decision here — do not paper over with `default:`.
-    switch effectiveTarget {
-    case .all:
-      switch sourceValue {
-      case .array, .string:
-        break
-      case .arrayOfDictionaries, .dictionary:
-        throw SimulationError.scenarioValidationFailed(
-          "\(phaseLabel): source '\(sourceKey)' contains grouped values (e.g., majority/minority pairs). "
-            + "Use target: random_one to distribute these. "
-            + "Use target: all only for a flat list of strings or a single string."
-        )
-      }
-    case .randomOne:
-      switch sourceValue {
-      case .arrayOfDictionaries:
-        break
-      case .array, .string, .dictionary:
-        throw SimulationError.scenarioValidationFailed(
-          "\(phaseLabel): source '\(sourceKey)' must be a list of grouped values "
-            + "(e.g., majority/minority pairs) when target is random_one."
-        )
-      }
-    }
+    try validateAssignPhaseShape(
+      phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
   }
 
   /// Enforces the conditional-phase invariants that the construction-time
@@ -138,7 +105,7 @@ nonisolated struct ScenarioValidator: Sendable {
   ///   check on the YAML path, and this covers non-YAML construction (tests,
   ///   editors, future migrations).
   private func validateConditionalPhase(
-    _ phase: Phase, index: Int, depth: Int
+    _ phase: Phase, index: Int, scenario: Scenario, depth: Int
   ) throws {
     let phaseLabel = "Phase \(index + 1) (conditional)"
     let trimmedCondition = (phase.condition ?? "").trimmingCharacters(
@@ -164,18 +131,67 @@ nonisolated struct ScenarioValidator: Sendable {
       )
     }
 
-    try validateBranch(phase.thenPhases ?? [], parentLabel: phaseLabel, branchLabel: "then")
-    try validateBranch(phase.elsePhases ?? [], parentLabel: phaseLabel, branchLabel: "else")
+    try validateBranch(
+      phase.thenPhases ?? [], parentLabel: phaseLabel, branchLabel: "then",
+      scenario: scenario)
+    try validateBranch(
+      phase.elsePhases ?? [], parentLabel: phaseLabel, branchLabel: "else",
+      scenario: scenario)
   }
 
+  /// Recursively validates each sub-phase in a conditional branch.
+  ///
+  /// Rejects nested `.conditional` (depth-1 rule) and applies the same
+  /// semantic checks we run at the top level — e.g., an `assign` phase
+  /// with mismatched target/source shape still errors when buried inside
+  /// a `then:` or `else:` branch.
   private func validateBranch(
-    _ phases: [Phase], parentLabel: String, branchLabel: String
+    _ phases: [Phase], parentLabel: String, branchLabel: String, scenario: Scenario
   ) throws {
-    for (subIndex, subPhase) in phases.enumerated() where subPhase.type == .conditional {
-      throw SimulationError.scenarioValidationFailed(
-        "\(parentLabel): '\(branchLabel)' phase \(subIndex + 1) is another "
-          + "conditional, which is not allowed (depth-1 rule)."
-      )
+    for (subIndex, subPhase) in phases.enumerated() {
+      let subLabel = "\(parentLabel) \(branchLabel)[\(subIndex + 1)]"
+      if subPhase.type == .conditional {
+        throw SimulationError.scenarioValidationFailed(
+          "\(subLabel) is another conditional, which is not allowed (depth-1 rule)."
+        )
+      }
+      if subPhase.type == .assign {
+        try validateAssignPhaseShape(subPhase, label: subLabel, scenario: scenario)
+      }
+    }
+  }
+
+  /// Shared shape-check for assign phases, callable from both the top-level
+  /// and the nested branch paths.
+  private func validateAssignPhaseShape(
+    _ phase: Phase, label: String, scenario: Scenario
+  ) throws {
+    guard let sourceKey = phase.source, let sourceValue = scenario.extraData[sourceKey] else {
+      return
+    }
+    let effectiveTarget = phase.target ?? .all
+    switch effectiveTarget {
+    case .all:
+      switch sourceValue {
+      case .array, .string:
+        return
+      case .arrayOfDictionaries, .dictionary:
+        throw SimulationError.scenarioValidationFailed(
+          "\(label): source '\(sourceKey)' contains grouped values (e.g., majority/minority pairs). "
+            + "Use target: random_one to distribute these. "
+            + "Use target: all only for a flat list of strings or a single string."
+        )
+      }
+    case .randomOne:
+      switch sourceValue {
+      case .arrayOfDictionaries:
+        return
+      case .array, .string, .dictionary:
+        throw SimulationError.scenarioValidationFailed(
+          "\(label): source '\(sourceKey)' must be a list of grouped values "
+            + "(e.g., majority/minority pairs) when target is random_one."
+        )
+      }
     }
   }
 }

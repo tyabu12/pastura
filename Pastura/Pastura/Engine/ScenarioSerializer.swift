@@ -132,24 +132,33 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   /// Serializes an array of branch sub-phases at the given indent depth.
   ///
-  /// Reuses `serializePhase` but replaces the top-level two-space `  -`
-  /// prefix with a deeper indent so nested phases align under their
-  /// `then:` / `else:` key.
+  /// Reuses `serializePhase` (which emits lines at "top-level" indentation:
+  /// `  - type: ...` for the list marker and `    key: ...` for body lines,
+  /// with block-scalar continuation lines at `      ...`). Nested branches
+  /// need the same lines shifted uniformly by `indent - 2` spaces so that
+  /// block-scalar continuation offsets are preserved.
+  ///
+  /// `serializePhase` returns an array of strings, but individual elements
+  /// may themselves contain embedded `\n` (block scalars are pre-joined by
+  /// `yamlBlockScalar`). We split on `\n` before padding so every emitted
+  /// YAML line gets the shift — otherwise multi-line `prompt:` / `template:`
+  /// values would lose their content-indent and produce unparseable YAML.
   private func serializeBranch(_ phases: [Phase], indent: Int) -> [String] {
+    // `serializePhase` starts its first line at column 2 (`  - type: ...`).
+    // The caller wants the list marker at `indent - 2` spaces (so body
+    // lines land at `indent`, and block-scalar content lands at `indent + 2`).
+    let shift = indent - 2
+    guard shift > 0 else {
+      // Branch indent ≤ top-level indent means no shift is needed; return
+      // the inner lines verbatim.
+      return phases.flatMap { serializePhase($0) }
+    }
+    let pad = String(repeating: " ", count: shift)
     var lines: [String] = []
-    let prefix = String(repeating: " ", count: indent)
     for phase in phases {
-      let inner = serializePhase(phase)
-      // `serializePhase` emits `  - type: ...` then `    key: ...` lines.
-      // Re-indent those to sit under the parent's then/else block.
-      for (offset, line) in inner.enumerated() {
-        if offset == 0 {
-          // First line starts with "  - "; re-emit at the new indent.
-          let stripped = line.drop(while: { $0 == " " })
-          lines.append("\(prefix.dropLast(2))\(stripped)")
-        } else {
-          let stripped = line.drop(while: { $0 == " " })
-          lines.append("\(prefix)\(stripped)")
+      for chunk in serializePhase(phase) {
+        for line in chunk.split(separator: "\n", omittingEmptySubsequences: false) {
+          lines.append(pad + line)
         }
       }
     }

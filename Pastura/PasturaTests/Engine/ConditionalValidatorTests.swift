@@ -143,4 +143,36 @@ struct ConditionalValidatorTests {
       try validator.validate(scenario)
     }
   }
+
+  // Regression: sub-phase semantic checks (e.g. assign target/source shape)
+  // must run inside conditional branches, not only at the top level.
+  @Test func rejectsAssignShapeMismatchInThenBranch() {
+    let scenario = Scenario(
+      id: "t", name: "T", description: "t",
+      agentCount: 2, rounds: 1, context: "c",
+      personas: [
+        Persona(name: "A", description: "a"),
+        Persona(name: "B", description: "b")
+      ],
+      phases: [
+        Phase(
+          type: .conditional,
+          condition: "current_round == 1",
+          thenPhases: [
+            // target .all with arrayOfDictionaries source is the exact
+            // shape bug `validateAssignPhaseShape` exists to catch.
+            Phase(type: .assign, source: "topics", target: .all)
+          ]
+        )
+      ],
+      extraData: [
+        "topics": .arrayOfDictionaries([
+          ["majority": "cat", "minority": "dog"]
+        ])
+      ]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
 }
