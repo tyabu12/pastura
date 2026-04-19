@@ -55,6 +55,11 @@ struct AgentOutputRow: View {
   @State private var showInnerThought = false
   @State private var visibleChars: Int = 0
   @State private var animationTask: Task<Void, Never>?
+  /// Monotonic counter bumped once per reveal-task creation. Used by
+  /// the task's `defer` to clear `animationTask` only when the task
+  /// completing (naturally or via cancel) is still the current one —
+  /// otherwise a stale completion could clobber a newer task's reference.
+  @State private var animationGeneration: Int = 0
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -199,28 +204,39 @@ struct AgentOutputRow: View {
 
     animationTask?.cancel()
     let delayNanos = UInt64(1_000_000_000.0 / cps)
-    let primaryLen = primaryText?.count ?? 0
-    // Full content string for character lookup. `showAllThoughts` may toggle
-    // mid-typing; `targetLength` controls the cap, but the underlying
-    // characters are always here. Streaming overrides are honoured via
-    // `resolvedThought` so punctuation pauses keep working while tokens
-    // arrive live.
-    let fullContent = (primaryText ?? "") + (resolvedThought ?? "")
+
+    // Bump generation so the task's `defer` can tell whether it is still
+    // the "current" task when it completes. Without this, a naturally
+    // finishing old task could null out `animationTask` after a newer
+    // task was assigned to it.
+    animationGeneration += 1
+    let myGeneration = animationGeneration
 
     onAnimatingChange?(true)
     animationTask = Task { @MainActor in
-      defer { onAnimatingChange?(false) }
-      // Re-read `targetLength` each tick so a mid-typing `showAllThoughts`
-      // flip to true extends the animation into the thought without restart.
+      defer {
+        onAnimatingChange?(false)
+        if animationGeneration == myGeneration { animationTask = nil }
+      }
+      // Re-read `targetLength`, `primaryText`, and `resolvedThought`
+      // every tick. `targetLength` covers `showAllThoughts` mid-typing
+      // flips. The other two cover live streaming growth: under
+      // ``streamingPrimary`` / ``streamingThought``, those values grow
+      // token-by-token, and a one-shot capture at task creation would
+      // leave punctuation lookup and the statement→thought boundary
+      // check running against stale text.
       while !Task.isCancelled && visibleChars < targetLength {
         try? await Task.sleep(nanoseconds: delayNanos)
         if Task.isCancelled { return }
         let newPosition = min(visibleChars + 1, targetLength)
         visibleChars = newPosition
 
+        let currentPrimaryLen = primaryText?.count ?? 0
+        let currentFullContent = (primaryText ?? "") + (resolvedThought ?? "")
+
         // Punctuation-aware pause: after revealing a sentence terminator or
         // comma, wait a little longer so the reader registers the beat.
-        let revealed = characterAt(index: newPosition - 1, in: fullContent)
+        let revealed = characterAt(index: newPosition - 1, in: currentFullContent)
         let extraMs = revealed.map(punctuationPauseMs(after:)) ?? 0
         if extraMs > 0 {
           try? await Task.sleep(nanoseconds: UInt64(extraMs) * 1_000_000)
@@ -230,7 +246,7 @@ struct AgentOutputRow: View {
         // Statement → thought boundary beat: when we've just finished the
         // primary text and there's thought still to type, insert a rhetorical
         // pause before switching to italic thought reveal.
-        if newPosition == primaryLen && primaryLen < targetLength {
+        if newPosition == currentPrimaryLen && currentPrimaryLen < targetLength {
           try? await Task.sleep(
             nanoseconds: UInt64(statementToThoughtPauseMs) * 1_000_000)
           if Task.isCancelled { return }
@@ -252,22 +268,31 @@ struct AgentOutputRow: View {
     visibleChars = targetLength
   }
 
-  /// React to a mid-stream primary / thought update. Cancels the current
-  /// reveal task (if any) and starts a fresh one, so the `fullContent`
-  /// capture inside the task always reflects the latest streaming
-  /// buffer. Skips restart entirely when target is already fully
-  /// revealed — the existing loop may have exited naturally and there
-  /// is nothing more to animate.
+  /// React to a mid-stream primary / thought update.
+  ///
+  /// The reveal task re-reads `targetLength`, `primaryText`, and
+  /// `resolvedThought` on every tick (see ``startAnimationIfNeeded``),
+  /// so a running task absorbs streaming growth without needing a
+  /// cancel/restart. The previous per-token cancel/restart was the
+  /// suspected cause of B5 thought-tail flicker: the outgoing task's
+  /// `defer` and the incoming task's initial `Task.sleep` opened a
+  /// sub-frame window where `visibleChars` did not advance.
+  ///
+  /// The gate mirrors ``handleShowAllThoughtsChange``. When the reveal
+  /// task finishes naturally between tokens (possible when `cps` exceeds
+  /// the stream rate), its `defer` clears `animationTask` via the
+  /// generation check, so the next growth tick falls into the restart
+  /// branch instead of freezing until commit.
   private func handleStreamTargetChange() {
     let target = targetLength
     if !shouldAnimate {
       visibleChars = target
       return
     }
-    if visibleChars < target {
-      animationTask?.cancel()
+    if visibleChars < target, animationTask == nil || animationTask?.isCancelled == true {
       startAnimationIfNeeded()
     }
+    // else: running task's loop picks up the new target on its next tick.
   }
 
   /// React to a mid-typing `showAllThoughts` flip on the latest row:
