@@ -119,12 +119,69 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// row animates; earlier rows render full text immediately).
   private(set) var latestAgentOutputId: UUID?
 
+  /// In-flight streaming snapshot for the currently-generating agent.
+  ///
+  /// Populated by ``SimulationEvent/agentOutputStream(agent:primary:thought:)``
+  /// when the partial parser has confirmed a primary key's opening
+  /// quote (i.e., `primary != nil`). `SimulationView` renders this as a
+  /// live row below the committed log entries; the reveal animation in
+  /// `AgentOutputRow` tracks the growing buffer at the user's chosen
+  /// `charsPerSecond`.
+  ///
+  /// Cleared on ``SimulationEvent/agentOutput(agent:output:phaseType:)``
+  /// (finalization — the committed `LogEntry` takes over display) and
+  /// on ``SimulationEvent/inferenceStarted(agent:)`` (stale snapshot
+  /// from a previous attempt should not leak across inferences).
+  /// Only one is live at a time because the Engine runs inferences
+  /// sequentially (ADR-002 §6).
+  private(set) var streamingSnapshot: StreamingSnapshot?
+
+  /// Entry IDs whose primary text was already revealed live via
+  /// ``SimulationEvent/agentOutputStream(agent:primary:thought:)`` before
+  /// the committing ``SimulationEvent/agentOutput(agent:output:phaseType:)``
+  /// arrived. ``effectiveCharsPerSecond(forEntryId:)`` returns `nil` for
+  /// these so `AgentOutputRow` snaps to full instead of retyping content
+  /// the user already watched stream.
+  ///
+  /// Side-set rather than a flag on `LogEntry.Kind` because this is a
+  /// display-only concern — `LogEntry.Kind` sits next to the persistence /
+  /// export boundary and should not grow display-layer fields. Reset per
+  /// `run()`; never persisted. See #133 for the longer-term redesign of
+  /// the streaming display path.
+  private(set) var prerevealedAgentOutputIds: Set<UUID> = []
+
+  nonisolated struct StreamingSnapshot: Equatable, Sendable {
+    let agent: String
+    let primary: String
+    let thought: String?
+    let phaseType: PhaseType
+  }
+
   // Running totals for weighted tok/s. See `averageTokensPerSecond`.
   private var totalCompletionTokens = 0
   private var totalInferenceSeconds: Double = 0
   // Default ON: inner thoughts provide interpretive context without drawbacks.
   var showAllThoughts = true
   var speed: PlaybackSpeed = .normal
+
+  /// Chars-per-second to use for the committed `AgentOutputRow` of `entryId`,
+  /// or `nil` when the row must not animate.
+  ///
+  /// Centralising this decision here (rather than inlining the conditional
+  /// in `SimulationView`) keeps the regression from #132-QA — committed
+  /// rows retyping text the user just watched stream — pinned at the VM
+  /// boundary where it can be unit-tested. The view has one call site,
+  /// and any future code that renders an `.agentOutput` entry must go
+  /// through this helper to get the display timing right.
+  ///
+  /// Returns `nil` when:
+  /// - the entry was pre-revealed via streaming (`prerevealedAgentOutputIds`),
+  ///   or
+  /// - the user has chosen `.instant` playback (`speed.charsPerSecond == nil`).
+  func effectiveCharsPerSecond(forEntryId entryId: UUID) -> Double? {
+    if prerevealedAgentOutputIds.contains(entryId) { return nil }
+    return speed.charsPerSecond
+  }
 
   /// Read-only view of the runner's pause state. Views observe this to drive
   /// the pause-button label and "Paused" pill. **Mutation must go through
@@ -335,6 +392,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     isCancelled = false
     errorMessage = nil
     logEntries = []
+    // Latent: a second `run()` on the same VM instance would otherwise inherit
+    // these from the previous simulation — `latestAgentOutputId` points at a
+    // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
+    // stale in-flight row under a brand-new scenario.
+    latestAgentOutputId = nil
+    streamingSnapshot = nil
+    prerevealedAgentOutputIds = []
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
     totalRounds = scenario.rounds
@@ -427,7 +491,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Event Handling
 
   // internal (not private) to allow direct unit testing via @testable import
-  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {
+  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {  // swiftlint:disable:this cyclomatic_complexity
+
     switch event {
     case .roundStarted(let round, let total):
       handleRoundStarted(round: round, total: total)
@@ -449,6 +514,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       break
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
+    case .agentOutputStream(let agent, let primary, let thought):
+      handleAgentOutputStream(agent: agent, primary: primary, thought: thought)
     case .simulationCompleted:
       isCompleted = true
     case .error(let simError):
@@ -456,6 +523,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       logEntries.append(LogEntry(kind: .error("\(simError)")))
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
+      // A new inference starts: any leftover snapshot from a previous
+      // attempt (parse retry, different agent) must not linger in the UI.
+      streamingSnapshot = nil
     case .inferenceCompleted(let agent, let seconds, let tokens):
       thinkingAgents.remove(agent)
       handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
@@ -534,6 +604,31 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
     let filtered = contentFilter.filter(output)
+    // Divergence telemetry: compare the last streamed snapshot against
+    // the canonical parser result for the same inference. A mismatch
+    // here means the partial extractor showed the user something that
+    // the canonical parse later contradicted — exactly the failure
+    // mode the critic flagged. Debug-level so it stays available for
+    // future investigation without polluting production logs.
+    if let snapshot = streamingSnapshot, snapshot.agent == agent {
+      let canonicalPrimary = filtered.primaryText(for: phaseType) ?? ""
+      if !canonicalPrimary.hasPrefix(snapshot.primary) {
+        lifecycleLogger.debug(
+          "stream divergence: agent=\(agent, privacy: .public), snapshot primary \(snapshot.primary.prefix(40), privacy: .public) is not a prefix of canonical \(canonicalPrimary.prefix(40), privacy: .public)"
+        )
+      }
+    }
+    // If snapshot was active for this agent the user has already watched
+    // the primary stream live, so the committed AgentOutputRow must not
+    // retype it (see `effectiveCharsPerSecond(forEntryId:)`).
+    //
+    // Note: `contentFilter.filter(output)` above may rewrite the primary,
+    // so the committed snap can differ from what streamed. Acceptable:
+    // filter rewrites are rare and already surface via divergence
+    // telemetry; any transition UX on that edge belongs to the #133
+    // streaming-display redesign, not here.
+    let wasStreamed = streamingSnapshot?.agent == agent
+    streamingSnapshot = nil
     let entry = LogEntry(
       kind: .agentOutput(agent: agent, output: filtered, phaseType: phaseType))
     logEntries.append(entry)
@@ -541,8 +636,50 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation to only the latest row — older rows snap to full text when
     // this id flips.
     latestAgentOutputId = entry.id
+    if wasStreamed { prerevealedAgentOutputIds.insert(entry.id) }
     thinkingAgents.remove(agent)
     persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
+  }
+
+  /// Update the in-flight streaming snapshot from a partial-parser
+  /// emission. `nil` primary means the primary key's opening quote has
+  /// not arrived yet — we keep `thinkingAgents` populated so the UI
+  /// continues to show the "thinking" indicator.
+  ///
+  /// Gated by ``FeatureFlags/realtimeStreamingEnabled``. When disabled,
+  /// events are silently dropped so the UI falls back to the
+  /// pre-streaming flow (thinking indicator → committed row at
+  /// `.agentOutput`). LLMCaller still produces the events but they
+  /// become no-ops here; the cost is negligible.
+  private func handleAgentOutputStream(
+    agent: String, primary: String?, thought: String?
+  ) {
+    guard FeatureFlags.realtimeStreamingEnabled else { return }
+    guard let primary else { return }
+    // Defensive: drop the event if we somehow see a stream before
+    // `.phaseStarted`. The snapshot needs a correct `phaseType` so
+    // `AgentOutputRow.primaryText` pulls the right fields on the
+    // committed row; a silent fallback to `.speakAll` would hide the
+    // ordering bug. Symmetric with the `primary == nil` drop above —
+    // if any required precondition is missing, defer to `.agentOutput`
+    // for display instead of rendering a partial row under the wrong
+    // phase.
+    guard let phaseType = currentPhaseType else { return }
+    // Past the opening quote — the streaming row now has real content.
+    // Remove the "thinking" indicator (the live row takes over display).
+    thinkingAgents.remove(agent)
+    // Match the filtering that `handleAgentOutput` applies at commit — the
+    // in-flight snapshot is a user-visible display surface, so it must
+    // pass through ContentFilter for App Store compliance. A partial
+    // prefix of a blocked pattern still displays raw until the pattern
+    // completes (e.g. "fu" then "fuck" → "***"); that residual leakage
+    // is inherent to streaming and tracked in #133.
+    streamingSnapshot = StreamingSnapshot(
+      agent: agent,
+      primary: contentFilter.filter(primary),
+      thought: thought.map { contentFilter.filter($0) },
+      phaseType: phaseType
+    )
   }
 
   private func handleScoreUpdate(scores newScores: [String: Int]) {

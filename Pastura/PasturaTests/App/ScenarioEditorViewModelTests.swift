@@ -5,6 +5,7 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
+// swiftlint:disable:next type_body_length
 struct ScenarioEditorViewModelTests {
   private static let validYAML = """
     id: editor_test
@@ -201,6 +202,172 @@ struct ScenarioEditorViewModelTests {
     #expect(sut.scenarioId == "editor_test")  // ID from YAML content
     #expect(sut.scenarioName == "Editor Test")
     #expect(sut.personas.count == 2)
+  }
+
+  // MARK: - extraData Round-Trip
+
+  /// Verifies that `.array` extraData (bokete-shaped `topics` list) survives a
+  /// visual-edit round-trip via switchToYAMLMode → ScenarioLoader.
+  @Test func loadFromTemplatePreservesArrayExtraData() throws {
+    let yaml = """
+      id: bokete_test
+      name: Bokete Test
+      description: Bokete-shaped scenario
+      agents: 2
+      rounds: 1
+      context: Context
+      topics:
+        - Photo A
+        - Photo B
+        - Photo C
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: assign
+          source: topics
+          target: random_one
+      """
+    let sut = try makeSUT()
+    sut.loadFromTemplate(yaml: yaml)
+
+    sut.switchToYAMLMode()
+    let reloaded = try ScenarioLoader().load(yaml: sut.yamlText)
+
+    #expect(reloaded.extraData["topics"] == .array(["Photo A", "Photo B", "Photo C"]))
+  }
+
+  /// Verifies that `.arrayOfDictionaries` extraData (word_wolf-shaped `words` list) survives
+  /// a visual-edit round-trip.
+  @Test func loadFromTemplatePreservesArrayOfDictionariesExtraData() throws {
+    let yaml = """
+      id: word_wolf_test
+      name: Word Wolf Test
+      description: Word-wolf-shaped scenario
+      agents: 2
+      rounds: 1
+      context: Context
+      words:
+        - majority: dog
+          minority: cat
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: assign
+          source: words
+          target: random_one
+      """
+    let sut = try makeSUT()
+    sut.loadFromTemplate(yaml: yaml)
+
+    sut.switchToYAMLMode()
+    let reloaded = try ScenarioLoader().load(yaml: sut.yamlText)
+
+    #expect(
+      reloaded.extraData["words"] == .arrayOfDictionaries([["majority": "dog", "minority": "cat"]])
+    )
+  }
+
+  /// Verifies that a `.string` extraData value survives a visual-edit round-trip.
+  @Test func loadFromTemplatePreservesStringExtraData() throws {
+    let yaml = """
+      id: string_extra_test
+      name: String Extra Test
+      description: Scenario with string extraData
+      agents: 2
+      rounds: 1
+      context: Context
+      topic: "Hello"
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    let sut = try makeSUT()
+    sut.loadFromTemplate(yaml: yaml)
+
+    sut.switchToYAMLMode()
+    let reloaded = try ScenarioLoader().load(yaml: sut.yamlText)
+
+    #expect(reloaded.extraData["topic"] == .string("Hello"))
+  }
+
+  /// Verifies that a `.dictionary` extraData value survives a visual-edit round-trip.
+  @Test func loadFromTemplatePreservesDictionaryExtraData() throws {
+    let yaml = """
+      id: dict_extra_test
+      name: Dict Extra Test
+      description: Scenario with dictionary extraData
+      agents: 2
+      rounds: 1
+      context: Context
+      config:
+        key1: value1
+        key2: value2
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    let sut = try makeSUT()
+    sut.loadFromTemplate(yaml: yaml)
+
+    sut.switchToYAMLMode()
+    let reloaded = try ScenarioLoader().load(yaml: sut.yamlText)
+
+    #expect(reloaded.extraData["config"] == .dictionary(["key1": "value1", "key2": "value2"]))
+  }
+
+  /// Verifies that extraData survives the full visual→YAML→visual→YAML mode cycle.
+  @Test func modeSwitchPreservesExtraData() throws {
+    let yaml = """
+      id: roundtrip_test
+      name: Round-Trip Test
+      description: Mode-switch round-trip
+      agents: 2
+      rounds: 1
+      context: Context
+      topics:
+        - Alpha
+        - Beta
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: assign
+          source: topics
+          target: random_one
+      """
+    let sut = try makeSUT()
+    sut.loadFromTemplate(yaml: yaml)
+
+    // visual → YAML → visual → YAML
+    sut.switchToYAMLMode()
+    let switched = sut.switchToVisualMode()
+    #expect(switched)
+    sut.switchToYAMLMode()
+
+    let reloaded = try ScenarioLoader().load(yaml: sut.yamlText)
+    #expect(reloaded.extraData["topics"] == .array(["Alpha", "Beta"]))
   }
 
   // MARK: - Helpers

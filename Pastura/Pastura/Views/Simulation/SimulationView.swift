@@ -137,6 +137,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 .id(entry.id)
             }
 
+            // Live streaming row for the in-flight inference (if any).
+            // Appears once the partial parser has confirmed the primary
+            // key's opening quote; before that, the "thinking" indicator
+            // below stays visible. Rendered ABOVE the thinking indicators
+            // so users never see "X is thinking..." and live tokens for
+            // X at the same time.
+            if let snapshot = viewModel.streamingSnapshot {
+              AgentOutputRow(
+                agent: snapshot.agent,
+                output: TurnOutput(fields: [:]),
+                phaseType: snapshot.phaseType,
+                showAllThoughts: viewModel.showAllThoughts,
+                isLatest: false,
+                charsPerSecond: viewModel.speed.charsPerSecond,
+                streamingPrimary: snapshot.primary,
+                streamingThought: snapshot.thought
+              )
+              .padding(.horizontal)
+              .id("streaming-\(snapshot.agent)")
+            }
+
             // Thinking indicators — suppressed while the latest row is still
             // typing, so "X is thinking..." doesn't jump ahead of text the
             // user is still reading.
@@ -175,6 +196,29 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           // Typing just finished: the thinking indicator (if any) became
           // visible; bring it into view.
           if !nowAnimating { scrollToBottom(proxy) }
+        }
+        // Live streaming row lifecycle + growth.
+        //
+        // Unlike the pseudo-typing path (where the concat trick
+        // `Text(visible) + Text(hidden).clear` pre-establishes the final
+        // layout, so the row height stays fixed as chars fill in), the
+        // streaming row's `streamingPrimary` itself grows per token, so
+        // the row height grows too — without following it, long outputs
+        // disappear past the bottom of the viewport.
+        //
+        // Branches:
+        // - Agent transition (`nil → X`, `X → nil`, or `X → Y`): animated
+        //   scroll to mark the "new speaker" / commit moment.
+        // - Content growth within the same agent: raw `scrollTo` without
+        //   `withAnimation`. The default 0.35s implicit animation would
+        //   compound across token arrivals (~20/s) into visible stutter.
+        //   `bottomSentinelID` is idempotent when already pinned to bottom.
+        .onChange(of: viewModel.streamingSnapshot) { old, new in
+          if old?.agent != new?.agent {
+            scrollToBottom(proxy)
+          } else if new != nil {
+            proxy.scrollTo(Self.bottomSentinelID, anchor: .bottom)
+          }
         }
       }
 
@@ -281,7 +325,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         agent: agent, output: output, phaseType: phaseType,
         showAllThoughts: viewModel.showAllThoughts,
         isLatest: isLatest,
-        charsPerSecond: viewModel.speed.charsPerSecond,
+        // Display timing is a VM decision — rows whose primary was
+        // already revealed via streaming must not retype (returns nil).
+        charsPerSecond: viewModel.effectiveCharsPerSecond(forEntryId: entry.id),
         // Only the latest row drives the typing-state gate; older rows
         // never animate so their callbacks would be no-ops, but we guard
         // here anyway to keep the signal unambiguous.

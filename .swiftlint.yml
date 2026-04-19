@@ -4,6 +4,9 @@ included:
 
 excluded:
   - Pastura/Resources
+  # Workspace-relative DerivedData lands here; don't lint SPM checkouts
+  # + Xcode-generated build artifacts.
+  - Pastura/DerivedData
 
 disabled_rules:
   - line_length          # YAML-heavy string literals exceed 120 chars

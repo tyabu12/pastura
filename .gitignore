@@ -1,6 +1,11 @@
 # Xcode
 build/
 DerivedData/
+
+# Xcode metadata file written as a SIBLING of workspace-relative DerivedData
+# (at Pastura/.derived-data-log-*, not inside DerivedData/), so the rule above
+# doesn't cover it.
+.derived-data-log-*
 Pastura/Pastura.xcodeproj/project.xcworkspace/xcuserdata/
 Pastura/Pastura.xcodeproj/xcuserdata/
 *.pbxuser

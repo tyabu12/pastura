@@ -40,6 +40,18 @@ struct AgentOutputRow: View {
   /// still rendering.
   var onAnimatingChange: ((Bool) -> Void)?
 
+  /// Live streaming override for the primary text. When non-nil, replaces
+  /// the phase-derived value from `output` — used by ``SimulationView``
+  /// for the in-flight agent row while token-by-token streaming grows
+  /// the visible text. The reveal animation continues to apply (tokens
+  /// arriving faster than `charsPerSecond` are queued, slower ones
+  /// surface immediately), so UX stays consistent with playback speed.
+  var streamingPrimary: String?
+
+  /// Live streaming override for `inner_thought`. Same semantics as
+  /// ``streamingPrimary``.
+  var streamingThought: String?
+
   @State private var showInnerThought = false
   @State private var visibleChars: Int = 0
   @State private var animationTask: Task<Void, Never>?
@@ -70,6 +82,13 @@ struct AgentOutputRow: View {
     .onChange(of: showAllThoughts) { _, _ in
       handleShowAllThoughtsChange()
     }
+    // Live streaming: when the parent-supplied snapshot grows, extend the
+    // reveal. Target length is re-read on every animation tick, so if the
+    // loop is already running it picks up the new target for free — but
+    // the loop may have exited (previous target fully revealed), so we
+    // also kick it back on.
+    .onChange(of: streamingPrimary) { _, _ in handleStreamTargetChange() }
+    .onChange(of: streamingThought) { _, _ in handleStreamTargetChange() }
     .onDisappear { animationTask?.cancel() }
   }
 
@@ -89,7 +108,7 @@ struct AgentOutputRow: View {
 
   @ViewBuilder
   private func thoughtSection() -> some View {
-    if let thought = output.innerThought, !thought.isEmpty {
+    if let thought = resolvedThought, !thought.isEmpty {
       if showAllThoughts {
         // Auto-reveal path — participates in the unified typing counter.
         autoThoughtView(fullText: thought)
@@ -151,12 +170,20 @@ struct AgentOutputRow: View {
   /// thoughts are globally visible. Button-toggle reveal bypasses this.
   private var targetLength: Int {
     let primary = primaryText?.count ?? 0
-    let thought = showAllThoughts ? (output.innerThought?.count ?? 0) : 0
+    let thought = showAllThoughts ? (resolvedThought?.count ?? 0) : 0
     return primary + thought
   }
 
+  /// Whether this row should run the character-reveal animation. The
+  /// live-streaming path (``streamingPrimary`` / ``streamingThought``
+  /// non-nil) always animates — the parent grows those values as tokens
+  /// arrive, and the reveal loop re-reads the target each tick so the
+  /// display tracks the incoming stream at `charsPerSecond`. The replay
+  /// path (no streaming override) only animates when this is the latest
+  /// row, matching past-results playback.
   private var shouldAnimate: Bool {
-    isLatest && charsPerSecond != nil
+    guard charsPerSecond != nil else { return false }
+    return isLatest || streamingPrimary != nil || streamingThought != nil
   }
 
   // MARK: - Animation control
@@ -175,8 +202,10 @@ struct AgentOutputRow: View {
     let primaryLen = primaryText?.count ?? 0
     // Full content string for character lookup. `showAllThoughts` may toggle
     // mid-typing; `targetLength` controls the cap, but the underlying
-    // characters are always here.
-    let fullContent = (primaryText ?? "") + (output.innerThought ?? "")
+    // characters are always here. Streaming overrides are honoured via
+    // `resolvedThought` so punctuation pauses keep working while tokens
+    // arrive live.
+    let fullContent = (primaryText ?? "") + (resolvedThought ?? "")
 
     onAnimatingChange?(true)
     animationTask = Task { @MainActor in
@@ -223,6 +252,24 @@ struct AgentOutputRow: View {
     visibleChars = targetLength
   }
 
+  /// React to a mid-stream primary / thought update. Cancels the current
+  /// reveal task (if any) and starts a fresh one, so the `fullContent`
+  /// capture inside the task always reflects the latest streaming
+  /// buffer. Skips restart entirely when target is already fully
+  /// revealed — the existing loop may have exited naturally and there
+  /// is nothing more to animate.
+  private func handleStreamTargetChange() {
+    let target = targetLength
+    if !shouldAnimate {
+      visibleChars = target
+      return
+    }
+    if visibleChars < target {
+      animationTask?.cancel()
+      startAnimationIfNeeded()
+    }
+  }
+
   /// React to a mid-typing `showAllThoughts` flip on the latest row:
   /// - `true` → target extends; keep animating (the running loop re-reads target).
   ///   If the loop already finished primary and exited, restart it.
@@ -242,20 +289,32 @@ struct AgentOutputRow: View {
     // else: animation is running and will naturally advance to new target.
   }
 
-  /// Extracts the primary display text from the output based on phase type.
+  /// Extracts the primary display text.
+  ///
+  /// Live streaming rows pass ``streamingPrimary``; this takes precedence
+  /// over the phase-derived value from `output` so the partial LLM
+  /// output grows in place instead of materialising from the final
+  /// parsed fields. Completed rows (no streaming override) fall through
+  /// to the existing phase-specific extraction.
   private var primaryText: String? {
+    if let streamingPrimary { return streamingPrimary }
     switch phaseType {
     case .speakAll, .speakEach:
-      output.statement ?? output.declaration ?? output.boke
+      return output.statement ?? output.declaration ?? output.boke
     case .vote:
-      output.vote.map { vote in
+      return output.vote.map { vote in
         let reason = output.reason.map { " (\($0))" } ?? ""
         return "→ \(vote)\(reason)"
       }
     case .choose:
-      output.action ?? output.declaration
+      return output.action ?? output.declaration
     default:
-      output.fields.values.first
+      return output.fields.values.first
     }
+  }
+
+  /// Inner thought text, honouring the streaming override when present.
+  private var resolvedThought: String? {
+    streamingThought ?? output.innerThought
   }
 }

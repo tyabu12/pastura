@@ -49,6 +49,26 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
     }
     return value
   }
+
+  /// Phase-aware extraction of the "primary" display text — the string
+  /// that represents an agent's main visible action for the phase type.
+  /// Used by UI and by streaming divergence telemetry to align a partial
+  /// extractor snapshot with the canonical parse result.
+  public func primaryText(for phaseType: PhaseType) -> String? {
+    switch phaseType {
+    case .speakAll, .speakEach:
+      return statement ?? declaration ?? boke
+    case .vote:
+      return vote.map { voted in
+        let reasonPart = reason.map { " (\($0))" } ?? ""
+        return "→ \(voted)\(reasonPart)"
+      }
+    case .choose:
+      return action ?? declaration
+    default:
+      return fields.values.first
+    }
+  }
 }
 
 /// Errors related to accessing ``TurnOutput`` fields.

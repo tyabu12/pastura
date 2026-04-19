@@ -1,10 +1,20 @@
 #!/bin/bash
-# Resolve a usable iOS Simulator destination for xcodebuild.
-# Sources into the caller's shell and exports DEST.
+# Resolve a usable iOS Simulator destination for xcodebuild and export a
+# workspace-relative DerivedData path. Sources into the caller's shell and
+# exports DEST and DERIVED_DATA.
 #
 # Usage:
 #   source scripts/sim-dest.sh
-#   xcodebuild test ... -destination "$DEST"
+#   xcodebuild test ... -destination "$DEST" -derivedDataPath "$DERIVED_DATA"
+#
+# Why DERIVED_DATA: Xcode.app honors Workspace-relative DerivedData via
+# xcshareddata/WorkspaceSettings.xcsettings, but `xcodebuild` CLI ignores
+# that file entirely. Passing -derivedDataPath keeps CLI test runs aligned
+# with the GUI layout (Pastura/DerivedData/) so `git worktree remove`
+# auto-cleans all build artifacts.
+#
+# NOTE: pass -derivedDataPath with a SPACE separator, not `=`. The `=` form
+# is silently ignored by xcodebuild (known since Xcode 15.4).
 #
 # Uses UDID-based destination to avoid OS version mismatch when
 # xcodebuild defaults to OS:latest (e.g., iPhone 16 has only iOS 26.3
@@ -66,9 +76,23 @@ _simdest_name=$(echo "$_simdest_result" | cut -d'|' -f2)
 _simdest_os=$(echo "$_simdest_result" | cut -d'|' -f3)
 
 export DEST="platform=iOS Simulator,id=$_simdest_udid"
-echo "Selected simulator: $_simdest_name ($_simdest_os) [id=$_simdest_udid]"
 
-unset _simdest_result _simdest_udid _simdest_name _simdest_os _simdest_errfile
+# Matches the Xcode.app GUI's Workspace-relative DerivedData layout
+# (Pastura/DerivedData/), so the CLI and GUI share one build cache per
+# worktree. Removing a worktree therefore cleans both.
+# Guard: if sourced from outside a git worktree, fail loud and restore
+# the caller's shell options before returning (otherwise set -e would
+# abort the script with pipefail still active in the caller's shell).
+_simdest_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "Error: scripts/sim-dest.sh must be sourced from inside the git worktree." >&2
+  eval "$_simdest_old_opts"
+  return 1 2>/dev/null || exit 1
+}
+export DERIVED_DATA="$_simdest_repo_root/Pastura/DerivedData"
+echo "Selected simulator: $_simdest_name ($_simdest_os) [id=$_simdest_udid]"
+echo "DerivedData path: $DERIVED_DATA"
+
+unset _simdest_result _simdest_udid _simdest_name _simdest_os _simdest_errfile _simdest_repo_root
 eval "$_simdest_old_opts"
 # return when sourced, exit when executed directly
 return 0 2>/dev/null || exit 0
