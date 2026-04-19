@@ -121,7 +121,147 @@ separate sub-issues and ship in separate PRs. This PR is docs-only.
 
 ## 3. Data Format (YAML Schema)
 
-*(Section stub — filled in subsequent commit.)*
+### 3.1 Shape
+
+A single demo replay is one YAML document at
+`Pastura/Pastura/Resources/DemoReplays/<slug>.yaml`. Three top-level
+sections:
+
+- `preset_ref` — which shipped scenario preset this recording targets,
+  plus a hash-based drift guard (§3.3).
+- `metadata` — display / audit fields used by curator and optional
+  future viewer UI.
+- `turns` — the pre-recorded event sequence, one entry per rendered
+  LLM output (or code-phase event).
+
+Scenario definition (personas, phases, score rules) is *not* inlined.
+At load time the replay locates its `preset_ref.id` in the already-
+bundled presets and uses that scenario as the render context.
+
+### 3.2 Full schema (v1)
+
+```yaml
+schema_version: 1
+
+preset_ref:
+  id: word_wolf              # must match a shipped preset id (Resources/Presets/*.yaml or DB isPreset=true)
+  version: "1.0"             # informational; surface mismatches in CI, not at runtime
+  yaml_sha256: 9f…           # REQUIRED — SHA-256 of the preset YAML as shipped at record time
+
+metadata:
+  title: Word Wolf — spot the imposter
+  description: Four agents vote on who holds the different word.
+  language: ja               # ISO 639-1; Phase 2 ship is ja-only
+  recorded_at: 2026-04-15T12:00:00Z
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true   # §3.4 — curator asserts record-time ContentFilter coverage
+  total_turns: 12
+  estimated_duration_ms: 90000   # at the speed captured; playback multiplier is independent
+  captured_by: tyabu12           # pseudonymous identifier; §6 stash flow
+
+turns:
+  - round: 1
+    phase_index: 0               # indexes into preset.phases at load time
+    phase_type: speak_all        # denormalised for cheap consistency check
+    agent: Alice                 # must exist in preset.personas
+    fields:                      # matches TurnOutput.fields shape
+      statement: "I think the word might be 'cat'."
+      inner_thought: "The others seem confident."
+    delay_ms_before: 1200        # natural inter-turn pace; playback speed multiplies this
+  - round: 1
+    phase_index: 0
+    phase_type: speak_all
+    agent: Bob
+    fields:
+      statement: "…"
+    delay_ms_before: 800
+  # …
+
+code_phase_events:               # optional; present if the preset has score_calc / scenario-gen phases
+  - round: 2
+    phase_index: 3
+    phase_type: score_calc
+    summary: "Scores updated: Alice +1, Bob +1"
+    delay_ms_before: 500
+```
+
+Notes on field choices:
+
+- **`phase_index` + `phase_type` together.** Index is the source of truth
+  for rendering; `phase_type` is a denormalised safety check caught by
+  the CI guard (§3.3) to detect preset drift that reorders phases without
+  changing sha.
+- **`fields` dict, not typed accessors.** Mirrors `TurnOutput.fields:
+  [String: String]` so the replay can construct a `TurnOutput` without
+  a separate schema layer.
+- **`delay_ms_before` on every entry.** Playback multiplier (§4) scales
+  all delays uniformly; natural pacing is preserved.
+- **`code_phase_events` separate from `turns`.** Matches Past Results
+  Viewer's separation between agent output and code-phase events
+  (established in #102 / #113).
+
+### 3.3 Preset drift detection and CI guard
+
+The `preset_ref.yaml_sha256` field is load-bearing. At build time:
+
+- A CI script (ships in the Swift implementation PR, not this docs PR)
+  computes SHA-256 of every shipped preset YAML and every bundled demo
+  YAML's `preset_ref.yaml_sha256`. Any bundled demo whose
+  `preset_ref.yaml_sha256` does not match any shipped preset **fails the
+  build**.
+- At runtime, the replay loader re-verifies the hash before presenting
+  the demo. A mismatch causes a **silent skip** to the next demo in the
+  loop (§4), with a diagnostic logged via the existing logging pipeline.
+
+Silent skip is the intended runtime posture — the DL demo surface is
+ambient; a loud error would be worse than a shorter rotation. The CI
+guard is the tight-loop catch that prevents drift from shipping at all.
+
+If a preset changes intentionally (new prompt wording, added phase,
+renamed persona), the curator re-records affected demos and re-computes
+hashes before the PR containing the preset change merges. §5 sets a
+minimum playable count so drift during a preset change cannot leave
+zero playable demos.
+
+### 3.4 Filter policy: at-record AND at-render
+
+`ContentFilter` is applied on **both sides** of the recording boundary:
+
+- **At record time** (curator workflow, §6): the curator reviews recorded
+  YAML and runs the current blocklist against every `fields.*` string
+  and `code_phase_events[].summary`. The `metadata.content_filter_applied:
+  true` flag is set only after manual audit.
+- **At render time** (ADR-005 §5.1 compliance): `ReplayViewModel`
+  invokes `ContentFilter.filter(_:)` on every rendered field, just like
+  the live simulation path. The filter is `nonisolated + Sendable` and
+  idempotent, so the double application is a no-op on already-filtered
+  content but enforces ADR-005 §5.1's "every user-visible display
+  surface MUST pass through `ContentFilter`" invariant without
+  exemption carve-outs.
+
+Why both? Record-time filtering is curation hygiene — the audit point
+where a human decides whether a recording is appropriate before bundling.
+Render-time filtering is *the* compliance checkpoint. Skipping one of
+the two degrades either curation quality or policy compliance; the cost
+of running both is effectively zero.
+
+ADR-007 §4 restates this boundary for the lifecycle reader; this spec
+owns the policy-implementation side.
+
+### 3.5 Schema evolution
+
+`schema_version: 1` is the current shape. Future changes:
+
+- **v2 additive** (e.g. inline `scenario_def` fallback for self-
+  contained demos, or audio annotation tracks): bump to `2`, loader
+  supports both, older demos keep working.
+- **v2 breaking** (e.g. change `turns` from array-of-entries to
+  per-phase grouping): version bump and loader fork; deprecate v1 only
+  after all bundled demos re-recorded.
+
+The loader rejects unknown `schema_version` values with a silent skip
+(matching §3.3's posture) rather than a fatal load — unknown version
+is treated as a kind of drift.
 
 ---
 
