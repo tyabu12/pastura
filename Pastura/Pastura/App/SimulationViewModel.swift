@@ -245,6 +245,28 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // routine state transitions and `error` for unexpected paths so device logs
   // stay readable.
   let lifecycleLogger = Logger(subsystem: "com.pastura", category: "SimulationVM")
+
+  #if DEBUG
+    // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
+    // Shared across VM + `AgentOutputRow`; filter Console.app with
+    // `subsystem:com.pastura category:StreamingDiag` to surface the 2 signals
+    // feeding PR#5 ADR pivot-path decision (Hyp A retry / Hyp B recycle).
+    // `.info` level so it shows without `log config` overrides on-device.
+    static let streamingDiagLogger = Logger(
+      subsystem: "com.pastura", category: "StreamingDiag")
+
+    // Per-agent in-flight attempt counter for Hyp A (parse-retry silent
+    // transition). `LLMCaller.call` emits `.inferenceStarted` +
+    // `.inferenceCompleted` *per attempt* inside its retry loop — so clearing
+    // on `.inferenceCompleted` would collapse the retry signal. We instead
+    // clear on `.agentOutput` (per-turn commit) and on `run()` entry.
+    //
+    // Load-bearing assumption: ADR-002 §6 — the Engine runs inferences
+    // sequentially, so a single `[String: Int]` keyed on agent name cannot
+    // conflate interleaved agents. If Phase 3 ever parallelises `speak_all`,
+    // this dict becomes racy and must be reworked.
+    private var inflightInferenceAttempts: [String: Int] = [:]
+  #endif
   // Non-private so `@testable import` can seed persistence without invoking `run()`.
   internal var simulationId: String?
 
@@ -399,6 +421,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     latestAgentOutputId = nil
     streamingSnapshot = nil
     prerevealedAgentOutputIds = []
+    #if DEBUG
+      inflightInferenceAttempts = [:]
+    #endif
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
     totalRounds = scenario.rounds
@@ -526,6 +551,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // A new inference starts: any leftover snapshot from a previous
       // attempt (parse retry, different agent) must not linger in the UI.
       streamingSnapshot = nil
+      #if DEBUG
+        inflightInferenceAttempts[agent, default: 0] += 1
+        let attempt = inflightInferenceAttempts[agent] ?? 0
+        // Noise-gate: only log retries (attempt ≥ 2). First attempts are every
+        // turn and would drown the signal.
+        if attempt >= 2 {
+          Self.streamingDiagLogger.info(
+            "retry agent=\(agent, privacy: .public) attempt=\(attempt)"
+          )
+        }
+      #endif
     case .inferenceCompleted(let agent, let seconds, let tokens):
       thinkingAgents.remove(agent)
       handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
@@ -603,6 +639,18 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   }
 
   private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
+    #if DEBUG
+      // Turn-commit: emit final tally if it required retries, then clear.
+      // The clear has to sit here (not in `.inferenceCompleted`) because
+      // LLMCaller emits `.inferenceCompleted` per attempt; `.agentOutput`
+      // is the unique "this turn is done" signal.
+      if let total = inflightInferenceAttempts[agent], total > 1 {
+        Self.streamingDiagLogger.info(
+          "committed agent=\(agent, privacy: .public) totalAttempts=\(total)"
+        )
+      }
+      inflightInferenceAttempts[agent] = nil
+    #endif
     let filtered = contentFilter.filter(output)
     // Divergence telemetry: compare the last streamed snapshot against
     // the canonical parser result for the same inference. A mismatch
