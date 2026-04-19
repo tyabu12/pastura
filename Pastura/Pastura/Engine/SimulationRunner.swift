@@ -148,7 +148,10 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         emitter(.summary(text: "⚠️ \(warning)"))
       }
     } catch {
-      emitter(.error(error as? SimulationError ?? .scenarioValidationFailed("\(error)")))
+      emitter(
+        .error(
+          error as? SimulationError
+            ?? .scenarioValidationFailed(readableDescription(error))))
       return
     }
 
@@ -308,7 +311,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         try await handler.execute(context: phaseContext, state: &state)
       } catch {
         ctx.emitter(
-          .error(error as? SimulationError ?? .llmGenerationFailed(description: "\(error)")))
+          .error(
+            error as? SimulationError
+              ?? .llmGenerationFailed(description: readableDescription(error))))
         return true
       }
 

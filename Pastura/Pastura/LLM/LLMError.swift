@@ -30,3 +30,25 @@ nonisolated public enum LLMError: Error, Sendable, Equatable {
   /// consuming retry budget.
   case suspended
 }
+
+/// Provides human-readable descriptions so UI alert handlers can show
+/// `error.localizedDescription` without mapping each case manually.
+extension LLMError: LocalizedError {
+  public var errorDescription: String? {
+    switch self {
+    case .loadFailed(let description):
+      return String(localized: "Model load failed: \(description)")
+    case .generationFailed(let description):
+      return String(localized: "Generation failed: \(description)")
+    case .notLoaded:
+      return String(localized: "Model not loaded")
+    case .invalidResponse(let raw):
+      let snippet = raw.count > 200 ? String(raw.prefix(200)) + "..." : raw
+      return String(localized: "Invalid LLM response: \(snippet)")
+    case .networkError(let description):
+      return String(localized: "Network error: \(description)")
+    case .suspended:
+      return String(localized: "Inference was suspended and will retry")
+    }
+  }
+}
