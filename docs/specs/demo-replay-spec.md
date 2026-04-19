@@ -605,10 +605,162 @@ disabled rather than with ≤ 2 demos (§5.3 fallback).
 
 ## 6. Dev-time Log Stash
 
-*(Section stub — filled in subsequent commit.)*
+Recording the initial MVP demo set and keeping the catalogue fresh
+requires a workflow for capturing promising simulation runs as they
+happen during development. Issue #152 explicitly flagged this as a
+"don't wait until release to record" concern.
+
+### 6.1 Current posture: deferred
+
+This spec **does not** commit to a dev-time log-stash mechanism. The
+design space (below) was surveyed during the Issue-#152 discussion and
+closed as "return to this when the curator workflow needs formalising,
+not before":
+
+- **Candidate mechanism A**: an "Export for demo" button on the Past
+  Results Viewer that writes the current simulation to disk in the §3
+  YAML schema (bypassing the usual Markdown export flow). Curator
+  promotes good stashes into the bundle via PR.
+- **Candidate mechanism B**: a dev-only feature flag
+  (`DEMO_CAPTURE=1` scheme env) that auto-copies every completed
+  simulation's state as YAML to a known location.
+- **Candidate mechanism C**: nothing special — curator manually
+  re-runs scenarios and captures via the implementation PR's YAML
+  export (when added).
+
+### 6.2 Resume triggers
+
+Revisit this decision when any of:
+
+1. The MVP demo set needs expansion (e.g. 3 → 5) and manual
+   re-recording proves friction-heavy.
+2. A Phase 2.5+ `UserSimulationReplaySource` (§4.5) lands — at that
+   point the YAML export flow exists and Candidate A becomes nearly
+   free.
+3. A curator decides to record demos in batch sessions rather than
+   opportunistically, raising the value of automation (Candidate B).
+
+Until one of those triggers fires, curators capture demos with
+whatever ad-hoc method works (screen-recording, manual YAML editing,
+etc.) and the captured files land in `Resources/DemoReplays/` via PR.
+
+### 6.3 Boundary with Markdown export (#91 / #98)
+
+The existing Markdown export (Share Sheet, Phase 2) serves a **different
+purpose** and is not displaced by future YAML export work:
+
+- Markdown export: user-facing share of simulation results (readable
+  by humans, one-way).
+- YAML export (hypothetical, triggered by §6.2): machine-ingestible
+  round-trippable format for replay. This is the same format as the
+  bundled demos (§3) — the future export is literally the inverse of
+  the bundled-demo loader.
+
+The two pipelines coexist without conflict; they serve different
+audiences.
 
 ---
 
 ## 7. Risks and Consequences
 
-*(Section stub — filled in subsequent commit.)*
+Design-time risks identified for this feature. Most are addressed by
+decisions already in §3-§6; this section consolidates the follow-up
+vigilance required during implementation and after ship.
+
+### 7.1 Schema drift on preset changes
+
+**Risk.** A shipped preset YAML (e.g. `prisoners_dilemma`) is edited
+without re-recording the bundled demos that reference it. Runtime
+`yaml_sha256` check silently skips the drifted demos; if enough
+skip, the loop falls to the §5.3 fallback.
+
+**Mitigation.** §3.3 CI guard fails the build on bundled-demo-vs-shipped-
+preset sha mismatch. The implementation PR ships this guard; without
+it, drift lands silently.
+
+### 7.2 Preset id collision
+
+**Risk.** A gallery scenario's id collides with a bundled preset id (see
+`docs/gallery/README.md` — the gallery has its own collision rules with
+presets and other gallery entries). A demo referencing `preset_ref.id:
+prisoners_dilemma` could in principle resolve to either the bundled
+preset or a drifted gallery entry.
+
+**Mitigation.** Demo loader resolves ids **only** against bundled
+presets (not gallery). Gallery-installed scenarios are user-local and
+never participate in demo playback. Implementation PR must honour this
+in the id-resolution code path; tests assert that a gallery entry with
+a colliding id does not shadow the bundled preset for demo purposes.
+
+### 7.3 BG/FG playback jank
+
+**Risk.** When the app backgrounds mid-playback (ADR-007 §3), the event
+stream is suspended. On foreground return, a naive resume could jump
+multiple turns at once (if the VM does not correctly pause its sleep)
+or loop unexpectedly (if the state machine mis-handles re-entry).
+
+**Mitigation.** §4.9 pins resume-from-position semantics. ADR-007 §3
+pins the lifecycle interaction. Integration testing of BG/FG cycles is
+a named acceptance criterion for the implementation PR.
+
+### 7.4 LiteRT-LM migration impact on recorded YAML
+
+**Risk.** ADR-002 forecasts migration from llama.cpp to LiteRT-LM when
+the Swift SDK and iOS GPU support ship. Recorded demo YAML files
+capture the llama.cpp-era outputs. Post-migration, replay still works
+(the format is LLM-agnostic) but the content might read as stale if
+the migrated model's outputs differ qualitatively.
+
+**Mitigation.** `metadata.recorded_with_model` (§3.2) preserves the
+provenance. Post-migration, curator decides whether to re-record based
+on qualitative comparison; the mechanism requires no code changes. A
+future LiteRT-LM recording can coexist with llama.cpp recordings in
+the bundle during the transition window.
+
+### 7.5 Future user-replay with missing scenario definitions
+
+**Risk.** When `UserSimulationReplaySource` (§4.5) lands, it will try
+to resolve `SimulationRecord.scenarioId` to a `Scenario`. If the user
+deleted the referenced scenario (or the scenario's YAML changed such
+that the saved `SimulationRecord.stateJSON` no longer type-matches),
+replay will either fail or render incorrectly.
+
+**Mitigation.** Deferred to Phase 2.5+ implementation — this spec only
+scaffolds the protocol. The future implementation is expected to:
+(a) refuse to build the source with a user-facing "this simulation
+cannot be replayed" message; (b) surface a repair path (re-install the
+scenario, or dismiss).
+
+### 7.6 MVP floor compliance at curation time
+
+**Risk.** Curator records 2 demos, calls them "good enough", ships
+with `DemoReplays/` holding 2 files. §5.2 floor (≥ 3) is violated at
+merge time, not caught by the drift-guard script (which checks sha
+alignment, not count).
+
+**Mitigation.** Implementation PR's CI adds a count check alongside
+the sha drift check. Both are part of the same script, both hard-fail
+the build.
+
+### 7.7 Marketing / recording re-use surface
+
+**Risk.** Bundled demos serve dual purpose — DL-time playback AND
+external marketing (X / YouTube screen capture). A recording
+optimised for silent 2×-playback might not read well in a
+social-media context (too fast, no narration).
+
+**Mitigation.** Curator evaluates recordings against both use cases at
+selection time (§5.6 criteria). This is a curation-process concern,
+not a technical risk; flagged here so it is not forgotten in the
+curator workflow.
+
+### 7.8 Accessibility
+
+**Risk.** Fixed 2× playback with no user controls is hostile to users
+who need slower pacing for cognitive or visual reasons. Phase 2 ships
+without accessibility toggles.
+
+**Mitigation.** This risk is accepted for Phase 2. The §4.9 state
+machine can add a "manual pause / slow" control surface in a later
+revision without changing the data format or VM architecture. Record
+this as a follow-up consideration for accessibility-pass work.
