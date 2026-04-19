@@ -491,7 +491,115 @@ the VM.
 
 ## 5. Bundle Layout, Copy Slots, Multilingual, MVP Scope
 
-*(Section stub — filled in subsequent commit.)*
+### 5.1 Bundle layout
+
+Demo recordings ship bundled with the app under:
+
+```
+Pastura/Pastura/Resources/DemoReplays/
+  <slug>.yaml          # one file per demo
+```
+
+Slugs are kebab-case and match their `metadata.title` only loosely —
+the filename is the stable identifier, `title` is display-only. Target
+3–5 files bundled initially. A manifest is *not* required: the app
+enumerates `*.yaml` under `DemoReplays/` at launch and validates each
+against the schema.
+
+### 5.2 MVP scope floors
+
+To prevent scope drift at curation time, the spec pins the following
+numeric floors. Implementation PR CI (the drift-guard script, §3.3) also
+checks these.
+
+| Constraint | Floor | Ceiling | Rationale |
+|------------|-------|---------|-----------|
+| Number of demos bundled | **≥ 3** | — | Loop behaviour (§4) needs variety; fewer than 3 risks feeling repetitive within a single DL window |
+| Turns per demo | **≥ 6** | — | A single-exchange recording does not read as "a simulation unfolding" — users need to see an arc |
+| Per-demo YAML size | — | **≤ 1 MB** | One bloated demo should not crowd out others |
+| Total `DemoReplays/` size | — | **≤ 3 MB** | Phase 2 bundle-size discipline; the user's original estimate |
+| Minimum *playable* demos at runtime | **≥ 2** | — | After sha-drift silent-skip (§3.3), the playlist must still have ≥ 2 entries — otherwise fall back to a progress-bar-only DL screen (§5.3) |
+
+If the minimum-playable floor is violated at runtime (all but one demo
+skipped due to drift), the DL host view rolls back to the non-demo
+progress-bar UX rather than loop a single demo on repeat. This is the
+failsafe for schema drift detected only after ship.
+
+### 5.3 Fallback when no demos are playable
+
+If zero demos pass validation at launch, the DL-time host shows the
+classic progress-bar-only layout (essentially the current
+`ModelDownloadView`). No user-facing error is shown — the demo feature
+is ambient enhancement, not a required UX element.
+
+The implementation PR's validation pipeline logs the skip reason via
+the existing logging pipeline so the curator/maintainer can notice
+drift even when no user reports it.
+
+### 5.4 Static UI copy slots
+
+The DL-time demo host screen has **three fixed copy slots** surrounding
+the replay area. This spec defines the **roles**; final wording is
+decided at the implementation-PR copy pass (see §2 decision 13).
+
+| Slot | Role | Working draft (JA) | Notes |
+|------|------|---------------------|-------|
+| A. Intro | Single-line framing for what the user is watching | `「AIエージェントが、あなたのiPhoneの中で対話します」` | Tone: product vision in one line |
+| B. Wait | Context for why user is waiting + soften the implied "please watch" | `「少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ」` | Tone: acknowledges wait, invites rather than demands |
+| C. Value | Key differentiators (privacy/offline/cost) | `「広告なし、無料、完全にあなたのデバイス内で動作」` | **Known sales-leaning; refine in copy pass** — Issue #152 author flagged this wording as too sales-y |
+
+All three slots are localisable from day one (§5.5) — even when only
+Japanese is shipped in Phase 2.
+
+The copy pass in the implementation PR is explicitly empowered to
+rewrite any of the three working drafts. The role definitions above are
+the binding constraint; the exact words are not.
+
+### 5.5 Multilingual posture
+
+- **Phase 2 ship**: Japanese only. JA entries in
+  `Localizable.xcstrings` for slots A/B/C. Demo YAML files are JA
+  recordings (`metadata.language: ja`).
+- **EN scaffolding**: the localisation keys exist in
+  `Localizable.xcstrings` from day one, with EN entries left as stubs
+  (either a literal `—` placeholder or the JA text with a
+  `TODO(localisation)` comment — implementation chooses the more
+  consistent pattern with rest of the app).
+- **Phase 3 (future)**: EN demo recordings bundled alongside JA. Demo
+  language selection is driven by device locale, with JA fallback for
+  any non-EN-non-JA locale.
+
+EN *demo recordings* are out of scope for Phase 2 regardless of whether
+the app otherwise supports EN UI. Recording EN demos requires running
+the scenarios against an EN-capable LLM prompt set, which is separate
+curator work.
+
+### 5.6 MVP preset candidates
+
+Working candidate list for the first bundled set (final selection by
+curator at recording time):
+
+- **Word Wolf** — social deduction. Structurally ネタバレ-resistant
+  (the "wolf" is only known post-discussion), which covers the
+  Issue-#152 concern about spoilers.
+- **Prisoner's Dilemma** — game-theory classic, crisp choose-action
+  phases, clear scoreboard arc.
+- **Non-existent animal brainstorm** — creative/collaborative flavour,
+  globally legible premise, light tone.
+
+Selection criteria for curator (not binding on any specific pick):
+
+- Global legibility — no culture-specific references.
+- Visible arc — starts, escalates, resolves within one screen's worth
+  of scroll.
+- Filter cleanliness — the recorded output passes `ContentFilter`
+  without post-edit (if not, re-record).
+- Duration — at 2× playback, one demo should read in under a minute so
+  three demos fit comfortably in a short-to-medium DL window.
+
+The curator picks **at least 3** for MVP shipping (§5.2). If three
+candidates do not pass quality + floor criteria, the feature ships
+disabled rather than with ≤ 2 demos (§5.3 fallback).
 
 ---
 
