@@ -13,11 +13,23 @@ import SwiftUI
 ///
 /// ## Reflow-stable rendering
 ///
-/// Text is rendered as `Text(visible) + Text(hidden).foregroundStyle(.clear)`
-/// so the full string is laid out from the first frame. This keeps line-wrap
-/// positions from shifting as characters appear and lets the parent
-/// `ScrollViewReader` land its single `scrollTo(last.id)` correctly without
-/// mid-typing follow-up scrolls.
+/// **Replay path (non-streaming):** text is rendered as
+/// `Text(visible) + Text(hidden).foregroundStyle(.clear)` so the full string
+/// is laid out from the first frame. This keeps line-wrap positions from
+/// shifting as characters appear and lets the parent `ScrollViewReader`
+/// land its single `scrollTo(last.id)` correctly without mid-typing
+/// follow-up scrolls.
+///
+/// **Streaming path:** the concat trick degenerates because the "final
+/// string" is the partial buffer and grows with each token. Layout
+/// stability is carried instead by a trio of modifiers: the outer VStack
+/// gets `.frame(maxWidth: .infinity, alignment: .leading)` +
+/// `.fixedSize(horizontal: false, vertical: true)` to stabilize the row's
+/// bounding box between token arrivals, and the primary text is tagged
+/// `.animation(nil, value: streamingPrimary)` to suppress SwiftUI's
+/// implicit animation on string growth. Applied unconditionally so the
+/// replay path inherits the same stability guarantees without a
+/// streaming-vs-replay branch.
 ///
 /// ## Interactive paths
 ///
@@ -83,6 +95,13 @@ struct AgentOutputRow: View {
       // Thought: three branches depending on show-mode.
       thoughtSection()
     }
+    // Layout-stability trio (applied unconditionally; see type doc-comment
+    // §"Reflow-stable rendering"). Streaming growth re-runs the text
+    // layout pass per token; pinning the row's horizontal extent and
+    // letting it take its natural vertical size keeps neighbouring
+    // elements from re-flowing on each arrival.
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .fixedSize(horizontal: false, vertical: true)
     .padding(.vertical, 4)
     .onAppear { startAnimationIfNeeded() }
     .onChange(of: isLatest) { _, newValue in
@@ -113,6 +132,10 @@ struct AgentOutputRow: View {
     let hidden = fullText[splitIdx...]
     return (Text(visible) + Text(hidden).foregroundStyle(.clear))
       .font(.body)
+      // Streaming grows `streamingPrimary` token-by-token; SwiftUI would
+      // otherwise animate the Text's string change implicitly and the
+      // re-laid-out glyphs cross-fade visibly. No-op on replay.
+      .animation(nil, value: streamingPrimary)
   }
 
   @ViewBuilder
