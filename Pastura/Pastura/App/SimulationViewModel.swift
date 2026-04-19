@@ -670,10 +670,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     thinkingAgents.remove(agent)
     // Match the filtering that `handleAgentOutput` applies at commit — the
     // in-flight snapshot is a user-visible display surface, so it must
-    // pass through ContentFilter for App Store compliance. A partial
-    // prefix of a blocked pattern still displays raw until the pattern
-    // completes (e.g. "fu" then "fuck" → "***"); that residual leakage
-    // is inherent to streaming and tracked in #133.
+    // pass through ContentFilter for App Store compliance (policy owner:
+    // ADR-005 §5). A partial prefix of a blocked pattern still displays
+    // raw until the pattern completes (e.g. "fu" then "fuck" → "***");
+    // that residual leakage is an accepted risk per ADR-005 §5.3, with
+    // the eventual mechanical fix (if any) riding on the streaming-
+    // display refactor tracked in #133.
     streamingSnapshot = StreamingSnapshot(
       agent: agent,
       primary: contentFilter.filter(primary),
