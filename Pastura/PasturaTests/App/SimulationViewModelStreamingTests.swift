@@ -70,6 +70,41 @@ struct SimulationViewModelStreamingTests {
     #expect(sut.streamingSnapshot?.phaseType == .speakAll)
   }
 
+  // Regression: #132 landed the streaming path but bypassed ContentFilter
+  // at snapshot construction — blocked patterns were visible during
+  // streaming even though the committed AgentOutputRow filtered them.
+  // App Store compliance requires displayed output to pass through the
+  // filter, including the in-flight snapshot. Issue #133 PR#1.
+  @Test func agentOutputStreamAppliesContentFilter() throws {
+    let (sut, scenario) = try makeSUT(
+      contentFilter: ContentFilter(blockedPatterns: ["fuck"], replacement: "***"))
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    sut.handleEvent(
+      .agentOutputStream(
+        agent: "Alice", primary: "what the fuck", thought: "fuck it"),
+      scenario: scenario)
+
+    #expect(sut.streamingSnapshot?.primary == "what the ***")
+    #expect(sut.streamingSnapshot?.thought == "*** it")
+  }
+
+  // Guard against a future refactor that normalises `thought` to "" via
+  // `thought ?? ""` before filtering — that would clobber the signal
+  // `AgentOutputRow` uses to decide whether to render the inner-thought
+  // reveal gate.
+  @Test func agentOutputStreamPreservesNilThought() throws {
+    let (sut, scenario) = try makeSUT(
+      contentFilter: ContentFilter(blockedPatterns: ["fuck"], replacement: "***"))
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phaseIndex: 0), scenario: scenario)
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
+      scenario: scenario)
+
+    #expect(sut.streamingSnapshot?.thought == nil)
+  }
+
   @Test func agentOutputStreamProgressivelyUpdatesSnapshot() throws {
     let (sut, scenario) = try makeSUT()
     sut.handleEvent(
