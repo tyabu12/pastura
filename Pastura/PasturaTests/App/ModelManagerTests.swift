@@ -42,7 +42,9 @@ struct MockModelDownloader: ModelDownloader, Sendable {
 @MainActor
 struct ModelManagerTests {
 
-  private func makeSUT(
+  // Internal (not `private`) so sibling test files extending this suite
+  // (e.g., `ModelManagerTests+ProgressRegression.swift`) can construct an SUT.
+  func makeSUT(
     downloader: any ModelDownloader = MockModelDownloader(),
     physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
     expectedFileSize: Int64 = 0,
@@ -330,4 +332,5 @@ struct ModelManagerTests {
       Issue.record("Expected .ready but got \(sut.state)")
     }
   }
+
 }

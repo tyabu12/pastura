@@ -15,6 +15,52 @@ concurrent Task/AsyncStream cleanup. This applies to integration tests that cons
 Individual unit tests (e.g., handler tests with `MockLLMService`) are safe to run
 in parallel because they await the handler directly without AsyncStream.
 
+## Splitting a Suite Across Files (file_length 400-line cap)
+
+When a `*Tests.swift` file exceeds swiftlint's 400-line `file_length` limit,
+split by adding an `extension` of the suite struct in a sibling file named
+`<Name>Tests+<Feature>.swift` (Apple's `Type+Feature.swift` convention).
+
+**DO NOT** create a new `@Suite` for the split. Swift Testing runs `@Suite`s
+in parallel by default — `.serialized` only orders tests *within* a suite,
+not across them. A new suite that touches shared state (filesystem paths
+under `Application Support` / `Caches`, in-process singletons, etc.) will
+race against the original. Local runs may squeak through on faster machines;
+CI's slower runner is where the race surfaces.
+
+**Pattern:**
+
+```swift
+// ModelManagerTests.swift — original suite, slimmed under 400 lines
+@Suite("ModelManager", .serialized, .timeLimit(.minutes(1)))
+@MainActor
+struct ModelManagerTests {
+  func makeSUT(...) -> ModelManager { ... }   // NOT `private` — see below
+  @Test func ...
+}
+
+// ModelManagerTests+ProgressRegression.swift — sibling
+extension ModelManagerTests {
+  @Test func downloadCompletesWhenDownloaderSkipsTerminalProgress() async {
+    let sut = makeSUT(...)   // Calls into the original file's helper
+  }
+}
+```
+
+**Access modifier:** Helpers the extension calls (`makeSUT`, etc.) must be
+at **internal** access (default — drop `private`). `private` members are
+only visible to extensions in the *same file*; sibling-file extensions
+cannot see them. Widening to module-internal is contained because the test
+target is its own module.
+
+**Helpers** (mocks, observation collectors) live at file scope in the new
+sibling file — they don't need to be members of the suite struct.
+
+**History:** PR #157 (Issue #72) introduced this rule after the throttle
+regression test was originally split into a standalone `@Suite`. The new
+suite raced against `ModelManagerTests/modelNotDownloaded()` on the shared
+model file path; it passed locally but failed on CI.
+
 ## `.timeLimit` Trait on Every Suite (CI-Hang Diagnostic)
 
 Every Swift Testing suite under `Pastura/PasturaTests/` **must** carry

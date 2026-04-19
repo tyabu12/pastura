@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import os
 
 /// State of the on-device LLM model.
 public enum ModelState: Equatable, Sendable {
@@ -177,12 +178,25 @@ final class ModelManager {
 
     state = .downloading(progress: resumeOffset > 0 ? 0.01 : 0.0)
 
+    // Throttle UI updates to ~10 Hz (100ms). URLSession's `didWriteData`
+    // callback fires hundreds of times per second on a 3 GB download; without
+    // throttling, every tick spawned a `Task { @MainActor }` and saturated the
+    // MainActor scheduler for the entire multi-minute download.
+    //
+    // Wrapped in `OSAllocatedUnfairLock` because two callsites mutate it:
+    // production URLSession's serial delegate queue (off-MainActor) and
+    // `MockModelDownloader` in tests (on MainActor).
+    let throttle = OSAllocatedUnfairLock<ProgressThrottle>(initialState: ProgressThrottle())
+    let expectedSize = expectedFileSize
+
     do {
       try await downloader.download(
         from: Self.modelURL,
         resumeOffset: resumeOffset,
         to: downloadFileURL,
         progressHandler: { [weak self] bytesReceived, totalBytes in
+          let shouldEmit = throttle.withLock { $0.shouldEmit(now: .now) }
+          guard shouldEmit else { return }
           Task { @MainActor [weak self] in
             guard let self else { return }
             let progress: Double
@@ -190,13 +204,20 @@ final class ModelManager {
               progress = Double(bytesReceived) / Double(totalBytes)
             } else {
               // Content-Length unknown — estimate from expected file size (~3.1 GB)
-              let estimatedTotal = Double(max(expectedFileSize, 3_100_000_000))
+              let estimatedTotal = Double(max(expectedSize, 3_100_000_000))
               progress = min(Double(bytesReceived) / estimatedTotal, 0.99)
             }
             self.state = .downloading(progress: min(progress, 1.0))
           }
         }
       )
+
+      // Force a terminal 100% transition before SHA256 verification.
+      // Production URLSession does not guarantee a final `didWriteData` call
+      // at `received == total`, and even if it did, it could be throttled out
+      // above. Without this, the UI stalls at ~99% during the ~2s SHA256 hash
+      // on a 3 GB file.
+      state = .downloading(progress: 1.0)
 
       if let error = await verifyDownloadIntegrity() {
         try? fileManager.removeItem(at: downloadFileURL)
