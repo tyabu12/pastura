@@ -14,9 +14,11 @@ struct GalleryServiceErrorTests {
   // MARK: - errorDescription per case
 
   @Test func responseTooLargeDescription() {
-    // Use a value with no digit grouping so locale doesn't affect the check.
-    let error = GalleryServiceError.responseTooLarge(limit: 999)
-    #expect(error.errorDescription?.contains("999") ?? false)
+    // Byte count is formatted via ByteCountFormatter (locale-aware,
+    // human-friendly units), so assert the locale-invariant literal
+    // fragment rather than the numeric output.
+    let error = GalleryServiceError.responseTooLarge(limit: 1_500_000)
+    #expect(error.errorDescription?.contains("size limit") ?? false)
   }
 
   @Test func hashMismatchDescription() {

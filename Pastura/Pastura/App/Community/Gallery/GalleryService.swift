@@ -60,7 +60,9 @@ extension GalleryServiceError: LocalizedError {
   public var errorDescription: String? {
     switch self {
     case .responseTooLarge(let limit):
-      return String(localized: "Gallery response exceeds size limit (\(limit) bytes)")
+      let formatted = ByteCountFormatter.string(
+        fromByteCount: Int64(limit), countStyle: .file)
+      return String(localized: "Gallery response exceeds size limit (\(formatted))")
     case .hashMismatch(let expected, let actual):
       return String(
         localized: "Gallery scenario hash mismatch (expected \(expected), got \(actual))")

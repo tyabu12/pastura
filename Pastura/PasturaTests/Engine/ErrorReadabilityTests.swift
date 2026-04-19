@@ -52,6 +52,9 @@ struct ErrorReadabilityTests {
       return
     }
     #expect(desc.contains("connection timeout"))
+    // Regression guard: preferring LocalizedError.errorDescription strips the
+    // enum-case wrapper. Falling back to `"\(error)"` would leak it.
+    #expect(!desc.contains("generationFailed("))
   }
 
   @Test func wrapChainCarriesLocalizedErrorText() {
