@@ -257,6 +257,7 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/decisions/ADR-003.md`           | BG execution (iOS 26 BGContinuedProcessingTask) |
 | `docs/decisions/ADR-004.md`           | Multi-platform strategy (Draft)             |
 | `docs/decisions/ADR-005.md`           | Content safety architecture (App Store review) |
+| `docs/decisions/ADR-006.md`           | Cloud API implementation details (reserved — not yet written; see ADR-005 §7.5) |
 | `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
