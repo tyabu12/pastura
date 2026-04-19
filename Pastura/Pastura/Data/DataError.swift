@@ -27,3 +27,24 @@ nonisolated public enum DataError: Error, Sendable, Equatable {
   /// are writable only via the gallery Try/Update flow.
   case readonly(id: String)
 }
+
+/// Provides human-readable descriptions so UI alert handlers can show
+/// `error.localizedDescription` without mapping each case manually.
+extension DataError: LocalizedError {
+  public var errorDescription: String? {
+    switch self {
+    case .databaseOpenFailed(let description):
+      return String(localized: "Database open failed: \(description)")
+    case .migrationFailed(let description):
+      return String(localized: "Database migration failed: \(description)")
+    case .recordNotFound(let type, let id):
+      return String(localized: "Record not found: \(type) id=\(id)")
+    case .encodingFailed(let description):
+      return String(localized: "Encoding failed: \(description)")
+    case .decodingFailed(let description):
+      return String(localized: "Decoding failed: \(description)")
+    case .readonly(let id):
+      return String(localized: "Record is read-only: id=\(id)")
+    }
+  }
+}

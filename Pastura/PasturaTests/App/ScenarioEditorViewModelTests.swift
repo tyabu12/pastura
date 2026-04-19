@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Testing
 
@@ -184,6 +185,44 @@ struct ScenarioEditorViewModelTests {
 
     #expect(!success)
     #expect(!sut.validationErrors.isEmpty)
+  }
+
+  @Test func saveSurfacesSourceNotFoundValidationMessage() async throws {
+    let sut = try makeSUT()
+    // YAML with an `assign` phase referencing a non-existent `topics` source.
+    // Mirrors the real-world reproduction from issue #138: user removes
+    // `topics:` from bokete.yaml and hits Save.
+    let yamlMissingTopics = """
+      id: missing_topics_test
+      name: Missing Topics Test
+      description: triggers validator's missing-source path
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: assign
+          source: topics
+          target: all
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    sut.yamlText = yamlMissingTopics
+    sut.editorMode = .yaml
+
+    let saved = await sut.save()
+
+    #expect(saved == false)
+    let firstError = sut.validationErrors.first ?? ""
+    #expect(firstError.contains("source 'topics' not found"))
+    // Regression guard for #138: the cryptic NSError fallback must not appear.
+    #expect(!firstError.contains("SimulationError error"))
   }
 
   // MARK: - Loading for Edit
