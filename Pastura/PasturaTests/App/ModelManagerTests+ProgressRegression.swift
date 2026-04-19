@@ -29,12 +29,15 @@ struct SubOneProgressMockDownloader: ModelDownloader, Sendable {
   }
 }
 
-// MARK: - Tests
+// MARK: - Test (joins the serialized `ModelManagerTests` suite)
 
-// Shares filesystem paths with the main suite, so serialize.
-@Suite("ModelManager Progress", .serialized, .timeLimit(.minutes(1)))
-@MainActor
-struct ModelManagerProgressTests {
+// Extending the suite struct from a separate file keeps this file under
+// swiftlint's 400-line cap while letting the new test run *inside* the
+// existing `.serialized` suite. A standalone `@Suite` would race against
+// `ModelManagerTests` on shared filesystem paths because Swift Testing
+// runs suites in parallel by default — `.serialized` only orders tests
+// *within* a suite.
+extension ModelManagerTests {
 
   @Test(
     "downloadModel reaches 100% even when downloader skips terminal callback"
@@ -44,19 +47,12 @@ struct ModelManagerProgressTests {
     // ModelManager must explicitly bring `state` to 1.0 before SHA256 verification
     // so the user sees 100% rather than stalling at the last sub-1.0 sample
     // during the ~2 s SHA256 hash on a 3 GB file.
-    let sut = ModelManager(
+    let sut = makeSUT(
       downloader: SubOneProgressMockDownloader(simulateBytes: 1000),
-      // Skip size validation — the mock writes 1000 bytes, not the production 3.1 GB.
-      expectedFileSize: 0,
       // Use SHA256 verification to exercise the post-download path that
       // includes the explicit `state = .downloading(progress: 1.0)` transition.
       expectedSHA256: "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c"
     )
-    // Pre-clean leftover files from any parallel suite (ModelManagerTests shares
-    // these paths). Swift Testing runs suites in parallel by default; `.serialized`
-    // only orders tests *within* a suite.
-    try? FileManager.default.removeItem(at: sut.modelFileURL)
-    try? FileManager.default.removeItem(at: sut.downloadFileURL)
     sut.checkModelStatus()
     #expect(sut.state == .notDownloaded)
 
