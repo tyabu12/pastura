@@ -323,6 +323,14 @@ Responsibilities of `ReplayViewModel`:
   transition hand-off (ADR-007 §3 owns the transition animation; this
   VM just exposes a `shouldTransition: Bool` observable).
 
+**Persistence absence is enforced by construction, not by convention.**
+`ReplayViewModel`'s initialiser takes no repository, no database writer,
+no `EventStore`-style sink — it has no dependency capable of writing
+to the production DB. Demo replay cannot accidentally pollute
+`turns` / `simulations` tables because the wiring to write them simply
+does not exist on the replay path. Any future addition of a persistence
+argument to `ReplayViewModel` would require revisiting this spec.
+
 ### 4.3 `ReplaySource` protocol (new, App/)
 
 ```swift
