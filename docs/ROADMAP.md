@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-17
+> Last updated: 2026-04-19
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -84,14 +84,15 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Visual scenario editor (dual-mode)       | High     | Done        | Form + block UI with YAML mode toggle (#83) |
 | Background execution (iOS 26)            | High     | Done        | BGContinuedProcessingTask + CPU inference in background (#84) |
 | In-app scenario generation (Cloud API)   | High     | Planned     | Claude/Gemini API for natural language → YAML |
-| Real-time LLM token streaming            | High     | Planned     | Replace pseudo-typing with actual token-by-token streaming from llama.cpp. Requires `LLMService` protocol extension (new streaming method), partial-JSON or dual-channel parsing, retry-state rework, and `AgentOutputRow` rewrite. Eliminates the pre-first-character "thinking..." wait — high UX impact. |
-| `conditional` phase type                 | Medium   | Planned     | Dynamic branching based on state         |
+| Real-time LLM token streaming            | High     | Done        | Token-by-token streaming via `LLMService.generateStream`; `LLMCaller` drains snapshots and emits partial events. ContentFilter applied to streaming snapshots (#119/#132/#140); reveal task kept alive across tokens (#147). |
+| `conditional` phase type                 | Medium   | Done        | Nested-branch phase + Visual Editor support; includes `target_score_race` preset and conditional endings in `word_wolf` / `detective_scene` (#126/#141). |
 | `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
 | Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
+| DL-time demo replay                      | Medium   | Planned     | Bundled YAML replays during model download; see ADR-007 + `docs/specs/demo-replay-spec.md`. Non-blocking for App Store submission; implementation follows #148/#149 closure (#152). |
 | E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 
