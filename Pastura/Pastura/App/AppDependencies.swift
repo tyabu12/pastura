@@ -15,7 +15,11 @@ final class AppDependencies: @unchecked Sendable {
   let codePhaseEventRepository: any CodePhaseEventRepository
 
   /// The LLM service used for simulation execution.
-  /// Defaults to `OllamaService` for development.
+  ///
+  /// Callers must pass an explicit `llmService` in Release-iphoneos builds
+  /// (see ADR-005 §8 — dev-only backends like `OllamaService` are excluded
+  /// from App-Store-review-bound binaries). The `nil`-fallback construction
+  /// is only available in Debug or Simulator builds.
   let llmService: any LLMService
 
   /// Manager for iOS 26+ background simulation continuation.
@@ -40,17 +44,35 @@ final class AppDependencies: @unchecked Sendable {
     self.simulationRepository = GRDBSimulationRepository(dbWriter: writer)
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
     self.codePhaseEventRepository = GRDBCodePhaseEventRepository(dbWriter: writer)
-    self.llmService = llmService ?? OllamaService()
+    if let llmService {
+      self.llmService = llmService
+    } else {
+      // ADR-005 §8: `OllamaService` ships only in Debug / Simulator builds.
+      // In Release-iphoneos the fallback is unreachable by construction —
+      // `production(llmService:)` is the only caller and requires the arg.
+      #if DEBUG || targetEnvironment(simulator)
+        self.llmService = OllamaService()
+      #else
+        preconditionFailure("AppDependencies requires an explicit llmService in Release builds")
+      #endif
+    }
     self.backgroundManager = backgroundManager
     self.galleryService = galleryService ?? URLSessionGalleryService()
   }
 
-  /// Creates a production instance with persistent SQLite storage.
-  static func production() throws -> AppDependencies {
-    let dbPath = Self.databasePath()
-    let manager = try DatabaseManager.persistent(at: dbPath)
-    return AppDependencies(databaseManager: manager)
-  }
+  #if DEBUG || targetEnvironment(simulator)
+    /// Creates a production instance with persistent SQLite storage and the
+    /// default `OllamaService` LLM backend.
+    ///
+    /// Gated to Debug / Simulator per ADR-005 §8 — Release-iphoneos callers
+    /// must use `production(llmService:)` with a shipping backend (e.g.
+    /// `LlamaCppService`).
+    static func production() throws -> AppDependencies {
+      let dbPath = Self.databasePath()
+      let manager = try DatabaseManager.persistent(at: dbPath)
+      return AppDependencies(databaseManager: manager)
+    }
+  #endif
 
   /// Creates a production instance with a specific LLM service.
   ///
