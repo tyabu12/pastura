@@ -1,8 +1,8 @@
 id: target_score_race
 name: 先取りゲーム
 description: >
-  投票で得点を奪い合い、先に目標点に達した人が勝ち。各ラウンド末に
-  「勝者決定」か「続行」を分岐で切り替えるデモ（conditional phase）。
+  投票で得点を奪い合い、目標点に先に届いた人が優勢を掴むゲーム。
+  ラウンド末の総括が状態によって切り替わる conditional phase のデモ。
 agents: 3
 rounds: 4
 context: >
@@ -57,10 +57,10 @@ phases:
     then:
       - type: summarize
         template: >
-          🏆 ラウンド {current_round} 終了：誰かが目標点に到達しました！
-          スコア: {scoreboard}
+          🏆 R{current_round}: 目標点到達者が出現！ スコア: {scoreboard}
+          このまま逃げ切るか、次のラウンドで逆転されるか。
     else:
       - type: summarize
         template: >
-          ラウンド {current_round} 終了：まだ勝者なし。
-          スコア: {scoreboard}
+          R{current_round} 終了。スコア: {scoreboard}
+          まだ目標点 (3点) に到達した参加者はいません。

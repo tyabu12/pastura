@@ -120,6 +120,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Android support                      | Direction under evaluation — see [ADR-004 (Draft)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + LiteRT-LM Kotlin SDK. |
 | PC companion app                     | Form factor decided at Phase 3.2 — KMP-shared Engine + Compose Desktop is the current lean (see ADR-004). |
 | Localization (English)               | Expand beyond Japanese-speaking users      |
+| Early-termination phase type         | `conditional` branches but does not stop a simulation early — `rounds` still governs the loop. A new phase type (working name `terminate` / `break`) would let a branch signal "end the simulation now, run the remaining phases, then skip unrun rounds." Keeps `conditional` purely about evaluation + branching; termination is orthogonal. See PR #141 discussion. |
 
 ---
 
