@@ -278,4 +278,34 @@ struct SimulationViewModelStreamingTests {
     #expect(
       sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
   }
+
+  /// `.instant` speed must bypass the streaming snapshot gate entirely.
+  /// Issue #133 PR#6; ADR-002 §11.2 Axis ③ (Choice 2 — event-layer).
+  @Test func instantSpeedSkipsStreamingAndPreservesThinkingIndicator() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.speed = .instant
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
+    sut.handleEvent(.inferenceStarted(agent: "Alice"), scenario: scenario)
+    #expect(sut.thinkingAgents.contains("Alice"))
+
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello", thought: nil),
+      scenario: scenario)
+
+    // Gate: snapshot must stay nil; thinking indicator must persist until commit.
+    #expect(sut.streamingSnapshot == nil)
+    #expect(sut.thinkingAgents.contains("Alice"))
+
+    let output = TurnOutput(fields: ["statement": "hello"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+
+    let committedId = try #require(sut.latestAgentOutputId)
+    // No streaming row was ever set, so pre-reveal tracking must be empty.
+    #expect(sut.prerevealedAgentOutputIds.isEmpty)
+    // `.instant.charsPerSecond` is nil by definition; pins the instant-snap invariant.
+    #expect(sut.effectiveCharsPerSecond(forEntryId: committedId) == nil)
+  }
 }
