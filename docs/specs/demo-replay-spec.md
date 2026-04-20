@@ -162,7 +162,10 @@ metadata:
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true   # §3.4 — curator asserts record-time ContentFilter coverage
   total_turns: 12
-  estimated_duration_ms: 90000   # at the speed captured; playback multiplier is independent
+  estimated_duration_ms: 90000   # nominal 1× playback duration using
+                                 # `ReplayPlaybackConfig.demoDefault`
+                                 # pacing; divide by speedMultiplier
+                                 # for actual wall time
   captured_by: tyabu12           # pseudonymous identifier; §6 stash flow
 
 turns:
@@ -173,14 +176,12 @@ turns:
     fields:                      # matches TurnOutput.fields shape
       statement: "I think the word might be 'cat'."
       inner_thought: "The others seem confident."
-    delay_ms_before: 1200        # natural inter-turn pace; playback speed multiplies this
   - round: 1
     phase_index: 0
     phase_type: speak_all
     agent: Bob
     fields:
       statement: "…"
-    delay_ms_before: 800
   # …
 
 code_phase_events:               # optional; present if the preset has score_calc / scenario-gen phases
@@ -193,7 +194,6 @@ code_phase_events:               # optional; present if the preset has score_cal
       scores:
         Alice: 1
         Bob: 1
-    delay_ms_before: 500
 ```
 
 Notes on field choices:
@@ -205,8 +205,14 @@ Notes on field choices:
 - **`fields` dict, not typed accessors.** Mirrors `TurnOutput.fields:
   [String: String]` so the replay can construct a `TurnOutput` without
   a separate schema layer.
-- **`delay_ms_before` on every entry.** Playback multiplier (§4) scales
-  all delays uniformly; natural pacing is preserved.
+- **Inter-event pacing lives on the consumer, not the YAML.** Replay
+  cadence (`turnDelayMs`, `codePhaseDelayMs`) is set via
+  `ReplayPlaybackConfig` and scaled by `speedMultiplier`. Baking a
+  per-event `delay_ms_before` into the recording would bake LLM-
+  inference wait time into the replay — dead time the viewer should
+  never experience. If a future demo needs a dramatic in-sequence
+  pause, a dedicated `wait` event kind is the v2 additive change;
+  per-entry delay fields are explicitly **not** the mechanism.
 - **`code_phase_events` separate from `turns`.** Matches Past Results
   Viewer's separation between agent output and code-phase events
   (established in #102 / #113).

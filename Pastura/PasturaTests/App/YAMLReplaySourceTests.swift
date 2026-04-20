@@ -90,7 +90,6 @@ struct YAMLReplaySourceTests {
           phase_type: speak_all
           agent: Eve
           fields: { statement: 'hi' }
-          delay_ms_before: 0
       """
     let scenario = try makeScenario()
     #expect(throws: YAMLReplaySourceError.unknownAgent("Eve")) {
@@ -107,7 +106,6 @@ struct YAMLReplaySourceTests {
           phase_type: telekinesis
           agent: Alice
           fields: { statement: 'hi' }
-          delay_ms_before: 0
       """
     let scenario = try makeScenario()
     #expect(throws: YAMLReplaySourceError.unknownPhaseType("telekinesis")) {
@@ -126,13 +124,11 @@ struct YAMLReplaySourceTests {
           phase_type: speak_all
           agent: Alice
           fields: { statement: 'hello' }
-          delay_ms_before: 0
         - round: 1
           phase_index: 0
           phase_type: speak_all
           agent: Bob
           fields: { statement: 'hi' }
-          delay_ms_before: 0
       """
     let source = try YAMLReplaySource(
       yaml: yaml, scenario: makeScenario(), config: fastConfig)
@@ -169,7 +165,6 @@ struct YAMLReplaySourceTests {
             scores:
               Alice: 1
               Bob: 0
-          delay_ms_before: 0
       """
     let source = try YAMLReplaySource(
       yaml: yaml, scenario: makeScenario(), config: fastConfig)
@@ -198,7 +193,6 @@ struct YAMLReplaySourceTests {
             kind: elimination
             agent: Alice
             vote_count: 3
-          delay_ms_before: 0
       """
     let source = try YAMLReplaySource(
       yaml: yaml, scenario: makeScenario(), config: fastConfig)
@@ -226,7 +220,6 @@ struct YAMLReplaySourceTests {
           summary: 'a narrative line'
           payload:
             kind: newKindFromV2
-          delay_ms_before: 0
       """
     let source = try YAMLReplaySource(
       yaml: yaml, scenario: makeScenario(), config: fastConfig)
@@ -242,6 +235,43 @@ struct YAMLReplaySourceTests {
     }
   }
 
+  @Test func pacingIsSourcedFromConfigNotYAML() async throws {
+    // The YAML carries NO delay hint. The source derives per-event
+    // sleep from `ReplayPlaybackConfig.turnDelayMs` /
+    // `codePhaseDelayMs` scaled by `speedMultiplier`. A tiny delay
+    // here keeps the test fast; doubling it doubles wall time.
+    let yaml = """
+      schema_version: 1
+      turns:
+        - round: 1
+          phase_index: 0
+          phase_type: speak_all
+          agent: Alice
+          fields: { statement: 'hi' }
+        - round: 1
+          phase_index: 0
+          phase_type: speak_all
+          agent: Bob
+          fields: { statement: 'hi' }
+      """
+    let slowConfig = ReplayPlaybackConfig(
+      speedMultiplier: 1.0, turnDelayMs: 60, codePhaseDelayMs: 20,
+      loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
+    let source = try YAMLReplaySource(
+      yaml: yaml, scenario: makeScenario(), config: slowConfig)
+
+    let start = Date()
+    var count = 0
+    for await _ in source.events() { count += 1 }
+    let elapsed = Date().timeIntervalSince(start)
+
+    #expect(count == 2)
+    // Two turns at 60 ms each ≈ 120 ms. Wide bounds to tolerate
+    // scheduler jitter but prove the delay is actually applied.
+    #expect(elapsed >= 0.100)
+    #expect(elapsed < 1.0)
+  }
+
   @Test func eventsCanBeConsumedMultipleTimes() async throws {
     let yaml = """
       schema_version: 1
@@ -251,7 +281,6 @@ struct YAMLReplaySourceTests {
           phase_type: speak_all
           agent: Alice
           fields: { statement: 'once' }
-          delay_ms_before: 0
       """
     let source = try YAMLReplaySource(
       yaml: yaml, scenario: makeScenario(), config: fastConfig)

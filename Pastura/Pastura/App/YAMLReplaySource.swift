@@ -51,9 +51,13 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
 
   // MARK: - Compiled plan
 
-  /// One replay event with its associated pre-emit sleep.
+  /// Classifies a planned event so the emitter can pick the right
+  /// pre-yield delay from ``ReplayPlaybackConfig`` — pacing is a
+  /// consumer-side decision, not persisted per-event.
+  private enum EventKind: Sendable { case turn, codePhase }
+
   private struct PlannedEvent: Sendable {
-    let delayMs: Int
+    let kind: EventKind
     let event: SimulationEvent
   }
 
@@ -117,12 +121,15 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
 
   public func events() -> AsyncStream<SimulationEvent> {
     let plan = self.plan
+    let turnDelay = config.turnDelayMs
+    let codePhaseDelay = config.codePhaseDelayMs
     let speed = max(config.speedMultiplier, 0.001)
     return AsyncStream { continuation in
       let task = Task {
         for planned in plan {
           if Task.isCancelled { break }
-          let sleepMs = Int(Double(planned.delayMs) / speed)
+          let baseDelay = planned.kind == .turn ? turnDelay : codePhaseDelay
+          let sleepMs = Int(Double(baseDelay) / speed)
           if sleepMs > 0 {
             try? await Task.sleep(for: .milliseconds(sleepMs))
           }
@@ -168,9 +175,8 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
       throw YAMLReplaySourceError.unknownAgent(agent)
     }
     let fields = try Self.decodeStringMap(raw["fields"], field: "fields")
-    let delay = raw["delay_ms_before"] as? Int ?? YAMLReplayExporter.defaultTurnDelayMs
     return PlannedEvent(
-      delayMs: delay,
+      kind: .turn,
       event: .agentOutput(
         agent: agent, output: TurnOutput(fields: fields),
         phaseType: phaseType))
@@ -215,13 +221,12 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
     _ raw: [String: Any]
   ) throws -> PlannedEvent {
     let summary = (raw["summary"] as? String) ?? ""
-    let delay = raw["delay_ms_before"] as? Int ?? YAMLReplayExporter.defaultCodePhaseDelayMs
     if let payload = raw["payload"] as? [String: Any],
       let event = try decodePayloadStanza(payload, summary: summary) {
-      return PlannedEvent(delayMs: delay, event: event)
+      return PlannedEvent(kind: .codePhase, event: event)
     }
     // Fallback: no structured payload — surface as a narrative summary.
-    return PlannedEvent(delayMs: delay, event: .summary(text: summary))
+    return PlannedEvent(kind: .codePhase, event: .summary(text: summary))
   }
 
   /// Decodes a `payload:` stanza as emitted by ``YAMLReplayExporter``.
