@@ -108,27 +108,74 @@ summarise() {
   echo ""
 
   # ── B5 residual: cancel-race ───────────────────────────────
-  echo "── B5 residual — cancel-race (expected 0 after PR#147+#150) ──"
-  local race_count
-  race_count=$(
-    {
-      grep 'streamTargetChange' "$log" || true
-    } | grep -cE 'taskNil=true|taskCancelled=true' || true
+  # Split streamTargetChange events into 4 buckets:
+  #   (a) no_op:       visibleChars >= newTarget (target shrunk or fully revealed; reveal loop idle)
+  #   (b) continuing:  visibleChars < newTarget AND task running (ideal post-PR#147)
+  #   (c) restart_nil: visibleChars < newTarget AND taskNil=true (task finished between tokens; normal)
+  #   (d) restart_cancelled: visibleChars < newTarget AND taskCancelled=true (B5 residual — should be 0)
+  #
+  # (d) is the only bucket that directly indicates the cancel-race PR#147+#150 targeted.
+  # High (c) is expected when cps > stream rate (task catches up and exits between tokens).
+  # Flicker is subjective — watch the device; the script only bounds the race surface.
+  echo "── B5 residual — cancel-race surface (see script comment for buckets) ──"
+  awk '
+    /streamTargetChange/ {
+      vc = 0; nt = 0; tn = "false"; tc = "false"
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^visibleChars=/)   { split($i, a, "="); vc = a[2] + 0 }
+        if ($i ~ /^newTarget=/)      { split($i, a, "="); nt = a[2] + 0 }
+        if ($i ~ /^taskNil=/)        { split($i, a, "="); tn = a[2] }
+        if ($i ~ /^taskCancelled=/)  { split($i, a, "="); tc = a[2] }
+      }
+      total++
+      if (vc >= nt)            { noop++ }
+      else if (tc == "true")   { rcancelled++ }
+      else if (tn == "true")   { rnil++ }
+      else                     { cont++ }
+    }
+    END {
+      printf "  total streamTargetChange events: %d\n", total+0
+      printf "    (a) no-op (visibleChars >= newTarget):           %d\n", noop+0
+      printf "    (b) continuing (task still revealing; ideal):    %d\n", cont+0
+      printf "    (c) restart from nil (normal post-PR#147):       %d\n", rnil+0
+      printf "    (d) restart from cancelled (B5 residual signal): %d\n", rcancelled+0
+    }
+  ' "$log"
+  local rcancelled_count
+  rcancelled_count=$(
+    awk '
+      /streamTargetChange/ && /taskCancelled=true/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^visibleChars=/) { split($i, a, "="); vc = a[2] + 0 }
+          if ($i ~ /^newTarget=/)    { split($i, a, "="); nt = a[2] + 0 }
+        }
+        if (vc < nt) c++
+      }
+      END { print c+0 }
+    ' "$log"
   )
-  echo "  streamTargetChange with taskNil=true OR taskCancelled=true: $race_count"
-  if [ "$race_count" != "0" ]; then
-    echo "  first 5 occurrences:"
-    {
-      grep 'streamTargetChange' "$log" || true
-    } | grep -E 'taskNil=true|taskCancelled=true' |
-      head -5 |
+  if [ "$rcancelled_count" != "0" ]; then
+    echo ""
+    echo "  ⚠️  (d) is non-zero — investigate. First 5 occurrences:"
+    awk '
+      /streamTargetChange/ && /taskCancelled=true/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^visibleChars=/) { split($i, a, "="); vc = a[2] + 0 }
+          if ($i ~ /^newTarget=/)    { split($i, a, "="); nt = a[2] + 0 }
+        }
+        if (vc < nt) print
+      }
+    ' "$log" | head -5 |
       sed -E 's/^.*\[com\.pastura:StreamingDiag\] //' |
       sed 's/^/    /'
-    echo ""
-    echo "  → B5 residual detected — investigate before assuming PR#147+#150 closed it"
+    echo "  → B5 residual: REPRODUCED (cancel-race surface still exercised)"
   else
-    echo "  → B5 residual: clean"
+    echo "  → B5 residual: clean (cancel-race surface not triggered this session)"
   fi
+  echo ""
+  echo "  Note: flicker is a subjective visual signal. Low (d) == cancel-race race"
+  echo "        surface wasn't exercised, but doesn't prove absence of flicker from"
+  echo "        other causes. Watch the device during the session."
   echo ""
 }
 
