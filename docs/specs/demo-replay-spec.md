@@ -162,7 +162,10 @@ metadata:
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true   # §3.4 — curator asserts record-time ContentFilter coverage
   total_turns: 12
-  estimated_duration_ms: 90000   # at the speed captured; playback multiplier is independent
+  estimated_duration_ms: 90000   # nominal 1× playback duration using
+                                 # `ReplayPlaybackConfig.demoDefault`
+                                 # pacing; divide by speedMultiplier
+                                 # for actual wall time
   captured_by: tyabu12           # pseudonymous identifier; §6 stash flow
 
 turns:
@@ -173,14 +176,12 @@ turns:
     fields:                      # matches TurnOutput.fields shape
       statement: "I think the word might be 'cat'."
       inner_thought: "The others seem confident."
-    delay_ms_before: 1200        # natural inter-turn pace; playback speed multiplies this
   - round: 1
     phase_index: 0
     phase_type: speak_all
     agent: Bob
     fields:
       statement: "…"
-    delay_ms_before: 800
   # …
 
 code_phase_events:               # optional; present if the preset has score_calc / scenario-gen phases
@@ -188,7 +189,11 @@ code_phase_events:               # optional; present if the preset has score_cal
     phase_index: 3
     phase_type: score_calc
     summary: "Scores updated: Alice +1, Bob +1"
-    delay_ms_before: 500
+    payload:                     # optional; discriminated-union — §3.2 note 5
+      kind: scoreUpdate          # matches CodePhaseEventPayload case names
+      scores:
+        Alice: 1
+        Bob: 1
 ```
 
 Notes on field choices:
@@ -200,11 +205,27 @@ Notes on field choices:
 - **`fields` dict, not typed accessors.** Mirrors `TurnOutput.fields:
   [String: String]` so the replay can construct a `TurnOutput` without
   a separate schema layer.
-- **`delay_ms_before` on every entry.** Playback multiplier (§4) scales
-  all delays uniformly; natural pacing is preserved.
+- **Inter-event pacing lives on the consumer, not the YAML.** Replay
+  cadence (`turnDelayMs`, `codePhaseDelayMs`) is set via
+  `ReplayPlaybackConfig` and scaled by `speedMultiplier`. Baking a
+  per-event `delay_ms_before` into the recording would bake LLM-
+  inference wait time into the replay — dead time the viewer should
+  never experience. If a future demo needs a dramatic in-sequence
+  pause, a dedicated `wait` event kind is the v2 additive change;
+  per-entry delay fields are explicitly **not** the mechanism.
 - **`code_phase_events` separate from `turns`.** Matches Past Results
   Viewer's separation between agent output and code-phase events
   (established in #102 / #113).
+- **`payload:` (optional) preserves structured code-phase data.** The
+  bare `summary:` field is a human-readable narrative line; the
+  `payload:` stanza — added as part of Phase 2 E1 (Issue #167) — carries
+  the structured form keyed by a `kind:` discriminator matching
+  `CodePhaseEventPayload` case names (`scoreUpdate`, `elimination`,
+  `voteResults`, `pairingResult`, `assignment`, `summary`). Consumers
+  that render score ticks or voting breakdowns read `payload`; consumers
+  that only need a narrative line read `summary`. `payload:` is
+  optional for forward compat — a loader that encounters an unknown
+  `kind` falls back to the `summary` string.
 
 ### 3.3 Preset drift detection and CI guard
 
@@ -236,7 +257,12 @@ zero playable demos.
 - **At record time** (curator workflow, §6): the curator reviews recorded
   YAML and runs the current blocklist against every `fields.*` string
   and `code_phase_events[].summary`. The `metadata.content_filter_applied:
-  true` flag is set only after manual audit.
+  true` flag is set only after manual audit. **Automated exporters
+  (Phase 2 E1 `YAMLReplayExporter`, Issue #167) always emit
+  `content_filter_applied: false` even though they invoke
+  `ContentFilter.filter(_:)` at export time — running the blocklist is
+  necessary but not sufficient to flip the flag; only a human audit
+  is.**
 - **At render time** (ADR-005 §5.1 compliance): `ReplayViewModel`
   invokes `ContentFilter.filter(_:)` on every rendered field, just like
   the live simulation path. The filter is `nonisolated + Sendable` and
@@ -265,9 +291,18 @@ owns the policy-implementation side.
   per-phase grouping): version bump and loader fork; deprecate v1 only
   after all bundled demos re-recorded.
 
-The loader rejects unknown `schema_version` values with a silent skip
-(matching §3.3's posture) rather than a fatal load — unknown version
-is treated as a kind of drift.
+Unknown `schema_version` is treated as drift and results in a silent
+skip at the demo surface (matching §3.3's posture) rather than a fatal
+load. Responsibility for the skip is split between the primitive and
+its wrapper:
+
+- The `YAMLReplaySource` primitive (Phase 2 E1, Issue #167) throws
+  `YAMLReplaySourceError.unsupportedSchemaVersion(_)` on unknown /
+  missing `schema_version`. Throwing gives user-facing replay flows
+  (future `UserSimulationReplaySource`, §4.5) an actionable diagnostic.
+- The `BundledDemoReplaySource` wrapper (§4.4) catches that error and
+  applies the silent-skip policy before its caller ever sees it,
+  consistent with the ambient DL-time surface.
 
 ---
 
