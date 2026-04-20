@@ -179,6 +179,18 @@ struct DesignTokensTests {
     #expect(approxEqual(Double(style.trackingPoints), 9.5 * 0.22))
   }
 
+  @Test func thinkingBodyLineSpacingDerivedFromLineHeight() {
+    // thinking/body: 10.5pt × (1.7 − 1.0) = 7.35pt
+    let style = Typography.thinkingBody
+    #expect(approxEqual(Double(style.lineSpacingPoints), 10.5 * 0.7))
+  }
+
+  @Test func thinkingBodyTrackingDerivedFromLetterSpacing() {
+    // thinking/body: 10.5pt × 0.02em = 0.21pt
+    let style = Typography.thinkingBody
+    #expect(approxEqual(Double(style.trackingPoints), 10.5 * 0.02))
+  }
+
   // MARK: - §4 Spacing
 
   @Test func spacingScaleMatchesSpec() {
