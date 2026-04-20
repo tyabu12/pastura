@@ -1,20 +1,17 @@
 import SwiftUI
 
-// swiftlint:disable identifier_name file_length
+// swiftlint:disable identifier_name
 
-/// Single-source-of-truth tokens for the Pastura design system.
-///
-/// Canonical source: `docs/design/design-system.md` §2 (colors), §3 (typography),
-/// §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
-/// the doc wins — fix this file, not the doc.
-///
-/// Organized in three namespaces:
-/// - ``PasturaPalette`` — color tokens as structural `(r, g, b, opacity)` tuples.
-/// - ``PasturaShadows`` — two-layer shadow recipe from §4.3.
-/// - `Color` extension — SwiftUI-facing flat aliases (`Color.page`, `Color.moss`, …).
-///
-/// Typography, Spacing, and Radius tokens are defined in sibling sections below
-/// (added by follow-up commits on the same issue).
+// Single-source-of-truth tokens for the Pastura design system.
+//
+// Canonical source: `docs/design/design-system.md` §2 (colors), §3 (typography),
+// §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
+// the doc wins — fix this file, not the doc.
+//
+// Organized in layered namespaces (see individual doc comments below):
+//   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
+//   - Typography + Spacing + Radius   — layout + type scales.
+//   - Color extension                 — SwiftUI-facing flat aliases.
 
 // MARK: - §2 Color tokens
 
@@ -394,4 +391,4 @@ extension Color {
   static let avatarHighlight = PasturaPalette.avatarHighlight.color
 }
 
-// swiftlint:enable identifier_name file_length
+// swiftlint:enable identifier_name
