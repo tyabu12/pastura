@@ -207,6 +207,11 @@ struct PasturaTextStyle: Sendable, Equatable {
 
   /// SwiftUI `Font` built from size / weight / design (+ italic modifier).
   var font: Font {
+    // Why: `Font.system(size:weight:design:)` is a fixed-size font, not Dynamic
+    // Type aware. This is a deliberate trade-off per `docs/design/design-system.md`
+    // — the scale's precise size/line-height values are load-bearing for the
+    // Pastura visual voice. When Dynamic Type support is revived, route
+    // `Font.system(size:relativeTo:)` through this single computed property.
     let base = Font.system(size: size, weight: weight, design: design)
     return isItalic ? base.italic() : base
   }
@@ -392,6 +397,29 @@ extension Color {
   static let avatarNose = PasturaPalette.avatarNose.color
   static let avatarEye = PasturaPalette.avatarEye.color
   static let avatarHighlight = PasturaPalette.avatarHighlight.color
+}
+
+// MARK: - View modifier
+
+extension View {
+  /// Applies a ``PasturaTextStyle`` by combining `.font`, `.lineSpacing`,
+  /// `.tracking`, and `.textCase` in one call.
+  ///
+  /// Prefer this over manually chaining those four modifiers at each callsite —
+  /// keeps the token intent (one `Typography.*` reference) visible and avoids
+  /// forgetting a modifier (e.g. `.textCase(.uppercase)` on `tagPhase`).
+  ///
+  /// Applied to the result of a `Text + Text` concatenation, `.lineSpacing` and
+  /// `.tracking` cover both halves uniformly — load-bearing for callsites like
+  /// `AgentOutputRow.primaryView` that use the concat trick for reflow-stable
+  /// typing reveals.
+  func textStyle(_ style: PasturaTextStyle) -> some View {
+    self
+      .font(style.font)
+      .lineSpacing(style.lineSpacingPoints)
+      .tracking(style.trackingPoints)
+      .textCase(style.textCase)
+  }
 }
 
 // swiftlint:enable identifier_name
