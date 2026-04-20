@@ -78,10 +78,15 @@ summarise() {
 
   # ── Hyp A': silent stream re-issue (suspend-resume path) ───
   echo "── Hyp A' — silent stream re-issue (suspend-resume bypasses .inferenceStarted) ──"
-  local reset_count
+  local reset_count diverge_count shrink_count
   reset_count=$(grep -cE 'streamReset agent=' "$log" || true)
-  echo "  streamReset log lines:  $reset_count"
+  diverge_count=$(grep -cE 'streamReset .*type=diverge' "$log" || true)
+  shrink_count=$(grep -cE 'streamReset .*type=shrink' "$log" || true)
+  echo "  streamReset total:               $reset_count"
+  echo "    type=shrink  (new is strict prefix of existing): $shrink_count"
+  echo "    type=diverge (new not prefix-related):           $diverge_count"
   if [ "$reset_count" != "0" ]; then
+    echo ""
     echo "  per-agent reset counts:"
     grep -oE 'streamReset agent=[^ ]+' "$log" |
       sort | uniq -c | sort -rn | sed 's/^/    /'
@@ -92,9 +97,10 @@ summarise() {
       sed -E 's/^.*\[com\.pastura:StreamingDiag\] //' |
       sed 's/^/    /'
     echo ""
-    echo "  → Hyp A': REPRODUCED (raw partial replaced with content that's"
-    echo "     neither an extension nor a prefix-shrink → LLMCaller's"
-    echo "     consumeStreamWithSuspendRetry re-issued the stream)"
+    echo "  → Hyp A': REPRODUCED — LLMCaller's consumeStreamWithSuspendRetry"
+    echo "     re-issued the stream without firing .inferenceStarted."
+    echo "     shrink = deterministic re-issue (same tokens regenerated);"
+    echo "     diverge = non-deterministic re-issue (different content)."
   else
     echo "  → Hyp A': not reproduced this session"
   fi

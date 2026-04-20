@@ -554,17 +554,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):
       #if DEBUG
-        // Hyp A' signal: detect stream restart that didn't go through
-        // `.inferenceStarted` (LLMCaller suspend-resume re-issue path).
-        if let newPrimary = primary, !newPrimary.isEmpty,
-          let existing = lastRawStreamingPrimary[agent],
-          !newPrimary.hasPrefix(existing),
-          !existing.hasPrefix(newPrimary) {
-          Self.streamingDiagLogger.info(
-            "streamReset agent=\(agent, privacy: .public) oldLen=\(existing.count) newLen=\(newPrimary.count)"
-          )
-        }
-        if let newPrimary = primary { lastRawStreamingPrimary[agent] = newPrimary }
+        detectSilentStreamReIssue(agent: agent, primary: primary)
       #endif
       handleAgentOutputStream(agent: agent, primary: primary, thought: thought)
     case .simulationCompleted:
@@ -731,6 +721,43 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// pre-streaming flow (thinking indicator → committed row at
   /// `.agentOutput`). LLMCaller still produces the events but they
   /// become no-ops here; the cost is negligible.
+  #if DEBUG
+    /// Hyp A' signal: detect stream restart that didn't go through
+    /// `.inferenceStarted` (LLMCaller `consumeStreamWithSuspendRetry`
+    /// re-issue path on `.suspended`).
+    ///
+    /// Two sub-patterns — normal appending never hits either:
+    ///  - "diverge" — new is neither an extension nor a prefix-shrink
+    ///    of existing. Fires when the re-issued stream produces
+    ///    different text (non-deterministic LLM).
+    ///  - "shrink"  — new is a strict prefix of existing (`new.count <
+    ///    existing.count` AND `existing.hasPrefix(new)`). Fires on
+    ///    the first chunk of a re-issue when Gemma is deterministic
+    ///    enough to regenerate the same tokens — content goes
+    ///    backwards to "H" / "He" / ... before climbing back.
+    /// Partial parser shouldn't emit non-monotone primaries within a
+    /// single stream iteration, so shrink is a strong re-issue signal.
+    ///
+    /// Uses raw (pre-ContentFilter) primary so filter rewrites like
+    /// `"fuck" → "***"` aren't mistaken for resets.
+    private func detectSilentStreamReIssue(agent: String, primary: String?) {
+      guard let newPrimary = primary, !newPrimary.isEmpty else { return }
+      if let existing = lastRawStreamingPrimary[agent] {
+        let diverge =
+          !newPrimary.hasPrefix(existing) && !existing.hasPrefix(newPrimary)
+        let shrink =
+          newPrimary.count < existing.count && existing.hasPrefix(newPrimary)
+        if diverge || shrink {
+          let kind = diverge ? "diverge" : "shrink"
+          Self.streamingDiagLogger.info(
+            "streamReset agent=\(agent, privacy: .public) type=\(kind, privacy: .public) oldLen=\(existing.count) newLen=\(newPrimary.count)"
+          )
+        }
+      }
+      lastRawStreamingPrimary[agent] = newPrimary
+    }
+  #endif
+
   private func handleAgentOutputStream(
     agent: String, primary: String?, thought: String?
   ) {
