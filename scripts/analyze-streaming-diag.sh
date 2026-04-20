@@ -45,7 +45,7 @@ summarise() {
   local total_lines diag_lines
   total_lines=$(wc -l <"$log" | tr -d ' ')
   diag_lines=$(grep -cE \
-    'retry agent=|committed agent=|onAppear rowID=|onDisappear rowID=|streamTargetChange rowID=' \
+    'retry agent=|committed agent=|streamReset agent=|onAppear rowID=|onDisappear rowID=|streamTargetChange rowID=' \
     "$log" || true)
   echo "  file lines:        $total_lines"
   echo "  diagnostic lines:  $diag_lines"
@@ -73,6 +73,30 @@ summarise() {
     echo "  → Hyp A: REPRODUCED"
   else
     echo "  → Hyp A: not reproduced this session"
+  fi
+  echo ""
+
+  # ── Hyp A': silent stream re-issue (suspend-resume path) ───
+  echo "── Hyp A' — silent stream re-issue (suspend-resume bypasses .inferenceStarted) ──"
+  local reset_count
+  reset_count=$(grep -cE 'streamReset agent=' "$log" || true)
+  echo "  streamReset log lines:  $reset_count"
+  if [ "$reset_count" != "0" ]; then
+    echo "  per-agent reset counts:"
+    grep -oE 'streamReset agent=[^ ]+' "$log" |
+      sort | uniq -c | sort -rn | sed 's/^/    /'
+    echo ""
+    echo "  first 5 occurrences:"
+    grep -E 'streamReset agent=' "$log" |
+      head -5 |
+      sed -E 's/^.*\[com\.pastura:StreamingDiag\] //' |
+      sed 's/^/    /'
+    echo ""
+    echo "  → Hyp A': REPRODUCED (raw partial replaced with content that's"
+    echo "     neither an extension nor a prefix-shrink → LLMCaller's"
+    echo "     consumeStreamWithSuspendRetry re-issued the stream)"
+  else
+    echo "  → Hyp A': not reproduced this session"
   fi
   echo ""
 
@@ -187,8 +211,12 @@ cat <<'VERDICT'
 ======================================================
   PR#5 ADR pivot matrix (fill in from above)
   ----------------------------------------------------
-    A reproduced AND B reproduced → pivot (a) full C′
-    only A reproduced             → pivot (b) retry-UX
-    neither reproduced            → pivot (c) Option 0
+    A reproduced AND B reproduced  → pivot (a) full C′
+    only A reproduced              → pivot (b) retry-UX
+    neither reproduced             → pivot (c) Option 0
+
+  Note: Hyp A' (silent stream re-issue) is orthogonal to the above.
+  If A' reproduces but A / B don't, the fix lives in BG suspend/resume
+  UX (related to #84 / #135), not in the #133 display-redesign axes.
 ======================================================
 VERDICT

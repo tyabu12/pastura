@@ -266,6 +266,18 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // conflate interleaved agents. If Phase 3 ever parallelises `speak_all`,
     // this dict becomes racy and must be reworked.
     private var inflightInferenceAttempts: [String: Int] = [:]
+
+    // Previous-raw-primary tracker for Hyp A' (silent stream re-issue).
+    // `LLMCaller.consumeStreamWithSuspendRetry` re-issues the stream on
+    // `.suspended` without firing `.inferenceStarted` — visually identical
+    // to a parse retry (streaming row's text restarts) but invisible to
+    // the attempt counter above. We catch it by remembering the last raw
+    // `primary` per agent and logging when the next one is neither an
+    // extension nor a shrink-to-prefix (i.e. content diverged).
+    //
+    // Uses raw (pre-ContentFilter) primary so filter rewrites like
+    // "fuck" → "***" aren't mistaken for a reset.
+    private var lastRawStreamingPrimary: [String: String] = [:]
   #endif
   // Non-private so `@testable import` can seed persistence without invoking `run()`.
   internal var simulationId: String?
@@ -423,6 +435,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     prerevealedAgentOutputIds = []
     #if DEBUG
       inflightInferenceAttempts = [:]
+      lastRawStreamingPrimary = [:]
     #endif
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
@@ -540,6 +553,19 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):
+      #if DEBUG
+        // Hyp A' signal: detect stream restart that didn't go through
+        // `.inferenceStarted` (LLMCaller suspend-resume re-issue path).
+        if let newPrimary = primary, !newPrimary.isEmpty,
+          let existing = lastRawStreamingPrimary[agent],
+          !newPrimary.hasPrefix(existing),
+          !existing.hasPrefix(newPrimary) {
+          Self.streamingDiagLogger.info(
+            "streamReset agent=\(agent, privacy: .public) oldLen=\(existing.count) newLen=\(newPrimary.count)"
+          )
+        }
+        if let newPrimary = primary { lastRawStreamingPrimary[agent] = newPrimary }
+      #endif
       handleAgentOutputStream(agent: agent, primary: primary, thought: thought)
     case .simulationCompleted:
       isCompleted = true
@@ -561,6 +587,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
             "retry agent=\(agent, privacy: .public) attempt=\(attempt)"
           )
         }
+        // Clear raw-primary tracker so the retry's new stream doesn't
+        // double-log as a streamReset — parse retry is owned by the
+        // attempt counter above; streamReset measures the *silent*
+        // re-issue path (suspend-resume) that bypasses this event.
+        lastRawStreamingPrimary[agent] = nil
       #endif
     case .inferenceCompleted(let agent, let seconds, let tokens):
       thinkingAgents.remove(agent)
@@ -650,6 +681,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         )
       }
       inflightInferenceAttempts[agent] = nil
+      lastRawStreamingPrimary[agent] = nil
     #endif
     let filtered = contentFilter.filter(output)
     // Divergence telemetry: compare the last streamed snapshot against
