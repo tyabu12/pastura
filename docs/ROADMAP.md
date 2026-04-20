@@ -92,7 +92,8 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
-| DL-time demo replay                      | Medium   | Planned     | Bundled YAML replays during model download; see ADR-007 + `docs/specs/demo-replay-spec.md`. Non-blocking for App Store submission; implementation follows #148/#149 closure (#152). |
+| YAML simulation replay primitive         | Medium   | Planned     | Past Results YAML exporter + `YAMLReplaySource` importer primitive. Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. Resumes spec §6.1 Candidate A (#164). |
+| DL-time demo replay                      | Medium   | Planned     | Bundled YAML replays during model download; see ADR-007, `docs/specs/demo-replay-spec.md` (data/arch), `docs/specs/demo-replay-ui.md` (visual/behaviour), and `docs/design/design-system.md` (tokens). Non-blocking for App Store submission; implementation follows #148/#149 closure (#152). |
 | E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 

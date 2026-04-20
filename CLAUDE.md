@@ -261,4 +261,8 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
+| `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
+| `docs/specs/demo-replay-mockup-prompt.md` | Claude Design prompt for the DL-time demo visual exploration |
+| `docs/design/design-system.md`        | Cross-screen design system (tokens, philosophy, components) |
+| `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML)             |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
