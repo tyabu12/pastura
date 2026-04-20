@@ -76,7 +76,13 @@ struct ResultDetailView: View {
         }
         .disabled(!canExport)
       }
-      ToolbarItem(placement: .secondaryAction) {
+      ToolbarItem(placement: .primaryAction) {
+        // Sits next to the Markdown share button so the two export
+        // paths are equally discoverable. Keeping it in
+        // `.secondaryAction` would bury it in the overflow menu and
+        // would simultaneously push the thoughts toggle into the
+        // overflow too (SwiftUI promotes secondary items to an
+        // overflow button once more than one is present).
         Button {
           Task { await triggerYAMLExport() }
         } label: {
