@@ -228,6 +228,91 @@ jobs:
           path: UITestResults.xcresult
           retention-days: 7
 
+  # Enforces ADR-005 §8.5 on every PR: `OllamaService` must not link into the
+  # Release-iphoneos binary (App-Store-submission target). Runs in parallel
+  # with lint-and-test and ui-test. See ADR-005 §8 and docs/decisions/ADR-005.md.
+  release-build:
+    name: Release build (iphoneos) + ADR-005 §8 guard
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Select Xcode
+        run: xcodebuild -version
+
+      # Same key/path as lint-and-test / ui-test — shared warm SPM cache.
+      # See the lint-and-test Cache step for the rationale on CI staying on
+      # the default ~/Library DerivedData path.
+      - name: Cache SPM packages
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      # Deliberately NO `|| true` / PIPESTATUS dance here, unlike the
+      # unit/UI test steps above. Those steps must continue past xcodebuild
+      # failure to parse log output for the sticky PR comment; this step
+      # only needs the binary for the symbol grep. With GHA's default
+      # `bash -eo pipefail`, a non-zero xcodebuild exit short-circuits the
+      # `tee` pipeline naturally — that is the intended behaviour here.
+      # -sdk iphoneos (not iphonesimulator) because Release-simulator still
+      # defines targetEnvironment(simulator), which would pull OllamaService
+      # back in and make the guard fire vacuously.
+      - name: Release build
+        run: |
+          xcodebuild build \
+            -scheme Pastura \
+            -project Pastura/Pastura.xcodeproj \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/release-build.log
+
+      - name: Verify ADR-005 §8 — OllamaService excluded
+        run: |
+          # Locate the Release-iphoneos binary. xcodebuild uses the default
+          # ~/Library/... DerivedData on CI (see Cache step). Multiple matches
+          # would indicate a cache-layout bug — fail loudly rather than pick one.
+          # Portable while/read loop because `mapfile` is bash 4+ and GHA
+          # macOS runners default to /bin/bash 3.2 (Apple GPLv3 avoidance).
+          BINS=()
+          while IFS= read -r -d '' f; do
+            BINS+=("$f")
+          done < <(find ~/Library/Developer/Xcode/DerivedData \
+            -type f \
+            -path '*/Build/Products/Release-iphoneos/Pastura.app/Pastura' \
+            -print0)
+          if [ "${#BINS[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly 1 Release binary, found ${#BINS[@]}"
+            printf '%s\n' "${BINS[@]}"
+            exit 1
+          fi
+          BIN="${BINS[0]}"
+          echo "Checking $BIN"
+          # Demangle before grep: failure output stays human-readable and the
+          # check catches future helpers like OllamaClient / ollamaBridge that
+          # a narrower match would miss. Matches ADR-005 §8.5.
+          MATCHES=$(nm -a "$BIN" | xcrun swift-demangle | grep -i ollama || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::ollama symbols leaked into Release binary (ADR-005 §8)"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "OK: zero ollama symbols in Release-iphoneos binary"
+
+      - name: Upload Release build log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-build-log
+          path: /tmp/release-build.log
+          retention-days: 7
+
   coverage:
     name: Coverage
     needs: lint-and-test
@@ -256,7 +341,7 @@ jobs:
   # Do NOT change the trigger to pull_request_target.
   pr-comment:
     name: PR Comment
-    needs: [lint-and-test, ui-test]
+    needs: [lint-and-test, ui-test, release-build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: >-
@@ -270,6 +355,7 @@ jobs:
         env:
           UNIT_JOB_RESULT: ${{ needs.lint-and-test.result }}
           UI_JOB_RESULT: ${{ needs.ui-test.result }}
+          RELEASE_JOB_RESULT: ${{ needs.release-build.result }}
           TEST_PASSED: ${{ needs.lint-and-test.outputs.test-passed }}
           TEST_FAILED: ${{ needs.lint-and-test.outputs.test-failed }}
           TEST_PARSE_ERROR: ${{ needs.lint-and-test.outputs.test-parse-error }}
@@ -285,14 +371,16 @@ jobs:
             echo ""
 
             # Job-level failure banner
-            for job_result in "$UNIT_JOB_RESULT" "$UI_JOB_RESULT"; do
+            for job_result in "$UNIT_JOB_RESULT" "$UI_JOB_RESULT" "$RELEASE_JOB_RESULT"; do
               if [ "$job_result" = "skipped" ] || [ "$job_result" = "cancelled" ]; then
                 echo "> One or more CI jobs were ${job_result}."
                 echo ""
                 break
               fi
             done
-            if [ "$UNIT_JOB_RESULT" = "failure" ] || [ "$UI_JOB_RESULT" = "failure" ]; then
+            if [ "$UNIT_JOB_RESULT" = "failure" ] \
+                || [ "$UI_JOB_RESULT" = "failure" ] \
+                || [ "$RELEASE_JOB_RESULT" = "failure" ]; then
               echo "> **CI job failed.** See [CI logs](${CI_RUN_URL}) for details."
               echo ""
             fi
@@ -306,6 +394,20 @@ jobs:
               echo "SwiftLint: **FAILED**"
             else
               echo "SwiftLint: did not run"
+            fi
+
+            # Release build (ADR-005 §8 submission-blocker gate — surfaced
+            # here so a silent regression is visible on the PR, not only in
+            # the Actions tab)
+            echo ""
+            echo "### Release Build (ADR-005 §8 guard)"
+            echo ""
+            if [ "$RELEASE_JOB_RESULT" = "success" ]; then
+              echo "Release-iphoneos symbol guard: **passed**"
+            elif [ "$RELEASE_JOB_RESULT" = "failure" ]; then
+              echo "Release-iphoneos symbol guard: **FAILED** — see [CI logs](${CI_RUN_URL})"
+            else
+              echo "Release-iphoneos symbol guard: did not run"
             fi
 
             # Test results — unit + UI shown separately so a slow UI suite
