@@ -40,7 +40,12 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
 /// `metadata.content_filter_applied` is emitted `false` — spec §3.4
 /// reserves the `true` value for curators to set after **manual audit**.
 /// Automated ContentFilter application is not sufficient to flip it.
-struct YAMLReplayExporter {
+///
+/// Marked `nonisolated` so ``YAMLReplaySource`` (also nonisolated, for
+/// actor-isolation reasons in `.claude/rules/llm.md`) can reference the
+/// shared schema constants. File writing is thread-safe through
+/// `FileManager`.
+nonisolated struct YAMLReplayExporter {
   /// Current on-disk schema version. Must match ``YAMLReplaySource``'s
   /// `supportedSchemaVersion` so round-trip works without a version
   /// negotiation step.
@@ -543,7 +548,7 @@ struct YAMLReplayExporter {
   // MARK: - File writing
 
   private func writeToTempFile(yaml: String, scenarioId: String) throws -> URL {
-    let sanitized = ResultMarkdownExporter.sanitizeFilename(scenarioId)
+    let sanitized = Self.sanitizeFilename(scenarioId)
     let timestamp = Self.filenameTimestamp.string(from: now)
     let filename = "\(sanitized)_replay_\(timestamp).yaml"
     let url = fileManager.temporaryDirectory.appendingPathComponent(filename)
@@ -553,6 +558,20 @@ struct YAMLReplayExporter {
       throw YAMLReplayExporterError.ioFailed(description: error.localizedDescription)
     }
     return url
+  }
+
+  /// Public so tests (and the future wrapper sources) can reproduce the
+  /// rule without depending on ``ResultMarkdownExporter``.
+  static func sanitizeFilename(_ name: String) -> String {
+    let allowed =
+      CharacterSet.letters.union(.decimalDigits).union(
+        CharacterSet(charactersIn: "_-"))
+    let mapped = name.unicodeScalars.map {
+      allowed.contains($0) ? Character($0) : "_"
+    }
+    let collapsed = String(mapped)
+    let trimmed = collapsed.isEmpty ? "replay" : collapsed
+    return String(trimmed.prefix(50))
   }
 
   private static let filenameTimestamp: DateFormatter = {
@@ -567,7 +586,7 @@ struct YAMLReplayExporter {
 // MARK: - Safe-subscript helper
 
 extension Array {
-  fileprivate subscript(safe index: Int) -> Element? {
+  nonisolated fileprivate subscript(safe index: Int) -> Element? {
     indices.contains(index) ? self[index] : nil
   }
 }
