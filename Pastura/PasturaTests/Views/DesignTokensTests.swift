@@ -179,6 +179,29 @@ struct DesignTokensTests {
     #expect(approxEqual(Double(style.trackingPoints), 9.5 * 0.22))
   }
 
+  // MARK: - §4 Spacing
+
+  @Test func spacingScaleMatchesSpec() {
+    #expect(Spacing.xxs == 4)
+    #expect(Spacing.xs == 8)
+    #expect(Spacing.s == 12)
+    #expect(Spacing.m == 14)
+    #expect(Spacing.l == 20)
+    #expect(Spacing.xl == 32)
+    #expect(Spacing.xxl == 48)
+  }
+
+  // MARK: - §4 Radius
+
+  @Test func radiusScaleMatchesSpec() {
+    #expect(Radius.deviceInner == 31)
+    #expect(Radius.bubbleTail == 4)
+    #expect(Radius.bubbleBody == 14)
+    #expect(Radius.promo == 14)
+    #expect(Radius.button == 8)
+    #expect(Radius.dot == .infinity)
+  }
+
   // MARK: - Helpers
 
   private func approxEqual(_ lhs: Double, _ rhs: Double, tolerance: Double = 0.001) -> Bool {

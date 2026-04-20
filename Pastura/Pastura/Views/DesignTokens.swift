@@ -297,6 +297,49 @@ enum Typography {
     isItalic: false, textCase: nil)
 }
 
+// MARK: - §4 Spacing + Radius tokens
+
+/// Pastura spacing scale. See `design-system.md` §4.1.
+///
+/// 4pt-based scale with deliberate mid-values (14, 20) — design-system.md
+/// emphasizes softness over strict 8-multiples. Use descriptive aliases at
+/// callsites (e.g. `Spacing.bubbleGap`) when the number alone obscures intent.
+enum Spacing {
+  /// 4pt — smallest step (tight gutters, ornament spacing).
+  static let xxs: CGFloat = 4
+  /// 8pt — compact row gap.
+  static let xs: CGFloat = 8
+  /// 12pt — promo inner rhythm.
+  static let s: CGFloat = 12
+  /// 14pt — bubble / card rhythm (the "soft" mid-value).
+  static let m: CGFloat = 14
+  /// 20pt — block separation.
+  static let l: CGFloat = 20
+  /// 32pt — section separation.
+  static let xl: CGFloat = 32
+  /// 48pt — screen-level breathing room.
+  static let xxl: CGFloat = 48
+}
+
+/// Pastura corner-radius scale. See `design-system.md` §4.2.
+///
+/// `dot` is `.infinity` (SwiftUI circle semantics via
+/// `.clipShape(.circle)` or `RoundedRectangle(cornerRadius: .infinity)`).
+enum Radius {
+  /// iPhone body inner radius (follows device corner).
+  static let deviceInner: CGFloat = 31
+  /// Bubble tail corner (upper-left of tailed bubble).
+  static let bubbleTail: CGFloat = 4
+  /// Bubble body (non-tail corners).
+  static let bubbleBody: CGFloat = 14
+  /// Promo card.
+  static let promo: CGFloat = 14
+  /// Vote / action button.
+  static let button: CGFloat = 8
+  /// Full circle — DL progress dots and similar.
+  static let dot: CGFloat = .infinity
+}
+
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
