@@ -210,7 +210,7 @@ box-shadow:
 
 ### 5.6 Avatar（羊シルエット）
 
-42pt 丸。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `design_reference.html` の `SHEEP()` 参照。
+42pt 丸。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `SHEEP()` 参照。
 
 ### 5.7 Assistant Mark（犬 / コリー横顔）
 

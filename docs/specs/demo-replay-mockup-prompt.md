@@ -11,9 +11,10 @@
 
 - **In scope:** Normal playback (spec §4.9 `.playing`) + DL-complete transition
   (`.transitioning`). Multi-variant visual exploration from a zero baseline.
-- **Out of scope for this mockup:** DL failure retry, mobile-data warning modal,
-  no-playable-demos fallback (spec §3.3 / §5.3). Those states stay on the spec
-  but are not explored here to keep the prompt focused.
+- **Out of scope for this mockup:** DL failure retry (ADR-007 §3.3 case (b)),
+  mobile-data warning modal (ADR-007 §3.3 case (c)), no-playable-demos fallback
+  (spec §5.3). Those states stay on the spec / ADR but are not explored here to
+  keep the prompt focused.
 
 ## Output expectations
 
