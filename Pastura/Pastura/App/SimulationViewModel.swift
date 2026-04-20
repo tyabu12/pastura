@@ -762,6 +762,22 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     agent: String, primary: String?, thought: String?
   ) {
     guard FeatureFlags.realtimeStreamingEnabled else { return }
+    // `.instant` playback means "do not animate reveal in any form"
+    // (ADR-002 §11.2 Axis ③). Short-circuit at the event layer — with
+    // no snapshot set, the thinking indicator persists until the
+    // canonical `.agentOutput` commit and the full output appears at
+    // once, matching the flag-off baseline. Accepted trade-offs:
+    // (a) `.instant` users lose the live snapshot-vs-canonical
+    // divergence check in `handleAgentOutput` — it is gated on
+    // `streamingSnapshot != nil`, which never holds under `.instant`.
+    // The upstream DEBUG `detectSilentStreamReIssue` diagnostic runs
+    // at the `handleEvent` dispatch site and is unaffected. Coverage
+    // for the lost check: non-`.instant` users + unit/integration
+    // tests, per ADR-002 §11.2. (b) A mid-turn speed change from
+    // `.normal` / `.slow` / `.fast` → `.instant` leaves the existing
+    // snapshot in place until commit — this is an accepted limitation,
+    // not a supported toggle-responsiveness contract.
+    guard speed != .instant else { return }
     guard let primary else { return }
     // Defensive: drop the event if we somehow see a stream before
     // `.phaseStarted`. The snapshot needs a correct `phaseType` so
