@@ -246,16 +246,22 @@ box-shadow:
 
 ### DL中プロモ文（3スロット）
 
-| スロット | 進捗 | コピー |
-|---------|------|-------|
-| A | 0〜20% | AIエージェントが、あなたのiPhoneの中で対話します |
-| B | 20〜50% | 少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ |
-| C | 50〜100% | このアプリは広告もログインもなく、あなたの端末だけで静かに動きます |
+> **Note**: 以下のコピー・切替タイミングはいずれも **draft**。`docs/specs/demo-replay-spec.md` §2 decision 13 に従い、final wording は実装 PR の copy pass で確定する。タイミングは独立タイマー（`docs/specs/demo-replay-ui.md` の PromoCard rotation セクション参照）で駆動され、**DL 進捗とは無関係**。
+
+| スロット | 切替タイミング（暫定） | コピー（draft） |
+|---------|----------------------|----------------|
+| A | 0〜20 秒 | AIエージェントが、あなたのiPhoneの中で対話します |
+| B | 20〜40 秒 | 少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ |
+| C | 40〜60 秒 | このアプリは広告もログインもなく、あなたの端末だけで静かに動きます |
+
+（60 秒経過後は A に戻り、DL 完了まで無限循環。BG 復帰時は位置継続。interval `20s` は実装 PR で調整）
 
 ### 完了画面
 
-- 主: `準備ができました`
+- 主: `準備ができました`（draft）
 - 副: `tap anywhere to begin`（英小文字・モノスペース、理由：「現実世界に戻る鍵穴」感）
+
+> **Note**: 完了画面の「tap anywhere to begin」は **draft copy**。demo-replay-spec.md §2 decision 6 / §2 decision 8 に従い、実際の遷移は **auto のみ**（user tap 不要）。このテキストは視覚ヒントに留まるか、copy pass で削除・書き換えの対象（spec §2 decision 13）。
 
 ---
 
@@ -292,7 +298,7 @@ box-shadow:
 ### Claude Design に別画面を依頼する場合
 
 ```
-添付の DESIGN_SYSTEM.md は Pastura というアプリのデザインシステムです。
+添付の design-system.md は Pastura というアプリのデザインシステムです。
 このシステムに完全準拠して、以下の画面をデザインしてください：
 
 [画面の目的]
@@ -300,7 +306,7 @@ box-shadow:
 [含めるべき情報]
 
 制約：
-- カラートークン・タイポスケール・アニメーション原則は DESIGN_SYSTEM.md を逸脱しない
+- カラートークン・タイポスケール・アニメーション原則は design-system.md を逸脱しない
 - デザイン哲学の5原則（静謐・観察・牧草地・技術の誠実さ・日本語優先）を守る
 - 変化を加えたい場合は「なぜその原則を緩めるか」を明記
 - モバイル 390×844（iPhone 15）基準で設計
@@ -311,18 +317,25 @@ Frame 2〜3案のバリエーションを出してください。
 ### Claude Code に実装を依頼する場合
 
 ```
-添付の README.md と DESIGN_SYSTEM.md、design_reference.html を参照してください。
-既存の SwiftUI プロジェクト（iOS 16+）に、このデザインを実装してください。
+添付の design-system.md（docs/design/）と対象画面の UI spec（docs/specs/<screen>-ui.md）、
+および該当する design reference HTML を参照してください。
+既存の SwiftUI プロジェクト（iOS 17+）に、このデザインを実装してください。
 
 手順：
 1. DesignTokens.swift / Theme.swift にカラー・フォント・スペーシングトークンを定義
+   （design-system.md §2-§4 が canonical source）
 2. 共通コンポーネント（Bubble, PromoCard, Avatar, AssistantMark）を切り出す
-3. ModelDownloadState（Observable）で progress を購読し、Phase を自動遷移
-4. アニメーションは README.md のテーブル通りの Duration/Easing で
+3. 画面固有の state は UI spec の Responsibility boundary に従って分担
+   （VM が所有する挙動と host view のローカル state を混同しない）
+4. アニメーションは UI spec のテーブル通りの Duration/Easing で
 
 HTML は参照用で、移植対象ではありません。SwiftUI のイディオムで書き直してください。
 犬・羊の SVG は Path で起こすか、最悪 SF Symbols で代用してください（ただし代用した場合は注釈）。
 ```
+
+*DL-time demo replay 画面の具体例*:
+`docs/design/demo-replay-reference.html` + `docs/specs/demo-replay-ui.md` +
+`docs/specs/demo-replay-spec.md` + `docs/decisions/ADR-007.md` を参照。
 
 ---
 
