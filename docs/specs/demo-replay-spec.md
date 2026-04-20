@@ -633,23 +633,30 @@ requires a workflow for capturing promising simulation runs as they
 happen during development. Issue #152 explicitly flagged this as a
 "don't wait until release to record" concern.
 
-### 6.1 Current posture: deferred
+### 6.1 Current posture: Candidate A promoted to Phase 2 (E1)
 
-This spec **does not** commit to a dev-time log-stash mechanism. The
-design space (below) was surveyed during the Issue-#152 discussion and
-closed as "return to this when the curator workflow needs formalising,
-not before":
+> **Update (2026-04-20, Issue #164)**: Candidate mechanism A has been
+> promoted to Phase 2 scope as the "YAML simulation replay primitive"
+> ROADMAP row (E1 in the Issue #164 planning conversation). The
+> original "return to this when the curator workflow needs formalising,
+> not before" posture is resolved in favour of shipping the Past
+> Results YAML exporter + `YAMLReplaySource` importer primitive in
+> Phase 2. See §6.2 trigger 4.
 
-- **Candidate mechanism A**: an "Export for demo" button on the Past
-  Results Viewer that writes the current simulation to disk in the §3
-  YAML schema (bypassing the usual Markdown export flow). Curator
-  promotes good stashes into the bundle via PR.
-- **Candidate mechanism B**: a dev-only feature flag
+The design space was surveyed during the Issue-#152 discussion. Three
+candidate mechanisms:
+
+- **Candidate mechanism A (now Phase 2, E1)**: an "Export for demo"
+  button on the Past Results Viewer that writes the current simulation
+  to disk in the §3 YAML schema (bypassing the usual Markdown export
+  flow). Curator promotes good stashes into the bundle via PR.
+- **Candidate mechanism B (still deferred)**: a dev-only feature flag
   (`DEMO_CAPTURE=1` scheme env) that auto-copies every completed
-  simulation's state as YAML to a known location.
-- **Candidate mechanism C**: nothing special — curator manually
-  re-runs scenarios and captures via the implementation PR's YAML
-  export (when added).
+  simulation's state as YAML to a known location. Revisit per §6.2
+  trigger 3.
+- **Candidate mechanism C (subsumed by A)**: nothing special — curator
+  manually re-runs scenarios and captures via the YAML exporter. With
+  Candidate A shipping in Phase 2, this becomes the default mode.
 
 ### 6.2 Resume triggers
 
@@ -662,10 +669,16 @@ Revisit this decision when any of:
    free.
 3. A curator decides to record demos in batch sessions rather than
    opportunistically, raising the value of automation (Candidate B).
+4. **(Fired 2026-04-20, Issue #164)** Phase 2 E1 primitive work begins
+   — the Past Results YAML exporter + `YAMLReplaySource` importer
+   primitive that Candidate A depends on ships together as a
+   foundation for DL demo replay (§4.4) and future user-replay
+   (§4.5). See `docs/ROADMAP.md` Phase 2 table for the tracking row.
 
-Until one of those triggers fires, curators capture demos with
-whatever ad-hoc method works (screen-recording, manual YAML editing,
-etc.) and the captured files land in `Resources/DemoReplays/` via PR.
+With trigger 4 fired, curators will capture demos via the Phase 2
+exporter once it ships. Until then, ad-hoc methods (screen-recording,
+manual YAML editing) remain acceptable for in-flight captures; files
+land in `Resources/DemoReplays/` via PR.
 
 ### 6.3 Boundary with Markdown export (#91 / #98)
 
