@@ -207,6 +207,11 @@ struct PasturaTextStyle: Sendable, Equatable {
 
   /// SwiftUI `Font` built from size / weight / design (+ italic modifier).
   var font: Font {
+    // Why: `Font.system(size:weight:design:)` is a fixed-size font, not Dynamic
+    // Type aware. This is a deliberate trade-off per `docs/design/design-system.md`
+    // — the scale's precise size/line-height values are load-bearing for the
+    // Pastura visual voice. When Dynamic Type support is revived, route
+    // `Font.system(size:relativeTo:)` through this single computed property.
     let base = Font.system(size: size, weight: weight, design: design)
     return isItalic ? base.italic() : base
   }
@@ -340,58 +345,8 @@ enum Radius {
   static let dot: CGFloat = .infinity
 }
 
-// MARK: - Color extension (SwiftUI-facing aliases)
-
-extension Color {
-  // §2.1 Backgrounds
-  static let page = PasturaPalette.page.color
-  static let screenBackground = PasturaPalette.screenBackground.color
-  static let bubbleBackground = PasturaPalette.bubbleBackground.color
-  static let promoBackground = PasturaPalette.promoBackground.color
-  static let promoBorder = PasturaPalette.promoBorder.color
-
-  // §2.2 Ink
-  static let ink = PasturaPalette.ink.color
-  static let inkSecondary = PasturaPalette.inkSecondary.color
-  static let muted = PasturaPalette.muted.color
-  static let rule = PasturaPalette.rule.color
-
-  // §2.3 Moss
-  static let moss = PasturaPalette.moss.color
-  static let mossDark = PasturaPalette.mossDark.color
-  static let mossInk = PasturaPalette.mossInk.color
-  static let mossSoft = PasturaPalette.mossSoft.color
-
-  // §2.4 Meta L1
-  static let metaBaseL1 = PasturaPalette.metaBaseL1.color
-  static let metaStrongL1 = PasturaPalette.metaStrongL1.color
-  static let metaDotOnL1 = PasturaPalette.metaDotOnL1.color
-
-  // §2.4 Meta L2
-  static let metaBaseL2 = PasturaPalette.metaBaseL2.color
-  static let metaStrongL2 = PasturaPalette.metaStrongL2.color
-  static let metaDotOnL2 = PasturaPalette.metaDotOnL2.color
-
-  // §2.4 Meta L3 (default)
-  static let metaBaseL3 = PasturaPalette.metaBaseL3.color
-  static let metaStrongL3 = PasturaPalette.metaStrongL3.color
-  static let metaDotOnL3 = PasturaPalette.metaDotOnL3.color
-
-  // §2.4 Meta L4
-  static let metaBaseL4 = PasturaPalette.metaBaseL4.color
-  static let metaStrongL4 = PasturaPalette.metaStrongL4.color
-  static let metaDotOnL4 = PasturaPalette.metaDotOnL4.color
-
-  // §2.5 Avatars
-  static let avatarAlice = PasturaPalette.avatarAlice.color
-  static let avatarBob = PasturaPalette.avatarBob.color
-  static let avatarCarol = PasturaPalette.avatarCarol.color
-  static let avatarDave = PasturaPalette.avatarDave.color
-  static let avatarEar = PasturaPalette.avatarEar.color
-  static let avatarEarInner = PasturaPalette.avatarEarInner.color
-  static let avatarNose = PasturaPalette.avatarNose.color
-  static let avatarEye = PasturaPalette.avatarEye.color
-  static let avatarHighlight = PasturaPalette.avatarHighlight.color
-}
+// SwiftUI-facing helpers (`Color.*` aliases, `View.textStyle(_:)`) live in
+// `DesignTokens+SwiftUI.swift` — split to keep this file under the 400-line
+// cap and to ease the future SPM split (tokens module vs UI module).
 
 // swiftlint:enable identifier_name
