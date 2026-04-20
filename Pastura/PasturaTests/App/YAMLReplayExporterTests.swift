@@ -363,6 +363,64 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
     }
   }
 
+  // MARK: - Conditional sub-phase fallback
+
+  @Test func subPhaseEventResolvesToConditionalIndex() throws {
+    // Mirror the word_wolf preset shape: the tail `summarize` phases
+    // live inside a `conditional` at index 5. The exporter must
+    // resolve `summarize` code events to 5, not 0, so consumers can
+    // still locate the enclosing phase context when rendering.
+    let yaml = """
+      id: cond_scn
+      name: Conditional
+      description: ''
+      agents: 2
+      rounds: 1
+      context: ''
+      personas:
+        - name: Alice
+          description: ''
+        - name: Bob
+          description: ''
+      phases:
+        - type: assign
+        - type: speak_each
+          prompt: s
+          rounds: 1
+          output: { statement: string }
+        - type: vote
+          prompt: v
+          candidates: agents
+        - type: eliminate
+        - type: score_calc
+          logic: vote_tally
+        - type: conditional
+          if: max_score >= 1
+          then:
+            - type: summarize
+              template: '{{winner}} wins'
+          else:
+            - type: summarize
+              template: 'no winner'
+      """
+    let scenario = ScenarioRecord(
+      id: "cond_scn", name: "Conditional",
+      yamlDefinition: yaml, isPreset: true,
+      createdAt: Date(), updatedAt: Date())
+    let event = makeCodePhaseEvent(
+      round: 1, seq: 10, phase: "summarize",
+      payload: .summary(text: "Alice wins"))
+
+    let result = try makeExporter().export(
+      .init(
+        simulation: makeSimulation(), scenario: scenario,
+        turns: [], codePhaseEvents: [event]))
+
+    // conditional lives at index 5 in the phases array above.
+    #expect(result.text.contains("phase_index: 5"))
+    #expect(!result.text.contains("phase_index: 0\n    phase_type: 'summarize'"))
+  }
+
   @Test func emptyTurnsEmitsEmptyList() throws {
     let exporter = makeExporter()
     let result = try exporter.export(

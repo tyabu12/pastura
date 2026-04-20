@@ -352,12 +352,18 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   private static func resolveEventPhaseIndices(
     scenario: Scenario, events: [CodePhaseEventRecord]
   ) -> [Int] {
-    var result: [Int] = []
-    for event in events {
-      let idx = scenario.phases.firstIndex { $0.type.rawValue == event.phaseType }
-      result.append(idx ?? 0)
+    events.map { event in
+      if let idx = scenario.phases.firstIndex(where: {
+        $0.type.rawValue == event.phaseType
+      }) {
+        return idx
+      }
+      // Not a top-level phase — the event originated inside a
+      // `conditional`'s branch (e.g. `summarize` used in then/else).
+      // Fall back to the conditional's index so consumers can still
+      // locate the enclosing phase context.
+      return conditionalFallbackIndex(in: scenario.phases)
     }
-    return result
   }
 
   private static func advanceCursor(
@@ -368,9 +374,25 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       next += 1
     }
     if next < phases.count { return next }
-    // Fell off the end — fall back to the first matching index
-    // anywhere (covers conditional sub-phase + repeated-type cases).
-    return phases.firstIndex { $0.type.rawValue == type } ?? max(current, 0)
+    // Fell off the end — try the first matching index anywhere
+    // (repeated-same-type case), then fall back to the conditional's
+    // index (sub-phase case), then finally preserve the last-known
+    // cursor.
+    if let anyMatch = phases.firstIndex(where: { $0.type.rawValue == type }) {
+      return anyMatch
+    }
+    return conditionalFallbackIndex(in: phases, defaultingTo: max(current, 0))
+  }
+
+  /// Shared fallback for both turn and code-phase-event `phase_index`
+  /// resolution when the observed `phase_type` is not a top-level
+  /// phase. Points at the outer `conditional` so the enclosing phase
+  /// context is preserved; consumers that want the exact sub-phase
+  /// wait for the future `phaseIndex` column migration.
+  private static func conditionalFallbackIndex(
+    in phases: [Phase], defaultingTo fallback: Int = 0
+  ) -> Int {
+    phases.firstIndex { $0.type == .conditional } ?? fallback
   }
 
   // MARK: - Payload + summary helpers
