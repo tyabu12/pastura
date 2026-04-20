@@ -147,8 +147,10 @@ struct AgentOutputRow: View {
     let splitIdx = fullText.index(fullText.startIndex, offsetBy: revealed)
     let visible = fullText[..<splitIdx]
     let hidden = fullText[splitIdx...]
+    // Why: `.textStyle(_:)` on the concatenated `Text + Text` — uniform
+    // lineSpacing/tracking keeps the concat trick stable (see type doc).
     return (Text(visible) + Text(hidden).foregroundStyle(.clear))
-      .font(.body)
+      .textStyle(Typography.bodyBubble)
       // Streaming grows `streamingPrimary` token-by-token; SwiftUI would
       // otherwise animate the Text's string change implicitly and the
       // re-laid-out glyphs cross-fade visibly. Keyed on `streamingPrimary`
@@ -182,9 +184,8 @@ struct AgentOutputRow: View {
     let visible = fullText[..<splitIdx]
     let hidden = fullText[splitIdx...]
     return (Text(visible) + Text(hidden).foregroundStyle(.clear))
-      .font(.caption)
-      .italic()
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.thinkingBody)
+      .foregroundStyle(Color.muted)
       .padding(.leading, 8)
   }
 
@@ -203,15 +204,14 @@ struct AgentOutputRow: View {
         Text(showInnerThought ? "Hide thought" : "Show thought")
       }
       .font(.caption)
-      .foregroundStyle(.secondary)
+      .foregroundStyle(Color.muted)
     }
     .buttonStyle(.plain)
 
     if showInnerThought {
       Text(fullText)
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .italic()
+        .textStyle(Typography.thinkingBody)
+        .foregroundStyle(Color.muted)
         .padding(.leading, 8)
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
