@@ -22,6 +22,9 @@ struct ResultDetailView: View {
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var isExporting = false
   @State private var exportError: String?
+  @State private var yamlExportPayload: YAMLReplayExporter.ExportedResult?
+  @State private var isExportingYAML = false
+  @State private var yamlExportError: String?
 
   // Per-view filter for code-phase row rendering. Mirrors the exporter's
   // whole-string Markdown sweep (`ResultMarkdownExporter.export` filters the
@@ -32,6 +35,15 @@ struct ResultDetailView: View {
 
   private var canExport: Bool {
     !isExporting && simulation?.simulationStatus == .completed
+      && scenario != nil
+  }
+
+  /// Gate for the "Export for demo" YAML button. Same completion
+  /// requirement as the Markdown export — a paused or running
+  /// simulation would produce a truncated replay that misrepresents
+  /// the result.
+  private var canExportYAML: Bool {
+    !isExportingYAML && simulation?.simulationStatus == .completed
       && scenario != nil
   }
 
@@ -66,6 +78,18 @@ struct ResultDetailView: View {
       }
       ToolbarItem(placement: .secondaryAction) {
         Button {
+          Task { await triggerYAMLExport() }
+        } label: {
+          if isExportingYAML {
+            ProgressView()
+          } else {
+            Image(systemName: "film")
+          }
+        }
+        .disabled(!canExportYAML)
+      }
+      ToolbarItem(placement: .secondaryAction) {
+        Button {
           showAllThoughts.toggle()
         } label: {
           Image(systemName: showAllThoughts ? "text.bubble.fill" : "text.bubble")
@@ -74,6 +98,9 @@ struct ResultDetailView: View {
       }
     }
     .sheet(item: $exportPayload) { payload in
+      ShareSheet(activityItems: [payload.text, payload.fileURL])
+    }
+    .sheet(item: $yamlExportPayload) { payload in
       ShareSheet(activityItems: [payload.text, payload.fileURL])
     }
     .alert(
@@ -86,6 +113,17 @@ struct ResultDetailView: View {
       Button("OK", role: .cancel) { exportError = nil }
     } message: {
       Text(exportError ?? "")
+    }
+    .alert(
+      "Replay export failed",
+      isPresented: Binding(
+        get: { yamlExportError != nil },
+        set: { if !$0 { yamlExportError = nil } }
+      )
+    ) {
+      Button("OK", role: .cancel) { yamlExportError = nil }
+    } message: {
+      Text(yamlExportError ?? "")
     }
     .task {
       await loadData()
@@ -227,5 +265,27 @@ struct ResultDetailView: View {
   private func decodeState(from record: SimulationRecord) -> SimulationState? {
     guard let data = record.stateJSON.data(using: .utf8) else { return nil }
     return try? JSONDecoder().decode(SimulationState.self, from: data)
+  }
+
+  /// Runs the demo-replay YAML exporter and hands the result to a
+  /// separate Share Sheet. Parallel to ``triggerExport`` (Markdown)
+  /// but emits `docs/specs/demo-replay-spec.md` §3.2 schema for
+  /// curator ingestion into `Resources/DemoReplays/`.
+  private func triggerYAMLExport() async {
+    guard let simulation, let scenario else { return }
+    isExportingYAML = true
+    defer { isExportingYAML = false }
+
+    let exporter = YAMLReplayExporter(contentFilter: contentFilter)
+    let input = YAMLReplayExporter.Input(
+      simulation: simulation, scenario: scenario,
+      turns: turns, codePhaseEvents: events)
+
+    do {
+      let result = try exporter.export(input)
+      self.yamlExportPayload = result
+    } catch {
+      self.yamlExportError = error.localizedDescription
+    }
   }
 }
