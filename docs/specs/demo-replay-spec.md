@@ -2,6 +2,12 @@
 
 > **Status:** Draft (companion to ADR-007 — iOS lifecycle decisions live there; this spec owns data-format and component design)
 > **Date:** 2026-04-19
+> **Companion docs:**
+> - [`docs/specs/demo-replay-ui.md`](demo-replay-ui.md) — visual / behaviour spec for the DL-time host screen (layout, animation timings, non-state-machine interactions).
+> - [`docs/specs/demo-replay-mockup-prompt.md`](demo-replay-mockup-prompt.md) — Claude Design prompt used to explore the visual direction.
+> - [`docs/decisions/ADR-007.md`](../decisions/ADR-007.md) — iOS lifecycle branching.
+> - [`docs/design/design-system.md`](../design/design-system.md) — cross-screen design tokens referenced by the UI spec.
+>
 > **Context:** Phase 2 feature. While the Gemma 4 E2B model (~3 GB) downloads
 > on first launch, the app plays back pre-recorded simulation logs so the
 > user experiences Pastura's value instead of watching a progress bar.
@@ -562,6 +568,15 @@ Japanese is shipped in Phase 2.
 The copy pass in the implementation PR is explicitly empowered to
 rewrite any of the three working drafts. The role definitions above are
 the binding constraint; the exact words are not.
+
+**Rotation timing.** Slot A/B/C rotation is time-based (independent
+timer, ~20 s/slot provisional, infinite cycle with position-continue on
+background resume), **not DL-progress-gated**. Binding of timing and
+the DL-progress-decoupling policy live in `docs/specs/demo-replay-ui.md`
+(Responsibility boundary — PromoCard rotation); the current draft
+interval is in `docs/design/design-system.md` §7. The host view owns the
+timer in local `@State` — this spec's `ReplayViewModel` is not involved
+in slot rotation.
 
 ### 5.5 Multilingual posture
 
