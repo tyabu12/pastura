@@ -1,4 +1,61 @@
-# Handoff: Pastura DL中デモ再生画面
+# DL-time Demo Replay — UI Spec
+
+> **Status:** Draft (visual / behaviour spec; VM contract, playback
+> state machine, and data flow live in companion docs — see below)
+> **Date:** 2026-04-20
+
+## Companion docs
+
+- [`docs/specs/demo-replay-spec.md`](demo-replay-spec.md) — data format,
+  `ReplayViewModel` architecture, playback state machine, content-filter
+  policy.
+- [`docs/decisions/ADR-007.md`](../decisions/ADR-007.md) — iOS lifecycle
+  branching (scenePhase transitions, BG/FG pause/resume, download-complete
+  hand-off, DL-failure, mobile-data confirmation flow).
+- [`docs/design/design-system.md`](../design/design-system.md) — cross-
+  screen design tokens (colour / typography / spacing / motion). Every
+  token referenced in this doc is defined there.
+- [`docs/design/demo-replay-reference.html`](../design/demo-replay-reference.html)
+  — interactive visual prototype (4 storyboard frames side-by-side).
+- [`docs/specs/demo-replay-mockup-prompt.md`](demo-replay-mockup-prompt.md)
+  — Claude Design prompt used to generate the HTML reference; useful as a
+  starting point for future per-screen visual exploration.
+
+## Responsibility boundary
+
+This UI spec owns **visual layout, animation timings, and non-state-
+machine interactions** (e.g., THINKING toggle, SheepAvatar geometry).
+Where prose here implies state-machine behaviour or lifecycle branching,
+the companion docs are authoritative — they are cited inline at each
+such point.
+
+- **`demo-replay-spec.md` §4 is authoritative** for the `ReplayViewModel`
+  contract, the playback state machine
+  (`.idle` / `.playing` / `.paused` / `.transitioning`), content-filter
+  policy, and the event stream shape.
+- **ADR-007 §3 is authoritative** for iOS lifecycle branching
+  (scenePhase, BG/FG pause/resume, DL-complete hand-off, DL-failure,
+  mobile-data confirmation flow).
+
+### Three independent progress-like concerns on the same screen
+
+The DL-time screen surfaces three progress-like elements with different
+drivers. Conflating them was the original source of ambiguity between an
+earlier draft of this doc and `demo-replay-spec.md`; the separation below
+is load-bearing.
+
+| Element | Driven by | Notes |
+|---------|-----------|-------|
+| 8-dot DL progress indicator (PromoCard top row) | DL progress (`ModelManager.progress`) | Genuine progress bar; monotonic |
+| Slot A/B/C copy rotation (PromoCard body) | Independent timer, **~20 s / slot, provisional** (infinite cycle `A → B → C → A → …`) | **Orthogonal to DL progress.** Pauses on background, resumes from the same slot position. Final interval tuned during implementation PR |
+| Frame 4 completion overlay | DL-complete signal (`ModelManager.progress ≥ 1.0`) | Fires once; auto-transitions per spec §2 decision 8 — no user tap required (spec §2 decision 6 excludes user-triggered transitions) |
+
+The replayed chat stream (bubbles, THINKING, voting) is **entirely
+independent of DL progress**: demos play through at 2× speed
+(spec §2 decision 5), loop to the next bundled demo at end-of-stream, and
+keep cycling until the DL-complete signal fires (spec §4.9).
+
+---
 
 ## Overview
 
@@ -8,13 +65,13 @@ Pastura（AIエージェント同士の会話を眺めるアプリ）の **AIモ
 
 ---
 
-## About the Design Files
+## Design Reference
 
-このバンドルに含まれる `design_reference.html` は **デザインリファレンス** です。本番コードとしてそのまま使うものではなく、意図したルック・アニメーション・情報設計を示すプロトタイプです。
+`docs/design/demo-replay-reference.html` は **デザインリファレンス** です。本番コードとしてそのまま使うものではなく、意図したルック・アニメーション・情報設計を示すプロトタイプです。
 
 開発者のタスクは、**既存の Swift/SwiftUI プロジェクトのアーキテクチャとコンポーネントに合わせてこのデザインを再現すること** です。以下の形式を推奨します：
 
-- **SwiftUI** （iOS 16+ 想定）
+- **SwiftUI** （iOS 17+ 想定 — 最新の CLAUDE.md に従う）
 - カラーは Asset Catalog に色トークンとして定義
 - タイポグラフィは `Font` の extension として集約
 - アバター・アシスタントマークは SwiftUI `Shape` / `Path` もしくは SF Symbols で代用可
@@ -29,23 +86,30 @@ HTML/CSS/JS をそのまま移植せず、**SwiftUI のイディオム**（`VSta
 
 ## Screens / Views
 
-本画面は **単一の画面で4フレームの時系列を表現** します。実装時は1つのルートビュー（`ModelDownloadDemoView`）がDL進捗に応じて中身を遷移させる形になります。
+本画面は **1 つのルートビュー (`ModelDownloadDemoView`)** が以下 3 つの独立した入力源を合成して表示します:
 
-### Frame 1 — DL開始直後（0〜10%）
+- `ReplayViewModel` が吐く `AgentOutputRow` イベント列（spec §4.2 / §4.7）— チャットストリーム本体
+- DL 進捗（`ModelManager.progress`）— PromoCard の 8-dot インジケータと Frame 4 オーバーレイを駆動
+- Slot A/B/C rotation 用の独立タイマー（〜20 秒 / slot、暫定値）— PromoCard 本文のコピー切替
+
+以下の Frame 1-3 は **1 本の録画デモが再生されていく中の視覚的段階** を示すもので、**DL 進捗に連動した画面遷移ではありません**（spec §4.7 — レンダーは VM が吐くイベントに追従します）。Frame 4 のみ DL 完了シグナル（`ModelManager.progress ≥ 1.0`）で駆動され、spec §4.9 の `.transitioning` 状態に対応します。
+
+### Frame 1 — デモ再生序盤（録画最初の発話）
 - **状態**: Alice の第一声のみ表示、他のエージェントは未表示
-- **プロモ**: `A` 文章を表示（「AIエージェントが、あなたのiPhoneの中で対話します」）
+- **PromoCard**: 起動時は Slot A 表示（独立タイマー駆動で 〜20 秒後に B へ、DL 進捗とは無関係）
 
-### Frame 2 — 全員発話完了（10〜50%）
-- **状態**: Alice, Bob, Carol, Dave の4発言が順次フェードイン（各 180ms ディレイ）。Dave にのみ "THINKING"（内なる思考）を展開
-- **プロモ**: `B` 文章（「少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ」）
+### Frame 2 — デモ序盤の全員発話
+- **状態**: Alice, Bob, Carol, Dave の 4 発言が順次フェードイン（各 180ms ディレイ）。Dave にのみ "THINKING"（内なる思考）を展開
+- **PromoCard**: Slot A / B / C のいずれか（経過時間次第、DL 進捗とは無関係）
 
-### Frame 3 — 投票フェーズ（50〜90%）
-- **状態**: フェーズラベルが「投票」に切替。3人がDave に投票。各投票バブルに `→ Dave` のハイライトと `REASON`（理由）を添付
-- **プロモ**: `C` 文章（「このアプリは広告もログインもなく、あなたの端末だけで静かに動きます」）
+### Frame 3 — デモ中盤の投票フェーズ
+- **状態**: フェーズラベルが「投票」に切替。3 人が Dave に投票。各投票バブルに `→ Dave` のハイライトと `REASON`（理由）を添付
+- **PromoCard**: Slot A / B / C のいずれか（同上）
 
-### Frame 4 — DL完了・遷移（100%）
-- **状態**: 既存のチャットストリームが `opacity:.12 + blur(1px)` にフェードアウト（1.6s）。中央に種/アシスタントマークがパルスアニメーションで出現し、「準備ができました」のコピーが浮かぶ。2.4s で完全に切り替わる
-- **プロモ**: 非表示（DL完了後はメタ情報不要）
+### Frame 4 — DL 完了・遷移
+- **トリガー**: DL 完了シグナル（`ModelManager.progress ≥ 1.0`）。spec §4.9 `.transitioning` 状態に対応
+- **状態**: 既存のチャットストリームが `opacity:.12 + blur(1px)` にフェードアウト（1.6s）。中央にアシスタントマーク（犬 / コリー）がパルスアニメーションで出現し、「準備ができました」のコピーが浮かぶ。2.4s で完全に切り替わる（auto-transition; spec §2 decision 8 — ユーザー操作不要）
+- **PromoCard**: 非表示
 
 ---
 
@@ -157,7 +221,7 @@ func formatETA(_ minutes: Int) -> String {
 
 - 26pt 四方のベクター。犬（コリー）の横顔
 - ベースは白抜き（`#ffffff`）、輪郭・耳・目・鼻は `#3d4030`、尾の巻きやアクセントは `#8a9a6c`
-- SVG は `design_reference.html` 内の `DOG_SIDE` 定数を参照。SwiftUI へは `Path` 起こし、もしくは `Image(systemName:)` の代用に留めるなら `dog.fill` では表現力不足なので**カスタム SF Symbol または SwiftUI Path 実装を強く推奨**
+- SVG は `../design/demo-replay-reference.html` 内の `DOG_SIDE` 定数を参照。SwiftUI へは `Path` 起こし、もしくは `Image(systemName:)` の代用に留めるなら `dog.fill` では表現力不足なので**カスタム SF Symbol または SwiftUI Path 実装を強く推奨**
 
 ### DLCompleteOverlay（Frame 4）
 
@@ -166,39 +230,31 @@ func formatETA(_ minutes: Int) -> String {
   - 44pt の犬マーク（2.4s ループで scale 1.0 ↔ 1.06 パルス）
   - `準備ができました` — 16pt / weight: medium / letterSpacing 0.22em / `#3d4030`
   - 8pt gap
-  - `tap anywhere to begin` — 11pt / モノスペース / `#8a8b76` / letterSpacing 0.1em
+  - `tap anywhere to begin` — 11pt / モノスペース / `#8a8b76` / letterSpacing 0.1em（**draft** — spec §2 decision 13 で final wording は copy pass 決定。spec §2 decision 6 に従い実際のタップ遷移は実装しない — auto-transition のみ、このテキストは視覚的ヒントに留まる / copy pass で削除される可能性あり）
 - フェードイン: `animation(.easeOut(duration: 2.4).delay(0.2), value: isCompleted)`
 
 ---
 
 ## Interactions & Behavior
 
-### DL進捗バインディング
+### VM ownership / host view split
 
-`ModelDownloadDemoView` は以下を観察します：
+このスクリーンのチャットストリーム、デモループ、BG/FG pause/resume は **`ReplayViewModel` が所有** します（spec §4.2 / §4.9 が権威）。UI 層の責務は VM が `@Observable` で露出する state を受け取り、`Views/Components/AgentOutputRow` に流し込むだけです。`ModelDownloadDemoView` 自身は DL 進捗（`ModelManager.progress` / `ModelManager.state`）を観察して、以下の **装飾クローム 3 点** を駆動します:
 
-```swift
-@Observable final class ModelDownloadState {
-    var progress: Double        // 0.0 ... 1.0
-    var totalBytes: Int64       // 3_000_000_000 (3GB)
-    var etaSeconds: Int?        // nil = 計算中
-    var phase: DemoPhase        // .round1, .voting, .complete
-}
-```
+1. PromoCard 上部の 8-dot インジケータ（`progress` に追従）
+2. Frame 4 完了オーバーレイ（`progress ≥ 1.0` でフェードイン、spec §4.9 の `.transitioning` 状態に対応）
+3. PromoCard 本文の Slot A/B/C rotation（**DL 進捗とは独立のタイマー駆動**、下記）
 
-- **progress** が 0.5 を超えたら phase を `.voting` に遷移
-- **progress** が 1.0 に達したら phase を `.complete` にし、Frame 4 オーバーレイをフェードイン
-- **progress** の変化は `.animation(.easeInOut(duration: 0.6), value: progress)`（ドットの点灯遷移）
+チャット内容を DL 進捗で gate する処理は UI 側には置きません。再生順・ループ挙動は spec §4.9 の state machine が権威です。
 
-### フェーズ毎のチャット表示
+### PromoCard のコピー rotation（Slot A/B/C）
 
-```swift
-switch state.phase {
-case .round1: ChatStreamRound1(showAllBubbles: state.progress > 0.1)
-case .voting: VotingStream()
-case .complete: ChatStreamRound1(showAllBubbles: true).opacity(isRevealing ? 0.12 : 1)
-}
-```
+独立タイマー駆動で `A → B → C → A → …` と循環します。DL 進捗とも `ReplayViewModel` とも独立（`ModelDownloadDemoView` が所有するローカル state）。
+
+- **Interval**: 〜20 秒 / slot（**暫定値**。実装 PR で調整予定）
+- **Cycle**: 無限循環（DL 完了時は Frame 4 オーバーレイが PromoCard をフェードアウトで覆うため、rotation 側から停止する必要は無い）
+- **BG 復帰時の挙動**: 位置継続（経過時間を保持して再開。spec §4.9 chat stream の pause/resume と同じ考え方）
+- **Wording**: 各 slot の日本語コピー draft は `docs/design/design-system.md` §7 参照。spec §2 decision 13 に従い final wording は実装 PR の copy pass で確定
 
 ### アニメーション仕様
 
@@ -206,6 +262,7 @@ case .complete: ChatStreamRound1(showAllBubbles: true).opacity(isRevealing ? 0.1
 |------|----------|--------|-------|
 | バブル fade-in | 700ms | ease-out | 0 / 180 / 360 / 540ms |
 | DL ドット点灯遷移 | 600ms | cubic-bezier(.4,0,.2,1) | — |
+| Slot A/B/C 切替 cross-fade | 400ms | ease-in-out | — |
 | Frame 4 ストリームフェード | 1600ms | ease-out | 0 |
 | Frame 4 完了オーバーレイ | 2400ms | ease-out | 200ms |
 | Frame 4 マークパルス | 2400ms loop | ease-in-out | 400ms |
@@ -214,40 +271,45 @@ case .complete: ChatStreamRound1(showAllBubbles: true).opacity(isRevealing ? 0.1
 
 ### 操作
 
-- **THINKINGタップ**: 展開/折りたたみトグル（状態はビューローカルで保持）
-- **DL完了後のタップ**: 親の `onBegin()` クロージャを呼び出してデモ画面を閉じる
-- **バックグラウンド復帰時**: DL進捗は最新の値に同期（Combine / `Observation` で自動）
+- **THINKING タップ**: 展開/折りたたみトグル（状態はビューローカル `@State` で保持）
+- **DL 完了後の振る舞い**: spec §2 decision 8 に従い **自動遷移**（spec §2 decision 6 で user-triggered transition は MVP スコープ外）。Frame 4 のアニメーション（2.4s）完了後、host view が VM をアンマウント — 「tap anywhere to begin」等のユーザー操作に依存する遷移は **実装しない**
+- **BG / FG 遷移時の挙動**: spec §4.9 の `.paused` / `.playing` 遷移と ADR-007 §3.3 ケース (a) が権威。UI 側は `@Environment(\.scenePhase)` を VM に forward するのみ
 
 ---
 
 ## State Management
 
+State ownership is deliberately split across three independent concerns:
+
+| Concern | Owner | Source |
+|---------|-------|--------|
+| Playback / chat stream / loop / BG-FG pause-resume | `ReplayViewModel` | spec §4.2 / §4.9 — authoritative |
+| DL progress (drives 8-dot indicator, Frame 4 trigger, `downloadedGB` / `totalGB` / ETA display) | `ModelManager.progress` / `ModelManager.state` | Observed directly by `ModelDownloadDemoView` |
+| Slot A/B/C rotation timer | `ModelDownloadDemoView` local `@State` | UI-local; see [PromoCard のコピー rotation](#promocard-のコピー-rotation-slot-abc) above |
+
+Do **not** introduce a top-level state class that combines chat rendering with DL progress. An earlier draft of this doc described such a `ModelDownloadState { phase: DemoPhase }` with progress-gated chat reveal — that pattern contradicts spec §4.2 / §4.7 and is explicitly out of scope. Chat content is driven by the `ReplayViewModel` event stream, not by DL progress.
+
+### Display-only helpers on the host view
+
+The following computed values are safe to derive directly on the host view from `ModelManager` state (no separate state class needed):
+
 ```swift
-@Observable final class ModelDownloadState {
-    enum Phase: Hashable { case round1, voting, complete }
-    var progress: Double = 0
-    var totalBytes: Int64 = 3_000_000_000
-    var etaSeconds: Int?
-    var phase: Phase = .round1
-    
-    var currentPromoSlot: PromoSlot {
-        switch progress {
-        case ..<0.2: .A
-        case ..<0.5: .B
-        case ..<1.0: .C
-        default: .none
-        }
-    }
-    
-    var downloadedGB: Double { Double(totalBytes) * progress / 1_000_000_000 }
-    var totalGB: Double { Double(totalBytes) / 1_000_000_000 }
-    var etaMinutes: Int? { etaSeconds.map { max(0, Int(($0 + 59) / 60)) } }
+// Illustrative — final shape decided at implementation PR.
+// downloadedGB / totalGB / etaMinutes are pure display helpers on
+// `ModelManager`-observed values; they do not constitute playback state.
+func downloadedGB(from progress: Double, totalBytes: Int64) -> Double {
+    Double(totalBytes) * progress / 1_000_000_000
+}
+func etaMinutes(from seconds: Int?) -> Int? {
+    seconds.map { max(0, Int(($0 + 59) / 60)) }
 }
 ```
 
 ---
 
 ## Design Tokens（Swift実装用）
+
+> **Canonical source**: `docs/design/design-system.md` のカラートークン / タイポグラフィ / スペーシング / レイアウト セクション。以下の Swift スケッチは **そのミラー** であり、齟齬があれば design-system.md を優先（cross-screen 利用前提なので tokens 定義は design-system.md で一元管理）。
 
 `Theme.swift` または `DesignTokens.swift` に集約推奨：
 
@@ -328,7 +390,7 @@ enum Radius {
 
 | アセット | 形式 | 備考 |
 |---------|------|------|
-| 犬（横顔） | Vector / SF Symbol | `design_reference.html` の `DOG_SIDE` SVG を SwiftUI `Path` に変換 |
+| 犬（横顔） | Vector / SF Symbol | `../design/demo-replay-reference.html` の `DOG_SIDE` SVG を SwiftUI `Path` に変換 |
 | 羊アバター（4色） | Vector | 同 HTML 内の `SHEEP()` 関数のSVG。色違いで4バリエーション |
 | 葉（phase-l の菱形） | `RoundedRectangle` + rotation | SVG不要、SwiftUI で生成可 |
 
@@ -336,11 +398,9 @@ enum Radius {
 
 ---
 
-## Files
+## Related files
 
-- `design_reference.html` — 完全なインタラクティブプロトタイプ。ブラウザで開くと全4フレームが並列表示される
-- `DESIGN_SYSTEM.md` — デザインシステム（色・タイポ・トーン・再利用プロンプト）。他画面への展開・今後の Claude 向けプロンプトとしても使用可
-- `README.md` — 本書
+この spec は 3 層ドキュメントの一部です。正式な一覧はファイル冒頭の [Companion docs](#companion-docs) セクションを参照してください。従来の「1 つのバンドルに兄弟ファイルとして同梱」というフレーミングは本 split 以降適用されません（`docs/design/` と `docs/specs/` に分かれて配置）。
 
 ---
 
@@ -348,14 +408,15 @@ enum Radius {
 
 開発者向け：
 
-- [ ] `DesignTokens.swift` に上記カラー/フォント/スペーシングを定義
-- [ ] `ModelDownloadState`（Observable）を実装し、実際の `URLSession.downloadTask` から progress/etaSeconds を更新
+- [ ] `DesignTokens.swift`（または `Theme.swift`）にカラー / フォント / スペーシングを定義。canonical tokens は `docs/design/design-system.md` §2-§4（カラートークン / タイポグラフィ / スペーシング / レイアウト）に従う — このファイルの上記 Swift スケッチはそのミラーであり、齟齬があれば design-system.md 優先
+- [ ] `ModelDownloadDemoView` (host view) を実装: `ReplayViewModel` をホストし、`ModelManager.progress` を観察して 8-dot + Frame 4 を駆動、Slot rotation タイマーをローカル `@State` で所有、`@Environment(\.scenePhase)` を VM に forward（spec §4 / ADR-007 §3 に従う）
 - [ ] `PhaseHeader`, `ChatBubble`, `ThinkingBlock`, `PromoCard`, `PromoMeta`, `AssistantMark`, `SheepAvatar` コンポーネントを分割実装
 - [ ] `DOG_SIDE` SVG を SwiftUI `Path` に変換（犬の横顔）
 - [ ] `SHEEP()` SVG を SwiftUI `Path` に変換（羊の顔、色パラメータ化）
-- [ ] チャットバブルのフェードインアニメーション（各180ms ずらし）
-- [ ] DLドット点灯トランジション（progress変化時の 600ms ease）
-- [ ] Frame 4 の多段アニメーション（ストリームフェード + マークパルス + コピー段階表示）
+- [ ] チャットバブルのフェードインアニメーション（各 180ms ずらし）
+- [ ] DL ドット点灯トランジション（progress 変化時の 600ms ease）
+- [ ] Slot A/B/C rotation: 〜20 秒 / slot の独立タイマー + 400ms cross-fade 切替。interval は実装時に調整
+- [ ] Frame 4 の多段アニメーション（ストリームフェード + マークパルス + コピー段階表示）。自動遷移、ユーザー操作不要（spec §2 decision 8）
 - [ ] アクセシビリティ: `PromoMeta` に `accessibilityLabel("ダウンロード \(pct)% \(downloaded) / \(total)、\(eta)")` + `.accessibilityAddTraits(.updatesFrequently)`
 - [ ] THINKING 展開/折りたたみをタップで切替（状態はビューローカル）
 - [ ] VoiceOver で読み上げ順を検証
