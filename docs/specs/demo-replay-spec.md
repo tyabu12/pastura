@@ -188,6 +188,11 @@ code_phase_events:               # optional; present if the preset has score_cal
     phase_index: 3
     phase_type: score_calc
     summary: "Scores updated: Alice +1, Bob +1"
+    payload:                     # optional; discriminated-union — §3.2 note 5
+      kind: scoreUpdate          # matches CodePhaseEventPayload case names
+      scores:
+        Alice: 1
+        Bob: 1
     delay_ms_before: 500
 ```
 
@@ -205,6 +210,16 @@ Notes on field choices:
 - **`code_phase_events` separate from `turns`.** Matches Past Results
   Viewer's separation between agent output and code-phase events
   (established in #102 / #113).
+- **`payload:` (optional) preserves structured code-phase data.** The
+  bare `summary:` field is a human-readable narrative line; the
+  `payload:` stanza — added as part of Phase 2 E1 (Issue #167) — carries
+  the structured form keyed by a `kind:` discriminator matching
+  `CodePhaseEventPayload` case names (`scoreUpdate`, `elimination`,
+  `voteResults`, `pairingResult`, `assignment`, `summary`). Consumers
+  that render score ticks or voting breakdowns read `payload`; consumers
+  that only need a narrative line read `summary`. `payload:` is
+  optional for forward compat — a loader that encounters an unknown
+  `kind` falls back to the `summary` string.
 
 ### 3.3 Preset drift detection and CI guard
 
@@ -236,7 +251,12 @@ zero playable demos.
 - **At record time** (curator workflow, §6): the curator reviews recorded
   YAML and runs the current blocklist against every `fields.*` string
   and `code_phase_events[].summary`. The `metadata.content_filter_applied:
-  true` flag is set only after manual audit.
+  true` flag is set only after manual audit. **Automated exporters
+  (Phase 2 E1 `YAMLReplayExporter`, Issue #167) always emit
+  `content_filter_applied: false` even though they invoke
+  `ContentFilter.filter(_:)` at export time — running the blocklist is
+  necessary but not sufficient to flip the flag; only a human audit
+  is.**
 - **At render time** (ADR-005 §5.1 compliance): `ReplayViewModel`
   invokes `ContentFilter.filter(_:)` on every rendered field, just like
   the live simulation path. The filter is `nonisolated + Sendable` and
@@ -265,9 +285,18 @@ owns the policy-implementation side.
   per-phase grouping): version bump and loader fork; deprecate v1 only
   after all bundled demos re-recorded.
 
-The loader rejects unknown `schema_version` values with a silent skip
-(matching §3.3's posture) rather than a fatal load — unknown version
-is treated as a kind of drift.
+Unknown `schema_version` is treated as drift and results in a silent
+skip at the demo surface (matching §3.3's posture) rather than a fatal
+load. Responsibility for the skip is split between the primitive and
+its wrapper:
+
+- The `YAMLReplaySource` primitive (Phase 2 E1, Issue #167) throws
+  `YAMLReplaySourceError.unsupportedSchemaVersion(_)` on unknown /
+  missing `schema_version`. Throwing gives user-facing replay flows
+  (future `UserSimulationReplaySource`, §4.5) an actionable diagnostic.
+- The `BundledDemoReplaySource` wrapper (§4.4) catches that error and
+  applies the silent-skip policy before its caller ever sees it,
+  consistent with the ambient DL-time surface.
 
 ---
 
