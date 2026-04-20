@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Pastura — DL中デモ再生画面</title>
+<meta name="viewport" content="width=1440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page: #f3efe7;
+  --ink: #2a2a28;
+  --ink-2: #5a5a55;
+  --muted: #8a8a83;
+  --rule: #e0dbce;
+  --screen-bg:#fcfaf4;
+  --bubble-bg:#ffffff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--page);color:var(--ink);font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:48px 0 80px;min-height:100vh}
+.workbench{max-width:1320px;margin:0 auto;padding:0 40px}
+.wb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid var(--rule);padding-bottom:18px}
+.wb-title{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2);font-weight:500}
+.wb-meta{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',ui-monospace,monospace}
+
+.frame-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin-top:40px}
+.frame-col{display:flex;flex-direction:column;gap:14px}
+.frame-caption{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted);letter-spacing:.05em}
+.frame-caption b{color:var(--ink);font-weight:600;font-family:'Noto Sans JP',sans-serif;letter-spacing:0}
+.frame-caption .cap-desc{display:block;margin-top:4px;line-height:1.6;font-family:'Noto Sans JP',sans-serif;font-size:12px}
+
+.phone{width:295px;height:638px;border-radius:38px;background:#000;padding:7px;box-shadow:0 1px 2px rgba(0,0,0,.06),0 18px 40px -18px rgba(30,28,22,.28);position:relative}
+.phone-inner{width:100%;height:100%;border-radius:31px;overflow:hidden;position:relative;isolation:isolate}
+.dynamic-island{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:90px;height:22px;border-radius:14px;background:#000;z-index:50}
+.status-bar{position:absolute;top:0;left:0;right:0;height:36px;z-index:40;display:flex;justify-content:space-between;align-items:center;padding:0 24px 0 26px;font-size:12px;font-weight:600;font-family:'SF Pro Text',-apple-system,sans-serif;letter-spacing:-.01em}
+.status-bar .t{padding-top:6px}
+.status-bar .r{display:flex;gap:4px;align-items:center;padding-top:6px}
+
+/* ---------- screen ---------- */
+.screen{
+  width:100%;height:100%;
+  background: var(--screen-bg);
+  color:#2d2e26;
+  font-family:'Noto Sans JP',system-ui,sans-serif;
+  position:relative;padding-top:44px;overflow:hidden;
+}
+.screen::before{
+  content:'';position:absolute;left:0;right:0;top:180px;height:180px;pointer-events:none;
+  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0));
+  filter: blur(10px);
+}
+
+.phase{
+  padding:10px 20px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(60,62,48,.07);
+  position:relative;
+  background:color-mix(in srgb, var(--screen-bg) 78%, transparent);
+  backdrop-filter:saturate(1.05) blur(8px);
+}
+.phase-l{display:flex;align-items:center;gap:9px}
+.phase-tag{font-size:9.5px;letter-spacing:.22em;color:#6f7359;font-weight:600;font-family:ui-monospace,monospace;text-transform:uppercase}
+.phase-title{font-size:13px;font-weight:600;color:#2d2e26;letter-spacing:.02em}
+.phase-r{display:flex;align-items:center;gap:6px;font-size:10px;color:#7b7d68;font-family:ui-monospace,monospace}
+.leaf{width:10px;height:10px;border-radius:50% 0;background:#8a9a6c;transform:rotate(45deg);opacity:.7}
+
+.dl{position:absolute;left:0;right:0;top:36px;height:1.5px;background:rgba(80,90,60,.07);z-index:10}
+.dl-fill{height:100%;background:#8a9a6c;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.dl-eta{position:absolute;top:40px;right:18px;font-family:ui-monospace,monospace;font-size:9.5px;color:#8a8b76;letter-spacing:.04em;z-index:10}
+
+/* chat column */
+.stream{padding:8px 20px 16px;display:flex;flex-direction:column;gap:14px}
+.bubble{display:flex;gap:10px;align-items:flex-start;opacity:0;animation:fadein .7s ease forwards}
+.bubble.d2{animation-delay:.18s}
+.bubble.d3{animation-delay:.36s}
+.bubble.d4{animation-delay:.54s}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ava{width:42px;height:42px;border-radius:50%;flex:0 0 42px;background:#d9d2bd;border:1px solid rgba(90,90,70,.12)}
+.ava.alice{background:#e7d6b8}
+.ava.bob{background:#d6dfc4}
+.ava.carol{background:#e4d2cf}
+.ava.dave{background:#cfd6dc}
+.b-body{flex:1;min-width:0}
+.b-name{font-size:10.5px;color:#7a7e68;letter-spacing:.04em;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.b-text{
+  font-size:13px;line-height:1.65;color:#2d2e26;
+  background: var(--bubble-bg);
+  padding:8px 12px;border-radius:4px 14px 14px 14px;
+  border:1px solid rgba(90,90,70,.07);
+}
+.b-inner{font-size:10.5px;line-height:1.7;color:#8a876f;margin-top:5px;padding-left:8px;border-left:1.5px solid #d4cba8;font-style:italic;letter-spacing:.02em}
+.b-inner .tag{font-size:8.5px;letter-spacing:.22em;color:#a89f7a;text-transform:uppercase;font-style:normal;font-family:ui-monospace,monospace;margin-right:6px}
+.b-inner.expanded::before{content:'▾ ';color:#8a9a6c;font-style:normal;margin-right:2px}
+.b-inner.collapsed{color:#b1ac92;cursor:pointer;font-style:normal;border-left-color:transparent;padding-left:0;letter-spacing:.22em;font-size:8.5px;font-family:ui-monospace,monospace;text-transform:uppercase}
+.b-inner.collapsed::before{content:'▸ ';color:#8a9a6c;font-weight:600;letter-spacing:0}
+
+/* ---------- avatar initials ---------- */
+.ava{position:relative;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:600;color:rgba(60,62,48,.35);letter-spacing:0;user-select:none}
+.ava.ava-sheep,.ava.ava-mixed{background:transparent !important;border:none;overflow:visible}
+.ava.ava-sheep svg,.ava.ava-mixed svg{width:100%;height:100%;display:block}
+.ava.ava-mixed{position:relative}
+.ava.ava-mixed .ava-letter{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(45,46,38,.85);font-weight:600;pointer-events:none}
+
+/* ---------- promo (bottom) ---------- */
+.promo{
+  position:absolute;left:14px;right:14px;bottom:22px;
+  border-radius:14px;
+  display:flex;flex-direction:column;
+  background:#fbfaf2;
+  border:1px solid #e4e7d2;
+  border-left:3px solid #8a9a6c;
+  box-shadow: 0 1px 2px rgba(90,100,60,.04), 0 12px 26px -12px rgba(90,100,60,.2);
+  overflow:hidden;
+}
+.promo-head{
+  padding:8px 14px 7px;
+  background:transparent;
+}
+.promo-body-row{
+  display:flex;gap:12px;align-items:flex-start;
+  padding:11px 14px 13px;
+}
+.promo-body{flex:1;min-width:0}
+.promo-text{font-size:12px;line-height:1.65;color:#2d2e26}
+.promo-meta{
+  display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+  font-family:ui-monospace,monospace;font-size:9px;color:var(--meta-base,#8a8b76);letter-spacing:0;
+  white-space:nowrap;
+}
+.promo-meta .row{display:flex;align-items:center;gap:6px}
+.promo-meta .label{color:var(--meta-base,#8a8b76);font-weight:600;letter-spacing:.06em;font-size:9px}
+.promo-meta .dots{display:flex;gap:2.5px;align-items:center;flex:0 0 auto}
+.promo-meta .dots .d{width:4px;height:4px;border-radius:50%;background:var(--meta-dot-off,rgba(90,100,60,.2))}
+.promo-meta .dots .d.on{background:var(--meta-dot-on,#8a9a6c)}
+.promo-meta .pct{color:var(--meta-base,#8a8b76)}
+.promo-meta .size{color:var(--meta-base,#8a8b76)}
+.promo-meta .eta{color:var(--meta-strong,#4a4e3d);font-size:10px;font-weight:500;padding-left:2px}
+.promo-meta .sep{color:var(--meta-sep,#c2c0ae);margin:0 2px}
+
+/* ---- contrast presets (applied to body or section) ---- */
+[data-contrast="L1"]{ --meta-base:#8a8b76; --meta-strong:#5d6848; --meta-sep:#c2c0ae; --meta-dot-off:rgba(90,100,60,.2); --meta-dot-on:#8a9a6c; }
+[data-contrast="L2"]{ --meta-base:#6a6d5a; --meta-strong:#3d4530; --meta-sep:#b5b3a0; --meta-dot-off:rgba(90,100,60,.28); --meta-dot-on:#7a8a5c; }
+[data-contrast="L3"]{ --meta-base:#4a4e3d; --meta-strong:#2d2e26; --meta-sep:#a6a48f; --meta-dot-off:rgba(90,100,60,.38); --meta-dot-on:#6b7852; }
+[data-contrast="L4"]{ --meta-base:#2d2e26; --meta-strong:#1a1b15; --meta-sep:#8a8876; --meta-dot-off:rgba(60,70,40,.5); --meta-dot-on:#556340; }
+
+.contrast-section{margin-top:40px;padding-top:28px;border-top:1px solid var(--rule)}
+.contrast-section:first-of-type{margin-top:24px;padding-top:0;border-top:0}
+.contrast-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.contrast-head h3{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2);font-weight:500;margin:0}
+.contrast-head .meta{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+.contrast-head .desc{font-size:12px;color:var(--ink-2);margin-left:auto}
+.promo-text{font-size:12px;line-height:1.65;color:#2d2e26}
+
+.mark{
+  width:26px;height:26px;flex:0 0 26px;display:flex;align-items:center;justify-content:center;
+  margin-top:1px;
+}
+.mark svg{display:block;width:100%;height:100%}
+
+/* ---------- frame 4 transition ---------- */
+.f4-stream{animation:f4fade 1.6s ease forwards}
+@keyframes f4fade{to{opacity:.12;filter:blur(1px)}}
+.f4-overlay{
+  position:absolute;inset:0;
+  background: var(--screen-bg);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  opacity:0;animation:f4reveal 2.4s ease .2s forwards;
+}
+@keyframes f4reveal{0%{opacity:0;transform:scale(.98)}60%{opacity:1}100%{opacity:1}}
+.f4-seed{
+  width:44px;height:44px;margin-bottom:22px;
+  display:flex;align-items:center;justify-content:center;
+}
+.f4-seed svg{width:100%;height:100%;animation:f4pulse 2.4s ease .4s infinite}
+@keyframes f4pulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.06);opacity:1}}
+.f4-title{font-size:16px;font-weight:500;letter-spacing:.22em;color:#3d4030;opacity:0;animation:f4pop 1.4s ease .7s forwards}
+.f4-sub{font-size:11px;color:#8a8b76;margin-top:8px;letter-spacing:.1em;opacity:0;animation:f4pop 1.4s ease 1.05s forwards;font-family:ui-monospace,monospace}
+@keyframes f4pop{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:none}}
+</style>
+</head>
+<body data-contrast="L3">
+
+<div class="workbench">
+  <div class="wb-head">
+    <div class="wb-title">Pastura · DL中デモ再生画面</div>
+    <div class="wb-meta">390×844 · ja-JP</div>
+  </div>
+
+  <div class="frame-row" id="mainGrid"></div>
+</div>
+
+<script>
+/* -------- data -------- */
+const DEMO = {
+  phase1: [
+    { who:'Alice', bubble:'わたしのお題、毛がふわふわで撫でたくなる感じ',
+      inner:'みんな同じ単語だろうから抽象的に言っておこう' },
+    { who:'Bob',   bubble:'うちにもいるよ。鳴き声がかわいい',
+      inner:'ありがちな表現で様子を見る' },
+    { who:'Carol', bubble:'一人で気ままに過ごすタイプかも',
+      inner:'みんな似た感じだな。違和感のある発言する人を見逃さないように' },
+    { who:'Dave',  bubble:'散歩するのが楽しいよね',
+      inner:'犬の話をさりげなく紛れ込ませる作戦で行こう。"散歩"なら猫でも通じるはず' },
+  ],
+  votes: [
+    { who:'Alice', to:'Dave', reason:'"散歩"って言葉、他の誰も使ってない。お題が違うのかも' },
+    { who:'Bob',   to:'Dave', reason:'たしかに散歩は違和感あった' },
+    { who:'Carol', to:'Dave', reason:'一番浮いていた気がする' },
+  ],
+  frames: [
+    { pct:5,  phaseLabel:'発言ラウンド 1', etaMin:6 },
+    { pct:35, phaseLabel:'発言ラウンド 1', etaMin:4 },
+    { pct:70, phaseLabel:'投票',          etaMin:2 },
+    { pct:100,phaseLabel:'— 遷移 —',      etaMin:0 },
+  ],
+};
+
+const PROMO = {
+  A:'AIエージェントが、あなたのiPhoneの中で対話します',
+  B:'少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ',
+  C:'このアプリは広告もログインもなく、あなたの端末だけで静かに動きます',
+};
+
+/* -------- Marks -------- */
+const DOG_SIDE = `<svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M5 14 Q 5 9, 9 7.5 L11 5 L12.5 8 Q 17 8.5, 19.5 11 Q 21 12.5, 21 14.5 L22 16 L20 16.5 Q 18.5 19, 15 19 L10.5 19 Q 7 18.5, 5.5 16 Z"
+    fill="#ffffff" stroke="#8a9a6c" stroke-width="1.3"/>
+  <circle cx="20" cy="14.8" r="1.1" fill="#3d4030"/>
+  <circle cx="14" cy="12" r=".9" fill="#3d4030"/>
+  <path d="M9 7.5 Q 8 10, 8.8 12" stroke="#8a9a6c" stroke-width=".9" fill="none"/>
+  <path d="M15 16 Q 17 16.5, 19 16.2" stroke="#8a9a6c" stroke-width=".8" fill="none"/>
+</svg>`;
+
+function sheepSvg(bodyStroke, faceColor, earColor){
+  return `<svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-linejoin="round" stroke-linecap="round">
+    <!-- wool cloud body (bumpy outline) -->
+    <path d="M6 14 Q 4.5 12, 5.5 10.5 Q 5 8.5, 7 8 Q 8 6, 10 6.5 Q 11.5 5, 13.5 6 Q 15.5 5.5, 17 7 Q 19 7, 19.5 9 Q 21.5 9.5, 21 11.5 Q 22 13.5, 20.5 15 Q 20 17, 18 17 L 9 17 Q 6.5 17, 6 14 Z"
+      fill="#ffffff" stroke="${bodyStroke}" stroke-width="1.2"/>
+    <!-- face (darker oval) -->
+    <ellipse cx="13" cy="13.2" rx="3.3" ry="2.6" fill="${faceColor}" stroke="${bodyStroke}" stroke-width=".9"/>
+    <!-- ears -->
+    <ellipse cx="10.3" cy="11.8" rx="1" ry="1.6" fill="${earColor}" transform="rotate(-25 10.3 11.8)"/>
+    <ellipse cx="15.7" cy="11.8" rx="1" ry="1.6" fill="${earColor}" transform="rotate(25 15.7 11.8)"/>
+    <!-- eyes -->
+    <circle cx="11.8" cy="12.9" r=".55" fill="#ffffff"/>
+    <circle cx="14.2" cy="12.9" r=".55" fill="#ffffff"/>
+    <!-- legs hint -->
+    <path d="M9.5 17 L 9.5 19" stroke="${bodyStroke}" stroke-width="1"/>
+    <path d="M16.5 17 L 16.5 19" stroke="${bodyStroke}" stroke-width="1"/>
+  </svg>`;
+}
+const MARKS = {
+  dog:    DOG_SIDE,
+  sheep_moss: sheepSvg('#8a9a6c', '#3d4030', '#3d4030'),  // 苔緑 × 灰黒 (既存が犬なので tone を揃える)
+  sheep_clay: sheepSvg('#b08a5c', '#5d3f28', '#5d3f28'),  // 粘土系
+  sheep_slate:sheepSvg('#6a7a88', '#2d3440', '#2d3440'),  // スレート系
+};
+function MARK(){
+  // アシスタントのマークは Dog で固定（羊は発言者アバター側で検討）
+  return MARKS.dog;
+}
+
+/* -------- status bar -------- */
+function StatusBar(){
+  return `<div class="status-bar" style="color:#111">
+    <div class="t">9:41</div>
+    <div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="#111"><rect x="0" y="7" width="3" height="4" rx=".5"/><rect x="4.5" y="5" width="3" height="6" rx=".5"/><rect x="9" y="2.5" width="3" height="8.5" rx=".5"/><rect x="13.5" y="0" width="3" height="11" rx=".5"/></svg>
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="#111"><path d="M7.5 2.8c2.1 0 4.1.8 5.6 2.2l1.3-1.3C12.5 1.9 10.1 1 7.5 1S2.5 1.9.6 3.7l1.3 1.3C3.4 3.6 5.4 2.8 7.5 2.8zm0 3.4c1.3 0 2.5.5 3.4 1.3l1.3-1.3c-1.3-1.2-3-1.9-4.7-1.9s-3.5.7-4.7 1.9l1.3 1.3c.9-.8 2.1-1.3 3.4-1.3zm0 3.4c.6 0 1.1.2 1.5.6l1-1c-.7-.7-1.6-1.1-2.5-1.1s-1.9.4-2.5 1.1l1 1c.4-.4.9-.6 1.5-.6z"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none" stroke="#111" stroke-opacity=".45"><rect x=".5" y=".5" width="20" height="10" rx="2.5"/><rect x="2" y="2" width="17" height="7" rx="1.2" fill="#111" stroke="none"/><rect x="21.5" y="3.5" width="1.3" height="4" rx=".6" fill="#111" stroke="none"/></svg>
+    </div>
+  </div>`;
+}
+
+/* -------- building blocks -------- */
+function topChrome(frame){
+  return `
+    <div class="phase">
+      <div class="phase-l">
+        <div class="leaf"></div>
+        <div>
+          <div class="phase-tag">word wolf</div>
+          <div class="phase-title">${frame.phaseLabel}</div>
+        </div>
+      </div>
+      <div class="phase-r">DEMO中</div>
+    </div>`;
+}
+/* -------- Sheep avatar SVG (used when __avatarStyle is 'sheep' or 'mixed') -------- */
+function sheepAvatar(who){
+  // body color per character
+  const colors = {
+    alice: { body:'#f2e3c8', face:'#c9a979', horn:'#b29364' },
+    bob:   { body:'#dde4cc', face:'#8a9a6c', horn:'#6f7f54' },
+    carol: { body:'#ead6d1', face:'#b8877c', horn:'#9c6e64' },
+    dave:  { body:'#d9d7c9', face:'#6b6858', horn:'#4f4c3f' },
+  };
+  const c = colors[who.toLowerCase()] || colors.dave;
+  return `<svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="14" cy="15" r="8" fill="${c.body}"/>
+    <circle cx="9"  cy="13" r="3.2" fill="${c.body}"/>
+    <circle cx="19" cy="13" r="3.2" fill="${c.body}"/>
+    <circle cx="11" cy="18" r="3"   fill="${c.body}"/>
+    <circle cx="17" cy="18" r="3"   fill="${c.body}"/>
+    <ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="${c.face}"/>
+    <circle cx="12.6" cy="14.8" r=".7" fill="#2d2e26"/>
+    <circle cx="15.4" cy="14.8" r=".7" fill="#2d2e26"/>
+    <path d="M10.5 11.5 Q 10 10 11 9.5" stroke="${c.horn}" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M17.5 11.5 Q 18 10 17 9.5" stroke="${c.horn}" stroke-width="1" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+function avatarNode(who){
+  const style = window.__avatarStyle || 'letters';
+  const cls = `ava ${who.toLowerCase()}`;
+  const initial = who.charAt(0);
+  if(style === 'sheep'){
+    return `<div class="${cls} ava-sheep" aria-hidden="true">${sheepAvatar(who)}</div>`;
+  }
+  if(style === 'mixed'){
+    return `<div class="${cls} ava-mixed" aria-hidden="true">${sheepAvatar(who)}<span class="ava-letter">${initial}</span></div>`;
+  }
+  return `<div class="${cls}" aria-hidden="true">${initial}</div>`;
+}
+function bubble(x, opts={}){
+  const d = opts.delayIdx ? `d${opts.delayIdx+1}` : '';
+  return `
+    <div class="bubble ${d}">
+      ${avatarNode(x.who)}
+      <div class="b-body">
+        <div class="b-name">${x.who}</div>
+        <div class="b-text">${x.bubble}</div>
+        ${opts.showInner
+          ? `<div class="b-inner"><span class="tag">THINKING</span>${x.inner}</div>`
+          : `<div class="b-inner collapsed">THINKING</div>`}
+      </div>
+    </div>`;
+}
+function dots(pct){
+  const n=8, filled=Math.round(pct/100*n);
+  let out='<div class="dots" aria-hidden="true">';
+  for(let i=0;i<n;i++) out += `<div class="d ${i<filled?'on':''}"></div>`;
+  return out+'</div>';
+}
+function formatGB(pct){
+  const totalGB = 3;
+  const done = (pct/100)*totalGB;
+  return `${done.toFixed(1)} GB / ${totalGB.toFixed(1)} GB`;
+}
+function formatEta(min){
+  if(min <= 0) return 'まもなく';
+  return `残り約${min}分`;
+}
+function promo(slot, frame){
+  if(!slot) return '';
+  const showMeta = frame && frame.pct < 100;
+  // NOTE: 実装時は DL が 99% 以上になったら formatEta() を 「まもなく」に切り替え、
+  //       100% 到達で f4-overlay をフェードインし「準備ができました」表示に遷移する。
+  //       本モックには「まもなく」状態のフレームは含まれない。
+  const meta = showMeta ? `
+        <div class="promo-head">
+          <div class="promo-meta" role="status" aria-live="polite">
+            <div class="row">
+              <span class="label">DL</span>
+              ${dots(frame.pct)}
+              <span class="pct">${frame.pct}%</span>
+              <span class="sep">·</span>
+              <span class="size">${formatGB(frame.pct)}</span>
+            </div>
+            <div class="eta">${formatEta(frame.etaMin)}</div>
+          </div>
+        </div>` : '';
+  return `
+    <div class="promo">
+      ${meta}
+      <div class="promo-body-row">
+        <div class="mark">${MARK()}</div>
+        <div class="promo-body">
+          <div class="promo-text">${PROMO[slot]}</div>
+        </div>
+      </div>
+    </div>`;
+}
+function phone(inner){
+  return `
+    <div class="phone"><div class="phone-inner">
+      <div class="dynamic-island"></div>
+      ${StatusBar()}
+      <div class="screen">${inner}</div>
+    </div></div>`;
+}
+
+/* -------- frame bodies -------- */
+function frameBody(i){
+  const fr = DEMO.frames[i];
+  if(i===0){
+    return `
+      ${topChrome(fr)}
+      <div class="stream">${bubble(DEMO.phase1[0])}</div>`;
+  }
+  if(i===1){
+    return `
+      ${topChrome(fr)}
+      <div class="stream">
+        ${DEMO.phase1.map((p,idx)=>bubble(p,{delayIdx:idx, showInner:p.who==='Dave'})).join('')}
+      </div>`;
+  }
+  if(i===2){
+    return `
+      ${topChrome(fr)}
+      <div class="stream">
+        ${DEMO.votes.map((v,idx)=>`
+          <div class="bubble d${idx+1}">
+            ${avatarNode(v.who)}
+            <div class="b-body">
+              <div class="b-name">${v.who} の投票</div>
+              <div class="b-text" style="background:rgba(138,154,108,.10);border-color:rgba(138,154,108,.2)">→ <b>${v.to}</b></div>
+              <div class="b-inner"><span class="tag">REASON</span>${v.reason}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+  return `
+    <div class="f4-stream">
+      ${topChrome(fr)}
+      <div class="stream">
+        ${bubble(DEMO.phase1[0])}
+        ${bubble(DEMO.phase1[1])}
+      </div>
+    </div>
+    <div class="f4-overlay">
+      <div class="f4-seed">${MARK()}</div>
+      <div class="f4-title">準備ができました</div>
+      <div class="f4-sub">tap anywhere to begin</div>
+    </div>`;
+}
+
+function getSlotForFrame(i){
+  return ['A','B','C',null][i];
+}
+
+/* -------- render main grid -------- */
+function renderMain(){
+  const grid = document.getElementById('mainGrid');
+  const captions = [
+    'DL開始直後。Alice の第一声のみ。',
+    '全員発話完了。Dave の内なる思考が展開。',
+    '投票フェーズ。Dave に票が集中。',
+    'DL完了。デモが薄れ、「準備ができました」が浮かぶ。',
+  ];
+  grid.innerHTML = DEMO.frames.map((f,i)=>{
+    const slot = getSlotForFrame(i);
+    const body = frameBody(i) + (slot ? promo(slot, f) : '');
+    return `
+      <div class="frame-col" data-screen-label="0${i+1} Frame ${i+1}">
+        <div class="frame-caption">
+          <b>Frame ${i+1}</b> &nbsp; ${f.pct}%
+          <span class="cap-desc">${captions[i]}</span>
+        </div>
+        ${phone(body)}
+      </div>`;
+  }).join('');
+}
+
+window.__avatarStyle = 'sheep';
+renderMain();
+
+</script>
+</body>
+</html>
