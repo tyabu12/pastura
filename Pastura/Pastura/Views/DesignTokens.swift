@@ -220,6 +220,9 @@ struct PasturaTextStyle: Sendable, Equatable {
   var trackingPoints: CGFloat { size * CGFloat(letterSpacingEm) }
 }
 
+/// Pastura typography scale. See `design-system.md` §3. Apply at callsites
+/// via `.font(style.font).lineSpacing(style.lineSpacingPoints).tracking(style.trackingPoints)
+/// .textCase(style.textCase)` — a `View.textStyle(_:)` modifier is deferred to #B1.
 enum Typography {
   /// title/phase — フェーズ見出し
   static let titlePhase = PasturaTextStyle(
