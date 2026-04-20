@@ -189,6 +189,114 @@ enum PasturaShadows {
     radius: 26, x: 0, y: 12)
 }
 
+// MARK: - §3 Typography tokens
+
+/// Pastura text style descriptor. Data-only — application to SwiftUI `Text`
+/// lives in consumer sites (first is #B1 `AgentOutputRow` refactor).
+///
+/// SwiftUI `Font` alone cannot carry line-height, letter-spacing, italic, or
+/// text-case; callers combine `font` with `.lineSpacing(lineSpacingPoints)`,
+/// `.tracking(trackingPoints)`, and `.textCase(textCase)` where applicable.
+struct PasturaTextStyle: Sendable, Equatable {
+  let size: CGFloat
+  let weight: Font.Weight
+  let design: Font.Design
+  /// Unitless line-height ratio from the doc (e.g. 1.3, 1.65).
+  let lineHeight: Double
+  /// Letter-spacing in em from the doc (e.g. 0.22).
+  let letterSpacingEm: Double
+  let isItalic: Bool
+  let textCase: Text.Case?
+
+  /// SwiftUI `Font` built from size / weight / design (+ italic modifier).
+  var font: Font {
+    let base = Font.system(size: size, weight: weight, design: design)
+    return isItalic ? base.italic() : base
+  }
+
+  /// Additional leading in points for `.lineSpacing(_:)`.
+  /// Derived from CSS-style `line-height` × `size`, minus the font's intrinsic
+  /// single leading (`size`): `size × (lineHeight − 1)`.
+  var lineSpacingPoints: CGFloat { size * CGFloat(lineHeight - 1.0) }
+
+  /// Tracking in points for `.tracking(_:)`. `size × letterSpacingEm`.
+  var trackingPoints: CGFloat { size * CGFloat(letterSpacingEm) }
+}
+
+enum Typography {
+  /// title/phase — フェーズ見出し
+  static let titlePhase = PasturaTextStyle(
+    size: 13, weight: .semibold, design: .default,
+    lineHeight: 1.3, letterSpacingEm: 0.02,
+    isItalic: false, textCase: nil)
+
+  /// tag/phase — フェーズタグ (UPPER, mono)
+  static let tagPhase = PasturaTextStyle(
+    size: 9.5, weight: .semibold, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.22,
+    isItalic: false, textCase: .uppercase)
+
+  /// body/bubble — 発言本文
+  static let bodyBubble = PasturaTextStyle(
+    size: 13, weight: .regular, design: .default,
+    lineHeight: 1.65, letterSpacingEm: 0,
+    isItalic: false, textCase: nil)
+
+  /// body/promo — プロモ文
+  static let bodyPromo = PasturaTextStyle(
+    size: 12, weight: .regular, design: .default,
+    lineHeight: 1.65, letterSpacingEm: 0,
+    isItalic: false, textCase: nil)
+
+  /// caption/name — アバター下の名前
+  static let captionName = PasturaTextStyle(
+    size: 10.5, weight: .regular, design: .default,
+    lineHeight: 1.3, letterSpacingEm: 0.04,
+    isItalic: false, textCase: nil)
+
+  /// thinking/body — 内なる思考 (italic)
+  static let thinkingBody = PasturaTextStyle(
+    size: 10.5, weight: .regular, design: .default,
+    lineHeight: 1.7, letterSpacingEm: 0.02,
+    isItalic: true, textCase: nil)
+
+  /// thinking/tag — REASON/THINKING ラベル (mono UPPER)
+  static let thinkingTag = PasturaTextStyle(
+    size: 8.5, weight: .regular, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.22,
+    isItalic: false, textCase: .uppercase)
+
+  /// meta/label — "DL" ラベル (mono semibold)
+  static let metaLabel = PasturaTextStyle(
+    size: 9, weight: .semibold, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.06,
+    isItalic: false, textCase: nil)
+
+  /// meta/value — `35%`, `1.0 GB` (mono)
+  static let metaValue = PasturaTextStyle(
+    size: 9, weight: .regular, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0,
+    isItalic: false, textCase: nil)
+
+  /// meta/eta — 残り約4分 (mono medium)
+  static let metaEta = PasturaTextStyle(
+    size: 10, weight: .medium, design: .monospaced,
+    lineHeight: 1.3, letterSpacingEm: 0,
+    isItalic: false, textCase: nil)
+
+  /// status/complete — 準備ができました
+  static let statusComplete = PasturaTextStyle(
+    size: 16, weight: .medium, design: .default,
+    lineHeight: 1.4, letterSpacingEm: 0.22,
+    isItalic: false, textCase: nil)
+
+  /// status/hint — tap anywhere to begin (mono)
+  static let statusHint = PasturaTextStyle(
+    size: 11, weight: .regular, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.1,
+    isItalic: false, textCase: nil)
+}
+
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {

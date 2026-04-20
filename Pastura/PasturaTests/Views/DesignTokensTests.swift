@@ -134,6 +134,51 @@ struct DesignTokensTests {
     #expect(shadow.radius == 2)
   }
 
+  // MARK: - §3 Typography
+
+  @Test func titlePhaseMatchesSpec() {
+    let style = Typography.titlePhase
+    #expect(style.size == 13)
+    #expect(style.weight == .semibold)
+    #expect(style.design == .default)
+    #expect(approxEqual(style.lineHeight, 1.3))
+    #expect(approxEqual(style.letterSpacingEm, 0.02))
+    #expect(style.isItalic == false)
+    #expect(style.textCase == nil)
+  }
+
+  @Test func tagPhaseIsMonoUpper() {
+    let style = Typography.tagPhase
+    #expect(style.design == .monospaced)
+    #expect(style.textCase == .uppercase)
+    #expect(approxEqual(style.letterSpacingEm, 0.22))
+  }
+
+  @Test func thinkingBodyIsItalic() {
+    let style = Typography.thinkingBody
+    #expect(style.isItalic == true)
+    #expect(approxEqual(style.lineHeight, 1.7))
+  }
+
+  @Test func metaValueIsMonoRegular() {
+    let style = Typography.metaValue
+    #expect(style.design == .monospaced)
+    #expect(style.weight == .regular)
+    #expect(style.size == 9)
+  }
+
+  @Test func lineSpacingPointsDerivedFromLineHeight() {
+    // body/bubble: 13pt × (1.65 − 1.0) = 8.45pt
+    let style = Typography.bodyBubble
+    #expect(approxEqual(Double(style.lineSpacingPoints), 13 * 0.65))
+  }
+
+  @Test func trackingPointsDerivedFromLetterSpacing() {
+    // tag/phase: 9.5pt × 0.22 = 2.09pt
+    let style = Typography.tagPhase
+    #expect(approxEqual(Double(style.trackingPoints), 9.5 * 0.22))
+  }
+
   // MARK: - Helpers
 
   private func approxEqual(_ lhs: Double, _ rhs: Double, tolerance: Double = 0.001) -> Bool {
