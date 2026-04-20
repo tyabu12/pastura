@@ -245,6 +245,40 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // routine state transitions and `error` for unexpected paths so device logs
   // stay readable.
   let lifecycleLogger = Logger(subsystem: "com.pastura", category: "SimulationVM")
+
+  #if DEBUG
+    // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
+    // Shared across VM + `AgentOutputRow`; filter Console.app with
+    // `subsystem:com.pastura category:StreamingDiag` to surface the 2 signals
+    // feeding PR#5 ADR pivot-path decision (Hyp A retry / Hyp B recycle).
+    // `.info` level so it shows without `log config` overrides on-device.
+    static let streamingDiagLogger = Logger(
+      subsystem: "com.pastura", category: "StreamingDiag")
+
+    // Per-agent in-flight attempt counter for Hyp A (parse-retry silent
+    // transition). `LLMCaller.call` emits `.inferenceStarted` +
+    // `.inferenceCompleted` *per attempt* inside its retry loop — so clearing
+    // on `.inferenceCompleted` would collapse the retry signal. We instead
+    // clear on `.agentOutput` (per-turn commit) and on `run()` entry.
+    //
+    // Load-bearing assumption: ADR-002 §6 — the Engine runs inferences
+    // sequentially, so a single `[String: Int]` keyed on agent name cannot
+    // conflate interleaved agents. If Phase 3 ever parallelises `speak_all`,
+    // this dict becomes racy and must be reworked.
+    private var inflightInferenceAttempts: [String: Int] = [:]
+
+    // Previous-raw-primary tracker for Hyp A' (silent stream re-issue).
+    // `LLMCaller.consumeStreamWithSuspendRetry` re-issues the stream on
+    // `.suspended` without firing `.inferenceStarted` — visually identical
+    // to a parse retry (streaming row's text restarts) but invisible to
+    // the attempt counter above. We catch it by remembering the last raw
+    // `primary` per agent and logging when the next one is neither an
+    // extension nor a shrink-to-prefix (i.e. content diverged).
+    //
+    // Uses raw (pre-ContentFilter) primary so filter rewrites like
+    // "fuck" → "***" aren't mistaken for a reset.
+    private var lastRawStreamingPrimary: [String: String] = [:]
+  #endif
   // Non-private so `@testable import` can seed persistence without invoking `run()`.
   internal var simulationId: String?
 
@@ -399,6 +433,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     latestAgentOutputId = nil
     streamingSnapshot = nil
     prerevealedAgentOutputIds = []
+    #if DEBUG
+      inflightInferenceAttempts = [:]
+      lastRawStreamingPrimary = [:]
+    #endif
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
     totalRounds = scenario.rounds
@@ -515,6 +553,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):
+      #if DEBUG
+        detectSilentStreamReIssue(agent: agent, primary: primary)
+      #endif
       handleAgentOutputStream(agent: agent, primary: primary, thought: thought)
     case .simulationCompleted:
       isCompleted = true
@@ -526,6 +567,22 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // A new inference starts: any leftover snapshot from a previous
       // attempt (parse retry, different agent) must not linger in the UI.
       streamingSnapshot = nil
+      #if DEBUG
+        inflightInferenceAttempts[agent, default: 0] += 1
+        let attempt = inflightInferenceAttempts[agent] ?? 0
+        // Noise-gate: only log retries (attempt ≥ 2). First attempts are every
+        // turn and would drown the signal.
+        if attempt >= 2 {
+          Self.streamingDiagLogger.info(
+            "retry agent=\(agent, privacy: .public) attempt=\(attempt)"
+          )
+        }
+        // Clear raw-primary tracker so the retry's new stream doesn't
+        // double-log as a streamReset — parse retry is owned by the
+        // attempt counter above; streamReset measures the *silent*
+        // re-issue path (suspend-resume) that bypasses this event.
+        lastRawStreamingPrimary[agent] = nil
+      #endif
     case .inferenceCompleted(let agent, let seconds, let tokens):
       thinkingAgents.remove(agent)
       handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
@@ -603,6 +660,19 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   }
 
   private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
+    #if DEBUG
+      // Turn-commit: emit final tally if it required retries, then clear.
+      // The clear has to sit here (not in `.inferenceCompleted`) because
+      // LLMCaller emits `.inferenceCompleted` per attempt; `.agentOutput`
+      // is the unique "this turn is done" signal.
+      if let total = inflightInferenceAttempts[agent], total > 1 {
+        Self.streamingDiagLogger.info(
+          "committed agent=\(agent, privacy: .public) totalAttempts=\(total)"
+        )
+      }
+      inflightInferenceAttempts[agent] = nil
+      lastRawStreamingPrimary[agent] = nil
+    #endif
     let filtered = contentFilter.filter(output)
     // Divergence telemetry: compare the last streamed snapshot against
     // the canonical parser result for the same inference. A mismatch
@@ -651,6 +721,43 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// pre-streaming flow (thinking indicator → committed row at
   /// `.agentOutput`). LLMCaller still produces the events but they
   /// become no-ops here; the cost is negligible.
+  #if DEBUG
+    /// Hyp A' signal: detect stream restart that didn't go through
+    /// `.inferenceStarted` (LLMCaller `consumeStreamWithSuspendRetry`
+    /// re-issue path on `.suspended`).
+    ///
+    /// Two sub-patterns — normal appending never hits either:
+    ///  - "diverge" — new is neither an extension nor a prefix-shrink
+    ///    of existing. Fires when the re-issued stream produces
+    ///    different text (non-deterministic LLM).
+    ///  - "shrink"  — new is a strict prefix of existing (`new.count <
+    ///    existing.count` AND `existing.hasPrefix(new)`). Fires on
+    ///    the first chunk of a re-issue when Gemma is deterministic
+    ///    enough to regenerate the same tokens — content goes
+    ///    backwards to "H" / "He" / ... before climbing back.
+    /// Partial parser shouldn't emit non-monotone primaries within a
+    /// single stream iteration, so shrink is a strong re-issue signal.
+    ///
+    /// Uses raw (pre-ContentFilter) primary so filter rewrites like
+    /// `"fuck" → "***"` aren't mistaken for resets.
+    private func detectSilentStreamReIssue(agent: String, primary: String?) {
+      guard let newPrimary = primary, !newPrimary.isEmpty else { return }
+      if let existing = lastRawStreamingPrimary[agent] {
+        let diverge =
+          !newPrimary.hasPrefix(existing) && !existing.hasPrefix(newPrimary)
+        let shrink =
+          newPrimary.count < existing.count && existing.hasPrefix(newPrimary)
+        if diverge || shrink {
+          let kind = diverge ? "diverge" : "shrink"
+          Self.streamingDiagLogger.info(
+            "streamReset agent=\(agent, privacy: .public) type=\(kind, privacy: .public) oldLen=\(existing.count) newLen=\(newPrimary.count)"
+          )
+        }
+      }
+      lastRawStreamingPrimary[agent] = newPrimary
+    }
+  #endif
+
   private func handleAgentOutputStream(
     agent: String, primary: String?, thought: String?
   ) {
