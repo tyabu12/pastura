@@ -192,15 +192,15 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
     }
     if let map = value as? [AnyHashable: Any] {
       var result: [String: String] = [:]
-      for (k, v) in map {
-        guard let key = k as? String else {
+      for (rawKey, rawValue) in map {
+        guard let key = rawKey as? String else {
           throw YAMLReplaySourceError.invalidFieldType(
             field: field, expected: "string-keyed mapping")
         }
-        if let str = v as? String {
+        if let str = rawValue as? String {
           result[key] = str
         } else {
-          result[key] = String(describing: v)
+          result[key] = String(describing: rawValue)
         }
       }
       return result
@@ -233,41 +233,64 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
   ) throws -> SimulationEvent? {
     guard let kind = payload["kind"] as? String else { return nil }
     switch kind {
-    case "elimination":
-      guard let agent = payload["agent"] as? String else {
-        throw YAMLReplaySourceError.missingRequiredField("payload.agent")
-      }
-      let voteCount = payload["vote_count"] as? Int ?? 0
-      return .elimination(agent: agent, voteCount: voteCount)
-    case "scoreUpdate":
-      let scores = try decodeIntMap(payload["scores"], field: "payload.scores")
-      return .scoreUpdate(scores: scores)
-    case "summary":
-      return .summary(text: summary)
-    case "voteResults":
-      let votes = try decodeStringMap(payload["votes"], field: "payload.votes")
-      let tallies = try decodeIntMap(payload["tallies"], field: "payload.tallies")
-      return .voteResults(votes: votes, tallies: tallies)
-    case "pairingResult":
-      guard let agent1 = payload["agent1"] as? String else {
-        throw YAMLReplaySourceError.missingRequiredField("payload.agent1")
-      }
-      guard let agent2 = payload["agent2"] as? String else {
-        throw YAMLReplaySourceError.missingRequiredField("payload.agent2")
-      }
-      let action1 = payload["action1"] as? String ?? ""
-      let action2 = payload["action2"] as? String ?? ""
-      return .pairingResult(
-        agent1: agent1, action1: action1, agent2: agent2, action2: action2)
-    case "assignment":
-      guard let agent = payload["agent"] as? String else {
-        throw YAMLReplaySourceError.missingRequiredField("payload.agent")
-      }
-      let value = payload["value"] as? String ?? ""
-      return .assignment(agent: agent, value: value)
-    default:
-      return nil
+    case "elimination": return try decodeElimination(payload)
+    case "scoreUpdate": return try decodeScoreUpdate(payload)
+    case "summary": return .summary(text: summary)
+    case "voteResults": return try decodeVoteResults(payload)
+    case "pairingResult": return try decodePairingResult(payload)
+    case "assignment": return try decodeAssignment(payload)
+    default: return nil
     }
+  }
+
+  private static func decodeElimination(
+    _ payload: [String: Any]
+  ) throws -> SimulationEvent {
+    guard let agent = payload["agent"] as? String else {
+      throw YAMLReplaySourceError.missingRequiredField("payload.agent")
+    }
+    let voteCount = payload["vote_count"] as? Int ?? 0
+    return .elimination(agent: agent, voteCount: voteCount)
+  }
+
+  private static func decodeScoreUpdate(
+    _ payload: [String: Any]
+  ) throws -> SimulationEvent {
+    let scores = try decodeIntMap(payload["scores"], field: "payload.scores")
+    return .scoreUpdate(scores: scores)
+  }
+
+  private static func decodeVoteResults(
+    _ payload: [String: Any]
+  ) throws -> SimulationEvent {
+    let votes = try decodeStringMap(payload["votes"], field: "payload.votes")
+    let tallies = try decodeIntMap(payload["tallies"], field: "payload.tallies")
+    return .voteResults(votes: votes, tallies: tallies)
+  }
+
+  private static func decodePairingResult(
+    _ payload: [String: Any]
+  ) throws -> SimulationEvent {
+    guard let agent1 = payload["agent1"] as? String else {
+      throw YAMLReplaySourceError.missingRequiredField("payload.agent1")
+    }
+    guard let agent2 = payload["agent2"] as? String else {
+      throw YAMLReplaySourceError.missingRequiredField("payload.agent2")
+    }
+    let action1 = payload["action1"] as? String ?? ""
+    let action2 = payload["action2"] as? String ?? ""
+    return .pairingResult(
+      agent1: agent1, action1: action1, agent2: agent2, action2: action2)
+  }
+
+  private static func decodeAssignment(
+    _ payload: [String: Any]
+  ) throws -> SimulationEvent {
+    guard let agent = payload["agent"] as? String else {
+      throw YAMLReplaySourceError.missingRequiredField("payload.agent")
+    }
+    let value = payload["value"] as? String ?? ""
+    return .assignment(agent: agent, value: value)
   }
 
   private static func decodeIntMap(
@@ -279,12 +302,12 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
     }
     if let map = value as? [AnyHashable: Any] {
       var result: [String: Int] = [:]
-      for (k, v) in map {
-        guard let key = k as? String else {
+      for (rawKey, rawValue) in map {
+        guard let key = rawKey as? String else {
           throw YAMLReplaySourceError.invalidFieldType(
             field: field, expected: "string-keyed integer mapping")
         }
-        if let i = v as? Int { result[key] = i }
+        if let intValue = rawValue as? Int { result[key] = intValue }
       }
       return result
     }

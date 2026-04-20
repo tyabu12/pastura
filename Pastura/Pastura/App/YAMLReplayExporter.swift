@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import CryptoKit
 import Foundation
 
@@ -45,7 +46,7 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
 /// actor-isolation reasons in `.claude/rules/llm.md`) can reference the
 /// shared schema constants. File writing is thread-safe through
 /// `FileManager`.
-nonisolated struct YAMLReplayExporter {
+nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_length
   /// Current on-disk schema version. Must match ``YAMLReplaySource``'s
   /// `supportedSchemaVersion` so round-trip works without a version
   /// negotiation step.
@@ -280,31 +281,31 @@ nonisolated struct YAMLReplayExporter {
   }
 
   private func renderStringIntMap(
-    _ key: String, map: [String: Int], indent: Int
+    _ label: String, map: [String: Int], indent: Int
   ) -> [String] {
     let base = String(repeating: " ", count: indent)
-    guard !map.isEmpty else { return ["\(base)\(key): {}"] }
-    var out: [String] = ["\(base)\(key):"]
-    for k in map.keys.sorted() {
-      let v = map[k] ?? 0
+    guard !map.isEmpty else { return ["\(base)\(label): {}"] }
+    var out: [String] = ["\(base)\(label):"]
+    for key in map.keys.sorted() {
+      let value = map[key] ?? 0
       out.append(
-        "\(String(repeating: " ", count: indent + 2))\(Self.yamlKey(k)): \(v)")
+        "\(String(repeating: " ", count: indent + 2))\(Self.yamlKey(key)): \(value)")
     }
     return out
   }
 
   private func renderStringStringMap(
-    _ key: String, map: [String: String], indent: Int
+    _ label: String, map: [String: String], indent: Int
   ) -> [String] {
     let base = String(repeating: " ", count: indent)
-    guard !map.isEmpty else { return ["\(base)\(key): {}"] }
-    var out: [String] = ["\(base)\(key):"]
+    guard !map.isEmpty else { return ["\(base)\(label): {}"] }
+    var out: [String] = ["\(base)\(label):"]
     let childIndent = indent + 2
-    for k in map.keys.sorted() {
-      let v = map[k] ?? ""
+    for key in map.keys.sorted() {
+      let value = map[key] ?? ""
       out.append(
         "\(String(repeating: " ", count: childIndent))"
-          + "\(Self.yamlKey(k)): \(Self.yamlValue(v, indent: childIndent))")
+          + "\(Self.yamlKey(key)): \(Self.yamlValue(value, indent: childIndent))")
     }
     return out
   }
@@ -419,10 +420,10 @@ nonisolated struct YAMLReplayExporter {
       }
       let pairs = ordered.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
       return "Votes — \(pairs)"
-    case .pairingResult(let a1, let x1, let a2, let x2):
-      let x1f = filter.filter(x1)
-      let x2f = filter.filter(x2)
-      return "\(a1) (\(x1f)) ↔ \(a2) (\(x2f))"
+    case .pairingResult(let agent1, let action1, let agent2, let action2):
+      let filtered1 = filter.filter(action1)
+      let filtered2 = filter.filter(action2)
+      return "\(agent1) (\(filtered1)) ↔ \(agent2) (\(filtered2))"
     case .assignment(let agent, let value):
       return "\(agent) was assigned: \(filter.filter(value))"
     }

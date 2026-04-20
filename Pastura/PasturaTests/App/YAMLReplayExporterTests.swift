@@ -6,7 +6,7 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
-struct YAMLReplayExporterTests {
+struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
 
   // MARK: - Fixtures
 
