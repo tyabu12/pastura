@@ -266,10 +266,14 @@ struct YAMLReplaySourceTests {
     let elapsed = Date().timeIntervalSince(start)
 
     #expect(count == 2)
-    // Two turns at 60 ms each ≈ 120 ms. Wide bounds to tolerate
-    // scheduler jitter but prove the delay is actually applied.
+    // Two turns at 60 ms each ≈ 120 ms locally. The lower bound is
+    // load-bearing: if pacing were silently bypassed the test would
+    // return in <10 ms. The upper bound is just a "not runaway"
+    // sanity check — CI under code coverage has seen this test body
+    // take 1–3 s, so generous headroom is required. The suite's
+    // `.timeLimit(.minutes(1))` catches genuinely hung tests.
     #expect(elapsed >= 0.100)
-    #expect(elapsed < 1.0)
+    #expect(elapsed < 30.0)
   }
 
   @Test func eventsCanBeConsumedMultipleTimes() async throws {
