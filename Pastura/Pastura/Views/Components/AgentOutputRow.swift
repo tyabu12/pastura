@@ -64,9 +64,16 @@ struct AgentOutputRow: View {
   /// ``streamingPrimary``.
   var streamingThought: String?
 
+  /// Row-identity tag for #133 PR#4 `StreamingDiag` logs — see
+  /// `AgentOutputRow+Diagnostic.swift` for the consumers.
+  var debugRowID: String?
+
   @State private var showInnerThought = false
-  @State private var visibleChars: Int = 0
-  @State private var animationTask: Task<Void, Never>?
+  // Internal-only so `AgentOutputRow+Diagnostic.swift` can read — mutation surface is the animation-control methods below.
+  @State var visibleChars: Int = 0
+  @State var animationTask: Task<Void, Never>?
+  /// Fresh UUID per `@State` recreation → LazyVStack recycle evidence (#133 Hyp B).
+  @State var debugInstanceID = UUID()
   /// Monotonic counter bumped once per reveal-task creation. The task's
   /// `defer` uses it to skip both the `animationTask` nil-out and the
   /// `onAnimatingChange?(false)` notification when a newer task has
@@ -103,7 +110,12 @@ struct AgentOutputRow: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .fixedSize(horizontal: false, vertical: true)
     .padding(.vertical, 4)
-    .onAppear { startAnimationIfNeeded() }
+    .onAppear {
+      #if DEBUG
+        logDebugLifecycle(event: "onAppear")
+      #endif
+      startAnimationIfNeeded()
+    }
     .onChange(of: isLatest) { _, newValue in
       if !newValue { snapToFull() }
     }
@@ -117,7 +129,12 @@ struct AgentOutputRow: View {
     // also kick it back on.
     .onChange(of: streamingPrimary) { _, _ in handleStreamTargetChange() }
     .onChange(of: streamingThought) { _, _ in handleStreamTargetChange() }
-    .onDisappear { animationTask?.cancel() }
+    .onDisappear {
+      #if DEBUG
+        logDebugLifecycle(event: "onDisappear")
+      #endif
+      animationTask?.cancel()
+    }
   }
 
   // MARK: - Subviews
@@ -204,7 +221,7 @@ struct AgentOutputRow: View {
 
   /// Total characters the counter should cover: primary plus thought when
   /// thoughts are globally visible. Button-toggle reveal bypasses this.
-  private var targetLength: Int {
+  var targetLength: Int {
     let primary = primaryText?.count ?? 0
     let thought = showAllThoughts ? (resolvedThought?.count ?? 0) : 0
     return primary + thought
@@ -320,6 +337,9 @@ struct AgentOutputRow: View {
   /// branch instead of freezing until commit.
   private func handleStreamTargetChange() {
     let target = targetLength
+    #if DEBUG
+      logStreamTargetChange(newTarget: target)
+    #endif
     if !shouldAnimate {
       visibleChars = target
       return

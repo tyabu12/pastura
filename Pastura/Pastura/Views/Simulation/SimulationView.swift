@@ -152,7 +152,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 isLatest: false,
                 charsPerSecond: viewModel.speed.charsPerSecond,
                 streamingPrimary: snapshot.primary,
-                streamingThought: snapshot.thought
+                streamingThought: snapshot.thought,
+                debugRowID: "stream-\(snapshot.agent)"
               )
               .padding(.horizontal)
               .id("streaming-\(snapshot.agent)")
@@ -334,7 +335,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         onAnimatingChange: { animating in
           guard isLatest else { return }
           latestRowIsAnimating = animating
-        }
+        },
+        debugRowID: entry.id.uuidString
       )
       .padding(.horizontal)
     case .phaseStarted(let phaseType):
