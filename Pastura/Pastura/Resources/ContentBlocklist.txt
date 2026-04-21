@@ -1,0 +1,27 @@
+# Shared content blocklist (ADR-005 §4.4).
+#
+# Loaded by both ScenarioContentValidator (input validation, §4) and
+# ContentFilter (output filtering, §5). Single source of truth — edit here
+# to extend the blocklist without touching Swift.
+#
+# Format: one pattern per line. Blank lines and lines beginning with `#`
+# are skipped; leading and trailing whitespace is trimmed. Matching is
+# case-insensitive and diacritic-insensitive (see ContentFilter /
+# ScenarioContentValidator).
+
+# Violence
+殺す
+殺害
+殺人
+
+# Slurs / hate speech (Japanese)
+死ね
+
+# Profanity (English, common)
+fuck
+shit
+asshole
+
+# Discrimination
+ガイジ
+キチガイ

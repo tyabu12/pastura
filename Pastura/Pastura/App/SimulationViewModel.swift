@@ -674,12 +674,23 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       lastRawStreamingPrimary[agent] = nil
     #endif
     let filtered = contentFilter.filter(output)
-    // Divergence telemetry: compare the last streamed snapshot against
-    // the canonical parser result for the same inference. A mismatch
-    // here means the partial extractor showed the user something that
-    // the canonical parse later contradicted — exactly the failure
-    // mode the critic flagged. Debug-level so it stays available for
-    // future investigation without polluting production logs.
+    // Snapshot-vs-canonical divergence telemetry: compare the last
+    // streamed snapshot against the canonical parser result for the
+    // same inference. A mismatch here means the partial extractor
+    // showed the user something that the canonical parse later
+    // contradicted — exactly the failure mode the critic flagged.
+    // Debug-level so it stays available for future investigation
+    // without polluting production logs.
+    //
+    // Distinct from the DEBUG `detectSilentStreamReIssue` diagnostic
+    // (Hyp A′, runs at the `handleEvent` dispatch site): that
+    // one measures *silent stream re-issue* via raw-primary
+    // monotonicity across events. This check measures
+    // *snapshot-vs-canonical* agreement at commit, is gated on
+    // `streamingSnapshot != nil`, and is therefore silenced under
+    // `.instant` (snapshot stays nil per ADR-002 §11.2 Axis ③). The
+    // dispatch-site diagnostic runs above the `.instant` gate and
+    // fires for all speeds — they do not substitute for one another.
     if let snapshot = streamingSnapshot, snapshot.agent == agent {
       let canonicalPrimary = filtered.primaryText(for: phaseType) ?? ""
       if !canonicalPrimary.hasPrefix(snapshot.primary) {
@@ -740,6 +751,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     ///
     /// Uses raw (pre-ContentFilter) primary so filter rewrites like
     /// `"fuck" → "***"` aren't mistaken for resets.
+    ///
+    /// Distinct from the "stream divergence" debug log in
+    /// ``handleAgentOutput(agent:output:phaseType:)`` — see the comment
+    /// block at that call site for the full comparison. Summary: that
+    /// one checks snapshot-vs-canonical at commit (silenced under
+    /// `.instant`); this one checks raw-primary monotonicity at the
+    /// dispatch site (runs for all speeds).
     private func detectSilentStreamReIssue(agent: String, primary: String?) {
       guard let newPrimary = primary, !newPrimary.isEmpty else { return }
       if let existing = lastRawStreamingPrimary[agent] {

@@ -19,8 +19,9 @@ nonisolated final class ContentFilter: Sendable {
   ///
   /// - Parameters:
   ///   - blockedPatterns: Words/phrases to filter. Matched case-insensitively.
+  ///     Defaults to the shared bundled blocklist (see ``ContentBlocklist``).
   ///   - replacement: Replacement text for blocked content. Defaults to "***".
-  init(blockedPatterns: [String] = ContentFilter.defaultPatterns, replacement: String = "***") {
+  init(blockedPatterns: [String] = ContentBlocklist.defaultPatterns, replacement: String = "***") {
     self.blockedPatterns = blockedPatterns
     self.replacement = replacement
   }
@@ -45,21 +46,4 @@ nonisolated final class ContentFilter: Sendable {
     let filtered = output.fields.mapValues { filter($0) }
     return TurnOutput(fields: filtered)
   }
-
-  // MARK: - Default Patterns
-
-  /// Minimum NG word list for App Store compliance.
-  ///
-  /// This is intentionally a small starter set. Expand as needed based on
-  /// App Store review feedback and user reports.
-  static let defaultPatterns: [String] = [
-    // Violence
-    "殺す", "殺害", "殺人",
-    // Slurs / hate speech (Japanese)
-    "死ね",
-    // Profanity (English, common)
-    "fuck", "shit", "asshole",
-    // Discrimination
-    "ガイジ", "キチガイ"
-  ]
 }

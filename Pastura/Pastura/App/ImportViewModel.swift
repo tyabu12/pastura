@@ -14,6 +14,7 @@ final class ImportViewModel {
   private let repository: any ScenarioRepository
   private let loader = ScenarioLoader()
   private let validator = ScenarioValidator()
+  private let contentValidator = ScenarioContentValidator()
 
   init(repository: any ScenarioRepository) {
     self.repository = repository
@@ -33,6 +34,11 @@ final class ImportViewModel {
     do {
       let scenario = try loader.load(yaml: trimmed)
       _ = try validator.validate(scenario)
+      let contentFindings = contentValidator.validate(scenario)
+      if !contentFindings.isEmpty {
+        validationErrors = contentFindings
+        return
+      }
       isValid = true
     } catch {
       validationErrors = [error.localizedDescription]

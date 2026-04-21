@@ -66,6 +66,7 @@ final class ScenarioEditorViewModel {
   private let loader = ScenarioLoader()
   private let serializer = ScenarioSerializer()
   private let validator = ScenarioValidator()
+  private let contentValidator = ScenarioContentValidator()
 
   /// Stores top-level YAML keys that the visual editor has no UI for.
   ///
@@ -198,7 +199,11 @@ final class ScenarioEditorViewModel {
 
     do {
       _ = try validator.validate(scenario)
-      isValid = true
+      let contentFindings = contentValidator.validate(scenario)
+      validationErrors.append(contentsOf: contentFindings)
+      if validationErrors.isEmpty {
+        isValid = true
+      }
     } catch {
       validationErrors = [error.localizedDescription]
     }
