@@ -8,7 +8,7 @@ import UIKit
 /// merged by `sequenceNumber` via `ResultDetailTimelineBuilder`, and the
 /// result is cached in `@State` to avoid re-decoding `CodePhaseEventPayload`
 /// JSON on every body re-render (e.g. when `showAllThoughts` toggles).
-struct ResultDetailView: View {
+struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   let simulationId: String
 
   @Environment(AppDependencies.self) private var dependencies
