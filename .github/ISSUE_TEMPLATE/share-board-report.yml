@@ -1,0 +1,56 @@
+name: Share Board scenario report
+description: Report a concern about a scenario published on Pastura's Share Board.
+title: "[Share Board Report] "
+labels:
+  - share-board-report
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This form files a **public** GitHub issue —
+        everything you enter here is visible to everyone on the internet.
+
+        If you prefer a **private** report (no account required), please
+        use the Google Forms report surface from inside the Pastura app
+        instead. That path sends the report directly to the Pastura
+        maintainer and is not publicly indexed.
+
+        Reports are reviewed by the Pastura maintainer. See
+        [ADR-005 §6](../../docs/decisions/ADR-005.md) for the policy.
+
+  - type: input
+    id: scenario_id
+    attributes:
+      label: Scenario ID
+      description: The `id` field from the gallery entry (e.g. `prisoners_dilemma_v2`).
+      placeholder: "<scenario_id>"
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version (optional)
+      description: "Found in Settings inside the app. Leave blank if unknown."
+      placeholder: "e.g. 1.0.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason
+      description: |
+        Describe the concern. Do not include personal information about
+        yourself or others in this field — GitHub issues are public.
+      placeholder: What about this scenario should we look at?
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        **Contact note:** we'll reply by @-mentioning your GitHub
+        account on this issue. Please do not paste your email address
+        or other personal contact details anywhere in this form — they
+        would be publicly indexed forever.
