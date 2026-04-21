@@ -29,6 +29,12 @@ nonisolated public struct CodePhaseEventRecord: Codable, Sendable, Equatable,
   public var sequenceNumber: Int
   /// Serialized `CodePhaseEventPayload` as JSON.
   public var payloadJSON: String
+  /// JSON-encoded `[Int]` identifying the phase's position in the scenario
+  /// (top-level K → `"[K]"`, nested sub-phase N inside conditional K → `"[K,N]"`).
+  /// `nil` for pre-v6 rows (legacy) where lineage wasn't captured. Consumers
+  /// should read the typed `phasePath` accessor rather than decoding this
+  /// string directly.
+  public var phasePathJSON: String?
   public var createdAt: Date
 
   public init(
@@ -38,6 +44,7 @@ nonisolated public struct CodePhaseEventRecord: Codable, Sendable, Equatable,
     phaseType: String,
     sequenceNumber: Int,
     payloadJSON: String,
+    phasePathJSON: String? = nil,
     createdAt: Date
   ) {
     self.id = id
@@ -46,6 +53,16 @@ nonisolated public struct CodePhaseEventRecord: Codable, Sendable, Equatable,
     self.phaseType = phaseType
     self.sequenceNumber = sequenceNumber
     self.payloadJSON = payloadJSON
+    self.phasePathJSON = phasePathJSON
     self.createdAt = createdAt
+  }
+
+  /// Typed view over `phasePathJSON`. Returns `nil` when the JSON is absent,
+  /// empty, or fails to decode — consumers treat all three as "legacy /
+  /// unknown path" and fall back to `phaseType`-only grouping.
+  public var phasePath: [Int]? {
+    guard let json = phasePathJSON, !json.isEmpty else { return nil }
+    guard let data = json.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode([Int].self, from: data)
   }
 }

@@ -123,4 +123,49 @@ import Testing
 
     #expect(sorted.map { $0.id } == ["c1", "c2", "c3"])
   }
+
+  @Test func phasePathJSONRoundTrip() throws {
+    let manager = try makeManagerWithSimulation()
+    let now = Date()
+
+    try manager.dbWriter.write { db in
+      var record = CodePhaseEventRecord(
+        id: "c1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "summarize",
+        sequenceNumber: 1,
+        payloadJSON: #"{"summary":{"text":"hi"}}"#,
+        phasePathJSON: "[2,0]",
+        createdAt: now)
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try CodePhaseEventRecord.fetchOne(db, key: "c1")
+    }
+
+    #expect(fetched?.phasePathJSON == "[2,0]")
+    #expect(fetched?.phasePath == [2, 0])
+  }
+
+  @Test func phasePathDefaultsToNilForLegacyCallers() throws {
+    let manager = try makeManagerWithSimulation()
+    let now = Date()
+
+    try manager.dbWriter.write { db in
+      var record = CodePhaseEventRecord(
+        id: "c1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "score_calc",
+        sequenceNumber: 1,
+        payloadJSON: "{}",
+        createdAt: now)
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try CodePhaseEventRecord.fetchOne(db, key: "c1")
+    }
+
+    #expect(fetched?.phasePathJSON == nil)
+    #expect(fetched?.phasePath == nil)
+  }
 }
