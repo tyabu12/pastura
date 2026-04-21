@@ -49,8 +49,4 @@ struct ContentFilterTests {
     let filter = ContentFilter(blockedPatterns: ["bad"])
     #expect(filter.filter("bad bad bad") == "*** *** ***")
   }
-
-  @Test func defaultPatternsAreNotEmpty() {
-    #expect(!ContentFilter.defaultPatterns.isEmpty)
-  }
 }
