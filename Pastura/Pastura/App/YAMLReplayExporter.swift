@@ -315,10 +315,15 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   ///   the emitted YAML will then mismatch `phases[phase_index].type`
   ///   and fail a strict consistency check.
   ///
-  /// Both limitations are acceptable for Phase 2 linear presets (Word
-  /// Wolf, Prisoner's Dilemma). A future migration adding a
-  /// `phaseIndex` column to `turns` / `code_phase_events` (sourced from
-  /// `SimulationEvent.phasePath`) lifts them; tracked separately.
+  /// The `phasePathJSON` column landed in #143 so `TurnRecord.phasePath`
+  /// now carries exact lineage (e.g. `[1, 0]` for a sub-phase). This
+  /// resolver still ignores it because the YAML replay schema's
+  /// `phase_index: Int` is a flat top-level index, not a path — teaching
+  /// the schema to represent nested addresses is a separate piece of
+  /// work. For now, the cursor keeps the Phase 2 presets (Word Wolf,
+  /// Prisoner's Dilemma) round-tripping correctly; conditional-heavy
+  /// scenarios hit the documented limitations. Upgrading the schema and
+  /// switching to `phasePath`-aware resolution is tracked as a follow-up.
   private static func resolvePhaseIndices(
     scenario: Scenario, turns: [TurnRecord]
   ) -> [Int] {
@@ -351,8 +356,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       }
       // Not a top-level phase — the event originated inside a
       // `conditional`'s branch (e.g. `summarize` used in then/else).
-      // Fall back to the conditional's index so consumers can still
-      // locate the enclosing phase context.
+      // `event.phasePath` (persisted since #143) has the exact inner
+      // location, but the YAML replay schema's `phase_index` is flat,
+      // so we still fall back to the conditional's index here and let
+      // the schema upgrade lift this when it lands.
       return conditionalFallbackIndex(in: scenario.phases)
     }
   }

@@ -21,6 +21,13 @@ compliance — the response receipt delivers the immediate
 auto-acknowledgement that the reviewer observes at submission test
 time. Misconfiguring any of the below breaks that compliance claim.
 
+This form also co-tenants as the §1.5 general-contact surface reached
+from the App Store Connect Support URL landing page
+(`docs/support/index.html`, #182). General feedback — no scenario
+context — is a legitimate second use. The form's title, description,
+and Scenario ID helper copy all signal this; keep them in sync when
+editing.
+
 **Settings → Responses:**
 
 | Setting | Required value | Why |
@@ -35,9 +42,9 @@ time. Misconfiguring any of the below breaks that compliance claim.
 | # | Type | Label | Required | Note |
 |---|------|-------|----------|------|
 | auto | Email | Email | yes (enforced) | Auto-added by Responder input. Not pre-fillable by URL parameter (Google design). |
-| 1 | Short answer | Scenario ID | yes | Pre-filled by the app via URL parameter. |
-| 2 | Short answer | App Version | no | Pre-filled by the app. |
-| 3 | Paragraph | Reason | yes | User writes the report body. |
+| 1 | Short answer | Scenario ID | **no** | Pre-filled by the app via URL parameter when reporting from Share Board. Left blank on the §1.5 general-contact path. Helper text: "Auto-filled when reporting from the app. Leave blank for general feedback." |
+| 2 | Short answer | App Version | no | Pre-filled by the app. Blank on the §1.5 path. |
+| 3 | Paragraph | Reason | yes | User writes the report body or feedback text. |
 
 **Settings → Presentation → Confirmation message:** see §2.1.
 
@@ -65,15 +72,15 @@ response-receipt email.
 
 **English:**
 
-> Thanks for your report. We've received it and will review as
-> needed. If the content clearly violates policy, it will be hidden
-> from the gallery during triage.
+> Thanks for your message. We've received it and will respond as
+> needed. Share Board reports indicating clear policy violations are
+> hidden from the gallery during triage.
 
 **Japanese:**
 
-> 報告ありがとうございます。受領し、必要に応じて確認します。
-> 明らかな policy 違反が確認できた場合は、triage 中にギャラリーから
-> 該当シナリオを非表示にします。
+> ご連絡ありがとうございます。受領し、必要に応じて返信します。
+> Share Board の通報で明らかな policy 違反が確認できた場合は、triage
+> 中にギャラリーから該当シナリオを非表示にします。
 
 ### 2.2 Vacation-mode confirmation message
 
@@ -84,19 +91,20 @@ appears (ADR-005 §6.3).
 
 **Template (English):**
 
-> Thanks for your report. We've received it.
+> Thanks for your message. We've received it.
 >
 > Note: the maintainer is currently away through **YYYY-MM-DD** and
-> will resume reviewing reports after that date. Reports indicating
-> clearly policy-violating content may still be actioned before then.
+> will resume reviewing after that date. Share Board reports
+> indicating clearly policy-violating content may still be actioned
+> before then.
 
 **Template (Japanese):**
 
-> 報告ありがとうございます。受領しました。
+> ご連絡ありがとうございます。受領しました。
 >
 > メンテナ不在期間: **YYYY-MM-DD** まで。復帰後に順次確認します。
-> 明らかな policy 違反が確認できる場合は、不在期間中でも対応する
-> ことがあります。
+> Share Board の通報で明らかな policy 違反が確認できる場合は、不在
+> 期間中でも対応することがあります。
 
 **Procedure:**
 

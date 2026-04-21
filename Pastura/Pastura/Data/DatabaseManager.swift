@@ -101,6 +101,18 @@ nonisolated public final class DatabaseManager: Sendable {
         on: "code_phase_events",
         columns: ["simulationId", "roundNumber"])
     }
+
+    migrator.registerMigration("v6_addPhasePathToTurnsAndCodePhaseEvents") { db in
+      // Nullable TEXT with no default: existing rows read as NULL (legacy —
+      // lineage wasn't captured pre-v6). Matches `TurnRecord.phasePathJSON`
+      // and `CodePhaseEventRecord.phasePathJSON` optionals.
+      try db.alter(table: "turns") { t in
+        t.add(column: "phasePathJSON", .text)
+      }
+      try db.alter(table: "code_phase_events") { t in
+        t.add(column: "phasePathJSON", .text)
+      }
+    }
   }
 
   private static func registerV1(_ migrator: inout DatabaseMigrator) {

@@ -209,4 +209,110 @@ struct SimulationViewModelCodePhasePersistenceTests {
     #expect(records.count == 1)
     #expect(records.first?.roundNumber == 0)
   }
+
+  // MARK: - phasePath lineage (#143)
+
+  @Test func topLevelPhaseStartedPersistsPathOnAgentOutput() async throws {
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .agentOutput(
+        agent: "Alice",
+        output: TurnOutput(fields: ["statement": "hi"]),
+        phaseType: .speakAll),
+      scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let turns = try sut.turnRepo.fetchBySimulationId(sut.simId)
+    #expect(turns.count == 1)
+    #expect(turns.first?.phasePath == [0])
+  }
+
+  @Test func topLevelPhaseStartedPersistsPathOnCodePhaseEvent() async throws {
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .scoreCalc, phasePath: [2]), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .scoreUpdate(scores: ["Alice": 1]), scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
+    #expect(records.count == 1)
+    #expect(records.first?.phasePath == [2])
+  }
+
+  @Test func nestedSubPhasePersistsInnerPath() async throws {
+    // Mimics ConditionalHandler: outer conditional phaseStarted, then inner
+    // sub-phase phaseStarted at [outer, inner], then agent output.
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .conditional, phasePath: [1]), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phasePath: [1, 0]), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .agentOutput(
+        agent: "Alice",
+        output: TurnOutput(fields: ["statement": "sub"]),
+        phaseType: .speakAll),
+      scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let turns = try sut.turnRepo.fetchBySimulationId(sut.simId)
+    #expect(turns.count == 1)
+    #expect(turns.first?.phasePath == [1, 0])
+  }
+
+  @Test func phasePathPopsOnInnerPhaseCompleted() async throws {
+    // Critical test (critic axis 4): after the inner sub-phase completes, a
+    // subsequent event — still inside the outer conditional but before any
+    // new .phaseStarted — must be attributed to the outer path [1], NOT the
+    // stale inner [1, 0]. Without the pop, the "exact parallel to
+    // currentPhaseType" would inherit the documented shadowing bug.
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .conditional, phasePath: [1]), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseStarted(phaseType: .summarize, phasePath: [1, 0]), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .summary(text: "inner"), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .phaseCompleted(phaseType: .summarize, phasePath: [1, 0]), scenario: sut.scenario)
+    // Hypothetical tail emission from the outer conditional bracket — path
+    // should be [1], not the stale inner [1, 0].
+    sut.model.handleEvent(
+      .summary(text: "outer tail"), scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
+    let inner = try #require(records.first { $0.payloadJSON.contains("inner") })
+    let outer = try #require(records.first { $0.payloadJSON.contains("outer tail") })
+    #expect(inner.phasePath == [1, 0])
+    #expect(outer.phasePath == [1])
+  }
+
+  @Test func phasePathNilBeforeFirstPhaseStarted() async throws {
+    // Defensive: events that fire before any .phaseStarted (e.g., round-zero
+    // validator warnings) must store phasePathJSON = nil, not an empty array
+    // or a stale value from a previous run.
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .scoreUpdate(scores: ["Alice": 1]), scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
+    #expect(records.count == 1)
+    #expect(records.first?.phasePathJSON == nil)
+    #expect(records.first?.phasePath == nil)
+  }
 }

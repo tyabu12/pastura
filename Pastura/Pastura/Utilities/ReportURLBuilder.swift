@@ -33,6 +33,14 @@ nonisolated enum ReportURLBuilder {
   /// field is rendered as a user-typed field that triggers the
   /// response-receipt auto-acknowledgement (see ADR-005 §6.3).
   ///
+  /// The same underlying form co-tenants as the §1.5 general-contact
+  /// surface reached from the App Store Connect Support URL landing
+  /// page (`docs/support/index.html`, #182). That path links the bare
+  /// form URL with no pre-fill, and the Scenario ID field is
+  /// configured as optional so general-feedback submissions can leave
+  /// it blank. This builder always pre-fills both fields — the
+  /// in-app path is unaffected by the optional configuration.
+  ///
   /// - Parameters:
   ///   - scenarioId: Gallery scenario identifier.
   ///   - appVersion: Running app version (e.g. "1.0.0"). Empty

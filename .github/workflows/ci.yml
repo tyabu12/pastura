@@ -71,11 +71,24 @@ jobs:
           # losing all output on timeout-kill). Trailing `|| true` prevents
           # `set -eo pipefail` (GHA default) from aborting the script before
           # PIPESTATUS is captured.
+          #
+          # `-parallel-testing-enabled NO` — workaround for CI OOM cascade
+          # first observed on `main` post-#186 (sha e650f13). Multiple
+          # simulator clones on the macos-26 runner (~7 GB RAM) pushed the
+          # test host over the OOM threshold; symptoms were trivial unit
+          # tests taking ~3.1 s each (vs <10 ms locally) followed by a
+          # host kill that marked 262–736 queued tests as "signal trap".
+          # With this flag, `lint-and-test` completes in ~8 min — well
+          # within the 10-min budget (CLAUDE.md). Root-cause investigation
+          # is tracked in #189; when that lands, revisit whether to restore
+          # full parallelism or settle on a targeted
+          # `-parallel-testing-worker-count N`.
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
             -only-testing PasturaTests \
+            -parallel-testing-enabled NO \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-unit.log || true

@@ -123,4 +123,77 @@ import Testing
       #expect(count == 0)
     }
   }
+
+  @Test func phasePathJSONRoundTrip() throws {
+    let manager = try makeManagerWithSimulation()
+    let now = Date()
+
+    try manager.dbWriter.write { db in
+      var turn = TurnRecord(
+        id: "t1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "raw",
+        parsedOutputJSON: "{}",
+        phasePathJSON: "[1,0]",
+        createdAt: now)
+      try turn.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try TurnRecord.fetchOne(db, key: "t1")
+    }
+
+    #expect(fetched?.phasePathJSON == "[1,0]")
+    #expect(fetched?.phasePath == [1, 0])
+  }
+
+  @Test func phasePathDefaultsToNilForLegacyCallers() throws {
+    let manager = try makeManagerWithSimulation()
+    let now = Date()
+
+    // Constructor with no phasePathJSON — matches every existing call site.
+    try manager.dbWriter.write { db in
+      var turn = TurnRecord(
+        id: "t1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "raw",
+        parsedOutputJSON: "{}", createdAt: now)
+      try turn.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try TurnRecord.fetchOne(db, key: "t1")
+    }
+
+    #expect(fetched?.phasePathJSON == nil)
+    #expect(fetched?.phasePath == nil)
+  }
+
+  @Test func phasePathDecoderHandlesEdgeCases() {
+    // Empty / NULL / malformed all decode to nil — single source of truth for
+    // consumer fallback ("legacy row = unknown path").
+    let base = TurnRecord(
+      id: "t", simulationId: "sim", roundNumber: 1, phaseType: "speak_all",
+      agentName: "A", rawOutput: "", parsedOutputJSON: "{}", createdAt: Date())
+
+    var withNil = base
+    withNil.phasePathJSON = nil
+    #expect(withNil.phasePath == nil)
+
+    var withEmpty = base
+    withEmpty.phasePathJSON = ""
+    #expect(withEmpty.phasePath == nil)
+
+    var withMalformed = base
+    withMalformed.phasePathJSON = "not-json"
+    #expect(withMalformed.phasePath == nil)
+
+    var withTopLevel = base
+    withTopLevel.phasePathJSON = "[2]"
+    #expect(withTopLevel.phasePath == [2])
+
+    var withNested = base
+    withNested.phasePathJSON = "[0,3]"
+    #expect(withNested.phasePath == [0, 3])
+  }
 }
