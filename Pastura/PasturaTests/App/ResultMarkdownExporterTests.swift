@@ -6,12 +6,17 @@ import Testing
 @Suite(.timeLimit(.minutes(1))) @MainActor struct ResultMarkdownExporterTests {  // swiftlint:disable:this type_body_length
 
   // MARK: - Fixtures
+  //
+  // Helpers are at internal access (not `private`) so the
+  // `ResultMarkdownExporterTests+PhasePath.swift` sibling extension can reuse
+  // them. `private` members aren't visible to cross-file extensions — see
+  // `.claude/rules/testing.md` "Splitting a Suite Across Files".
 
-  private let createdAt = Date(timeIntervalSince1970: 1_712_000_000)  // 2024-04-01T19:33:20Z
-  private let updatedAt = Date(timeIntervalSince1970: 1_712_000_342)  // +5m 42s
-  private let exportAt = Date(timeIntervalSince1970: 1_713_000_000)  // 2024-04-13T08:53:20Z
+  let createdAt = Date(timeIntervalSince1970: 1_712_000_000)  // 2024-04-01T19:33:20Z
+  let updatedAt = Date(timeIntervalSince1970: 1_712_000_342)  // +5m 42s
+  let exportAt = Date(timeIntervalSince1970: 1_713_000_000)  // 2024-04-13T08:53:20Z
 
-  private func makeScenario(
+  func makeScenario(
     id: String = "s1",
     name: String = "Prisoners Dilemma",
     yaml: String = "name: Prisoners Dilemma\nrounds: 2\n"
@@ -21,7 +26,7 @@ import Testing
       isPreset: true, createdAt: Date(), updatedAt: Date())
   }
 
-  private func makeSimulation(
+  func makeSimulation(
     id: String = "sim1",
     scenarioId: String = "s1",
     status: SimulationStatus = .completed,
@@ -37,12 +42,13 @@ import Testing
       modelIdentifier: modelIdentifier, llmBackend: llmBackend)
   }
 
-  private func makeTurn(
+  func makeTurn(
     round: Int,
     seq: Int,
     phase: String,
     agent: String?,
-    fields: [String: String]
+    fields: [String: String],
+    phasePathJSON: String? = nil
   ) -> TurnRecord {
     let json =
       (try? JSONEncoder().encode(TurnOutput(fields: fields))).flatMap {
@@ -57,10 +63,11 @@ import Testing
       rawOutput: json,
       parsedOutputJSON: json,
       sequenceNumber: seq,
+      phasePathJSON: phasePathJSON,
       createdAt: Date())
   }
 
-  private func makeState(
+  func makeState(
     scores: [String: Int] = ["Alice": 5, "Bob": 3],
     eliminated: [String: Bool] = [:]
   ) -> SimulationState {
@@ -75,7 +82,7 @@ import Testing
       currentRound: 2)
   }
 
-  private func makeExporter(
+  func makeExporter(
     filter: ContentFilter = ContentFilter(blockedPatterns: [])
   ) -> ResultMarkdownExporter {
     ResultMarkdownExporter(
@@ -350,4 +357,9 @@ import Testing
     #expect(result.fileURL.lastPathComponent.hasSuffix(".md"))
     #expect(result.fileURL.lastPathComponent.contains("test-scenario"))
   }
+
+  // MARK: - Phase path grouping
+  //
+  // Split into sibling file `ResultMarkdownExporterTests+PhasePath.swift` to
+  // stay under the 400-line file_length cap. See `.claude/rules/testing.md`.
 }
