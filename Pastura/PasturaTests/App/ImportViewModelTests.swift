@@ -101,4 +101,38 @@ struct ImportViewModelTests {
   @Test func scenarioGenerationPromptIsNotEmpty() {
     #expect(!ImportViewModel.scenarioGenerationPrompt.isEmpty)
   }
+
+  // MARK: - Content Validation
+
+  @Test func validateRejectsBlockedPersonaDescription() throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let viewModel = ImportViewModel(repository: repo)
+
+    // Uses the default bundled blocklist — "殺す" is present in ContentBlocklist.txt.
+    viewModel.yamlText = """
+      id: blocked_content_test
+      name: Blocked Content Test
+      description: A test
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: 殺す
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    viewModel.validate()
+
+    #expect(viewModel.isValid == false)
+    #expect(!viewModel.validationErrors.isEmpty)
+    #expect(
+      viewModel.validationErrors.contains { $0.contains("Alice") && $0.contains("description") })
+  }
 }
