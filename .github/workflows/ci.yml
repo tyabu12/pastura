@@ -72,15 +72,17 @@ jobs:
           # `set -eo pipefail` (GHA default) from aborting the script before
           # PIPESTATUS is captured.
           #
-          # `-parallel-testing-enabled NO` — EXPERIMENTAL (#182). Disables
-          # multi-simulator-clone parallelism to test the resource-exhaustion
-          # hypothesis for the signal-trap cascade first observed on `main`
-          # post-#186 (e650f13). Symptoms: trivial unit tests taking ~3.1s
-          # each on CI (vs <10 ms locally), followed by a test-host crash
-          # that marks hundreds of queued tests as "signal trap". If this
-          # flag stabilises CI, the fix is likely a targeted
-          # `-parallel-testing-worker-count 2` rather than full
-          # serialisation — revisit once we have a passing baseline.
+          # `-parallel-testing-enabled NO` — workaround for CI OOM cascade
+          # first observed on `main` post-#186 (sha e650f13). Multiple
+          # simulator clones on the macos-26 runner (~7 GB RAM) pushed the
+          # test host over the OOM threshold; symptoms were trivial unit
+          # tests taking ~3.1 s each (vs <10 ms locally) followed by a
+          # host kill that marked 262–736 queued tests as "signal trap".
+          # With this flag, `lint-and-test` completes in ~8 min — well
+          # within the 10-min budget (CLAUDE.md). Root-cause investigation
+          # is tracked in #189; when that lands, revisit whether to restore
+          # full parallelism or settle on a targeted
+          # `-parallel-testing-worker-count N`.
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
