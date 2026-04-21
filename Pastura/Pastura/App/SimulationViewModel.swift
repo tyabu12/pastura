@@ -565,7 +565,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // the stale inner path (#143). `currentPhaseType` intentionally still
       // lingers: consumers that need exact phaseType attribution already
       // read the event's own `phaseType` per `.claude/rules/engine.md`.
-      if currentPhasePath == phasePath, (currentPhasePath?.count ?? 0) > 1 {
+      if currentPhasePath == phasePath, phasePath.count > 1 {
         currentPhasePath?.removeLast()
       }
     case .simulationPaused, .conditionalEvaluated:
