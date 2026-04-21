@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a new feature or enhancement for Pastura.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Issues here are public —
+        please do not include personal information.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What are you trying to do, and what makes it hard or frustrating today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What would a good solution look like from the user's perspective?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+      description: Other approaches you've thought about, or workarounds you're currently using.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context (optional)
+      description: Screenshots, links, or any other context about the request.
+    validations:
+      required: false
