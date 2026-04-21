@@ -1,0 +1,68 @@
+# Deploys docs/support/ to GitHub Pages so the App Store Connect Support URL
+# (`https://tyabu12.github.io/pastura/support/`) has a dedicated landing page.
+# See issue #182 and ADR-005 §6 / §9.2 row #9.
+#
+# Precondition: Settings → Pages → Source = "GitHub Actions" (NOT
+# "Deploy from a branch", which would publish the entire docs/ tree).
+#
+# Only `docs/support/` is staged — the rest of `docs/` (ADRs, specs,
+# prototype code) stays out of the published artifact. The workflow also
+# writes a `.nojekyll` file so a future Source-setting regression back to
+# branch-based Pages cannot start running the HTML through Jekyll.
+#
+# Concurrency group `pages` is GitHub's documented convention for Pages
+# deploys — any future Pages workflow in this repo must share it so
+# deploys serialize correctly. `cancel-in-progress: false` is deliberate:
+# cancelling a Pages deploy mid-flight can leave the site in an
+# inconsistent state.
+
+name: Deploy Support Page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/support/**'
+      - '.github/workflows/deploy-support-page.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Stage artifact
+        # Targeted copy — never `cp -r docs/support _site/support` because
+        # that would also publish any sibling drafts or editor detritus
+        # (e.g. .DS_Store) that may live alongside index.html.
+        run: |
+          mkdir -p _site/support
+          cp docs/support/index.html _site/support/index.html
+          touch _site/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
