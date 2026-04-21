@@ -192,12 +192,50 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       case .codePhase(let record, _): return record.phaseType
       }
     }
+    /// `nil` for legacy rows (pre-v6) and top-level phases; `[K, N, ...]` for nested
+    /// sub-phases inside a conditional. Mirrors the underlying record's `phasePath`.
+    var phasePath: [Int]? {
+      switch self {
+      case .turn(let turn): return turn.phasePath
+      case .codePhase(let record, _): return record.phasePath
+      }
+    }
+  }
+
+  /// Groups timeline items within a round. Legacy rows (`phasePath == nil`) and
+  /// top-level rows (`phasePath.count == 1`) collapse into one block per phaseType
+  /// to preserve the mixed-era invariant. Nested sub-phase rows (`phasePath.count > 1`)
+  /// each get their own block keyed on the exact path so sibling conditional branches
+  /// appear separately.
+  private enum PhaseGroupKey: Hashable {
+    case topLevel(phaseType: String)
+    case nested(path: [Int], phaseType: String)
+
+    init(_ item: TimelineItem) {
+      let path = item.phasePath
+      if let path, path.count > 1 {
+        self = .nested(path: path, phaseType: item.phaseType)
+      } else {
+        self = .topLevel(phaseType: item.phaseType)
+      }
+    }
+
+    /// Markdown heading for this group.
+    var heading: String {
+      switch self {
+      case .topLevel(let phaseType):
+        return "#### Phase: \(phaseType)"
+      case .nested(let path, let phaseType):
+        let formatted = path.map { String($0) }.joined(separator: ", ")
+        return "#### Sub-phase: \(phaseType) (path [\(formatted)])"
+      }
+    }
   }
 
   private func renderTurnLog(_ input: Input) -> String {
-    // Build a unified timeline. Within a `(round, phaseType)` group, items
+    // Build a unified timeline. Within a `(round, PhaseGroupKey)` group, items
     // render strictly by ascending `sequenceNumber` — agent votes always
-    // precede the tally line under the same `#### Phase: vote` header.
+    // precede the tally line under the same heading.
     var timeline: [TimelineItem] = input.turns.map { .turn($0) }
     timeline.append(
       contentsOf: input.codePhaseEvents.map { record in
@@ -221,20 +259,21 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       lines.append("### Round \(round)")
       let itemsInRound = (grouped[round] ?? [])
         .sorted { $0.sequenceNumber < $1.sequenceNumber }
-      // Group by phaseType within round, preserving first-seen order.
-      var phaseOrder: [String] = []
-      var byPhase: [String: [TimelineItem]] = [:]
+      // Group by PhaseGroupKey within round, preserving first-seen order.
+      var keyOrder: [PhaseGroupKey] = []
+      var byKey: [PhaseGroupKey: [TimelineItem]] = [:]
       for item in itemsInRound {
-        if byPhase[item.phaseType] == nil {
-          phaseOrder.append(item.phaseType)
-          byPhase[item.phaseType] = []
+        let key = PhaseGroupKey(item)
+        if byKey[key] == nil {
+          keyOrder.append(key)
+          byKey[key] = []
         }
-        byPhase[item.phaseType]?.append(item)
+        byKey[key]?.append(item)
       }
-      for phase in phaseOrder {
+      for key in keyOrder {
         lines.append("")
-        lines.append("#### Phase: \(phase)")
-        for item in byPhase[phase] ?? [] {
+        lines.append(key.heading)
+        for item in byKey[key] ?? [] {
           lines.append(render(item))
         }
       }
