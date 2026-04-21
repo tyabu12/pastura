@@ -1,16 +1,11 @@
 import SwiftUI
 
-/// Which branch of a conditional phase a nested sub-phase editor is editing.
-/// Lifted to file scope to satisfy SwiftLint's nesting rule (types nested
-/// deeper than 1 level are disallowed).
-private enum ConditionalBranch { case then, `else` }
-
 /// Identifies which branch's sub-phase is currently being edited via a
 /// nested `PhaseEditorSheet`. `.sheet(item:)` drives the presentation;
 /// `onSave` on the nested sheet writes back to the right branch.
 private struct SubPhaseEditContext: Identifiable {
   let id = UUID()
-  let branch: ConditionalBranch
+  let branch: EditablePhase.Branch
   var phase: EditablePhase
 }
 
@@ -221,7 +216,7 @@ struct PhaseEditorSheet: View {
   private func branchSection(
     title: String,
     phases: Binding<[EditablePhase]>,
-    branch: ConditionalBranch
+    branch: EditablePhase.Branch
   ) -> some View {
     Section(title) {
       ForEach(phases.wrappedValue) { subPhase in
