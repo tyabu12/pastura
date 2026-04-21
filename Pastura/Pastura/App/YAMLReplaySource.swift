@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Yams
 
@@ -61,10 +62,31 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
     let event: SimulationEvent
   }
 
+  /// Chronological-merge entry used only during init to build
+  /// ``pacedPlan``. Carries the `(round, phase_index, phase_type)`
+  /// coordinates plus a stable secondary sort key so `turns` /
+  /// `code_phase_events` can be merged while preserving within-section
+  /// source order.
+  private struct ChronologicalEntry: Sendable {
+    let round: Int
+    let phaseIndex: Int
+    let phaseType: PhaseType
+    let sourceOrder: Int
+    let paceKind: PacedEvent.Kind
+    let event: SimulationEvent
+  }
+
   // MARK: - Stored state
 
   private let scenarioValue: Scenario
   private let plan: [PlannedEvent]
+  /// Chronologically-sorted ``PacedEvent`` array with synthesised
+  /// `.roundStarted` / `.phaseStarted` lifecycle events. Computed once
+  /// at init and returned verbatim by ``plannedEvents()``; stability
+  /// across calls is structural (`let`), which
+  /// ``ReplaySource/plannedEvents()``'s contract depends on for
+  /// resume-from-position.
+  private let pacedPlan: [PacedEvent]
   private let config: ReplayPlaybackConfig
 
   public var scenario: Scenario { scenarioValue }
@@ -101,19 +123,38 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
 
     let personas = Set(scenario.personas.map(\.name))
     var plan: [PlannedEvent] = []
+    var chronological: [ChronologicalEntry] = []
 
     let turns = (root["turns"] as? [[String: Any]]) ?? []
-    for raw in turns {
-      plan.append(try Self.planTurn(raw, allowedAgents: personas))
+    for (idx, raw) in turns.enumerated() {
+      let parsed = try Self.parseTurn(raw, allowedAgents: personas)
+      plan.append(PlannedEvent(kind: .turn, event: parsed.event))
+      chronological.append(
+        ChronologicalEntry(
+          round: parsed.round, phaseIndex: parsed.phaseIndex,
+          phaseType: parsed.phaseType, sourceOrder: idx,
+          paceKind: .turn, event: parsed.event))
     }
 
     let codeEvents = (root["code_phase_events"] as? [[String: Any]]) ?? []
-    for raw in codeEvents {
-      plan.append(try Self.planCodePhaseEvent(raw))
+    for (idx, raw) in codeEvents.enumerated() {
+      let parsed = try Self.parseCodePhaseEvent(raw)
+      plan.append(PlannedEvent(kind: .codePhase, event: parsed.event))
+      chronological.append(
+        ChronologicalEntry(
+          round: parsed.round, phaseIndex: parsed.phaseIndex,
+          phaseType: parsed.phaseType,
+          // `+ turns.count` keeps turn source-order strictly below
+          // code-event source-order for a stable tie-break when two
+          // entries land at the same (round, phase_index).
+          sourceOrder: idx + turns.count,
+          paceKind: .codePhase, event: parsed.event))
     }
 
     self.scenarioValue = scenario
     self.plan = plan
+    self.pacedPlan = Self.buildPacedPlan(
+      entries: chronological, totalRounds: scenario.rounds)
     self.config = config
   }
 
@@ -142,7 +183,68 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
     }
   }
 
-  // MARK: - YAML loading
+  public func plannedEvents() -> [PacedEvent] { pacedPlan }
+
+  // MARK: - Paced plan construction
+
+  /// Merges turn + code-phase entries chronologically by
+  /// `(round, phase_index, sourceOrder)` and inserts synthesised
+  /// `.roundStarted` / `.phaseStarted` lifecycle markers ahead of the
+  /// first event of each new round / phase boundary.
+  ///
+  /// Explicitly NOT synthesised (see ``ReplaySource/plannedEvents()``
+  /// doc for rationale): `.roundCompleted`, `.simulationCompleted`.
+  private static func buildPacedPlan(
+    entries: [ChronologicalEntry], totalRounds: Int
+  ) -> [PacedEvent] {
+    let sorted = entries.sorted { lhs, rhs in
+      if lhs.round != rhs.round { return lhs.round < rhs.round }
+      if lhs.phaseIndex != rhs.phaseIndex { return lhs.phaseIndex < rhs.phaseIndex }
+      return lhs.sourceOrder < rhs.sourceOrder
+    }
+    var result: [PacedEvent] = []
+    var lastRound: Int?
+    var lastPhaseIndex: Int?
+    var lastPhaseType: PhaseType?
+    for entry in sorted {
+      if lastRound != entry.round {
+        result.append(
+          PacedEvent(
+            kind: .lifecycle,
+            event: .roundStarted(round: entry.round, totalRounds: totalRounds)))
+        lastRound = entry.round
+        // Force a phaseStarted synthesis on round transition even if the
+        // phase coordinates happen to match the previous round's last
+        // phase — semantically a new round's first phase starts fresh.
+        lastPhaseIndex = nil
+        lastPhaseType = nil
+      }
+      if lastPhaseIndex != entry.phaseIndex || lastPhaseType != entry.phaseType {
+        result.append(
+          PacedEvent(
+            kind: .lifecycle,
+            // `phasePath: [phaseIndex]` is flattened per the known
+            // fidelity gap documented in ``ReplaySource/plannedEvents()``
+            // (matches ``YAMLReplayExporter.resolvePhaseIndices`` scope).
+            event: .phaseStarted(phaseType: entry.phaseType, phasePath: [entry.phaseIndex])))
+        lastPhaseIndex = entry.phaseIndex
+        lastPhaseType = entry.phaseType
+      }
+      result.append(PacedEvent(kind: entry.paceKind, event: entry.event))
+    }
+    return result
+  }
+}
+
+// MARK: - YAML parsing helpers
+//
+// Moved into an extension so `type_body_length` counts only the primary
+// class body — the decode helpers are glue around Yams' `[String: Any]`
+// shape and don't belong on the main class's conceptual surface.
+
+extension YAMLReplaySource {
+
+  // MARK: YAML loading
 
   private static func loadYAML(_ data: Data) throws -> Any? {
     guard let text = String(data: data, encoding: .utf8) else {
@@ -159,9 +261,27 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
 
   // MARK: - Planning: turns
 
-  private static func planTurn(
+  /// Parsed turn carrying the chronological coordinates needed to
+  /// build ``pacedPlan`` alongside the existing ``PlannedEvent``.
+  private struct ParsedTurn: Sendable {
+    let round: Int
+    let phaseIndex: Int
+    let phaseType: PhaseType
+    let event: SimulationEvent
+  }
+
+  /// Parsed code-phase event with the same coordinate shape as
+  /// ``ParsedTurn``.
+  private struct ParsedCodeEvent: Sendable {
+    let round: Int
+    let phaseIndex: Int
+    let phaseType: PhaseType
+    let event: SimulationEvent
+  }
+
+  private static func parseTurn(
     _ raw: [String: Any], allowedAgents: Set<String>
-  ) throws -> PlannedEvent {
+  ) throws -> ParsedTurn {
     guard let phaseTypeRaw = raw["phase_type"] as? String else {
       throw YAMLReplaySourceError.missingRequiredField("phase_type")
     }
@@ -175,8 +295,15 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
       throw YAMLReplaySourceError.unknownAgent(agent)
     }
     let fields = try Self.decodeStringMap(raw["fields"], field: "fields")
-    return PlannedEvent(
-      kind: .turn,
+    // `round` / `phase_index` default to 0 if absent so a malformed or
+    // older-schema YAML still parses — the drift guard and consistency
+    // check live at the CI level (spec §3.3), not at load time.
+    let round = (raw["round"] as? Int) ?? 0
+    let phaseIndex = (raw["phase_index"] as? Int) ?? 0
+    return ParsedTurn(
+      round: round,
+      phaseIndex: phaseIndex,
+      phaseType: phaseType,
       event: .agentOutput(
         agent: agent, output: TurnOutput(fields: fields),
         phaseType: phaseType))
@@ -217,16 +344,39 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
 
   // MARK: - Planning: code_phase_events
 
-  private static func planCodePhaseEvent(
+  private static func parseCodePhaseEvent(
     _ raw: [String: Any]
-  ) throws -> PlannedEvent {
+  ) throws -> ParsedCodeEvent {
     let summary = (raw["summary"] as? String) ?? ""
-    if let payload = raw["payload"] as? [String: Any],
-      let event = try decodePayloadStanza(payload, summary: summary) {
-      return PlannedEvent(kind: .codePhase, event: event)
+    let round = (raw["round"] as? Int) ?? 0
+    let phaseIndex = (raw["phase_index"] as? Int) ?? 0
+    // `phase_type` is denormalised on code-phase entries in the YAML
+    // (spec §3.2). Unknown values are treated as planning-level drift
+    // and rejected via ``unknownPhaseType`` — symmetric with turns.
+    let phaseType: PhaseType
+    if let raw = raw["phase_type"] as? String {
+      guard let parsed = PhaseType(rawValue: raw) else {
+        throw YAMLReplaySourceError.unknownPhaseType(raw)
+      }
+      phaseType = parsed
+    } else {
+      // Missing `phase_type` on code events is tolerated (older writers
+      // may have omitted it). Default to `.scoreCalc` so the lifecycle
+      // synthesis has a stable label; consumers that rely on the exact
+      // type for rendering will re-derive from `phasePath` against the
+      // scenario if needed.
+      phaseType = .scoreCalc
     }
-    // Fallback: no structured payload — surface as a narrative summary.
-    return PlannedEvent(kind: .codePhase, event: .summary(text: summary))
+    let event: SimulationEvent
+    if let payload = raw["payload"] as? [String: Any],
+      let decoded = try decodePayloadStanza(payload, summary: summary) {
+      event = decoded
+    } else {
+      // Fallback: no structured payload — surface as a narrative summary.
+      event = .summary(text: summary)
+    }
+    return ParsedCodeEvent(
+      round: round, phaseIndex: phaseIndex, phaseType: phaseType, event: event)
   }
 
   /// Decodes a `payload:` stanza as emitted by ``YAMLReplayExporter``.
