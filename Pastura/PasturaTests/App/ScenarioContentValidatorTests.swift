@@ -192,6 +192,15 @@ struct ScenarioContentValidatorTests {
     #expect(findings.count == 1)
   }
 
+  @Test func diacriticInsensitiveMatchingReverseDirection() {
+    // Symmetric case: blocklist pattern without diacritics, input with them.
+    // The bundled .txt may or may not be NFC-normalised and user input is
+    // independent of that — matching must fold both directions.
+    let validator = ScenarioContentValidator(blockedPatterns: ["naive"])
+    let findings = validator.validate(makeScenario(name: "How NAÏVE"))
+    #expect(findings.count == 1)
+  }
+
   // MARK: - Invariant: no matched-term echo
 
   @Test func findingsNeverEchoTheMatchedPattern() {

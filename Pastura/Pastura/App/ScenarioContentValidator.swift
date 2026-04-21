@@ -73,6 +73,10 @@ final class ScenarioContentValidator {
       )
     }
     if containsBlockedPattern(persona.description) {
+      // Why: ADR-005 §4.7 requires findings to never echo the matched term.
+      // When the name itself is a blocked term, interpolating it into the
+      // description message would leak the pattern — fall back to positional
+      // form instead.
       if nameIsClean {
         findings.append(
           String(
