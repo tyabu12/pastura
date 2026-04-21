@@ -129,11 +129,8 @@ final class ScenarioContentValidator {
   }
 
   private func containsBlockedPattern(_ text: String) -> Bool {
-    for pattern in blockedPatterns {
-      if text.range(of: pattern, options: [.caseInsensitive, .diacriticInsensitive]) != nil {
-        return true
-      }
+    blockedPatterns.contains { pattern in
+      text.range(of: pattern, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
-    return false
   }
 }
