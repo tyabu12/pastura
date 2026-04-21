@@ -121,14 +121,60 @@ Run these whenever the navigation surface changes:
    sees the view is no longer on top, and no spurious push to
    `ScenarioDetailView` occurs. (Backgrounding the app does **not** pop
    views, so it does not exercise this guard.)
-5. **Conditional phase — nested sub-phase editor** — In the scenario editor,
-   add a `conditional` phase, tap it to open `PhaseEditorSheet`, enter a
-   condition, tap **Add sub-phase** inside the Then branch. Expected: a
-   nested `PhaseEditorSheet` presents with the `conditional` option
-   *absent* from the type picker (depth-1 UI enforcement). Change the
-   sub-phase type, save, return to the outer editor. Save the outer
-   phase and confirm the top-level scenario list shows the condition
-   summary with `then:N else:M` counts. The nested sheet is sheet-owned,
-   so its own NavigationStack is fine — this QA just confirms that the
-   presentation chain (outer sheet → inner sheet) dismisses cleanly
-   without leaking `.conditional` into nested depths.
+5. **Conditional phase — nested sub-phase editor + sub-phase drag** —
+   In the scenario editor, add a `conditional` phase, tap it to open
+   `PhaseEditorSheet`, enter a condition, tap **Add sub-phase** inside
+   the Then branch. Expected: a nested `PhaseEditorSheet` presents with
+   the `conditional` option *absent* from the type picker (depth-1 UI
+   enforcement). Change the sub-phase type, save, return to the outer
+   editor. Save the outer phase and confirm the top-level scenario list
+   shows the condition summary with `then:N else:M` counts. The nested
+   sheet is sheet-owned, so its own NavigationStack is fine — this QA
+   just confirms that the presentation chain (outer sheet → inner
+   sheet) dismisses cleanly without leaking `.conditional` into nested
+   depths.
+
+   Drag UX — add 2–3 sub-phases to each branch, then verify all of:
+   - **Within-branch reorder** — long-press the drag handle of any
+     sub-phase and drag up/down within the same branch. Expected:
+     top-edge insertion line appears under the hovered row, release
+     completes the move.
+   - **Cross-branch drag** — drag a sub-phase from Then into Else (or
+     vice versa). Expected: Else rows highlight the insertion line as
+     the drag enters, release inserts the sub-phase into the target
+     branch at the hovered index.
+   - **Drop into empty branch** — delete all Else sub-phases so the
+     branch shows the dashed "No sub-phases yet" placeholder, then
+     drag a Then sub-phase into the placeholder. Expected: placeholder
+     text switches to "Drop here" on hover, release inserts into Else.
+   - **Tap-to-edit + swipe-to-delete still work** — tap the content
+     area of any row → opens nested editor. Swipe left on any row →
+     reveals Delete action. These must coexist with drag without
+     gesture swallowing.
+   - **Context menu move actions** — long-press the content area (not
+     the handle) of any sub-phase. Expected: "Move Up", "Move Down",
+     "Move to Then/Else Branch" options. Boundary items are disabled
+     (no Move Up on first row, no Move Down on last row).
+   - **Depth-2 nested sheets have no branches** — the nested sheet
+     opened by editing a sub-phase does not contain Then/Else sections
+     (since `.conditional` is filtered out), so this drag feature does
+     not apply at that depth. Confirm no drag affordances appear.
+
+6. **Top-level phase list — drag reorder + context menu** — In the
+   scenario editor at the top level, add 3+ phases to a scenario.
+   Verify:
+   - **Drag handle reorder** — long-press the `line.3.horizontal`
+     handle on any row and drag to reorder. Expected: top-edge
+     insertion line under the hovered row, release completes the move.
+     Tap-to-edit (on the content area) and swipe-to-delete must still
+     work.
+   - **Context menu** — long-press the content area (not the handle)
+     of any phase. Expected: "Move Up" / "Move Down" actions with
+     boundary items disabled.
+   - **Empty list drop target renders** — remove all phases so the
+     dashed "No phases yet" placeholder appears, then add a phase via
+     the Add Phase button and confirm the list repopulates. The empty
+     placeholder also serves as a drop target, but since sub-phases
+     and top-level phases are never on screen together, cross-surface
+     drag is blocked by construction (distinct `Transferable` payload
+     types); no interactive test is needed.
