@@ -8,8 +8,8 @@ import SwiftUI
 /// state, bundled demo count, and whether replay has already started —
 /// see ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``.
 ///
-/// The chat stream binding and lifecycle (`.task`, scene-phase bridge,
-/// `DLCompleteOverlay`) are added in items 6/7 of PR2.
+/// Lifecycle (`.task`, scene-phase bridge, `DLCompleteOverlay`) is
+/// added in item 7 of PR2.
 struct DemoReplayHostView: View {
   let modelManager: ModelManager
 
@@ -17,6 +17,8 @@ struct DemoReplayHostView: View {
   /// demo host. Below this floor we defer to `ModelDownloadView` — the
   /// rotation loop is unsatisfying with a single demo (spec §5.2).
   static let minPlayableDemoCount = 2
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   @State private var replayVM: ReplayViewModel?
   @State private var replayHadStarted: Bool = false
@@ -38,10 +40,79 @@ struct DemoReplayHostView: View {
 
   @ViewBuilder
   private var demoHostBody: some View {
-    // Placeholder — chat stream (item 6), lifecycle + DLCompleteOverlay
-    // (item 7) land in follow-up commits of PR2.
-    Color.screenBackground
-      .ignoresSafeArea()
+    if let vm = replayVM {
+      chatStream(vm: vm)
+    } else {
+      // VM is nil until item 7 wires the `.task { }` load + start. Keeps
+      // the fallbackBranch contract: if the host routed here but no VM
+      // exists, render an empty background instead of crashing.
+      Color.screenBackground.ignoresSafeArea()
+    }
+  }
+
+  private func chatStream(vm: ReplayViewModel) -> some View {
+    ZStack(alignment: .bottom) {
+      Color.screenBackground.ignoresSafeArea()
+
+      VStack(spacing: 0) {
+        PhaseHeader(
+          presetName: currentPresetName(vm: vm).uppercased(),
+          phaseLabel: currentPhaseLabel(vm: vm))
+
+        ScrollViewReader { proxy in
+          ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+              ForEach(vm.agentOutputs) { entry in
+                AgentOutputRow(
+                  agent: entry.agent,
+                  output: entry.output,
+                  phaseType: entry.phaseType,
+                  showAllThoughts: true,
+                  isLatest: entry.id == vm.agentOutputs.last?.id,
+                  charsPerSecond: 60
+                )
+                .id(entry.id)
+                .transition(reduceMotion ? .identity : .opacity)
+              }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            // Space for the PromoCard overlay (bottom: 22pt + card height).
+            .padding(.bottom, 160)
+            .animation(
+              reduceMotion ? nil : .easeOut(duration: 0.7),
+              value: vm.agentOutputs.count)
+          }
+          .onChange(of: vm.agentOutputs.count) { _, _ in
+            guard let lastId = vm.agentOutputs.last?.id else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+              proxy.scrollTo(lastId, anchor: .bottom)
+            }
+          }
+        }
+      }
+
+      PromoCard(
+        modelState: modelManager.state,
+        replayHadStarted: replayHadStarted,
+        onRetry: { modelManager.startDownload() })
+    }
+  }
+
+  private func currentPresetName(vm: ReplayViewModel) -> String {
+    guard case .playing(let sourceIndex, _) = vm.state,
+      sourceIndex < sources.count
+    else { return "" }
+    return sources[sourceIndex].scenario.name
+  }
+
+  private func currentPhaseLabel(vm: ReplayViewModel) -> String {
+    guard let phase = vm.currentPhase else { return "" }
+    let base = phase.rawValue
+    if let round = vm.currentRound {
+      return "\(base) \(round)"
+    }
+    return base
   }
 
   // MARK: - Fallback decision
