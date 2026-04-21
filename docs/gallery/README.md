@@ -90,7 +90,19 @@ Gallery scenarios are public and curator-endorsed. Keep content:
    shasum -a 256 docs/gallery/<id>.yaml
    ```
 5. Add an entry to `gallery.json` with the hash, URL, and metadata.
-6. Open a PR. The scenario becomes available in the app after merge —
+6. **Run end-to-end before merging.** Push the feature branch, run a
+   Debug build (so `PASTURA_GALLERY_BASE_URL` takes effect — see *Testing
+   changes from a feature branch* below), and open the scenario from
+   Share Board. Either (a) on a physical device with the bundled
+   llama.cpp model already downloaded, or (b) in the iOS Simulator
+   pointing at a local Ollama with the recommended model pulled. Run a
+   full simulation and read the output. Confirm: rounds reach a
+   meaningful conclusion (no truncation), agent personas come through
+   clearly, and total inferences match the `estimated_inferences`
+   ballpark. (Content-filter triggers are an authoring-time concern —
+   see the *Content guidelines* bullet above and
+   `App/ContentFilter.swift`.)
+7. Open a PR. The scenario becomes available in the app after merge —
    the app uses ETag-conditional GET, so users pick up the update on
    their next Share Board visit.
 
