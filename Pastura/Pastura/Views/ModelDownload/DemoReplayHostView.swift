@@ -1,3 +1,4 @@
+import Network
 import SwiftUI
 
 /// Host view for the DL-time demo replay feature.
@@ -8,8 +9,24 @@ import SwiftUI
 /// state, bundled demo count, and whether replay has already started —
 /// see ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``.
 ///
-/// Lifecycle (`.task`, scene-phase bridge, `DLCompleteOverlay`) is
-/// added in item 7 of PR2.
+/// Lifecycle:
+/// - On first appearance, `.task { }` runs a 1-shot `NWPathMonitor`
+///   check. If cellular, the view stays in the fallback branch (Option A
+///   safety net — full modal UX is #191). Otherwise it enumerates
+///   bundled demos via `BundledDemoReplaySource.loadAll(...)`, and if
+///   at least `minPlayableDemoCount` demos validate, constructs a
+///   `ReplayViewModel` and calls `start()`.
+/// - `scenePhase` is bridged to `onBackground() / onForeground()`
+///   per ADR-007 §3.3 (a).
+/// - `ModelState.ready` triggers `downloadComplete()` on the VM, which
+///   flips its state to `.transitioning`; `DLCompleteOverlay` then fades
+///   in over the chat stream.
+///
+/// `.task` is safe to leave on the outer view body: `AppState` does not
+/// change on `ModelManager.state` transitions within the
+/// `.needsModelDownload` slot (see `PasturaApp.swift`), so the view's
+/// SwiftUI identity is preserved and `.task` runs exactly once per
+/// host-view mount.
 struct DemoReplayHostView: View {
   let modelManager: ModelManager
 
@@ -18,6 +35,7 @@ struct DemoReplayHostView: View {
   /// rotation loop is unsatisfying with a single demo (spec §5.2).
   static let minPlayableDemoCount = 2
 
+  @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   @State private var replayVM: ReplayViewModel?
@@ -26,6 +44,18 @@ struct DemoReplayHostView: View {
   @State private var sources: [any ReplaySource] = []
 
   var body: some View {
+    currentView
+      .task { await initialLoad() }
+      .onChange(of: scenePhase) { _, newPhase in
+        handleScenePhase(newPhase)
+      }
+      .onChange(of: modelManager.state) { _, newState in
+        handleModelStateChange(newState)
+      }
+  }
+
+  @ViewBuilder
+  private var currentView: some View {
     switch Self.fallbackBranch(
       state: modelManager.state,
       demosCount: sources.count,
@@ -42,10 +72,16 @@ struct DemoReplayHostView: View {
   private var demoHostBody: some View {
     if let vm = replayVM {
       chatStream(vm: vm)
+        .overlay {
+          if vm.state == .transitioning {
+            DLCompleteOverlay()
+          }
+        }
     } else {
-      // VM is nil until item 7 wires the `.task { }` load + start. Keeps
-      // the fallbackBranch contract: if the host routed here but no VM
-      // exists, render an empty background instead of crashing.
+      // Until `.task { }` resolves the cellular check + finishes loading
+      // sources, render an empty background. The fallbackBranch routes
+      // away from the demo host before this nil state is reached once
+      // `isCellular`/`sources` update.
       Color.screenBackground.ignoresSafeArea()
     }
   }
@@ -115,6 +151,65 @@ struct DemoReplayHostView: View {
     return base
   }
 
+  // MARK: - Lifecycle
+
+  private func initialLoad() async {
+    // 1-shot cellular check. Option A safety net — if cellular, we skip
+    // loading demos entirely and let the fallback branch route to the
+    // plain `ModelDownloadView`. Full modal UX tracked as #191.
+    let cellular = await Self.isCellularNow()
+    isCellular = cellular
+    guard !cellular else { return }
+
+    let loaded = BundledDemoReplaySource.loadAll()
+    // `loadAll` enumerates `Resources/DemoReplays/*.yaml` — currently
+    // empty pre-#170, so the typical result on main is `[]`.
+    sources = loaded
+    guard loaded.count >= Self.minPlayableDemoCount else { return }
+
+    let vm = ReplayViewModel(sources: loaded)
+    replayVM = vm
+    vm.start()
+    replayHadStarted = true
+  }
+
+  private func handleScenePhase(_ phase: ScenePhase) {
+    guard let vm = replayVM else { return }
+    switch phase {
+    case .background, .inactive:
+      vm.onBackground()
+    case .active:
+      vm.onForeground()
+    @unknown default:
+      break
+    }
+  }
+
+  private func handleModelStateChange(_ newState: ModelState) {
+    if case .ready = newState {
+      replayVM?.downloadComplete()
+    }
+  }
+
+  /// Reads the current network path once via `NWPathMonitor`. Treats
+  /// any "expensive" path as cellular — this covers personal hotspot
+  /// and metered Wi-Fi in addition to literal cellular, which is the
+  /// desired conservative posture for a 3 GB download safety net.
+  private static func isCellularNow() async -> Bool {
+    let (stream, continuation) = AsyncStream.makeStream(of: Bool.self)
+    let monitor = NWPathMonitor()
+    monitor.pathUpdateHandler = { path in
+      continuation.yield(path.isExpensive)
+      continuation.finish()
+    }
+    monitor.start(queue: .global(qos: .userInitiated))
+    defer { monitor.cancel() }
+    for await isCellular in stream {
+      return isCellular
+    }
+    return false
+  }
+
   // MARK: - Fallback decision
 
   enum Branch: Equatable {
@@ -151,13 +246,66 @@ struct DemoReplayHostView: View {
   }
 }
 
+// MARK: - DLCompleteOverlay
+
+/// Fullscreen overlay shown while `ReplayViewModel.state == .transitioning`.
+///
+/// Per `demo-replay-ui.md` §DLCompleteOverlay: ultra-thin material
+/// background + pulsing 44 pt dog mark + "準備ができました" +
+/// "tap anywhere to begin". Spec §2 decision 6 / 8 makes the transition
+/// auto-only — the hint text is visual only and no tap handler is wired.
+///
+/// Fade-in is `.easeOut(2.4s, delay: 0.2s)` by default. Under
+/// `accessibilityReduceMotion`, the overlay is shown at full opacity
+/// immediately and the dog mark does not pulse (handled inside
+/// `DogMark.pulsing()`).
+private struct DLCompleteOverlay: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var hasAppeared = false
+
+  var body: some View {
+    ZStack {
+      Rectangle()
+        .fill(.ultraThinMaterial)
+        .ignoresSafeArea()
+
+      VStack(spacing: Spacing.s) {
+        DogMark(size: 44)
+          .pulsing()
+        Text("準備ができました")
+          .textStyle(Typography.statusComplete)
+          .foregroundStyle(Color.mossInk)
+        Text("tap anywhere to begin")
+          .textStyle(Typography.statusHint)
+          .foregroundStyle(Color.muted)
+      }
+    }
+    .opacity(hasAppeared || reduceMotion ? 1 : 0)
+    .onAppear {
+      guard !reduceMotion else {
+        hasAppeared = true
+        return
+      }
+      withAnimation(.easeOut(duration: 2.4).delay(0.2)) {
+        hasAppeared = true
+      }
+    }
+  }
+}
+
 // MARK: - Previews
 
-// Only the default (checking) preview is exercised at skeleton time:
-// `ModelManager.state` is `private(set)`, so seeding arbitrary states
-// for preview would require a production seam. Richer preview variants
-// land once item 7 wires the real `.task { }` load; for now the
-// `fallbackBranch` decision is covered by unit tests in item 8.
+// The outer view exercises the default (`.checking` → fallback) path.
+// `ModelManager.state` is `private(set)`, so richer variants would
+// require a production seam; the `fallbackBranch` pure function is
+// unit-tested instead (item 8).
 #Preview {
   DemoReplayHostView(modelManager: ModelManager())
+}
+
+#Preview("DLCompleteOverlay") {
+  ZStack {
+    Color.screenBackground.ignoresSafeArea()
+    DLCompleteOverlay()
+  }
 }
