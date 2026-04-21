@@ -29,4 +29,8 @@ enum Route: Hashable {
 
   /// Detail view for a single gallery scenario, with Try / Update action.
   case galleryScenarioDetail(scenario: GalleryScenario)
+
+  /// Settings screen — content-reporting disclosure and future
+  /// configuration surfaces.
+  case settings
 }

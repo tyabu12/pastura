@@ -16,6 +16,7 @@ struct GalleryScenarioDetailView: View {
   @State private var viewModel: ShareBoardViewModel?
   @State private var isWorking = false
   @State private var outcomeAlert: OutcomeAlert?
+  @State private var isReportSheetPresented = false
 
   var body: some View {
     Group {
@@ -35,6 +36,23 @@ struct GalleryScenarioDetailView: View {
     }
     .alert(item: $outcomeAlert) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
+    }
+    .toolbar {
+      ToolbarItem(placement: .primaryAction) {
+        Menu {
+          Button {
+            isReportSheetPresented = true
+          } label: {
+            Label("Report this scenario", systemImage: "exclamationmark.bubble")
+          }
+          .accessibilityIdentifier("galleryDetail.reportMenuItem")
+        } label: {
+          Label("More", systemImage: "ellipsis.circle")
+        }
+      }
+    }
+    .sheet(isPresented: $isReportSheetPresented) {
+      ReportScenarioSheet(scenario: scenario)
     }
   }
 

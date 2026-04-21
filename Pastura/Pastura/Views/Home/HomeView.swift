@@ -21,6 +21,12 @@ struct HomeView: View {
       }
       .navigationTitle("Pastura")
       .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          NavigationLink(value: Route.settings) {
+            Label("Settings", systemImage: "gearshape")
+          }
+          .accessibilityIdentifier("home.settingsButton")
+        }
         ToolbarItem(placement: .primaryAction) {
           Menu {
             NavigationLink(value: Route.editor()) {
@@ -177,6 +183,8 @@ struct HomeView: View {
       ShareBoardView()
     case .galleryScenarioDetail(let scenario):
       GalleryScenarioDetailView(scenario: scenario)
+    case .settings:
+      SettingsView()
     }
   }
 
