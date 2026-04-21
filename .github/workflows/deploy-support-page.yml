@@ -53,6 +53,9 @@ jobs:
         # Targeted copy — never `cp -r docs/support _site/support` because
         # that would also publish any sibling drafts or editor detritus
         # (e.g. .DS_Store) that may live alongside index.html.
+        # If you add more files under docs/support/ (favicon, split CSS,
+        # additional pages), list them explicitly here — silent drift on
+        # this step means the new asset 404s on the deployed site.
         run: |
           mkdir -p _site/support
           cp docs/support/index.html _site/support/index.html
