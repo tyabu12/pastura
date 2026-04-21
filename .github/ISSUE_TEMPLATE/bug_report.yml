@@ -15,7 +15,7 @@ body:
     attributes:
       label: Summary
       description: A short, one-line description of the bug.
-      placeholder: e.g. App crashes when tapping Run Simulation on a conditional phase.
+      placeholder: "e.g. App crashes when tapping Run Simulation on a conditional phase."
     validations:
       required: true
 
@@ -53,7 +53,7 @@ body:
     attributes:
       label: iOS version (optional)
       description: "Found in Settings → General → About → Software Version. Leave blank if unknown."
-      placeholder: e.g. 18.2
+      placeholder: "e.g. 18.2"
     validations:
       required: false
 
@@ -62,7 +62,7 @@ body:
     attributes:
       label: App version (optional)
       description: "Found in the Pastura Settings screen. Leave blank if unknown."
-      placeholder: e.g. 1.0.0 (TestFlight build 42)
+      placeholder: "e.g. 1.0.0 (TestFlight build 42)"
     validations:
       required: false
 

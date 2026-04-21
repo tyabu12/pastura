@@ -1,1 +1,4 @@
+# contact_links intentionally omitted: users reaching this picker already
+# have GitHub accounts, so redirecting them elsewhere adds a hop. Private
+# feedback and Share Board reports live in-app and on docs/support/.
 blank_issues_enabled: false
