@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 
 /// View model driving the DL-time demo replay screen.
@@ -230,28 +231,43 @@ final class ReplayViewModel {
   }
 
   private func runPlayback(
+    sourceIndex startIndex: Int, startCursor: Int, firstSleepOverrideMs: Int?
+  ) async {
+    var sourceIndex = startIndex
+    var cursor = startCursor
+    var overrideMs = firstSleepOverrideMs
+    while !Task.isCancelled {
+      await playSource(
+        sourceIndex: sourceIndex, startCursor: cursor,
+        firstSleepOverrideMs: overrideMs)
+      overrideMs = nil
+      if Task.isCancelled { return }
+      switch advanceAfterSource(currentIndex: sourceIndex) {
+      case .continue(let nextIndex):
+        sourceIndex = nextIndex
+        cursor = 0
+      case .stop:
+        return
+      }
+    }
+  }
+
+  /// Iterates through a single source's plannedEvents starting at
+  /// `startCursor`, sleeping before each event and publishing on
+  /// schedule. Returns when the source ends, the task is cancelled,
+  /// or the VM transitions out of `.playing(sourceIndex, ...)`.
+  private func playSource(
     sourceIndex: Int, startCursor: Int, firstSleepOverrideMs: Int?
   ) async {
-    let source = sources[sourceIndex]
-    let plan = source.plannedEvents()
+    let plan = sources[sourceIndex].plannedEvents()
     var cursor = startCursor
     var overrideMs = firstSleepOverrideMs
     while cursor < plan.count {
       if Task.isCancelled { return }
       let paced = plan[cursor]
-      let delayMs: Int
-      if let override = overrideMs {
-        delayMs = override
-        overrideMs = nil
-      } else {
-        delayMs = scaledDelay(for: paced.kind)
-      }
-      if delayMs > 0 {
-        let deadline = ContinuousClock.now.advanced(by: .milliseconds(delayMs))
-        currentSleepDeadline = deadline
-        try? await Task.sleep(until: deadline)
-        currentSleepDeadline = nil
-      }
+      let delayMs = overrideMs ?? scaledDelay(for: paced.kind)
+      overrideMs = nil
+      await sleepOrYield(milliseconds: delayMs)
       if Task.isCancelled { return }
       apply(paced.event)
       cursor += 1
@@ -262,9 +278,79 @@ final class ReplayViewModel {
         state = .playing(sourceIndex: sourceIndex, eventCursor: cursor)
       }
     }
-    // Source finished. Rotation to next source lands in a follow-up
-    // commit; for Item 3 a single source ending simply returns and
-    // leaves the VM in `.playing(cursor: plan.count)`.
+  }
+
+  /// Pre-yield sleep policy for a planned event. Lifecycle events (and
+  /// high-speed configs where non-lifecycle delays round to 0ms) yield
+  /// via `Task.yield()` instead of sleeping — a tight publish loop
+  /// without either would starve observer polls (`scenePhase` forwards,
+  /// test `waitForState` predicates, etc.).
+  private func sleepOrYield(milliseconds: Int) async {
+    if milliseconds > 0 {
+      let deadline = ContinuousClock.now.advanced(by: .milliseconds(milliseconds))
+      currentSleepDeadline = deadline
+      try? await Task.sleep(until: deadline)
+      currentSleepDeadline = nil
+    } else {
+      await Task.yield()
+    }
+  }
+
+  /// Rotation / stop decision after a source finishes its plan.
+  /// Separate from `runPlayback` both to keep that function's
+  /// complexity within swiftlint's bounds and because the policy
+  /// (loop-forever vs stop-after-last × transition-signal vs stop)
+  /// reads cleaner as a single switch.
+  private enum AdvanceAction {
+    /// Keep playing; `nextIndex` is the source to play next.
+    case `continue`(nextIndex: Int)
+    /// Stop the playback task. State has already been set to its
+    /// terminal value (`.idle` or `.playing(lastIndex, plan.count)`).
+    case stop
+  }
+
+  private func advanceAfterSource(currentIndex: Int) -> AdvanceAction {
+    let isLastSource = currentIndex == sources.count - 1
+    switch config.loopBehaviour {
+    case .loop:
+      let nextIndex = (currentIndex + 1) % sources.count
+      resetPerDemoState()
+      if case .playing = state {
+        state = .playing(sourceIndex: nextIndex, eventCursor: 0)
+      }
+      return .continue(nextIndex: nextIndex)
+    case .stopAfterLast where !isLastSource:
+      // Advance to next source without wrap-around. Spec §4.6:
+      // `.stopAfterLast` plays each source once in order.
+      let nextIndex = currentIndex + 1
+      resetPerDemoState()
+      if case .playing = state {
+        state = .playing(sourceIndex: nextIndex, eventCursor: 0)
+      }
+      return .continue(nextIndex: nextIndex)
+    case .stopAfterLast:
+      // Last source finished — honour `onComplete`.
+      switch config.onComplete {
+      case .awaitTransitionSignal:
+        // Hold at `.playing(lastIndex, plan.count)` until the
+        // download-complete signal arrives. Default DL-demo uses
+        // `.loop + .awaitTransitionSignal`; this branch is for
+        // single-pass replays that still want hold-on-done.
+        return .stop
+      case .stopPlayback:
+        // Future user-replay surface (spec §4.5). Revert to `.idle`
+        // so the UI can offer a restart.
+        state = .idle
+        return .stop
+      }
+    }
+  }
+
+  private func resetPerDemoState() {
+    agentOutputs = []
+    currentPhase = nil
+    currentRound = nil
+    currentTotalRounds = nil
   }
 
   // MARK: - Render-time state updates

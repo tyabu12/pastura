@@ -64,12 +64,18 @@ struct ReplayViewModelTests {
   /// Fast pacing: 100× speed collapses the nominal 1200 ms turn delay
   /// to ~12 ms — tests still observe the state machine transitions
   /// without paying human-scale wait times.
+  ///
+  /// Uses `.stopAfterLast + .awaitTransitionSignal` so the VM HOLDS at
+  /// `.playing(lastIndex, plan.count)` after the single source's plan
+  /// is exhausted — otherwise most tests below would race against
+  /// premature termination. Rotation-specific tests override with
+  /// their own config (see `ReplayViewModelTests+Rotation.swift`).
   static let fastConfig = ReplayPlaybackConfig(
     speedMultiplier: 100.0,
     turnDelayMs: 20,
     codePhaseDelayMs: 5,
     loopBehaviour: .stopAfterLast,
-    onComplete: .stopPlayback)
+    onComplete: .awaitTransitionSignal)
 
   static func makeSource(yaml: String = threeTurnYAML) throws -> YAMLReplaySource {
     try YAMLReplaySource(yaml: yaml, scenario: makeScenario(), config: fastConfig)
