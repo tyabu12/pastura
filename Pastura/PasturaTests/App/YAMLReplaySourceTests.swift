@@ -8,7 +8,12 @@ struct YAMLReplaySourceTests {
 
   // MARK: - Fixture scenario
 
-  private static let scenarioYAML = """
+  // Access modifier: `internal` (default) — sibling-file extensions
+  // cannot see `private` members (see `.claude/rules/testing.md`).
+  // This suite's fixture helpers are reused by
+  // `YAMLReplaySourceTests+PlannedEvents.swift`.
+
+  static let scenarioYAML = """
     id: ts
     name: Test
     description: ''
@@ -27,13 +32,13 @@ struct YAMLReplaySourceTests {
           statement: string
     """
 
-  private func makeScenario() throws -> Scenario {
+  func makeScenario() throws -> Scenario {
     try ScenarioLoader().load(yaml: Self.scenarioYAML)
   }
 
   /// Speed up replay for tests — 100× means a 1200 ms nominal delay
   /// finishes in 12 ms, keeping the suite well under the 1-minute cap.
-  private var fastConfig: ReplayPlaybackConfig {
+  var fastConfig: ReplayPlaybackConfig {
     ReplayPlaybackConfig(
       speedMultiplier: 100.0,
       loopBehaviour: .stopAfterLast,
