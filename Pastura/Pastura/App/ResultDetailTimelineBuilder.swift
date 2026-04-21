@@ -33,6 +33,17 @@ nonisolated enum ResultDetailTimelineBuilder {
       }
     }
 
+    /// Phase lineage path decoded from the underlying record's `phasePathJSON`.
+    /// `nil` for legacy records (pre-v6) or separators. `count > 1` means the
+    /// item comes from a sub-phase inside a conditional.
+    var phasePath: [Int]? {
+      switch self {
+      case .roundSeparator: nil
+      case .turn(let turn): turn.phasePath
+      case .codePhase(let record, _): record.phasePath
+      }
+    }
+
     fileprivate var sequenceNumber: Int {
       switch self {
       case .roundSeparator: Int.min

@@ -221,6 +221,55 @@ struct ResultDetailTimelineBuilderTests {
     }
   }
 
+  // MARK: - phasePath accessor
+
+  @Test
+  func itemPhasePathPassesThroughFromUnderlyingRecord() throws {
+    // TurnRecord with a nested path [1, 0] (sub-phase of conditional)
+    let nestedTurn = TurnRecord(
+      id: "t-nested", simulationId: "sim1",
+      roundNumber: 1, phaseType: "speak",
+      agentName: "Alice", rawOutput: "{}",
+      parsedOutputJSON: "{}", sequenceNumber: 1,
+      phasePathJSON: "[1,0]",
+      createdAt: Date(timeIntervalSince1970: 1)
+    )
+    // CodePhaseEventRecord with a top-level path [2]
+    let event = CodePhaseEventRecord(
+      id: "e-top", simulationId: "sim1",
+      roundNumber: 1, phaseType: "score_calc",
+      sequenceNumber: 2,
+      payloadJSON: "{\"type\":\"scoreUpdate\",\"scores\":{}}",
+      phasePathJSON: "[2]",
+      createdAt: Date(timeIntervalSince1970: 2)
+    )
+    // Legacy TurnRecord without phasePathJSON
+    let legacyTurn = makeTurn(round: 1, seq: 3)
+
+    let result = ResultDetailTimelineBuilder.build(
+      turns: [nestedTurn, legacyTurn], events: [event])
+
+    // Expected: sep(1), turn(seq=1), codePhase(seq=2), turn(seq=3)
+    #expect(result.count == 4)
+    if case .turn(let turn) = result[1] {
+      #expect(turn.sequenceNumber == 1)
+      #expect(result[1].phasePath == [1, 0])
+    } else {
+      Issue.record("result[1] not turn(nestedTurn)")
+    }
+    if case .codePhase = result[2] {
+      #expect(result[2].phasePath == [2])
+    } else {
+      Issue.record("result[2] not codePhase")
+    }
+    if case .turn(let turn) = result[3] {
+      #expect(turn.sequenceNumber == 3)
+      #expect(result[3].phasePath == nil)
+    } else {
+      Issue.record("result[3] not turn(legacyTurn)")
+    }
+  }
+
   // MARK: - Item identifiable
 
   @Test

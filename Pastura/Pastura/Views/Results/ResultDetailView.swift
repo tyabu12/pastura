@@ -144,13 +144,35 @@ struct ResultDetailView: View {
           case .roundSeparator(let round):
             roundSeparator(round)
           case .turn(let turn):
-            turnRow(turn)
+            subPhaseWrapper(item: item) { turnRow(turn) }
           case .codePhase(_, let payload):
-            codePhaseRow(payload)
+            subPhaseWrapper(item: item) { codePhaseRow(payload) }
           }
         }
       }
       .padding(.vertical, 8)
+    }
+  }
+
+  /// Wraps a row with a leading indent and "↳ sub-phase" caption when the
+  /// item's `phasePath` depth is greater than 1 (i.e. it lives inside a
+  /// conditional branch). Top-level items (depth ≤ 1) pass through unchanged.
+  @ViewBuilder
+  private func subPhaseWrapper<Content: View>(
+    item: ResultDetailTimelineBuilder.Item,
+    @ViewBuilder content: () -> Content
+  ) -> some View {
+    if (item.phasePath?.count ?? 0) > 1 {
+      VStack(alignment: .leading, spacing: 2) {
+        Text("↳ sub-phase")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .padding(.leading, 32)
+        content()
+          .padding(.leading, 16)
+      }
+    } else {
+      content()
     }
   }
 
