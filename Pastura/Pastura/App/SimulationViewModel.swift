@@ -338,6 +338,22 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// the engine's execution context rather than the event shape.
   private var currentPhaseType: PhaseType?
 
+  /// Phase-path stack mirror of `currentPhaseType`, tracked via both
+  /// `.phaseStarted` (push) and `.phaseCompleted` (pop). Used to persist the
+  /// `phasePathJSON` column on `TurnRecord` / `CodePhaseEventRecord` so that
+  /// scenarios with a top-level `speak_all` AND a nested `speak_all` inside a
+  /// conditional branch keep distinct lineage in exports (#143).
+  ///
+  /// Why pop on `.phaseCompleted` (unlike `currentPhaseType`): an event
+  /// emitted in the gap between an inner sub-phase's completion and the next
+  /// `.phaseStarted` would otherwise be mis-attributed to the stale sub-phase
+  /// path. Pop only when the completed path matches the current one AND
+  /// `count > 1` — so completing a top-level phase leaves the stack empty
+  /// (matches the "no active phase" starting state) and a mismatched
+  /// `.phaseCompleted` (impossible under `SimulationRunner`'s contract, but
+  /// defensive) is a no-op.
+  private var currentPhasePath: [Int]?
+
   init(
     runner: SimulationRunner = SimulationRunner(),
     contentFilter: ContentFilter = ContentFilter(),
@@ -449,6 +465,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       simId: simId, scenario: scenario, state: initialState, llm: llm)
 
     turnSequence = 0
+    currentPhaseType = nil
+    currentPhasePath = nil
 
     // Attach BEFORE loadModel so scene-phase handlers can signal suspend as
     // soon as run() is in flight.
@@ -536,10 +554,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       handleRoundStarted(round: round, total: total)
     case .roundCompleted(let round, let newScores):
       handleRoundCompleted(round: round, scores: newScores)
-    case .phaseStarted(let phaseType, _):
+    case .phaseStarted(let phaseType, let phasePath):
       currentPhaseType = phaseType
+      currentPhasePath = phasePath
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
-    case .phaseCompleted, .simulationPaused, .conditionalEvaluated:
+    case .phaseCompleted(_, let phasePath):
+      // Pop `currentPhasePath` back one level when the inner sub-phase's
+      // completion arrives (path matches AND count > 1) — so a subsequent
+      // event fired before the next `.phaseStarted` isn't mis-attributed to
+      // the stale inner path (#143). `currentPhaseType` intentionally still
+      // lingers: consumers that need exact phaseType attribution already
+      // read the event's own `phaseType` per `.claude/rules/engine.md`.
+      if currentPhasePath == phasePath, (currentPhasePath?.count ?? 0) > 1 {
+        currentPhasePath?.removeLast()
+      }
+    case .simulationPaused, .conditionalEvaluated:
       // No-op — `.simulationPaused` is a runner-side acknowledgement of the
       // user-initiated pause flow; the UI already reflects `isPaused` set
       // synchronously by the pause button. Background-driven suspend uses
@@ -547,8 +576,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       //
       // `.conditionalEvaluated` is visible via the bracketing
       // `.phaseStarted(.conditional, _)` + inner sub-phase events; UI
-      // surfacing of the condition/result pair is deferred, and persistence
-      // waits on the follow-up TurnRecord-phase-path migration.
+      // surfacing of the condition/result pair is deferred.
       break
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
@@ -905,12 +933,26 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         rawOutput: jsonString,
         parsedOutputJSON: jsonString,
         sequenceNumber: turnSequence,
+        phasePathJSON: encodedCurrentPhasePath(),
         createdAt: Date()
       )
       persistenceContinuation?.yield(record)
     } catch {
       print("⚠️ Failed to encode turn output: \(error)")
     }
+  }
+
+  /// JSON-encodes `currentPhasePath` as a compact `[Int]` (e.g. `"[1,0]"`)
+  /// for the `phasePathJSON` column, or returns `nil` when no phase is active
+  /// (pre-first-`.phaseStarted` events). JSONEncoder on a small `[Int]` can't
+  /// realistically fail; a throw here is treated as "unknown path" so a rare
+  /// encode failure doesn't lose the rest of the row.
+  private func encodedCurrentPhasePath() -> String? {
+    guard let path = currentPhasePath else { return nil }
+    guard let data = try? JSONEncoder().encode(path),
+      let json = String(data: data, encoding: .utf8)
+    else { return nil }
+    return json
   }
 
   private func startCodePhasePersistenceConsumer() {
@@ -953,6 +995,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         phaseType: phaseType,
         sequenceNumber: turnSequence,
         payloadJSON: jsonString,
+        phasePathJSON: encodedCurrentPhasePath(),
         createdAt: Date()
       )
       continuation.yield(record)
@@ -969,6 +1012,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   internal func beginPersistenceForTest(simulationId: String) {
     self.simulationId = simulationId
     turnSequence = 0
+    currentPhaseType = nil
+    currentPhasePath = nil
     startPersistenceConsumer()
     startCodePhasePersistenceConsumer()
   }
