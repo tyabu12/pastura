@@ -71,11 +71,22 @@ jobs:
           # losing all output on timeout-kill). Trailing `|| true` prevents
           # `set -eo pipefail` (GHA default) from aborting the script before
           # PIPESTATUS is captured.
+          #
+          # `-parallel-testing-enabled NO` — EXPERIMENTAL (#182). Disables
+          # multi-simulator-clone parallelism to test the resource-exhaustion
+          # hypothesis for the signal-trap cascade first observed on `main`
+          # post-#186 (e650f13). Symptoms: trivial unit tests taking ~3.1s
+          # each on CI (vs <10 ms locally), followed by a test-host crash
+          # that marks hundreds of queued tests as "signal trap". If this
+          # flag stabilises CI, the fix is likely a targeted
+          # `-parallel-testing-worker-count 2` rather than full
+          # serialisation — revisit once we have a passing baseline.
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
             -only-testing PasturaTests \
+            -parallel-testing-enabled NO \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-unit.log || true
