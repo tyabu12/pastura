@@ -1,5 +1,4 @@
 // swiftlint:disable file_length
-import CryptoKit
 import Foundation
 
 /// Errors produced by ``YAMLReplayExporter``.
@@ -554,9 +553,16 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
 
   // MARK: - SHA-256
 
+  /// Exporter-side alias for ``ReplayHashing/sha256Hex(_:)``.
+  ///
+  /// Both sides of the spec §3.3 drift guard (exporter producing
+  /// `preset_ref.yaml_sha256`, resolver re-hashing the shipped preset
+  /// YAML at load time) **must** use the same algorithm on the same
+  /// bytes — see ``ReplayHashing`` for the invariant. Keeping this
+  /// alias lets existing callers stay byte-identical while the
+  /// implementation lives in one place.
   static func sha256Hex(_ source: String) -> String {
-    let digest = SHA256.hash(data: Data(source.utf8))
-    return digest.map { String(format: "%02x", $0) }.joined()
+    ReplayHashing.sha256Hex(source)
   }
 
   // MARK: - Date formatting

@@ -50,13 +50,23 @@ struct ModelManagerTests {
     expectedFileSize: Int64 = 0,
     expectedSHA256: String? = nil
   ) -> ModelManager {
-    ModelManager(
+    let sut = ModelManager(
       downloader: downloader,
       fileManager: .default,
       physicalMemory: physicalMemory,
       expectedFileSize: expectedFileSize,
       expectedSHA256: expectedSHA256
     )
+    // Proactively wipe residual files at the shared Application Support /
+    // Caches paths. The `.serialized` suite's per-test `defer { removeItem }`
+    // blocks are declared AFTER `await sut.downloadModel()` — if any
+    // download-triggering test crashes (signal trap) before that defer
+    // registers, the model file leaks and every subsequent `.notDownloaded`
+    // assertion in the suite fails spuriously. Observed on CI post-#186
+    // (macos-26 runner under parallel-suite scheduling pressure).
+    try? FileManager.default.removeItem(at: sut.modelFileURL)
+    try? FileManager.default.removeItem(at: sut.downloadFileURL)
+    return sut
   }
 
   // MARK: - Device Check
