@@ -204,19 +204,17 @@ struct ScenarioEditorView: View {
   private var phasesSection: some View {
     Section {
       ForEach(viewModel.phases) { phase in
-        Button {
-          editingPhase = phase
-        } label: {
-          PhaseBlockRow(phase: phase)
-        }
-        .buttonStyle(.plain)
+        PhaseRowView(
+          phases: $viewModel.phases,
+          phase: phase,
+          onEdit: { editingPhase = phase }
+        )
       }
       .onDelete { indexSet in
         viewModel.phases.remove(atOffsets: indexSet)
       }
-      .onMove { source, destination in
-        viewModel.phases.move(fromOffsets: source, toOffset: destination)
-      }
+
+      PhaseListTailDropZone(phases: $viewModel.phases)
 
       Button {
         showNewPhaseSheet = true
@@ -233,6 +231,9 @@ struct ScenarioEditorView: View {
       }
     }
   }
+  // `PhaseRowView` / `PhaseListTailDropZone` live in
+  // `ScenarioEditorView+PhaseDrag.swift` (sibling file) — separated to
+  // keep this file under SwiftLint's `file_length` limit.
 
   // MARK: - YAML Editor
 
