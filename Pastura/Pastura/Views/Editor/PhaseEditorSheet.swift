@@ -3,7 +3,11 @@ import SwiftUI
 /// Identifies which branch's sub-phase is currently being edited via a
 /// nested `PhaseEditorSheet`. `.sheet(item:)` drives the presentation;
 /// `onSave` on the nested sheet writes back to the right branch.
-private struct SubPhaseEditContext: Identifiable {
+///
+/// Module-internal (rather than file-private) because
+/// `PhaseEditorSheet+SubPhaseDrag.swift` creates instances when the user
+/// adds a new sub-phase via the drag-enabled editor.
+struct SubPhaseEditContext: Identifiable {
   let id = UUID()
   let branch: EditablePhase.Branch
   var phase: EditablePhase
@@ -29,7 +33,10 @@ struct PhaseEditorSheet: View {
 
   @State private var newOutputFieldName: String = ""
   @State private var newOptionText: String = ""
-  @State private var editingSubPhase: SubPhaseEditContext?
+  // Internal (not private) so the sibling extension in
+  // `PhaseEditorSheet+SubPhaseDrag.swift` can present the nested editor
+  // when adding a new sub-phase.
+  @State var editingSubPhase: SubPhaseEditContext?
 
   var body: some View {
     NavigationStack {
@@ -199,59 +206,14 @@ struct PhaseEditorSheet: View {
         .font(.caption)
       }
 
-      branchSection(
-        title: "Then branch (condition true)",
-        phases: $phase.thenPhases,
-        branch: .then
-      )
-      branchSection(
-        title: "Else branch (condition false)",
-        phases: $phase.elsePhases,
-        branch: .else
-      )
+      branchSection(title: "Then branch (condition true)", branch: .then)
+      branchSection(title: "Else branch (condition false)", branch: .else)
     }
   }
 
-  @ViewBuilder
-  private func branchSection(
-    title: String,
-    phases: Binding<[EditablePhase]>,
-    branch: EditablePhase.Branch
-  ) -> some View {
-    Section(title) {
-      ForEach(phases.wrappedValue) { subPhase in
-        Button {
-          editingSubPhase = SubPhaseEditContext(branch: branch, phase: subPhase)
-        } label: {
-          HStack {
-            Text(subPhase.type.rawValue)
-              .font(.body.monospaced())
-              .foregroundStyle(.primary)
-            Spacer()
-            Image(systemName: "chevron.right")
-              .foregroundStyle(.secondary)
-              .font(.caption)
-          }
-        }
-      }
-      .onDelete { indexSet in
-        phases.wrappedValue.remove(atOffsets: indexSet)
-      }
-      .onMove { source, destination in
-        // Within-branch reorder only — cross-branch drag is deliberately
-        // unsupported in v1 (tracked as a follow-up).
-        phases.wrappedValue.move(fromOffsets: source, toOffset: destination)
-      }
-
-      Button {
-        let newPhase = EditablePhase()
-        phases.wrappedValue.append(newPhase)
-        editingSubPhase = SubPhaseEditContext(branch: branch, phase: newPhase)
-      } label: {
-        Label("Add sub-phase", systemImage: "plus.circle")
-      }
-    }
-  }
+  // `branchSection(title:branch:)` and its drag helpers live in
+  // `PhaseEditorSheet+SubPhaseDrag.swift` (sibling extension file) to keep
+  // this file under SwiftLint's `file_length` limit.
 
   // MARK: - Type-Specific Sections
 
