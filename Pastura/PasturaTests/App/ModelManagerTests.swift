@@ -58,14 +58,25 @@ struct ModelManagerTests {
       expectedSHA256: expectedSHA256
     )
     // Proactively wipe residual files at the shared Application Support /
-    // Caches paths. The `.serialized` suite's per-test `defer { removeItem }`
-    // blocks are declared AFTER `await sut.downloadModel()` — if any
-    // download-triggering test crashes (signal trap) before that defer
-    // registers, the model file leaks and every subsequent `.notDownloaded`
-    // assertion in the suite fails spuriously. Observed on CI post-#186
-    // (macos-26 runner under parallel-suite scheduling pressure).
+    // Caches paths. Each per-test `defer { removeItem }` is declared AFTER
+    // `await sut.downloadModel()` — if a download-triggering test crashes
+    // before its defer registers, the model file leaks and every
+    // subsequent `.notDownloaded` assertion in the suite fails
+    // spuriously. The upstream cleanup here breaks that cascade so the
+    // actual failing test surfaces cleanly. Per-test defers are kept as
+    // defense-in-depth for the same-test window and are intentional — do
+    // not remove them as "redundant".
+    //
+    // First observed on CI post-#186 (sha e650f13) on the macos-26
+    // runner; the underlying CI host-kill is unrelated to filesystem
+    // state (CI OOM; root cause tracked in #189).
     try? FileManager.default.removeItem(at: sut.modelFileURL)
     try? FileManager.default.removeItem(at: sut.downloadFileURL)
+    // Loud guard: surface permission / sandbox oddities that `try?` would
+    // otherwise swallow. A silent no-op here would let the cascade recur
+    // invisibly.
+    #expect(!FileManager.default.fileExists(atPath: sut.modelFileURL.path))
+    #expect(!FileManager.default.fileExists(atPath: sut.downloadFileURL.path))
     return sut
   }
 
