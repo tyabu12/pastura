@@ -409,6 +409,61 @@ struct ScenarioEditorViewModelTests {
     #expect(reloaded.extraData["topics"] == .array(["Alpha", "Beta"]))
   }
 
+  // MARK: - Content Validation
+
+  @Test func validateRejectsBlockedPersonaDescriptionInVisualMode() throws {
+    let sut = try makeSUT()
+    sut.scenarioId = "content_test"
+    sut.scenarioName = "Content Test"
+    sut.scenarioDescription = "A test"
+    sut.agentCount = 2
+    sut.rounds = 1
+    sut.context = "Context"
+    // Uses the default bundled blocklist — "殺す" is present in ContentBlocklist.txt.
+    sut.personas = [
+      EditablePersona(name: "Alice", description: "殺す"),
+      EditablePersona(name: "Bob", description: "Agent B")
+    ]
+    sut.phases = [
+      EditablePhase(type: .speakAll, prompt: "Go", outputFields: ["statement": "string"])
+    ]
+
+    sut.validate()
+
+    #expect(sut.isValid == false)
+    #expect(!sut.validationErrors.isEmpty)
+    #expect(sut.validationErrors.contains { $0.contains("Alice") && $0.contains("description") })
+  }
+
+  @Test func validateRejectsBlockedPersonaDescriptionInYAMLMode() throws {
+    let sut = try makeSUT()
+    sut.yamlText = """
+      id: content_yaml_test
+      name: Content YAML Test
+      description: A test
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: 殺す
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    sut.editorMode = .yaml
+
+    sut.validate()
+
+    #expect(sut.isValid == false)
+    #expect(!sut.validationErrors.isEmpty)
+    #expect(sut.validationErrors.contains { $0.contains("Alice") && $0.contains("description") })
+  }
+
   // MARK: - Helpers
 
   private func makeSUT() throws -> ScenarioEditorViewModel {
