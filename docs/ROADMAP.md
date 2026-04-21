@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-19
+> Last updated: 2026-04-21
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -83,7 +83,6 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 |------------------------------------------|----------|-------------|------------------------------------------|
 | Visual scenario editor (dual-mode)       | High     | Done        | Form + block UI with YAML mode toggle (#83) |
 | Background execution (iOS 26)            | High     | Done        | BGContinuedProcessingTask + CPU inference in background (#84) |
-| In-app scenario generation (Cloud API)   | High     | Planned     | Claude/Gemini API for natural language → YAML |
 | Real-time LLM token streaming            | High     | Done        | Token-by-token streaming via `LLMService.generateStream`; `LLMCaller` drains snapshots and emits partial events. ContentFilter applied to streaming snapshots (#119/#132/#140); reveal task kept alive across tokens (#147). |
 | `conditional` phase type                 | Medium   | Done        | Nested-branch phase + Visual Editor support; includes `target_score_race` preset and conditional endings in `word_wolf` / `detective_scene` (#126/#141). |
 | `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
@@ -94,7 +93,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
 | YAML simulation replay primitive         | Medium   | Planned     | Past Results YAML exporter + `YAMLReplaySource` importer primitive. Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. Resumes spec §6.1 Candidate A (#164). |
 | DL-time demo replay                      | Medium   | Planned     | Bundled YAML replays during model download; see ADR-007, `docs/specs/demo-replay-spec.md` (data/arch), `docs/specs/demo-replay-ui.md` (visual/behaviour), and `docs/design/design-system.md` (tokens). Non-blocking for App Store submission; implementation follows #148/#149 closure (#152). |
-| E4B model switching                      | Low      | Planned     | Higher quality option for 12GB+ devices  |
+| Multi-model support (Qwen / E4B / other) | Medium   | Planned     | Additional on-device models for device-class fit + cross-model experimentation via the `LLMService` abstraction (ADR-001 §7 / ADR-002). Complements the offline-first story and provides "same scenario, different model" depth without cloud-cost / API-key risk. |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 
 ### Technical Debt to Address
@@ -116,11 +115,12 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Feature                              | Notes                                      |
 |--------------------------------------|--------------------------------------------|
 | Scenario marketplace                 | Browse, rate, download community scenarios |
+| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Gated on ADR-006; engineering beyond API-contract exploration is out of scope until ADR-006 merges (ADR-005 §7.5, §10). |
 | Scenario rankings / popular templates| Trending, most-run, highest-rated          |
 | Simulation result auto-summary       | LLM-generated summary of what happened     |
 | Relationship graph visualization     | Agent interaction network diagram          |
-| Android support                      | Direction under evaluation — see [ADR-004 (Draft)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + LiteRT-LM Kotlin SDK. |
-| PC companion app                     | Form factor decided at Phase 3.2 — KMP-shared Engine + Compose Desktop is the current lean (see ADR-004). |
+| Android support                      | Direction under evaluation — see [ADR-004 (Draft)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + **llama.cpp via a KMP binding, unified with iOS during Phase 3.0** (ADR-004 §3.6). Synchronised LiteRT-LM migration once iOS Swift SDK + GPU ships. |
+| PC companion app                     | Form factor decided at Phase 3.2 — KMP-shared Engine + Compose Desktop is the current lean (see ADR-004). LLM backend unified with iOS / Android during Phase 3.0 (llama.cpp via a KMP binding; ADR-004 §3.6). |
 | Localization (English)               | Expand beyond Japanese-speaking users      |
 | Early-termination phase type         | `conditional` branches but does not stop a simulation early — `rounds` still governs the loop. A new phase type (working name `terminate` / `break`) would let a branch signal "end the simulation now, run the remaining phases, then skip unrun rounds." Keeps `conditional` purely about evaluation + branching; termination is orthogonal. See PR #141 discussion. |
 
@@ -133,7 +133,12 @@ Phase 1: iOS only (Swift + SwiftUI)
 Phase 2: iOS + background execution (iOS 26)
 Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluation)
          See ADR-004 (Draft) — platform-specific UI (SwiftUI / Compose / Compose Desktop)
-         and platform-specific LLM actuals (llama.cpp → LiteRT-LM Swift; LiteRT-LM Kotlin)
+         and unified llama.cpp LLM backend across all platforms
+         during Phase 3.0 (via a llama.cpp KMP binding on Android / Desktop;
+         ADR-004 §3.6). Migration to LiteRT-LM deferred until Google's
+         iOS Swift SDK + GPU ships; at that point synchronised migration
+         across platforms is the default, with per-platform timing
+         reconsiderable after Phase 3.0 stabilises (ADR-002 §8.1).
          Final decision at Phase 2 → Phase 3 transition.
 ```
 
