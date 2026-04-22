@@ -63,7 +63,7 @@ struct PromoCard: View {
     .onChange(of: scenePhase) { _, newPhase in
       handleScenePhase(newPhase)
     }
-    .onChange(of: modelState) { _, newState in
+    .onChange(of: modelState, initial: true) { _, newState in
       handleModelStateChange(newState)
     }
   }
