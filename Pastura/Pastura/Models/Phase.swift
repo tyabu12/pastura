@@ -91,4 +91,12 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.thenPhases = thenPhases
     self.elsePhases = elsePhases
   }
+
+  /// The schema's required keys as a `Set`, or an empty set when the
+  /// phase has no output schema (code phases). Handlers pass this to
+  /// ``JSONResponseParser/parse(_:expectedKeys:)`` via `LLMCaller.call`
+  /// to enable the A2 schema-aware repair guard (#194).
+  public var outputSchemaKeys: Set<String> {
+    Set(outputSchema?.keys ?? [:].keys)
+  }
 }

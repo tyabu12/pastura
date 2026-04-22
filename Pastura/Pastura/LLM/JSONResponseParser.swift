@@ -60,23 +60,26 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// 3. Extract content from markdown code blocks
   /// 4. Find first `{...}` JSON object
   /// 5. Try `JSONSerialization` on the cleaned text
-  /// 6. On failure: apply repair pipeline (`unclosed_string` →
-  ///    `trailing_comma` → `unclosed_brace`), retry parse, and reject
+  /// 6. On failure: apply the two-step repair pipeline
+  ///    (`unclosed_string` → `unclosed_brace`), retry parse, and reject
   ///    the result if `expectedKeys` are not all present and non-empty
   ///
-  /// Repairs are sequenced unclosed-string-first because closing the
-  /// string changes the brace balance computation; trailing-comma strip
-  /// runs before brace-close because it can yield a clean parse without
-  /// needing closer insertion.
+  /// Repair order rationale: unclosed-string runs first because closing
+  /// the string changes the subsequent brace-balance computation.
+  /// Brace-close also strips a single dangling `,`/`:` at end-of-input
+  /// as part of its own housekeeping — that covers the only trailing-
+  /// comma case reachable here, because `JSONSerialization.jsonObject`
+  /// on iOS 17+ already accepts `{"a":1,}` / `[1,2,]` in step 5 without
+  /// needing a dedicated repair.
   ///
   /// When `expectedKeys` is non-empty, a repair that produces parseable
   /// JSON missing any of those keys is rejected — preserves the original
   /// throw rather than fabricating a `TurnOutput` (#194 PR#a Item 2d).
   ///
   /// - Returns: tuple of the parsed ``TurnOutput`` plus the applied repair
-  ///   kind (`"trailing_comma"` / `"unclosed_string"` / `"unclosed_brace"`,
-  ///   or `+`-joined for composites). `nil` repair kind means the input
-  ///   parsed cleanly without any repair.
+  ///   kind (`"unclosed_string"` / `"unclosed_brace"`, or `+`-joined for
+  ///   the composite). `nil` repair kind means the input parsed cleanly
+  ///   without any repair.
   /// - Throws: ``LLMError/invalidResponse(raw:)`` when no repair attempt
   ///   yields parseable JSON satisfying the schema guard.
   public func parse(

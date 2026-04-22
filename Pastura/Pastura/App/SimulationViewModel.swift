@@ -933,13 +933,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // wiring is broken (`output.rawText` was nil), not that the model
       // emitted nothing.
       let rawOutput = output.rawText ?? ""
-      #if DEBUG
-        if output.rawText == nil {
-          lifecycleLogger.error(
-            "rawText nil on agentOutput for agent=\(agent, privacy: .public); audit trail will be empty"
-          )
-        }
-      #endif
+      if output.rawText == nil {
+        // Defence-in-depth: logs in Release too so a TestFlight regression
+        // that drops `rawText` wiring surfaces in production logs (not just
+        // debug builds). The condition is expected to be unreachable —
+        // `LLMCaller` always populates `rawText` via `JSONResponseParser`.
+        lifecycleLogger.error(
+          "rawText nil on agentOutput for agent=\(agent, privacy: .public); audit trail will be empty"
+        )
+      }
       turnSequence += 1
       let record = TurnRecord(
         id: UUID().uuidString,
