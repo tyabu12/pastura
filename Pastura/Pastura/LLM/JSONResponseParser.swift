@@ -96,12 +96,12 @@ nonisolated public struct JSONResponseParser: Sendable {
     var repaired = cleaned
     var appliedKinds: [String] = []
 
-    let m1 = StringStateMachine(repaired)
-    if m1.hasUnclosedString {
+    let stringScan = StringStateMachine(repaired)
+    if stringScan.hasUnclosedString {
       // Refuse to repair mid-key truncation (`{"a":"v1","action`) — only
       // close strings that are in value position. Returning nil from the
       // helper preserves the original throw via the guard below.
-      guard let closed = closeUnclosedLastString(repaired, machine: m1) else {
+      guard let closed = closeUnclosedLastString(repaired, machine: stringScan) else {
         throw LLMError.invalidResponse(raw: text)
       }
       repaired = closed
@@ -116,9 +116,9 @@ nonisolated public struct JSONResponseParser: Sendable {
     // own work, which covers the only remaining trailing-comma case
     // (truncated stream ending with `,`).
 
-    let m2 = StringStateMachine(repaired)
-    if m2.braceBalance > 0 || m2.bracketBalance > 0 {
-      repaired = closeUnclosedBraces(repaired, machine: m2)
+    let braceScan = StringStateMachine(repaired)
+    if braceScan.braceBalance > 0 || braceScan.bracketBalance > 0 {
+      repaired = closeUnclosedBraces(repaired, machine: braceScan)
       appliedKinds.append("unclosed_brace")
     }
 
@@ -192,9 +192,9 @@ nonisolated public struct JSONResponseParser: Sendable {
     guard lastOpenIndex >= 0 else { return nil }
     // Check value-position: char immediately before the opener (skipping
     // whitespace) must be `:`.
-    var k = lastOpenIndex - 1
-    while k >= 0, chars[k].isWhitespace { k -= 1 }
-    guard k >= 0, chars[k] == ":" else { return nil }
+    var prev = lastOpenIndex - 1
+    while prev >= 0, chars[prev].isWhitespace { prev -= 1 }
+    guard prev >= 0, chars[prev] == ":" else { return nil }
     return text + "\""
   }
 
@@ -215,13 +215,13 @@ nonisolated public struct JSONResponseParser: Sendable {
       !machine.isInsideString(at: stripped.count - 1) {
       stripped.removeLast()
     }
-    let m = StringStateMachine(stripped)
+    let recomputed = StringStateMachine(stripped)
     var result = stripped
-    if m.bracketBalance > 0 {
-      result += String(repeating: "]", count: m.bracketBalance)
+    if recomputed.bracketBalance > 0 {
+      result += String(repeating: "]", count: recomputed.bracketBalance)
     }
-    if m.braceBalance > 0 {
-      result += String(repeating: "}", count: m.braceBalance)
+    if recomputed.braceBalance > 0 {
+      result += String(repeating: "}", count: recomputed.braceBalance)
     }
     return result
   }

@@ -106,10 +106,10 @@ struct TurnOutputTests {
   // (rawText). Two outputs parsed from different raw streams that produced
   // the same fields are domain-equal.
   @Test func equatableIgnoresRawText() {
-    let a = TurnOutput(fields: ["k": "v"], rawText: "raw1")
-    let b = TurnOutput(fields: ["k": "v"], rawText: "raw2")
-    let c = TurnOutput(fields: ["k": "v"], rawText: nil)
-    #expect(a == b)
-    #expect(a == c)
+    let withRawA = TurnOutput(fields: ["k": "v"], rawText: "raw1")
+    let withRawB = TurnOutput(fields: ["k": "v"], rawText: "raw2")
+    let withoutRaw = TurnOutput(fields: ["k": "v"], rawText: nil)
+    #expect(withRawA == withRawB)
+    #expect(withRawA == withoutRaw)
   }
 }

@@ -91,55 +91,20 @@ nonisolated struct LLMCaller: Sendable {
       // bucket repair effects against pre-PR baselines.
       guard let parseResult = try? parser.parse(raw, expectedKeys: expectedKeys)
       else {
-        logger.warning(
-          "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
-        )
-        #if DEBUG
-          // print() for reliable Xcode console visibility (os.Logger may be filtered)
-          print(
-            "[LLMCaller] JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
-          )
-        #endif
+        logParseFailure(raw: raw, attempt: attempt)
         if attempt < Self.maxRetries {
-          // Field-order is load-bearing — see scripts/analyze-streaming-diag.sh
-          // for the regex that buckets these lines (`retryCause agent=…
-          // attempt=… cause=…`). Append-only after `cause=`.
-          diagLogger.info(
-            "retryCause agent=\(agentName, privacy: .public) attempt=\(attempt + 1) cause=parse_failed"
-          )
+          emitRetryCause(agent: agentName, attempt: attempt + 1, cause: "parse_failed")
           continue
         }
         throw SimulationError.retriesExhausted
       }
       let output = parseResult.0
-      if let repairKind = parseResult.repairKind {
-        diagLogger.info(
-          "repaired agent=\(agentName, privacy: .public) kind=\(repairKind, privacy: .public)"
-        )
-      }
+      logRepairIfNeeded(agent: agentName, kind: parseResult.repairKind)
+      logChatTemplateLeakage(in: raw)
 
-      // Detect chat template token leakage and hallucinated continuations.
-      // LlamaCppService's streaming path strips <|im_end|> before emission,
-      // so this primarily catches non-streaming backends (Mock wrap path,
-      // Ollama) where the raw string may still contain template tokens.
-      if raw.contains("<|im_start|>") {
-        logger.warning(
-          "Model hallucinated past its turn — continuation truncated at <|im_end|>")
-      } else if raw.contains("<|im_end|>") {
-        logger.debug("Trailing <|im_end|> token stripped from output")
-      }
-
-      // Check for empty fields ("..." or "")
-      let hasEmpty = output.fields.values.contains { $0 == "..." || $0.isEmpty }
-      if hasEmpty && attempt < Self.maxRetries {
-        logger.debug(
-          "Empty fields detected (attempt \(attempt + 1)/\(Self.maxRetries + 1)): fields=\(output.fields)"
-        )
-        // Field-order load-bearing per analyze-streaming-diag.sh — see
-        // the parse_failed branch above for the same constraint.
-        diagLogger.info(
-          "retryCause agent=\(agentName, privacy: .public) attempt=\(attempt + 1) cause=empty_field"
-        )
+      if hasEmptyFields(output) && attempt < Self.maxRetries {
+        logEmptyFields(fields: output.fields, attempt: attempt)
+        emitRetryCause(agent: agentName, attempt: attempt + 1, cause: "empty_field")
         continue
       }
 
@@ -156,6 +121,64 @@ nonisolated struct LLMCaller: Sendable {
   private struct StreamResult {
     let rawText: String
     let completionTokens: Int?
+  }
+
+  /// Emit the parse-failure log lines (engineering channel + DEBUG
+  /// console fallback). Extracted to keep `call` under the lint
+  /// `function_body_length` budget.
+  private func logParseFailure(raw: String, attempt: Int) {
+    logger.warning(
+      "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
+    )
+    #if DEBUG
+      // print() for reliable Xcode console visibility (os.Logger may be filtered)
+      print(
+        "[LLMCaller] JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
+      )
+    #endif
+  }
+
+  /// Emit the `category:StreamingDiag` `retryCause` line consumed by
+  /// `scripts/analyze-streaming-diag.sh`. Field order
+  /// `agent=… attempt=… cause=…` is load-bearing — analyzer regex
+  /// expects `cause=` to be the last token (#194 PR#a Item 4).
+  private func emitRetryCause(agent: String, attempt: Int, cause: String) {
+    diagLogger.info(
+      "retryCause agent=\(agent, privacy: .public) attempt=\(attempt) cause=\(cause, privacy: .public)"
+    )
+  }
+
+  /// Emit the `category:StreamingDiag` `repaired` line consumed by the
+  /// analyzer. No-op when the parse didn't trip the repair pipeline.
+  private func logRepairIfNeeded(agent: String, kind: String?) {
+    guard let kind else { return }
+    diagLogger.info(
+      "repaired agent=\(agent, privacy: .public) kind=\(kind, privacy: .public)"
+    )
+  }
+
+  /// Detect chat template token leakage and hallucinated continuations.
+  /// `LlamaCppService`'s streaming path strips `<|im_end|>` before
+  /// emission, so this primarily catches non-streaming backends (Mock
+  /// wrap path, Ollama) where the raw string may still contain template
+  /// tokens.
+  private func logChatTemplateLeakage(in raw: String) {
+    if raw.contains("<|im_start|>") {
+      logger.warning(
+        "Model hallucinated past its turn — continuation truncated at <|im_end|>")
+    } else if raw.contains("<|im_end|>") {
+      logger.debug("Trailing <|im_end|> token stripped from output")
+    }
+  }
+
+  private func hasEmptyFields(_ output: TurnOutput) -> Bool {
+    output.fields.values.contains { $0 == "..." || $0.isEmpty }
+  }
+
+  private func logEmptyFields(fields: [String: String], attempt: Int) {
+    logger.debug(
+      "Empty fields detected (attempt \(attempt + 1)/\(Self.maxRetries + 1)): fields=\(fields)"
+    )
   }
 
   /// Drain one `generateStream` cycle, emitting per-snapshot UI events

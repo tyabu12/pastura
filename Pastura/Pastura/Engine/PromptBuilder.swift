@@ -132,30 +132,34 @@ nonisolated struct PromptBuilder: Sendable {
 
     sections.append(rules)
 
-    // Output format. The `例:` placeholder line was added in #194 PR#a
-    // Item 3 to reduce malformed-JSON output frequency on Gemma 4 E2B.
-    // Placeholder syntax (`<ここに{key}>`) is intentional — concrete
-    // Japanese content like `"こんにちは"` was rejected because 2B-class
-    // models tend to parrot demonstrated content verbatim across all
-    // agents. Angle-bracketed Japanese is unambiguously meta-syntax.
-    if let schema = phase.outputSchema {
-      let sortedKeys = schema.keys.sorted()
-      let spec =
-        sortedKeys
-        .map { key in "\"\(key)\": \"\(schema[key] ?? "")\"" }
-        .joined(separator: ", ")
-      let example =
-        sortedKeys
-        .map { key in "\"\(key)\": \"<ここに\(key)>\"" }
-        .joined(separator: ", ")
-      sections.append(
-        """
-        ## 出力フォーマット（JSON）
-        {\(spec)}
-        例: {\(example)}
-        """)
+    if let formatSection = formatOutputSchema(phase.outputSchema) {
+      sections.append(formatSection)
     }
 
     return sections.joined(separator: "\n\n")
+  }
+
+  /// Render the `## 出力フォーマット（JSON）` section + placeholder `例:`
+  /// line (#194 PR#a Item 3). Placeholder syntax `<ここに{key}>` is
+  /// intentional — concrete Japanese like `"こんにちは"` was rejected
+  /// because 2B-class models tend to parrot demonstrated content
+  /// verbatim across all agents. Angle-bracketed Japanese is
+  /// unambiguously meta-syntax.
+  private func formatOutputSchema(_ schema: [String: String]?) -> String? {
+    guard let schema else { return nil }
+    let sortedKeys = schema.keys.sorted()
+    let spec =
+      sortedKeys
+      .map { key in "\"\(key)\": \"\(schema[key] ?? "")\"" }
+      .joined(separator: ", ")
+    let example =
+      sortedKeys
+      .map { key in "\"\(key)\": \"<ここに\(key)>\"" }
+      .joined(separator: ", ")
+    return """
+      ## 出力フォーマット（JSON）
+      {\(spec)}
+      例: {\(example)}
+      """
   }
 }

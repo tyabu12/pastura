@@ -15,84 +15,84 @@ struct StringStateMachineTests {
   // MARK: - Empty / trivial
 
   @Test func emptyTextHasZeroBalances() {
-    let m = StringStateMachine("")
-    #expect(m.unescapedQuoteCount == 0)
-    #expect(m.braceBalance == 0)
-    #expect(m.bracketBalance == 0)
-    #expect(!m.hasUnclosedString)
+    let machine = StringStateMachine("")
+    #expect(machine.unescapedQuoteCount == 0)
+    #expect(machine.braceBalance == 0)
+    #expect(machine.bracketBalance == 0)
+    #expect(!machine.hasUnclosedString)
   }
 
   @Test func wellFormedObjectIsBalanced() {
-    let m = StringStateMachine(#"{"a": 1}"#)
-    #expect(m.braceBalance == 0)
-    #expect(m.unescapedQuoteCount == 2)
-    #expect(!m.hasUnclosedString)
+    let machine = StringStateMachine(#"{"a": 1}"#)
+    #expect(machine.braceBalance == 0)
+    #expect(machine.unescapedQuoteCount == 2)
+    #expect(!machine.hasUnclosedString)
   }
 
   // MARK: - Quote counting + escapes
 
   @Test func escapedQuoteInsideStringDoesNotToggle() {
     // {"a":"he\"llo"} — the `\"` is content, not a closing quote.
-    let m = StringStateMachine(#"{"a":"he\"llo"}"#)
-    #expect(m.unescapedQuoteCount == 4)
-    #expect(!m.hasUnclosedString)
-    #expect(m.braceBalance == 0)
+    let machine = StringStateMachine(#"{"a":"he\"llo"}"#)
+    #expect(machine.unescapedQuoteCount == 4)
+    #expect(!machine.hasUnclosedString)
+    #expect(machine.braceBalance == 0)
   }
 
   @Test func escapedBackslashThenQuoteClosesString() {
     // {"a":"x\\"} — `\\` consumes the backslash, the next `"` is a real close.
-    let m = StringStateMachine(#"{"a":"x\\"}"#)
-    #expect(m.unescapedQuoteCount == 4)
-    #expect(!m.hasUnclosedString)
-    #expect(m.braceBalance == 0)
+    let machine = StringStateMachine(#"{"a":"x\\"}"#)
+    #expect(machine.unescapedQuoteCount == 4)
+    #expect(!machine.hasUnclosedString)
+    #expect(machine.braceBalance == 0)
   }
 
   @Test func unicodeEscapeIsConsumedAsSingleToken() {
     // {"a":"é"} — 4 hex digits after \u must not toggle string state.
-    let m = StringStateMachine(#"{"a":"é"}"#)
-    #expect(m.unescapedQuoteCount == 4)
-    #expect(!m.hasUnclosedString)
+    let machine = StringStateMachine(#"{"a":"é"}"#)
+    #expect(machine.unescapedQuoteCount == 4)
+    #expect(!machine.hasUnclosedString)
   }
 
   // MARK: - Unclosed string detection
 
   @Test func unclosedStringAtEndIsDetected() {
-    let m = StringStateMachine(#"{"a":"hello"#)
-    #expect(m.unescapedQuoteCount == 3)  // odd → unclosed
-    #expect(m.hasUnclosedString)
-    #expect(m.braceBalance == 1)  // outer `{` not yet closed
+    let machine = StringStateMachine(#"{"a":"hello"#)
+    #expect(machine.unescapedQuoteCount == 3)  // odd → unclosed
+    #expect(machine.hasUnclosedString)
+    #expect(machine.braceBalance == 1)  // outer `{` not yet closed
   }
 
   // MARK: - String-context awareness for braces / commas
 
   @Test func bracesInsideStringDoNotCountTowardBalance() {
     // The `{` and `}` inside the value are content, not structure.
-    let m = StringStateMachine(#"{"a":"{nested}"}"#)
-    #expect(m.braceBalance == 0)
+    let machine = StringStateMachine(#"{"a":"{nested}"}"#)
+    #expect(machine.braceBalance == 0)
   }
 
   @Test func bracketsInsideStringDoNotCountTowardBalance() {
-    let m = StringStateMachine(#"{"a":"[nested]"}"#)
-    #expect(m.bracketBalance == 0)
-    #expect(m.braceBalance == 0)
+    let machine = StringStateMachine(#"{"a":"[nested]"}"#)
+    #expect(machine.bracketBalance == 0)
+    #expect(machine.braceBalance == 0)
   }
 
   @Test func asciiCommaInsideStringIsFlaggedAsInsideString() {
     // {"a":"hello, world"} — the comma at index 9 is inside the string;
     // a trailing-comma repair must NOT remove it.
     let text = #"{"a":"hello, world"}"#
-    let m = StringStateMachine(text)
+    let machine = StringStateMachine(text)
     let commaOffset = text.distance(
       from: text.startIndex, to: text.firstIndex(of: ",") ?? text.endIndex)
-    #expect(m.isInsideString(at: commaOffset))
+    #expect(machine.isInsideString(at: commaOffset))
   }
 
   // MARK: - Mixed nesting
 
   @Test func mixedNestingObjectsAndArraysBalance() {
-    let m = StringStateMachine(#"{"a":[1,2],"b":{"c":3}}"#)
-    #expect(m.braceBalance == 0)
-    #expect(m.bracketBalance == 0)
-    #expect(!m.hasUnclosedString)
+    let machine = StringStateMachine(#"{"a":[1,2],"b":{"c":3}}"#)
+    #expect(machine.braceBalance == 0)
+    #expect(machine.bracketBalance == 0)
+    #expect(!machine.hasUnclosedString)
   }
 }

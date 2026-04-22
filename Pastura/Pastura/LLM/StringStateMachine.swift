@@ -51,62 +51,86 @@ nonisolated struct StringStateMachine {
     var brackets = 0
 
     for char in text {
-      // Record whether THIS character is inside a string literal.
-      // The opening `"` itself is not inside (state == .outside until
-      // it's processed); the closing `"` likewise (state == .inString
-      // until it's processed and toggles back to .outside).
-      let inside: Bool
-      switch state {
-      case .outside:
-        inside = false
-      case .inString, .afterEscape, .afterUnicode:
-        inside = true
-      }
-      flags.append(inside)
-
-      switch state {
-      case .outside:
-        if char == "\"" {
-          state = .inString
-          quoteCount += 1
-        } else if char == "{" {
-          braces += 1
-        } else if char == "}" {
-          braces -= 1
-        } else if char == "[" {
-          brackets += 1
-        } else if char == "]" {
-          brackets -= 1
-        }
-      // Other chars outside strings are insignificant for repair purposes.
-      case .inString:
-        if char == "\"" {
-          state = .outside
-          quoteCount += 1
-        } else if char == "\\" {
-          state = .afterEscape
-        }
-      case .afterEscape:
-        // `\u` enters a 4-hex-digit consumption. Any other escape (`\"`,
-        // `\\`, `\n`, …) is a single-char skip — return to .inString.
-        if char == "u" {
-          state = .afterUnicode(remaining: 4)
-        } else {
-          state = .inString
-        }
-      case .afterUnicode(let remaining):
-        if remaining <= 1 {
-          state = .inString
-        } else {
-          state = .afterUnicode(remaining: remaining - 1)
-        }
-      }
+      // Record whether THIS character is inside a string literal — the
+      // opening `"` itself is not inside (state == .outside until processed);
+      // the closing `"` likewise (state == .inString until processed and
+      // toggled back to .outside).
+      flags.append(state.isInsideString)
+      state = Self.advance(
+        state: state,
+        char: char,
+        quoteCount: &quoteCount,
+        braces: &braces,
+        brackets: &brackets)
     }
 
     self.insideStringFlags = flags
     self.unescapedQuoteCount = quoteCount
     self.braceBalance = braces
     self.bracketBalance = brackets
+  }
+
+  /// One step of the string-literal state machine. Updates structural
+  /// counters in-place; returns the next state. Extracted from `init`
+  /// to keep the per-`char` loop body small (lint budget).
+  private static func advance(
+    state: State,
+    char: Character,
+    quoteCount: inout Int,
+    braces: inout Int,
+    brackets: inout Int
+  ) -> State {
+    switch state {
+    case .outside:
+      return advanceFromOutside(
+        char: char, quoteCount: &quoteCount,
+        braces: &braces, brackets: &brackets)
+    case .inString:
+      return advanceFromInString(char: char, quoteCount: &quoteCount)
+    case .afterEscape:
+      // `\u` enters a 4-hex-digit consumption. Any other escape (`\"`,
+      // `\\`, `\n`, …) is a single-char skip — return to .inString.
+      return char == "u" ? .afterUnicode(remaining: 4) : .inString
+    case .afterUnicode(let remaining):
+      return remaining <= 1 ? .inString : .afterUnicode(remaining: remaining - 1)
+    }
+  }
+
+  private static func advanceFromOutside(
+    char: Character,
+    quoteCount: inout Int,
+    braces: inout Int,
+    brackets: inout Int
+  ) -> State {
+    switch char {
+    case "\"":
+      quoteCount += 1
+      return .inString
+    case "{":
+      braces += 1
+    case "}":
+      braces -= 1
+    case "[":
+      brackets += 1
+    case "]":
+      brackets -= 1
+    default:
+      break
+    }
+    return .outside
+  }
+
+  private static func advanceFromInString(
+    char: Character, quoteCount: inout Int
+  ) -> State {
+    if char == "\"" {
+      quoteCount += 1
+      return .outside
+    }
+    if char == "\\" {
+      return .afterEscape
+    }
+    return .inString
   }
 
   /// True iff character at `offset` (Character index, 0-based) is inside a
@@ -121,5 +145,12 @@ nonisolated struct StringStateMachine {
     case inString
     case afterEscape
     case afterUnicode(remaining: Int)
+
+    var isInsideString: Bool {
+      switch self {
+      case .outside: return false
+      case .inString, .afterEscape, .afterUnicode: return true
+      }
+    }
   }
 }
