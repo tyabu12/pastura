@@ -70,6 +70,7 @@ struct PhaseEditorSheet: View {
           },
           availableTypes: PhaseType.allCases.filter { $0 != .conditional }
         )
+        .deepLinkGated()
       }
     }
   }
