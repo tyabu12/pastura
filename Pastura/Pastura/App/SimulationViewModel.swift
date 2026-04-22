@@ -923,6 +923,25 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     do {
       let parsedJSON = try JSONEncoder().encode(output)
       let jsonString = String(data: parsedJSON, encoding: .utf8) ?? "{}"
+      // `rawOutput` stores the unfiltered LLM emission per the column's
+      // documented contract. Pre-#194 this column was set to `jsonString`
+      // (the parsed-and-re-encoded JSON), silently swapping the raw audit
+      // trail for a parsed projection — load-bearing to fix before any
+      // repair heuristic lands (would otherwise erase the LLM's actual
+      // output on every successful repair). Empty-string fallback is a
+      // loud production signal: a TurnRecord with rawOutput == "" means
+      // wiring is broken (`output.rawText` was nil), not that the model
+      // emitted nothing.
+      let rawOutput = output.rawText ?? ""
+      if output.rawText == nil {
+        // Defence-in-depth: logs in Release too so a TestFlight regression
+        // that drops `rawText` wiring surfaces in production logs (not just
+        // debug builds). The condition is expected to be unreachable —
+        // `LLMCaller` always populates `rawText` via `JSONResponseParser`.
+        lifecycleLogger.error(
+          "rawText nil on agentOutput for agent=\(agent, privacy: .public); audit trail will be empty"
+        )
+      }
       turnSequence += 1
       let record = TurnRecord(
         id: UUID().uuidString,
@@ -930,7 +949,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         roundNumber: currentRound,
         phaseType: phaseType.rawValue,
         agentName: agent,
-        rawOutput: jsonString,
+        rawOutput: rawOutput,
         parsedOutputJSON: jsonString,
         sequenceNumber: turnSequence,
         phasePathJSON: encodedCurrentPhasePath(),
