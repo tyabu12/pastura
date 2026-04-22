@@ -41,6 +41,10 @@ MAX_PER_FILE_BYTES = 1 * 1024 * 1024
 MIN_TURNS = 6
 REQUIRED_SCHEMA_VERSION = 1
 REQUIRED_LANGUAGE = "ja"
+# Mirror BundledDemoReplaySource.demoFilenameSuffix — demos on disk use
+# `<slug>_demo.yaml` so Xcode's synchronized-group flat-bundle copy does
+# not collide with preset `<slug>.yaml` files.
+DEMO_FILENAME_SUFFIX = "_demo"
 
 
 def sha256_hex(text: str) -> str:
@@ -174,7 +178,7 @@ def fix_demos(preset_shas: dict[str, str]) -> int:
   ``yaml_sha256`` field is touched; formatting and comments are preserved.
   """
   changed = 0
-  for demo_path in sorted(DEMOS_DIR.glob("*.yaml")):
+  for demo_path in sorted(DEMOS_DIR.glob(f"*{DEMO_FILENAME_SUFFIX}.yaml")):
     text = read_text(demo_path)
     try:
       doc = yaml.safe_load(text)
@@ -246,7 +250,7 @@ def main() -> int:
     )
     return 1
 
-  demo_paths = sorted(DEMOS_DIR.glob("*.yaml"))
+  demo_paths = sorted(DEMOS_DIR.glob(f"*{DEMO_FILENAME_SUFFIX}.yaml"))
   errors: list[str] = []
 
   if len(demo_paths) < MIN_DEMOS:

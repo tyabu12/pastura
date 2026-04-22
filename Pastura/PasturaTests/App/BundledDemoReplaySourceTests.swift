@@ -214,12 +214,46 @@ struct BundledDemoReplaySourceTests {
   }
 
   @Test func bundleWithoutDemoReplaysDirectoryReturnsEmpty() throws {
-    // Real `Bundle.main` during tests has no `DemoReplays/` subdir
-    // — Phase 2 default pre-#170. This exercises the production
-    // enumeration path and asserts the §5.3 fallback trigger.
+    // `Bundle(for: TestBundleAnchor.self)` resolves to the test bundle
+    // (`PasturaTests.xctest`) which ships no `*_demo.yaml` — so the
+    // production enumeration path (`bundle.urls(forResourcesWithExtension:)`
+    // returning nil, or returning URLs that all fail the suffix filter)
+    // is exercised end-to-end, independent of whatever the app host
+    // bundle now contains post-#170. This locks in the spec §5.3
+    // "no demos bundled → progress-bar-only" fallback trigger.
+    let testBundle = Bundle(for: TestBundleAnchor.self)
     let resolver = StubPresetResolver(id: "wf", yaml: Self.presetYAML)
     let sources = BundledDemoReplaySource.loadAll(
-      bundle: .main, presetResolver: resolver, config: Self.testConfig)
+      bundle: testBundle, presetResolver: resolver, config: Self.testConfig)
     #expect(sources.isEmpty)
   }
+
+  // MARK: - Production bundle layout (#170)
+
+  @Test func bundleMainLoadsAllShippedDemos() throws {
+    // Issue #170 populates `Resources/DemoReplays/` with 3 bundled demos
+    // (word_wolf_demo, prisoners_dilemma_demo, bokete_demo). Verify the
+    // production enumeration + real `BundledPresetResolver` successfully
+    // load all 3 against `Bundle.main` (test host = `Pastura.app`).
+    // Guards against (a) bundle-layout regressions — e.g. a demo
+    // filename drops the `_demo` suffix and is silently skipped by the
+    // loader's enumeration filter — and (b) preset-SHA drift that
+    // would silent-skip at runtime without CI catching it.
+    let sources = BundledDemoReplaySource.loadAll()
+    let scenarioIds = Set(sources.map { $0.scenario.id })
+    #expect(scenarioIds.contains("word_wolf"))
+    #expect(scenarioIds.contains("prisoners_dilemma"))
+    #expect(scenarioIds.contains("bokete"))
+    // Spec §5.2 minimum-playable floor is 2; shipped count is 3. Using
+    // `>= 3` here rather than `== 3` so a future demo addition is
+    // backward-compatible with this assertion.
+    #expect(sources.count >= 3)
+  }
 }
+
+/// Anchor class so `Bundle(for:)` resolves to `PasturaTests.xctest`.
+/// `Bundle(for: BundledDemoReplaySourceTests.self)` isn't callable —
+/// Swift Testing's `@Suite struct` is a value type, and `Bundle(for:)`
+/// requires an `AnyClass`. An empty `NSObject` subclass gives us the
+/// reachable class reference without polluting the suite's helpers.
+private final class TestBundleAnchor: NSObject {}
