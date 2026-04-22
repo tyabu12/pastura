@@ -126,17 +126,52 @@ surface changes in areas the automated tests do not exercise.
    sees the view is no longer on top, and no spurious push to
    `ScenarioDetailView` occurs. (Backgrounding the app does **not** pop
    views, so it does not exercise this guard.)
-5. **Conditional phase — nested sub-phase editor** — In the scenario editor,
-   add a `conditional` phase, tap it to open `PhaseEditorSheet`, enter a
-   condition, tap **Add sub-phase** inside the Then branch. Expected: a
-   nested `PhaseEditorSheet` presents with the `conditional` option
-   *absent* from the type picker (depth-1 UI enforcement). Change the
-   sub-phase type, save, return to the outer editor. Save the outer
-   phase and confirm the top-level scenario list shows the condition
-   summary with `then:N else:M` counts. The nested sheet is sheet-owned,
-   so its own NavigationStack is fine — this QA just confirms that the
-   presentation chain (outer sheet → inner sheet) dismisses cleanly
-   without leaking `.conditional` into nested depths.
+5. **Conditional phase — nested sub-phase editor + cross-branch move** —
+   In the scenario editor, add a `conditional` phase, tap it to open
+   `PhaseEditorSheet`, enter a condition, tap **Add sub-phase** inside
+   the Then branch. Expected: a nested `PhaseEditorSheet` presents with
+   the `conditional` option *absent* from the type picker (depth-1 UI
+   enforcement). Change the sub-phase type, save, return to the outer
+   editor. Save the outer phase and confirm the top-level scenario list
+   shows the condition summary with `then:N else:M` counts. The nested
+   sheet is sheet-owned, so its own NavigationStack is fine — this QA
+   just confirms that the presentation chain (outer sheet → inner sheet)
+   dismisses cleanly without leaking `.conditional` into nested depths.
+
+   **Cross-branch move via context menu** — add 2 sub-phases each to
+   Then and Else (so both branches are non-empty). Verify all of:
+   - **Footer hint present** — each branch section shows
+     "Long-press a sub-phase to move it to the other branch." under
+     the last row, so the affordance is discoverable for users who
+     don't already know long-press opens context menus.
+   - **Context menu action** — long-press any sub-phase row. Expected:
+     a single "Move to Then Branch" (for rows in Else) or "Move to Else
+     Branch" (for rows in Then) menu item with the
+     `arrow.left.arrow.right` icon. Tap it.
+   - **Count invariants** — source branch shrinks by exactly one row,
+     target branch grows by exactly one row. The moved sub-phase
+     appears at the *end* of the target branch (tail-append by design;
+     within-branch reordering uses the drag handle / `.onMove`).
+   - **Round-trip persistence** — after moving, tap the moved row to
+     open the nested `PhaseEditorSheet`, edit any field, save. Expected:
+     the edit persists in the *new* branch, not the original one.
+     Then save the outer phase and reopen the scenario; confirm the
+     scenario-list summary shows the updated `then:N else:M` counts
+     and that reloading the scenario (including YAML round-trip if
+     toggling to YAML mode) preserves the branch membership.
+   - **Tap-to-edit still works** — tapping (not long-pressing) a
+     sub-phase row still opens the nested editor normally; the context
+     menu should not steal tap gestures.
+   - **Within-branch reorder still works** — the drag handle (if shown)
+     or explicit edit-mode reorder via `.onMove` still works; the
+     context menu should not interfere with long-press-to-drag for
+     `.onMove`.
+   - **Depth-2 nested sheets have no branches** — the nested
+     `PhaseEditorSheet` opened by editing a sub-phase does not contain
+     Then/Else sections (since `.conditional` is filtered from the
+     type picker), so the footer hint and context-menu "Move to Other
+     Branch" action do not appear at that depth. Confirm no spurious
+     context-menu items leak into the nested sheet.
 6. **Deep Link — cold start** — With Pastura fully terminated, tap a
    `pastura://scenario/<id>` link from Safari / Messages / another app.
    Expected: Pastura launches, waits for initialization + model-download
