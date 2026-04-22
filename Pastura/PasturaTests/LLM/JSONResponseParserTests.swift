@@ -258,4 +258,27 @@ struct JSONResponseParserTests {
     #expect(output.fields["inner_thought"] == "I should betray")
     #expect(output.fields["declaration"] == "I will cooperate")
   }
+
+  // MARK: - 23. Raw-text propagation (#194)
+
+  // The unmodified input text must travel with the parsed TurnOutput so
+  // SimulationViewModel.persistTurnRecord can store it in TurnRecord.rawOutput.
+  // Uses an input that exercises the full cleanup pipeline (thinking tag +
+  // code block) — rawText must remain the ORIGINAL, not the cleaned form.
+  @Test func preservesRawTextThroughCleanupPipeline() throws {
+    let input = """
+      <|channel>thought
+      thinking...
+      <channel|>```json
+      {"statement": "hi"}
+      ```
+      """
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "hi")
+    #expect(output.rawText == input, "rawText should preserve the original pre-cleanup input")
+  }
+
+  // A2 repair-pipeline tests live in `JSONResponseParserTests+Repair.swift`
+  // (sibling extension). Split per `.claude/rules/testing.md` to keep this
+  // file under the `file_length` lint budget.
 }

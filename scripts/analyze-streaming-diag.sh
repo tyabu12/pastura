@@ -44,8 +44,11 @@ summarise() {
 
   local total_lines diag_lines
   total_lines=$(wc -l <"$log" | tr -d ' ')
+  # Pattern list extended in #194 PR#a Item 4 for `repaired` (A2 success)
+  # and `retryCause` (cause-tagged retry) lines emitted by LLMCaller. The
+  # field-order in those lines is load-bearing — see LLMCaller.swift.
   diag_lines=$(grep -cE \
-    'retry agent=|committed agent=|streamReset agent=|onAppear rowID=|onDisappear rowID=|streamTargetChange rowID=' \
+    'retry agent=|committed agent=|streamReset agent=|onAppear rowID=|onDisappear rowID=|streamTargetChange rowID=|repaired agent=|retryCause agent=' \
     "$log" || true)
   echo "  file lines:        $total_lines"
   echo "  diagnostic lines:  $diag_lines"
@@ -206,6 +209,53 @@ summarise() {
   echo "  Note: flicker is a subjective visual signal. Low (d) == cancel-race race"
   echo "        surface wasn't exercised, but doesn't prove absence of flicker from"
   echo "        other causes. Watch the device during the session."
+  echo ""
+
+  # ── #194 PR#a — A2 repair successes ────────────────────────
+  # Per-kind buckets: unclosed_string / unclosed_brace / composite ("+"-joined).
+  # The trailing-comma repair was dropped (Apple's JSONSerialization accepts
+  # `{"a":1,}` natively on iOS 17+); see JSONResponseParser.swift.
+  echo "── A2 repair successes (JSONResponseParser leniency, #194) ──"
+  local repaired_count
+  repaired_count=$(grep -cE 'repaired agent=' "$log" || true)
+  echo "  repaired log lines:  $repaired_count"
+  if [ "$repaired_count" != "0" ]; then
+    echo "  per-kind counts:"
+    grep -oE 'repaired .*kind=[a-z_+]+' "$log" |
+      grep -oE 'kind=[a-z_+]+' |
+      sort | uniq -c | sort -rn | sed 's/^/    /'
+    echo ""
+    echo "  per-agent repair counts:"
+    grep -oE 'repaired agent=[^ ]+' "$log" |
+      sort | uniq -c | sort -rn | sed 's/^/    /'
+    echo ""
+    echo "  → A2 repair pipeline FIRED — these would have been retries pre-#194."
+  else
+    echo "  → No A2 repairs this session (parse succeeded as-is, or repair guard rejected)."
+  fi
+  echo ""
+
+  # ── #194 PR#a — Retry cause breakdown ──────────────────────
+  # `retryCause` lines tag WHY a retry was triggered (parse_failed vs
+  # empty_field). Helps disambiguate post-#194 measurement: if Hyp A
+  # frequency drops, did A2 repair help (parse_failed↓ + repaired↑) or
+  # did A3 prompt hardening help (empty_field↓)?
+  echo "── Retry cause breakdown (LLMCaller retry decisions, #194) ──"
+  local rc_count
+  rc_count=$(grep -cE 'retryCause agent=' "$log" || true)
+  echo "  retryCause log lines:  $rc_count"
+  if [ "$rc_count" != "0" ]; then
+    echo "  per-cause counts:"
+    grep -oE 'retryCause .*cause=[a-z_]+' "$log" |
+      grep -oE 'cause=[a-z_]+' |
+      sort | uniq -c | sort -rn | sed 's/^/    /'
+    echo ""
+    echo "  per-agent retry causes:"
+    grep -oE 'retryCause agent=[^ ]+ attempt=[0-9]+ cause=[a-z_]+' "$log" |
+      sort | uniq -c | sort -rn | sed 's/^/    /'
+  else
+    echo "  → No retries decided this session."
+  fi
   echo ""
 }
 
