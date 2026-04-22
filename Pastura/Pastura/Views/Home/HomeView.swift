@@ -29,7 +29,7 @@ struct HomeView: View {
         }
         ToolbarItem(placement: .primaryAction) {
           Menu {
-            NavigationLink(value: Route.editor()) {
+            NavigationLink(value: newScenarioRoute()) {
               Label("New Scenario", systemImage: "doc.badge.plus")
             }
             .accessibilityIdentifier("home.newScenarioButton")
@@ -194,6 +194,21 @@ struct HomeView: View {
       editingId: editingId,
       templateYAML: templateYAML
     )
+  }
+
+  /// Resolves the destination for the toolbar "New Scenario" menu item.
+  ///
+  /// Under `--ui-test-editor-seed-yaml`, `AppDependencies.uiTestEditorSeedYAML`
+  /// carries a pre-verified template so `EditorReloadTests` can exercise
+  /// the editor → save → Home reload path without typing YAML through
+  /// XCUITest. Production always returns the empty editor.
+  private func newScenarioRoute() -> Route {
+    #if DEBUG
+      if let seed = dependencies.uiTestEditorSeedYAML {
+        return .editor(templateYAML: seed)
+      }
+    #endif
+    return .editor()
   }
 }
 
