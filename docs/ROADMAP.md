@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-21
+> Last updated: 2026-04-22
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -89,6 +89,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
 | Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
+| Scenario deep link (`pastura://` scheme) | Medium   | Done        | 1-tap install from external contexts (SNS, QR, blog). IDs resolved through the curated gallery index only — no arbitrary URL fetch, no auto-execute. Preview via `GalleryScenarioDetailView` with external-link origin banner (#88). Universal Links / QR code generation deferred. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
 | YAML simulation replay primitive         | Medium   | Planned     | Past Results YAML exporter + `YAMLReplaySource` importer primitive. Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. Resumes spec §6.1 Candidate A (#164). |

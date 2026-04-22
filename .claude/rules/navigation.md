@@ -137,3 +137,39 @@ surface changes in areas the automated tests do not exercise.
    so its own NavigationStack is fine — this QA just confirms that the
    presentation chain (outer sheet → inner sheet) dismisses cleanly
    without leaking `.conditional` into nested depths.
+6. **Deep Link — cold start** — With Pastura fully terminated, tap a
+   `pastura://scenario/<id>` link from Safari / Messages / another app.
+   Expected: Pastura launches, waits for initialization + model-download
+   completion (if the model isn't already resolved), then pushes the
+   gallery scenario detail with a **"Opened from an external link"**
+   banner at the top. Tapping **Try this scenario** installs via the
+   normal flow. Invalid id (not present in the curated gallery) shows
+   the **"Scenario Not Found"** alert — never an install prompt.
+7. **Deep Link — initialization or model download in progress** —
+   Open a `pastura://` link while `RootView` is still showing
+   `ProgressView("Initializing...")` or `ModelDownloadView`. Expected:
+   an **informational toast** appears at the bottom ("Opening shared
+   scenario after setup…" / "Will open once the model finishes
+   downloading"). Drain fires automatically when `.ready` transitions.
+8. **Deep Link — during a running simulation** — Start a simulation,
+   wait for generation to be in flight, then open a `pastura://` link
+   from an external app. Expected: **toast** ("Will open when you exit
+   this simulation"). The simulation does **not** halt. Back-swipe out
+   of `SimulationView`; the deep link drain fires immediately and
+   pushes the gallery detail on top of the popped stack. Running
+   under BG continuation (toggle on) must not change this — the link
+   still only drains once the simulation screen is no longer on top.
+9. **Deep Link — during an editor / scoreboard / report sheet** —
+   Open any sheet gated by `.deepLinkGated()` (phase editor, persona
+   editor, scoreboard, report), then open a `pastura://` link.
+   Expected: the sheet stays up with no visible toast (iOS sheets
+   present in their own context and occlude the overlay). Dismiss the
+   sheet — the drain fires immediately and the gallery detail pushes
+   onto the underlying stack. User work in the sheet must **not** be
+   discarded by the deep link arrival.
+10. **Deep Link — iPad multi-window** — On iPad, open two Pastura
+    windows (drag from dock), bring one to focus, then open a
+    `pastura://` link from another app. Expected: only the focused
+    window handles the link (iOS routes `.onOpenURL` to the active
+    scene). The second window's `AppRouter` and `DeepLinkGate` remain
+    untouched. Swapping focus after handling does not replay the URL.

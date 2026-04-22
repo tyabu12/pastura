@@ -6,5 +6,16 @@
 	<array>
 		<string>com.tyabu12.Pastura.simulation-continuation</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.tyabu12.pastura.scenario</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pastura</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
