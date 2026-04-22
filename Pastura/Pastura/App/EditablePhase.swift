@@ -77,6 +77,32 @@ struct EditablePhase: Identifiable, Sendable {
     self.elsePhases = phase.elsePhases?.map { EditablePhase(from: $0) } ?? []
   }
 
+  /// Identifies which branch of a conditional phase to target.
+  enum Branch: String, Sendable, CaseIterable {
+    case then
+    case `else`
+  }
+
+  /// Moves the sub-phase with the given `id` from whichever branch it
+  /// currently lives in to the end of `destination`. Always tail-appends
+  /// by design — within-branch position adjustment uses SwiftUI's
+  /// `.onMove` in the editor. No-op when:
+  /// - the id isn't found in either branch (e.g., deep nested sub-phase)
+  /// - the id is already in `destination` (source == destination)
+  mutating func moveSubPhase(id sourceId: UUID, to destination: Branch) {
+    // Shallow scan only — depth-1 is enforced at the editor layer.
+    if let index = thenPhases.firstIndex(where: { $0.id == sourceId }) {
+      guard destination == .else else { return }
+      let moved = thenPhases.remove(at: index)
+      elsePhases.append(moved)
+    } else if let index = elsePhases.firstIndex(where: { $0.id == sourceId }) {
+      guard destination == .then else { return }
+      let moved = elsePhases.remove(at: index)
+      thenPhases.append(moved)
+    }
+    // If not found in either branch, no-op.
+  }
+
   func toPhase() -> Phase {
     let trimmedTarget = target.trimmingCharacters(in: .whitespacesAndNewlines)
     let trimmedCondition = condition.trimmingCharacters(in: .whitespacesAndNewlines)
