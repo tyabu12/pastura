@@ -1,16 +1,11 @@
 import SwiftUI
 
-/// Which branch of a conditional phase a nested sub-phase editor is editing.
-/// Lifted to file scope to satisfy SwiftLint's nesting rule (types nested
-/// deeper than 1 level are disallowed).
-private enum ConditionalBranch { case then, `else` }
-
 /// Identifies which branch's sub-phase is currently being edited via a
 /// nested `PhaseEditorSheet`. `.sheet(item:)` drives the presentation;
 /// `onSave` on the nested sheet writes back to the right branch.
 private struct SubPhaseEditContext: Identifiable {
   let id = UUID()
-  let branch: ConditionalBranch
+  let branch: EditablePhase.Branch
   var phase: EditablePhase
 }
 
@@ -222,9 +217,9 @@ struct PhaseEditorSheet: View {
   private func branchSection(
     title: String,
     phases: Binding<[EditablePhase]>,
-    branch: ConditionalBranch
+    branch: EditablePhase.Branch
   ) -> some View {
-    Section(title) {
+    Section {
       ForEach(phases.wrappedValue) { subPhase in
         Button {
           editingSubPhase = SubPhaseEditContext(branch: branch, phase: subPhase)
@@ -239,13 +234,24 @@ struct PhaseEditorSheet: View {
               .font(.caption)
           }
         }
+        .contextMenu {
+          Button {
+            let other: EditablePhase.Branch = (branch == .then ? .else : .then)
+            phase.moveSubPhase(id: subPhase.id, to: other)
+          } label: {
+            Label(
+              branch == .then ? "Move to Else Branch" : "Move to Then Branch",
+              systemImage: "arrow.left.arrow.right"
+            )
+          }
+        }
       }
       .onDelete { indexSet in
         phases.wrappedValue.remove(atOffsets: indexSet)
       }
       .onMove { source, destination in
-        // Within-branch reorder only — cross-branch drag is deliberately
-        // unsupported in v1 (tracked as a follow-up).
+        // Within-branch reorder via .onMove. Cross-branch move is exposed
+        // via the .contextMenu on each row.
         phases.wrappedValue.move(fromOffsets: source, toOffset: destination)
       }
 
@@ -256,6 +262,11 @@ struct PhaseEditorSheet: View {
       } label: {
         Label("Add sub-phase", systemImage: "plus.circle")
       }
+    } header: {
+      Text(title)
+    } footer: {
+      Text("Long-press a sub-phase to move it to the other branch.")
+        .font(.caption)
     }
   }
 
