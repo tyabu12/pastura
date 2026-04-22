@@ -216,6 +216,10 @@ private struct BranchTailDropZone: View {
     }
   }
 
+  private var branchName: String {
+    branch == .then ? "Then" : "Else"
+  }
+
   private var emptyBranchPlaceholder: some View {
     HStack {
       Spacer()
@@ -233,11 +237,7 @@ private struct BranchTailDropZone: View {
           style: StrokeStyle(lineWidth: 1, dash: [4])
         )
     )
-    .accessibilityLabel(
-      branch == .then
-        ? "Then branch, empty. Drop sub-phases here."
-        : "Else branch, empty. Drop sub-phases here."
-    )
+    .accessibilityLabel("\(branchName) branch, empty. Drop sub-phases here.")
   }
 
   private var tailHitStrip: some View {

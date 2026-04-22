@@ -104,6 +104,19 @@ struct EditablePhaseSubPhaseMoveTests {
     #expect(sut.thenPhases.map(\.id) == [phaseB.id, phaseC.id, phaseA.id])
   }
 
+  // MARK: - negative destination index clamps to start
+
+  @Test func moveSubPhaseNegativeDestinationIndexClampsToStart() {
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC])
+
+    sut.moveSubPhase(id: phaseC.id, to: .then, at: -5)
+
+    #expect(sut.thenPhases.map(\.id) == [phaseC.id, phaseA.id, phaseB.id])
+  }
+
   // MARK: - unknown UUID is a no-op
 
   @Test func moveSubPhaseUnknownUUIDIsNoOp() {
