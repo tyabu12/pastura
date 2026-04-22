@@ -46,6 +46,9 @@ extension PhaseEditorSheet {
     }
   }
 
+  // `branchSection` is `fileprivate` so it must stay co-located with its
+  // sole caller (`conditionalSection`). If either is moved back to the
+  // main file, both must move together.
   @ViewBuilder
   fileprivate func branchSection(
     title: String,
@@ -97,7 +100,7 @@ extension PhaseEditorSheet {
     } header: {
       Text(title)
     } footer: {
-      Text("Long-press a sub-phase to move it to the other branch.")
+      Text("Long-press a sub-phase to move it to the end of the other branch.")
         .font(.caption)
     }
   }

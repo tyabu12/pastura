@@ -57,9 +57,9 @@ struct EditablePhaseSubPhaseMoveTests {
     #expect(sut.elsePhases.map(\.id) == [phaseD.id, phaseF.id])
   }
 
-  // MARK: - Same-branch no-op
+  // MARK: - Same-branch no-op (then → then)
 
-  @Test func moveSubPhaseToSameBranchIsNoOp() {
+  @Test func moveSubPhaseToSameBranchIsNoOpThen() {
     let phaseA = makeSpeakPhase()
     let phaseB = makeSpeakPhase()
     let phaseC = makeSpeakPhase()
@@ -73,6 +73,27 @@ struct EditablePhaseSubPhaseMoveTests {
     let beforeElse = sut.elsePhases.map(\.id)
 
     sut.moveSubPhase(id: phaseB.id, to: .then)
+
+    #expect(sut.thenPhases.map(\.id) == beforeThen)
+    #expect(sut.elsePhases.map(\.id) == beforeElse)
+  }
+
+  // MARK: - Same-branch no-op (else → else)
+
+  @Test func moveSubPhaseToSameBranchIsNoOpElse() {
+    let phaseA = makeSpeakPhase()
+    let phaseB = makeSpeakPhase()
+    let phaseC = makeSpeakPhase()
+
+    var sut = makeConditionalPhase(
+      thenPhases: [],
+      elsePhases: [phaseA, phaseB, phaseC]
+    )
+
+    let beforeThen = sut.thenPhases.map(\.id)
+    let beforeElse = sut.elsePhases.map(\.id)
+
+    sut.moveSubPhase(id: phaseB.id, to: .else)
 
     #expect(sut.thenPhases.map(\.id) == beforeThen)
     #expect(sut.elsePhases.map(\.id) == beforeElse)
