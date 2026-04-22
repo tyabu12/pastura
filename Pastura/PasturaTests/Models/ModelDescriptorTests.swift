@@ -87,15 +87,15 @@ struct ModelDescriptorTests {
   // MARK: - Hashable
 
   @Test func hashable_equalDescriptorsHashEqual() {
-    let a = makeDescriptor()
-    let b = makeDescriptor()
-    #expect(a == b)
-    #expect(a.hashValue == b.hashValue)
+    let lhs = makeDescriptor()
+    let rhs = makeDescriptor()
+    #expect(lhs == rhs)
+    #expect(lhs.hashValue == rhs.hashValue)
   }
 
   @Test func hashable_differentIDsHashDiffer() {
-    let a = makeDescriptor(id: "model-a")
-    let b = makeDescriptor(id: "model-b")
-    #expect(a != b)
+    let lhs = makeDescriptor(id: "model-a")
+    let rhs = makeDescriptor(id: "model-b")
+    #expect(lhs != rhs)
   }
 }

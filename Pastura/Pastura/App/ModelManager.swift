@@ -366,32 +366,9 @@ final class ModelManager {
         }
       )
 
-      // Force a terminal 100% transition before SHA256 verification.
-      // Production URLSession does not guarantee a final `didWriteData` call
-      // at `received == total`, and even if it did, it could be throttled out
-      // above. Without this, the UI stalls at ~99% during the ~2 s SHA256 hash
-      // on a 3 GB file.
-      state[descriptor.id] = .downloading(progress: 1.0)
-
-      if let error = await verifyDownloadIntegrity(descriptor: descriptor) {
-        try? fileManager.removeItem(at: partialURL)
-        state[descriptor.id] = .error(error)
-        return
-      }
-
-      // Ensure Application Support directory exists before moving the file.
-      let modelDir = modelURL.deletingLastPathComponent()
-      try fileManager.createDirectory(at: modelDir, withIntermediateDirectories: true)
-
-      // Atomic rename from Caches/.download to Application Support/ final path.
-      // Same volume on iOS, so this is an atomic rename (no copy+delete).
-      if fileManager.fileExists(atPath: modelURL.path) {
-        try fileManager.removeItem(at: modelURL)
-      }
-      try fileManager.moveItem(at: partialURL, to: modelURL)
-
-      excludeFromBackup(modelURL)
-      state[descriptor.id] = .ready(modelPath: modelURL.path)
+      try await finalizeDownload(
+        descriptor: descriptor, modelURL: modelURL, partialURL: partialURL
+      )
     } catch is CancellationError {
       // Download was cancelled — keep partial file for resume
       state[descriptor.id] = .notDownloaded
@@ -399,6 +376,41 @@ final class ModelManager {
       // Keep partial .download file for resume
       state[descriptor.id] = .error(error.localizedDescription)
     }
+  }
+
+  /// Post-download finalization: force terminal 100%, verify integrity,
+  /// atomically rename the partial into Application Support, and mark the
+  /// descriptor `.ready`. Extracted from `performDownload` to keep that
+  /// function under swiftlint's function_body_length cap.
+  private func finalizeDownload(
+    descriptor: ModelDescriptor, modelURL: URL, partialURL: URL
+  ) async throws {
+    // Force a terminal 100% transition before SHA256 verification.
+    // Production URLSession does not guarantee a final `didWriteData` call
+    // at `received == total`, and even if it did, it could be throttled out
+    // above. Without this, the UI stalls at ~99% during the ~2 s SHA256 hash
+    // on a 3 GB file.
+    state[descriptor.id] = .downloading(progress: 1.0)
+
+    if let error = await verifyDownloadIntegrity(descriptor: descriptor) {
+      try? fileManager.removeItem(at: partialURL)
+      state[descriptor.id] = .error(error)
+      return
+    }
+
+    // Ensure Application Support directory exists before moving the file.
+    let modelDir = modelURL.deletingLastPathComponent()
+    try fileManager.createDirectory(at: modelDir, withIntermediateDirectories: true)
+
+    // Atomic rename from Caches/.download to Application Support/ final path.
+    // Same volume on iOS, so this is an atomic rename (no copy+delete).
+    if fileManager.fileExists(atPath: modelURL.path) {
+      try fileManager.removeItem(at: modelURL)
+    }
+    try fileManager.moveItem(at: partialURL, to: modelURL)
+
+    excludeFromBackup(modelURL)
+    state[descriptor.id] = .ready(modelPath: modelURL.path)
   }
 
   // MARK: - Private: Integrity

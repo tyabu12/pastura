@@ -36,11 +36,11 @@ struct ModelRegistryTests {
   }
 
   @Test func qwen_integrityMetadataMatchesFetchedValues() {
-    #expect(ModelRegistry.qwen3_4B.fileSize == 2_497_280_256)
+    #expect(ModelRegistry.qwen34B.fileSize == 2_497_280_256)
     #expect(
-      ModelRegistry.qwen3_4B.sha256
+      ModelRegistry.qwen34B.sha256
         == "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5")
-    #expect(ModelRegistry.qwen3_4B.systemPromptSuffix == "/no_think")
+    #expect(ModelRegistry.qwen34B.systemPromptSuffix == "/no_think")
   }
 
   // findCollisions testability — covers the uniqueness check without
@@ -58,23 +58,23 @@ struct ModelRegistryTests {
 
   @Test func findCollisions_detectsDuplicateFileNames() {
     // Fabricate two descriptors with same fileName but different ids
-    let a = ModelRegistry.gemma4E2B
+    let base = ModelRegistry.gemma4E2B
     // Reconstruct Qwen but forced to use Gemma's fileName → fileName collision
     let qwenAsGemmaFile = ModelDescriptor(
-      id: ModelRegistry.qwen3_4B.id,
-      displayName: ModelRegistry.qwen3_4B.displayName,
-      vendor: ModelRegistry.qwen3_4B.vendor,
-      vendorURL: ModelRegistry.qwen3_4B.vendorURL,
-      downloadURL: ModelRegistry.qwen3_4B.downloadURL,
+      id: ModelRegistry.qwen34B.id,
+      displayName: ModelRegistry.qwen34B.displayName,
+      vendor: ModelRegistry.qwen34B.vendor,
+      vendorURL: ModelRegistry.qwen34B.vendorURL,
+      downloadURL: ModelRegistry.qwen34B.downloadURL,
       fileName: ModelRegistry.gemma4E2B.fileName,  // ← collision
-      fileSize: ModelRegistry.qwen3_4B.fileSize,
-      sha256: ModelRegistry.qwen3_4B.sha256,
-      stopSequence: ModelRegistry.qwen3_4B.stopSequence,
-      minRAM: ModelRegistry.qwen3_4B.minRAM,
-      modelInfoURL: ModelRegistry.qwen3_4B.modelInfoURL,
-      systemPromptSuffix: ModelRegistry.qwen3_4B.systemPromptSuffix
+      fileSize: ModelRegistry.qwen34B.fileSize,
+      sha256: ModelRegistry.qwen34B.sha256,
+      stopSequence: ModelRegistry.qwen34B.stopSequence,
+      minRAM: ModelRegistry.qwen34B.minRAM,
+      modelInfoURL: ModelRegistry.qwen34B.modelInfoURL,
+      systemPromptSuffix: ModelRegistry.qwen34B.systemPromptSuffix
     )
-    let reasons = ModelRegistry.findCollisions(in: [a, qwenAsGemmaFile])
+    let reasons = ModelRegistry.findCollisions(in: [base, qwenAsGemmaFile])
     #expect(!reasons.isEmpty)
     #expect(reasons.contains(where: { $0.contains("fileName") }))
   }

@@ -37,7 +37,7 @@ enum ModelRegistry {
     systemPromptSuffix: nil
   )
 
-  nonisolated static let qwen3_4B: ModelDescriptor = ModelDescriptor(
+  nonisolated static let qwen34B: ModelDescriptor = ModelDescriptor(
     id: "qwen-3-4b-q4-k-m",
     displayName: "Qwen 3 4B (Q4_K_M)",
     vendor: "Alibaba",
@@ -55,7 +55,7 @@ enum ModelRegistry {
   )
 
   /// Full production catalog, ordered by display preference (Gemma first, Qwen second).
-  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen3_4B]
+  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).
   nonisolated static let defaultInitialModelID: ModelID = gemma4E2B.id

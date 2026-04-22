@@ -15,9 +15,9 @@ extension ModelManagerTests {
 
   @Test("state dict seeds an entry for every catalog descriptor at init")
   func stateSeedsAllCatalogDescriptors() {
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let sut = makeSUT(catalog: [d1, d2])
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let sut = makeSUT(catalog: [first, second])
     #expect(sut.state["a"] == .checking)
     #expect(sut.state["b"] == .checking)
     #expect(sut.state.count == 2)
@@ -25,9 +25,9 @@ extension ModelManagerTests {
 
   @Test("unsupportedDevice state applies to every catalog descriptor")
   func unsupportedDeviceAppliesToAllCatalogDescriptors() {
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let sut = makeSUT(physicalMemory: 5_500_000_000, catalog: [d1, d2])
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let sut = makeSUT(physicalMemory: 5_500_000_000, catalog: [first, second])
     sut.checkModelStatus()
     #expect(sut.state["a"] == .unsupportedDevice)
     #expect(sut.state["b"] == .unsupportedDevice)
@@ -105,14 +105,14 @@ extension ModelManagerTests {
 
   @Test("startDownload is rejected when another descriptor is already downloading")
   func sequentialDownloadPolicyRejectsSecondStart() async {
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let sut = makeSUT(catalog: [d1, d2])
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let sut = makeSUT(catalog: [first, second])
     defer {
-      sut.cancelDownload(descriptor: d1)
-      for d in [d1, d2] {
-        try? FileManager.default.removeItem(at: sut.modelFileURL(for: d))
-        try? FileManager.default.removeItem(at: sut.downloadFileURL(for: d))
+      sut.cancelDownload(descriptor: first)
+      for descriptor in [first, second] {
+        try? FileManager.default.removeItem(at: sut.modelFileURL(for: descriptor))
+        try? FileManager.default.removeItem(at: sut.downloadFileURL(for: descriptor))
       }
     }
 
@@ -121,12 +121,12 @@ extension ModelManagerTests {
     #expect(sut.state["b"] == .notDownloaded)
 
     // Start A — synchronously transitions to .downloading BEFORE the Task runs
-    sut.startDownload(descriptor: d1)
+    sut.startDownload(descriptor: first)
     #expect(sut.isAnyDownloadInProgress)
 
     // Attempt B — must be rejected (policy guard), state stays .notDownloaded
     let bStateBefore = sut.state["b"]
-    sut.startDownload(descriptor: d2)
+    sut.startDownload(descriptor: second)
     #expect(sut.state["b"] == bStateBefore)
   }
 
@@ -135,9 +135,9 @@ extension ModelManagerTests {
   @Test("setActiveModel accepts known id and persists to UserDefaults")
   func setActiveModelPersistsKnownID() {
     let defaults = Self.isolatedUserDefaults()
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let sut = makeSUT(catalog: [d1, d2], userDefaults: defaults)
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let sut = makeSUT(catalog: [first, second], userDefaults: defaults)
 
     sut.setActiveModel("b")
     #expect(sut.activeModelID == "b")
@@ -146,9 +146,9 @@ extension ModelManagerTests {
 
   @Test("setActiveModel ignores unknown id (activeModelID unchanged)")
   func setActiveModelIgnoresUnknownID() {
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let sut = makeSUT(catalog: [d1, d2])
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let sut = makeSUT(catalog: [first, second])
     let initialActive = sut.activeModelID
 
     sut.setActiveModel("non-existent")
@@ -158,11 +158,11 @@ extension ModelManagerTests {
   @Test("init resumes persisted activeModelID when it maps to the catalog")
   func initResumesPersistedActiveID() {
     let defaults = Self.isolatedUserDefaults()
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
     defaults.set("b", forKey: ModelManager.activeModelIDKey)
 
-    let sut = makeSUT(catalog: [d1, d2], userDefaults: defaults)
+    let sut = makeSUT(catalog: [first, second], userDefaults: defaults)
     #expect(sut.activeModelID == "b")
   }
 
@@ -170,9 +170,9 @@ extension ModelManagerTests {
 
   @Test("resolveInitialActiveID returns persisted id when present in catalog")
   func resolveInitialActiveID_prefersPersistedValid() {
-    let d1 = makeTestDescriptor(id: "a", fileName: "a.gguf")
-    let d2 = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let id = ModelManager.resolveInitialActiveID(persistedID: "b", catalog: [d1, d2])
+    let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
+    let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
+    let id = ModelManager.resolveInitialActiveID(persistedID: "b", catalog: [first, second])
     #expect(id == "b")
   }
 
@@ -187,9 +187,9 @@ extension ModelManagerTests {
 
   @Test("resolveInitialActiveID falls back to catalog.first when default is not in catalog")
   func resolveInitialActiveID_fallsBackToFirstWhenDefaultAbsent() {
-    let d1 = makeTestDescriptor(id: "test-x", fileName: "test-x.gguf")
-    let d2 = makeTestDescriptor(id: "test-y", fileName: "test-y.gguf")
-    let id = ModelManager.resolveInitialActiveID(persistedID: nil, catalog: [d1, d2])
+    let first = makeTestDescriptor(id: "test-x", fileName: "test-x.gguf")
+    let second = makeTestDescriptor(id: "test-y", fileName: "test-y.gguf")
+    let id = ModelManager.resolveInitialActiveID(persistedID: nil, catalog: [first, second])
     #expect(id == "test-x")
   }
 
