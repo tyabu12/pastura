@@ -17,6 +17,10 @@ nonisolated struct LLMCaller: Sendable {
   private let parser = JSONResponseParser()
   private let extractor = PartialOutputExtractor()
   private let logger = Logger(subsystem: "com.pastura", category: "LLMCaller")
+  // `category: "StreamingDiag"` matches the existing diagnostic channel
+  // (PR #158) so `scripts/analyze-streaming-diag.sh` picks up the new
+  // `repaired ...` lines alongside `retry ...` and `streamReset ...`.
+  private let diagLogger = Logger(subsystem: "com.pastura", category: "StreamingDiag")
 
   // swiftlint:disable function_parameter_count
 
@@ -27,6 +31,13 @@ nonisolated struct LLMCaller: Sendable {
   ///   - system: The system prompt.
   ///   - user: The user prompt.
   ///   - agentName: The agent's name (for event emission).
+  ///   - expectedKeys: Schema keys the parsed output must contain
+  ///     (typically `Set(phase.outputSchema?.keys ?? [])`). Empty set
+  ///     skips the schema-aware repair guard. Non-empty enables the
+  ///     guard in ``JSONResponseParser/parse(_:expectedKeys:)`` —
+  ///     a repair that produces JSON missing any of these keys is
+  ///     rejected, preserving the parse-failure throw rather than
+  ///     committing fabricated content (#194 PR#a Item 2d).
   ///   - suspendController: Controller used to coordinate cooperative suspend
   ///     with the LLM layer. When the LLM throws ``LLMError/suspended``, this
   ///     method awaits ``SuspendController/awaitResume()`` and retries the
@@ -40,6 +51,7 @@ nonisolated struct LLMCaller: Sendable {
     system: String,
     user: String,
     agentName: String,
+    expectedKeys: Set<String> = [],
     suspendController: SuspendController,
     emitter: @Sendable (SimulationEvent) -> Void
   ) async throws -> TurnOutput {
@@ -73,8 +85,12 @@ nonisolated struct LLMCaller: Sendable {
 
       let raw = streamResult.rawText
 
-      // Try to parse JSON
-      guard let output = try? parser.parse(raw) else {
+      // Try to parse JSON, with optional A2 repair pipeline gated by the
+      // schema-aware guard (#194 PR#a Item 2). On successful repair, emit
+      // a `StreamingDiag` line so `scripts/analyze-streaming-diag.sh` can
+      // bucket repair effects against pre-PR baselines.
+      guard let parseResult = try? parser.parse(raw, expectedKeys: expectedKeys)
+      else {
         logger.warning(
           "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
         )
@@ -86,6 +102,12 @@ nonisolated struct LLMCaller: Sendable {
         #endif
         if attempt < Self.maxRetries { continue }
         throw SimulationError.retriesExhausted
+      }
+      let output = parseResult.0
+      if let repairKind = parseResult.repairKind {
+        diagLogger.info(
+          "repaired agent=\(agentName, privacy: .public) kind=\(repairKind, privacy: .public)"
+        )
       }
 
       // Detect chat template token leakage and hallucinated continuations.

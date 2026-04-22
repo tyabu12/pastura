@@ -39,50 +39,191 @@ nonisolated public struct JSONResponseParser: Sendable {
 
   /// Parse raw LLM output text into a ``TurnOutput``.
   ///
-  /// Processing pipeline:
-  /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
-  /// 2. Truncate at chat template tokens (`<|im_end|>`)
-  /// 3. Extract content from markdown code blocks
-  /// 4. Find first `{...}` JSON object
-  /// 5. Parse JSON and normalize all values to `String`
+  /// Thin wrapper over ``parse(_:expectedKeys:)`` with no schema-aware
+  /// repair guard. Existing callers that don't have ``Phase/outputSchema``
+  /// in scope (most tests, replay paths) keep the same `TurnOutput`-only
+  /// return shape.
   ///
   /// - Parameter text: The raw text response from the LLM.
   /// - Returns: A ``TurnOutput`` with all values normalized to `String`.
   /// - Throws: ``LLMError/invalidResponse(raw:)`` if no valid JSON can be extracted.
   public func parse(_ text: String) throws -> TurnOutput {
-    var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let (output, _) = try parse(text, expectedKeys: [])
+    return output
+  }
 
-    // 1. Strip thinking tags
-    cleaned = stripThinkingTags(cleaned)
+  /// Parse with optional schema-aware repair guard.
+  ///
+  /// Processing pipeline:
+  /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
+  /// 2. Truncate at chat template tokens (`<|im_end|>`)
+  /// 3. Extract content from markdown code blocks
+  /// 4. Find first `{...}` JSON object
+  /// 5. Try `JSONSerialization` on the cleaned text
+  /// 6. On failure: apply repair pipeline (`unclosed_string` →
+  ///    `trailing_comma` → `unclosed_brace`), retry parse, and reject
+  ///    the result if `expectedKeys` are not all present and non-empty
+  ///
+  /// Repairs are sequenced unclosed-string-first because closing the
+  /// string changes the brace balance computation; trailing-comma strip
+  /// runs before brace-close because it can yield a clean parse without
+  /// needing closer insertion.
+  ///
+  /// When `expectedKeys` is non-empty, a repair that produces parseable
+  /// JSON missing any of those keys is rejected — preserves the original
+  /// throw rather than fabricating a `TurnOutput` (#194 PR#a Item 2d).
+  ///
+  /// - Returns: tuple of the parsed ``TurnOutput`` plus the applied repair
+  ///   kind (`"trailing_comma"` / `"unclosed_string"` / `"unclosed_brace"`,
+  ///   or `+`-joined for composites). `nil` repair kind means the input
+  ///   parsed cleanly without any repair.
+  /// - Throws: ``LLMError/invalidResponse(raw:)`` when no repair attempt
+  ///   yields parseable JSON satisfying the schema guard.
+  public func parse(
+    _ text: String, expectedKeys: Set<String>
+  ) throws -> (TurnOutput, repairKind: String?) {
+    let cleaned = applyCleanupPipeline(text)
 
-    // 2. Truncate at chat template tokens (e.g. <|im_end|>) to discard
-    //    hallucinated conversation continuations
-    cleaned = truncateAtChatTemplateToken(cleaned)
-
-    // 3. Extract from code blocks
-    cleaned = extractFromCodeBlock(cleaned)
-
-    // 4. Find first JSON object (also handles trailing garbage)
-    cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !cleaned.hasPrefix("{") || !cleaned.hasSuffix("}") {
-      cleaned = extractFirstJSONObject(cleaned)
+    // Try as-is — happy path, no repair needed.
+    if let output = tryParse(cleaned, originalText: text) {
+      return (output, nil)
     }
 
-    // 5. Parse and normalize
-    guard let data = cleaned.data(using: .utf8),
-      let jsonObject = try? JSONSerialization.jsonObject(with: data),
-      let dictionary = jsonObject as? [String: Any]
+    // Repair pipeline. Each repair operates on the *current* repaired text
+    // and recomputes its `StringStateMachine` because earlier repairs
+    // change positions. Multiple may apply in one pass (e.g. an unclosed
+    // string at end-of-input that also leaves a brace open).
+    var repaired = cleaned
+    var appliedKinds: [String] = []
+
+    let m1 = StringStateMachine(repaired)
+    if m1.hasUnclosedString {
+      // Refuse to repair mid-key truncation (`{"a":"v1","action`) — only
+      // close strings that are in value position. Returning nil from the
+      // helper preserves the original throw via the guard below.
+      guard let closed = closeUnclosedLastString(repaired, machine: m1) else {
+        throw LLMError.invalidResponse(raw: text)
+      }
+      repaired = closed
+      appliedKinds.append("unclosed_string")
+    }
+
+    // Note: a dedicated trailing-comma repair was prototyped but turned
+    // out to be a no-op on Apple platforms — `JSONSerialization.jsonObject`
+    // accepts trailing commas in objects and arrays (`{"a":1,}` /
+    // `[1,2,]`) by default on iOS 17+. The brace-close repair below
+    // strips a single dangling `,`/`:` at end-of-input as part of its
+    // own work, which covers the only remaining trailing-comma case
+    // (truncated stream ending with `,`).
+
+    let m2 = StringStateMachine(repaired)
+    if m2.braceBalance > 0 || m2.bracketBalance > 0 {
+      repaired = closeUnclosedBraces(repaired, machine: m2)
+      appliedKinds.append("unclosed_brace")
+    }
+
+    guard !appliedKinds.isEmpty,
+      let output = tryParse(repaired, originalText: text)
     else {
       throw LLMError.invalidResponse(raw: text)
     }
 
+    // Schema-aware guard — reject repairs that drop or empty required keys.
+    // Non-empty `expectedKeys` typically comes from `phase.outputSchema?.keys`
+    // at the handler call site (passed via `LLMCaller`).
+    if !expectedKeys.isEmpty {
+      let allPresent = expectedKeys.allSatisfy { key in
+        guard let value = output.fields[key], !value.isEmpty else { return false }
+        return true
+      }
+      guard allPresent else {
+        throw LLMError.invalidResponse(raw: text)
+      }
+    }
+
+    return (output, appliedKinds.joined(separator: "+"))
+  }
+
+  // MARK: - Internal helpers
+
+  private func applyCleanupPipeline(_ text: String) -> String {
+    var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    cleaned = stripThinkingTags(cleaned)
+    cleaned = truncateAtChatTemplateToken(cleaned)
+    cleaned = extractFromCodeBlock(cleaned)
+    cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !cleaned.hasPrefix("{") || !cleaned.hasSuffix("}") {
+      cleaned = extractFirstJSONObject(cleaned)
+    }
+    return cleaned
+  }
+
+  private func tryParse(_ cleaned: String, originalText: String) -> TurnOutput? {
+    guard let data = cleaned.data(using: .utf8),
+      let jsonObject = try? JSONSerialization.jsonObject(with: data),
+      let dictionary = jsonObject as? [String: Any]
+    else {
+      return nil
+    }
     let fields = normalizeValues(dictionary)
     // Preserve the ORIGINAL pre-cleanup input so it can flow through to
-    // `TurnRecord.rawOutput` for audit. The `text` parameter here is the
-    // untouched LLM emission; all cleanup steps above operated on the local
-    // `cleaned` copy. See #194 (A2 upstream work) — the audit trail must be
-    // load-bearing before repair heuristics land.
-    return TurnOutput(fields: fields, rawText: text)
+    // `TurnRecord.rawOutput` for audit. See #194.
+    return TurnOutput(fields: fields, rawText: originalText)
+  }
+
+  // MARK: - Repair primitives (#194 PR#a Item 2c)
+
+  /// Append a `"` to close an unclosed string at end-of-input — but
+  /// only when the unclosed string is in *value position* (i.e. preceded
+  /// by `:` after whitespace skip). Mid-key truncations like
+  /// `{"a":"v1","action` have an even quote count (no unclosed string)
+  /// and are not reached here; this guard catches the rarer case of a
+  /// genuinely-unclosed string opened by a non-value position.
+  private func closeUnclosedLastString(
+    _ text: String, machine: StringStateMachine
+  ) -> String? {
+    let chars = Array(text)
+    // Find the last opening quote (a `"` whose flag at that index is
+    // `false`, meaning it transitions outside → inString).
+    var lastOpenIndex = -1
+    for i in 0..<chars.count where chars[i] == "\"" && !machine.isInsideString(at: i) {
+      lastOpenIndex = i
+    }
+    guard lastOpenIndex >= 0 else { return nil }
+    // Check value-position: char immediately before the opener (skipping
+    // whitespace) must be `:`.
+    var k = lastOpenIndex - 1
+    while k >= 0, chars[k].isWhitespace { k -= 1 }
+    guard k >= 0, chars[k] == ":" else { return nil }
+    return text + "\""
+  }
+
+  /// (c) Append closing braces / brackets to bring balance to zero, after
+  /// stripping a single dangling `,` or `:` at the very end (outside
+  /// string context).
+  ///
+  /// Limitation: brackets are appended before braces, which is correct
+  /// for object-rooted JSON (Pastura's output schema is always an object
+  /// at root). Array-rooted inputs with mixed nesting like `[{"a":1`
+  /// would close in the wrong order — not reachable from current usage.
+  private func closeUnclosedBraces(
+    _ text: String, machine: StringStateMachine
+  ) -> String {
+    var stripped = text
+    if let last = stripped.last,
+      last == "," || last == ":",
+      !machine.isInsideString(at: stripped.count - 1) {
+      stripped.removeLast()
+    }
+    let m = StringStateMachine(stripped)
+    var result = stripped
+    if m.bracketBalance > 0 {
+      result += String(repeating: "]", count: m.bracketBalance)
+    }
+    if m.braceBalance > 0 {
+      result += String(repeating: "}", count: m.braceBalance)
+    }
+    return result
   }
 
   // MARK: - Pipeline Steps
