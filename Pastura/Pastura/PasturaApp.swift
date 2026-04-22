@@ -124,7 +124,7 @@ private struct RootView: View {
 
       case .needsModelDownload:
         DemoReplayHostView(modelManager: modelManager)
-          .onChange(of: modelManager.state) { _, newState in
+          .onChange(of: modelManager.activeState) { _, newState in
             if case .ready(let modelPath) = newState {
               Task { await finalizeInit(modelPath: modelPath) }
             }
@@ -299,7 +299,7 @@ private struct RootView: View {
       }
     #else
       modelManager.checkModelStatus()
-      switch modelManager.state {
+      switch modelManager.activeState {
       case .ready(let modelPath):
         await finalizeInit(modelPath: modelPath)
       case .unsupportedDevice, .notDownloaded, .error:
