@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a bug or unexpected behavior in Pastura.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Issues here
+        are public — please do not include personal information.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A short, one-line description of the bug.
+      placeholder: "e.g. App crashes when tapping Run Simulation on a conditional phase."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Step-by-step instructions that reproduce the bug.
+      placeholder: |
+        1. Open Pastura
+        2. Import `prisoners_dilemma.yaml`
+        3. Tap Run Simulation
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened. Include error messages if any.
+    validations:
+      required: true
+
+  - type: input
+    id: ios_version
+    attributes:
+      label: iOS version (optional)
+      description: "Found in Settings → General → About → Software Version. Leave blank if unknown."
+      placeholder: "e.g. 18.2"
+    validations:
+      required: false
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version (optional)
+      description: "Found in the Pastura Settings screen. Leave blank if unknown."
+      placeholder: "e.g. 1.0.0 (TestFlight build 42)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context (optional)
+      description: |
+        Attachments, logs, screenshots, or any other relevant details.
+        You can drag and drop images or files into this field to attach them.
+    validations:
+      required: false
