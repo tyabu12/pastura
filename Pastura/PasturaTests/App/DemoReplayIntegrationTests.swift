@@ -230,6 +230,40 @@ struct DemoReplayIntegrationTests {
     #expect(viewModel.state == .transitioning)
   }
 
+  @Test func startThenPauseResumeThenDownloadComplete() async throws {
+    // Drives the full DemoReplayHostView lifecycle chain end-to-end across
+    // ≥ 2 sources: start → some outputs → background → assert .paused →
+    // foreground → assert .playing → downloadComplete → assert .transitioning.
+    let sources = Self.makeSources()
+    let viewModel = ReplayViewModel(
+      sources: sources, config: Self.integrationConfig,
+      contentFilter: ContentFilter())
+    viewModel.start()
+
+    // Wait until at least one agent output so playback is in-flight.
+    await Self.waitForState(viewModel) { _ in viewModel.agentOutputs.count >= 1 }
+
+    viewModel.onBackground()
+    guard case .paused(let pausedIdx, let pausedCursor, _) = viewModel.state else {
+      Issue.record("Expected .paused after onBackground(), got \(viewModel.state)")
+      return
+    }
+
+    viewModel.onForeground()
+    // Resume synchronously restores .playing at the same position.
+    if case .playing(let rIdx, let rCursor) = viewModel.state {
+      #expect(rIdx == pausedIdx)
+      #expect(rCursor == pausedCursor)
+    } else {
+      Issue.record("Expected .playing after onForeground(), got \(viewModel.state)")
+      return
+    }
+
+    // Simulate download completing while playback is running.
+    viewModel.downloadComplete()
+    #expect(viewModel.state == .transitioning)
+  }
+
   @Test func pauseAndResumeLandsOnSameCursor() async throws {
     // Slower pacing so the pause catches mid-sleep — otherwise 100×
     // collapses the sleep to 0 and we observe a boundary pause that
