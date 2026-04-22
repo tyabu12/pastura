@@ -228,4 +228,25 @@ struct LLMCallerTests {
       _ = try await callTask.value
     }
   }
+
+  // #194 — the unfiltered LLM emission must travel with the parsed
+  // TurnOutput so SimulationViewModel.persistTurnRecord can store it in
+  // TurnRecord.rawOutput per the column's documented contract. Pre-#194
+  // rawOutput silently received the parsed-and-re-encoded JSON; the
+  // audit trail was load-bearingly broken before any A2 repair work
+  // could safely land.
+  @Test func resultCarriesRawTextThroughLLMCaller() async throws {
+    let raw = #"{"statement": "hi", "inner_thought": "thinking"}"#
+    let mock = MockLLMService(responses: [raw])
+    try await mock.loadModel()
+
+    let collector = EventCollector()
+    let result = try await caller.call(
+      llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      suspendController: SuspendController(),
+      emitter: collector.emit
+    )
+
+    #expect(result.rawText == raw)
+  }
 }

@@ -77,7 +77,12 @@ nonisolated public struct JSONResponseParser: Sendable {
     }
 
     let fields = normalizeValues(dictionary)
-    return TurnOutput(fields: fields)
+    // Preserve the ORIGINAL pre-cleanup input so it can flow through to
+    // `TurnRecord.rawOutput` for audit. The `text` parameter here is the
+    // untouched LLM emission; all cleanup steps above operated on the local
+    // `cleaned` copy. See #194 (A2 upstream work) — the audit trail must be
+    // load-bearing before repair heuristics land.
+    return TurnOutput(fields: fields, rawText: text)
   }
 
   // MARK: - Pipeline Steps
