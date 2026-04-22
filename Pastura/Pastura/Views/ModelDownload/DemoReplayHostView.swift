@@ -70,10 +70,10 @@ struct DemoReplayHostView: View {
 
   @ViewBuilder
   private var demoHostBody: some View {
-    if let vm = replayVM {
-      chatStream(vm: vm)
+    if let viewModel = replayVM {
+      chatStream(viewModel: viewModel)
         .overlay {
-          if vm.state == .transitioning {
+          if viewModel.state == .transitioning {
             DLCompleteOverlay()
           }
         }
@@ -86,25 +86,25 @@ struct DemoReplayHostView: View {
     }
   }
 
-  private func chatStream(vm: ReplayViewModel) -> some View {
+  private func chatStream(viewModel: ReplayViewModel) -> some View {
     ZStack(alignment: .bottom) {
       Color.screenBackground.ignoresSafeArea()
 
       VStack(spacing: 0) {
         PhaseHeader(
-          presetName: currentPresetName(vm: vm).uppercased(),
-          phaseLabel: currentPhaseLabel(vm: vm))
+          presetName: currentPresetName(viewModel: viewModel).uppercased(),
+          phaseLabel: currentPhaseLabel(viewModel: viewModel))
 
         ScrollViewReader { proxy in
           ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
-              ForEach(vm.agentOutputs) { entry in
+              ForEach(viewModel.agentOutputs) { entry in
                 AgentOutputRow(
                   agent: entry.agent,
                   output: entry.output,
                   phaseType: entry.phaseType,
                   showAllThoughts: true,
-                  isLatest: entry.id == vm.agentOutputs.last?.id,
+                  isLatest: entry.id == viewModel.agentOutputs.last?.id,
                   charsPerSecond: 60
                 )
                 .id(entry.id)
@@ -117,10 +117,10 @@ struct DemoReplayHostView: View {
             .padding(.bottom, 160)
             .animation(
               reduceMotion ? nil : .easeOut(duration: 0.7),
-              value: vm.agentOutputs.count)
+              value: viewModel.agentOutputs.count)
           }
-          .onChange(of: vm.agentOutputs.count) { _, _ in
-            guard let lastId = vm.agentOutputs.last?.id else { return }
+          .onChange(of: viewModel.agentOutputs.count) { _, _ in
+            guard let lastId = viewModel.agentOutputs.last?.id else { return }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
               proxy.scrollTo(lastId, anchor: .bottom)
             }
@@ -135,17 +135,17 @@ struct DemoReplayHostView: View {
     }
   }
 
-  private func currentPresetName(vm: ReplayViewModel) -> String {
-    guard case .playing(let sourceIndex, _) = vm.state,
+  private func currentPresetName(viewModel: ReplayViewModel) -> String {
+    guard case .playing(let sourceIndex, _) = viewModel.state,
       sourceIndex < sources.count
     else { return "" }
     return sources[sourceIndex].scenario.name
   }
 
-  private func currentPhaseLabel(vm: ReplayViewModel) -> String {
-    guard let phase = vm.currentPhase else { return "" }
+  private func currentPhaseLabel(viewModel: ReplayViewModel) -> String {
+    guard let phase = viewModel.currentPhase else { return "" }
     let base = phase.rawValue
-    if let round = vm.currentRound {
+    if let round = viewModel.currentRound {
       return "\(base) \(round)"
     }
     return base
@@ -167,19 +167,19 @@ struct DemoReplayHostView: View {
     sources = loaded
     guard loaded.count >= Self.minPlayableDemoCount else { return }
 
-    let vm = ReplayViewModel(sources: loaded)
-    replayVM = vm
-    vm.start()
+    let viewModel = ReplayViewModel(sources: loaded)
+    replayVM = viewModel
+    viewModel.start()
     replayHadStarted = true
   }
 
   private func handleScenePhase(_ phase: ScenePhase) {
-    guard let vm = replayVM else { return }
+    guard let viewModel = replayVM else { return }
     switch phase {
     case .background, .inactive:
-      vm.onBackground()
+      viewModel.onBackground()
     case .active:
-      vm.onForeground()
+      viewModel.onForeground()
     @unknown default:
       break
     }

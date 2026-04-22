@@ -261,29 +261,37 @@ struct PromoCard: View {
   /// the last foreground anchor, and the current time. All inputs are
   /// explicit so the caller can unit-test wrap-around, BG pauses, and
   /// resume continuity without `@State` or a live clock.
-  static func computeSlotState(
+  nonisolated static func computeSlotState(
     previousSlot: Int,
     foregroundElapsed: TimeInterval,
     lastAnchor: Date?,
     now: Date,
     slotDuration: TimeInterval
-  ) -> (slot: Int, foregroundElapsed: TimeInterval, lastAnchor: Date?) {
+  ) -> SlotRotationState {
     let inflight = lastAnchor.map { now.timeIntervalSince($0) } ?? 0
     let totalInSlot = foregroundElapsed + inflight
     if totalInSlot >= slotDuration {
       // Slot advances; accumulator resets. The anchor only advances to `now`
       // when foregrounded (nil anchor means BG and stays nil).
-      return (
+      return SlotRotationState(
         slot: (previousSlot + 1) % 3,
         foregroundElapsed: 0,
-        lastAnchor: lastAnchor == nil ? nil : now
-      )
+        lastAnchor: lastAnchor == nil ? nil : now)
     }
-    return (
+    return SlotRotationState(
       slot: previousSlot,
       foregroundElapsed: foregroundElapsed,
-      lastAnchor: lastAnchor
-    )
+      lastAnchor: lastAnchor)
+  }
+
+  /// Return value of ``computeSlotState(previousSlot:foregroundElapsed:lastAnchor:now:slotDuration:)``.
+  ///
+  /// Explicitly `nonisolated` so the pure rotation math is testable from a
+  /// nonisolated test suite without hopping the main actor.
+  nonisolated struct SlotRotationState: Equatable, Sendable {
+    let slot: Int
+    let foregroundElapsed: TimeInterval
+    let lastAnchor: Date?
   }
 
   /// Slot copy (draft) from `docs/design/design-system.md` §7.

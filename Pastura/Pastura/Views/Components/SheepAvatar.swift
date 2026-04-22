@@ -28,77 +28,81 @@ public struct SheepAvatar: View {
 
   public var body: some View {
     Canvas { ctx, canvasSize in
-      let s = canvasSize.width
       // All geometry is expressed as fractions of the 28-unit SVG viewBox.
-      // Multiplying by (s / 28) maps viewBox coordinates to canvas points.
-      let u = s / 28
+      // Multiplying by `unit` maps viewBox coordinates to canvas points.
+      let unit = canvasSize.width / 28
 
       // --- Wool body (five circles forming a cloud silhouette) ---
       let bodyColor = character.bodyColor
-      let woolCircles: [(CGFloat, CGFloat, CGFloat)] = [
-        (14, 15, 8),
-        (9, 13, 3.2),
-        (19, 13, 3.2),
-        (11, 18, 3),
-        (17, 18, 3)
+      let woolCircles: [WoolCircle] = [
+        WoolCircle(centerX: 14, centerY: 15, radius: 8),
+        WoolCircle(centerX: 9, centerY: 13, radius: 3.2),
+        WoolCircle(centerX: 19, centerY: 13, radius: 3.2),
+        WoolCircle(centerX: 11, centerY: 18, radius: 3),
+        WoolCircle(centerX: 17, centerY: 18, radius: 3)
       ]
-      for (cx, cy, r) in woolCircles {
-        var path = Path(
+      for circle in woolCircles {
+        let path = Path(
           ellipseIn: CGRect(
-            x: (cx - r) * u, y: (cy - r) * u,
-            width: r * 2 * u, height: r * 2 * u))
+            x: (circle.centerX - circle.radius) * unit,
+            y: (circle.centerY - circle.radius) * unit,
+            width: circle.radius * 2 * unit,
+            height: circle.radius * 2 * unit))
         ctx.fill(path, with: .color(bodyColor))
-        // Prevent canvas from reusing path variable across iterations.
-        path = Path()
-        _ = path
       }
 
       // --- Face oval (character-specific darker shade) ---
       let facePath = Path(
         ellipseIn: CGRect(
-          x: (14 - 4) * u, y: (15.5 - 4.2) * u,
-          width: 8 * u, height: 8.4 * u))
+          x: (14 - 4) * unit, y: (15.5 - 4.2) * unit,
+          width: 8 * unit, height: 8.4 * unit))
       ctx.fill(facePath, with: .color(character.faceColor))
 
       // --- Eyes (two dark circles) ---
       let eyeColor = Color.avatarEye
-      for cx in [CGFloat(12.6), 15.4] {
+      for eyeCenterX in [CGFloat(12.6), 15.4] {
         let eyePath = Path(
           ellipseIn: CGRect(
-            x: (cx - 0.7) * u, y: (14.8 - 0.7) * u,
-            width: 1.4 * u, height: 1.4 * u))
+            x: (eyeCenterX - 0.7) * unit, y: (14.8 - 0.7) * unit,
+            width: 1.4 * unit, height: 1.4 * unit))
         ctx.fill(eyePath, with: .color(eyeColor))
       }
 
       // --- Highlight dot (top-left of face; adds cartoon sheen) ---
       let highlightPath = Path(
         ellipseIn: CGRect(
-          x: (11.6 - 0.5) * u, y: (13.5 - 0.5) * u,
-          width: 1.0 * u, height: 1.0 * u))
+          x: (11.6 - 0.5) * unit, y: (13.5 - 0.5) * unit,
+          width: 1.0 * unit, height: 1.0 * unit))
       ctx.fill(highlightPath, with: .color(Color.avatarHighlight))
 
       // --- Horns (two short curved strokes) ---
       let hornColor = character.hornColor
       var leftHorn = Path()
-      leftHorn.move(to: CGPoint(x: 10.5 * u, y: 11.5 * u))
+      leftHorn.move(to: CGPoint(x: 10.5 * unit, y: 11.5 * unit))
       leftHorn.addQuadCurve(
-        to: CGPoint(x: 11 * u, y: 9.5 * u),
-        control: CGPoint(x: 10 * u, y: 10 * u))
+        to: CGPoint(x: 11 * unit, y: 9.5 * unit),
+        control: CGPoint(x: 10 * unit, y: 10 * unit))
       ctx.stroke(
         leftHorn, with: .color(hornColor),
-        style: StrokeStyle(lineWidth: u, lineCap: .round))
+        style: StrokeStyle(lineWidth: unit, lineCap: .round))
 
       var rightHorn = Path()
-      rightHorn.move(to: CGPoint(x: 17.5 * u, y: 11.5 * u))
+      rightHorn.move(to: CGPoint(x: 17.5 * unit, y: 11.5 * unit))
       rightHorn.addQuadCurve(
-        to: CGPoint(x: 17 * u, y: 9.5 * u),
-        control: CGPoint(x: 18 * u, y: 10 * u))
+        to: CGPoint(x: 17 * unit, y: 9.5 * unit),
+        control: CGPoint(x: 18 * unit, y: 10 * unit))
       ctx.stroke(
         rightHorn, with: .color(hornColor),
-        style: StrokeStyle(lineWidth: u, lineCap: .round))
+        style: StrokeStyle(lineWidth: unit, lineCap: .round))
     }
     .frame(width: size, height: size)
     .accessibilityLabel(character.accessibilityLabel)
+  }
+
+  private struct WoolCircle {
+    let centerX: CGFloat
+    let centerY: CGFloat
+    let radius: CGFloat
   }
 }
 

@@ -242,26 +242,26 @@ struct PromoCardComputeSlotStateTests {
     // Each call represents a tick exactly at the boundary (inflight = slotDuration).
     // Call 1: 0 → 1
     var anchor: Date? = now.addingTimeInterval(-20)
-    let r1 = PromoCard.computeSlotState(
+    let result1 = PromoCard.computeSlotState(
       previousSlot: 0, foregroundElapsed: 0,
       lastAnchor: anchor, now: now, slotDuration: 20)
-    #expect(r1.slot == 1)
+    #expect(result1.slot == 1)
 
     // Call 2: 1 → 2 (reset anchor to now, then advance again 20s later)
     let now2 = now.addingTimeInterval(20)
-    anchor = r1.lastAnchor  // = now after slot advance
-    let r2 = PromoCard.computeSlotState(
-      previousSlot: r1.slot, foregroundElapsed: r1.foregroundElapsed,
+    anchor = result1.lastAnchor  // = now after slot advance
+    let result2 = PromoCard.computeSlotState(
+      previousSlot: result1.slot, foregroundElapsed: result1.foregroundElapsed,
       lastAnchor: anchor, now: now2, slotDuration: 20)
-    #expect(r2.slot == 2)
+    #expect(result2.slot == 2)
 
     // Call 3: 2 → 0 (mod 3 wrap-around)
     let now3 = now2.addingTimeInterval(20)
-    anchor = r2.lastAnchor  // = now2 after slot advance
-    let r3 = PromoCard.computeSlotState(
-      previousSlot: r2.slot, foregroundElapsed: r2.foregroundElapsed,
+    anchor = result2.lastAnchor  // = now2 after slot advance
+    let result3 = PromoCard.computeSlotState(
+      previousSlot: result2.slot, foregroundElapsed: result2.foregroundElapsed,
       lastAnchor: anchor, now: now3, slotDuration: 20)
-    #expect(r3.slot == 0)
+    #expect(result3.slot == 0)
   }
 
   // MARK: - Wrap-around with BG in the middle
@@ -283,13 +283,13 @@ struct PromoCardComputeSlotStateTests {
     // Simulate FG return: `handleScenePhase(.active)` sets anchor = now.
     // After slotDuration inflight, slot advances again (2 → 0).
     let fgNow = now.addingTimeInterval(20)
-    let r2 = PromoCard.computeSlotState(
+    let result2 = PromoCard.computeSlotState(
       previousSlot: result.slot,
       foregroundElapsed: result.foregroundElapsed,
       lastAnchor: fgNow.addingTimeInterval(-20),  // anchor set at FG return
       now: fgNow,
       slotDuration: 20)
-    #expect(r2.slot == 0)
-    #expect(r2.lastAnchor == fgNow)
+    #expect(result2.slot == 0)
+    #expect(result2.lastAnchor == fgNow)
   }
 }
