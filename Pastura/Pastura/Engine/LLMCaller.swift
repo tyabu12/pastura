@@ -100,7 +100,15 @@ nonisolated struct LLMCaller: Sendable {
             "[LLMCaller] JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
           )
         #endif
-        if attempt < Self.maxRetries { continue }
+        if attempt < Self.maxRetries {
+          // Field-order is load-bearing — see scripts/analyze-streaming-diag.sh
+          // for the regex that buckets these lines (`retryCause agent=…
+          // attempt=… cause=…`). Append-only after `cause=`.
+          diagLogger.info(
+            "retryCause agent=\(agentName, privacy: .public) attempt=\(attempt + 1) cause=parse_failed"
+          )
+          continue
+        }
         throw SimulationError.retriesExhausted
       }
       let output = parseResult.0
@@ -126,6 +134,11 @@ nonisolated struct LLMCaller: Sendable {
       if hasEmpty && attempt < Self.maxRetries {
         logger.debug(
           "Empty fields detected (attempt \(attempt + 1)/\(Self.maxRetries + 1)): fields=\(output.fields)"
+        )
+        // Field-order load-bearing per analyze-streaming-diag.sh — see
+        // the parse_failed branch above for the same constraint.
+        diagLogger.info(
+          "retryCause agent=\(agentName, privacy: .public) attempt=\(attempt + 1) cause=empty_field"
         )
         continue
       }
