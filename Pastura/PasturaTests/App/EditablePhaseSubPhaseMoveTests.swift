@@ -22,96 +22,99 @@ struct EditablePhaseSubPhaseMoveTests {
   // MARK: - moveSubPhase within-branch forward
 
   @Test func moveSubPhaseWithinBranchForward() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC])
 
-    sut.moveSubPhase(id: a.id, to: .then, at: 2)
+    sut.moveSubPhase(id: phaseA.id, to: .then, at: 2)
 
-    #expect(sut.thenPhases.map(\.id) == [b.id, c.id, a.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseB.id, phaseC.id, phaseA.id])
   }
 
   // MARK: - moveSubPhase within-branch backward
 
   @Test func moveSubPhaseWithinBranchBackward() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC])
 
-    sut.moveSubPhase(id: c.id, to: .then, at: 0)
+    sut.moveSubPhase(id: phaseC.id, to: .then, at: 0)
 
-    #expect(sut.thenPhases.map(\.id) == [c.id, a.id, b.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseC.id, phaseA.id, phaseB.id])
   }
 
   // MARK: - moveSubPhase same-branch onto self (no-op)
 
   @Test func moveSubPhaseSameBranchOntoSelf() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC])
 
-    sut.moveSubPhase(id: b.id, to: .then, at: 1)
+    sut.moveSubPhase(id: phaseB.id, to: .then, at: 1)
 
-    #expect(sut.thenPhases.map(\.id) == [a.id, b.id, c.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseA.id, phaseB.id, phaseC.id])
   }
 
   // MARK: - moveSubPhase cross-branch
 
   @Test func moveSubPhaseCrossBranch() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    let d = makePhase()
-    let e = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c], elsePhases: [d, e])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    let phaseD = makePhase()
+    let phaseE = makePhase()
+    var sut = makeConditional(
+      thenPhases: [phaseA, phaseB, phaseC],
+      elsePhases: [phaseD, phaseE]
+    )
 
-    sut.moveSubPhase(id: b.id, to: .else, at: 1)
+    sut.moveSubPhase(id: phaseB.id, to: .else, at: 1)
 
-    #expect(sut.thenPhases.map(\.id) == [a.id, c.id])
-    #expect(sut.elsePhases.map(\.id) == [d.id, b.id, e.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseA.id, phaseC.id])
+    #expect(sut.elsePhases.map(\.id) == [phaseD.id, phaseB.id, phaseE.id])
   }
 
   // MARK: - moveSubPhase cross-branch into empty target
 
   @Test func moveSubPhaseCrossBranchIntoEmptyTarget() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c], elsePhases: [])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC], elsePhases: [])
 
-    sut.moveSubPhase(id: a.id, to: .else, at: 0)
+    sut.moveSubPhase(id: phaseA.id, to: .else, at: 0)
 
-    #expect(sut.thenPhases.map(\.id) == [b.id, c.id])
-    #expect(sut.elsePhases.map(\.id) == [a.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseB.id, phaseC.id])
+    #expect(sut.elsePhases.map(\.id) == [phaseA.id])
   }
 
   // MARK: - destination index > count clamps to end
 
   @Test func moveSubPhaseDestinationIndexClampsToEnd() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC])
 
-    sut.moveSubPhase(id: a.id, to: .then, at: 99)
+    sut.moveSubPhase(id: phaseA.id, to: .then, at: 99)
 
-    #expect(sut.thenPhases.map(\.id) == [b.id, c.id, a.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseB.id, phaseC.id, phaseA.id])
   }
 
   // MARK: - unknown UUID is a no-op
 
   @Test func moveSubPhaseUnknownUUIDIsNoOp() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var sut = makeConditional(thenPhases: [a, b, c])
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var sut = makeConditional(thenPhases: [phaseA, phaseB, phaseC])
 
     sut.moveSubPhase(id: UUID(), to: .then, at: 0)
 
-    #expect(sut.thenPhases.map(\.id) == [a.id, b.id, c.id])
+    #expect(sut.thenPhases.map(\.id) == [phaseA.id, phaseB.id, phaseC.id])
   }
 
   // MARK: - SubPhaseDragPayload round-trip
@@ -130,39 +133,39 @@ struct EditablePhaseSubPhaseMoveTests {
   // MARK: - Array<EditablePhase>.movePhase within-list forward
 
   @Test func arrayMovePhaseForward() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var phases = [a, b, c]
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var phases = [phaseA, phaseB, phaseC]
 
-    phases.movePhase(id: a.id, to: 2)
+    phases.movePhase(id: phaseA.id, to: 2)
 
-    #expect(phases.map(\.id) == [b.id, c.id, a.id])
+    #expect(phases.map(\.id) == [phaseB.id, phaseC.id, phaseA.id])
   }
 
   // MARK: - Array<EditablePhase>.movePhase within-list backward
 
   @Test func arrayMovePhaseBackward() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var phases = [a, b, c]
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var phases = [phaseA, phaseB, phaseC]
 
-    phases.movePhase(id: c.id, to: 0)
+    phases.movePhase(id: phaseC.id, to: 0)
 
-    #expect(phases.map(\.id) == [c.id, a.id, b.id])
+    #expect(phases.map(\.id) == [phaseC.id, phaseA.id, phaseB.id])
   }
 
   // MARK: - Array<EditablePhase>.movePhase unknown UUID is a no-op
 
   @Test func arrayMovePhaseUnknownUUIDIsNoOp() {
-    let a = makePhase()
-    let b = makePhase()
-    let c = makePhase()
-    var phases = [a, b, c]
+    let phaseA = makePhase()
+    let phaseB = makePhase()
+    let phaseC = makePhase()
+    var phases = [phaseA, phaseB, phaseC]
 
     phases.movePhase(id: UUID(), to: 0)
 
-    #expect(phases.map(\.id) == [a.id, b.id, c.id])
+    #expect(phases.map(\.id) == [phaseA.id, phaseB.id, phaseC.id])
   }
 }
