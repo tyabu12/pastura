@@ -135,7 +135,14 @@ private struct RootView: View {
       do {
         let llm = MockLLMService(responses: [])
         let gallery = StubGalleryService.uiTestPreset()
-        let deps = try AppDependencies.inMemory(llmService: llm, galleryService: gallery)
+        let editorSeedYAML =
+          CommandLine.arguments.contains("--ui-test-editor-seed-yaml")
+          ? StubScenarioSeeder.editorSeedYAML : nil
+        let deps = try AppDependencies.inMemory(
+          llmService: llm,
+          galleryService: gallery,
+          uiTestEditorSeedYAML: editorSeedYAML
+        )
         try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
         appState = .ready(deps)
       } catch {
