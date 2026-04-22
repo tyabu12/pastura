@@ -136,6 +136,7 @@ private struct RootView: View {
         let llm = MockLLMService(responses: [])
         let gallery = StubGalleryService.uiTestPreset()
         let deps = try AppDependencies.inMemory(llmService: llm, galleryService: gallery)
+        try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
         appState = .ready(deps)
       } catch {
         appState = .error("UI test setup failed: \(error.localizedDescription)")
