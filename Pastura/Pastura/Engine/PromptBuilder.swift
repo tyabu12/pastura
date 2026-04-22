@@ -96,13 +96,18 @@ nonisolated struct PromptBuilder: Sendable {
       \(persona.description)
       """)
 
-    // Answer rules
+    // Answer rules. The two trailing "syntax error" / "single object only"
+    // rules below were added in #194 PR#a Item 3 (A3 prompt hardening) to
+    // reduce Hyp A (JSON parse retry) frequency by reinforcing structural
+    // validity at the source on Gemma 4 E2B Q4_K_M.
     var rules = """
       ## 回答ルール（厳守）
       - 必ず日本語で回答すること
       - 全フィールドに必ず文章を書くこと（空欄「...」は禁止）
       - JSONは必ず1行で書くこと（改行を入れない）
       - JSON以外のテキストやコードブロック(```)は書かないこと
+      - JSONに構文エラーがあると失敗扱いになる（カッコ・引用符・カンマを正しく閉じること）
+      - {で始まり}で終わる単一オブジェクトのみ出力し、前後にテキストを付けないこと
       """
 
     // Phase-specific constraints
@@ -127,15 +132,27 @@ nonisolated struct PromptBuilder: Sendable {
 
     sections.append(rules)
 
-    // Output format
+    // Output format. The `例:` placeholder line was added in #194 PR#a
+    // Item 3 to reduce malformed-JSON output frequency on Gemma 4 E2B.
+    // Placeholder syntax (`<ここに{key}>`) is intentional — concrete
+    // Japanese content like `"こんにちは"` was rejected because 2B-class
+    // models tend to parrot demonstrated content verbatim across all
+    // agents. Angle-bracketed Japanese is unambiguously meta-syntax.
     if let schema = phase.outputSchema {
-      let spec = schema.map { "\"\($0.key)\": \"\($0.value)\"" }
-        .sorted()  // Deterministic output order
+      let sortedKeys = schema.keys.sorted()
+      let spec =
+        sortedKeys
+        .map { key in "\"\(key)\": \"\(schema[key] ?? "")\"" }
+        .joined(separator: ", ")
+      let example =
+        sortedKeys
+        .map { key in "\"\(key)\": \"<ここに\(key)>\"" }
         .joined(separator: ", ")
       sections.append(
         """
         ## 出力フォーマット（JSON）
         {\(spec)}
+        例: {\(example)}
         """)
     }
 
