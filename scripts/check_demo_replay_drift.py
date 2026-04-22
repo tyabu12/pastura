@@ -64,9 +64,24 @@ def read_text(path: Path) -> str:
 
 
 def load_preset_shas() -> dict[str, str]:
-  """Return ``{preset_id: sha256_hex}`` for every shipped preset."""
+  """Return ``{preset_id: sha256_hex}`` for every shipped preset.
+
+  Also enforces the "no preset filename ends in ``_demo``" invariant. The
+  Swift-side loader (``BundledDemoReplaySource.enumerateDemoYAMLs``)
+  scans every `.yaml` at the bundle root and keeps files whose stem ends
+  with ``DEMO_FILENAME_SUFFIX``; a preset named ``foo_demo.yaml`` would
+  silently be picked up as a demo (and then silent-skip because its
+  schema doesn't match), masking a curator mistake.
+  """
   shas: dict[str, str] = {}
   for yaml_path in sorted(PRESETS_DIR.glob("*.yaml")):
+    stem = yaml_path.stem
+    if stem.endswith(DEMO_FILENAME_SUFFIX):
+      raise SystemExit(
+        f"::error::Preset {yaml_path.name} has reserved suffix "
+        f"{DEMO_FILENAME_SUFFIX!r} — the bundle loader would misread it "
+        f"as a demo. Rename the preset."
+      )
     text = read_text(yaml_path)
     try:
       parsed = yaml.safe_load(text)
@@ -156,6 +171,13 @@ def validate_demo(path: Path, preset_shas: dict[str, str]) -> list[str]:
     errors.append(
       f"{path.name}: turns count {len(turns)} < {MIN_TURNS} (spec §5.2)"
     )
+  elif isinstance(metadata, dict):
+    declared = metadata.get("total_turns")
+    if isinstance(declared, int) and declared != len(turns):
+      errors.append(
+        f"{path.name}: metadata.total_turns ({declared}) does not match "
+        f"actual turns list length ({len(turns)})"
+      )
 
   return errors
 

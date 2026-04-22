@@ -244,9 +244,12 @@ struct BundledDemoReplaySourceTests {
     #expect(scenarioIds.contains("word_wolf"))
     #expect(scenarioIds.contains("prisoners_dilemma"))
     #expect(scenarioIds.contains("bokete"))
-    // Spec §5.2 minimum-playable floor is 2; shipped count is 3. Using
-    // `>= 3` here rather than `== 3` so a future demo addition is
-    // backward-compatible with this assertion.
+    // Spec §5.2: bundled count floor is ≥ 3; shipped count is 3 today.
+    // Using `>= 3` rather than `== 3` so a future demo addition is
+    // backward-compatible with this assertion. (The §5.2 minimum-playable
+    // runtime floor of ≥ 2 is separate and handled by the host view's
+    // fallback path — it does not apply here because nothing can
+    // silent-skip in this test environment.)
     #expect(sources.count >= 3)
   }
 }
