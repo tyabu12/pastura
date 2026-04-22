@@ -231,6 +231,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .sheet(isPresented: $showScoreboard) {
       ScoreboardSheet(scores: viewModel.scores, eliminated: viewModel.eliminated)
         .presentationDetents([.medium])
+        .deepLinkGated()
     }
     .overlay {
       if viewModel.isReloadingModel {

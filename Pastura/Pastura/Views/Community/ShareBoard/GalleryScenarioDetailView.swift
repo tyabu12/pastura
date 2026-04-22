@@ -54,6 +54,7 @@ struct GalleryScenarioDetailView: View {
     }
     .sheet(isPresented: $isReportSheetPresented) {
       ReportScenarioSheet(scenario: scenario)
+        .deepLinkGated()
     }
   }
 
