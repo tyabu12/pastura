@@ -23,25 +23,27 @@
     @Test func testEditorSeedYAMLRoundTripsThroughLoadFromTemplateThenSave() async throws {
       let db = try DatabaseManager.inMemory()
       let repository = GRDBScenarioRepository(dbWriter: db.dbWriter)
-      let vm = ScenarioEditorViewModel(repository: repository)
+      let viewModel = ScenarioEditorViewModel(repository: repository)
 
-      vm.loadFromTemplate(yaml: StubScenarioSeeder.editorSeedYAML)
+      viewModel.loadFromTemplate(yaml: StubScenarioSeeder.editorSeedYAML)
 
       #expect(
-        vm.validationErrors.isEmpty,
-        "validationErrors after loadFromTemplate: \(vm.validationErrors)")
+        viewModel.validationErrors.isEmpty,
+        "validationErrors after loadFromTemplate: \(viewModel.validationErrors)")
 
-      let ok = await vm.save()
-      #expect(ok, "save() returned false; errors: \(vm.validationErrors)")
+      let didSave = await viewModel.save()
+      #expect(didSave, "save() returned false; errors: \(viewModel.validationErrors)")
 
       let savedId = try #require(
-        vm.savedScenarioId, "savedScenarioId should be non-nil after a successful save")
+        viewModel.savedScenarioId, "savedScenarioId should be non-nil after a successful save")
 
       let record = try repository.fetchById(savedId)
       let unwrapped = try #require(record, "fetchById(\(savedId)) returned nil")
       #expect(unwrapped.name == StubScenarioSeeder.editorSeedScenarioName)
 
-      #expect(vm.validationErrors.isEmpty, "validationErrors after save: \(vm.validationErrors)")
+      #expect(
+        viewModel.validationErrors.isEmpty,
+        "validationErrors after save: \(viewModel.validationErrors)")
     }
 
     // MARK: - home seed YAML
