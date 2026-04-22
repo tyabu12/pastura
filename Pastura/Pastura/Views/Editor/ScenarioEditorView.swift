@@ -60,6 +60,7 @@ struct ScenarioEditorView: View {
         viewModel.personas.append(EditablePersona(name: name, description: description))
         viewModel.agentCount = viewModel.personas.count
       }
+      .deepLinkGated()
     }
     .sheet(item: $editingPersona) { persona in
       PersonaEditorSheet(
@@ -71,11 +72,13 @@ struct ScenarioEditorView: View {
           viewModel.personas[idx].description = newDescription
         }
       }
+      .deepLinkGated()
     }
     .sheet(isPresented: $showNewPhaseSheet) {
       PhaseEditorSheet(phase: EditablePhase()) { phase in
         viewModel.phases.append(phase)
       }
+      .deepLinkGated()
     }
     .sheet(item: $editingPhase) { phase in
       PhaseEditorSheet(phase: phase) { updated in
@@ -83,6 +86,7 @@ struct ScenarioEditorView: View {
           viewModel.phases[idx] = updated
         }
       }
+      .deepLinkGated()
     }
   }
 

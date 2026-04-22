@@ -6,7 +6,9 @@ struct PasturaApp: App {
     // RootView lives inside WindowGroup so each scene (iPad multi-window,
     // iPhone single window) gets its own @State — including its own
     // AppRouter / NavigationStack path. App-struct-level @State would be
-    // shared across all scenes.
+    // shared across all scenes. Deep Link state (`DeepLinkGate`, pending
+    // URL, last-deep-linked id) is likewise per-scene so iOS routing a
+    // `pastura://` URL to the active scene doesn't leak into others.
     WindowGroup {
       RootView()
     }
@@ -28,15 +30,90 @@ private enum AppState {
   case error(String)
 }
 
+/// Equatable projection of `AppState` for use with `.onChange` — the
+/// underlying enum carries an `AppDependencies` reference which is not
+/// meaningfully Equatable and whose identity we don't want to compare on.
+private enum AppStateKind: Equatable {
+  case initializing
+  case needsModelDownload
+  case ready
+  case error
+}
+
+/// Reason a Deep Link is queued rather than routed immediately. Drives
+/// the toast message shown while the URL is pending.
+private enum DeepLinkBlockReason: Equatable {
+  case initializing
+  case modelDownload
+  case error
+  case sheetPresented
+  case simulationActive
+
+  var toastText: String {
+    switch self {
+    case .initializing:
+      return String(localized: "Opening shared scenario after setup…")
+    case .modelDownload:
+      return String(localized: "Will open once the model finishes downloading")
+    case .error:
+      return String(localized: "Will open after retrying setup")
+    case .sheetPresented:
+      return String(localized: "Close this sheet to open the shared scenario")
+    case .simulationActive:
+      return String(localized: "Will open when you exit this simulation")
+    }
+  }
+}
+
+/// Identifiable error payload for the root-level Deep Link alert.
+private struct DeepLinkErrorAlert: Identifiable {
+  let id = UUID()
+  let title: String
+  let message: String
+}
+
 /// Per-scene root view. Owns the model-download state machine, the
-/// dependency container, and the `AppRouter` that drives the root
-/// `NavigationStack`'s path.
+/// dependency container, the `AppRouter` that drives the root
+/// `NavigationStack`'s path, and the Deep Link coordination state.
 private struct RootView: View {
   @State private var appState: AppState = .initializing
   @State private var modelManager = ModelManager()
   @State private var router = AppRouter()
+  @State private var gate = DeepLinkGate()
+  @State private var lastDeepLinkedScenarioId: String?
+  @State private var deepLinkError: DeepLinkErrorAlert?
 
   var body: some View {
+    ZStack {
+      mainContent
+      deepLinkToast
+    }
+    .onOpenURL { handleOpenURL($0) }
+    // Drain triggers: fire whenever any signal that gates navigability
+    // changes. `tryDrain` itself re-checks all preconditions, so spurious
+    // triggers are cheap.
+    .onChange(of: appStateKind) { _, _ in tryDrain() }
+    .onChange(of: gate.sheetPresentationCount) { _, _ in tryDrain() }
+    .onChange(of: router.path) { _, _ in tryDrain() }
+    .onChange(of: gate.pendingURL) { _, new in
+      if new != nil { tryDrain() }
+    }
+    // Reset source-attribution when the user pops all the way back. Any
+    // subsequent visit to the same gallery scenario detail (via Share
+    // Board, for instance) should not show the "Opened from external
+    // link" banner.
+    .onChange(of: router.path.isEmpty) { _, isEmpty in
+      if isEmpty { lastDeepLinkedScenarioId = nil }
+    }
+    .alert(item: $deepLinkError) { alert in
+      Alert(title: Text(alert.title), message: Text(alert.message))
+    }
+  }
+
+  // MARK: - Content
+
+  @ViewBuilder
+  private var mainContent: some View {
     Group {
       switch appState {
       case .initializing:
@@ -57,6 +134,8 @@ private struct RootView: View {
         HomeView()
           .environment(dependencies)
           .environment(router)
+          .environment(gate)
+          .environment(\.lastDeepLinkedScenarioId, lastDeepLinkedScenarioId)
 
       case .error(let message):
         VStack(spacing: 16) {
@@ -78,6 +157,126 @@ private struct RootView: View {
       }
     }
   }
+
+  @ViewBuilder
+  private var deepLinkToast: some View {
+    // Sheet-presented case: iOS presents sheets in their own presentation
+    // context so this overlay is visually occluded — acceptable because
+    // the user dismisses the sheet and the drain fires immediately.
+    // Init / modelDownload / error / simulation-active cases render over
+    // the RootView's content and are visible.
+    if gate.pendingURL != nil, let reason = deepLinkBlockReason {
+      VStack {
+        Spacer()
+        Text(reason.toastText)
+          .font(.footnote)
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(.thinMaterial, in: Capsule())
+          .shadow(radius: 4, y: 2)
+          .padding(.bottom, 32)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+      .animation(.easeInOut(duration: 0.2), value: reason)
+      .allowsHitTesting(false)
+    }
+  }
+
+  // MARK: - Deep Link coordination
+
+  private var appStateKind: AppStateKind {
+    switch appState {
+    case .initializing: return .initializing
+    case .needsModelDownload: return .needsModelDownload
+    case .ready: return .ready
+    case .error: return .error
+    }
+  }
+
+  private var deepLinkBlockReason: DeepLinkBlockReason? {
+    switch appState {
+    case .initializing: return .initializing
+    case .needsModelDownload: return .modelDownload
+    case .error: return .error
+    case .ready:
+      if gate.isSheetActive { return .sheetPresented }
+      if isSimulationOnTop { return .simulationActive }
+      return nil
+    }
+  }
+
+  private var isSimulationOnTop: Bool {
+    if case .some(.simulation) = router.path.last { return true }
+    return false
+  }
+
+  private func handleOpenURL(_ url: URL) {
+    guard DeepLinkURL.parse(url) != nil else {
+      deepLinkError = DeepLinkErrorAlert(
+        title: String(localized: "Unsupported Link"),
+        message: String(localized: "This link doesn't match Pastura's expected format.")
+      )
+      return
+    }
+    // Most-recent-wins: a newer URL replaces any older pending one.
+    gate.pendingURL = url
+    // Call drain synchronously as well so a drainable URL clears before
+    // the toast would render. `.onChange` would pick it up otherwise,
+    // but with a one-frame flash during state propagation.
+    tryDrain()
+  }
+
+  private func tryDrain() {
+    guard let url = gate.pendingURL else { return }
+    guard case .ready(let deps) = appState else { return }
+    guard !gate.isSheetActive else { return }
+    guard !isSimulationOnTop else { return }
+    guard let parsed = DeepLinkURL.parse(url) else {
+      gate.pendingURL = nil
+      return
+    }
+    // Clear before the async work so the pendingURL `.onChange` doesn't
+    // refire the drain for the same URL. A URL arriving during the
+    // resolve will replace this cleared slot and be picked up after.
+    gate.pendingURL = nil
+
+    Task { @MainActor in
+      let resolver = DeepLinkResolver(galleryService: deps.galleryService)
+      switch parsed {
+      case .scenario(let id):
+        let result = await resolver.resolve(id: id)
+        applyResolution(result, requestedId: id)
+      }
+    }
+  }
+
+  private func applyResolution(_ result: DeepLinkResolution, requestedId: String) {
+    switch result {
+    case .found(let scenario):
+      lastDeepLinkedScenarioId = scenario.id
+      router.push(.galleryScenarioDetail(scenario: scenario))
+    case .notFound:
+      deepLinkError = DeepLinkErrorAlert(
+        title: String(localized: "Scenario Not Found"),
+        message: String(
+          localized: "This scenario isn't in the gallery anymore.")
+      )
+    case .networkAndCacheMiss:
+      deepLinkError = DeepLinkErrorAlert(
+        title: String(localized: "Could Not Reach Gallery"),
+        message: String(localized: "Check your connection and try again.")
+      )
+    case .corruptedCache:
+      deepLinkError = DeepLinkErrorAlert(
+        title: String(localized: "Gallery Cache Corrupted"),
+        message: String(
+          localized: "Open Share Board to refresh, then try the link again.")
+      )
+    }
+  }
+
+  // MARK: - Lifecycle
 
   private func initialize() async {
     #if DEBUG
@@ -135,7 +334,15 @@ private struct RootView: View {
       do {
         let llm = MockLLMService(responses: [])
         let gallery = StubGalleryService.uiTestPreset()
-        let deps = try AppDependencies.inMemory(llmService: llm, galleryService: gallery)
+        let editorSeedYAML =
+          CommandLine.arguments.contains("--ui-test-editor-seed-yaml")
+          ? StubScenarioSeeder.editorSeedYAML : nil
+        let deps = try AppDependencies.inMemory(
+          llmService: llm,
+          galleryService: gallery,
+          uiTestEditorSeedYAML: editorSeedYAML
+        )
+        try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
         appState = .ready(deps)
       } catch {
         appState = .error("UI test setup failed: \(error.localizedDescription)")

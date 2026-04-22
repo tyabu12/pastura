@@ -97,24 +97,29 @@ When reviewing changes that touch navigation:
       should be empty.
 - [ ] No new properties on `AppRouter` beyond navigation-path management.
 
-## Manual QA scenarios (no UI test target yet)
+## QA scenarios
 
-Run these whenever the navigation surface changes:
+`PasturaUITests` covers scenarios 1 and 3 end-to-end and scenario 2 on
+its primary route. Run the manual steps below whenever the navigation
+surface changes in areas the automated tests do not exercise.
 
-1. **Share Board → Try → Run Simulation** — From Home, tap Share Board, pick a
-   gallery scenario, tap **Try this scenario**, wait for install, then tap
-   **Run Simulation** on the pushed scenario detail. Expected: SimulationView
-   appears. Regression symptom: ScenarioDetailView re-pushes itself.
-2. **Back gesture from any depth** — Swipe back from each of:
-   ScenarioDetail, Editor, Import, Simulation, Results, GalleryScenarioDetail.
-   Expected: each pop returns one screen, not all the way to root.
-3. **Editor save → return to Home** — From Home, open New Scenario, save,
-   confirm Home reloads with the new scenario showing (the
-   `onChange(of: router.path.count)` reload trigger). Note: the trigger
+1. **Share Board → Try → Run Simulation** — Automated by
+   `NavigationRegressionTests.testGalleryInstallThenRunSimulationReachesSimulationView`
+   (PR #105). Regression symptom: ScenarioDetailView re-pushes itself.
+   Re-run the manual flow only if the `--ui-test` DI path diverges from
+   production (e.g., gallery install side effects that depend on a real
+   network).
+2. **Back gesture** — `BackGestureTests` covers the Home → ScenarioDetail
+   route automatically. Manually verify the remaining routes still pop
+   exactly one screen (not all the way to root): Editor, Import,
+   Simulation, Results, GalleryScenarioDetail.
+3. **Editor save → Home reload** — `EditorReloadTests` covers the
+   `onChange(of: router.path.count)` pop-trigger path. Note: the trigger
    only fires when `newCount < oldCount` (a pop). Flows that finish by
    pushing forward — e.g. editor save then push to the new scenario's
    detail — bypass this reload; if such a flow is added, surface the
-   write through the ViewModel rather than relying on the pop-trigger.
+   write through the ViewModel rather than relying on the pop-trigger,
+   and extend `EditorReloadTests` (or add a sibling) to cover it.
 4. **Swipe-back during Try** — Tap Try, immediately swipe back to dismiss
    `GalleryScenarioDetailView` while the install is still running. Expected:
    install completes in the background, the gallery's `pushIfOnTop` guard
@@ -132,3 +137,39 @@ Run these whenever the navigation surface changes:
    so its own NavigationStack is fine — this QA just confirms that the
    presentation chain (outer sheet → inner sheet) dismisses cleanly
    without leaking `.conditional` into nested depths.
+6. **Deep Link — cold start** — With Pastura fully terminated, tap a
+   `pastura://scenario/<id>` link from Safari / Messages / another app.
+   Expected: Pastura launches, waits for initialization + model-download
+   completion (if the model isn't already resolved), then pushes the
+   gallery scenario detail with a **"Opened from an external link"**
+   banner at the top. Tapping **Try this scenario** installs via the
+   normal flow. Invalid id (not present in the curated gallery) shows
+   the **"Scenario Not Found"** alert — never an install prompt.
+7. **Deep Link — initialization or model download in progress** —
+   Open a `pastura://` link while `RootView` is still showing
+   `ProgressView("Initializing...")` or `ModelDownloadView`. Expected:
+   an **informational toast** appears at the bottom ("Opening shared
+   scenario after setup…" / "Will open once the model finishes
+   downloading"). Drain fires automatically when `.ready` transitions.
+8. **Deep Link — during a running simulation** — Start a simulation,
+   wait for generation to be in flight, then open a `pastura://` link
+   from an external app. Expected: **toast** ("Will open when you exit
+   this simulation"). The simulation does **not** halt. Back-swipe out
+   of `SimulationView`; the deep link drain fires immediately and
+   pushes the gallery detail on top of the popped stack. Running
+   under BG continuation (toggle on) must not change this — the link
+   still only drains once the simulation screen is no longer on top.
+9. **Deep Link — during an editor / scoreboard / report sheet** —
+   Open any sheet gated by `.deepLinkGated()` (phase editor, persona
+   editor, scoreboard, report), then open a `pastura://` link.
+   Expected: the sheet stays up with no visible toast (iOS sheets
+   present in their own context and occlude the overlay). Dismiss the
+   sheet — the drain fires immediately and the gallery detail pushes
+   onto the underlying stack. User work in the sheet must **not** be
+   discarded by the deep link arrival.
+10. **Deep Link — iPad multi-window** — On iPad, open two Pastura
+    windows (drag from dock), bring one to focus, then open a
+    `pastura://` link from another app. Expected: only the focused
+    window handles the link (iOS routes `.onOpenURL` to the active
+    scene). The second window's `AppRouter` and `DeepLinkGate` remain
+    untouched. Swapping focus after handling does not replay the URL.

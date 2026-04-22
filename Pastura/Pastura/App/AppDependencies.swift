@@ -30,13 +30,27 @@ final class AppDependencies: @unchecked Sendable {
   /// Service that fetches the remote Share Board (gallery) index and YAMLs.
   let galleryService: any GalleryService
 
+  #if DEBUG
+    /// YAML pre-filled into the scenario editor when the Home screen's
+    /// "New Scenario" menu is tapped under `--ui-test`. `nil` in all other
+    /// builds and flows. Populated by `setupUITestState()` from the
+    /// `--ui-test-editor-seed-yaml` launch argument; consumed by `HomeView`
+    /// so test code does not read `CommandLine.arguments` from a view.
+    ///
+    /// DEBUG-gated to match the existing UITestSupport surface
+    /// (`StubGalleryService`, `StubScenarioSeeder`) and to keep
+    /// Release-iphoneos binaries free of UI-test plumbing per ADR-005 §8.
+    let uiTestEditorSeedYAML: String?
+  #endif
+
   private let databaseManager: DatabaseManager
 
   init(
     databaseManager: DatabaseManager,
     llmService: (any LLMService)? = nil,
     backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager(),
-    galleryService: (any GalleryService)? = nil
+    galleryService: (any GalleryService)? = nil,
+    uiTestEditorSeedYAML: String? = nil
   ) {
     self.databaseManager = databaseManager
     let writer = databaseManager.dbWriter
@@ -58,6 +72,9 @@ final class AppDependencies: @unchecked Sendable {
     }
     self.backgroundManager = backgroundManager
     self.galleryService = galleryService ?? URLSessionGalleryService()
+    #if DEBUG
+      self.uiTestEditorSeedYAML = uiTestEditorSeedYAML
+    #endif
   }
 
   #if DEBUG || targetEnvironment(simulator)
@@ -87,13 +104,15 @@ final class AppDependencies: @unchecked Sendable {
   /// Creates a test/preview instance with in-memory storage.
   static func inMemory(
     llmService: (any LLMService)? = nil,
-    galleryService: (any GalleryService)? = nil
+    galleryService: (any GalleryService)? = nil,
+    uiTestEditorSeedYAML: String? = nil
   ) throws -> AppDependencies {
     let manager = try DatabaseManager.inMemory()
     return AppDependencies(
       databaseManager: manager,
       llmService: llmService,
-      galleryService: galleryService
+      galleryService: galleryService,
+      uiTestEditorSeedYAML: uiTestEditorSeedYAML
     )
   }
 

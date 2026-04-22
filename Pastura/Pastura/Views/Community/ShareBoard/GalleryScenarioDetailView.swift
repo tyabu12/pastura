@@ -13,6 +13,7 @@ struct GalleryScenarioDetailView: View {
 
   @Environment(AppDependencies.self) private var dependencies
   @Environment(AppRouter.self) private var router
+  @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
   @State private var viewModel: ShareBoardViewModel?
   @State private var isWorking = false
   @State private var outcomeAlert: OutcomeAlert?
@@ -53,7 +54,12 @@ struct GalleryScenarioDetailView: View {
     }
     .sheet(isPresented: $isReportSheetPresented) {
       ReportScenarioSheet(scenario: scenario)
+        .deepLinkGated()
     }
+  }
+
+  private var wasOpenedFromDeepLink: Bool {
+    lastDeepLinkedScenarioId == scenario.id
   }
 
   // MARK: - Content
@@ -61,6 +67,19 @@ struct GalleryScenarioDetailView: View {
   @ViewBuilder
   private func content(viewModel: ShareBoardViewModel) -> some View {
     List {
+      if wasOpenedFromDeepLink {
+        Section {
+          Label {
+            Text("Opened from an external link")
+              .font(.footnote)
+              .foregroundStyle(.secondary)
+          } icon: {
+            Image(systemName: "link")
+              .foregroundStyle(.secondary)
+          }
+        }
+        .listRowBackground(Color.clear)
+      }
       Section {
         VStack(alignment: .leading, spacing: 8) {
           Text(scenario.title).font(.title2.bold())
