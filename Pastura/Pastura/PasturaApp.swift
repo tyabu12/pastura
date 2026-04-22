@@ -313,7 +313,16 @@ private struct RootView: View {
 
   private func finalizeInit(modelPath: String) async {
     do {
-      let llm = LlamaCppService(modelPath: modelPath)
+      // Build LlamaCppService with per-descriptor parameters. If the active
+      // descriptor cannot be resolved (only reachable with an empty catalog —
+      // not a production scenario), fall back to init defaults.
+      let descriptor = modelManager.activeDescriptor
+      let llm = LlamaCppService(
+        modelPath: modelPath,
+        stopSequence: descriptor?.stopSequence ?? "<|im_end|>",
+        modelIdentifier: descriptor?.displayName ?? "Gemma 4 E2B (Q4_K_M)",
+        systemPromptSuffix: descriptor?.systemPromptSuffix
+      )
       let deps = try AppDependencies.production(llmService: llm)
       // Register BG task handler early so iOS 26+ can launch us in background.
       deps.backgroundManager.register()

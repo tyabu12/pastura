@@ -5,11 +5,17 @@ import LlamaSwift
 
 extension LlamaCppService {
   func applyChatTemplate(system: String, user: String) throws -> String {
+    // Append the descriptor's optional suffix to the system prompt. Used today
+    // to inject `/no_think` for Qwen 3 (disables thinking mode so the model
+    // emits JSON directly instead of wrapping in `<think>...</think>` blocks
+    // that would starve the `maxTokens` budget before the JSON appears).
+    let effectiveSystem = systemPromptSuffix.map { "\(system)\n\($0)" } ?? system
+
     // Build llama_chat_message array using C strings
     guard
       let systemRole = strdup("system"),
       let userRole = strdup("user"),
-      let systemContent = strdup(system),
+      let systemContent = strdup(effectiveSystem),
       let userContent = strdup(user)
     else {
       throw LLMError.generationFailed(
