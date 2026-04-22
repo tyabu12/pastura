@@ -1,0 +1,128 @@
+# Demo replay for DL-time loop (spec §5.6, Issue #170).
+#
+# Origin: handcrafted by @tyabu12 for #170. Replace via the Phase 2 E1
+# exporter when real LLM captures are available (spec §6).
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# manually reviewed against Pastura/Resources/ContentBlocklist.txt on
+# 2026-04-23 by @tyabu12. Setting metadata.content_filter_applied: true
+# per spec §3.4.
+
+schema_version: 1
+
+preset_ref:
+  id: bokete
+  version: '1.0'
+  yaml_sha256: '0dd3a268d33d0feff5684be3dfd7a7851cd93aeb393c55f747123cb9c1b46e9a'
+
+metadata:
+  title: 'ボケて — AI大喜利バトル'
+  description: '5人のAI芸人がお題に一言ボケ。視聴者投票で勝者を決める。'
+  language: ja
+  recorded_at: 2026-04-23T00:00:00Z
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 10
+  estimated_duration_ms: 13500
+  captured_by: tyabu12
+
+turns:
+  - round: 1
+    phase_index: 1
+    phase_type: speak_all
+    agent: ツッコミ太郎
+    fields:
+      boke: 'それ、坂道じゃなくて人生を下ってる。'
+      inner_thought: '短く鋭く。テーマをズラして一言で刺す。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_all
+    agent: シュール子
+    fields:
+      boke: 'あの坂の先で、10年前の自分が待っている。'
+      inner_thought: 'なんの脈絡もないほど面白い。時間軸をいじろう。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_all
+    agent: あるある先生
+    fields:
+      boke: '田舎のおばあちゃん、運動会前日になぜか全力で練習しがち。'
+      inner_thought: '共感で持っていく。誰でも知ってる情景に寄せる。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_all
+    agent: ブラック山田
+    fields:
+      boke: '年金支給日の前日、残高とレース中。'
+      inner_thought: '皮肉を効かせる。苦笑で笑わせる方向。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_all
+    agent: 天然ボケ美
+    fields:
+      boke: 'わあ、おばあちゃんの新しい趣味ですね！免許いるのかな？'
+      inner_thought: '計算せずに素直に感想を言っちゃえ。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: ツッコミ太郎
+    fields:
+      vote: ブラック山田
+      reason: '皮肉が刺さる。短くて構造がきれい。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: シュール子
+    fields:
+      vote: ブラック山田
+      reason: '想像の余白があって、読み返すほど面白い。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: あるある先生
+    fields:
+      vote: ブラック山田
+      reason: '現実味と切なさの混ざり方が絶妙。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: ブラック山田
+    fields:
+      vote: 天然ボケ美
+      reason: '素の味が強い。計算されてない強みがある。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: 天然ボケ美
+    fields:
+      vote: ブラック山田
+      reason: 'ん〜、なんか大人っぽくて好き！'
+
+code_phase_events:
+  - round: 1
+    phase_index: 3
+    phase_type: score_calc
+    summary: 'Votes — ブラック山田: 4, 天然ボケ美: 1'
+    payload:
+      kind: voteResults
+      votes:
+        ツッコミ太郎: ブラック山田
+        シュール子: ブラック山田
+        あるある先生: ブラック山田
+        ブラック山田: 天然ボケ美
+        天然ボケ美: ブラック山田
+      tallies:
+        ブラック山田: 4
+        天然ボケ美: 1
+  - round: 1
+    phase_index: 3
+    phase_type: score_calc
+    summary: 'Scores — ブラック山田: 4, 天然ボケ美: 1, ツッコミ太郎: 0, シュール子: 0, あるある先生: 0'
+    payload:
+      kind: scoreUpdate
+      scores:
+        ブラック山田: 4
+        天然ボケ美: 1
+        ツッコミ太郎: 0
+        シュール子: 0
+        あるある先生: 0
