@@ -123,7 +123,7 @@ private struct RootView: View {
           }
 
       case .needsModelDownload:
-        ModelDownloadView(modelManager: modelManager)
+        DemoReplayHostView(modelManager: modelManager)
           .onChange(of: modelManager.state) { _, newState in
             if case .ready(let modelPath) = newState {
               Task { await finalizeInit(modelPath: modelPath) }
