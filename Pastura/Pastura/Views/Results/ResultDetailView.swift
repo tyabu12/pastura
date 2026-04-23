@@ -99,7 +99,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
           showAllThoughts.toggle()
         } label: {
           Image(systemName: showAllThoughts ? "text.bubble.fill" : "text.bubble")
-            .foregroundStyle(showAllThoughts ? .purple : .secondary)
+            .foregroundStyle(showAllThoughts ? Color.moss : Color.inkSecondary)
         }
       }
     }
@@ -165,8 +165,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     if (item.phasePath?.count ?? 0) > 1 {
       VStack(alignment: .leading, spacing: 2) {
         Text("↳ sub-phase")
-          .font(.caption2)
-          .foregroundStyle(.secondary)
+          .textStyle(Typography.tagPhase)
+          .foregroundStyle(Color.muted)
           .padding(.leading, 32)
         content()
           .padding(.leading, 16)
@@ -178,11 +178,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
 
   private func roundSeparator(_ round: Int) -> some View {
     HStack {
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+      Rectangle().fill(Color.rule).frame(height: 1)
       Text("Round \(round)")
-        .font(.caption.bold())
-        .foregroundStyle(.secondary)
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+        .textStyle(Typography.tagPhase)
+        .foregroundStyle(Color.inkSecondary)
+      Rectangle().fill(Color.rule).frame(height: 1)
     }
     .padding(.horizontal)
     .padding(.vertical, 4)
@@ -205,11 +205,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       // by legacy data.
       HStack(spacing: 4) {
         Text(turn.phaseType)
-          .font(.caption.monospaced())
-          .foregroundStyle(.orange)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.inkSecondary)
         Text("Round \(turn.roundNumber)")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.inkSecondary)
       }
       .padding(.horizontal)
     }
