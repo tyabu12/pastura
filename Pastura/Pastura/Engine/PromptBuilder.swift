@@ -132,7 +132,7 @@ nonisolated struct PromptBuilder: Sendable {
 
     sections.append(rules)
 
-    if let formatSection = formatOutputSchema(phase.outputSchema) {
+    if let formatSection = formatOutputSchema(OutputSchema.from(phase: phase)) {
       sections.append(formatSection)
     }
 
@@ -145,16 +145,21 @@ nonisolated struct PromptBuilder: Sendable {
   /// because 2B-class models tend to parrot demonstrated content
   /// verbatim across all agents. Angle-bracketed Japanese is
   /// unambiguously meta-syntax.
-  private func formatOutputSchema(_ schema: [String: String]?) -> String? {
+  ///
+  /// Consumes ``OutputSchema/fields`` order (primary-first) so the
+  /// prompt example aligns with the GBNF grammar the LLM backend
+  /// receives — single source of truth, see #194 PR#b. Alphabetical
+  /// ordering would invert `inner_thought` before `statement` and
+  /// break ``PartialOutputExtractor`` streaming UX.
+  private func formatOutputSchema(_ schema: OutputSchema?) -> String? {
     guard let schema else { return nil }
-    let sortedKeys = schema.keys.sorted()
     let spec =
-      sortedKeys
-      .map { key in "\"\(key)\": \"\(schema[key] ?? "")\"" }
+      schema.fields
+      .map { field in "\"\(field.name)\": \"string\"" }
       .joined(separator: ", ")
     let example =
-      sortedKeys
-      .map { key in "\"\(key)\": \"<ここに\(key)>\"" }
+      schema.fields
+      .map { field in "\"\(field.name)\": \"<ここに\(field.name)>\"" }
       .joined(separator: ", ")
     return """
       ## 出力フォーマット（JSON）
