@@ -7,37 +7,38 @@ extension SimulationView {
   func eliminationEntry(agent: String, voteCount: Int) -> some View {
     HStack(spacing: 4) {
       Image(systemName: "xmark.circle.fill")
-        .foregroundStyle(.red)
+        .foregroundStyle(Color.inkSecondary)
       Text("\(agent) eliminated (\(voteCount) votes)")
-        .font(.subheadline)
+        .textStyle(Typography.titlePhase)
     }
     .padding(.horizontal)
   }
 
   func assignmentEntry(agent: String, value: String) -> some View {
     Text("\(agent) assigned: \(value)")
-      .font(.caption)
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
       .padding(.horizontal)
   }
 
   func summaryEntry(text: String) -> some View {
     Text(text)
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.bodyBubble)
+      .foregroundStyle(Color.inkSecondary)
       .padding(.horizontal)
   }
 
   func voteResultsEntry(tallies: [String: Int]) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       Text("Vote Results")
-        .font(.caption.bold())
+        .textStyle(Typography.tagPhase)
+        .foregroundStyle(Color.inkSecondary)
       ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
         Text("  \(name): \(count) votes")
-          .font(.caption)
+          .textStyle(Typography.metaValue)
       }
     }
-    .foregroundStyle(.secondary)
+    .foregroundStyle(Color.muted)
     .padding(.horizontal)
   }
 
@@ -47,20 +48,20 @@ extension SimulationView {
     HStack {
       Text("\(agent1)(\(act1))")
       Text("vs")
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.muted)
       Text("\(agent2)(\(act2))")
     }
-    .font(.subheadline)
+    .textStyle(Typography.titlePhase)
     .padding(.horizontal)
   }
 
   func roundSeparator(_ text: String) -> some View {
     HStack {
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+      Rectangle().fill(Color.rule).frame(height: 1)
       Text(text)
-        .font(.caption.bold())
-        .foregroundStyle(.secondary)
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+        .textStyle(Typography.tagPhase)
+        .foregroundStyle(Color.inkSecondary)
+      Rectangle().fill(Color.rule).frame(height: 1)
     }
     .padding(.horizontal)
     .padding(.vertical, 4)
@@ -70,10 +71,11 @@ extension SimulationView {
     HStack(spacing: 8) {
       ForEach(scores.sorted(by: { $0.value > $1.value }).prefix(5), id: \.key) { name, score in
         Text("\(name):\(score)")
-          .font(.caption.monospacedDigit())
+          .textStyle(Typography.metaValue)
+          .monospacedDigit()
       }
     }
-    .foregroundStyle(.secondary)
+    .foregroundStyle(Color.muted)
     .padding(.horizontal)
   }
 }
