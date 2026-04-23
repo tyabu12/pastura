@@ -152,7 +152,7 @@ nonisolated struct ScenarioLoader: Sendable {
       try mapPhase(raw, index: index)
     }
 
-    let extraData = collectExtraData(from: dict)
+    let extraData = try collectExtraData(from: dict)
 
     return Scenario(
       id: id, name: name, description: description,
@@ -161,13 +161,15 @@ nonisolated struct ScenarioLoader: Sendable {
     )
   }
 
-  /// Collects non-standard top-level keys as extra data.
-  private func collectExtraData(from dict: [String: Any]) -> [String: AnyCodableValue] {
+  /// Collects non-standard top-level keys as extra data. Throws on unsupported
+  /// shapes rather than silently dropping them — previously, a typo like
+  /// `count: 42` (auto-typed Int) disappeared from the returned map.
+  private func collectExtraData(
+    from dict: [String: Any]
+  ) throws -> [String: AnyCodableValue] {
     var extraData: [String: AnyCodableValue] = [:]
     for (key, value) in dict where !Self.standardKeys.contains(key) {
-      if let converted = convertToAnyCodableValue(value) {
-        extraData[key] = converted
-      }
+      extraData[key] = try convertToAnyCodableValue(value, key: key)
     }
     return extraData
   }
@@ -329,32 +331,54 @@ nonisolated struct ScenarioLoader: Sendable {
     }
   }
 
-  /// Converts a raw YAML value to ``AnyCodableValue``.
-  private func convertToAnyCodableValue(_ value: Any) -> AnyCodableValue? {
+  /// Converts a raw YAML value to ``AnyCodableValue``, throwing on unsupported
+  /// shapes rather than silently dropping the field or coercing to a surprising
+  /// string. `AnyCodableValue` is String-leaf today; extending it to carry
+  /// Int/Bool/Double is deferred to a future issue. Users wanting a numeric
+  /// scalar at the top level should quote it (`count: "42"`).
+  private static let supportedExtraDataShapes =
+    "String, [String], [String: String], or [[String: String]]"
+
+  private func convertToAnyCodableValue(
+    _ value: Any, key: String
+  ) throws -> AnyCodableValue {
     if let str = value as? String {
       return .string(str)
     }
     if let arr = value as? [Any] {
-      // Try array of dictionaries first
       if let dictArr = arr as? [[String: String]] {
         return .arrayOfDictionaries(dictArr)
       }
-      // Try array of [String: Any] and convert values to String
-      if let dictAnyArr = arr as? [[String: Any]] {
-        let converted = dictAnyArr.map { dict in
-          dict.mapValues { "\($0)" } as [String: String]
-        }
-        return .arrayOfDictionaries(converted)
+      // Array of dicts where any value isn't a String — previously stringified
+      // silently, which hid typos like `majority: 1`.
+      if arr.allSatisfy({ $0 is [String: Any] }) {
+        throw SimulationError.scenarioValidationFailed(
+          "Top-level field '\(key)': array-of-dict values must all be String. "
+            + "Quote non-string values (e.g. `majority: \"1\"`)."
+        )
       }
-      // Try string array
-      let strings = arr.compactMap { $0 as? String }
-      if strings.count == arr.count {
-        return .array(strings)
+      if arr.allSatisfy({ $0 is String }) {
+        // Unreachable when the pure-String cast above succeeded; kept for
+        // clarity against future changes to Swift's Array<Any> bridging.
+        return .array(arr.compactMap { $0 as? String })
       }
+      throw SimulationError.scenarioValidationFailed(
+        "Top-level field '\(key)': mixed-type arrays are not supported. "
+          + "Use a pure [String] or [[String: String]]."
+      )
     }
     if let dict = value as? [String: String] {
       return .dictionary(dict)
     }
-    return nil
+    if value is [String: Any] {
+      throw SimulationError.scenarioValidationFailed(
+        "Top-level field '\(key)': dictionary values must all be String. "
+          + "Quote non-string values."
+      )
+    }
+    throw SimulationError.scenarioValidationFailed(
+      "Top-level field '\(key)' has unsupported type \(type(of: value)). "
+        + "Supported shapes: \(Self.supportedExtraDataShapes)."
+    )
   }
 }

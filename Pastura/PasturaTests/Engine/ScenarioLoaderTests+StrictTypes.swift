@@ -244,6 +244,135 @@ extension ScenarioLoaderTests {
     }
   }
 
+  // MARK: - convertToAnyCodableValue strict (#130 item 4)
+
+  /// Top-level scalar extraData (`count: 42`) previously silently disappeared —
+  /// `convertToAnyCodableValue` returned nil and `collectExtraData` dropped it.
+  /// Strict loader throws naming the offending field and listing supported shapes.
+  @Test func throwsOnScalarTopLevelExtraData() throws {
+    let yaml = """
+      id: t
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      count: 42
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'count'"))
+    // Error message should hint at the supported shapes so users know how to fix.
+    #expect(msg.contains("String") || msg.contains("string"))
+  }
+
+  /// Quoting the scalar works — `count: "42"` parses as `.string("42")`.
+  @Test func acceptsQuotedScalarTopLevelExtraData() throws {
+    let yaml = """
+      id: t
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      count: "42"
+      """
+    let scenario = try loader.load(yaml: yaml)
+    if case .string(let value) = scenario.extraData["count"] {
+      #expect(value == "42")
+    } else {
+      Issue.record("Expected .string for quoted scalar extraData")
+    }
+  }
+
+  /// Mixed-type top-level array previously silently dropped the whole field
+  /// (string-array conversion failed, `[[String: Any]]` conversion also failed,
+  /// so the function returned nil).
+  @Test func throwsOnMixedTypeExtraDataArray() throws {
+    let yaml = """
+      id: t
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      topics:
+        - a
+        - 42
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'topics'"))
+  }
+
+  /// `words: [{ majority: 1, minority: 2 }]` previously stringified the Int
+  /// values silently (`"1"`, `"2"`). Strict loader throws — word-wolf preset
+  /// authors intending a numeric tag would fail to notice the coercion.
+  @Test func throwsOnNonStringValueInArrayOfDicts() throws {
+    let yaml = """
+      id: t
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+        - name: B
+          description: D
+      phases:
+        - type: assign
+          source: words
+          target: random_one
+      words:
+        - majority: 1
+          minority: 2
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'words'"))
+  }
+
   /// `options` containing a non-String element previously silently dropped the
   /// whole array. Strict loader throws so the typo surfaces to the user.
   @Test func throwsOnMixedTypeOptions() throws {
