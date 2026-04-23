@@ -130,7 +130,7 @@ struct DemoReplayHostView: View {
     // it. The previous `.padding(.bottom, 160)` approach reserved scroll
     // content space but did NOT shrink the viewport, so the anchor still
     // slid the last message under the overlay.
-    .safeAreaInset(edge: .bottom, spacing: 0) {
+    .safeAreaInset(edge: .bottom, spacing: Spacing.l) {
       PromoCard(
         modelState: modelManager.state,
         replayHadStarted: replayHadStarted,
