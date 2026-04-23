@@ -40,7 +40,12 @@ struct LlamaCppIntegrationTests {
   // MARK: - Helpers
 
   private func makeService() -> LlamaCppService {
-    LlamaCppService(modelPath: LlamaCppConfig.modelPath)
+    LlamaCppService(
+      modelPath: LlamaCppConfig.modelPath,
+      stopSequence: "<|im_end|>",
+      modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
+      systemPromptSuffix: nil
+    )
   }
 
   // MARK: - Test 1: Load/unload lifecycle

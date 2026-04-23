@@ -285,6 +285,10 @@ private struct RootView: View {
         return
       }
     #endif
+    // Fail-fast on catalog collisions at the earliest possible point so
+    // duplicate ids / fileNames crash in dev rather than corrupting
+    // ModelManager.state lookups or filesystem paths silently at runtime.
+    ModelRegistry.validateNoCollisions()
     #if targetEnvironment(simulator)
       // On simulator, use OllamaService directly — no model download needed.
       do {
@@ -312,16 +316,22 @@ private struct RootView: View {
   }
 
   private func finalizeInit(modelPath: String) async {
+    // `activeDescriptor` is guaranteed non-nil by `ModelManager.resolveInitialActiveID`
+    // (it always returns a catalog id when the catalog is non-empty, and
+    // `ModelRegistry.validateNoCollisions()` in `initialize()` rejects an empty
+    // production catalog upstream). Surface a fatal error rather than silently
+    // falling back to hardcoded Gemma values so future regressions in the
+    // catalog wiring fail loudly.
+    guard let descriptor = modelManager.activeDescriptor else {
+      appState = .error("No active model descriptor resolvable from catalog")
+      return
+    }
     do {
-      // Build LlamaCppService with per-descriptor parameters. If the active
-      // descriptor cannot be resolved (only reachable with an empty catalog —
-      // not a production scenario), fall back to init defaults.
-      let descriptor = modelManager.activeDescriptor
       let llm = LlamaCppService(
         modelPath: modelPath,
-        stopSequence: descriptor?.stopSequence ?? "<|im_end|>",
-        modelIdentifier: descriptor?.displayName ?? "Gemma 4 E2B (Q4_K_M)",
-        systemPromptSuffix: descriptor?.systemPromptSuffix
+        stopSequence: descriptor.stopSequence,
+        modelIdentifier: descriptor.displayName,
+        systemPromptSuffix: descriptor.systemPromptSuffix
       )
       let deps = try AppDependencies.production(llmService: llm)
       // Register BG task handler early so iOS 26+ can launch us in background.

@@ -6,7 +6,7 @@
 // widening `private` fields (`state`, `downloader`, `fileManager`,
 // `downloadTasks`) to `internal`, which weakens the class's state
 // encapsulation for a mechanical line-count win. Prefer the focused,
-// self-contained file. See LlamaCppService.swift for the same pattern.
+// self-contained class. See LlamaCppService.swift for the same pattern.
 import CryptoKit
 import Foundation
 import os
@@ -256,11 +256,17 @@ final class ModelManager {
   }
 
   /// Cancels an in-progress download for `descriptor`. The partial file is
-  /// kept for resume. No-op if no download is in flight for this descriptor.
+  /// kept for resume. No-op if no download is in flight for this descriptor
+  /// — specifically, the state transition to `.notDownloaded` only fires
+  /// when the current state is `.downloading`; `.ready` / `.error` /
+  /// `.notDownloaded` are preserved so a stray call from the UI cannot
+  /// silently flip a completed model to `.notDownloaded`.
   func cancelDownload(descriptor: ModelDescriptor) {
     downloadTasks[descriptor.id]?.cancel()
     downloadTasks[descriptor.id] = nil
-    state[descriptor.id] = .notDownloaded
+    if case .downloading = state[descriptor.id] {
+      state[descriptor.id] = .notDownloaded
+    }
   }
 
   /// Removes both the completed model file and any partial download for
@@ -271,22 +277,6 @@ final class ModelManager {
     try? fileManager.removeItem(at: modelFileURL(for: descriptor))
     try? fileManager.removeItem(at: downloadFileURL(for: descriptor))
     state[descriptor.id] = .notDownloaded
-  }
-
-  // MARK: - Convenience (active-model wrappers)
-
-  /// Starts the download for the currently-active model. No-op if no active
-  /// descriptor is resolvable (empty catalog). Preserves the old single-model
-  /// `startDownload()` call-site ergonomics.
-  func startActiveDownload() {
-    guard let descriptor = activeDescriptor else { return }
-    startDownload(descriptor: descriptor)
-  }
-
-  /// Cancels the download for the currently-active model, if any.
-  func cancelActiveDownload() {
-    guard let descriptor = activeDescriptor else { return }
-    cancelDownload(descriptor: descriptor)
   }
 
   // MARK: - Private: State Computation
@@ -478,5 +468,27 @@ final class ModelManager {
 
     let digest = hasher.finalize()
     return digest.map { String(format: "%02x", $0) }.joined()
+  }
+}
+
+// MARK: - Convenience (active-model wrappers)
+//
+// Lives in an extension so the primary class body stays under swiftlint's
+// type_body_length cap. Callers can still invoke `modelManager.startActiveDownload()`
+// / `cancelActiveDownload()` as if they were declared on the class itself.
+
+extension ModelManager {
+  /// Starts the download for the currently-active model. No-op if no active
+  /// descriptor is resolvable (empty catalog). Preserves the old single-model
+  /// `startDownload()` call-site ergonomics.
+  func startActiveDownload() {
+    guard let descriptor = activeDescriptor else { return }
+    startDownload(descriptor: descriptor)
+  }
+
+  /// Cancels the download for the currently-active model, if any.
+  func cancelActiveDownload() {
+    guard let descriptor = activeDescriptor else { return }
+    cancelDownload(descriptor: descriptor)
   }
 }

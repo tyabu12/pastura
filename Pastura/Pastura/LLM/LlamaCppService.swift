@@ -85,20 +85,25 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   /// Creates a llama.cpp service.
   ///
+  /// All parameters are required — callers must provide explicit per-descriptor
+  /// values (via `ModelDescriptor.stopSequence` / `.displayName` /
+  /// `.systemPromptSuffix`). This avoids silently running Qwen with Gemma's
+  /// defaults if a call-site forgets to thread the descriptor through.
+  /// Test code can construct via a file-scope helper (see
+  /// `LlamaCppServiceTests`) to centralize the Gemma-shaped test values.
+  ///
   /// - Parameters:
   ///   - modelPath: Absolute path to the GGUF model file on disk (provided by
   ///     `ModelManager.modelFileURL(for:).path` at the call-site).
-  ///   - stopSequence: Per-model stop sentinel (e.g., `<|im_end|>`). Defaults
-  ///     to the Gemma/Qwen value to keep existing test call-sites ergonomic
-  ///     without changing their construction shape.
+  ///   - stopSequence: Per-model stop sentinel (e.g., `<|im_end|>`).
   ///   - modelIdentifier: Human-readable label for exports / replay metadata.
   ///   - systemPromptSuffix: Optional suffix appended to the system prompt
   ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
   public init(
     modelPath: String,
-    stopSequence: String = "<|im_end|>",
-    modelIdentifier: String = "Gemma 4 E2B (Q4_K_M)",
-    systemPromptSuffix: String? = nil
+    stopSequence: String,
+    modelIdentifier: String,
+    systemPromptSuffix: String?
   ) {
     self.modelPath = modelPath
     self.stopSequence = stopSequence
@@ -395,7 +400,7 @@ extension LlamaCppService {
 
       if let range = outputText.range(of: stopSequence) {
         outputText = String(outputText[..<range.lowerBound])
-        logger.debug("<|im_end|> stop sequence detected — ending generation early")
+        logger.debug("\(self.stopSequence) stop sequence detected — ending generation early")
         break
       }
 
@@ -555,7 +560,7 @@ extension LlamaCppService {
           through: beforeStop.count, continuation: continuation)
         emittedCharCount = beforeStop.count
         decodedText = beforeStop
-        logger.debug("<|im_end|> stop sequence detected — ending stream early")
+        logger.debug("\(self.stopSequence) stop sequence detected — ending stream early")
         break
       }
 
