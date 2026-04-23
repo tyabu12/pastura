@@ -163,5 +163,11 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   private static let sharedStringProduction =
     #"string ::= "\"" ( [^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )* "\"""#
 
-  private static let sharedWhitespaceProduction = #"ws ::= [ \t\n]*"#
+  // Recursive form matches llama.cpp's official `grammars/json.gbnf`
+  // verbatim. The Kleene-star form `ws ::= [ \t\n]*` is valid per the
+  // GBNF spec but reportedly triggered intermittent
+  // `llama_sampler_init_grammar` NULL returns in TestFlight (#194 PR#b);
+  // switching to the upstream-proven recursive form is a conservative
+  // hedge.
+  private static let sharedWhitespaceProduction = #"ws ::= ([ \t\n] ws)?"#
 }

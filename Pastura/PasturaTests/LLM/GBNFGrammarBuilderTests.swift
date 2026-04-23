@@ -26,13 +26,15 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar.contains("[0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]"))
   }
 
-  @Test("ws production allows space / tab / newline")
+  @Test("ws production allows space / tab / newline (recursive form)")
   func whitespaceProductionIsPermissive() throws {
     let schema = OutputSchema(fields: [
       .init(name: "statement", kind: .string)
     ])
     let grammar = try builder.build(from: schema)
-    #expect(grammar.contains(#"ws ::= [ \t\n]*"#))
+    // Matches llama.cpp's official json.gbnf recursive form — see the
+    // in-code comment on `sharedWhitespaceProduction` for the history.
+    #expect(grammar.contains(#"ws ::= ([ \t\n] ws)?"#))
   }
 
   // MARK: - Field shapes
@@ -259,7 +261,7 @@ struct GBNFGrammarBuilderTests {
 
   private static let sharedTail = """
     string ::= "\\"" ( [^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )* "\\""
-    ws ::= [ \\t\\n]*
+    ws ::= ([ \\t\\n] ws)?
     """
 
   private static let goldenChooseActionBetray = """

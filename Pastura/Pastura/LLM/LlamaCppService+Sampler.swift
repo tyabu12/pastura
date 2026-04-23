@@ -1,5 +1,6 @@
 import Foundation
 import LlamaSwift
+import os
 
 // MARK: - Sampler
 
@@ -78,6 +79,18 @@ extension LlamaCppService {
         })
       else {
         llama_sampler_free(chain)
+        // Log the FULL grammar at error level so Console.app captures it
+        // verbatim — the `invalidGrammar` error's description field is
+        // rendered in iOS alerts where backslashes / quotes are mangled.
+        // Filter:  subsystem:com.pastura category:LlamaCppService
+        //          message contains "GBNF grammar parse failed"
+        logger.error(
+          """
+          GBNF grammar parse failed — llama_sampler_init_grammar returned NULL.
+          <<<BEGIN GBNF>>>
+          \(grammarString, privacy: .public)
+          <<<END GBNF>>>
+          """)
         let snippet = grammarString.prefix(200)
         throw LLMError.invalidGrammar(
           description: "GBNF grammar parse failed: \(snippet)")
