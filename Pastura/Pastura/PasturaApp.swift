@@ -154,6 +154,10 @@ private struct RootView: View {
           .environment(dependencies)
           .environment(router)
           .environment(gate)
+          // `ModelManager` is exposed so Settings → Models can observe
+          // state and drive switch / download / delete without threading
+          // it through every intermediate view.
+          .environment(modelManager)
           .environment(\.lastDeepLinkedScenarioId, lastDeepLinkedScenarioId)
 
       case .error(let message):
