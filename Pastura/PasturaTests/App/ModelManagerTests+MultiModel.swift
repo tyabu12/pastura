@@ -319,6 +319,98 @@ extension ModelManagerTests {
     }
   }
 
+  // MARK: - shouldShowInitialModelPicker — fresh-install gate
+  //
+  // Pins the three-condition contract so a future refactor can't silently
+  // flip legacy Gemma users into a picker on upgrade, or show a picker
+  // to unsupported-device users who would just bounce off the unsupported UI.
+
+  @Test("fresh install on supported multi-model device → picker")
+  func shouldShowInitialModelPicker_freshInstall_true() {
+    let gemma = makeTestDescriptor(id: "gemma", fileName: "gemma.gguf")
+    let qwen = makeTestDescriptor(id: "qwen", fileName: "qwen.gguf")
+    let defaults = Self.isolatedUserDefaults()  // empty — no persisted active
+    let sut = makeSUT(
+      physicalMemory: 8 * 1024 * 1024 * 1024,
+      catalog: [gemma, qwen],
+      userDefaults: defaults)
+    sut.checkModelStatus()
+
+    #expect(sut.state["gemma"] == .notDownloaded)
+    #expect(sut.state["qwen"] == .notDownloaded)
+    #expect(sut.shouldShowInitialModelPicker == true)
+  }
+
+  @Test("legacy Gemma user (one file on disk) bypasses picker")
+  func shouldShowInitialModelPicker_legacyGemma_false() throws {
+    let gemma = makeTestDescriptor(id: "gemma", fileName: "gemma.gguf")
+    let qwen = makeTestDescriptor(id: "qwen", fileName: "qwen.gguf")
+    let defaults = Self.isolatedUserDefaults()  // empty — classic TestFlight upgrade
+    let sut = makeSUT(
+      physicalMemory: 8 * 1024 * 1024 * 1024,
+      catalog: [gemma, qwen],
+      userDefaults: defaults)
+    let gemmaURL = sut.modelFileURL(for: gemma)
+    try FileManager.default.createDirectory(
+      at: gemmaURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: gemmaURL.path, contents: Data("existing".utf8))
+    defer { try? FileManager.default.removeItem(at: gemmaURL) }
+    sut.checkModelStatus()
+
+    guard case .ready = sut.state["gemma"] else {
+      Issue.record("Setup failed: expected .ready for legacy Gemma")
+      return
+    }
+    #expect(sut.shouldShowInitialModelPicker == false)
+  }
+
+  @Test("fresh install on unsupported device → falls through to .needsModelDownload flow")
+  func shouldShowInitialModelPicker_unsupportedDevice_false() {
+    let gemma = makeTestDescriptor(id: "gemma", fileName: "gemma.gguf")
+    let qwen = makeTestDescriptor(id: "qwen", fileName: "qwen.gguf")
+    let defaults = Self.isolatedUserDefaults()
+    let sut = makeSUT(
+      physicalMemory: 5_500_000_000,  // below shared 6.5 GB floor
+      catalog: [gemma, qwen],
+      userDefaults: defaults)
+    sut.checkModelStatus()
+
+    #expect(sut.state["gemma"] == .unsupportedDevice)
+    #expect(sut.state["qwen"] == .unsupportedDevice)
+    #expect(
+      sut.shouldShowInitialModelPicker == false,
+      "unsupported device must not see picker — existing needsModelDownload UI handles it")
+  }
+
+  @Test("returning user with persisted id bypasses picker even on fresh install")
+  func shouldShowInitialModelPicker_persistedID_false() {
+    let gemma = makeTestDescriptor(id: "gemma", fileName: "gemma.gguf")
+    let qwen = makeTestDescriptor(id: "qwen", fileName: "qwen.gguf")
+    let defaults = Self.isolatedUserDefaults()
+    defaults.set("gemma", forKey: ModelManager.activeModelIDKey)
+    let sut = makeSUT(
+      physicalMemory: 8 * 1024 * 1024 * 1024,
+      catalog: [gemma, qwen],
+      userDefaults: defaults)
+    sut.checkModelStatus()
+
+    #expect(sut.hadPersistedActiveIDAtInit == true)
+    #expect(sut.shouldShowInitialModelPicker == false)
+  }
+
+  @Test("single-model catalog never shows picker")
+  func shouldShowInitialModelPicker_singleModelCatalog_false() {
+    let only = makeTestDescriptor(id: "only", fileName: "only.gguf")
+    let defaults = Self.isolatedUserDefaults()
+    let sut = makeSUT(
+      physicalMemory: 8 * 1024 * 1024 * 1024,
+      catalog: [only],
+      userDefaults: defaults)
+    sut.checkModelStatus()
+
+    #expect(sut.shouldShowInitialModelPicker == false)
+  }
+
   // MARK: - cancelDownload(descriptor:) — idempotency contract
   //
   // The docstring pins the "non-`.downloading` states are preserved" invariant;

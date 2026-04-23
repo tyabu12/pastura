@@ -101,6 +101,14 @@ final class ModelManager {
   /// exists or the persisted id is not in the current catalog.
   private(set) var activeModelID: ModelID
 
+  /// `true` iff UserDefaults had a value for `activeModelIDKey` when this
+  /// instance was constructed — signals a returning user, even if the
+  /// persisted id is stale (no longer in the catalog). `PasturaApp.initialize`
+  /// uses this to decide whether first-launch should route through the
+  /// model picker: returning users always skip the picker, even when
+  /// their old model was removed from the catalog.
+  let hadPersistedActiveIDAtInit: Bool
+
   // MARK: - Dependencies
 
   private let downloader: any ModelDownloader
@@ -143,6 +151,28 @@ final class ModelManager {
 
   // MARK: - Convenience (active model)
 
+  /// `true` iff `PasturaApp.initialize` should route first-launch through the
+  /// model picker (`.needsModelSelection`) instead of the default
+  /// `.needsModelDownload` path.
+  ///
+  /// Holds iff all three conditions are met:
+  /// 1. No persisted active id — a returning user with a stale id is
+  ///    preserved via the `hadPersistedActiveIDAtInit` flag, not this path.
+  /// 2. Catalog offers a choice — a single-model catalog has nothing to
+  ///    pick from, so the picker would be dead weight.
+  /// 3. Every descriptor resolved to `.notDownloaded` — legacy Gemma
+  ///    users (one file on disk, auto-recognised as `.ready`) bypass the
+  ///    picker, and unsupported-device users (state `.unsupportedDevice`)
+  ///    fall through to the existing `.needsModelDownload` unsupported UI.
+  ///
+  /// Must be called *after* `checkModelStatus()` — before that, every
+  /// descriptor is still `.checking` and this would spuriously return false.
+  var shouldShowInitialModelPicker: Bool {
+    guard !hadPersistedActiveIDAtInit else { return false }
+    guard catalog.count > 1 else { return false }
+    return catalog.allSatisfy { state[$0.id] == .notDownloaded }
+  }
+
   /// The `ModelDescriptor` matching `activeModelID`, or `nil` if the catalog is empty.
   /// `nil` is only expected during test setup with an empty catalog — production
   /// `ModelRegistry.catalog` always contains at least one entry.
@@ -179,8 +209,10 @@ final class ModelManager {
     self.physicalMemory = physicalMemory
     self.userDefaults = userDefaults
     self.catalog = catalog
+    let persisted = userDefaults.string(forKey: Self.activeModelIDKey)
+    self.hadPersistedActiveIDAtInit = persisted != nil
     self.activeModelID = Self.resolveInitialActiveID(
-      persistedID: userDefaults.string(forKey: Self.activeModelIDKey),
+      persistedID: persisted,
       catalog: catalog
     )
 

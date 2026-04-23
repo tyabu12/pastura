@@ -22,6 +22,11 @@ struct PasturaApp: App {
 private enum AppState {
   /// App is initializing (checking model, setting up database).
   case initializing
+  /// First-launch on a multi-model device: no active id persisted yet and
+  /// every catalog descriptor resolves to `.notDownloaded`. The UI shows
+  /// the model picker; tapping a row calls `setActiveModel` and
+  /// transitions to `.needsModelDownload`.
+  case needsModelSelection
   /// Model needs to be downloaded before the app can run.
   case needsModelDownload
   /// App is ready — dependencies are initialized.
@@ -35,6 +40,7 @@ private enum AppState {
 /// meaningfully Equatable and whose identity we don't want to compare on.
 private enum AppStateKind: Equatable {
   case initializing
+  case needsModelSelection
   case needsModelDownload
   case ready
   case error
@@ -44,6 +50,7 @@ private enum AppStateKind: Equatable {
 /// the toast message shown while the URL is pending.
 private enum DeepLinkBlockReason: Equatable {
   case initializing
+  case modelSelection
   case modelDownload
   case error
   case sheetPresented
@@ -53,6 +60,8 @@ private enum DeepLinkBlockReason: Equatable {
     switch self {
     case .initializing:
       return String(localized: "Opening shared scenario after setup…")
+    case .modelSelection:
+      return String(localized: "Will open after you choose a model")
     case .modelDownload:
       return String(localized: "Will open once the model finishes downloading")
     case .error:
@@ -122,6 +131,14 @@ private struct RootView: View {
             await initialize()
           }
 
+      case .needsModelSelection:
+        // Placeholder: ModelPickerView lands in the next commit.
+        // Picker tap calls `modelManager.setActiveModel(_:)` and then
+        // sets `appState = .needsModelDownload` to kick off the download
+        // of the chosen model. No-op here so the enum is exhaustive and
+        // the surrounding state machine compiles between commits.
+        ProgressView("Choose a model")
+
       case .needsModelDownload:
         DemoReplayHostView(modelManager: modelManager)
           .onChange(of: modelManager.activeState) { _, newState in
@@ -188,6 +205,7 @@ private struct RootView: View {
   private var appStateKind: AppStateKind {
     switch appState {
     case .initializing: return .initializing
+    case .needsModelSelection: return .needsModelSelection
     case .needsModelDownload: return .needsModelDownload
     case .ready: return .ready
     case .error: return .error
@@ -197,6 +215,7 @@ private struct RootView: View {
   private var deepLinkBlockReason: DeepLinkBlockReason? {
     switch appState {
     case .initializing: return .initializing
+    case .needsModelSelection: return .modelSelection
     case .needsModelDownload: return .modelDownload
     case .error: return .error
     case .ready:
@@ -303,6 +322,14 @@ private struct RootView: View {
       }
     #else
       modelManager.checkModelStatus()
+      // Fresh-install multi-model gate — returning users (persisted id)
+      // or single-model catalogs bypass the picker. See
+      // `ModelManager.shouldShowInitialModelPicker` for the precise
+      // condition.
+      if modelManager.shouldShowInitialModelPicker {
+        appState = .needsModelSelection
+        return
+      }
       switch modelManager.activeState {
       case .ready(let modelPath):
         await finalizeInit(modelPath: modelPath)
