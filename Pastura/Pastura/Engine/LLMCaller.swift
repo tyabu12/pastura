@@ -7,7 +7,7 @@ import os
 /// Emits `inferenceStarted` / `inferenceCompleted` events plus per-chunk
 /// `agentOutputStream` snapshots for UI progress feedback.
 ///
-/// Consumes the streaming ``LLMService/generateStream(system:user:)`` path.
+/// Consumes the streaming ``LLMService/generateStream(system:user:schema:)`` path.
 /// Backends that don't stream (MockLLMService without configured chunks,
 /// OllamaService) yield a single terminal chunk via the protocol's default
 /// wrap — this caller handles both shapes uniformly.

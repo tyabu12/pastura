@@ -168,6 +168,43 @@ struct GBNFGrammarBuilderTests {
     }
   }
 
+  @Test("enumeration options with GBNF-hostile chars throw")
+  func enumerationOptionWithHostileCharsThrows() {
+    // Share Board scenarios can inject arbitrary option strings; the
+    // builder validates upfront so failures surface as a clear
+    // BuilderError rather than a NULL-return from llama.cpp's grammar
+    // parser (which would hit `LLMError.invalidGrammar` at sampler init).
+    let badOptions: [String] = [
+      "has\"quote",  // raw `"` would break the GBNF literal
+      "has\\backslash",  // `\` would need escaping
+      "has\nnewline",  // control byte
+      "has\ttab"  // control byte
+    ]
+    for option in badOptions {
+      let schema = OutputSchema(fields: [
+        .init(name: "action", kind: .enumeration([option]))
+      ])
+      #expect(
+        throws: GBNFGrammarBuilder.BuilderError.self,
+        "option \(option.debugDescription) should be rejected"
+      ) {
+        try builder.build(from: schema)
+      }
+    }
+  }
+
+  @Test("enumeration options with CJK / unicode accepted")
+  func enumerationOptionWithUnicodeAccepted() throws {
+    // Non-ASCII printable characters are fine — GBNF's `[^"\\]` byte
+    // class accepts them transparently and they don't collide with
+    // literal delimiters.
+    let schema = OutputSchema(fields: [
+      .init(name: "action", kind: .enumeration(["協力", "裏切り"]))
+    ])
+    let grammar = try builder.build(from: schema)
+    #expect(grammar.contains(#"action_value ::= "\"協力\"" | "\"裏切り\"""#))
+  }
+
   // MARK: - Golden files (each preset LLM phase)
 
   // CI-runnable: these byte-for-byte comparisons catch silent drift

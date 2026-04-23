@@ -72,9 +72,8 @@ extension LlamaCppService {
       // should prevent this reaching production, but if it does we
       // want fail-fast, NOT the 3x-retry charade `.generationFailed`
       // would trigger via LLMCaller (Critic Axis 11).
-      let grammarStringPtr = grammarString
       guard
-        let grammarSampler = grammarStringPtr.withCString({ cStr in
+        let grammarSampler = grammarString.withCString({ cStr in
           llama_sampler_init_grammar(vocab, cStr, "root")
         })
       else {

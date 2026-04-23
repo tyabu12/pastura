@@ -38,6 +38,12 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     /// `[a-zA-Z_][a-zA-Z0-9_]*`. Pastura's presets are snake_case,
     /// which passes.
     case invalidFieldName(String)
+    /// An enumeration option contains a character that would need
+    /// escaping in the GBNF literal form (`"`, `\`, or a control
+    /// byte). Share Board scenarios can inject arbitrary `options`
+    /// strings, so we validate up-front and throw a clear error
+    /// rather than emit malformed grammar the sampler would reject.
+    case invalidEnumerationOption(field: String, option: String)
   }
 
   /// Build the complete grammar for ``OutputSchema``.
@@ -114,8 +120,28 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
         throw BuilderError.duplicateFieldName(field.name)
       }
       seen.insert(field.name)
-      if case .enumeration(let options) = field.kind, options.isEmpty {
-        throw BuilderError.emptyEnumeration(field: field.name)
+      if case .enumeration(let options) = field.kind {
+        guard !options.isEmpty else {
+          throw BuilderError.emptyEnumeration(field: field.name)
+        }
+        for option in options {
+          try validateEnumerationOption(option, field: field.name)
+        }
+      }
+    }
+  }
+
+  private func validateEnumerationOption(_ option: String, field: String) throws {
+    // Reject characters that would need GBNF escaping in the `"\"opt\""`
+    // literal form. Pastura's YAML presets contain only identifier-like
+    // options (`cooperate`, `betray`), but Share Board scenarios can
+    // inject arbitrary strings — guard at builder time so the failure
+    // mode is a clear `BuilderError`, not a NULL-return from
+    // `llama_sampler_init_grammar` via `LLMError.invalidGrammar`.
+    for char in option {
+      if char == "\"" || char == "\\" || char.isNewline
+        || char.asciiValue.map({ $0 < 0x20 }) == true {
+        throw BuilderError.invalidEnumerationOption(field: field, option: option)
       }
     }
   }
