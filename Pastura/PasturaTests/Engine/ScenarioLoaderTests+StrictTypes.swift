@@ -1,7 +1,9 @@
+import Foundation
 import Testing
 
 @testable import Pastura
 
+// swiftlint:disable file_length
 // Extension split per `.claude/rules/testing.md` (file_length cap). A new
 // `@Suite` would race against the parent under parallel execution — extensions
 // stay on the same suite so `.serialized`/`.timeLimit` traits apply uniformly.
@@ -394,4 +396,35 @@ extension ScenarioLoaderTests {
     }
     #expect(msg.contains("'options'"))
   }
+
+  // MARK: - Shipped content safety net (#130 item 5)
+
+  /// Share Board gallery YAMLs live in `docs/gallery/` (served from GitHub raw
+  /// at runtime, not bundled). A loader refactor could break parsing without
+  /// either the preset-loader test or the app test suite noticing until a real
+  /// Share Board fetch. This pins the YAMLs to the strict loader's contract.
+  ///
+  /// Presets (`Pastura/Pastura/Resources/Presets/`) are already covered by
+  /// `PresetLoaderTests.presetYAMLsAreParseable`; preset→serialize→parse
+  /// round-trip is covered by `ScenarioSerializerTests.roundTripBokete` et al.
+  @Test func galleryYAMLsLoadUnderStrictLoader() throws {
+    let galleryDir = repoRoot().appendingPathComponent("docs/gallery")
+    for name in ["trolley_dilemma_v1", "detective_scene_v1", "asch_conformity_v1"] {
+      let url = galleryDir.appendingPathComponent("\(name).yaml")
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      #expect(!scenario.phases.isEmpty, "\(name): parsed but has no phases")
+    }
+  }
+}
+
+/// Resolves the repo root from this file's absolute source path. Test targets
+/// have host-filesystem access under iOS simulator, so `#filePath` works.
+/// Path walk: this file → Engine → PasturaTests → Pastura → repo root.
+private func repoRoot(file: StaticString = #filePath) -> URL {
+  URL(fileURLWithPath: "\(file)")
+    .deletingLastPathComponent()  // Engine/
+    .deletingLastPathComponent()  // PasturaTests/
+    .deletingLastPathComponent()  // Pastura/
+    .deletingLastPathComponent()  // repo root
 }

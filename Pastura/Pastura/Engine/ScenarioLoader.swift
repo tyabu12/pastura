@@ -5,7 +5,7 @@ import Yams
 ///
 /// Uses `Yams.load(yaml:)` → `[String: Any]` with manual mapping per ADR-001.
 /// Strips code fences from LLM-generated YAML before parsing.
-nonisolated struct ScenarioLoader: Sendable {
+nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_body_length
 
   /// Standard fields that are mapped to `Scenario` properties (not collected as extraData).
   private static let standardKeys: Set<String> = [
