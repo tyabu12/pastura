@@ -30,6 +30,12 @@ final class AppDependencies: @unchecked Sendable {
   /// Service that fetches the remote Share Board (gallery) index and YAMLs.
   let galleryService: any GalleryService
 
+  /// Process-wide counter tracking whether a simulation is in flight.
+  /// Observed by the Settings Models section to disable model switching
+  /// while inference is running. Entered / left exclusively from
+  /// `SimulationViewModel.run()`.
+  let simulationActivityRegistry: SimulationActivityRegistry
+
   #if DEBUG
     /// YAML pre-filled into the scenario editor when the Home screen's
     /// "New Scenario" menu is tapped under `--ui-test`. `nil` in all other
@@ -50,8 +56,10 @@ final class AppDependencies: @unchecked Sendable {
     llmService: (any LLMService)? = nil,
     backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager(),
     galleryService: (any GalleryService)? = nil,
+    simulationActivityRegistry: SimulationActivityRegistry = SimulationActivityRegistry(),
     uiTestEditorSeedYAML: String? = nil
   ) {
+    self.simulationActivityRegistry = simulationActivityRegistry
     self.databaseManager = databaseManager
     let writer = databaseManager.dbWriter
     self.scenarioRepository = GRDBScenarioRepository(dbWriter: writer)
