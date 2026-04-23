@@ -90,6 +90,15 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
       parts.append("ws")
     }
     parts.append(closeBrace)
+    // Trailing `ws` is load-bearing: without it, accepting `}` empties
+    // the grammar stack and llama.cpp throws
+    // `std::runtime_error("Unexpected empty grammar stack after accepting piece: \})`
+    // from `llama_grammar_accept_token` (observed on Gemma 4 E2B,
+    // token 12620). Optional `ws` keeps the stack alive (matching
+    // empty → grammar can terminate on EOS; matching `[ \t\n]` →
+    // trailing whitespace is accepted). llama.cpp's official
+    // `grammars/json.gbnf` uses the same pattern — `object ::= … "}" ws`.
+    parts.append("ws")
     return "root ::= \(parts.joined(separator: " "))"
   }
 
