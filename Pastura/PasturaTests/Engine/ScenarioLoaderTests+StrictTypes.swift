@@ -204,6 +204,46 @@ extension ScenarioLoaderTests {
     #expect(scenario.phases[0].excludeSelf == true)
   }
 
+  // MARK: - parseOutputSchema strict (#130 item 3)
+
+  /// `output: { count: 1 }` previously stringified `1` to `"1"` silently. The
+  /// schema is an LLM prompt hint — a non-String value is almost always a typo.
+  @Test func throwsOnNonStringOutputSchemaValue() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: speak_all
+            prompt: "Go"
+            output:
+              statement: string
+              count: 1
+        """)
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("output"))
+    #expect(msg.contains("'count'"))
+  }
+
+  /// `output: "string"` (scalar instead of dict) previously just skipped the
+  /// schema (no-op). Strict loader throws so users catch the mis-shape.
+  @Test func throwsOnNonDictOutputSchema() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: speak_all
+            prompt: "Go"
+            output: "string"
+        """)
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+  }
+
   /// `options` containing a non-String element previously silently dropped the
   /// whole array. Strict loader throws so the typo surfaces to the user.
   @Test func throwsOnMixedTypeOptions() throws {

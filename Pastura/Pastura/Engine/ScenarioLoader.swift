@@ -234,7 +234,7 @@ nonisolated struct ScenarioLoader: Sendable {
     let options: [String]? = try parseOptional(dict, key: "options", label: label)
 
     let target = try parseAssignTarget(dict["target"], label: label)
-    let outputSchema = parseOutputSchema(dict)
+    let outputSchema = try parseOutputSchema(dict, label: label)
     let pairing = try parsePairing(dict["pairing"], label: label)
     let logic = try parseLogic(dict["logic"], label: label)
 
@@ -287,11 +287,26 @@ nonisolated struct ScenarioLoader: Sendable {
     return phaseType
   }
 
-  private func parseOutputSchema(_ dict: [String: Any]) -> [String: String]? {
-    guard let output = dict["output"] as? [String: Any] else { return nil }
+  /// Parses the `output:` schema dict. Values must be Strings — the schema is
+  /// an LLM prompt hint, and a non-String value (e.g. `count: 1`) is a typo,
+  /// not a type-shorthand worth preserving. Previously stringified silently.
+  private func parseOutputSchema(
+    _ dict: [String: Any], label: String
+  ) throws -> [String: String]? {
+    guard let raw = dict["output"] else { return nil }
+    guard let output = raw as? [String: Any] else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): field 'output' must be a dictionary of String values, got \(type(of: raw))"
+      )
+    }
     var result: [String: String] = [:]
     for (key, value) in output {
-      result[key] = "\(value)"
+      guard let str = value as? String else {
+        throw SimulationError.scenarioValidationFailed(
+          "\(label): output schema value for '\(key)' must be String, got \(type(of: value))"
+        )
+      }
+      result[key] = str
     }
     return result
   }
