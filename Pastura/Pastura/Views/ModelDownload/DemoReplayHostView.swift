@@ -94,7 +94,11 @@ struct DemoReplayHostView: View {
 
       ScrollViewReader { proxy in
         ScrollView {
-          LazyVStack(alignment: .leading, spacing: 14) {
+          // `spacing` uses the ChatBubbleLayout.bubbleSpacing token so a
+          // future design-system tweak flows through both the demo screen
+          // and the live SimulationView in one place. Reference HTML
+          // `.stream { gap: 14px }`.
+          LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.agentOutputs) { entry in
               AgentOutputRow(
                 agent: entry.agent,
@@ -108,6 +112,9 @@ struct DemoReplayHostView: View {
               .transition(reduceMotion ? .identity : .opacity)
             }
           }
+          // Screen-level gutters (20pt horizontal / 8pt top) match the
+          // reference HTML `.stream { padding: 8px 20px 16px }`. Intentional
+          // literals — these are container-level, not per-bubble.
           .padding(.horizontal, 20)
           .padding(.top, 8)
           .animation(
