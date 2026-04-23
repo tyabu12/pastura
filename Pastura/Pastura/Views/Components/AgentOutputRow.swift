@@ -1,3 +1,13 @@
+// swiftlint:disable file_length
+// Intentionally long: the reveal-animation machinery
+// (`startAnimationIfNeeded`, `characterAt`, `snapToFull`,
+// `handleStreamTargetChange`, `handleShowAllThoughtsChange`) is all
+// `private` so it stays internal to the reveal state machine. Splitting
+// into a sibling extension file would force widening those to
+// `internal` access (extensions in a separate file cannot see
+// `private` members of the defining file), so the file stays in one
+// piece. Diagnostic logging already lives in
+// `AgentOutputRow+Diagnostic.swift`.
 import SwiftUI
 
 /// Displays a single agent's output with an optional inner thought and an

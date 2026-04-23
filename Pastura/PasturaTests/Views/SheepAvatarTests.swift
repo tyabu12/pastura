@@ -44,11 +44,11 @@ struct SheepAvatarTests {
     // Same input → same character, across invocations. Byte-sum fallback
     // must not pull from any non-deterministic source (e.g. Swift's
     // randomized String.hashValue).
-    let a = SheepAvatar.Character.forAgent("AgentZZZ")
-    let b = SheepAvatar.Character.forAgent("AgentZZZ")
-    let c = SheepAvatar.Character.forAgent("AgentZZZ")
-    #expect(a == b)
-    #expect(b == c)
+    let first = SheepAvatar.Character.forAgent("AgentZZZ")
+    let second = SheepAvatar.Character.forAgent("AgentZZZ")
+    let third = SheepAvatar.Character.forAgent("AgentZZZ")
+    #expect(first == second)
+    #expect(second == third)
   }
 
   // MARK: - Edge cases — fallback must never crash
