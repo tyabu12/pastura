@@ -173,7 +173,13 @@ struct PromoCard: View {
 
   private var bodyRow: some View {
     HStack(alignment: .top, spacing: 12) {
-      DogMark(size: 26)
+      DogMark(size: Self.dogSize)
+        // `DogMark`'s Canvas viewBox has ~5/26 of empty space above the
+        // ear tip, so a raw `.top` alignment places the visible dog
+        // below the text's first-line top. Shift the alignment anchor
+        // to the dog's visible top — the scale-aware inset lives on
+        // `DogMark` itself so this stays correct if `dogSize` changes.
+        .alignmentGuide(.top) { _ in DogMark.visibleTopInset(forSize: Self.dogSize) }
       Text(Self.slotCopy(currentSlot))
         .textStyle(Typography.bodyPromo)
         .foregroundStyle(Color.ink)
@@ -190,6 +196,10 @@ struct PromoCard: View {
       reduceMotion ? nil : .easeInOut(duration: 0.4),
       value: currentSlot)
   }
+
+  /// Point size of the dog mark in the promo body row. Spec §PromoCard
+  /// body structure (`demo-replay-ui.md` §PromoCard) pins this at 26 pt.
+  private static let dogSize: CGFloat = 26
 
   // MARK: - Decorative layers
 
