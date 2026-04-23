@@ -1,0 +1,130 @@
+# Demo replay for DL-time loop (spec §5.6, Issue #170).
+#
+# Origin: handcrafted by @tyabu12 for #170 (exporter-captured demos are
+# the long-term plan per spec §6, but a hand-audited first set unblocks
+# the feature; replace via the Phase 2 E1 exporter when real LLM
+# captures are available).
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# manually reviewed against Pastura/Resources/ContentBlocklist.txt on
+# 2026-04-23 by @tyabu12. Setting metadata.content_filter_applied: true
+# per spec §3.4 (audit attestation; filter pass is by-construction for
+# handcrafted content).
+
+schema_version: 1
+
+preset_ref:
+  id: word_wolf
+  version: '1.0'
+  yaml_sha256: 'b237edc385c0cfbb8815c2375a01b15f5c52ae348675212351a4b874ce1c1d82'
+
+metadata:
+  title: 'ワードウルフ — 少数派を見抜け'
+  description: '5人のうち1人だけ違うお題。観察と会話から少数派を当てる社会推理デモ。'
+  language: ja
+  recorded_at: 2026-04-23T00:00:00Z
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 10
+  estimated_duration_ms: 13500
+  captured_by: tyabu12
+
+turns:
+  - round: 1
+    phase_index: 1
+    phase_type: speak_each
+    agent: ユウキ
+    fields:
+      statement: 'そうですね、寒い時期によく食べる感じがあって、身体が温まる気がします。'
+      inner_thought: '自分だけ違うお題かもしれない。曖昧に話して様子を見よう。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_each
+    agent: サクラ
+    fields:
+      statement: 'この前それ食べたんだけど、すっごく甘くて止まらなかったー！'
+      inner_thought: '素直に感想を言って場を温める。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_each
+    agent: タクミ
+    fields:
+      statement: 'ちょっと気になるんだけど、皮の処理ってみんなどうしてる？'
+      inner_thought: '皮の扱いで少数派があぶり出せるかもしれない。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_each
+    agent: アオイ
+    fields:
+      statement: 'えー、なんか丸っこくて手に持ちやすいよね〜。あったかい感じがする。'
+      inner_thought: '深く考えずに素直に言っちゃえ。'
+  - round: 1
+    phase_index: 1
+    phase_type: speak_each
+    agent: レン
+    fields:
+      statement: 'まあ、色で連想しやすいよね。人それぞれ思い浮かべる色が違いそう。'
+      inner_thought: '曖昧にして他の反応を観察する。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: ユウキ
+    fields:
+      vote: タクミ
+      reason: '皮の話で探りを入れていた感じがあった。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: サクラ
+    fields:
+      vote: ユウキ
+      reason: '寒い時期って表現だけ妙に具体的で気になった。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: タクミ
+    fields:
+      vote: レン
+      reason: '発言が一番抽象的で、距離を置こうとしていた。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: アオイ
+    fields:
+      vote: ユウキ
+      reason: 'なんかドキドキしてる感じが伝わった〜。'
+  - round: 1
+    phase_index: 2
+    phase_type: vote
+    agent: レン
+    fields:
+      vote: ユウキ
+      reason: '冬っていう季節感が一番浮いていた。'
+
+code_phase_events:
+  - round: 1
+    phase_index: 3
+    phase_type: eliminate
+    summary: 'ユウキ が脱落（3票）'
+    payload:
+      kind: elimination
+      agent: ユウキ
+      vote_count: 3
+  - round: 1
+    phase_index: 4
+    phase_type: score_calc
+    summary: 'Scores — サクラ: 1, タクミ: 1, アオイ: 1, レン: 1, ユウキ: 0'
+    payload:
+      kind: scoreUpdate
+      scores:
+        アオイ: 1
+        サクラ: 1
+        タクミ: 1
+        レン: 1
+        ユウキ: 0
+  - round: 1
+    phase_index: 5
+    phase_type: summarize
+    summary: '🎯 ウルフ発見！ 最多得票の ユウキ が少数派でした。多数派の勝利です。'
+    payload:
+      kind: summary

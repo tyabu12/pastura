@@ -87,47 +87,50 @@ struct DemoReplayHostView: View {
   }
 
   private func chatStream(viewModel: ReplayViewModel) -> some View {
-    ZStack(alignment: .bottom) {
-      Color.screenBackground.ignoresSafeArea()
+    VStack(spacing: 0) {
+      PhaseHeader(
+        presetName: currentPresetName(viewModel: viewModel).uppercased(),
+        phaseLabel: currentPhaseLabel(viewModel: viewModel))
 
-      VStack(spacing: 0) {
-        PhaseHeader(
-          presetName: currentPresetName(viewModel: viewModel).uppercased(),
-          phaseLabel: currentPhaseLabel(viewModel: viewModel))
-
-        ScrollViewReader { proxy in
-          ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
-              ForEach(viewModel.agentOutputs) { entry in
-                AgentOutputRow(
-                  agent: entry.agent,
-                  output: entry.output,
-                  phaseType: entry.phaseType,
-                  showAllThoughts: true,
-                  isLatest: entry.id == viewModel.agentOutputs.last?.id,
-                  charsPerSecond: 60
-                )
-                .id(entry.id)
-                .transition(reduceMotion ? .identity : .opacity)
-              }
+      ScrollViewReader { proxy in
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 14) {
+            ForEach(viewModel.agentOutputs) { entry in
+              AgentOutputRow(
+                agent: entry.agent,
+                output: entry.output,
+                phaseType: entry.phaseType,
+                showAllThoughts: true,
+                isLatest: entry.id == viewModel.agentOutputs.last?.id,
+                charsPerSecond: 60
+              )
+              .id(entry.id)
+              .transition(reduceMotion ? .identity : .opacity)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            // Space for the PromoCard overlay (bottom: 22pt + card height).
-            .padding(.bottom, 160)
-            .animation(
-              reduceMotion ? nil : .easeOut(duration: 0.7),
-              value: viewModel.agentOutputs.count)
           }
-          .onChange(of: viewModel.agentOutputs.count) { _, _ in
-            guard let lastId = viewModel.agentOutputs.last?.id else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
-              proxy.scrollTo(lastId, anchor: .bottom)
-            }
+          .padding(.horizontal, 20)
+          .padding(.top, 8)
+          .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.7),
+            value: viewModel.agentOutputs.count)
+        }
+        .onChange(of: viewModel.agentOutputs.count) { _, _ in
+          guard let lastId = viewModel.agentOutputs.last?.id else { return }
+          withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+            proxy.scrollTo(lastId, anchor: .bottom)
           }
         }
       }
-
+    }
+    .background(Color.screenBackground.ignoresSafeArea())
+    // PromoCard lives in the bottom safe area instead of a ZStack overlay:
+    // that way the ScrollView's viewport shrinks to exclude the card's
+    // footprint, so `scrollTo(lastId, anchor: .bottom)` lands the newest
+    // message at the visible bottom — above the card, not hidden beneath
+    // it. The previous `.padding(.bottom, 160)` approach reserved scroll
+    // content space but did NOT shrink the viewport, so the anchor still
+    // slid the last message under the overlay.
+    .safeAreaInset(edge: .bottom, spacing: Spacing.l) {
       PromoCard(
         modelState: modelManager.activeState,
         replayHadStarted: replayHadStarted,

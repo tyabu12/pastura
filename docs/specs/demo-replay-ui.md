@@ -51,9 +51,10 @@ is load-bearing.
 | Frame 4 completion overlay | DL-complete signal (`ModelManager.progress ≥ 1.0`) | Fires once; auto-transitions per spec §2 decision 8 — no user tap required (spec §2 decision 6 excludes user-triggered transitions) |
 
 The replayed chat stream (bubbles, THINKING, voting) is **entirely
-independent of DL progress**: demos play through at 2× speed
-(spec §2 decision 5), loop to the next bundled demo at end-of-stream, and
-keep cycling until the DL-complete signal fires (spec §4.9).
+independent of DL progress**: demos play through at 1× speed
+(spec §2 decision 5 — revised from 2× during #170 QA), loop to the
+next bundled demo at end-of-stream, and keep cycling until the
+DL-complete signal fires (spec §4.9).
 
 ---
 

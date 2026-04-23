@@ -19,7 +19,7 @@
 
 Turn the model-download window into a product-demonstration window. Bundle
 2–3 (minimum 3 per §5) pre-recorded simulation logs as YAML. While the
-model downloads, play them back at fixed 2× speed through a dedicated
+model downloads, play them back at fixed 1× speed through a dedicated
 `ReplayViewModel` (NOT the production `SimulationViewModel`). Render with
 the existing `AgentOutputRow` components. Loop through the set until
 download completes, then transition automatically to the setup-complete
@@ -105,7 +105,7 @@ Each references where in the spec the detailed treatment lives.
 | 2 | Recording content model: `preset_ref` (id + version + `yaml_sha256`) + recorded turns + metadata; scenario definition is **referenced**, not inlined | §3 |
 | 3 | Filter timing: **filter-at-record** (curator-side) **AND filter-at-render** (ADR-005 §5.1 compliance, defense-in-depth) | §3, §4 |
 | 4 | Bundle location: `Pastura/Pastura/Resources/DemoReplays/*.yaml`, total ≤ 3 MB | §5 |
-| 5 | Playback speed: **fixed 2×**, no user controls (MVP) | §4 |
+| 5 | Playback speed: **fixed 1×**, no user controls (MVP). Originally 2×; revised during #170 manual QA (2× too fast to follow at agent-turn bubble density) | §4 |
 | 6 | Playback controls: **none** (no skip, no pause, no scrub) for MVP | §4 |
 | 7 | Loop behaviour: all presets → loop from first; no termination until DL complete | §4 |
 | 8 | DL-complete handling: **automatic animated transition** to setup-complete screen (not a CTA) | ADR-007 §3 |
@@ -454,14 +454,15 @@ public struct ReplayPlaybackConfig: Sendable {
   }
 
   public static let demoDefault = ReplayPlaybackConfig(
-    speedMultiplier: 2.0,
+    speedMultiplier: 1.0,
     loopBehaviour: .loop,
     onComplete: .awaitTransitionSignal)
 }
 ```
 
-The DL-time demo uses `demoDefault`. Future user-replay would use
-`.stopAfterLast` + `.stopPlayback` + a user-selectable speed.
+The DL-time demo uses `demoDefault` (1× per decision 5). Future
+user-replay would use `.stopAfterLast` + `.stopPlayback` + a
+user-selectable speed.
 
 ### 4.7 View integration — shared render components
 
@@ -652,8 +653,11 @@ Selection criteria for curator (not binding on any specific pick):
   of scroll.
 - Filter cleanliness — the recorded output passes `ContentFilter`
   without post-edit (if not, re-record).
-- Duration — at 2× playback, one demo should read in under a minute so
-  three demos fit comfortably in a short-to-medium DL window.
+- Duration — at 1× playback (decision 5), one demo should read in
+  under ~90 seconds so three demos fit comfortably in a short-to-medium
+  DL window. If a recording runs long at 1×, prefer trimming turns
+  over speeding up playback (2× was tested during #170 QA and felt too
+  fast to follow).
 
 The curator picks **at least 3** for MVP shipping (§5.2). If three
 candidates do not pass quality + floor criteria, the feature ships
@@ -816,9 +820,9 @@ the build.
 ### 7.7 Marketing / recording re-use surface
 
 **Risk.** Bundled demos serve dual purpose — DL-time playback AND
-external marketing (X / YouTube screen capture). A recording
-optimised for silent 2×-playback might not read well in a
-social-media context (too fast, no narration).
+external marketing (X / YouTube screen capture). A recording tuned
+for silent 1×-playback may need post-production editing (speed
+ramps, captions) to read well in a social-media context.
 
 **Mitigation.** Curator evaluates recordings against both use cases at
 selection time (§5.6 criteria). This is a curation-process concern,
@@ -827,9 +831,11 @@ curator workflow.
 
 ### 7.8 Accessibility
 
-**Risk.** Fixed 2× playback with no user controls is hostile to users
-who need slower pacing for cognitive or visual reasons. Phase 2 ships
-without accessibility toggles.
+**Risk.** Fixed 1× playback with no user controls is hostile to users
+who need slower-than-default pacing for cognitive or visual reasons.
+Phase 2 ships without accessibility toggles; 1× is the neutral
+baseline set by #170 QA, but users with assistive needs may still
+want a half-speed option.
 
 **Mitigation.** This risk is accepted for Phase 2. The §4.9 state
 machine can add a "manual pause / slow" control surface in a later

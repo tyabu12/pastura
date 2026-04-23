@@ -26,6 +26,17 @@ public struct DogMark: View {
   /// Pass 44 for the `DLCompleteOverlay` variant.
   public var size: CGFloat = 26
 
+  /// The topmost visible pixel of the dog silhouette expressed as a
+  /// fraction of `size` (the ear tip sits at y = 5 in the 26-unit
+  /// viewBox — see the `DOG_SIDE` path below). Consumers that need to
+  /// align the *visible* top (as opposed to the frame top) with
+  /// surrounding text can use `.alignmentGuide(.top) { _ in
+  /// DogMark.visibleTopInset(forSize: size) }`. Kept on the component
+  /// so the `y = 5` invariant lives next to the path that encodes it.
+  public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
+    size * 5.0 / 26.0
+  }
+
   public var body: some View {
     Canvas { ctx, canvasSize in
       // All geometry is expressed as fractions of the 26-unit SVG viewBox.
