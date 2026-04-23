@@ -227,11 +227,11 @@ nonisolated struct ScenarioLoader: Sendable {
   private func mapPhase(_ dict: [String: Any], label: String, depth: Int) throws -> Phase {
     let phaseType = try parsePhaseType(dict, label: label, depth: depth)
 
-    let prompt = dict["prompt"] as? String
-    let template = dict["template"] as? String
-    let source = dict["source"] as? String
-    let excludeSelf = dict["exclude_self"] as? Bool
-    let options = dict["options"] as? [String]
+    let prompt: String? = try parseOptional(dict, key: "prompt", label: label)
+    let template: String? = try parseOptional(dict, key: "template", label: label)
+    let source: String? = try parseOptional(dict, key: "source", label: label)
+    let excludeSelf: Bool? = try parseOptional(dict, key: "exclude_self", label: label)
+    let options: [String]? = try parseOptional(dict, key: "options", label: label)
 
     let target = try parseAssignTarget(dict["target"], label: label)
     let outputSchema = parseOutputSchema(dict)
@@ -239,11 +239,11 @@ nonisolated struct ScenarioLoader: Sendable {
     let logic = try parseLogic(dict["logic"], label: label)
 
     // speak_each rounds → subRounds
-    let subRounds = dict["rounds"] as? Int
+    let subRounds: Int? = try parseOptional(dict, key: "rounds", label: label)
 
     // Conditional-specific fields (`if:` expression + `then:` / `else:` sub-phase arrays).
     // Recursively descend with depth+1 so nested conditional is rejected here.
-    let condition = dict["if"] as? String
+    let condition: String? = try parseOptional(dict, key: "if", label: label)
     let thenPhases = try mapBranch(
       dict["then"], branchLabel: "then", parentLabel: label, depth: depth)
     let elsePhases = try mapBranch(
