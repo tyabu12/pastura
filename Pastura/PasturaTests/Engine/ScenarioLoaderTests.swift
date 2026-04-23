@@ -355,62 +355,6 @@ struct ScenarioLoaderTests {
     #expect(ScenarioLoader.estimateInferenceCount(scenario) == 10)
   }
 
-  // MARK: - Assign target parsing (strict)
-
-  /// Typo'd target string is rejected at parse time (was a silent .all default
-  /// before #108 / typed AssignTarget).
-  @Test func rejectsAssignWithUnknownTarget() {
-    let yaml =
-      makeYAMLWithAssignTarget("randomOne")  // typo of random_one
-    #expect(throws: SimulationError.self) {
-      try loader.load(yaml: yaml)
-    }
-  }
-
-  /// Case is significant — `target: All` was previously silently treated as
-  /// the default; now rejected.
-  @Test func rejectsAssignWithCapitalizedTarget() {
-    let yaml = makeYAMLWithAssignTarget("All")
-    #expect(throws: SimulationError.self) {
-      try loader.load(yaml: yaml)
-    }
-  }
-
-  @Test func acceptsAssignWithCanonicalTargetAll() throws {
-    _ = try loader.load(yaml: makeYAMLWithAssignTarget("all"))
-  }
-
-  @Test func acceptsAssignWithCanonicalTargetRandomOne() throws {
-    _ = try loader.load(yaml: makeYAMLWithAssignTarget("random_one"))
-  }
-
-  // MARK: - Pairing / logic parsing (strict)
-
-  @Test func rejectsChooseWithUnknownPairing() {
-    let yaml = makeMinimalYAML(
-      phasesBlock: """
-        phases:
-          - type: choose
-            pairing: roundRobin
-            options: [a, b]
-        """)
-    #expect(throws: SimulationError.self) {
-      try loader.load(yaml: yaml)
-    }
-  }
-
-  @Test func rejectsScoreCalcWithUnknownLogic() {
-    let yaml = makeMinimalYAML(
-      phasesBlock: """
-        phases:
-          - type: score_calc
-            logic: made_up_logic
-        """)
-    #expect(throws: SimulationError.self) {
-      try loader.load(yaml: yaml)
-    }
-  }
-
   @Test func estimatesZeroForCodePhases() {
     let scenario = Scenario(
       id: "t", name: "T", description: "T", agentCount: 5, rounds: 3, context: "C",
@@ -427,7 +371,7 @@ struct ScenarioLoaderTests {
 
   // MARK: - Test Helpers
 
-  private func makeYAMLWithAssignTarget(_ target: String) -> String {
+  func makeYAMLWithAssignTarget(_ target: String) -> String {
     """
     id: t
     name: T
@@ -449,7 +393,7 @@ struct ScenarioLoaderTests {
     """
   }
 
-  private func makeMinimalYAML(phasesBlock: String) -> String {
+  func makeMinimalYAML(phasesBlock: String) -> String {
     """
     id: t
     name: T

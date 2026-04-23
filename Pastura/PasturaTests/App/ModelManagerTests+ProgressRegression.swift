@@ -47,22 +47,26 @@ extension ModelManagerTests {
     // ModelManager must explicitly bring `state` to 1.0 before SHA256 verification
     // so the user sees 100% rather than stalling at the last sub-1.0 sample
     // during the ~2 s SHA256 hash on a 3 GB file.
+    //
+    // Use SHA256 verification (via descriptor) to exercise the post-download
+    // path that includes the explicit `state = .downloading(progress: 1.0)`
+    // transition before verification begins.
+    let expectedHash = "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c"
+    let descriptor = makeTestDescriptor(sha256: expectedHash)
     let sut = makeSUT(
       downloader: SubOneProgressMockDownloader(simulateBytes: 1000),
-      // Use SHA256 verification to exercise the post-download path that
-      // includes the explicit `state = .downloading(progress: 1.0)` transition.
-      expectedSHA256: "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c"
+      catalog: [descriptor]
     )
     sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
+    #expect(sut.activeState == .notDownloaded)
 
-    let snapshots = StateSnapshots()
+    let snapshots = StateSnapshots(descriptorID: descriptor.id)
     snapshots.startObserving(sut)
 
-    await sut.downloadModel()
+    await sut.downloadModel(descriptor: descriptor)
     defer {
-      try? FileManager.default.removeItem(at: sut.modelFileURL)
-      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+      try? FileManager.default.removeItem(at: sut.modelFileURL(for: descriptor))
+      try? FileManager.default.removeItem(at: sut.downloadFileURL(for: descriptor))
     }
 
     // Let the `StateSnapshots` re-arm Tasks settle. Progress callbacks were
@@ -72,8 +76,8 @@ extension ModelManagerTests {
     // Five yields is empirical headroom over the typical one-or-two it takes.
     for _ in 0..<5 { await Task.yield() }
 
-    guard case .ready = sut.state else {
-      Issue.record("Expected .ready but got \(sut.state)")
+    guard case .ready = sut.activeState else {
+      Issue.record("Expected .ready but got \(sut.activeState)")
       return
     }
 
@@ -87,18 +91,23 @@ extension ModelManagerTests {
 
 // MARK: - Helpers
 
-/// Re-arming `withObservationTracking` collector for `ModelManager.state`.
-/// Each fired change records the current progress value (if any) and re-arms
-/// tracking for the next change. Lives on MainActor because it reads/writes
-/// `ModelManager.state`.
+/// Re-arming `withObservationTracking` collector for a specific descriptor's
+/// state in `ModelManager.state`. Each fired change records the current
+/// progress value (if any) and re-arms tracking for the next change. Lives
+/// on MainActor because it reads `ModelManager.state`.
 @MainActor
 private final class StateSnapshots {
   private(set) var progresses: [Double] = []
+  let descriptorID: ModelID
+
+  init(descriptorID: ModelID) {
+    self.descriptorID = descriptorID
+  }
 
   func startObserving(_ manager: ModelManager) {
-    record(manager.state)
+    record(manager.state[descriptorID])
     withObservationTracking {
-      _ = manager.state
+      _ = manager.state[descriptorID]
     } onChange: { [weak self, weak manager] in
       // onChange fires synchronously on the mutating actor; re-arm via a Task
       // so the next mutation is captured.
@@ -109,7 +118,7 @@ private final class StateSnapshots {
     }
   }
 
-  private func record(_ state: ModelState) {
+  private func record(_ state: ModelState?) {
     if case .downloading(let progress) = state {
       progresses.append(progress)
     }

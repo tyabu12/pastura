@@ -326,6 +326,28 @@ jobs:
           path: /tmp/release-build.log
           retention-days: 7
 
+  # Drift guard for bundled DL-time demo replays (#170, spec §3.3 / §5.2).
+  # Re-hashes shipped preset YAMLs and validates each bundled demo's
+  # `preset_ref.yaml_sha256` + curation-quality floors (turns, language,
+  # filter-applied flag, bundle count/size). Pure-python so shell-tool
+  # differences across runners don't matter — ubuntu-latest keeps this job
+  # fast and cheap.
+  demo-replay-drift:
+    name: Demo replay drift guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # GHA ubuntu-latest ships python3 >= 3.12 and pip. No setup-python
+      # action needed — fewer pinned action versions to maintain.
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet 'pyyaml>=6,<7'
+
+      - name: Run drift guard
+        run: python3 scripts/check_demo_replay_drift.py
+
   coverage:
     name: Coverage
     needs: lint-and-test
@@ -354,7 +376,7 @@ jobs:
   # Do NOT change the trigger to pull_request_target.
   pr-comment:
     name: PR Comment
-    needs: [lint-and-test, ui-test, release-build]
+    needs: [lint-and-test, ui-test, release-build, demo-replay-drift]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: >-
@@ -369,6 +391,7 @@ jobs:
           UNIT_JOB_RESULT: ${{ needs.lint-and-test.result }}
           UI_JOB_RESULT: ${{ needs.ui-test.result }}
           RELEASE_JOB_RESULT: ${{ needs.release-build.result }}
+          DRIFT_JOB_RESULT: ${{ needs.demo-replay-drift.result }}
           TEST_PASSED: ${{ needs.lint-and-test.outputs.test-passed }}
           TEST_FAILED: ${{ needs.lint-and-test.outputs.test-failed }}
           TEST_PARSE_ERROR: ${{ needs.lint-and-test.outputs.test-parse-error }}
@@ -384,7 +407,7 @@ jobs:
             echo ""
 
             # Job-level failure banner
-            for job_result in "$UNIT_JOB_RESULT" "$UI_JOB_RESULT" "$RELEASE_JOB_RESULT"; do
+            for job_result in "$UNIT_JOB_RESULT" "$UI_JOB_RESULT" "$RELEASE_JOB_RESULT" "$DRIFT_JOB_RESULT"; do
               if [ "$job_result" = "skipped" ] || [ "$job_result" = "cancelled" ]; then
                 echo "> One or more CI jobs were ${job_result}."
                 echo ""
@@ -393,7 +416,8 @@ jobs:
             done
             if [ "$UNIT_JOB_RESULT" = "failure" ] \
                 || [ "$UI_JOB_RESULT" = "failure" ] \
-                || [ "$RELEASE_JOB_RESULT" = "failure" ]; then
+                || [ "$RELEASE_JOB_RESULT" = "failure" ] \
+                || [ "$DRIFT_JOB_RESULT" = "failure" ]; then
               echo "> **CI job failed.** See [CI logs](${CI_RUN_URL}) for details."
               echo ""
             fi
@@ -421,6 +445,20 @@ jobs:
               echo "Release-iphoneos symbol guard: **FAILED** — see [CI logs](${CI_RUN_URL})"
             else
               echo "Release-iphoneos symbol guard: did not run"
+            fi
+
+            # Demo replay drift guard (#170 / spec §3.3 / §5.2 — surfaced
+            # here so preset-vs-demo SHA mismatches and §5.2 floor violations
+            # are visible on the PR, not only in the Actions tab)
+            echo ""
+            echo "### Demo Replay Drift Guard"
+            echo ""
+            if [ "$DRIFT_JOB_RESULT" = "success" ]; then
+              echo "Demo replay drift guard: **passed**"
+            elif [ "$DRIFT_JOB_RESULT" = "failure" ]; then
+              echo "Demo replay drift guard: **FAILED** — see [CI logs](${CI_RUN_URL})"
+            else
+              echo "Demo replay drift guard: did not run"
             fi
 
             # Test results — unit + UI shown separately so a slow UI suite

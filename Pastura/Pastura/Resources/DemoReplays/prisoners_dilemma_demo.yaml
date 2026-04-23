@@ -1,0 +1,122 @@
+# Demo replay for DL-time loop (spec §5.6, Issue #170).
+#
+# Origin: handcrafted by @tyabu12 for #170. Replace via the Phase 2 E1
+# exporter when real LLM captures are available (spec §6).
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# manually reviewed against Pastura/Resources/ContentBlocklist.txt on
+# 2026-04-23 by @tyabu12. Setting metadata.content_filter_applied: true
+# per spec §3.4.
+
+schema_version: 1
+
+preset_ref:
+  id: prisoners_dilemma
+  version: '1.0'
+  yaml_sha256: 'bbe6e4658cf4144e38c6d7f25f63f1b0de6c13744e742392e6573c84117cfc10'
+
+metadata:
+  title: '囚人のジレンマ — 協力か裏切りか'
+  description: '5人のプレイヤーが宣言と選択を繰り返す戦略ゲーム。1ラウンド目の駆け引きを収録。'
+  language: ja
+  recorded_at: 2026-04-23T00:00:00Z
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 9
+  estimated_duration_ms: 12300
+  captured_by: tyabu12
+
+turns:
+  - round: 1
+    phase_index: 0
+    phase_type: speak_all
+    agent: アキラ
+    fields:
+      declaration: 'データ上、協力の期待値が高い。まずは全員で協力しませんか。'
+      inner_thought: '初回は信頼を築いて後半で判断する。'
+  - round: 1
+    phase_index: 0
+    phase_type: speak_all
+    agent: ミサキ
+    fields:
+      declaration: 'みんなで協力すればきっとうまくいく！私は協力で行きます。'
+      inner_thought: 'みんなが協力してくれると嬉しい。'
+  - round: 1
+    phase_index: 0
+    phase_type: speak_all
+    agent: リュウジ
+    fields:
+      declaration: '俺は空気なんて読まないぜ。チャンスがあれば狙うからな。'
+      inner_thought: 'ブラフで相手を揺さぶる。でも報復はくらいたくない。'
+  - round: 1
+    phase_index: 0
+    phase_type: speak_all
+    agent: ハルカ
+    fields:
+      declaration: 'ここは手を組みませんか？協調の方が長期的に得だと思います。'
+      inner_thought: '同盟を持ちかけて安定した得点源を作る。'
+  - round: 1
+    phase_index: 0
+    phase_type: speak_all
+    agent: ケンタ
+    fields:
+      declaration: 'さーて、今回はどうしよっかなー？気分次第だね。'
+      inner_thought: '予測不能に見せて場を引っかき回す。'
+  - round: 1
+    phase_index: 1
+    phase_type: choose
+    agent: アキラ
+    fields:
+      action: cooperate
+      inner_thought: '初回は協力。ミサキなら裏切らないはず。'
+  - round: 1
+    phase_index: 1
+    phase_type: choose
+    agent: ミサキ
+    fields:
+      action: cooperate
+      inner_thought: 'アキラさんを信じて協力する。'
+  - round: 1
+    phase_index: 1
+    phase_type: choose
+    agent: リュウジ
+    fields:
+      action: betray
+      inner_thought: 'ハルカの同盟提案は罠くさい。先に裏切っておこう。'
+  - round: 1
+    phase_index: 1
+    phase_type: choose
+    agent: ハルカ
+    fields:
+      action: cooperate
+      inner_thought: '同盟の流れを崩したくない。協力で信頼を示す。'
+
+code_phase_events:
+  - round: 1
+    phase_index: 2
+    phase_type: score_calc
+    summary: 'アキラ(cooperate) ↔ ミサキ(cooperate) / リュウジ(betray) ↔ ハルカ(cooperate)'
+    payload:
+      kind: pairingResult
+      agent1: アキラ
+      action1: cooperate
+      agent2: ミサキ
+      action2: cooperate
+  - round: 1
+    phase_index: 2
+    phase_type: score_calc
+    summary: 'Scores — アキラ: 3, ミサキ: 3, リュウジ: 5, ハルカ: 0, ケンタ: 0'
+    payload:
+      kind: scoreUpdate
+      scores:
+        アキラ: 3
+        ミサキ: 3
+        リュウジ: 5
+        ハルカ: 0
+        ケンタ: 0
+  - round: 1
+    phase_index: 3
+    phase_type: summarize
+    summary: 'アキラ(cooperate) vs ミサキ(cooperate) → 3,3 / リュウジ(betray) vs ハルカ(cooperate) → 5,0'
+    payload:
+      kind: summary

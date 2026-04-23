@@ -5,7 +5,7 @@ import Yams
 ///
 /// Uses `Yams.load(yaml:)` → `[String: Any]` with manual mapping per ADR-001.
 /// Strips code fences from LLM-generated YAML before parsing.
-nonisolated struct ScenarioLoader: Sendable {
+nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_body_length
 
   /// Standard fields that are mapped to `Scenario` properties (not collected as extraData).
   private static let standardKeys: Set<String> = [
@@ -83,36 +83,61 @@ nonisolated struct ScenarioLoader: Sendable {
     return filtered.joined(separator: "\n")
   }
 
-  /// Extracts a required string field from a YAML dictionary.
-  private func requireString(_ dict: [String: Any], key: String) throws -> String {
-    if let value = dict[key] as? String { return value }
-    if let value = dict[key] { return "\(value)" }
-    throw SimulationError.scenarioValidationFailed("Missing required field: \(key)")
+  /// Extracts a required field of exact Swift type `T` from a YAML dictionary.
+  ///
+  /// Distinguishes *missing* from *present-but-wrong-type* so users can tell
+  /// whether to add the field or re-type it. Wrong-type errors name the actual
+  /// bridged Swift type from Yams (e.g. `"String"` for quoted numbers), so a
+  /// user writing `agents: "2"` gets `"field 'agents' must be Int, got String"`
+  /// instead of a misleading `"Missing required field"`.
+  ///
+  /// No type coercion — eliminating silent-coerce is the whole point of #130.
+  private func parseRequired<T>(
+    _ dict: [String: Any], key: String, label: String
+  ) throws -> T {
+    guard let raw = dict[key] else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): missing required field '\(key)'"
+      )
+    }
+    guard let typed = raw as? T else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): field '\(key)' must be \(T.self), got \(type(of: raw))"
+      )
+    }
+    return typed
   }
 
-  /// Extracts a required integer field from a YAML dictionary.
-  private func requireInt(_ dict: [String: Any], key: String) throws -> Int {
-    guard let value = dict[key] as? Int else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: \(key)")
+  /// Extracts an optional field of exact Swift type `T` from a YAML dictionary.
+  ///
+  /// Returns `nil` when the key is absent. Throws when present-but-wrong-type —
+  /// unlike a naive `as? T` which would silently coerce to `nil` and let the
+  /// caller's default kick in (the bug class tracked in #130).
+  private func parseOptional<T>(
+    _ dict: [String: Any], key: String, label: String
+  ) throws -> T? {
+    guard let raw = dict[key] else { return nil }
+    guard let typed = raw as? T else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): field '\(key)' must be \(T.self), got \(type(of: raw))"
+      )
     }
-    return value
+    return typed
   }
 
   /// Maps a raw YAML dictionary to a ``Scenario`` model.
   private func mapToScenario(_ dict: [String: Any]) throws -> Scenario {
-    let id = try requireString(dict, key: "id")
-    let name = try requireString(dict, key: "name")
-    let description = try requireString(dict, key: "description")
-    let agentCount = try requireInt(dict, key: "agents")
-    let rounds = try requireInt(dict, key: "rounds")
-    let context = try requireString(dict, key: "context")
+    let id: String = try parseRequired(dict, key: "id", label: "Scenario")
+    let name: String = try parseRequired(dict, key: "name", label: "Scenario")
+    let description: String = try parseRequired(dict, key: "description", label: "Scenario")
+    let agentCount: Int = try parseRequired(dict, key: "agents", label: "Scenario")
+    let rounds: Int = try parseRequired(dict, key: "rounds", label: "Scenario")
+    let context: String = try parseRequired(dict, key: "context", label: "Scenario")
 
-    guard let personasRaw = dict["personas"] as? [[String: Any]] else {
-      throw SimulationError.scenarioValidationFailed("Missing or invalid field: personas")
-    }
-    guard let phasesRaw = dict["phases"] as? [[String: Any]] else {
-      throw SimulationError.scenarioValidationFailed("Missing or invalid field: phases")
-    }
+    let personasRaw: [[String: Any]] = try parseRequired(
+      dict, key: "personas", label: "Scenario")
+    let phasesRaw: [[String: Any]] = try parseRequired(
+      dict, key: "phases", label: "Scenario")
 
     let personas = try personasRaw.map { try mapPersona($0) }
     if personas.count != agentCount {
@@ -125,7 +150,7 @@ nonisolated struct ScenarioLoader: Sendable {
       try mapPhase(raw, index: index)
     }
 
-    let extraData = collectExtraData(from: dict)
+    let extraData = try collectExtraData(from: dict)
 
     return Scenario(
       id: id, name: name, description: description,
@@ -134,38 +159,46 @@ nonisolated struct ScenarioLoader: Sendable {
     )
   }
 
-  /// Collects non-standard top-level keys as extra data.
-  private func collectExtraData(from dict: [String: Any]) -> [String: AnyCodableValue] {
+  /// Collects non-standard top-level keys as extra data. Throws on unsupported
+  /// shapes rather than silently dropping them — previously, a typo like
+  /// `count: 42` (auto-typed Int) disappeared from the returned map.
+  private func collectExtraData(
+    from dict: [String: Any]
+  ) throws -> [String: AnyCodableValue] {
     var extraData: [String: AnyCodableValue] = [:]
     for (key, value) in dict where !Self.standardKeys.contains(key) {
-      if let converted = convertToAnyCodableValue(value) {
-        extraData[key] = converted
-      }
+      extraData[key] = try convertToAnyCodableValue(value, key: key)
     }
     return extraData
   }
 
   private func mapPersona(_ dict: [String: Any]) throws -> Persona {
-    guard let name = dict["name"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Persona missing 'name'")
-    }
-    let description = dict["description"] as? String ?? ""
+    let name: String = try parseRequired(dict, key: "name", label: "Persona")
+    let description: String =
+      try parseOptional(
+        dict, key: "description", label: "Persona") ?? ""
     return Persona(name: name, description: description)
   }
 
-  /// Strict-throw on unknown, mirroring PhaseType. See issue #108.
-  private func parseAssignTarget(_ raw: Any?, label: String) throws -> AssignTarget? {
-    guard let targetStr = raw as? String else { return nil }
-    guard let parsed = AssignTarget(rawValue: targetStr) else {
+  /// Strict-throw on unknown, mirroring PhaseType. See issue #108 / #211.
+  /// Wrong-type routes through `parseOptional<String>` so the error message
+  /// matches the unified format used elsewhere in the loader.
+  private func parseAssignTarget(_ dict: [String: Any], label: String) throws -> AssignTarget? {
+    guard let str: String = try parseOptional(dict, key: "target", label: label) else {
+      return nil
+    }
+    guard let parsed = AssignTarget(rawValue: str) else {
       throw SimulationError.scenarioValidationFailed(
-        "\(label) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
+        "\(label) has invalid target: '\(str)'. Use 'all' or 'random_one'."
       )
     }
     return parsed
   }
 
-  private func parsePairing(_ raw: Any?, label: String) throws -> PairingStrategy? {
-    guard let str = raw as? String else { return nil }
+  private func parsePairing(_ dict: [String: Any], label: String) throws -> PairingStrategy? {
+    guard let str: String = try parseOptional(dict, key: "pairing", label: label) else {
+      return nil
+    }
     guard let parsed = PairingStrategy(rawValue: str) else {
       throw SimulationError.scenarioValidationFailed(
         "\(label) has invalid pairing: '\(str)'. Use 'round_robin'."
@@ -174,8 +207,10 @@ nonisolated struct ScenarioLoader: Sendable {
     return parsed
   }
 
-  private func parseLogic(_ raw: Any?, label: String) throws -> ScoreCalcLogic? {
-    guard let str = raw as? String else { return nil }
+  private func parseLogic(_ dict: [String: Any], label: String) throws -> ScoreCalcLogic? {
+    guard let str: String = try parseOptional(dict, key: "logic", label: label) else {
+      return nil
+    }
     guard let parsed = ScoreCalcLogic(rawValue: str) else {
       let allowed = ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")
       throw SimulationError.scenarioValidationFailed(
@@ -200,23 +235,23 @@ nonisolated struct ScenarioLoader: Sendable {
   private func mapPhase(_ dict: [String: Any], label: String, depth: Int) throws -> Phase {
     let phaseType = try parsePhaseType(dict, label: label, depth: depth)
 
-    let prompt = dict["prompt"] as? String
-    let template = dict["template"] as? String
-    let source = dict["source"] as? String
-    let excludeSelf = dict["exclude_self"] as? Bool
-    let options = dict["options"] as? [String]
+    let prompt: String? = try parseOptional(dict, key: "prompt", label: label)
+    let template: String? = try parseOptional(dict, key: "template", label: label)
+    let source: String? = try parseOptional(dict, key: "source", label: label)
+    let excludeSelf: Bool? = try parseOptional(dict, key: "exclude_self", label: label)
+    let options: [String]? = try parseOptional(dict, key: "options", label: label)
 
-    let target = try parseAssignTarget(dict["target"], label: label)
-    let outputSchema = parseOutputSchema(dict)
-    let pairing = try parsePairing(dict["pairing"], label: label)
-    let logic = try parseLogic(dict["logic"], label: label)
+    let target = try parseAssignTarget(dict, label: label)
+    let outputSchema = try parseOutputSchema(dict, label: label)
+    let pairing = try parsePairing(dict, label: label)
+    let logic = try parseLogic(dict, label: label)
 
     // speak_each rounds → subRounds
-    let subRounds = dict["rounds"] as? Int
+    let subRounds: Int? = try parseOptional(dict, key: "rounds", label: label)
 
     // Conditional-specific fields (`if:` expression + `then:` / `else:` sub-phase arrays).
     // Recursively descend with depth+1 so nested conditional is rejected here.
-    let condition = dict["if"] as? String
+    let condition: String? = try parseOptional(dict, key: "if", label: label)
     let thenPhases = try mapBranch(
       dict["then"], branchLabel: "then", parentLabel: label, depth: depth)
     let elsePhases = try mapBranch(
@@ -260,11 +295,26 @@ nonisolated struct ScenarioLoader: Sendable {
     return phaseType
   }
 
-  private func parseOutputSchema(_ dict: [String: Any]) -> [String: String]? {
-    guard let output = dict["output"] as? [String: Any] else { return nil }
+  /// Parses the `output:` schema dict. Values must be Strings — the schema is
+  /// an LLM prompt hint, and a non-String value (e.g. `count: 1`) is a typo,
+  /// not a type-shorthand worth preserving. Previously stringified silently.
+  private func parseOutputSchema(
+    _ dict: [String: Any], label: String
+  ) throws -> [String: String]? {
+    guard let raw = dict["output"] else { return nil }
+    guard let output = raw as? [String: Any] else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): field 'output' must be a dictionary of String values, got \(type(of: raw))"
+      )
+    }
     var result: [String: String] = [:]
     for (key, value) in output {
-      result[key] = "\(value)"
+      guard let str = value as? String else {
+        throw SimulationError.scenarioValidationFailed(
+          "\(label): output schema value for '\(key)' must be String, got \(type(of: value))"
+        )
+      }
+      result[key] = str
     }
     return result
   }
@@ -287,32 +337,52 @@ nonisolated struct ScenarioLoader: Sendable {
     }
   }
 
-  /// Converts a raw YAML value to ``AnyCodableValue``.
-  private func convertToAnyCodableValue(_ value: Any) -> AnyCodableValue? {
+  /// Converts a raw YAML value to ``AnyCodableValue``, throwing on unsupported
+  /// shapes rather than silently dropping the field or coercing to a surprising
+  /// string. `AnyCodableValue` is String-leaf today; extending it to carry
+  /// Int/Bool/Double is deferred to a future issue. Users wanting a numeric
+  /// scalar at the top level should quote it (`count: "42"`).
+  private static let supportedExtraDataShapes =
+    "String, [String], [String: String], or [[String: String]]"
+
+  private func convertToAnyCodableValue(
+    _ value: Any, key: String
+  ) throws -> AnyCodableValue {
     if let str = value as? String {
       return .string(str)
     }
     if let arr = value as? [Any] {
-      // Try array of dictionaries first
       if let dictArr = arr as? [[String: String]] {
         return .arrayOfDictionaries(dictArr)
       }
-      // Try array of [String: Any] and convert values to String
-      if let dictAnyArr = arr as? [[String: Any]] {
-        let converted = dictAnyArr.map { dict in
-          dict.mapValues { "\($0)" } as [String: String]
-        }
-        return .arrayOfDictionaries(converted)
+      // Array of dicts where any value isn't a String — previously stringified
+      // silently, which hid typos like `majority: 1`.
+      if arr.allSatisfy({ $0 is [String: Any] }) {
+        throw SimulationError.scenarioValidationFailed(
+          "Top-level field '\(key)': array-of-dict values must all be String. "
+            + "Quote non-string values (e.g. `majority: \"1\"`)."
+        )
       }
-      // Try string array
-      let strings = arr.compactMap { $0 as? String }
-      if strings.count == arr.count {
-        return .array(strings)
+      if arr.allSatisfy({ $0 is String }) {
+        return .array(arr.compactMap { $0 as? String })
       }
+      throw SimulationError.scenarioValidationFailed(
+        "Top-level field '\(key)': mixed-type arrays are not supported. "
+          + "Use a pure [String] or [[String: String]]."
+      )
     }
     if let dict = value as? [String: String] {
       return .dictionary(dict)
     }
-    return nil
+    if value is [String: Any] {
+      throw SimulationError.scenarioValidationFailed(
+        "Top-level field '\(key)': dictionary values must all be String. "
+          + "Quote non-string values."
+      )
+    }
+    throw SimulationError.scenarioValidationFailed(
+      "Top-level field '\(key)' has unsupported type \(type(of: value)). "
+        + "Supported shapes: \(Self.supportedExtraDataShapes)."
+    )
   }
 }

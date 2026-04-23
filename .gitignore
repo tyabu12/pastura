@@ -42,3 +42,7 @@ fastlane/test_output
 # LLM model files (large, should not be in repo)
 *.litertlm
 *.gguf
+
+# Python bytecode cache (e.g. from scripts/*.py via `python3 -m py_compile`).
+__pycache__/
+*.pyc
