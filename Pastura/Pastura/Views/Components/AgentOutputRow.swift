@@ -64,6 +64,12 @@ struct AgentOutputRow: View {
   /// ``streamingPrimary``.
   var streamingThought: String?
 
+  /// Whether to prepend a sheep avatar column to this row. Defaults to
+  /// true — production call sites all want the avatar. Pass `false` for
+  /// contexts where the row is rendered without avatar-space reservation
+  /// (previews, tests, or legacy layouts that pre-date #171).
+  var showAvatar: Bool = true
+
   /// Row-identity tag for #133 PR#4 `StreamingDiag` logs — see
   /// `AgentOutputRow+Diagnostic.swift` for the consumers.
   var debugRowID: String?
@@ -85,22 +91,41 @@ struct AgentOutputRow: View {
   @State private var animationGeneration: Int = 0
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      // Agent name + phase
-      HStack(alignment: .firstTextBaseline) {
-        Text(agent)
-          .font(.subheadline.bold())
-        PhaseTypeLabel(phaseType: phaseType)
-        Spacer()
+    // Why the HStack wraps a VStack (and not the other way around): the
+    // avatar column needs to align with the top of the bubble column,
+    // while the bubble/thought stack still reads as a single vertical
+    // block. `@State` identity lives on `AgentOutputRow` itself, not on
+    // any body subtree — body rewrites are safe under #133 as long as
+    // the view's position in its caller remains stable. The outer
+    // layout-stability modifiers (`frame(maxWidth:)`, `fixedSize`, etc.)
+    // still apply to the whole row below.
+    HStack(alignment: .top, spacing: ChatBubbleLayout.avatarTextGap) {
+      if showAvatar {
+        AvatarSlot(agentName: agent)
       }
+      VStack(alignment: .leading, spacing: 6) {
+        // Agent name + phase. Caption size + ink-secondary matches
+        // `design-system.md` §3.2 `caption/name` and reference HTML
+        // `.b-name { font-size: 10.5px; color: #7a7e68 }`.
+        HStack(alignment: .firstTextBaseline) {
+          Text(agent)
+            .textStyle(Typography.captionName)
+            .foregroundStyle(Color.inkSecondary)
+          PhaseTypeLabel(phaseType: phaseType)
+          Spacer()
+        }
 
-      // Primary text — pre-measured concat so line wraps don't shift.
-      if let text = primaryText {
-        primaryView(fullText: text)
+        // Primary text — pre-measured concat so line wraps don't shift.
+        // Bubble background applied here (not around the whole row) so
+        // the tail-corner shape hugs the text, not the name/avatar.
+        if let text = primaryText {
+          primaryView(fullText: text)
+            .bubbleBackground()
+        }
+
+        // Thought: three branches depending on show-mode.
+        thoughtSection()
       }
-
-      // Thought: three branches depending on show-mode.
-      thoughtSection()
     }
     // Layout-stability trio (applied unconditionally; see type doc-comment
     // §"Reflow-stable rendering"). Streaming growth re-runs the text
@@ -186,7 +211,7 @@ struct AgentOutputRow: View {
     return (Text(visible) + Text(hidden).foregroundStyle(.clear))
       .textStyle(Typography.thinkingBody)
       .foregroundStyle(Color.muted)
-      .padding(.leading, 8)
+      .thoughtLeftRule()
   }
 
   /// Button-toggle path (when `showAllThoughts == false`): tapping the button
@@ -212,7 +237,7 @@ struct AgentOutputRow: View {
       Text(fullText)
         .textStyle(Typography.thinkingBody)
         .foregroundStyle(Color.muted)
-        .padding(.leading, 8)
+        .thoughtLeftRule()
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
   }
