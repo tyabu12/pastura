@@ -7,8 +7,13 @@ import Foundation
 /// ViewModels access repositories and services through this container.
 @Observable
 final class AppDependencies: @unchecked Sendable {
-  // @unchecked Sendable: all user-defined stored properties are `let` with Sendable types.
-  // The @Observable macro adds an ObservationRegistrar which is itself Sendable (thread-safe).
+  // @unchecked Sendable rationale: every stored property is either
+  //   - a `let` with a Sendable type, or
+  //   - a `var` (`llmService`) mutated exclusively on MainActor — the
+  //     class is MainActor-isolated by project default, and the only
+  //     mutator (`regenerateLLMService(_:)`) is annotated explicitly.
+  // The @Observable macro adds an ObservationRegistrar which is itself
+  // Sendable (thread-safe).
   let scenarioRepository: any ScenarioRepository
   let simulationRepository: any SimulationRepository
   let turnRepository: any TurnRepository
@@ -20,7 +25,11 @@ final class AppDependencies: @unchecked Sendable {
   /// (see ADR-005 §8 — dev-only backends like `OllamaService` are excluded
   /// from App-Store-review-bound binaries). The `nil`-fallback construction
   /// is only available in Debug or Simulator builds.
-  let llmService: any LLMService
+  ///
+  /// Mutable to support active-model switching from Settings. Only
+  /// `regenerateLLMService(_:)` mutates this — see that method for the
+  /// surrounding "no-simulation-in-flight" invariant.
+  private(set) var llmService: any LLMService
 
   /// Manager for iOS 26+ background simulation continuation.
   /// Registered at app launch; used by `SimulationViewModel` when the user
@@ -122,6 +131,30 @@ final class AppDependencies: @unchecked Sendable {
       galleryService: galleryService,
       uiTestEditorSeedYAML: uiTestEditorSeedYAML
     )
+  }
+
+  // MARK: - Active-model switching
+
+  /// Replaces the active LLM service after the user switches the active
+  /// model from Settings. The previous service is released; if its backend
+  /// allocates native resources (e.g. a llama.cpp context), those are
+  /// freed as the reference count drops.
+  ///
+  /// - Important: Callers MUST ensure no simulation is currently in
+  ///   flight — the UI gates the Settings switch affordance on
+  ///   `simulationActivityRegistry.isActive == false`, and this method
+  ///   does NOT re-check. Swapping mid-run would leave
+  ///   `SimulationViewModel.currentLLM` pointing at the old instance
+  ///   while `deps.llmService` points at the new one; the next
+  ///   `loadModel()` on the stale reference could race the new
+  ///   instance's init sequence.
+  ///
+  /// - Parameter newService: The newly-constructed service (typically
+  ///   `LlamaCppService` wired to the newly-active descriptor's
+  ///   stopSequence / systemPromptSuffix / model path).
+  @MainActor
+  func regenerateLLMService(_ newService: any LLMService) {
+    self.llmService = newService
   }
 
   // MARK: - Private

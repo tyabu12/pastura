@@ -279,6 +279,34 @@ extension ModelManagerTests {
     }
   }
 
+  @Test("deleteModel on non-active succeeds during a running simulation")
+  func deleteModel_nonActive_duringSimulation_succeeds() throws {
+    // Pin the decoupling invariant: `ModelManager.deleteModel` must not
+    // reach into `SimulationViewModel` / `SimulationActivityRegistry`.
+    // Deleting a non-active model is always safe — the active file is
+    // protected by the `.cannotDeleteActive` guard, and every other
+    // descriptor is orthogonal to the in-flight inference.
+    let registry = SimulationActivityRegistry()
+    registry.enter()
+    defer { registry.leave() }
+    #expect(registry.isActive, "simulating a running simulation")
+
+    let active = makeTestDescriptor(id: "active-a", fileName: "active-a.gguf")
+    let other = makeTestDescriptor(id: "other-b", fileName: "other-b.gguf")
+    let sut = makeSUT(catalog: [active, other])
+    let otherURL = sut.modelFileURL(for: other)
+    try FileManager.default.createDirectory(
+      at: otherURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: otherURL.path, contents: Data("test".utf8))
+    defer { try? FileManager.default.removeItem(at: otherURL) }
+    sut.checkModelStatus()
+
+    try sut.deleteModel(id: "other-b")
+
+    #expect(sut.state["other-b"] == .notDownloaded)
+    #expect(registry.isActive, "delete must not disturb registry state")
+  }
+
   @Test("deleteModel rejects unknown id with .unknownModel")
   func deleteModel_unknownID_rejects() {
     let descriptor = makeTestDescriptor()
