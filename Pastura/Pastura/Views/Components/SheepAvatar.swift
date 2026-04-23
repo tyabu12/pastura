@@ -110,6 +110,41 @@ public struct SheepAvatar: View {
 
 extension SheepAvatar.Character {
 
+  /// Resolves an agent name to a ``SheepAvatar/Character`` for avatar
+  /// rendering. Returns the matching canonical character (case-insensitive,
+  /// trimmed) for the four demo-replay names (`Alice` / `Bob` / `Carol` /
+  /// `Dave`); for any other name, falls back to a deterministic bucket via
+  /// a UTF-8 byte-sum modulo the character count.
+  ///
+  /// ## Determinism contract
+  ///
+  /// Same input → same character, across runs and processes. The fallback
+  /// hash is intentionally weak (collisions are acceptable) — agents that
+  /// share a bucket simply share an avatar color, which is visually
+  /// indistinguishable from other reasonable assignment schemes.
+  ///
+  /// Normalization (trim + lowercase) runs *before* both the direct match
+  /// and the byte-sum. Inputs like `"Alice "` and `"ALICE"` map to the
+  /// same character as `"alice"`; `"User1"` and `"user1"` land in the
+  /// same fallback bucket.
+  ///
+  /// Why NOT `String.hashValue`: Swift randomizes hash seeds per process,
+  /// so the same name would map to different buckets across launches —
+  /// that would let agents' avatar colors flicker between app runs.
+  public static func forAgent(_ name: String) -> SheepAvatar.Character {
+    let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    switch normalized {
+    case "alice": return .alice
+    case "bob": return .bob
+    case "carol": return .carol
+    case "dave": return .dave
+    default:
+      let sum = normalized.utf8.reduce(0) { $0 &+ Int($1) }
+      let cases = SheepAvatar.Character.allCases
+      return cases[sum % cases.count]
+    }
+  }
+
   /// Wool / body fill — matches the per-character `avatarAlice/Bob/Carol/Dave` token.
   var bodyColor: Color {
     switch self {
