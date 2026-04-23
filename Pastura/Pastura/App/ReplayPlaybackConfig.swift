@@ -68,10 +68,14 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
     self.onComplete = onComplete
   }
 
-  /// Preset for the DL-time demo host: 2× speed, loop forever, wait for
+  /// Preset for the DL-time demo host: 1× speed, loop forever, wait for
   /// the download-complete transition signal.
+  ///
+  /// Speed history: originally 2× per spec §2 decision 5, revised to 1×
+  /// when #170 manual QA on bundled demos found 2× too fast to follow.
+  /// Spec §2 decision 5 was updated in the same PR.
   public static let demoDefault = ReplayPlaybackConfig(
-    speedMultiplier: 2.0,
+    speedMultiplier: 1.0,
     loopBehaviour: .loop,
     onComplete: .awaitTransitionSignal)
 }

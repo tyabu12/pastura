@@ -23,7 +23,7 @@ metadata:
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true
   total_turns: 10
-  estimated_duration_ms: 13500
+  estimated_duration_ms: 13000
   captured_by: tyabu12
 
 turns:
