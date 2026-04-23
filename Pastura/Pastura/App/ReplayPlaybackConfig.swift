@@ -10,9 +10,11 @@ import Foundation
 /// (Phase 2.5+, spec §4.5) can pick the appropriate preset without
 /// introducing a second config type.
 nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
-  /// Multiplier applied to the per-event delay before each yield. `2.0`
-  /// means twice as fast — a 1200 ms nominal gap plays as 600 ms of
-  /// sleep.
+  /// Multiplier applied to the per-event delay before each yield.
+  /// `1.0` plays at the nominal rhythm; values < 1.0 slow playback
+  /// (e.g. `0.5` doubles a 1200 ms nominal gap to 2400 ms), values
+  /// > 1.0 speed it up. `demoDefault` fixes this at 1.0 per spec §2
+  /// decision 5; test fixtures commonly use `100.0` to fast-forward.
   public var speedMultiplier: Double
 
   /// Nominal delay inserted before each agent turn (`agentOutput`

@@ -173,13 +173,13 @@ struct PromoCard: View {
 
   private var bodyRow: some View {
     HStack(alignment: .top, spacing: 12) {
-      DogMark(size: 26)
-        // `DogMark`'s Canvas viewBox is 26×26 but the ear-tip (topmost
-        // visible pixel) starts at y = 5/26 — so a raw `.top` alignment
-        // places the *visible* dog ~5pt below the text's first-line top.
-        // Shift the alignment anchor from its frame top (y=0) to y=5 so
-        // the dog's visible head aligns with the promo copy's first line.
-        .alignmentGuide(.top) { _ in Self.dogVisibleTopOffset }
+      DogMark(size: Self.dogSize)
+        // `DogMark`'s Canvas viewBox has ~5/26 of empty space above the
+        // ear tip, so a raw `.top` alignment places the visible dog
+        // below the text's first-line top. Shift the alignment anchor
+        // to the dog's visible top — the scale-aware inset lives on
+        // `DogMark` itself so this stays correct if `dogSize` changes.
+        .alignmentGuide(.top) { _ in DogMark.visibleTopInset(forSize: Self.dogSize) }
       Text(Self.slotCopy(currentSlot))
         .textStyle(Typography.bodyPromo)
         .foregroundStyle(Color.ink)
@@ -197,11 +197,9 @@ struct PromoCard: View {
       value: currentSlot)
   }
 
-  /// Vertical offset (in points) of the dog's visible top within its
-  /// 26×26 frame. Matches the `y = 5` starting coordinate in
-  /// `DogMark`'s `DOG_SIDE` canvas path. If the SVG is ever retraced
-  /// so the ear tip moves, update this constant.
-  private static let dogVisibleTopOffset: CGFloat = 5
+  /// Point size of the dog mark in the promo body row. Spec §PromoCard
+  /// body structure (`demo-replay-ui.md` §PromoCard) pins this at 26 pt.
+  private static let dogSize: CGFloat = 26
 
   // MARK: - Decorative layers
 
