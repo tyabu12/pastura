@@ -290,4 +290,72 @@ extension ModelManagerTests {
       error as? ModelManagerError == .unknownModel(id: "does-not-exist")
     }
   }
+
+  // MARK: - cancelDownload(descriptor:) — idempotency contract
+  //
+  // The docstring pins the "non-`.downloading` states are preserved" invariant;
+  // these tests prevent silent drift if someone later simplifies cancelDownload
+  // to unconditionally set `.notDownloaded`.
+
+  @Test("cancelDownload on .ready is a no-op (preserves state)")
+  func cancelDownload_ready_noop() throws {
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
+
+    let modelURL = sut.modelFileURL(for: descriptor)
+    try FileManager.default.createDirectory(
+      at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: modelURL.path, contents: Data("test".utf8))
+    defer { try? FileManager.default.removeItem(at: modelURL) }
+    sut.checkModelStatus()
+    let beforeState = sut.state[descriptor.id]
+    guard case .ready = beforeState else {
+      Issue.record("Setup failed: expected .ready")
+      return
+    }
+
+    sut.cancelDownload(descriptor: descriptor)
+
+    #expect(sut.state[descriptor.id] == beforeState, ".ready must survive cancelDownload")
+  }
+
+  @Test("cancelDownload on .error is a no-op (preserves state)")
+  func cancelDownload_error_noop() async {
+    let descriptor = makeTestDescriptor(
+      id: "error-target", fileName: "error-target.gguf",
+      fileSize: 1_000, sha256: "required-but-will-mismatch")
+    // Downloader that writes bytes but with a SHA256 mismatch → finalizeDownload
+    // flips state to `.error` via the existing integrity path.
+    let sut = makeSUT(
+      downloader: MockModelDownloader(simulateBytes: 1_000),
+      catalog: [descriptor])
+    defer {
+      try? FileManager.default.removeItem(at: sut.modelFileURL(for: descriptor))
+      try? FileManager.default.removeItem(at: sut.downloadFileURL(for: descriptor))
+    }
+
+    sut.checkModelStatus()
+    await sut.downloadModel(descriptor: descriptor)
+    guard case .error = sut.state[descriptor.id] else {
+      Issue.record("Setup failed: expected .error after SHA mismatch")
+      return
+    }
+    let beforeState = sut.state[descriptor.id]
+
+    sut.cancelDownload(descriptor: descriptor)
+
+    #expect(sut.state[descriptor.id] == beforeState, ".error must survive cancelDownload")
+  }
+
+  @Test("cancelDownload on .notDownloaded is a no-op (preserves state)")
+  func cancelDownload_notDownloaded_noop() {
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
+    sut.checkModelStatus()
+    #expect(sut.state[descriptor.id] == .notDownloaded)
+
+    sut.cancelDownload(descriptor: descriptor)
+
+    #expect(sut.state[descriptor.id] == .notDownloaded, ".notDownloaded idempotent")
+  }
 }
