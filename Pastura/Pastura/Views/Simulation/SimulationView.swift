@@ -168,8 +168,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                   ProgressView()
                     .scaleEffect(0.7)
                   Text("\(agent) is thinking...")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(Typography.thinkingBody)
+                    .foregroundStyle(Color.muted)
                 }
                 .padding(.horizontal)
               }
@@ -242,15 +242,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   private var modelReloadingOverlay: some View {
     ZStack {
-      Color.black.opacity(0.4).ignoresSafeArea()
+      Color.ink.opacity(0.4).ignoresSafeArea()
       VStack(spacing: 12) {
         ProgressView()
           .scaleEffect(1.2)
         Text("Reloading model...")
-          .font(.subheadline)
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.ink)
         Text("This can take a few seconds")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.muted)
       }
       .padding(24)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -362,8 +363,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       scoresSummary(scores)
     case .error(let message):
       Label(message, systemImage: "exclamationmark.triangle.fill")
-        .font(.subheadline)
-        .foregroundStyle(.red)
+        .textStyle(Typography.titlePhase)
+        .foregroundStyle(Color.inkSecondary)
         .padding(.horizontal)
     default:
       secondaryLogEntryView(entry)
@@ -446,7 +447,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           Image(systemName: "chevron.down")
             .font(.caption2)
         }
-        .font(.subheadline)
+        .textStyle(Typography.titlePhase)
         .frame(minWidth: Self.controlSlotMinWidth)
       }
     }
@@ -479,7 +480,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       } label: {
         Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
           .font(.title3)
-          .foregroundStyle(viewModel.showAllThoughts ? .purple : .secondary)
+          .foregroundStyle(viewModel.showAllThoughts ? Color.moss : Color.inkSecondary)
       }
 
       // Background continuation toggle (iOS 26+ with LlamaCppService only)
@@ -497,7 +498,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
     .padding(.horizontal)
     .padding(.vertical, 10)
-    .background(.bar)
+    .background {
+      ZStack {
+        Color.screenBackground.opacity(0.78)
+        Rectangle().fill(.ultraThinMaterial)
+      }
+    }
+    .overlay(alignment: .top) {
+      Rectangle().fill(Color.black.opacity(0.07)).frame(height: 1)
+    }
   }
 
   // MARK: - Load & Run
