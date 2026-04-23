@@ -10,9 +10,11 @@ import Foundation
 /// (Phase 2.5+, spec §4.5) can pick the appropriate preset without
 /// introducing a second config type.
 nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
-  /// Multiplier applied to the per-event delay before each yield. `2.0`
-  /// means twice as fast — a 1200 ms nominal gap plays as 600 ms of
-  /// sleep.
+  /// Multiplier applied to the per-event delay before each yield.
+  /// `1.0` plays at the nominal rhythm; values < 1.0 slow playback
+  /// (e.g. `0.5` doubles a 1200 ms nominal gap to 2400 ms), values
+  /// > 1.0 speed it up. `demoDefault` fixes this at 1.0 per spec §2
+  /// decision 5; test fixtures commonly use `100.0` to fast-forward.
   public var speedMultiplier: Double
 
   /// Nominal delay inserted before each agent turn (`agentOutput`
@@ -68,10 +70,14 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
     self.onComplete = onComplete
   }
 
-  /// Preset for the DL-time demo host: 2× speed, loop forever, wait for
+  /// Preset for the DL-time demo host: 1× speed, loop forever, wait for
   /// the download-complete transition signal.
+  ///
+  /// Speed history: originally 2× per spec §2 decision 5, revised to 1×
+  /// when #170 manual QA on bundled demos found 2× too fast to follow.
+  /// Spec §2 decision 5 was updated in the same PR.
   public static let demoDefault = ReplayPlaybackConfig(
-    speedMultiplier: 2.0,
+    speedMultiplier: 1.0,
     loopBehaviour: .loop,
     onComplete: .awaitTransitionSignal)
 }

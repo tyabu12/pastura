@@ -46,12 +46,15 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
 
   // MARK: - Bundle loading
 
-  /// Enumerates demo YAMLs under `Resources/DemoReplays/` in `bundle`,
-  /// validates each, and returns the subset that passed all checks.
+  /// Enumerates demo YAMLs (`*_demo.yaml`) from `bundle`, validates each,
+  /// and returns the subset that passed all checks. Source-tree layout is
+  /// `Pastura/Resources/DemoReplays/<slug>_demo.yaml`; the `_demo` suffix
+  /// lets the loader find them at the flattened bundle root (see
+  /// ``demoFilenameSuffix``).
   ///
   /// Silent-skip cases (all logged via `os.Logger` at `notice` level):
-  /// - `DemoReplays/` directory absent from the bundle (Phase 2 default
-  ///   state before Issue #170 populates it — returns `[]`).
+  /// - No `*_demo.yaml` resource in the bundle (returns `[]`, which the
+  ///   host view maps to the spec §5.3 progress-bar-only fallback).
   /// - YAML file unreadable as UTF-8.
   /// - YAML malformed / missing `preset_ref.id` or `yaml_sha256`.
   /// - `preset_ref.id` not a shipped preset (unknown, gallery-only,
@@ -156,25 +159,41 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
     }
   }
 
+  /// Suffix used on bundled demo YAML filenames so the ``BundledDemoReplaySource``
+  /// enumeration can identify them at the bundle root.
+  ///
+  /// Xcode's `PBXFileSystemSynchronizedRootGroup` flattens subdirectories of
+  /// resources in the built bundle — `Pastura/Resources/DemoReplays/word_wolf.yaml`
+  /// lands at `Pastura.app/word_wolf.yaml` alongside `Presets/word_wolf.yaml`,
+  /// which would collide. Using a `_demo.yaml` filename suffix on disk avoids
+  /// the collision *and* lets us enumerate without depending on whether Xcode
+  /// preserves the `DemoReplays/` subdir in the bundle.
+  ///
+  /// Disk layout remains `Resources/DemoReplays/<slug>_demo.yaml` per spec
+  /// §5.1 — the subdirectory keeps demos visually grouped in the source tree.
+  internal static let demoFilenameSuffix = "_demo"
+
   private static func enumerateDemoYAMLs(bundle: Bundle) -> [(name: String, contents: String)] {
-    // `urls(forResourcesWithExtension:subdirectory:)` returns nil when
-    // the directory doesn't exist in the bundle. Phase 2 default: no
-    // `DemoReplays/` shipped until Issue #170 populates it, so `[]`
-    // triggers the host view's §5.3 progress-bar-only fallback.
+    // Bundle root is flat (see ``demoFilenameSuffix`` doc for why). Enumerate
+    // every YAML resource and keep those whose basename ends with `_demo`.
+    // `bundle.urls(forResourcesWithExtension:subdirectory:)` returns `nil`
+    // when no resources match — that maps to the spec §5.3 "no demos
+    // bundled → progress-bar-only fallback" branch in the host view.
     guard
-      let urls = bundle.urls(
-        forResourcesWithExtension: "yaml", subdirectory: "DemoReplays")
+      let urls = bundle.urls(forResourcesWithExtension: "yaml", subdirectory: nil)
     else {
       return []
     }
     return urls.compactMap { url in
+      let stem = url.deletingPathExtension().lastPathComponent
+      guard stem.hasSuffix(demoFilenameSuffix) else { return nil }
       guard let contents = try? String(contentsOf: url, encoding: .utf8) else {
         logger.notice(
           "Demo replay at '\(url.path, privacy: .public)' not readable as UTF-8 — skipping."
         )
         return nil
       }
-      return (name: url.deletingPathExtension().lastPathComponent, contents: contents)
+      return (name: stem, contents: contents)
     }
   }
 

@@ -124,7 +124,7 @@ private struct RootView: View {
 
       case .needsModelDownload:
         DemoReplayHostView(modelManager: modelManager)
-          .onChange(of: modelManager.state) { _, newState in
+          .onChange(of: modelManager.activeState) { _, newState in
             if case .ready(let modelPath) = newState {
               Task { await finalizeInit(modelPath: modelPath) }
             }
@@ -285,6 +285,10 @@ private struct RootView: View {
         return
       }
     #endif
+    // Fail-fast on catalog collisions at the earliest possible point so
+    // duplicate ids / fileNames crash in dev rather than corrupting
+    // ModelManager.state lookups or filesystem paths silently at runtime.
+    ModelRegistry.validateNoCollisions()
     #if targetEnvironment(simulator)
       // On simulator, use OllamaService directly — no model download needed.
       do {
@@ -299,7 +303,7 @@ private struct RootView: View {
       }
     #else
       modelManager.checkModelStatus()
-      switch modelManager.state {
+      switch modelManager.activeState {
       case .ready(let modelPath):
         await finalizeInit(modelPath: modelPath)
       case .unsupportedDevice, .notDownloaded, .error:
@@ -312,8 +316,23 @@ private struct RootView: View {
   }
 
   private func finalizeInit(modelPath: String) async {
+    // `activeDescriptor` is guaranteed non-nil by `ModelManager.resolveInitialActiveID`
+    // (it always returns a catalog id when the catalog is non-empty, and
+    // `ModelRegistry.validateNoCollisions()` in `initialize()` rejects an empty
+    // production catalog upstream). Surface a fatal error rather than silently
+    // falling back to hardcoded Gemma values so future regressions in the
+    // catalog wiring fail loudly.
+    guard let descriptor = modelManager.activeDescriptor else {
+      appState = .error("No active model descriptor resolvable from catalog")
+      return
+    }
     do {
-      let llm = LlamaCppService(modelPath: modelPath)
+      let llm = LlamaCppService(
+        modelPath: modelPath,
+        stopSequence: descriptor.stopSequence,
+        modelIdentifier: descriptor.displayName,
+        systemPromptSuffix: descriptor.systemPromptSuffix
+      )
       let deps = try AppDependencies.production(llmService: llm)
       // Register BG task handler early so iOS 26+ can launch us in background.
       deps.backgroundManager.register()

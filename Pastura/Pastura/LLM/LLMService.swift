@@ -61,9 +61,12 @@ nonisolated public protocol LLMService: Sendable {
   ///   suspend signals. Pass `nil` to detach.
   func attachSuspendController(_ controller: SuspendController?) async
 
-  /// Human-readable label for the currently-loaded model (e.g.
-  /// `"Gemma 4 E2B (Q4_K_M)"`, `"gemma4:e2b"`, `"mock"`). Intended for
-  /// display / export metadata — **not** a stable parse key.
+  /// Human-readable label for the currently-loaded model — implementations
+  /// typically derive this from backend-specific metadata (e.g. a
+  /// `ModelDescriptor.displayName` for on-device services, a backend tag
+  /// like `"gemma4:e2b"` for remote services, or a test sentinel like
+  /// `"mock"`). Intended for display / export metadata — **not** a stable
+  /// parse key.
   var modelIdentifier: String { get }
 
   /// Human-readable label for the backend runtime driving inference (e.g.
