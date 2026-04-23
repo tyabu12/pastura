@@ -9,8 +9,43 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   /// The raw parsed fields from the LLM's JSON response.
   public let fields: [String: String]
 
-  public init(fields: [String: String]) {
+  /// The unfiltered pre-parse LLM emission. Populated by
+  /// ``JSONResponseParser/parse(_:)`` so that
+  /// ``TurnRecord/rawOutput`` can store the original model output for
+  /// audit (matching its documented contract). Absent (`nil`) for
+  /// synthetic `TurnOutput` values constructed directly from `fields`
+  /// in tests / replay paths.
+  ///
+  /// Excluded from `Codable` (see ``CodingKeys``) so the encoded shape
+  /// used by ``TurnRecord/parsedOutputJSON`` stays stable and does not
+  /// duplicate the ~1–2 KB of raw text already held in
+  /// ``TurnRecord/rawOutput``. Ignored by `Equatable` because it is
+  /// provenance metadata — two outputs with identical fields but
+  /// different raw inputs represent the same domain value.
+  public let rawText: String?
+
+  public init(fields: [String: String], rawText: String? = nil) {
     self.fields = fields
+    self.rawText = rawText
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case fields
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.fields = try container.decode([String: String].self, forKey: .fields)
+    self.rawText = nil
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(fields, forKey: .fields)
+  }
+
+  public static func == (lhs: TurnOutput, rhs: TurnOutput) -> Bool {
+    lhs.fields == rhs.fields
   }
 
   // MARK: - Typed Accessors

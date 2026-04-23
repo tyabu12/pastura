@@ -182,6 +182,87 @@ struct PromptBuilderTests {
     #expect(voteLine.contains("Charlie"))
   }
 
+  // MARK: - Prompt Hardening (#194 PR#a Item 3)
+
+  // Two new rule lines added in PR#a Item 3 — assert both are present
+  // so a future refactor doesn't silently drop the structural-validity
+  // emphasis that reduces Hyp A frequency.
+  @Test func systemPromptIncludesAugmentedSyntaxRules() {
+    let scenario = makeScenario()
+    let phase = Phase(
+      type: .speakAll,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("JSONに構文エラーがあると失敗扱いになる"))
+    #expect(prompt.contains("単一オブジェクトのみ出力"))
+  }
+
+  // Placeholder example must appear when outputSchema is set, AND must
+  // use placeholder syntax (`<ここに...>`) — concrete Japanese values
+  // would risk Gemma 2B parroting the demonstrated content (round 2
+  // Axis 5 finding).
+  @Test func systemPromptIncludesPlaceholderExampleWhenSchemaSet() {
+    let scenario = makeScenario()
+    let phase = Phase(
+      type: .speakAll,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string", "inner_thought": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    let exampleLine =
+      prompt.components(separatedBy: "\n")
+      .first { $0.hasPrefix("例:") } ?? ""
+    #expect(!exampleLine.isEmpty, "expected an `例:` line in the output format section")
+    #expect(exampleLine.contains("<ここに"), "placeholder convention must be `<ここに{key}>`")
+    #expect(exampleLine.contains(">"))
+    #expect(exampleLine.contains("statement"))
+    #expect(exampleLine.contains("inner_thought"))
+  }
+
+  @Test func systemPromptOmitsExampleWhenNoOutputSchema() {
+    let scenario = makeScenario()
+    let phase = Phase(type: .speakAll, prompt: "Speak!")  // no outputSchema
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(!prompt.contains("例:"))
+  }
+
+  // Char-count regression guard — total prompt growth from PR#a Item 3
+  // must stay within +300 chars of the equivalent pre-PR prompt for the
+  // largest preset schema (2 keys per phase across current presets).
+  // Loose upper bound: well under 7K chars for an 8K context model.
+  @Test func systemPromptCharCountStaysWithinBudget() {
+    let scenario = makeScenario()
+    let phase = Phase(
+      type: .speakAll,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string", "inner_thought": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    // Budget reasoning: scenario + persona + 6 rule lines + format spec
+    // (~2 short lines) for a 2-key schema fits comfortably under 1500
+    // chars on the test scenario; CI bound at 2000 leaves room for
+    // future minor additions without rebaselining the test.
+    #expect(prompt.count < 2000, "prompt grew larger than expected: \(prompt.count) chars")
+  }
+
   // MARK: - Test Helpers
 
   private func makeScenario() -> Scenario {
