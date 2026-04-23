@@ -39,10 +39,19 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   static let repeatPenalty: Float = 1.1
   static let contextSize: UInt32 = 8_192
   static let batchSize: Int = 512
-  // String-based, not token-ID, because Gemma 4 E2B tokenizes <|im_end|> into
-  // 6 subword tokens — single-token ID matching is impossible for this model.
-  // TODO: Consider adding <|im_start|> if hallucinated turn starts are observed (#65)
-  static let stopSequence = "<|im_end|>"
+  // Per-instance stop sequence (was `static` pre-multi-model). String-based,
+  // not token-ID, because Gemma 4 E2B tokenizes `<|im_end|>` into 6 subword
+  // tokens — single-token ID matching is impossible for this model. Gemma
+  // and Qwen 3 both use `<|im_end|>`; future models may differ (read from
+  // descriptor at construction time).
+  // TODO: Consider adding `<|im_start|>` if hallucinated turn starts are observed (#65)
+  let stopSequence: String
+
+  /// Optional suffix appended to the system prompt at chat-template assembly.
+  /// Used for models that require prompt-level mode control (e.g., Qwen's
+  /// `/no_think` to disable thinking mode). `nil` for models that need no
+  /// suffix.
+  let systemPromptSuffix: String?
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
   // Runtime guard for the sequential access contract (ADR-002 §6).
@@ -76,9 +85,30 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   /// Creates a llama.cpp service.
   ///
-  /// - Parameter modelPath: Absolute path to the GGUF model file on disk.
-  public init(modelPath: String) {
+  /// All parameters are required — callers must provide explicit per-descriptor
+  /// values (via `ModelDescriptor.stopSequence` / `.displayName` /
+  /// `.systemPromptSuffix`). This avoids silently running Qwen with Gemma's
+  /// defaults if a call-site forgets to thread the descriptor through.
+  /// Test code can construct via a file-scope helper (see
+  /// `LlamaCppServiceTests`) to centralize the Gemma-shaped test values.
+  ///
+  /// - Parameters:
+  ///   - modelPath: Absolute path to the GGUF model file on disk (provided by
+  ///     `ModelManager.modelFileURL(for:).path` at the call-site).
+  ///   - stopSequence: Per-model stop sentinel (e.g., `<|im_end|>`).
+  ///   - modelIdentifier: Human-readable label for exports / replay metadata.
+  ///   - systemPromptSuffix: Optional suffix appended to the system prompt
+  ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
+  public init(
+    modelPath: String,
+    stopSequence: String,
+    modelIdentifier: String,
+    systemPromptSuffix: String?
+  ) {
     self.modelPath = modelPath
+    self.stopSequence = stopSequence
+    self.modelIdentifier = modelIdentifier
+    self.systemPromptSuffix = systemPromptSuffix
     self.loadedState = OSAllocatedUnfairLock(initialState: false)
   }
 
@@ -200,9 +230,10 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     suspendController = controller
   }
 
-  // Hardcoded in MVP because this service is wired only to the bundled Gemma 4 E2B
-  // Q4_K_M GGUF. When multiple models ship, read from GGUF metadata at loadModel().
-  public let modelIdentifier = "Gemma 4 E2B (Q4_K_M)"
+  /// Injected at init from `ModelDescriptor.displayName`. Intended for
+  /// display / export metadata (past-results viewer, Markdown export,
+  /// YAML replay) — not a stable parse key.
+  public let modelIdentifier: String
   public let backendIdentifier = "llama.cpp"
 
   /// Maps a non-zero `llama_decode` result to either ``LLMError/suspended``
@@ -367,9 +398,9 @@ extension LlamaCppService {
         }
       #endif
 
-      if let range = outputText.range(of: Self.stopSequence) {
+      if let range = outputText.range(of: stopSequence) {
         outputText = String(outputText[..<range.lowerBound])
-        logger.debug("<|im_end|> stop sequence detected — ending generation early")
+        logger.debug("\(self.stopSequence) stop sequence detected — ending generation early")
         break
       }
 
@@ -522,14 +553,14 @@ extension LlamaCppService {
       }
 
       // Stop-sequence match: flush everything before it, terminate.
-      if let range = decodedText.range(of: Self.stopSequence) {
+      if let range = decodedText.range(of: stopSequence) {
         let beforeStop = String(decodedText[..<range.lowerBound])
         Self.emitDelta(
           from: beforeStop, alreadyEmitted: emittedCharCount,
           through: beforeStop.count, continuation: continuation)
         emittedCharCount = beforeStop.count
         decodedText = beforeStop
-        logger.debug("<|im_end|> stop sequence detected — ending stream early")
+        logger.debug("\(self.stopSequence) stop sequence detected — ending stream early")
         break
       }
 
@@ -538,7 +569,7 @@ extension LlamaCppService {
       // one char; `<|` holds back two; the next iteration either
       // completes the match (handled above) or disambiguates, at which
       // point holdback drops to zero and the queued chars flush.
-      let holdback = Self.stopSequenceHoldbackLength(in: decodedText)
+      let holdback = stopSequenceHoldbackLength(in: decodedText)
       let safeCount = decodedText.count - holdback
       if safeCount > emittedCharCount {
         Self.emitDelta(
@@ -626,7 +657,7 @@ extension LlamaCppService {
   /// common case, producing immediate emission and zero UX lag. Capped
   /// at `stopSequence.count - 1` because a full match is handled
   /// directly by the caller.
-  fileprivate static func stopSequenceHoldbackLength(in decoded: String) -> Int {
+  fileprivate func stopSequenceHoldbackLength(in decoded: String) -> Int {
     let stop = stopSequence
     let maxLen = min(decoded.count, stop.count - 1)
     if maxLen == 0 { return 0 }

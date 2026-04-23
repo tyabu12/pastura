@@ -42,140 +42,198 @@ struct MockModelDownloader: ModelDownloader, Sendable {
 @MainActor
 struct ModelManagerTests {
 
-  // Internal (not `private`) so sibling test files extending this suite
-  // (e.g., `ModelManagerTests+ProgressRegression.swift`) can construct an SUT.
+  // MARK: - SUT Helpers
+  //
+  // Helpers are `internal` (not `private`) so sibling-file extensions
+  // (`ModelManagerTests+ProgressRegression.swift`, `ModelManagerTests+MultiModel.swift`)
+  // can call them. Per .claude/rules/testing.md — widening to module-internal
+  // is contained because the test target is its own module.
+
+  /// Default filename for the test Gemma descriptor. Matches the legacy constant
+  /// `gemma-4-E2B-it-Q4_K_M.gguf` to exercise upgrade-compat paths on the
+  /// standard test SUT.
+  static let testGemmaFileName = "gemma-4-E2B-it-Q4_K_M.gguf"
+
+  /// Convenience factory for a minimal `ModelDescriptor` suitable for most
+  /// tests. `fileSize: 0` / `sha256: ""` skip size / SHA validation — pass
+  /// explicit values to exercise the validation paths.
+  func makeTestDescriptor(
+    id: ModelID = "test-gemma",
+    fileName: String = testGemmaFileName,
+    fileSize: Int64 = 0,
+    sha256: String = "",
+    systemPromptSuffix: String? = nil
+  ) -> ModelDescriptor {
+    ModelDescriptor(
+      id: id,
+      displayName: "Test Model",
+      vendor: "Test Vendor",
+      vendorURL: URL(string: "https://example.com")!,
+      downloadURL: URL(string: "https://example.com/\(fileName)")!,
+      fileName: fileName,
+      fileSize: fileSize,
+      sha256: sha256,
+      stopSequence: "<|im_end|>",
+      minRAM: 6_500_000_000,
+      modelInfoURL: URL(string: "https://example.com")!,
+      systemPromptSuffix: systemPromptSuffix
+    )
+  }
+
+  /// Builds a per-test isolated `UserDefaults` instance. The returned suite
+  /// writes to disk but uses a unique name so no test leaks state to another.
+  static func isolatedUserDefaults() -> UserDefaults {
+    let name = "ModelManagerTests-\(UUID().uuidString)"
+    // Safe: `UserDefaults(suiteName:)` only returns nil for reserved names
+    // ("NSGlobalDomain", "NSRegistrationDomain"); a UUID-based name never collides.
+    return UserDefaults(suiteName: name) ?? .standard
+  }
+
   func makeSUT(
     downloader: any ModelDownloader = MockModelDownloader(),
     physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
-    expectedFileSize: Int64 = 0,
-    expectedSHA256: String? = nil
+    catalog: [ModelDescriptor]? = nil,
+    userDefaults: UserDefaults? = nil
   ) -> ModelManager {
+    let finalCatalog = catalog ?? [makeTestDescriptor()]
+    let finalDefaults = userDefaults ?? Self.isolatedUserDefaults()
     let sut = ModelManager(
       downloader: downloader,
       fileManager: .default,
       physicalMemory: physicalMemory,
-      expectedFileSize: expectedFileSize,
-      expectedSHA256: expectedSHA256
+      userDefaults: finalDefaults,
+      catalog: finalCatalog
     )
     // Proactively wipe residual files at the shared Application Support /
     // Caches paths. Each per-test `defer { removeItem }` is declared AFTER
-    // `await sut.downloadModel()` — if a download-triggering test crashes
-    // before its defer registers, the model file leaks and every
-    // subsequent `.notDownloaded` assertion in the suite fails
-    // spuriously. The upstream cleanup here breaks that cascade so the
-    // actual failing test surfaces cleanly. Per-test defers are kept as
-    // defense-in-depth for the same-test window and are intentional — do
-    // not remove them as "redundant".
+    // `await sut.downloadModel(...)` — if a download-triggering test crashes
+    // before its defer registers, the model file leaks and every subsequent
+    // `.notDownloaded` assertion in the suite fails spuriously. The upstream
+    // cleanup here breaks that cascade so the actual failing test surfaces
+    // cleanly. Per-test defers are kept as defense-in-depth for the same-test
+    // window and are intentional — do not remove them as "redundant".
     //
-    // First observed on CI post-#186 (sha e650f13) on the macos-26
-    // runner; the underlying CI host-kill is unrelated to filesystem
-    // state (CI OOM; root cause tracked in #189).
-    try? FileManager.default.removeItem(at: sut.modelFileURL)
-    try? FileManager.default.removeItem(at: sut.downloadFileURL)
-    // Loud guard: surface permission / sandbox oddities that `try?` would
-    // otherwise swallow. A silent no-op here would let the cascade recur
-    // invisibly.
-    #expect(!FileManager.default.fileExists(atPath: sut.modelFileURL.path))
-    #expect(!FileManager.default.fileExists(atPath: sut.downloadFileURL.path))
+    // First observed on CI post-#186 (sha e650f13) on the macos-26 runner.
+    for descriptor in finalCatalog {
+      try? FileManager.default.removeItem(at: sut.modelFileURL(for: descriptor))
+      try? FileManager.default.removeItem(at: sut.downloadFileURL(for: descriptor))
+      // Loud guard: surface permission / sandbox oddities that `try?` would
+      // otherwise swallow.
+      #expect(!FileManager.default.fileExists(atPath: sut.modelFileURL(for: descriptor).path))
+      #expect(!FileManager.default.fileExists(atPath: sut.downloadFileURL(for: descriptor).path))
+    }
     return sut
   }
 
   // MARK: - Device Check
 
-  @Test("checkModelStatus sets unsupportedDevice when RAM < 7 GB threshold")
+  @Test("checkModelStatus sets unsupportedDevice when RAM < 6.5 GB threshold")
   func unsupportedDevice() {
     // 5.5 GB simulates what iOS reports on a 6 GB device
     let sut = makeSUT(physicalMemory: 5_500_000_000)
     sut.checkModelStatus()
-    #expect(sut.state == .unsupportedDevice)
+    #expect(sut.activeState == .unsupportedDevice)
   }
 
   @Test("checkModelStatus sets notDownloaded when model file does not exist")
   func modelNotDownloaded() {
     let sut = makeSUT()
     sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
+    #expect(sut.activeState == .notDownloaded)
   }
 
   @Test("checkModelStatus sets ready when model file exists")
   func modelReady() throws {
-    let sut = makeSUT()
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
 
     // Place a dummy file at the model path
-    let modelPath = sut.modelFileURL
+    let modelPath = sut.modelFileURL(for: descriptor)
     try FileManager.default.createDirectory(
       at: modelPath.deletingLastPathComponent(), withIntermediateDirectories: true)
     FileManager.default.createFile(atPath: modelPath.path, contents: Data("test".utf8))
     defer { try? FileManager.default.removeItem(at: modelPath) }
 
     sut.checkModelStatus()
-    #expect(sut.state == .ready(modelPath: modelPath.path))
+    #expect(sut.activeState == .ready(modelPath: modelPath.path))
   }
 
   // MARK: - Download
 
   @Test("downloadModel transitions from notDownloaded to ready on success")
   func downloadSuccess() async {
+    let descriptor = makeTestDescriptor()
     let sut = makeSUT(
-      downloader: MockModelDownloader(simulateBytes: 100)
+      downloader: MockModelDownloader(simulateBytes: 100),
+      catalog: [descriptor]
     )
     sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
+    #expect(sut.activeState == .notDownloaded)
 
-    await sut.downloadModel()
+    await sut.downloadModel(descriptor: descriptor)
     defer {
-      try? FileManager.default.removeItem(at: sut.modelFileURL)
-      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+      try? FileManager.default.removeItem(at: sut.modelFileURL(for: descriptor))
+      try? FileManager.default.removeItem(at: sut.downloadFileURL(for: descriptor))
     }
 
-    if case .ready = sut.state {
+    if case .ready = sut.activeState {
       // Success
     } else {
-      Issue.record("Expected .ready but got \(sut.state)")
+      Issue.record("Expected .ready but got \(sut.activeState)")
     }
   }
 
   @Test("downloadModel transitions to error on download failure")
   func downloadFailure() async {
+    let descriptor = makeTestDescriptor()
     let sut = makeSUT(
-      downloader: MockModelDownloader(error: URLError(.notConnectedToInternet))
+      downloader: MockModelDownloader(error: URLError(.notConnectedToInternet)),
+      catalog: [descriptor]
     )
     sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
+    #expect(sut.activeState == .notDownloaded)
 
-    await sut.downloadModel()
+    await sut.downloadModel(descriptor: descriptor)
 
-    if case .error = sut.state {
+    if case .error = sut.activeState {
       // Expected
     } else {
-      Issue.record("Expected .error but got \(sut.state)")
+      Issue.record("Expected .error but got \(sut.activeState)")
     }
   }
 
   @Test("downloadModel is no-op when state is unsupportedDevice")
   func downloadNoOpWhenUnsupported() async {
-    let sut = makeSUT(physicalMemory: 4 * 1024 * 1024 * 1024)
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(
+      physicalMemory: 4 * 1024 * 1024 * 1024,
+      catalog: [descriptor]
+    )
     sut.checkModelStatus()
-    #expect(sut.state == .unsupportedDevice)
+    #expect(sut.activeState == .unsupportedDevice)
 
-    await sut.downloadModel()
-    #expect(sut.state == .unsupportedDevice)
+    await sut.downloadModel(descriptor: descriptor)
+    #expect(sut.activeState == .unsupportedDevice)
   }
 
   @Test("downloadModel retries from error state")
   func downloadRetryFromError() async {
-    let sut = makeSUT(downloader: MockModelDownloader(error: URLError(.timedOut)))
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(
+      downloader: MockModelDownloader(error: URLError(.timedOut)),
+      catalog: [descriptor]
+    )
     sut.checkModelStatus()
-    await sut.downloadModel()
+    await sut.downloadModel(descriptor: descriptor)
 
-    guard case .error = sut.state else {
+    guard case .error = sut.activeState else {
       Issue.record("Expected .error after first download attempt")
       return
     }
 
     // Second call also fails (same downloader), but verifies it proceeds from .error
-    await sut.downloadModel()
-    if case .error = sut.state {
+    await sut.downloadModel(descriptor: descriptor)
+    if case .error = sut.activeState {
       // Expected
     } else {
       Issue.record("Expected .error on retry with failing downloader")
@@ -185,76 +243,87 @@ struct ModelManagerTests {
   // MARK: - Delete
 
   @Test("deleteModel removes files and sets state to notDownloaded")
-  func deleteModel() throws {
-    let sut = makeSUT()
+  func deleteModelRemovesFiles() throws {
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
 
     // Create model file
+    let modelURL = sut.modelFileURL(for: descriptor)
     try FileManager.default.createDirectory(
-      at: sut.modelFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    FileManager.default.createFile(atPath: sut.modelFileURL.path, contents: Data("test".utf8))
+      at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: modelURL.path, contents: Data("test".utf8))
     sut.checkModelStatus()
-    #expect(sut.state == .ready(modelPath: sut.modelFileURL.path))
+    #expect(sut.activeState == .ready(modelPath: modelURL.path))
 
-    sut.deleteModel()
+    sut.deleteModel(descriptor: descriptor)
 
-    #expect(sut.state == .notDownloaded)
-    #expect(!FileManager.default.fileExists(atPath: sut.modelFileURL.path))
+    #expect(sut.activeState == .notDownloaded)
+    #expect(!FileManager.default.fileExists(atPath: modelURL.path))
   }
 
   // MARK: - Storage Location
 
   @Test("modelFileURL is in Application Support directory")
   func modelFileInApplicationSupport() {
-    let sut = makeSUT()
-    #expect(sut.modelFileURL.path.contains("Application Support"))
-    #expect(!sut.modelFileURL.path.contains("Documents"))
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
+    let modelURL = sut.modelFileURL(for: descriptor)
+    #expect(modelURL.path.contains("Application Support"))
+    #expect(!modelURL.path.contains("Documents"))
   }
 
   @Test("downloadFileURL is in Caches directory")
   func downloadFileInCaches() {
-    let sut = makeSUT()
-    #expect(sut.downloadFileURL.path.contains("Caches"))
-    #expect(!sut.downloadFileURL.path.contains("Documents"))
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
+    let downloadURL = sut.downloadFileURL(for: descriptor)
+    #expect(downloadURL.path.contains("Caches"))
+    #expect(!downloadURL.path.contains("Documents"))
   }
 
   // MARK: - iCloud Backup Exclusion
 
   @Test("checkModelStatus sets isExcludedFromBackup on existing model file")
   func checkModelStatusExcludesFromBackup() throws {
-    let sut = makeSUT()
+    let descriptor = makeTestDescriptor()
+    let sut = makeSUT(catalog: [descriptor])
 
     // Create the model directory and file
-    let modelDir = sut.modelFileURL.deletingLastPathComponent()
+    let modelURL = sut.modelFileURL(for: descriptor)
+    let modelDir = modelURL.deletingLastPathComponent()
     try FileManager.default.createDirectory(at: modelDir, withIntermediateDirectories: true)
-    FileManager.default.createFile(atPath: sut.modelFileURL.path, contents: Data("test".utf8))
-    defer { try? FileManager.default.removeItem(at: sut.modelFileURL) }
+    FileManager.default.createFile(atPath: modelURL.path, contents: Data("test".utf8))
+    defer { try? FileManager.default.removeItem(at: modelURL) }
 
     sut.checkModelStatus()
 
-    let values = try sut.modelFileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    let values = try modelURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
     #expect(values.isExcludedFromBackup == true)
   }
 
   @Test("downloadModel sets isExcludedFromBackup on completed model file")
   func downloadSetsExcludeFromBackup() async throws {
+    let descriptor = makeTestDescriptor()
     let sut = makeSUT(
-      downloader: MockModelDownloader(simulateBytes: 100)
+      downloader: MockModelDownloader(simulateBytes: 100),
+      catalog: [descriptor]
     )
     sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
+    #expect(sut.activeState == .notDownloaded)
 
-    await sut.downloadModel()
+    await sut.downloadModel(descriptor: descriptor)
+    let modelURL = sut.modelFileURL(for: descriptor)
     defer {
-      try? FileManager.default.removeItem(at: sut.modelFileURL)
-      try? FileManager.default.removeItem(at: sut.downloadFileURL)
+      try? FileManager.default.removeItem(at: modelURL)
+      try? FileManager.default.removeItem(at: sut.downloadFileURL(for: descriptor))
     }
 
-    guard case .ready = sut.state else {
-      Issue.record("Expected .ready but got \(sut.state)")
+    guard case .ready = sut.activeState else {
+      Issue.record("Expected .ready but got \(sut.activeState)")
       return
     }
 
-    let values = try sut.modelFileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    let values = try modelURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
     #expect(values.isExcludedFromBackup == true)
   }
 
@@ -262,96 +331,10 @@ struct ModelManagerTests {
 
   @Test("checkModelStatus boundary: ~7.5 GB (8 GB device) is supported")
   func realWorld8GBDevice() {
-    // iOS reports ~7.5 GB on 8 GB devices; must pass the 7 GB threshold
+    // iOS reports ~7.5 GB on 8 GB devices; must pass the 6.5 GB threshold
     let sut = makeSUT(physicalMemory: 7_500_000_000)
     sut.checkModelStatus()
-    #expect(sut.state != .unsupportedDevice)
-  }
-
-  // MARK: - SHA256
-
-  @Test("computeSHA256 returns correct hash for known data")
-  func computeSHA256ReturnsCorrectHash() throws {
-    let tempFile = FileManager.default.temporaryDirectory
-      .appendingPathComponent(UUID().uuidString)
-    let data = Data(repeating: 0x42, count: 1000)
-    try data.write(to: tempFile)
-    defer { try? FileManager.default.removeItem(at: tempFile) }
-
-    let hash = try ModelManager.computeSHA256(of: tempFile)
-    // Precomputed: SHA256 of 1000 bytes of 0x42
-    #expect(hash == "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c")
-  }
-
-  @Test("downloadModel transitions to ready when SHA256 matches")
-  func downloadSuccessWithMatchingSHA256() async {
-    // MockModelDownloader writes 1000 bytes of 0x42
-    let expectedHash = "9a5670771141349931d69d6eb982faa01def544dc17a161ef83b3277fb7c0c3c"
-    let sut = makeSUT(
-      downloader: MockModelDownloader(simulateBytes: 1000),
-      expectedSHA256: expectedHash
-    )
-    sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
-
-    await sut.downloadModel()
-    defer {
-      try? FileManager.default.removeItem(at: sut.modelFileURL)
-      try? FileManager.default.removeItem(at: sut.downloadFileURL)
-    }
-
-    if case .ready = sut.state {
-      // Success
-    } else {
-      Issue.record("Expected .ready but got \(sut.state)")
-    }
-  }
-
-  @Test("downloadModel transitions to error when SHA256 mismatches")
-  func downloadFailureWithMismatchingSHA256() async {
-    let wrongHash = "0000000000000000000000000000000000000000000000000000000000000000"
-    let sut = makeSUT(
-      downloader: MockModelDownloader(simulateBytes: 1000),
-      expectedSHA256: wrongHash
-    )
-    sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
-
-    await sut.downloadModel()
-    defer {
-      try? FileManager.default.removeItem(at: sut.modelFileURL)
-      try? FileManager.default.removeItem(at: sut.downloadFileURL)
-    }
-
-    if case .error(let message) = sut.state {
-      #expect(message.contains("verification failed"))
-    } else {
-      Issue.record("Expected .error but got \(sut.state)")
-    }
-
-    // .download file should be deleted on mismatch
-    #expect(!FileManager.default.fileExists(atPath: sut.downloadFileURL.path))
-  }
-
-  @Test("downloadModel skips SHA256 verification when expectedSHA256 is nil")
-  func downloadSuccessWithNilSHA256() async {
-    let sut = makeSUT(
-      downloader: MockModelDownloader(simulateBytes: 100)
-    )
-    sut.checkModelStatus()
-    #expect(sut.state == .notDownloaded)
-
-    await sut.downloadModel()
-    defer {
-      try? FileManager.default.removeItem(at: sut.modelFileURL)
-      try? FileManager.default.removeItem(at: sut.downloadFileURL)
-    }
-
-    if case .ready = sut.state {
-      // Success — no SHA256 check performed
-    } else {
-      Issue.record("Expected .ready but got \(sut.state)")
-    }
+    #expect(sut.activeState != .unsupportedDevice)
   }
 
 }

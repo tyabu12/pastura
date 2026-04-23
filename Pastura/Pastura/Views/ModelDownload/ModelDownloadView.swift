@@ -21,7 +21,7 @@ struct ModelDownloadView: View {
 
   @ViewBuilder
   private var content: some View {
-    switch modelManager.state {
+    switch modelManager.activeState {
     case .checking:
       ProgressView("Checking device...")
 
@@ -82,7 +82,7 @@ struct ModelDownloadView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       Button {
-        modelManager.startDownload()
+        modelManager.startActiveDownload()
       } label: {
         Label("Download Model", systemImage: "arrow.down.circle.fill")
           .frame(maxWidth: .infinity)
@@ -109,7 +109,7 @@ struct ModelDownloadView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
       Button("Cancel") {
-        modelManager.cancelDownload()
+        modelManager.cancelActiveDownload()
       }
       .foregroundStyle(.red)
     }
@@ -137,7 +137,7 @@ struct ModelDownloadView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       Button {
-        modelManager.startDownload()
+        modelManager.startActiveDownload()
       } label: {
         Label("Retry", systemImage: "arrow.clockwise")
           .frame(maxWidth: .infinity)

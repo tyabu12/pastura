@@ -49,7 +49,7 @@ struct DemoReplayHostView: View {
       .onChange(of: scenePhase) { _, newPhase in
         handleScenePhase(newPhase)
       }
-      .onChange(of: modelManager.state) { _, newState in
+      .onChange(of: modelManager.activeState) { _, newState in
         handleModelStateChange(newState)
       }
   }
@@ -57,7 +57,7 @@ struct DemoReplayHostView: View {
   @ViewBuilder
   private var currentView: some View {
     switch Self.fallbackBranch(
-      state: modelManager.state,
+      state: modelManager.activeState,
       demosCount: sources.count,
       replayHadStarted: replayHadStarted,
       isCellular: isCellular) {
@@ -132,9 +132,9 @@ struct DemoReplayHostView: View {
     // slid the last message under the overlay.
     .safeAreaInset(edge: .bottom, spacing: Spacing.l) {
       PromoCard(
-        modelState: modelManager.state,
+        modelState: modelManager.activeState,
         replayHadStarted: replayHadStarted,
-        onRetry: { modelManager.startDownload() })
+        onRetry: { modelManager.startActiveDownload() })
     }
   }
 
