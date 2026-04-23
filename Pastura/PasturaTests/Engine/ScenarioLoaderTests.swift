@@ -252,6 +252,71 @@ struct ScenarioLoaderTests {
     }
   }
 
+  /// Numeric id (YAML auto-type) previously coerced silently to "42".
+  /// Under strict loader: throws with wrong-type message distinguishing
+  /// this from "missing field".
+  @Test func throwsOnWrongTypeForRequiredString() throws {
+    let yaml = """
+      id: 42
+      name: Test
+      description: Test
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: A
+          description: A
+        - name: B
+          description: B
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'id'"))
+    #expect(msg.contains("String"))
+    // "missing" would imply the field is absent; must not appear here.
+    #expect(!msg.lowercased().contains("missing"))
+  }
+
+  /// Quoted integer (`agents: "2"`) previously threw a misleading
+  /// "Missing required field" error. Under strict loader: throws with
+  /// wrong-type message that names the actual bridged type.
+  @Test func throwsOnWrongTypeForRequiredInt() throws {
+    let yaml = """
+      id: test
+      name: Test
+      description: Test
+      agents: "2"
+      rounds: 1
+      context: Context
+      personas:
+        - name: A
+          description: A
+        - name: B
+          description: B
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'agents'"))
+    #expect(msg.contains("Int"))
+    #expect(!msg.lowercased().contains("missing"))
+  }
+
   @Test func throwsOnInvalidPhaseType() {
     let yaml = """
       id: test

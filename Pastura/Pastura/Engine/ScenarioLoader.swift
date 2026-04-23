@@ -83,29 +83,56 @@ nonisolated struct ScenarioLoader: Sendable {
     return filtered.joined(separator: "\n")
   }
 
-  /// Extracts a required string field from a YAML dictionary.
-  private func requireString(_ dict: [String: Any], key: String) throws -> String {
-    if let value = dict[key] as? String { return value }
-    if let value = dict[key] { return "\(value)" }
-    throw SimulationError.scenarioValidationFailed("Missing required field: \(key)")
+  /// Extracts a required field of exact Swift type `T` from a YAML dictionary.
+  ///
+  /// Distinguishes *missing* from *present-but-wrong-type* so users can tell
+  /// whether to add the field or re-type it. Wrong-type errors name the actual
+  /// bridged Swift type from Yams (e.g. `"String"` for quoted numbers), so a
+  /// user writing `agents: "2"` gets `"field 'agents' must be Int, got String"`
+  /// instead of a misleading `"Missing required field"`.
+  ///
+  /// No type coercion — eliminating silent-coerce is the whole point of #130.
+  private func parseRequired<T>(
+    _ dict: [String: Any], key: String, label: String
+  ) throws -> T {
+    guard let raw = dict[key] else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): missing required field '\(key)'"
+      )
+    }
+    guard let typed = raw as? T else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): field '\(key)' must be \(T.self), got \(type(of: raw))"
+      )
+    }
+    return typed
   }
 
-  /// Extracts a required integer field from a YAML dictionary.
-  private func requireInt(_ dict: [String: Any], key: String) throws -> Int {
-    guard let value = dict[key] as? Int else {
-      throw SimulationError.scenarioValidationFailed("Missing required field: \(key)")
+  /// Extracts an optional field of exact Swift type `T` from a YAML dictionary.
+  ///
+  /// Returns `nil` when the key is absent. Throws when present-but-wrong-type —
+  /// unlike a naive `as? T` which would silently coerce to `nil` and let the
+  /// caller's default kick in (the bug class tracked in #130).
+  private func parseOptional<T>(
+    _ dict: [String: Any], key: String, label: String
+  ) throws -> T? {
+    guard let raw = dict[key] else { return nil }
+    guard let typed = raw as? T else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): field '\(key)' must be \(T.self), got \(type(of: raw))"
+      )
     }
-    return value
+    return typed
   }
 
   /// Maps a raw YAML dictionary to a ``Scenario`` model.
   private func mapToScenario(_ dict: [String: Any]) throws -> Scenario {
-    let id = try requireString(dict, key: "id")
-    let name = try requireString(dict, key: "name")
-    let description = try requireString(dict, key: "description")
-    let agentCount = try requireInt(dict, key: "agents")
-    let rounds = try requireInt(dict, key: "rounds")
-    let context = try requireString(dict, key: "context")
+    let id: String = try parseRequired(dict, key: "id", label: "Scenario")
+    let name: String = try parseRequired(dict, key: "name", label: "Scenario")
+    let description: String = try parseRequired(dict, key: "description", label: "Scenario")
+    let agentCount: Int = try parseRequired(dict, key: "agents", label: "Scenario")
+    let rounds: Int = try parseRequired(dict, key: "rounds", label: "Scenario")
+    let context: String = try parseRequired(dict, key: "context", label: "Scenario")
 
     guard let personasRaw = dict["personas"] as? [[String: Any]] else {
       throw SimulationError.scenarioValidationFailed("Missing or invalid field: personas")
