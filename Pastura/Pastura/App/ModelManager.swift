@@ -11,6 +11,26 @@ import CryptoKit
 import Foundation
 import os
 
+/// Errors surfaced by `ModelManager` mutators that can reject an operation.
+///
+/// These are UI-facing: the Settings Models section maps each case to a
+/// user-visible explanation (e.g. "cannot delete the active model — switch
+/// first"). Callers that hit these paths from code (not UI) have a bug —
+/// the UI layer is responsible for disabling the corresponding affordance
+/// before the call, not for recovering after.
+public enum ModelManagerError: Error, Equatable {
+  /// The model id is not present in the catalog. Indicates a stale UI
+  /// reference — the catalog is load-bearing at compile time.
+  case unknownModel(id: ModelID)
+  /// The requested model is currently active; deleting it would leave
+  /// the app without a loadable model. Switch active first.
+  case cannotDeleteActive(id: ModelID)
+  /// The model is not in `.ready` state, so there is nothing to delete
+  /// (or the operation would race with an in-flight download). For the
+  /// `.downloading` case, callers should use `cancelDownload(descriptor:)`.
+  case notReadyForDelete(id: ModelID)
+}
+
 /// State of a single on-device LLM model.
 public enum ModelState: Equatable, Sendable {
   /// Checking device compatibility and model file status.
@@ -45,7 +65,7 @@ public enum ModelState: Equatable, Sendable {
 /// |-----------------------|-------------------------|--------------------------------|-------------------------------|---------------|
 /// | `startDownload(d)`    | → `.downloading`†       | no-op (own descriptor)         | no-op (already done)          | → `.downloading` |
 /// | `cancelDownload(d)`   | no-op                   | → `.notDownloaded`, keep partial | no-op                       | no-op         |
-/// | `deleteModel(d)`      | remove partial if any, → `.notDownloaded` | cancel + remove partial, → `.notDownloaded` | remove file, → `.notDownloaded` | remove file + partial, → `.notDownloaded` |
+/// | `deleteModel(id:)`    | throw `.notReadyForDelete`               | throw `.notReadyForDelete` (use `cancelDownload` instead) | remove file, → `.notDownloaded` | throw `.notReadyForDelete` |
 /// | `setActiveModel(id)`  | validate id ∈ catalog, write UserDefaults — does not touch state dict |
 ///
 /// †: `startDownload` is also rejected (no-op) if ANY descriptor is already
@@ -269,14 +289,34 @@ final class ModelManager {
     }
   }
 
-  /// Removes both the completed model file and any partial download for
-  /// `descriptor`. Cancels an in-flight download for the same descriptor first.
-  func deleteModel(descriptor: ModelDescriptor) {
-    downloadTasks[descriptor.id]?.cancel()
-    downloadTasks[descriptor.id] = nil
+  /// Removes a `.ready` model from disk, transitioning it back to `.notDownloaded`.
+  ///
+  /// Rejects (throws) when:
+  /// - The id is not in the catalog → `.unknownModel`
+  /// - The id is the currently-active model → `.cannotDeleteActive`
+  ///   (the UI must switch active to another descriptor first)
+  /// - The model is not in `.ready` state → `.notReadyForDelete`
+  ///   (use `cancelDownload(descriptor:)` for `.downloading`)
+  ///
+  /// The strict guard is deliberate: a lenient "delete in any state" API
+  /// invites callers to use it while a `.downloading` SHA256 hash is in
+  /// flight off-MainActor, which would race the file removal against the
+  /// finalize-download writer. The Settings UI is expected to enable the
+  /// delete affordance only when `state[id] == .ready` and
+  /// `id != activeModelID`.
+  func deleteModel(id: ModelID) throws {
+    guard let descriptor = catalog.first(where: { $0.id == id }) else {
+      throw ModelManagerError.unknownModel(id: id)
+    }
+    guard id != activeModelID else {
+      throw ModelManagerError.cannotDeleteActive(id: id)
+    }
+    guard case .ready = state[id] else {
+      throw ModelManagerError.notReadyForDelete(id: id)
+    }
     try? fileManager.removeItem(at: modelFileURL(for: descriptor))
     try? fileManager.removeItem(at: downloadFileURL(for: descriptor))
-    state[descriptor.id] = .notDownloaded
+    state[id] = .notDownloaded
   }
 
   // MARK: - Private: State Computation

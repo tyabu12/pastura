@@ -241,25 +241,11 @@ struct ModelManagerTests {
   }
 
   // MARK: - Delete
-
-  @Test("deleteModel removes files and sets state to notDownloaded")
-  func deleteModelRemovesFiles() throws {
-    let descriptor = makeTestDescriptor()
-    let sut = makeSUT(catalog: [descriptor])
-
-    // Create model file
-    let modelURL = sut.modelFileURL(for: descriptor)
-    try FileManager.default.createDirectory(
-      at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    FileManager.default.createFile(atPath: modelURL.path, contents: Data("test".utf8))
-    sut.checkModelStatus()
-    #expect(sut.activeState == .ready(modelPath: modelURL.path))
-
-    sut.deleteModel(descriptor: descriptor)
-
-    #expect(sut.activeState == .notDownloaded)
-    #expect(!FileManager.default.fileExists(atPath: modelURL.path))
-  }
+  //
+  // Delete tests live in `ModelManagerTests+MultiModel.swift` because the
+  // strict `deleteModel(id:)` guard requires a 2+ descriptor catalog to
+  // exercise the "delete non-active" happy path without hitting the
+  // `.cannotDeleteActive` reject.
 
   // MARK: - Storage Location
 
