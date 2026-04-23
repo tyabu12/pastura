@@ -70,7 +70,11 @@
     public var modelIdentifier: String { modelName }
     public let backendIdentifier = "Ollama"
 
-    public func generate(system: String, user: String) async throws -> String {
+    // `schema` is accepted but unused in Item 2 — Ollama `format:"json"`
+    // wiring lands with Item 5.
+    public func generate(
+      system: String, user: String, schema: OutputSchema?
+    ) async throws -> String {
       guard isModelLoaded else { throw LLMError.notLoaded }
 
       let request = try buildRequest(system: system, user: user)
@@ -169,12 +173,15 @@
   // MARK: - Generation (metrics-aware)
 
   extension OllamaService {
-    /// Token-count-aware counterpart to ``generate(system:user:)``. Reads
-    /// `usage.completion_tokens` when the server provides it; otherwise reports
-    /// `nil` (Ollama's OpenAI-compat endpoint historically has inconsistent
-    /// `usage` reporting across versions).
+    /// Token-count-aware counterpart to ``generate(system:user:schema:)``.
+    /// Reads `usage.completion_tokens` when the server provides it; otherwise
+    /// reports `nil` (Ollama's OpenAI-compat endpoint historically has
+    /// inconsistent `usage` reporting across versions).
+    ///
+    /// `schema` is accepted but unused in Item 2 — Ollama `format:"json"`
+    /// wiring lands with Item 5.
     public func generateWithMetrics(
-      system: String, user: String
+      system: String, user: String, schema: OutputSchema?
     ) async throws -> GenerationResult {
       guard isModelLoaded else { throw LLMError.notLoaded }
 

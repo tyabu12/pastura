@@ -241,8 +241,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     )
   }
 
-  public func generate(system: String, user: String) async throws -> String {
-    try await runGeneration(system: system, user: user).text
+  // `schema` is accepted but unused in Item 2 — GBNF grammar wiring
+  // lands with Item 4 (plumbed through `runGeneration` → `createSampler`).
+  public func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String {
+    try await runGeneration(system: system, user: user, schema: schema).text
   }
 
 }
@@ -250,13 +254,13 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 // MARK: - Generation (metrics-aware)
 
 extension LlamaCppService {
-  /// Token-count-aware counterpart to ``generate(system:user:)``. Shares the
+  /// Token-count-aware counterpart to ``generate(system:user:schema:)``. Shares the
   /// same inference path and returns the generated token count for tok/s
   /// throughput reporting.
   public func generateWithMetrics(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) async throws -> GenerationResult {
-    try await runGeneration(system: system, user: user)
+    try await runGeneration(system: system, user: user, schema: schema)
   }
 
   /// Shared implementation for `generate` and `generateWithMetrics`.
@@ -266,8 +270,12 @@ extension LlamaCppService {
   /// denies it (`scenePhase = .background`); reactive failure via
   /// `decodeFailureError` covers the narrow window where denial races the
   /// next iteration.
+  ///
+  /// `schema` reaches here via `generate` / `generateWithMetrics`; it
+  /// is unused in Item 2 but kept in the signature so Item 4 can wire
+  /// `createSampler` without reshaping the call chain again.
   fileprivate func runGeneration(  // swiftlint:disable:this function_body_length
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) async throws -> GenerationResult {
     // Debug trace of generate() preconditions — kept at debug level so
     // load/reload race investigations can re-enable it without code edits.
@@ -431,13 +439,14 @@ extension LlamaCppService {
   ///   issued in the narrow window between the last yielded chunk and
   ///   the Task's exit will `precondition`-crash.
   public func generateStream(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task {
         do {
           try await runStreamGeneration(
-            system: system, user: user, continuation: continuation)
+            system: system, user: user, schema: schema,
+            continuation: continuation)
           continuation.finish()
         } catch {
           continuation.finish(throwing: error)
@@ -450,8 +459,12 @@ extension LlamaCppService {
   /// Core streaming loop. Emits chunks via `continuation` and throws on
   /// cancel, suspend, or inference failure. Caller wraps via
   /// `finish(throwing:)` so errors propagate through the async sequence.
+  ///
+  /// `schema` reaches here via `generateStream`; it is unused in Item 2
+  /// but kept in the signature so Item 4 can wire `createSampler`
+  /// without reshaping the call chain again.
   fileprivate func runStreamGeneration(  // swiftlint:disable:this function_body_length cyclomatic_complexity
-    system: String, user: String,
+    system: String, user: String, schema: OutputSchema?,
     continuation: AsyncThrowingStream<LLMStreamChunk, Error>.Continuation
   ) async throws {
     try await throttleIfOverheating()

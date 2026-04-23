@@ -55,7 +55,11 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   public let modelIdentifier = "mock"
   public let backendIdentifier = "mock"
 
-  public func generate(system: String, user: String) async throws -> String {
+  // `schema` is accepted but unused in Item 2 — full capture-for-assert
+  // semantics arrive with Item 5 (`capturedSchemas` test helper).
+  public func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String {
     try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
       // Drain a pending suspend slot first — this lets tests deterministically
@@ -97,12 +101,13 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   ///   configured sequence yields as a non-final chunk, followed by a
   ///   terminal chunk with empty delta and `nil` completion tokens. Obeys
   ///   the same suspend / not-loaded / exhausted semantics as
-  ///   ``generate(system:user:)``.
-  /// - **Wrap mode (no stream chunks):** Invokes ``generate(system:user:)``
-  ///   and yields the full response as a single terminal chunk — same
-  ///   observable behaviour as the protocol default wrap.
+  ///   ``generate(system:user:schema:)``.
+  /// - **Wrap mode (no stream chunks):** Invokes
+  ///   ``generate(system:user:schema:)`` and yields the full response as
+  ///   a single terminal chunk — same observable behaviour as the
+  ///   protocol default wrap.
   public func generateStream(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task { [weak self] in
@@ -124,7 +129,8 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
                 delta: "", isFinal: true, completionTokens: nil))
             continuation.finish()
           } else {
-            let text = try await self.generate(system: system, user: user)
+            let text = try await self.generate(
+              system: system, user: user, schema: schema)
             continuation.yield(
               LLMStreamChunk(
                 delta: text, isFinal: true, completionTokens: nil))

@@ -6,7 +6,7 @@ import Foundation
 /// ``OllamaService`` (development), and ``MockLLMService`` (testing).
 /// The Engine layer depends on this protocol, never on concrete implementations.
 nonisolated public protocol LLMService: Sendable {
-  /// Load the model into memory. Call before ``generate(system:user:)``.
+  /// Load the model into memory. Call before ``generate(system:user:schema:)``.
   ///
   /// - Throws: ``LLMError/loadFailed(description:)`` if the model cannot be loaded.
   func loadModel() async throws
@@ -19,32 +19,45 @@ nonisolated public protocol LLMService: Sendable {
   /// Whether a model is currently loaded and ready for inference.
   var isModelLoaded: Bool { get }
 
-  /// Generate a completion from the given system and user prompts.
+  /// Generate a completion from the given system and user prompts, optionally
+  /// constrained by an ``OutputSchema``.
   ///
   /// - Parameters:
   ///   - system: The system prompt defining the agent's persona and rules.
   ///   - user: The user prompt with context and instructions for this turn.
+  ///   - schema: Optional output schema constraining the JSON shape.
+  ///     Backends translate this to their native constrained-decoding
+  ///     mechanism (llama.cpp: GBNF grammar, Ollama: `format:"json"`,
+  ///     Mock: recorded for tests). `nil` falls back to unconstrained
+  ///     generation — same behaviour as before PR#b for existing
+  ///     callers.
   /// - Returns: The raw text response from the LLM.
   /// - Throws: ``LLMError/notLoaded`` if model is not loaded,
   ///           ``LLMError/generationFailed(description:)`` on inference failure,
   ///           ``LLMError/suspended`` if a ``SuspendController`` interrupted
   ///           the call (caller should await resume and retry).
-  func generate(system: String, user: String) async throws -> String
+  func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String
 
   /// Generate a completion and return it with optional token-count metrics.
   ///
   /// Backends that can cheaply report how many tokens they generated should
   /// override this to populate ``GenerationResult/completionTokens``. The
-  /// default implementation wraps ``generate(system:user:)`` and returns
+  /// default implementation wraps ``generate(system:user:schema:)`` and returns
   /// `nil` tokens — callers treat nil as "unknown throughput" and exclude
   /// such events from rolling averages.
   ///
   /// - Parameters:
   ///   - system: The system prompt defining the agent's persona and rules.
   ///   - user: The user prompt with context and instructions for this turn.
+  ///   - schema: Optional output schema — same semantics as on
+  ///     ``generate(system:user:schema:)``.
   /// - Returns: A ``GenerationResult`` with the text and optional token count.
-  /// - Throws: Same error domain as ``generate(system:user:)``.
-  func generateWithMetrics(system: String, user: String) async throws -> GenerationResult
+  /// - Throws: Same error domain as ``generate(system:user:schema:)``.
+  func generateWithMetrics(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> GenerationResult
 
   /// Attach a ``SuspendController`` so an in-flight inference can be
   /// interrupted from outside the LLM layer.
@@ -75,7 +88,7 @@ nonisolated public protocol LLMService: Sendable {
   ///
   /// Backends that can deliver tokens as they are sampled (currently
   /// ``LlamaCppService``) override this for true token-by-token streaming.
-  /// The default implementation wraps ``generateWithMetrics(system:user:)``
+  /// The default implementation wraps ``generateWithMetrics(system:user:schema:)``
   /// and yields a single terminal chunk with the full response — so
   /// backends that lack streaming (``MockLLMService``, ``OllamaService``)
   /// still satisfy the contract without custom code.
@@ -95,23 +108,25 @@ nonisolated public protocol LLMService: Sendable {
   /// - Parameters:
   ///   - system: The system prompt defining the agent's persona and rules.
   ///   - user: The user prompt with context and instructions for this turn.
+  ///   - schema: Optional output schema — same semantics as on
+  ///     ``generate(system:user:schema:)``.
   /// - Returns: An `AsyncThrowingStream` of ``LLMStreamChunk`` values.
   /// - Throws: Errors from the underlying `generate` call propagate
   ///   through the stream via `finish(throwing:)` — same error domain as
-  ///   ``generate(system:user:)``.
+  ///   ``generate(system:user:schema:)``.
   func generateStream(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error>
 }
 
 extension LLMService {
-  /// Default implementation wraps ``generate(system:user:)`` and reports
+  /// Default implementation wraps ``generate(system:user:schema:)`` and reports
   /// no token count. Backends that have cheap access to the generation
   /// token count override this.
   public func generateWithMetrics(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) async throws -> GenerationResult {
-    let text = try await generate(system: system, user: user)
+    let text = try await generate(system: system, user: user, schema: schema)
     return GenerationResult(text: text, completionTokens: nil)
   }
 
@@ -130,12 +145,13 @@ extension LLMService {
   /// impl inherits MainActor isolation and blocks the nonisolated
   /// ``LlamaCppService`` conformance.
   nonisolated public func generateStream(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task {
         do {
-          let result = try await generateWithMetrics(system: system, user: user)
+          let result = try await generateWithMetrics(
+            system: system, user: user, schema: schema)
           continuation.yield(
             LLMStreamChunk(
               delta: result.text,
@@ -153,5 +169,33 @@ extension LLMService {
       // Swift Task so the yield attempt is short-circuited.
       continuation.onTermination = { _ in task.cancel() }
     }
+  }
+}
+
+// MARK: - Convenience (schema-less) overloads
+
+/// The 3-arg forms above are the protocol requirements. Callers that do
+/// not need schema-constrained decoding use the 2-arg convenience methods
+/// below — they forward to the 3-arg forms with `schema: nil`, preserving
+/// the pre-#194-PR#b call shape (`llm.generate(system:, user:)`). This
+/// keeps Engine, replay, and test call sites unchanged while letting the
+/// handler layer opt into schema constraints incrementally (Item 5).
+extension LLMService {
+  public func generate(
+    system: String, user: String
+  ) async throws -> String {
+    try await generate(system: system, user: user, schema: nil)
+  }
+
+  public func generateWithMetrics(
+    system: String, user: String
+  ) async throws -> GenerationResult {
+    try await generateWithMetrics(system: system, user: user, schema: nil)
+  }
+
+  nonisolated public func generateStream(
+    system: String, user: String
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    generateStream(system: system, user: user, schema: nil)
   }
 }
