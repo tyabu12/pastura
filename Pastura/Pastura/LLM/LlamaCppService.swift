@@ -328,8 +328,10 @@ extension LlamaCppService {
     // Prefill: process prompt tokens
     try prefill(context: context, tokens: tokens)
 
-    // Set up sampler chain
-    let sampler = try createSampler()
+    // Set up sampler chain. Grammar (if any) is built once per call
+    // and fed to `createSampler`; it lives only for this generation.
+    let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
+    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
     defer { llama_sampler_free(sampler) }
 
     // Auto-regressive generation loop with string-based stop detection.
@@ -495,7 +497,12 @@ extension LlamaCppService {
     llama_memory_clear(llama_get_memory(context), true)
     try prefill(context: context, tokens: tokens)
 
-    let sampler = try createSampler()
+    // Grammar-constrained sampling: build once per stream invocation
+    // (matching the non-streaming path in `runGeneration`). Missing
+    // wire-up here would silently bypass grammar on the streaming
+    // path — the regression scenario Critic Axis 3 flagged.
+    let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
+    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
     defer { llama_sampler_free(sampler) }
 
     // Byte-level accumulation so UTF-8 characters split across pieces
