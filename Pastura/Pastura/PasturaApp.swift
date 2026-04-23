@@ -132,12 +132,14 @@ private struct RootView: View {
           }
 
       case .needsModelSelection:
-        // Placeholder: ModelPickerView lands in the next commit.
-        // Picker tap calls `modelManager.setActiveModel(_:)` and then
-        // sets `appState = .needsModelDownload` to kick off the download
-        // of the chosen model. No-op here so the enum is exhaustive and
-        // the surrounding state machine compiles between commits.
-        ProgressView("Choose a model")
+        ModelPickerView(modelManager: modelManager) { pickedID in
+          modelManager.setActiveModel(pickedID)
+          // Transition to the existing download flow — `checkModelStatus()`
+          // already ran during `initialize()`, so `activeState` is
+          // `.notDownloaded` and `DemoReplayHostView` will prompt the user
+          // to start the download for the newly-active descriptor.
+          appState = .needsModelDownload
+        }
 
       case .needsModelDownload:
         DemoReplayHostView(modelManager: modelManager)
