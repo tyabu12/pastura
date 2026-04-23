@@ -134,12 +134,10 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     let rounds: Int = try parseRequired(dict, key: "rounds", label: "Scenario")
     let context: String = try parseRequired(dict, key: "context", label: "Scenario")
 
-    guard let personasRaw = dict["personas"] as? [[String: Any]] else {
-      throw SimulationError.scenarioValidationFailed("Missing or invalid field: personas")
-    }
-    guard let phasesRaw = dict["phases"] as? [[String: Any]] else {
-      throw SimulationError.scenarioValidationFailed("Missing or invalid field: phases")
-    }
+    let personasRaw: [[String: Any]] = try parseRequired(
+      dict, key: "personas", label: "Scenario")
+    let phasesRaw: [[String: Any]] = try parseRequired(
+      dict, key: "phases", label: "Scenario")
 
     let personas = try personasRaw.map { try mapPersona($0) }
     if personas.count != agentCount {
@@ -175,10 +173,10 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
   }
 
   private func mapPersona(_ dict: [String: Any]) throws -> Persona {
-    guard let name = dict["name"] as? String else {
-      throw SimulationError.scenarioValidationFailed("Persona missing 'name'")
-    }
-    let description = dict["description"] as? String ?? ""
+    let name: String = try parseRequired(dict, key: "name", label: "Persona")
+    let description: String =
+      try parseOptional(
+        dict, key: "description", label: "Persona") ?? ""
     return Persona(name: name, description: description)
   }
 
@@ -358,8 +356,6 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
         )
       }
       if arr.allSatisfy({ $0 is String }) {
-        // Unreachable when the pure-String cast above succeeded; kept for
-        // clarity against future changes to Swift's Array<Any> bridging.
         return .array(arr.compactMap { $0 as? String })
       }
       throw SimulationError.scenarioValidationFailed(

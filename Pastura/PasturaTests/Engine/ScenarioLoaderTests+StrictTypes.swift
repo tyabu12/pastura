@@ -1,4 +1,3 @@
-import Foundation
 import Testing
 
 @testable import Pastura
@@ -73,6 +72,66 @@ extension ScenarioLoaderTests {
     #expect(msg.contains("'agents'"))
     #expect(msg.contains("Int"))
     #expect(!msg.lowercased().contains("missing"))
+  }
+
+  // MARK: - Personas / phases strict (#130 item 1 follow-up)
+
+  /// `personas: "alice"` (scalar instead of list-of-dict) previously threw
+  /// with "Missing or invalid field: personas" — strict loader uses the new
+  /// helper so missing vs wrong-type produce distinct messages.
+  @Test func throwsOnWrongTypeForPersonasList() throws {
+    let yaml = """
+      id: t
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas: "alice"
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'personas'"))
+    #expect(!msg.lowercased().contains("missing"))
+  }
+
+  /// Persona with a numeric name (`- name: 42`) previously became a Scenario
+  /// whose persona name wasn't the Int the author typed — `as? String` failed
+  /// silently at the `mapPersona` boundary. Strict loader throws.
+  @Test func throwsOnWrongTypeForPersonaName() throws {
+    let yaml = """
+      id: t
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: 42
+          description: D
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'name'"))
+    #expect(msg.contains("String"))
   }
 
   // MARK: - Assign target parsing (strict)
@@ -397,34 +456,13 @@ extension ScenarioLoaderTests {
     #expect(msg.contains("'options'"))
   }
 
-  // MARK: - Shipped content safety net (#130 item 5)
-
-  /// Share Board gallery YAMLs live in `docs/gallery/` (served from GitHub raw
-  /// at runtime, not bundled). A loader refactor could break parsing without
-  /// either the preset-loader test or the app test suite noticing until a real
-  /// Share Board fetch. This pins the YAMLs to the strict loader's contract.
-  ///
-  /// Presets (`Pastura/Pastura/Resources/Presets/`) are already covered by
-  /// `PresetLoaderTests.presetYAMLsAreParseable`; preset→serialize→parse
-  /// round-trip is covered by `ScenarioSerializerTests.roundTripBokete` et al.
-  @Test func galleryYAMLsLoadUnderStrictLoader() throws {
-    let galleryDir = repoRoot().appendingPathComponent("docs/gallery")
-    for name in ["trolley_dilemma_v1", "detective_scene_v1", "asch_conformity_v1"] {
-      let url = galleryDir.appendingPathComponent("\(name).yaml")
-      let yaml = try String(contentsOf: url, encoding: .utf8)
-      let scenario = try loader.load(yaml: yaml)
-      #expect(!scenario.phases.isEmpty, "\(name): parsed but has no phases")
-    }
-  }
-}
-
-/// Resolves the repo root from this file's absolute source path. Test targets
-/// have host-filesystem access under iOS simulator, so `#filePath` works.
-/// Path walk: this file → Engine → PasturaTests → Pastura → repo root.
-private func repoRoot(file: StaticString = #filePath) -> URL {
-  URL(fileURLWithPath: "\(file)")
-    .deletingLastPathComponent()  // Engine/
-    .deletingLastPathComponent()  // PasturaTests/
-    .deletingLastPathComponent()  // Pastura/
-    .deletingLastPathComponent()  // repo root
+  // Shipped-content coverage (#130 item 5): presets are covered by
+  // `PresetLoaderTests.presetYAMLsAreParseable`; gallery seeds by
+  // `GallerySeedYAMLTests.allSeedYAMLsParseAndValidate` — both already call
+  // `ScenarioLoader.load` and will fail under the strict loader if any
+  // shipped YAML regresses. No extra test needed here.
+  //
+  // Preset round-trip (parse → serialize → parse) is covered by
+  // `ScenarioSerializerTests.roundTripBokete` / `roundTripWordWolf` /
+  // `roundTripPrisonersDilemma` / `roundTripTargetScoreRace`.
 }
