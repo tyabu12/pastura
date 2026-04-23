@@ -264,7 +264,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     HStack {
       if viewModel.totalRounds > 0 {
         Text("Round \(viewModel.currentRound)/\(viewModel.totalRounds)")
-          .font(.subheadline.monospacedDigit())
+          .textStyle(Typography.metaEta)
+          .monospacedDigit()
       }
 
       Spacer()
@@ -273,24 +274,35 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
       if viewModel.isCompleted {
         Label("Completed", systemImage: "checkmark.circle.fill")
-          .font(.subheadline)
-          .foregroundStyle(.green)
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.moss)
       } else if viewModel.isPaused {
         Label("Paused", systemImage: "pause.circle.fill")
-          .font(.subheadline)
-          .foregroundStyle(.orange)
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.inkSecondary)
       } else if viewModel.isRunning {
         HStack(spacing: 4) {
           ProgressView()
             .scaleEffect(0.7)
           Text("Running")
-            .font(.subheadline)
+            .textStyle(Typography.titlePhase)
+            .foregroundStyle(Color.inkSecondary)
         }
       }
     }
     .padding(.horizontal)
     .padding(.vertical, 8)
-    .background(.bar)
+    .background {
+      ZStack {
+        Color.screenBackground.opacity(0.78)
+        Rectangle().fill(.ultraThinMaterial)
+      }
+    }
+    .overlay(alignment: .bottom) {
+      Rectangle()
+        .fill(Color.black.opacity(0.07))
+        .frame(height: 1)
+    }
   }
 
   @ViewBuilder
@@ -300,11 +312,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     if duration != nil || tps != nil {
       HStack(spacing: 4) {
         Image(systemName: "speedometer")
-          .font(.caption)
         Text(formatInferenceStats(durationSeconds: duration, tokensPerSecond: tps))
-          .font(.caption.monospacedDigit())
+          .monospacedDigit()
       }
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
     }
   }
 
