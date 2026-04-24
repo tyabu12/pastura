@@ -18,7 +18,7 @@ import os
 /// first"). Callers that hit these paths from code (not UI) have a bug —
 /// the UI layer is responsible for disabling the corresponding affordance
 /// before the call, not for recovering after.
-public enum ModelManagerError: Error, Equatable {
+public enum ModelManagerError: Error, Equatable, Sendable {
   /// The model id is not present in the catalog. Indicates a stale UI
   /// reference — the catalog is load-bearing at compile time.
   case unknownModel(id: ModelID)

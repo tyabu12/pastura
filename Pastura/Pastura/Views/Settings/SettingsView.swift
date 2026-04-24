@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 /// Settings screen hosting static informational copy for the Pastura app.
 ///
@@ -23,6 +24,11 @@ struct SettingsView: View {
     @Environment(ModelManager.self) private var modelManager
     @Environment(AppDependencies.self) private var dependencies
     @State private var pendingDelete: ModelDescriptor?
+    // Surfaces `.cannotDeleteActive` / `.notReadyForDelete` / `.unknownModel`
+    // that slip past the UI guard — a genuine UI-state-vs-ModelManager race.
+    // User flow stays silent (row stays `.ready`), but Console.app shows the
+    // race for field debugging.
+    private static let logger = Logger(subsystem: "com.pastura", category: "SettingsModels")
   #endif
 
   var body: some View {
@@ -53,12 +59,17 @@ struct SettingsView: View {
         presenting: pendingDelete
       ) { descriptor in
         Button(String(localized: "Delete"), role: .destructive) {
-          // `try?` is deliberate — the UI pre-empts every `deleteModel`
-          // reject path (active-model / not-ready / unknown-id), so a
-          // throw here means a genuine race we can't meaningfully
-          // recover from inside the confirmation callback. The state
-          // will simply stay `.ready` and the user can try again.
-          try? modelManager.deleteModel(id: descriptor.id)
+          // The UI pre-empts every `deleteModel` reject path (active-model /
+          // not-ready / unknown-id), so a throw here means a genuine
+          // UI-state-vs-ModelManager race. Log for field debugging; the
+          // user flow stays silent (row stays `.ready`, they can try again).
+          do {
+            try modelManager.deleteModel(id: descriptor.id)
+          } catch {
+            Self.logger.error(
+              "deleteModel unexpectedly threw for \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+          }
           pendingDelete = nil
         }
         Button(String(localized: "Cancel"), role: .cancel) {

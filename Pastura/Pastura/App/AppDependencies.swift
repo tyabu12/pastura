@@ -149,6 +149,12 @@ final class AppDependencies: @unchecked Sendable {
   ///   `loadModel()` on the stale reference could race the new
   ///   instance's init sequence.
   ///
+  /// - Note: Pre-existing `SimulationViewModel` instances read
+  ///   `deps.llmService` at `.task`-fire time (see
+  ///   `SimulationView.swift:~520`), not at VM init — so a swap that
+  ///   completes before the next simulation's `run()` call is always
+  ///   observed by the new run, without needing to rebuild the VM.
+  ///
   /// - Parameter newService: The newly-constructed service (typically
   ///   `LlamaCppService` wired to the newly-active descriptor's
   ///   stopSequence / systemPromptSuffix / model path).
