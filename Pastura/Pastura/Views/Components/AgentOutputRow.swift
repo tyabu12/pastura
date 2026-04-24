@@ -244,10 +244,19 @@ struct AgentOutputRow: View {
   /// a user action, not narrative.
   @ViewBuilder
   private func buttonToggleThought(fullText: String) -> some View {
+    // Two siblings returned as an implicit `TupleView` — the enclosing
+    // `thoughtSection` / outer `VStack` in `body` stacks them vertically
+    // with the root 6pt spacing. A nested `VStack` would add a spurious
+    // layout layer; keeping the two elements as siblings mirrors how
+    // `autoThoughtView` composes primary + thought already.
+    //
     // `▸` / `▾` triangle tints moss (accent prefix per reference
     // CSS `color: #8a9a6c`); "THINKING" stays muted + Typography
     // `thinkingTag` (8.5pt mono UPPER semibold). Concat preserves
     // per-segment foregroundStyle while sharing font/tracking/case.
+    // `thinkingTag.textCase(.uppercase)` is a no-op on the triangle
+    // glyphs `▸` / `▾` (Unicode uppercase = identity for arrows), so
+    // the accent color is preserved by the per-segment foregroundStyle.
     (Text(showInnerThought ? "▾ " : "▸ ")
       .foregroundStyle(Color.moss)
       + Text("THINKING")
