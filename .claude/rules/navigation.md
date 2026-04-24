@@ -180,12 +180,23 @@ surface changes in areas the automated tests do not exercise.
    banner at the top. Tapping **Try this scenario** installs via the
    normal flow. Invalid id (not present in the curated gallery) shows
    the **"Scenario Not Found"** alert — never an install prompt.
-7. **Deep Link — initialization or model download in progress** —
-   Open a `pastura://` link while `RootView` is still showing
-   `ProgressView("Initializing...")` or `ModelDownloadView`. Expected:
-   an **informational toast** appears at the bottom ("Opening shared
-   scenario after setup…" / "Will open once the model finishes
-   downloading"). Drain fires automatically when `.ready` transitions.
+7. **Deep Link — before the app is `.ready`** — Open a `pastura://`
+   link while `RootView` is still in any non-`.ready` state:
+   `ProgressView("Initializing...")`, `ModelPickerView`
+   (`.needsModelSelection` — fresh multi-model install), or
+   `ModelDownloadView` (`.needsModelDownload`). Expected: an
+   **informational toast** appears at the bottom, with the copy
+   matching the current state:
+
+   - `.initializing` → "Opening shared scenario after setup…"
+   - `.needsModelSelection` → "Will open after you choose a model"
+   - `.needsModelDownload` → "Will open once the model finishes
+     downloading"
+
+   Drain fires automatically when `.ready` transitions. The
+   `.needsModelSelection` → `.needsModelDownload` hop (user taps a
+   row) must keep the pending URL queued — the toast copy updates to
+   the download message, and the drain still only fires on `.ready`.
 8. **Deep Link — during a running simulation** — Start a simulation,
    wait for generation to be in flight, then open a `pastura://` link
    from an external app. Expected: **toast** ("Will open when you exit
@@ -208,3 +219,54 @@ surface changes in areas the automated tests do not exercise.
     window handles the link (iOS routes `.onOpenURL` to the active
     scene). The second window's `AppRouter` and `DeepLinkGate` remain
     untouched. Swapping focus after handling does not replay the URL.
+11. **Multi-model picker — fresh install on supported device** —
+    Install Pastura on a supported device (≥ 8 GB RAM) with no prior
+    install and no seeded UserDefaults. Expected: after the splash,
+    `ModelPickerView` shows instead of `ModelDownloadView`. Two rows
+    appear (Gemma 4 E2B and Qwen 3 4B), each surfacing vendor +
+    decimal GB size, with a moss-accented "Start with this model"
+    button. Tap Qwen's button; app transitions to
+    `ModelDownloadView` and starts downloading Qwen, not Gemma.
+    Legacy Gemma TestFlight users (existing Gemma file on disk) must
+    **not** see the picker on upgrade — they route through
+    `.needsModelDownload` → `.ready` as before.
+12. **Multi-model Settings — switch active model (simulation idle)** —
+    On a device with both models downloaded, open **Settings →
+    Models**. Expected: the active model shows an "Active" badge;
+    the other shows "Ready" with a menu containing **Use this
+    model** and **Delete**. Tap the ellipsis, choose **Use this
+    model**. Expected: Active badge moves, UserDefaults is updated
+    (verify by re-launching the app — the newly-selected model
+    stays active), and the next simulation runs on the new model.
+    No visible in-flight spinner — the swap is instant in the UI;
+    the actual model load happens at the next `run()` call.
+13. **Multi-model Settings — switch disabled during simulation** —
+    Start a simulation, navigate to **Settings → Models** while
+    generation is in flight. Expected: the section **footer** copy
+    changes to "Finish the current simulation before switching
+    models…". On the non-active `.ready` row, tap the ellipsis —
+    the **Use this model** action is **disabled** (grayed), while
+    **Delete** remains enabled. Deleting the non-active model
+    succeeds and does not disturb the running simulation (the
+    running LLM service keeps its own file reference).
+14. **Multi-model Settings — delete the only `.ready` model** —
+    On a device with one model downloaded and the other not,
+    open **Settings → Models** and try to delete the active model.
+    Expected: the active row's menu does **not** offer a Delete
+    action at all (it's gated by `isActive == false`). To delete,
+    the user must first **Use this model** on a different
+    descriptor — but that requires the other model to be
+    downloaded. The only recovery flow from "I have only one model
+    and want to delete it" is: download the other model → switch
+    active → delete the first. QA covers: after this sequence,
+    re-launch the app and confirm it lands on the newly-active
+    descriptor without re-prompting the picker.
+15. **Multi-model Settings — delete confirmation dialog** — On a
+    `.ready` non-active row, tap **Delete** from the menu. Expected:
+    a confirmation dialog titled "Delete `<displayName>`?" with a
+    message showing the re-download cost ("Re-downloading `<size>`
+    takes a few minutes.") and two buttons: **Delete** (destructive
+    red) and **Cancel**. Cancel dismisses without side effects.
+    Delete removes the file (verify via re-launch — state returns
+    to `.notDownloaded`) and the row's menu flips to showing
+    **Download** instead.

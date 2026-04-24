@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-22
+> Last updated: 2026-04-24
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -92,8 +92,8 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Scenario deep link (`pastura://` scheme) | Medium   | Done        | 1-tap install from external contexts (SNS, QR, blog). IDs resolved through the curated gallery index only — no arbitrary URL fetch, no auto-execute. Preview via `GalleryScenarioDetailView` with external-link origin banner (#88). Universal Links / QR code generation deferred. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
-| YAML simulation replay primitive         | Medium   | Planned     | Past Results YAML exporter + `YAMLReplaySource` importer primitive. Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. Resumes spec §6.1 Candidate A (#164). |
-| DL-time demo replay                      | Medium   | Planned     | Bundled YAML replays during model download; see ADR-007, `docs/specs/demo-replay-spec.md` (data/arch), `docs/specs/demo-replay-ui.md` (visual/behaviour), and `docs/design/design-system.md` (tokens). Non-blocking for App Store submission; implementation follows #148/#149 closure (#152). |
+| YAML simulation replay primitive         | Medium   | Done        | Past Results YAML exporter + `YAMLReplaySource` importer primitive shipped (#175). Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. |
+| DL-time demo replay                      | Medium   | Done        | Bundled YAML replays during model download — end-to-end: spec + ADR-007 (#153), VM + Source (#186), host view + UI components (#197), wire into `.needsModelDownload` (#200), bundled YAMLs + CI drift guard (#205). |
 | Multi-model support (Qwen / E4B / other) | Medium   | Planned     | Additional on-device models for device-class fit + cross-model experimentation via the `LLMService` abstraction (ADR-001 §7 / ADR-002). Complements the offline-first story and provides "same scenario, different model" depth without cloud-cost / API-key risk. |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 

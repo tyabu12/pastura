@@ -84,6 +84,12 @@ Utilities/ → depends on nothing
   Protocol-extension default implementations may additionally need explicit `nonisolated`
   when their body builds escaping closures — see `.claude/rules/llm.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
+- **Observable bridge for non-`@Observable` state:** When an `@Observable` class exposes
+  a computed property that reads mutable state from a `nonisolated` class / actor,
+  bridge observation manually — `access(keyPath: \.prop)` in the getter and
+  `withMutation(keyPath: \.prop)` around every write. Without this, SwiftUI observers
+  don't get invalidated when the underlying state changes. Example:
+  `SimulationViewModel.isPaused` bridges to `SimulationRunner.isPaused` (PR #216).
 
 ## Tech Stack
 

@@ -11,6 +11,26 @@ import CryptoKit
 import Foundation
 import os
 
+/// Errors surfaced by `ModelManager` mutators that can reject an operation.
+///
+/// These are UI-facing: the Settings Models section maps each case to a
+/// user-visible explanation (e.g. "cannot delete the active model — switch
+/// first"). Callers that hit these paths from code (not UI) have a bug —
+/// the UI layer is responsible for disabling the corresponding affordance
+/// before the call, not for recovering after.
+public enum ModelManagerError: Error, Equatable, Sendable {
+  /// The model id is not present in the catalog. Indicates a stale UI
+  /// reference — the catalog is load-bearing at compile time.
+  case unknownModel(id: ModelID)
+  /// The requested model is currently active; deleting it would leave
+  /// the app without a loadable model. Switch active first.
+  case cannotDeleteActive(id: ModelID)
+  /// The model is not in `.ready` state, so there is nothing to delete
+  /// (or the operation would race with an in-flight download). For the
+  /// `.downloading` case, callers should use `cancelDownload(descriptor:)`.
+  case notReadyForDelete(id: ModelID)
+}
+
 /// State of a single on-device LLM model.
 public enum ModelState: Equatable, Sendable {
   /// Checking device compatibility and model file status.
@@ -45,7 +65,7 @@ public enum ModelState: Equatable, Sendable {
 /// |-----------------------|-------------------------|--------------------------------|-------------------------------|---------------|
 /// | `startDownload(d)`    | → `.downloading`†       | no-op (own descriptor)         | no-op (already done)          | → `.downloading` |
 /// | `cancelDownload(d)`   | no-op                   | → `.notDownloaded`, keep partial | no-op                       | no-op         |
-/// | `deleteModel(d)`      | remove partial if any, → `.notDownloaded` | cancel + remove partial, → `.notDownloaded` | remove file, → `.notDownloaded` | remove file + partial, → `.notDownloaded` |
+/// | `deleteModel(id:)`    | throw `.notReadyForDelete`               | throw `.notReadyForDelete` (use `cancelDownload` instead) | remove file, → `.notDownloaded` | throw `.notReadyForDelete` |
 /// | `setActiveModel(id)`  | validate id ∈ catalog, write UserDefaults — does not touch state dict |
 ///
 /// †: `startDownload` is also rejected (no-op) if ANY descriptor is already
@@ -56,7 +76,7 @@ public enum ModelState: Equatable, Sendable {
 /// `LlamaCppService` receives a model path via its constructor; it never imports
 /// this class.
 @Observable
-final class ModelManager {
+final class ModelManager {  // swiftlint:disable:this type_body_length
   // MARK: - Constants
 
   /// Minimum physical memory reported by ProcessInfo to allow any model download.
@@ -80,6 +100,14 @@ final class ModelManager {
   /// Falls back to `ModelRegistry.defaultInitialModelID` if no persisted value
   /// exists or the persisted id is not in the current catalog.
   private(set) var activeModelID: ModelID
+
+  /// `true` iff UserDefaults had a value for `activeModelIDKey` when this
+  /// instance was constructed — signals a returning user, even if the
+  /// persisted id is stale (no longer in the catalog). `PasturaApp.initialize`
+  /// uses this to decide whether first-launch should route through the
+  /// model picker: returning users always skip the picker, even when
+  /// their old model was removed from the catalog.
+  let hadPersistedActiveIDAtInit: Bool
 
   // MARK: - Dependencies
 
@@ -123,6 +151,28 @@ final class ModelManager {
 
   // MARK: - Convenience (active model)
 
+  /// `true` iff `PasturaApp.initialize` should route first-launch through the
+  /// model picker (`.needsModelSelection`) instead of the default
+  /// `.needsModelDownload` path.
+  ///
+  /// Holds iff all three conditions are met:
+  /// 1. No persisted active id — a returning user with a stale id is
+  ///    preserved via the `hadPersistedActiveIDAtInit` flag, not this path.
+  /// 2. Catalog offers a choice — a single-model catalog has nothing to
+  ///    pick from, so the picker would be dead weight.
+  /// 3. Every descriptor resolved to `.notDownloaded` — legacy Gemma
+  ///    users (one file on disk, auto-recognised as `.ready`) bypass the
+  ///    picker, and unsupported-device users (state `.unsupportedDevice`)
+  ///    fall through to the existing `.needsModelDownload` unsupported UI.
+  ///
+  /// Must be called *after* `checkModelStatus()` — before that, every
+  /// descriptor is still `.checking` and this would spuriously return false.
+  var shouldShowInitialModelPicker: Bool {
+    guard !hadPersistedActiveIDAtInit else { return false }
+    guard catalog.count > 1 else { return false }
+    return catalog.allSatisfy { state[$0.id] == .notDownloaded }
+  }
+
   /// The `ModelDescriptor` matching `activeModelID`, or `nil` if the catalog is empty.
   /// `nil` is only expected during test setup with an empty catalog — production
   /// `ModelRegistry.catalog` always contains at least one entry.
@@ -159,8 +209,10 @@ final class ModelManager {
     self.physicalMemory = physicalMemory
     self.userDefaults = userDefaults
     self.catalog = catalog
+    let persisted = userDefaults.string(forKey: Self.activeModelIDKey)
+    self.hadPersistedActiveIDAtInit = persisted != nil
     self.activeModelID = Self.resolveInitialActiveID(
-      persistedID: userDefaults.string(forKey: Self.activeModelIDKey),
+      persistedID: persisted,
       catalog: catalog
     )
 
@@ -269,14 +321,34 @@ final class ModelManager {
     }
   }
 
-  /// Removes both the completed model file and any partial download for
-  /// `descriptor`. Cancels an in-flight download for the same descriptor first.
-  func deleteModel(descriptor: ModelDescriptor) {
-    downloadTasks[descriptor.id]?.cancel()
-    downloadTasks[descriptor.id] = nil
+  /// Removes a `.ready` model from disk, transitioning it back to `.notDownloaded`.
+  ///
+  /// Rejects (throws) when:
+  /// - The id is not in the catalog → `.unknownModel`
+  /// - The id is the currently-active model → `.cannotDeleteActive`
+  ///   (the UI must switch active to another descriptor first)
+  /// - The model is not in `.ready` state → `.notReadyForDelete`
+  ///   (use `cancelDownload(descriptor:)` for `.downloading`)
+  ///
+  /// The strict guard is deliberate: a lenient "delete in any state" API
+  /// invites callers to use it while a `.downloading` SHA256 hash is in
+  /// flight off-MainActor, which would race the file removal against the
+  /// finalize-download writer. The Settings UI is expected to enable the
+  /// delete affordance only when `state[id] == .ready` and
+  /// `id != activeModelID`.
+  func deleteModel(id: ModelID) throws {
+    guard let descriptor = catalog.first(where: { $0.id == id }) else {
+      throw ModelManagerError.unknownModel(id: id)
+    }
+    guard id != activeModelID else {
+      throw ModelManagerError.cannotDeleteActive(id: id)
+    }
+    guard case .ready = state[id] else {
+      throw ModelManagerError.notReadyForDelete(id: id)
+    }
     try? fileManager.removeItem(at: modelFileURL(for: descriptor))
     try? fileManager.removeItem(at: downloadFileURL(for: descriptor))
-    state[descriptor.id] = .notDownloaded
+    state[id] = .notDownloaded
   }
 
   // MARK: - Private: State Computation
