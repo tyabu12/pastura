@@ -154,10 +154,10 @@ struct AgentOutputRow: View {
       // and without this shift the name reads as hovering above the
       // sheep. Applied only when an avatar is rendered; `0` is the
       // identity guide value so other call sites stay unaffected.
-      .alignmentGuide(.top) { d in
+      .alignmentGuide(.top) { dim in
         showAvatar
-          ? d[.top] - SheepAvatar.visibleTopInset(forSize: ChatBubbleLayout.avatarSize)
-          : d[.top]
+          ? dim[.top] - SheepAvatar.visibleTopInset(forSize: ChatBubbleLayout.avatarSize)
+          : dim[.top]
       }
     }
     // Layout-stability trio (applied unconditionally; see type doc-comment
