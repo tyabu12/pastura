@@ -62,6 +62,7 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     }
     rules.append(Self.sharedStringProduction)
     rules.append(Self.sharedWhitespaceProduction)
+    rules.append(Self.sharedTrailingProduction)
     return rules.joined(separator: "\n")
   }
 
@@ -90,32 +91,19 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
       parts.append("ws")
     }
     parts.append(closeBrace)
-    // Trailing `[^"\\]*` is load-bearing: without it, `accept_token`
-    // throws `std::runtime_error("Unexpected empty grammar stack
-    // after accepting piece: …")` when Gemma samples a BPE-merged
-    // token like `}: ` (token 7493) or `}"` — characters beyond the
-    // closing brace that share a single token ID.
+    // Trailing rule reference (see `sharedTrailingProduction`) is
+    // load-bearing: without trailing coverage, `accept_token` throws
+    // `std::runtime_error("Unexpected empty grammar stack after
+    // accepting piece: …")` when Gemma samples a BPE-merged token
+    // like `}: ` (token 7493) — `}` closes the object but the
+    // trailing bytes in the same token have no grammar home.
     //
-    // Why `[^"\\]*` specifically:
-    // - Non-lazy grammar chain stays active for the whole generation,
-    //   so post-`}` tokens go through grammar. A narrow `ws` rejects
-    //   merged tokens whose tail is `:`, `.`, or anything non-whitespace.
-    // - `[^"\\]*` accepts any byte except `"` and `\` — matches the
-    //   byte class llama.cpp's own `grammars/json.gbnf` uses for
-    //   string content, so it's known to parse cleanly. (An earlier
-    //   attempt with `[^\x00]*` caused `init_grammar` to return NULL
-    //   for reasons that are unclear — probably `\x00` hex escape
-    //   edge-case in llama.cpp's grammar parser.)
-    // - Gemma's tokens post-`}` are almost always either EOS or small
-    //   punctuation/whitespace that fits `[^"\\]`; if a token does
-    //   include `"` or `\` the grammar would reject it — that's an
-    //   acceptable trade since such tokens would mean the model is
-    //   opening a new string, which is out of scope post-object.
-    // - JSONResponseParser already extracts just the first `{…}`
-    //   object, so post-`}` content is ignored downstream.
-    // - maxTokens + `<|im_end|>` detection in `runGeneration` cap any
-    //   post-JSON hallucination in bounded time.
-    parts.append(#"[^"\\]*"#)
+    // The `trailing` rule uses recursive `(byte trailing)?` form
+    // instead of inline `[^"\\]*` because llama.cpp's grammar parser
+    // intermittently rejects Kleene-star on top-level char classes
+    // (same symptom that made us switch `ws` to its recursive form
+    // earlier in this PR).
+    parts.append("trailing")
     return "root ::= \(parts.joined(separator: " "))"
   }
 
@@ -196,4 +184,20 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   // switching to the upstream-proven recursive form is a conservative
   // hedge.
   private static let sharedWhitespaceProduction = #"ws ::= ([ \t\n] ws)?"#
+
+  // Any-byte trailing rule used after the closing `}` to tolerate
+  // BPE-merged tokens whose tail continues past the object boundary.
+  // Uses the recursive form for the same reason `ws` does — llama.cpp's
+  // parser rejected both `[^\x00]*` and `[^"\\]*` at top level (NULL
+  // return from `llama_sampler_init_grammar`), but accepts the
+  // equivalent recursive form.
+  //
+  // The `[^"\\]` byte class excludes `"` and `\` (matching the class
+  // llama.cpp's own `string` grammar uses). In practice post-`}` tokens
+  // never include `"` or `\` — they're whitespace, punctuation, chat
+  // template tokens, or EOS. If a token did include one of those chars,
+  // the grammar would reject it; that's an acceptable trade because
+  // such a token would indicate the model is trying to start another
+  // string, which is out of scope post-object.
+  private static let sharedTrailingProduction = #"trailing ::= ([^"\\] trailing)?"#
 }

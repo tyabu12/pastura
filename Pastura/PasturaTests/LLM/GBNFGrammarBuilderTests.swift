@@ -26,25 +26,34 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar.contains("[0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]"))
   }
 
-  @Test("root rule ends with permissive trailing (prevents empty-stack crash)")
+  @Test("root rule ends with trailing rule + trailing rule is defined")
   func rootEndsWithPermissiveTrailing() throws {
     // Regression guard for the llama.cpp `accept_token` crash:
     //   std::runtime_error("Unexpected empty grammar stack after accepting piece: …")
-    // Two rounds of this bit us in TestFlight:
+    // Three TestFlight rounds bit us en route to the current shape:
     //   1. root ending at `"}"` exactly → crash on any post-`}` token
     //   2. root ending at `"}" ws` → crash on BPE-merged tokens like
     //      `}: ` (7493) where the tail is non-whitespace
-    // `[^\x00]*` accepts any byte, so grammar terminates gracefully on
-    // EOS AND tolerates merged tokens. See in-code comment on `rootRule`
-    // for the full rationale.
+    //   3. root ending at `"}" [^\x00]*` / `"}" [^"\\]*` →
+    //      `init_grammar` returned NULL at parse time (top-level
+    //      Kleene star on a char class seems to trip llama.cpp's
+    //      grammar parser — same symptom as `ws ::= [ \t\n]*`).
+    // Final shape: `"}" trailing` with `trailing ::= ([^"\\] trailing)?`
+    // — recursive form parses cleanly AND accepts arbitrary trailing
+    // bytes. See in-code comments on `rootRule` and
+    // `sharedTrailingProduction` for the full rationale.
     let schema = OutputSchema(fields: [
       .init(name: "statement", kind: .string)
     ])
     let grammar = try builder.build(from: schema)
     let rootLine = grammar.components(separatedBy: "\n").first { $0.hasPrefix("root ::=") } ?? ""
     #expect(
-      rootLine.hasSuffix(#""}" [^"\\]*"#),
-      "root must end with permissive trailing to prevent accept_token crash, got: \(rootLine)")
+      rootLine.hasSuffix(#""}" trailing"#),
+      "root must end with trailing rule reference, got: \(rootLine)")
+    // Trailing rule must itself be defined in the grammar.
+    #expect(
+      grammar.contains(#"trailing ::= ([^"\\] trailing)?"#),
+      "grammar must define `trailing` rule in recursive form")
   }
 
   @Test("ws production allows space / tab / newline (recursive form)")
@@ -68,7 +77,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "}" [^"\\]*"#))
+        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "}" trailing"#))
   }
 
   @Test("multi-field root joins with `ws \",\" ws`")
@@ -80,7 +89,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^"\\]*"#
+        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" trailing"#
       ))
   }
 
@@ -115,7 +124,7 @@ struct GBNFGrammarBuilderTests {
     ])
     let grammar = try builder.build(from: schema)
     #expect(
-      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" [^"\\]*"#))
+      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" trailing"#))
     #expect(
       grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
     // Enumeration-only grammars still include `string` + `ws` because
@@ -137,7 +146,7 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^"\\]*"#
+        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" trailing"#
       ))
   }
 
@@ -283,26 +292,27 @@ struct GBNFGrammarBuilderTests {
   private static let sharedTail = """
     string ::= "\\"" ( [^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )* "\\""
     ws ::= ([ \\t\\n] ws)?
+    trailing ::= ([^"\\\\] trailing)?
     """
 
   private static let goldenChooseActionBetray = """
-    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\"\\\\]*
+    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
     action_value ::= "\\"cooperate\\"" | "\\"betray\\""
     \(sharedTail)
     """
 
   private static let goldenDeclarationInnerThought = """
-    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\"\\\\]*
+    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
     \(sharedTail)
     """
 
   private static let goldenStatementInnerThought = """
-    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\"\\\\]*
+    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
     \(sharedTail)
     """
 
   private static let goldenVoteReason = """
-    root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" [^\"\\\\]*
+    root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" trailing
     \(sharedTail)
     """
 }
