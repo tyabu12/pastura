@@ -31,6 +31,24 @@ private func makeLifecycleSUT(
   return (sut, scenario)
 }
 
+/// One-shot boolean flag safely settable from `withObservationTracking`'s
+/// `@Sendable` onChange closure and readable from MainActor test code.
+/// Used only by `pauseSimulationInvalidatesIsPausedObservation`.
+final class FiredFlag: @unchecked Sendable {
+  private let lock = NSLock()
+  private var fired = false
+  var value: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return fired
+  }
+  func fire() {
+    lock.lock()
+    fired = true
+    lock.unlock()
+  }
+}
+
 /// LLM service that always fails on loadModel, for testing error paths.
 nonisolated struct FailingLLMService: LLMService, Sendable {
   var isModelLoaded: Bool { false }
@@ -557,6 +575,61 @@ struct SimulationViewModelLifecycleTests {
     // DB row reflects the truth: the run completed, not failed.
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.first?.simulationStatus == .completed)
+  }
+
+  @Test func pauseSimulationInvalidatesIsPausedObservation() async throws {
+    // Regression test for the memory-warning pause UI desync: `isPaused` is
+    // a computed property that reads `runner.isPaused`, but `SimulationRunner`
+    // is not `@Observable` — so a plain `runner.isPaused = true` does not
+    // invalidate observers. The fix wraps the getter with `access(keyPath:)`
+    // and the mutation with `withMutation(keyPath:)`; this test guards that
+    // wiring against future refactors that strip either hook.
+    //
+    // Caveats on `withObservationTracking`:
+    // - It is one-shot — `onChange` fires exactly once per registration. A
+    //   naive "fires twice on pause+resume" extension would need to re-arm.
+    // - `onChange` fires synchronously *before* the mutation commits, so
+    //   reading `sut.isPaused` inside `onChange` returns the OLD value.
+    //   Both the "fired at all" and "new value" assertions must live
+    //   AFTER the mutating call, not inside `onChange`.
+    let (sut, _) = try makeLifecycleSUT()
+    sut.speed = .instant
+
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    sut.runTask = runTask
+
+    // Wait for run() to attach the SuspendController — proxy for "run is
+    // in-flight" so `pauseSimulation` does not early-return on `!isRunning`.
+    while sut.suspendController == nil {
+      await Task.yield()
+    }
+
+    let fired = FiredFlag()
+    withObservationTracking {
+      _ = sut.isPaused
+    } onChange: {
+      fired.fire()
+    }
+
+    sut.pauseSimulation(reason: "test observation")
+
+    #expect(fired.value == true, "pauseSimulation must invalidate isPaused observers")
+    #expect(sut.isPaused == true)
+
+    // Clean shutdown — resume so runTask completes rather than getting torn
+    // down by test-suite teardown mid-park.
+    sut.resumeSimulation()
+    await runTask.value
   }
 
   @Test func runClearsSuspendControllerOnExit() async throws {
