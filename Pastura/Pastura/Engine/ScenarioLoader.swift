@@ -180,19 +180,25 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     return Persona(name: name, description: description)
   }
 
-  /// Strict-throw on unknown, mirroring PhaseType. See issue #108.
-  private func parseAssignTarget(_ raw: Any?, label: String) throws -> AssignTarget? {
-    guard let targetStr = raw as? String else { return nil }
-    guard let parsed = AssignTarget(rawValue: targetStr) else {
+  /// Strict-throw on unknown, mirroring PhaseType. See issue #108 / #211.
+  /// Wrong-type routes through `parseOptional<String>` so the error message
+  /// matches the unified format used elsewhere in the loader.
+  private func parseAssignTarget(_ dict: [String: Any], label: String) throws -> AssignTarget? {
+    guard let str: String = try parseOptional(dict, key: "target", label: label) else {
+      return nil
+    }
+    guard let parsed = AssignTarget(rawValue: str) else {
       throw SimulationError.scenarioValidationFailed(
-        "\(label) has invalid target: '\(targetStr)'. Use 'all' or 'random_one'."
+        "\(label) has invalid target: '\(str)'. Use 'all' or 'random_one'."
       )
     }
     return parsed
   }
 
-  private func parsePairing(_ raw: Any?, label: String) throws -> PairingStrategy? {
-    guard let str = raw as? String else { return nil }
+  private func parsePairing(_ dict: [String: Any], label: String) throws -> PairingStrategy? {
+    guard let str: String = try parseOptional(dict, key: "pairing", label: label) else {
+      return nil
+    }
     guard let parsed = PairingStrategy(rawValue: str) else {
       throw SimulationError.scenarioValidationFailed(
         "\(label) has invalid pairing: '\(str)'. Use 'round_robin'."
@@ -201,8 +207,10 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     return parsed
   }
 
-  private func parseLogic(_ raw: Any?, label: String) throws -> ScoreCalcLogic? {
-    guard let str = raw as? String else { return nil }
+  private func parseLogic(_ dict: [String: Any], label: String) throws -> ScoreCalcLogic? {
+    guard let str: String = try parseOptional(dict, key: "logic", label: label) else {
+      return nil
+    }
     guard let parsed = ScoreCalcLogic(rawValue: str) else {
       let allowed = ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")
       throw SimulationError.scenarioValidationFailed(
@@ -233,10 +241,10 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     let excludeSelf: Bool? = try parseOptional(dict, key: "exclude_self", label: label)
     let options: [String]? = try parseOptional(dict, key: "options", label: label)
 
-    let target = try parseAssignTarget(dict["target"], label: label)
+    let target = try parseAssignTarget(dict, label: label)
     let outputSchema = try parseOutputSchema(dict, label: label)
-    let pairing = try parsePairing(dict["pairing"], label: label)
-    let logic = try parseLogic(dict["logic"], label: label)
+    let pairing = try parsePairing(dict, label: label)
+    let logic = try parseLogic(dict, label: label)
 
     // speak_each rounds → subRounds
     let subRounds: Int? = try parseOptional(dict, key: "rounds", label: label)

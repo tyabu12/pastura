@@ -456,6 +456,78 @@ extension ScenarioLoaderTests {
     #expect(msg.contains("'options'"))
   }
 
+  // MARK: - Enum-valued phase fields wrong-type (#211)
+
+  /// `target: 42` previously coerced silently via `as? String` → `nil`, running
+  /// the assign phase with no target. Strict loader throws with the unified
+  /// wrong-type format (via `parseOptional<String>`).
+  @Test func throwsOnIntAssignTarget() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: assign
+            source: words
+            target: 42
+        """)
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'target'"))
+    #expect(msg.contains("String"))
+    #expect(!msg.lowercased().contains("missing"))
+    // Distinguish from the invalid-enum-value branch ("has invalid target: ...").
+    #expect(!msg.contains("invalid target"))
+  }
+
+  /// `pairing: 42` previously coerced silently to `nil`, running `choose` with
+  /// no pairing strategy. Strict loader throws.
+  @Test func throwsOnIntChoosePairing() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: choose
+            pairing: 42
+            options: [a, b]
+        """)
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'pairing'"))
+    #expect(msg.contains("String"))
+    #expect(!msg.lowercased().contains("missing"))
+    #expect(!msg.contains("invalid pairing"))
+  }
+
+  /// `logic: true` (YAML 1.1 bare boolean) previously coerced silently to `nil`,
+  /// producing a score_calc phase with no scoring logic. Strict loader throws.
+  @Test func throwsOnBoolScoreCalcLogic() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: score_calc
+            logic: true
+        """)
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'logic'"))
+    #expect(msg.contains("String"))
+    #expect(!msg.lowercased().contains("missing"))
+    #expect(!msg.contains("invalid logic"))
+  }
+
   // Shipped-content coverage (#130 item 5): presets are covered by
   // `PresetLoaderTests.presetYAMLsAreParseable`; gallery seeds by
   // `GallerySeedYAMLTests.allSeedYAMLsParseAndValidate` — both already call

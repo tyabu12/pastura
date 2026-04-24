@@ -189,7 +189,18 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// co-manage `runner.isPaused` and `suspendController` so an in-flight
   /// generate is interrupted cooperatively rather than waiting for the next
   /// phase boundary (ADR-003 §10 invariant 6).
-  var isPaused: Bool { runner.isPaused }
+  ///
+  /// Manual `access(keyPath:)` / `withMutation(keyPath:)` hooks bridge this
+  /// computed property to the `@Observable` machinery: `SimulationRunner` is
+  /// a `nonisolated` class with lock-protected internal state — NOT itself
+  /// `@Observable` — so mutations of `runner.isPaused` cannot auto-trigger
+  /// the macro-synthesized change tracking. Without these hooks, SwiftUI
+  /// views reading `isPaused` would not re-render when the memory-warning
+  /// handler flips `runner.isPaused`, leaving the play/pause button stuck.
+  var isPaused: Bool {
+    access(keyPath: \.isPaused)
+    return runner.isPaused
+  }
 
   // MARK: - Background continuation state
 
@@ -412,7 +423,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     if let reason {
       logEntries.append(LogEntry(kind: .summary(text: reason)))
     }
-    runner.isPaused = true
+    withMutation(keyPath: \.isPaused) {
+      runner.isPaused = true
+    }
     suspendController?.requestSuspend()
   }
 
@@ -421,7 +434,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// the runner's phase-boundary checkpoint.
   func resumeSimulation() {
     lifecycleLogger.info("resumeSimulation: isPaused=\(self.isPaused)")
-    runner.isPaused = false
+    withMutation(keyPath: \.isPaused) {
+      runner.isPaused = false
+    }
     suspendController?.resume()
   }
 
@@ -431,6 +446,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     )
     runTask?.cancel()
     isCancelled = true
+    // Cancellation supersedes pause: without this clear, a paused-then-cancelled
+    // run would leave `isPaused == true` and leak an orange "Paused" pill into
+    // the terminal state (the header `else if` chain doesn't check `isCancelled`).
+    withMutation(keyPath: \.isPaused) {
+      runner.isPaused = false
+    }
     // Release a generate currently parked in `awaitResume()` so cancellation
     // propagates promptly from a suspended state. Idempotent per contract.
     suspendController?.resume()
@@ -454,6 +475,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     latestAgentOutputId = nil
     streamingSnapshot = nil
     prerevealedAgentOutputIds = []
+    // Defense against VM reuse: today production creates a fresh VM per view
+    // load, but that is not a documented invariant. A VM reused after a
+    // pause-then-cancel sequence would otherwise start the next run with
+    // `runner.isPaused == true` and show the resume icon on Round 1.
+    withMutation(keyPath: \.isPaused) {
+      runner.isPaused = false
+    }
     #if DEBUG
       inflightInferenceAttempts = [:]
       lastRawStreamingPrimary = [:]
