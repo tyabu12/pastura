@@ -227,24 +227,40 @@ struct AgentOutputRow: View {
       .thoughtLeftRule()
   }
 
-  /// Button-toggle path (when `showAllThoughts == false`): tapping the button
-  /// reveals the full thought instantly with a fade/slide transition. No
-  /// character-by-character typing — this is a user action, not narrative.
+  /// Tap-to-toggle path (when `showAllThoughts == false`): shows a
+  /// `▸ THINKING` / `▾ THINKING` disclosure label; tapping it reveals
+  /// the full thought body with a fade/slide transition. Matches
+  /// `design-system.md` §5.2 + reference HTML's `.b-inner.collapsed`
+  /// / `.b-inner.expanded::before` rules (moss triangle + mono UPPER
+  /// tag + muted color). No character-by-character typing — this is
+  /// a user action, not narrative.
   @ViewBuilder
   private func buttonToggleThought(fullText: String) -> some View {
-    Button {
-      withAnimation(.easeInOut(duration: 0.2)) {
-        showInnerThought.toggle()
+    // `▸` / `▾` triangle tints moss (accent prefix per reference
+    // CSS `color: #8a9a6c`); "THINKING" stays muted + Typography
+    // `thinkingTag` (8.5pt mono UPPER semibold). Concat preserves
+    // per-segment foregroundStyle while sharing font/tracking/case.
+    (Text(showInnerThought ? "▾ " : "▸ ")
+      .foregroundStyle(Color.moss)
+      + Text("THINKING")
+      .foregroundStyle(Color.muted))
+      .textStyle(Typography.thinkingTag)
+      // iOS HIG 44pt minimum tap target — `thinkingTag` is 8.5pt
+      // text, so we gate the hit area via `.frame(minHeight: 44)`
+      // + `.contentShape(Rectangle())`. The bubble itself stays
+      // non-interactive (future long-press / copy affordance).
+      .frame(minHeight: 44, alignment: .leading)
+      .contentShape(Rectangle())
+      .onTapGesture {
+        withAnimation(.easeInOut(duration: 0.2)) {
+          showInnerThought.toggle()
+        }
       }
-    } label: {
-      HStack(spacing: 4) {
-        Image(systemName: showInnerThought ? "eye.slash" : "eye")
-        Text(showInnerThought ? "Hide thought" : "Show thought")
-      }
-      .font(.caption)
-      .foregroundStyle(Color.muted)
-    }
-    .buttonStyle(.plain)
+      // Tap gesture has no built-in role; advertise the expand /
+      // collapse semantic to VoiceOver so the label reads the way
+      // a Button would.
+      .accessibilityAddTraits(.isButton)
+      .accessibilityLabel(showInnerThought ? "Hide thought" : "Show thought")
 
     if showInnerThought {
       Text(fullText)
