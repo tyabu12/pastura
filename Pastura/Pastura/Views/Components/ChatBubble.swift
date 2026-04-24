@@ -147,8 +147,11 @@ struct AvatarSlot: View {
 /// (rather than spreading constants across individual primitives) so
 /// consumers + tests reference a single authoritative source.
 enum ChatBubbleLayout {
-  /// Avatar diameter — `design-system.md` §5.2.
-  static let avatarSize: CGFloat = 42
+  /// Avatar diameter — `design-system.md` §5.2. Bumped from 42pt to
+  /// 48pt in #171 so the sheep silhouette reads more clearly on
+  /// ~390pt iPhone widths. Both docs (`design-system.md` §5.2 +
+  /// `demo-replay-reference.html` `.ava`) carry the updated value.
+  static let avatarSize: CGFloat = 48
   /// Horizontal gap between avatar column and bubble column — matches
   /// reference HTML `.bubble { gap: 10px }`.
   static let avatarTextGap: CGFloat = 10

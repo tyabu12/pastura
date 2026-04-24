@@ -168,13 +168,14 @@ box-shadow:
 ### 5.2 Chat Bubble（発言）
 
 ```
-[Avatar 42pt]  Alice
+[Avatar 48pt]  Alice
                [バブル: しっぽは上左]
                ▸ THINKING / ▾ タグ＋本文
 ```
 
 - バブル間 spacing: 14pt
 - アバター間隔: 10pt
+- アバターサイズ: **48pt** (#171 で 42pt → 48pt にバンプ。~390pt 幅 iPhone で羊のシルエットが小さすぎる問題への対応。reference HTML と Swift `ChatBubbleLayout.avatarSize` を同時更新)
 - フェードイン: 700ms ease-out, 180ms ずつディレイ
 
 ### 5.3 Vote Bubble（投票）

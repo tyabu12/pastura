@@ -24,7 +24,7 @@ public struct SheepAvatar: View {
   }
 
   public let character: Character
-  public var size: CGFloat = 42
+  public var size: CGFloat = 48
 
   public var body: some View {
     Canvas { ctx, canvasSize in

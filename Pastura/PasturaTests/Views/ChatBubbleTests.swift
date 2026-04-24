@@ -58,9 +58,11 @@ struct ChatBubbleTests {
 
   // MARK: - ChatBubbleLayout
 
-  @Test func avatarSizeIsFortyTwoPoints() {
-    // Design-system §5.2: "[Avatar 42pt]".
-    #expect(ChatBubbleLayout.avatarSize == 42)
+  @Test func avatarSizeIsFortyEightPoints() {
+    // Design-system §5.2 bumped avatar from 42pt → 48pt in #171 so
+    // the sheep silhouette reads more clearly on ~390pt iPhone
+    // widths. Doc + HTML reference updated together.
+    #expect(ChatBubbleLayout.avatarSize == 48)
   }
 
   @Test func avatarTextGapMatchesReferenceHTML() {

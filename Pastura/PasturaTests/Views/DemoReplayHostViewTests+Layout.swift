@@ -30,11 +30,11 @@ extension DemoReplayHostViewTests {
   }
 
   @Test func demoChatStreamUsesCanonicalAvatarSize() {
-    // Design-system §5.2 "[Avatar 42pt]". AgentOutputRow prepends a
-    // 42pt avatar via AvatarSlot — a size change would shift the
-    // bubble column leading edge and require re-checking horizontal
-    // gutter alignment.
-    #expect(ChatBubbleLayout.avatarSize == 42)
+    // Design-system §5.2 "[Avatar 48pt]" (bumped from 42pt in #171).
+    // AgentOutputRow prepends a 48pt avatar via AvatarSlot — a size
+    // change would shift the bubble column leading edge and require
+    // re-checking horizontal gutter alignment.
+    #expect(ChatBubbleLayout.avatarSize == 48)
   }
 
   @Test func demoChatStreamUsesCanonicalAvatarTextGap() {
