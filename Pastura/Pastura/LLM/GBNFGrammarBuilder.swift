@@ -90,24 +90,32 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
       parts.append("ws")
     }
     parts.append(closeBrace)
-    // Trailing `[^\x00]*` is load-bearing: without it, `accept_token`
+    // Trailing `[^"\\]*` is load-bearing: without it, `accept_token`
     // throws `std::runtime_error("Unexpected empty grammar stack
     // after accepting piece: …")` when Gemma samples a BPE-merged
     // token like `}: ` (token 7493) or `}"` — characters beyond the
     // closing brace that share a single token ID.
     //
-    // Why `[^\x00]*` and not just `ws`:
+    // Why `[^"\\]*` specifically:
     // - Non-lazy grammar chain stays active for the whole generation,
     //   so post-`}` tokens go through grammar. A narrow `ws` rejects
-    //   merged tokens whose tail is `:`, `"`, or anything non-whitespace.
-    // - `[^\x00]*` accepts any byte — grammar terminates gracefully on
-    //   EOS (zero-match branch) and tolerates any trailing merge.
+    //   merged tokens whose tail is `:`, `.`, or anything non-whitespace.
+    // - `[^"\\]*` accepts any byte except `"` and `\` — matches the
+    //   byte class llama.cpp's own `grammars/json.gbnf` uses for
+    //   string content, so it's known to parse cleanly. (An earlier
+    //   attempt with `[^\x00]*` caused `init_grammar` to return NULL
+    //   for reasons that are unclear — probably `\x00` hex escape
+    //   edge-case in llama.cpp's grammar parser.)
+    // - Gemma's tokens post-`}` are almost always either EOS or small
+    //   punctuation/whitespace that fits `[^"\\]`; if a token does
+    //   include `"` or `\` the grammar would reject it — that's an
+    //   acceptable trade since such tokens would mean the model is
+    //   opening a new string, which is out of scope post-object.
     // - JSONResponseParser already extracts just the first `{…}`
     //   object, so post-`}` content is ignored downstream.
     // - maxTokens + `<|im_end|>` detection in `runGeneration` cap any
-    //   post-JSON hallucination in bounded time (models typically emit
-    //   EOS right after a well-formed object they were asked for).
-    parts.append(#"[^\x00]*"#)
+    //   post-JSON hallucination in bounded time.
+    parts.append(#"[^"\\]*"#)
     return "root ::= \(parts.joined(separator: " "))"
   }
 

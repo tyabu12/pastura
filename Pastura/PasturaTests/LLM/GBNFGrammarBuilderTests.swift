@@ -43,7 +43,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     let rootLine = grammar.components(separatedBy: "\n").first { $0.hasPrefix("root ::=") } ?? ""
     #expect(
-      rootLine.hasSuffix(#""}" [^\x00]*"#),
+      rootLine.hasSuffix(#""}" [^"\\]*"#),
       "root must end with permissive trailing to prevent accept_token crash, got: \(rootLine)")
   }
 
@@ -68,7 +68,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "}" [^\x00]*"#))
+        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "}" [^"\\]*"#))
   }
 
   @Test("multi-field root joins with `ws \",\" ws`")
@@ -80,7 +80,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^\x00]*"#
+        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^"\\]*"#
       ))
   }
 
@@ -115,7 +115,7 @@ struct GBNFGrammarBuilderTests {
     ])
     let grammar = try builder.build(from: schema)
     #expect(
-      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" [^\x00]*"#))
+      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" [^"\\]*"#))
     #expect(
       grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
     // Enumeration-only grammars still include `string` + `ws` because
@@ -137,7 +137,7 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^\x00]*"#
+        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^"\\]*"#
       ))
   }
 
@@ -286,23 +286,23 @@ struct GBNFGrammarBuilderTests {
     """
 
   private static let goldenChooseActionBetray = """
-    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\\x00]*
+    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\"\\\\]*
     action_value ::= "\\"cooperate\\"" | "\\"betray\\""
     \(sharedTail)
     """
 
   private static let goldenDeclarationInnerThought = """
-    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\\x00]*
+    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\"\\\\]*
     \(sharedTail)
     """
 
   private static let goldenStatementInnerThought = """
-    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\\x00]*
+    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\"\\\\]*
     \(sharedTail)
     """
 
   private static let goldenVoteReason = """
-    root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" [^\\x00]*
+    root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" [^\"\\\\]*
     \(sharedTail)
     """
 }
