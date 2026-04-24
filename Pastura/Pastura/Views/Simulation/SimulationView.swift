@@ -499,10 +499,17 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .padding(.horizontal)
     .padding(.vertical, 10)
     .background {
+      // `ignoresSafeArea(.container, edges: .bottom)` extends the
+      // tinted background into the home-indicator inset. Without it,
+      // the safe-area strip below the control bar renders as raw
+      // system white, breaking the frosted-bar illusion. The HStack
+      // content (buttons) stays within the safe area because only
+      // the background layer opts out — not the foreground.
       ZStack {
         Color.screenBackground.opacity(0.78)
         Rectangle().fill(.ultraThinMaterial)
       }
+      .ignoresSafeArea(.container, edges: .bottom)
     }
     .overlay(alignment: .top) {
       Rectangle().fill(Color.ink.opacity(0.07)).frame(height: 1)
