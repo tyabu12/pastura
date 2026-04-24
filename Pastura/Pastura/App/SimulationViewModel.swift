@@ -250,6 +250,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private let turnRepository: any TurnRepository
   private let codePhaseEventRepository: (any CodePhaseEventRepository)?
   private let scenarioRepository: (any ScenarioRepository)?
+  // Guards model-switch UI while inference is running. Optional to keep
+  // the existing test fixtures (which don't need the guard) unchanged.
+  private let simulationActivityRegistry: SimulationActivityRegistry?
   // Accessed from the BG continuation extension in SimulationViewModel+Background.swift
   let backgroundManager: BackgroundSimulationManager?
   // Lifecycle logger — accessed from the +Background extension. Use `info` for
@@ -372,7 +375,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     turnRepository: any TurnRepository,
     codePhaseEventRepository: (any CodePhaseEventRepository)? = nil,
     scenarioRepository: (any ScenarioRepository)? = nil,
-    backgroundManager: BackgroundSimulationManager? = nil
+    backgroundManager: BackgroundSimulationManager? = nil,
+    simulationActivityRegistry: SimulationActivityRegistry? = nil
   ) {
     self.runner = runner
     self.contentFilter = contentFilter
@@ -381,6 +385,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     self.codePhaseEventRepository = codePhaseEventRepository
     self.scenarioRepository = scenarioRepository
     self.backgroundManager = backgroundManager
+    self.simulationActivityRegistry = simulationActivityRegistry
   }
 
   // MARK: - Simulation Lifecycle
@@ -506,6 +511,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     startPersistenceConsumer()
     startCodePhasePersistenceConsumer()
     lifecycleLogger.info("run() entered: simId=\(simId)")
+    // Bracket inference activity with the registry. Placed immediately
+    // before the cleanup defer so no awaitable step runs between them —
+    // any cancellation before this point happens before enter(), so
+    // leave() stays matched.
+    simulationActivityRegistry?.enter()
     // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
     defer {
       lifecycleLogger.info(
@@ -519,6 +529,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       isRunning = false
       currentLLM = nil
       suspendController = nil
+      simulationActivityRegistry?.leave()
     }
 
     // Load LLM model

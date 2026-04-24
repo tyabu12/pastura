@@ -511,7 +511,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         turnRepository: deps.turnRepository,
         codePhaseEventRepository: deps.codePhaseEventRepository,
         scenarioRepository: deps.scenarioRepository,
-        backgroundManager: deps.backgroundManager
+        backgroundManager: deps.backgroundManager,
+        simulationActivityRegistry: deps.simulationActivityRegistry
       )
       viewModel = simViewModel
 
