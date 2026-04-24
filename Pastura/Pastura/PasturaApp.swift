@@ -1,3 +1,11 @@
+// swiftlint:disable file_length
+// Deliberately long: RootView owns the full app-lifecycle state machine
+// (initializing / needsModelSelection / needsModelDownload / ready /
+// error), the Deep Link gate, and the toast overlay — projecting its
+// state across three synced enums (`AppState` / `AppStateKind` /
+// `DeepLinkBlockReason`). Splitting would require exporting these
+// file-private enums across multiple files and widens an
+// intentionally-small testable surface.
 import SwiftUI
 
 @main

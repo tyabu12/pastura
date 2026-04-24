@@ -76,7 +76,7 @@ public enum ModelState: Equatable, Sendable {
 /// `LlamaCppService` receives a model path via its constructor; it never imports
 /// this class.
 @Observable
-final class ModelManager {
+final class ModelManager {  // swiftlint:disable:this type_body_length
   // MARK: - Constants
 
   /// Minimum physical memory reported by ProcessInfo to allow any model download.
