@@ -153,6 +153,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 charsPerSecond: viewModel.speed.charsPerSecond,
                 streamingPrimary: snapshot.primary,
                 streamingThought: snapshot.thought,
+                agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
                 debugRowID: "stream-\(snapshot.agent)"
               )
               .padding(.horizontal)
@@ -350,6 +351,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           guard isLatest else { return }
           latestRowIsAnimating = animating
         },
+        agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         debugRowID: entry.id.uuidString
       )
       .padding(.horizontal)

@@ -97,4 +97,53 @@ struct SheepAvatarTests {
     #expect(SheepAvatar.Character.forAgent("Alice") == .alice)
     #expect(SheepAvatar.Character.forAgent("Alice") != .carol)
   }
+
+  // MARK: - Position-priority lookup (#171 follow-up)
+
+  @Test func forAgentWithPositionMapsToAllCasesInOrder() {
+    // Position 0..3 lands on .alice/.bob/.carol/.dave in declaration
+    // order — scenarios with ≤4 agents get distinct avatar colors by
+    // construction, no name-hash collision risk.
+    #expect(SheepAvatar.Character.forAgent("X", position: 0) == .alice)
+    #expect(SheepAvatar.Character.forAgent("X", position: 1) == .bob)
+    #expect(SheepAvatar.Character.forAgent("X", position: 2) == .carol)
+    #expect(SheepAvatar.Character.forAgent("X", position: 3) == .dave)
+  }
+
+  @Test func forAgentWithPositionWrapsModulo4() {
+    // Position 4+ wraps around — collision accepted beyond the
+    // 4-character palette size per design-system §2.5.
+    #expect(SheepAvatar.Character.forAgent("X", position: 4) == .alice)
+    #expect(SheepAvatar.Character.forAgent("X", position: 5) == .bob)
+    #expect(SheepAvatar.Character.forAgent("X", position: 8) == .alice)
+  }
+
+  @Test func forAgentWithPositionOverridesNameMatch() {
+    // Critical: position takes priority over the canonical name direct
+    // match. Otherwise a scenario with agents ["Dave", "Alice", ...]
+    // (Dave at index 0, Alice at index 1) would assign Dave →
+    // .dave (by name match) but Alice → .bob (by position 1), leaving
+    // a color mismatch between live sim (position) and past results
+    // (fallback to name). The resolution order is documented as
+    // "position > name" and this pins it.
+    #expect(SheepAvatar.Character.forAgent("Alice", position: 3) == .dave)
+    #expect(SheepAvatar.Character.forAgent("Dave", position: 0) == .alice)
+  }
+
+  @Test func forAgentWithNegativePositionDoesNotCrash() {
+    // Defensive: `firstIndex(of:)` returns non-negative but a future
+    // caller could pass a computed index. Modulo math with negatives
+    // in Swift returns negative — guarded via `((n % c) + c) % c` in
+    // the implementation. This pin catches a regression to naive
+    // `position % c`.
+    let result = SheepAvatar.Character.forAgent("X", position: -1)
+    #expect(SheepAvatar.Character.allCases.contains(result))
+  }
+
+  @Test func forAgentWithNilPositionFallsBackToName() {
+    // Explicit nil takes the name-based path — regression guard against
+    // a refactor that treats nil as "position 0".
+    #expect(SheepAvatar.Character.forAgent("Alice", position: nil) == .alice)
+    #expect(SheepAvatar.Character.forAgent("Bob", position: nil) == .bob)
+  }
 }

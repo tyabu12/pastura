@@ -115,28 +115,35 @@ struct ThoughtLeftRule: ViewModifier {
 
 // MARK: - AvatarSlot
 
-/// A 42pt (default) sheep avatar derived from the agent's name.
+/// A 48pt (default) sheep avatar derived from the agent's name and
+/// (preferably) their position in the scenario's agent list.
 ///
-/// Maps `agentName` to a ``SheepAvatar/Character`` via
-/// ``SheepAvatar/Character/forAgent(_:)`` — same rules apply: case-
-/// insensitive direct match for the four demo-replay names, deterministic
-/// UTF-8 byte-sum fallback otherwise.
+/// Maps via ``SheepAvatar/Character/forAgent(_:position:)`` — when
+/// `position` is supplied, distinct colors are guaranteed up to the
+/// 4-character palette (pigeonhole); otherwise falls back to the
+/// canonical-name direct match + UTF-8 byte-sum hash.
 ///
 /// Use at the leading edge of a chat row (`HStack(alignment: .top,
 /// spacing: ChatBubbleLayout.avatarTextGap)`) before the bubble column.
 struct AvatarSlot: View {
 
   /// The speaker's display name. Resolved to a character once per
-  /// render; cache on caller side if mapping cost ever matters (it
-  /// doesn't — lookup is O(n) on normalized name length).
+  /// render; lookup is O(name length) and cheap enough for per-row use.
   let agentName: String
 
-  /// Avatar diameter in points. Defaults to the §5.2 canonical 42pt.
+  /// Agent's zero-based index in the scenario's agent list. When
+  /// supplied, takes priority over the name-based lookup so that
+  /// scenarios with ≤4 agents always get distinct avatar colors.
+  /// Defaults to `nil` for call sites that don't have scenario
+  /// context handy (previews, legacy paths).
+  var position: Int?
+
+  /// Avatar diameter in points. Defaults to the §5.2 canonical 48pt.
   var size: CGFloat = ChatBubbleLayout.avatarSize
 
   var body: some View {
     SheepAvatar(
-      character: SheepAvatar.Character.forAgent(agentName),
+      character: SheepAvatar.Character.forAgent(agentName, position: position),
       size: size)
   }
 }

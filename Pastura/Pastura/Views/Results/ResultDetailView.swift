@@ -17,6 +17,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   @State private var items: [ResultDetailTimelineBuilder.Item] = []
   @State private var simulation: SimulationRecord?
   @State private var scenario: ScenarioRecord?
+  /// Agent names in scenario-declared order, used to drive position-
+  /// based avatar color assignment on turn rows. Empty when the
+  /// scenario YAML couldn't be decoded (legacy data, YAML drift); in
+  /// that case `AgentOutputRow` falls back to name-based avatar
+  /// resolution.
+  @State private var agentOrder: [String] = []
   @State private var isLoading = true
   @State private var showAllThoughts = true
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -196,7 +202,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         agent: agentName,
         output: output,
         phaseType: phaseType,
-        showAllThoughts: showAllThoughts
+        showAllThoughts: showAllThoughts,
+        agentPosition: agentOrder.firstIndex(of: agentName)
       )
       .padding(.horizontal)
     } else {
@@ -233,6 +240,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     let items: [ResultDetailTimelineBuilder.Item]
     let simulation: SimulationRecord?
     let scenario: ScenarioRecord?
+    /// Agent names in scenario-declared order. Decoded once off-main
+    /// alongside the record fetch so position-priority avatar lookup
+    /// on every turn row is an O(1) cache hit. Empty when YAML decode
+    /// fails — turnRow falls back to name-based avatar resolution.
+    let agentOrder: [String]
   }
 
   private func loadData() async {
@@ -248,15 +260,28 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         let turns = try turnRepo.fetchBySimulationId(simId)
         let events = try eventRepo.fetchBySimulationId(simId)
         let items = ResultDetailTimelineBuilder.build(turns: turns, events: events)
+        // `try?` silently discards a YAML drift / malformed record and
+        // falls back to empty — callers handle empty agentOrder by
+        // skipping position-based avatar resolution. Acceptable
+        // degradation: past results with unparseable scenarios still
+        // render, just with name-based avatars.
+        let agentOrder: [String]
+        if let scenarioRecord = scenario,
+          let parsed = try? ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition) {
+          agentOrder = parsed.personas.map(\.name)
+        } else {
+          agentOrder = []
+        }
         return LoadedData(
           turns: turns, events: events, items: items,
-          simulation: sim, scenario: scenario)
+          simulation: sim, scenario: scenario, agentOrder: agentOrder)
       }
       self.turns = fetched.turns
       self.events = fetched.events
       self.items = fetched.items
       self.simulation = fetched.simulation
       self.scenario = fetched.scenario
+      self.agentOrder = fetched.agentOrder
     } catch {
       self.turns = []
       self.events = []

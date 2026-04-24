@@ -110,28 +110,49 @@ public struct SheepAvatar: View {
 
 extension SheepAvatar.Character {
 
-  /// Resolves an agent name to a ``SheepAvatar/Character`` for avatar
-  /// rendering. Returns the matching canonical character (case-insensitive,
-  /// trimmed) for the four demo-replay names (`Alice` / `Bob` / `Carol` /
-  /// `Dave`); for any other name, falls back to a deterministic bucket via
-  /// a UTF-8 byte-sum modulo the character count.
+  /// Resolves an agent to a ``SheepAvatar/Character`` for avatar rendering.
   ///
-  /// ## Determinism contract
+  /// ## Resolution order
   ///
-  /// Same input → same character, across runs and processes. The fallback
-  /// hash is intentionally weak (collisions are acceptable) — agents that
-  /// share a bucket simply share an avatar color, which is visually
-  /// indistinguishable from other reasonable assignment schemes.
+  /// 1. **Position (preferred):** when `position` is non-nil, returns
+  ///    `allCases[position % 4]`. Scenarios with ≤4 agents get distinct
+  ///    colors by construction (pigeonhole — 4 avatar characters and
+  ///    at most 4 slots), which matters much more than matching the
+  ///    agent's name to a demo-replay canonical color. Wrap-around
+  ///    at position ≥ 4 is accepted collision.
+  /// 2. **Direct name match:** for the four demo-replay canonical
+  ///    names (`Alice` / `Bob` / `Carol` / `Dave`, case-insensitive,
+  ///    trimmed), returns the matching character. Preserves the
+  ///    demo's hand-curated avatar → name pairing when no position
+  ///    context is available (e.g., pre-#171 call sites, previews).
+  /// 3. **UTF-8 byte-sum fallback:** for any other name with no
+  ///    position, a weak deterministic hash lands in one of the four
+  ///    buckets. Same input → same output across runs and processes
+  ///    (`String.hashValue` was rejected because Swift randomizes
+  ///    hash seeds per process — avatar colors would flicker between
+  ///    app launches).
   ///
-  /// Normalization (trim + lowercase) runs *before* both the direct match
-  /// and the byte-sum. Inputs like `"Alice "` and `"ALICE"` map to the
-  /// same character as `"alice"`; `"User1"` and `"user1"` land in the
-  /// same fallback bucket.
+  /// ## Why position wins
   ///
-  /// Why NOT `String.hashValue`: Swift randomizes hash seeds per process,
-  /// so the same name would map to different buckets across launches —
-  /// that would let agents' avatar colors flicker between app runs.
-  public static func forAgent(_ name: String) -> SheepAvatar.Character {
+  /// Name-based assignment has a hidden collision risk: two unrelated
+  /// agents may sum to the same bucket, so users see two "same-color
+  /// sheep" agents even with only 2-3 scenario participants. Position-
+  /// based assignment eliminates collisions up to the 4-character
+  /// avatar palette size (design-system.md §2.5), at the cost of
+  /// losing the "Alice → alice-cream" convention for scenarios whose
+  /// agents *happen* to match canonical names. The trade is worth it
+  /// for arbitrary user-authored scenarios; callers that know the
+  /// agent's canonical name can still omit `position` and fall
+  /// through to step 2.
+  public static func forAgent(
+    _ name: String, position: Int? = nil
+  ) -> SheepAvatar.Character {
+    let cases = SheepAvatar.Character.allCases
+    if let position {
+      // Modulo gates wrap-around for 5+ agents; collisions there are
+      // accepted (there are only 4 avatar variants).
+      return cases[((position % cases.count) + cases.count) % cases.count]
+    }
     let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     switch normalized {
     case "alice": return .alice
@@ -140,7 +161,6 @@ extension SheepAvatar.Character {
     case "dave": return .dave
     default:
       let sum = normalized.utf8.reduce(0) { $0 &+ Int($1) }
-      let cases = SheepAvatar.Character.allCases
       return cases[sum % cases.count]
     }
   }

@@ -80,6 +80,14 @@ struct AgentOutputRow: View {
   /// (previews, tests, or legacy layouts that pre-date #171).
   var showAvatar: Bool = true
 
+  /// Agent's zero-based index in the scenario's agent list. Threaded
+  /// through to ``AvatarSlot`` → ``SheepAvatar/Character/forAgent(_:position:)``
+  /// so scenarios with ≤4 agents get distinct avatar colors by
+  /// construction instead of relying on the weak name-hash. Defaults
+  /// to `nil` — call sites without scenario context fall back to the
+  /// name-based resolution (direct canonical match + byte-sum hash).
+  var agentPosition: Int?
+
   /// Row-identity tag for #133 PR#4 `StreamingDiag` logs — see
   /// `AgentOutputRow+Diagnostic.swift` for the consumers.
   var debugRowID: String?
@@ -114,7 +122,7 @@ struct AgentOutputRow: View {
     // avatar column would have been.
     HStack(alignment: .top, spacing: showAvatar ? ChatBubbleLayout.avatarTextGap : 0) {
       if showAvatar {
-        AvatarSlot(agentName: agent)
+        AvatarSlot(agentName: agent, position: agentPosition)
       }
       VStack(alignment: .leading, spacing: 6) {
         // Agent name + phase. Caption size + ink-secondary matches

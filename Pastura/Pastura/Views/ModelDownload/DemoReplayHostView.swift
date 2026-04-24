@@ -106,7 +106,8 @@ struct DemoReplayHostView: View {
                 phaseType: entry.phaseType,
                 showAllThoughts: true,
                 isLatest: entry.id == viewModel.agentOutputs.last?.id,
-                charsPerSecond: 60
+                charsPerSecond: 60,
+                agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
               )
               .id(entry.id)
               .transition(reduceMotion ? .identity : .opacity)
@@ -150,6 +151,20 @@ struct DemoReplayHostView: View {
       sourceIndex < sources.count
     else { return "" }
     return sources[sourceIndex].scenario.name
+  }
+
+  /// Agent's zero-based index in the currently-playing replay's agent
+  /// list, used by ``AvatarSlot`` for position-priority avatar color
+  /// assignment. Returns `nil` when no replay is active or the agent
+  /// isn't in the current source's `agents` list; the row then falls
+  /// back to the name-based avatar resolution.
+  private func agentPosition(
+    for agentName: String, viewModel: ReplayViewModel
+  ) -> Int? {
+    guard case .playing(let sourceIndex, _) = viewModel.state,
+      sourceIndex < sources.count
+    else { return nil }
+    return sources[sourceIndex].scenario.personas.firstIndex(where: { $0.name == agentName })
   }
 
   private func currentPhaseLabel(viewModel: ReplayViewModel) -> String {
