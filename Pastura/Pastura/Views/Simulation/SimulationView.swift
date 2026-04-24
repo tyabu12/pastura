@@ -301,7 +301,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
     .overlay(alignment: .bottom) {
       Rectangle()
-        .fill(Color.black.opacity(0.07))
+        .fill(Color.ink.opacity(0.07))
         .frame(height: 1)
     }
   }
@@ -505,7 +505,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       }
     }
     .overlay(alignment: .top) {
-      Rectangle().fill(Color.black.opacity(0.07)).frame(height: 1)
+      Rectangle().fill(Color.ink.opacity(0.07)).frame(height: 1)
     }
   }
 

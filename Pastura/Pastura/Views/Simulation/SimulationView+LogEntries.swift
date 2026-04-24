@@ -30,8 +30,12 @@ extension SimulationView {
 
   func voteResultsEntry(tallies: [String: Int]) -> some View {
     VStack(alignment: .leading, spacing: 2) {
+      // `metaLabel` (9pt semibold mono, non-upper) instead of `tagPhase`
+      // — the latter uppercases, and "Vote Results" as a prose-ish
+      // section heading reads worse as "VOTE RESULTS". `tagPhase` is
+      // reserved for one-word tags (WORD WOLF, ROUND 1).
       Text("Vote Results")
-        .textStyle(Typography.tagPhase)
+        .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
       ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
         Text("  \(name): \(count) votes")

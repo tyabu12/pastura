@@ -69,11 +69,16 @@ extension ResultDetailView {
     }
     let orderedVotes = votes.sorted { $0.key < $1.key }
     return VStack(alignment: .leading, spacing: 2) {
-      Text("Vote Results").textStyle(Typography.tagPhase).foregroundStyle(Color.inkSecondary)
+      // `metaLabel` (9pt semibold mono, non-upper) instead of
+      // `tagPhase` — `tagPhase` uppercases, and prose-ish headings
+      // like "Vote Results" read worse shouty. `tagPhase` stays on
+      // one-word tag markers (WORD WOLF, ROUND 1) per design-system
+      // §3.2.
+      Text("Vote Results").textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
       ForEach(orderedTallies, id: \.key) { name, count in
         Text("  \(filtered(name)): \(count) votes").textStyle(Typography.metaValue)
       }
-      Text("Votes").textStyle(Typography.tagPhase).foregroundStyle(Color.inkSecondary)
+      Text("Votes").textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
         .padding(.top, 4)
       ForEach(orderedVotes, id: \.key) { voter, target in
         Text("  \(filtered(voter)) → \(filtered(target))").textStyle(Typography.metaValue)

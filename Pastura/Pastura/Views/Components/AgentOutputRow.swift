@@ -109,7 +109,10 @@ struct AgentOutputRow: View {
     // the view's position in its caller remains stable. The outer
     // layout-stability modifiers (`frame(maxWidth:)`, `fixedSize`, etc.)
     // still apply to the whole row below.
-    HStack(alignment: .top, spacing: ChatBubbleLayout.avatarTextGap) {
+    // When `showAvatar` is false, drop the avatar-text gap to zero so
+    // avatar-less rows don't carry a stray 10pt left indent where the
+    // avatar column would have been.
+    HStack(alignment: .top, spacing: showAvatar ? ChatBubbleLayout.avatarTextGap : 0) {
       if showAvatar {
         AvatarSlot(agentName: agent)
       }
