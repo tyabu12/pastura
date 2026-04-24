@@ -38,7 +38,7 @@ After fetching the issue, check for an existing plan comment:
 2. If a plan comment is found:
    - Set `RESUMING=true`, `ISSUE_NUMBER=N`, and capture `COMMENT_ID`.
    - Parse checkboxes: count `- [x]` (done) vs `- [ ]` (remaining). Identify `NEXT_ITEM` (first unchecked item number).
-   - Extract `TASK_TYPE` and branch name from the `## Metadata` section in the comment.
+   - Extract `TASK_TYPE`, branch name, and `REVIEWER_MODEL` from the `## Metadata` section in the comment. If `Reviewer` is absent from Metadata (e.g., older plan comment pre-dating this field), default `REVIEWER_MODEL=opus`.
    - Derive `SLUG` from the branch name.
    - If **all items are already checked**: ensure you are on the feature branch or in the correct worktree, then report "All {TOTAL} items already complete. Proceeding to review." and **skip to Step 4** directly.
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
@@ -70,7 +70,38 @@ After fetching the issue, check for an existing plan comment:
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
-4. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
+4. **Assign a reviewer model** for the PR as a whole (single choice, not per-item). This determines which model runs the `code-reviewer` subagent at Step 4. Criteria:
+
+   **Opus required if any plan item touches:**
+   - Dependency rule boundaries (Engine ↔ LLM ↔ Data ↔ Models interrelations)
+   - Actor isolation / `Sendable` / `@MainActor` / `nonisolated` design
+   - Public protocol signatures or access modifier changes
+   - AppRouter / navigation routing (`Route` enum, `router.push` callsites)
+   - `App/` layer changes touching BG execution, `SimulationViewModel`, or `AppRouter`
+   - Decision records (`docs/decisions/ADR-*.md`) or architectural specs (`docs/specs/**`)
+   - CI / build infrastructure (`.github/workflows/**`, `scripts/**`)
+   - Project tooling (`CLAUDE.md`, `.claude/{skills,agents,rules}/**`)
+   - Content safety surface (ADR-005 related: `ContentFilter`, `PrivacyInfo.xcprivacy`, `Info.plist`)
+   - LLM backend code or prompt templates
+   - Design system foundations (`docs/design/design-system.md`, `DesignTokens*.swift`)
+
+   **Sonnet reviewer acceptable if the change is strictly one of:**
+   - New `@Test` cases in an **existing** suite following the file's existing pattern (not new suites, new helpers, or trait changes like `.timeLimit` / `.serialized`)
+   - Documentation updates (`docs/ROADMAP.md`, `docs/examples/**`, `docs/gallery/**`, `docs/prototype/**`, doc comments)
+   - Simple refactor within a single file without crossing layer boundaries
+   - Design token **application** (existing token to existing View only — new token additions are Opus-required)
+   - Fix-only PRs where the cause is already diagnosed and localized
+
+   **Coupling rule:** If **any** plan item is labeled 🔴, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🟢-plus-Sonnet-reviewer" configuration from putting Opus-implemented work through a Sonnet review.
+
+   **When in doubt, pick Opus.** Subtle convention violations (ShapeStyle+Color token trap, `nonisolated` gaps, i18n `String(localized:)` omissions, missing `@Suite(.timeLimit(.minutes(1)))` on new test suites) cost more than an over-zealous Opus review.
+
+   Record the decision in the `## Metadata` block of the plan comment (see Step 2a) as:
+   ```
+   - **Reviewer**: Opus (reason: touches Engine/ dependency boundary)
+   ```
+   The user may override at G1. Resumed sessions recover the decision from `## Metadata` (see Step 0).
+5. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
 
 After user approval, proceed to Step 1b (mandatory critic review).
 
@@ -80,7 +111,7 @@ After user approval, proceed to Step 1b (mandatory critic review).
 
 After the user approves the plan (G1), launch a `critic` subagent via the Agent tool to review the plan for blind spots.
 
-> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase.
+> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths.
 >
 > Task: {TASK_DESCRIPTION}
 >
@@ -119,6 +150,7 @@ Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step
   ## Metadata
   - **Type**: {TASK_TYPE}
   - **Branch**: `{TASK_TYPE}/{SLUG}`
+  - **Reviewer**: {REVIEWER_MODEL} (reason: {REVIEWER_RATIONALE})
   PASTURA_PLAN
   )" --jq '.id')
   ```
@@ -262,7 +294,11 @@ After all implementation, run full verification directly from the main session:
 
 ## Step 4: Review — Gate G3
 
-Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch:
+Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`, so no changes to `.claude/agents/code-reviewer.md` are required.
+
+```
+Agent(subagent_type: "code-reviewer", model: $REVIEWER_MODEL, description: "...", prompt: "...")
+```
 
 > **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
