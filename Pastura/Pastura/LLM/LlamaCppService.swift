@@ -110,7 +110,37 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     self.modelIdentifier = modelIdentifier
     self.systemPromptSuffix = systemPromptSuffix
     self.loadedState = OSAllocatedUnfairLock(initialState: false)
+    // Install llama.cpp's C-runtime log capture once — routes grammar
+    // parse errors ("invalid character", "expected ::=", etc.) into
+    // Console.app under subsystem:com.pastura category:LlamaCppRuntime.
+    // Idempotent at the C API level; safe to re-invoke per instance.
+    _ = Self.logCaptureInstalled
   }
+
+  /// One-shot log-capture hook installed via `llama_log_set`. Referenced
+  /// from `init` so the first service construction triggers installation;
+  /// subsequent references are a no-op.
+  private static let logCaptureInstalled: Void = {
+    llama_log_set(
+      { level, text, _ in
+        guard let text else { return }
+        let message = String(cString: text).trimmingCharacters(
+          in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+        let logger = Logger(
+          subsystem: "com.pastura", category: "LlamaCppRuntime")
+        switch level {
+        case GGML_LOG_LEVEL_ERROR:
+          logger.error("\(message, privacy: .public)")
+        case GGML_LOG_LEVEL_WARN:
+          logger.warning("\(message, privacy: .public)")
+        case GGML_LOG_LEVEL_DEBUG:
+          logger.debug("\(message, privacy: .public)")
+        default:
+          logger.info("\(message, privacy: .public)")
+        }
+      }, nil)
+  }()
 
   deinit {
     // Safety net: free C resources if still loaded.

@@ -50,10 +50,12 @@ struct GBNFGrammarBuilderTests {
     #expect(
       rootLine.hasSuffix(#""}" trailing"#),
       "root must end with trailing rule reference, got: \(rootLine)")
-    // Trailing rule must itself be defined in the grammar.
+    // Trailing rule must itself be defined in the grammar with the
+    // positive-class recursive form (negation + recursion triggered
+    // parse-time NULL — see rationale in `sharedTrailingProduction`).
     #expect(
-      grammar.contains(#"trailing ::= ([^"\\] trailing)?"#),
-      "grammar must define `trailing` rule in recursive form")
+      grammar.contains(#"trailing ::= ([\t\n\r -~] trailing)?"#),
+      "grammar must define `trailing` in recursive + positive-class form")
   }
 
   @Test("ws production allows space / tab / newline (recursive form)")
@@ -292,7 +294,7 @@ struct GBNFGrammarBuilderTests {
   private static let sharedTail = """
     string ::= "\\"" ( [^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )* "\\""
     ws ::= ([ \\t\\n] ws)?
-    trailing ::= ([^"\\\\] trailing)?
+    trailing ::= ([\\t\\n\\r -~] trailing)?
     """
 
   private static let goldenChooseActionBetray = """

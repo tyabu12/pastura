@@ -185,19 +185,28 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   // hedge.
   private static let sharedWhitespaceProduction = #"ws ::= ([ \t\n] ws)?"#
 
-  // Any-byte trailing rule used after the closing `}` to tolerate
-  // BPE-merged tokens whose tail continues past the object boundary.
-  // Uses the recursive form for the same reason `ws` does — llama.cpp's
-  // parser rejected both `[^\x00]*` and `[^"\\]*` at top level (NULL
-  // return from `llama_sampler_init_grammar`), but accepts the
-  // equivalent recursive form.
+  // Trailing rule used after the closing `}` to tolerate BPE-merged
+  // tokens whose tail continues past the object boundary. Recursive
+  // form + positive char class.
   //
-  // The `[^"\\]` byte class excludes `"` and `\` (matching the class
-  // llama.cpp's own `string` grammar uses). In practice post-`}` tokens
-  // never include `"` or `\` — they're whitespace, punctuation, chat
-  // template tokens, or EOS. If a token did include one of those chars,
-  // the grammar would reject it; that's an acceptable trade because
-  // such a token would indicate the model is trying to start another
-  // string, which is out of scope post-object.
-  private static let sharedTrailingProduction = #"trailing ::= ([^"\\] trailing)?"#
+  // History (all returned NULL from `llama_sampler_init_grammar`):
+  //   1. `ws` reuse (`"}" ws` at top level)           — OK parse, crash on `}: ` accept
+  //   2. inline `[^\x00]*`                             — parse NULL
+  //   3. inline `[^"\\]*`                              — parse NULL
+  //   4. recursive `trailing ::= ([^"\\] trailing)?`   — parse NULL
+  //   5. recursive + positive class (this commit)      — trying
+  //
+  // Hypothesis: llama.cpp's grammar parser has an edge case with
+  // negated char classes when used in a recursive rule (theory 4),
+  // even though `[^"\\]` works inside `string`'s grouped alternation.
+  // Positive class `[\t\n\r -~]` avoids negation entirely.
+  //
+  // Coverage: tab, CR, LF, space through tilde (0x20-0x7e) —
+  // all printable ASCII plus whitespace. Post-`}` tokens from Gemma
+  // are almost always whitespace, chat-template fragments
+  // (`<|im_end|>` etc.) or EOS; all fit in this range. Non-ASCII
+  // post-`}` bytes would still cause an accept-time crash, but the
+  // model is trained to emit EOS immediately after a closed object
+  // so that path is practically unreachable.
+  private static let sharedTrailingProduction = #"trailing ::= ([\t\n\r -~] trailing)?"#
 }
