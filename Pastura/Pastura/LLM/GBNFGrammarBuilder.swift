@@ -90,15 +90,24 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
       parts.append("ws")
     }
     parts.append(closeBrace)
-    // Trailing `ws` is load-bearing: without it, accepting `}` empties
-    // the grammar stack and llama.cpp throws
-    // `std::runtime_error("Unexpected empty grammar stack after accepting piece: \})`
-    // from `llama_grammar_accept_token` (observed on Gemma 4 E2B,
-    // token 12620). Optional `ws` keeps the stack alive (matching
-    // empty → grammar can terminate on EOS; matching `[ \t\n]` →
-    // trailing whitespace is accepted). llama.cpp's official
-    // `grammars/json.gbnf` uses the same pattern — `object ::= … "}" ws`.
-    parts.append("ws")
+    // Trailing `[^\x00]*` is load-bearing: without it, `accept_token`
+    // throws `std::runtime_error("Unexpected empty grammar stack
+    // after accepting piece: …")` when Gemma samples a BPE-merged
+    // token like `}: ` (token 7493) or `}"` — characters beyond the
+    // closing brace that share a single token ID.
+    //
+    // Why `[^\x00]*` and not just `ws`:
+    // - Non-lazy grammar chain stays active for the whole generation,
+    //   so post-`}` tokens go through grammar. A narrow `ws` rejects
+    //   merged tokens whose tail is `:`, `"`, or anything non-whitespace.
+    // - `[^\x00]*` accepts any byte — grammar terminates gracefully on
+    //   EOS (zero-match branch) and tolerates any trailing merge.
+    // - JSONResponseParser already extracts just the first `{…}`
+    //   object, so post-`}` content is ignored downstream.
+    // - maxTokens + `<|im_end|>` detection in `runGeneration` cap any
+    //   post-JSON hallucination in bounded time (models typically emit
+    //   EOS right after a well-formed object they were asked for).
+    parts.append(#"[^\x00]*"#)
     return "root ::= \(parts.joined(separator: " "))"
   }
 

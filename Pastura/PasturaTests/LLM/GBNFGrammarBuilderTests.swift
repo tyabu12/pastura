@@ -26,22 +26,25 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar.contains("[0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]"))
   }
 
-  @Test("root rule ends with trailing ws (prevents empty-stack crash)")
-  func rootEndsWithTrailingWhitespace() throws {
+  @Test("root rule ends with permissive trailing (prevents empty-stack crash)")
+  func rootEndsWithPermissiveTrailing() throws {
     // Regression guard for the llama.cpp `accept_token` crash:
-    //   std::runtime_error("Unexpected empty grammar stack after accepting piece: \})
-    // that fires mid-generation when the root rule ends exactly at `"}"`
-    // and the model tries to sample past the closing brace. Matches the
-    // `object ::= "{" ... "}" ws` pattern from upstream `json.gbnf`.
+    //   std::runtime_error("Unexpected empty grammar stack after accepting piece: …")
+    // Two rounds of this bit us in TestFlight:
+    //   1. root ending at `"}"` exactly → crash on any post-`}` token
+    //   2. root ending at `"}" ws` → crash on BPE-merged tokens like
+    //      `}: ` (7493) where the tail is non-whitespace
+    // `[^\x00]*` accepts any byte, so grammar terminates gracefully on
+    // EOS AND tolerates merged tokens. See in-code comment on `rootRule`
+    // for the full rationale.
     let schema = OutputSchema(fields: [
       .init(name: "statement", kind: .string)
     ])
     let grammar = try builder.build(from: schema)
-    // Extract just the root line; assert it ends with `ws "}" ws` not `ws "}"`.
     let rootLine = grammar.components(separatedBy: "\n").first { $0.hasPrefix("root ::=") } ?? ""
     #expect(
-      rootLine.hasSuffix(#""}" ws"#),
-      "root must end with trailing ws for graceful grammar termination, got: \(rootLine)")
+      rootLine.hasSuffix(#""}" [^\x00]*"#),
+      "root must end with permissive trailing to prevent accept_token crash, got: \(rootLine)")
   }
 
   @Test("ws production allows space / tab / newline (recursive form)")
@@ -65,7 +68,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "}" ws"#))
+        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "}" [^\x00]*"#))
   }
 
   @Test("multi-field root joins with `ws \",\" ws`")
@@ -77,7 +80,7 @@ struct GBNFGrammarBuilderTests {
     let grammar = try builder.build(from: schema)
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" ws"#
+        #"root ::= "{" ws "\"statement\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^\x00]*"#
       ))
   }
 
@@ -112,7 +115,7 @@ struct GBNFGrammarBuilderTests {
     ])
     let grammar = try builder.build(from: schema)
     #expect(
-      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" ws"#))
+      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" [^\x00]*"#))
     #expect(
       grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
     // Enumeration-only grammars still include `string` + `ws` because
@@ -134,7 +137,7 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" ws"#
+        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" [^\x00]*"#
       ))
   }
 
@@ -283,23 +286,23 @@ struct GBNFGrammarBuilderTests {
     """
 
   private static let goldenChooseActionBetray = """
-    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" ws
+    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\\x00]*
     action_value ::= "\\"cooperate\\"" | "\\"betray\\""
     \(sharedTail)
     """
 
   private static let goldenDeclarationInnerThought = """
-    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" ws
+    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\\x00]*
     \(sharedTail)
     """
 
   private static let goldenStatementInnerThought = """
-    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" ws
+    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" [^\\x00]*
     \(sharedTail)
     """
 
   private static let goldenVoteReason = """
-    root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" ws
+    root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" [^\\x00]*
     \(sharedTail)
     """
 }
