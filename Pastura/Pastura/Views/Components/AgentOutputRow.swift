@@ -147,6 +147,18 @@ struct AgentOutputRow: View {
         // Thought: three branches depending on show-mode.
         thoughtSection()
       }
+      // Push the VStack (name/bubble/thought column) down by the avatar's
+      // visible-top inset so the agent-name row visually aligns with the
+      // top of the sheep silhouette — `SheepAvatar`'s outer wool circle
+      // has 7pt of transparent canvas above it inside the 48pt frame,
+      // and without this shift the name reads as hovering above the
+      // sheep. Applied only when an avatar is rendered; `0` is the
+      // identity guide value so other call sites stay unaffected.
+      .alignmentGuide(.top) { d in
+        showAvatar
+          ? d[.top] - SheepAvatar.visibleTopInset(forSize: ChatBubbleLayout.avatarSize)
+          : d[.top]
+      }
     }
     // Layout-stability trio (applied unconditionally; see type doc-comment
     // §"Reflow-stable rendering"). Streaming growth re-runs the text

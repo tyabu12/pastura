@@ -26,6 +26,21 @@ public struct SheepAvatar: View {
   public let character: Character
   public var size: CGFloat = 48
 
+  /// Top of the visible sheep silhouette expressed as a fraction of
+  /// `size`. The outer wool-body circle has center `y = 15` and
+  /// radius `8` in the 28-unit viewBox (see ``body``), so the topmost
+  /// visible pixel sits at `y = 7`. Consumers aligning the sheep's
+  /// *visible* top with a sibling text baseline (e.g. the agent-name
+  /// row in `AgentOutputRow`) can pass this value through
+  /// `.alignmentGuide(.top) { _ in ... }`.
+  ///
+  /// Kept on the component so the `y = 7` invariant lives next to the
+  /// wool-circle geometry that encodes it — mirrors `DogMark`'s
+  /// `visibleTopInset(forSize:)` pattern.
+  public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
+    size * 7.0 / 28.0
+  }
+
   public var body: some View {
     Canvas { ctx, canvasSize in
       // All geometry is expressed as fractions of the 28-unit SVG viewBox.

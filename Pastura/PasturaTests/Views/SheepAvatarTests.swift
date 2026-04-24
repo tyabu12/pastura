@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 
 @testable import Pastura
@@ -145,5 +146,24 @@ struct SheepAvatarTests {
     // a refactor that treats nil as "position 0".
     #expect(SheepAvatar.Character.forAgent("Alice", position: nil) == .alice)
     #expect(SheepAvatar.Character.forAgent("Bob", position: nil) == .bob)
+  }
+
+  // MARK: - visibleTopInset — avatar-to-text alignment geometry
+
+  @Test func visibleTopInsetAtCanonicalSize() {
+    // Wool-body circle has center y=15, radius 8 (see SheepAvatar.body)
+    // so visible top sits at y=7 in the 28-unit viewBox. At 48pt canvas:
+    // 48 × 7/28 = 12pt. AgentOutputRow relies on this constant to align
+    // the agent-name row with the avatar silhouette.
+    let inset = SheepAvatar.visibleTopInset(forSize: 48)
+    #expect(abs(inset - 12) < 0.001)
+  }
+
+  @Test func visibleTopInsetScalesLinearlyWithSize() {
+    // Doubling `size` doubles the inset — a size-agnostic fraction of
+    // 7/28 per canvas unit. Catches a regression to a fixed-literal.
+    let inset24 = SheepAvatar.visibleTopInset(forSize: 24)
+    let inset48 = SheepAvatar.visibleTopInset(forSize: 48)
+    #expect(abs(inset48 - 2 * inset24) < 0.001)
   }
 }
