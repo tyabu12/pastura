@@ -262,11 +262,13 @@ struct AgentOutputRow: View {
       + Text("THINKING")
       .foregroundStyle(Color.muted))
       .textStyle(Typography.thinkingTag)
-      // iOS HIG 44pt minimum tap target — `thinkingTag` is 8.5pt
-      // text, so we gate the hit area via `.frame(minHeight: 44)`
-      // + `.contentShape(Rectangle())`. The bubble itself stays
-      // non-interactive (future long-press / copy affordance).
-      .frame(minHeight: 44, alignment: .leading)
+      // Intentionally no `.frame(minHeight: 44)` — the design calls
+      // for a visually tight disclosure label, and inflating the tap
+      // target added ~17pt of vertical whitespace above and below the
+      // 8.5pt glyph. We trade strict iOS HIG compliance (44pt min)
+      // for visual density on a secondary affordance; the bubble
+      // itself remains non-interactive. `.contentShape` still makes
+      // the natural text bounds reliably tappable.
       .contentShape(Rectangle())
       .onTapGesture {
         withAnimation(.easeInOut(duration: 0.2)) {
