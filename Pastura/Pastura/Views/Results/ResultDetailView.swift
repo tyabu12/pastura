@@ -17,6 +17,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   @State private var items: [ResultDetailTimelineBuilder.Item] = []
   @State private var simulation: SimulationRecord?
   @State private var scenario: ScenarioRecord?
+  /// Agent names in scenario-declared order, used to drive position-
+  /// based avatar color assignment on turn rows. Empty when the
+  /// scenario YAML couldn't be decoded (legacy data, YAML drift); in
+  /// that case `AgentOutputRow` falls back to name-based avatar
+  /// resolution.
+  @State private var agentOrder: [String] = []
   @State private var isLoading = true
   @State private var showAllThoughts = true
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -99,7 +105,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
           showAllThoughts.toggle()
         } label: {
           Image(systemName: showAllThoughts ? "text.bubble.fill" : "text.bubble")
-            .foregroundStyle(showAllThoughts ? .purple : .secondary)
+            .foregroundStyle(showAllThoughts ? Color.moss : Color.inkSecondary)
         }
       }
     }
@@ -164,9 +170,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   ) -> some View {
     if (item.phasePath?.count ?? 0) > 1 {
       VStack(alignment: .leading, spacing: 2) {
+        // `metaLabel` (9pt semibold mono, mixed case) — `tagPhase`
+        // would force "↳ SUB-PHASE" UPPER which reads shouty for a
+        // prose-like marker. tagPhase stays for one-word phase tags
+        // (WORD WOLF). See design-system §3.2.
         Text("↳ sub-phase")
-          .font(.caption2)
-          .foregroundStyle(.secondary)
+          .textStyle(Typography.metaLabel)
+          .foregroundStyle(Color.muted)
           .padding(.leading, 32)
         content()
           .padding(.leading, 16)
@@ -178,11 +188,15 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
 
   private func roundSeparator(_ round: Int) -> some View {
     HStack {
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+      Rectangle().fill(Color.rule).frame(height: 1)
+      // `metaLabel` keeps "Round N" mixed case — tagPhase would
+      // upper-case to "ROUND N" which reads shouty for a prose
+      // marker. tagPhase stays reserved for one-word phase tags
+      // (WORD WOLF). See design-system §3.2.
       Text("Round \(round)")
-        .font(.caption.bold())
-        .foregroundStyle(.secondary)
-      Rectangle().fill(.secondary.opacity(0.3)).frame(height: 1)
+        .textStyle(Typography.metaLabel)
+        .foregroundStyle(Color.inkSecondary)
+      Rectangle().fill(Color.rule).frame(height: 1)
     }
     .padding(.horizontal)
     .padding(.vertical, 4)
@@ -196,7 +210,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         agent: agentName,
         output: output,
         phaseType: phaseType,
-        showAllThoughts: showAllThoughts
+        showAllThoughts: showAllThoughts,
+        agentPosition: agentOrder.firstIndex(of: agentName)
       )
       .padding(.horizontal)
     } else {
@@ -205,11 +220,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       // by legacy data.
       HStack(spacing: 4) {
         Text(turn.phaseType)
-          .font(.caption.monospaced())
-          .foregroundStyle(.orange)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.inkSecondary)
         Text("Round \(turn.roundNumber)")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.inkSecondary)
       }
       .padding(.horizontal)
     }
@@ -233,6 +248,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     let items: [ResultDetailTimelineBuilder.Item]
     let simulation: SimulationRecord?
     let scenario: ScenarioRecord?
+    /// Agent names in scenario-declared order. Decoded once off-main
+    /// alongside the record fetch so position-priority avatar lookup
+    /// on every turn row is an O(1) cache hit. Empty when YAML decode
+    /// fails — turnRow falls back to name-based avatar resolution.
+    let agentOrder: [String]
   }
 
   private func loadData() async {
@@ -248,15 +268,28 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         let turns = try turnRepo.fetchBySimulationId(simId)
         let events = try eventRepo.fetchBySimulationId(simId)
         let items = ResultDetailTimelineBuilder.build(turns: turns, events: events)
+        // `try?` silently discards a YAML drift / malformed record and
+        // falls back to empty — callers handle empty agentOrder by
+        // skipping position-based avatar resolution. Acceptable
+        // degradation: past results with unparseable scenarios still
+        // render, just with name-based avatars.
+        let agentOrder: [String]
+        if let scenarioRecord = scenario,
+          let parsed = try? ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition) {
+          agentOrder = parsed.personas.map(\.name)
+        } else {
+          agentOrder = []
+        }
         return LoadedData(
           turns: turns, events: events, items: items,
-          simulation: sim, scenario: scenario)
+          simulation: sim, scenario: scenario, agentOrder: agentOrder)
       }
       self.turns = fetched.turns
       self.events = fetched.events
       self.items = fetched.items
       self.simulation = fetched.simulation
       self.scenario = fetched.scenario
+      self.agentOrder = fetched.agentOrder
     } catch {
       self.turns = []
       self.events = []

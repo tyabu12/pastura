@@ -153,6 +153,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 charsPerSecond: viewModel.speed.charsPerSecond,
                 streamingPrimary: snapshot.primary,
                 streamingThought: snapshot.thought,
+                agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
                 debugRowID: "stream-\(snapshot.agent)"
               )
               .padding(.horizontal)
@@ -168,8 +169,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                   ProgressView()
                     .scaleEffect(0.7)
                   Text("\(agent) is thinking...")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(Typography.thinkingBody)
+                    .foregroundStyle(Color.muted)
                 }
                 .padding(.horizontal)
               }
@@ -242,15 +243,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   private var modelReloadingOverlay: some View {
     ZStack {
-      Color.black.opacity(0.4).ignoresSafeArea()
+      Color.ink.opacity(0.4).ignoresSafeArea()
       VStack(spacing: 12) {
         ProgressView()
           .scaleEffect(1.2)
         Text("Reloading model...")
-          .font(.subheadline)
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.ink)
         Text("This can take a few seconds")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.muted)
       }
       .padding(24)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -264,7 +266,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     HStack {
       if viewModel.totalRounds > 0 {
         Text("Round \(viewModel.currentRound)/\(viewModel.totalRounds)")
-          .font(.subheadline.monospacedDigit())
+          .textStyle(Typography.metaEta)
+          .monospacedDigit()
       }
 
       Spacer()
@@ -273,24 +276,40 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
       if viewModel.isCompleted {
         Label("Completed", systemImage: "checkmark.circle.fill")
-          .font(.subheadline)
-          .foregroundStyle(.green)
+          .textStyle(Typography.titlePhase)
+          // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
+          // enumerate されている。moss は fills/borders 系、moss-ink は完了
+          // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
+          // なので moss-dark が用途的に正解。ResultsView の statusBadge も
+          // 同じ理由で moss-dark に揃えてある。
+          .foregroundStyle(Color.mossDark)
       } else if viewModel.isPaused {
         Label("Paused", systemImage: "pause.circle.fill")
-          .font(.subheadline)
-          .foregroundStyle(.orange)
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.inkSecondary)
       } else if viewModel.isRunning {
         HStack(spacing: 4) {
           ProgressView()
             .scaleEffect(0.7)
           Text("Running")
-            .font(.subheadline)
+            .textStyle(Typography.titlePhase)
+            .foregroundStyle(Color.inkSecondary)
         }
       }
     }
     .padding(.horizontal)
     .padding(.vertical, 8)
-    .background(.bar)
+    .background {
+      ZStack {
+        Color.screenBackground.opacity(0.78)
+        Rectangle().fill(.ultraThinMaterial)
+      }
+    }
+    .overlay(alignment: .bottom) {
+      Rectangle()
+        .fill(Color.ink.opacity(0.07))
+        .frame(height: 1)
+    }
   }
 
   @ViewBuilder
@@ -300,11 +319,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     if duration != nil || tps != nil {
       HStack(spacing: 4) {
         Image(systemName: "speedometer")
-          .font(.caption)
         Text(formatInferenceStats(durationSeconds: duration, tokensPerSecond: tps))
-          .font(.caption.monospacedDigit())
+          .monospacedDigit()
       }
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
     }
   }
 
@@ -337,6 +356,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           guard isLatest else { return }
           latestRowIsAnimating = animating
         },
+        agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         debugRowID: entry.id.uuidString
       )
       .padding(.horizontal)
@@ -350,8 +370,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       scoresSummary(scores)
     case .error(let message):
       Label(message, systemImage: "exclamationmark.triangle.fill")
-        .font(.subheadline)
-        .foregroundStyle(.red)
+        .textStyle(Typography.titlePhase)
+        .foregroundStyle(Color.inkSecondary)
         .padding(.horizontal)
     default:
       secondaryLogEntryView(entry)
@@ -434,7 +454,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           Image(systemName: "chevron.down")
             .font(.caption2)
         }
-        .font(.subheadline)
+        .textStyle(Typography.titlePhase)
         .frame(minWidth: Self.controlSlotMinWidth)
       }
     }
@@ -467,7 +487,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       } label: {
         Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
           .font(.title3)
-          .foregroundStyle(viewModel.showAllThoughts ? .purple : .secondary)
+          .foregroundStyle(viewModel.showAllThoughts ? Color.moss : Color.inkSecondary)
       }
 
       // Background continuation toggle (iOS 26+ with LlamaCppService only)
@@ -485,7 +505,22 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
     .padding(.horizontal)
     .padding(.vertical, 10)
-    .background(.bar)
+    .background {
+      // `ignoresSafeArea(.container, edges: .bottom)` extends the
+      // tinted background into the home-indicator inset. Without it,
+      // the safe-area strip below the control bar renders as raw
+      // system white, breaking the frosted-bar illusion. The HStack
+      // content (buttons) stays within the safe area because only
+      // the background layer opts out — not the foreground.
+      ZStack {
+        Color.screenBackground.opacity(0.78)
+        Rectangle().fill(.ultraThinMaterial)
+      }
+      .ignoresSafeArea(.container, edges: .bottom)
+    }
+    .overlay(alignment: .top) {
+      Rectangle().fill(Color.ink.opacity(0.07)).frame(height: 1)
+    }
   }
 
   // MARK: - Load & Run
