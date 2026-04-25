@@ -38,8 +38,9 @@ After fetching the issue, check for an existing plan comment:
 2. If a plan comment is found:
    - Set `RESUMING=true`, `ISSUE_NUMBER=N`, and capture `COMMENT_ID`.
    - Parse checkboxes: count `- [x]` (done) vs `- [ ]` (remaining). Identify `NEXT_ITEM` (first unchecked item number).
-   - Extract `TASK_TYPE` and branch name from the `## Metadata` section in the comment.
+   - Extract `TASK_TYPE`, branch name, and `REVIEWER_MODEL` from the `## Metadata` section in the comment. **Normalize `REVIEWER_MODEL` to lowercase** (`opus` / `sonnet`) when binding — Metadata records it title-case (`Opus` / `Sonnet`) for readability, but downstream Agent calls use lowercase. If `Reviewer` is absent from Metadata (e.g., older plan comment pre-dating this field), default `REVIEWER_MODEL=opus`.
    - Derive `SLUG` from the branch name.
+   - **Coupling re-check**: if the resumed plan contains any `🔴` item but `REVIEWER_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: Opus-implemented items should never be Sonnet-reviewed.
    - If **all items are already checked**: ensure you are on the feature branch or in the correct worktree, then report "All {TOTAL} items already complete. Proceeding to review." and **skip to Step 4** directly.
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
@@ -70,7 +71,38 @@ After fetching the issue, check for an existing plan comment:
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
-4. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
+4. **Assign a reviewer model** for the PR as a whole (single choice, not per-item). This determines which model runs the `code-reviewer` subagent at Step 4. Criteria:
+
+   **Opus required if any plan item touches:**
+   - Dependency rule boundaries (Engine ↔ LLM ↔ Data ↔ Models interrelations)
+   - Actor isolation / `Sendable` / `@MainActor` / `nonisolated` design
+   - Public protocol signatures or access modifier changes
+   - AppRouter / navigation routing (`Route` enum, `router.push` callsites)
+   - `App/` layer changes touching BG execution, `SimulationViewModel`, or `AppRouter`
+   - Decision records (`docs/decisions/ADR-*.md`) or architectural specs (`docs/specs/**`)
+   - CI / build infrastructure (`.github/workflows/**`, `scripts/**`)
+   - Project tooling (`CLAUDE.md`, `.claude/{skills,agents,rules}/**`)
+   - Content safety surface (ADR-005 related: `ContentFilter`, `PrivacyInfo.xcprivacy`, `Info.plist`)
+   - LLM backend code or prompt templates
+   - Design system foundations (`docs/design/design-system.md`, `DesignTokens*.swift`)
+
+   **Sonnet reviewer acceptable** — the change must be strictly a subset of the 🟢 simple-item criteria above (existing pattern reuse, test-only changes following an existing pattern, type/error case additions, doc comments, minor fixes), AND none of the items match the Opus-required list. Concretely, the most common Sonnet-acceptable shapes are:
+   - New `@Test` cases in an **existing** suite following the file's existing pattern (not new suites, new helpers, or trait changes like `.timeLimit` / `.serialized`)
+   - Documentation updates (`docs/ROADMAP.md`, `docs/examples/**`, `docs/gallery/**`, `docs/prototype/**`, doc comments)
+   - Simple refactor within a single file without crossing layer boundaries
+   - Design token **application** (existing token to existing View only — new token additions are Opus-required)
+   - Fix-only PRs where the cause is already diagnosed and localized
+
+   **Coupling rule:** If **any** plan item is labeled 🔴, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🟢-plus-Sonnet-reviewer" configuration from putting Opus-implemented work through a Sonnet review.
+
+   **When in doubt, pick Opus.** Subtle convention violations (ShapeStyle+Color token trap, `nonisolated` gaps, i18n `String(localized:)` omissions, missing `@Suite(.timeLimit(.minutes(1)))` on new test suites) cost more than an over-zealous Opus review.
+
+   Record the decision in the `## Metadata` block of the plan comment (see Step 2a) as:
+   ```
+   - **Reviewer**: Opus (reason: touches Engine/ dependency boundary)
+   ```
+   Store the rationale string as `REVIEWER_RATIONALE` (the `(reason: ...)` tail) for use in the Step 2a template. The user may override at G1. Resumed sessions recover the decision from `## Metadata` (see Step 0).
+5. **Ask: "Proceed with this plan and reviewer-model choice?"** — present both the plan checkboxes and the proposed `Reviewer:` decision so the user can override the reviewer at G1. For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
 
 After user approval, proceed to Step 1b (mandatory critic review).
 
@@ -80,7 +112,7 @@ After user approval, proceed to Step 1b (mandatory critic review).
 
 After the user approves the plan (G1), launch a `critic` subagent via the Agent tool to review the plan for blind spots.
 
-> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase.
+> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths.
 >
 > Task: {TASK_DESCRIPTION}
 >
@@ -94,8 +126,6 @@ Handle the critic's output:
 - **Only OK / Warning verdicts**: Present the summary table as informational context, then proceed to Step 2 without an additional gate.
 
 *Skipped when `RESUMING=true`* (plan was already approved and critiqued in a prior session).
-
-Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step 1b (critic) → G2 → G3 → G4.
 
 ## Step 2: Issue + Worktree — Gate G2
 
@@ -119,10 +149,11 @@ Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step
   ## Metadata
   - **Type**: {TASK_TYPE}
   - **Branch**: `{TASK_TYPE}/{SLUG}`
+  - **Reviewer**: {REVIEWER_MODEL} (reason: {REVIEWER_RATIONALE})
   PASTURA_PLAN
   )" --jq '.id')
   ```
-  Set `ISSUE_NUMBER=N`.
+  Set `ISSUE_NUMBER=N`. When emitting `{REVIEWER_MODEL}` into Metadata, title-case the value (`Opus` / `Sonnet`) for readability — Step 0's parser normalizes back to lowercase on read.
 
 **Otherwise** (new task — always create issue, because checkpoint sync and resumption require a `COMMENT_ID` on a real Issue):
 - Determine `LABEL` from `TASK_TYPE` using the label mapping table in Step 5.
@@ -171,7 +202,7 @@ Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING
 
 For each unit of work (let `K` = the current plan item number), check the item's complexity label:
 
-### 🔴 Complex items — Orchestrator implements directly (current flow)
+### 🔴 Complex items — Orchestrator implements directly
 
 1. Write test first (TDD mandatory per CLAUDE.md).
 2. Run targeted tests — confirm failure:
@@ -242,8 +273,6 @@ Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares t
 
 Note: `git commit` is NOT in the permissions allowlist — each commit triggers user approval (intentional security gate).
 
-SwiftLint runs automatically via PreToolUse hook on `git commit`.
-
 After all implementation, run full verification directly from the main session:
 
 1. Run the full test suite:
@@ -262,7 +291,13 @@ After all implementation, run full verification directly from the main session:
 
 ## Step 4: Review — Gate G3
 
-Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch:
+Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist was enriched with a Pastura-specific trap cheat sheet in this same PR to keep the Sonnet-reviewer path safe.
+
+```
+Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "...", prompt: "...")
+```
+
+`$REVIEWER_MODEL` is the lowercase form (`opus` / `sonnet`) bound at Step 0 / Step 1 — the surrounding quotes match the Step 3 Sonnet-delegation convention (`Agent(model: "sonnet")`).
 
 > **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
@@ -287,7 +322,6 @@ Launch a `code-reviewer` subagent via the Agent tool to review all changes on th
 ```
 
 Show the final review report. **Ask: "Create PR?"**
-- If unresolved after 3 iterations, present outstanding issues and let the user decide whether to proceed or continue fixing.
 
 ## Step 5: PR Creation — Gate G4
 
@@ -312,11 +346,9 @@ Present PR draft (title + body + label) for user review:
 - Title: Emoji prefix + Conventional format, under 70 chars (same emoji convention as CLAUDE.md commits)
 - Body: Summary bullets + test plan + `Closes #N` (always present — Issue is always created)
 - Label: from the table above
-- Assignee: always `@me`
 
 **Ask: "Create this PR?"**
 
-Use HEREDOC with distinctive delimiter:
 ```bash
 gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
   --title "..." --body "$(cat <<'IMPLEMENT_PR_BODY'
@@ -333,16 +365,10 @@ Push the branch first: `git push -u origin <branch>`. Then create the PR.
 
 After creation:
 - Print the PR URL.
-- "Wait for all required status checks to pass, then **merge manually**. Auto-merge is disabled."
+- "Wait for all required status checks to pass, then **merge manually**."
 
-## Step 6: Cleanup & Abandonment
+## Step 6: Cleanup
 
 **After merge** (guidance only — do NOT auto-execute):
 1. `ExitWorktree` with action `"remove"`
 2. `git checkout <default-branch> && git pull`
-3. Remote branch: GitHub may auto-delete; if not, `git push origin --delete <branch>`
-
-**To abandon** (no PR, or after PR created but want to cancel):
-1. If PR exists: `gh pr close <number>`
-2. `ExitWorktree` with action `"remove"`
-3. If already pushed: `git push origin --delete <branch>`
