@@ -24,7 +24,22 @@ public struct SheepAvatar: View {
   }
 
   public let character: Character
-  public var size: CGFloat = 42
+  public var size: CGFloat = 48
+
+  /// Top of the visible sheep silhouette expressed as a fraction of
+  /// `size`. The outer wool-body circle has center `y = 15` and
+  /// radius `8` in the 28-unit viewBox (see ``body``), so the topmost
+  /// visible pixel sits at `y = 7`. Consumers aligning the sheep's
+  /// *visible* top with a sibling text baseline (e.g. the agent-name
+  /// row in `AgentOutputRow`) can pass this value through
+  /// `.alignmentGuide(.top) { _ in ... }`.
+  ///
+  /// Kept on the component so the `y = 7` invariant lives next to the
+  /// wool-circle geometry that encodes it — mirrors `DogMark`'s
+  /// `visibleTopInset(forSize:)` pattern.
+  public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
+    size * 7.0 / 28.0
+  }
 
   public var body: some View {
     Canvas { ctx, canvasSize in
@@ -109,6 +124,61 @@ public struct SheepAvatar: View {
 // MARK: - Character helpers
 
 extension SheepAvatar.Character {
+
+  /// Resolves an agent to a ``SheepAvatar/Character`` for avatar rendering.
+  ///
+  /// ## Resolution order
+  ///
+  /// 1. **Position (preferred):** when `position` is non-nil, returns
+  ///    `allCases[position % 4]`. Scenarios with ≤4 agents get distinct
+  ///    colors by construction (pigeonhole — 4 avatar characters and
+  ///    at most 4 slots), which matters much more than matching the
+  ///    agent's name to a demo-replay canonical color. Wrap-around
+  ///    at position ≥ 4 is accepted collision.
+  /// 2. **Direct name match:** for the four demo-replay canonical
+  ///    names (`Alice` / `Bob` / `Carol` / `Dave`, case-insensitive,
+  ///    trimmed), returns the matching character. Preserves the
+  ///    demo's hand-curated avatar → name pairing when no position
+  ///    context is available (e.g., pre-#171 call sites, previews).
+  /// 3. **UTF-8 byte-sum fallback:** for any other name with no
+  ///    position, a weak deterministic hash lands in one of the four
+  ///    buckets. Same input → same output across runs and processes
+  ///    (`String.hashValue` was rejected because Swift randomizes
+  ///    hash seeds per process — avatar colors would flicker between
+  ///    app launches).
+  ///
+  /// ## Why position wins
+  ///
+  /// Name-based assignment has a hidden collision risk: two unrelated
+  /// agents may sum to the same bucket, so users see two "same-color
+  /// sheep" agents even with only 2-3 scenario participants. Position-
+  /// based assignment eliminates collisions up to the 4-character
+  /// avatar palette size (design-system.md §2.5), at the cost of
+  /// losing the "Alice → alice-cream" convention for scenarios whose
+  /// agents *happen* to match canonical names. The trade is worth it
+  /// for arbitrary user-authored scenarios; callers that know the
+  /// agent's canonical name can still omit `position` and fall
+  /// through to step 2.
+  public static func forAgent(
+    _ name: String, position: Int? = nil
+  ) -> SheepAvatar.Character {
+    let cases = SheepAvatar.Character.allCases
+    if let position {
+      // Modulo gates wrap-around for 5+ agents; collisions there are
+      // accepted (there are only 4 avatar variants).
+      return cases[((position % cases.count) + cases.count) % cases.count]
+    }
+    let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    switch normalized {
+    case "alice": return .alice
+    case "bob": return .bob
+    case "carol": return .carol
+    case "dave": return .dave
+    default:
+      let sum = normalized.utf8.reduce(0) { $0 &+ Int($1) }
+      return cases[sum % cases.count]
+    }
+  }
 
   /// Wool / body fill — matches the per-character `avatarAlice/Bob/Carol/Dave` token.
   var bodyColor: Color {

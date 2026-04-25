@@ -61,7 +61,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 | トークン | Hex | 用途 |
 |---------|-----|------|
 | `--moss` | `#8A9A6C` | リーフアイコン・プロモ左ボーダー（3pt） |
-| `--moss-dark` | `#6B7852` | DL進捗ドット点灯・アクセントリンク |
+| `--moss-dark` | `#6B7852` | DL進捗ドット点灯・アクセントリンク・ステータスラベル（Completed 等） |
 | `--moss-ink` | `#3D4030` | 犬の輪郭・完了タイトル |
 | `--moss-soft` | `#D4CBA8` | THINKING 左線・やさしい区切り |
 
@@ -109,7 +109,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `caption/name` | 10.5pt | 400 | 1.3 | 0.04em | アバター下の名前 |
 | `thinking/body` | 10.5pt | 400 italic | 1.7 | 0.02em | 内なる思考 |
 | `thinking/tag` | 8.5pt | 400 mono UPPER | 1.2 | 0.22em | REASON/THINKING ラベル |
-| `meta/label` | 9pt | 600 mono | 1.2 | 0.06em | "DL" ラベル |
+| `meta/label` | 9pt | 600 mono | 1.2 | 0.06em | meta labels (DL / Vote Results / Round / sub-phase) |
 | `meta/value` | 9pt | 400 mono | 1.2 | 0 | `35%`, `1.0 GB` |
 | `meta/eta` | 10pt | 500 mono | 1.3 | 0 | 残り約4分 |
 | `status/complete` | 16pt | 500 | 1.4 | 0.22em | 準備ができました |
@@ -168,13 +168,14 @@ box-shadow:
 ### 5.2 Chat Bubble（発言）
 
 ```
-[Avatar 42pt]  Alice
+[Avatar 48pt]  Alice
                [バブル: しっぽは上左]
                ▸ THINKING / ▾ タグ＋本文
 ```
 
 - バブル間 spacing: 14pt
 - アバター間隔: 10pt
+- アバターサイズ: **48pt** (#171 で 42pt → 48pt にバンプ。~390pt 幅 iPhone で羊のシルエットが小さすぎる問題への対応。reference HTML と Swift `ChatBubbleLayout.avatarSize` を同時更新)
 - フェードイン: 700ms ease-out, 180ms ずつディレイ
 
 ### 5.3 Vote Bubble（投票）
@@ -210,7 +211,7 @@ box-shadow:
 
 ### 5.6 Avatar（羊シルエット）
 
-42pt 丸。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `SHEEP()` 参照。
+48pt 丸（§5.2 と同値。#171 で 42pt → 48pt にバンプ）。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `SHEEP()` 参照。
 
 ### 5.7 Assistant Mark（犬 / コリー横顔）
 
@@ -271,7 +272,7 @@ box-shadow:
 - メタ情報は L3 コントラストで 4.5:1 以上
 - DL 進捗は `role="status" aria-live="polite"` / SwiftUI は `.accessibilityAddTraits(.updatesFrequently)`
 - アバター・犬マークは `aria-hidden="true"` / `.accessibilityHidden(true)`（飾りだから）
-- タップ領域は 44pt 未満の要素（THINKING トグル等）でも `.contentShape(Rectangle())` で 44pt 確保
+- タップ領域は 44pt 未満の要素（THINKING トグル等）でも 44pt 確保。SwiftUI では `.padding(.vertical, N).contentShape(Rectangle()).onTapGesture{...}.padding(.vertical, -N)` の **negative-padding トリック**で、視覚上のサイズを変えずヒット判定だけ拡張する（`.contentShape(Rectangle())` 単独では view 自身の bounds までしか広がらない）
 - Dynamic Type 非対応は割り切り。ただしトークン化して将来の対応に備える
 - VoiceOver は画面全体で：フェーズ→発言順→プロモメタ→プロモ本文 の読み上げ順を維持
 

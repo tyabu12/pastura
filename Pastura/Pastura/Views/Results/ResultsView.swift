@@ -68,8 +68,8 @@ struct ResultsView: View {
         HStack(spacing: 8) {
           ForEach(Array(top3), id: \.key) { name, score in
             Text("\(name) (\(score))")
-              .font(.caption)
-              .foregroundStyle(.secondary)
+              .textStyle(Typography.metaValue)
+              .foregroundStyle(Color.muted)
           }
         }
       }
@@ -78,14 +78,23 @@ struct ResultsView: View {
   }
 
   private func statusBadge(_ status: String) -> some View {
+    // Pastura tokens (§2.3): completed = moss-dark（ステータスラベル用途、§2.3
+    // で "ステータスラベル（Completed 等）" と enumerate）、paused / default
+    // は ink-secondary / muted の neutral。`.green / .orange / .secondary`
+    // は §1 飽和色禁則・パレット非準拠で置換。SimulationView ヘッダーの
+    // Completed ラベルとも揃えてある。
+    //
+    // Label font も同時に `Typography.metaLabel` 化（隣接トークンの一貫性
+    // — `.caption` だけ残ると section 内で system font / Pastura token が
+    // 混在するため）。
     let (icon, color): (String, Color) =
       switch status {
-      case "completed": ("checkmark.circle.fill", .green)
-      case "paused": ("pause.circle.fill", .orange)
-      default: ("questionmark.circle", .secondary)
+      case "completed": ("checkmark.circle.fill", Color.mossDark)
+      case "paused": ("pause.circle.fill", Color.inkSecondary)
+      default: ("questionmark.circle", Color.muted)
       }
     return Label(status.capitalized, systemImage: icon)
-      .font(.caption)
+      .textStyle(Typography.metaLabel)
       .foregroundStyle(color)
   }
 }
