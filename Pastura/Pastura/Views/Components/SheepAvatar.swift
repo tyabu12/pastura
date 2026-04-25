@@ -184,6 +184,10 @@ extension SheepAvatar.Character {
     }
   }
 
+  // SoT for the per-character body/face/horn palette below:
+  // `docs/design/design-system.md` §2.5 (mirrors `demo-replay-reference.html`'s
+  // `sheepAvatar()`). Update tokens in `DesignTokens.swift`, not here.
+
   /// Wool / body fill — matches `Color.avatarBodyAlice/Bob/Carol/Dave`.
   var bodyColor: Color {
     switch self {

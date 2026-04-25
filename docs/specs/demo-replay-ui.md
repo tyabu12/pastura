@@ -389,7 +389,7 @@ enum Radius {
 | アセット | 形式 | 備考 |
 |---------|------|------|
 | 犬（横顔） | Vector / SF Symbol | `../design/demo-replay-reference.html` の `DOG_SIDE` SVG を SwiftUI `Path` に変換 |
-| 羊アバター（4色） | Vector | 同 HTML 内の `SHEEP()` 関数のSVG。色違いで4バリエーション |
+| 羊アバター（4色） | Vector | 同 HTML 内の `sheepAvatar()` 関数のSVG。色違いで4バリエーション |
 | 葉（phase-l の菱形） | `RoundedRectangle` + rotation | SVG不要、SwiftUI で生成可 |
 
 **ブランドカラーやロゴ**: Pastura のロゴは別途入手してください（本デザインでは未使用）。
@@ -410,7 +410,7 @@ enum Radius {
 - [ ] `ModelDownloadDemoView` (host view) を実装: `ReplayViewModel` をホストし、`ModelManager.progress` を観察して 8-dot + Frame 4 を駆動、Slot rotation タイマーをローカル `@State` で所有、`@Environment(\.scenePhase)` を VM に forward（spec §4 / ADR-007 §3 に従う）
 - [ ] `PhaseHeader`, `ChatBubble`, `ThinkingBlock`, `PromoCard`, `PromoMeta`, `AssistantMark`, `SheepAvatar` コンポーネントを分割実装
 - [ ] `DOG_SIDE` SVG を SwiftUI `Path` に変換（犬の横顔）
-- [ ] `SHEEP()` SVG を SwiftUI `Path` に変換（羊の顔、色パラメータ化）
+- [ ] `sheepAvatar()` SVG を SwiftUI `Path` に変換（羊の顔、色パラメータ化）
 - [ ] チャットバブルのフェードインアニメーション（各 180ms ずらし）
 - [ ] DL ドット点灯トランジション（progress 変化時の 600ms ease）
 - [ ] Slot A/B/C rotation: 〜20 秒 / slot の独立タイマー + 400ms cross-fade 切替。interval は実装時に調整
