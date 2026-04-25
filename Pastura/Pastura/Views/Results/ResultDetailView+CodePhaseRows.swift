@@ -33,9 +33,9 @@ extension ResultDetailView {
 
   private func eliminationRow(agent: String, voteCount: Int) -> some View {
     HStack(spacing: 4) {
-      Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+      Image(systemName: "xmark.circle.fill").foregroundStyle(Color.inkSecondary)
       Text("\(filtered(agent)) eliminated (\(voteCount) votes)")
-        .font(.subheadline)
+        .textStyle(Typography.titlePhase)
     }
     .padding(.horizontal)
   }
@@ -47,15 +47,16 @@ extension ResultDetailView {
     }
     let pairs = ordered.map { "\(filtered($0.key)): \($0.value)" }.joined(separator: ", ")
     return Text("Scores — \(pairs)")
-      .font(.caption.monospacedDigit())
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.metaValue)
+      .monospacedDigit()
+      .foregroundStyle(Color.muted)
       .padding(.horizontal)
   }
 
   private func summaryRow(text: String) -> some View {
     Text(filtered(text))
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.bodyBubble)
+      .foregroundStyle(Color.inkSecondary)
       .padding(.horizontal)
   }
 
@@ -68,16 +69,22 @@ extension ResultDetailView {
     }
     let orderedVotes = votes.sorted { $0.key < $1.key }
     return VStack(alignment: .leading, spacing: 2) {
-      Text("Vote Results").font(.caption.bold())
+      // `metaLabel` (9pt semibold mono, non-upper) instead of
+      // `tagPhase` — `tagPhase` uppercases, and prose-ish headings
+      // like "Vote Results" read worse shouty. `tagPhase` stays on
+      // one-word tag markers (WORD WOLF, ROUND 1) per design-system
+      // §3.2.
+      Text("Vote Results").textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
       ForEach(orderedTallies, id: \.key) { name, count in
-        Text("  \(filtered(name)): \(count) votes").font(.caption)
+        Text("  \(filtered(name)): \(count) votes").textStyle(Typography.metaValue)
       }
-      Text("Votes").font(.caption.bold()).padding(.top, 4)
+      Text("Votes").textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
+        .padding(.top, 4)
       ForEach(orderedVotes, id: \.key) { voter, target in
-        Text("  \(filtered(voter)) → \(filtered(target))").font(.caption)
+        Text("  \(filtered(voter)) → \(filtered(target))").textStyle(Typography.metaValue)
       }
     }
-    .foregroundStyle(.secondary)
+    .foregroundStyle(Color.muted)
     .padding(.horizontal)
   }
 
@@ -86,17 +93,17 @@ extension ResultDetailView {
   ) -> some View {
     HStack {
       Text("\(filtered(agent1))(\(filtered(action1)))")
-      Text("vs").foregroundStyle(.secondary)
+      Text("vs").foregroundStyle(Color.muted)
       Text("\(filtered(agent2))(\(filtered(action2)))")
     }
-    .font(.subheadline)
+    .textStyle(Typography.titlePhase)
     .padding(.horizontal)
   }
 
   private func assignmentRow(agent: String, value: String) -> some View {
     Text("\(filtered(agent)) assigned: \(filtered(value))")
-      .font(.caption)
-      .foregroundStyle(.secondary)
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
       .padding(.horizontal)
   }
 

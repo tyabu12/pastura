@@ -18,7 +18,7 @@ Completed in Phase 2 so far:
 
 ## Language Rules
 
-- Conversation with user: **Japanese**
+- Conversation: **Match the user's language.** No project-level pin — defer to the operator's personal CLAUDE.md if a default is configured.
 - Code, commit messages, comments, documentation: **English**
 
 ## Project Overview
@@ -72,9 +72,10 @@ Utilities/ → depends on nothing
 
 ## Swift Coding Conventions
 
-- **Formatting:** `swift-format` + `swiftlint --fix` auto-applied via hooks on every file edit.
+- **Automated hooks** (`.claude/settings.json`): On file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `git commit` (`PreToolUse`), `swiftlint lint --strict` + `xcodebuild build` run and block the commit on lint violations or compile errors.
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
   `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
+- **Error message i18n prep:** On `LocalizedError`-conforming types (`SimulationError`, `LLMError`, `DataError`, ...), wrap `errorDescription` literals in `String(localized: "...")`. Tests assert via `.contains(...)` partial matching, not equality. Keeps the current English-only scope while making future translation additive.
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
   `AsyncStream` over callbacks. Engine/LLM work runs on non-main actors or default executor.
 - **Default Actor Isolation:** Project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
@@ -104,7 +105,7 @@ Utilities/ → depends on nothing
 | LLM (target)       | LiteRT-LM iOS SDK (planned)  |           |
 | LLM (dev)          | Ollama via OpenAI-compat API  |           |
 | LLM (test)         | MockLLMService                |           |
-| LLM model          | Gemma 4 E2B Q4_K_M (GGUF)    | ~3.1 GB   |
+| LLM models         | Runtime-selectable GGUF (see `App/ModelRegistry.swift`) | ~2.5–3.1 GB each |
 
 LLM backend: llama.cpp is the interim backend for TestFlight (Metal GPU, on-device).
 Migrate to LiteRT-LM when Swift SDK + iOS GPU support ships.
@@ -135,6 +136,7 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 - **Commits:** Conventional Commits with emoji prefix, under 72 chars.
   `✨ feat:`, `🐛 fix:`, `♻️ refactor:` — add body when "why" isn't obvious.
 - **Small and focused** — one logical change per commit.
+- **Closing issues in multi-PR splits:** GitHub auto-closes on any `Closes #N` / `Fixes #N` match in the PR body, ignoring qualifiers like "partially" or "PR1 of 3". In non-final PRs of a split, reference without a close-directive keyword (`See #N`, `Part of #N`, `Relates to #N`). Only the final PR should carry `Closes #N`. If auto-close fires by accident on a non-final PR, recover immediately: `gh issue reopen <N> --comment "still tracking remaining scope: ..."`.
 
 ### Test Execution
 
@@ -190,6 +192,12 @@ burning wall-clock and orphaning processes:
   `timeout: 900000` (15 min) when UI tests are included.
 - For runs expected to exceed 5 minutes, prefer `run_in_background: true`
   and poll with Monitor / BashOutput rather than blocking the session.
+- When piping through `tail` (e.g. `xcodebuild ... 2>&1 | tail -80`), the
+  pipe's exit code is `tail`'s, not `xcodebuild`'s — a failed build reports
+  `exit code 0`. Grep the tailed output for `** BUILD|TEST SUCCEEDED/FAILED **`
+  or `xcodebuild: error:` before trusting the harness exit code, or use
+  `set -o pipefail`. When the SUCCEEDED marker has been trimmed off entirely,
+  extract the verdict from the xcresult bundle: `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
 
 **Recovery (if a run hangs or a retry immediately stalls):**
 
@@ -225,13 +233,16 @@ Pastura/
 ├── Views/             # SwiftUI screens
 │   ├── Home/
 │   ├── ScenarioDetail/
-│   ├── Import/
+│   ├── Editor/
 │   ├── Simulation/
 │   ├── Results/
-│   └── Components/
+│   ├── Components/    # shared UI building blocks
+│   └── ...            # additional screens (Community, Import, Settings, ModelDownload, ModelSelection)
 ├── Utilities/
 └── Resources/
-    └── Presets/        # Bundled YAML scenarios
+    ├── Presets/              # Bundled YAML scenarios
+    ├── DemoReplays/          # DL-time demo playback (ADR-007)
+    └── ContentBlocklist.txt  # ADR-005 content safety
 ```
 
 ## Context-Specific Rules
@@ -252,6 +263,8 @@ pushed onto the root stack. Sheet-owned NavigationStacks are exempt.
 ## Decision Records
 
 Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
+
+**Editability window**: For recently-Accepted ADRs whose decisions have not yet shipped in code, prefer **in-place edits** when implementation planning surfaces a refinement. Use `§N. Amendment YYYY-MM-DD` sections only after the ADR's decisions have been implemented — Amendment text doubles reviewer overhead on every cross-section read.
 
 ## Reference Documents
 

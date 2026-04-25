@@ -13,27 +13,30 @@ struct ScoreboardSheet: View {
         ForEach(sortedAgents, id: \.name) { entry in
           HStack {
             Text("\(entry.rank).")
-              .foregroundStyle(.secondary)
+              .textStyle(Typography.metaValue)
+              .foregroundStyle(Color.muted)
               .monospacedDigit()
               .frame(width: 30, alignment: .trailing)
 
             Text(entry.name)
-              .font(.body)
+              .textStyle(Typography.bodyBubble)
               .strikethrough(entry.isEliminated)
+              .foregroundStyle(entry.isEliminated ? Color.muted : Color.ink)
 
             Spacer()
 
             Text("\(entry.score) pts")
-              .font(.body.monospacedDigit())
-              .foregroundStyle(entry.isEliminated ? .secondary : .primary)
+              .textStyle(Typography.bodyBubble)
+              .monospacedDigit()
+              .foregroundStyle(entry.isEliminated ? Color.muted : Color.ink)
 
             if entry.isEliminated {
               Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(.red)
+                .foregroundStyle(Color.inkSecondary)
                 .font(.caption)
             } else {
               Image(systemName: "circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.moss)
                 .font(.caption)
             }
           }
