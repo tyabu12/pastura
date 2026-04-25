@@ -277,7 +277,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       if viewModel.isCompleted {
         Label("Completed", systemImage: "checkmark.circle.fill")
           .textStyle(Typography.titlePhase)
-          .foregroundStyle(Color.moss)
+          // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
+          // enumerate されている。moss は fills/borders 系、moss-ink は完了
+          // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
+          // なので moss-dark が用途的に正解。ResultsView の statusBadge も
+          // 同じ理由で moss-dark に揃えてある。
+          .foregroundStyle(Color.mossDark)
       } else if viewModel.isPaused {
         Label("Paused", systemImage: "pause.circle.fill")
           .textStyle(Typography.titlePhase)

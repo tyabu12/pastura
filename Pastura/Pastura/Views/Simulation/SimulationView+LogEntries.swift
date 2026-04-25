@@ -62,8 +62,12 @@ extension SimulationView {
   func roundSeparator(_ text: String) -> some View {
     HStack {
       Rectangle().fill(Color.rule).frame(height: 1)
+      // `metaLabel` keeps "Round N/M" mixed case — tagPhase would
+      // upper-case to "ROUND N/M" which reads shouty for a prose
+      // marker. tagPhase stays reserved for one-word phase tags
+      // (WORD WOLF). See design-system §3.2.
       Text(text)
-        .textStyle(Typography.tagPhase)
+        .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
       Rectangle().fill(Color.rule).frame(height: 1)
     }

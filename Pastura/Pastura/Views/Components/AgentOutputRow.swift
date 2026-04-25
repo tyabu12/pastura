@@ -274,19 +274,56 @@ struct AgentOutputRow: View {
       + Text("THINKING")
       .foregroundStyle(Color.muted))
       .textStyle(Typography.thinkingTag)
-      // Intentionally no `.frame(minHeight: 44)` — the design calls
-      // for a visually tight disclosure label, and inflating the tap
-      // target added ~17pt of vertical whitespace above and below the
-      // 8.5pt glyph. We trade strict iOS HIG compliance (44pt min)
-      // for visual density on a secondary affordance; the bubble
-      // itself remains non-interactive. `.contentShape` still makes
-      // the natural text bounds reliably tappable.
+      // 44pt tap target via the **negative-padding trick**.
+      //
+      // ⚠️ The `.padding(.vertical, 16)` / `.padding(.vertical, -16)`
+      // pair is **load-bearing** — DO NOT collapse to a single
+      // `.padding(-16)`, strip both, or wrap an ancestor in
+      // `.clipped()` (the glyph renders inside the negative-padding
+      // region and would be cut off). Doing any of these breaks
+      // either accessibility (HIG 44pt) or visual density (#171).
+      //
+      // Why this dance, in order of modifier application:
+      //   1. `.padding(.vertical, 16)` grows the view's frame to
+      //      ~46pt tall (8.5pt glyph + 32pt padding). `.contentShape`
+      //      then snapshots THAT enlarged frame as the hit-test
+      //      region — so taps anywhere in 46pt vertical resolve here.
+      //   2. `.padding(.vertical, -16)` reverses the layout
+      //      contribution (SwiftUI accepts negative padding as a
+      //      negative size delta to the parent). The parent VStack
+      //      sees this view as ~14pt tall, so visual density matches
+      //      the design — no whitespace appears around the glyph.
+      //
+      // Net: hit region ≈ 46pt (HIG 44pt+), visible footprint ≈ 14pt.
+      //
+      // History: design-system.md §8 calls for 44pt tap targets and
+      // explicitly names this THINKING toggle. A previous attempt
+      // used `.frame(minHeight: 44)`, which inflated visible
+      // whitespace to ~17pt above and below the glyph and was rolled
+      // back in #171. The chevron tint stays `Color.moss` (lighter
+      // accent) — paired with `Color.muted` for the THINKING text,
+      // it mirrors the `BubbleBackground` / `ThoughtLeftRule` palette
+      // (moss for prefixes, muted for body). `mossDark` would read
+      // as a stronger accent than the design intends here.
+      //
+      // Sibling overlap: the +16/-16 hit-test region overlaps the
+      // primary bubble above by ~10pt and the revealed thought below
+      // (when `showInnerThought == true`) by ~10pt. Both siblings are
+      // non-interactive `Text` — no tap theft. The bottom overlap
+      // means tapping near the thought's top edge collapses it,
+      // which is the intended affordance.
+      //
+      // VoiceOver caveat: the accessibility frame is the *visible*
+      // ~14pt frame, not the 46pt hit area. The focus highlight is
+      // small but the trait + label still announce correctly.
+      .padding(.vertical, 16)
       .contentShape(Rectangle())
       .onTapGesture {
         withAnimation(.easeInOut(duration: 0.2)) {
           showInnerThought.toggle()
         }
       }
+      .padding(.vertical, -16)
       // Tap gesture has no built-in role; advertise the expand /
       // collapse semantic to VoiceOver so the label reads the way
       // a Button would.

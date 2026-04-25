@@ -170,8 +170,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   ) -> some View {
     if (item.phasePath?.count ?? 0) > 1 {
       VStack(alignment: .leading, spacing: 2) {
+        // `metaLabel` (9pt semibold mono, mixed case) — `tagPhase`
+        // would force "↳ SUB-PHASE" UPPER which reads shouty for a
+        // prose-like marker. tagPhase stays for one-word phase tags
+        // (WORD WOLF). See design-system §3.2.
         Text("↳ sub-phase")
-          .textStyle(Typography.tagPhase)
+          .textStyle(Typography.metaLabel)
           .foregroundStyle(Color.muted)
           .padding(.leading, 32)
         content()
@@ -185,8 +189,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   private func roundSeparator(_ round: Int) -> some View {
     HStack {
       Rectangle().fill(Color.rule).frame(height: 1)
+      // `metaLabel` keeps "Round N" mixed case — tagPhase would
+      // upper-case to "ROUND N" which reads shouty for a prose
+      // marker. tagPhase stays reserved for one-word phase tags
+      // (WORD WOLF). See design-system §3.2.
       Text("Round \(round)")
-        .textStyle(Typography.tagPhase)
+        .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
       Rectangle().fill(Color.rule).frame(height: 1)
     }
