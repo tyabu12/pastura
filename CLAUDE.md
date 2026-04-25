@@ -169,9 +169,11 @@ Pastura/
     ├── Presets/              # Bundled YAML scenarios
     ├── DemoReplays/          # DL-time demo playback (ADR-007)
     └── ContentBlocklist.txt  # ADR-005 content safety
-```
 
-Also: `pages/` at repo root holds public HTML deployed via `.github/workflows/deploy-pages.yml`.
+pages/                           # Public HTML deployed via .github/workflows/deploy-pages.yml
+├── support/                     # ASC Support URL
+└── legal/privacy-policy/        # App Store privacy policy URL
+```
 
 ## Context-Specific Rules
 
