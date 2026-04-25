@@ -3,11 +3,22 @@ import SwiftUI
 
 /// Host view for the DL-time demo replay feature.
 ///
-/// Replaces `ModelDownloadView` in the `.needsModelDownload` slot (wiring
-/// lands in PR3). Decides between the demo host body and the plain
-/// `ModelDownloadView` fallback based on cellular reachability, model
-/// state, bundled demo count, and whether replay has already started —
-/// see ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``.
+/// Decides between the demo host body and the plain `ModelDownloadView`
+/// fallback based on cellular reachability, descriptor state, bundled
+/// demo count, and whether replay has already started — see
+/// ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``.
+///
+/// Two presentation contexts:
+/// - **`.needsModelDownload` slot** (`PasturaApp.swift`): no cancel UI;
+///   on `.ready`, `replayVM.downloadComplete()` runs the in-content
+///   `DLCompleteOverlay` while RootView's own state observer transitions
+///   to `.ready`.
+/// - **Settings → Models cover** (`SettingsView`): caller passes
+///   `showsCompleteOverlay: false` + `onComplete` / `onCancel`. On
+///   `.ready` the host fires `onComplete` immediately so the cover
+///   dismisses without the "tap anywhere to begin" overlay (which has
+///   no meaning when returning to a Settings list). `onCancel` reveals
+///   a top-trailing X button gated by a confirmation dialog.
 ///
 /// Lifecycle:
 /// - On first appearance, `.task { }` runs a 1-shot `NWPathMonitor`
@@ -18,17 +29,38 @@ import SwiftUI
 ///   `ReplayViewModel` and calls `start()`.
 /// - `scenePhase` is bridged to `onBackground() / onForeground()`
 ///   per ADR-007 §3.3 (a).
-/// - `ModelState.ready` triggers `downloadComplete()` on the VM, which
-///   flips its state to `.transitioning`; `DLCompleteOverlay` then fades
-///   in over the chat stream.
+/// - `.ready` either fires `onComplete` (Settings) or
+///   `replayVM.downloadComplete()` (first-launch slot).
 ///
-/// `.task` is safe to leave on the outer view body: `AppState` does not
-/// change on `ModelManager.state` transitions within the
-/// `.needsModelDownload` slot (see `PasturaApp.swift`), so the view's
-/// SwiftUI identity is preserved and `.task` runs exactly once per
-/// host-view mount.
+/// `.task` is safe to leave on the outer view body. Both presentation
+/// contexts give the host stable SwiftUI identity for the duration of
+/// a single download attempt: `AppState` does not change on
+/// `ModelManager.state` transitions within the `.needsModelDownload`
+/// slot, and `.fullScreenCover(item:)` keeps the cover content stable
+/// for the lifetime of one cover presentation. Re-mount on cover
+/// re-presentation (cancel-then-re-tap) is intentional — the fresh
+/// `initialLoad()` re-checks cellular + sources without leaking
+/// `replayHadStarted` from the prior attempt.
 struct DemoReplayHostView: View {
   let modelManager: ModelManager
+  let descriptor: ModelDescriptor
+  let showsCompleteOverlay: Bool
+  let onComplete: (() -> Void)?
+  let onCancel: (() -> Void)?
+
+  init(
+    modelManager: ModelManager,
+    descriptor: ModelDescriptor,
+    showsCompleteOverlay: Bool = true,
+    onComplete: (() -> Void)? = nil,
+    onCancel: (() -> Void)? = nil
+  ) {
+    self.modelManager = modelManager
+    self.descriptor = descriptor
+    self.showsCompleteOverlay = showsCompleteOverlay
+    self.onComplete = onComplete
+    self.onCancel = onCancel
+  }
 
   /// Minimum number of validated bundled demos required to render the
   /// demo host. Below this floor we defer to `ModelDownloadView` — the
@@ -42,6 +74,13 @@ struct DemoReplayHostView: View {
   @State private var replayHadStarted: Bool = false
   @State private var isCellular: Bool = false
   @State private var sources: [any ReplaySource] = []
+  @State private var isShowingCancelConfirmation: Bool = false
+
+  /// Per-descriptor download state. Defaults to `.checking` if the entry is
+  /// missing from the state dict (only expected pre-`checkModelStatus`).
+  private var currentState: ModelState {
+    modelManager.state[descriptor.id] ?? .checking
+  }
 
   var body: some View {
     currentView
@@ -49,20 +88,52 @@ struct DemoReplayHostView: View {
       .onChange(of: scenePhase) { _, newPhase in
         handleScenePhase(newPhase)
       }
-      .onChange(of: modelManager.activeState) { _, newState in
+      .onChange(of: currentState) { _, newState in
         handleModelStateChange(newState)
       }
+      .confirmationDialog(
+        String(localized: "Stop downloading?"),
+        isPresented: $isShowingCancelConfirmation,
+        titleVisibility: .visible
+      ) {
+        Button(String(localized: "Stop and discard"), role: .destructive) {
+          onCancel?()
+        }
+        Button(String(localized: "Continue downloading"), role: .cancel) {}
+      } message: {
+        Text(
+          String(
+            localized:
+              "The partial download will be deleted. Resuming later means starting over from the beginning."
+          ))
+      }
+  }
+
+  /// Closure handed to the children that own the visible cancel
+  /// affordance (`PromoCard` in the demo branch, `ModelDownloadView`
+  /// in the cellular fallback). Returns `nil` when the caller did not
+  /// wire `onCancel`, which lets the children hide their cancel UI —
+  /// the first-launch slot relies on this to stay uncancellable.
+  /// Tapping the affordance flips a `@State` flag here so the host
+  /// owns the confirmation dialog; the destructive action eventually
+  /// fires `onCancel?()` from inside that dialog.
+  private var triggerCancelConfirmation: (() -> Void)? {
+    guard onCancel != nil else { return nil }
+    return { isShowingCancelConfirmation = true }
   }
 
   @ViewBuilder
   private var currentView: some View {
     switch Self.fallbackBranch(
-      state: modelManager.activeState,
+      state: currentState,
       demosCount: sources.count,
       replayHadStarted: replayHadStarted,
       isCellular: isCellular) {
     case .modelDownload:
-      ModelDownloadView(modelManager: modelManager)
+      ModelDownloadView(
+        modelManager: modelManager,
+        descriptor: descriptor,
+        onCancel: triggerCancelConfirmation)
     case .demoHost:
       demoHostBody
     }
@@ -140,9 +211,10 @@ struct DemoReplayHostView: View {
     // slid the last message under the overlay.
     .safeAreaInset(edge: .bottom, spacing: Spacing.l) {
       PromoCard(
-        modelState: modelManager.activeState,
+        modelState: currentState,
         replayHadStarted: replayHadStarted,
-        onRetry: { modelManager.startActiveDownload() })
+        onRetry: { modelManager.startDownload(descriptor: descriptor) },
+        onCancel: triggerCancelConfirmation)
     }
   }
 
@@ -228,8 +300,16 @@ struct DemoReplayHostView: View {
   }
 
   private func handleModelStateChange(_ newState: ModelState) {
-    if case .ready = newState {
+    guard case .ready = newState else { return }
+    if showsCompleteOverlay {
+      // First-launch slot: trigger the in-content overlay; RootView's
+      // own state observer takes the user to the `.ready` AppState.
       replayVM?.downloadComplete()
+    } else {
+      // Settings cover: dismiss immediately. The overlay's
+      // "tap anywhere to begin" copy is meaningless here — the user
+      // returns to the Settings list, not a fresh app session.
+      onComplete?()
     }
   }
 
@@ -288,52 +368,8 @@ struct DemoReplayHostView: View {
   }
 }
 
-// MARK: - DLCompleteOverlay
-
-/// Fullscreen overlay shown while `ReplayViewModel.state == .transitioning`.
-///
-/// Per `demo-replay-ui.md` §DLCompleteOverlay: ultra-thin material
-/// background + pulsing 44 pt dog mark + "準備ができました" +
-/// "tap anywhere to begin". Spec §2 decision 6 / 8 makes the transition
-/// auto-only — the hint text is visual only and no tap handler is wired.
-///
-/// Fade-in is `.easeOut(2.4s, delay: 0.2s)` by default. Under
-/// `accessibilityReduceMotion`, the overlay is shown at full opacity
-/// immediately and the dog mark does not pulse (handled inside
-/// `DogMark.pulsing()`).
-private struct DLCompleteOverlay: View {
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @State private var hasAppeared = false
-
-  var body: some View {
-    ZStack {
-      Rectangle()
-        .fill(.ultraThinMaterial)
-        .ignoresSafeArea()
-
-      VStack(spacing: Spacing.s) {
-        DogMark(size: 44)
-          .pulsing()
-        Text("準備ができました")
-          .textStyle(Typography.statusComplete)
-          .foregroundStyle(Color.mossInk)
-        Text("tap anywhere to begin")
-          .textStyle(Typography.statusHint)
-          .foregroundStyle(Color.muted)
-      }
-    }
-    .opacity(hasAppeared || reduceMotion ? 1 : 0)
-    .onAppear {
-      guard !reduceMotion else {
-        hasAppeared = true
-        return
-      }
-      withAnimation(.easeOut(duration: 2.4).delay(0.2)) {
-        hasAppeared = true
-      }
-    }
-  }
-}
+// `DLCompleteOverlay` lives in its own file so this one stays under
+// swiftlint's 400-line cap. See `DLCompleteOverlay.swift`.
 
 // MARK: - Previews
 
@@ -342,12 +378,7 @@ private struct DLCompleteOverlay: View {
 // require a production seam; the `fallbackBranch` pure function is
 // unit-tested instead (item 8).
 #Preview {
-  DemoReplayHostView(modelManager: ModelManager())
-}
-
-#Preview("DLCompleteOverlay") {
-  ZStack {
-    Color.screenBackground.ignoresSafeArea()
-    DLCompleteOverlay()
-  }
+  DemoReplayHostView(
+    modelManager: ModelManager(),
+    descriptor: ModelRegistry.gemma4E2B)
 }
