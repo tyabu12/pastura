@@ -78,12 +78,14 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.5 キャラクターパレット（羊アバター）
 
-| キャラ | 顔色 | 役割 |
-|-------|------|------|
-| Alice | `#F2E3C8` クリーム | やさしい第一声 |
-| Bob | `#D9E2C6` セージ | 同意的・穏やか |
-| Carol | `#EBD4D4` ピンク | 観察者 |
-| Dave | `#D0D7DC` スレート | Wolf（狼）/ 中心人物 |
+> **Source of Truth**: `docs/design/demo-replay-reference.html` の `sheepAvatar()` (lines 309-312) が原点。本テーブルはその mirror で、Swift `Pastura/Views/DesignTokens.swift` の `PasturaPalette.avatar*` トークンが本テーブルを参照する。HTML 内の letters mode `.ava.<who>` 背景色 (lines 94-98) は HTML-only ornament で iOS では未レンダー、scope 外。命名規約: 共有部位は `avatarPart`（例: `avatarEar`）、キャラ別部位は `avatarPartCharacter`（例: `avatarBodyAlice`）。enforcement 層: `Pastura/PasturaTests/Views/DesignTokensTests.swift`。
+
+| キャラ | body | face | horn | 役割 |
+|-------|------|------|------|------|
+| Alice | `#F2E3C8` クリーム | `#C9A979` | `#B29364` | やさしい第一声 |
+| Bob   | `#DDE4CC` セージ   | `#8A9A6C` | `#6F7F54` | 同意的・穏やか |
+| Carol | `#EAD6D1` ピンク   | `#B8877C` | `#9C6E64` | 観察者 |
+| Dave  | `#D9D7C9` スレート | `#6B6858` | `#4F4C3F` | Wolf（狼）/ 中心人物 |
 
 共通：耳 `#E8D9BC`, 耳内 `#D4C19E`, 鼻 `#3D4030`, 目 `#2D2E26`, ハイライト `rgba(255,255,255,.6)`
 
@@ -211,7 +213,7 @@ box-shadow:
 
 ### 5.6 Avatar（羊シルエット）
 
-48pt 丸（§5.2 と同値。#171 で 42pt → 48pt にバンプ）。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `SHEEP()` 参照。
+48pt 丸（§5.2 と同値。#171 で 42pt → 48pt にバンプ）。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `sheepAvatar()` 参照。
 
 ### 5.7 Assistant Mark（犬 / コリー横顔）
 
