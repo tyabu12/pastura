@@ -167,12 +167,21 @@ struct PromoCard: View {
   /// Trailing-edge `X` button for the progress / retry row. Visually
   /// small (16 pt) so it doesn't compete with the dots/percent or the
   /// retry button — it's an out, not the primary action.
+  ///
+  /// The visible glyph is 16 pt but the hit target is expanded via
+  /// `.padding` + `.contentShape(Rectangle())` so taps near the icon
+  /// register reliably without forcing the row to 44 pt tall (full
+  /// HIG would balloon the dense progress row by ~50%). The padded
+  /// area is invisible — only `Color.metaBaseL3` glyph is rendered.
   private func cancelButton(action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Image(systemName: "xmark.circle.fill")
         .font(.system(size: 16))
         .symbolRenderingMode(.hierarchical)
         .foregroundStyle(Color.metaBaseL3)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .accessibilityLabel(String(localized: "Cancel download"))
