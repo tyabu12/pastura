@@ -138,11 +138,12 @@ mention it. Match the user's language; English baseline:
 GitHub-side actions that produce no local commit are out of scope — issue
 management, PR comments/reviews on others' PRs, label/milestone edits,
 workflow dispatch, release creation, draft-state toggles, merging an
-already-opened PR. When in doubt, default to `/orchestrate`.
+already-opened PR. Local read-only sync (`git fetch`, `git pull` on the
+default branch, `gh pr checkout`) is similarly out of scope. When in
+doubt, default to `/orchestrate`.
 
 The rule does not re-trigger for actions taken from inside `/orchestrate`
-itself or from a sub-agent it dispatches (Step 3 implementer, Step 4
-reviewer).
+itself or from any sub-agent it dispatches.
 
 ### TDD Approach
 
