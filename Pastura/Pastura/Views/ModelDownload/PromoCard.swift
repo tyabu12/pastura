@@ -164,23 +164,28 @@ struct PromoCard: View {
     .accessibilityAddTraits(.updatesFrequently)
   }
 
-  /// Trailing-edge `X` button for the progress / retry row. Visually
-  /// small (16 pt) so it doesn't compete with the dots/percent or the
-  /// retry button — it's an out, not the primary action.
+  /// Trailing-edge "キャンセル" button for the progress / retry row.
+  /// Neutral styling — `inkSecondary` text + `rule` 1pt border + clear
+  /// fill — per `design-system.md` §2.6 "Cancel ボタンは赤くしない".
+  /// The pastoral voice rejects red here; `danger` is reserved for
+  /// the destructive-confirmation primary button instead.
   ///
-  /// The visible glyph is 16 pt but the hit target is expanded via
-  /// `.padding` + `.contentShape(Rectangle())` so taps near the icon
-  /// register reliably without forcing the row to 44 pt tall (full
-  /// HIG would balloon the dense progress row by ~50%). The padded
-  /// area is invisible — only `Color.metaBaseL3` glyph is rendered.
+  /// Tap target meets the HIG floor by stretching the button frame
+  /// past the visible bordered chip via padding + `contentShape`,
+  /// so the surrounding content area registers taps without inflating
+  /// the visible chrome.
   private func cancelButton(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Image(systemName: "xmark.circle.fill")
-        .font(.system(size: 16))
-        .symbolRenderingMode(.hierarchical)
-        .foregroundStyle(Color.metaBaseL3)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 8)
+      Text(String(localized: "キャンセル"))
+        .textStyle(Typography.metaLabel)
+        .foregroundStyle(Color.inkSecondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .overlay {
+          RoundedRectangle(cornerRadius: Radius.button)
+            .strokeBorder(Color.rule, lineWidth: 1)
+        }
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -201,7 +206,7 @@ struct PromoCard: View {
       }
       Spacer(minLength: 0)
       Button(action: onRetry) {
-        Text("もう一度試す")
+        Text("リトライ")
           .textStyle(Typography.metaLabel)
           .foregroundStyle(Color.white)
           .padding(.horizontal, 10)
