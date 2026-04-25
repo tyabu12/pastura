@@ -153,7 +153,13 @@ struct AvatarSlot: View {
 /// Shared layout values for composing chat rows. Exposed as a namespace
 /// (rather than spreading constants across individual primitives) so
 /// consumers + tests reference a single authoritative source.
-enum ChatBubbleLayout {
+///
+/// `nonisolated` because these constants are read from `@Sendable`
+/// closures (e.g. `.alignmentGuide(.top)` in `AgentOutputRow`) under
+/// Swift 6's stricter inference; the namespace holds only pure
+/// `CGFloat` values, so the type-level marker is safe and prevents
+/// future call sites from re-tripping the same warning.
+nonisolated enum ChatBubbleLayout {
   /// Avatar diameter — `design-system.md` §5.2. Bumped from 42pt to
   /// 48pt in #171 so the sheep silhouette reads more clearly on
   /// ~390pt iPhone widths. Both docs (`design-system.md` §5.2 +
