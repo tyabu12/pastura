@@ -55,6 +55,6 @@ extension LlamaCppService {
       )
     }
 
-    return String(cString: buffer)
+    return String(llamaBuffer: buffer, length: Int(written))
   }
 }

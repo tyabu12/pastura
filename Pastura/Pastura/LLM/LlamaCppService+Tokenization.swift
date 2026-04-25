@@ -47,8 +47,7 @@ extension LlamaCppService {
       vocab, token, &buffer, Int32(buffer.count), 0, false
     )
     if nChars > 0 {
-      buffer[Int(nChars)] = 0  // null-terminate
-      return String(cString: buffer)
+      return String(llamaBuffer: buffer, length: Int(nChars))
     } else if nChars < 0 {
       // Buffer too small; retry with required size
       var largeBuffer = [CChar](repeating: 0, count: Int(-nChars) + 1)
@@ -56,8 +55,7 @@ extension LlamaCppService {
         vocab, token, &largeBuffer, Int32(largeBuffer.count), 0, false
       )
       if retryChars > 0 {
-        largeBuffer[Int(retryChars)] = 0
-        return String(cString: largeBuffer)
+        return String(llamaBuffer: largeBuffer, length: Int(retryChars))
       }
     }
     return ""
