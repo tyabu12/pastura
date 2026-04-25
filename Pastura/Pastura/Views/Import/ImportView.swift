@@ -22,10 +22,17 @@ struct ImportView: View {
     .navigationTitle(editingId != nil ? "Edit Scenario" : "Import Scenario")
     .navigationBarTitleDisplayMode(.inline)
     .task {
-      viewModel = ImportViewModel(repository: dependencies.scenarioRepository)
+      // Defer assignment until loadForEditing completes so the TextEditor
+      // never renders the default empty `yamlText` between VM creation and
+      // the DB read landing. Mirrors the `ScenarioEditorHost` pattern in
+      // HomeView.swift. Guard prevents re-creation under `.task` re-fire
+      // (iPad multitasking, scenePhase transitions).
+      guard viewModel == nil else { return }
+      let newViewModel = ImportViewModel(repository: dependencies.scenarioRepository)
       if let editingId {
-        await viewModel?.loadForEditing(scenarioId: editingId)
+        await newViewModel.loadForEditing(scenarioId: editingId)
       }
+      viewModel = newViewModel
     }
   }
 
