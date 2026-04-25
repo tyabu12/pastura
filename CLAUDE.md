@@ -72,7 +72,7 @@ Utilities/ → depends on nothing
 
 ## Swift Coding Conventions
 
-- **Formatting:** `swift-format` + `swiftlint --fix` auto-applied via hooks on every file edit.
+- **Automated hooks** (`.claude/settings.json`): On file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `git commit` (`PreToolUse`), `swiftlint lint --strict` + `xcodebuild build` run and block the commit on lint violations or compile errors.
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
   `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
