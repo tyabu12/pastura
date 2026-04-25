@@ -120,6 +120,31 @@ UI tests are not required for MVP.
 
 ## Development Workflow
 
+### Implementation Entry Point
+
+`/orchestrate` is the only entry point for file edits, commits, branch
+creation, and pushes in this repository.
+
+**Why:** `main` is push-protected (PR required), and concurrent sessions
+collide on shared files (`Pastura.xcodeproj/project.pbxproj`, DerivedData,
+generated assets) without worktree isolation.
+
+When the conversation transitions from discussion or investigation toward
+such work, announce `/orchestrate` and start it — even if the user didn't
+mention it. Match the user's language; English baseline:
+
+> "Switching to `/orchestrate` for the implementation."
+
+GitHub-side actions that produce no local commit are out of scope — issue
+management, PR comments/reviews on others' PRs, label/milestone edits,
+workflow dispatch, release creation, draft-state toggles, merging an
+already-opened PR. Local read-only sync (`git fetch`, `git pull` on the
+default branch, `gh pr checkout`) is similarly out of scope. When in
+doubt, default to `/orchestrate`.
+
+The rule does not re-trigger for actions taken from inside `/orchestrate`
+itself or from any sub-agent it dispatches.
+
 ### TDD Approach
 
 Engine and LLM layer: test-first (write failing test → minimal implementation → refactor).
