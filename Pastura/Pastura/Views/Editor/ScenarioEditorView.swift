@@ -255,7 +255,7 @@ struct ScenarioEditorView: View {
       ForEach(viewModel.validationErrors, id: \.self) { error in
         HStack(spacing: 6) {
           Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundStyle(.yellow)
+            .foregroundStyle(Color.warning)
           Text(error)
             .font(.caption)
         }
@@ -264,7 +264,7 @@ struct ScenarioEditorView: View {
     .padding(.horizontal)
     .padding(.vertical, 8)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(.red.opacity(0.1))
+    .background(Color.dangerSoft)
   }
 
   // MARK: - Mode Binding
