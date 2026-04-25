@@ -165,4 +165,85 @@ struct AgentOutputRowContractTests {
     let expected = "→ Dave (散歩)".count
     #expect(row.targetLength == expected)
   }
+
+  // MARK: - Thought-visibility seed contract
+  //
+  // Behavioral notes the suite cannot test directly (no SwiftUI host)
+  // but that future refactors must preserve. The two `targetLength`
+  // tests above (`*WhenThoughtHidden` / `*WhenThoughtShown`) implicitly
+  // exercise the seed — they only pass because the custom `init`
+  // applies `State(initialValue: showAllThoughts)` so `showInnerThought`
+  // mirrors `showAllThoughts` at construction. Removing the seed
+  // (e.g., reverting to `@State private var showInnerThought = false`)
+  // would silently flip the `*WhenThoughtShown` test to expect-5-got-10.
+  //
+  // ## Seed timing on `@State` recreation
+  //
+  // `@State` lifetime is one cycle of view identity. LazyVStack recycle
+  // (#133 Hyp B, tracked by `debugInstanceID`) re-creates `@State`,
+  // which re-runs `State(initialValue: showAllThoughts)` and re-syncs
+  // the recycled row to the *current* global mode. This is desirable —
+  // a recycled slot represents a different agent / phase, so inheriting
+  // the previous occupant's expand state would feel arbitrary.
+  //
+  // ## Cancel-free thought-visibility sync
+  //
+  // `handleThoughtVisibilityChange` (the renamed
+  // `handleShowAllThoughtsChange`) MUST NOT call
+  // `animationTask?.cancel()` — that re-opens the cancel-race surface
+  // hardened in #133 / #134 / #147 / #150. Manual chevron taps fire
+  // `onChange(of: showInnerThought)` on every interaction; combining
+  // a tap + cancel + restart per tap would page in exactly the race
+  // pattern those PRs fixed. The current contract:
+  //
+  //   - `!shouldAnimate`: snap visibleChars to target.
+  //   - `visibleChars >= target` (collapse / over-revealed): no-op,
+  //     loop terminates naturally on next iteration.
+  //   - `visibleChars < target` + task running: no-op, loop reads
+  //     new target on next tick.
+  //   - `visibleChars < target` + no task: snap to target so the
+  //     just-unhidden body has revealed content for the .transition
+  //     fade. Restarting would slow-type after a deliberate user tap.
+  //
+  // ## Collapse → re-expand
+  //
+  // After a manual collapse, `visibleChars` is intentionally NOT
+  // snapped down. Primary's concat trick uses `min(visibleChars,
+  // primaryLen)` so it stays correct, and the thought view is hidden
+  // by the `if showInnerThought` conditional in `thoughtSection`.
+  // On re-expand, `visibleChars` may already be >= the new target
+  // (if the row had previously been expanded and revealed) — in which
+  // case the no-op branch fires and the body shows full text via the
+  // .transition fade. If the user collapsed mid-stream and re-expanded
+  // after more thought tokens arrived, `visibleChars < target` + no
+  // task → instant snap to current buffer. Both flows feel like
+  // "tap = immediate" to the user.
+  @Test func targetLengthSeededFromShowAllThoughtsAtConstruction() {
+    // Pin the seed contract: `showInnerThought` is `State(initialValue:
+    // showAllThoughts)` per the custom init, so `targetLength` reflects
+    // the constructor argument before any view rendering. Two rows with
+    // identical content but opposite `showAllThoughts` produce different
+    // `targetLength` values — that delta is the seed at work.
+    let collapsed = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: [
+        "statement": "hello",
+        "inner_thought": "quiet"
+      ]),
+      phaseType: .speakAll,
+      showAllThoughts: false
+    )
+    let expanded = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: [
+        "statement": "hello",
+        "inner_thought": "quiet"
+      ]),
+      phaseType: .speakAll,
+      showAllThoughts: true
+    )
+    #expect(collapsed.targetLength == 5)  // primary only
+    #expect(expanded.targetLength == 10)  // primary + thought
+    #expect(expanded.targetLength - collapsed.targetLength == 5)  // = thought
+  }
 }

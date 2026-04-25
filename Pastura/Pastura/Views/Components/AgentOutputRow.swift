@@ -1,7 +1,7 @@
 // swiftlint:disable file_length
 // Intentionally long: the reveal-animation machinery
 // (`startAnimationIfNeeded`, `characterAt`, `snapToFull`,
-// `handleStreamTargetChange`, `handleShowAllThoughtsChange`) is all
+// `handleStreamTargetChange`, `handleThoughtVisibilityChange`) is all
 // `private` so it stays internal to the reveal state machine. Splitting
 // into a sibling extension file would force widening those to
 // `internal` access (extensions in a separate file cannot see
@@ -13,13 +13,28 @@ import SwiftUI
 /// Displays a single agent's output with an optional inner thought and an
 /// LLM-chat-style typing animation for the latest row.
 ///
+/// ## Thought visibility model
+///
+/// The thought area always carries a `▸ THINKING` / `▾ THINKING` chevron
+/// toggle (per design-system.md §5.2). `showAllThoughts` is the **global
+/// default** — its current value seeds each row's per-row
+/// `showInnerThought` at construction (custom init, `State(initialValue:)`)
+/// and re-syncs every row when the user toggles the master switch.
+/// Between mode flips the user can fold/unfold any individual row by
+/// tapping its chevron. Re-flipping the master switch clobbers all per-row
+/// overrides — the strong-coupling choice keeps the mental model simple.
+///
 /// ## Typing animation
 ///
 /// Only the latest row animates (`isLatest == true` and
-/// `charsPerSecond != nil`). Older rows render full text immediately.
-/// Animation unifies the statement and thought into a single counter that
-/// advances through `primaryLength + (showAllThoughts ? thoughtLength : 0)` —
-/// the thought types right after the statement, no gap, at the same rate.
+/// `charsPerSecond != nil`); older rows render full text immediately. The
+/// reveal counter advances through
+/// `primaryLength + (showInnerThought ? thoughtLength : 0)` — when the
+/// thought is currently visible (auto-default or manual expand), it types
+/// right after the statement, no gap, at the same rate. When collapsed,
+/// the counter only covers primary; the thought view is hidden by the
+/// `if showInnerThought` conditional and any partial reveal carried over
+/// from a previous expansion stays in `visibleChars` until the next sync.
 ///
 /// ## Reflow-stable rendering
 ///
@@ -41,11 +56,17 @@ import SwiftUI
 /// replay path inherits the same stability guarantees without a
 /// streaming-vs-replay branch.
 ///
-/// ## Interactive paths
+/// ## Manual chevron tap — cancel-free target sync
 ///
-/// When `showAllThoughts` is false, the user can still reveal the thought via
-/// the "Show thought" button. That path is deliberately animation-free (it's
-/// a user action, not narrative reveal) and keeps its fade-in transition.
+/// Tapping the chevron mutates `showInnerThought`, which shifts
+/// `targetLength`. The `onChange(of: showInnerThought)` handler is
+/// **deliberately cancel-free** — it never `cancel()`s the running
+/// reveal task. A running task absorbs the new target via its per-tick
+/// re-read; when no task is running, `visibleChars` snaps to target so
+/// the unhidden thought has revealed content for the `.transition` fade.
+/// The cancel-restart pattern was rejected because it re-opens the
+/// race surface that #133 / #134 / #147 / #150 hardened — see
+/// `handleThoughtVisibilityChange` for the full rationale.
 struct AgentOutputRow: View {
   let agent: String
   let output: TurnOutput
@@ -92,7 +113,17 @@ struct AgentOutputRow: View {
   /// `AgentOutputRow+Diagnostic.swift` for the consumers.
   var debugRowID: String?
 
-  @State private var showInnerThought = false
+  /// Per-row thought visibility. Default `false` only when no init value
+  /// is provided; the custom init below seeds this from `showAllThoughts`
+  /// so a row constructed in "auto-expand" mode starts expanded, and a
+  /// row constructed in "auto-collapse" mode starts collapsed.
+  ///
+  /// `@State` re-creation (LazyVStack recycle, see `debugInstanceID`)
+  /// re-runs the seed, so a recycled row picks up the *current* value of
+  /// `showAllThoughts` rather than carrying the previous occupant's
+  /// expand state — desirable because the recycled row represents a
+  /// different agent / phase.
+  @State private var showInnerThought: Bool
   // Internal-only so `AgentOutputRow+Diagnostic.swift` can read — mutation surface is the animation-control methods below.
   @State var visibleChars: Int = 0
   @State var animationTask: Task<Void, Never>?
@@ -107,6 +138,50 @@ struct AgentOutputRow: View {
   /// its thinking-indicator visibility and `scrollToBottom` on the
   /// parent-side `latestRowIsAnimating` flag).
   @State private var animationGeneration: Int = 0
+
+  /// Custom init kept call-site-compatible with the previous synthesized
+  /// memberwise init. Two reasons to write it by hand:
+  ///
+  ///   1. ``showInnerThought`` is `@State` without a default literal — its
+  ///      initial value must be seeded from `showAllThoughts` so the row
+  ///      starts expanded/collapsed to match the current global mode.
+  ///      `State(initialValue:)` runs at `@State` construction (and
+  ///      again on `@State` recreation in LazyVStack recycle), which is
+  ///      exactly the lifecycle hook we want — `.onAppear` would fire
+  ///      after the first render and contract tests don't render at all.
+  ///   2. The contract tests construct ``AgentOutputRow`` directly to
+  ///      read `targetLength` without a SwiftUI host. With the seed in
+  ///      `init`, those tests see `showInnerThought == showAllThoughts`
+  ///      and `targetLength` covers the thought iff `showAllThoughts`
+  ///      was passed `true` — preserving the pre-refactor contract.
+  init(
+    agent: String,
+    output: TurnOutput,
+    phaseType: PhaseType,
+    showAllThoughts: Bool,
+    isLatest: Bool = false,
+    charsPerSecond: Double? = nil,
+    onAnimatingChange: ((Bool) -> Void)? = nil,
+    streamingPrimary: String? = nil,
+    streamingThought: String? = nil,
+    showAvatar: Bool = true,
+    agentPosition: Int? = nil,
+    debugRowID: String? = nil
+  ) {
+    self.agent = agent
+    self.output = output
+    self.phaseType = phaseType
+    self.showAllThoughts = showAllThoughts
+    self.isLatest = isLatest
+    self.charsPerSecond = charsPerSecond
+    self.onAnimatingChange = onAnimatingChange
+    self.streamingPrimary = streamingPrimary
+    self.streamingThought = streamingThought
+    self.showAvatar = showAvatar
+    self.agentPosition = agentPosition
+    self.debugRowID = debugRowID
+    self._showInnerThought = State(initialValue: showAllThoughts)
+  }
 
   var body: some View {
     // Why the HStack wraps a VStack (and not the other way around): the
@@ -177,8 +252,17 @@ struct AgentOutputRow: View {
     .onChange(of: isLatest) { _, newValue in
       if !newValue { snapToFull() }
     }
-    .onChange(of: showAllThoughts) { _, _ in
-      handleShowAllThoughtsChange()
+    .onChange(of: showAllThoughts) { _, new in
+      // (A) strong coupling: the global toggle clobbers per-row state.
+      // The chained `onChange(of: showInnerThought)` then fires and
+      // runs the cancel-free target sync.
+      showInnerThought = new
+    }
+    .onChange(of: showInnerThought) { _, _ in
+      // Fired by both the global mode flip (via the line above) and
+      // by per-row chevron tap. See `handleThoughtVisibilityChange`
+      // for why this path is deliberately cancel-free.
+      handleThoughtVisibilityChange()
     }
     // Live streaming: when the parent-supplied snapshot grows, extend the
     // reveal. Target length is re-read on every animation tick, so if the
@@ -219,49 +303,32 @@ struct AgentOutputRow: View {
       .animation(nil, value: streamingPrimary)
   }
 
+  /// Single render path for the thought area: chevron toggle is **always**
+  /// rendered when a thought exists; the body appears only when the user
+  /// (or the `showAllThoughts` seed) has expanded the row. The previous
+  /// `if showAllThoughts { auto } else { button }` split was an
+  /// implementation accident — design-system.md §5.2 specifies one
+  /// `▸ THINKING / ▾ タグ＋本文` structure regardless of mode, and the
+  /// dual paths made the affordance disappear in auto mode.
   @ViewBuilder
   private func thoughtSection() -> some View {
     if let thought = resolvedThought, !thought.isEmpty {
-      if showAllThoughts {
-        // Auto-reveal path — participates in the unified typing counter.
-        autoThoughtView(fullText: thought)
-      } else {
-        // Button-toggle path — instant reveal with its own transition.
-        buttonToggleThought(fullText: thought)
+      thoughtToggleHeader()
+      if showInnerThought {
+        thoughtBody(fullText: thought)
       }
     }
   }
 
-  /// Auto-reveal thought (when `showAllThoughts == true`): pre-measured concat
-  /// driven by the same counter, so the reveal visually continues from where
-  /// the statement left off.
-  private func autoThoughtView(fullText: String) -> some View {
-    let primaryLen = (primaryText?.count ?? 0)
-    let thoughtRevealed = max(0, min(visibleChars - primaryLen, fullText.count))
-    let splitIdx = fullText.index(fullText.startIndex, offsetBy: thoughtRevealed)
-    let visible = fullText[..<splitIdx]
-    let hidden = fullText[splitIdx...]
-    return (Text(visible) + Text(hidden).foregroundStyle(.clear))
-      .textStyle(Typography.thinkingBody)
-      .foregroundStyle(Color.muted)
-      .thoughtLeftRule()
-  }
-
-  /// Tap-to-toggle path (when `showAllThoughts == false`): shows a
-  /// `▸ THINKING` / `▾ THINKING` disclosure label; tapping it reveals
-  /// the full thought body with a fade/slide transition. Matches
-  /// `design-system.md` §5.2 + reference HTML's `.b-inner.collapsed`
-  /// / `.b-inner.expanded::before` rules (moss triangle + mono UPPER
-  /// tag + muted color). No character-by-character typing — this is
-  /// a user action, not narrative.
-  @ViewBuilder
-  private func buttonToggleThought(fullText: String) -> some View {
-    // Two siblings returned as an implicit `TupleView` — the enclosing
-    // `thoughtSection` / outer `VStack` in `body` stacks them vertically
-    // with the root 6pt spacing. A nested `VStack` would add a spurious
-    // layout layer; keeping the two elements as siblings mirrors how
-    // `autoThoughtView` composes primary + thought already.
-    //
+  /// `▸ THINKING` / `▾ THINKING` chevron + tag. Tap toggles
+  /// ``showInnerThought``; the resulting target shift is absorbed by the
+  /// reveal pipeline through ``handleThoughtVisibilityChange`` (cancel-
+  /// free — see that method's doc for the rationale).
+  ///
+  /// Matches `design-system.md` §5.2 + reference HTML
+  /// `.b-inner.collapsed` / `.b-inner.expanded::before` (moss triangle
+  /// + mono UPPER tag + muted color).
+  private func thoughtToggleHeader() -> some View {
     // `▸` / `▾` triangle tints moss (accent prefix per reference
     // CSS `color: #8a9a6c`); "THINKING" stays muted + Typography
     // `thinkingTag` (8.5pt mono UPPER semibold). Concat preserves
@@ -329,23 +396,40 @@ struct AgentOutputRow: View {
       // a Button would.
       .accessibilityAddTraits(.isButton)
       .accessibilityLabel(showInnerThought ? "Hide thought" : "Show thought")
+  }
 
-    if showInnerThought {
-      Text(fullText)
-        .textStyle(Typography.thinkingBody)
-        .foregroundStyle(Color.muted)
-        .thoughtLeftRule()
-        .transition(.opacity.combined(with: .move(edge: .top)))
-    }
+  /// Thought body — pre-measured concat driven by the unified reveal
+  /// counter. When the row is mid-typing (latest, streaming, or auto-
+  /// expanded on appear), characters surface as the loop advances. When
+  /// not animating (older row, or post-completion manual expand), the
+  /// `.onChange(of: showInnerThought)` handler snaps `visibleChars` to
+  /// target so the body has revealed content for the
+  /// `.transition(.opacity.combined(with: .move(edge: .top)))` fade.
+  private func thoughtBody(fullText: String) -> some View {
+    let primaryLen = (primaryText?.count ?? 0)
+    let thoughtRevealed = max(0, min(visibleChars - primaryLen, fullText.count))
+    let splitIdx = fullText.index(fullText.startIndex, offsetBy: thoughtRevealed)
+    let visible = fullText[..<splitIdx]
+    let hidden = fullText[splitIdx...]
+    return (Text(visible) + Text(hidden).foregroundStyle(.clear))
+      .textStyle(Typography.thinkingBody)
+      .foregroundStyle(Color.muted)
+      .thoughtLeftRule()
+      .transition(.opacity.combined(with: .move(edge: .top)))
   }
 
   // MARK: - Derived lengths
 
   /// Total characters the counter should cover: primary plus thought when
-  /// thoughts are globally visible. Button-toggle reveal bypasses this.
+  /// the thought is currently visible. Driven by ``showInnerThought``
+  /// (per-row, seeded from `showAllThoughts` at init), so manual chevron
+  /// taps grow / shrink the target the same way a global mode flip does.
+  /// The reveal task re-reads this every tick, so target growth during
+  /// active typing extends the reveal in place; growth between taps with
+  /// no task running is handled by ``handleThoughtVisibilityChange``.
   var targetLength: Int {
     let primary = primaryText?.count ?? 0
-    let thought = showAllThoughts ? (resolvedThought?.count ?? 0) : 0
+    let thought = showInnerThought ? (resolvedThought?.count ?? 0) : 0
     return primary + thought
   }
 
@@ -393,12 +477,14 @@ struct AgentOutputRow: View {
         }
       }
       // Re-read `targetLength`, `primaryText`, and `resolvedThought`
-      // every tick. `targetLength` covers `showAllThoughts` mid-typing
-      // flips. The other two cover live streaming growth: under
-      // ``streamingPrimary`` / ``streamingThought``, those values grow
-      // token-by-token, and a one-shot capture at task creation would
-      // leave punctuation lookup and the statement→thought boundary
-      // check running against stale text.
+      // every tick. `targetLength` covers any mid-typing thought-
+      // visibility flip — both global mode toggle (`showAllThoughts`)
+      // and per-row chevron tap mutate ``showInnerThought``, which
+      // shifts target. The other two cover live streaming growth:
+      // under ``streamingPrimary`` / ``streamingThought``, those
+      // values grow token-by-token, and a one-shot capture at task
+      // creation would leave punctuation lookup and the
+      // statement→thought boundary check running against stale text.
       while !Task.isCancelled && visibleChars < targetLength {
         try? await Task.sleep(nanoseconds: delayNanos)
         if Task.isCancelled { return }
@@ -472,23 +558,64 @@ struct AgentOutputRow: View {
     // else: running task's loop picks up the new target on its next tick.
   }
 
-  /// React to a mid-typing `showAllThoughts` flip on the latest row:
-  /// - `true` → target extends; keep animating (the running loop re-reads target).
-  ///   If the loop already finished primary and exited, restart it.
-  /// - `false` → target shrinks; snap down so we don't render past new target.
-  private func handleShowAllThoughtsChange() {
+  /// React to a thought-visibility flip — fired both by global mode
+  /// toggle (`onChange(of: showAllThoughts)` syncs the per-row state)
+  /// and by per-row chevron tap (`onChange(of: showInnerThought)`).
+  ///
+  /// **Cancel-free by design.** Manual chevron taps must not enter the
+  /// `cancel() + startAnimationIfNeeded()` path that the previous
+  /// `handleShowAllThoughtsChange` used — that re-opens the cancel-race
+  /// surface that `animationGeneration` and the `onAnimatingChange`
+  /// generation gate were introduced to close (#133 / #134 / #147 /
+  /// #150). The race symptom: a chevron tap during streaming would
+  /// `cancel()` the running reveal, the new task would
+  /// `start` a frame later, and the gap would leave
+  /// `latestRowIsAnimating` flickering false→true→false — breaking
+  /// SimulationView's thinking-indicator + scroll-to-bottom gating.
+  ///
+  /// What this method actually does, in three cases:
+  ///
+  ///   - `!shouldAnimate` (older replay row): snap `visibleChars` to
+  ///     the new target. There is no task to coordinate with; the
+  ///     rendered text just jumps to the new bound.
+  ///   - `visibleChars >= target` (target shrank, e.g. user collapsed):
+  ///     no-op. The running loop's `while visibleChars < targetLength`
+  ///     condition stops it on the next iteration; the now-hidden
+  ///     thought view is removed by the `if showInnerThought`
+  ///     conditional in `thoughtSection()`. The dangling
+  ///     `visibleChars > targetLength` is harmless — primary uses
+  ///     `min(visibleChars, primaryLen)` and the body view is gone.
+  ///   - `visibleChars < target` (target grew, expand path):
+  ///       * task running → no-op; the loop reads the new target on
+  ///         its next tick and types into the thought naturally.
+  ///       * no task → snap `visibleChars = target` so the unhidden
+  ///         body has revealed content for the `.transition` fade.
+  ///         Restarting the task here would slow-type the thought
+  ///         after a deliberate user tap, which is a UX regression
+  ///         vs reference HTML's instant `.b-inner.expanded` semantics
+  ///         (and matches how the previous button-toggle path felt).
+  ///
+  /// Sibling `handleStreamTargetChange` *does* restart on no-task +
+  /// growth — that's correct for streaming (continued narrative reveal)
+  /// but wrong here (deliberate user gesture wants instant response).
+  /// The shape similarity is intentional but the no-task branches
+  /// **must not** be unified.
+  private func handleThoughtVisibilityChange() {
     let target = targetLength
     if !shouldAnimate {
       visibleChars = target
       return
     }
-    if visibleChars > target {
-      animationTask?.cancel()
-      visibleChars = target
-    } else if visibleChars < target, animationTask == nil || animationTask?.isCancelled == true {
-      startAnimationIfNeeded()
+    if visibleChars >= target {
+      // Collapse / over-revealed — let the loop's while-condition end
+      // it naturally. Don't cancel: that's the cancel-race surface.
+      return
     }
-    // else: animation is running and will naturally advance to new target.
+    // Expand path. Task running → loop absorbs growth. No task →
+    // instant snap (UX: deliberate tap = immediate, not slow-type).
+    if animationTask == nil || animationTask?.isCancelled == true {
+      visibleChars = target
+    }
   }
 
   /// Extracts the primary display text.
