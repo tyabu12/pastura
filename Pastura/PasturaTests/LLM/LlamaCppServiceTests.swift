@@ -6,7 +6,10 @@ import Testing
 /// values. Production code must provide all four parameters explicitly (via
 /// a `ModelDescriptor`); this helper centralizes the values that the lifecycle
 /// / error-path tests don't depend on so each test call-site stays terse.
-private func makeTestService(modelPath: String = "/nonexistent.gguf") -> LlamaCppService {
+///
+/// Module-internal (no `private`) so the sibling `+CooperativeWait` file can
+/// reuse it — see `.claude/rules/testing.md` "Splitting a Suite Across Files".
+func makeTestService(modelPath: String = "/nonexistent.gguf") -> LlamaCppService {
   LlamaCppService(
     modelPath: modelPath,
     stopSequence: "<|im_end|>",
@@ -322,4 +325,5 @@ struct LlamaCppServiceTests {
     let completed = try await unloadTask.value
     #expect(completed)
   }
+
 }
