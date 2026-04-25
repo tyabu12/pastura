@@ -171,6 +171,18 @@ Pastura/
     └── ContentBlocklist.txt  # ADR-005 content safety
 ```
 
+Repo-level directories outside `Pastura/`:
+
+- `docs/` — engineering docs (ADRs, specs, design, ROADMAP).
+- `pages/` — public-facing HTML deployed to GitHub Pages
+  (`pages/support/` → App Store Connect Support URL,
+  `pages/legal/privacy-policy/` → App Store privacy policy URL).
+  Each new asset must be added to `.github/workflows/deploy-pages.yml`'s
+  staging step explicitly — the workflow forbids `cp -r` to keep editor
+  detritus out of the deployed artifact.
+- `scripts/` — shell utilities (e.g., `sim-dest.sh`).
+- `.github/workflows/` — CI + Pages deploy.
+
 ## Context-Specific Rules
 
 `.claude/rules/` contains detailed rules with two loading modes:
