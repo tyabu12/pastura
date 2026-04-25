@@ -46,9 +46,16 @@ struct HomeView: View {
       }
     }
     .task {
-      viewModel = HomeViewModel(repository: dependencies.scenarioRepository)
-      await viewModel?.loadScenarios()
-      await viewModel?.refreshGalleryUpdateBadges(using: dependencies.galleryService)
+      // Defer assignment until both `loadScenarios()` and
+      // `refreshGalleryUpdateBadges()` complete so gallery update badges
+      // appear together with the row that owns them — otherwise the list
+      // shows first and badges pop in a frame later. Guard prevents
+      // re-creation under `.task` re-fire.
+      guard viewModel == nil else { return }
+      let newViewModel = HomeViewModel(repository: dependencies.scenarioRepository)
+      await newViewModel.loadScenarios()
+      await newViewModel.refreshGalleryUpdateBadges(using: dependencies.galleryService)
+      viewModel = newViewModel
     }
     // Refresh the list whenever the user navigates back to root.
     // `.task` only runs on initial mount; pushed views like the editor
