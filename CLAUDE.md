@@ -247,12 +247,19 @@ Pastura/
 
 ## Context-Specific Rules
 
-See `.claude/rules/` for detailed rules loaded automatically when editing Engine, LLM, Models, Data, or Resources files.
+`.claude/rules/` contains detailed rules with two loading modes:
 
-`navigation.md` documents the `AppRouter` pattern: programmatic root-stack
-navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`,
-and `navigationDestination(item:|isPresented:)` is forbidden inside views
-pushed onto the root stack. Sheet-owned NavigationStacks are exempt.
+**Path-scoped** (loaded only when editing matching files):
+
+- `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
+- `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
+- `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
+- `testing.md` — Test target (`Pastura/PasturaTests/**`)
+
+**Always-loaded** (no frontmatter `paths:` — relevant from any layer):
+
+- `llm.md` — LLM-layer traps (e.g., `nonisolated` protocol-default impls that build escaping closures) can fire from any conformer, including types added in `App/` or test targets, so the rule must stay visible regardless of which file is being edited.
+- `navigation.md` — `AppRouter` pattern: programmatic root-stack navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto the root stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
 
 ## File Naming
 
