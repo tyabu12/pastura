@@ -27,7 +27,12 @@ struct ScenarioDetailView: View {
         ProgressView()
       }
     }
-    .navigationTitle(viewModel?.scenario?.name ?? "Scenario")
+    // Empty fallback during the brief load window (~30–80ms) — the
+    // `.navigationTitle` modifier sits outside the `if let viewModel`
+    // gate so it evaluates while the body shows ProgressView. Showing
+    // "Scenario" there would be a misleading flash before the real
+    // scenario name lands; an empty title is the lesser evil.
+    .navigationTitle(viewModel?.scenario?.name ?? "")
     .navigationBarTitleDisplayMode(.large)
     .toolbar {
       if let record = viewModel?.record, !record.isPreset {

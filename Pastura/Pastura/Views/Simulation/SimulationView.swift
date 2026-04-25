@@ -41,7 +41,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         ProgressView("Loading scenario...")
       }
     }
-    .navigationTitle(scenario?.name ?? "Simulation")
+    // Empty fallback during `loadAndRun()` so the inline title doesn't
+    // flash "Simulation" before the real scenario name lands.
+    .navigationTitle(scenario?.name ?? "")
     .navigationBarTitleDisplayMode(.inline)
     .task {
       await loadAndRun()
