@@ -24,6 +24,10 @@ struct SettingsView: View {
     @Environment(ModelManager.self) private var modelManager
     @Environment(AppDependencies.self) private var dependencies
     @State private var pendingDelete: ModelDescriptor?
+    /// Descriptor whose Download action should present the DL demo cover.
+    /// Bound to `.fullScreenCover(item:)` — `Identifiable` is supplied by
+    /// the conformance on `ModelDescriptor`.
+    @State private var coverDescriptor: ModelDescriptor?
     // Surfaces `.cannotDeleteActive` / `.notReadyForDelete` / `.unknownModel`
     // that slip past the UI guard — a genuine UI-state-vs-ModelManager race.
     // User flow stays silent (row stays `.ready`), but Console.app shows the
@@ -82,6 +86,20 @@ struct SettingsView: View {
               "Re-downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) takes a few minutes."
           ))
       }
+      .fullScreenCover(item: $coverDescriptor) { descriptor in
+        // `.deepLinkGated()` makes the cover behave like a sheet for
+        // deep-link queueing — a `pastura://` URL arriving while a
+        // model is downloading toasts instead of pushing under the
+        // cover. Settings is a long-lived modal context here.
+        DemoReplayHostView(
+          modelManager: modelManager,
+          descriptor: descriptor,
+          showsCompleteOverlay: false,
+          onComplete: { coverDescriptor = nil },
+          onCancel: { handleCoverCancel(descriptor: descriptor) }
+        )
+        .deepLinkGated()
+      }
     #endif
   }
 
@@ -96,7 +114,7 @@ struct SettingsView: View {
             isActive: descriptor.id == modelManager.activeModelID,
             otherDownloadInProgress: isOtherDownloading(excluding: descriptor.id),
             isSwitchLocked: dependencies.simulationActivityRegistry.isActive,
-            onDownload: { modelManager.startDownload(descriptor: descriptor) },
+            onDownload: { presentDownloadCover(for: descriptor) },
             onCancel: { modelManager.cancelDownload(descriptor: descriptor) },
             onSwitchActive: { switchActive(to: descriptor) },
             onRequestDelete: { pendingDelete = descriptor }
@@ -127,6 +145,32 @@ struct SettingsView: View {
         if case .downloading = entryState { return true }
         return false
       }
+    }
+
+    /// Starts the download and, only if the state actually flipped to
+    /// `.downloading`, presents the demo cover. The state mutation in
+    /// `startDownload` is synchronous (sets `.downloading(progress: 0)`
+    /// before returning), so the same-frame check is safe and avoids
+    /// presenting an empty cover when the sequential-download policy
+    /// silently rejects the call. The Download menu item is already
+    /// disabled by `otherDownloadInProgress`, so the rejection branch
+    /// here is defense-in-depth.
+    private func presentDownloadCover(for descriptor: ModelDescriptor) {
+      modelManager.startDownload(descriptor: descriptor)
+      if case .downloading = modelManager.state[descriptor.id] {
+        coverDescriptor = descriptor
+      }
+    }
+
+    /// Dismisses the cover immediately, then runs the destructive cancel
+    /// in a detached task. Awaiting before dismissal would freeze the
+    /// cover while files are removed; the user has already confirmed,
+    /// so the destructive flow can finish in the background. Subsequent
+    /// state observations rebuild the row as `.notDownloaded` once the
+    /// task lands.
+    private func handleCoverCancel(descriptor: ModelDescriptor) {
+      coverDescriptor = nil
+      Task { await modelManager.cancelDownloadAndDelete(descriptor: descriptor) }
     }
 
     /// Persists the new active id and rebuilds the `LlamaCppService`.
