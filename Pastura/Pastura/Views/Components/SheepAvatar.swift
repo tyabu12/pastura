@@ -184,43 +184,37 @@ extension SheepAvatar.Character {
     }
   }
 
-  /// Wool / body fill — matches the per-character `avatarAlice/Bob/Carol/Dave` token.
+  // SoT for the per-character body/face/horn palette below:
+  // `docs/design/design-system.md` §2.5 (mirrors `demo-replay-reference.html`'s
+  // `sheepAvatar()`). Update tokens in `DesignTokens.swift`, not here.
+
+  /// Wool / body fill — matches `Color.avatarBodyAlice/Bob/Carol/Dave`.
   var bodyColor: Color {
     switch self {
-    case .alice: return Color.avatarAlice
-    case .bob: return Color.avatarBob
-    case .carol: return Color.avatarCarol
-    case .dave: return Color.avatarDave
+    case .alice: return Color.avatarBodyAlice
+    case .bob: return Color.avatarBodyBob
+    case .carol: return Color.avatarBodyCarol
+    case .dave: return Color.avatarBodyDave
     }
   }
 
-  /// Face oval fill — a darker accent derived from the HTML reference.
-  /// No dedicated token exists for these; the values mirror the reference
-  /// prototype's `sheepAvatar()` color map.
+  /// Face oval fill — matches `Color.avatarFaceAlice/Bob/Carol/Dave`.
   var faceColor: Color {
     switch self {
-    case .alice:
-      return Color(.sRGB, red: 0xC9 / 255.0, green: 0xA9 / 255.0, blue: 0x79 / 255.0, opacity: 1)
-    case .bob:
-      return Color(.sRGB, red: 0x8A / 255.0, green: 0x9A / 255.0, blue: 0x6C / 255.0, opacity: 1)
-    case .carol:
-      return Color(.sRGB, red: 0xB8 / 255.0, green: 0x87 / 255.0, blue: 0x7C / 255.0, opacity: 1)
-    case .dave:
-      return Color(.sRGB, red: 0x6B / 255.0, green: 0x68 / 255.0, blue: 0x58 / 255.0, opacity: 1)
+    case .alice: return Color.avatarFaceAlice
+    case .bob: return Color.avatarFaceBob
+    case .carol: return Color.avatarFaceCarol
+    case .dave: return Color.avatarFaceDave
     }
   }
 
-  /// Horn stroke color — darker shade of the body; mirrors reference prototype.
+  /// Horn stroke color — matches `Color.avatarHornAlice/Bob/Carol/Dave`.
   var hornColor: Color {
     switch self {
-    case .alice:
-      return Color(.sRGB, red: 0xB2 / 255.0, green: 0x93 / 255.0, blue: 0x64 / 255.0, opacity: 1)
-    case .bob:
-      return Color(.sRGB, red: 0x6F / 255.0, green: 0x7F / 255.0, blue: 0x54 / 255.0, opacity: 1)
-    case .carol:
-      return Color(.sRGB, red: 0x9C / 255.0, green: 0x6E / 255.0, blue: 0x64 / 255.0, opacity: 1)
-    case .dave:
-      return Color(.sRGB, red: 0x4F / 255.0, green: 0x4C / 255.0, blue: 0x3F / 255.0, opacity: 1)
+    case .alice: return Color.avatarHornAlice
+    case .bob: return Color.avatarHornBob
+    case .carol: return Color.avatarHornCarol
+    case .dave: return Color.avatarHornDave
     }
   }
 
