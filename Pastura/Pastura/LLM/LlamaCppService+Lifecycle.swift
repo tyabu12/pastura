@@ -57,4 +57,64 @@ extension LlamaCppService {
       }.value
     }
   }
+
+  /// Atomic wait-and-claim primitive used by `generate` / `generateStream`.
+  ///
+  /// Combines `awaitGenerateIdle`'s polling with the guard claim into a
+  /// single check-and-set so multiple concurrent waiters cannot all observe
+  /// the flag clear and then race past a separate `withLock` claim. Returns
+  /// once the caller exclusively owns `generatingGuard` (set to `true`); the
+  /// caller is responsible for clearing the flag on exit (via `defer`).
+  ///
+  /// ## Why a separate primitive from `awaitGenerateIdle`
+  ///
+  /// `loadModel` / `unloadModel` use `awaitGenerateIdle` because they
+  /// only need to know "no generate is in flight" — they don't claim the
+  /// guard themselves (their own state machine uses `loadedState`).
+  /// `generate` / `generateStream`, in contrast, MUST atomically transition
+  /// the flag from clear to claimed: separating the wait and the claim
+  /// permits a multi-waiter race where the first claimant traps every
+  /// subsequent waiter on a now-true flag (Issue #221 post-initial-fix
+  /// regression — log evidence of three concurrent waiters
+  /// [`generateStream` retry × 2 + `unloadModel`] converging on a single
+  /// flag-clear event).
+  ///
+  /// ## Cancellation
+  ///
+  /// NOT cancellable, for the same use-after-free reason as
+  /// `awaitGenerateIdle`. Returning early while another generate holds
+  /// the flag would let `unloadModel` (or this caller's own load-check)
+  /// race C-pointer ownership.
+  ///
+  /// - Parameter caller: Diagnostic label for the warning log emitted on
+  ///   first observed contention. Use `"generate"` / `"generateStream"`.
+  func acquireGenerateGuard(caller: String) async {
+    let deadline = Date().addingTimeInterval(Self.awaitGenerateTimeoutSeconds)
+    var loggedWaiting = false
+    while true {
+      if tryClaimGeneratingGuard() { return }
+      if !loggedWaiting {
+        logger.warning(
+          "\(caller)() called while generate() in flight — awaiting completion")
+        loggedWaiting = true
+      }
+      if Date() > deadline {
+        let timeout = Self.awaitGenerateTimeoutSeconds
+        logger.error(
+          "\(caller)() timed out after \(timeout)s acquiring guard — force-claiming despite contention"
+        )
+        // Force-claim: prefer degraded safety (use-after-free risk) over
+        // a permanent hang. Matches `awaitGenerateIdle`'s "proceed despite
+        // in-flight" timeout behavior; if this ever fires, something else
+        // is fundamentally broken (likely a stuck inference or livelock).
+        forceClaimGeneratingGuard()
+        return
+      }
+      // Detached task — see awaitGenerateIdle. Same use-after-free reason
+      // requires this poll to be cancellation-immune.
+      await Task.detached {
+        try? await Task.sleep(for: .milliseconds(50))
+      }.value
+    }
+  }
 }

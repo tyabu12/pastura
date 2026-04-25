@@ -78,6 +78,54 @@ extension LlamaCppServiceTests {
       "generateStream() must wait for the guard to clear (elapsed: \(probe.elapsed))")
   }
 
+  @Test func multipleWaitersSerializeAfterFlagClear() async throws {
+    // Issue #221 follow-up race (PR #236 field repro): when multiple
+    // callers (e.g., LLMCaller's JSON parse retry firing back-to-back
+    // generateStream calls + an overlapping unloadModel from back-nav
+    // cleanup) all wait on the guard simultaneously, the flag-clear
+    // event wakes them all. A non-atomic wait + separate claim would
+    // let the first claimant trip every subsequent waiter on a
+    // now-true flag (the original PR #236 crash). The atomic
+    // `acquireGenerateGuard` wait-and-claim must serialize them: each
+    // in turn observes the flag clear, claims, runs its body, and
+    // releases via `defer`. Two waiters is enough to exercise the
+    // race — a non-atomic implementation would crash one of them.
+    let service = makeTestService()
+    service.setGeneratingForTesting(true)
+
+    let start = ContinuousClock.now
+    let task1 = Task<GenerateProbe, Never> {
+      do {
+        _ = try await service.generate(system: "sys", user: "usr")
+        return GenerateProbe(elapsed: ContinuousClock.now - start, error: nil)
+      } catch {
+        return GenerateProbe(elapsed: ContinuousClock.now - start, error: error)
+      }
+    }
+    let task2 = Task<GenerateProbe, Never> {
+      do {
+        _ = try await service.generate(system: "sys", user: "usr")
+        return GenerateProbe(elapsed: ContinuousClock.now - start, error: nil)
+      } catch {
+        return GenerateProbe(elapsed: ContinuousClock.now - start, error: error)
+      }
+    }
+
+    try await Task.sleep(for: .milliseconds(100))
+    service.setGeneratingForTesting(false)
+
+    let probe1 = await task1.value
+    let probe2 = await task2.value
+
+    // Both must complete with .notLoaded — neither may crash on the
+    // (formerly load-bearing) precondition.
+    #expect(probe1.error as? LLMError == .notLoaded)
+    #expect(probe2.error as? LLMError == .notLoaded)
+    // Both must have waited for the synthetic in-flight period to clear.
+    #expect(probe1.elapsed >= .milliseconds(80))
+    #expect(probe2.elapsed >= .milliseconds(80))
+  }
+
   @Test func generateDoesNotEarlyReturnOnTaskCancellation() async throws {
     // The wait at `generate` entry is intentionally NOT cancellable —
     // short-circuiting on `Task.cancel()` would let `unloadModel` free C
