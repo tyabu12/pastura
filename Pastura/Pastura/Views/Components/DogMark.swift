@@ -33,7 +33,11 @@ public struct DogMark: View {
   /// surrounding text can use `.alignmentGuide(.top) { _ in
   /// DogMark.visibleTopInset(forSize: size) }`. Kept on the component
   /// so the `y = 5` invariant lives next to the path that encodes it.
-  public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
+  ///
+  /// `nonisolated` because `.alignmentGuide(.top)` takes a `@Sendable`
+  /// closure under Swift 6's stricter inference; without it the call
+  /// crosses MainActor isolation and warns at the call site.
+  nonisolated public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
     size * 5.0 / 26.0
   }
 
