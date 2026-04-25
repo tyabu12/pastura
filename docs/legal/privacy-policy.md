@@ -15,9 +15,9 @@ as the data controller for any data the app might process.
 **Pastura does not collect, transmit, sell, or share your personal data.**
 
 All AI simulations run on your device using a local large language model
-([llama.cpp](https://github.com/ggerganov/llama.cpp)). Your scenarios,
-simulation history, and preferences never leave the device through any
-mechanism we control. Pastura's App Store privacy nutrition label is
+executed via the [llama.cpp](https://github.com/ggerganov/llama.cpp)
+inference runtime. Your scenarios, simulation history, and preferences
+never leave the device through any mechanism we control. Pastura's App Store privacy nutrition label is
 **"Data Not Collected"**.
 
 ## Data we do not collect
@@ -49,8 +49,9 @@ sandbox and is never transmitted off the device by Pastura:
 
 The required-reason API declarations in our
 [`PrivacyInfo.xcprivacy`](https://github.com/tyabu12/pastura/blob/main/Pastura/Pastura/PrivacyInfo.xcprivacy)
-reflect these uses: `UserDefaults` for app functionality (Apple reason code `CA92.1`)
-and `FileTimestamp` for files inside the app sandbox (`C617.1`). No tracking
+reflect these uses: the `UserDefaults` API is declared with reason `CA92.1`
+("app functionality") and the `FileTimestamp` API with reason `C617.1`
+("files inside the app sandbox"). No tracking
 domains are declared (`NSPrivacyTrackingDomains` is empty); `NSPrivacyTracking`
 is `false`.
 
@@ -63,8 +64,8 @@ Pastura's AI inference is fully on-device, but the app makes a small number
 of outbound network requests when you choose to use specific features:
 
 - **Curated scenario gallery** — when you open the in-app Share Board, the
-  app fetches a JSON index of curated scenarios from GitHub Pages
-  (`tyabu12.github.io`).
+  app fetches a JSON index of curated scenarios from GitHub-hosted content
+  at `raw.githubusercontent.com`.
 - **LLM model download** — when you install or switch a model, the app
   downloads the model file from Hugging Face
   (`huggingface.co`).
