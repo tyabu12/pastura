@@ -12,19 +12,23 @@ extension LlamaCppService {
 
   /// Waits until no `generate()` call is in flight before returning.
   ///
-  /// Called by `loadModel`/`unloadModel` to make the model-lifecycle API resilient
-  /// to being invoked while inference is still running. This happens in practice
-  /// because llama.cpp's C API does not respect Swift `Task` cancellation —
-  /// `generate()` always runs to completion even if the owning `Task` is cancelled.
-  /// Previously these paths used a `precondition` that crashed the app
-  /// (e.g., on `didReceiveMemoryWarning` mid-generate, user cancel mid-generate,
-  /// or stream teardown during the auto-regressive loop).
+  /// Called by `loadModel`/`unloadModel` (model-lifecycle resilience) and by
+  /// `generate`/`generateStream` themselves at entry (Issue #221 — back-to-back
+  /// run paths where the prior call's defer-clear hasn't completed yet). All
+  /// four sites use the same primitive because llama.cpp's C API does not
+  /// respect Swift `Task` cancellation: `generate()` always runs to completion
+  /// even if the owning `Task` is cancelled. Previously the lifecycle paths
+  /// used a `precondition` that crashed the app on legitimate cleanup paths
+  /// (`didReceiveMemoryWarning` mid-generate, stream teardown during the
+  /// auto-regressive loop); the generate-entry path used the same pattern and
+  /// crashed the app on in-app back-navigation followed by a new simulation.
   ///
   /// Cancellation: this wait is intentionally NOT cancellable. Returning early
-  /// while generate is still running would cause `unloadModel` to free the C
-  /// model/context pointers that generate is actively dereferencing — the
-  /// original use-after-free this precondition guarded against. The wait is
-  /// bounded by a 30s timeout as a safety net.
+  /// while generate is still running would let `unloadModel` (or a follow-on
+  /// `generate`) operate on C model/context pointers that the in-flight
+  /// generate is actively dereferencing — the original use-after-free this
+  /// precondition guarded against. The wait is bounded by a 30s timeout as
+  /// a safety net.
   func awaitGenerateIdle(caller: String) async {
     guard isGenerating() else {
       // Diagnostic log for #84 Bug 3: confirms whether reload raced through
