@@ -127,8 +127,6 @@ Handle the critic's output:
 
 *Skipped when `RESUMING=true`* (plan was already approved and critiqued in a prior session).
 
-Note: This is a mandatory review step between G1 and G2. The flow is G1 → Step 1b (critic) → G2 → G3 → G4.
-
 ## Step 2: Issue + Worktree — Gate G2
 
 **Precondition:** Step 1b critic review completed (or `RESUMING=true`).
@@ -204,7 +202,7 @@ Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING
 
 For each unit of work (let `K` = the current plan item number), check the item's complexity label:
 
-### 🔴 Complex items — Orchestrator implements directly (current flow)
+### 🔴 Complex items — Orchestrator implements directly
 
 1. Write test first (TDD mandatory per CLAUDE.md).
 2. Run targeted tests — confirm failure:
@@ -275,8 +273,6 @@ Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares t
 
 Note: `git commit` is NOT in the permissions allowlist — each commit triggers user approval (intentional security gate).
 
-SwiftLint runs automatically via PreToolUse hook on `git commit`.
-
 After all implementation, run full verification directly from the main session:
 
 1. Run the full test suite:
@@ -295,7 +291,7 @@ After all implementation, run full verification directly from the main session:
 
 ## Step 4: Review — Gate G3
 
-Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`, so no changes to `.claude/agents/code-reviewer.md` are required.
+Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist was enriched with a Pastura-specific trap cheat sheet in this same PR to keep the Sonnet-reviewer path safe.
 
 ```
 Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "...", prompt: "...")
@@ -326,7 +322,6 @@ Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "..
 ```
 
 Show the final review report. **Ask: "Create PR?"**
-- If unresolved after 3 iterations, present outstanding issues and let the user decide whether to proceed or continue fixing.
 
 ## Step 5: PR Creation — Gate G4
 
@@ -351,11 +346,9 @@ Present PR draft (title + body + label) for user review:
 - Title: Emoji prefix + Conventional format, under 70 chars (same emoji convention as CLAUDE.md commits)
 - Body: Summary bullets + test plan + `Closes #N` (always present — Issue is always created)
 - Label: from the table above
-- Assignee: always `@me`
 
 **Ask: "Create this PR?"**
 
-Use HEREDOC with distinctive delimiter:
 ```bash
 gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
   --title "..." --body "$(cat <<'IMPLEMENT_PR_BODY'
@@ -372,16 +365,10 @@ Push the branch first: `git push -u origin <branch>`. Then create the PR.
 
 After creation:
 - Print the PR URL.
-- "Wait for all required status checks to pass, then **merge manually**. Auto-merge is disabled."
+- "Wait for all required status checks to pass, then **merge manually**."
 
-## Step 6: Cleanup & Abandonment
+## Step 6: Cleanup
 
 **After merge** (guidance only — do NOT auto-execute):
 1. `ExitWorktree` with action `"remove"`
 2. `git checkout <default-branch> && git pull`
-3. Remote branch: GitHub may auto-delete; if not, `git push origin --delete <branch>`
-
-**To abandon** (no PR, or after PR created but want to cancel):
-1. If PR exists: `gh pr close <number>`
-2. `ExitWorktree` with action `"remove"`
-3. If already pushed: `git push origin --delete <branch>`
