@@ -53,6 +53,15 @@ struct StringLlamaBufferTests {
     #expect(result == "")
   }
 
+  @Test func lengthExceedingBufferCountIsSilentlyClamped() {
+    // `prefix(_:)` on `[CChar]` clamps to `count` rather than trapping;
+    // confirms callers passing a stale or oversized length don't crash
+    // (defensive — the C APIs we wrap always return `length <= buffer.count`).
+    let buffer: [CChar] = [0x68, 0x69]  // "hi"
+    let result = String(llamaBuffer: buffer, length: 999)
+    #expect(result == "hi")
+  }
+
   // MARK: - Invalid UTF-8
 
   @Test func invalidUTF8ReturnsEmptyString() {
