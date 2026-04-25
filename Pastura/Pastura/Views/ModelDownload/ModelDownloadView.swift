@@ -1,11 +1,19 @@
 import SwiftUI
 
-/// Screen for downloading the on-device LLM model.
+/// Screen for downloading a specific on-device LLM model.
 ///
-/// Shown when the model file is not yet on disk. Driven entirely by
-/// `ModelManager.state` — no separate ViewModel needed.
+/// Shown when the model file is not yet on disk, or as the cellular /
+/// low-demo-count fallback inside `DemoReplayHostView`. Driven entirely
+/// by `ModelManager.state[descriptor.id]` — no separate ViewModel needed.
 struct ModelDownloadView: View {
   let modelManager: ModelManager
+  let descriptor: ModelDescriptor
+
+  /// State for this descriptor, falling back to `.checking` if the entry is
+  /// missing from the state dict (only expected pre-`checkModelStatus`).
+  private var currentState: ModelState {
+    modelManager.state[descriptor.id] ?? .checking
+  }
 
   var body: some View {
     NavigationStack {
@@ -21,7 +29,7 @@ struct ModelDownloadView: View {
 
   @ViewBuilder
   private var content: some View {
-    switch modelManager.activeState {
+    switch currentState {
     case .checking:
       ProgressView("Checking device...")
 
@@ -71,9 +79,9 @@ struct ModelDownloadView: View {
       Text("Download AI Model")
         .font(.title2.bold())
       VStack(spacing: 4) {
-        Text("Gemma 4 E2B (Q4_K_M)")
+        Text(descriptor.displayName)
           .font(.subheadline)
-        Text("~3.1 GB download")
+        Text(formattedDownloadSize)
           .font(.caption)
           .foregroundStyle(.secondary)
       }
@@ -82,7 +90,7 @@ struct ModelDownloadView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       Button {
-        modelManager.startActiveDownload()
+        modelManager.startDownload(descriptor: descriptor)
       } label: {
         Label("Download Model", systemImage: "arrow.down.circle.fill")
           .frame(maxWidth: .infinity)
@@ -109,7 +117,7 @@ struct ModelDownloadView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
       Button("Cancel") {
-        modelManager.cancelActiveDownload()
+        modelManager.cancelDownload(descriptor: descriptor)
       }
       .foregroundStyle(.red)
     }
@@ -137,7 +145,7 @@ struct ModelDownloadView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       Button {
-        modelManager.startActiveDownload()
+        modelManager.startDownload(descriptor: descriptor)
       } label: {
         Label("Retry", systemImage: "arrow.clockwise")
           .frame(maxWidth: .infinity)
@@ -145,5 +153,16 @@ struct ModelDownloadView: View {
       .buttonStyle(.borderedProminent)
       .controlSize(.large)
     }
+  }
+
+  // MARK: - Helpers
+
+  /// Formatted descriptor size, e.g. `"~3.1 GB download"`. Mirrors the format
+  /// the Settings → Models row uses so the cover and the row stay consistent.
+  private var formattedDownloadSize: String {
+    let formatter = ByteCountFormatter()
+    formatter.countStyle = .file
+    formatter.allowedUnits = [.useGB]
+    return "~\(formatter.string(fromByteCount: descriptor.fileSize)) download"
   }
 }

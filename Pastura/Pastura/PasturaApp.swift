@@ -150,12 +150,19 @@ private struct RootView: View {
         }
 
       case .needsModelDownload:
-        DemoReplayHostView(modelManager: modelManager)
-          .onChange(of: modelManager.activeState) { _, newState in
-            if case .ready(let modelPath) = newState {
-              Task { await finalizeInit(modelPath: modelPath) }
+        // The `if let` is defensive — `.needsModelDownload` is only
+        // reached after `activeDescriptor` has been resolved (see
+        // `initialize()`), so production never falls through.
+        if let descriptor = modelManager.activeDescriptor {
+          DemoReplayHostView(modelManager: modelManager, descriptor: descriptor)
+            .onChange(of: modelManager.activeState) { _, newState in
+              if case .ready(let modelPath) = newState {
+                Task { await finalizeInit(modelPath: modelPath) }
+              }
             }
-          }
+        } else {
+          Color.clear
+        }
 
       case .ready(let dependencies):
         HomeView()
