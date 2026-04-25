@@ -37,7 +37,11 @@ public struct SheepAvatar: View {
   /// Kept on the component so the `y = 7` invariant lives next to the
   /// wool-circle geometry that encodes it — mirrors `DogMark`'s
   /// `visibleTopInset(forSize:)` pattern.
-  public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
+  ///
+  /// `nonisolated` because `.alignmentGuide(.top)` takes a `@Sendable`
+  /// closure under Swift 6's stricter inference; without it the call
+  /// crosses MainActor isolation and warns at the call site.
+  nonisolated public static func visibleTopInset(forSize size: CGFloat) -> CGFloat {
     size * 7.0 / 28.0
   }
 

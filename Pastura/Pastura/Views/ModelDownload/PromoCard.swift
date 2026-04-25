@@ -199,7 +199,11 @@ struct PromoCard: View {
 
   /// Point size of the dog mark in the promo body row. Spec §PromoCard
   /// body structure (`demo-replay-ui.md` §PromoCard) pins this at 26 pt.
-  private static let dogSize: CGFloat = 26
+  ///
+  /// `nonisolated` because it is read inside a `.alignmentGuide(.top)`
+  /// `@Sendable` closure (line 182); pure value, safe to publish across
+  /// isolation domains.
+  nonisolated private static let dogSize: CGFloat = 26
 
   // MARK: - Decorative layers
 
