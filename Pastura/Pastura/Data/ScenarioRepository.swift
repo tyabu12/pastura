@@ -57,7 +57,7 @@ nonisolated public final class GRDBScenarioRepository: ScenarioRepository, Senda
           throw DataError.readonly(id: record.id)
         }
       }
-      var mutable = record
+      let mutable = record
       try mutable.save(db)
     }
   }
