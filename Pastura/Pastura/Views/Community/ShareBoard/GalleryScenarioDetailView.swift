@@ -29,11 +29,18 @@ struct GalleryScenarioDetailView: View {
     }
     .navigationTitle(scenario.title)
     .task {
+      // Defer assignment until `load()` completes so the action button
+      // never renders "Try this scenario" between VM creation and the
+      // installed-snapshot refresh landing — already-installed users
+      // would otherwise see "Try" briefly before it switches to "Update"
+      // / "Open local copy". Guard prevents re-creation under `.task`
+      // re-fire.
+      guard viewModel == nil else { return }
       let newViewModel = ShareBoardViewModel(
         galleryService: dependencies.galleryService,
         repository: dependencies.scenarioRepository)
-      viewModel = newViewModel
       await newViewModel.load()
+      viewModel = newViewModel
     }
     .alert(item: $outcomeAlert) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
