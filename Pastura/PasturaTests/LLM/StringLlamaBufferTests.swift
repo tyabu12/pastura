@@ -13,7 +13,7 @@ struct StringLlamaBufferTests {
     // Buffer: "hello" + trailing garbage past length
     var buffer = [CChar](repeating: 0, count: 16)
     let utf8: [CChar] = [0x68, 0x65, 0x6C, 0x6C, 0x6F]  // "hello"
-    for (i, c) in utf8.enumerated() { buffer[i] = c }
+    for (index, byte) in utf8.enumerated() { buffer[index] = byte }
     buffer[5] = 0x21  // '!' past the length boundary — must NOT be decoded
 
     let result = String(llamaBuffer: buffer, length: 5)
