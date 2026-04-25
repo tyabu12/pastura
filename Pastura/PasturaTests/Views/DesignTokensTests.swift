@@ -96,8 +96,8 @@ struct DesignTokensTests {
 
   // MARK: - §2.5 Avatars
 
-  @Test func aliceCreamMatchesSpec() {
-    let token = PasturaPalette.avatarAlice
+  @Test func aliceBodyMatchesSpec() {
+    let token = PasturaPalette.avatarBodyAlice
     #expect(approxEqual(token.red, 0xF2 / 255.0))
     #expect(approxEqual(token.green, 0xE3 / 255.0))
     #expect(approxEqual(token.blue, 0xC8 / 255.0))
