@@ -130,7 +130,7 @@ Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.ap
 | Feature                              | Notes                                      |
 |--------------------------------------|--------------------------------------------|
 | Scenario marketplace                 | Browse, rate, download community scenarios |
-| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Gated on ADR-006; engineering beyond API-contract exploration is out of scope until ADR-006 merges (ADR-005 §7.5, §10). |
+| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Gated on ADR-006; engineering beyond API-contract exploration is out of scope until ADR-006 merges (ADR-005 §7.5). |
 | Scenario rankings / popular templates| Trending, most-run, highest-rated          |
 | Simulation result auto-summary       | LLM-generated summary of what happened     |
 | Relationship graph visualization     | Agent interaction network diagram          |
