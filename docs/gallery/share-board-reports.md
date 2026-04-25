@@ -23,7 +23,7 @@ time. Misconfiguring any of the below breaks that compliance claim.
 
 This form also co-tenants as the §1.5 general-contact surface reached
 from the App Store Connect Support URL landing page
-(`docs/support/index.html`, #182). General feedback — no scenario
+(`pages/support/index.html`, #182). General feedback — no scenario
 context — is a legitimate second use. The form's title, description,
 and Scenario ID helper copy all signal this; keep them in sync when
 editing.
