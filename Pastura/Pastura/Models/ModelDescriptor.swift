@@ -91,3 +91,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     self.systemPromptSuffix = systemPromptSuffix
   }
 }
+
+// `ModelDescriptor.id: ModelID` already provides the natural identity, so the
+// conformance is a marker. Required for SwiftUI APIs like
+// `.fullScreenCover(item:)` that want `Identifiable` items.
+extension ModelDescriptor: Identifiable {}

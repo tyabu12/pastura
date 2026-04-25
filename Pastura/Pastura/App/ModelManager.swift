@@ -65,11 +65,18 @@ public enum ModelState: Equatable, Sendable {
 /// |-----------------------|-------------------------|--------------------------------|-------------------------------|---------------|
 /// | `startDownload(d)`    | → `.downloading`†       | no-op (own descriptor)         | no-op (already done)          | → `.downloading` |
 /// | `cancelDownload(d)`   | no-op                   | → `.notDownloaded`, keep partial | no-op                       | no-op         |
+/// | `cancelDownloadAndDelete(d)`‡ | → `.notDownloaded`, idempotent | → `.notDownloaded`, remove partial + final | → `.notDownloaded`, remove file | → `.notDownloaded`, remove partial |
 /// | `deleteModel(id:)`    | throw `.notReadyForDelete`               | throw `.notReadyForDelete` (use `cancelDownload` instead) | remove file, → `.notDownloaded` | throw `.notReadyForDelete` |
 /// | `setActiveModel(id)`  | validate id ∈ catalog, write UserDefaults — does not touch state dict |
 ///
 /// †: `startDownload` is also rejected (no-op) if ANY descriptor is already
 /// `.downloading` (sequential-download policy).
+///
+/// ‡: `cancelDownloadAndDelete` is the **destructive** variant of cancel,
+/// used by Settings → Models cover when the user explicitly confirms
+/// "stop and delete". It awaits the in-flight download task to settle
+/// before removing files, so a race between URLSession success and the
+/// finalize-rename cannot leave an orphan `.ready` file behind.
 ///
 /// Lives in the App layer because it depends on HTTP (URLSession), filesystem
 /// (FileManager), and device capabilities (ProcessInfo) — all App-level concerns.
@@ -313,12 +320,43 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   /// when the current state is `.downloading`; `.ready` / `.error` /
   /// `.notDownloaded` are preserved so a stray call from the UI cannot
   /// silently flip a completed model to `.notDownloaded`.
+  ///
+  /// See also `cancelDownloadAndDelete(descriptor:)` for a destructive
+  /// variant that removes both the partial and final files (used by the
+  /// Settings → Models cover when the user confirms "stop and delete").
   func cancelDownload(descriptor: ModelDescriptor) {
     downloadTasks[descriptor.id]?.cancel()
     downloadTasks[descriptor.id] = nil
     if case .downloading = state[descriptor.id] {
       state[descriptor.id] = .notDownloaded
     }
+  }
+
+  /// Destructive cancel: stops any in-flight download, removes both the
+  /// partial download file and the final model file, and transitions state
+  /// to `.notDownloaded`. Used by Settings → Models when the user explicitly
+  /// confirms "stop and delete" via the cover's confirmation dialog.
+  ///
+  /// Use `cancelDownload(descriptor:)` when the user wants to abort but
+  /// leave the partial file for a future resume — that is the
+  /// `.needsModelDownload` slot's contract and the Settings per-row Cancel
+  /// flow.
+  ///
+  /// The `await downloadTasks[id]?.value` step is **load-bearing**: if the
+  /// cancel arrives between URLSession's success callback and
+  /// `finalizeDownload`'s `moveItem`, awaiting the task lets that rename
+  /// either complete or get cancelled before we remove files. Otherwise
+  /// an orphan `.ready` file could remain at `modelFileURL` after the
+  /// rename, contradicting the post-condition `state == .notDownloaded`.
+  /// The double-remove (`partialURL` then `modelFileURL`) is for the same
+  /// reason — the file may have been renamed before we got here.
+  func cancelDownloadAndDelete(descriptor: ModelDescriptor) async {
+    downloadTasks[descriptor.id]?.cancel()
+    await downloadTasks[descriptor.id]?.value
+    downloadTasks[descriptor.id] = nil
+    try? fileManager.removeItem(at: downloadFileURL(for: descriptor))
+    try? fileManager.removeItem(at: modelFileURL(for: descriptor))
+    state[descriptor.id] = .notDownloaded
   }
 
   /// Removes a `.ready` model from disk, transitioning it back to `.notDownloaded`.
