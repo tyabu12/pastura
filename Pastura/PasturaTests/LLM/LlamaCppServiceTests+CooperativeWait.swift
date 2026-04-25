@@ -10,6 +10,13 @@ private struct GenerateProbe: Sendable {
   let error: (any Error)?
 }
 
+/// Warmup duration: lets spawned probe tasks reach `acquireGenerateGuard`'s
+/// poll before the flag-clear window opens. Without it, a heavily-loaded CI
+/// runner can delay Task scheduling past the 100 ms hold and the probe
+/// would observe `flag == false` on its very first poll, defeating the
+/// wait-exercise the test is supposed to perform.
+private let probeWarmup: Duration = .milliseconds(20)
+
 /// Issue #221 regression — `generate()` / `generateStream()` must cooperatively
 /// wait at entry when a prior call's `generatingGuard` is still set, instead
 /// of `precondition`-trapping on the back-to-back back-nav → restart path.
@@ -41,6 +48,7 @@ extension LlamaCppServiceTests {
       }
     }
 
+    try await Task.sleep(for: probeWarmup)
     try await Task.sleep(for: .milliseconds(100))
     service.setGeneratingForTesting(false)
 
@@ -68,6 +76,7 @@ extension LlamaCppServiceTests {
       }
     }
 
+    try await Task.sleep(for: probeWarmup)
     try await Task.sleep(for: .milliseconds(100))
     service.setGeneratingForTesting(false)
 
@@ -111,6 +120,11 @@ extension LlamaCppServiceTests {
       }
     }
 
+    // Both tasks must reach acquireGenerateGuard's poll before the
+    // flag-clear window, otherwise the late starter would observe
+    // flag=false on its first poll and not actually exercise the
+    // multi-waiter race.
+    try await Task.sleep(for: probeWarmup)
     try await Task.sleep(for: .milliseconds(100))
     service.setGeneratingForTesting(false)
 

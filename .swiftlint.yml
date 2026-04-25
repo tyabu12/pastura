@@ -32,3 +32,24 @@ opt_in_rules:
   - private_outlet
   - redundant_nil_coalescing
   - unused_import
+
+custom_rules:
+  # ADR-002 §12 — `tryClaimGeneratingGuard` / `forceClaimGeneratingGuard` are
+  # internal-access only because the cross-file `+Lifecycle.swift` extension
+  # cannot reach the `private` `generatingGuard`. They are NOT a public
+  # contract: the only legitimate caller is `acquireGenerateGuard` in
+  # `+Lifecycle.swift`. A future caller that touches these directly would
+  # resurrect the multi-waiter race that Issue #221 fixed (separate wait +
+  # claim != atomic wait-and-claim). This rule blocks accidental re-introduction.
+  generating_guard_helpers_scope:
+    name: "generating_guard_helpers_scope"
+    regex: '\b(tryClaimGeneratingGuard|forceClaimGeneratingGuard)\b'
+    match_kinds:
+      - identifier
+    included:
+      - 'Pastura/Pastura/.*\.swift'
+    excluded:
+      - 'Pastura/Pastura/LLM/LlamaCppService\.swift'
+      - 'Pastura/Pastura/LLM/LlamaCppService\+Lifecycle\.swift'
+    severity: error
+    message: "tryClaim/forceClaimGeneratingGuard are the private contract for acquireGenerateGuard (LlamaCppService+Lifecycle.swift). Use acquireGenerateGuard(caller:) instead — see ADR-002 §12."
