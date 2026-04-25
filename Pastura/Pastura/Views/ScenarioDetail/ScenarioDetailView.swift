@@ -48,9 +48,16 @@ struct ScenarioDetailView: View {
       }
     }
     .task {
-      viewModel = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
-      await viewModel?.load(scenarioId: scenarioId)
-      await viewModel?.refreshGalleryStatus(using: dependencies.galleryService)
+      // Defer assignment until both `load()` and `refreshGalleryStatus()`
+      // complete so the gallery banner never flips from
+      // "From Share Board (read-only)" to "Update available" mid-render.
+      // Guard prevents re-creation under `.task` re-fire.
+      guard viewModel == nil else { return }
+      let newViewModel = ScenarioDetailViewModel(
+        repository: dependencies.scenarioRepository)
+      await newViewModel.load(scenarioId: scenarioId)
+      await newViewModel.refreshGalleryStatus(using: dependencies.galleryService)
+      viewModel = newViewModel
     }
   }
 
