@@ -96,11 +96,88 @@ struct DesignTokensTests {
 
   // MARK: - §2.5 Avatars
 
-  @Test func aliceCreamMatchesSpec() {
-    let token = PasturaPalette.avatarAlice
+  @Test func aliceBodyMatchesSpec() {
+    let token = PasturaPalette.avatarBodyAlice
     #expect(approxEqual(token.red, 0xF2 / 255.0))
     #expect(approxEqual(token.green, 0xE3 / 255.0))
     #expect(approxEqual(token.blue, 0xC8 / 255.0))
+  }
+
+  @Test func bobBodyMatchesSpec() {
+    let token = PasturaPalette.avatarBodyBob
+    #expect(approxEqual(token.red, 0xDD / 255.0))
+    #expect(approxEqual(token.green, 0xE4 / 255.0))
+    #expect(approxEqual(token.blue, 0xCC / 255.0))
+  }
+
+  @Test func carolBodyMatchesSpec() {
+    let token = PasturaPalette.avatarBodyCarol
+    #expect(approxEqual(token.red, 0xEA / 255.0))
+    #expect(approxEqual(token.green, 0xD6 / 255.0))
+    #expect(approxEqual(token.blue, 0xD1 / 255.0))
+  }
+
+  @Test func daveBodyMatchesSpec() {
+    let token = PasturaPalette.avatarBodyDave
+    #expect(approxEqual(token.red, 0xD9 / 255.0))
+    #expect(approxEqual(token.green, 0xD7 / 255.0))
+    #expect(approxEqual(token.blue, 0xC9 / 255.0))
+  }
+
+  @Test func aliceFaceMatchesSpec() {
+    let token = PasturaPalette.avatarFaceAlice
+    #expect(approxEqual(token.red, 0xC9 / 255.0))
+    #expect(approxEqual(token.green, 0xA9 / 255.0))
+    #expect(approxEqual(token.blue, 0x79 / 255.0))
+  }
+
+  @Test func bobFaceMatchesSpec() {
+    let token = PasturaPalette.avatarFaceBob
+    #expect(approxEqual(token.red, 0x8A / 255.0))
+    #expect(approxEqual(token.green, 0x9A / 255.0))
+    #expect(approxEqual(token.blue, 0x6C / 255.0))
+  }
+
+  @Test func carolFaceMatchesSpec() {
+    let token = PasturaPalette.avatarFaceCarol
+    #expect(approxEqual(token.red, 0xB8 / 255.0))
+    #expect(approxEqual(token.green, 0x87 / 255.0))
+    #expect(approxEqual(token.blue, 0x7C / 255.0))
+  }
+
+  @Test func daveFaceMatchesSpec() {
+    let token = PasturaPalette.avatarFaceDave
+    #expect(approxEqual(token.red, 0x6B / 255.0))
+    #expect(approxEqual(token.green, 0x68 / 255.0))
+    #expect(approxEqual(token.blue, 0x58 / 255.0))
+  }
+
+  @Test func aliceHornMatchesSpec() {
+    let token = PasturaPalette.avatarHornAlice
+    #expect(approxEqual(token.red, 0xB2 / 255.0))
+    #expect(approxEqual(token.green, 0x93 / 255.0))
+    #expect(approxEqual(token.blue, 0x64 / 255.0))
+  }
+
+  @Test func bobHornMatchesSpec() {
+    let token = PasturaPalette.avatarHornBob
+    #expect(approxEqual(token.red, 0x6F / 255.0))
+    #expect(approxEqual(token.green, 0x7F / 255.0))
+    #expect(approxEqual(token.blue, 0x54 / 255.0))
+  }
+
+  @Test func carolHornMatchesSpec() {
+    let token = PasturaPalette.avatarHornCarol
+    #expect(approxEqual(token.red, 0x9C / 255.0))
+    #expect(approxEqual(token.green, 0x6E / 255.0))
+    #expect(approxEqual(token.blue, 0x64 / 255.0))
+  }
+
+  @Test func daveHornMatchesSpec() {
+    let token = PasturaPalette.avatarHornDave
+    #expect(approxEqual(token.red, 0x4F / 255.0))
+    #expect(approxEqual(token.green, 0x4C / 255.0))
+    #expect(approxEqual(token.blue, 0x3F / 255.0))
   }
 
   @Test func avatarHighlightIsTranslucentWhite() {
