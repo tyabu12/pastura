@@ -38,8 +38,9 @@ After fetching the issue, check for an existing plan comment:
 2. If a plan comment is found:
    - Set `RESUMING=true`, `ISSUE_NUMBER=N`, and capture `COMMENT_ID`.
    - Parse checkboxes: count `- [x]` (done) vs `- [ ]` (remaining). Identify `NEXT_ITEM` (first unchecked item number).
-   - Extract `TASK_TYPE`, branch name, and `REVIEWER_MODEL` from the `## Metadata` section in the comment. If `Reviewer` is absent from Metadata (e.g., older plan comment pre-dating this field), default `REVIEWER_MODEL=opus`.
+   - Extract `TASK_TYPE`, branch name, and `REVIEWER_MODEL` from the `## Metadata` section in the comment. **Normalize `REVIEWER_MODEL` to lowercase** (`opus` / `sonnet`) when binding — Metadata records it title-case (`Opus` / `Sonnet`) for readability, but downstream Agent calls use lowercase. If `Reviewer` is absent from Metadata (e.g., older plan comment pre-dating this field), default `REVIEWER_MODEL=opus`.
    - Derive `SLUG` from the branch name.
+   - **Coupling re-check**: if the resumed plan contains any `🔴` item but `REVIEWER_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade to Opus before continuing. Reason: Opus-implemented items should never be Sonnet-reviewed.
    - If **all items are already checked**: ensure you are on the feature branch or in the correct worktree, then report "All {TOTAL} items already complete. Proceeding to review." and **skip to Step 4** directly.
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
@@ -85,7 +86,7 @@ After fetching the issue, check for an existing plan comment:
    - LLM backend code or prompt templates
    - Design system foundations (`docs/design/design-system.md`, `DesignTokens*.swift`)
 
-   **Sonnet reviewer acceptable if the change is strictly one of:**
+   **Sonnet reviewer acceptable** — the change must be strictly a subset of the 🟢 simple-item criteria above (existing pattern reuse, test-only changes following an existing pattern, type/error case additions, doc comments, minor fixes), AND none of the items match the Opus-required list. Concretely, the most common Sonnet-acceptable shapes are:
    - New `@Test` cases in an **existing** suite following the file's existing pattern (not new suites, new helpers, or trait changes like `.timeLimit` / `.serialized`)
    - Documentation updates (`docs/ROADMAP.md`, `docs/examples/**`, `docs/gallery/**`, `docs/prototype/**`, doc comments)
    - Simple refactor within a single file without crossing layer boundaries
@@ -100,8 +101,8 @@ After fetching the issue, check for an existing plan comment:
    ```
    - **Reviewer**: Opus (reason: touches Engine/ dependency boundary)
    ```
-   The user may override at G1. Resumed sessions recover the decision from `## Metadata` (see Step 0).
-5. **Ask: "Proceed with this plan?"** — For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
+   Store the rationale string as `REVIEWER_RATIONALE` (the `(reason: ...)` tail) for use in the Step 2a template. The user may override at G1. Resumed sessions recover the decision from `## Metadata` (see Step 0).
+5. **Ask: "Proceed with this plan and reviewer-model choice?"** — present both the plan checkboxes and the proposed `Reviewer:` decision so the user can override the reviewer at G1. For single-commit fixes, combine G1 and G2 into one confirmation, but still run Step 1b (critic review) before creating the worktree.
 
 After user approval, proceed to Step 1b (mandatory critic review).
 
@@ -297,8 +298,10 @@ After all implementation, run full verification directly from the main session:
 Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`, so no changes to `.claude/agents/code-reviewer.md` are required.
 
 ```
-Agent(subagent_type: "code-reviewer", model: $REVIEWER_MODEL, description: "...", prompt: "...")
+Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "...", prompt: "...")
 ```
+
+`$REVIEWER_MODEL` is the lowercase form (`opus` / `sonnet`) bound at Step 0 / Step 1 — the surrounding quotes match the Step 3 Sonnet-delegation convention (`Agent(model: "sonnet")`).
 
 > **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
