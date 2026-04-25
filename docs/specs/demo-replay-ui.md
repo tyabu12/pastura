@@ -168,9 +168,9 @@ ZStack(alignment: .top) {
 - 42pt 丸。「羊」シルエット（SVGで実装済み、詳細は HTML 参照）
 - キャラごとの色違い（顔まわり）：
   - Alice: `#f2e3c8`（クリーム）
-  - Bob: `#d9e2c6`（セージ）
-  - Carol: `#ebd4d4`（ピンク）
-  - Dave: `#d0d7dc`（スレート）
+  - Bob: `#dde4cc`（セージ）
+  - Carol: `#ead6d1`（ピンク）
+  - Dave: `#d9d7c9`（スレート）
 - SwiftUI 実装は `ZStack` で丸 + カスタム `Shape` による耳・顔輪郭でOK
 
 ### PromoCard（Frame 1/2/3）
@@ -340,11 +340,8 @@ extension Color {
     static let metaDotOff        = Color(hex: 0x5A6428).opacity(0.38)
     static let metaDotOn         = Color(hex: 0x6B7852)
     
-    // Avatars (sheep)
-    static let sheepCream        = Color(hex: 0xF2E3C8)   // Alice
-    static let sheepSage         = Color(hex: 0xD9E2C6)   // Bob
-    static let sheepPink         = Color(hex: 0xEBD4D4)   // Carol
-    static let sheepSlate        = Color(hex: 0xD0D7DC)   // Dave
+    // Avatars: see `Color.avatarBodyAlice/Bob/Carol/Dave` in
+    // `Pastura/Views/DesignTokens+SwiftUI.swift`. Canonical: design-system.md §2.5.
 }
 
 extension Font {
