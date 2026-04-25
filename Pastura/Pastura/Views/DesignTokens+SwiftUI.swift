@@ -49,10 +49,18 @@ extension Color {
   static let metaDotOnL4 = PasturaPalette.metaDotOnL4.color
 
   // §2.5 Avatars
-  static let avatarAlice = PasturaPalette.avatarAlice.color
-  static let avatarBob = PasturaPalette.avatarBob.color
-  static let avatarCarol = PasturaPalette.avatarCarol.color
-  static let avatarDave = PasturaPalette.avatarDave.color
+  static let avatarBodyAlice = PasturaPalette.avatarBodyAlice.color
+  static let avatarBodyBob = PasturaPalette.avatarBodyBob.color
+  static let avatarBodyCarol = PasturaPalette.avatarBodyCarol.color
+  static let avatarBodyDave = PasturaPalette.avatarBodyDave.color
+  static let avatarFaceAlice = PasturaPalette.avatarFaceAlice.color
+  static let avatarFaceBob = PasturaPalette.avatarFaceBob.color
+  static let avatarFaceCarol = PasturaPalette.avatarFaceCarol.color
+  static let avatarFaceDave = PasturaPalette.avatarFaceDave.color
+  static let avatarHornAlice = PasturaPalette.avatarHornAlice.color
+  static let avatarHornBob = PasturaPalette.avatarHornBob.color
+  static let avatarHornCarol = PasturaPalette.avatarHornCarol.color
+  static let avatarHornDave = PasturaPalette.avatarHornDave.color
   static let avatarEar = PasturaPalette.avatarEar.color
   static let avatarEarInner = PasturaPalette.avatarEarInner.color
   static let avatarNose = PasturaPalette.avatarNose.color

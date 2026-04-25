@@ -168,9 +168,9 @@ ZStack(alignment: .top) {
 - 42pt 丸。「羊」シルエット（SVGで実装済み、詳細は HTML 参照）
 - キャラごとの色違い（顔まわり）：
   - Alice: `#f2e3c8`（クリーム）
-  - Bob: `#d9e2c6`（セージ）
-  - Carol: `#ebd4d4`（ピンク）
-  - Dave: `#d0d7dc`（スレート）
+  - Bob: `#dde4cc`（セージ）
+  - Carol: `#ead6d1`（ピンク）
+  - Dave: `#d9d7c9`（スレート）
 - SwiftUI 実装は `ZStack` で丸 + カスタム `Shape` による耳・顔輪郭でOK
 
 ### PromoCard（Frame 1/2/3）
@@ -340,11 +340,8 @@ extension Color {
     static let metaDotOff        = Color(hex: 0x5A6428).opacity(0.38)
     static let metaDotOn         = Color(hex: 0x6B7852)
     
-    // Avatars (sheep)
-    static let sheepCream        = Color(hex: 0xF2E3C8)   // Alice
-    static let sheepSage         = Color(hex: 0xD9E2C6)   // Bob
-    static let sheepPink         = Color(hex: 0xEBD4D4)   // Carol
-    static let sheepSlate        = Color(hex: 0xD0D7DC)   // Dave
+    // Avatars: see `Color.avatarBodyAlice/Bob/Carol/Dave` in
+    // `Pastura/Views/DesignTokens+SwiftUI.swift`. Canonical: design-system.md §2.5.
 }
 
 extension Font {
@@ -392,7 +389,7 @@ enum Radius {
 | アセット | 形式 | 備考 |
 |---------|------|------|
 | 犬（横顔） | Vector / SF Symbol | `../design/demo-replay-reference.html` の `DOG_SIDE` SVG を SwiftUI `Path` に変換 |
-| 羊アバター（4色） | Vector | 同 HTML 内の `SHEEP()` 関数のSVG。色違いで4バリエーション |
+| 羊アバター（4色） | Vector | 同 HTML 内の `sheepAvatar()` 関数のSVG。色違いで4バリエーション |
 | 葉（phase-l の菱形） | `RoundedRectangle` + rotation | SVG不要、SwiftUI で生成可 |
 
 **ブランドカラーやロゴ**: Pastura のロゴは別途入手してください（本デザインでは未使用）。
@@ -413,7 +410,7 @@ enum Radius {
 - [ ] `ModelDownloadDemoView` (host view) を実装: `ReplayViewModel` をホストし、`ModelManager.progress` を観察して 8-dot + Frame 4 を駆動、Slot rotation タイマーをローカル `@State` で所有、`@Environment(\.scenePhase)` を VM に forward（spec §4 / ADR-007 §3 に従う）
 - [ ] `PhaseHeader`, `ChatBubble`, `ThinkingBlock`, `PromoCard`, `PromoMeta`, `AssistantMark`, `SheepAvatar` コンポーネントを分割実装
 - [ ] `DOG_SIDE` SVG を SwiftUI `Path` に変換（犬の横顔）
-- [ ] `SHEEP()` SVG を SwiftUI `Path` に変換（羊の顔、色パラメータ化）
+- [ ] `sheepAvatar()` SVG を SwiftUI `Path` に変換（羊の顔、色パラメータ化）
 - [ ] チャットバブルのフェードインアニメーション（各 180ms ずらし）
 - [ ] DL ドット点灯トランジション（progress 変化時の 600ms ease）
 - [ ] Slot A/B/C rotation: 〜20 秒 / slot の独立タイマー + 400ms cross-fade 切替。interval は実装時に調整
