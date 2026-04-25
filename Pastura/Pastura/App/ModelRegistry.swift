@@ -13,8 +13,9 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 ///
 /// Entries are constructed at compile time from known-good HuggingFace metadata
 /// (pinned commit SHA, file size, SHA-256). This keeps model downloads
-/// deterministic across app versions and users — see Issue #82 for the
-/// deferred "dynamic metadata" alternative.
+/// deterministic across app versions and users — see ROADMAP Phase 2 TD
+/// "Remote model manifest" (originally #82) for the deferred dynamic-fetch
+/// alternative.
 ///
 /// `ModelManager` consumes this catalog to resolve per-model file paths,
 /// download URLs, and integrity checks. `LlamaCppService` consumes individual
