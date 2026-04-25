@@ -5,9 +5,25 @@ import SwiftUI
 /// Shown when the model file is not yet on disk, or as the cellular /
 /// low-demo-count fallback inside `DemoReplayHostView`. Driven entirely
 /// by `ModelManager.state[descriptor.id]` — no separate ViewModel needed.
+///
+/// `onCancel` overrides the in-progress Cancel button when set: the
+/// Settings cover passes a destructive cancel (delete partial + final),
+/// while the first-launch slot leaves it nil and falls through to the
+/// resume-friendly `cancelDownload(descriptor:)`.
 struct ModelDownloadView: View {
   let modelManager: ModelManager
   let descriptor: ModelDescriptor
+  let onCancel: (() -> Void)?
+
+  init(
+    modelManager: ModelManager,
+    descriptor: ModelDescriptor,
+    onCancel: (() -> Void)? = nil
+  ) {
+    self.modelManager = modelManager
+    self.descriptor = descriptor
+    self.onCancel = onCancel
+  }
 
   /// State for this descriptor, falling back to `.checking` if the entry is
   /// missing from the state dict (only expected pre-`checkModelStatus`).
@@ -117,7 +133,13 @@ struct ModelDownloadView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
       Button("Cancel") {
-        modelManager.cancelDownload(descriptor: descriptor)
+        if let onCancel {
+          onCancel()
+        } else {
+          // First-launch fallback: resume-friendly cancel preserves the
+          // partial file so the user can retry without re-downloading.
+          modelManager.cancelDownload(descriptor: descriptor)
+        }
       }
       .foregroundStyle(.red)
     }

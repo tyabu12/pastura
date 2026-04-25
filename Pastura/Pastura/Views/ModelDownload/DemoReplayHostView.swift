@@ -84,11 +84,6 @@ struct DemoReplayHostView: View {
 
   var body: some View {
     currentView
-      .overlay(alignment: .topTrailing) {
-        if onCancel != nil {
-          cancelButton
-        }
-      }
       .task { await initialLoad() }
       .onChange(of: scenePhase) { _, newPhase in
         handleScenePhase(newPhase)
@@ -114,21 +109,17 @@ struct DemoReplayHostView: View {
       }
   }
 
-  /// Top-trailing dismiss affordance, only present when `onCancel` is wired.
-  /// The confirmation dialog gates the destructive action so a fat-finger
-  /// tap does not throw away progress.
-  @ViewBuilder
-  private var cancelButton: some View {
-    Button {
-      isShowingCancelConfirmation = true
-    } label: {
-      Image(systemName: "xmark.circle.fill")
-        .font(.system(size: 28))
-        .symbolRenderingMode(.hierarchical)
-        .foregroundStyle(Color.inkSecondary)
-        .padding(Spacing.s)
-    }
-    .accessibilityLabel(String(localized: "Cancel download"))
+  /// Closure handed to the children that own the visible cancel
+  /// affordance (`PromoCard` in the demo branch, `ModelDownloadView`
+  /// in the cellular fallback). Returns `nil` when the caller did not
+  /// wire `onCancel`, which lets the children hide their cancel UI —
+  /// the first-launch slot relies on this to stay uncancellable.
+  /// Tapping the affordance flips a `@State` flag here so the host
+  /// owns the confirmation dialog; the destructive action eventually
+  /// fires `onCancel?()` from inside that dialog.
+  private var triggerCancelConfirmation: (() -> Void)? {
+    guard onCancel != nil else { return nil }
+    return { isShowingCancelConfirmation = true }
   }
 
   @ViewBuilder
@@ -139,7 +130,10 @@ struct DemoReplayHostView: View {
       replayHadStarted: replayHadStarted,
       isCellular: isCellular) {
     case .modelDownload:
-      ModelDownloadView(modelManager: modelManager, descriptor: descriptor)
+      ModelDownloadView(
+        modelManager: modelManager,
+        descriptor: descriptor,
+        onCancel: triggerCancelConfirmation)
     case .demoHost:
       demoHostBody
     }
@@ -219,7 +213,8 @@ struct DemoReplayHostView: View {
       PromoCard(
         modelState: currentState,
         replayHadStarted: replayHadStarted,
-        onRetry: { modelManager.startDownload(descriptor: descriptor) })
+        onRetry: { modelManager.startDownload(descriptor: descriptor) },
+        onCancel: triggerCancelConfirmation)
     }
   }
 
