@@ -41,6 +41,29 @@ This keeps GUI and CLI builds sharing one cache per worktree and makes
   CI ever starts passing `-derivedDataPath`, update both cache paths in
   `.github/workflows/ci.yml` in the same PR.
 
+### Concurrent-session simulator gate
+
+`sim-dest.sh` blocks at `source` time if another `xcodebuild test` with a
+UDID-pinned iOS Simulator destination (`...,id=<UDID>`) is already running
+on this machine — poll every 5s, jitter 1.0–5.0s before claiming, 15-min
+timeout. This avoids same-UDID clone/boot/teardown collisions across
+concurrent worktree sessions, which otherwise produce 200+ 0.000s "failed"
+cascades. The match pattern intentionally requires `,id=` so the pre-commit
+`xcodebuild build -destination 'generic/platform=iOS Simulator'` hook does
+not trigger the gate (build-only invocations don't book a simulator).
+
+Override with `PASTURA_SKIP_SIM_WAIT=1 source scripts/sim-dest.sh ...`:
+
+- when intentionally running parallel suites on distinct simulators, or
+- when sourcing only to inspect `$DEST` (e.g., for `xcrun simctl` /
+  `xcodebuild -showBuildSettings`) without running tests.
+
+If the gate consistently times out and you don't recall starting another
+test run, the busy PID is likely a stale `xcodebuild`/`testmanagerd`/
+`XCTRunner` from a prior timeout-killed run — see **Recovery** below for
+the `pgrep` + `pkill` flow. The timeout error message itself includes
+the recovery commands.
+
 ### Running xcodebuild from an agent session
 
 `xcodebuild test` takes minutes. A few operational guardrails to avoid
