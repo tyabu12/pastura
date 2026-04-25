@@ -168,6 +168,14 @@ struct SettingsView: View {
     /// so the destructive flow can finish in the background. Subsequent
     /// state observations rebuild the row as `.notDownloaded` once the
     /// task lands.
+    ///
+    /// Re-tap-during-cleanup race is benign: while the in-flight
+    /// download Task is still alive the row's Menu shows Cancel (not
+    /// Download), so the user cannot start a second download until
+    /// `performDownload`'s catch handler has set state to
+    /// `.notDownloaded`. By the time the row's menu flips to Download,
+    /// the only remaining work in `cancelDownloadAndDelete` is the two
+    /// `removeItem` calls — a microsecond window not worth guarding.
     private func handleCoverCancel(descriptor: ModelDescriptor) {
       coverDescriptor = nil
       Task { await modelManager.cancelDownloadAndDelete(descriptor: descriptor) }
