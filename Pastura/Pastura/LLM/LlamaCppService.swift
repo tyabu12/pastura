@@ -320,9 +320,11 @@ extension LlamaCppService {
 
     // Sequential-access contract (ADR-002 §6) — entry order is load-bearing:
     //   (1) throttle (above) — cancellation-honoring; may throw out cleanly.
+    //       MUST stay above (3): a CancellationError thrown from Task.sleep
+    //       after the claim would skip the defer-clear and strand the flag.
     //   (2) awaitGenerateIdle — cooperative wait for any prior generate's
     //       defer-clear to complete. Same primitive load/unload use; not
-    //       cancellable (preserves the use-after-free guarantee in step 4).
+    //       cancellable (preserves the use-after-free guarantee in step 5).
     //   (3) atomic claim of generatingGuard — the synchronizing fence. The
     //       precondition still catches a genuinely concurrent re-entry that
     //       races past the wait (true contract violation).
@@ -510,9 +512,12 @@ extension LlamaCppService {
 
     // Sequential-access contract (ADR-002 §6) — same five-step entry order
     // as `runGeneration` (throttle → awaitGenerateIdle → claim → defer →
-    // load-check + capture). See the comment block in `runGeneration` for
-    // why the load check is intentionally placed AFTER the guard claim
-    // (use-after-free prevention on `_model` / `_context`). Issue #221.
+    // load-check + capture). The throttle above MUST stay above the claim
+    // for the same reason: a CancellationError out of Task.sleep would
+    // otherwise skip the defer-clear and strand the flag. See the longer
+    // comment block in `runGeneration` for why the load check is placed
+    // AFTER the guard claim (use-after-free prevention on `_model` /
+    // `_context`). Issue #221.
     await awaitGenerateIdle(caller: "generateStream")
     let wasGenerating = generatingGuard.withLock { flag -> Bool in
       let was = flag
