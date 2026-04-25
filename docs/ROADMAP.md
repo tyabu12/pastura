@@ -109,8 +109,8 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 
 First App Store submission depends on a set of cross-cutting blockers tracked in [ADR-005 §9.2](decisions/ADR-005.md#92-sub-issue-master-index) (content safety, encryption declaration, support URL, privacy manifest, etc.). Privacy policy work was not captured when ADR-005 was first written and is tracked separately in #233:
 
-- [x] Draft privacy policy (`docs/legal/privacy-policy.md`)
-- [ ] Host the policy at `https://tyabu12.github.io/pastura/legal/privacy-policy/` via GitHub Pages
+- [x] Draft privacy policy (`pages/legal/privacy-policy/index.html`)
+- [x] Host the policy at `https://tyabu12.github.io/pastura/legal/privacy-policy/` via GitHub Pages
 - [ ] Register the URL in App Store Connect → App Information → Privacy Policy URL
 - [ ] Answer the App Privacy Details questionnaire ("Data Not Collected", per `PrivacyInfo.xcprivacy`)
 - [ ] Add in-app Settings → "Privacy Policy" link (Guideline 5.1.1: "easily accessible")
@@ -130,7 +130,7 @@ Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.ap
 | Feature                              | Notes                                      |
 |--------------------------------------|--------------------------------------------|
 | Scenario marketplace                 | Browse, rate, download community scenarios |
-| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Gated on ADR-006; engineering beyond API-contract exploration is out of scope until ADR-006 merges (ADR-005 §7.5, §10). |
+| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Gated on ADR-006; engineering beyond API-contract exploration is out of scope until ADR-006 merges (ADR-005 §7.5). |
 | Scenario rankings / popular templates| Trending, most-run, highest-rated          |
 | Simulation result auto-summary       | LLM-generated summary of what happened     |
 | Relationship graph visualization     | Agent interaction network diagram          |

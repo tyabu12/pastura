@@ -1,0 +1,97 @@
+# Deploys public-facing HTML under `pages/` to GitHub Pages. Currently:
+#
+#   - `pages/support/index.html`           → `https://tyabu12.github.io/pastura/support/`
+#     (App Store Connect Support URL — see ADR-005 §6 / §6.7 / §9.2 row #9 / #182)
+#   - `pages/legal/privacy-policy/index.html`
+#                                          → `https://tyabu12.github.io/pastura/legal/privacy-policy/`
+#     (App Store privacy policy URL — see ADR-005 §9.2 / #233)
+#
+# Precondition: Settings → Pages → Source = "GitHub Actions" (NOT
+# "Deploy from a branch", which would publish the entire `pages/` tree
+# wholesale and bypass the staging discipline below).
+#
+# Each file under `pages/` is staged into `_site/` by an explicit `cp` so
+# that a future addition (favicon, split CSS, additional pages) cannot
+# silently 404. **Never** `cp -r pages _site` — that would publish
+# editor detritus (`.DS_Store`, drafts) alongside intended content. List
+# every new asset in the staging step explicitly.
+#
+# A `.nojekyll` file is written so a Source-setting regression back to
+# branch-based Pages cannot start running the HTML through Jekyll.
+#
+# Concurrency group `pages` is GitHub's documented convention for Pages
+# deploys — any future Pages workflow in this repo must share it so
+# deploys serialize correctly. `cancel-in-progress: false` is deliberate:
+# cancelling a Pages deploy mid-flight can leave the site in an
+# inconsistent state.
+#
+# A post-deploy smoke check `curl -fsS`'s both deployed URLs so silent
+# staging-step omissions surface as a workflow failure instead of a
+# 404 noticed days later.
+
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pages/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Stage artifact
+        # Targeted copy per the discipline note in the file header. If you
+        # add a new file under `pages/`, add a matching line here — silent
+        # drift on this step means the new asset 404s on the deployed site.
+        run: |
+          mkdir -p _site/support _site/legal/privacy-policy
+          cp pages/support/index.html _site/support/index.html
+          cp pages/legal/privacy-policy/index.html _site/legal/privacy-policy/index.html
+          touch _site/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+      - name: Smoke-check deployed URLs
+        # Pages deploy can succeed structurally while serving the wrong
+        # tree (e.g. a stage-step omission that publishes only one of the
+        # files). A `curl -fsS` against each registered URL turns those
+        # silent failures into a workflow failure. `--retry` covers the
+        # short propagation window after `deploy-pages` returns.
+        run: |
+          set -euo pipefail
+          for url in \
+            "https://tyabu12.github.io/pastura/support/" \
+            "https://tyabu12.github.io/pastura/legal/privacy-policy/"; do
+            echo "Checking ${url}"
+            curl -fsS --retry 5 --retry-delay 5 --retry-all-errors -o /dev/null "${url}"
+          done

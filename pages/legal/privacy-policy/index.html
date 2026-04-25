@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pastura Privacy Policy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Privacy policy for Pastura, an iOS app for on-device AI multi-agent simulations.">
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.6;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1rem 4rem;
+    }
+    h1 {
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 0.5rem;
+    }
+    h2 {
+      margin-top: 2.5rem;
+    }
+    h3 {
+      margin-top: 1.5rem;
+    }
+    a {
+      color: #0366d6;
+    }
+    @media (prefers-color-scheme: dark) {
+      a {
+        color: #58a6ff;
+      }
+      h1 {
+        border-bottom-color: #30363d;
+      }
+    }
+    hr {
+      margin: 2.5rem 0 1rem;
+      border: 0;
+      border-top: 1px solid #ddd;
+    }
+    @media (prefers-color-scheme: dark) {
+      hr {
+        border-top-color: #30363d;
+      }
+    }
+    .lead {
+      font-size: 1.05em;
+    }
+    .meta {
+      color: #666;
+      font-size: 0.95em;
+    }
+    @media (prefers-color-scheme: dark) {
+      .meta {
+        color: #8b949e;
+      }
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(175, 184, 193, 0.2);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      font-size: 0.92em;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: rgba(175, 184, 193, 0.15);
+    }
+    @media (prefers-color-scheme: dark) {
+      th, td {
+        border-color: #30363d;
+      }
+    }
+    footer {
+      margin-top: 3rem;
+      font-size: 0.9em;
+      color: #666;
+    }
+    @media (prefers-color-scheme: dark) {
+      footer {
+        color: #8b949e;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Pastura Privacy Policy</h1>
+
+    <p class="meta">
+      <strong>Effective date:</strong> 2026-04-25<br>
+      <strong>Last updated:</strong> 2026-04-25
+    </p>
+
+    <h2>Who we are</h2>
+
+    <p>
+      Pastura is an iOS app for running AI multi-agent simulations entirely
+      on-device. It is developed and maintained by <strong>tyabu12</strong>
+      (an individual developer). References to "we", "us", or "Pastura" in
+      this policy refer to tyabu12 acting as the data controller for any
+      data the app might process.
+    </p>
+
+    <h2>Summary</h2>
+
+    <p class="lead">
+      <strong>Pastura does not collect, transmit, sell, or share your personal data.</strong>
+    </p>
+
+    <p>
+      All AI simulations run on your device using a local large language
+      model executed via the
+      <a href="https://github.com/ggerganov/llama.cpp">llama.cpp</a>
+      inference runtime. Your scenarios, simulation history, and preferences
+      never leave the device through any mechanism we control. Pastura's App
+      Store privacy nutrition label is <strong>"Data Not Collected"</strong>.
+    </p>
+
+    <h2>Data we do not collect</h2>
+
+    <p>We do not collect, request, log, or transmit any of the following:</p>
+
+    <ul>
+      <li>Names, email addresses, phone numbers, or other contact information</li>
+      <li>Account credentials (Pastura has no account system)</li>
+      <li>Device identifiers (IDFA, IDFV) for advertising or tracking purposes</li>
+      <li>Location data (GPS, IP-based, or otherwise)</li>
+      <li>Contacts, photos, calendar, or other personal data on your device</li>
+      <li>Behavioural analytics, crash reports, telemetry, or usage statistics</li>
+      <li>Health, financial, or biometric data</li>
+    </ul>
+
+    <p>
+      Pastura ships with no third-party analytics, advertising, attribution,
+      or crash-reporting SDKs.
+    </p>
+
+    <h2>Data that stays on your device</h2>
+
+    <p>
+      The following information is created or stored locally inside the
+      app's sandbox and is never transmitted off the device by Pastura:
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Local data</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Scenario YAML you author or import</td>
+          <td>Running simulations you have configured</td>
+        </tr>
+        <tr>
+          <td>Past simulation results (SQLite)</td>
+          <td>Letting you revisit and export your simulation history</td>
+        </tr>
+        <tr>
+          <td>App preferences (UserDefaults)</td>
+          <td>Remembering your active model, playback speed, and similar settings</td>
+        </tr>
+        <tr>
+          <td>Downloaded LLM model files</td>
+          <td>Performing on-device inference</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      The required-reason API declarations in our
+      <a href="https://github.com/tyabu12/pastura/blob/main/Pastura/Pastura/PrivacyInfo.xcprivacy"><code>PrivacyInfo.xcprivacy</code></a>
+      reflect these uses: the <code>UserDefaults</code> API is declared with
+      reason <code>CA92.1</code> ("app functionality") and the
+      <code>FileTimestamp</code> API with reason <code>C617.1</code>
+      ("files inside the app sandbox"). No tracking domains are declared
+      (<code>NSPrivacyTrackingDomains</code> is empty);
+      <code>NSPrivacyTracking</code> is <code>false</code>.
+    </p>
+
+    <p>
+      You can erase all of this local data at any time by deleting the app
+      from your device.
+    </p>
+
+    <h2>Network connections Pastura makes</h2>
+
+    <p>
+      Pastura's AI inference is fully on-device, but the app makes a small
+      number of outbound network requests when you choose to use specific
+      features:
+    </p>
+
+    <ul>
+      <li>
+        <strong>Curated scenario gallery</strong> — when you open the in-app
+        Share Board, the app fetches a JSON index of curated scenarios from
+        GitHub-hosted content at <code>raw.githubusercontent.com</code>.
+      </li>
+      <li>
+        <strong>LLM model download</strong> — when you install or switch a
+        model, the app downloads the model file from Hugging Face
+        (<code>huggingface.co</code>).
+      </li>
+    </ul>
+
+    <p>
+      These services see your IP address and a standard
+      <code>User-Agent</code> string under their own privacy policies (see
+      <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a>
+      and
+      <a href="https://huggingface.co/privacy">Hugging Face Privacy Policy</a>).
+      Pastura does not log, store, share, or otherwise process the metadata
+      of these requests on its side.
+    </p>
+
+    <h2>Tracking and advertising</h2>
+
+    <p>
+      Pastura does not use any tracking technologies, advertising
+      identifiers, attribution SDKs, fingerprinting, or
+      cross-app/cross-site tracking. We do not show ads. We do not
+      participate in any data broker or advertising network.
+    </p>
+
+    <h2>Children's privacy</h2>
+
+    <p>
+      Pastura is rated <strong>13+</strong> on the App Store and is not
+      directed to children under 13. We do not knowingly collect personal
+      information from children under 13. Because we do not collect
+      personal information from anyone, no specific COPPA notice or
+      verifiable parental consent flow is needed; if a child under 13
+      uses the app, no personal data leaves the device through Pastura.
+    </p>
+
+    <p>
+      In jurisdictions where the GDPR-K age of digital consent is set
+      higher than 13 (most EU member states use 16), the same
+      no-collection commitment applies to all users regardless of age.
+    </p>
+
+    <h2>International users</h2>
+
+    <p>
+      We do not collect or process personal data, so most regional privacy
+      laws (GDPR, UK GDPR, Japan's APPI, California's CCPA/CPRA, and
+      similar regimes) have nothing for us to act on. Specifically:
+    </p>
+
+    <ul>
+      <li>
+        <strong>GDPR / UK GDPR</strong> — we are not a controller or
+        processor of personal data within the meaning of Article 4,
+        because no identifiable personal data is collected.
+      </li>
+      <li>
+        <strong>APPI (Japan)</strong> — we do not collect or hold
+        個人情報 (personal information) as defined in the Act.
+      </li>
+      <li>
+        <strong>CCPA / CPRA (California)</strong> — we do not collect,
+        sell, or share personal information of California residents.
+      </li>
+    </ul>
+
+    <p>
+      If you nonetheless wish to exercise a right granted by your local
+      law (such as a data subject access request), please contact us via
+      the channel below; we will respond by confirming that we hold no
+      data about you.
+    </p>
+
+    <h2>Future changes (Cloud API)</h2>
+
+    <p>
+      Pastura currently runs entirely on-device. Future versions may
+      offer <strong>optional, opt-in</strong> features that send specific
+      user-authored content (such as scenario prompts) to a named
+      third-party AI provider for processing. If such a feature is
+      introduced:
+    </p>
+
+    <ul>
+      <li>
+        This policy will be revised to name the provider, list the data
+        transmitted, identify the legal basis for processing, and link to
+        the provider's privacy policy — <strong>before</strong> the
+        feature ships.
+      </li>
+      <li>
+        The feature will require explicit user consent; running on-device
+        will remain the default.
+      </li>
+    </ul>
+
+    <p>
+      Any future revision will be announced via the channels described in
+      "Changes to this policy" below.
+    </p>
+
+    <h2>How to contact us</h2>
+
+    <p>
+      Use the support form at
+      <strong><a href="https://tyabu12.github.io/pastura/support/">https://tyabu12.github.io/pastura/support/</a></strong>
+      for any privacy-related questions, including requests to confirm
+      what (if any) data we hold about you.
+    </p>
+
+    <h2>Changes to this policy</h2>
+
+    <p>
+      We will revise this policy as Pastura's data practices evolve
+      (notably when any optional cloud feature is introduced). When we do:
+    </p>
+
+    <ul>
+      <li>The "Last updated" date at the top of this document will change.</li>
+      <li>
+        Material changes will be summarised in the corresponding TestFlight
+        or App Store release notes.
+      </li>
+      <li>
+        The latest version is always available at
+        <a href="https://tyabu12.github.io/pastura/legal/privacy-policy/">https://tyabu12.github.io/pastura/legal/privacy-policy/</a>.
+      </li>
+    </ul>
+
+    <p>
+      Continued use of Pastura after a revision means you accept the
+      revised policy. If you do not agree with a change, please stop
+      using the app and delete it from your device.
+    </p>
+
+    <footer>
+      <hr>
+      <p>
+        Source code and release notes:
+        <a href="https://github.com/tyabu12/pastura">github.com/tyabu12/pastura</a>
+      </p>
+    </footer>
+  </main>
+</body>
+</html>
