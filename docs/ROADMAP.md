@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-24
+> Last updated: 2026-04-25
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -94,7 +94,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
 | YAML simulation replay primitive         | Medium   | Done        | Past Results YAML exporter + `YAMLReplaySource` importer primitive shipped (#175). Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. |
 | DL-time demo replay                      | Medium   | Done        | Bundled YAML replays during model download — end-to-end: spec + ADR-007 (#153), VM + Source (#186), host view + UI components (#197), wire into `.needsModelDownload` (#200), bundled YAMLs + CI drift guard (#205). |
-| Multi-model support (Qwen / E4B / other) | Medium   | Planned     | Additional on-device models for device-class fit + cross-model experimentation via the `LLMService` abstraction (ADR-001 §7 / ADR-002). Complements the offline-first story and provides "same scenario, different model" depth without cloud-cost / API-key risk. |
+| Multi-model support (Qwen / E4B / other) | Medium   | Done        | Dual-model catalog shipped (Gemma 4 E2B + Qwen 3 4B Q4_K_M) via the `ModelDescriptor` / `ModelRegistry` abstraction over `LLMService` (ADR-001 §7 / ADR-002): plumbing — descriptor, multi-model storage, sequential download, legacy Gemma file auto-recognition (#206); UI — first-run model picker (`AppState.needsModelSelection`), Settings → Models active-model switch + delete, race-prevention via `SimulationActivityRegistry` (#218). Tracking issue #203. E4B and additional models remain forward-looking; add a new `ModelDescriptor` entry to `ModelRegistry` when a model is approved for shipment. |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 
 ### Technical Debt to Address
@@ -102,6 +102,8 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 - **Migrate LLM backend from llama.cpp to LiteRT-LM** when Swift SDK + iOS GPU ships (see ADR-002)
 - Conversation compaction (LLM-based summarization of old logs)
 - Performance profiling on real devices (thermal, battery)
+- **Remote model manifest** — currently `ModelRegistry` pins each entry's download URL, file size, and SHA-256 at compile time (originally tracked in #82). On-device-only inference + iOS sandboxing neutralizes the supply-chain exfiltration side; the residual risk (a crafted GGUF exploiting llama.cpp's parser) is shared with every on-device GGUF and not specific to dynamic metadata. Dynamic fetch (HuggingFace API) would let model updates ship without an app release but introduces non-determinism across users and a runtime dependency on a network call before download. Revisit when the model-update cadence makes the app-update tax meaningful.
+- **Model switch deferred-apply UX** — Settings → Models currently swaps the active model instantly in UserDefaults; the actual model load happens at the next `SimulationViewModel.run()`. For users on the slowest devices this can produce a perceptible first-run latency spike after switching. Polish follow-up (#203): surface the load cost explicitly via a confirmation UI, or pre-warm the new model on switch.
 
 ---
 
