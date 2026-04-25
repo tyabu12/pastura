@@ -58,6 +58,23 @@ Utilities/ -> depends on nothing
 - Test coverage for new public types/functions
 - No exposed secrets or API keys
 
+### Pastura-specific Trap Cheat Sheet (Warning)
+
+Footguns documented from prior incidents. Check each change against these **in addition** to the general rules above — none of these are caught by `swiftlint` or `swift build` alone.
+
+- **ShapeStyle vs Color tokens** — `.foregroundStyle(.muted)` fails to compile when `.muted` is a project `Color` extension. Use `.foregroundStyle(Color.muted)` (explicit `Color.` prefix). Applies to any `Color` extension consumed via `ShapeStyle`-expecting modifiers.
+- **`nonisolated` protocol default impls** — When an extension on a `nonisolated` protocol provides a default implementation whose body builds escaping closures (`AsyncThrowingStream { continuation in ... }`, standalone `Task { }`, `continuation.onTermination = ...`), the default impl itself must be marked `nonisolated`. Otherwise MainActor inference breaks conformance at conforming types with a cryptic "crosses into main actor-isolated code" diagnostic. See `.claude/rules/llm.md`.
+- **Test suite `.timeLimit` trait** — Every `@Suite` in `PasturaTests/` must carry `.timeLimit(.minutes(1))`. Load-bearing CI-hang diagnostic (PR #134) — do not remove even when a suite "looks fine". New suites without the trait are a Warning.
+- **Test suite serialization** — Suites touching `SimulationRunner` or other global-state consumers must use `@Suite(.serialized)`. Missing serialization causes race-flake between parallel test cases.
+- **Error i18n prep** — Error types' `errorDescription` literals must be wrapped in `String(localized:)` for future translation readiness. Test assertions should use `.contains(localizedSubstring)` rather than equality on the rendered string. Check `LLMError`, `DataError`, `SimulationError`, and any new `LocalizedError` addition.
+- **Navigation root-stack scope** — `navigationDestination(item:|isPresented:)` MUST NOT appear inside any view that gets pushed onto the root `NavigationStack`. Sheet-owned NavigationStacks are exempt. See `.claude/rules/navigation.md`. Also: `router.path` must not be mutated outside `AppRouter` itself — grep check: `rg 'router\.path\s*(=[^=]|\.append|\.removeLast|\.removeAll|\.insert|\.remove\b)' Pastura --glob '!**/AppRouter*'` should return nothing.
+- **SwiftUI `.sheet(item:)` source type** — the binding must be `Optional<SomeIdentifiableModel>`. Never use `Int: Identifiable` or other primitive wrappers — use a real model type.
+- **ViewModel ownership** — do not instantiate `@Observable` ViewModels inside factory functions that get re-invoked per body evaluation. Host them with `@State` (or equivalent) in the owning view.
+- **Wall-clock test bounds need CI headroom** — CI with code coverage runs ~20× slower than local. Upper bounds in wall-clock timing assertions must be ≥ 30s, or (preferred) inject an observable and assert on it instead of polling.
+- **PlistBuddy output ambiguity** — Bool `false` and string `"NO"` render identically via PlistBuddy `Print`. Use `plutil -extract <key> xml1 - -- <plist>` when the type distinction matters (App Store Connect flags, CFBundle keys, entitlements).
+
+Sources: `.claude/rules/{llm,navigation,testing}.md`, MEMORY.md feedback entries. If a reviewer encounters a new footgun that generalizes, propose adding it here as part of the review output.
+
 ## Output Format
 
 ```
