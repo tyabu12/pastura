@@ -105,6 +105,18 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 - **Remote model manifest** — currently `ModelRegistry` pins each entry's download URL, file size, and SHA-256 at compile time (originally tracked in #82). On-device-only inference + iOS sandboxing neutralizes the supply-chain exfiltration side; the residual risk (a crafted GGUF exploiting llama.cpp's parser) is shared with every on-device GGUF and not specific to dynamic metadata. Dynamic fetch (HuggingFace API) would let model updates ship without an app release but introduces non-determinism across users and a runtime dependency on a network call before download. Revisit when the model-update cadence makes the app-update tax meaningful.
 - **Model switch deferred-apply UX** — Settings → Models currently swaps the active model instantly in UserDefaults; the actual model load happens at the next `SimulationViewModel.run()`. For users on the slowest devices this can produce a perceptible first-run latency spike after switching. Polish follow-up (#203): surface the load cost explicitly via a confirmation UI, or pre-warm the new model on switch.
 
+### App Store Release Prep
+
+First App Store submission depends on a set of cross-cutting blockers tracked in [ADR-005 §9.2](decisions/ADR-005.md#92-sub-issue-master-index) (content safety, encryption declaration, support URL, privacy manifest, etc.). Privacy policy work was not captured when ADR-005 was first written and is tracked separately in #233:
+
+- [x] Draft privacy policy (`docs/legal/privacy-policy.md`)
+- [ ] Host the policy at `https://tyabu12.github.io/pastura/legal/privacy-policy/` via GitHub Pages
+- [ ] Register the URL in App Store Connect → App Information → Privacy Policy URL
+- [ ] Answer the App Privacy Details questionnaire ("Data Not Collected", per `PrivacyInfo.xcprivacy`)
+- [ ] Add in-app Settings → "Privacy Policy" link (Guideline 5.1.1: "easily accessible")
+
+Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) auto-applies; revisit if Phase 3 introduces server-side data flows (gated on ADR-006).
+
 ---
 
 ## Phase 3: Community
