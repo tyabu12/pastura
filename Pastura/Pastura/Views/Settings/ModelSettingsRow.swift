@@ -93,7 +93,7 @@ struct ModelSettingsRow: View {
     case .error(let message):
       Text(String(localized: "Error: \(message)"))
         .font(.footnote)
-        .foregroundStyle(.red)
+        .foregroundStyle(Color.dangerInk)
         .lineLimit(2)
     }
   }

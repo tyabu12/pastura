@@ -137,9 +137,11 @@ struct ScenarioDetailView: View {
           Text(phase.type.rawValue)
             .font(.subheadline.monospaced())
           if phase.type.requiresLLM {
+            // `info` here is a quiet category badge for LLM-required phases, not a
+            // notification — see design-system §2.6 for the alert-family scope.
             Image(systemName: "brain")
               .font(.caption)
-              .foregroundStyle(.purple)
+              .foregroundStyle(Color.info)
           }
         }
       }
@@ -151,7 +153,7 @@ struct ScenarioDetailView: View {
     if let error = viewModel.validationError {
       Section {
         Label(error, systemImage: "xmark.circle.fill")
-          .foregroundStyle(.red)
+          .foregroundStyle(Color.dangerInk)
       }
     }
   }
