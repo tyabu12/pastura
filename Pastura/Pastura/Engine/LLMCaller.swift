@@ -7,7 +7,7 @@ import os
 /// Emits `inferenceStarted` / `inferenceCompleted` events plus per-chunk
 /// `agentOutputStream` snapshots for UI progress feedback.
 ///
-/// Consumes the streaming ``LLMService/generateStream(system:user:)`` path.
+/// Consumes the streaming ``LLMService/generateStream(system:user:schema:)`` path.
 /// Backends that don't stream (MockLLMService without configured chunks,
 /// OllamaService) yield a single terminal chunk via the protocol's default
 /// wrap — this caller handles both shapes uniformly.
@@ -31,13 +31,12 @@ nonisolated struct LLMCaller: Sendable {
   ///   - system: The system prompt.
   ///   - user: The user prompt.
   ///   - agentName: The agent's name (for event emission).
-  ///   - expectedKeys: Schema keys the parsed output must contain
-  ///     (typically `Set(phase.outputSchema?.keys ?? [])`). Empty set
-  ///     skips the schema-aware repair guard. Non-empty enables the
-  ///     guard in ``JSONResponseParser/parse(_:expectedKeys:)`` —
-  ///     a repair that produces JSON missing any of these keys is
-  ///     rejected, preserving the parse-failure throw rather than
-  ///     committing fabricated content (#194 PR#a Item 2d).
+  ///   - schema: Optional ``OutputSchema`` for constrained decoding at
+  ///     the backend (llama.cpp GBNF / Ollama format:json / Mock
+  ///     capturedSchemas) AND the schema-aware repair guard in
+  ///     ``JSONResponseParser/parse(_:expectedKeys:)`` — single source
+  ///     of truth, derived once at the handler boundary. `nil` means
+  ///     unconstrained generation + no repair guard.
   ///   - suspendController: Controller used to coordinate cooperative suspend
   ///     with the LLM layer. When the LLM throws ``LLMError/suspended``, this
   ///     method awaits ``SuspendController/awaitResume()`` and retries the
@@ -51,10 +50,16 @@ nonisolated struct LLMCaller: Sendable {
     system: String,
     user: String,
     agentName: String,
-    expectedKeys: Set<String> = [],
+    schema: OutputSchema? = nil,
     suspendController: SuspendController,
     emitter: @Sendable (SimulationEvent) -> Void
   ) async throws -> TurnOutput {
+    // Derive the parser-guard key set from the schema. This is the only
+    // place `expectedKeys` is computed now; handlers pass `schema` once
+    // and both the backend-layer constraint (grammar / format:json) and
+    // the parser-layer repair guard flow from the same value (#194 PR#b
+    // critic Axis 4 — drift-prone redundancy eliminated).
+    let expectedKeys: Set<String> = Set(schema?.fields.map(\.name) ?? [])
     for attempt in 0...Self.maxRetries {
       emitter(.inferenceStarted(agent: agentName))
       let startTime = ContinuousClock.now
@@ -62,7 +67,7 @@ nonisolated struct LLMCaller: Sendable {
       let streamResult: StreamResult
       do {
         streamResult = try await consumeStreamWithSuspendRetry(
-          llm: llm, system: system, user: user,
+          llm: llm, system: system, user: user, schema: schema,
           controller: suspendController, agentName: agentName,
           emitter: emitter)
       } catch {
@@ -203,6 +208,7 @@ nonisolated struct LLMCaller: Sendable {
     llm: LLMService,
     system: String,
     user: String,
+    schema: OutputSchema?,
     controller: SuspendController,
     agentName: String,
     emitter: @Sendable (SimulationEvent) -> Void
@@ -211,7 +217,7 @@ nonisolated struct LLMCaller: Sendable {
     while true {
       var rawText = ""
       var completionTokens: Int?
-      let stream = llm.generateStream(system: system, user: user)
+      let stream = llm.generateStream(system: system, user: user, schema: schema)
       do {
         for try await chunk in stream {
           if !chunk.delta.isEmpty {

@@ -70,10 +70,12 @@
     public var modelIdentifier: String { modelName }
     public let backendIdentifier = "Ollama"
 
-    public func generate(system: String, user: String) async throws -> String {
+    public func generate(
+      system: String, user: String, schema: OutputSchema?
+    ) async throws -> String {
       guard isModelLoaded else { throw LLMError.notLoaded }
 
-      let request = try buildRequest(system: system, user: user)
+      let request = try buildRequest(system: system, user: user, schema: schema)
 
       let data: Data
       let response: URLResponse
@@ -94,13 +96,15 @@
 
     // MARK: - Request Building
 
-    private func buildRequest(system: String, user: String) throws -> URLRequest {
+    private func buildRequest(
+      system: String, user: String, schema: OutputSchema?
+    ) throws -> URLRequest {
       let url = baseURL.appendingPathComponent("v1/chat/completions")
       var request = URLRequest(url: url)
       request.httpMethod = "POST"
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-      let body: [String: Any] = [
+      var body: [String: Any] = [
         "model": modelName,
         "messages": [
           ["role": "system", "content": system],
@@ -109,6 +113,16 @@
         "temperature": Self.temperature,
         "max_tokens": Self.maxTokens
       ]
+      // When a schema is supplied, ask Ollama to enforce JSON-only output.
+      // Ollama's OpenAI-compat endpoint accepts the top-level `format: "json"`
+      // native flag; `response_format: {type: "json_object"}` is the OpenAI
+      // form but varies in Ollama version support. `format` is the stable
+      // path. The field-level shape is not enforced by Ollama — only that
+      // the output is a JSON object — so `JSONResponseParser`'s schema
+      // guard still carries the rest of the contract.
+      if schema != nil {
+        body["format"] = "json"
+      }
 
       request.httpBody = try JSONSerialization.data(withJSONObject: body)
       return request
@@ -169,16 +183,21 @@
   // MARK: - Generation (metrics-aware)
 
   extension OllamaService {
-    /// Token-count-aware counterpart to ``generate(system:user:)``. Reads
-    /// `usage.completion_tokens` when the server provides it; otherwise reports
-    /// `nil` (Ollama's OpenAI-compat endpoint historically has inconsistent
-    /// `usage` reporting across versions).
+    /// Token-count-aware counterpart to ``generate(system:user:schema:)``.
+    /// Reads `usage.completion_tokens` when the server provides it; otherwise
+    /// reports `nil` (Ollama's OpenAI-compat endpoint historically has
+    /// inconsistent `usage` reporting across versions).
+    ///
+    /// When `schema != nil`, the request body gains Ollama's native
+    /// `format:"json"` flag — Ollama-side JSON enforcement, paired with
+    /// `JSONResponseParser`'s schema-aware repair guard for the
+    /// field-level contract.
     public func generateWithMetrics(
-      system: String, user: String
+      system: String, user: String, schema: OutputSchema?
     ) async throws -> GenerationResult {
       guard isModelLoaded else { throw LLMError.notLoaded }
 
-      let request = try buildRequest(system: system, user: user)
+      let request = try buildRequest(system: system, user: user, schema: schema)
 
       let data: Data
       let response: URLResponse

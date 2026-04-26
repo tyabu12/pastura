@@ -263,6 +263,45 @@ struct PromptBuilderTests {
     #expect(prompt.count < 2000, "prompt grew larger than expected: \(prompt.count) chars")
   }
 
+  // Primary-first ordering (#194 PR#b): the placeholder example and the
+  // output-format spec line must both list `statement` before
+  // `inner_thought` — alphabetical would invert this and break
+  // PartialOutputExtractor's streaming UX (user sees nothing until
+  // inner_thought finishes). Source of truth: OutputSchema.fields.
+  @Test func systemPromptExampleUsesPrimaryFirstOrder() {
+    let scenario = makeScenario()
+    let phase = Phase(
+      type: .speakAll,
+      prompt: "Speak!",
+      outputSchema: ["inner_thought": "string", "statement": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    // Both the spec line (`{"statement": ...}`) and the `例:` line must
+    // have statement appear before inner_thought.
+    let specLine =
+      prompt.components(separatedBy: "\n")
+      .first { $0.hasPrefix("{\"") } ?? ""
+    let exampleLine =
+      prompt.components(separatedBy: "\n")
+      .first { $0.hasPrefix("例:") } ?? ""
+    for line in [specLine, exampleLine] {
+      guard
+        let sIdx = line.range(of: "statement")?.lowerBound,
+        let tIdx = line.range(of: "inner_thought")?.lowerBound
+      else {
+        Issue.record("expected both keys in line: \(line)")
+        continue
+      }
+      #expect(
+        sIdx < tIdx,
+        "statement must precede inner_thought in primary-first order: \(line)")
+    }
+  }
+
   // MARK: - Test Helpers
 
   private func makeScenario() -> Scenario {

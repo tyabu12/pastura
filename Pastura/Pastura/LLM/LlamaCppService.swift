@@ -35,6 +35,41 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   private let modelPath: String
   let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
 
+  #if DEBUG
+    // Per-loop token-level checkpoint logger. Joins the shared
+    // `category:StreamingDiag` channel (see `Engine/LLMCaller.swift`,
+    // `App/SimulationViewModel.swift`) so the existing analyze script
+    // and Console.app filter recipe pick it up. Routed through a
+    // dedicated static logger rather than the file-level `logger`
+    // because `LlamaCppService`'s normal log noise (load/unload,
+    // template-apply, etc.) would otherwise drown the checkpoints.
+    //
+    // **DEBUG-only** because the `~5 entries / 100 tokens` rate is
+    // useful for postmortem on the rare accept-time abort
+    // (ADR-002 §12.9) but is gratuitous noise on release builds where
+    // we have no field-side log-collection mechanism. Reproduce in
+    // DEBUG when the abort is reported by a TestFlight crash report.
+    static let streamingDiagLogger = Logger(
+      subsystem: "com.pastura", category: "StreamingDiag")
+
+    /// Periodic streaming-diag checkpoint emitter — see ADR-002 §12.9.
+    /// Emits a `streamCheckpoint` line every 20 generated tokens with the
+    /// most recent ~40-char decoded tail. Postmortem on the rare
+    /// accept-time abort uses the most recent checkpoint before the
+    /// crash to localize the JSON position (mid-string? after `}`?
+    /// in `trailing`?) where EOG was sampled. Extracted as a helper to
+    /// keep the inline check from pushing `runGeneration` /
+    /// `runStreamGeneration` past swiftlint's cyclomatic_complexity cap.
+    func emitStreamingCheckpointIfDue(
+      mode: String, tokens: Int, tail: String
+    ) {
+      guard tokens > 0, tokens.isMultiple(of: 20) else { return }
+      Self.streamingDiagLogger.debug(
+        "streamCheckpoint mode=\(mode, privacy: .public) tokens=\(tokens) tail=\(tail, privacy: .public)"
+      )
+    }
+  #endif
+
   // Sampling parameters (ADR-002 §6, matching OllamaService)
   static let temperature: Float = 0.8
   static let maxTokens: Int = 1_000
@@ -139,7 +174,37 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     self.modelIdentifier = modelIdentifier
     self.systemPromptSuffix = systemPromptSuffix
     self.loadedState = OSAllocatedUnfairLock(initialState: false)
+    // Install llama.cpp's C-runtime log capture once — routes grammar
+    // parse errors ("invalid character", "expected ::=", etc.) into
+    // Console.app under subsystem:com.pastura category:LlamaCppRuntime.
+    // Idempotent at the C API level; safe to re-invoke per instance.
+    _ = Self.logCaptureInstalled
   }
+
+  /// One-shot log-capture hook installed via `llama_log_set`. Referenced
+  /// from `init` so the first service construction triggers installation;
+  /// subsequent references are a no-op.
+  private static let logCaptureInstalled: Void = {
+    llama_log_set(
+      { level, text, _ in
+        guard let text else { return }
+        let message = String(cString: text).trimmingCharacters(
+          in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+        let logger = Logger(
+          subsystem: "com.pastura", category: "LlamaCppRuntime")
+        switch level {
+        case GGML_LOG_LEVEL_ERROR:
+          logger.error("\(message, privacy: .public)")
+        case GGML_LOG_LEVEL_WARN:
+          logger.warning("\(message, privacy: .public)")
+        case GGML_LOG_LEVEL_DEBUG:
+          logger.debug("\(message, privacy: .public)")
+        default:
+          logger.info("\(message, privacy: .public)")
+        }
+      }, nil)
+  }()
 
   deinit {
     // Safety net: free C resources if still loaded.
@@ -301,8 +366,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     )
   }
 
-  public func generate(system: String, user: String) async throws -> String {
-    try await runGeneration(system: system, user: user).text
+  // `schema` is accepted but unused in Item 2 — GBNF grammar wiring
+  // lands with Item 4 (plumbed through `runGeneration` → `createSampler`).
+  public func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String {
+    try await runGeneration(system: system, user: user, schema: schema).text
   }
 
 }
@@ -310,13 +379,13 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 // MARK: - Generation (metrics-aware)
 
 extension LlamaCppService {
-  /// Token-count-aware counterpart to ``generate(system:user:)``. Shares the
+  /// Token-count-aware counterpart to ``generate(system:user:schema:)``. Shares the
   /// same inference path and returns the generated token count for tok/s
   /// throughput reporting.
   public func generateWithMetrics(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) async throws -> GenerationResult {
-    try await runGeneration(system: system, user: user)
+    try await runGeneration(system: system, user: user, schema: schema)
   }
 
   /// Shared implementation for `generate` and `generateWithMetrics`.
@@ -326,8 +395,12 @@ extension LlamaCppService {
   /// denies it (`scenePhase = .background`); reactive failure via
   /// `decodeFailureError` covers the narrow window where denial races the
   /// next iteration.
+  ///
+  /// `schema` reaches here via `generate` / `generateWithMetrics`; it
+  /// is unused in Item 2 but kept in the signature so Item 4 can wire
+  /// `createSampler` without reshaping the call chain again.
   fileprivate func runGeneration(  // swiftlint:disable:this function_body_length
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) async throws -> GenerationResult {
     // Debug trace of generate() preconditions — kept at debug level so
     // load/reload race investigations can re-enable it without code edits.
@@ -389,8 +462,10 @@ extension LlamaCppService {
     // Prefill: process prompt tokens
     try prefill(context: context, tokens: tokens)
 
-    // Set up sampler chain
-    let sampler = try createSampler()
+    // Set up sampler chain. Grammar (if any) is built once per call
+    // and fed to `createSampler`; it lives only for this generation.
+    let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
+    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
     defer { llama_sampler_free(sampler) }
 
     // Auto-regressive generation loop with string-based stop detection.
@@ -434,6 +509,9 @@ extension LlamaCppService {
             tokenId: Int(newTokenId),
             bytes: decodePieceRaw(vocab: vocab, token: newTokenId))
         }
+        emitStreamingCheckpointIfDue(
+          mode: "non-stream", tokens: generatedTokens,
+          tail: String(outputText.suffix(40)))
       #endif
 
       if let range = outputText.range(of: stopSequence) {
@@ -502,13 +580,14 @@ extension LlamaCppService {
   ///   honored only after the wait completes — intentional; it preserves
   ///   the use-after-free guarantee on `_model` / `_context` (Issue #221).
   public func generateStream(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task {
         do {
           try await runStreamGeneration(
-            system: system, user: user, continuation: continuation)
+            system: system, user: user, schema: schema,
+            continuation: continuation)
           continuation.finish()
         } catch {
           continuation.finish(throwing: error)
@@ -521,8 +600,12 @@ extension LlamaCppService {
   /// Core streaming loop. Emits chunks via `continuation` and throws on
   /// cancel, suspend, or inference failure. Caller wraps via
   /// `finish(throwing:)` so errors propagate through the async sequence.
+  ///
+  /// `schema` reaches here via `generateStream`; it is unused in Item 2
+  /// but kept in the signature so Item 4 can wire `createSampler`
+  /// without reshaping the call chain again.
   fileprivate func runStreamGeneration(  // swiftlint:disable:this function_body_length cyclomatic_complexity
-    system: String, user: String,
+    system: String, user: String, schema: OutputSchema?,
     continuation: AsyncThrowingStream<LLMStreamChunk, Error>.Continuation
   ) async throws {
     try await throttleIfOverheating()
@@ -555,7 +638,12 @@ extension LlamaCppService {
     llama_memory_clear(llama_get_memory(context), true)
     try prefill(context: context, tokens: tokens)
 
-    let sampler = try createSampler()
+    // Grammar-constrained sampling: build once per stream invocation
+    // (matching the non-streaming path in `runGeneration`). Missing
+    // wire-up here would silently bypass grammar on the streaming
+    // path — the regression scenario Critic Axis 3 flagged.
+    let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
+    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
     defer { llama_sampler_free(sampler) }
 
     // Byte-level accumulation so UTF-8 characters split across pieces
@@ -593,6 +681,12 @@ extension LlamaCppService {
       if let refreshed = Self.longestValidUtf8Prefix(outputBytes) {
         decodedText = refreshed
       }
+
+      #if DEBUG
+        emitStreamingCheckpointIfDue(
+          mode: "stream", tokens: generatedTokens,
+          tail: String(decodedText.suffix(40)))
+      #endif
 
       // Stop-sequence match: flush everything before it, terminate.
       if let range = decodedText.range(of: stopSequence) {

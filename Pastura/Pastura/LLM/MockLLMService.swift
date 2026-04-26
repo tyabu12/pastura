@@ -13,6 +13,11 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     var callIndex: Int = 0
     var isModelLoaded: Bool = false
     var capturedPrompts: [(system: String, user: String)] = []
+    /// Per-call schema values observed by ``generate(system:user:schema:)``
+    /// and ``generateStream(system:user:schema:)``. Appended in call order
+    /// so tests can assert the handler layer passes the right schema for
+    /// each phase. `nil` entries record unconstrained calls.
+    var capturedSchemas: [OutputSchema?] = []
     /// Number of upcoming generate calls that should throw `.suspended` instead of
     /// returning a response. Decremented on each suspended throw.
     var pendingSuspendCount: Int = 0
@@ -20,7 +25,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     /// When set, generate() also honours the controller's suspend flag — this
     /// lets tests exercise the same code path as LlamaCppService.
     var controller: SuspendController?
-    /// Per-inference delta sequences for ``generateStream(system:user:)``.
+    /// Per-inference delta sequences for ``generateStream(system:user:schema:)``.
     /// `nil` means "use the default wrap" (generate + single chunk).
     /// Independent from `responses` — streaming tests that need specific
     /// chunk boundaries configure this explicitly.
@@ -55,7 +60,9 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   public let modelIdentifier = "mock"
   public let backendIdentifier = "mock"
 
-  public func generate(system: String, user: String) async throws -> String {
+  public func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String {
     try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
       // Drain a pending suspend slot first — this lets tests deterministically
@@ -78,6 +85,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       let response = mutableState.responses[mutableState.callIndex]
       mutableState.callIndex += 1
       mutableState.capturedPrompts.append((system: system, user: user))
+      mutableState.capturedSchemas.append(schema)
       return response
     }
   }
@@ -97,12 +105,13 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   ///   configured sequence yields as a non-final chunk, followed by a
   ///   terminal chunk with empty delta and `nil` completion tokens. Obeys
   ///   the same suspend / not-loaded / exhausted semantics as
-  ///   ``generate(system:user:)``.
-  /// - **Wrap mode (no stream chunks):** Invokes ``generate(system:user:)``
-  ///   and yields the full response as a single terminal chunk — same
-  ///   observable behaviour as the protocol default wrap.
+  ///   ``generate(system:user:schema:)``.
+  /// - **Wrap mode (no stream chunks):** Invokes
+  ///   ``generate(system:user:schema:)`` and yields the full response as
+  ///   a single terminal chunk — same observable behaviour as the
+  ///   protocol default wrap.
   public func generateStream(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task { [weak self] in
@@ -111,7 +120,8 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
           return
         }
         do {
-          let deltas = try self.consumeStreamChunks(system: system, user: user)
+          let deltas = try self.consumeStreamChunks(
+            system: system, user: user, schema: schema)
           if let deltas {
             for delta in deltas {
               try Task.checkCancellation()
@@ -124,7 +134,8 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
                 delta: "", isFinal: true, completionTokens: nil))
             continuation.finish()
           } else {
-            let text = try await self.generate(system: system, user: user)
+            let text = try await self.generate(
+              system: system, user: user, schema: schema)
             continuation.yield(
               LLMStreamChunk(
                 delta: text, isFinal: true, completionTokens: nil))
@@ -139,11 +150,15 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   }
 
   /// Drain one inference's worth of stream chunks from the configured
-  /// sequence, applying the same throw-semantics as ``generate(system:user:)``.
-  /// Returns `nil` when no stream chunks are configured — signalling that
-  /// the caller should fall back to the wrap mode (call `generate`).
+  /// sequence, applying the same throw-semantics as
+  /// ``generate(system:user:schema:)``. Returns `nil` when no stream
+  /// chunks are configured — signalling that the caller should fall
+  /// back to the wrap mode (call `generate`). Note: when falling back
+  /// to wrap mode, `generate(system:user:schema:)` will record the
+  /// schema — so the streaming-wrap path records exactly once, not
+  /// twice.
   private func consumeStreamChunks(
-    system: String, user: String
+    system: String, user: String, schema: OutputSchema?
   ) throws -> [String]? {
     try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
@@ -164,6 +179,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       let deltas = chunks[mutableState.streamCallIndex]
       mutableState.streamCallIndex += 1
       mutableState.capturedPrompts.append((system: system, user: user))
+      mutableState.capturedSchemas.append(schema)
       return deltas
     }
   }
@@ -175,9 +191,17 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     state.withLock { $0.callIndex }
   }
 
-  /// The system and user prompts from each ``generate(system:user:)`` call.
+  /// The system and user prompts from each ``generate(system:user:schema:)`` call.
   public var capturedPrompts: [(system: String, user: String)] {
     state.withLock { $0.capturedPrompts }
+  }
+
+  /// The `schema` argument passed to each
+  /// ``generate(system:user:schema:)`` and
+  /// ``generateStream(system:user:schema:)`` call, in call order.
+  /// `nil` entries are unconstrained calls.
+  public var capturedSchemas: [OutputSchema?] {
+    state.withLock { $0.capturedSchemas }
   }
 
   /// Reset the service to its initial state, rewinding the response sequence.
@@ -186,6 +210,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       locked.callIndex = 0
       locked.streamCallIndex = 0
       locked.capturedPrompts = []
+      locked.capturedSchemas = []
       locked.pendingSuspendCount = 0
     }
   }
