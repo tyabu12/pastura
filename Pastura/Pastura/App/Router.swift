@@ -28,7 +28,15 @@ enum Route: Hashable {
   case editor(editingId: String? = nil, templateYAML: String? = nil)
 
   /// Live simulation execution screen.
-  case simulation(scenarioId: String)
+  ///
+  /// `initialName` mirrors `.scenarioDetail` — render-time hint for
+  /// the navigation title so the bar shows the scenario name from the
+  /// first frame of the push, before `loadAndRun()` completes.
+  /// Identity-neutral via `RouteHint<String>` (ADR-008).
+  case simulation(
+    scenarioId: String,
+    initialName: RouteHint<String> = .init()
+  )
 
   /// Past simulation results list for a scenario.
   case results(scenarioId: String)

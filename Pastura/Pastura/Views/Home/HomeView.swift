@@ -188,8 +188,8 @@ struct HomeView: View {
       ImportView(editingId: editingId)
     case .editor(let editingId, let templateYAML):
       editorView(editingId: editingId, templateYAML: templateYAML)
-    case .simulation(let scenarioId):
-      SimulationView(scenarioId: scenarioId)
+    case .simulation(let scenarioId, let initialName):
+      SimulationView(scenarioId: scenarioId, initialName: initialName.value)
     case .results(let scenarioId):
       ResultsView(scenarioId: scenarioId)
     case .resultDetail(let simulationId):

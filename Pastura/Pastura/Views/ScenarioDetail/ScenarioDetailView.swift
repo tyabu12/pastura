@@ -84,7 +84,7 @@ struct ScenarioDetailView: View {
       personasSection(scenario: scenario)
       phasesSection(scenario: scenario)
       validationSection(viewModel: viewModel)
-      actionsSection(viewModel: viewModel)
+      actionsSection(scenario: scenario, viewModel: viewModel)
     }
   }
 
@@ -177,9 +177,19 @@ struct ScenarioDetailView: View {
     }
   }
 
-  private func actionsSection(viewModel: ScenarioDetailViewModel) -> some View {
+  private func actionsSection(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
     Section {
-      NavigationLink(value: Route.simulation(scenarioId: scenarioId)) {
+      // initialName supplies the scenario name to SimulationView's
+      // navigationTitle from the first frame, before loadAndRun()
+      // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
+      NavigationLink(
+        value: Route.simulation(
+          scenarioId: scenarioId,
+          initialName: .init(scenario.name)
+        )
+      ) {
         Label("Run Simulation", systemImage: "play.fill")
       }
       .disabled(!viewModel.canRun)
