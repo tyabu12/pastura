@@ -35,6 +35,41 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   private let modelPath: String
   let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
 
+  #if DEBUG
+    // Per-loop token-level checkpoint logger. Joins the shared
+    // `category:StreamingDiag` channel (see `Engine/LLMCaller.swift`,
+    // `App/SimulationViewModel.swift`) so the existing analyze script
+    // and Console.app filter recipe pick it up. Routed through a
+    // dedicated static logger rather than the file-level `logger`
+    // because `LlamaCppService`'s normal log noise (load/unload,
+    // template-apply, etc.) would otherwise drown the checkpoints.
+    //
+    // **DEBUG-only** because the `~5 entries / 100 tokens` rate is
+    // useful for postmortem on the rare accept-time abort
+    // (ADR-002 §12.9) but is gratuitous noise on release builds where
+    // we have no field-side log-collection mechanism. Reproduce in
+    // DEBUG when the abort is reported by a TestFlight crash report.
+    static let streamingDiagLogger = Logger(
+      subsystem: "com.pastura", category: "StreamingDiag")
+
+    /// Periodic streaming-diag checkpoint emitter — see ADR-002 §12.9.
+    /// Emits a `streamCheckpoint` line every 20 generated tokens with the
+    /// most recent ~40-char decoded tail. Postmortem on the rare
+    /// accept-time abort uses the most recent checkpoint before the
+    /// crash to localize the JSON position (mid-string? after `}`?
+    /// in `trailing`?) where EOG was sampled. Extracted as a helper to
+    /// keep the inline check from pushing `runGeneration` /
+    /// `runStreamGeneration` past swiftlint's cyclomatic_complexity cap.
+    func emitStreamingCheckpointIfDue(
+      mode: String, tokens: Int, tail: String
+    ) {
+      guard tokens > 0, tokens.isMultiple(of: 20) else { return }
+      Self.streamingDiagLogger.debug(
+        "streamCheckpoint mode=\(mode, privacy: .public) tokens=\(tokens) tail=\(tail, privacy: .public)"
+      )
+    }
+  #endif
+
   // Sampling parameters (ADR-002 §6, matching OllamaService)
   static let temperature: Float = 0.8
   static let maxTokens: Int = 1_000
@@ -474,6 +509,9 @@ extension LlamaCppService {
             tokenId: Int(newTokenId),
             bytes: decodePieceRaw(vocab: vocab, token: newTokenId))
         }
+        emitStreamingCheckpointIfDue(
+          mode: "non-stream", tokens: generatedTokens,
+          tail: String(outputText.suffix(40)))
       #endif
 
       if let range = outputText.range(of: stopSequence) {
@@ -643,6 +681,12 @@ extension LlamaCppService {
       if let refreshed = Self.longestValidUtf8Prefix(outputBytes) {
         decodedText = refreshed
       }
+
+      #if DEBUG
+        emitStreamingCheckpointIfDue(
+          mode: "stream", tokens: generatedTokens,
+          tail: String(decodedText.suffix(40)))
+      #endif
 
       // Stop-sequence match: flush everything before it, terminate.
       if let range = decodedText.range(of: stopSequence) {
