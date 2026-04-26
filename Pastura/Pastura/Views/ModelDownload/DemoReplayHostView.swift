@@ -1,5 +1,5 @@
-import Network
 import SwiftUI
+import os
 
 /// Host view for the DL-time demo replay feature.
 ///
@@ -284,23 +284,38 @@ struct DemoReplayHostView: View {
   // MARK: - Lifecycle
 
   private func initialLoad() async {
+    Self.logger.notice("initialLoad: starting (descriptor=\(descriptor.id, privacy: .public))")
     // 1-shot cellular check. Option A safety net — if cellular, we skip
     // loading demos entirely and let the fallback branch route to the
     // plain `ModelDownloadView`. Full modal UX tracked as #191.
     let cellular = await Self.isCellularNow()
+    Self.logger.notice("initialLoad: cellular check returned \(cellular, privacy: .public)")
     isCellular = cellular
-    guard !cellular else { return }
+    guard !cellular else {
+      Self.logger.notice(
+        "initialLoad: cellular=true, exiting — sources will stay empty, fallbackBranch will route to ModelDownloadView"
+      )
+      return
+    }
 
     let loaded = BundledDemoReplaySource.loadAll()
-    // `loadAll` enumerates `Resources/DemoReplays/*.yaml` — currently
-    // empty pre-#170, so the typical result on main is `[]`.
+    Self.logger.notice(
+      "initialLoad: BundledDemoReplaySource.loadAll() returned \(loaded.count, privacy: .public) sources"
+    )
     sources = loaded
-    guard loaded.count >= Self.minPlayableDemoCount else { return }
+    guard loaded.count >= Self.minPlayableDemoCount else {
+      Self.logger.notice(
+        "initialLoad: sources count \(loaded.count, privacy: .public) below floor \(Self.minPlayableDemoCount, privacy: .public), exiting — fallbackBranch will route to ModelDownloadView"
+      )
+      return
+    }
 
     let viewModel = ReplayViewModel(sources: loaded)
     replayVM = viewModel
     viewModel.start()
     replayHadStarted = true
+    Self.logger.notice(
+      "initialLoad: replayVM constructed and started — demo host body should now render")
   }
 
   private func handleScenePhase(_ phase: ScenePhase) {
@@ -350,25 +365,6 @@ struct DemoReplayHostView: View {
       // stall with no visible animation.
       onReady?(modelPath)
     }
-  }
-
-  /// Reads the current network path once via `NWPathMonitor`. Treats
-  /// any "expensive" path as cellular — this covers personal hotspot
-  /// and metered Wi-Fi in addition to literal cellular, which is the
-  /// desired conservative posture for a 3 GB download safety net.
-  private static func isCellularNow() async -> Bool {
-    let (stream, continuation) = AsyncStream.makeStream(of: Bool.self)
-    let monitor = NWPathMonitor()
-    monitor.pathUpdateHandler = { path in
-      continuation.yield(path.isExpensive)
-      continuation.finish()
-    }
-    monitor.start(queue: .global(qos: .userInitiated))
-    defer { monitor.cancel() }
-    for await isCellular in stream {
-      return isCellular
-    }
-    return false
   }
 
 }

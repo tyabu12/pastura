@@ -1,4 +1,6 @@
 import Foundation
+import Network
+import os
 
 /// Pure routing decisions for `DemoReplayHostView`:
 /// - ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``
@@ -82,5 +84,44 @@ extension DemoReplayHostView {
       return .fireOnReady(waitMs: DLCompleteOverlay.reducedMotionHoldMs)
     }
     return .fireOnReady(waitMs: DLCompleteOverlay.totalAnimationMs)
+  }
+
+  // MARK: - Cellular detection
+
+  /// Shared `os.Logger` for the host view. Used by `initialLoad` and
+  /// `isCellularNow` to surface diagnostic data through Console.app —
+  /// filter by subsystem `com.tyabu12.Pastura` category `DemoReplayHostView`.
+  static let logger = Logger(
+    subsystem: "com.tyabu12.Pastura", category: "DemoReplayHostView")
+
+  /// Reads the current network path once via `NWPathMonitor`. Returns
+  /// `true` only when the path uses the **literal cellular** interface
+  /// — narrower than `path.isExpensive`, which also flags personal
+  /// hotspot and metered Wi-Fi. The earlier `isExpensive` check
+  /// false-positived on at least one real-device test (genuine Wi-Fi,
+  /// flagged expensive — possibly VPN / iCloud Private Relay /
+  /// carrier-managed Wi-Fi), causing the demo replay to never appear
+  /// on a 3 GB download. The conservative-safety-net rationale for
+  /// `isExpensive` stands, but #191's full cellular-consent modal will
+  /// reinstate hotspot / metered handling properly.
+  static func isCellularNow() async -> Bool {
+    let (stream, continuation) = AsyncStream.makeStream(of: NWPath.self)
+    let monitor = NWPathMonitor()
+    monitor.pathUpdateHandler = { path in
+      continuation.yield(path)
+      continuation.finish()
+    }
+    monitor.start(queue: .global(qos: .userInitiated))
+    defer { monitor.cancel() }
+    for await path in stream {
+      let isCellular = path.usesInterfaceType(.cellular)
+      let usesWifi = path.usesInterfaceType(.wifi)
+      let isExpensive = path.isExpensive
+      logger.notice(
+        "isCellularNow: cellular=\(isCellular, privacy: .public) wifi=\(usesWifi, privacy: .public) expensive=\(isExpensive, privacy: .public) status=\(String(describing: path.status), privacy: .public)"
+      )
+      return isCellular
+    }
+    return false
   }
 }
