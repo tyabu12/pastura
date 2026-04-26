@@ -78,14 +78,102 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.5 キャラクターパレット（羊アバター）
 
-| キャラ | 顔色 | 役割 |
-|-------|------|------|
-| Alice | `#F2E3C8` クリーム | やさしい第一声 |
-| Bob | `#D9E2C6` セージ | 同意的・穏やか |
-| Carol | `#EBD4D4` ピンク | 観察者 |
-| Dave | `#D0D7DC` スレート | Wolf（狼）/ 中心人物 |
+> **Source of Truth**: `docs/design/demo-replay-reference.html` の `sheepAvatar()` (lines 309-312) が原点。本テーブルはその mirror で、Swift `Pastura/Views/DesignTokens.swift` の `PasturaPalette.avatar*` トークンが本テーブルを参照する。HTML 内の letters mode `.ava.<who>` 背景色 (lines 94-98) は HTML-only ornament で iOS では未レンダー、scope 外。命名規約: 共有部位は `avatarPart`（例: `avatarEar`）、キャラ別部位は `avatarPartCharacter`（例: `avatarBodyAlice`）。enforcement 層: `Pastura/PasturaTests/Views/DesignTokensTests.swift`。
+
+| キャラ | body | face | horn | 役割 |
+|-------|------|------|------|------|
+| Alice | `#F2E3C8` クリーム | `#C9A979` | `#B29364` | やさしい第一声 |
+| Bob   | `#DDE4CC` セージ   | `#8A9A6C` | `#6F7F54` | 同意的・穏やか |
+| Carol | `#EAD6D1` ピンク   | `#B8877C` | `#9C6E64` | 観察者 |
+| Dave  | `#D9D7C9` スレート | `#6B6858` | `#4F4C3F` | Wolf（狼）/ 中心人物 |
 
 共通：耳 `#E8D9BC`, 耳内 `#D4C19E`, 鼻 `#3D4030`, 目 `#2D2E26`, ハイライト `rgba(255,255,255,.6)`
+
+### 2.6 Alert Family（4段階の温度）
+
+通知・状態の温度感を 4 段階で表す。各レベルに base / `*Soft`（背景用）/ `*Ink`（文字用）の 3 ヴァリアント。Source: `Pastura/Views/DesignTokens+ExtendedPalette.swift` `§2.6 Alert Family`。
+
+| Token | Hex | 用途 | 例 |
+|-------|-----|------|-----|
+| `info` | `#7B8FA8` | ニュートラル通知 | 「新しいデモが届きました」 |
+| `success` | `#7A9270` | 完了・正の状態 | DL完了、保存成功 |
+| `warning` | `#C7A566` | 注意・確認待ち | 「DLが一時停止されました」 |
+| `danger` | `#B57870` | 取り消し・破壊的操作 | 「会話を削除しますか？」 |
+
+補助バリエーション：
+
+| | Soft (背景) | Ink (文字) |
+|---|------------|-----------|
+| info | `#E8EDF2` | `#4A5A6F` |
+| success | `#E5ECDF` | `#4D5F44` |
+| warning | `#F2EAD3` | `#6F5C2D` |
+| danger | `#EDD9D4` | `#6F4540` |
+
+**運用ルール（牧歌トーンの維持）：**
+
+- **Cancel ボタンは赤くしない。** 文字 `inkSecondary` (`#5A5A55`) / 背景透明 / ボーダー `rule` (`#E0DBCE`) で中立に。
+- **破壊確認ダイアログのプライマリボタン**: `danger` 文字 / `dangerSoft` 背景 / 同色ボーダー（iOS の system destructive role が許す範囲で）。
+- **トースト**: 1pt のアクセント左ボーダー + `*Soft` 背景 + 14pt 角丸（promo card と同じ造形）。
+
+### 2.7 Interactive States（対話状態）
+
+タップ可能要素のフィードバック。moss を 6/12/18% の alpha で重ねる方式で、下地のサーフェス色を問わない。Source: `§2.7 Interactive States`。
+
+| Token | 値 | 用途 |
+|-------|-----|------|
+| `hover` | `rgba(138,154,108, 0.06)` | iPadOS pointer hover |
+| `pressed` | `rgba(138,154,108, 0.12)` | タップ中 |
+| `selected` | `rgba(138,154,108, 0.18)` | 選択維持 |
+| `focusRing` | `#8A9A6C` | フォーカスリング (2pt outline / 2pt offset) |
+| `disabledText` | `#B5B0A2` | 無効化テキスト |
+| `disabledBackground` | `#ECE7DA` | 無効化サーフェス |
+
+### 2.8 Link / Action（テキストリンク）
+
+未使用予約。Pastura の現状画面にリンクは無いが、将来導入する際に "system blue" を発生させないために定義。Source: `§2.8 Link / Action`。
+
+| Token | Hex | 用途 |
+|-------|-----|------|
+| `link` | `#5D7A4D` | デフォルトリンク（moss 寄りの深緑） |
+| `linkVisited` | `#6F6753` | 訪問後（苔→土へ） |
+| `linkHover` | `#4A6438` | hover 時 |
+
+### 2.9 Dark Mode（夜の牧場）
+
+未使用予約。trait-based で適用するスケルトンを後続で組む際に使う。Source: `§2.9 Dark Mode`。
+
+| Token | Hex | 対応する day-mode token |
+|-------|-----|------------------------|
+| `nightBackground` | `#1B1D17` | `screenBackground` |
+| `nightSurface` | `#232620` | `bubbleBackground` |
+| `nightBubble` | `#2C2F28` | `bubbleBackground` |
+| `nightInk` | `#E8E5D8` | `ink` |
+| `nightInkSecondary` | `#B0AC9C` | `inkSecondary` |
+| `nightMuted` | `#7A7768` | `muted` |
+| `nightRule` | `#353830` | `rule` |
+| `nightMoss` | `#A8B888` | `moss` |
+
+### 2.10 Time-of-Day（牧場の時間帯）
+
+未使用予約。背景帯やヘッダのアンビエント表現用。`noon` と `night` は構造的トークン（`screenBackground` / `nightBackground`）と hex が重複するが、用途意味が違うので独立して定義する。Source: `§2.10 Time-of-Day`。
+
+| Token | Hex | 雰囲気 |
+|-------|-----|--------|
+| `dawn` | `#F4E5CD` | 朝もやの黄み |
+| `noon` | `#FCFAF4` | crisp 昼（既存 `screenBackground` と同 hex） |
+| `dusk` | `#E5D4C2` | 夕の橙み |
+| `night` | `#1B1D17` | 夜（既存 `nightBackground` と同 hex） |
+
+### 2.11 Chart（最小4色）
+
+未使用予約。グラフ可視化が必要になった場合の最小セット。既存トークンの再利用＝視覚言語が増えない方針。4 カテゴリを超える場合は palette を増やすのではなく可視化方式そのものを再考する。Source: `§2.11 Chart`。
+
+| Token | Hex | 元 |
+|-------|-----|-----|
+| `chart1` | `#8A9A6C` | == `moss` |
+| `chart2` | `#C7A566` | == `warning` |
+| `chart3` | `#7B8FA8` | == `info` |
+| `chart4` | `#B57870` | == `danger` |
 
 ---
 
@@ -211,7 +299,7 @@ box-shadow:
 
 ### 5.6 Avatar（羊シルエット）
 
-48pt 丸（§5.2 と同値。#171 で 42pt → 48pt にバンプ）。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `SHEEP()` 参照。
+48pt 丸（§5.2 と同値。#171 で 42pt → 48pt にバンプ）。4色バリエーション。耳2枚 + 顔丸 + 鼻 + 目2つ + ハイライト1。詳細SVGは `./demo-replay-reference.html` の `sheepAvatar()` 参照。
 
 ### 5.7 Assistant Mark（犬 / コリー横顔）
 

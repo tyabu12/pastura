@@ -2,7 +2,7 @@ import Combine
 import SwiftUI
 
 /// Promotional card shown at the bottom of the demo replay screen while
-/// the model downloads. Three responsibilities:
+/// the model downloads. Four responsibilities:
 ///
 /// 1. DL progress (8 dots + percent + size + ETA) driven by `ModelState`.
 /// 2. Rotating body copy (slots A → B → C → A …) driven by an independent
@@ -11,11 +11,32 @@ import SwiftUI
 /// 3. Inline retry affordance when `.error` arrives *after* replay has
 ///    started, per ADR-007 §3.3 (b) — the progress area swaps to an
 ///    error message + retry button while the body copy keeps rotating.
+/// 4. Optional inline Cancel: when `onCancel` is non-nil, a small `X`
+///    sits on the trailing edge of the progress / retry row. The card
+///    is the natural home for it because the action targets the DL
+///    that the card is rendering — colocating destructive intent with
+///    its target. The host owns the confirmation dialog.
 struct PromoCard: View {
 
   let modelState: ModelState
   let replayHadStarted: Bool
   let onRetry: () -> Void
+  /// When set, renders a small `X` button at the trailing edge of the
+  /// progress / retry row. When `nil`, no cancel affordance is shown
+  /// (first-launch DL is uncancellable per the slot's contract).
+  let onCancel: (() -> Void)?
+
+  init(
+    modelState: ModelState,
+    replayHadStarted: Bool,
+    onRetry: @escaping () -> Void,
+    onCancel: (() -> Void)? = nil
+  ) {
+    self.modelState = modelState
+    self.replayHadStarted = replayHadStarted
+    self.onRetry = onRetry
+    self.onCancel = onCancel
+  }
 
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -123,6 +144,10 @@ struct PromoCard: View {
           .foregroundStyle(Color.metaBaseL3)
 
         Spacer(minLength: 0)
+
+        if let onCancel {
+          cancelButton(action: onCancel)
+        }
       }
 
       if pct < 100, let etaText = Self.formatEta(minutes: etaMinutes) {
@@ -139,6 +164,34 @@ struct PromoCard: View {
     .accessibilityAddTraits(.updatesFrequently)
   }
 
+  /// Trailing-edge "キャンセル" button for the progress / retry row.
+  /// Neutral styling — `inkSecondary` text + `rule` 1pt border + clear
+  /// fill — per `design-system.md` §2.6 "Cancel ボタンは赤くしない".
+  /// The pastoral voice rejects red here; `danger` is reserved for
+  /// the destructive-confirmation primary button instead.
+  ///
+  /// Tap target meets the HIG floor by stretching the button frame
+  /// past the visible bordered chip via padding + `contentShape`,
+  /// so the surrounding content area registers taps without inflating
+  /// the visible chrome.
+  private func cancelButton(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Text(String(localized: "キャンセル"))
+        .textStyle(Typography.metaLabel)
+        .foregroundStyle(Color.inkSecondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .overlay {
+          RoundedRectangle(cornerRadius: Radius.button)
+            .strokeBorder(Color.rule, lineWidth: 1)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(String(localized: "Cancel download"))
+  }
+
   @ViewBuilder
   private func retryView(message: String) -> some View {
     HStack(alignment: .center, spacing: Spacing.s) {
@@ -153,7 +206,7 @@ struct PromoCard: View {
       }
       Spacer(minLength: 0)
       Button(action: onRetry) {
-        Text("もう一度試す")
+        Text("リトライ")
           .textStyle(Typography.metaLabel)
           .foregroundStyle(Color.white)
           .padding(.horizontal, 10)
@@ -163,6 +216,9 @@ struct PromoCard: View {
               .fill(Color.moss))
       }
       .buttonStyle(.plain)
+      if let onCancel {
+        cancelButton(action: onCancel)
+      }
     }
     .padding(.horizontal, 14)
     .padding(.top, 8)
@@ -199,7 +255,11 @@ struct PromoCard: View {
 
   /// Point size of the dog mark in the promo body row. Spec §PromoCard
   /// body structure (`demo-replay-ui.md` §PromoCard) pins this at 26 pt.
-  private static let dogSize: CGFloat = 26
+  ///
+  /// `nonisolated` because it is read inside a `.alignmentGuide(.top)`
+  /// `@Sendable` closure (line 182); pure value, safe to publish across
+  /// isolation domains.
+  nonisolated private static let dogSize: CGFloat = 26
 
   // MARK: - Decorative layers
 
@@ -265,7 +325,14 @@ struct PromoCard: View {
     return Int(remaining / 60)
   }
 
-  // MARK: - Pure helpers (testable)
+}
+
+// MARK: - Pure helpers (testable)
+//
+// Lifted out of the main struct body to keep `type_body_length` under the
+// 250-line cap. They were already `nonisolated static`, so accessing them
+// as `PromoCard.computeSlotState(...)` is unchanged.
+extension PromoCard {
 
   /// Computes the next slot rotation state from the current accumulator,
   /// the last foreground anchor, and the current time. All inputs are
@@ -321,34 +388,5 @@ struct PromoCard: View {
   }
 }
 
-// MARK: - Previews
-
-#Preview("Downloading 35%") {
-  PromoCard(
-    modelState: .downloading(progress: 0.35),
-    replayHadStarted: true,
-    onRetry: {}
-  )
-  .padding(.vertical, 40)
-  .background(Color.screenBackground)
-}
-
-#Preview("Downloading 95%") {
-  PromoCard(
-    modelState: .downloading(progress: 0.95),
-    replayHadStarted: true,
-    onRetry: {}
-  )
-  .padding(.vertical, 40)
-  .background(Color.screenBackground)
-}
-
-#Preview("Error after start (retry)") {
-  PromoCard(
-    modelState: .error("ネットワーク接続が切れました"),
-    replayHadStarted: true,
-    onRetry: {}
-  )
-  .padding(.vertical, 40)
-  .background(Color.screenBackground)
-}
+// `#Preview` blocks for this view live in `PromoCard+Previews.swift`
+// to keep this file under swiftlint's 400-line cap.

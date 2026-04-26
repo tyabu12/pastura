@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"additionalContext\":\"Reminder: This is Pastura (Swift/iOS). Follow CLAUDE.md hard rules. No force unwrap (!), no Engine→Data imports, TDD mandatory.\"}}'"
+            "command": "echo '{\"hookSpecificOutput\":{\"additionalContext\":\"Reminder: This is Pastura (Swift/iOS). Follow CLAUDE.md hard rules. No force unwrap (!), no Engine→Data imports, TDD mandatory for Engine/LLM layers.\"}}'"
           }
         ]
       }

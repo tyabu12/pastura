@@ -49,15 +49,72 @@ extension Color {
   static let metaDotOnL4 = PasturaPalette.metaDotOnL4.color
 
   // §2.5 Avatars
-  static let avatarAlice = PasturaPalette.avatarAlice.color
-  static let avatarBob = PasturaPalette.avatarBob.color
-  static let avatarCarol = PasturaPalette.avatarCarol.color
-  static let avatarDave = PasturaPalette.avatarDave.color
+  static let avatarBodyAlice = PasturaPalette.avatarBodyAlice.color
+  static let avatarBodyBob = PasturaPalette.avatarBodyBob.color
+  static let avatarBodyCarol = PasturaPalette.avatarBodyCarol.color
+  static let avatarBodyDave = PasturaPalette.avatarBodyDave.color
+  static let avatarFaceAlice = PasturaPalette.avatarFaceAlice.color
+  static let avatarFaceBob = PasturaPalette.avatarFaceBob.color
+  static let avatarFaceCarol = PasturaPalette.avatarFaceCarol.color
+  static let avatarFaceDave = PasturaPalette.avatarFaceDave.color
+  static let avatarHornAlice = PasturaPalette.avatarHornAlice.color
+  static let avatarHornBob = PasturaPalette.avatarHornBob.color
+  static let avatarHornCarol = PasturaPalette.avatarHornCarol.color
+  static let avatarHornDave = PasturaPalette.avatarHornDave.color
   static let avatarEar = PasturaPalette.avatarEar.color
   static let avatarEarInner = PasturaPalette.avatarEarInner.color
   static let avatarNose = PasturaPalette.avatarNose.color
   static let avatarEye = PasturaPalette.avatarEye.color
   static let avatarHighlight = PasturaPalette.avatarHighlight.color
+
+  // §2.6 Alert family
+  static let info = PasturaPalette.info.color
+  static let infoSoft = PasturaPalette.infoSoft.color
+  static let infoInk = PasturaPalette.infoInk.color
+  static let success = PasturaPalette.success.color
+  static let successSoft = PasturaPalette.successSoft.color
+  static let successInk = PasturaPalette.successInk.color
+  static let warning = PasturaPalette.warning.color
+  static let warningSoft = PasturaPalette.warningSoft.color
+  static let warningInk = PasturaPalette.warningInk.color
+  static let danger = PasturaPalette.danger.color
+  static let dangerSoft = PasturaPalette.dangerSoft.color
+  static let dangerInk = PasturaPalette.dangerInk.color
+
+  // §2.7 Interactive states
+  static let hover = PasturaPalette.hover.color
+  static let pressed = PasturaPalette.pressed.color
+  static let selected = PasturaPalette.selected.color
+  static let focusRing = PasturaPalette.focusRing.color
+  static let disabledText = PasturaPalette.disabledText.color
+  static let disabledBackground = PasturaPalette.disabledBackground.color
+
+  // §2.8 Link / Action
+  static let link = PasturaPalette.link.color
+  static let linkVisited = PasturaPalette.linkVisited.color
+  static let linkHover = PasturaPalette.linkHover.color
+
+  // §2.9 Dark mode (night pasture)
+  static let nightBackground = PasturaPalette.nightBackground.color
+  static let nightSurface = PasturaPalette.nightSurface.color
+  static let nightBubble = PasturaPalette.nightBubble.color
+  static let nightInk = PasturaPalette.nightInk.color
+  static let nightInkSecondary = PasturaPalette.nightInkSecondary.color
+  static let nightMuted = PasturaPalette.nightMuted.color
+  static let nightRule = PasturaPalette.nightRule.color
+  static let nightMoss = PasturaPalette.nightMoss.color
+
+  // §2.10 Time-of-Day (decorative ambient)
+  static let dawn = PasturaPalette.dawn.color
+  static let noon = PasturaPalette.noon.color
+  static let dusk = PasturaPalette.dusk.color
+  static let night = PasturaPalette.night.color
+
+  // §2.11 Chart
+  static let chart1 = PasturaPalette.chart1.color
+  static let chart2 = PasturaPalette.chart2.color
+  static let chart3 = PasturaPalette.chart3.color
+  static let chart4 = PasturaPalette.chart4.color
 }
 
 // MARK: - View modifier

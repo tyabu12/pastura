@@ -29,7 +29,7 @@ unannotated.
 
 ### Example
 
-`Pastura/LLM/LLMService.swift` has both patterns:
+`Pastura/Pastura/LLM/LLMService.swift` has both patterns:
 
 ```swift
 extension LLMService {

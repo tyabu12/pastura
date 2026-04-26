@@ -120,6 +120,31 @@ UI tests are not required for MVP.
 
 ## Development Workflow
 
+### Implementation Entry Point
+
+`/orchestrate` is the only entry point for file edits, commits, branch
+creation, and pushes in this repository.
+
+**Why:** `main` is push-protected (PR required), and concurrent sessions
+collide on shared files (`Pastura.xcodeproj/project.pbxproj`, DerivedData,
+generated assets) without worktree isolation.
+
+When the conversation transitions from discussion or investigation toward
+such work, announce `/orchestrate` and start it — even if the user didn't
+mention it. Match the user's language; English baseline:
+
+> "Switching to `/orchestrate` for the implementation."
+
+GitHub-side actions that produce no local commit are out of scope — issue
+management, PR comments/reviews on others' PRs, label/milestone edits,
+workflow dispatch, release creation, draft-state toggles, merging an
+already-opened PR. Local read-only sync (`git fetch`, `git pull` on the
+default branch, `gh pr checkout`) is similarly out of scope. When in
+doubt, default to `/orchestrate`.
+
+The rule does not re-trigger for actions taken from inside `/orchestrate`
+itself or from any sub-agent it dispatches.
+
 ### TDD Approach
 
 Engine and LLM layer: test-first (write failing test → minimal implementation → refactor).
@@ -140,82 +165,8 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 
 ### Test Execution
 
-```bash
-source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
-
-# Run all tests
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-  -destination "$DEST" -derivedDataPath "$DERIVED_DATA"
-
-# Run specific test class
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-  -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
-  -only-testing PasturaTests/JSONResponseParserTests
-
-# Run Ollama integration tests (requires local Ollama with target model pulled)
-# Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-  -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
-  -only-testing PasturaTests/OllamaIntegrationTests
-# These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
-```
-
-#### DerivedData location
-
-`sim-dest.sh` exports `DERIVED_DATA` pointing at `Pastura/DerivedData/` inside
-the current worktree. Always pass `-derivedDataPath "$DERIVED_DATA"` to
-`xcodebuild` so the CLI matches the Xcode.app Workspace-relative layout
-configured in `project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings`.
-This keeps GUI and CLI builds sharing one cache per worktree and makes
-`git worktree remove` auto-clean all build artifacts. Two gotchas:
-
-- **Pass `-derivedDataPath` with a space**, not `=`. The `=` form is silently
-  ignored by `xcodebuild` (known since Xcode 15.4).
-- **CI is intentionally left on the default `~/Library/...` path** so its
-  existing SPM cache (`actions/cache` keyed on that path) keeps hitting. If
-  CI ever starts passing `-derivedDataPath`, update both cache paths in
-  `.github/workflows/ci.yml` in the same PR.
-
-#### Running xcodebuild from an agent session
-
-`xcodebuild test` takes minutes. A few operational guardrails to avoid
-burning wall-clock and orphaning processes:
-
-**Prevention (do this up-front):**
-
-- Narrow scope whenever possible — `-only-testing PasturaTests/<Suite>`.
-- If the change doesn't touch UI code, add `-skip-testing:PasturaUITests`
-  (UI tests are not required for MVP; CI will still cover them).
-- Always pass an explicit bash `timeout` — the default 120s is shorter
-  than even a focused suite. Guideline: `timeout: 180000` (3 min) for a
-  single suite, `timeout: 600000` (10 min) for the full unit suite,
-  `timeout: 900000` (15 min) when UI tests are included.
-- For runs expected to exceed 5 minutes, prefer `run_in_background: true`
-  and poll with Monitor / BashOutput rather than blocking the session.
-- When piping through `tail` (e.g. `xcodebuild ... 2>&1 | tail -80`), the
-  pipe's exit code is `tail`'s, not `xcodebuild`'s — a failed build reports
-  `exit code 0`. Grep the tailed output for `** BUILD|TEST SUCCEEDED/FAILED **`
-  or `xcodebuild: error:` before trusting the harness exit code, or use
-  `set -o pipefail`. When the SUCCEEDED marker has been trimmed off entirely,
-  extract the verdict from the xcresult bundle: `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
-
-**Recovery (if a run hangs or a retry immediately stalls):**
-
-- The session's bash timeout kills the shell wrapper, but spawned
-  `xcodebuild` / `testmanagerd` / `XCTRunner` processes can outlive it
-  and keep the simulator destination busy. Subsequent `xcodebuild test`
-  calls then queue behind them and appear to hang.
-- Before killing, **read the full command lines** so you don't clobber a
-  concurrent run from another worktree:
-  `pgrep -af "xcodebuild|XCTRunner|testmanagerd"`.
-- Only if you're sure every listed process belongs to your session:
-  `pkill -f "xcodebuild test"`; then reset the simulator with
-  `xcrun simctl shutdown "$(echo "$DEST" | sed -n 's/.*id=//p')"`.
-- If UI tests fail with
-  `FBSOpenApplicationServiceErrorDomain Code=1 — com.tyabu12.PasturaUITests.xctrunner`,
-  try `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
-  are real bugs (signing, plist, or app-state regression), not flakes —
-  do not swallow them.
+See `.claude/rules/xcodebuild-cli.md` for the full xcodebuild CLI playbook
+(test execution commands, DerivedData layout, agent-session timeout/recovery).
 
 ## Directory Structure
 
@@ -243,16 +194,28 @@ Pastura/
     ├── Presets/              # Bundled YAML scenarios
     ├── DemoReplays/          # DL-time demo playback (ADR-007)
     └── ContentBlocklist.txt  # ADR-005 content safety
+
+pages/                           # Public HTML deployed via .github/workflows/deploy-pages.yml
+├── support/                     # ASC Support URL
+└── legal/privacy-policy/        # App Store privacy policy URL
 ```
 
 ## Context-Specific Rules
 
-See `.claude/rules/` for detailed rules loaded automatically when editing Engine, LLM, Models, Data, or Resources files.
+`.claude/rules/` contains detailed rules with two loading modes:
 
-`navigation.md` documents the `AppRouter` pattern: programmatic root-stack
-navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`,
-and `navigationDestination(item:|isPresented:)` is forbidden inside views
-pushed onto the root stack. Sheet-owned NavigationStacks are exempt.
+**Path-scoped** (loaded only when editing matching files):
+
+- `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
+- `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
+- `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
+- `testing.md` — Test target (`Pastura/PasturaTests/**`)
+
+**Always-loaded** (no frontmatter `paths:` — relevant from any layer):
+
+- `llm.md` — LLM-layer traps (e.g., `nonisolated` protocol-default impls that build escaping closures) can fire from any conformer, including types added in `App/` or test targets, so the rule must stay visible regardless of which file is being edited.
+- `navigation.md` — `AppRouter` pattern: programmatic root-stack navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto the root stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
+- `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
 
 ## File Naming
 

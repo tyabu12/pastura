@@ -63,7 +63,8 @@ After fetching the issue, check for an existing plan comment:
    Assign a **complexity label** to each item:
    - 🟢 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
    - 🔴 **complex** — Implemented by the orchestrator (Opus) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
-   - **When in doubt, classify as 🔴.** Misclassifying a complex task as simple wastes tokens on a failed Sonnet attempt + Opus fallback. The reverse (Opus doing a simple task) has no downside beyond cost.
+   - **When in doubt, classify as 🔴.** Misclassifying a complex item as simple wastes a Sonnet attempt + Opus fallback; the reverse just costs extra Opus tokens.
+   - **Skip delegation when overhead exceeds the work.** Promote a 🟢 item to 🔴 when subagent prompt + verify overhead likely exceeds the implementation itself — e.g. single-line edits, short doc tweaks. This forces Opus reviewer via the Coupling Rule below — intended, since the orchestrator is implementing the item directly.
 
    ```
    - [ ] 1. 🟢 <description> (`<primary-file-path>`)
@@ -204,7 +205,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
 
 ### 🔴 Complex items — Orchestrator implements directly
 
-1. Write test first (TDD mandatory per CLAUDE.md).
+1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🟢 branch's escape at the Sonnet prompt below).
 2. Run targeted tests — confirm failure:
    ```bash
    source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
@@ -356,7 +357,6 @@ gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
 ...
 ## Test plan
 ...
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 IMPLEMENT_PR_BODY
 )"
 ```

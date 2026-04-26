@@ -8,6 +8,10 @@ import SwiftUI
 // §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
 // the doc wins — fix this file, not the doc.
 //
+// For §2.5 avatar colors specifically, the doc itself mirrors
+// `docs/design/demo-replay-reference.html` `sheepAvatar()` (lines 309-312); see
+// that file for the original prototype values.
+//
 // Organized in layered namespaces (see individual doc comments below):
 //   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
 //   - Typography + Spacing + Radius   — layout + type scales.
@@ -118,15 +122,36 @@ enum PasturaPalette {
   static let metaDotOnL4 = PasturaColorValue(hex: 0x556340)
 
   // MARK: §2.5 Avatar palette (sheep characters)
+  //
+  // Naming convention: shared parts use `avatarPart` (e.g. `avatarEar`);
+  // per-character parts use `avatarPartCharacter` (e.g. `avatarBodyAlice`).
 
-  /// Alice — cream. Gentle first voice.
-  static let avatarAlice = PasturaColorValue(hex: 0xF2E3C8)
-  /// Bob — sage. Agreeable / calm.
-  static let avatarBob = PasturaColorValue(hex: 0xD9E2C6)
-  /// Carol — pink. Observer.
-  static let avatarCarol = PasturaColorValue(hex: 0xEBD4D4)
-  /// Dave — slate. Wolf / central figure.
-  static let avatarDave = PasturaColorValue(hex: 0xD0D7DC)
+  /// Alice — body (wool / cream). Gentle first voice.
+  static let avatarBodyAlice = PasturaColorValue(hex: 0xF2E3C8)
+  /// Bob — body (wool / sage). Agreeable / calm.
+  static let avatarBodyBob = PasturaColorValue(hex: 0xDDE4CC)
+  /// Carol — body (wool / pink). Observer.
+  static let avatarBodyCarol = PasturaColorValue(hex: 0xEAD6D1)
+  /// Dave — body (wool / slate). Wolf / central figure.
+  static let avatarBodyDave = PasturaColorValue(hex: 0xD9D7C9)
+
+  /// Alice — face oval (darker cream accent over body).
+  static let avatarFaceAlice = PasturaColorValue(hex: 0xC9A979)
+  /// Bob — face oval (moss accent over body).
+  static let avatarFaceBob = PasturaColorValue(hex: 0x8A9A6C)
+  /// Carol — face oval (terracotta accent over body).
+  static let avatarFaceCarol = PasturaColorValue(hex: 0xB8877C)
+  /// Dave — face oval (deep slate accent over body).
+  static let avatarFaceDave = PasturaColorValue(hex: 0x6B6858)
+
+  /// Alice — horn stroke.
+  static let avatarHornAlice = PasturaColorValue(hex: 0xB29364)
+  /// Bob — horn stroke.
+  static let avatarHornBob = PasturaColorValue(hex: 0x6F7F54)
+  /// Carol — horn stroke.
+  static let avatarHornCarol = PasturaColorValue(hex: 0x9C6E64)
+  /// Dave — horn stroke.
+  static let avatarHornDave = PasturaColorValue(hex: 0x4F4C3F)
 
   /// Shared avatar ear color.
   static let avatarEar = PasturaColorValue(hex: 0xE8D9BC)

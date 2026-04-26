@@ -15,13 +15,17 @@ import os
 /// Loads a GGUF model file from disk and runs inference locally.
 /// Designed for TestFlight production use with Gemma 4 E2B.
 ///
-/// - Important: Not safe for concurrent `generate()` calls. The Engine executes
-///   inferences sequentially, so this is fine in practice; a runtime guard
-///   (`precondition`) catches any regression.
-/// - Note: `loadModel()`/`unloadModel()` cooperatively wait if a `generate()` is
-///   in flight (see `awaitGenerateIdle`). Used to be a precondition crash, but
-///   this fires on legitimate cleanup paths where llama.cpp's C API can't be
-///   interrupted (memory warning, cancellation).
+/// - Important: Sequential-access contract (ADR-002 §6) — concurrent calls
+///   into `generate()` / `generateStream()` are serialized via an atomic
+///   wait-and-claim primitive (`acquireGenerateGuard` in `+Lifecycle.swift`),
+///   not crashed. The Engine still runs inferences sequentially in the
+///   normal case; the contract is enforced cooperatively rather than via a
+///   runtime trap. `loadModel()` / `unloadModel()` use the related
+///   `awaitGenerateIdle` primitive (waits without claiming).
+/// - Note: All four entry points handle the case where llama.cpp's C API
+///   cannot be interrupted by Swift `Task` cancellation. The prior call
+///   runs to its next iteration boundary before the next call's wait-and-
+///   claim succeeds. Bounded by a 30-second deadline. (Issue #221.)
 nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable {
   // @unchecked Sendable: isModelLoaded flag protected by OSAllocatedUnfairLock.
   // C pointers use nonisolated(unsafe) — Engine calls generate() sequentially via
@@ -54,15 +58,40 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   let systemPromptSuffix: String?
 
   private let loadedState: OSAllocatedUnfairLock<Bool>
-  // Runtime guard for the sequential access contract (ADR-002 §6).
-  // Catches concurrent generate(). load/unload wait for it via awaitGenerateIdle
-  // (in +Lifecycle.swift) instead of crashing on concurrent access.
+  // Synchronizing fence for the sequential-access contract (ADR-002 §6).
+  // generate() / generateStream() acquire this via acquireGenerateGuard
+  // (atomic wait-and-claim); load / unload wait via awaitGenerateIdle
+  // (no claim — they have their own loadedState). Holding the claim is
+  // the primary guarantee that pointer ownership stays with the current
+  // call: pointer capture happens AFTER the claim, and unloadModel waits
+  // behind the same flag — so no concurrent free can race the captured
+  // _model / _context pointers. Concurrent generate() callers are
+  // serialized via the wait-and-claim loop rather than crashed.
   private let generatingGuard = OSAllocatedUnfairLock<Bool>(initialState: false)
 
   /// Whether a `generate()` call is currently in flight.
   /// Exposed so the +Lifecycle extension can poll without direct lock access.
   func isGenerating() -> Bool {
     generatingGuard.withLock { $0 }
+  }
+
+  /// Atomic check-and-set: returns `true` iff this call transitioned the
+  /// flag from clear to claimed. Used by `acquireGenerateGuard` in
+  /// `+Lifecycle.swift` — exposed at file-internal scope because the
+  /// `private` `generatingGuard` is invisible to cross-file extensions.
+  func tryClaimGeneratingGuard() -> Bool {
+    generatingGuard.withLock { flag in
+      if flag { return false }
+      flag = true
+      return true
+    }
+  }
+
+  /// Force-claim the guard regardless of current state. Used only by
+  /// `acquireGenerateGuard`'s 30 s timeout path — see ADR-002 §12.6 for
+  /// the safety trade-off (degrade safety over a permanent hang).
+  func forceClaimGeneratingGuard() {
+    generatingGuard.withLock { $0 = true }
   }
 
   #if DEBUG
@@ -348,25 +377,34 @@ extension LlamaCppService {
       "generate post-throttle: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
     )
 
+    // Sequential-access contract (ADR-002 §6) — entry order is load-bearing:
+    //   (1) throttle (above) — cancellation-honoring; may throw out cleanly.
+    //       MUST stay above (2): a CancellationError thrown from Task.sleep
+    //       after the claim would skip the defer-clear and strand the flag.
+    //   (2) acquireGenerateGuard — atomic wait-and-claim. Polls
+    //       `generatingGuard` and only returns once it has transitioned the
+    //       flag from clear to claimed in a single `withLock`. Replaces the
+    //       previous `awaitGenerateIdle + separate withLock + precondition`
+    //       sequence, which lost the multi-waiter race when several callers
+    //       (LLMCaller JSON parse retries fire back-to-back generateStream;
+    //       unloadModel paths overlap on back-nav cleanup) all woke on the
+    //       same flag-clear event.
+    //   (3) defer-clear — runs on every exit (including .notLoaded throw),
+    //       so subsequent callers can claim cleanly.
+    //   (4) isModelLoaded check + _model/_context capture AFTER the claim:
+    //       unloadModel also waits behind the same flag (via awaitGenerateIdle),
+    //       so pointers cannot be freed between this capture and the inference
+    //       loop below.
+    // Issue #221 (initial fix + follow-up race elimination).
+    await acquireGenerateGuard(caller: "generate")
+    defer { generatingGuard.withLock { $0 = false } }
+
     guard isModelLoaded, let model = _model, let context = _context else {
       logger.error(
         "generate throwing .notLoaded: isModelLoaded=\(self.isModelLoaded), modelNil=\(self._model == nil), contextNil=\(self._context == nil)"
       )
       throw LLMError.notLoaded
     }
-
-    // Runtime enforcement of sequential access contract (ADR-002 §6).
-    // Concurrent generate() would cause use-after-free of C pointers.
-    // IMPORTANT: This guard is intentionally placed after the isModelLoaded check above.
-    // Calls that fail with .notLoaded must not touch the flag — otherwise the flag
-    // stays true and the next sequential call would be falsely flagged as concurrent.
-    let wasGenerating = generatingGuard.withLock { flag -> Bool in
-      let was = flag
-      flag = true
-      return was
-    }
-    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
-    defer { generatingGuard.withLock { $0 = false } }
 
     let vocab = llama_model_get_vocab(model)
 
@@ -488,19 +526,21 @@ extension LlamaCppService {
   /// multi-byte UTF-8 character.
   ///
   /// Contract preserved from ``generate(system:user:)``:
-  /// - Sequential access (ADR-002 §6) — `precondition` fires on concurrent entry.
+  /// - Sequential access (ADR-002 §6) — concurrent callers serialize via
+  ///   the atomic wait-and-claim entry primitive (`acquireGenerateGuard`),
+  ///   not via a runtime trap.
   /// - Cooperative ``SuspendController`` check at each iteration boundary.
   /// - Task cancellation at iteration boundary.
   /// - Stop-sequence `<|im_end|>` never appears in emitted deltas.
   /// - Final chunk carries ``LLMStreamChunk/completionTokens`` — llama.cpp
   ///   is one of the few backends that can report this cheaply.
   ///
-  /// - Important: Callers must fully drain (or cancel + await) the
-  ///   returned `AsyncThrowingStream` before starting the next
-  ///   `generate`/`generateStream` call. The `generatingGuard` clears
-  ///   in a `defer` after `continuation.finish()`, so back-to-back calls
-  ///   issued in the narrow window between the last yielded chunk and
-  ///   the Task's exit will `precondition`-crash.
+  /// - Important: If a prior `generate` / `generateStream` is still in
+  ///   flight when this is called, the entry waits up to 30 s for the
+  ///   prior call's `generatingGuard` defer to clear before producing
+  ///   any chunks. Stream consumer cancellation during that wait is
+  ///   honored only after the wait completes — intentional; it preserves
+  ///   the use-after-free guarantee on `_model` / `_context` (Issue #221).
   public func generateStream(
     system: String, user: String, schema: OutputSchema?
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
@@ -532,17 +572,19 @@ extension LlamaCppService {
   ) async throws {
     try await throttleIfOverheating()
 
+    // Sequential-access contract (ADR-002 §6) — same four-step entry order
+    // as `runGeneration` (throttle → acquireGenerateGuard → defer →
+    // load-check + capture). The throttle above MUST stay above the claim
+    // so a CancellationError out of Task.sleep cannot strand the flag. See
+    // the longer comment block in `runGeneration` for why the load check
+    // is placed AFTER the guard claim (use-after-free prevention on
+    // `_model` / `_context`). Issue #221.
+    await acquireGenerateGuard(caller: "generateStream")
+    defer { generatingGuard.withLock { $0 = false } }
+
     guard isModelLoaded, let model = _model, let context = _context else {
       throw LLMError.notLoaded
     }
-
-    let wasGenerating = generatingGuard.withLock { flag -> Bool in
-      let was = flag
-      flag = true
-      return was
-    }
-    precondition(!wasGenerating, "Concurrent generate() detected — ADR-002 §6")
-    defer { generatingGuard.withLock { $0 = false } }
 
     let vocab = llama_model_get_vocab(model)
     let formattedPrompt = try applyChatTemplate(system: system, user: user)

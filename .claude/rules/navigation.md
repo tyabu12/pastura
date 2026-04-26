@@ -270,3 +270,66 @@ surface changes in areas the automated tests do not exercise.
     Delete removes the file (verify via re-launch — state returns
     to `.notDownloaded`) and the row's menu flips to showing
     **Download** instead.
+16. **Multi-model Settings — Download triggers DL demo cover** —
+    On a `.notDownloaded` row, tap **Download** from the menu.
+    Expected: a full-screen modal cover slides up presenting the
+    DL-time demo experience (`DemoReplayHostView`) for that
+    descriptor — the same UX as the first-launch
+    `.needsModelDownload` slot. Verify all of:
+    - **Cover content tracks the tapped descriptor** — `PromoCard`
+      progress bar / percent / size strings must reflect the row
+      the user tapped, not the active model. (Easy to mistake when
+      Gemma is active and the user taps Qwen's Download row.)
+    - **Cellular fallback** — toggle Airplane Mode off + cellular
+      on, then tap Download. Cover still presents but routes to
+      `ModelDownloadView` (plain progress UI). The plain view's
+      `displayName` and download size also reflect the tapped
+      descriptor.
+    - **Cancel button + confirmation dialog** — tap the X in the
+      top-trailing corner of the cover. A `.confirmationDialog`
+      appears titled "Stop downloading?" with a destructive
+      "Stop and discard" button and a "Continue downloading"
+      cancel button. Tapping **Continue downloading** dismisses
+      only the dialog; the cover stays up and the download keeps
+      progressing. Tapping **Stop and discard** dismisses the
+      cover, removes both the partial `.download` file and any
+      finalized model file (defensive double-delete), and resets
+      `state[descriptor.id]` to `.notDownloaded`. The Settings
+      row reflects this within ~one frame.
+    - **DL completion auto-dismisses** — let the download finish.
+      Expected: the cover dismisses **without** the
+      `DLCompleteOverlay` ("準備ができました / tap anywhere to
+      begin"); that overlay's copy is meaningful only on the
+      first-launch slot, so the Settings cover suppresses it via
+      `showsCompleteOverlay: false` and dismisses on `.ready`.
+      The Settings row immediately shows "Ready" and the menu
+      flips to "Use this model" / "Delete".
+    - **Active switch is NOT automatic** — after the cover
+      dismisses, the row that finished downloading is `.ready`
+      but **not** `.active`; the Active badge stays on the
+      previously-active row. The user must explicitly tap
+      "Use this model" to switch.
+    - **Deep-link gating during cover** — open a `pastura://` URL
+      from another app while the cover is up. Expected: the
+      gate-blocked toast appears (cover is `.deepLinkGated()`),
+      not a navigation push under the cover. Dismiss the cover
+      (cancel or completion); the deep link drains afterward.
+    - **App kill mid-download → Settings re-tap resumes** —
+      while the cover is up and progress is partway, kill the app
+      from the multitasking switcher. Re-launch, return to
+      **Settings → Models**, tap **Download** again on the same
+      row. The cover re-presents and the download resumes from
+      the partial file (verify by progress jumping past 0% on
+      first paint — `performDownload` reads the resume offset
+      from the `.download` file size). Crash-recovery is **not**
+      the same path as Cancel — Cancel deletes the partial,
+      crash leaves it intact.
+    - **Sequential-DL guard** — start a download from row A, let
+      it run, then attempt to tap Download on row B. Expected:
+      the **menu's** Download item on row B is disabled
+      (`otherDownloadInProgress`) — it cannot be triggered, so
+      no second cover appears. (If the disabled state ever
+      regresses, the cover's tap handler also re-checks
+      `state[descriptor.id] == .downloading` post-`startDownload`
+      as defense-in-depth and bails silently if the policy
+      rejected the call.)
