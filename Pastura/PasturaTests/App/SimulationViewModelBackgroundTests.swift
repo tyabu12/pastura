@@ -28,16 +28,98 @@ struct SimulationViewModelBackgroundTests {
 
   // MARK: - canEnableBackgroundContinuation gating
 
+  // Each gate is asserted in isolation by overriding
+  // `FeatureFlags.backgroundContinuationEnabled` to `true` so the flag-off
+  // short-circuit (default behaviour, exercised separately below by
+  // `featureFlagOffShortCircuitsCanEnable`) cannot mask the gate the test
+  // is actually trying to prove. Without these overrides, both tests would
+  // pass for the wrong reason once the opt-in flag landed (#254).
+
   @Test func cannotEnableWhenBackgroundManagerIsNil() throws {
+    let key = "backgroundContinuationEnabled"
+    let original = UserDefaults.standard.object(forKey: key)
+    UserDefaults.standard.set(true, forKey: key)
+    defer {
+      if let original {
+        UserDefaults.standard.set(original, forKey: key)
+      } else {
+        UserDefaults.standard.removeObject(forKey: key)
+      }
+    }
+
     let sut = try makeSUT(backgroundManager: nil)
     #expect(sut.canEnableBackgroundContinuation == false)
   }
 
   @Test func cannotEnableWhenLLMIsNotLlamaCppService() async throws {
+    let key = "backgroundContinuationEnabled"
+    let original = UserDefaults.standard.object(forKey: key)
+    UserDefaults.standard.set(true, forKey: key)
+    defer {
+      if let original {
+        UserDefaults.standard.set(original, forKey: key)
+      } else {
+        UserDefaults.standard.removeObject(forKey: key)
+      }
+    }
+
     // MockLLMService is not LlamaCppService → feature should be gated off
     // even with a background manager present.
     let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
     // Without a currentLLM set (before run() is called), it's also false.
+    #expect(sut.canEnableBackgroundContinuation == false)
+  }
+
+  // MARK: - FeatureFlags.backgroundContinuationEnabled (#254)
+
+  /// Opt-in flag — the default *must* be `false` so TestFlight builds
+  /// don't expose the BG continuation toggle while #111 (memory pressure)
+  /// and #135 (Metal-deny recovery) remain unfixed. Locking the default
+  /// here prevents an accidental opt-out flip during a future
+  /// `FeatureFlags.swift` refactor.
+  @Test func featureFlagBackgroundContinuationDefaultsFalse() {
+    let key = "backgroundContinuationEnabled"
+    let original = UserDefaults.standard.object(forKey: key)
+    UserDefaults.standard.removeObject(forKey: key)
+    defer {
+      if let original {
+        UserDefaults.standard.set(original, forKey: key)
+      }
+    }
+
+    #expect(FeatureFlags.backgroundContinuationEnabled == false)
+  }
+
+  /// `defaults write … -bool true` (the developer override path documented
+  /// in `FeatureFlags.backgroundContinuationEnabled`) must be honoured by
+  /// the read accessor, AND `canEnableBackgroundContinuation` must drop
+  /// back to `false` when the flag is flipped off — pinning that the AND
+  /// composition isn't broken (e.g. accidental `||` or removal of the
+  /// flag clause). The LLM-type / iOS-26 gates still apply on top, so the
+  /// flag-on case asserts via `FeatureFlags` directly rather than
+  /// constructing a real `LlamaCppService` (heavy — requires a model
+  /// file).
+  @Test func featureFlagOffShortCircuitsCanEnable() throws {
+    let key = "backgroundContinuationEnabled"
+    let original = UserDefaults.standard.object(forKey: key)
+    defer {
+      if let original {
+        UserDefaults.standard.set(original, forKey: key)
+      } else {
+        UserDefaults.standard.removeObject(forKey: key)
+      }
+    }
+
+    let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
+
+    UserDefaults.standard.set(true, forKey: key)
+    #expect(FeatureFlags.backgroundContinuationEnabled == true)
+    // Flag on, but `currentLLM` is still nil → LLM-type gate keeps it off.
+    #expect(sut.canEnableBackgroundContinuation == false)
+
+    UserDefaults.standard.set(false, forKey: key)
+    #expect(FeatureFlags.backgroundContinuationEnabled == false)
+    // Flag off → short-circuit, regardless of other gates.
     #expect(sut.canEnableBackgroundContinuation == false)
   }
 
