@@ -140,26 +140,23 @@ private struct RootView: View {
           }
 
       case .needsModelSelection:
-        ModelPickerView(modelManager: modelManager) { pickedID in
-          modelManager.setActiveModel(pickedID)
-          // Transition to the existing download flow — `checkModelStatus()`
-          // already ran during `initialize()`, so `activeState` is
-          // `.notDownloaded` and `DemoReplayHostView` will prompt the user
-          // to start the download for the newly-active descriptor.
-          appState = .needsModelDownload
-        }
+        ModelPickerView(modelManager: modelManager, onSelect: handleModelPick)
 
       case .needsModelDownload:
         // The `if let` is defensive — `.needsModelDownload` is only
         // reached after `activeDescriptor` has been resolved (see
         // `initialize()`), so production never falls through.
         if let descriptor = modelManager.activeDescriptor {
-          DemoReplayHostView(modelManager: modelManager, descriptor: descriptor)
-            .onChange(of: modelManager.activeState) { _, newState in
-              if case .ready(let modelPath) = newState {
-                Task { await finalizeInit(modelPath: modelPath) }
-              }
-            }
+          // `onReady` (not a sibling `.onChange(of: activeState)`) drives
+          // `finalizeInit` so the host view can hold the overlay visible
+          // for its fade duration before `RootView` swaps in `HomeView`.
+          // See ADR-007 §3.3 (d) and `DemoReplayHostView.readyDispatch`.
+          DemoReplayHostView(
+            modelManager: modelManager,
+            descriptor: descriptor,
+            onReady: { modelPath in
+              Task { await finalizeInit(modelPath: modelPath) }
+            })
         } else {
           Color.clear
         }
@@ -354,7 +351,23 @@ private struct RootView: View {
       switch modelManager.activeState {
       case .ready(let modelPath):
         await finalizeInit(modelPath: modelPath)
-      case .unsupportedDevice, .notDownloaded, .error:
+      case .notDownloaded:
+        // Auto-resume: user has already opted in (active id was persisted
+        // by a prior picker tap or by single-model catalog default), so
+        // the only reason we'd be in `.notDownloaded` here is that the
+        // download wasn't completed — either the app was killed mid-DL
+        // (partial file on disk; `performDownload` reads the partial size
+        // for the resume offset) or never started a session. Either way,
+        // start it now so the user lands directly on the demo host body
+        // / progress fallback instead of bouncing through a redundant
+        // "Download Model" confirmation tap. Cellular consent is tracked
+        // separately (#191) — until that lands, cellular users are
+        // auto-resumed without an explicit modal, same as picker auto-DL.
+        if let descriptor = modelManager.activeDescriptor {
+          modelManager.startDownload(descriptor: descriptor)
+        }
+        appState = .needsModelDownload
+      case .unsupportedDevice, .error:
         appState = .needsModelDownload
       case .checking, .downloading:
         // Should not happen after synchronous checkModelStatus, but handle gracefully
@@ -416,4 +429,29 @@ private struct RootView: View {
       }
     }
   #endif
+}
+
+// Helpers in an extension so they don't count against `RootView`'s
+// `type_body_length` budget. Same-file extension on a `private` type is
+// fine (private = file-scoped, extensions in the same file see private
+// members).
+extension RootView {
+
+  /// Picker → AppState transition. Persists the chosen model and starts
+  /// its download synchronously in the same frame as the AppState flip,
+  /// so `DemoReplayHostView` mounts with `currentState == .downloading`
+  /// and routes directly to the demo host body (or to
+  /// `ModelDownloadView.downloadingView` on the cellular safety net).
+  /// Without the `startDownload` call, the user would land on
+  /// `ModelDownloadView.notDownloadedView` and have to tap "Download
+  /// Model" again — a redundant confirmation step that pre-dated this
+  /// picker. The picker's "Start with this model" CTA is itself the
+  /// consent. Mirrors the `SettingsView.presentDownloadCover` pattern.
+  fileprivate func handleModelPick(_ pickedID: ModelID) {
+    modelManager.setActiveModel(pickedID)
+    if let descriptor = modelManager.activeDescriptor {
+      modelManager.startDownload(descriptor: descriptor)
+    }
+    appState = .needsModelDownload
+  }
 }

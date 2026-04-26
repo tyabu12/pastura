@@ -133,6 +133,50 @@ struct DemoReplayHostViewTests {
       isCellular: false)
     #expect(result == .demoHost)
   }
+
+  // MARK: - readyDispatch: Settings cover path
+
+  @Test func settingsCover_dispatchesFireOnComplete() {
+    // Settings cover passes `showsCompleteOverlay: false` and dismisses
+    // immediately on `.ready` — VM presence doesn't matter.
+    let result = DemoReplayHostView.readyDispatch(
+      showsCompleteOverlay: false,
+      hasReplayVM: true)
+    #expect(result == .fireOnComplete)
+  }
+
+  @Test func settingsCover_dispatchesFireOnComplete_evenWithoutVM() {
+    let result = DemoReplayHostView.readyDispatch(
+      showsCompleteOverlay: false,
+      hasReplayVM: false)
+    #expect(result == .fireOnComplete)
+  }
+
+  // MARK: - readyDispatch: first-launch slot, no overlay rendered
+
+  @Test func firstLaunchNoVM_firesImmediately_doesNotAwaitTap() {
+    // Cellular safety net or sub-floor demo count — `replayVM` is nil so
+    // the overlay never renders. No tap surface available; fire onReady
+    // directly. Issue #202 critical: don't strand the user with no
+    // visible UI to tap.
+    let result = DemoReplayHostView.readyDispatch(
+      showsCompleteOverlay: true,
+      hasReplayVM: false)
+    #expect(result == .fireOnReady(awaitsTap: false))
+  }
+
+  // MARK: - readyDispatch: first-launch slot, overlay rendered
+
+  @Test func firstLaunchWithVM_awaitsTap() {
+    // Normal path — overlay renders, user must tap it to acknowledge
+    // "Ready" and proceed to HomeView. No timer — explicit user action
+    // (per real-device QA: auto-transition felt jarring; user wakes up
+    // on home screen with no clear "setup complete" beat).
+    let result = DemoReplayHostView.readyDispatch(
+      showsCompleteOverlay: true,
+      hasReplayVM: true)
+    #expect(result == .fireOnReady(awaitsTap: true))
+  }
 }
 
 // MARK: - PromoCard.computeSlotState

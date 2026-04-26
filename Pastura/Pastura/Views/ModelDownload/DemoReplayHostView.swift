@@ -1,5 +1,5 @@
-import Network
 import SwiftUI
+import os
 
 /// Host view for the DL-time demo replay feature.
 ///
@@ -47,19 +47,29 @@ struct DemoReplayHostView: View {
   let showsCompleteOverlay: Bool
   let onComplete: (() -> Void)?
   let onCancel: (() -> Void)?
+  /// First-launch slot only: closure invoked when `ModelManager.state`
+  /// reaches `.ready` AND any required overlay hand-off has completed.
+  /// `RootView` uses this to drive `appState = .ready(deps)` *after*
+  /// `DLCompleteOverlay` has been visible long enough to register —
+  /// previously, `RootView` ran `finalizeInit` immediately on `.ready`
+  /// and unmounted the overlay mid-fade (issue #202).
+  /// Settings cover passes `nil` and uses `onComplete` instead.
+  let onReady: ((String) -> Void)?
 
   init(
     modelManager: ModelManager,
     descriptor: ModelDescriptor,
     showsCompleteOverlay: Bool = true,
     onComplete: (() -> Void)? = nil,
-    onCancel: (() -> Void)? = nil
+    onCancel: (() -> Void)? = nil,
+    onReady: ((String) -> Void)? = nil
   ) {
     self.modelManager = modelManager
     self.descriptor = descriptor
     self.showsCompleteOverlay = showsCompleteOverlay
     self.onComplete = onComplete
     self.onCancel = onCancel
+    self.onReady = onReady
   }
 
   /// Minimum number of validated bundled demos required to render the
@@ -75,6 +85,17 @@ struct DemoReplayHostView: View {
   @State private var isCellular: Bool = false
   @State private var sources: [any ReplaySource] = []
   @State private var isShowingCancelConfirmation: Bool = false
+  /// Re-entry guard for `handleModelStateChange`: `.onChange(of: currentState)`
+  /// only fires on inequality, but a defensive same-value re-emit by
+  /// `ModelManager` (or a future refactor) would otherwise dispatch the
+  /// ready handoff twice. One-shot per host instance — re-mount (e.g.
+  /// cover re-presentation) yields a fresh struct.
+  @State private var didFireReady: Bool = false
+  /// Captured `modelPath` from the `.ready` arrival, held while the
+  /// overlay is awaiting the user's tap. Cleared when the tap fires
+  /// `onReady?(modelPath)` and `RootView` swaps to `HomeView` (which
+  /// unmounts this view anyway, so the cleanup is defensive).
+  @State private var pendingReadyModelPath: String?
 
   /// Per-descriptor download state. Defaults to `.checking` if the entry is
   /// missing from the state dict (only expected pre-`checkModelStatus`).
@@ -145,7 +166,7 @@ struct DemoReplayHostView: View {
       chatStream(viewModel: viewModel)
         .overlay {
           if viewModel.state == .transitioning {
-            DLCompleteOverlay()
+            DLCompleteOverlay(onTap: handleOverlayTap)
           }
         }
     } else {
@@ -155,6 +176,18 @@ struct DemoReplayHostView: View {
       // `isCellular`/`sources` update.
       Color.screenBackground.ignoresSafeArea()
     }
+  }
+
+  /// Fires when the user taps the overlay. Forwards the captured
+  /// `modelPath` to the `onReady` callback and clears the pending
+  /// state. Defensive: only fires if `pendingReadyModelPath` is set,
+  /// which it should be whenever `viewModel.state == .transitioning`
+  /// (set in `handleModelStateChange` before `downloadComplete()` is
+  /// called).
+  private func handleOverlayTap() {
+    guard let modelPath = pendingReadyModelPath else { return }
+    pendingReadyModelPath = nil
+    onReady?(modelPath)
   }
 
   private func chatStream(viewModel: ReplayViewModel) -> some View {
@@ -268,23 +301,38 @@ struct DemoReplayHostView: View {
   // MARK: - Lifecycle
 
   private func initialLoad() async {
+    Self.logger.notice("initialLoad: starting (descriptor=\(descriptor.id, privacy: .public))")
     // 1-shot cellular check. Option A safety net — if cellular, we skip
     // loading demos entirely and let the fallback branch route to the
     // plain `ModelDownloadView`. Full modal UX tracked as #191.
     let cellular = await Self.isCellularNow()
+    Self.logger.notice("initialLoad: cellular check returned \(cellular, privacy: .public)")
     isCellular = cellular
-    guard !cellular else { return }
+    guard !cellular else {
+      Self.logger.notice(
+        "initialLoad: cellular=true, exiting — sources will stay empty, fallbackBranch will route to ModelDownloadView"
+      )
+      return
+    }
 
     let loaded = BundledDemoReplaySource.loadAll()
-    // `loadAll` enumerates `Resources/DemoReplays/*.yaml` — currently
-    // empty pre-#170, so the typical result on main is `[]`.
+    Self.logger.notice(
+      "initialLoad: BundledDemoReplaySource.loadAll() returned \(loaded.count, privacy: .public) sources"
+    )
     sources = loaded
-    guard loaded.count >= Self.minPlayableDemoCount else { return }
+    guard loaded.count >= Self.minPlayableDemoCount else {
+      Self.logger.notice(
+        "initialLoad: sources count \(loaded.count, privacy: .public) below floor \(Self.minPlayableDemoCount, privacy: .public), exiting — fallbackBranch will route to ModelDownloadView"
+      )
+      return
+    }
 
     let viewModel = ReplayViewModel(sources: loaded)
     replayVM = viewModel
     viewModel.start()
     replayHadStarted = true
+    Self.logger.notice(
+      "initialLoad: replayVM constructed and started — demo host body should now render")
   }
 
   private func handleScenePhase(_ phase: ScenePhase) {
@@ -300,76 +348,42 @@ struct DemoReplayHostView: View {
   }
 
   private func handleModelStateChange(_ newState: ModelState) {
-    guard case .ready = newState else { return }
-    if showsCompleteOverlay {
-      // First-launch slot: trigger the in-content overlay; RootView's
-      // own state observer takes the user to the `.ready` AppState.
-      replayVM?.downloadComplete()
-    } else {
+    guard case .ready(let modelPath) = newState else { return }
+    guard !didFireReady else { return }
+    didFireReady = true
+
+    switch Self.readyDispatch(
+      showsCompleteOverlay: showsCompleteOverlay,
+      hasReplayVM: replayVM != nil) {
+    case .fireOnComplete:
       // Settings cover: dismiss immediately. The overlay's
       // "tap anywhere to begin" copy is meaningless here — the user
       // returns to the Settings list, not a fresh app session.
       onComplete?()
+    case .fireOnReady(let awaitsTap) where awaitsTap:
+      // First-launch slot, overlay path: flip the VM into `.transitioning`
+      // so the overlay renders, then wait for the user to tap. The tap
+      // handler (`handleOverlayTap`) reads back `pendingReadyModelPath`
+      // and fires `onReady`. No timer — the user explicitly acknowledges
+      // setup completion before transitioning to `HomeView`.
+      pendingReadyModelPath = modelPath
+      replayVM?.downloadComplete()
+    case .fireOnReady:
+      // First-launch slot, no-overlay path (cellular safety net or
+      // sub-floor demo count): there's nothing to render, so skip the
+      // tap-acknowledgment and forward `.ready` immediately. Without
+      // this branch, the user would be stuck on `ModelDownloadView`
+      // with no overlay to tap.
+      onReady?(modelPath)
     }
   }
 
-  /// Reads the current network path once via `NWPathMonitor`. Treats
-  /// any "expensive" path as cellular — this covers personal hotspot
-  /// and metered Wi-Fi in addition to literal cellular, which is the
-  /// desired conservative posture for a 3 GB download safety net.
-  private static func isCellularNow() async -> Bool {
-    let (stream, continuation) = AsyncStream.makeStream(of: Bool.self)
-    let monitor = NWPathMonitor()
-    monitor.pathUpdateHandler = { path in
-      continuation.yield(path.isExpensive)
-      continuation.finish()
-    }
-    monitor.start(queue: .global(qos: .userInitiated))
-    defer { monitor.cancel() }
-    for await isCellular in stream {
-      return isCellular
-    }
-    return false
-  }
-
-  // MARK: - Fallback decision
-
-  enum Branch: Equatable {
-    case modelDownload
-    case demoHost
-  }
-
-  /// Routes between the plain download UI and the demo host.
-  ///
-  /// Cellular acts as a conservative safety net (ADR-007 §3.3 (c) Option
-  /// A — full cellular modal UX is tracked as #191). Below the
-  /// minimum-playable floor we defer to `ModelDownloadView` so a single
-  /// surviving demo doesn't render with a nil VM. On `.error` we keep
-  /// replay alive only if it had already started, mirroring ADR-007
-  /// §3.3 (b) — the progress bar area swaps to inline retry inside
-  /// `PromoCard` while playback continues.
-  static func fallbackBranch(
-    state: ModelState,
-    demosCount: Int,
-    replayHadStarted: Bool,
-    isCellular: Bool
-  ) -> Branch {
-    if isCellular { return .modelDownload }
-    switch state {
-    case .checking, .unsupportedDevice, .notDownloaded:
-      return .modelDownload
-    case .downloading:
-      return demosCount >= minPlayableDemoCount ? .demoHost : .modelDownload
-    case .error:
-      return replayHadStarted ? .demoHost : .modelDownload
-    case .ready:
-      return .demoHost
-    }
-  }
 }
 
-// `DLCompleteOverlay` lives in its own file so this one stays under
-// swiftlint's 400-line cap. See `DLCompleteOverlay.swift`.
+// `DLCompleteOverlay` and the routing decisions (`fallbackBranch` /
+// `readyDispatch` and their associated types) live in their own files so
+// this one stays under swiftlint's 400-line cap. See
+// `DLCompleteOverlay.swift` and `DemoReplayHostView+Routing.swift`.
 
 // MARK: - Previews
 
