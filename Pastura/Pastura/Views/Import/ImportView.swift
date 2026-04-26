@@ -73,7 +73,7 @@ struct ImportView: View {
         ForEach(viewModel.validationErrors, id: \.self) { error in
           Label(error, systemImage: "xmark.circle.fill")
             .font(.caption)
-            .foregroundStyle(.red)
+            .foregroundStyle(Color.dangerInk)
         }
       }
       .padding(.horizontal)
@@ -81,7 +81,7 @@ struct ImportView: View {
     } else if viewModel.isValid {
       Label("Valid scenario", systemImage: "checkmark.circle.fill")
         .font(.caption)
-        .foregroundStyle(.green)
+        .foregroundStyle(Color.successInk)
         .padding(.horizontal)
         .padding(.vertical, 8)
     }

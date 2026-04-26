@@ -98,9 +98,11 @@ struct PhaseEditorSheet: View {
           HStack {
             Text(type.rawValue)
             if type.requiresLLM {
+              // `info` here is a quiet category badge for LLM-required phase types,
+              // not a notification — see design-system §2.6 for the alert-family scope.
               Text("LLM")
                 .font(.caption2)
-                .foregroundStyle(.purple)
+                .foregroundStyle(Color.info)
             }
           }
           .tag(type)
