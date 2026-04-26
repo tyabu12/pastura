@@ -117,6 +117,41 @@ import Testing
     #expect(router.path == [.shareBoard, .scenarioDetail(scenarioId: "x")])
   }
 
+  // MARK: - RouteHint identity-neutrality (ADR-008)
+
+  @Test func pushIfOnTopMatchesIdenticalScenarioIdRegardlessOfHint() {
+    // Pins the contract: `RouteHint<String>` initialName is identity-
+    // neutral, so `expected` and `top` need only agree on `scenarioId`.
+    // Future code paths that omit the hint when constructing `expected`
+    // (or pass a different hint than what was actually pushed) must
+    // still match.
+    let router = AppRouter()
+    router.push(.scenarioDetail(scenarioId: "x", initialName: .init("Foo")))
+
+    let pushed = router.pushIfOnTop(
+      expected: .scenarioDetail(scenarioId: "x"),  // initialName defaulted (nil)
+      next: .simulation(scenarioId: "x"))
+
+    #expect(pushed)
+    #expect(router.path.count == 2)
+    #expect(router.path.last == .simulation(scenarioId: "x"))
+  }
+
+  @Test func pushIfOnTopFailsWhenScenarioIdDiffers() {
+    // Symmetric pin: scenarioId remains the identity-bearing field.
+    // Two `.scenarioDetail` values with different ids must never match,
+    // regardless of whether their hints agree.
+    let router = AppRouter()
+    router.push(.scenarioDetail(scenarioId: "x", initialName: .init("Foo")))
+
+    let pushed = router.pushIfOnTop(
+      expected: .scenarioDetail(scenarioId: "y", initialName: .init("Foo")),
+      next: .simulation(scenarioId: "y"))
+
+    #expect(!pushed)
+    #expect(router.path.count == 1)
+  }
+
   // MARK: - Helpers
 
   private func makeGalleryScenario(id: String) -> GalleryScenario {

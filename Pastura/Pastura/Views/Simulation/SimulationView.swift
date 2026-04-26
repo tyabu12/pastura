@@ -10,6 +10,12 @@ import UIKit
 /// Live simulation execution screen with real-time log, controls, and scoreboard.
 struct SimulationView: View {  // swiftlint:disable:this type_body_length
   let scenarioId: String
+  /// Render-time hint for the navigation title — supplied by the
+  /// caller (`ScenarioDetailView`'s Run Simulation push) so the title
+  /// is correct from the first frame of the push, before
+  /// `loadAndRun()` re-parses the YAML. `nil` falls back to the
+  /// empty-string placeholder. See ADR-008.
+  var initialName: String?
 
   @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
@@ -41,7 +47,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         ProgressView("Loading scenario...")
       }
     }
-    .navigationTitle(scenario?.name ?? "Simulation")
+    // 3-tier fallback (ADR-008): loaded scenario name (authoritative,
+    // wins after loadAndRun completes) → push-time `initialName` hint
+    // → empty string (defensive default; "Simulation" would be a
+    // misleading flash if ever reached).
+    .navigationTitle(scenario?.name ?? initialName ?? "")
     .navigationBarTitleDisplayMode(.inline)
     .task {
       await loadAndRun()

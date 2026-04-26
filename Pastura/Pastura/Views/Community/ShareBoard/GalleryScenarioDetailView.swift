@@ -29,11 +29,18 @@ struct GalleryScenarioDetailView: View {
     }
     .navigationTitle(scenario.title)
     .task {
+      // Defer assignment until `load()` completes so the action button
+      // never renders "Try this scenario" between VM creation and the
+      // installed-snapshot refresh landing — already-installed users
+      // would otherwise see "Try" briefly before it switches to "Update"
+      // / "Open local copy". Guard prevents re-creation under `.task`
+      // re-fire.
+      guard viewModel == nil else { return }
       let newViewModel = ShareBoardViewModel(
         galleryService: dependencies.galleryService,
         repository: dependencies.scenarioRepository)
-      viewModel = newViewModel
       await newViewModel.load()
+      viewModel = newViewModel
     }
     .alert(item: $outcomeAlert) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
@@ -173,10 +180,20 @@ struct GalleryScenarioDetailView: View {
   /// Push only when this view is still on top of the path. Guards against
   /// pushing onto an unrelated screen if the user popped back during the
   /// async install.
+  ///
+  /// `initialName` is sourced from the gallery curation `scenario.title`
+  /// rather than the freshly-saved local `ScenarioRecord.name`. The
+  /// `gallery.title == yaml.name` invariant is enforced by
+  /// `GallerySeedYAMLTests` so the two values match at install time;
+  /// if the invariant is ever violated, the title would briefly show the
+  /// gallery curation string before snapping to the YAML name on load.
   private func pushToInstalled(scenarioId: String) {
     router.pushIfOnTop(
       expected: .galleryScenarioDetail(scenario: scenario),
-      next: .scenarioDetail(scenarioId: scenarioId))
+      next: .scenarioDetail(
+        scenarioId: scenarioId,
+        initialName: .init(scenario.title)
+      ))
   }
 }
 

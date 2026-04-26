@@ -46,9 +46,16 @@ struct HomeView: View {
       }
     }
     .task {
-      viewModel = HomeViewModel(repository: dependencies.scenarioRepository)
-      await viewModel?.loadScenarios()
-      await viewModel?.refreshGalleryUpdateBadges(using: dependencies.galleryService)
+      // Defer assignment until both `loadScenarios()` and
+      // `refreshGalleryUpdateBadges()` complete so gallery update badges
+      // appear together with the row that owns them — otherwise the list
+      // shows first and badges pop in a frame later. Guard prevents
+      // re-creation under `.task` re-fire.
+      guard viewModel == nil else { return }
+      let newViewModel = HomeViewModel(repository: dependencies.scenarioRepository)
+      await newViewModel.loadScenarios()
+      await newViewModel.refreshGalleryUpdateBadges(using: dependencies.galleryService)
+      viewModel = newViewModel
     }
     // Refresh the list whenever the user navigates back to root.
     // `.task` only runs on initial mount; pushed views like the editor
@@ -130,7 +137,15 @@ struct HomeView: View {
   private func scenarioRow(
     _ scenario: ScenarioRecord, hasGalleryUpdate: Bool = false
   ) -> some View {
-    NavigationLink(value: Route.scenarioDetail(scenarioId: scenario.id)) {
+    // initialName supplies the scenario name to navigationTitle from
+    // the first frame of the push, before ScenarioDetailViewModel
+    // finishes loading. Identity-neutral via RouteHint (ADR-008).
+    NavigationLink(
+      value: Route.scenarioDetail(
+        scenarioId: scenario.id,
+        initialName: .init(scenario.name)
+      )
+    ) {
       scenarioRowLabel(scenario, hasGalleryUpdate: hasGalleryUpdate)
     }
     .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
@@ -167,14 +182,14 @@ struct HomeView: View {
   @ViewBuilder
   private func routeDestination(_ route: Route) -> some View {
     switch route {
-    case .scenarioDetail(let scenarioId):
-      ScenarioDetailView(scenarioId: scenarioId)
+    case .scenarioDetail(let scenarioId, let initialName):
+      ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
     case .importScenario(let editingId):
       ImportView(editingId: editingId)
     case .editor(let editingId, let templateYAML):
       editorView(editingId: editingId, templateYAML: templateYAML)
-    case .simulation(let scenarioId):
-      SimulationView(scenarioId: scenarioId)
+    case .simulation(let scenarioId, let initialName):
+      SimulationView(scenarioId: scenarioId, initialName: initialName.value)
     case .results(let scenarioId):
       ResultsView(scenarioId: scenarioId)
     case .resultDetail(let simulationId):
