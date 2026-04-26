@@ -51,14 +51,18 @@ extension DemoReplayHostView {
   // MARK: - Ready dispatch
 
   /// Outcome of the `.ready` arrival gating logic, returned by
-  /// ``readyDispatch(showsCompleteOverlay:hasReplayVM:reduceMotion:)``.
+  /// ``readyDispatch(showsCompleteOverlay:hasReplayVM:)``.
   enum ReadyDispatch: Equatable {
     /// Settings cover path. Caller invokes `onComplete?()`.
     case fireOnComplete
-    /// First-launch slot. Caller waits `waitMs`, then invokes
-    /// `onReady?(modelPath)`. `waitMs == 0` means fire immediately
-    /// without spinning a Task.
-    case fireOnReady(waitMs: Int)
+    /// First-launch slot.
+    /// - `awaitsTap == true`: overlay will render — flip the VM into
+    ///   `.transitioning`, store `modelPath`, and wait for the user
+    ///   to tap on `DLCompleteOverlay` before invoking `onReady?(modelPath)`.
+    /// - `awaitsTap == false`: no overlay can render (cellular safety
+    ///   net or VM failed to construct), so fire `onReady?(modelPath)`
+    ///   immediately.
+    case fireOnReady(awaitsTap: Bool)
   }
 
   /// Decides how to react to `ModelState == .ready` based on the
@@ -66,24 +70,22 @@ extension DemoReplayHostView {
   ///
   /// Pure function — extracted for unit testability mirroring
   /// ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``.
-  /// The wait values are sourced from `DLCompleteOverlay`'s timing
-  /// constants so the overlay animation and the upstream wait can't
-  /// drift apart.
+  /// `reduceMotion` is intentionally NOT a parameter: the overlay
+  /// itself respects reduce-motion (snaps to full opacity instead of
+  /// fading), but the dispatch decision (await tap vs fire immediately)
+  /// is the same either way — the user still needs to acknowledge the
+  /// "Ready" beat by tapping.
   static func readyDispatch(
     showsCompleteOverlay: Bool,
-    hasReplayVM: Bool,
-    reduceMotion: Bool
+    hasReplayVM: Bool
   ) -> ReadyDispatch {
     if !showsCompleteOverlay { return .fireOnComplete }
     // No overlay can render without a VM (the overlay reads
     // `viewModel.state == .transitioning`). Fire immediately on those
     // paths so cellular / sub-floor / VM-failed-to-construct users
-    // don't sit through a meaningless wait.
-    guard hasReplayVM else { return .fireOnReady(waitMs: 0) }
-    if reduceMotion {
-      return .fireOnReady(waitMs: DLCompleteOverlay.reducedMotionHoldMs)
-    }
-    return .fireOnReady(waitMs: DLCompleteOverlay.totalAnimationMs)
+    // don't sit through a meaningless tap-prompt for an invisible UI.
+    guard hasReplayVM else { return .fireOnReady(awaitsTap: false) }
+    return .fireOnReady(awaitsTap: true)
   }
 
   // MARK: - Cellular detection

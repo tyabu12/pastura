@@ -4,13 +4,20 @@ import SwiftUI
 ///
 /// Per `demo-replay-ui.md` §DLCompleteOverlay: ultra-thin material
 /// background + pulsing 44 pt dog mark + "準備ができました" +
-/// "tap anywhere to begin". Spec §2 decision 6 / 8 makes the transition
-/// auto-only — the hint text is visual only and no tap handler is wired.
+/// "tap anywhere to begin". The hint text is now load-bearing — the
+/// overlay waits for a user tap before transitioning to `HomeView` so
+/// the user gets a clear "setup complete" beat instead of waking up on
+/// the home screen mid-task. (Spec §2 decision 6 / 8 originally
+/// specified auto-only and called the hint "draft" / removable in copy
+/// pass; that proved confusing in real-device QA — a tap acknowledgment
+/// is the right UX. ADR-007 §3.3 (d) updated to match.)
 ///
 /// Fade-in is `.easeOut(2.4s, delay: 0.2s)` by default. Under
 /// `accessibilityReduceMotion`, the overlay is shown at full opacity
 /// immediately and the dog mark does not pulse (handled inside
-/// `DogMark.pulsing()`).
+/// `DogMark.pulsing()`). Tap is enabled from the moment the view
+/// appears in either case — a user who wants to skip the fade can
+/// tap during it and the transition fires immediately.
 ///
 /// Lives in its own file so `DemoReplayHostView.swift` stays under
 /// swiftlint's 400-line `file_length` cap. Visibility is `internal`
@@ -22,24 +29,8 @@ struct DLCompleteOverlay: View {
   /// Ease-out fade-in duration; the overlay is fully opaque at
   /// `fadeDelayMs + fadeDurationMs`.
   static let fadeDurationMs: Int = 2400
-  /// Time the overlay holds at full opacity *after* the fade-in completes,
-  /// so the user can perceive "準備ができました" before `HomeView` swaps
-  /// in. Without this dwell, ease-out's slow approach to 1.0 means the
-  /// overlay reaches full opacity at the same instant it gets unmounted,
-  /// leaving the user with no visible "Ready" beat.
-  static let dwellMs: Int = 1500
-  /// Total time the overlay needs to be visually held before unmounting
-  /// is safe — used by `DemoReplayHostView` to gate the ready-handoff so
-  /// `RootView` doesn't swap in `HomeView` while the overlay is fading
-  /// in or before the dwell completes. Single source of truth for both
-  /// the animation literals here and the upstream wait.
-  static let totalAnimationMs: Int = fadeDelayMs + fadeDurationMs + dwellMs
-  /// Wait used when `accessibilityReduceMotion` is on: the overlay shows
-  /// at full opacity instantly, so the long fade timing is suppressed.
-  /// We hold for `dwellMs` so the perceptible "Ready" beat matches the
-  /// non-reduce-motion path's dwell — accessibility users still get
-  /// time to read the copy, just without the fade animation.
-  static let reducedMotionHoldMs: Int = dwellMs
+
+  let onTap: () -> Void
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var hasAppeared = false
@@ -62,6 +53,12 @@ struct DLCompleteOverlay: View {
       }
     }
     .opacity(hasAppeared || reduceMotion ? 1 : 0)
+    // Full-area tap: `contentShape(Rectangle())` makes the entire
+    // ZStack hit-testable (the `.ultraThinMaterial` Rectangle alone
+    // would be tappable, but explicit `contentShape` documents intent
+    // and protects against future layout changes).
+    .contentShape(Rectangle())
+    .onTapGesture { onTap() }
     .onAppear {
       guard !reduceMotion else {
         hasAppeared = true
@@ -80,6 +77,6 @@ struct DLCompleteOverlay: View {
 #Preview("DLCompleteOverlay") {
   ZStack {
     Color.screenBackground.ignoresSafeArea()
-    DLCompleteOverlay()
+    DLCompleteOverlay(onTap: {})
   }
 }

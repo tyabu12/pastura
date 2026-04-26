@@ -87,10 +87,15 @@ struct DemoReplayHostView: View {
   @State private var isShowingCancelConfirmation: Bool = false
   /// Re-entry guard for `handleModelStateChange`: `.onChange(of: currentState)`
   /// only fires on inequality, but a defensive same-value re-emit by
-  /// `ModelManager` (or a future refactor) would otherwise spawn a second
-  /// 2.6s wait + duplicate `finalizeInit` / `onComplete`. One-shot per host
-  /// instance — re-mount (e.g. cover re-presentation) yields a fresh struct.
+  /// `ModelManager` (or a future refactor) would otherwise dispatch the
+  /// ready handoff twice. One-shot per host instance — re-mount (e.g.
+  /// cover re-presentation) yields a fresh struct.
   @State private var didFireReady: Bool = false
+  /// Captured `modelPath` from the `.ready` arrival, held while the
+  /// overlay is awaiting the user's tap. Cleared when the tap fires
+  /// `onReady?(modelPath)` and `RootView` swaps to `HomeView` (which
+  /// unmounts this view anyway, so the cleanup is defensive).
+  @State private var pendingReadyModelPath: String?
 
   /// Per-descriptor download state. Defaults to `.checking` if the entry is
   /// missing from the state dict (only expected pre-`checkModelStatus`).
@@ -161,7 +166,7 @@ struct DemoReplayHostView: View {
       chatStream(viewModel: viewModel)
         .overlay {
           if viewModel.state == .transitioning {
-            DLCompleteOverlay()
+            DLCompleteOverlay(onTap: handleOverlayTap)
           }
         }
     } else {
@@ -171,6 +176,18 @@ struct DemoReplayHostView: View {
       // `isCellular`/`sources` update.
       Color.screenBackground.ignoresSafeArea()
     }
+  }
+
+  /// Fires when the user taps the overlay. Forwards the captured
+  /// `modelPath` to the `onReady` callback and clears the pending
+  /// state. Defensive: only fires if `pendingReadyModelPath` is set,
+  /// which it should be whenever `viewModel.state == .transitioning`
+  /// (set in `handleModelStateChange` before `downloadComplete()` is
+  /// called).
+  private func handleOverlayTap() {
+    guard let modelPath = pendingReadyModelPath else { return }
+    pendingReadyModelPath = nil
+    onReady?(modelPath)
   }
 
   private func chatStream(viewModel: ReplayViewModel) -> some View {
@@ -337,32 +354,26 @@ struct DemoReplayHostView: View {
 
     switch Self.readyDispatch(
       showsCompleteOverlay: showsCompleteOverlay,
-      hasReplayVM: replayVM != nil,
-      reduceMotion: reduceMotion) {
+      hasReplayVM: replayVM != nil) {
     case .fireOnComplete:
       // Settings cover: dismiss immediately. The overlay's
       // "tap anywhere to begin" copy is meaningless here — the user
       // returns to the Settings list, not a fresh app session.
       onComplete?()
-    case .fireOnReady(let waitMs) where waitMs > 0:
+    case .fireOnReady(let awaitsTap) where awaitsTap:
       // First-launch slot, overlay path: flip the VM into `.transitioning`
-      // so the overlay renders, then sleep so the fade (or reduce-motion
-      // hold) is perceptible before `RootView` swaps in `HomeView`.
-      // The unstructured Task is safe here: `DemoReplayHostView` stays
-      // mounted for the full `.needsModelDownload` slot — it only
-      // unmounts when `appState` transitions to `.ready`, which happens
-      // only after this Task fires `onReady?(modelPath)`.
+      // so the overlay renders, then wait for the user to tap. The tap
+      // handler (`handleOverlayTap`) reads back `pendingReadyModelPath`
+      // and fires `onReady`. No timer — the user explicitly acknowledges
+      // setup completion before transitioning to `HomeView`.
+      pendingReadyModelPath = modelPath
       replayVM?.downloadComplete()
-      Task {
-        try? await Task.sleep(for: .milliseconds(waitMs))
-        onReady?(modelPath)
-      }
     case .fireOnReady:
       // First-launch slot, no-overlay path (cellular safety net or
       // sub-floor demo count): there's nothing to render, so skip the
-      // wait entirely and forward `.ready` immediately. Without this
-      // branch, every `ModelDownloadView` user would suffer a 2.6s
-      // stall with no visible animation.
+      // tap-acknowledgment and forward `.ready` immediately. Without
+      // this branch, the user would be stuck on `ModelDownloadView`
+      // with no overlay to tap.
       onReady?(modelPath)
     }
   }
