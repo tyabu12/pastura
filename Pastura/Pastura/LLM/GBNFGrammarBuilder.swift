@@ -10,10 +10,13 @@ import Foundation
 /// separate code-point class.
 ///
 /// Enumeration fields (currently only `choose.action` with non-empty
-/// options) get a per-field rule named `<fieldname>_value` with the
-/// options as alternation literals. This is strictly stronger than the
-/// runtime `validateAction` fallback: the model cannot produce an
-/// out-of-set value in the first place.
+/// options) get a per-field rule named `<fieldname>-value` (any `_` in
+/// the field name is mapped to `-` because llama.cpp's GBNF
+/// `is_word_char` rejects underscores in rule identifiers — see
+/// `llama-grammar.cpp:98` of b8694, and ADR-002 §12.8). The options
+/// are emitted as alternation literals; this is strictly stronger
+/// than the runtime `validateAction` fallback because the model cannot
+/// produce an out-of-set value in the first place.
 ///
 /// Pure transformation — no I/O, no state. Output is stable and testable
 /// byte-for-byte against golden files for each preset (see
@@ -34,9 +37,12 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     case emptyEnumeration(field: String)
     /// Two ``OutputSchema/Field`` entries share the same name.
     case duplicateFieldName(String)
-    /// Field name does not match the GBNF rule-name shape
-    /// `[a-zA-Z_][a-zA-Z0-9_]*`. Pastura's presets are snake_case,
-    /// which passes.
+    /// Field name does not match Pastura's preset-input shape
+    /// `[a-zA-Z_][a-zA-Z0-9_]*` (snake_case). The actual GBNF
+    /// rule-name shape (`[a-zA-Z-][a-zA-Z0-9-]*` per
+    /// `llama-grammar.cpp:98`) is enforced separately at emit time
+    /// via `sanitizeRuleName(_:)` — input validation gates Pastura
+    /// hygiene, sanitization handles the GBNF mapping.
     case invalidFieldName(String)
     /// An enumeration option contains a character that would need
     /// escaping in the GBNF literal form (`"`, `\`, or a control
@@ -112,7 +118,7 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     case .string:
       return "string"
     case .enumeration:
-      return "\(field.name)_value"
+      return "\(sanitizeRuleName(field.name))-value"
     }
   }
 
@@ -121,7 +127,19 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
       options
       .map { #""\""# + $0 + #"\"""# }
       .joined(separator: " | ")
-    return "\(name)_value ::= \(alternatives)"
+    return "\(sanitizeRuleName(name))-value ::= \(alternatives)"
+  }
+
+  /// Map a Pastura field name to a llama.cpp-acceptable GBNF rule
+  /// identifier. The parser's `is_word_char` (`llama-grammar.cpp:98`
+  /// of b8694) accepts only `[a-zA-Z0-9-]` — underscores are NOT
+  /// valid in rule names, even though Pastura's preset YAML uses
+  /// snake_case for field names. We translate `_` → `-` here so
+  /// `inner_thought` (input) emits as `inner-thought-value` (rule
+  /// reference). Other invalid characters are caught upstream by
+  /// `validateFieldName`. See ADR-002 §12.8 for the discovery story.
+  private func sanitizeRuleName(_ name: String) -> String {
+    name.replacingOccurrences(of: "_", with: "-")
   }
 
   // MARK: - Validation

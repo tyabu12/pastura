@@ -126,9 +126,9 @@ struct GBNFGrammarBuilderTests {
     ])
     let grammar = try builder.build(from: schema)
     #expect(
-      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}" trailing"#))
+      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action-value ws "}" trailing"#))
     #expect(
-      grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
+      grammar.contains(#"action-value ::= "\"cooperate\"" | "\"betray\"""#))
     // Enumeration-only grammars still include `string` + `ws` because
     // shared productions are emitted unconditionally (cheap; avoids
     // future regression if an enumeration grammar later references them).
@@ -145,10 +145,10 @@ struct GBNFGrammarBuilderTests {
       .init(name: "inner_thought", kind: .string)
     ])
     let grammar = try builder.build(from: schema)
-    #expect(grammar.contains(#"action_value ::= "\"cooperate\"" | "\"betray\"""#))
+    #expect(grammar.contains(#"action-value ::= "\"cooperate\"" | "\"betray\"""#))
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"action\"" ws ":" ws action_value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" trailing"#
+        #"root ::= "{" ws "\"action\"" ws ":" ws action-value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" trailing"#
       ))
   }
 
@@ -179,8 +179,11 @@ struct GBNFGrammarBuilderTests {
 
   @Test("invalid rule-name field throws")
   func invalidFieldNameThrows() {
-    // GBNF rule names must match [a-zA-Z_][a-zA-Z0-9_-]* — a leading digit
-    // or a literal `.` would produce unparseable grammar at llama.cpp's end.
+    // Pastura preset field-name input must match [a-zA-Z_][a-zA-Z0-9_]*
+    // (snake_case). The actual GBNF rule shape (no `_`) is enforced
+    // separately by `sanitizeRuleName` at emit time, so `dash-only` is
+    // rejected here as Pastura input convention rather than GBNF
+    // legality. Leading digit / literal `.` / spaces fail both rules.
     let badNames = ["1badName", "with space", "dash-only", "dot.name"]
     for name in badNames {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
@@ -200,6 +203,24 @@ struct GBNFGrammarBuilderTests {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
       _ = try builder.build(from: schema)
     }
+  }
+
+  @Test("enum field name with `_` emits sanitized `-` rule reference")
+  func enumFieldNameUnderscoreSanitizedToHyphenInRuleName() throws {
+    // `is_word_char` (llama-grammar.cpp:98 of b8694) rejects `_` in rule
+    // identifiers, so Pastura snake_case input gets mapped to hyphenated
+    // form at emit time. JSON keys (which appear inside string literals)
+    // are unaffected and retain the original `_`.
+    let schema = OutputSchema(fields: [
+      .init(name: "inner_secret", kind: .enumeration(["alpha", "beta"]))
+    ])
+    let grammar = try builder.build(from: schema)
+    // Rule reference and definition both use the sanitized form.
+    #expect(grammar.contains("inner-secret-value"))
+    #expect(!grammar.contains("inner_secret-value"))
+    #expect(!grammar.contains("inner_secret_value"))
+    // JSON key inside the string literal keeps the original `_`.
+    #expect(grammar.contains(#""\"inner_secret\"""#))
   }
 
   @Test("enumeration options with GBNF-hostile chars throw")
@@ -236,7 +257,7 @@ struct GBNFGrammarBuilderTests {
       .init(name: "action", kind: .enumeration(["協力", "裏切り"]))
     ])
     let grammar = try builder.build(from: schema)
-    #expect(grammar.contains(#"action_value ::= "\"協力\"" | "\"裏切り\"""#))
+    #expect(grammar.contains(#"action-value ::= "\"協力\"" | "\"裏切り\"""#))
   }
 
   // MARK: - Golden files (each preset LLM phase)
@@ -298,8 +319,8 @@ struct GBNFGrammarBuilderTests {
     """
 
   private static let goldenChooseActionBetray = """
-    root ::= "{" ws "\\"action\\"" ws ":" ws action_value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
-    action_value ::= "\\"cooperate\\"" | "\\"betray\\""
+    root ::= "{" ws "\\"action\\"" ws ":" ws action-value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
+    action-value ::= "\\"cooperate\\"" | "\\"betray\\""
     \(sharedTail)
     """
 
