@@ -357,7 +357,6 @@ gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
 ...
 ## Test plan
 ...
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 IMPLEMENT_PR_BODY
 )"
 ```
