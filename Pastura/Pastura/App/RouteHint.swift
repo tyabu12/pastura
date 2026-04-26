@@ -53,12 +53,13 @@ import Foundation
 /// // when reading the hint:
 /// // case .scenarioDetail(_, let hint): hint.value  // "Foo" vs nil
 /// ```
-// `nonisolated` because `Hashable`'s `==` / `hash(into:)` requirements
-// are nonisolated; under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`,
-// custom impls would inherit MainActor and crash the conformance.
-// `Route` enum gets this for free via auto-synthesized Hashable;
-// `RouteHint` provides explicit impls so it must opt out of the default.
 nonisolated struct RouteHint<T: Hashable & Sendable>: Hashable, Sendable {
+  // `nonisolated` (above) is required because `Hashable`'s `==` /
+  // `hash(into:)` are nonisolated; under
+  // `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` the custom impls below
+  // would otherwise inherit MainActor and crash the conformance. Route
+  // enum sidesteps this via auto-synthesized Hashable.
+
   /// The wrapped value. Read this directly — `==` is identity-neutral
   /// and gives no information about whether `.value` is set.
   let value: T?

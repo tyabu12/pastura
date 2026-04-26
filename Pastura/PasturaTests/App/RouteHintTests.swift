@@ -9,9 +9,9 @@ struct RouteHintTests {
   // MARK: - Standalone identity-neutral contract
 
   @Test func differentValuesCompareEqual() {
-    let a = RouteHint<String>("Foo")
-    let b = RouteHint<String>("Bar")
-    #expect(a == b)
+    let foo = RouteHint<String>("Foo")
+    let bar = RouteHint<String>("Bar")
+    #expect(foo == bar)
   }
 
   @Test func nilValueComparesEqualToNonNil() {
@@ -21,9 +21,9 @@ struct RouteHintTests {
   }
 
   @Test func differentValuesProduceEqualHash() {
-    let a = RouteHint<String>("Foo")
-    let b = RouteHint<String>("Bar")
-    #expect(a.hashValue == b.hashValue)
+    let foo = RouteHint<String>("Foo")
+    let bar = RouteHint<String>("Bar")
+    #expect(foo.hashValue == bar.hashValue)
   }
 
   @Test func valueIsReadable() {
