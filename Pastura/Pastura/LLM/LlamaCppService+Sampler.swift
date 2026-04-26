@@ -151,10 +151,11 @@ extension LlamaCppService {
   ///
   /// - Returns: `(sampler, capturedStderr)` where `sampler` is the
   ///   llama.cpp sampler pointer (`nil` on grammar parse failure) and
-  ///   `capturedStderr` is the (possibly empty / lossy-UTF-8-decoded)
-  ///   stderr payload from the call window, or a
-  ///   `"<stderr capture skipped: …>"` sentinel when redirect setup
-  ///   failed.
+  ///   `capturedStderr` is the (possibly empty) stderr payload, decoded
+  ///   strictly as UTF-8 with a hex-prefix fallback when invalid bytes
+  ///   are present (`String(bytes:encoding:)` is failable, not lossy —
+  ///   the fallback is what handles non-UTF-8). Or a
+  ///   `"<stderr capture skipped: …>"` sentinel when redirect setup failed.
   private func initGrammarCapturingStderr(
     vocab: OpaquePointer,
     grammarCString: UnsafePointer<CChar>
@@ -201,7 +202,17 @@ extension LlamaCppService {
     //   3. read.
     //   4. cleanup remaining fds.
     // Skipping step 2 leaves `readToEnd` blocked indefinitely.
-    dup2(savedStderr, STDERR_FILENO)
+    //
+    // The restore `dup2` is checked symmetrically with the setup `dup2`
+    // (EBADF is the only realistic failure since `savedStderr` was just
+    // `dup`'d above and `STDERR_FILENO` is a valid target — but a silent
+    // failure here would leave fd 2 pointing at the about-to-close pipe
+    // writer, SIGPIPE-ing the next process-wide `fprintf(stderr, …)`).
+    if dup2(savedStderr, STDERR_FILENO) < 0 {
+      let restoreErrno = errno
+      logger.error(
+        "stderr restore (dup2) failed errno=\(restoreErrno) — fd 2 may be invalid")
+    }
     try? pipe.fileHandleForWriting.close()
     let captured = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
     close(savedStderr)
