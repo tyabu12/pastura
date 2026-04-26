@@ -5,14 +5,33 @@ Extracted from CLAUDE.md to keep the top-level project file lean. Always-loaded
 
 ## Test Execution
 
+### When to use what
+
+| Scope | Command | Parallel testing |
+|---|---|---|
+| TDD red/green cycle (single class / method) | `xcodebuild test ... -only-testing PasturaTests/<Class>` (direct) | n/a (single class — no benefit) |
+| Pre-PR full local run | `scripts/test-full.sh` | **OFF** (forced — see below) |
+| CI full run | `.github/workflows/ci.yml` | **OFF** (already applied — see [#189](https://github.com/tyabu12/pastura/issues/189)) |
+
+`scripts/test-full.sh` is a thin wrapper that sources `sim-dest.sh` and runs
+`xcodebuild test` with `-parallel-testing-enabled NO` injected before any
+forwarded args. It mirrors the CI workaround for the within-process
+simulator-clone crash cascade — local Apple Silicon runs reproduce the
+cascade at ~50% frequency on the full suite, so any pre-PR full run should
+go through the wrapper. Root-cause investigation continues in
+[#189](https://github.com/tyabu12/pastura/issues/189); this is the
+symptom-level mitigation. TDD-focused runs (`-only-testing PasturaTests/<Class>`)
+are unaffected by the cascade and should bypass the wrapper for speed.
+
 ```bash
 source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
 
-# Run all tests
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-  -destination "$DEST" -derivedDataPath "$DERIVED_DATA"
+# Pre-PR full local run (parallel testing forced OFF)
+scripts/test-full.sh
+# Forwards extra args verbatim — narrow scope, skip UI tests, etc.
+scripts/test-full.sh -skip-testing:PasturaUITests
 
-# Run specific test class
+# Run specific test class (TDD cycle — direct invocation, no wrapper)
 xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
   -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
   -only-testing PasturaTests/JSONResponseParserTests
