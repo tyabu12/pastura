@@ -63,7 +63,8 @@ After fetching the issue, check for an existing plan comment:
    Assign a **complexity label** to each item:
    - 🟢 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
    - 🔴 **complex** — Implemented by the orchestrator (Opus) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
-   - **When in doubt, classify as 🔴.** Misclassifying a complex task as simple wastes tokens on a failed Sonnet attempt + Opus fallback. The reverse (Opus doing a simple task) has no downside beyond cost.
+   - **When in doubt, classify as 🔴.** Misclassifying a complex task as simple wastes tokens on a failed Sonnet attempt + Opus fallback. The reverse just costs extra Opus tokens (and even that's bounded by the override below).
+   - **Skip delegation when it costs more than the work.** Promote a 🟢 item to 🔴 if the subagent prompt + verify overhead likely exceeds the implementation itself — e.g. single-line edits, short doc tweaks.
 
    ```
    - [ ] 1. 🟢 <description> (`<primary-file-path>`)
