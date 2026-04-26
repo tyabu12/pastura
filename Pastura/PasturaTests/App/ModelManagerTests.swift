@@ -93,16 +93,26 @@ struct ModelManagerTests {
     downloader: any ModelDownloader = MockModelDownloader(),
     physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
     catalog: [ModelDescriptor]? = nil,
-    userDefaults: UserDefaults? = nil
+    userDefaults: UserDefaults? = nil,
+    networkPathMonitor: (any NetworkPathMonitoring)? = nil,
+    consentStore: (any CellularConsentStoring)? = nil
   ) -> ModelManager {
     let finalCatalog = catalog ?? [makeTestDescriptor()]
     let finalDefaults = userDefaults ?? Self.isolatedUserDefaults()
+    // Default to mocks so tests don't accidentally pick up real cellular
+    // state from the host's `NWPathMonitor`. Tests that exercise the
+    // cellular gate (`#191`) inject explicit mocks; everyone else gets
+    // a Wi-Fi-equivalent stub.
+    let finalMonitor = networkPathMonitor ?? MockNetworkPathMonitor(isCellular: false)
+    let finalConsent = consentStore ?? MockCellularConsentStore(hasCellularConsent: false)
     let sut = ModelManager(
       downloader: downloader,
       fileManager: .default,
       physicalMemory: physicalMemory,
       userDefaults: finalDefaults,
-      catalog: finalCatalog
+      catalog: finalCatalog,
+      networkPathMonitor: finalMonitor,
+      consentStore: finalConsent
     )
     // Proactively wipe residual files at the shared Application Support /
     // Caches paths. Each per-test `defer { removeItem }` is declared AFTER
