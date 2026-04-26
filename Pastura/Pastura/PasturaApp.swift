@@ -140,14 +140,7 @@ private struct RootView: View {
           }
 
       case .needsModelSelection:
-        ModelPickerView(modelManager: modelManager) { pickedID in
-          modelManager.setActiveModel(pickedID)
-          // Transition to the existing download flow — `checkModelStatus()`
-          // already ran during `initialize()`, so `activeState` is
-          // `.notDownloaded` and `DemoReplayHostView` will prompt the user
-          // to start the download for the newly-active descriptor.
-          appState = .needsModelDownload
-        }
+        ModelPickerView(modelManager: modelManager, onSelect: handleModelPick)
 
       case .needsModelDownload:
         // The `if let` is defensive — `.needsModelDownload` is only
@@ -420,4 +413,29 @@ private struct RootView: View {
       }
     }
   #endif
+}
+
+// Helpers in an extension so they don't count against `RootView`'s
+// `type_body_length` budget. Same-file extension on a `private` type is
+// fine (private = file-scoped, extensions in the same file see private
+// members).
+extension RootView {
+
+  /// Picker → AppState transition. Persists the chosen model and starts
+  /// its download synchronously in the same frame as the AppState flip,
+  /// so `DemoReplayHostView` mounts with `currentState == .downloading`
+  /// and routes directly to the demo host body (or to
+  /// `ModelDownloadView.downloadingView` on the cellular safety net).
+  /// Without the `startDownload` call, the user would land on
+  /// `ModelDownloadView.notDownloadedView` and have to tap "Download
+  /// Model" again — a redundant confirmation step that pre-dated this
+  /// picker. The picker's "Start with this model" CTA is itself the
+  /// consent. Mirrors the `SettingsView.presentDownloadCover` pattern.
+  fileprivate func handleModelPick(_ pickedID: ModelID) {
+    modelManager.setActiveModel(pickedID)
+    if let descriptor = modelManager.activeDescriptor {
+      modelManager.startDownload(descriptor: descriptor)
+    }
+    appState = .needsModelDownload
+  }
 }
