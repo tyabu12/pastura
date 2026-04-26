@@ -351,7 +351,23 @@ private struct RootView: View {
       switch modelManager.activeState {
       case .ready(let modelPath):
         await finalizeInit(modelPath: modelPath)
-      case .unsupportedDevice, .notDownloaded, .error:
+      case .notDownloaded:
+        // Auto-resume: user has already opted in (active id was persisted
+        // by a prior picker tap or by single-model catalog default), so
+        // the only reason we'd be in `.notDownloaded` here is that the
+        // download wasn't completed — either the app was killed mid-DL
+        // (partial file on disk; `performDownload` reads the partial size
+        // for the resume offset) or never started a session. Either way,
+        // start it now so the user lands directly on the demo host body
+        // / progress fallback instead of bouncing through a redundant
+        // "Download Model" confirmation tap. Cellular consent is tracked
+        // separately (#191) — until that lands, cellular users are
+        // auto-resumed without an explicit modal, same as picker auto-DL.
+        if let descriptor = modelManager.activeDescriptor {
+          modelManager.startDownload(descriptor: descriptor)
+        }
+        appState = .needsModelDownload
+      case .unsupportedDevice, .error:
         appState = .needsModelDownload
       case .checking, .downloading:
         // Should not happen after synchronous checkModelStatus, but handle gracefully
