@@ -70,6 +70,7 @@ extension PhaseEditorSheet {
               .font(.caption)
           }
         }
+        .buttonStyle(.plain)
         .contextMenu {
           Button {
             phase.moveSubPhase(id: subPhase.id, to: branch == .then ? .else : .then)

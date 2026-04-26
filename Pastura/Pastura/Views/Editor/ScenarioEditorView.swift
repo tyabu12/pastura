@@ -183,6 +183,7 @@ struct ScenarioEditorView: View {
             }
           }
         }
+        .buttonStyle(.plain)
       }
       .onDelete { indexSet in
         viewModel.personas.remove(atOffsets: indexSet)
