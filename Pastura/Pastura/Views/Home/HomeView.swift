@@ -137,7 +137,15 @@ struct HomeView: View {
   private func scenarioRow(
     _ scenario: ScenarioRecord, hasGalleryUpdate: Bool = false
   ) -> some View {
-    NavigationLink(value: Route.scenarioDetail(scenarioId: scenario.id)) {
+    // initialName supplies the scenario name to navigationTitle from
+    // the first frame of the push, before ScenarioDetailViewModel
+    // finishes loading. Identity-neutral via RouteHint (ADR-008).
+    NavigationLink(
+      value: Route.scenarioDetail(
+        scenarioId: scenario.id,
+        initialName: .init(scenario.name)
+      )
+    ) {
       scenarioRowLabel(scenario, hasGalleryUpdate: hasGalleryUpdate)
     }
     .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
@@ -174,8 +182,8 @@ struct HomeView: View {
   @ViewBuilder
   private func routeDestination(_ route: Route) -> some View {
     switch route {
-    case .scenarioDetail(let scenarioId):
-      ScenarioDetailView(scenarioId: scenarioId)
+    case .scenarioDetail(let scenarioId, let initialName):
+      ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
     case .importScenario(let editingId):
       ImportView(editingId: editingId)
     case .editor(let editingId, let templateYAML):

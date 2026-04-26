@@ -3,6 +3,13 @@ import SwiftUI
 /// Displays scenario metadata, personas, phases, and a launch button.
 struct ScenarioDetailView: View {
   let scenarioId: String
+  /// Render-time hint for the navigation title — supplied by callers
+  /// that already have the scenario name in memory (e.g., HomeView's
+  /// list rows, GalleryScenarioDetailView post-install) so the title
+  /// is correct from the first frame of the push, before the view
+  /// model finishes loading. `nil` falls back to the empty-string
+  /// placeholder. See ADR-008.
+  var initialName: String?
 
   @Environment(AppDependencies.self) private var dependencies
   @Environment(\.dismiss) private var dismiss
@@ -27,12 +34,12 @@ struct ScenarioDetailView: View {
         ProgressView()
       }
     }
-    // Empty fallback during the brief load window (~30–80ms) — the
-    // `.navigationTitle` modifier sits outside the `if let viewModel`
-    // gate so it evaluates while the body shows ProgressView. Showing
-    // "Scenario" there would be a misleading flash before the real
-    // scenario name lands; an empty title is the lesser evil.
-    .navigationTitle(viewModel?.scenario?.name ?? "")
+    // 3-tier fallback (ADR-008): loaded scenario name (authoritative,
+    // wins after VM load completes) → push-time `initialName` hint
+    // (covers the ~30–80ms load window when callers supplied it) →
+    // empty string (defensive default for callers that didn't supply
+    // a hint; "Scenario" would be a misleading flash).
+    .navigationTitle(viewModel?.scenario?.name ?? initialName ?? "")
     .navigationBarTitleDisplayMode(.large)
     .toolbar {
       if let record = viewModel?.record, !record.isPreset {
