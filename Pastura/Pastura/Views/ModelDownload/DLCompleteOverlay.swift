@@ -22,16 +22,24 @@ struct DLCompleteOverlay: View {
   /// Ease-out fade-in duration; the overlay is fully opaque at
   /// `fadeDelayMs + fadeDurationMs`.
   static let fadeDurationMs: Int = 2400
+  /// Time the overlay holds at full opacity *after* the fade-in completes,
+  /// so the user can perceive "準備ができました" before `HomeView` swaps
+  /// in. Without this dwell, ease-out's slow approach to 1.0 means the
+  /// overlay reaches full opacity at the same instant it gets unmounted,
+  /// leaving the user with no visible "Ready" beat.
+  static let dwellMs: Int = 1500
   /// Total time the overlay needs to be visually held before unmounting
-  /// is safe — used by `DemoReplayHostView` to gate the ready-handoff
-  /// so `RootView` doesn't swap in `HomeView` mid-fade. Single source of
-  /// truth for both the animation literals here and the upstream wait.
-  static let totalAnimationMs: Int = fadeDelayMs + fadeDurationMs
+  /// is safe — used by `DemoReplayHostView` to gate the ready-handoff so
+  /// `RootView` doesn't swap in `HomeView` while the overlay is fading
+  /// in or before the dwell completes. Single source of truth for both
+  /// the animation literals here and the upstream wait.
+  static let totalAnimationMs: Int = fadeDelayMs + fadeDurationMs + dwellMs
   /// Wait used when `accessibilityReduceMotion` is on: the overlay shows
-  /// at full opacity instantly, so the long fade timing is meaningless,
-  /// but a brief perceptible hold is still needed so the overlay doesn't
-  /// snap-show-snap. Value chosen by UX judgment — not in any spec.
-  static let reducedMotionHoldMs: Int = 600
+  /// at full opacity instantly, so the long fade timing is suppressed.
+  /// We hold for `dwellMs` so the perceptible "Ready" beat matches the
+  /// non-reduce-motion path's dwell — accessibility users still get
+  /// time to read the copy, just without the fade animation.
+  static let reducedMotionHoldMs: Int = dwellMs
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var hasAppeared = false
