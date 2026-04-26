@@ -190,7 +190,11 @@ struct GBNFGrammarBuilderTests {
     // spaces fail in any case.
     let badNames = [
       "1badName", "with space", "dash-only", "dot.name",
-      "_leading", "-leading"
+      "_leading", "-leading",
+      // Edge cases adjacent to the leading-letter rule:
+      "",  // empty — no first char to validate
+      "_",  // single leading non-letter
+      "-"  // same, dash form
     ]
     for name in badNames {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
@@ -203,12 +207,19 @@ struct GBNFGrammarBuilderTests {
     }
   }
 
-  @Test("valid snake_case field names accepted")
-  func validSnakeCaseNamesAccepted() throws {
-    // Snake_case body is fine (`_` allowed in subsequent positions);
-    // leading `_` is rejected by `validateFieldName` (see
-    // `invalidFieldNameThrows`).
-    let okNames = ["statement", "inner_thought", "action", "a1b2"]
+  @Test("valid field names accepted (ASCII snake_case + Unicode letters)")
+  func validFieldNamesAccepted() throws {
+    // `validateFieldName` is Unicode-aware via `Character.isLetter`:
+    // ASCII snake_case (`_` only in body, never leading) AND non-ASCII
+    // letters like Japanese both pass. The Unicode case would surface
+    // as an `is_word_char` mismatch at llama.cpp's emit time (deferred
+    // per ADR-002 §12.8); the stderr-capture diagnostic in
+    // `+Sampler.swift` would catch it within one device run. This
+    // test locks in the builder-level Unicode acceptance so a future
+    // contributor tightening to ASCII-only must break it explicitly.
+    let okNames = [
+      "statement", "inner_thought", "action", "a1b2", "内なる思考"
+    ]
     for name in okNames {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
       _ = try builder.build(from: schema)
