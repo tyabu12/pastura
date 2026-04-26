@@ -56,7 +56,9 @@ nonisolated struct FailingLLMService: LLMService, Sendable {
   var backendIdentifier: String { "mock" }
   func loadModel() async throws { throw LLMError.notLoaded }
   func unloadModel() async throws {}
-  func generate(system: String, user: String) async throws -> String {
+  func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String {
     throw LLMError.notLoaded
   }
 }

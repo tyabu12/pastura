@@ -239,12 +239,73 @@ struct LlamaCppIntegrationTests {
     try await service.loadModel()
     defer { Task { try? await service.unloadModel() } }
 
-    for i in 1...3 {
+    for idx in 1...3 {
       let result = try await service.generate(
-        system: "Reply with JSON: {\"number\": \"\(i)\"}",
+        system: "Reply with JSON: {\"number\": \"\(idx)\"}",
         user: "What number?"
       )
-      #expect(!result.isEmpty, "Generation \(i) produced empty output")
+      #expect(!result.isEmpty, "Generation \(idx) produced empty output")
     }
+  }
+
+  // MARK: - Test 7: Grammar-constrained output (#194 PR#b)
+
+  /// Feeds the `prisoners_dilemma` `choose` phase shape through
+  /// grammar-constrained sampling and asserts the output parses without
+  /// invoking the repair pipeline — i.e., the grammar itself enforced
+  /// valid JSON structure and an in-set `action` value.
+  ///
+  /// Catches tokenizer ↔ grammar interactions that the pure-transformation
+  /// `GBNFGrammarBuilderTests` cannot reach (e.g., Gemma's chat-template
+  /// bytes colliding with the GBNF string class, or grammar masking that
+  /// is too restrictive for the model's sampled path).
+  @Test(.timeLimit(.minutes(3)))
+  func grammarConstrainedProducesSchemaValidJSON() async throws {
+    let service = makeService()
+    try await service.loadModel()
+    defer { Task { try? await service.unloadModel() } }
+
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .choose, prompt: "…",
+          outputSchema: ["action": "string", "inner_thought": "string"],
+          options: ["cooperate", "betray"])))
+
+    let result = try await service.generate(
+      system: """
+        あなたは囚人のジレンマに挑むプレイヤーです。JSONのみで答えてください。
+        形式: {"action": "cooperate"|"betray", "inner_thought": "あなたの本音"}
+        """,
+      user: "相手と協力するか裏切るか選んでください。",
+      schema: schema)
+
+    // 1. Parse without repair — grammar should make the raw output
+    //    directly parseable, so the parser reports `repairKind == nil`.
+    let parsed = try JSONResponseParser().parse(
+      result, expectedKeys: Set(schema.fields.map(\.name)))
+    #expect(
+      parsed.repairKind == nil,
+      "grammar-constrained output should not need repair, got \(parsed.repairKind ?? "?"); raw=\(result)"
+    )
+
+    // 2. action must be one of the options (grammar-enforced, not
+    //    runtime-validated). If this fails, the grammar chain did not
+    //    actually constrain sampling — the exact regression wiring one
+    //    of the two sampler call paths but not the other would produce.
+    let action = parsed.0.fields["action"]
+    #expect(
+      action == "cooperate" || action == "betray",
+      "action must be grammar-constrained to options, got \(action ?? "nil")")
+
+    // 3. inner_thought must contain Japanese characters (sanity check
+    //    that `[^"\\]` string production accepted UTF-8 / CJK content
+    //    — Critic Axis 1).
+    let thought = parsed.0.fields["inner_thought"] ?? ""
+    let hasJapanese = thought.unicodeScalars.contains { scalar in
+      (0x3000...0x9FFF).contains(scalar.value)  // Kanji + kana block
+        || (0xFF00...0xFFEF).contains(scalar.value)  // Fullwidth forms
+    }
+    #expect(hasJapanese, "expected Japanese content in inner_thought, got: \(thought)")
   }
 }
