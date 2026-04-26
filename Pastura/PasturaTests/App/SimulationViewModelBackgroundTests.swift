@@ -26,6 +26,44 @@ struct SimulationViewModelBackgroundTests {
     )
   }
 
+  // MARK: - UserDefaults override helpers
+
+  /// Run `body` with the original value of `key` restored on exit
+  /// (`removeObject` when no original existed). Use when the test mutates
+  /// the flag multiple times within the body and only needs the cleanup
+  /// guarantee.
+  private func withFeatureFlagRestoration(
+    _ key: String, body: () throws -> Void
+  ) rethrows {
+    let original = UserDefaults.standard.object(forKey: key)
+    defer {
+      if let original {
+        UserDefaults.standard.set(original, forKey: key)
+      } else {
+        UserDefaults.standard.removeObject(forKey: key)
+      }
+    }
+    try body()
+  }
+
+  /// Override `key` to `value` (or remove the key when `value == nil`),
+  /// run `body`, then restore. Distinguishes "explicitly false" from
+  /// "never set" — same semantics as `FeatureFlags.defaultsReadBool`.
+  /// The `removeObject`-when-original-was-nil branch is the subtle bit
+  /// the helper exists to encapsulate.
+  private func withFeatureFlagOverride(
+    _ key: String, value: Bool?, body: () throws -> Void
+  ) rethrows {
+    try withFeatureFlagRestoration(key) {
+      if let value {
+        UserDefaults.standard.set(value, forKey: key)
+      } else {
+        UserDefaults.standard.removeObject(forKey: key)
+      }
+      try body()
+    }
+  }
+
   // MARK: - canEnableBackgroundContinuation gating
 
   // Each gate is asserted in isolation by overriding
@@ -36,38 +74,20 @@ struct SimulationViewModelBackgroundTests {
   // pass for the wrong reason once the opt-in flag landed (#254).
 
   @Test func cannotEnableWhenBackgroundManagerIsNil() throws {
-    let key = "backgroundContinuationEnabled"
-    let original = UserDefaults.standard.object(forKey: key)
-    UserDefaults.standard.set(true, forKey: key)
-    defer {
-      if let original {
-        UserDefaults.standard.set(original, forKey: key)
-      } else {
-        UserDefaults.standard.removeObject(forKey: key)
-      }
+    try withFeatureFlagOverride("backgroundContinuationEnabled", value: true) {
+      let sut = try makeSUT(backgroundManager: nil)
+      #expect(sut.canEnableBackgroundContinuation == false)
     }
-
-    let sut = try makeSUT(backgroundManager: nil)
-    #expect(sut.canEnableBackgroundContinuation == false)
   }
 
   @Test func cannotEnableWhenLLMIsNotLlamaCppService() async throws {
-    let key = "backgroundContinuationEnabled"
-    let original = UserDefaults.standard.object(forKey: key)
-    UserDefaults.standard.set(true, forKey: key)
-    defer {
-      if let original {
-        UserDefaults.standard.set(original, forKey: key)
-      } else {
-        UserDefaults.standard.removeObject(forKey: key)
-      }
+    try withFeatureFlagOverride("backgroundContinuationEnabled", value: true) {
+      // MockLLMService is not LlamaCppService → feature should be gated off
+      // even with a background manager present.
+      let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
+      // Without a currentLLM set (before run() is called), it's also false.
+      #expect(sut.canEnableBackgroundContinuation == false)
     }
-
-    // MockLLMService is not LlamaCppService → feature should be gated off
-    // even with a background manager present.
-    let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
-    // Without a currentLLM set (before run() is called), it's also false.
-    #expect(sut.canEnableBackgroundContinuation == false)
   }
 
   // MARK: - FeatureFlags.backgroundContinuationEnabled (#254)
@@ -78,49 +98,42 @@ struct SimulationViewModelBackgroundTests {
   /// here prevents an accidental opt-out flip during a future
   /// `FeatureFlags.swift` refactor.
   @Test func featureFlagBackgroundContinuationDefaultsFalse() {
-    let key = "backgroundContinuationEnabled"
-    let original = UserDefaults.standard.object(forKey: key)
-    UserDefaults.standard.removeObject(forKey: key)
-    defer {
-      if let original {
-        UserDefaults.standard.set(original, forKey: key)
-      }
+    withFeatureFlagOverride("backgroundContinuationEnabled", value: nil) {
+      #expect(FeatureFlags.backgroundContinuationEnabled == false)
     }
-
-    #expect(FeatureFlags.backgroundContinuationEnabled == false)
   }
 
-  /// `defaults write … -bool true` (the developer override path documented
-  /// in `FeatureFlags.backgroundContinuationEnabled`) must be honoured by
-  /// the read accessor, AND `canEnableBackgroundContinuation` must drop
-  /// back to `false` when the flag is flipped off — pinning that the AND
-  /// composition isn't broken (e.g. accidental `||` or removal of the
-  /// flag clause). The LLM-type / iOS-26 gates still apply on top, so the
-  /// flag-on case asserts via `FeatureFlags` directly rather than
-  /// constructing a real `LlamaCppService` (heavy — requires a model
-  /// file).
+  /// Pins the *read path* — flipping the UserDefaults key changes what
+  /// `FeatureFlags.backgroundContinuationEnabled` returns, and
+  /// `canEnableBackgroundContinuation` short-circuits to `false` when the
+  /// flag is off. Does **not** pin the AND composition itself: both halves
+  /// here resolve to `false` via the LLM-type gate (no `LlamaCppService`
+  /// is constructed in this fixture), so a hypothetical `||`-instead-of-
+  /// `&&` regression would NOT be caught by this test alone — it would be
+  /// caught by `cannotEnableWhenBackgroundManagerIsNil` /
+  /// `cannotEnableWhenLLMIsNotLlamaCppService` flipping from `false` to
+  /// `true` (those tests force `flag=true` to prove the *other* gates
+  /// still apply on their own). Constructing a real `LlamaCppService`
+  /// would let one test catch the `||` regression directly, but requires
+  /// a model file and is left as integration-level coverage instead.
   @Test func featureFlagOffShortCircuitsCanEnable() throws {
     let key = "backgroundContinuationEnabled"
-    let original = UserDefaults.standard.object(forKey: key)
-    defer {
-      if let original {
-        UserDefaults.standard.set(original, forKey: key)
-      } else {
-        UserDefaults.standard.removeObject(forKey: key)
-      }
+    try withFeatureFlagRestoration(key) {
+      let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
+
+      UserDefaults.standard.set(true, forKey: key)
+      #expect(FeatureFlags.backgroundContinuationEnabled == true)
+      // Flag on, but `currentLLM` is still nil → LLM-type gate keeps it off.
+      #expect(sut.canEnableBackgroundContinuation == false)
+
+      UserDefaults.standard.set(false, forKey: key)
+      #expect(FeatureFlags.backgroundContinuationEnabled == false)
+      // Flag off → short-circuit (verified by the read-accessor assertion
+      // above) — but indistinguishable here from the LLM-type gate also
+      // returning false. See doc comment for the AND-composition coverage
+      // chain.
+      #expect(sut.canEnableBackgroundContinuation == false)
     }
-
-    let sut = try makeSUT(backgroundManager: BackgroundSimulationManager())
-
-    UserDefaults.standard.set(true, forKey: key)
-    #expect(FeatureFlags.backgroundContinuationEnabled == true)
-    // Flag on, but `currentLLM` is still nil → LLM-type gate keeps it off.
-    #expect(sut.canEnableBackgroundContinuation == false)
-
-    UserDefaults.standard.set(false, forKey: key)
-    #expect(FeatureFlags.backgroundContinuationEnabled == false)
-    // Flag off → short-circuit, regardless of other gates.
-    #expect(sut.canEnableBackgroundContinuation == false)
   }
 
   // MARK: - Scene phase handlers are safe when not running
