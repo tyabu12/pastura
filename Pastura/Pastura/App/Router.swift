@@ -6,7 +6,19 @@ import Foundation
 /// Used with `NavigationStack(path:)` for programmatic navigation.
 enum Route: Hashable {
   /// Scenario detail screen.
-  case scenarioDetail(scenarioId: String)
+  ///
+  /// `initialName` is a render-time hint used to display the scenario
+  /// name in the navigation title from the first frame of the push,
+  /// before `ScenarioDetailViewModel.load(...)` completes its DB +
+  /// YAML parse. Wrapped in `RouteHint<String>` so the value does
+  /// **not** participate in `Route` Hashable identity — `pushIfOnTop`
+  /// guards comparing two `.scenarioDetail` values match on
+  /// `scenarioId` regardless of whether the hint differs.
+  /// See `docs/decisions/ADR-008.md` for the full rationale.
+  case scenarioDetail(
+    scenarioId: String,
+    initialName: RouteHint<String> = .init()
+  )
 
   /// YAML import screen. Pass an existing scenario ID to edit.
   case importScenario(editingId: String? = nil)
@@ -16,7 +28,15 @@ enum Route: Hashable {
   case editor(editingId: String? = nil, templateYAML: String? = nil)
 
   /// Live simulation execution screen.
-  case simulation(scenarioId: String)
+  ///
+  /// `initialName` mirrors `.scenarioDetail` — render-time hint for
+  /// the navigation title so the bar shows the scenario name from the
+  /// first frame of the push, before `loadAndRun()` completes.
+  /// Identity-neutral via `RouteHint<String>` (ADR-008).
+  case simulation(
+    scenarioId: String,
+    initialName: RouteHint<String> = .init()
+  )
 
   /// Past simulation results list for a scenario.
   case results(scenarioId: String)

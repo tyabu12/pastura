@@ -97,6 +97,52 @@ When reviewing changes that touch navigation:
       should be empty.
 - [ ] No new properties on `AppRouter` beyond navigation-path management.
 
+## Render-time hints — `RouteHint`
+
+Some `Route` cases need to carry **render-time hints** (e.g.
+`initialName: String?` for the navigation title to show
+synchronously at push time, before the destination view's async load
+completes). Such hints are NOT navigation identity — they affect
+display only. Wrap them in `RouteHint<T>`
+(`Pastura/Pastura/App/RouteHint.swift`) so the auto-synthesized
+`Hashable` on `Route` continues to use only identity-bearing fields:
+
+```swift
+case scenarioDetail(
+  scenarioId: String,
+  initialName: RouteHint<String> = .init()
+)
+```
+
+Why this matters: a plain `String?` hint would make
+`.scenarioDetail("x")` (default-nil) and
+`.scenarioDetail("x", "Foo")` compare unequal, silently breaking
+`pushIfOnTop` guards that callers naturally write without the hint.
+`RouteHint`'s `==` is always `true` and `hash(into:)` is a no-op,
+so identity is preserved on `scenarioId` alone.
+
+⚠️ `RouteHint`'s identity-neutrality is **load-bearing**. Do NOT
+treat `RouteHint("Foo") == RouteHint("Bar")` as `.value`
+interchangeability — always read `.value` from the specific instance
+you hold. The type's header doc-comment carries this warning.
+
+When reviewing a new `Route` case:
+
+- [ ] Identity-bearing fields (e.g. ids) are plain associated values.
+- [ ] Render-time-only fields (placeholders, animation params) are
+      wrapped in `RouteHint<T>`.
+- [ ] If the case adds `RouteHint`, the destination resolver in
+      `HomeView.routeDestination(_:)` extracts `.value` to pass to
+      the destination view.
+- [ ] If a callsite pushes with a hint, the source-of-truth for the
+      hint value is documented (e.g. gallery curation invariant —
+      see `GallerySeedYAMLTests.galleryTitleMatchesYAMLName`).
+
+Decision record: [ADR-008](../../docs/decisions/ADR-008.md). Type
+definition + standalone tests:
+[`RouteHint.swift`](../../Pastura/Pastura/App/RouteHint.swift),
+[`RouteHintTests.swift`](../../Pastura/PasturaTests/App/RouteHintTests.swift).
+
 ## QA scenarios
 
 `PasturaUITests` covers scenarios 1 and 3 end-to-end and scenario 2 on

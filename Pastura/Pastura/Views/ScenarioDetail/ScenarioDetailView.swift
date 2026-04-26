@@ -3,6 +3,13 @@ import SwiftUI
 /// Displays scenario metadata, personas, phases, and a launch button.
 struct ScenarioDetailView: View {
   let scenarioId: String
+  /// Render-time hint for the navigation title — supplied by callers
+  /// that already have the scenario name in memory (e.g., HomeView's
+  /// list rows, GalleryScenarioDetailView post-install) so the title
+  /// is correct from the first frame of the push, before the view
+  /// model finishes loading. `nil` falls back to the empty-string
+  /// placeholder. See ADR-008.
+  var initialName: String?
 
   @Environment(AppDependencies.self) private var dependencies
   @Environment(\.dismiss) private var dismiss
@@ -27,7 +34,12 @@ struct ScenarioDetailView: View {
         ProgressView()
       }
     }
-    .navigationTitle(viewModel?.scenario?.name ?? "Scenario")
+    // 3-tier fallback (ADR-008): loaded scenario name (authoritative,
+    // wins after VM load completes) → push-time `initialName` hint
+    // (covers the ~30–80ms load window when callers supplied it) →
+    // empty string (defensive default for callers that didn't supply
+    // a hint; "Scenario" would be a misleading flash).
+    .navigationTitle(viewModel?.scenario?.name ?? initialName ?? "")
     .navigationBarTitleDisplayMode(.large)
     .toolbar {
       if let record = viewModel?.record, !record.isPreset {
@@ -48,9 +60,16 @@ struct ScenarioDetailView: View {
       }
     }
     .task {
-      viewModel = ScenarioDetailViewModel(repository: dependencies.scenarioRepository)
-      await viewModel?.load(scenarioId: scenarioId)
-      await viewModel?.refreshGalleryStatus(using: dependencies.galleryService)
+      // Defer assignment until both `load()` and `refreshGalleryStatus()`
+      // complete so the gallery banner never flips from
+      // "From Share Board (read-only)" to "Update available" mid-render.
+      // Guard prevents re-creation under `.task` re-fire.
+      guard viewModel == nil else { return }
+      let newViewModel = ScenarioDetailViewModel(
+        repository: dependencies.scenarioRepository)
+      await newViewModel.load(scenarioId: scenarioId)
+      await newViewModel.refreshGalleryStatus(using: dependencies.galleryService)
+      viewModel = newViewModel
     }
   }
 
@@ -65,7 +84,7 @@ struct ScenarioDetailView: View {
       personasSection(scenario: scenario)
       phasesSection(scenario: scenario)
       validationSection(viewModel: viewModel)
-      actionsSection(viewModel: viewModel)
+      actionsSection(scenario: scenario, viewModel: viewModel)
     }
   }
 
@@ -158,9 +177,19 @@ struct ScenarioDetailView: View {
     }
   }
 
-  private func actionsSection(viewModel: ScenarioDetailViewModel) -> some View {
+  private func actionsSection(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
     Section {
-      NavigationLink(value: Route.simulation(scenarioId: scenarioId)) {
+      // initialName supplies the scenario name to SimulationView's
+      // navigationTitle from the first frame, before loadAndRun()
+      // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
+      NavigationLink(
+        value: Route.simulation(
+          scenarioId: scenarioId,
+          initialName: .init(scenario.name)
+        )
+      ) {
         Label("Run Simulation", systemImage: "play.fill")
       }
       .disabled(!viewModel.canRun)
