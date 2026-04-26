@@ -154,12 +154,16 @@ private struct RootView: View {
         // reached after `activeDescriptor` has been resolved (see
         // `initialize()`), so production never falls through.
         if let descriptor = modelManager.activeDescriptor {
-          DemoReplayHostView(modelManager: modelManager, descriptor: descriptor)
-            .onChange(of: modelManager.activeState) { _, newState in
-              if case .ready(let modelPath) = newState {
-                Task { await finalizeInit(modelPath: modelPath) }
-              }
-            }
+          // `onReady` (not a sibling `.onChange(of: activeState)`) drives
+          // `finalizeInit` so the host view can hold the overlay visible
+          // for its fade duration before `RootView` swaps in `HomeView`.
+          // See ADR-007 §3.3 (d) and `DemoReplayHostView.readyDispatch`.
+          DemoReplayHostView(
+            modelManager: modelManager,
+            descriptor: descriptor,
+            onReady: { modelPath in
+              Task { await finalizeInit(modelPath: modelPath) }
+            })
         } else {
           Color.clear
         }
