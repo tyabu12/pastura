@@ -179,7 +179,7 @@ private struct RootView: View {
         VStack(spacing: 16) {
           Image(systemName: "exclamationmark.triangle")
             .font(.largeTitle)
-            .foregroundStyle(.red)
+            .foregroundStyle(Color.danger)
           Text("Initialization Failed")
             .font(.headline)
           Text(message)

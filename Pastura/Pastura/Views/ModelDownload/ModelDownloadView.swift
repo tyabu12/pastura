@@ -72,7 +72,7 @@ struct ModelDownloadView: View {
     VStack(spacing: 16) {
       Image(systemName: "exclamationmark.triangle.fill")
         .font(.system(size: 48))
-        .foregroundStyle(.orange)
+        .foregroundStyle(Color.warning)
       Text("Unsupported Device")
         .font(.title2.bold())
       Text(
@@ -91,7 +91,7 @@ struct ModelDownloadView: View {
     VStack(spacing: 16) {
       Image(systemName: "arrow.down.circle")
         .font(.system(size: 48))
-        .foregroundStyle(.blue)
+        .foregroundStyle(Color.moss)
       Text("Download AI Model")
         .font(.title2.bold())
       VStack(spacing: 4) {
@@ -120,7 +120,7 @@ struct ModelDownloadView: View {
     VStack(spacing: 16) {
       Image(systemName: "arrow.down.circle")
         .font(.system(size: 48))
-        .foregroundStyle(.blue)
+        .foregroundStyle(Color.moss)
         .symbolEffect(.pulse)
       Text("Downloading Model...")
         .font(.title2.bold())
@@ -141,7 +141,10 @@ struct ModelDownloadView: View {
           modelManager.cancelDownload(descriptor: descriptor)
         }
       }
-      .foregroundStyle(.red)
+      // Neutral cancel per design-system §2.6: `inkSecondary` text on a plain
+      // (no-border) button. The §2.6 "rule border" requirement applies only
+      // when a border is rendered; default-style Button has none.
+      .foregroundStyle(Color.inkSecondary)
     }
   }
 
@@ -149,7 +152,7 @@ struct ModelDownloadView: View {
     VStack(spacing: 16) {
       Image(systemName: "checkmark.circle.fill")
         .font(.system(size: 48))
-        .foregroundStyle(.green)
+        .foregroundStyle(Color.success)
       Text("Model Ready")
         .font(.title2.bold())
     }
@@ -159,7 +162,7 @@ struct ModelDownloadView: View {
     VStack(spacing: 16) {
       Image(systemName: "exclamationmark.triangle.fill")
         .font(.system(size: 48))
-        .foregroundStyle(.red)
+        .foregroundStyle(Color.danger)
       Text("Download Failed")
         .font(.title2.bold())
       Text(message)

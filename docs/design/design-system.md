@@ -111,7 +111,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 **運用ルール（牧歌トーンの維持）：**
 
-- **Cancel ボタンは赤くしない。** 文字 `inkSecondary` (`#5A5A55`) / 背景透明 / ボーダー `rule` (`#E0DBCE`) で中立に。
+- **Cancel ボタンは赤くしない。** 文字 `inkSecondary` (`#5A5A55`)、背景透明、ボーダー `rule` (`#E0DBCE`) で中立に。ボーダー指定はカスタムスタイルやチップで枠線を描く場合に適用し、枠線を描かないプレーンな `Button("Cancel")` には不要。
 - **破壊確認ダイアログのプライマリボタン**: `danger` 文字 / `dangerSoft` 背景 / 同色ボーダー（iOS の system destructive role が許す範囲で）。
 - **トースト**: 1pt のアクセント左ボーダー + `*Soft` 背景 + 14pt 角丸（promo card と同じ造形）。
 
