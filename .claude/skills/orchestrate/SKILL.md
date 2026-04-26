@@ -63,7 +63,8 @@ After fetching the issue, check for an existing plan comment:
    Assign a **complexity label** to each item:
    - 🟢 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
    - 🔴 **complex** — Implemented by the orchestrator (Opus) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
-   - **Default to 🔴 when in doubt or when the work is small.** Misclassifying a complex task as simple wastes a Sonnet attempt + Opus fallback; the reverse just costs extra Opus tokens. Even those tokens aren't worth it when subagent prompt + verify overhead likely exceeds the implementation itself (e.g. single-line edits, short doc tweaks).
+   - **When in doubt, classify as 🔴.** Misclassifying a complex item as simple wastes a Sonnet attempt + Opus fallback; the reverse just costs extra Opus tokens.
+   - **Skip delegation when overhead exceeds the work.** Promote a 🟢 item to 🔴 when subagent prompt + verify overhead likely exceeds the implementation itself — e.g. single-line edits, short doc tweaks. This forces Opus reviewer via the Coupling Rule below — intended, since the orchestrator is implementing the item directly.
 
    ```
    - [ ] 1. 🟢 <description> (`<primary-file-path>`)
@@ -204,7 +205,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
 
 ### 🔴 Complex items — Orchestrator implements directly
 
-1. Write test first (TDD mandatory per CLAUDE.md).
+1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🟢 branch's escape at the Sonnet prompt below).
 2. Run targeted tests — confirm failure:
    ```bash
    source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
