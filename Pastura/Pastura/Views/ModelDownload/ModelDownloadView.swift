@@ -53,7 +53,17 @@ struct ModelDownloadView: View {
       unsupportedDeviceView
 
     case .notDownloaded:
-      notDownloadedView
+      // Defensive escape hatch: both auto-DL trigger points
+      // (`RootView.handleModelPick` and `RootView.initialize`'s
+      // `.notDownloaded` branch) call `startDownload` synchronously,
+      // and `Settings.presentDownloadCover` does the same — so this
+      // case shouldn't normally render. Surface it via `errorView`
+      // with retry-able copy in case `startDownload` is rejected by
+      // the sequential-download policy or fails to enqueue.
+      errorView(
+        message: String(
+          localized:
+            "Couldn't start the download. Please try again."))
 
     case .downloading(let progress):
       downloadingView(progress: progress)
@@ -84,35 +94,6 @@ struct ModelDownloadView: View {
       Text("Supported: iPhone 15 Pro and later")
         .font(.caption)
         .foregroundStyle(.tertiary)
-    }
-  }
-
-  private var notDownloadedView: some View {
-    VStack(spacing: 16) {
-      Image(systemName: "arrow.down.circle")
-        .font(.system(size: 48))
-        .foregroundStyle(Color.moss)
-      Text("Download AI Model")
-        .font(.title2.bold())
-      VStack(spacing: 4) {
-        Text(descriptor.displayName)
-          .font(.subheadline)
-        Text(formattedDownloadSize)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      }
-      Text("The model runs entirely on-device. No internet needed after download.")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-      Button {
-        modelManager.startDownload(descriptor: descriptor)
-      } label: {
-        Label("Download Model", systemImage: "arrow.down.circle.fill")
-          .frame(maxWidth: .infinity)
-      }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.large)
     }
   }
 
@@ -180,14 +161,4 @@ struct ModelDownloadView: View {
     }
   }
 
-  // MARK: - Helpers
-
-  /// Formatted descriptor size, e.g. `"~3.1 GB download"`. Mirrors the format
-  /// the Settings → Models row uses so the cover and the row stay consistent.
-  private var formattedDownloadSize: String {
-    let formatter = ByteCountFormatter()
-    formatter.countStyle = .file
-    formatter.allowedUnits = [.useGB]
-    return "~\(formatter.string(fromByteCount: descriptor.fileSize)) download"
-  }
 }
