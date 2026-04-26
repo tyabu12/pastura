@@ -179,12 +179,19 @@ struct GBNFGrammarBuilderTests {
 
   @Test("invalid rule-name field throws")
   func invalidFieldNameThrows() {
-    // Pastura preset field-name input must match [a-zA-Z_][a-zA-Z0-9_]*
-    // (snake_case). The actual GBNF rule shape (no `_`) is enforced
-    // separately by `sanitizeRuleName` at emit time, so `dash-only` is
-    // rejected here as Pastura input convention rather than GBNF
-    // legality. Leading digit / literal `.` / spaces fail both rules.
-    let badNames = ["1badName", "with space", "dash-only", "dot.name"]
+    // Pastura preset field-name input requires a leading letter
+    // followed by letter / digit / `_`. The actual GBNF rule shape
+    // (no `_`) is enforced separately by `sanitizeRuleName` at emit
+    // time, so `dash-only` is rejected here as Pastura input
+    // convention. Leading `_` is now also rejected — sanitization
+    // would produce a leading-`-` rule identifier (`-thing-value`)
+    // which is unconventional and a future llama.cpp tightening
+    // could reject (ADR-002 §12.8). Leading digit / literal `.` /
+    // spaces fail in any case.
+    let badNames = [
+      "1badName", "with space", "dash-only", "dot.name",
+      "_leading", "-leading"
+    ]
     for name in badNames {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
       #expect(
@@ -198,7 +205,10 @@ struct GBNFGrammarBuilderTests {
 
   @Test("valid snake_case field names accepted")
   func validSnakeCaseNamesAccepted() throws {
-    let okNames = ["statement", "inner_thought", "action", "_private", "a1b2"]
+    // Snake_case body is fine (`_` allowed in subsequent positions);
+    // leading `_` is rejected by `validateFieldName` (see
+    // `invalidFieldNameThrows`).
+    let okNames = ["statement", "inner_thought", "action", "a1b2"]
     for name in okNames {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
       _ = try builder.build(from: schema)

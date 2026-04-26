@@ -38,8 +38,13 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     /// Two ``OutputSchema/Field`` entries share the same name.
     case duplicateFieldName(String)
     /// Field name does not match Pastura's preset-input shape
-    /// `[a-zA-Z_][a-zA-Z0-9_]*` (snake_case). The actual GBNF
-    /// rule-name shape (`[a-zA-Z-][a-zA-Z0-9-]*` per
+    /// (Unicode-aware): first char must be a letter
+    /// (`Character.isLetter` — accepts ASCII + Japanese + other
+    /// scripts), and subsequent chars must be letter / digit / `_`.
+    /// Leading `_` and `-` are intentionally rejected to keep
+    /// sanitized rule identifiers (`<name>-value`) from starting
+    /// with `-` (see Share Board concern in ADR-002 §12.8). The
+    /// actual GBNF rule-name shape (`[a-zA-Z0-9-]` per
     /// `llama-grammar.cpp:98`) is enforced separately at emit time
     /// via `sanitizeRuleName(_:)` — input validation gates Pastura
     /// hygiene, sanitization handles the GBNF mapping.
@@ -136,8 +141,16 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   /// valid in rule names, even though Pastura's preset YAML uses
   /// snake_case for field names. We translate `_` → `-` here so
   /// `inner_thought` (input) emits as `inner-thought-value` (rule
-  /// reference). Other invalid characters are caught upstream by
-  /// `validateFieldName`. See ADR-002 §12.8 for the discovery story.
+  /// reference).
+  ///
+  /// Other invalid chars (leading non-letter, `.`, spaces, control
+  /// bytes) are caught upstream by `validateFieldName`, which is
+  /// Unicode-aware (`Character.isLetter` accepts Japanese / other
+  /// scripts). A non-ASCII letter that passes Pastura validation
+  /// would still fail llama.cpp's ASCII-only `is_word_char` at emit
+  /// time — the stderr-capture diagnostic in `+Sampler.swift` would
+  /// surface that mismatch within one device run if a future preset
+  /// hits it. See ADR-002 §12.8 for the discovery story.
   private func sanitizeRuleName(_ name: String) -> String {
     name.replacingOccurrences(of: "_", with: "-")
   }
@@ -179,7 +192,16 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   }
 
   private func validateFieldName(_ name: String) throws {
-    guard let first = name.first, first.isLetter || first == "_" else {
+    // First char must be a letter — leading `_` (or `-`) was previously
+    // tolerated for Pastura's snake_case convention but Share Board
+    // scenarios can ship arbitrary YAML, and a leading-`_` field name
+    // would sanitize to a leading-`-` rule identifier (`-thing-value`).
+    // b8694's parser accepts that, but it is unconventional and a
+    // future llama.cpp tightening could reject it. Reject at the
+    // Pastura boundary so failures surface as a clear `BuilderError`,
+    // not a llama.cpp `failed to parse grammar` from sampler init.
+    // See ADR-002 §12.8.
+    guard let first = name.first, first.isLetter else {
       throw BuilderError.invalidFieldName(name)
     }
     for char in name where !(char.isLetter || char.isNumber || char == "_") {
