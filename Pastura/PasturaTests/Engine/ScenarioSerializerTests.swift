@@ -4,6 +4,7 @@ import Testing
 @testable import Pastura
 
 @Suite(.timeLimit(.minutes(1)))
+// swiftlint:disable:next type_body_length
 struct ScenarioSerializerTests {
   let serializer = ScenarioSerializer()
   let loader = ScenarioLoader()

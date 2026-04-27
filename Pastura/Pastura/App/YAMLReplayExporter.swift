@@ -427,7 +427,7 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   /// Human-readable one-line summary for a code-phase payload. Pattern
   /// mirrors ``ResultMarkdownExporter/renderCodePhasePayload(_:)`` so
   /// the YAML reads the same way the Markdown export does.
-  private static func summary(
+  private static func summary(  // swiftlint:disable:this cyclomatic_complexity
     for payload: CodePhaseEventPayload?, filter: ContentFilter
   ) -> String {
     guard let payload else { return "" }

@@ -3,6 +3,7 @@ import Testing
 @testable import Pastura
 
 @Suite(.timeLimit(.minutes(1)))
+// swiftlint:disable:next type_body_length
 struct ScenarioValidatorTests {
   let validator = ScenarioValidator()
 

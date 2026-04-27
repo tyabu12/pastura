@@ -18,6 +18,7 @@ struct EventInjectIntegrationTests {
 
   // MARK: - Lifecycle pairing on miss
 
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   @Test func lifecyclePairingHoldsOnProbabilityMiss() async throws {
     // probability = 0 → roll always loses → `.eventInjected(nil)`.
     // Critic v3 requirement: verify the runner's

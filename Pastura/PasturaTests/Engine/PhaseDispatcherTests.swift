@@ -6,6 +6,7 @@ import Testing
 struct PhaseDispatcherTests {
   let dispatcher = PhaseDispatcher()
 
+  // swiftlint:disable:next cyclomatic_complexity
   @Test func dispatchesAllRegisteredPhaseTypes() throws {
     for phaseType in PhaseType.allCases {
       switch phaseType {

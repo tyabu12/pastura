@@ -54,8 +54,10 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   // MARK: - Phase Serialization
 
-  // Each optional field adds one branch — unavoidable for 11 Phase fields.
-  // swiftlint:disable:next cyclomatic_complexity
+  // Each optional field adds one branch — unavoidable for 13 Phase fields
+  // (added probability + as for event_inject in #256). The body length
+  // grows linearly with field count too.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   private func serializePhase(_ phase: Phase) -> [String] {
     var lines: [String] = []
 

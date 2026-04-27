@@ -309,6 +309,7 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     return line
   }
 
+  // swiftlint:disable:next cyclomatic_complexity
   private func renderCodePhasePayload(_ payload: CodePhaseEventPayload) -> String {
     switch payload {
     case .elimination(let agent, let voteCount):

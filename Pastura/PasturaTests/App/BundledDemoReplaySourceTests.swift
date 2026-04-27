@@ -5,6 +5,7 @@ import Yams
 @testable import Pastura
 
 @Suite(.timeLimit(.minutes(1)))
+// swiftlint:disable:next type_body_length
 struct BundledDemoReplaySourceTests {
 
   // MARK: - Fixtures
@@ -367,23 +368,13 @@ struct BundledDemoReplaySourceTests {
     // Reuse Yams indirectly via ScenarioLoader's parse path is overkill
     // — but BundledDemoReplaySource already forwards to YAMLReplaySource
     // for the same parse, and Yams is the project's only YAML lib.
-    // Import Yams here through the existing transitive dependency via
-    // the Pastura module.
-    guard let raw = try YamsLoadString(text) as? [String: Any] else {
+    guard let raw = try Yams.load(yaml: text) as? [String: Any] else {
       throw NSError(
         domain: "BundledDemoReplaySourceTests", code: 1,
         userInfo: [NSLocalizedDescriptionKey: "YAML root is not a mapping"])
     }
     return raw
   }
-}
-
-/// Thin shim over `Yams.load(yaml:)` to keep the `import Yams` confined
-/// to a single place in this test file. Yams is already a transitive
-/// dependency of `Pastura`; surfacing it through the test target only
-/// requires importing the library directly.
-private func YamsLoadString(_ text: String) throws -> Any? {
-  try Yams.load(yaml: text)
 }
 
 /// Anchor class so `Bundle(for:)` resolves to `PasturaTests.xctest`.
