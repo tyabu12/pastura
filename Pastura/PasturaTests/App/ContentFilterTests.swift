@@ -49,4 +49,15 @@ struct ContentFilterTests {
     let filter = ContentFilter(blockedPatterns: ["bad"])
     #expect(filter.filter("bad bad bad") == "*** *** ***")
   }
+
+  // MARK: - Default partition (ADR-005 §10.1)
+
+  @Test func defaultFilterCatchesViolenceTermsAtOutput() {
+    // Defense-in-depth check: violence is excluded from the input
+    // validator but MUST be caught at output time. If this regresses,
+    // the LLM could emit raw violence-topic content unfiltered.
+    let filter = ContentFilter()
+    #expect(filter.filter("人を殺す").contains("***"))
+    #expect(filter.filter("殺人事件").contains("***"))
+  }
 }

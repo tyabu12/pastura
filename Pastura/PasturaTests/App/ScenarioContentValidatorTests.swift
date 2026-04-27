@@ -228,4 +228,28 @@ struct ScenarioContentValidatorTests {
       )
     }
   }
+
+  // MARK: - Default partition (ADR-005 §10.1)
+
+  @Test func defaultValidatorAllowsViolenceTopicWords() {
+    // Per ADR-005 §10.1: violence excluded from input partition so authors
+    // can write ethics/roleplay scenarios about combat or harm. Output
+    // filter (ContentFilter) is the backstop for these terms at LLM
+    // response time.
+    let validator = ScenarioContentValidator()
+    let scenario = makeScenario(
+      description: "屋敷で発生した殺人事件",
+      personas: [Persona(name: "Alice", description: "意図して人を殺す選択はできません")]
+    )
+    #expect(validator.validate(scenario).isEmpty)
+  }
+
+  @Test func defaultValidatorBlocksHarassmentTerms() {
+    // Defense-in-depth check: the harassment partition must remain in input.
+    let validator = ScenarioContentValidator()
+    let scenario = makeScenario(
+      personas: [Persona(name: "Alice", description: "死ね")]
+    )
+    #expect(!validator.validate(scenario).isEmpty)
+  }
 }
