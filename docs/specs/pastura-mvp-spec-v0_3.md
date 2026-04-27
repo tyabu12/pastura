@@ -126,8 +126,8 @@ E2B実機テスト（Ollama + Gemma 4 E2B on M1 MacBook）で以下を確認:
 | `summarize` | 結果を要約テキスト化 | コード |
 
 **Phase 2以降:**
-- `conditional` — 条件分岐
-- `event_inject` — ランダムイベント注入
+- `conditional` — 条件分岐 (出荷済み, #126/#141)
+- `event_inject` — `extraData` のリストからランダムにイベント文字列を選び `state.variables` に書き込むコードフェーズ。`as:` で変数名を上書き可能 (デフォルト `current_event`)。`probability:` (0.0–1.0) で発火確率を制御。出荷済み (#256)
 - `reflect` — エージェントの自己振り返り
 
 ### 4.3 シナリオ定義フォーマット
@@ -497,9 +497,9 @@ turns
 ### Phase 2: 拡張
 
 - [ ] アプリ内シナリオ生成（クラウドAPI統合）
-- [ ] ビジュアルシナリオエディタ
-- [ ] バックグラウンド実行（iOS 26 BGContinuedProcessingTask）
-- [ ] `conditional` / `event_inject` フェーズタイプ
+- [x] ビジュアルシナリオエディタ
+- [x] バックグラウンド実行（iOS 26 BGContinuedProcessingTask）
+- [x] `conditional` / `event_inject` フェーズタイプ
 - [ ] シナリオ共有・マーケットプレイス
 - [ ] E4Bモデル切替
 - [ ] LLMバックエンドをllama.cppからLiteRT-LMに移行（Swift SDK + iOS GPU対応待ち、ADR-002参照）

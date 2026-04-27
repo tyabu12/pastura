@@ -85,7 +85,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Background execution (iOS 26)            | High     | Done        | BGContinuedProcessingTask + CPU inference in background (#84) |
 | Real-time LLM token streaming            | High     | Done        | Token-by-token streaming via `LLMService.generateStream`; `LLMCaller` drains snapshots and emits partial events. ContentFilter applied to streaming snapshots (#119/#132/#140); reveal task kept alive across tokens (#147). |
 | `conditional` phase type                 | Medium   | Done        | Nested-branch phase + Visual Editor support; includes `target_score_race` preset and conditional endings in `word_wolf` / `detective_scene` (#126/#141). |
-| `event_inject` phase type                | Medium   | Planned     | Random event injection mid-simulation    |
+| `event_inject` phase type                | Medium   | Done        | Random extraData-string injection into `state.variables` (default key `current_event`); Models→Engine→App→Views→Preset full-stack incl. word_wolf mid-flow showcase + demo replay re-record + bundled-demo phase_index alignment CI test (#256) |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
 | Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
