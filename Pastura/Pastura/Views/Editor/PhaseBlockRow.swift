@@ -60,9 +60,10 @@ struct PhaseBlockRow: View {
       }
       return "\(condition) → then:\(then) else:\(elseCount)"
     case .eventInject:
-      // Item 8 replaces this with a richer summary (source / probability /
-      // as). Keeping a minimal label here so each commit is buildable.
-      return phase.source.isEmpty ? "(no source)" : phase.source
+      let src = phase.source.isEmpty ? "?" : phase.source
+      let prob = phase.probability ?? 1.0
+      let probText = String(format: "%g", prob)
+      return "\(src) × \(probText)"
     }
   }
 }

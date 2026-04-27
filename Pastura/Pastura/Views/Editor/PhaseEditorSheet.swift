@@ -123,7 +123,7 @@ struct PhaseEditorSheet: View {
       Text("Prompt")
     } footer: {
       Text(
-        "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}"
+        "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
       )
     }
   }
@@ -183,8 +183,7 @@ struct PhaseEditorSheet: View {
     case .conditional:
       conditionalSection
     case .eventInject:
-      // Item 8 replaces this with a Source/Probability/As section.
-      EmptyView()
+      eventInjectSection
     }
   }
 
@@ -286,6 +285,43 @@ struct PhaseEditorSheet: View {
     }
   }
 
+  private var eventInjectSection: some View {
+    Group {
+      Section {
+        TextField("Top-level YAML key", text: $phase.source)
+          .textInputAutocapitalization(.never)
+      } header: {
+        Text("Source")
+      } footer: {
+        Text(
+          "References a top-level field in the scenario YAML — must be a list of strings (e.g., random_events: [...])"
+        )
+      }
+
+      Section {
+        Stepper(
+          "Chance: \(String(format: "%g", probabilityBinding.wrappedValue))",
+          value: probabilityBinding,
+          in: 0.0...1.0,
+          step: 0.1
+        )
+      } footer: {
+        Text("Roll < probability fires. 1 = always fires; 0 = never fires.")
+      }
+
+      Section {
+        TextField("current_event", text: $phase.eventVariable)
+          .textInputAutocapitalization(.never)
+      } header: {
+        Text("Variable name")
+      } footer: {
+        Text(
+          "Variable written by this phase. Reference in subsequent prompts as {<name>}. Defaults to current_event when empty."
+        )
+      }
+    }
+  }
+
   // MARK: - Bindings
 
   private var pairingBinding: Binding<PairingStrategy?> {
@@ -309,6 +345,13 @@ struct PhaseEditorSheet: View {
     )
   }
 
+  private var probabilityBinding: Binding<Double> {
+    Binding(
+      get: { phase.probability ?? 1.0 },
+      set: { phase.probability = $0 }
+    )
+  }
+
   // MARK: - Helpers
 
   private var phaseTypeDescription: String {
@@ -322,7 +365,7 @@ struct PhaseEditorSheet: View {
     case .eliminate: return "Remove most-voted agent (code)"
     case .summarize: return "Format round summary (code)"
     case .conditional: return "Branch on state (code, then/else sub-phases)"
-    case .eventInject: return "Inject a random event into state.variables (code)"
+    case .eventInject: return "Inject a random event from extraData (code, no LLM)"
     }
   }
 }
