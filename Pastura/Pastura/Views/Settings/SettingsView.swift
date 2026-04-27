@@ -20,6 +20,8 @@ import os
 /// `simulationActivityRegistry.isActive == false` at the UI layer so
 /// the service is never torn down mid-inference.
 struct SettingsView: View {
+  @Environment(\.openURL) private var openURL
+
   #if !targetEnvironment(simulator)
     @Environment(ModelManager.self) private var modelManager
     @Environment(AppDependencies.self) private var dependencies
@@ -52,6 +54,24 @@ struct SettingsView: View {
         contentReportingBody
       } header: {
         Text("Content reporting")
+      }
+      Section {
+        Button {
+          guard let url = URL(string: "https://tyabu12.github.io/pastura/legal/privacy-policy/")
+          else { return }
+          openURL(url)
+        } label: {
+          HStack {
+            Text(String(localized: "Privacy Policy"))
+              .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "arrow.up.right.square")
+              .foregroundStyle(.secondary)
+          }
+        }
+        .accessibilityIdentifier("settings.privacyPolicyLink")
+      } header: {
+        Text("About")
       }
     }
     .navigationTitle("Settings")

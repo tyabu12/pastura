@@ -234,8 +234,19 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   var isAppBackgrounded = false
 
   /// Whether background continuation is available on this device/OS.
-  /// Requires iOS 26+ and `LlamaCppService` (for GPU↔CPU switching).
+  /// Requires iOS 26+, `LlamaCppService` (for GPU↔CPU switching), and the
+  /// opt-in `FeatureFlags.backgroundContinuationEnabled` flag (default
+  /// `false` — see the flag's doc comment for the unstable-feature
+  /// exposure-shrink rationale and re-enable checklist; tracking issue
+  /// #254).
+  ///
+  /// This computed property is the single source of truth for the BG
+  /// continuation surface — both UI rendering (`SimulationView` toggle
+  /// visibility) and VM scheduling (`enableBackgroundContinuation`'s
+  /// guard) funnel through it, so flipping the flag suppresses the entire
+  /// surface without needing additional UI-layer gates.
   var canEnableBackgroundContinuation: Bool {
+    guard FeatureFlags.backgroundContinuationEnabled else { return false }
     guard #available(iOS 26, *) else { return false }
     guard backgroundManager?.isSupported == true else { return false }
     // Only LlamaCppService supports reloadModel; other backends can't switch modes.
