@@ -476,7 +476,7 @@ user-selectable speed.
 This means the DL-time demo screen composes existing view components
 unchanged — no `if isReplay { ... } else { ... }` branches in
 `AgentOutputRow`. The new view type is only the DL-time host
-(`DemoReplayHostView` or similar — final name in the implementation PR)
+(`ModelDownloadHostView` or similar — final name in the implementation PR)
 that embeds `ReplayViewModel`-driven content alongside the DL progress
 UI (ADR-007 §3).
 

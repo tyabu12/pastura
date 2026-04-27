@@ -15,8 +15,9 @@ import Observation
 public protocol NetworkPathMonitoring: AnyObject {
   /// `true` when the current path uses the literal `.cellular` interface.
   /// Narrower than `path.isExpensive` (which also flags personal hotspot
-  /// and metered Wi-Fi) — matches the policy chosen in
-  /// `DemoReplayHostView+Routing.swift:isCellularNow()` (since removed).
+  /// and metered Wi-Fi) — `isExpensive` false-positived in real-device
+  /// QA on at least one genuine Wi-Fi (probably VPN / iCloud Private
+  /// Relay / carrier-managed Wi-Fi).
   var isCellular: Bool { get }
 }
 

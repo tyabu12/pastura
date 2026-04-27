@@ -149,8 +149,8 @@ private struct RootView: View {
           // `onReady` (not a sibling `.onChange(of: activeState)`) drives
           // `finalizeInit` so the host view can hold the overlay visible
           // for its fade duration before `RootView` swaps in `HomeView`.
-          // See ADR-007 §3.3 (d) and `DemoReplayHostView.readyDispatch`.
-          DemoReplayHostView(
+          // See ADR-007 §3.3 (d) and `ModelDownloadHostView.readyDispatch`.
+          ModelDownloadHostView(
             modelManager: modelManager,
             descriptor: descriptor,
             onReady: { modelPath in
@@ -438,7 +438,7 @@ extension RootView {
 
   /// Picker → AppState transition. Persists the chosen model and starts
   /// its download synchronously in the same frame as the AppState flip,
-  /// so `DemoReplayHostView` mounts with `currentState == .downloading`
+  /// so `ModelDownloadHostView` mounts with `currentState == .downloading`
   /// and routes directly to the demo host body. On cellular without
   /// consent the gate inside `ModelManager.startDownload` keeps the
   /// state at `.notDownloaded` and sets `pendingCellularConsent`; the

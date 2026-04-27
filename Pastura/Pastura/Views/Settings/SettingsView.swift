@@ -99,7 +99,7 @@ struct SettingsView: View {
         // deep-link queueing — a `pastura://` URL arriving while a
         // model is downloading toasts instead of pushing under the
         // cover. Settings is a long-lived modal context here.
-        DemoReplayHostView(
+        ModelDownloadHostView(
           modelManager: modelManager,
           descriptor: descriptor,
           showsCompleteOverlay: false,

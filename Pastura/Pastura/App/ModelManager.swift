@@ -215,7 +215,7 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
 
   /// `true` when the cellular gate would fire if `startDownload` were
   /// called now — current network is cellular AND the user has not yet
-  /// granted one-time consent. Read by views (`DemoReplayHostView`'s
+  /// granted one-time consent. Read by views (`ModelDownloadHostView`'s
   /// `stateView` dispatcher, `SettingsView.isOtherDownloading`) so they
   /// can render Wi-Fi advisory copy / disable competing affordances
   /// without duplicating the gate predicate.

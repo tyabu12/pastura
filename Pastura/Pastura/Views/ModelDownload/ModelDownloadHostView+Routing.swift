@@ -1,14 +1,14 @@
 import Foundation
 import os
 
-/// Pure routing decisions for `DemoReplayHostView`.
+/// Pure routing decisions for `ModelDownloadHostView`.
 ///
 /// State-to-view dispatch (`stateView(state:demosCount:replayHadStarted:requiresCellularConsent:)`)
-/// lives in `DemoReplayHostView+StateFallbacks.swift` next to the
+/// lives in `ModelDownloadHostView+StateFallbacks.swift` next to the
 /// per-state UI helpers it returns; ``readyDispatch(showsCompleteOverlay:hasReplayVM:)``
 /// stays here because it has no UI of its own. Both are pure for unit
-/// testability — exercised by `DemoReplayHostViewTests`.
-extension DemoReplayHostView {
+/// testability — exercised by `ModelDownloadHostViewTests`.
+extension ModelDownloadHostView {
 
   // MARK: - Ready dispatch
 
@@ -52,7 +52,7 @@ extension DemoReplayHostView {
 
   /// Shared `os.Logger` for the host view. Used by `initialLoad` to
   /// surface diagnostic data through Console.app — filter by subsystem
-  /// `com.tyabu12.Pastura` category `DemoReplayHostView`.
+  /// `com.tyabu12.Pastura` category `ModelDownloadHostView`.
   static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "DemoReplayHostView")
+    subsystem: "com.tyabu12.Pastura", category: "ModelDownloadHostView")
 }

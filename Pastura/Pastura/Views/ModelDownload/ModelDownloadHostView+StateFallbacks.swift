@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Per-`ModelState` UI for `DemoReplayHostView`. Absorbs the rendering
+/// Per-`ModelState` UI for `ModelDownloadHostView`. Absorbs the rendering
 /// formerly provided by `ModelDownloadView` so the host view owns every
 /// download-time surface — keeps callers (RootView's
 /// `.needsModelDownload` slot, Settings cover) from having to dispatch
@@ -8,8 +8,8 @@ import SwiftUI
 ///
 /// Lives in a sibling file so the host view's main file stays under
 /// swiftlint's 400-line `file_length` cap. Sibling pattern matches
-/// `DemoReplayHostView+Routing.swift`.
-extension DemoReplayHostView {
+/// `ModelDownloadHostView+Routing.swift`.
+extension ModelDownloadHostView {
 
   // MARK: - State dispatch
 
@@ -45,7 +45,7 @@ extension DemoReplayHostView {
 
   /// Pure dispatch from `(ModelState, demosCount, replayHadStarted,
   /// requiresCellularConsent)` to `StateView`. Extracted for unit
-  /// testability — `DemoReplayHostViewTests` exercises every case.
+  /// testability — `ModelDownloadHostViewTests` exercises every case.
   ///
   /// Cellular-network detection is **not** an input here: the cellular
   /// gate moved upstream to `ModelManager.startDownload` (#191), so by

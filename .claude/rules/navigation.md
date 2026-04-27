@@ -319,7 +319,7 @@ surface changes in areas the automated tests do not exercise.
 16. **Multi-model Settings — Download triggers DL demo cover** —
     On a `.notDownloaded` row, tap **Download** from the menu.
     Expected: a full-screen modal cover slides up presenting the
-    DL-time demo experience (`DemoReplayHostView`) for that
+    DL-time demo experience (`ModelDownloadHostView`) for that
     descriptor — the same UX as the first-launch
     `.needsModelDownload` slot. Verify all of:
     - **Cover content tracks the tapped descriptor** — `PromoCard`

@@ -6,7 +6,7 @@ import os
 /// branch (checking, unsupported device, Wi-Fi advisory, plain progress,
 /// plain error, demo replay) is dispatched from
 /// ``stateView(state:demosCount:replayHadStarted:requiresCellularConsent:)``
-/// in `DemoReplayHostView+StateFallbacks.swift` (#191 absorbed the
+/// in `ModelDownloadHostView+StateFallbacks.swift` (#191 absorbed the
 /// former `ModelDownloadView`).
 ///
 /// Two presentation contexts:
@@ -41,7 +41,7 @@ import os
 /// re-presentation (cancel-then-re-tap) is intentional — the fresh
 /// `initialLoad()` re-loads sources without leaking `replayHadStarted`
 /// from the prior attempt.
-struct DemoReplayHostView: View {
+struct ModelDownloadHostView: View {
   let modelManager: ModelManager
   let descriptor: ModelDescriptor
   let showsCompleteOverlay: Bool
@@ -384,8 +384,8 @@ struct DemoReplayHostView: View {
 // `DLCompleteOverlay`, the per-state UI helpers, and the pure routing
 // functions live in their own files so this one stays under swiftlint's
 // 400-line cap. See `DLCompleteOverlay.swift`,
-// `DemoReplayHostView+StateFallbacks.swift`, and
-// `DemoReplayHostView+Routing.swift`.
+// `ModelDownloadHostView+StateFallbacks.swift`, and
+// `ModelDownloadHostView+Routing.swift`.
 
 // MARK: - Previews
 
@@ -394,7 +394,7 @@ struct DemoReplayHostView: View {
 // require a production seam; the `fallbackBranch` pure function is
 // unit-tested instead (item 8).
 #Preview {
-  DemoReplayHostView(
+  ModelDownloadHostView(
     modelManager: ModelManager(),
     descriptor: ModelRegistry.gemma4E2B)
 }
