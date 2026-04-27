@@ -188,6 +188,94 @@ struct ScenarioSerializerTests {
     #expect(yaml.contains("exclude_self: true"))
   }
 
+  // MARK: - event_inject round-trip
+
+  @Test func roundTripEventInjectFullSpec() throws {
+    let scenario = Scenario(
+      id: "ei", name: "EI", description: "EI",
+      agentCount: 2, rounds: 1, context: "C",
+      personas: [
+        Persona(name: "A", description: "A"),
+        Persona(name: "B", description: "B")
+      ],
+      phases: [
+        Phase(
+          type: .eventInject,
+          source: "events",
+          probability: 0.5,
+          eventVariable: "current_event"
+        )
+      ],
+      extraData: ["events": .array(["x", "y"])]
+    )
+    let yaml = serializer.serialize(scenario)
+    let reloaded = try loader.load(yaml: yaml)
+    assertScenariosEqual(reloaded, scenario)
+  }
+
+  @Test func roundTripEventInjectMinimalDefaultsRoundTripAsNil() throws {
+    // probability and eventVariable absent → loader sees them as `nil`,
+    // serializer omits them. Round-trip must NOT inject default 1.0 / "current_event"
+    // (those are handler-level defaults, not Phase-level defaults).
+    let scenario = Scenario(
+      id: "ei", name: "EI", description: "EI",
+      agentCount: 2, rounds: 1, context: "C",
+      personas: [
+        Persona(name: "A", description: "A"),
+        Persona(name: "B", description: "B")
+      ],
+      phases: [Phase(type: .eventInject, source: "events")],
+      extraData: ["events": .array(["x"])]
+    )
+    let yaml = serializer.serialize(scenario)
+    #expect(!yaml.contains("probability:"))
+    #expect(!yaml.contains("\n    as:"))
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.phases[0].probability == nil)
+    #expect(reloaded.phases[0].eventVariable == nil)
+  }
+
+  @Test func probabilitySerializesWithoutFloatingPointDust() throws {
+    // 0.1 + 0.2 == 0.30000000000000004 in IEEE-754 binary. The %g formatter
+    // suppresses precision dust so YAML output stays readable and stable.
+    let scenario = Scenario(
+      id: "ei", name: "EI", description: "EI",
+      agentCount: 2, rounds: 1, context: "C",
+      personas: [
+        Persona(name: "A", description: "A"),
+        Persona(name: "B", description: "B")
+      ],
+      phases: [
+        Phase(type: .eventInject, source: "events", probability: 0.1 + 0.2)
+      ],
+      extraData: ["events": .array(["x"])]
+    )
+    let yaml = serializer.serialize(scenario)
+    #expect(yaml.contains("probability: 0.3"))
+    #expect(!yaml.contains("0.30000000000000004"))
+  }
+
+  @Test func probabilityOneSerializesAsBareInt() throws {
+    // %g drops trailing zeros — 1.0 becomes "1" — which the loader's
+    // intentional Int → Double coercion accepts. Keeps preset YAML readable.
+    let scenario = Scenario(
+      id: "ei", name: "EI", description: "EI",
+      agentCount: 2, rounds: 1, context: "C",
+      personas: [
+        Persona(name: "A", description: "A"),
+        Persona(name: "B", description: "B")
+      ],
+      phases: [
+        Phase(type: .eventInject, source: "events", probability: 1.0)
+      ],
+      extraData: ["events": .array(["x"])]
+    )
+    let yaml = serializer.serialize(scenario)
+    #expect(yaml.contains("probability: 1"))
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.phases[0].probability == 1.0)
+  }
+
   // MARK: - Helpers
 
   private func assertRoundTrip(presetNamed name: String) throws {
@@ -229,6 +317,8 @@ struct ScenarioSerializerTests {
           #expect(actualPh.outputSchema?[key] != nil, "Phase \(i) outputSchema missing key: \(key)")
         }
       }
+      #expect(actualPh.probability == expectedPh.probability, "Phase \(i) probability")
+      #expect(actualPh.eventVariable == expectedPh.eventVariable, "Phase \(i) eventVariable")
     }
 
     // ExtraData
