@@ -1,12 +1,13 @@
 import SwiftUI
 import os
 
-/// Host view for the DL-time demo replay feature.
-///
-/// Decides between the demo host body and the plain `ModelDownloadView`
-/// fallback based on cellular reachability, descriptor state, bundled
-/// demo count, and whether replay has already started — see
-/// ``fallbackBranch(state:demosCount:replayHadStarted:isCellular:)``.
+/// Host view for the DL-time demo replay feature. Owns the entire
+/// `.needsModelDownload` UI surface — every per-`ModelState` rendering
+/// branch (checking, unsupported device, Wi-Fi advisory, plain progress,
+/// plain error, demo replay) is dispatched from
+/// ``stateView(state:demosCount:replayHadStarted:requiresCellularConsent:)``
+/// in `DemoReplayHostView+StateFallbacks.swift` (#191 absorbed the
+/// former `ModelDownloadView`).
 ///
 /// Two presentation contexts:
 /// - **`.needsModelDownload` slot** (`PasturaApp.swift`): no cancel UI;
@@ -21,12 +22,11 @@ import os
 ///   a top-trailing X button gated by a confirmation dialog.
 ///
 /// Lifecycle:
-/// - On first appearance, `.task { }` runs a 1-shot `NWPathMonitor`
-///   check. If cellular, the view stays in the fallback branch (Option A
-///   safety net — full modal UX is #191). Otherwise it enumerates
-///   bundled demos via `BundledDemoReplaySource.loadAll(...)`, and if
-///   at least `minPlayableDemoCount` demos validate, constructs a
-///   `ReplayViewModel` and calls `start()`.
+/// - On first appearance, `.task { }` enumerates bundled demos via
+///   `BundledDemoReplaySource.loadAll(...)`. If at least
+///   `minPlayableDemoCount` demos validate, constructs a `ReplayViewModel`
+///   and calls `start()`. No cellular check here — the cellular gate
+///   moved upstream to `ModelManager.startDownload` (#191).
 /// - `scenePhase` is bridged to `onBackground() / onForeground()`
 ///   per ADR-007 §3.3 (a).
 /// - `.ready` either fires `onComplete` (Settings) or
@@ -39,8 +39,8 @@ import os
 /// slot, and `.fullScreenCover(item:)` keeps the cover content stable
 /// for the lifetime of one cover presentation. Re-mount on cover
 /// re-presentation (cancel-then-re-tap) is intentional — the fresh
-/// `initialLoad()` re-checks cellular + sources without leaking
-/// `replayHadStarted` from the prior attempt.
+/// `initialLoad()` re-loads sources without leaking `replayHadStarted`
+/// from the prior attempt.
 struct DemoReplayHostView: View {
   let modelManager: ModelManager
   let descriptor: ModelDescriptor
@@ -73,8 +73,8 @@ struct DemoReplayHostView: View {
   }
 
   /// Minimum number of validated bundled demos required to render the
-  /// demo host. Below this floor we defer to `ModelDownloadView` — the
-  /// rotation loop is unsatisfying with a single demo (spec §5.2).
+  /// demo host. Below this floor we render the plain progress fallback
+  /// — the rotation loop is unsatisfying with a single demo (spec §5.2).
   static let minPlayableDemoCount = 2
 
   @Environment(\.scenePhase) private var scenePhase
@@ -82,7 +82,6 @@ struct DemoReplayHostView: View {
 
   @State private var replayVM: ReplayViewModel?
   @State private var replayHadStarted: Bool = false
-  @State private var isCellular: Bool = false
   @State private var sources: [any ReplaySource] = []
   @State private var isShowingCancelConfirmation: Bool = false
   /// Re-entry guard for `handleModelStateChange`: `.onChange(of: currentState)`
@@ -131,30 +130,45 @@ struct DemoReplayHostView: View {
   }
 
   /// Closure handed to the children that own the visible cancel
-  /// affordance (`PromoCard` in the demo branch, `ModelDownloadView`
-  /// in the cellular fallback). Returns `nil` when the caller did not
-  /// wire `onCancel`, which lets the children hide their cancel UI —
-  /// the first-launch slot relies on this to stay uncancellable.
-  /// Tapping the affordance flips a `@State` flag here so the host
-  /// owns the confirmation dialog; the destructive action eventually
-  /// fires `onCancel?()` from inside that dialog.
-  private var triggerCancelConfirmation: (() -> Void)? {
+  /// affordance (`PromoCard` in the demo branch, the plain-progress
+  /// fallback in `+StateFallbacks.swift`). Returns `nil` when the
+  /// caller did not wire `onCancel`, which lets the children hide
+  /// their cancel UI — the first-launch slot relies on this to stay
+  /// uncancellable. Tapping the affordance flips a `@State` flag here
+  /// so the host owns the confirmation dialog; the destructive action
+  /// eventually fires `onCancel?()` from inside that dialog.
+  ///
+  /// Module-internal (drops `private`) so the sibling
+  /// `+StateFallbacks.swift` extension can read it.
+  var triggerCancelConfirmation: (() -> Void)? {
     guard onCancel != nil else { return nil }
     return { isShowingCancelConfirmation = true }
   }
 
   @ViewBuilder
   private var currentView: some View {
-    switch Self.fallbackBranch(
+    switch Self.stateView(
       state: currentState,
       demosCount: sources.count,
       replayHadStarted: replayHadStarted,
-      isCellular: isCellular) {
-    case .modelDownload:
-      ModelDownloadView(
-        modelManager: modelManager,
-        descriptor: descriptor,
-        onCancel: triggerCancelConfirmation)
+      requiresCellularConsent: modelManager.requiresCellularConsent
+    ) {
+    case .checking:
+      checkingFallback
+    case .unsupportedDevice:
+      unsupportedDeviceFallback
+    case .wifiRequired:
+      wifiRequiredFallback
+    case .notDownloadedDefensive:
+      notDownloadedDefensiveFallback
+    case .plainProgress:
+      let progress: Double = {
+        if case .downloading(let value) = currentState { return value }
+        return 0
+      }()
+      plainProgressFallback(progress: progress)
+    case .error(let message):
+      plainErrorFallback(message: message)
     case .demoHost:
       demoHostBody
     }
@@ -170,10 +184,9 @@ struct DemoReplayHostView: View {
           }
         }
     } else {
-      // Until `.task { }` resolves the cellular check + finishes loading
-      // sources, render an empty background. The fallbackBranch routes
-      // away from the demo host before this nil state is reached once
-      // `isCellular`/`sources` update.
+      // Until `.task { }` finishes loading sources, render an empty
+      // background. The `stateView` dispatch routes away from the demo
+      // host before this nil state is reached once `sources` updates.
       Color.screenBackground.ignoresSafeArea()
     }
   }
@@ -300,29 +313,18 @@ struct DemoReplayHostView: View {
 
   // MARK: - Lifecycle
 
+  // Cellular gate moved upstream to `ModelManager.startDownload` (#191), so
+  // `initialLoad` no longer runs a 1-shot `NWPathMonitor` check — it just
+  // loads bundled demos. The `stateView` dispatcher handles routing.
   private func initialLoad() async {
     Self.logger.notice("initialLoad: starting (descriptor=\(descriptor.id, privacy: .public))")
-    // 1-shot cellular check. Option A safety net — if cellular, we skip
-    // loading demos entirely and let the fallback branch route to the
-    // plain `ModelDownloadView`. Full modal UX tracked as #191.
-    let cellular = await Self.isCellularNow()
-    Self.logger.notice("initialLoad: cellular check returned \(cellular, privacy: .public)")
-    isCellular = cellular
-    guard !cellular else {
-      Self.logger.notice(
-        "initialLoad: cellular=true, exiting — sources will stay empty, fallbackBranch will route to ModelDownloadView"
-      )
-      return
-    }
-
     let loaded = BundledDemoReplaySource.loadAll()
     Self.logger.notice(
-      "initialLoad: BundledDemoReplaySource.loadAll() returned \(loaded.count, privacy: .public) sources"
-    )
+      "initialLoad: loaded \(loaded.count, privacy: .public) sources")
     sources = loaded
     guard loaded.count >= Self.minPlayableDemoCount else {
       Self.logger.notice(
-        "initialLoad: sources count \(loaded.count, privacy: .public) below floor \(Self.minPlayableDemoCount, privacy: .public), exiting — fallbackBranch will route to ModelDownloadView"
+        "initialLoad: sources count \(loaded.count, privacy: .public) below floor \(Self.minPlayableDemoCount, privacy: .public) — stateView will route to plainProgress"
       )
       return
     }
@@ -331,8 +333,7 @@ struct DemoReplayHostView: View {
     replayVM = viewModel
     viewModel.start()
     replayHadStarted = true
-    Self.logger.notice(
-      "initialLoad: replayVM constructed and started — demo host body should now render")
+    Self.logger.notice("initialLoad: replayVM started — demo host body should render")
   }
 
   private func handleScenePhase(_ phase: ScenePhase) {
