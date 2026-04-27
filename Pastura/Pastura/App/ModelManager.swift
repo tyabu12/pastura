@@ -308,6 +308,25 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     userDefaults.set(id, forKey: Self.activeModelIDKey)
   }
 
+  /// Outcome of the start-download gate evaluation. The mutating step
+  /// (setting `pendingCellularConsent` on a `requireCellularConsent`
+  /// result) is the caller's responsibility — see `startDownload` and
+  /// `downloadModel`. Keeping the evaluator pure makes its branches
+  /// individually testable and guarantees that a future caller cannot
+  /// inadvertently flip `pendingCellularConsent` just by asking
+  /// "would this start be allowed?".
+  private enum StartGateResult: Equatable {
+    /// All gates passed — caller should proceed to download.
+    case proceed
+    /// One of the silent rejections fired (multi-row pending / sequential
+    /// in-flight / non-startable state). Caller returns; no UI side effect.
+    case rejectSilently
+    /// Cellular gate fired — caller should set
+    /// `pendingCellularConsent = descriptor` so the scene-level
+    /// confirmation dialog can present.
+    case requireCellularConsent
+  }
+
   /// Starts downloading `descriptor`. Rejected (no-op) if:
   /// 1. A cellular consent dialog is already up for any descriptor (the
   ///    multi-row guard prevents a second tap from overwriting
@@ -322,17 +341,29 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   /// gate so a "another download is already running" rejection cannot be
   /// masked by a consent prompt the user would then accept-into-no-op.
   func startDownload(descriptor: ModelDescriptor) {
-    guard passesStartGates(descriptor: descriptor) else { return }
-    // Set synchronously to prevent re-entry before the Task body runs.
-    state[descriptor.id] = .downloading(progress: 0)
-    downloadTasks[descriptor.id] = Task { await performDownload(descriptor: descriptor) }
+    switch evaluateStartGates(descriptor: descriptor) {
+    case .rejectSilently:
+      return
+    case .requireCellularConsent:
+      pendingCellularConsent = descriptor
+    case .proceed:
+      // Set synchronously to prevent re-entry before the Task body runs.
+      state[descriptor.id] = .downloading(progress: 0)
+      downloadTasks[descriptor.id] = Task { await performDownload(descriptor: descriptor) }
+    }
   }
 
   /// Async variant of `startDownload`. Same gating semantics; awaits the
   /// download directly rather than storing the Task.
   func downloadModel(descriptor: ModelDescriptor) async {
-    guard passesStartGates(descriptor: descriptor) else { return }
-    await performDownload(descriptor: descriptor)
+    switch evaluateStartGates(descriptor: descriptor) {
+    case .rejectSilently:
+      return
+    case .requireCellularConsent:
+      pendingCellularConsent = descriptor
+    case .proceed:
+      await performDownload(descriptor: descriptor)
+    }
   }
 
   /// Records the user's accept of the cellular consent prompt and resumes
@@ -358,18 +389,16 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     pendingCellularConsent = nil
   }
 
-  /// Pure gate predicate shared by `startDownload` (sync) and
-  /// `downloadModel` (async). Returns `true` when all four gates pass and
-  /// the caller should proceed; `false` means the call is rejected. The
-  /// cellular-gate rejection is the only branch with a side effect — it
-  /// sets `pendingCellularConsent = descriptor` so the modal observers
-  /// can react.
-  private func passesStartGates(descriptor: ModelDescriptor) -> Bool {
+  /// Pure evaluator for the four start-download gates, shared by
+  /// `startDownload` (sync) and `downloadModel` (async). Reads state
+  /// only — does not mutate `pendingCellularConsent` or any other
+  /// property. Callers handle each `StartGateResult` case.
+  private func evaluateStartGates(descriptor: ModelDescriptor) -> StartGateResult {
     // (1) Multi-row guard: another descriptor already has a pending
     // consent dialog. Rejecting here keeps the dialog single-shot.
-    guard pendingCellularConsent == nil else { return false }
+    guard pendingCellularConsent == nil else { return .rejectSilently }
     // (2) Sequential-download policy: at most one in-flight download.
-    guard !isAnyDownloadInProgress else { return false }
+    guard !isAnyDownloadInProgress else { return .rejectSilently }
     // (3) Per-descriptor state: only `.notDownloaded` / `.error` retry
     // are valid entry points.
     let currentState = state[descriptor.id] ?? .checking
@@ -377,14 +406,13 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     case .notDownloaded, .error:
       break
     default:
-      return false
+      return .rejectSilently
     }
     // (4) Cellular gate: defer to the scene-level confirmation dialog.
     if requiresCellularConsent {
-      pendingCellularConsent = descriptor
-      return false
+      return .requireCellularConsent
     }
-    return true
+    return .proceed
   }
 
   /// Cancels an in-progress download for `descriptor`. The partial file is
