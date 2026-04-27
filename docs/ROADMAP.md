@@ -113,7 +113,7 @@ First App Store submission depends on a set of cross-cutting blockers tracked in
 - [x] Host the policy at `https://tyabu12.github.io/pastura/legal/privacy-policy/` via GitHub Pages
 - [ ] Register the URL in App Store Connect → App Information → Privacy Policy URL
 - [ ] Answer the App Privacy Details questionnaire ("Data Not Collected", per `PrivacyInfo.xcprivacy`)
-- [ ] Add in-app Settings → "Privacy Policy" link (Guideline 5.1.1: "easily accessible")
+- [x] Add in-app Settings → "Privacy Policy" link (Guideline 5.1.1: "easily accessible")
 
 Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) auto-applies; revisit if Phase 3 introduces server-side data flows (gated on ADR-006).
 
