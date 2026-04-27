@@ -85,8 +85,8 @@ nonisolated struct ScenarioValidator: Sendable {
       case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
       case .eventInject:
-        // Item 4 will replace this with `validateEventInjectShape(...)`.
-        break
+        try validateEventInjectShape(
+          phase, label: "Phase \(index + 1) (event_inject)", scenario: scenario)
       }
     }
   }
@@ -147,7 +147,9 @@ nonisolated struct ScenarioValidator: Sendable {
   /// Rejects nested `.conditional` (depth-1 rule) and applies the same
   /// semantic checks we run at the top level — e.g., an `assign` phase
   /// with mismatched target/source shape still errors when buried inside
-  /// a `then:` or `else:` branch.
+  /// a `then:` or `else:` branch. `event_inject` is allowed inside a
+  /// branch (consistent with assign / score_calc) and gets the same
+  /// shape-check it would receive at the top level.
   private func validateBranch(
     _ phases: [Phase], parentLabel: String, branchLabel: String, scenario: Scenario
   ) throws {
@@ -160,6 +162,64 @@ nonisolated struct ScenarioValidator: Sendable {
       }
       if subPhase.type == .assign {
         try validateAssignPhaseShape(subPhase, label: subLabel, scenario: scenario)
+      }
+      if subPhase.type == .eventInject {
+        try validateEventInjectShape(subPhase, label: subLabel, scenario: scenario)
+      }
+    }
+  }
+
+  /// Shared shape-check for event_inject phases, callable from both the
+  /// top-level path and from inside a conditional branch.
+  ///
+  /// Enforces:
+  /// - `source` must be present and non-empty (the handler's no-op
+  ///   fallback exists for the case where extraData lookup fails at
+  ///   runtime, but a curator who wrote `event_inject` clearly meant
+  ///   to fire — failing fast at validation is friendlier).
+  /// - `extraData[source]` must be `.array` (a list of strings).
+  ///   v1 deliberately narrows to this shape; `[String:String]` /
+  ///   `.string` etc. would have natural meanings (per-event metadata,
+  ///   single fixed event for testing) but expand the type surface
+  ///   without curator demand. The error message points at the v1
+  ///   workaround so curators don't get stuck.
+  /// - `probability` (when set) must lie in `[0.0, 1.0]`. The handler
+  ///   would still produce well-defined behavior outside this range
+  ///   (`< 0` never fires, `>= 1.0` always fires), but a curator who
+  ///   wrote `probability: 1.5` almost certainly mistyped — surfacing
+  ///   it early is friendlier than silent over-fire.
+  private func validateEventInjectShape(
+    _ phase: Phase, label: String, scenario: Scenario
+  ) throws {
+    let sourceKey = (phase.source ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sourceKey.isEmpty else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): missing 'source'. event_inject requires a 'source' key naming "
+          + "a top-level YAML field that lists the event strings."
+      )
+    }
+    guard let sourceValue = scenario.extraData[sourceKey] else {
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): source '\(sourceKey)' not found in scenario data. "
+          + "Add a top-level '\(sourceKey)' field to the scenario YAML."
+      )
+    }
+    switch sourceValue {
+    case .array:
+      break
+    case .string, .dictionary, .arrayOfDictionaries:
+      throw SimulationError.scenarioValidationFailed(
+        "\(label): source '\(sourceKey)' must be a list of strings. "
+          + "v1 of event_inject only supports the [String] shape; "
+          + "for a single fixed event use ['only_event']."
+      )
+    }
+    if let probability = phase.probability {
+      guard (0.0...1.0).contains(probability) else {
+        throw SimulationError.scenarioValidationFailed(
+          "\(label): probability \(probability) is out of range. "
+            + "Must be between 0.0 and 1.0 inclusive."
+        )
       }
     }
   }

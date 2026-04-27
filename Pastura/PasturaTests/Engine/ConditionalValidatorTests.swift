@@ -175,4 +175,94 @@ struct ConditionalValidatorTests {
       try validator.validate(scenario)
     }
   }
+
+  // event_inject is allowed inside a conditional branch (consistent with
+  // assign / score_calc nesting). The validator applies the same
+  // shape-check it does at the top level.
+
+  @Test func acceptsEventInjectInThenBranch() throws {
+    let scenario = Scenario(
+      id: "t", name: "T", description: "t",
+      agentCount: 2, rounds: 1, context: "c",
+      personas: [
+        Persona(name: "A", description: "a"),
+        Persona(name: "B", description: "b")
+      ],
+      phases: [
+        Phase(
+          type: .conditional,
+          condition: "current_round == 1",
+          thenPhases: [
+            Phase(type: .eventInject, source: "events", probability: 0.5)
+          ]
+        )
+      ],
+      extraData: ["events": .array(["x", "y"])]
+    )
+    _ = try validator.validate(scenario)
+  }
+
+  @Test func rejectsEventInjectInThenBranchWithMissingSource() {
+    let scenario = Scenario(
+      id: "t", name: "T", description: "t",
+      agentCount: 2, rounds: 1, context: "c",
+      personas: [
+        Persona(name: "A", description: "a"),
+        Persona(name: "B", description: "b")
+      ],
+      phases: [
+        Phase(
+          type: .conditional,
+          condition: "current_round == 1",
+          thenPhases: [
+            // source key absent from extraData — should fail with the same
+            // "not found" message we'd see at the top level, prefixed with
+            // the branch label.
+            Phase(type: .eventInject, source: "missing_events", probability: 1.0)
+          ]
+        )
+      ]
+    )
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw for nested event_inject with missing source")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("then[1]"))
+      #expect(message.contains("'missing_events'"))
+      #expect(message.contains("not found"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectInElseBranchWithProbabilityOutOfRange() {
+    let scenario = Scenario(
+      id: "t", name: "T", description: "t",
+      agentCount: 2, rounds: 1, context: "c",
+      personas: [
+        Persona(name: "A", description: "a"),
+        Persona(name: "B", description: "b")
+      ],
+      phases: [
+        Phase(
+          type: .conditional,
+          condition: "current_round == 99",
+          thenPhases: [Phase(type: .summarize, template: "ok")],
+          elsePhases: [
+            Phase(type: .eventInject, source: "events", probability: 2.0)
+          ]
+        )
+      ],
+      extraData: ["events": .array(["x"])]
+    )
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw for nested event_inject with bad probability")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("else[1]"))
+      #expect(message.contains("out of range"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
 }

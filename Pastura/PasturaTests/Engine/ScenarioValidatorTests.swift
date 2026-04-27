@@ -224,6 +224,123 @@ struct ScenarioValidatorTests {
     }
   }
 
+  // MARK: - event_inject validation
+
+  @Test func acceptsEventInjectWithArraySource() throws {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 0.5,
+      extraData: ["events": .array(["x", "y"])])
+    let result = try validator.validate(scenario)
+    #expect(result.warnings.isEmpty)
+  }
+
+  @Test func rejectsEventInjectWithMissingSource() {
+    let scenario = makeEventInjectScenario(
+      source: nil, probability: 1.0, extraData: [:])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (event_inject)"))
+      #expect(message.contains("missing 'source'"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWhenSourceKeyAbsentFromExtraData() {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.0, extraData: [:])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (event_inject)"))
+      #expect(message.contains("'events'"))
+      #expect(message.contains("not found"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWithDictionarySource() {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.0,
+      extraData: ["events": .dictionary(["a": "x"])])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (event_inject)"))
+      #expect(message.contains("must be a list of strings"))
+      #expect(message.contains("['only_event']"))  // workaround hint
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWithStringSource() {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.0,
+      extraData: ["events": .string("just one")])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("must be a list of strings"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWithProbabilityAboveOne() {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.5,
+      extraData: ["events": .array(["x"])])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("probability"))
+      #expect(message.contains("out of range"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWithNegativeProbability() {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: -0.1,
+      extraData: ["events": .array(["x"])])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("out of range"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func acceptsEventInjectAtProbabilityBoundaries() throws {
+    let lower = makeEventInjectScenario(
+      source: "events", probability: 0.0,
+      extraData: ["events": .array(["x"])])
+    let upper = makeEventInjectScenario(
+      source: "events", probability: 1.0,
+      extraData: ["events": .array(["x"])])
+    _ = try validator.validate(lower)
+    _ = try validator.validate(upper)
+  }
+
+  @Test func acceptsEventInjectWithoutProbability() throws {
+    // Default-1.0 (set at handler) is fine; no validation required.
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: nil,
+      extraData: ["events": .array(["x"])])
+    _ = try validator.validate(scenario)
+  }
+
   // MARK: - Helpers
 
   private func makeScenario(agents: Int, rounds: Int, phases: [Phase]) -> Scenario {
@@ -245,6 +362,20 @@ struct ScenarioValidatorTests {
       agentCount: 2, rounds: 1, context: "Context",
       personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
       phases: [Phase(type: .assign, source: source, target: target)],
+      extraData: extraData
+    )
+  }
+
+  private func makeEventInjectScenario(
+    source: String?,
+    probability: Double?,
+    extraData: [String: AnyCodableValue]
+  ) -> Scenario {
+    Scenario(
+      id: "test", name: "Test", description: "Test",
+      agentCount: 2, rounds: 1, context: "Context",
+      personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
+      phases: [Phase(type: .eventInject, source: source, probability: probability)],
       extraData: extraData
     )
   }

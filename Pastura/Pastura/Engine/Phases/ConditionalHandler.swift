@@ -29,6 +29,10 @@ nonisolated struct ConditionalHandler: PhaseHandler {
   /// cycle that would otherwise occur: a `PhaseDispatcher` contains every
   /// handler, including `ConditionalHandler`, which would build another
   /// `PhaseDispatcher` in turn, forever.
+  ///
+  /// `event_inject` is included so curators can gate event injection on
+  /// scenario state (e.g., "only inject in round 3+"). The validator
+  /// applies the same shape-check it does at the top level.
   private let subHandlers: [PhaseType: any PhaseHandler] = [
     .speakAll: SpeakAllHandler(),
     .speakEach: SpeakEachHandler(),
@@ -37,7 +41,8 @@ nonisolated struct ConditionalHandler: PhaseHandler {
     .scoreCalc: ScoreCalcHandler(),
     .assign: AssignHandler(),
     .eliminate: EliminateHandler(),
-    .summarize: SummarizeHandler()
+    .summarize: SummarizeHandler(),
+    .eventInject: EventInjectHandler()
   ]
 
   init() {}
