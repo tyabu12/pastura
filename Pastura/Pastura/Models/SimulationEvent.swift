@@ -95,6 +95,20 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// origin branch is identifiable from the event stream.
   case conditionalEvaluated(condition: String, result: Bool)
 
+  // MARK: - Event Injection
+
+  /// An `event_inject` phase rolled its probability and either selected a
+  /// random event string from `extraData` (`event != nil`) or missed
+  /// (`event == nil`).
+  ///
+  /// Emitted exactly once per `event_inject` phase invocation regardless
+  /// of outcome, so the surrounding `phaseStarted` / `phaseCompleted` pair
+  /// always brackets a payload event. Consumers that render the live log
+  /// or persist to past results treat `nil` as "rolled and lost" — the
+  /// variable itself is still set to the empty string in
+  /// `state.variables[as]` so subsequent prompt expansion is well-defined.
+  case eventInjected(event: String?)
+
   // MARK: - Simulation Lifecycle
 
   /// The simulation has completed all rounds successfully.

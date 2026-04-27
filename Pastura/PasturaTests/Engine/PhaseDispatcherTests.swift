@@ -27,6 +27,10 @@ struct PhaseDispatcherTests {
         #expect(try dispatcher.handler(for: phaseType) is SummarizeHandler)
       case .conditional:
         #expect(try dispatcher.handler(for: phaseType) is ConditionalHandler)
+      case .eventInject:
+        // Item 2 registers EventInjectHandler in PhaseDispatcher and
+        // replaces this with `is EventInjectHandler` assertion.
+        break
       }
     }
   }

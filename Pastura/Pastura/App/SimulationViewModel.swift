@@ -24,6 +24,10 @@ struct LogEntry: Identifiable {
     case summary(text: String)
     case voteResults(votes: [String: String], tallies: [String: Int])
     case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
+    /// Result of an `event_inject` phase. `event == nil` means the
+    /// probability roll missed; the live log renders this as a muted "no
+    /// event this time" line so users can observe the dice did roll.
+    case eventInjected(event: String?)
     case error(String)
   }
 }

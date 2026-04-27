@@ -59,6 +59,10 @@ struct PhaseBlockRow: View {
         return "(no condition)"
       }
       return "\(condition) → then:\(then) else:\(elseCount)"
+    case .eventInject:
+      // Item 8 replaces this with a richer summary (source / probability /
+      // as). Keeping a minimal label here so each commit is buildable.
+      return phase.source.isEmpty ? "(no source)" : phase.source
     }
   }
 }

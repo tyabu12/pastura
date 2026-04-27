@@ -84,6 +84,9 @@ nonisolated struct ScenarioValidator: Sendable {
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
       case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
+      case .eventInject:
+        // Item 4 will replace this with `validateEventInjectShape(...)`.
+        break
       }
     }
   }

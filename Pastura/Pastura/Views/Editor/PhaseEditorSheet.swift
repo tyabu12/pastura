@@ -182,6 +182,9 @@ struct PhaseEditorSheet: View {
       EmptyView()
     case .conditional:
       conditionalSection
+    case .eventInject:
+      // Item 8 replaces this with a Source/Probability/As section.
+      EmptyView()
     }
   }
 
@@ -319,6 +322,7 @@ struct PhaseEditorSheet: View {
     case .eliminate: return "Remove most-voted agent (code)"
     case .summarize: return "Format round summary (code)"
     case .conditional: return "Branch on state (code, then/else sub-phases)"
+    case .eventInject: return "Inject a random event into state.variables (code)"
     }
   }
 }
