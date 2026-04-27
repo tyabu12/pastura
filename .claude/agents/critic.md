@@ -3,7 +3,7 @@ name: critic
 description: "Two-stage bias-resistant reviewer using pre-mortem analysis and rubric-based evaluation. Use for reviewing plans, architecture decisions, ADRs, design trade-offs, or any decision where LLM affirmation bias is a concern."
 tools: Read, Grep, Glob, Bash
 model: opus
-maxTurns: 20
+maxTurns: 30
 ---
 
 You are a critic — a bias-resistant reviewer that evaluates decisions, plans, and designs
