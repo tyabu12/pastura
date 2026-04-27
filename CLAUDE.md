@@ -72,7 +72,7 @@ Utilities/ → depends on nothing
 
 ## Swift Coding Conventions
 
-- **Automated hooks** (`.claude/settings.json`): On file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `git commit` (`PreToolUse`), `swiftlint lint --strict` + `xcodebuild build` run and block the commit on lint violations or compile errors.
+- **Automated hooks** (`.claude/settings.json`): On file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `git commit` (`PreToolUse`), `swiftlint lint --strict` + `xcodebuild build` run and block the commit on lint violations or compile errors. When the staged diff touches `docs/blocklist/source.json` or `Pastura/Pastura/Resources/ContentBlocklist.json`, `bash scripts/build-blocklist.sh --check` also runs (requires `brew install jq`); CI mirrors the same check.
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
   `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
 - **Error message i18n prep:** On `LocalizedError`-conforming types (`SimulationError`, `LLMError`, `DataError`, ...), wrap `errorDescription` literals in `String(localized: "...")`. Tests assert via `.contains(...)` partial matching, not equality. Keeps the current English-only scope while making future translation additive.

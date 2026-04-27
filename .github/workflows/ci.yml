@@ -348,6 +348,23 @@ jobs:
       - name: Run drift guard
         run: python3 scripts/check_demo_replay_drift.py
 
+  blocklist-drift:
+    name: ContentBlocklist drift guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # jq is pre-installed on ubuntu-latest runners. The script's
+      # --check mode validates source.json shape, contentCategory enum
+      # values, and byte-level drift against the bundled
+      # ContentBlocklist.json (ADR-005 §10.1). No `|| true` wrapper —
+      # any failure must fail the job so merge-time drift cannot land
+      # silently.
+      - name: Run blocklist drift guard
+        run: bash scripts/build-blocklist.sh --check
+
   coverage:
     name: Coverage
     needs: lint-and-test

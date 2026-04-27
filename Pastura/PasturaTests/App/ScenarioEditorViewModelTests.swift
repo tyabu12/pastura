@@ -419,9 +419,11 @@ struct ScenarioEditorViewModelTests {
     sut.agentCount = 2
     sut.rounds = 1
     sut.context = "Context"
-    // Uses the default bundled blocklist — "殺す" is present in ContentBlocklist.txt.
+    // Uses the default bundled blocklist — "死ね" is in the harassment partition,
+    // which is included in ContentBlocklist.inputPatterns. (ADR-005 §10.1 excludes
+    // the violence category from input, so 殺す/殺害/殺人 wouldn't trigger this.)
     sut.personas = [
-      EditablePersona(name: "Alice", description: "殺す"),
+      EditablePersona(name: "Alice", description: "死ね"),
       EditablePersona(name: "Bob", description: "Agent B")
     ]
     sut.phases = [
@@ -446,7 +448,7 @@ struct ScenarioEditorViewModelTests {
       context: Context
       personas:
         - name: Alice
-          description: 殺す
+          description: 死ね
         - name: Bob
           description: Agent B
       phases:
