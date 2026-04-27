@@ -19,9 +19,13 @@ nonisolated final class ContentFilter: Sendable {
   ///
   /// - Parameters:
   ///   - blockedPatterns: Words/phrases to filter. Matched case-insensitively.
-  ///     Defaults to the shared bundled blocklist (see ``ContentBlocklist``).
+  ///     Defaults to the output partition of the shared bundled blocklist —
+  ///     all categories including `violence` (ADR-005 §10.1 defense-in-depth).
   ///   - replacement: Replacement text for blocked content. Defaults to "***".
-  init(blockedPatterns: [String] = ContentBlocklist.defaultPatterns, replacement: String = "***") {
+  init(
+    blockedPatterns: [String] = ContentBlocklist.outputPatterns,
+    replacement: String = "***"
+  ) {
     self.blockedPatterns = blockedPatterns
     self.replacement = replacement
   }
