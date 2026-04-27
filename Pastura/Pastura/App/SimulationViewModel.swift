@@ -725,6 +725,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         phaseType: currentPhaseType?.rawValue ?? PhaseType.choose.rawValue,
         payload: .pairingResult(
           agent1: agent1, action1: act1, agent2: agent2, action2: act2))
+    case .eventInjected(let event):
+      // Persist + log even on miss (`event == nil`) so past-results
+      // timelines and Markdown export distinguish "phase didn't run"
+      // from "phase ran and rolled a miss".
+      logEntries.append(LogEntry(kind: .eventInjected(event: event)))
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.eventInject.rawValue,
+        payload: .eventInjected(event: event))
     default:
       break
     }

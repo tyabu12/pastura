@@ -187,6 +187,35 @@ struct YAMLReplayRoundTripTests {
     #expect(replayed[5] == .summary(text: "Bob wins."))
   }
 
+  @Test func eventInjectedPayloadRoundTripsHitAndMiss() async throws {
+    // Two event_inject events: one hit (event != nil), one miss (event == nil).
+    // The miss case is meaningful — past-results timelines need to
+    // distinguish "no event this round" from "phase didn't run".
+    let events = [
+      makeCodeEvent(
+        seq: 3, phase: "event_inject",
+        payload: .eventInjected(event: "突然停電が起きた")),
+      makeCodeEvent(
+        seq: 4, phase: "event_inject",
+        payload: .eventInjected(event: nil))
+    ]
+    let exported = try exporter().export(
+      .init(
+        simulation: simulation, scenario: scenarioRecord,
+        turns: [], codePhaseEvents: events))
+
+    let scenario = try ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition)
+    let source = try YAMLReplaySource(
+      yaml: exported.text, scenario: scenario, config: fastConfig)
+
+    var replayed: [SimulationEvent] = []
+    for await event in source.events() { replayed.append(event) }
+
+    #expect(replayed.count == 2)
+    #expect(replayed[0] == .eventInjected(event: "突然停電が起きた"))
+    #expect(replayed[1] == .eventInjected(event: nil))
+  }
+
   // MARK: - Exporter determinism (idempotency proxy)
 
   @Test func exporterIsDeterministicForSameInput() throws {

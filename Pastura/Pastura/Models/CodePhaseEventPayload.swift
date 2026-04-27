@@ -33,4 +33,10 @@ nonisolated public enum CodePhaseEventPayload: Codable, Sendable, Equatable {
   /// A value was assigned to an agent by an `assign` phase
   /// (e.g., wolf/villager role in Word Wolf).
   case assignment(agent: String, value: String)
+
+  /// An `event_inject` phase rolled its probability and either selected
+  /// a random event string (`event != nil`) or missed (`event == nil`).
+  /// The miss case persists explicitly so past-results timelines can
+  /// distinguish "phase didn't run" from "phase ran and rolled a miss".
+  case eventInjected(event: String?)
 }

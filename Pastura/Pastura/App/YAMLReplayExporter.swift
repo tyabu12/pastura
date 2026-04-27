@@ -267,6 +267,16 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       lines.append("      kind: assignment")
       lines.append("      agent: \(Self.yamlValue(agent))")
       lines.append("      value: \(Self.yamlValue(filter.filter(value)))")
+    case .eventInjected(let event):
+      lines.append("      kind: eventInjected")
+      // Distinguishing miss (nil) from hit-with-empty-string is meaningful
+      // — readers/decoders need both. Miss serializes as a `null` YAML
+      // scalar; hit serializes as the filtered event text.
+      if let event {
+        lines.append("      event: \(Self.yamlValue(filter.filter(event)))")
+      } else {
+        lines.append("      event: null")
+      }
     }
     return lines
   }
@@ -446,6 +456,11 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       return "\(agent1) (\(filtered1)) ↔ \(agent2) (\(filtered2))"
     case .assignment(let agent, let value):
       return "\(agent) was assigned: \(filter.filter(value))"
+    case .eventInjected(let event):
+      // Match Markdown exporter wording so the timeline reads the same
+      // way regardless of channel.
+      if let event { return "Event: \(filter.filter(event))" }
+      return "No event this round"
     }
   }
 

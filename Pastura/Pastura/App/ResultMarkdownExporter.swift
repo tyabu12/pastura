@@ -346,6 +346,13 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       return "- **\(agent1)** (\(action1)) ↔ **\(agent2)** (\(action2))"
     case .assignment(let agent, let value):
       return "- **\(agent)** was assigned: \(value)"
+    case .eventInjected(let event):
+      // Past results need to surface the miss explicitly so a reader
+      // can tell whether the phase ran at all.
+      if let event {
+        return "- 🎲 Event: \(event)"
+      }
+      return "- 🎲 No event this round"
     }
   }
 

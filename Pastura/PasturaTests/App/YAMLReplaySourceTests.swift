@@ -214,6 +214,63 @@ struct YAMLReplaySourceTests {
     }
   }
 
+  @Test func decodesEventInjectedHitPayload() async throws {
+    let yaml = """
+      schema_version: 1
+      turns: []
+      code_phase_events:
+        - round: 1
+          phase_index: 0
+          phase_type: event_inject
+          summary: 'Event: 突然停電'
+          payload:
+            kind: eventInjected
+            event: 突然停電
+      """
+    let source = try YAMLReplaySource(
+      yaml: yaml, scenario: makeScenario(), config: fastConfig)
+
+    var collected: [SimulationEvent] = []
+    for await event in source.events() { collected.append(event) }
+
+    #expect(collected.count == 1)
+    if case .eventInjected(let event) = collected[0] {
+      #expect(event == "突然停電")
+    } else {
+      Issue.record("Expected eventInjected hit, got \(collected[0])")
+    }
+  }
+
+  @Test func decodesEventInjectedMissPayload() async throws {
+    // The miss case is meaningful — exporter writes `event: null` so
+    // decoders must produce `.eventInjected(nil)`, not silently
+    // collapse to `.eventInjected("")`.
+    let yaml = """
+      schema_version: 1
+      turns: []
+      code_phase_events:
+        - round: 1
+          phase_index: 0
+          phase_type: event_inject
+          summary: 'No event this round'
+          payload:
+            kind: eventInjected
+            event: null
+      """
+    let source = try YAMLReplaySource(
+      yaml: yaml, scenario: makeScenario(), config: fastConfig)
+
+    var collected: [SimulationEvent] = []
+    for await event in source.events() { collected.append(event) }
+
+    #expect(collected.count == 1)
+    if case .eventInjected(let event) = collected[0] {
+      #expect(event == nil)
+    } else {
+      Issue.record("Expected eventInjected miss, got \(collected[0])")
+    }
+  }
+
   @Test func fallsBackToSummaryWhenPayloadKindUnknown() async throws {
     let yaml = """
       schema_version: 1
