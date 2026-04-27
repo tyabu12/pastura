@@ -109,7 +109,10 @@ struct ImportViewModelTests {
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
     let viewModel = ImportViewModel(repository: repo)
 
-    // Uses the default bundled blocklist — "殺す" is present in ContentBlocklist.txt.
+    // Uses the default bundled blocklist — "死ね" is in the harassment partition,
+    // which is included in ContentBlocklist.inputPatterns. (ADR-005 §10.1 excludes
+    // the violence category from the input partition, so 殺す/殺害/殺人 wouldn't
+    // trigger this validator anymore.)
     viewModel.yamlText = """
       id: blocked_content_test
       name: Blocked Content Test
@@ -119,7 +122,7 @@ struct ImportViewModelTests {
       context: Context
       personas:
         - name: Alice
-          description: 殺す
+          description: 死ね
         - name: Bob
           description: Agent B
       phases:

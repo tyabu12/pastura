@@ -78,6 +78,56 @@ import Testing
     }
   }
 
+  /// Pins ADR-005 §10.1's curation invariant: every committed seed
+  /// scenario — both gallery YAMLs and bundled presets — must pass
+  /// the default ``ScenarioContentValidator``.
+  ///
+  /// Before the input/output partition shipped, the validator's flat
+  /// blocklist rejected `trolley_dilemma_v1.yaml` (`人を殺す選択`) and
+  /// `detective_scene_v1.yaml` (`殺人事件`) at install time even though
+  /// they are curator-endorsed ethics/roleplay content. The partition
+  /// excludes the `violence` category from the input layer so these
+  /// pass; this test pins that contract so a future blocklist edit
+  /// that re-folds violence into the input partition fails loudly
+  /// against the curated content set instead of in the App Review
+  /// queue.
+  @Test @MainActor func allSeedScenariosPassInputValidator() throws {
+    let loader = ScenarioLoader()
+    let validator = ScenarioContentValidator()
+
+    // Gallery YAMLs (docs/gallery/*.yaml — fetched by Share Board)
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let galleryFiles = try FileManager.default.contentsOfDirectory(
+      atPath: galleryDir.path
+    ).filter { $0.hasSuffix(".yaml") }
+    for name in galleryFiles {
+      let yaml = try String(
+        contentsOf: galleryDir.appendingPathComponent(name), encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      let findings = validator.validate(scenario)
+      #expect(
+        findings.isEmpty,
+        "Gallery seed \(name) fails default input validator: \(findings)")
+    }
+
+    // Bundled presets (Resources/Presets/*.yaml — shipped in the app bundle)
+    let testBundle = Bundle(for: DatabaseManager.self)
+    for fileName in PresetLoader.presetFileNames {
+      guard
+        let url = testBundle.url(forResource: fileName, withExtension: "yaml")
+      else {
+        Issue.record("Preset \(fileName).yaml not found in test bundle")
+        continue
+      }
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      let findings = validator.validate(scenario)
+      #expect(
+        findings.isEmpty,
+        "Preset \(fileName).yaml fails default input validator: \(findings)")
+    }
+  }
+
   /// Resolve the repo root relative to this test file. `#filePath` expands
   /// at compile time to the absolute source path; we walk up until we find
   /// the directory that contains `docs/gallery`.

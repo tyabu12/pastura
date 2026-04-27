@@ -22,8 +22,9 @@ final class ScenarioContentValidator {
   ///
   /// - Parameter blockedPatterns: Words/phrases to reject at authoring
   ///   time. Matched case- and diacritic-insensitively. Defaults to the
-  ///   shared bundled blocklist (see ``ContentBlocklist``).
-  init(blockedPatterns: [String] = ContentBlocklist.defaultPatterns) {
+  ///   input partition of the shared bundled blocklist (excludes the
+  ///   `violence` category per ADR-005 §10.1).
+  init(blockedPatterns: [String] = ContentBlocklist.inputPatterns) {
     self.blockedPatterns = blockedPatterns
   }
 

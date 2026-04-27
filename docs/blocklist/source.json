@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "patterns": [
+    { "term": "殺す",     "contentCategory": "violence",   "lang": "ja", "source": "pastura-original" },
+    { "term": "殺害",     "contentCategory": "violence",   "lang": "ja", "source": "pastura-original" },
+    { "term": "殺人",     "contentCategory": "violence",   "lang": "ja", "source": "pastura-original" },
+    { "term": "死ね",     "contentCategory": "harassment", "lang": "ja", "source": "pastura-original" },
+    { "term": "ガイジ",   "contentCategory": "hate",       "lang": "ja", "source": "pastura-original" },
+    { "term": "キチガイ", "contentCategory": "hate",       "lang": "ja", "source": "pastura-original" },
+    { "term": "fuck",    "contentCategory": "profanity",  "lang": "en", "source": "pastura-original" },
+    { "term": "shit",    "contentCategory": "profanity",  "lang": "en", "source": "pastura-original" },
+    { "term": "asshole", "contentCategory": "profanity",  "lang": "en", "source": "pastura-original" }
+  ]
+}
