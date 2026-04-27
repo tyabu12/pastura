@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "patterns": [
+    {
+      "term": "殺す",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "殺害",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "殺人",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "死ね",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "ガイジ",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "キチガイ",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "fuck",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "shit",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "asshole",
+      "contentCategory": "profanity"
+    }
+  ]
+}
