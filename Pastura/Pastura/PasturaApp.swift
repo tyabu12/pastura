@@ -356,13 +356,18 @@ private struct RootView: View {
         // the only reason we'd be in `.notDownloaded` here is that the
         // download wasn't completed — either the app was killed mid-DL
         // (partial file on disk; `performDownload` reads the partial size
-        // for the resume offset) or never started a session. Either way,
-        // start it now so the user lands directly on the demo host body
-        // / progress fallback instead of bouncing through a redundant
-        // "Download Model" confirmation tap. Cellular consent is tracked
-        // separately (#191) — until that lands, cellular users are
-        // auto-resumed without an explicit modal, same as picker auto-DL.
+        // for the resume offset) or never started a session. Start it now
+        // so the user lands directly on the demo host body / progress
+        // fallback (or, on cellular without consent, the Wi-Fi advisory
+        // + scene-level confirmation dialog — #191).
+        //
+        // `waitForNetworkPathReady` is load-bearing: `NetworkPathMonitor`
+        // reads `false` until its first `NWPathMonitor` callback bridges
+        // to MainActor, and a relaunch on cellular without consent races
+        // that callback on real devices — confirmed in QA. Awaiting here
+        // closes the race so the cellular gate sees the actual path.
         if let descriptor = modelManager.activeDescriptor {
+          await modelManager.waitForNetworkPathReady()
           modelManager.startDownload(descriptor: descriptor)
         }
         appState = .needsModelDownload

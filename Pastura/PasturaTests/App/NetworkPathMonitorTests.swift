@@ -32,4 +32,56 @@ struct NetworkPathMonitorTests {
     let monitor = NetworkPathMonitor()
     #expect(monitor.isCellular == false)
   }
+
+  // MARK: - waitForFirstPath
+
+  @Test("waitForFirstPath returns immediately when first path already received")
+  func waitForFirstPath_fastPath() async {
+    let mock = MockNetworkPathMonitor(isCellular: true, hasReceivedFirstPath: true)
+    // Should not park — completes synchronously on the await.
+    await mock.waitForFirstPath()
+    #expect(mock.hasReceivedFirstPath == true)
+  }
+
+  @Test("waitForFirstPath parks until simulateFirstPathArrival fires")
+  func waitForFirstPath_slowPath() async {
+    let mock = MockNetworkPathMonitor(isCellular: false, hasReceivedFirstPath: false)
+    let waitTask = Task { @MainActor in
+      await mock.waitForFirstPath()
+      return mock.isCellular
+    }
+    // Yield so the wait task starts and parks on the continuation.
+    await Task.yield()
+    #expect(mock.hasReceivedFirstPath == false)
+    mock.simulateFirstPathArrival(isCellular: true)
+    let observed = await waitTask.value
+    #expect(observed == true)
+    #expect(mock.hasReceivedFirstPath == true)
+  }
+
+  @Test("simulateFirstPathArrival resumes multiple parked awaiters")
+  func waitForFirstPath_multipleAwaiters() async {
+    let mock = MockNetworkPathMonitor(isCellular: false, hasReceivedFirstPath: false)
+    let task1 = Task { @MainActor in await mock.waitForFirstPath() }
+    let task2 = Task { @MainActor in await mock.waitForFirstPath() }
+    await Task.yield()
+    mock.simulateFirstPathArrival(isCellular: true)
+    _ = await task1.value
+    _ = await task2.value
+    // Both awaiters resumed without timing out (the @Suite's
+    // .timeLimit(.minutes(1)) trait would fail this otherwise).
+    #expect(mock.hasReceivedFirstPath == true)
+  }
+
+  @Test("simulateFirstPathArrival is idempotent")
+  func simulateFirstPathArrival_idempotent() {
+    let mock = MockNetworkPathMonitor(isCellular: false, hasReceivedFirstPath: false)
+    mock.simulateFirstPathArrival(isCellular: true)
+    #expect(mock.isCellular == true)
+    mock.simulateFirstPathArrival(isCellular: false)
+    // Second call is a no-op for hasReceivedFirstPath; isCellular still
+    // updates because that's the regular setter, not gated on first-arrival.
+    #expect(mock.hasReceivedFirstPath == true)
+    #expect(mock.isCellular == false)
+  }
 }

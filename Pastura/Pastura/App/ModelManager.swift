@@ -389,6 +389,20 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     pendingCellularConsent = nil
   }
 
+  /// Awaits the underlying `NetworkPathMonitor`'s first
+  /// `pathUpdateHandler` callback. Resolves immediately if one has
+  /// already fired.
+  ///
+  /// `RootView.initialize()` must `await` this before auto-firing
+  /// `startDownload` on a `.notDownloaded` active descriptor — without
+  /// it, `isCellular` may still read `false` (its launch default)
+  /// when the gate evaluates, so a relaunch on cellular without
+  /// consent slips through and the dialog never appears. Confirmed
+  /// in real-device QA before this fix shipped.
+  func waitForNetworkPathReady() async {
+    await networkPathMonitor.waitForFirstPath()
+  }
+
   /// Pure evaluator for the four start-download gates, shared by
   /// `startDownload` (sync) and `downloadModel` (async). Reads state
   /// only — does not mutate `pendingCellularConsent` or any other
