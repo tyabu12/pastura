@@ -370,21 +370,22 @@ struct DemoReplayHostView: View {
       pendingReadyModelPath = modelPath
       replayVM?.downloadComplete()
     case .fireOnReady:
-      // First-launch slot, no-overlay path (cellular safety net or
-      // sub-floor demo count): there's nothing to render, so skip the
+      // First-launch slot, no-overlay path (sub-floor demo count or VM
+      // failed to construct): there's nothing to render, so skip the
       // tap-acknowledgment and forward `.ready` immediately. Without
-      // this branch, the user would be stuck on `ModelDownloadView`
-      // with no overlay to tap.
+      // this branch, the user would be stuck on the plain progress
+      // fallback with no overlay to tap.
       onReady?(modelPath)
     }
   }
 
 }
 
-// `DLCompleteOverlay` and the routing decisions (`fallbackBranch` /
-// `readyDispatch` and their associated types) live in their own files so
-// this one stays under swiftlint's 400-line cap. See
-// `DLCompleteOverlay.swift` and `DemoReplayHostView+Routing.swift`.
+// `DLCompleteOverlay`, the per-state UI helpers, and the pure routing
+// functions live in their own files so this one stays under swiftlint's
+// 400-line cap. See `DLCompleteOverlay.swift`,
+// `DemoReplayHostView+StateFallbacks.swift`, and
+// `DemoReplayHostView+Routing.swift`.
 
 // MARK: - Previews
 
