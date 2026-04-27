@@ -401,6 +401,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       voteResultsEntry(tallies: tallies)
     case .pairingResult(let agent1, let act1, let agent2, let act2):
       pairingResultEntry(agent1: agent1, act1: act1, agent2: agent2, act2: act2)
+    case .eventInjected(let event):
+      eventInjectedEntry(event: event)
     default:
       EmptyView()
     }
