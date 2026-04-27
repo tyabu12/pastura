@@ -170,8 +170,10 @@ struct PhaseEditorSheet: View {
         Text(
           "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}"
         )
+        .font(.caption)
         if let promptError {
           Text(promptError)
+            .font(.caption)
             .foregroundStyle(Color.danger)
         }
       }
@@ -331,8 +333,10 @@ struct PhaseEditorSheet: View {
     } footer: {
       VStack(alignment: .leading, spacing: 4) {
         Text("Variables: {current_round}, {scoreboard}, {vote_results}")
+          .font(.caption)
         if let templateError {
           Text(templateError)
+            .font(.caption)
             .foregroundStyle(Color.danger)
         }
       }
