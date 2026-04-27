@@ -112,9 +112,7 @@ private struct RootView: View {
     .onChange(of: appStateKind) { _, _ in tryDrain() }
     .onChange(of: gate.sheetPresentationCount) { _, _ in tryDrain() }
     .onChange(of: router.path) { _, _ in tryDrain() }
-    .onChange(of: gate.pendingURL) { _, new in
-      if new != nil { tryDrain() }
-    }
+    .onChange(of: gate.pendingURL) { _, new in if new != nil { tryDrain() } }
     // Reset source-attribution when the user pops all the way back. Any
     // subsequent visit to the same gallery scenario detail (via Share
     // Board, for instance) should not show the "Opened from external
@@ -125,6 +123,7 @@ private struct RootView: View {
     .alert(item: $deepLinkError) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
     }
+    .modifier(CellularConsentDialogModifier(modelManager: modelManager))
   }
 
   // MARK: - Content
@@ -440,18 +439,64 @@ extension RootView {
   /// Picker → AppState transition. Persists the chosen model and starts
   /// its download synchronously in the same frame as the AppState flip,
   /// so `DemoReplayHostView` mounts with `currentState == .downloading`
-  /// and routes directly to the demo host body (or to
-  /// `ModelDownloadView.downloadingView` on the cellular safety net).
-  /// Without the `startDownload` call, the user would land on
-  /// `ModelDownloadView.notDownloadedView` and have to tap "Download
-  /// Model" again — a redundant confirmation step that pre-dated this
-  /// picker. The picker's "Start with this model" CTA is itself the
-  /// consent. Mirrors the `SettingsView.presentDownloadCover` pattern.
+  /// and routes directly to the demo host body. On cellular without
+  /// consent the gate inside `ModelManager.startDownload` keeps the
+  /// state at `.notDownloaded` and sets `pendingCellularConsent`; the
+  /// scene-level `.confirmationDialog` (see `CellularConsentDialogModifier`)
+  /// presents and `acceptCellularConsent` re-fires the download. The
+  /// picker's "Start with this model" CTA is itself the user-action
+  /// consent for the AppState flip.
   fileprivate func handleModelPick(_ pickedID: ModelID) {
     modelManager.setActiveModel(pickedID)
     if let descriptor = modelManager.activeDescriptor {
       modelManager.startDownload(descriptor: descriptor)
     }
     appState = .needsModelDownload
+  }
+}
+
+/// Scene-level cellular consent confirmation dialog (#191 / ADR-007
+/// §3.3 (c)). Lives at file scope as a `ViewModifier` rather than
+/// inline inside `RootView.body` to keep the `RootView` struct under
+/// swiftlint's `type_body_length` cap.
+///
+/// Picker / relaunch auto-resume / Settings cover all converge on
+/// `ModelManager.startDownload`, which sets `pendingCellularConsent`
+/// when the cellular gate fires. This single dialog observes that
+/// state regardless of who triggered the call.
+///
+/// Tap-outside-to-dismiss is wired through the `set` closure of the
+/// synthesized `Binding<Bool>` so it counts as decline — without that,
+/// the gate would silently leave `pendingCellularConsent` non-nil
+/// after the dialog closed itself.
+private struct CellularConsentDialogModifier: ViewModifier {
+  let modelManager: ModelManager
+
+  func body(content: Content) -> some View {
+    content.confirmationDialog(
+      String(localized: "Download on cellular?"),
+      isPresented: Binding(
+        get: { modelManager.pendingCellularConsent != nil },
+        set: { newValue in
+          if !newValue, modelManager.pendingCellularConsent != nil {
+            modelManager.declineCellularConsent()
+          }
+        }),
+      titleVisibility: .visible,
+      presenting: modelManager.pendingCellularConsent
+    ) { _ in
+      Button(String(localized: "Download anyway"), role: .destructive) {
+        modelManager.acceptCellularConsent()
+      }
+      Button(String(localized: "Wait for Wi-Fi"), role: .cancel) {
+        modelManager.declineCellularConsent()
+      }
+    } message: { descriptor in
+      Text(
+        String(
+          localized:
+            "Downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) on cellular may use significant data. Wi-Fi is recommended."
+        ))
+    }
   }
 }
