@@ -216,6 +216,7 @@ pages/                           # Public HTML deployed via .github/workflows/de
 - `llm.md` — LLM-layer traps (e.g., `nonisolated` protocol-default impls that build escaping closures) can fire from any conformer, including types added in `App/` or test targets, so the rule must stay visible regardless of which file is being edited.
 - `navigation.md` — `AppRouter` pattern: programmatic root-stack navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto the root stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
+- `view-testing.md` — View testing strategy: extract logic to unit-tests, narrow UI integration tests, do NOT introduce ViewInspector / snapshot testing libraries. Always-loaded because the question "should I add a snapshot test for this?" can arise from any feature directory and the answer is no without first revisiting the rule.
 
 ## File Naming
 
