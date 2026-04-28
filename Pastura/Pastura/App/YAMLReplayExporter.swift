@@ -1,4 +1,14 @@
 // swiftlint:disable file_length
+// Deliberately long: YAMLReplayExporter is a single-pass renderer for the
+// replay-document output, owning rendering, phase-index resolution,
+// payload + summary helpers, YAML emission primitives, date formatting,
+// and file writing. SHA-256 hashing is already extracted to
+// `ReplayHashing`; the remaining helpers (e.g., `yamlValue`,
+// `filenameTimestamp` with replay-specific format) are fileprivate by
+// design — splitting them across files would force them to module scope
+// and risk breaking the round-trip contract that `YAMLReplaySource`
+// reads back. See ResultMarkdownExporter.swift for the same single-pass
+// exporter pattern.
 import Foundation
 
 /// Errors produced by ``YAMLReplayExporter``.

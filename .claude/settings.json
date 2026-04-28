@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd $(git rev-parse --show-toplevel) && swiftlint lint --quiet --strict"
+            "command": "cd $(git rev-parse --show-toplevel) && swiftlint lint --quiet --strict 2>&1 || (echo 'SwiftLint violations. Fix before committing.' >&2 && exit 2)"
           },
           {
             "type": "command",

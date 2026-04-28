@@ -30,6 +30,14 @@ struct SettingsView: View {
     /// Bound to `.fullScreenCover(item:)` — `Identifiable` is supplied by
     /// the conformance on `ModelDescriptor`.
     @State private var coverDescriptor: ModelDescriptor?
+    /// Descriptor that the user tapped Download on while the cellular
+    /// gate was about to fire (#191). Holds the descriptor across the
+    /// scene-level consent dialog: on accept, the state observer below
+    /// flips `coverDescriptor` to this value once `ModelManager` has
+    /// transitioned to `.downloading`. On decline, `pendingCellularConsent`
+    /// reverts to nil and the matching observer clears this so the
+    /// cover never opens.
+    @State private var pendingCoverDescriptor: ModelDescriptor?
     // Surfaces `.cannotDeleteActive` / `.notReadyForDelete` / `.unknownModel`
     // that slip past the UI guard — a genuine UI-state-vs-ModelManager race.
     // User flow stays silent (row stays `.ready`), but Console.app shows the
@@ -111,7 +119,7 @@ struct SettingsView: View {
         // deep-link queueing — a `pastura://` URL arriving while a
         // model is downloading toasts instead of pushing under the
         // cover. Settings is a long-lived modal context here.
-        DemoReplayHostView(
+        ModelDownloadHostView(
           modelManager: modelManager,
           descriptor: descriptor,
           showsCompleteOverlay: false,
@@ -119,6 +127,28 @@ struct SettingsView: View {
           onCancel: { handleCoverCancel(descriptor: descriptor) }
         )
         .deepLinkGated()
+      }
+      // Cellular gate state observer (#191): user tapped Download while
+      // cellular consent was required, so `presentDownloadCover` queued
+      // the descriptor in `pendingCoverDescriptor` instead of opening
+      // the cover. When the user accepts the scene-level dialog,
+      // `acceptCellularConsent` re-fires `startDownload`, state flips
+      // to `.downloading`, and we open the cover here.
+      .onChange(of: modelManager.state) { _, newState in
+        guard let pending = pendingCoverDescriptor else { return }
+        if case .downloading = newState[pending.id] {
+          coverDescriptor = pending
+          pendingCoverDescriptor = nil
+        }
+      }
+      // Decline detection: if `pendingCellularConsent` clears without
+      // the state transitioning to `.downloading`, the user declined
+      // (or tapped outside the dialog). Clear the queued cover so a
+      // later same-frame state change doesn't accidentally open it.
+      .onChange(of: modelManager.pendingCellularConsent) { old, new in
+        guard old != nil, new == nil, let pending = pendingCoverDescriptor else { return }
+        if case .downloading = modelManager.state[pending.id] { return }
+        pendingCoverDescriptor = nil
       }
     #endif
   }
@@ -159,26 +189,41 @@ struct SettingsView: View {
       }
     }
 
+    /// Whether any descriptor other than `id` is mid-download or has a
+    /// pending cellular consent dialog. Used to disable competing
+    /// Download menu items so a second tap during the dialog cannot
+    /// overwrite `pendingCellularConsent` (#191 multi-row guard).
     private func isOtherDownloading(excluding id: ModelID) -> Bool {
-      modelManager.state.contains { entryID, entryState in
+      if let pending = modelManager.pendingCellularConsent, pending.id != id {
+        return true
+      }
+      return modelManager.state.contains { entryID, entryState in
         guard entryID != id else { return false }
         if case .downloading = entryState { return true }
         return false
       }
     }
 
-    /// Starts the download and, only if the state actually flipped to
-    /// `.downloading`, presents the demo cover. The state mutation in
-    /// `startDownload` is synchronous (sets `.downloading(progress: 0)`
-    /// before returning), so the same-frame check is safe and avoids
-    /// presenting an empty cover when the sequential-download policy
-    /// silently rejects the call. The Download menu item is already
-    /// disabled by `otherDownloadInProgress`, so the rejection branch
-    /// here is defense-in-depth.
+    /// Starts the download and decides whether to open the cover now or
+    /// defer to the cellular consent flow.
+    ///
+    /// - **Wi-Fi / pre-consented**: `startDownload` flips state to
+    ///   `.downloading` synchronously; the same-frame check opens the
+    ///   cover immediately.
+    /// - **Cellular without consent**: `startDownload` returns with
+    ///   state still `.notDownloaded` and `pendingCellularConsent` set.
+    ///   The cover is NOT opened here — the scene-level dialog and the
+    ///   `.onChange(of: modelManager.state)` observer above coordinate
+    ///   to open it after accept (or never, on decline).
+    /// - **Sequential rejection**: `startDownload` is a no-op; neither
+    ///   branch fires. The Download menu item is already disabled by
+    ///   `otherDownloadInProgress`, so this is defense-in-depth.
     private func presentDownloadCover(for descriptor: ModelDescriptor) {
       modelManager.startDownload(descriptor: descriptor)
       if case .downloading = modelManager.state[descriptor.id] {
         coverDescriptor = descriptor
+      } else if modelManager.pendingCellularConsent?.id == descriptor.id {
+        pendingCoverDescriptor = descriptor
       }
     }
 

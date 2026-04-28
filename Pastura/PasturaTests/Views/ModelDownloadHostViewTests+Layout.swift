@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-/// Layout regression guard for `DemoReplayHostView.chatStream()` after
+/// Layout regression guard for `ModelDownloadHostView.chatStream()` after
 /// the #171 B2 retrofit added avatars + bubble styling to
 /// `AgentOutputRow`.
 ///
@@ -17,7 +17,7 @@ import Testing
 /// Live render behavior (scrollTo anchors, safeAreaInset positioning,
 /// PromoCard non-occlusion) is covered by manual QA per the #171 PR
 /// body — those require a SwiftUI host this test target doesn't have.
-extension DemoReplayHostViewTests {
+extension ModelDownloadHostViewTests {
 
   // MARK: - ChatBubbleLayout — reference HTML values
 
@@ -48,7 +48,7 @@ extension DemoReplayHostViewTests {
   // MARK: - Bubble composition — AgentOutputRow defaults
 
   @Test func demoChatStreamUsesAgentOutputRowWithDefaultShowAvatar() {
-    // DemoReplayHostView.chatStream constructs AgentOutputRow *without*
+    // ModelDownloadHostView.chatStream constructs AgentOutputRow *without*
     // an explicit `showAvatar:` argument, relying on the default
     // `showAvatar: true` to render sheep avatars. A future refactor
     // that flips the default or re-orders parameters would silently

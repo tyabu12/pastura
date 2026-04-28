@@ -19,7 +19,7 @@ import SwiftUI
 /// appears in either case — a user who wants to skip the fade can
 /// tap during it and the transition fires immediately.
 ///
-/// Lives in its own file so `DemoReplayHostView.swift` stays under
+/// Lives in its own file so `ModelDownloadHostView.swift` stays under
 /// swiftlint's 400-line `file_length` cap. Visibility is `internal`
 /// (default) so the host view in the same module can reach it.
 struct DLCompleteOverlay: View {
