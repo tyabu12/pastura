@@ -1,4 +1,13 @@
 // swiftlint:disable file_length
+// Deliberately long: ReplayViewModel owns the §4.9 playback state machine,
+// the playback Task lifecycle (sleep / pause / resume with
+// `remainingDelayMs` preservation per ADR-007 §3.4), pacing helpers, and
+// per-event render-time state updates. Splitting into extensions across
+// files would require widening `private` members (`playbackTask`,
+// source iteration cursors, `remainingDelayMs`) to `internal`, which
+// weakens the spec §4.2 "no persistence wiring on this path" invariant
+// enforced by construction. See SimulationViewModel.swift for the same
+// VM encapsulation pattern.
 import Foundation
 
 /// View model driving the DL-time demo replay screen.

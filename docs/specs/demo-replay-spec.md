@@ -476,9 +476,9 @@ user-selectable speed.
 This means the DL-time demo screen composes existing view components
 unchanged — no `if isReplay { ... } else { ... }` branches in
 `AgentOutputRow`. The new view type is only the DL-time host
-(`DemoReplayHostView` or similar — final name in the implementation PR)
-that embeds `ReplayViewModel`-driven content alongside the DL progress
-UI (ADR-007 §3).
+(`ModelDownloadHostView`, final name confirmed in #191) that embeds
+`ReplayViewModel`-driven content alongside the DL progress UI
+(ADR-007 §3).
 
 Sharing is at the render-component level **only**, not at the VM layer.
 Live VM's thinking-indicator state, streaming snapshot, error
@@ -578,9 +578,11 @@ failsafe for schema drift detected only after ship.
 ### 5.3 Fallback when no demos are playable
 
 If zero demos pass validation at launch, the DL-time host shows the
-classic progress-bar-only layout (essentially the current
-`ModelDownloadView`). No user-facing error is shown — the demo feature
-is ambient enhancement, not a required UX element.
+classic progress-bar-only layout (the layout previously provided by
+`ModelDownloadView`, now absorbed into
+`ModelDownloadHostView+StateFallbacks.swift` via #191). No user-facing
+error is shown — the demo feature is ambient enhancement, not a
+required UX element.
 
 The implementation PR's validation pipeline logs the skip reason via
 the existing logging pipeline so the curator/maintainer can notice
