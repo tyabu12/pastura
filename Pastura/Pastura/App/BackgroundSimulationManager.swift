@@ -73,7 +73,8 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
       self?.handleTaskLaunch(task)
     }
     if !registered {
-      logger.error("Failed to register BG task handler for \(Self.taskIdentifier)")
+      logger.error(
+        "Failed to register BG task handler for \(Self.taskIdentifier, privacy: .public)")
     }
   }
 
@@ -128,7 +129,12 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
 
     do {
       try BGTaskScheduler.shared.submit(request)
-      logger.info("Scheduled BG continuation request: \(title)")
+      // Log the task identifier rather than the caller-supplied `title` —
+      // `scheduleRequest(title:)` is `public` API and a future caller could
+      // pass user-controlled strings, but `Self.taskIdentifier` is a
+      // compile-time constant and provides equivalent diagnostic value.
+      logger.info(
+        "Scheduled BG continuation request: \(Self.taskIdentifier, privacy: .public)")
     } catch {
       // Clear the callbacks we just stored so a retry with different callbacks
       // doesn't leave stale closures around.

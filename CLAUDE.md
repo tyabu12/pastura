@@ -76,6 +76,7 @@ Utilities/ → depends on nothing
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
   `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
 - **Error message i18n prep:** On `LocalizedError`-conforming types (`SimulationError`, `LLMError`, `DataError`, ...), wrap `errorDescription` literals in `String(localized: "...")`. Tests assert via `.contains(...)` partial matching, not equality. Keeps the current English-only scope while making future translation additive.
+- **Logger privacy:** OSLog redacts `String` / `Substring` / `Error` interpolations as `<private>` in TestFlight / Release. Annotate non-`.debug` Logger interpolations with `privacy: .public`. Don't Logger-interpolate user content (scenario text, agent outputs) — route through `TurnRecord` persistence. Narrow exceptions for already-persisted diagnostics and public-API parameters are documented as inline comments at `LLMCaller.logParseFailure` and `BackgroundSimulationManager.scheduleRequest`.
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
   `AsyncStream` over callbacks. Engine/LLM work runs on non-main actors or default executor.
 - **Default Actor Isolation:** Project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
@@ -210,6 +211,7 @@ pages/                           # Public HTML deployed via .github/workflows/de
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
 - `testing.md` — Test target (`Pastura/PasturaTests/**`)
+- `view-testing.md` — View test strategy: extract logic to unit-tests, narrow UI integration tests, no ViewInspector / snapshot (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**ViewModel.swift`). Decision record: [ADR-009](docs/decisions/ADR-009.md).
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
@@ -243,6 +245,7 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3; reserved — not yet written; see ADR-005 §7.5) |
 | `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
 | `docs/decisions/ADR-008.md`           | Route identity vs render-time hints (`RouteHint<T>` pattern, #245) |
+| `docs/decisions/ADR-009.md`           | View testing strategy (no ViewInspector / snapshot; #269) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
 | `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
