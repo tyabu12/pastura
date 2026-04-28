@@ -42,7 +42,7 @@ struct SettingsView: View {
     // that slip past the UI guard — a genuine UI-state-vs-ModelManager race.
     // User flow stays silent (row stays `.ready`), but Console.app shows the
     // race for field debugging.
-    private static let logger = Logger(subsystem: "com.pastura", category: "SettingsModels")
+    private static let logger = Logger(subsystem: "com.tyabu12.Pastura", category: "SettingsModels")
   #endif
 
   var body: some View {

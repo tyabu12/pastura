@@ -37,7 +37,7 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
   /// The BG task identifier, must match `BGTaskSchedulerPermittedIdentifiers` in Info.plist.
   public static let taskIdentifier = "com.tyabu12.Pastura.simulation-continuation"
 
-  private let logger = Logger(subsystem: "com.pastura", category: "BGSimManager")
+  private let logger = Logger(subsystem: "com.tyabu12.Pastura", category: "BGSimManager")
   private let state = OSAllocatedUnfairLock(initialState: State())
 
   // @unchecked Sendable: `activeTask` is a non-Sendable system type (BGContinuedProcessingTask),

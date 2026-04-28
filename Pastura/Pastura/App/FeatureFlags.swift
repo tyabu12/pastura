@@ -37,7 +37,7 @@ nonisolated enum FeatureFlags {
   ///
   /// Opt-out flag — defaults to `true`. Disable via:
   /// ```
-  /// defaults write com.pastura.Pastura realtimeStreamingEnabled -bool false
+  /// defaults write com.tyabu12.Pastura realtimeStreamingEnabled -bool false
   /// ```
   static var realtimeStreamingEnabled: Bool {
     defaultsReadBool(key: realtimeStreamingKey, default: true)
@@ -75,7 +75,7 @@ nonisolated enum FeatureFlags {
   ///
   /// Developer override:
   /// ```
-  /// defaults write com.pastura.Pastura backgroundContinuationEnabled -bool true
+  /// defaults write com.tyabu12.Pastura backgroundContinuationEnabled -bool true
   /// ```
   ///
   /// **Re-enable checklist** — do *not* flip this default to `true` until

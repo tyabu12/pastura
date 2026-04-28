@@ -33,7 +33,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // stream lifetime, guaranteeing no concurrent access to C pointers (ADR-002 §6).
 
   private let modelPath: String
-  let logger = Logger(subsystem: "com.pastura", category: "LlamaCppService")
+  let logger = Logger(subsystem: "com.tyabu12.Pastura", category: "LlamaCppService")
 
   #if DEBUG
     // Per-loop token-level checkpoint logger. Joins the shared
@@ -50,7 +50,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     // we have no field-side log-collection mechanism. Reproduce in
     // DEBUG when the abort is reported by a TestFlight crash report.
     static let streamingDiagLogger = Logger(
-      subsystem: "com.pastura", category: "StreamingDiag")
+      subsystem: "com.tyabu12.Pastura", category: "StreamingDiag")
 
     /// Periodic streaming-diag checkpoint emitter — see ADR-002 §12.9.
     /// Emits a `streamCheckpoint` line every 20 generated tokens with the
@@ -176,7 +176,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     self.loadedState = OSAllocatedUnfairLock(initialState: false)
     // Install llama.cpp's C-runtime log capture once — routes grammar
     // parse errors ("invalid character", "expected ::=", etc.) into
-    // Console.app under subsystem:com.pastura category:LlamaCppRuntime.
+    // Console.app under subsystem:com.tyabu12.Pastura category:LlamaCppRuntime.
     // Idempotent at the C API level; safe to re-invoke per instance.
     _ = Self.logCaptureInstalled
   }
@@ -192,7 +192,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
           in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
         let logger = Logger(
-          subsystem: "com.pastura", category: "LlamaCppRuntime")
+          subsystem: "com.tyabu12.Pastura", category: "LlamaCppRuntime")
         switch level {
         case GGML_LOG_LEVEL_ERROR:
           logger.error("\(message, privacy: .public)")

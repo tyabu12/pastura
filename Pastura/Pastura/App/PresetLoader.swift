@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Loads bundled YAML preset scenarios into the database on first launch.
 ///
@@ -6,6 +7,9 @@ import Foundation
 /// for YAML parsing to extract names) and Data (ScenarioRepository for persistence).
 /// Data/ can only depend on Models, so this bridging logic belongs in App/.
 nonisolated enum PresetLoader {
+  private static let logger = Logger(
+    subsystem: "com.tyabu12.Pastura", category: "PresetLoader")
+
   /// File names (without extension) of bundled preset YAML files.
   static let presetFileNames = [
     "prisoners_dilemma",
@@ -27,7 +31,8 @@ nonisolated enum PresetLoader {
 
     for fileName in presetFileNames {
       guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
-        print("⚠️ PresetLoader: \(fileName).yaml not found in bundle")
+        Self.logger.error(
+          "PresetLoader: \(fileName, privacy: .public).yaml not found in bundle")
         continue
       }
 
@@ -50,7 +55,9 @@ nonisolated enum PresetLoader {
         )
         try repository.save(record)
       } catch {
-        print("⚠️ PresetLoader: failed to load \(fileName): \(error)")
+        Self.logger.error(
+          "PresetLoader: failed to load \(fileName, privacy: .public): \(String(describing: error), privacy: .public)"
+        )
       }
     }
   }
