@@ -62,4 +62,35 @@ struct DeepLinkGateTests {
 
     #expect(gate.pendingURL == second)
   }
+
+  // MARK: - Bool transition across present / dismiss cycle
+  //
+  // The cellular consent dialog (#191) opts into the gate via a hidden
+  // `Color.clear.deepLinkGated()` marker that mounts on
+  // `pendingCellularConsent != nil` and unmounts on nil. The two tests
+  // below exercise the counter shape that wiring depends on: the
+  // `isSheetActive` flag must trip true on +1 and false on the
+  // matching -1, and a fresh present after a clean dismiss must
+  // raise the flag again rather than getting wedged. SwiftUI
+  // `.deepLinkGated()` itself goes through `onAppear`/`onDisappear`,
+  // so the gate's correctness here is what guarantees the dialog can
+  // toggle deep-link drainage on every show, not just the first.
+
+  @Test func isSheetActiveTransitionsAcrossSingleCycle() {
+    let gate = DeepLinkGate()
+    #expect(gate.isSheetActive == false)
+    gate.sheetPresentationCount += 1
+    #expect(gate.isSheetActive == true)
+    gate.sheetPresentationCount -= 1
+    #expect(gate.isSheetActive == false)
+  }
+
+  @Test func isSheetActiveTripsAgainOnRePresentation() {
+    let gate = DeepLinkGate()
+    gate.sheetPresentationCount += 1
+    gate.sheetPresentationCount -= 1
+    #expect(gate.isSheetActive == false)
+    gate.sheetPresentationCount += 1
+    #expect(gate.isSheetActive == true)
+  }
 }

@@ -231,7 +231,7 @@ struct DemoReplayIntegrationTests {
   }
 
   @Test func startThenPauseResumeThenDownloadComplete() async throws {
-    // Drives the full DemoReplayHostView lifecycle chain end-to-end across
+    // Drives the full ModelDownloadHostView lifecycle chain end-to-end across
     // ≥ 2 sources: start → some outputs → background → assert .paused →
     // foreground → assert .playing → downloadComplete → assert .transitioning.
     let sources = Self.makeSources()

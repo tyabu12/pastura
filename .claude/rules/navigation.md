@@ -319,18 +319,20 @@ surface changes in areas the automated tests do not exercise.
 16. **Multi-model Settings — Download triggers DL demo cover** —
     On a `.notDownloaded` row, tap **Download** from the menu.
     Expected: a full-screen modal cover slides up presenting the
-    DL-time demo experience (`DemoReplayHostView`) for that
+    DL-time demo experience (`ModelDownloadHostView`) for that
     descriptor — the same UX as the first-launch
     `.needsModelDownload` slot. Verify all of:
     - **Cover content tracks the tapped descriptor** — `PromoCard`
       progress bar / percent / size strings must reflect the row
       the user tapped, not the active model. (Easy to mistake when
       Gemma is active and the user taps Qwen's Download row.)
-    - **Cellular fallback** — toggle Airplane Mode off + cellular
-      on, then tap Download. Cover still presents but routes to
-      `ModelDownloadView` (plain progress UI). The plain view's
-      `displayName` and download size also reflect the tapped
-      descriptor.
+    - **Cellular consent gate** — toggle Airplane Mode off +
+      cellular on (no prior consent), then tap **Download**.
+      Expected: cover does **NOT** present; instead the
+      scene-level confirmation dialog appears (see scenario 17).
+      Tap **Download anyway** → cover presents and demo replay
+      plays on cellular. Tap **Wait for Wi-Fi** → cover never
+      opens; tap **Download** again on the row to retry.
     - **Cancel button + confirmation dialog** — tap the X in the
       top-trailing corner of the cover. A `.confirmationDialog`
       appears titled "Stop downloading?" with a destructive
@@ -373,9 +375,100 @@ surface changes in areas the automated tests do not exercise.
     - **Sequential-DL guard** — start a download from row A, let
       it run, then attempt to tap Download on row B. Expected:
       the **menu's** Download item on row B is disabled
-      (`otherDownloadInProgress`) — it cannot be triggered, so
-      no second cover appears. (If the disabled state ever
-      regresses, the cover's tap handler also re-checks
-      `state[descriptor.id] == .downloading` post-`startDownload`
-      as defense-in-depth and bails silently if the policy
-      rejected the call.)
+      (`otherDownloadInProgress` — covers both `.downloading`
+      state on any other row AND `pendingCellularConsent != nil`
+      for any other row, see scenario 17). It cannot be
+      triggered, so no second cover appears. (If the disabled
+      state ever regresses, the cover's tap handler also
+      re-checks `state[descriptor.id] == .downloading`
+      post-`startDownload` as defense-in-depth and bails
+      silently if the policy rejected the call.)
+
+17. **Cellular consent dialog (#191 / ADR-007 §3.3 (c))** —
+    `ModelManager.startDownload` gates on cellular network +
+    no prior consent at every entry point. Verify the
+    scene-level `.confirmationDialog` presents and behaves
+    correctly across all paths:
+
+    - **Picker tap on cellular (fresh install)** — pick a model;
+      gate fires → dialog appears with "Download on cellular?"
+      title, "Download anyway" (destructive) / "Wait for Wi-Fi"
+      (cancel) buttons. State stays `.notDownloaded`; the
+      `ModelDownloadHostView` underneath shows the **Wi-Fi
+      advisory** (Wi-Fi recommended" + "Try Again" button)
+      instead of demo replay. Tap **Download anyway** → consent
+      persists in UserDefaults (`com.pastura.hasCellularDownloadConsent`),
+      `startDownload` re-fires, state flips `.downloading`, demo
+      replay starts. Tap **Wait for Wi-Fi** → state stays
+      `.notDownloaded`, Wi-Fi advisory remains, dialog dismisses;
+      tap "Try Again" to re-present the dialog.
+
+    - **Relaunch on cellular without consent** — terminate the
+      app mid-download (or before any DL), re-launch on cellular.
+      Expected: `initialize()` hits the `.notDownloaded` branch,
+      dialog presents identically to the picker path. No bytes
+      flow until the user accepts.
+
+    - **Relaunch on cellular WITH consent already granted** —
+      after a prior accept, terminate and re-launch on cellular.
+      Expected: dialog does **NOT** present; auto-resume proceeds
+      directly into demo replay.
+
+    - **Settings → Download on cellular** — open Settings →
+      Models on cellular (no consent), tap **Download** on a
+      `.notDownloaded` row. Expected: cover does **NOT** open
+      immediately; dialog presents at scene level instead. Tap
+      **Download anyway** → state goes `.downloading`, cover
+      opens via the `.onChange(of: modelManager.state)` observer.
+      Tap **Wait for Wi-Fi** → cover never opens; user stays on
+      the Settings list.
+
+    - **PromoCard "Retry" after error on cellular** — once a
+      download is mid-flight (after consent), simulate a network
+      drop (Airplane Mode → off again on cellular). State goes
+      `.error`, PromoCard shows inline retry. Tap **Retry**.
+      With consent already granted (this session), the retry
+      proceeds without re-prompting. To test the gate-on-retry
+      path: clear consent (UserDefaults → reset key) and retry —
+      the dialog presents.
+
+    - **Tap-outside dismiss = decline** — on iPad / large iPhone
+      where dialog has tappable margin, tap outside the dialog
+      area. Expected: same as **Wait for Wi-Fi** — `pendingCellularConsent`
+      clears, state stays `.notDownloaded`. (Wired through the
+      synthesized `Binding<Bool>` set closure; without that
+      wiring the gate would silently leak `pendingCellularConsent`
+      non-nil after iOS auto-closed the dialog.)
+
+    - **Multi-row tap during pending dialog** — on Settings on
+      cellular (no consent), tap **Download** on row A → dialog
+      appears. Without dismissing, tap **Download** on row B
+      from the menu. Expected: row B's Download menu item is
+      **disabled** (`otherDownloadInProgress` covers
+      `pendingCellularConsent != nil`). The dialog continues
+      to reflect row A's descriptor; row B is not affected.
+
+    - **One-time consent persistence** — after a single accept,
+      every subsequent `startDownload` (any path, any row, this
+      session and future sessions) skips the dialog. Verify by
+      tapping Download in Settings on a second `.notDownloaded`
+      row — cover opens directly without re-prompting.
+
+    - **Deep link arriving while dialog is visible** — on cellular
+      without prior consent, trigger the dialog (picker / Settings
+      / relaunch path), then open a `pastura://scenario/<id>` link
+      from another app while the dialog is up. Expected: the
+      gate-blocked toast appears (the dialog opts into
+      `DeepLinkGate.sheetPresentationCount` via a hidden
+      `Color.clear.deepLinkGated()` marker mounted on
+      `pendingCellularConsent != nil`); no navigation occurs under
+      the dialog. Tap **Wait for Wi-Fi**, **Download anyway**, or
+      tap-outside to dismiss the dialog → drain fires immediately
+      and the gallery scenario detail pushes onto the underlying
+      stack. Toast visibility on top of the dialog is OS-driven
+      (system-presented confirmation dialogs run on a separate
+      window scene), so verify on iOS 17 and 18 that the toast
+      remains tappable / visible. iPad multi-window: only the
+      focused scene's gate is incremented (each scene owns its own
+      `DeepLinkGate` and `ModelManager`), so a dialog in scene A
+      does not block deep-link drain in scene B.
