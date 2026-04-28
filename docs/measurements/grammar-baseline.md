@@ -61,7 +61,7 @@ hard-JSON choice.
 3. Run the simulation through to completion. Do NOT interact mid-run
    (no Control Center, no scroll-back) — this run isolates baseline
    parse behaviour, not streaming UX.
-4. Capture with Console.app, filter `subsystem:com.pastura
+4. Capture with Console.app, filter `subsystem:com.tyabu12.Pastura
    category:StreamingDiag`, save the log to
    `/tmp/grammar-baseline-<preset>-<device>-off.log`.
 5. Without model reload if possible (preserves KV/cache state), repeat

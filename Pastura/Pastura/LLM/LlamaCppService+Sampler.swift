@@ -85,7 +85,7 @@ extension LlamaCppService {
         // llama-grammar.cpp:713) wrapped in sentinel markers so unrelated
         // process-level stderr writes during the capture window are
         // visually attributable rather than mistaken for grammar errors.
-        // Filter:  subsystem:com.pastura category:LlamaCppService
+        // Filter:  subsystem:com.tyabu12.Pastura category:LlamaCppService
         //          message contains "GBNF grammar parse failed"
         logger.error(
           """

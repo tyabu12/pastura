@@ -14,7 +14,7 @@
 #   scripts/analyze-streaming-diag.sh <session.log> [more.log ...]
 #
 # Accepts either a Console.app "Save As plain text" export or a
-# `log stream --predicate 'subsystem == "com.pastura" AND category == "StreamingDiag"'`
+# `log stream --predicate 'subsystem == "com.tyabu12.Pastura" AND category == "StreamingDiag"'`
 # redirect. The parser matches on the message-body prefixes our Logger
 # emits, so the surrounding column layout doesn't matter.
 
@@ -24,7 +24,7 @@ if [ "$#" -lt 1 ]; then
   cat >&2 <<USAGE
 Usage: $0 <session.log> [more.log ...]
 
-Each <session.log> is a plain-text capture of the com.pastura /
+Each <session.log> is a plain-text capture of the com.tyabu12.Pastura /
 StreamingDiag category. See the PR description for capture steps.
 USAGE
   exit 1
@@ -97,7 +97,7 @@ summarise() {
     echo "  first 5 occurrences:"
     grep -E 'streamReset agent=' "$log" |
       head -5 |
-      sed -E 's/^.*\[com\.pastura:StreamingDiag\] //' |
+      sed -E 's/^.*\[com\.tyabu12\.Pastura:StreamingDiag\] //' |
       sed 's/^/    /'
     echo ""
     echo "  → Hyp A': REPRODUCED — LLMCaller's consumeStreamWithSuspendRetry"
@@ -133,7 +133,7 @@ summarise() {
     echo "$recycles" | awk '{ print $2 }' | while read -r row; do
       echo "    ── $row ──"
       grep "rowID=$row " "$log" |
-        sed -E 's/^.*\[com\.pastura:StreamingDiag\] //' |
+        sed -E 's/^.*\[com\.tyabu12\.Pastura:StreamingDiag\] //' |
         grep -E '^(onAppear|onDisappear|streamTargetChange)' |
         sed 's/^/      /'
     done
@@ -199,7 +199,7 @@ summarise() {
         if (vc < nt) print
       }
     ' "$log" | head -5 |
-      sed -E 's/^.*\[com\.pastura:StreamingDiag\] //' |
+      sed -E 's/^.*\[com\.tyabu12\.Pastura:StreamingDiag\] //' |
       sed 's/^/    /'
     echo "  → B5 residual: REPRODUCED (cancel-race surface still exercised)"
   else

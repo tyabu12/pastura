@@ -16,11 +16,11 @@ nonisolated struct LLMCaller: Sendable {
   private static let maxRetries = 2
   private let parser = JSONResponseParser()
   private let extractor = PartialOutputExtractor()
-  private let logger = Logger(subsystem: "com.pastura", category: "LLMCaller")
+  private let logger = Logger(subsystem: "com.tyabu12.Pastura", category: "LLMCaller")
   // `category: "StreamingDiag"` matches the existing diagnostic channel
   // (PR #158) so `scripts/analyze-streaming-diag.sh` picks up the new
   // `repaired ...` lines alongside `retry ...` and `streamReset ...`.
-  private let diagLogger = Logger(subsystem: "com.pastura", category: "StreamingDiag")
+  private let diagLogger = Logger(subsystem: "com.tyabu12.Pastura", category: "StreamingDiag")
 
   // swiftlint:disable function_parameter_count
 

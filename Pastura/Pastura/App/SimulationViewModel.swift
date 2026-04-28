@@ -273,16 +273,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // Lifecycle logger — accessed from the +Background extension. Use `info` for
   // routine state transitions and `error` for unexpected paths so device logs
   // stay readable.
-  let lifecycleLogger = Logger(subsystem: "com.pastura", category: "SimulationVM")
+  let lifecycleLogger = Logger(subsystem: "com.tyabu12.Pastura", category: "SimulationVM")
 
   #if DEBUG
     // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
     // Shared across VM + `AgentOutputRow`; filter Console.app with
-    // `subsystem:com.pastura category:StreamingDiag` to surface the 2 signals
+    // `subsystem:com.tyabu12.Pastura category:StreamingDiag` to surface the 2 signals
     // feeding PR#5 ADR pivot-path decision (Hyp A retry / Hyp B recycle).
     // `.info` level so it shows without `log config` overrides on-device.
     static let streamingDiagLogger = Logger(
-      subsystem: "com.pastura", category: "StreamingDiag")
+      subsystem: "com.tyabu12.Pastura", category: "StreamingDiag")
 
     // Per-agent in-flight attempt counter for Hyp A (parse-retry silent
     // transition). `LLMCaller.call` emits `.inferenceStarted` +
@@ -959,7 +959,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         try simulationRepository.save(record)
       }
     } catch {
-      print("⚠️ Failed to create simulation record: \(error)")
+      lifecycleLogger.error(
+        "Failed to create simulation record: \(String(describing: error), privacy: .public)")
     }
   }
 
@@ -967,12 +968,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     let (stream, continuation) = AsyncStream<TurnRecord>.makeStream()
     persistenceContinuation = continuation
     let repo = turnRepository
+    // Local-bind the (Sendable) Logger so the Task.detached closure does not
+    // capture `self` across actor boundaries — same idiom as `let repo = ...`.
+    let logger = lifecycleLogger
     persistenceTask = Task.detached {
       for await record in stream {
         do {
           try repo.save(record)
         } catch {
-          print("⚠️ Failed to persist turn: \(error)")
+          logger.error(
+            "Failed to persist turn: \(String(describing: error), privacy: .public)")
         }
       }
     }
@@ -1019,7 +1024,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       )
       persistenceContinuation?.yield(record)
     } catch {
-      print("⚠️ Failed to encode turn output: \(error)")
+      lifecycleLogger.error(
+        "Failed to encode turn output: \(String(describing: error), privacy: .public)")
     }
   }
 
@@ -1043,12 +1049,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     guard let codePhaseRepo = codePhaseEventRepository else { return }
     let (stream, continuation) = AsyncStream<CodePhaseEventRecord>.makeStream()
     codePhasePersistenceContinuation = continuation
+    // Local-bind the (Sendable) Logger so the Task.detached closure does not
+    // capture `self` across actor boundaries — same idiom as `let repo = ...`.
+    let logger = lifecycleLogger
     codePhasePersistenceTask = Task.detached {
       for await record in stream {
         do {
           try codePhaseRepo.save(record)
         } catch {
-          print("⚠️ Failed to persist code-phase event: \(error)")
+          logger.error(
+            "Failed to persist code-phase event: \(String(describing: error), privacy: .public)")
         }
       }
     }
@@ -1065,7 +1075,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // in practice. Bail out instead of falling back to "{}" so a bogus
       // payload does not reserve a sequenceNumber slot.
       guard let jsonString = String(data: data, encoding: .utf8) else {
-        print("⚠️ Failed to stringify code-phase payload JSON")
+        lifecycleLogger.error("Failed to stringify code-phase payload JSON")
         return
       }
       turnSequence += 1
@@ -1081,7 +1091,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       )
       continuation.yield(record)
     } catch {
-      print("⚠️ Failed to encode code-phase payload: \(error)")
+      lifecycleLogger.error(
+        "Failed to encode code-phase payload: \(String(describing: error), privacy: .public)")
     }
   }
 
@@ -1183,7 +1194,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         try simulationRepository.updateStatus(simId, status: status)
       }
     } catch {
-      print("⚠️ Failed to update simulation status: \(error)")
+      lifecycleLogger.error(
+        "Failed to update simulation status: \(String(describing: error), privacy: .public)")
     }
   }
 }
