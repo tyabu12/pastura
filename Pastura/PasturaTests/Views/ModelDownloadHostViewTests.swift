@@ -3,134 +3,153 @@ import Testing
 
 @testable import Pastura
 
-// MARK: - DemoReplayHostView.fallbackBranch
+// MARK: - ModelDownloadHostView.stateView
 
-// `DemoReplayHostView` is a View (implicitly @MainActor). `Branch` and
-// `fallbackBranch` are declared inside it, so their Equatable conformance
-// is also @MainActor-bound. The suite must run on the main actor.
-@Suite("DemoReplayHostView", .serialized, .timeLimit(.minutes(1)))
+// `ModelDownloadHostView` is a View (implicitly @MainActor). `StateView` and
+// `stateView` are declared inside it, so their Equatable conformance is
+// also @MainActor-bound. The suite must run on the main actor.
+@Suite("ModelDownloadHostView", .serialized, .timeLimit(.minutes(1)))
 @MainActor
-struct DemoReplayHostViewTests {
+struct ModelDownloadHostViewTests {
 
-  // MARK: - fallbackBranch: cellular takes priority
+  // MARK: - stateView: pre-download states (no cellular consent dependency)
 
-  @Test func cellularReturnsFallback_regardlessOfState() {
-    // Cellular is the Option A safety net — overrides every other condition.
-    let result = DemoReplayHostView.fallbackBranch(
-      state: .downloading(progress: 0.5),
-      demosCount: 10,
-      replayHadStarted: true,
-      isCellular: true)
-    #expect(result == .modelDownload)
-  }
-
-  @Test func cellularReturnsFallback_evenWhenReady() {
-    let result = DemoReplayHostView.fallbackBranch(
-      state: .ready(modelPath: "x"),
-      demosCount: 5,
-      replayHadStarted: true,
-      isCellular: true)
-    #expect(result == .modelDownload)
-  }
-
-  // MARK: - fallbackBranch: pre-download states always fall back
-
-  @Test func checkingReturnsFallback() {
-    let result = DemoReplayHostView.fallbackBranch(
+  @Test func checkingReturnsCheckingFallback() {
+    let result = ModelDownloadHostView.stateView(
       state: .checking,
       demosCount: 10,
       replayHadStarted: true,
-      isCellular: false)
-    #expect(result == .modelDownload)
+      requiresCellularConsent: false)
+    #expect(result == .checking)
   }
 
-  @Test func unsupportedDeviceReturnsFallback() {
-    let result = DemoReplayHostView.fallbackBranch(
+  @Test func unsupportedDeviceReturnsUnsupportedDeviceFallback() {
+    let result = ModelDownloadHostView.stateView(
       state: .unsupportedDevice,
       demosCount: 10,
       replayHadStarted: true,
-      isCellular: false)
-    #expect(result == .modelDownload)
+      requiresCellularConsent: false)
+    #expect(result == .unsupportedDevice)
   }
 
-  @Test func notDownloadedReturnsFallback() {
-    let result = DemoReplayHostView.fallbackBranch(
+  // MARK: - stateView: .notDownloaded splits on cellular consent
+
+  @Test func notDownloadedWithCellularConsentRequired_returnsWifiRequired() {
+    // Cellular gate fired in ModelManager.startDownload — show the
+    // Wi-Fi advisory with a Try Again button (#191 / ADR-007 §3.3 (c)).
+    let result = ModelDownloadHostView.stateView(
       state: .notDownloaded,
       demosCount: 10,
       replayHadStarted: true,
-      isCellular: false)
-    #expect(result == .modelDownload)
+      requiresCellularConsent: true)
+    #expect(result == .wifiRequired)
   }
 
-  // MARK: - fallbackBranch: .downloading with floor enforcement (spec §5.2)
+  @Test func notDownloadedWithoutCellularConsent_returnsDefensive() {
+    // Defensive escape hatch — auto-DL trigger paths normally flip
+    // straight to .downloading on Wi-Fi, so this case only fires when
+    // the sequential-download policy rejected the call.
+    let result = ModelDownloadHostView.stateView(
+      state: .notDownloaded,
+      demosCount: 10,
+      replayHadStarted: false,
+      requiresCellularConsent: false)
+    #expect(result == .notDownloadedDefensive)
+  }
 
-  @Test func downloadingWithZeroDemosReturnsFallback() {
-    let result = DemoReplayHostView.fallbackBranch(
+  // MARK: - stateView: .downloading with floor enforcement (spec §5.2)
+
+  @Test func downloadingWithZeroDemosReturnsPlainProgress() {
+    let result = ModelDownloadHostView.stateView(
       state: .downloading(progress: 0.5),
       demosCount: 0,
       replayHadStarted: false,
-      isCellular: false)
-    #expect(result == .modelDownload)
+      requiresCellularConsent: false)
+    #expect(result == .plainProgress)
   }
 
-  @Test func downloadingWithOneDemoReturnsFallback_belowFloor() {
+  @Test func downloadingWithOneDemoReturnsPlainProgress_belowFloor() {
     // spec §5.2: a single surviving demo is below the minPlayableDemoCount
-    // floor (2). The rotation loop would be unsatisfying — defer to fallback.
-    let result = DemoReplayHostView.fallbackBranch(
+    // floor (2). The rotation loop would be unsatisfying — render the
+    // plain progress fallback inline instead.
+    let result = ModelDownloadHostView.stateView(
       state: .downloading(progress: 0.5),
       demosCount: 1,
       replayHadStarted: false,
-      isCellular: false)
-    #expect(result == .modelDownload)
+      requiresCellularConsent: false)
+    #expect(result == .plainProgress)
   }
 
   @Test func downloadingWithTwoDemosReturnsDemoHost_atFloor() {
-    let result = DemoReplayHostView.fallbackBranch(
+    let result = ModelDownloadHostView.stateView(
       state: .downloading(progress: 0.5),
       demosCount: 2,
       replayHadStarted: false,
-      isCellular: false)
+      requiresCellularConsent: false)
     #expect(result == .demoHost)
   }
 
   @Test func downloadingWithFiveDemosReturnsDemoHost() {
-    let result = DemoReplayHostView.fallbackBranch(
+    let result = ModelDownloadHostView.stateView(
       state: .downloading(progress: 0.1),
       demosCount: 5,
       replayHadStarted: false,
-      isCellular: false)
+      requiresCellularConsent: false)
     #expect(result == .demoHost)
   }
 
-  // MARK: - fallbackBranch: .error respects replayHadStarted (ADR-007 §3.3 (b))
+  // MARK: - stateView: .error respects replayHadStarted (ADR-007 §3.3 (b))
 
-  @Test func errorBeforeReplayStartedReturnsFallback() {
-    let result = DemoReplayHostView.fallbackBranch(
+  @Test func errorBeforeReplayStartedReturnsPlainError() {
+    let result = ModelDownloadHostView.stateView(
       state: .error("network timeout"),
       demosCount: 5,
       replayHadStarted: false,
-      isCellular: false)
-    #expect(result == .modelDownload)
+      requiresCellularConsent: false)
+    #expect(result == .error(message: "network timeout"))
   }
 
   @Test func errorAfterReplayStartedReturnsDemoHost() {
     // Inline retry affordance in PromoCard keeps playback alive.
-    let result = DemoReplayHostView.fallbackBranch(
+    let result = ModelDownloadHostView.stateView(
       state: .error("network timeout"),
       demosCount: 5,
       replayHadStarted: true,
-      isCellular: false)
+      requiresCellularConsent: false)
     #expect(result == .demoHost)
   }
 
-  // MARK: - fallbackBranch: .ready
+  // MARK: - stateView: .ready
 
   @Test func readyReturnsDemoHost() {
-    let result = DemoReplayHostView.fallbackBranch(
+    let result = ModelDownloadHostView.stateView(
       state: .ready(modelPath: "x"),
       demosCount: 0,
       replayHadStarted: false,
-      isCellular: false)
+      requiresCellularConsent: false)
+    #expect(result == .demoHost)
+  }
+
+  // MARK: - stateView: cellular consent does NOT short-circuit other states
+
+  @Test func cellularConsentDoesNotAffectDownloadingDispatch() {
+    // Once the gate is passed (state has reached .downloading), the
+    // cellular flag is irrelevant — demo replay should play even on
+    // a still-cellular network because the user accepted consent.
+    let result = ModelDownloadHostView.stateView(
+      state: .downloading(progress: 0.5),
+      demosCount: 5,
+      replayHadStarted: false,
+      requiresCellularConsent: true)
+    #expect(result == .demoHost)
+  }
+
+  @Test func cellularConsentDoesNotAffectReadyDispatch() {
+    let result = ModelDownloadHostView.stateView(
+      state: .ready(modelPath: "x"),
+      demosCount: 5,
+      replayHadStarted: true,
+      requiresCellularConsent: true)
     #expect(result == .demoHost)
   }
 
@@ -139,14 +158,14 @@ struct DemoReplayHostViewTests {
   @Test func settingsCover_dispatchesFireOnComplete() {
     // Settings cover passes `showsCompleteOverlay: false` and dismisses
     // immediately on `.ready` — VM presence doesn't matter.
-    let result = DemoReplayHostView.readyDispatch(
+    let result = ModelDownloadHostView.readyDispatch(
       showsCompleteOverlay: false,
       hasReplayVM: true)
     #expect(result == .fireOnComplete)
   }
 
   @Test func settingsCover_dispatchesFireOnComplete_evenWithoutVM() {
-    let result = DemoReplayHostView.readyDispatch(
+    let result = ModelDownloadHostView.readyDispatch(
       showsCompleteOverlay: false,
       hasReplayVM: false)
     #expect(result == .fireOnComplete)
@@ -159,7 +178,7 @@ struct DemoReplayHostViewTests {
     // the overlay never renders. No tap surface available; fire onReady
     // directly. Issue #202 critical: don't strand the user with no
     // visible UI to tap.
-    let result = DemoReplayHostView.readyDispatch(
+    let result = ModelDownloadHostView.readyDispatch(
       showsCompleteOverlay: true,
       hasReplayVM: false)
     #expect(result == .fireOnReady(awaitsTap: false))
@@ -172,7 +191,7 @@ struct DemoReplayHostViewTests {
     // "Ready" and proceed to HomeView. No timer — explicit user action
     // (per real-device QA: auto-transition felt jarring; user wakes up
     // on home screen with no clear "setup complete" beat).
-    let result = DemoReplayHostView.readyDispatch(
+    let result = ModelDownloadHostView.readyDispatch(
       showsCompleteOverlay: true,
       hasReplayVM: true)
     #expect(result == .fireOnReady(awaitsTap: true))

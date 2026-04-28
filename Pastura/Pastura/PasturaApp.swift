@@ -89,6 +89,11 @@ private struct DeepLinkErrorAlert: Identifiable {
   let message: String
 }
 
+// swiftlint:disable type_body_length
+// Same justification as the file-level `file_length` disable above:
+// helpers already split into a same-file extension below; remaining
+// body still nudges over 250 because the deep-link gate logic added
+// in #191 lives next to the state-machine `body` it gates.
 /// Per-scene root view. Owns the model-download state machine, the
 /// dependency container, the `AppRouter` that drives the root
 /// `NavigationStack`'s path, and the Deep Link coordination state.
@@ -112,9 +117,7 @@ private struct RootView: View {
     .onChange(of: appStateKind) { _, _ in tryDrain() }
     .onChange(of: gate.sheetPresentationCount) { _, _ in tryDrain() }
     .onChange(of: router.path) { _, _ in tryDrain() }
-    .onChange(of: gate.pendingURL) { _, new in
-      if new != nil { tryDrain() }
-    }
+    .onChange(of: gate.pendingURL) { _, new in if new != nil { tryDrain() } }
     // Reset source-attribution when the user pops all the way back. Any
     // subsequent visit to the same gallery scenario detail (via Share
     // Board, for instance) should not show the "Opened from external
@@ -125,6 +128,15 @@ private struct RootView: View {
     .alert(item: $deepLinkError) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
     }
+    .modifier(CellularConsentDialogModifier(modelManager: modelManager))
+    // Inject the gate at the body root so `.deepLinkGated()` markers
+    // mounted inside `mainContent` (e.g. the cellular consent dialog
+    // marker, which fires on `.needsModelDownload`, well before
+    // `.ready`) and inside `CellularConsentDialogModifier`'s own body
+    // both resolve to the real gate instance. The downstream
+    // `.environment(gate)` on `HomeView` becomes redundant but is
+    // kept until a follow-up cleanup to minimise blast radius.
+    .environment(gate)
   }
 
   // MARK: - Content
@@ -150,8 +162,8 @@ private struct RootView: View {
           // `onReady` (not a sibling `.onChange(of: activeState)`) drives
           // `finalizeInit` so the host view can hold the overlay visible
           // for its fade duration before `RootView` swaps in `HomeView`.
-          // See ADR-007 §3.3 (d) and `DemoReplayHostView.readyDispatch`.
-          DemoReplayHostView(
+          // See ADR-007 §3.3 (d) and `ModelDownloadHostView.readyDispatch`.
+          ModelDownloadHostView(
             modelManager: modelManager,
             descriptor: descriptor,
             onReady: { modelPath in
@@ -357,13 +369,18 @@ private struct RootView: View {
         // the only reason we'd be in `.notDownloaded` here is that the
         // download wasn't completed — either the app was killed mid-DL
         // (partial file on disk; `performDownload` reads the partial size
-        // for the resume offset) or never started a session. Either way,
-        // start it now so the user lands directly on the demo host body
-        // / progress fallback instead of bouncing through a redundant
-        // "Download Model" confirmation tap. Cellular consent is tracked
-        // separately (#191) — until that lands, cellular users are
-        // auto-resumed without an explicit modal, same as picker auto-DL.
+        // for the resume offset) or never started a session. Start it now
+        // so the user lands directly on the demo host body / progress
+        // fallback (or, on cellular without consent, the Wi-Fi advisory
+        // + scene-level confirmation dialog — #191).
+        //
+        // `waitForNetworkPathReady` is load-bearing: `NetworkPathMonitor`
+        // reads `false` until its first `NWPathMonitor` callback bridges
+        // to MainActor, and a relaunch on cellular without consent races
+        // that callback on real devices — confirmed in QA. Awaiting here
+        // closes the race so the cellular gate sees the actual path.
         if let descriptor = modelManager.activeDescriptor {
+          await modelManager.waitForNetworkPathReady()
           modelManager.startDownload(descriptor: descriptor)
         }
         appState = .needsModelDownload
@@ -430,6 +447,7 @@ private struct RootView: View {
     }
   #endif
 }
+// swiftlint:enable type_body_length
 
 // Helpers in an extension so they don't count against `RootView`'s
 // `type_body_length` budget. Same-file extension on a `private` type is
@@ -439,19 +457,83 @@ extension RootView {
 
   /// Picker → AppState transition. Persists the chosen model and starts
   /// its download synchronously in the same frame as the AppState flip,
-  /// so `DemoReplayHostView` mounts with `currentState == .downloading`
-  /// and routes directly to the demo host body (or to
-  /// `ModelDownloadView.downloadingView` on the cellular safety net).
-  /// Without the `startDownload` call, the user would land on
-  /// `ModelDownloadView.notDownloadedView` and have to tap "Download
-  /// Model" again — a redundant confirmation step that pre-dated this
-  /// picker. The picker's "Start with this model" CTA is itself the
-  /// consent. Mirrors the `SettingsView.presentDownloadCover` pattern.
+  /// so `ModelDownloadHostView` mounts with `currentState == .downloading`
+  /// and routes directly to the demo host body. On cellular without
+  /// consent the gate inside `ModelManager.startDownload` keeps the
+  /// state at `.notDownloaded` and sets `pendingCellularConsent`; the
+  /// scene-level `.confirmationDialog` (see `CellularConsentDialogModifier`)
+  /// presents and `acceptCellularConsent` re-fires the download. The
+  /// picker's "Start with this model" CTA is itself the user-action
+  /// consent for the AppState flip.
   fileprivate func handleModelPick(_ pickedID: ModelID) {
     modelManager.setActiveModel(pickedID)
     if let descriptor = modelManager.activeDescriptor {
       modelManager.startDownload(descriptor: descriptor)
     }
     appState = .needsModelDownload
+  }
+}
+
+/// Scene-level cellular consent confirmation dialog (#191 / ADR-007
+/// §3.3 (c)). Lives at file scope as a `ViewModifier` rather than
+/// inline inside `RootView.body` to keep the `RootView` struct under
+/// swiftlint's `type_body_length` cap.
+///
+/// Picker / relaunch auto-resume / Settings cover all converge on
+/// `ModelManager.startDownload`, which sets `pendingCellularConsent`
+/// when the cellular gate fires. This single dialog observes that
+/// state regardless of who triggered the call.
+///
+/// Tap-outside-to-dismiss is wired through the `set` closure of the
+/// synthesized `Binding<Bool>` so it counts as decline — without that,
+/// the gate would silently leave `pendingCellularConsent` non-nil
+/// after the dialog closed itself.
+///
+/// Deep links arriving while the dialog is visible are gated through
+/// `DeepLinkGate.sheetPresentationCount` via a hidden
+/// `Color.clear.deepLinkGated()` marker that mounts only while
+/// `pendingCellularConsent != nil`. This reuses the same
+/// onAppear/onDisappear ±1 path as sheets/covers; we deliberately
+/// avoid an `onChange(of: pendingCellularConsent?.id)` path because
+/// `acceptCellularConsent` clears and re-requires the descriptor
+/// within a single frame on edge cases (consent-store write failure,
+/// test stubs returning false), and SwiftUI's Equatable coalescing
+/// can drop one side of the nil↔id transition pair, leaking the
+/// counter in the +1 direction and stalling the gate forever.
+private struct CellularConsentDialogModifier: ViewModifier {
+  let modelManager: ModelManager
+
+  func body(content: Content) -> some View {
+    content
+      .background {
+        if modelManager.pendingCellularConsent != nil {
+          Color.clear.deepLinkGated()
+        }
+      }
+      .confirmationDialog(
+        String(localized: "Download on cellular?"),
+        isPresented: Binding(
+          get: { modelManager.pendingCellularConsent != nil },
+          set: { newValue in
+            if !newValue, modelManager.pendingCellularConsent != nil {
+              modelManager.declineCellularConsent()
+            }
+          }),
+        titleVisibility: .visible,
+        presenting: modelManager.pendingCellularConsent
+      ) { _ in
+        Button(String(localized: "Download anyway"), role: .destructive) {
+          modelManager.acceptCellularConsent()
+        }
+        Button(String(localized: "Wait for Wi-Fi"), role: .cancel) {
+          modelManager.declineCellularConsent()
+        }
+      } message: { descriptor in
+        Text(
+          String(
+            localized:
+              "Downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) on cellular may use significant data. Wi-Fi is recommended."
+          ))
+      }
   }
 }
