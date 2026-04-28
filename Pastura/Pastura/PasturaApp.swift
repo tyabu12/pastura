@@ -89,6 +89,11 @@ private struct DeepLinkErrorAlert: Identifiable {
   let message: String
 }
 
+// swiftlint:disable type_body_length
+// Same justification as the file-level `file_length` disable above:
+// helpers already split into a same-file extension below; remaining
+// body still nudges over 250 because the deep-link gate logic added
+// in #191 lives next to the state-machine `body` it gates.
 /// Per-scene root view. Owns the model-download state machine, the
 /// dependency container, the `AppRouter` that drives the root
 /// `NavigationStack`'s path, and the Deep Link coordination state.
@@ -442,6 +447,7 @@ private struct RootView: View {
     }
   #endif
 }
+// swiftlint:enable type_body_length
 
 // Helpers in an extension so they don't count against `RootView`'s
 // `type_body_length` budget. Same-file extension on a `private` type is
