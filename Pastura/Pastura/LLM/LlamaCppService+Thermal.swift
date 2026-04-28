@@ -9,7 +9,9 @@ extension LlamaCppService {
   func throttleIfOverheating() async throws {
     let thermalState = ProcessInfo.processInfo.thermalState
     if thermalState == .serious || thermalState == .critical {
-      logger.warning("Thermal state \(String(describing: thermalState)) — inserting 200ms pause")
+      logger.warning(
+        "Thermal state \(String(describing: thermalState), privacy: .public) — inserting 200ms pause"
+      )
       try await Task.sleep(for: .milliseconds(200))
     }
   }

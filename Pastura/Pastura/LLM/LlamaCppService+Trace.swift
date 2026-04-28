@@ -101,10 +101,11 @@
         let data = try encoder.encode(fixture)
         try data.write(to: url, options: .atomic)
         logger.info(
-          "trace: wrote \(collector.pieces.count) pieces to \(url.lastPathComponent)"
+          "trace: wrote \(collector.pieces.count) pieces to \(url.lastPathComponent, privacy: .public)"
         )
       } catch {
-        logger.error("trace: write failed: \(error.localizedDescription)")
+        logger.error(
+          "trace: write failed: \(error.localizedDescription, privacy: .public)")
       }
     }
   }

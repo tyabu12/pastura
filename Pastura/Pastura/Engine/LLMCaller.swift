@@ -132,8 +132,13 @@ nonisolated struct LLMCaller: Sendable {
   /// console fallback). Extracted to keep `call` under the lint
   /// `function_body_length` budget.
   private func logParseFailure(raw: String, attempt: Int) {
+    // `raw` may echo user-authored scenario / persona content via malformed
+    // LLM output, but the same data is already persisted on-device to
+    // `TurnRecord.rawOutput` (ADR-001), so OSLog exposure is consistent with
+    // the existing surface. `.public` is required for diagnostic value in
+    // TestFlight / Release builds.
     logger.warning(
-      "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
+      "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500), privacy: .public)"
     )
     #if DEBUG
       // print() for reliable Xcode console visibility (os.Logger may be filtered)
