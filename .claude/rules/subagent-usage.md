@@ -48,22 +48,9 @@ per-axis Evidence + Recommendation can run 200-300 tokens each), and
 the agent's self-determined depth. When numbers fall between soft and
 hard, prefer splitting.
 
-If splitting is impractical, see **§4. Sonnet override**.
+If splitting is impractical, see **§3. Sonnet override**.
 
-## 3. Reviewer-model selection — delegated to orchestrate
-
-Picking which model runs `code-reviewer` for a PR is
-[`/orchestrate` skill's](../skills/orchestrate/SKILL.md) responsibility
-(see its **Coupling rule** and the Opus-required path list). This rule
-does NOT duplicate that decision matrix — it only addresses the
-budget-shaping side of subagent invocation.
-
-The two domains interact at exactly one point: when scope splitting is
-impractical, **§4. Sonnet override** can buy 2× cap headroom. The
-override must satisfy both this rule's criteria AND orchestrate's
-Coupling rule.
-
-## 4. Sonnet override (escape valve)
+## 3. Sonnet override (escape valve)
 
 `Agent(model: "sonnet")` overrides the agent's frontmatter `model: opus`
 default and unlocks the 64K Sonnet budget. Use sparingly:
@@ -81,7 +68,7 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
   override. Sonnet's reasoning depth is acceptable for routine
   reviews but not for the cases where `critic` is most valuable.
 
-## 5. Agent self-defense
+## 4. Agent self-defense
 
 Both `code-reviewer.md` and `critic.md` carry inline `## Scope Guidance`
 and `## Output Discipline` sections (see those files). When the caller

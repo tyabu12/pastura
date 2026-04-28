@@ -23,7 +23,7 @@ SCOPE_TOO_LARGE: <X lines / Y files> exceeds soft budget. Please split into <sug
 
 Do NOT begin the Read / Grep cycle after this point — every subsequent tool_use consumes the budget that the final Verdict block needs. The early return is the only way to give the caller actionable feedback before truncation.
 
-When suggesting Sonnet override, check the constraints in `.claude/rules/subagent-usage.md` §4 — if the work touches Opus-required paths (project tooling, AppRouter, dependency-rule boundaries, ADR/spec) Sonnet override is NOT acceptable and only splitting is.
+When suggesting Sonnet override, check the constraints in `.claude/rules/subagent-usage.md` §3 — if the work touches Opus-required paths (project tooling, AppRouter, dependency-rule boundaries, ADR/spec) Sonnet override is NOT acceptable and only splitting is.
 
 ## Output Discipline
 

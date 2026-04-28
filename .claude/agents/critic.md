@@ -26,7 +26,7 @@ Heuristics from PR #260:
 SCOPE_TOO_LARGE: input exceeds soft budget. Please split critique into <suggested partitions per axis cluster>, or reduce target axes to ≤5. See .claude/rules/subagent-usage.md.
 ```
 
-Sonnet override is **not recommended** for `critic` invocations — `critic` makes judgement calls that benefit from Opus's reasoning depth. When budget is tight, prefer scope-split + multiple Opus invocations over a single Sonnet invocation. See `.claude/rules/subagent-usage.md` §4.
+Sonnet override is **not recommended** for `critic` invocations — `critic` makes judgement calls that benefit from Opus's reasoning depth. When budget is tight, prefer scope-split + multiple Opus invocations over a single Sonnet invocation. See `.claude/rules/subagent-usage.md` §3.
 
 ## Output Discipline
 
