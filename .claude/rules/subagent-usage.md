@@ -53,7 +53,7 @@ If splitting is impractical, see **§4. Sonnet override**.
 ## 3. Reviewer-model selection — delegated to orchestrate
 
 Picking which model runs `code-reviewer` for a PR is
-[`/orchestrate` skill's](.claude/skills/orchestrate/SKILL.md) responsibility
+[`/orchestrate` skill's](../skills/orchestrate/SKILL.md) responsibility
 (see its **Coupling rule** and the Opus-required path list). This rule
 does NOT duplicate that decision matrix — it only addresses the
 budget-shaping side of subagent invocation.
