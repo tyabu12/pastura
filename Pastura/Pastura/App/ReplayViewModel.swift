@@ -374,7 +374,7 @@ final class ReplayViewModel {
         AgentOutputEntry(agent: agent, output: filtered, phaseType: phaseType))
 
     case .summary, .scoreUpdate, .elimination, .voteResults,
-      .pairingResult, .assignment:
+      .pairingResult, .assignment, .eventInjected:
       // Code-phase events currently have no observable state surface
       // in PR1 — the host view's scoreboard / results strip is the
       // PR2 concern. ContentFilter is still applied in a follow-up

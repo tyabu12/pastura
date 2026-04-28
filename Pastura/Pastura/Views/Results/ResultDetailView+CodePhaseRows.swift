@@ -28,6 +28,8 @@ extension ResultDetailView {
       pairingRow(agent1: agent1, action1: action1, agent2: agent2, action2: action2)
     case .assignment(let agent, let value):
       assignmentRow(agent: agent, value: value)
+    case .eventInjected(let event):
+      eventInjectedRow(event: event)
     }
   }
 
@@ -105,6 +107,24 @@ extension ResultDetailView {
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
       .padding(.horizontal)
+  }
+
+  // The miss case (`event == nil`) renders an explicit "no event"
+  // marker rather than disappearing — past-results timelines should
+  // distinguish "phase didn't run" from "phase ran and rolled a miss".
+  @ViewBuilder
+  private func eventInjectedRow(event: String?) -> some View {
+    if let event {
+      Text("Event: \(filtered(event))")
+        .textStyle(Typography.bodyBubble)
+        .foregroundStyle(Color.inkSecondary)
+        .padding(.horizontal)
+    } else {
+      Text("No event this round")
+        .textStyle(Typography.metaValue)
+        .foregroundStyle(Color.muted)
+        .padding(.horizontal)
+    }
   }
 
   private func filtered(_ text: String) -> String {

@@ -60,6 +60,23 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// `thenPhases` for shape constraints.
   public let elsePhases: [Phase]?
 
+  /// Fire probability for `event_inject` phases, in `[0.0, 1.0]`.
+  ///
+  /// `nil` defaults to `1.0` (always fires). The handler uses strict `<`
+  /// against `Double.random(in: 0..<1)`, so `0.0` never fires and `1.0`
+  /// always fires. The first `Double?`-typed field on `Phase`; the YAML
+  /// loader accepts either `0.5` (Double) or `1` (Int) by intentional
+  /// coercion — see `ScenarioLoader.parseOptionalDoubleAcceptingInt`.
+  public let probability: Double?
+
+  /// Variable name written by `event_inject` phases (the YAML `as:` key).
+  ///
+  /// `nil` defaults to `"current_event"`. The handler writes the chosen
+  /// event string (or the empty string on miss) to
+  /// `state.variables[eventVariable ?? "current_event"]` so subsequent
+  /// prompt phases can reference it via `{current_event}`.
+  public let eventVariable: String?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -74,7 +91,9 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     subRounds: Int? = nil,
     condition: String? = nil,
     thenPhases: [Phase]? = nil,
-    elsePhases: [Phase]? = nil
+    elsePhases: [Phase]? = nil,
+    probability: Double? = nil,
+    eventVariable: String? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -90,6 +109,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.condition = condition
     self.thenPhases = thenPhases
     self.elsePhases = elsePhases
+    self.probability = probability
+    self.eventVariable = eventVariable
   }
 
   /// The schema's required keys as a `Set`, or an empty set when the

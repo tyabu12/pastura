@@ -54,8 +54,10 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   // MARK: - Phase Serialization
 
-  // Each optional field adds one branch — unavoidable for 11 Phase fields.
-  // swiftlint:disable:next cyclomatic_complexity
+  // Each optional field adds one branch — unavoidable for 13 Phase fields
+  // (added probability + as for event_inject in #256). The body length
+  // grows linearly with field count too.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   private func serializePhase(_ phase: Phase) -> [String] {
     var lines: [String] = []
 
@@ -127,7 +129,29 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append(contentsOf: serializeBranch(elsePhases, indent: 6))
     }
 
+    // event_inject-specific fields. Probability is formatted with %g to
+    // drop trailing zeros (1.0 → "1", 0.5 → "0.5") and suppress
+    // floating-point precision dust (e.g., 0.1 + 0.2 → "0.3" not
+    // "0.30000000000000004"). The loader's `parseOptionalDoubleAcceptingInt`
+    // accepts both `1` (Int) and `1.0` (Double) so the round-trip is stable.
+    if let probability = phase.probability {
+      lines.append("    probability: \(formatProbability(probability))")
+    }
+    if let eventVariable = phase.eventVariable {
+      lines.append("    as: \(yamlScalar(eventVariable))")
+    }
+
     return lines
+  }
+
+  /// Formats a `Phase.probability` value for stable YAML round-trip.
+  ///
+  /// `%g` drops trailing zeros and uses the shortest accurate decimal,
+  /// so ad-hoc constants stay human-readable while binary-precision
+  /// dust is suppressed. Probability is bounded by the validator to
+  /// `[0.0, 1.0]`, so the limited precision %g uses is always sufficient.
+  private func formatProbability(_ value: Double) -> String {
+    String(format: "%g", value)
   }
 
   /// Serializes an array of branch sub-phases at the given indent depth.

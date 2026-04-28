@@ -24,7 +24,7 @@ struct PhaseTypeLabelTests {
       switch phase {
       case .speakAll, .speakEach, .vote, .choose:
         #expect(phase.requiresLLM, "\(phase) is an LLM-driven phase")
-      case .scoreCalc, .assign, .eliminate, .summarize, .conditional:
+      case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
         #expect(!phase.requiresLLM, "\(phase) is a code-driven phase")
       }
     }

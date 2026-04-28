@@ -24,6 +24,10 @@ struct LogEntry: Identifiable {
     case summary(text: String)
     case voteResults(votes: [String: String], tallies: [String: Int])
     case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
+    /// Result of an `event_inject` phase. `event == nil` means the
+    /// probability roll missed; the live log renders this as a muted "no
+    /// event this time" line so users can observe the dice did roll.
+    case eventInjected(event: String?)
     case error(String)
   }
 }
@@ -721,6 +725,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         phaseType: currentPhaseType?.rawValue ?? PhaseType.choose.rawValue,
         payload: .pairingResult(
           agent1: agent1, action1: act1, agent2: agent2, action2: act2))
+    case .eventInjected(let event):
+      // Persist + log even on miss (`event == nil`) so past-results
+      // timelines and Markdown export distinguish "phase didn't run"
+      // from "phase ran and rolled a miss".
+      logEntries.append(LogEntry(kind: .eventInjected(event: event)))
+      persistCodePhaseEvent(
+        phaseType: currentPhaseType?.rawValue ?? PhaseType.eventInject.rawValue,
+        payload: .eventInjected(event: event))
     default:
       break
     }

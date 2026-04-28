@@ -168,7 +168,7 @@ struct PhaseEditorSheet: View {
     } footer: {
       VStack(alignment: .leading, spacing: 4) {
         Text(
-          "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}"
+          "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
         )
         .font(.caption)
         if let promptError {
@@ -234,12 +234,16 @@ struct PhaseEditorSheet: View {
       EmptyView()
     case .conditional:
       conditionalSection
+    case .eventInject:
+      eventInjectSection
     }
   }
 
   // `conditionalSection` and its `branchSection` helper live in
-  // `PhaseEditorSheet+ConditionalSection.swift` (sibling extension file)
-  // to keep this file under SwiftLint's `file_length` limit.
+  // `PhaseEditorSheet+ConditionalSection.swift`. `eventInjectSection`
+  // and its `probabilityBinding` helper live in
+  // `PhaseEditorSheet+EventInjectSection.swift`. Both sibling
+  // extension files keep this file under SwiftLint's `file_length` limit.
 
   // MARK: - Type-Specific Sections
 
@@ -379,6 +383,7 @@ struct PhaseEditorSheet: View {
     case .eliminate: return "Remove most-voted agent (code)"
     case .summarize: return "Format round summary (code)"
     case .conditional: return "Branch on state (code, then/else sub-phases)"
+    case .eventInject: return "Inject a random event from extraData (code, no LLM)"
     }
   }
 }

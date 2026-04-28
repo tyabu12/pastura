@@ -20,17 +20,23 @@ includes them.
 
 ### Phase Types
 
-| Type        | Processing | Description                          |
-|-------------|------------|--------------------------------------|
-| speak_all   | LLM        | All agents speak simultaneously      |
-| speak_each  | LLM        | Agents speak in turn (accumulating)  |
-| vote        | LLM        | All agents vote for one agent        |
-| choose      | LLM        | Choose from options                  |
-| score_calc  | Code       | Calculate scores                     |
-| assign      | Code       | Distribute info to agents            |
-| eliminate   | Code       | Remove most-voted agent              |
-| summarize   | Code       | Format round summary                 |
-| conditional | Control    | Branch on state DSL; nests sub-phases |
+| Type         | Processing | Description                          |
+|--------------|------------|--------------------------------------|
+| speak_all    | LLM        | All agents speak simultaneously      |
+| speak_each   | LLM        | Agents speak in turn (accumulating)  |
+| vote         | LLM        | All agents vote for one agent        |
+| choose       | LLM        | Choose from options                  |
+| score_calc   | Code       | Calculate scores                     |
+| assign       | Code       | Distribute info to agents            |
+| eliminate    | Code       | Remove most-voted agent              |
+| summarize    | Code       | Format round summary                 |
+| conditional  | Control    | Branch on state DSL; nests sub-phases |
+| event_inject | Code       | Inject random extraData string into state.variables (#256) |
+
+`event_inject` is allowed inside `conditional` branches (consistent with
+assign / score_calc nesting) — `ConditionalHandler.subHandlers` includes
+it, and `ScenarioValidator.validateBranch` runs the same shape-check it
+applies at the top level.
 
 ### PhaseHandler Protocol
 
@@ -96,7 +102,7 @@ speak_each: agentCount × subRounds per round
 vote:       agentCount per round
 choose:     agentCount × 2 for round_robin (N adjacent pairs, 2 calls each)
             agentCount for individual (no pairing)
-score_calc/assign/eliminate/summarize: 0 (code phases)
+score_calc/assign/eliminate/summarize/event_inject: 0 (code phases)
 conditional: max(sum(thenPhases), sum(elsePhases))  — only one branch
              runs per invocation, so `max` matches execution semantics
              and doesn't artificially block asymmetric-branch designs

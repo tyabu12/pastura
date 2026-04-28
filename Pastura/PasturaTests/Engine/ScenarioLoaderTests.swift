@@ -363,10 +363,126 @@ struct ScenarioLoaderTests {
         Phase(type: .scoreCalc, logic: .voteTally),
         Phase(type: .assign, source: "words"),
         Phase(type: .eliminate),
-        Phase(type: .summarize, template: "Done")
+        Phase(type: .summarize, template: "Done"),
+        Phase(type: .eventInject, source: "events", probability: 0.5)
       ]
     )
     #expect(ScenarioLoader.estimateInferenceCount(scenario) == 0)
+  }
+
+  // MARK: - event_inject phase parsing
+
+  @Test func parsesEventInjectFullSpec() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: random_events
+            probability: 0.3
+            as: my_event
+        random_events:
+          - "停電が起きた"
+          - "謎の電話"
+        """)
+    let scenario = try loader.load(yaml: yaml)
+    let phase = scenario.phases[0]
+    #expect(phase.type == .eventInject)
+    #expect(phase.source == "random_events")
+    #expect(phase.probability == 0.3)
+    #expect(phase.eventVariable == "my_event")
+  }
+
+  @Test func parsesEventInjectMinimalSpec() throws {
+    // Only `source:` is required — probability/as default at the handler.
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: events
+        events:
+          - "x"
+        """)
+    let scenario = try loader.load(yaml: yaml)
+    let phase = scenario.phases[0]
+    #expect(phase.type == .eventInject)
+    #expect(phase.source == "events")
+    #expect(phase.probability == nil)
+    #expect(phase.eventVariable == nil)
+  }
+
+  @Test func parsesProbabilityAsIntCoercesToDouble() throws {
+    // Boundary values `0` and `1` are the most ergonomic in YAML; the
+    // intentional Int → Double coercion (parseOptionalDoubleAcceptingInt)
+    // accepts both shapes.
+    let yamlOne = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: events
+            probability: 1
+        events:
+          - "x"
+        """)
+    let scenarioOne = try loader.load(yaml: yamlOne)
+    #expect(scenarioOne.phases[0].probability == 1.0)
+
+    let yamlZero = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: events
+            probability: 0
+        events:
+          - "x"
+        """)
+    let scenarioZero = try loader.load(yaml: yamlZero)
+    #expect(scenarioZero.phases[0].probability == 0.0)
+  }
+
+  @Test func parsesProbabilityAsDouble() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: events
+            probability: 0.5
+        events:
+          - "x"
+        """)
+    let scenario = try loader.load(yaml: yaml)
+    #expect(scenario.phases[0].probability == 0.5)
+  }
+
+  @Test func throwsOnProbabilityWrongType() {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: events
+            probability: "half"
+        events:
+          - "x"
+        """)
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+  }
+
+  @Test func throwsOnProbabilityBoolPretendingToBeInt() {
+    // Bool-as-Int laundering would let `probability: true` pass — guard
+    // against it explicitly so the Int-coercion exception stays narrow.
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: event_inject
+            source: events
+            probability: true
+        events:
+          - "x"
+        """)
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
   }
 
   // MARK: - Test Helpers

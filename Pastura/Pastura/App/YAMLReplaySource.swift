@@ -394,6 +394,7 @@ extension YAMLReplaySource {
     case "voteResults": return try decodeVoteResults(payload)
     case "pairingResult": return try decodePairingResult(payload)
     case "assignment": return try decodeAssignment(payload)
+    case "eventInjected": return decodeEventInjected(payload)
     default: return nil
     }
   }
@@ -446,6 +447,17 @@ extension YAMLReplaySource {
     }
     let value = payload["value"] as? String ?? ""
     return .assignment(agent: agent, value: value)
+  }
+
+  /// Decodes an `event_inject` payload. The miss case (`event: null`)
+  /// is meaningful — exporter writes it explicitly so the timeline can
+  /// distinguish "phase didn't run" from "rolled and lost". `event`
+  /// absent (legacy / hand-written replays) also maps to nil.
+  private static func decodeEventInjected(
+    _ payload: [String: Any]
+  ) -> SimulationEvent {
+    let event = payload["event"] as? String
+    return .eventInjected(event: event)
   }
 
   private static func decodeIntMap(

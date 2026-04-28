@@ -26,6 +26,8 @@ struct EditablePhase: Identifiable, Sendable {
   var condition: String
   var thenPhases: [EditablePhase]
   var elsePhases: [EditablePhase]
+  var probability: Double?
+  var eventVariable: String
 
   // swiftlint:disable:next function_default_parameter_at_end
   init(
@@ -42,7 +44,9 @@ struct EditablePhase: Identifiable, Sendable {
     subRounds: Int? = nil,
     condition: String = "",
     thenPhases: [EditablePhase] = [],
-    elsePhases: [EditablePhase] = []
+    elsePhases: [EditablePhase] = [],
+    probability: Double? = nil,
+    eventVariable: String = ""
   ) {
     self.type = type
     self.prompt = prompt
@@ -58,6 +62,8 @@ struct EditablePhase: Identifiable, Sendable {
     self.condition = condition
     self.thenPhases = thenPhases
     self.elsePhases = elsePhases
+    self.probability = probability
+    self.eventVariable = eventVariable
   }
 
   init(from phase: Phase) {
@@ -75,6 +81,8 @@ struct EditablePhase: Identifiable, Sendable {
     self.condition = phase.condition ?? ""
     self.thenPhases = phase.thenPhases?.map { EditablePhase(from: $0) } ?? []
     self.elsePhases = phase.elsePhases?.map { EditablePhase(from: $0) } ?? []
+    self.probability = phase.probability
+    self.eventVariable = phase.eventVariable ?? ""
   }
 
   /// Identifies which branch of a conditional phase to target.
@@ -123,7 +131,9 @@ struct EditablePhase: Identifiable, Sendable {
       subRounds: subRounds,
       condition: trimmedCondition.isEmpty ? nil : trimmedCondition,
       thenPhases: thenPhases.isEmpty ? nil : thenPhases.map { $0.toPhase() },
-      elsePhases: elsePhases.isEmpty ? nil : elsePhases.map { $0.toPhase() }
+      elsePhases: elsePhases.isEmpty ? nil : elsePhases.map { $0.toPhase() },
+      probability: probability,
+      eventVariable: eventVariable.isEmpty ? nil : eventVariable
     )
   }
 }

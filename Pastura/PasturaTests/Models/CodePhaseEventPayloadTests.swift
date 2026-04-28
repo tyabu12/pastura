@@ -48,6 +48,23 @@ struct CodePhaseEventPayloadTests {
     #expect(try roundTrip(original) == original)
   }
 
+  @Test func eventInjectedHitRoundTrip() throws {
+    let original = CodePhaseEventPayload.eventInjected(event: "突然停電が起きた")
+    #expect(try roundTrip(original) == original)
+  }
+
+  @Test func eventInjectedMissRoundTrip() throws {
+    // The miss case (`event == nil`) must round-trip distinct from a hit
+    // with empty text — the past-results timeline depends on the
+    // distinction between "no event this round" and an event that was
+    // genuinely empty.
+    let miss = CodePhaseEventPayload.eventInjected(event: nil)
+    let emptyHit = CodePhaseEventPayload.eventInjected(event: "")
+    #expect(try roundTrip(miss) == miss)
+    #expect(try roundTrip(emptyHit) == emptyHit)
+    #expect(miss != emptyHit)
+  }
+
   @Test func differentCasesAreNotEqual() {
     let lhs = CodePhaseEventPayload.summary(text: "hello")
     let rhs = CodePhaseEventPayload.elimination(agent: "hello", voteCount: 1)

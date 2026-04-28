@@ -16,6 +16,11 @@ words:
   - majority: りんご
     minority: みかん
 
+mid_game_announcements:
+  - "📺 司会者: ここで途中経過のお時間です — 残り時間あとわずか、的を絞っていきましょう。"
+  - "📺 観客席: もっと深い話を聞きたい！具体的なエピソードを希望します。"
+  - "📺 司会者: 怪しい人物が浮かび上がってきましたね。最後の一言で印象を固めましょう。"
+
 personas:
   - name: ユウキ
     description: >
@@ -60,7 +65,40 @@ phases:
     output:
       statement: string
       inner_thought: string
-    rounds: 3
+    rounds: 2
+
+  # 50% の確率で番組演出としての中間アナウンスが入る。
+  # event_inject の本来用途 (テキスト注入) を活かし、生成中の会話に
+  # 外的撹乱を差し込む。
+  - type: event_inject
+    source: mid_game_announcements
+    probability: 0.5
+
+  # アナウンスが入ったときだけ要約行を流す。
+  # event_inject が miss したときは current_event は空文字列になるため、
+  # この条件で表示を抑制する。
+  - type: conditional
+    if: 'current_event != ""'
+    then:
+      - type: summarize
+        template: "{current_event}"
+
+  # 中間アナウンスを踏まえた最後の一言。reaction speak_each。
+  - type: speak_each
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      番組からのアナウンス: {current_event}
+
+      これまでの流れと（あれば）アナウンスを踏まえて、投票前の最後の一言を述べてください。
+      お題の単語そのものは絶対に言わないこと。
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 1
 
   - type: vote
     prompt: >
