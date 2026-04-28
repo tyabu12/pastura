@@ -1,3 +1,8 @@
+// One @Test per validation rule keeps the failure-mode mapping legible —
+// splitting per-rule tests across files would obscure the cumulative
+// rule list. Empty-array + branch-context cases for event_inject (#256)
+// pushed the total over the 400-line cap.
+// swiftlint:disable file_length
 import Testing
 
 @testable import Pastura
@@ -275,6 +280,49 @@ struct ScenarioValidatorTests {
       #expect(message.contains("Phase 1 (event_inject)"))
       #expect(message.contains("must be a list of strings"))
       #expect(message.contains("['only_event']"))  // workaround hint
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWithEmptyArraySource() {
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.0,
+      extraData: ["events": .array([])])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (event_inject)"))
+      #expect(message.contains("'events'"))
+      #expect(message.contains("empty"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func rejectsEventInjectWithEmptyArraySourceInsideConditional() {
+    // Locks in the engine.md invariant that validateBranch routes
+    // sub-phase shape-checks through the same validateEventInjectShape
+    // helper as top-level — a regression that bypassed the helper for
+    // nested phases would silently re-allow empty arrays inside branches.
+    let inner = Phase(type: .eventInject, source: "events", probability: 1.0)
+    let conditional = Phase(
+      type: .conditional,
+      condition: "current_round == 1",
+      thenPhases: [inner])
+    let scenario = Scenario(
+      id: "test", name: "Test", description: "Test",
+      agentCount: 2, rounds: 1, context: "Context",
+      personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
+      phases: [conditional],
+      extraData: ["events": .array([])])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("event_inject"))
+      #expect(message.contains("empty"))
     } catch {
       Issue.record("Unexpected error: \(error)")
     }

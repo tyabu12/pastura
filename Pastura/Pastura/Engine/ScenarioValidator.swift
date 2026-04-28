@@ -205,8 +205,18 @@ nonisolated struct ScenarioValidator: Sendable {
       )
     }
     switch sourceValue {
-    case .array:
-      break
+    case .array(let entries):
+      // Empty array silently produces probability-miss-equivalent output
+      // at runtime (handler writes "" and emits .eventInjected(nil)),
+      // which a curator cannot distinguish from a string of unlucky rolls.
+      // Reject early so the misconfiguration surfaces at scenario load.
+      guard !entries.isEmpty else {
+        throw SimulationError.scenarioValidationFailed(
+          "\(label): source '\(sourceKey)' is empty. "
+            + "event_inject requires at least one string in the list; "
+            + "for a single fixed event use ['only_event']."
+        )
+      }
     case .string, .dictionary, .arrayOfDictionaries:
       throw SimulationError.scenarioValidationFailed(
         "\(label): source '\(sourceKey)' must be a list of strings. "
