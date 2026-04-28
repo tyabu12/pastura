@@ -24,13 +24,20 @@ extension PhaseEditorSheet {
       } header: {
         Text("Condition")
       } footer: {
-        Text(
-          "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. "
-            + "Identifiers: current_round, total_rounds, max_score, min_score, "
-            + "eliminated_count, active_count, vote_winner, scores.<Name>, "
-            + "or any template variable. Wrap string literals in double quotes."
-        )
-        .font(.caption)
+        VStack(alignment: .leading, spacing: 4) {
+          Text(
+            "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. "
+              + "Identifiers: current_round, total_rounds, max_score, min_score, "
+              + "eliminated_count, active_count, vote_winner, scores.<Name>, "
+              + "or any template variable. Wrap string literals in double quotes."
+          )
+          .font(.caption)
+          if let conditionError {
+            Text(conditionError)
+              .font(.caption)
+              .foregroundStyle(Color.danger)
+          }
+        }
       }
 
       branchSection(

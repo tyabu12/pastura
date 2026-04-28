@@ -31,11 +31,26 @@ struct PhaseEditorSheet: View {
   /// have the same check as a safety net.
   var availableTypes: [PhaseType] = PhaseType.allCases
 
+  /// Content validator for the Save-tap inline check (#261). Default-
+  /// constructed in production; tests inject a deterministic instance.
+  /// Forwarded to the nested sub-phase sheet so depth-1 nested edits
+  /// share the same validator and remain test-deterministic.
+  var validator: ScenarioContentValidator = ScenarioContentValidator()
+
   @State private var newOutputFieldName: String = ""
   @State private var newOptionText: String = ""
   // Internal (not private) so the sibling conditional-section extension
   // can present the nested editor from the "Add sub-phase" button.
   @State var editingSubPhase: SubPhaseEditContext?
+
+  // Per-field inline error state populated on Save tap when the
+  // validator surfaces a violation. Each property maps 1:1 to the
+  // corresponding visible Section footer below the field.
+  // `conditionError` is non-private so the sibling conditional-section
+  // extension can render it inside `conditionalSection`.
+  @State private var promptError: String?
+  @State private var templateError: String?
+  @State var conditionError: String?
 
   var body: some View {
     NavigationStack {
@@ -55,6 +70,9 @@ struct PhaseEditorSheet: View {
         }
         ToolbarItem(placement: .confirmationAction) {
           Button("Save") {
+            if !runInlineValidation() {
+              return
+            }
             onSave(phase)
             dismiss()
           }
@@ -63,17 +81,43 @@ struct PhaseEditorSheet: View {
       .sheet(item: $editingSubPhase) { context in
         // Nested editor — filter `.conditional` out of the picker so the
         // depth-1 rule is enforced at the UI layer (the validator + loader
-        // also reject nested conditional as defense in depth).
+        // also reject nested conditional as defense in depth). The
+        // validator is forwarded so nested Save runs against the same
+        // blocklist instance the outer sheet uses (#261).
         PhaseEditorSheet(
           phase: context.phase,
           onSave: { edited in
             writeBackSubPhase(edited, context: context)
           },
-          availableTypes: PhaseType.allCases.filter { $0 != .conditional }
+          availableTypes: PhaseType.allCases.filter { $0 != .conditional },
+          validator: validator
         )
         .deepLinkGated()
       }
     }
+  }
+
+  /// Runs `ScenarioContentValidator` on the fields the active phase type
+  /// exposes in the UI, then mirrors per-field findings into `@State` for
+  /// inline error rendering. Returns `true` if Save should proceed.
+  ///
+  /// Visible-fields-only by design: residual text in fields that the
+  /// active type's UI does not expose passes through here cleanly, then
+  /// gets caught by `ScenarioContentValidator.validate(_ scenario:)` on
+  /// the editor's outer Save (defense-in-depth, ADR-005 §4).
+  private func runInlineValidation() -> Bool {
+    let prompt = phase.type.requiresLLM ? phase.prompt : ""
+    let template = phase.type == .summarize ? phase.template : ""
+    let condition = phase.type == .conditional ? phase.condition : ""
+    let findings = validator.validate(
+      phasePrompt: prompt,
+      template: template,
+      condition: condition
+    )
+    promptError = findings.prompt
+    templateError = findings.template
+    conditionError = findings.condition
+    return !findings.hasIssue
   }
 
   private func writeBackSubPhase(_ edited: EditablePhase, context: SubPhaseEditContext) {
@@ -122,9 +166,17 @@ struct PhaseEditorSheet: View {
     } header: {
       Text("Prompt")
     } footer: {
-      Text(
-        "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
-      )
+      VStack(alignment: .leading, spacing: 4) {
+        Text(
+          "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
+        )
+        .font(.caption)
+        if let promptError {
+          Text(promptError)
+            .font(.caption)
+            .foregroundStyle(Color.danger)
+        }
+      }
     }
   }
 
@@ -281,7 +333,15 @@ struct PhaseEditorSheet: View {
     } header: {
       Text("Template")
     } footer: {
-      Text("Variables: {current_round}, {scoreboard}, {vote_results}")
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Variables: {current_round}, {scoreboard}, {vote_results}")
+          .font(.caption)
+        if let templateError {
+          Text(templateError)
+            .font(.caption)
+            .foregroundStyle(Color.danger)
+        }
+      }
     }
   }
 
