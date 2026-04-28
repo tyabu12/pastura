@@ -1,4 +1,12 @@
 // swiftlint:disable file_length
+// Deliberately long: YAMLReplaySource owns YAML loading, the compiled-plan
+// data model, planning for both `turns` and `code_phase_events`, and the
+// paced-plan emission consumed by `ReplayViewModel`. The fileprivate YAML
+// parsing helpers and per-section planners share the same `Compiled` plan
+// shape — splitting would force these helpers to module scope and weaken
+// the spec §3.5 "silent skip on unknown schema_version" boundary. See
+// YAMLReplayExporter.swift (the reverse direction of the same round-trip)
+// for the same pattern.
 import Foundation
 import Yams
 
