@@ -1,9 +1,17 @@
+// Suite combines fixture loaders, alignment helpers, and per-scenario
+// assertions; splitting them across files would put the static helpers
+// out of reach of the suite struct (they intentionally live inside the
+// type for `Self.` access). Conditional sub-phase verification (#256)
+// pushed the total over the 400-line cap.
+// swiftlint:disable file_length
 import Foundation
 import Testing
+import Yams
 
 @testable import Pastura
 
 @Suite(.timeLimit(.minutes(1)))
+// swiftlint:disable:next type_body_length
 struct BundledDemoReplaySourceTests {
 
   // MARK: - Fixtures
@@ -251,6 +259,147 @@ struct BundledDemoReplaySourceTests {
     // fallback path — it does not apply here because nothing can
     // silent-skip in this test environment.)
     #expect(sources.count >= 3)
+  }
+
+  /// Cross-checks that every bundled demo's `phase_index` lines up with
+  /// the resolved scenario's `phases[idx].type`.
+  ///
+  /// The SHA-pin check (`loadsValidDemoWhenShaMatches`) catches the case
+  /// where preset YAML drifts from what the demo was recorded against,
+  /// but only at byte level — both files can update in lockstep yet
+  /// leave the demo's per-turn coordinates pointing at the wrong phase
+  /// (option-C-style index drift introduced in #256). `YAMLReplaySource`
+  /// trusts the demo's `phase_type` field at decode time and synthesises
+  /// `.phaseStarted(.<wrong>)` lifecycle events; the bug surfaces in the
+  /// UI as wrong phase labels, not as a crash. This test catches that
+  /// regression at CI time.
+  ///
+  /// **Conditional sub-phase exemption:** `YAMLReplayExporter` flattens
+  /// nested-sub-phase lineage into the outer conditional's index (see
+  /// the comment at `YAMLReplayExporter.swift` ~line 313). When
+  /// `scenario.phases[idx].type == .conditional`, the demo's
+  /// `phase_type` legitimately names a sub-phase type; the alignment
+  /// check accepts any non-`conditional` PhaseType in that slot.
+  @Test func bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes() throws {
+    let sources = BundledDemoReplaySource.loadAll()
+    #expect(
+      !sources.isEmpty, "loadAll() returned no sources — earlier test should have caught this")
+
+    for source in sources {
+      let scenarioId = source.scenario.id
+      let phases = source.scenario.phases
+
+      guard
+        let demoURL = Bundle.main.url(
+          forResource: "\(scenarioId)_demo", withExtension: "yaml"),
+        let demoText = try? String(contentsOf: demoURL, encoding: .utf8)
+      else {
+        Issue.record("Demo file for scenario id '\(scenarioId)' not found in bundle")
+        continue
+      }
+
+      let raw: [String: Any]
+      do {
+        raw = try Self.parseYAMLAsDictionary(demoText)
+      } catch {
+        Issue.record("Failed to parse \(scenarioId)_demo.yaml as YAML mapping: \(error)")
+        continue
+      }
+
+      let turns = raw["turns"] as? [[String: Any]] ?? []
+      let codeEvents = raw["code_phase_events"] as? [[String: Any]] ?? []
+
+      for (i, turn) in turns.enumerated() {
+        try Self.assertPhaseAlignment(
+          entry: turn, label: "\(scenarioId)_demo turns[\(i)]", phases: phases)
+      }
+      for (i, event) in codeEvents.enumerated() {
+        try Self.assertPhaseAlignment(
+          entry: event, label: "\(scenarioId)_demo code_phase_events[\(i)]", phases: phases)
+      }
+    }
+  }
+
+  /// Helper for `bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes`.
+  /// Static so the suite struct (a value type) can hand itself to the
+  /// closure-bound iteration without capturing self semantics.
+  static func assertPhaseAlignment(
+    entry: [String: Any], label: String, phases: [Phase]
+  ) throws {
+    guard let phaseIndex = entry["phase_index"] as? Int else {
+      Issue.record("\(label): missing or non-Int phase_index")
+      return
+    }
+    guard let phaseTypeRaw = entry["phase_type"] as? String else {
+      Issue.record("\(label): missing or non-String phase_type")
+      return
+    }
+    guard phases.indices.contains(phaseIndex) else {
+      Issue.record(
+        "\(label): phase_index \(phaseIndex) is out of range (scenario has \(phases.count) phases)")
+      return
+    }
+    let resolved = phases[phaseIndex].type
+    let demoType = PhaseType(rawValue: phaseTypeRaw)
+
+    if resolved == .conditional {
+      // Sub-phase under conditional — exporter legitimately denormalises
+      // to the outer conditional's index. Accept any non-conditional
+      // sub-phase type (depth-1 rule). Use `Issue.record` instead of
+      // `#expect` with a message because Swift Testing only accepts a
+      // `Comment` (string literal) as the second argument; runtime-built
+      // strings can't be passed via `#expect`'s message slot. The string
+      // is built via interpolation rather than `+` so the closure's
+      // expected literal-conversion path stays in scope.
+      if demoType == nil || demoType == .conditional {
+        let message = """
+          \(label): phase_index \(phaseIndex) is a conditional in the preset; \
+          demo phase_type '\(phaseTypeRaw)' must name a non-conditional sub-phase type
+          """
+        Issue.record(Comment(rawValue: message))
+        return
+      }
+      // Verify the named sub-phase actually exists in the conditional's
+      // branches. Catches the literal-swap drift (e.g., curator swaps
+      // outer slots so a demo's phase_type now points at a conditional
+      // whose branches don't contain that type). v1 limitation: a
+      // type-equivalent reorder where both branches happen to contain
+      // the named sub-phase type still passes silently — acceptable
+      // because depth-1 word_wolf-shape branches each hold one
+      // sub-phase, but if branch-attribution becomes load-bearing this
+      // assertion needs to grow a branch_index cross-check.
+      let subPhases =
+        (phases[phaseIndex].thenPhases ?? []) + (phases[phaseIndex].elsePhases ?? [])
+      let subPhaseTypes = subPhases.map { $0.type.rawValue }
+      if !subPhaseTypes.contains(phaseTypeRaw) {
+        let message = """
+          \(label): phase_index \(phaseIndex) is a conditional whose branches \
+          contain \(subPhaseTypes); demo phase_type '\(phaseTypeRaw)' is not present
+          """
+        Issue.record(Comment(rawValue: message))
+      }
+      return
+    }
+
+    if resolved.rawValue != phaseTypeRaw {
+      let message = """
+        \(label): phase_index \(phaseIndex) resolves to \(resolved.rawValue) \
+        in the preset, but demo declares phase_type: \(phaseTypeRaw)
+        """
+      Issue.record(Comment(rawValue: message))
+    }
+  }
+
+  private static func parseYAMLAsDictionary(_ text: String) throws -> [String: Any] {
+    // Reuse Yams indirectly via ScenarioLoader's parse path is overkill
+    // — but BundledDemoReplaySource already forwards to YAMLReplaySource
+    // for the same parse, and Yams is the project's only YAML lib.
+    guard let raw = try Yams.load(yaml: text) as? [String: Any] else {
+      throw NSError(
+        domain: "BundledDemoReplaySourceTests", code: 1,
+        userInfo: [NSLocalizedDescriptionKey: "YAML root is not a mapping"])
+    }
+    return raw
   }
 }
 

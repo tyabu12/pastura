@@ -15,10 +15,11 @@ struct PhaseTypeTests {
     #expect(PhaseType.eliminate.rawValue == "eliminate")
     #expect(PhaseType.summarize.rawValue == "summarize")
     #expect(PhaseType.conditional.rawValue == "conditional")
+    #expect(PhaseType.eventInject.rawValue == "event_inject")
   }
 
   @Test func allCasesCount() {
-    #expect(PhaseType.allCases.count == 9)
+    #expect(PhaseType.allCases.count == 10)
   }
 
   @Test func llmPhasesRequireLLM() {
@@ -35,6 +36,8 @@ struct PhaseTypeTests {
     #expect(!PhaseType.summarize.requiresLLM)
     // conditional is control-flow; the handler itself does no inference.
     #expect(!PhaseType.conditional.requiresLLM)
+    // eventInject is a code phase; picks a random string from extraData.
+    #expect(!PhaseType.eventInject.requiresLLM)
   }
 
   @Test func decodableFromJSON() throws {

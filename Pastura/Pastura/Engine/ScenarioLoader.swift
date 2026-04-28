@@ -1,3 +1,8 @@
+// Per-phase decoder dispatch + manual `[String: Any]` mapping (ADR-001)
+// keeps the phase-shape switch and its helpers co-located. Splitting
+// per-phase decoders into separate files would force shared mapping
+// helpers to module scope and lose the locality of the dispatch table.
+// swiftlint:disable file_length
 import Foundation
 import Yams
 
@@ -62,7 +67,7 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
       return agents
     case .choose:
       return phase.pairing == .roundRobin ? agents * 2 : agents
-    case .scoreCalc, .assign, .eliminate, .summarize:
+    case .scoreCalc, .assign, .eliminate, .summarize, .eventInject:
       return 0
     case .conditional:
       let thenCost = (phase.thenPhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
@@ -123,6 +128,34 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
       )
     }
     return typed
+  }
+
+  /// Extracts an optional `Double` field, accepting an `Int` and converting.
+  ///
+  /// Intentional exception to the project-wide #130 strict-no-coerce stance.
+  /// The `event_inject` phase's `probability` field is the first natural-decimal
+  /// `Double?` field on `Phase`; in YAML the values `0` / `1` (integers) are
+  /// the most ergonomic way to write the boundary cases (always-fire /
+  /// never-fire). Forcing curators to write `1.0` / `0.0` would surface the
+  /// Yams Int-vs-Double bridging quirk for no curator-visible benefit.
+  ///
+  /// Throws on `String` / `Bool` / other types — the coercion window is
+  /// strictly Int → Double, not "anything resembling a number". Bool is
+  /// excluded because Swift's `as? Int` silently coerces a Bool, which would
+  /// reintroduce the type-laundering bug class.
+  private func parseOptionalDoubleAcceptingInt(
+    _ dict: [String: Any], key: String, label: String
+  ) throws -> Double? {
+    guard let raw = dict[key] else { return nil }
+    if let double = raw as? Double, !(raw is Bool) {
+      return double
+    }
+    if let int = raw as? Int, !(raw is Bool) {
+      return Double(int)
+    }
+    throw SimulationError.scenarioValidationFailed(
+      "\(label): field '\(key)' must be Double or Int, got \(type(of: raw))"
+    )
   }
 
   /// Maps a raw YAML dictionary to a ``Scenario`` model.
@@ -257,6 +290,12 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     let elsePhases = try mapBranch(
       dict["else"], branchLabel: "else", parentLabel: label, depth: depth)
 
+    // event_inject-specific fields. `probability` accepts Int → Double so
+    // boundary literals (`0` / `1`) round-trip naturally; `as` is the
+    // variable name written by the handler.
+    let probability = try parseOptionalDoubleAcceptingInt(dict, key: "probability", label: label)
+    let eventVariable: String? = try parseOptional(dict, key: "as", label: label)
+
     return Phase(
       type: phaseType,
       prompt: prompt,
@@ -271,7 +310,9 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
       subRounds: subRounds,
       condition: condition,
       thenPhases: thenPhases,
-      elsePhases: elsePhases
+      elsePhases: elsePhases,
+      probability: probability,
+      eventVariable: eventVariable
     )
   }
 

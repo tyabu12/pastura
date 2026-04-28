@@ -308,6 +308,7 @@ struct ModelDownloadHostView: View {
     case .eliminate: return "脱落"
     case .summarize: return "要約"
     case .conditional: return "条件分岐"
+    case .eventInject: return "イベント注入"
     }
   }
 

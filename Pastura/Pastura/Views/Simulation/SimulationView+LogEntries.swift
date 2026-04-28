@@ -59,6 +59,29 @@ extension SimulationView {
     .padding(.horizontal)
   }
 
+  /// Live row for `event_inject` phase results.
+  ///
+  /// The miss case (`event == nil`) renders an explicit "no event"
+  /// marker rather than disappearing — users observing a probabilistic
+  /// phase need to see the dice roll, not just the hits.
+  @ViewBuilder
+  func eventInjectedEntry(event: String?) -> some View {
+    if let event {
+      HStack(spacing: 4) {
+        Image(systemName: "die.face.5").foregroundStyle(Color.inkSecondary)
+        Text(event)
+          .textStyle(Typography.bodyBubble)
+          .foregroundStyle(Color.inkSecondary)
+      }
+      .padding(.horizontal)
+    } else {
+      Text("No event this round")
+        .textStyle(Typography.metaValue)
+        .foregroundStyle(Color.muted)
+        .padding(.horizontal)
+    }
+  }
+
   func roundSeparator(_ text: String) -> some View {
     HStack {
       Rectangle().fill(Color.rule).frame(height: 1)
