@@ -1,3 +1,7 @@
+// Per-phase decoder dispatch + manual `[String: Any]` mapping (ADR-001)
+// keeps the phase-shape switch and its helpers co-located. Splitting
+// per-phase decoders into separate files would force shared mapping
+// helpers to module scope and lose the locality of the dispatch table.
 // swiftlint:disable file_length
 import Foundation
 import Yams
