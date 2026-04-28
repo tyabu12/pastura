@@ -3,6 +3,7 @@ paths:
   - "Pastura/PasturaTests/**"
   - "Pastura/PasturaUITests/**"
   - "Pastura/Pastura/Views/**"
+  - "Pastura/Pastura/App/**ViewModel.swift"
 ---
 
 # View Testing Strategy

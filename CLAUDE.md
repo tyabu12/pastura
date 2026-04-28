@@ -210,7 +210,7 @@ pages/                           # Public HTML deployed via .github/workflows/de
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
 - `testing.md` — Test target (`Pastura/PasturaTests/**`)
-- `view-testing.md` — View test strategy: extract logic to unit-tests, narrow UI integration tests, no ViewInspector / snapshot (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`). Decision record: [ADR-009](docs/decisions/ADR-009.md).
+- `view-testing.md` — View test strategy: extract logic to unit-tests, narrow UI integration tests, no ViewInspector / snapshot (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**ViewModel.swift`). Decision record: [ADR-009](docs/decisions/ADR-009.md).
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
