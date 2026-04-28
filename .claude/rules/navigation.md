@@ -453,3 +453,22 @@ surface changes in areas the automated tests do not exercise.
       session and future sessions) skips the dialog. Verify by
       tapping Download in Settings on a second `.notDownloaded`
       row — cover opens directly without re-prompting.
+
+    - **Deep link arriving while dialog is visible** — on cellular
+      without prior consent, trigger the dialog (picker / Settings
+      / relaunch path), then open a `pastura://scenario/<id>` link
+      from another app while the dialog is up. Expected: the
+      gate-blocked toast appears (the dialog opts into
+      `DeepLinkGate.sheetPresentationCount` via a hidden
+      `Color.clear.deepLinkGated()` marker mounted on
+      `pendingCellularConsent != nil`); no navigation occurs under
+      the dialog. Tap **Wait for Wi-Fi**, **Download anyway**, or
+      tap-outside to dismiss the dialog → drain fires immediately
+      and the gallery scenario detail pushes onto the underlying
+      stack. Toast visibility on top of the dialog is OS-driven
+      (system-presented confirmation dialogs run on a separate
+      window scene), so verify on iOS 17 and 18 that the toast
+      remains tappable / visible. iPad multi-window: only the
+      focused scene's gate is incremented (each scene owns its own
+      `DeepLinkGate` and `ModelManager`), so a dialog in scene A
+      does not block deep-link drain in scene B.

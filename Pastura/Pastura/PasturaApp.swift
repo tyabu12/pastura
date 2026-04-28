@@ -124,6 +124,14 @@ private struct RootView: View {
       Alert(title: Text(alert.title), message: Text(alert.message))
     }
     .modifier(CellularConsentDialogModifier(modelManager: modelManager))
+    // Inject the gate at the body root so `.deepLinkGated()` markers
+    // mounted inside `mainContent` (e.g. the cellular consent dialog
+    // marker, which fires on `.needsModelDownload`, well before
+    // `.ready`) and inside `CellularConsentDialogModifier`'s own body
+    // both resolve to the real gate instance. The downstream
+    // `.environment(gate)` on `HomeView` becomes redundant but is
+    // kept until a follow-up cleanup to minimise blast radius.
+    .environment(gate)
   }
 
   // MARK: - Content
@@ -474,34 +482,52 @@ extension RootView {
 /// synthesized `Binding<Bool>` so it counts as decline — without that,
 /// the gate would silently leave `pendingCellularConsent` non-nil
 /// after the dialog closed itself.
+///
+/// Deep links arriving while the dialog is visible are gated through
+/// `DeepLinkGate.sheetPresentationCount` via a hidden
+/// `Color.clear.deepLinkGated()` marker that mounts only while
+/// `pendingCellularConsent != nil`. This reuses the same
+/// onAppear/onDisappear ±1 path as sheets/covers; we deliberately
+/// avoid an `onChange(of: pendingCellularConsent?.id)` path because
+/// `acceptCellularConsent` clears and re-requires the descriptor
+/// within a single frame on edge cases (consent-store write failure,
+/// test stubs returning false), and SwiftUI's Equatable coalescing
+/// can drop one side of the nil↔id transition pair, leaking the
+/// counter in the +1 direction and stalling the gate forever.
 private struct CellularConsentDialogModifier: ViewModifier {
   let modelManager: ModelManager
 
   func body(content: Content) -> some View {
-    content.confirmationDialog(
-      String(localized: "Download on cellular?"),
-      isPresented: Binding(
-        get: { modelManager.pendingCellularConsent != nil },
-        set: { newValue in
-          if !newValue, modelManager.pendingCellularConsent != nil {
-            modelManager.declineCellularConsent()
-          }
-        }),
-      titleVisibility: .visible,
-      presenting: modelManager.pendingCellularConsent
-    ) { _ in
-      Button(String(localized: "Download anyway"), role: .destructive) {
-        modelManager.acceptCellularConsent()
+    content
+      .background {
+        if modelManager.pendingCellularConsent != nil {
+          Color.clear.deepLinkGated()
+        }
       }
-      Button(String(localized: "Wait for Wi-Fi"), role: .cancel) {
-        modelManager.declineCellularConsent()
+      .confirmationDialog(
+        String(localized: "Download on cellular?"),
+        isPresented: Binding(
+          get: { modelManager.pendingCellularConsent != nil },
+          set: { newValue in
+            if !newValue, modelManager.pendingCellularConsent != nil {
+              modelManager.declineCellularConsent()
+            }
+          }),
+        titleVisibility: .visible,
+        presenting: modelManager.pendingCellularConsent
+      ) { _ in
+        Button(String(localized: "Download anyway"), role: .destructive) {
+          modelManager.acceptCellularConsent()
+        }
+        Button(String(localized: "Wait for Wi-Fi"), role: .cancel) {
+          modelManager.declineCellularConsent()
+        }
+      } message: { descriptor in
+        Text(
+          String(
+            localized:
+              "Downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) on cellular may use significant data. Wi-Fi is recommended."
+          ))
       }
-    } message: { descriptor in
-      Text(
-        String(
-          localized:
-            "Downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) on cellular may use significant data. Wi-Fi is recommended."
-        ))
-    }
   }
 }
