@@ -34,18 +34,22 @@ extension LlamaCppService {
       // Diagnostic log for #84 Bug 3: confirms whether reload raced through
       // during throttle's 200ms sleep (in which case isGenerating() == false
       // even though a generate is logically about to run).
-      logger.info("\(caller)() awaitGenerateIdle: idle on entry — proceeding immediately")
+      logger.info(
+        "\(caller, privacy: .public)() awaitGenerateIdle: idle on entry — proceeding immediately"
+      )
       return
     }
 
-    logger.warning("\(caller)() called while generate() in flight — awaiting completion")
+    logger.warning(
+      "\(caller, privacy: .public)() called while generate() in flight — awaiting completion"
+    )
     let deadline = Date().addingTimeInterval(Self.awaitGenerateTimeoutSeconds)
 
     while isGenerating() {
       if Date() > deadline {
         let timeout = Self.awaitGenerateTimeoutSeconds
         logger.error(
-          "\(caller)() timed out after \(timeout)s — proceeding despite in-flight generate"
+          "\(caller, privacy: .public)() timed out after \(timeout)s — proceeding despite in-flight generate"
         )
         return
       }
@@ -95,13 +99,14 @@ extension LlamaCppService {
       if tryClaimGeneratingGuard() { return }
       if !loggedWaiting {
         logger.warning(
-          "\(caller)() called while generate() in flight — awaiting completion")
+          "\(caller, privacy: .public)() called while generate() in flight — awaiting completion"
+        )
         loggedWaiting = true
       }
       if Date() > deadline {
         let timeout = Self.awaitGenerateTimeoutSeconds
         logger.error(
-          "\(caller)() timed out after \(timeout)s acquiring guard — force-claiming despite contention"
+          "\(caller, privacy: .public)() timed out after \(timeout)s acquiring guard — force-claiming despite contention"
         )
         // Force-claim: prefer degraded safety (use-after-free risk) over
         // a permanent hang. Matches `awaitGenerateIdle`'s "proceed despite

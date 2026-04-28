@@ -76,6 +76,7 @@ Utilities/ → depends on nothing
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
   `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
 - **Error message i18n prep:** On `LocalizedError`-conforming types (`SimulationError`, `LLMError`, `DataError`, ...), wrap `errorDescription` literals in `String(localized: "...")`. Tests assert via `.contains(...)` partial matching, not equality. Keeps the current English-only scope while making future translation additive.
+- **Logger privacy:** OSLog redacts `String` / `Substring` / `Error` interpolations as `<private>` in TestFlight / Release. Annotate non-`.debug` Logger interpolations with `privacy: .public`. Don't Logger-interpolate user content (scenario text, agent outputs) — route through `TurnRecord` persistence. Narrow exceptions for already-persisted diagnostics and public-API parameters are documented as inline comments at `LLMCaller.logParseFailure` and `BackgroundSimulationManager.scheduleRequest`.
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
   `AsyncStream` over callbacks. Engine/LLM work runs on non-main actors or default executor.
 - **Default Actor Isolation:** Project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
