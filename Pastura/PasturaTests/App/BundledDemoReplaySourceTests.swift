@@ -1,3 +1,9 @@
+// Suite combines fixture loaders, alignment helpers, and per-scenario
+// assertions; splitting them across files would put the static helpers
+// out of reach of the suite struct (they intentionally live inside the
+// type for `Self.` access). Conditional sub-phase verification (#256)
+// pushed the total over the 400-line cap.
+// swiftlint:disable file_length
 import Foundation
 import Testing
 import Yams
@@ -349,6 +355,26 @@ struct BundledDemoReplaySourceTests {
         let message = """
           \(label): phase_index \(phaseIndex) is a conditional in the preset; \
           demo phase_type '\(phaseTypeRaw)' must name a non-conditional sub-phase type
+          """
+        Issue.record(Comment(rawValue: message))
+        return
+      }
+      // Verify the named sub-phase actually exists in the conditional's
+      // branches. Catches the literal-swap drift (e.g., curator swaps
+      // outer slots so a demo's phase_type now points at a conditional
+      // whose branches don't contain that type). v1 limitation: a
+      // type-equivalent reorder where both branches happen to contain
+      // the named sub-phase type still passes silently — acceptable
+      // because depth-1 word_wolf-shape branches each hold one
+      // sub-phase, but if branch-attribution becomes load-bearing this
+      // assertion needs to grow a branch_index cross-check.
+      let subPhases =
+        (phases[phaseIndex].thenPhases ?? []) + (phases[phaseIndex].elsePhases ?? [])
+      let subPhaseTypes = subPhases.map { $0.type.rawValue }
+      if !subPhaseTypes.contains(phaseTypeRaw) {
+        let message = """
+          \(label): phase_index \(phaseIndex) is a conditional whose branches \
+          contain \(subPhaseTypes); demo phase_type '\(phaseTypeRaw)' is not present
           """
         Issue.record(Comment(rawValue: message))
       }
