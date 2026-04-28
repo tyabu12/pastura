@@ -273,16 +273,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // Lifecycle logger — accessed from the +Background extension. Use `info` for
   // routine state transitions and `error` for unexpected paths so device logs
   // stay readable.
-  let lifecycleLogger = Logger(subsystem: "com.pastura", category: "SimulationVM")
+  let lifecycleLogger = Logger(subsystem: "com.tyabu12.Pastura", category: "SimulationVM")
 
   #if DEBUG
     // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
     // Shared across VM + `AgentOutputRow`; filter Console.app with
-    // `subsystem:com.pastura category:StreamingDiag` to surface the 2 signals
+    // `subsystem:com.tyabu12.Pastura category:StreamingDiag` to surface the 2 signals
     // feeding PR#5 ADR pivot-path decision (Hyp A retry / Hyp B recycle).
     // `.info` level so it shows without `log config` overrides on-device.
     static let streamingDiagLogger = Logger(
-      subsystem: "com.pastura", category: "StreamingDiag")
+      subsystem: "com.tyabu12.Pastura", category: "StreamingDiag")
 
     // Per-agent in-flight attempt counter for Hyp A (parse-retry silent
     // transition). `LLMCaller.call` emits `.inferenceStarted` +
