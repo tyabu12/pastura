@@ -61,7 +61,11 @@ struct PhaseBlockRow: View {
       return "\(condition) → then:\(then) else:\(elseCount)"
     case .eventInject:
       let src = phase.source.isEmpty ? "?" : phase.source
-      let prob = phase.probability ?? 1.0
+      // Hide the multiplier when probability is unset — `× 1` adds noise
+      // for the implicit-default case (always-fires) on a list of mixed
+      // phase summaries. Explicit values still render so curators can
+      // see at-a-glance probability tuning.
+      guard let prob = phase.probability else { return src }
       let probText = String(format: "%g", prob)
       return "\(src) × \(probText)"
     }

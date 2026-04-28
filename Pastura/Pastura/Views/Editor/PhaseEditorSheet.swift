@@ -290,6 +290,7 @@ struct PhaseEditorSheet: View {
       Section {
         TextField("Top-level YAML key", text: $phase.source)
           .textInputAutocapitalization(.never)
+          .accessibilityLabel("Source")
       } header: {
         Text("Source")
       } footer: {
@@ -312,6 +313,7 @@ struct PhaseEditorSheet: View {
       Section {
         TextField("current_event", text: $phase.eventVariable)
           .textInputAutocapitalization(.never)
+          .accessibilityLabel("Variable name")
       } header: {
         Text("Variable name")
       } footer: {
@@ -348,7 +350,11 @@ struct PhaseEditorSheet: View {
   private var probabilityBinding: Binding<Double> {
     Binding(
       get: { phase.probability ?? 1.0 },
-      set: { phase.probability = $0 }
+      // Snap to one decimal so Stepper's `step: 0.1` increments don't
+      // accumulate IEEE-754 drift (0.1+0.1+0.1=0.30000000000000004) into
+      // serialized YAML. Setter only fires on user interaction, so a
+      // phase the curator never touched stays nil-on-read / nil-on-save.
+      set: { phase.probability = ($0 * 10).rounded() / 10 }
     )
   }
 
