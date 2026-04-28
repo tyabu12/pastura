@@ -61,7 +61,81 @@ final class ScenarioContentValidator {
     return findings
   }
 
+  // MARK: - Per-field API for inline editor sheets (#261)
+
+  /// Per-field findings for inline validation in `PersonaEditorSheet`.
+  ///
+  /// Each property is either `nil` (clean) or a localized error message.
+  /// Messages are intentionally context-free — they do not interpolate
+  /// sibling field values, so when both `name` and `description` contain
+  /// blocked patterns, neither message echoes the matched term
+  /// (ADR-005 §4.7).
+  struct PersonaFindings: Sendable {
+    let name: String?
+    let description: String?
+    var hasIssue: Bool { name != nil || description != nil }
+  }
+
+  /// Per-field findings for inline validation in `PhaseEditorSheet`.
+  ///
+  /// Same context-free contract as ``PersonaFindings``: messages do not
+  /// interpolate other phase fields. Per-field, per-tap validation is
+  /// scoped to the three blockable content fields the scenario-level
+  /// walk also covers (ADR-005 §4.3).
+  struct PhaseFindings: Sendable {
+    let prompt: String?
+    let template: String?
+    let condition: String?
+    var hasIssue: Bool { prompt != nil || template != nil || condition != nil }
+  }
+
+  /// Validates a single persona's text fields for inline editor feedback.
+  ///
+  /// Empty strings are skipped — mirrors ``EditablePhase.toPhase()``'s
+  /// empty→nil convention so authors don't see errors for fields they
+  /// have not typed in. Returned messages are context-free; see
+  /// ``PersonaFindings`` doc-comment.
+  func validate(personaName name: String, description: String) -> PersonaFindings {
+    PersonaFindings(
+      name: shouldFlag(name)
+        ? String(localized: "Name contains a term that is not allowed")
+        : nil,
+      description: shouldFlag(description)
+        ? String(localized: "Description contains a term that is not allowed")
+        : nil
+    )
+  }
+
+  /// Validates a single phase's content text fields for inline editor feedback.
+  ///
+  /// Empty strings are skipped. Callers are expected to pass only the
+  /// fields the active phase type exposes in the UI — fields the user
+  /// cannot edit at this moment shouldn't surface errors here. The
+  /// scenario-level ``validate(_:)`` walk remains the backstop for
+  /// residual blocked text in fields hidden by a type switch.
+  func validate(
+    phasePrompt prompt: String,
+    template: String,
+    condition: String
+  ) -> PhaseFindings {
+    PhaseFindings(
+      prompt: shouldFlag(prompt)
+        ? String(localized: "Prompt contains a term that is not allowed")
+        : nil,
+      template: shouldFlag(template)
+        ? String(localized: "Template contains a term that is not allowed")
+        : nil,
+      condition: shouldFlag(condition)
+        ? String(localized: "Condition contains a term that is not allowed")
+        : nil
+    )
+  }
+
   // MARK: - Private
+
+  private func shouldFlag(_ text: String) -> Bool {
+    !text.isEmpty && containsBlockedPattern(text)
+  }
 
   private func personaFindings(_ persona: Persona, index: Int) -> [String] {
     var findings: [String] = []
