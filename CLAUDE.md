@@ -210,13 +210,13 @@ pages/                           # Public HTML deployed via .github/workflows/de
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
 - `testing.md` — Test target (`Pastura/PasturaTests/**`)
+- `view-testing.md` — View test strategy: extract logic to unit-tests, narrow UI integration tests, no ViewInspector / snapshot (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`). Decision record: [ADR-009](docs/decisions/ADR-009.md).
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
 - `llm.md` — LLM-layer traps (e.g., `nonisolated` protocol-default impls that build escaping closures) can fire from any conformer, including types added in `App/` or test targets, so the rule must stay visible regardless of which file is being edited.
 - `navigation.md` — `AppRouter` pattern: programmatic root-stack navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto the root stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
-- `view-testing.md` — View testing strategy: extract logic to unit-tests, narrow UI integration tests, do NOT introduce ViewInspector / snapshot testing libraries. Always-loaded because the question "should I add a snapshot test for this?" can arise from any feature directory and the answer is no without first revisiting the rule.
 
 ## File Naming
 
@@ -243,6 +243,7 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3; reserved — not yet written; see ADR-005 §7.5) |
 | `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
 | `docs/decisions/ADR-008.md`           | Route identity vs render-time hints (`RouteHint<T>` pattern, #245) |
+| `docs/decisions/ADR-009.md`           | View testing strategy (no ViewInspector / snapshot; #269) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
 | `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
