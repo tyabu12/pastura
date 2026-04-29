@@ -166,6 +166,7 @@ The Step A row above is summarized; the full scope is:
 - **CI coverage**: `scripts/check_localization_coverage.py` added to CI; fails when `ja` key coverage < 100%.
 - **Out-of-Scope**: Engine prompt strings and scoring summaries (deferred to Step C).
 - **PR-level split (recommended)**: A-1 (xcstrings + UI shell `ja` + B-2 docs) and A-2 (error i18n + audit + CI coverage).
+- **i18n leak detection (#292)** ships in a follow-up PR after A-2 merges, not bundled with A-2 itself. Tier 1 SwiftLint custom rule (catches `errorMessage = "..."`-style unwrapped assignments) plus Tier 2 `xcstringstool --all-potential-swift-keys` developer-audit script. Sequencing: A-2 must merge first because the Tier 1 rule depends on the 4 missed wraps in `SimulationViewModel*.swift` being fixed; otherwise the rule would either fail on existing code or get neutered. See issue #292 for the full Tier 1/2/3 architecture.
 
 #### Language-resolution priority (3 layers, confirmed in ADR-010)
 
