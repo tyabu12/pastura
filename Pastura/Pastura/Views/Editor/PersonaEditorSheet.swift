@@ -32,9 +32,9 @@ struct PersonaEditorSheet: View {
     NavigationStack {
       Form {
         Section {
-          TextField("Persona name", text: $name)
+          TextField(String(localized: "Persona name"), text: $name)
         } header: {
-          Text("Name")
+          Text(String(localized: "Name"))
         } footer: {
           if let nameError {
             Text(nameError)
@@ -47,7 +47,7 @@ struct PersonaEditorSheet: View {
           TextEditor(text: $description)
             .frame(minHeight: 88)
         } header: {
-          Text("Description")
+          Text(String(localized: "Description"))
         } footer: {
           if let descriptionError {
             Text(descriptionError)
@@ -56,17 +56,21 @@ struct PersonaEditorSheet: View {
           }
         }
       }
-      .navigationTitle(name.isEmpty ? "New Persona" : "Edit Persona")
+      .navigationTitle(
+        name.isEmpty
+          ? String(localized: "New Persona")
+          : String(localized: "Edit Persona")
+      )
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") {
+          Button(String(localized: "Cancel")) {
             dismiss()
           }
         }
 
         ToolbarItem(placement: .confirmationAction) {
-          Button("Save") {
+          Button(String(localized: "Save")) {
             let findings = validator.validate(
               personaName: name,
               description: description

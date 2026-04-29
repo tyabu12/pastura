@@ -62,14 +62,14 @@ struct PhaseEditorSheet: View {
         }
         typeSpecificSection
       }
-      .navigationTitle("Edit Phase")
+      .navigationTitle(String(localized: "Edit Phase"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button(String(localized: "Cancel")) { dismiss() }
         }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Save") {
+          Button(String(localized: "Save")) {
             if !runInlineValidation() {
               return
             }
@@ -137,14 +137,14 @@ struct PhaseEditorSheet: View {
 
   private var typeSection: some View {
     Section {
-      Picker("Type", selection: $phase.type) {
+      Picker(String(localized: "Type"), selection: $phase.type) {
         ForEach(availableTypes, id: \.self) { type in
           HStack {
             Text(type.rawValue)
             if type.requiresLLM {
               // `info` here is a quiet category badge for LLM-required phase types,
               // not a notification — see design-system §2.6 for the alert-family scope.
-              Text("LLM")
+              Text(String(localized: "LLM"))
                 .font(.caption2)
                 .foregroundStyle(Color.info)
             }
@@ -164,11 +164,14 @@ struct PhaseEditorSheet: View {
         .frame(minHeight: 88)
         .font(.body.monospaced())
     } header: {
-      Text("Prompt")
+      Text(String(localized: "Prompt"))
     } footer: {
       VStack(alignment: .leading, spacing: 4) {
         Text(
-          "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
+          String(
+            localized:
+              "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
+          )
         )
         .font(.caption)
         if let promptError {
@@ -181,7 +184,7 @@ struct PhaseEditorSheet: View {
   }
 
   private var outputFieldsSection: some View {
-    Section("Output Fields") {
+    Section(String(localized: "Output Fields")) {
       ForEach(phase.outputFields.keys.sorted(), id: \.self) { key in
         HStack {
           Text(key)
@@ -199,7 +202,7 @@ struct PhaseEditorSheet: View {
       }
 
       HStack {
-        TextField("Field name", text: $newOutputFieldName)
+        TextField(String(localized: "Field name"), text: $newOutputFieldName)
           .font(.body.monospaced())
           .textInputAutocapitalization(.never)
         Button {
@@ -249,7 +252,7 @@ struct PhaseEditorSheet: View {
 
   private var chooseSection: some View {
     Group {
-      Section("Options") {
+      Section(String(localized: "Options")) {
         ForEach(phase.options, id: \.self) { option in
           HStack {
             Text(option)
@@ -264,7 +267,7 @@ struct PhaseEditorSheet: View {
         }
 
         HStack {
-          TextField("New option", text: $newOptionText)
+          TextField(String(localized: "New option"), text: $newOptionText)
             .textInputAutocapitalization(.never)
           Button {
             let text = newOptionText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -278,10 +281,10 @@ struct PhaseEditorSheet: View {
         }
       }
 
-      Section("Pairing") {
-        Picker("Strategy", selection: pairingBinding) {
-          Text("None").tag(Optional<PairingStrategy>.none)
-          Text("Round Robin").tag(PairingStrategy?.some(.roundRobin))
+      Section(String(localized: "Pairing")) {
+        Picker(String(localized: "Strategy"), selection: pairingBinding) {
+          Text(String(localized: "None")).tag(Optional<PairingStrategy>.none)
+          Text(String(localized: "Round Robin")).tag(PairingStrategy?.some(.roundRobin))
         }
       }
     }
@@ -289,12 +292,12 @@ struct PhaseEditorSheet: View {
 
   private var voteSection: some View {
     Section {
-      Toggle("Exclude Self", isOn: $phase.excludeSelf)
+      Toggle(String(localized: "Exclude Self"), isOn: $phase.excludeSelf)
     }
   }
 
   private var speakEachSection: some View {
-    Section("Sub-Rounds") {
+    Section(String(localized: "Sub-Rounds")) {
       Stepper(
         "Rounds: \(phase.subRounds ?? 1)",
         value: subRoundsBinding,
@@ -304,9 +307,9 @@ struct PhaseEditorSheet: View {
   }
 
   private var scoreCalcSection: some View {
-    Section("Scoring Logic") {
-      Picker("Logic", selection: logicBinding) {
-        Text("None").tag(Optional<ScoreCalcLogic>.none)
+    Section(String(localized: "Scoring Logic")) {
+      Picker(String(localized: "Logic"), selection: logicBinding) {
+        Text(String(localized: "None")).tag(Optional<ScoreCalcLogic>.none)
         ForEach(ScoreCalcLogic.allCases, id: \.self) { logic in
           Text(logic.rawValue).tag(ScoreCalcLogic?.some(logic))
         }
@@ -316,14 +319,16 @@ struct PhaseEditorSheet: View {
 
   private var assignSection: some View {
     Section {
-      TextField("Source key", text: $phase.source)
+      TextField(String(localized: "Source key"), text: $phase.source)
         .textInputAutocapitalization(.never)
-      TextField("Target", text: $phase.target)
+      TextField(String(localized: "Target"), text: $phase.target)
         .textInputAutocapitalization(.never)
     } header: {
-      Text("Assignment")
+      Text(String(localized: "Assignment"))
     } footer: {
-      Text("Source: top-level YAML key (e.g., topics, words). Target: all, random_one")
+      Text(
+        String(
+          localized: "Source: top-level YAML key (e.g., topics, words). Target: all, random_one"))
     }
   }
 
@@ -333,10 +338,10 @@ struct PhaseEditorSheet: View {
         .frame(minHeight: 66)
         .font(.body.monospaced())
     } header: {
-      Text("Template")
+      Text(String(localized: "Template"))
     } footer: {
       VStack(alignment: .leading, spacing: 4) {
-        Text("Variables: {current_round}, {scoreboard}, {vote_results}")
+        Text(String(localized: "Variables: {current_round}, {scoreboard}, {vote_results}"))
           .font(.caption)
         if let templateError {
           Text(templateError)
@@ -372,18 +377,23 @@ struct PhaseEditorSheet: View {
 
   // MARK: - Helpers
 
+  // Returned as `String` (not `LocalizedStringKey`) because the consumer is
+  // `Text(phaseTypeDescription)` which uses the verbatim-String overload —
+  // wrap each branch with `String(localized:)` so the value goes through
+  // Bundle resolution before display.
   private var phaseTypeDescription: String {
     switch phase.type {
-    case .speakAll: return "All agents speak simultaneously"
-    case .speakEach: return "Agents speak in turn (accumulating context)"
-    case .vote: return "All agents vote for one agent"
-    case .choose: return "Choose from predefined options"
-    case .scoreCalc: return "Calculate scores (code, no LLM)"
-    case .assign: return "Distribute info to agents (code)"
-    case .eliminate: return "Remove most-voted agent (code)"
-    case .summarize: return "Format round summary (code)"
-    case .conditional: return "Branch on state (code, then/else sub-phases)"
-    case .eventInject: return "Inject a random event from extraData (code, no LLM)"
+    case .speakAll: return String(localized: "All agents speak simultaneously")
+    case .speakEach: return String(localized: "Agents speak in turn (accumulating context)")
+    case .vote: return String(localized: "All agents vote for one agent")
+    case .choose: return String(localized: "Choose from predefined options")
+    case .scoreCalc: return String(localized: "Calculate scores (code, no LLM)")
+    case .assign: return String(localized: "Distribute info to agents (code)")
+    case .eliminate: return String(localized: "Remove most-voted agent (code)")
+    case .summarize: return String(localized: "Format round summary (code)")
+    case .conditional: return String(localized: "Branch on state (code, then/else sub-phases)")
+    case .eventInject:
+      return String(localized: "Inject a random event from extraData (code, no LLM)")
     }
   }
 }

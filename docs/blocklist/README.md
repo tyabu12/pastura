@@ -34,3 +34,31 @@ Valid values are aligned with the OpenAI Moderation API taxonomy:
 The `violence` category is **excluded from the input validator** — scenario
 authors may write combat or conflict fiction. It is enforced on LLM output
 only (ADR-005 §9.2). All other categories are checked on both input and output.
+
+## `lang` field — curation metadata, not a runtime filter
+
+Each entry in `source.json` carries a `lang` field (`"ja"` or `"en"` today;
+ISO 639-1 lowercase as more languages are added). The field is **source-only
+metadata** — the build step (`scripts/build-blocklist.sh`) strips `lang` and
+`source` from the compiled runtime `ContentBlocklist.json`, leaving only
+`term` and `contentCategory`. `ContentFilter` therefore applies the **full
+combined set** to every input regardless of the UI locale or per-scenario
+language.
+
+This is the intended behavior for the i18n Localization Plan (ROADMAP §
+"Localization Plan", Step A absorbed B-2 scope, ADR-010 stub Decision 4):
+
+- A user-authored scenario in `ja` UI must still be checked against
+  English-language blocked terms (and vice versa) — multi-language LLM
+  output and copy-pasted content cross the locale boundary at runtime.
+- Locale-specific filtering would require per-language detection on every
+  input — costly, error-prone, and unnecessary for a moderation use case.
+
+When adding a new term:
+
+- Set `lang` to the ISO 639-1 code of the term's primary language. This
+  helps human curators audit the list (e.g., "do we have parity coverage
+  in `en` for the `ja` `violence` entries?") and survives the runtime
+  strip.
+- Set `source` to the upstream attribution (e.g., `"pastura-original"` for
+  in-house additions, the curated-list ID for external imports).

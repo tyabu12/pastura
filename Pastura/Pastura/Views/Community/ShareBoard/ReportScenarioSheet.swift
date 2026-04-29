@@ -28,11 +28,11 @@ struct ReportScenarioSheet: View {
         }
         .padding()
       }
-      .navigationTitle("Report scenario")
+      .navigationTitle(String(localized: "Report scenario"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button(String(localized: "Cancel")) { dismiss() }
         }
       }
     }
@@ -57,8 +57,10 @@ struct ReportScenarioSheet: View {
 
   private var introCopy: some View {
     Text(
-      "Reports are reviewed by the Pastura maintainer. "
-        + "You'll receive a confirmation email when your report is received."
+      String(
+        localized:
+          "Reports are reviewed by the Pastura maintainer. You'll receive a confirmation email when your report is received."
+      )
     )
     .font(.body)
     .foregroundStyle(.secondary)
@@ -69,7 +71,7 @@ struct ReportScenarioSheet: View {
       Button(action: openReportForm) {
         HStack {
           Image(systemName: "paperplane.fill")
-          Text("Open Report Form")
+          Text(String(localized: "Open Report Form"))
         }
         .frame(maxWidth: .infinity)
       }
@@ -77,12 +79,14 @@ struct ReportScenarioSheet: View {
       .controlSize(.large)
       .accessibilityIdentifier("reportSheet.openFormButton")
 
-      Text("No account required.")
+      Text(String(localized: "No account required."))
         .font(.caption)
         .foregroundStyle(.secondary)
       Text(
-        "Opens Google Forms in Safari. Your report is processed by Google "
-          + "under their privacy policy."
+        String(
+          localized:
+            "Opens Google Forms in Safari. Your report is processed by Google under their privacy policy."
+        )
       )
       .font(.caption2)
       .foregroundStyle(.secondary)
@@ -91,19 +95,19 @@ struct ReportScenarioSheet: View {
 
   private var secondarySection: some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text("Prefer public discussion?")
+      Text(String(localized: "Prefer public discussion?"))
         .font(.footnote)
 
       Button(action: openGitHubIssue) {
         HStack {
           Image(systemName: "arrow.up.right.square")
-          Text("Open on GitHub")
+          Text(String(localized: "Open on GitHub"))
         }
       }
       .buttonStyle(.bordered)
       .accessibilityIdentifier("reportSheet.openGitHubButton")
 
-      Text("Requires a GitHub account. The resulting issue is public.")
+      Text(String(localized: "Requires a GitHub account. The resulting issue is public."))
         .font(.caption)
         .foregroundStyle(.secondary)
     }

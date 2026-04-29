@@ -501,7 +501,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     do {
       try await llm.loadModel()
     } catch {
-      errorMessage = "Failed to load LLM: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to load LLM: \(error.localizedDescription)")
       await finalizeSimulationStatus(.failed)
       return
     }
