@@ -47,20 +47,25 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         ProgressView(String(localized: "Loading scenario..."))
       }
     }
-    // Empty navigation title — `GameHeader` (#297 PR 3) now carries
-    // the scenario name on row 1, and surfacing the same value in the
-    // nav bar would duplicate it. The 3-tier fallback chain
-    // (loaded VM name → push-time `initialName` hint → empty string)
-    // moved into `GameHeader`'s `scenarioName` / `initialName`
-    // arguments — see `headerBar(viewModel:)`. ADR-008 §Amendment
-    // 2026-04-29 records the sink pivot.
+    // Hide the nav bar entirely (#297 PR 3 — header content
+    // unification, Variant C). `GameHeader` carries the scenario name
+    // on row 1, so the nav bar would either duplicate that label
+    // (`.navigationTitle(scenario?.name)`) or sit empty above the
+    // header (`.navigationTitle("")`). Real-device testing showed
+    // even the empty nav bar wastes ~44pt of vertical real estate,
+    // making the chat-stream uncomfortably cramped on smaller
+    // iPhones — so we drop it entirely and let `GameHeader` extend
+    // into the top safe area (matching Demo's chrome).
     //
-    // Back chevron continues to read the upstream `ScenarioDetail`
-    // view's title (iOS uses the previous view's title, not the
-    // current view's, for the back-button label) so popping back
-    // remains discoverable.
-    .navigationTitle("")
-    .navigationBarTitleDisplayMode(.inline)
+    // Back navigation goes through swipe-back — iOS preserves the
+    // gesture even when the nav bar is hidden inside a
+    // `NavigationStack`. VoiceOver users still get a 2-finger
+    // Z-gesture for back, so accessibility is preserved.
+    //
+    // ADR-008 §Amendment 2026-04-29 records the sink pivot
+    // (`Route.simulation.initialName` now feeds `GameHeader.initialName`
+    // instead of `.navigationTitle()`).
+    .toolbar(.hidden, for: .navigationBar)
     .task {
       await loadAndRun()
     }
@@ -303,9 +308,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   ///   PhaseHeader trailing slot carried (`InferenceStatsFormatter`'s
   ///   `"12.4 tok/s • 1.8s"`) — the new design has only one mono slot
   ///   on row 2 for inference rate.
-  /// - `extendsIntoTopSafeArea: false` — Sim's NavigationStack-pushed
-  ///   nav bar already paints the top safe area; opting in would
-  ///   double the frosted material.
+  /// - `extendsIntoTopSafeArea: true` — Sim's nav bar is hidden via
+  ///   `.toolbar(.hidden, for: .navigationBar)` (see body's
+  ///   `.toolbar` modifier doc-comment for the real-device cramped-
+  ///   chat-stream rationale), so the GameHeader fills behind the
+  ///   status bar / Dynamic Island the same way Demo does.
   private func headerBar(viewModel: SimulationViewModel) -> some View {
     GameHeader(
       scenarioName: scenario?.name,
@@ -315,7 +322,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       totalRounds: viewModel.totalRounds > 0 ? viewModel.totalRounds : nil,
       phaseLabel: Self.phaseDisplayLabel(for: viewModel.currentPhase),
       tokensPerSecond: viewModel.averageTokensPerSecond,
-      extendsIntoTopSafeArea: false
+      extendsIntoTopSafeArea: true
     )
   }
 
