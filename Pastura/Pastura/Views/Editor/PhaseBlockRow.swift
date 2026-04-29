@@ -56,7 +56,7 @@ struct PhaseBlockRow: View {
       let then = phase.thenPhases.count
       let elseCount = phase.elsePhases.count
       if condition.isEmpty {
-        return "(no condition)"
+        return String(localized: "(no condition)")
       }
       return "\(condition) → then:\(then) else:\(elseCount)"
     case .eventInject:
