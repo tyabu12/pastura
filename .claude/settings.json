@@ -58,7 +58,7 @@
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh\" build -quiet 2>&1 || (echo 'Build failed. Fix compile errors before committing.' >&2 && exit 2)"
+            "command": "PASTURA_SKIP_XCSTRINGS_SYNC=1 \"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh\" build -quiet 2>&1 || (echo 'Build failed. Fix compile errors before committing.' >&2 && exit 2)"
           },
           {
             "type": "command",
