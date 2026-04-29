@@ -541,6 +541,11 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
       resumeOffset = 0
     }
 
+    // Placeholder progress to flip UI from `.error` to `.downloading`
+    // immediately on retry. May visually persist at ~0 % for 3-5 seconds
+    // when retrying right after a Wi-Fi/Airplane-mode toggle while iOS
+    // warms up its network stack — see `URLSessionModelDownloader` doc
+    // §"Known limitation: iOS network-warmup pause" for full context.
     state[descriptor.id] = .downloading(progress: resumeOffset > 0 ? 0.01 : 0.0)
 
     // Throttle UI updates to ~10 Hz (100ms). URLSession's `didWriteData`

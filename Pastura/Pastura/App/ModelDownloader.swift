@@ -54,6 +54,38 @@ public protocol ModelDownloader: Sendable {
 /// non-isolated test context. The `download(...) async throws` method was
 /// unaffected before adding sync accessors because the `async` hop conceals
 /// the binding; the new synchronous accessors are not.
+///
+/// ## Known limitation: iOS network-warmup pause on Wi-Fi/Airplane toggle
+///
+/// After the user toggles Wi-Fi or Airplane Mode OFF → ON to recover from a
+/// download interruption, tapping Retry produces a 3-5 second visible
+/// "freeze" on the progress UI before bytes start arriving. The freeze does
+/// **not** occur after device sleep stops a download — that distinction is
+/// the diagnostic signal pointing at the cause. Observed during PR #278
+/// device QA.
+///
+/// Root cause is not in this code path. iOS reinitializes the network stack
+/// on Wi-Fi/Airplane toggle (DHCP, DNS resolver re-init, captive-portal
+/// probe to `captive.apple.com`). During warmup, all outbound connections —
+/// including this downloader's `URLSessionDownloadTask` — are queued at the
+/// system level until iOS confirms internet availability. Sleep preserves
+/// network state, so wake-up doesn't trigger this warmup. Pastura's main
+/// thread stays responsive throughout (the UI just has nothing to show
+/// because the `ModelManager.performDownload` `.downloading(0.0)`
+/// placeholder is already on screen and no `didWriteData` callbacks have
+/// arrived yet).
+///
+/// **Accepted as iOS-side behavior; not actionable from app code.** If the
+/// UX cost grows, candidate improvements (out of scope for #278; track in
+/// a future Issue when revisiting):
+///
+/// - PromoCard "再接続中…" hint between retry tap and first progress
+///   sample (requires a new state plumbed from this downloader signalling
+///   "URLSession.resume() called, no bytes yet").
+/// - Skip the `.downloading(0.0)` placeholder in
+///   `ModelManager.performDownload` and stay in `.error` until the first
+///   real progress sample arrives — at the cost of the Retry button
+///   appearing inert for 3-5 seconds.
 nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
   // @unchecked Sendable: `sessionConfiguration` is set once at init and never
   // mutated; `resumeDataCache` is guarded by `OSAllocatedUnfairLock`.
