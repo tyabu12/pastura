@@ -5,7 +5,8 @@ Extracted from CLAUDE.md to keep the top-level project file lean. Always-loaded
 
 ## Test & Build Execution
 
-All local `xcodebuild test` / `xcodebuild build` invocations go through
+All local `xcodebuild test` / `xcodebuild build` invocations — including
+the `git commit` pre-commit build hook — go through
 `scripts/xcodebuild.sh`. The wrapper sources `sim-dest.sh`, applies the right
 flags per subcommand, and streams output directly to the terminal. CI does
 NOT use the wrapper — see the table below.
@@ -56,9 +57,12 @@ for repeated single-value flags, so caller passthrough wins on duplicates.
   `PASTURA_SKIP_SIM_WAIT=1` before sourcing `sim-dest.sh` so the
   concurrent-session simulator gate is bypassed. Build artifacts are
   architecturally identical across simulator UDIDs, so booking a specific
-  UDID wastes time and reintroduces gate contention. Same destination
-  choice as the pre-commit hook. `$DERIVED_DATA` is still populated so
-  build output lands in the worktree-local `Pastura/DerivedData/`.
+  UDID wastes time and reintroduces gate contention. `$DERIVED_DATA` is
+  still populated so build output lands in the worktree-local
+  `Pastura/DerivedData/` — and since the pre-commit hook now also
+  invokes `scripts/xcodebuild.sh build`, its build cache shares the
+  same worktree-local path as agent-driven test runs (so post-test
+  pre-commit builds hit warm cache).
 
 ```bash
 # Convenience alias for shell history (or use the full form inline)
@@ -112,8 +116,8 @@ timeout. This avoids same-UDID clone/boot/teardown collisions across
 concurrent worktree sessions, which otherwise produce 200+ 0.000s "failed"
 cascades. The match pattern intentionally requires `,id=` so build-only
 invocations (which use `generic/platform=iOS Simulator`, no UDID) bypass
-the gate — both the pre-commit hook and `scripts/xcodebuild.sh build`
-benefit from this exclusion.
+the gate — `scripts/xcodebuild.sh build` (and therefore the pre-commit
+hook, which now invokes the wrapper) benefits from this exclusion.
 
 `scripts/xcodebuild.sh build` additionally exports `PASTURA_SKIP_SIM_WAIT=1`
 before sourcing `sim-dest.sh`, providing belt-and-suspenders gate skip even
