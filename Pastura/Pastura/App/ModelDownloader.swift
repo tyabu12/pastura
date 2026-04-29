@@ -30,9 +30,36 @@ public protocol ModelDownloader: Sendable {
 /// to per-request delegates. This implementation creates a dedicated session with
 /// a session-level delegate and bridges completion back to async/await via
 /// `CheckedContinuation`.
-final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
-  // @unchecked Sendable: no mutable state after init.
+///
+/// ## Resume after transient errors
+///
+/// On transient failures (timeout, lost connection mid-transfer), Apple's
+/// `URLSession` populates `(error as NSError).userInfo[NSURLSessionDownloadTaskResumeData]`
+/// with an opaque blob that can be passed to `downloadTask(withResumeData:)` to
+/// continue from the byte position where the prior attempt stopped. This class
+/// caches that blob in memory (per-URL) for the lifetime of the downloader so an
+/// in-process retry resumes — the URL protocol's internal byte-position tracking
+/// + ETag validation are preserved transparently.
+///
+/// **Out of scope:** cross-session resume (cache is in-memory only). If the user
+/// force-kills the app mid-download, the next launch starts from byte zero. See
+/// Issue #275 for the follow-up that would persist the blob to disk.
+// `nonisolated` at type level so the synchronous accessors (`captureResumeData`,
+// `cachedResumeData`) can be invoked from any executor. Without this, the
+// project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would bind the class
+// to MainActor and break tests that exercise the cache lifecycle from the
+// non-isolated test context. The original `download(...) async throws` method
+// was unaffected because the `async` hop conceals the binding; the new
+// synchronous accessors are not.
+nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
+  // @unchecked Sendable: `sessionConfiguration` is set once at init and never
+  // mutated; `resumeDataCache` is guarded by `OSAllocatedUnfairLock`.
   private let sessionConfiguration: URLSessionConfiguration
+
+  /// Per-URL in-memory cache of `NSURLSessionDownloadTaskResumeData` blobs.
+  /// Populated on transient error (when Apple supplies resumeData), cleared on
+  /// successful download.
+  private let resumeDataCache: OSAllocatedUnfairLock<[URL: Data]> = .init(initialState: [:])
 
   init(sessionConfiguration: URLSessionConfiguration = .default) {
     self.sessionConfiguration = sessionConfiguration
@@ -44,63 +71,113 @@ final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
     to destination: URL,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
   ) async throws {
-    var request = URLRequest(url: url)
-    if resumeOffset > 0 {
-      request.setValue("bytes=\(resumeOffset)-", forHTTPHeaderField: "Range")
-    }
+    let cachedResumeData = resumeDataCache.withLock { $0[url] }
 
     // Thread-safe holder so onCancel can reach the URLSessionDownloadTask.
     // Swift Task cancellation does NOT propagate to URLSession automatically —
     // we must cancel the download task explicitly.
     let taskHolder = OSAllocatedUnfairLock<URLSessionDownloadTask?>(initialState: nil)
 
-    let result: DownloadResult = try await withTaskCancellationHandler {
-      try await withCheckedThrowingContinuation { continuation in
-        let delegate = DownloadDelegate(
-          resumeOffset: resumeOffset,
-          progressHandler: progressHandler,
-          continuation: continuation
-        )
-        let session = URLSession(
-          configuration: sessionConfiguration,
-          delegate: delegate,
-          delegateQueue: nil
-        )
-        delegate.session = session
-        let downloadTask = session.downloadTask(with: request)
-        delegate.task = downloadTask
-        taskHolder.withLock { $0 = downloadTask }
-        downloadTask.resume()
-      }
-    } onCancel: {
-      // Cancel the URLSession task, which triggers didCompleteWithError
-      // with NSURLErrorCancelled, resuming the continuation with an error.
-      taskHolder.withLock { $0?.cancel() }
-    }
+    do {
+      let result: DownloadResult = try await withTaskCancellationHandler {
+        try await withCheckedThrowingContinuation { continuation in
+          let delegate = DownloadDelegate(
+            resumeOffset: resumeOffset,
+            progressHandler: progressHandler,
+            continuation: continuation
+          )
+          let session = URLSession(
+            configuration: sessionConfiguration,
+            delegate: delegate,
+            delegateQueue: nil
+          )
+          delegate.session = session
 
-    // File handling (after continuation resumes, on the caller's executor)
-    let statusCode = result.statusCode
-    let tempURL = result.tempURL
-    let fileManager = FileManager.default
-
-    if statusCode == 200 || resumeOffset == 0 {
-      if fileManager.fileExists(atPath: destination.path) {
-        try fileManager.removeItem(at: destination)
+          let downloadTask: URLSessionDownloadTask
+          if let resumeData = cachedResumeData {
+            // Resume via OS-managed blob. URLSession decodes the blob to recover
+            // the prior partial-file location, ETag, and byte offset, and sends
+            // the Range header internally — preserving Apple's HTTP-layer
+            // correctness (If-Range validation, server-side range support
+            // negotiation) instead of reimplementing it ourselves.
+            downloadTask = session.downloadTask(withResumeData: resumeData)
+          } else {
+            var request = URLRequest(url: url)
+            if resumeOffset > 0 {
+              // Fallback path: explicit Range header. Used when the in-memory
+              // resumeData cache is empty but the on-disk partial file (.download)
+              // already has bytes — typically after a fresh app launch where the
+              // cache hasn't been populated yet. Test mocks also exercise this
+              // path because they don't produce real `NSURLSessionDownloadTaskResumeData`.
+              request.setValue("bytes=\(resumeOffset)-", forHTTPHeaderField: "Range")
+            }
+            downloadTask = session.downloadTask(with: request)
+          }
+          delegate.task = downloadTask
+          taskHolder.withLock { $0 = downloadTask }
+          downloadTask.resume()
+        }
+      } onCancel: {
+        // Cancel the URLSession task, which triggers didCompleteWithError
+        // with NSURLErrorCancelled, resuming the continuation with an error.
+        taskHolder.withLock { $0?.cancel() }
       }
-      try fileManager.moveItem(at: tempURL, to: destination)
-    } else {
-      // Partial content (206) — append downloaded chunk to existing file
-      let downloadedData = try Data(contentsOf: tempURL)
-      if fileManager.fileExists(atPath: destination.path) {
-        let fileHandle = try FileHandle(forWritingTo: destination)
-        fileHandle.seekToEndOfFile()
-        fileHandle.write(downloadedData)
-        try fileHandle.close()
+
+      // Success — clear the cache for this URL so a fresh subsequent download
+      // (e.g., re-download after delete) starts cleanly.
+      resumeDataCache.withLock { $0[url] = nil }
+
+      // File handling (after continuation resumes, on the caller's executor).
+      // With `withResumeData`, URLSession internally stitches resumed chunks
+      // into a single complete file, so the result is delivered as 200-OK
+      // semantically and falls into the truncate-and-move branch below.
+      let statusCode = result.statusCode
+      let tempURL = result.tempURL
+      let fileManager = FileManager.default
+
+      if statusCode == 200 || resumeOffset == 0 {
+        if fileManager.fileExists(atPath: destination.path) {
+          try fileManager.removeItem(at: destination)
+        }
+        try fileManager.moveItem(at: tempURL, to: destination)
       } else {
-        try downloadedData.write(to: destination)
+        // Partial content (206) — append downloaded chunk to existing file.
+        // Reached via the explicit Range-header fallback (cache miss with
+        // resumeOffset > 0), not via `withResumeData`.
+        let downloadedData = try Data(contentsOf: tempURL)
+        if fileManager.fileExists(atPath: destination.path) {
+          let fileHandle = try FileHandle(forWritingTo: destination)
+          fileHandle.seekToEndOfFile()
+          fileHandle.write(downloadedData)
+          try fileHandle.close()
+        } else {
+          try downloadedData.write(to: destination)
+        }
+        try? fileManager.removeItem(at: tempURL)
       }
-      try? fileManager.removeItem(at: tempURL)
+    } catch {
+      captureResumeData(from: error, for: url)
+      throw error
     }
+  }
+
+  /// Captures any `NSURLSessionDownloadTaskResumeData` Apple attached to the
+  /// thrown error into the in-memory cache, keyed by `url`.
+  ///
+  /// Extracted for unit-testability — production callers should only invoke
+  /// this from the `catch` block in `download(...)`. Tests construct an
+  /// `NSError` with a known resumeData blob to verify cache lifecycle without
+  /// depending on Apple's internal heuristic for when resumeData is populated.
+  func captureResumeData(from error: any Error, for url: URL) {
+    let nsError = error as NSError
+    guard let data = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+    else { return }
+    resumeDataCache.withLock { $0[url] = data }
+  }
+
+  /// Test-only: inspect cached resumeData for a URL.
+  func cachedResumeData(for url: URL) -> Data? {
+    resumeDataCache.withLock { $0[url] }
   }
 }
 
