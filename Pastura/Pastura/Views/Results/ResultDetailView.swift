@@ -101,12 +101,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         .disabled(!canExportYAML)
       }
       ToolbarItem(placement: .secondaryAction) {
-        Button {
-          showAllThoughts.toggle()
-        } label: {
-          Image(systemName: showAllThoughts ? "text.bubble.fill" : "text.bubble")
-            .foregroundStyle(showAllThoughts ? Color.moss : Color.inkSecondary)
-        }
+        // Currently the only `.secondaryAction` — renders inline. If a future
+        // toolbar change adds a second `.secondaryAction`, SwiftUI promotes
+        // both items to an overflow Menu where the moss tint inside
+        // `ThoughtVisibilityToggle` (`.foregroundStyle(Color.moss)`) may flatten
+        // to the system menu accent and stop communicating ON/OFF state.
+        // Revisit placement (e.g., move to `.primaryAction`) before that lands.
+        ThoughtVisibilityToggle(isOn: $showAllThoughts)
       }
     }
     .sheet(item: $exportPayload) { payload in
