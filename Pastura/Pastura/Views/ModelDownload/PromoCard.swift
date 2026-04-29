@@ -181,7 +181,7 @@ struct PromoCard: View {
   /// the visible chrome.
   private func cancelButton(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Text(String(localized: "キャンセル"))
+      Text(String(localized: "Cancel"))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
         .padding(.horizontal, 8)

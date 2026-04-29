@@ -231,7 +231,16 @@
         }
       }
     },
-    "Cancel download": {},
+    "Cancel download": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードをキャンセル"
+          }
+        }
+      }
+    },
     "Cannot export replay: the scenario definition is not valid YAML.": {
       "localizations": {
         "ja": {
@@ -292,8 +301,26 @@
         }
       }
     },
-    "Checking device...": {},
-    "Choose a model to start": {},
+    "Checking device...": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デバイスを確認中..."
+          }
+        }
+      }
+    },
+    "Choose a model to start": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最初に使うモデルを選んでください"
+          }
+        }
+      }
+    },
     "Choose from predefined options": {
       "localizations": {
         "ja": {
@@ -364,7 +391,16 @@
         }
       }
     },
-    "Continue downloading": {},
+    "Continue downloading": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードを続ける"
+          }
+        }
+      }
+    },
     "Copy Gen Prompt": {
       "localizations": {
         "ja": {
@@ -395,7 +431,16 @@
         }
       }
     },
-    "Couldn't start the download. Please try again.": {},
+    "Couldn't start the download. Please try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードを開始できませんでした。再試行してください。"
+          }
+        }
+      }
+    },
     "Creative": {
       "localizations": {
         "ja": {
@@ -596,7 +641,16 @@
         }
       }
     },
-    "Edit": {},
+    "Edit": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集"
+          }
+        }
+      }
+    },
     "Edit Persona": {
       "localizations": {
         "ja": {
@@ -1173,7 +1227,16 @@
         }
       }
     },
-    "Lightweight reasoning mode — faster responses, leaner footprint.": {},
+    "Lightweight reasoning mode — faster responses, leaner footprint.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "軽量モード — 応答が速く、容量も小さめ。"
+          }
+        }
+      }
+    },
     "Loading gallery…": {
       "localizations": {
         "ja": {
@@ -1454,8 +1517,26 @@
         }
       }
     },
-    "Not supported on this device": {},
-    "Nothing is sent to a server. The model lives on this device.": {},
+    "Not supported on this device": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このデバイスは対応していません"
+          }
+        }
+      }
+    },
+    "Nothing is sent to a server. The model lives on this device.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サーバーへの送信はありません。モデルはこのデバイス上で動作します。"
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "ja": {
@@ -1596,8 +1677,26 @@
         }
       }
     },
-    "Pastura runs the conversation on your iPhone. Pick the model you'd like to download first — you can add the other one later from Settings.": {},
-    "Pause (available during simulation)": {},
+    "Pastura runs the conversation on your iPhone. Pick the model you'd like to download first — you can add the other one later from Settings.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pastura はあなたの iPhone 上で会話を実行します。最初にダウンロードするモデルを選んでください。もう一方のモデルはあとから設定でも追加できます。"
+          }
+        }
+      }
+    },
+    "Pause (available during simulation)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一時停止 (シミュレーション中のみ)"
+          }
+        }
+      }
+    },
     "Paused": {
       "localizations": {
         "ja": {
@@ -1734,8 +1833,26 @@
         }
       }
     },
-    "Playback speed (available during simulation)": {},
-    "Please keep the app open during download.": {},
+    "Playback speed (available during simulation)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生速度 (シミュレーション中のみ)"
+          }
+        }
+      }
+    },
+    "Please keep the app open during download.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロード中はアプリを開いたままにしてください。"
+          }
+        }
+      }
+    },
     "Prefer public discussion?": {
       "localizations": {
         "ja": {
@@ -2252,9 +2369,36 @@
         }
       }
     },
-    "Start with this model": {},
-    "Stop and discard": {},
-    "Stop downloading?": {},
+    "Start with this model": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このモデルで始める"
+          }
+        }
+      }
+    },
+    "Stop and discard": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止して破棄"
+          }
+        }
+      }
+    },
+    "Stop downloading?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードを停止しますか？"
+          }
+        }
+      }
+    },
     "Strategy": {
       "localizations": {
         "ja": {
@@ -2275,7 +2419,16 @@
         }
       }
     },
-    "Supported: iPhone 15 Pro and later": {},
+    "Supported: iPhone 15 Pro and later": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対応機種: iPhone 15 Pro 以降"
+          }
+        }
+      }
+    },
     "THINKING": {
       "localizations": {
         "ja": {
@@ -2346,7 +2499,16 @@
         }
       }
     },
-    "The partial download will be deleted. Resuming later means starting over from the beginning.": {},
+    "The partial download will be deleted. Resuming later means starting over from the beginning.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "途中までのダウンロードは削除されます。あとで再開しても最初からのダウンロードになります。"
+          }
+        }
+      }
+    },
     "Then branch (condition true)": {
       "localizations": {
         "ja": {
@@ -2367,8 +2529,26 @@
         }
       }
     },
-    "This device does not have enough memory to run the AI model. At least 8 GB of RAM is required.": {},
-    "This download is set to Wi-Fi only. Tap Try Again to change.": {},
+    "This device does not have enough memory to run the AI model. At least 8 GB of RAM is required.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このデバイスのメモリでは AI モデルを実行できません。8 GB 以上の RAM が必要です。"
+          }
+        }
+      }
+    },
+    "This download is set to Wi-Fi only. Tap Try Again to change.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このダウンロードは Wi-Fi 接続のみに設定されています。再試行ボタンで変更してください。"
+          }
+        }
+      }
+    },
     "This link doesn't match Pastura's expected format.": {
       "localizations": {
         "ja": {
@@ -2599,7 +2779,16 @@
         }
       }
     },
-    "Wi-Fi recommended": {},
+    "Wi-Fi recommended": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 推奨"
+          }
+        }
+      }
+    },
     "Will open after retrying setup": {
       "localizations": {
         "ja": {
@@ -2709,8 +2898,7 @@
           }
         }
       }
-    },
-    "キャンセル": {}
+    }
   },
   "version": "1.0"
 }
