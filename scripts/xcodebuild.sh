@@ -190,6 +190,12 @@ sync_xcstrings() {
 
   local sentinel_dir="$REPO_ROOT/Pastura/DerivedData"
   local sentinel="$sentinel_dir/.xcstrings-sync-failed"
+  # Lock lives alongside the sentinel under `Pastura/DerivedData/` so a
+  # SIGKILL-orphaned lock dir does not surface in the worktree's `git
+  # status` output during the 60s stale-reclaim window — that path is
+  # already gitignored.
+  local lock="$sentinel_dir/.xcstrings.sync.lock"
+  mkdir -p "$sentinel_dir" 2>/dev/null || return 0
 
   if [[ -f "$sentinel" ]]; then
     {
@@ -200,8 +206,10 @@ sync_xcstrings() {
   fi
 
   # `mkdir` is atomic — wins the race when two processes try simultaneously.
-  local lock="$REPO_ROOT/.xcstrings.sync.lock"
   if ! mkdir "$lock" 2>/dev/null; then
+    # `stat -f %m` is BSD/macOS form. The wrapper is macOS-only by design
+    # (CI bypasses it — see #189), so this is intentional. On a hypothetical
+    # GNU port, swap to `stat -c %Y` or use `find "$lock" -mmin +1`.
     local lock_age
     lock_age=$(( $(date +%s) - $(stat -f %m "$lock" 2>/dev/null || echo 0) ))
     if (( lock_age > 60 )); then
@@ -229,6 +237,9 @@ sync_xcstrings() {
   if [[ "$rc" -eq 0 ]]; then
     # `nullglob` makes the array empty (rather than literal "*.stringsdata")
     # when extract produced no output — defensive against a regressed extract.
+    # Assumes the caller has not enabled nullglob globally (the wrapper does
+    # not; future maintainers adding nullglob elsewhere should capture/restore
+    # via `shopt -p nullglob` if that changes).
     shopt -s nullglob
     local stringsdata=("$tmpdir"/*.stringsdata)
     shopt -u nullglob
@@ -241,7 +252,7 @@ sync_xcstrings() {
   fi
 
   if (( rc != 0 )); then
-    mkdir -p "$sentinel_dir" 2>/dev/null || true
+    # `$sentinel_dir` was already created at entry for the lock; safe to write.
     {
       echo "Last failure: $(date '+%Y-%m-%d %H:%M:%S')"
       if [[ -s "$extract_log" ]]; then
