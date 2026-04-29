@@ -131,8 +131,9 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       scenario: scenario, events: sortedEvents)
 
     let totalTurns = sortedTurns.filter { $0.agentName != nil }.count
-    // Nominal duration at 1× playback using the `demoDefault` pacing.
-    // Actual playback time = this / `ReplayPlaybackConfig.speedMultiplier`.
+    // Nominal duration at `.normal` playback using the `demoDefault` pacing.
+    // Actual playback time = this / `playbackSpeed.multiplier` (`.instant`
+    // collapses to ~0 via consumer early-return).
     let pacing = ReplayPlaybackConfig.demoDefault
     let estimatedDurationMs =
       totalTurns * pacing.turnDelayMs

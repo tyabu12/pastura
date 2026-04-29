@@ -31,4 +31,15 @@ struct PlaybackSpeedTests {
     #expect(PlaybackSpeed.fast.label == "x1.5")
     #expect(PlaybackSpeed.instant.label == "Max")
   }
+
+  @Test func multiplierValues() {
+    // Replay-side scaling. `.instant` returns `.infinity` as a sentinel
+    // — every consumer special-cases `.instant` with an explicit
+    // early-return, so the sentinel is defense-in-depth, not the
+    // load-bearing path.
+    #expect(PlaybackSpeed.slow.multiplier == 0.5)
+    #expect(PlaybackSpeed.normal.multiplier == 1.0)
+    #expect(PlaybackSpeed.fast.multiplier == 1.5)
+    #expect(PlaybackSpeed.instant.multiplier == .infinity)
+  }
 }
