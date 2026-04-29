@@ -212,40 +212,7 @@ struct ModelDownloadHostView: View {
 
   private func chatStream(viewModel: ReplayViewModel) -> some View {
     VStack(spacing: 0) {
-      // Demo opts into `extendsIntoTopSafeArea: true` because there
-      // is no system nav bar above the cover — the frosted material
-      // needs to fill behind the status bar / Dynamic Island region
-      // to match Sim/Results' nav-bar-painted look.
-      PhaseHeader(extendsIntoTopSafeArea: true) {
-        HStack(alignment: .center, spacing: Spacing.xs) {
-          // A 6pt square rotated 45° renders as a diamond. No dedicated shape
-          // exists in SwiftUI for a filled diamond, so this is the idiomatic approach.
-          Rectangle()
-            .fill(Color.moss.opacity(0.7))
-            .frame(width: 6, height: 6)
-            .rotationEffect(.degrees(45))
-
-          VStack(alignment: .leading, spacing: 3) {
-            Text(currentPresetName(viewModel: viewModel).uppercased())
-              .textStyle(Typography.tagPhase)
-              .foregroundStyle(Color.moss)
-
-            Text(currentPhaseLabel(viewModel: viewModel))
-              .textStyle(Typography.titlePhase)
-              .foregroundStyle(Color.ink)
-          }
-        }
-      } trailing: {
-        Text("DEMO中")
-          .textStyle(Typography.metaLabel)
-          .foregroundStyle(Color.moss)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 3)
-          .background(
-            RoundedRectangle(cornerRadius: Radius.button)
-              .fill(Color.moss.opacity(0.1))
-          )
-      }
+      phaseHeader(viewModel: viewModel)
 
       ScrollViewReader { proxy in
         ScrollView {
@@ -309,7 +276,9 @@ struct ModelDownloadHostView: View {
     }
   }
 
-  private func currentPresetName(viewModel: ReplayViewModel) -> String {
+  // Module-internal so the sibling `+PhaseHeader.swift` extension can
+  // call this helper. `private` only reaches same-file extensions.
+  func currentPresetName(viewModel: ReplayViewModel) -> String {
     guard case .playing(let sourceIndex, _) = viewModel.state,
       sourceIndex < sources.count
     else { return "" }
