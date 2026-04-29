@@ -141,7 +141,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // Log
       ScrollViewReader { proxy in
         ScrollView {
-          LazyVStack(alignment: .leading, spacing: 8) {
+          LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.logEntries) { entry in
               logEntryView(entry, viewModel: viewModel)
                 .id(entry.id)
@@ -166,7 +166,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
                 debugRowID: "stream-\(snapshot.agent)"
               )
-              .padding(.horizontal)
               .id("streaming-\(snapshot.agent)")
             }
 
@@ -182,7 +181,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                     .textStyle(Typography.thinkingBody)
                     .foregroundStyle(Color.muted)
                 }
-                .padding(.horizontal)
               }
             }
 
@@ -194,6 +192,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               .frame(height: 1)
               .id(Self.bottomSentinelID)
           }
+          // Container-level horizontal padding (20pt, matching Demo
+          // strategy) replaces the per-row `.padding(.horizontal)` on
+          // each log entry / thinking indicator / streaming row. See
+          // #273 PR 2 — chat-stream token alignment across Demo / Sim
+          // / Results.
+          .padding(.horizontal, 20)
           .padding(.vertical, 8)
         }
         .onChange(of: viewModel.logEntries.count) { _, _ in
@@ -351,10 +355,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         debugRowID: entry.id.uuidString
       )
-      .padding(.horizontal)
     case .phaseStarted(let phaseType):
       PhaseTypeLabel(phaseType: phaseType)
-        .padding(.horizontal)
         .padding(.top, 4)
     case .roundStarted(let round, let total):
       roundSeparator("Round \(round)/\(total)")
@@ -364,7 +366,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       Label(message, systemImage: "exclamationmark.triangle.fill")
         .textStyle(Typography.titlePhase)
         .foregroundStyle(Color.inkSecondary)
-        .padding(.horizontal)
     default:
       secondaryLogEntryView(entry)
     }

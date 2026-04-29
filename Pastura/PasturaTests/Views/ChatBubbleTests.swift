@@ -70,9 +70,14 @@ struct ChatBubbleTests {
     #expect(ChatBubbleLayout.avatarTextGap == 10)
   }
 
-  @Test func bubbleSpacingMatchesReferenceHTML() {
-    // Reference HTML `.stream { gap: 14px }` — inter-bubble vertical.
-    #expect(ChatBubbleLayout.bubbleSpacing == 14)
+  @Test func bubbleSpacingPinsToCurrentValue() {
+    // Tightened from the reference HTML's 14px to 8pt project-wide
+    // in #273 PR 2 so Sim/Results' long simulation logs fit more
+    // turns per viewport. The reference HTML at
+    // `docs/design/demo-replay-reference.html` retains 14px as a
+    // historical visual prototype; this assert pins the production
+    // value, NOT the prototype value.
+    #expect(ChatBubbleLayout.bubbleSpacing == 8)
   }
 
   // MARK: - AvatarSlot wiring

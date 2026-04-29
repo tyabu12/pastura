@@ -144,7 +144,19 @@ ZStack(alignment: .top) {
 ### ChatStream（Frame 1/2/3）
 
 - padding: `top 8pt, horizontal 20pt, bottom 16pt`
-- バブル間の spacing: 14pt
+- バブル間の spacing: 8pt
+
+> **2026-04-29 amendment (#273)** — バブル間 spacing は当初の 14pt
+> （reference HTML `.stream { gap: 14px }` 由来）から **8pt に縮小**
+> された。Sim / Results が長いシミュレーションログを表示する際に
+> ターン数を viewport により多く収めるため、Sim/Results のより
+> タイトな pacing 側に合わせる方向で 3 画面共通の値とした。Demo の
+> ループも視認性に問題ないことを確認済み。reference HTML
+> (`docs/design/demo-replay-reference.html`) は当時の visual
+> prototype として 14px のまま保存し、本番値は
+> `Pastura/Pastura/Views/Components/ChatBubble.swift` の
+> `ChatBubbleLayout.bubbleSpacing` (= 8pt) を参照する。
+
 - 各バブルは **横並び HStack** ：
   - アバター（42pt 丸、色はキャラごと、下記）
   - 縦 VStack：

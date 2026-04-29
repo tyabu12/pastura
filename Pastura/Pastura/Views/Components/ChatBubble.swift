@@ -168,10 +168,17 @@ nonisolated enum ChatBubbleLayout {
   /// Horizontal gap between avatar column and bubble column — matches
   /// reference HTML `.bubble { gap: 10px }`.
   static let avatarTextGap: CGFloat = 10
-  /// Vertical gap between stacked bubbles — matches reference HTML
-  /// `.stream { gap: 14px }`. Consumers using `LazyVStack(spacing:)`
-  /// should pass this value.
-  static let bubbleSpacing: CGFloat = 14
+  /// Vertical gap between stacked bubbles. Tightened project-wide
+  /// from the original 14pt (which still appears in the reference
+  /// HTML at `docs/design/demo-replay-reference.html` `.stream { gap: 14px }`)
+  /// to 8pt in #273 PR 2 so Sim/Results — which surface long
+  /// simulation logs — fit more turns per viewport. Demo's loop also
+  /// benefits since its ~3 visible turns no longer need the wider
+  /// pacing. Consumers using `LazyVStack(spacing:)` should pass this
+  /// value rather than a literal so a future re-tuning flows through
+  /// all three chat-stream surfaces in one place. Pinned by
+  /// `ChatBubbleTests` and `ModelDownloadHostViewTests+Layout`.
+  static let bubbleSpacing: CGFloat = 8
 }
 
 // MARK: - View conveniences
