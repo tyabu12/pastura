@@ -365,6 +365,22 @@ jobs:
       - name: Run blocklist drift guard
         run: bash scripts/build-blocklist.sh --check
 
+  localization-coverage:
+    name: Localization coverage (ja 100%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # GHA ubuntu-latest ships python3 >= 3.12. No third-party deps —
+      # the script uses only stdlib (json, argparse, pathlib).
+      - name: Run validator self-test
+        run: python3 scripts/check_localization_coverage.py --self-test
+
+      - name: Verify Localizable.xcstrings ja coverage
+        run: python3 scripts/check_localization_coverage.py
+
   coverage:
     name: Coverage
     needs: lint-and-test
