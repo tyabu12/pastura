@@ -101,7 +101,11 @@ struct GalleryScenarioDetailView: View {
       Section(String(localized: "Details")) {
         LabeledContent(String(localized: "Category"), value: scenario.category.displayName)
         LabeledContent(String(localized: "Author"), value: scenario.author)
-        LabeledContent(String(localized: "Recommended model"), value: scenario.recommendedModel)
+        LabeledContent(
+          String(localized: "Recommended model"),
+          value: ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
+            ?? String(localized: "Unknown model (\(scenario.recommendedModel))")
+        )
         LabeledContent(
           String(localized: "Est. inferences"), value: "\(scenario.estimatedInferences)")
         LabeledContent(String(localized: "Added"), value: scenario.addedAt)
