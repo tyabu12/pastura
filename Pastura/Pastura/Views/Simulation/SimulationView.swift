@@ -493,14 +493,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
       Spacer()
 
-      // Thought visibility toggle
-      Button {
-        viewModel.showAllThoughts.toggle()
-      } label: {
-        Image(systemName: viewModel.showAllThoughts ? "text.bubble.fill" : "text.bubble")
-          .font(.title3)
-          .foregroundStyle(viewModel.showAllThoughts ? Color.moss : Color.inkSecondary)
-      }
+      // Thought visibility toggle — uses ThoughtVisibilityToggle from Components
+      // for parity with Results / Demo (issue #273).
+      @Bindable var viewModel = viewModel
+      ThoughtVisibilityToggle(isOn: $viewModel.showAllThoughts)
+        .font(.title3)
 
       // Background continuation toggle (iOS 26+ with LlamaCppService only)
       if #available(iOS 26, *), viewModel.canEnableBackgroundContinuation {
