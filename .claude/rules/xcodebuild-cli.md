@@ -113,6 +113,15 @@ does not (Apple has no documented flag to enable it). Without the sync,
 keys added in code silently fail to land in the catalog after PR #288 i18n
 Step A-1 — see [#293](https://github.com/tyabu12/pastura/issues/293).
 
+Pairs with the CLAUDE.md "User-facing String literals" rule (every new
+user-facing English literal must be wrapped in `String(localized: "...")`
+so the catalog gets a `ja` translation entry) and the CI
+`localization-coverage` job (`scripts/check_localization_coverage.py`).
+The wrapper provides edit-time auto-population of the catalog; CI is the
+merge-time enforcement. So contributors do **not** need to manually invoke
+`xcstringstool` or open Xcode IDE just to sync the catalog — running any
+local `scripts/xcodebuild.sh build` / `test` does it for them.
+
 Empirical cost: ~0.22s on 168 Swift files (extract 0.16s + sync 0.06s).
 Negligible relative to a full build (multi-second) or test run (minutes).
 
@@ -134,9 +143,11 @@ Negligible relative to a full build (multi-second) or test run (minutes).
   block on tooling failure. The sentinel persists across invocations so
   a tail-truncated agent session that missed the warning still surfaces
   it on the next run; cleared on next successful sync.
-- A `mkdir`-based mutex on `.xcstrings.sync.lock` (atomic on POSIX) makes
-  concurrent invocations from the same worktree non-racing. 60s
-  stale-lock reclaim covers SIGKILL-orphaned holders.
+- A `mkdir`-based mutex on `Pastura/DerivedData/.xcstrings.sync.lock`
+  (atomic on POSIX, alongside the sentinel under the gitignored
+  `DerivedData/` so a SIGKILL-orphaned lock dir does not surface in
+  `git status`) makes concurrent invocations from the same worktree
+  non-racing. 60s stale-lock reclaim covers SIGKILL-orphaned holders.
 
 **Xcode-version skew**: `xcstringstool`'s output format is undocumented and
 has historically been adjusted across Xcode minor releases (e.g.,
@@ -148,6 +159,15 @@ formatting commit cleanly (analogous to the baseline sync in
 the new format. Subsequent syncs revert to idempotent. CI failures from
 catalog drift after a team-wide Xcode upgrade may need the same
 one-time absorption commit.
+
+If translation work is in flight on a feature branch when an Xcode-version
+upgrade lands on `main`, **rebase the feature branch onto current `main`
+and re-run `scripts/xcodebuild.sh build` once before continuing** — the
+absorption pattern handles format-shift collisions that would otherwise
+silently destroy translations during the merge (the JSON `extract`/`sync`
+diff base mismatches when one side is JSON-default and the other is
+Apple-canonical, so naive `--theirs` / `--ours` resolution loses keys
+on whichever side the resolver picks against).
 
 **CI bypass**: `.github/workflows/ci.yml` invokes `xcodebuild test` inline
 (its SPM cache key depends on `~/Library/...` so it intentionally
