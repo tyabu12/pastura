@@ -162,7 +162,24 @@ ZStack(alignment: .top) {
 #### THINKING（内なる思考）
 - 折りたたみ時: `▸ THINKING` のみ（8.5pt / モノスペース / `#b1ac92` / letterSpacing 0.22em）
 - 展開時: 左に1.5pt縦線（`#d4cba8`）、本文は 10.5pt / `#8a876f` / italic / line-height 1.7
-- タップでトグル（実装推奨）
+- **デフォルトは展開**。タップでトグル（折りたたみ ↔ 展開）。
+
+> **2026-04-29 amendment (#273)** — `showAllThoughts` のデフォルトは
+> 3 画面共通で `true`（展開）に統一。Demo / Simulation / Results すべて
+> 同じ初期表示を共有し、ユーザーは各画面の `ThoughtVisibilityToggle`
+> ボタン（`Views/Components/ThoughtVisibilityToggle.swift`）で折り
+> 畳み / 展開を切り替える。
+>
+> 当初仕様（`▸ THINKING` 折りたたみが default）からの逸脱は、3G 環境
+> で DL に 10+ 分かかる前提下で demo 画面が長時間滞在画面となること、
+> Sim / Results でも「何が起きているか」を即座に見せる方が UX が良い
+> ことを根拠とする (#273 issue body 参照)。狭く感じるユーザーには
+> toggle で折り畳む選択肢を残す。
+>
+> **Demo 固有の補足**: PR 1a 時点では Demo controlBar の Pause / Speed
+> は disabled-mirror (Sim controlBar の見た目を踏襲、機能は未配線)。
+> PR 1b で `ReplayViewModel` に user-pause / resume API を追加し
+> enable する。
 
 #### アバター
 - 42pt 丸。「羊」シルエット（SVGで実装済み、詳細は HTML 参照）
