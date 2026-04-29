@@ -127,11 +127,11 @@ i18n is split into staged Steps so the harder design questions (per-language YAM
 #### Dependency graph
 
 ```
-ROADMAP commit (#276)
+ROADMAP merge (this PR)
   → Pre-ADR-010 stub PR
         + CLAUDE.md "Completed in Phase 2 so far" line
         + dependency-graph corrections (this section, if needed)
-  → Step A (A-1 / A-2 PR split recommended) ⫶ Step B-1a (parallel)
+  → Step A (A-1 / A-2 PR split recommended) + Step B-1a (parallel)
   → Step B-1b (after A — UI must be English to capture screenshots)
   → Step C-1 (ADR-010 body + Engine dynamic localization)
   → Step C-2 (DB compat + drift script + demo replay + gallery + ADR-007 §3)
@@ -144,13 +144,28 @@ ROADMAP commit (#276)
 
 | Step | Scope | Required for App Store | Complexity | Dependencies |
 |------|-------|-----------------------|-----------|--------------|
-| **A: UI shell + Error messages** | New `Localizable.xcstrings`; `knownRegions += ja`; convert ~58 hardcoded `Text("...")` to `String(localized:)`; wrap existing English `errorDescription` literals (`SimulationError` / `LLMError` / `DataError`) without text changes and add `ja` translations; audit `.claude/rules/navigation.md` scenarios 7 / 11–17 confirmed strings, `BackgroundSimulationManager` notifications, `ResultMarkdownExporter` headers, `ImportViewModel.scenarioGenerationPrompt` policy, and the `PromoCard` / `DLCompleteOverlay` deliberate-Japanese marketing copy; absorb the former B-2 scope (ContentBlocklist `lang` field documented in `docs/blocklist/README.md` — `ContentFilter` applies all entries regardless of UI locale); add `scripts/check_localization_coverage.py` to CI to fail when `ja` key coverage < 100%. **Out-of-Scope**: Engine prompt strings and scoring summaries (deferred to Step C). **DoD additions**: each audit item logs a (keep / translate / replace-on-en) decision in the PR description (no deferrals); `errorDescription` text remains unchanged (wrap-only); audit work is two-phase — (a) wrap existing English in `String(localized:)`, then (b) author the `ja` translations. PR-level split into A-1 (xcstrings + UI shell `ja` + B-2 docs) and A-2 (error i18n + audit + CI coverage) is recommended. | Required | Medium | Pre-ADR-010 stub |
+| **A: UI shell + Error messages** | UI string conversion (~70 hardcoded user-facing `Text("...")` to `String(localized:)`), error message wrapping with `ja` translations, an audit of confirmed strings across navigation / notification / export / marketing surfaces, plus the absorbed B-2 documentation scope and a `ja` coverage CI gate. **Out-of-Scope**: Engine prompt strings and scoring summaries (deferred to Step C). See **Step A details** below. | Required | Medium | Pre-ADR-010 stub |
 | **B-1a: Store metadata + legal pages** | App Store Connect metadata (description, keywords, screenshot captions) in ja and en; Japanese versions of `pages/legal/privacy-policy/` and `pages/support/`. | Required | Low | None (parallel with A) |
 | **B-1b: English screenshots** | Capture App Store screenshots with the English UI rendered. Cannot proceed before A — this is the only hard cross-step gate inside B-1. | Required | Low | **A complete** |
 | **C-1: ADR-010 body + Engine dynamic localization** | ADR-010 body (Option B: per-language YAML files; `simulation_language` field schema — parse / validate only, wiring deferred to E; per-language scenario IDs with gallery curation aliases; `ContentFilter` continues full-set application regardless of UI locale). Dynamic localization of Engine hardcoded Japanese (`PromptBuilder` system / section / rule strings, `SpeakAllHandler` / `SpeakEachHandler` / `VoteHandler` defaults, `WordwolfJudgeLogic` summaries — ~10 sites total). Maintain `nonisolated` on Engine types. **Test compatibility (DoD)**: existing Japanese assertions in `PromptBuilderTests` / `SimulationRunnerTests` keep passing via the `scenario.language = "ja"` path; new `language = "en"` cases are added so both go green. | Required | High | A |
 | **C-2: DB compat + drift + demo replay language selection + gallery** | Phase 1 existing scenario IDs (`word_wolf` etc.) preserved without breaking Past Results — alias or migration confirmed in ADR-010. `scripts/check_demo_replay_drift.py` `REQUIRED_LANGUAGE` hardcode replaced with `ALLOWED_LANGUAGES = {"ja", "en"}` (C-2 alone keeps `ja`-only verification green; Step D adds `en` demos and the script gains a second target). ADR-007 §3 amended with the demo replay language-selection logic. `docs/gallery/README.md` adds a language field. | Required | High | C-1 |
 | **D: Bundled English presets + English DL Demo Replay** | English versions of the 4 bundled presets (`*_en.yaml`); English DL Demo Replay (device `ja` → ja, `en` → en, otherwise → en fallback); preset list UI prioritizes the device-language match. | Required | Medium-High | C-2 |
 | **E: Cross-language simulation** | Wire `simulation_language` override into the Engine; implement LLM-output-language enforcement. **DoD (measurable)**: each English bundled preset achieves JSON parse success ≥ N% and target-language adherence ≥ M% on Qwen 3 4B Q4_K_M. The specific N, M values and the language detector (Apple `NLLanguageRecognizer` / cld3 / langdetect — TBD) are confirmed in ADR-010. The benchmark harness (`PasturaTests/Localization/LanguageAdherenceBenchmark.swift` etc.) is built within Step E, gated by an env var (mirroring `OLLAMA_INTEGRATION`), CI-disabled by default. | Post-release (strongly recommended) | High | D |
+
+#### Step A details
+
+The Step A row above is summarized; the full scope is:
+
+- **xcstrings setup**: new `Localizable.xcstrings`, `knownRegions += ja`, `CFBundleDevelopmentRegion = en` retained.
+- **UI string conversion**: ~70 hardcoded user-facing `Text("...")` literals (rg-measured 68 non-interpolated English-letter literals across `Pastura/Pastura/Views/` + `Pastura/Pastura/App/`; final count subject to A's audit, which will exclude `Text(verbatim:)` and accessibility-only labels) wrapped in `String(localized:)`.
+- **Error messages**: wrap existing English `errorDescription` literals on `SimulationError` / `LLMError` / `DataError` without text changes; add `ja` translations to the catalog.
+- **Audit list**: `.claude/rules/navigation.md` scenarios 7 / 11–17 confirmed strings, `BackgroundSimulationManager` notifications, `ResultMarkdownExporter` headers, `ImportViewModel.scenarioGenerationPrompt` policy, `PromoCard` / `DLCompleteOverlay` deliberate-Japanese marketing copy.
+- **Audit decision frame**: each audit item logs a (keep / translate / replace-on-en) decision in the PR description; deferrals not allowed.
+- **Audit two-phase work**: (a) wrap existing English in `String(localized:)`, then (b) author the `ja` translations.
+- **Absorbed B-2 scope**: ContentBlocklist `lang` field documented in `docs/blocklist/README.md` — `ContentFilter` applies all entries regardless of UI locale.
+- **CI coverage**: `scripts/check_localization_coverage.py` added to CI; fails when `ja` key coverage < 100%.
+- **Out-of-Scope**: Engine prompt strings and scoring summaries (deferred to Step C).
+- **PR-level split (recommended)**: A-1 (xcstrings + UI shell `ja` + B-2 docs) and A-2 (error i18n + audit + CI coverage).
 
 #### Language-resolution priority (3 layers, confirmed in ADR-010)
 
