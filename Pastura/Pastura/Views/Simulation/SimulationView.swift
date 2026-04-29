@@ -455,7 +455,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   private func controlBar(viewModel: SimulationViewModel) -> some View {
-    HStack(spacing: 16) {
+    let isPauseDisabled = !viewModel.isRunning || viewModel.isCompleted
+    return HStack(spacing: 16) {
       // Pause/Resume
       Button {
         if viewModel.isPaused {
@@ -464,10 +465,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           viewModel.pauseSimulation()
         }
       } label: {
+        // Explicit `Color.disabledText` (design-system §2.7) when
+        // disabled, matching Demo's controlBar (#273 PR 1a). Enabled
+        // state uses `Color.ink` for the icon color rather than the
+        // system tint so the bar's color story stays in our palette.
         Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
           .font(.title3)
+          .foregroundStyle(isPauseDisabled ? Color.disabledText : Color.ink)
       }
-      .disabled(!viewModel.isRunning || viewModel.isCompleted)
+      .disabled(isPauseDisabled)
 
       // Speed picker while running; swapped with an export button once the
       // simulation is completed because playback speed is no longer relevant.
