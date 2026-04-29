@@ -44,7 +44,12 @@ struct PromoCard: View {
   @State private var currentSlot: Int = 0
   @State private var foregroundElapsed: TimeInterval = 0
   @State private var lastForegroundAnchor: Date? = Date()
+  /// ETA anchor — re-set on every `non-.downloading → .downloading` transition
+  /// so a retry after an error doesn't reuse the original session's start time.
+  /// `downloadStartProgress` snapshots the progress at anchor time so the ETA
+  /// formula works correctly when resuming from a non-zero offset.
   @State private var downloadStartDate: Date?
+  @State private var downloadStartProgress: Double = 0
 
   /// Provisional 20 s / slot; the spec marks this as "暫定値" to be tuned
   /// during the copy pass.
@@ -311,82 +316,55 @@ struct PromoCard: View {
     }
   }
 
-  private func handleModelStateChange(_ newState: ModelState) {
-    if case .downloading = newState, downloadStartDate == nil {
-      downloadStartDate = Date()
-    }
-  }
-
-  private func computeEtaMinutes(progress: Double) -> Int? {
-    guard let start = downloadStartDate, progress >= 0.01 else { return nil }
-    let elapsed = Date().timeIntervalSince(start)
-    let total = elapsed / progress
-    let remaining = max(0, total - elapsed)
-    return Int(remaining / 60)
-  }
-
 }
 
-// MARK: - Pure helpers (testable)
+// MARK: - ETA anchor behavior
 //
-// Lifted out of the main struct body to keep `type_body_length` under the
-// 250-line cap. They were already `nonisolated static`, so accessing them
-// as `PromoCard.computeSlotState(...)` is unchanged.
+// Lifted to a same-file extension so the bookkeeping can be unit-test-shaped
+// (delegate decisions to `nonisolated static` pure helpers) without inflating
+// the main struct body past swiftlint's `type_body_length` cap.
 extension PromoCard {
 
-  /// Computes the next slot rotation state from the current accumulator,
-  /// the last foreground anchor, and the current time. All inputs are
-  /// explicit so the caller can unit-test wrap-around, BG pauses, and
-  /// resume continuity without `@State` or a live clock.
-  nonisolated static func computeSlotState(
-    previousSlot: Int,
-    foregroundElapsed: TimeInterval,
-    lastAnchor: Date?,
-    now: Date,
-    slotDuration: TimeInterval
-  ) -> SlotRotationState {
-    let inflight = lastAnchor.map { now.timeIntervalSince($0) } ?? 0
-    let totalInSlot = foregroundElapsed + inflight
-    if totalInSlot >= slotDuration {
-      // Slot advances; accumulator resets. The anchor only advances to `now`
-      // when foregrounded (nil anchor means BG and stays nil).
-      return SlotRotationState(
-        slot: (previousSlot + 1) % 3,
-        foregroundElapsed: 0,
-        lastAnchor: lastAnchor == nil ? nil : now)
+  fileprivate func handleModelStateChange(_ newState: ModelState) {
+    // Anchor lifecycle (full rationale in `isResumeJump` doc comment):
+    //   1. non-`.downloading` clears the anchor.
+    //   2. first `.downloading` after a clear sets the anchor.
+    //   3. resume-burst jump re-anchors so URLSession's cumulative-bytes
+    //      report doesn't poison the throughput estimate.
+    guard case .downloading(let progress) = newState else {
+      downloadStartDate = nil
+      downloadStartProgress = 0
+      return
     }
-    return SlotRotationState(
-      slot: previousSlot,
-      foregroundElapsed: foregroundElapsed,
-      lastAnchor: lastAnchor)
-  }
-
-  /// Return value of ``computeSlotState(previousSlot:foregroundElapsed:lastAnchor:now:slotDuration:)``.
-  ///
-  /// Explicitly `nonisolated` so the pure rotation math is testable from a
-  /// nonisolated test suite without hopping the main actor.
-  nonisolated struct SlotRotationState: Equatable, Sendable {
-    let slot: Int
-    let foregroundElapsed: TimeInterval
-    let lastAnchor: Date?
-  }
-
-  /// Slot copy (draft) from `docs/design/design-system.md` §7.
-  /// Final wording is gated on the copy pass per spec §2 decision 13.
-  static func slotCopy(_ slot: Int) -> String {
-    switch slot % 3 {
-    case 0: return "AIエージェントが、あなたのiPhoneの中で対話します"
-    case 1: return "少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ"
-    default: return "このアプリは広告もログインもなく、あなたの端末だけで静かに動きます"
+    let shouldAnchor: Bool
+    if let anchor = downloadStartDate {
+      shouldAnchor = Self.isResumeJump(
+        newProgress: progress,
+        anchorProgress: downloadStartProgress,
+        elapsedSinceAnchor: Date().timeIntervalSince(anchor))
+    } else {
+      shouldAnchor = true
+    }
+    if shouldAnchor {
+      downloadStartDate = Date()
+      downloadStartProgress = progress
     }
   }
 
-  /// `残り約N分` when minutes > 0, `まもなく` when <= 0, nil to hide.
-  static func formatEta(minutes: Int?) -> String? {
-    guard let minutes = minutes else { return nil }
-    return minutes <= 0 ? "まもなく" : "残り約\(minutes)分"
+  fileprivate func computeEtaMinutes(progress: Double) -> Int? {
+    guard let start = downloadStartDate else { return nil }
+    let elapsed = Date().timeIntervalSince(start)
+    guard
+      let seconds = Self.computeEtaSeconds(
+        currentProgress: progress,
+        startProgress: downloadStartProgress,
+        elapsed: elapsed)
+    else { return nil }
+    return seconds / 60
   }
 }
 
-// `#Preview` blocks for this view live in `PromoCard+Previews.swift`
-// to keep this file under swiftlint's 400-line cap.
+// Pure helpers (`computeSlotState`, `computeEtaSeconds`, `isResumeJump`,
+// `slotCopy`, `formatEta`) live in `PromoCard+Helpers.swift`. `#Preview` blocks
+// live in `PromoCard+Previews.swift`. Both splits keep this file under
+// swiftlint's 400-line cap.
