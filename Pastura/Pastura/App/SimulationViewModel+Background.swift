@@ -67,7 +67,8 @@ extension SimulationViewModel {
       didActivateBGTask = false
       isBackgroundContinuationEnabled = true
     } catch {
-      errorMessage = "Failed to enable background continuation: \(error.localizedDescription)"
+      errorMessage = String(
+        localized: "Failed to enable background continuation: \(error.localizedDescription)")
       isBackgroundContinuationEnabled = false
     }
   }
@@ -251,7 +252,7 @@ extension SimulationViewModel {
     } catch {
       lifecycleLogger.error(
         "switchToCPU: failed with \(error.localizedDescription, privacy: .public)")
-      errorMessage = "Failed to switch to CPU: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to switch to CPU: \(error.localizedDescription)")
       cancelSimulation(caller: "switchToCPUInference-error")
     }
   }
@@ -275,7 +276,7 @@ extension SimulationViewModel {
     } catch {
       lifecycleLogger.error(
         "switchToGPU: failed with \(error.localizedDescription, privacy: .public)")
-      errorMessage = "Failed to switch to GPU: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to switch to GPU: \(error.localizedDescription)")
       cancelSimulation(caller: "switchToGPUInference-error")
     }
   }

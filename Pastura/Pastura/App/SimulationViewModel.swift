@@ -592,8 +592,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .simulationCompleted:
       isCompleted = true
     case .error(let simError):
-      errorMessage = "\(simError)"
-      logEntries.append(LogEntry(kind: .error("\(simError)")))
+      // Use `localizedDescription` (LocalizedError-conforming) for both
+      // the alert text and the log entry — `"\(simError)"` would render
+      // the enum case repr (e.g. "retriesExhausted"), which is debug
+      // output, not user-facing copy.
+      let message = simError.localizedDescription
+      errorMessage = message
+      logEntries.append(LogEntry(kind: .error(message)))
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
       // A new inference starts: any leftover snapshot from a previous

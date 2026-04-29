@@ -169,7 +169,8 @@ struct PromoCard: View {
     .accessibilityAddTraits(.updatesFrequently)
   }
 
-  /// Trailing-edge "キャンセル" button for the progress / retry row.
+  /// Trailing-edge "Cancel" button for the progress / retry row
+  /// (renders as "キャンセル" via the existing "Cancel" xcstrings ja key).
   /// Neutral styling — `inkSecondary` text + `rule` 1pt border + clear
   /// fill — per `design-system.md` §2.6 "Cancel ボタンは赤くしない".
   /// The pastoral voice rejects red here; `danger` is reserved for
@@ -181,7 +182,7 @@ struct PromoCard: View {
   /// the visible chrome.
   private func cancelButton(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Text(String(localized: "キャンセル"))
+      Text(String(localized: "Cancel"))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
         .padding(.horizontal, 8)
