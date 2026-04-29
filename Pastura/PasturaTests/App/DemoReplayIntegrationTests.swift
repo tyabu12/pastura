@@ -130,7 +130,7 @@ struct DemoReplayIntegrationTests {
   /// bounded to ~ 5 events per demo × 2 demos = 10 events total,
   /// well under the 20-event cap from the plan.
   static let integrationConfig = ReplayPlaybackConfig(
-    speedMultiplier: 100.0,
+    playbackSpeed: .instant,
     turnDelayMs: 20,
     codePhaseDelayMs: 5,
     loopBehaviour: .stopAfterLast,
@@ -268,11 +268,12 @@ struct DemoReplayIntegrationTests {
   }
 
   @Test func pauseAndResumeLandsOnSameCursor() async throws {
-    // Slower pacing so the pause catches mid-sleep — otherwise 100×
-    // collapses the sleep to 0 and we observe a boundary pause that
-    // happens to have remainingDelayMs == 0.
+    // Slower pacing (`.normal`) so the pause catches mid-sleep —
+    // otherwise `.instant` collapses the sleep to 0 and we observe a
+    // boundary pause that happens to have remainingDelayMs == 0.
     let slowConfig = ReplayPlaybackConfig(
-      speedMultiplier: 1.0, turnDelayMs: 150, codePhaseDelayMs: 50,
+      playbackSpeed: .normal,
+      turnDelayMs: 150, codePhaseDelayMs: 50,
       loopBehaviour: .stopAfterLast, onComplete: .awaitTransitionSignal)
     let yamls = [
       (name: "ww", contents: Self.wordWolfDemoYAML())

@@ -61,9 +61,11 @@ struct ReplayViewModelTests {
     try ScenarioLoader().load(yaml: scenarioYAML)
   }
 
-  /// Fast pacing: 100× speed collapses the nominal 1200 ms turn delay
-  /// to ~12 ms — tests still observe the state machine transitions
-  /// without paying human-scale wait times.
+  /// Fast pacing: `.instant` collapses every per-event sleep to 0 —
+  /// tests still observe the state machine transitions without paying
+  /// human-scale wait times. (Pre-#290 used `speedMultiplier: 100.0`
+  /// for ~12 ms turns; the new shape is strictly faster but no test
+  /// here pins on the residual delay.)
   ///
   /// Uses `.stopAfterLast + .awaitTransitionSignal` so the VM HOLDS at
   /// `.playing(lastIndex, plan.count)` after the single source's plan
@@ -71,7 +73,7 @@ struct ReplayViewModelTests {
   /// premature termination. Rotation-specific tests override with
   /// their own config (see `ReplayViewModelTests+Rotation.swift`).
   static let fastConfig = ReplayPlaybackConfig(
-    speedMultiplier: 100.0,
+    playbackSpeed: .instant,
     turnDelayMs: 20,
     codePhaseDelayMs: 5,
     loopBehaviour: .stopAfterLast,
@@ -173,12 +175,12 @@ struct ReplayViewModelTests {
   // MARK: - onBackground / onForeground
 
   @Test func onBackgroundTransitionsPlayingToPaused() async throws {
-    // Slow pacing (1× speed) so we can catch the VM mid-sleep. The
-    // turnDelayMs=20ms scaled by 1× = 20ms per event. Calling
-    // onBackground immediately after start should catch the first
-    // sleep in progress.
+    // Slow pacing (`.normal` = 1×) so we can catch the VM mid-sleep.
+    // turnDelayMs=200ms × 1.0 = 200ms per event; calling onBackground
+    // ~20ms after start catches the first sleep in progress.
     let slowConfig = ReplayPlaybackConfig(
-      speedMultiplier: 1.0, turnDelayMs: 200, codePhaseDelayMs: 50,
+      playbackSpeed: .normal,
+      turnDelayMs: 200, codePhaseDelayMs: 50,
       loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
     let source = try YAMLReplaySource(
       yaml: Self.threeTurnYAML, scenario: Self.makeScenario(),

@@ -66,8 +66,10 @@ final class ReplayViewModel {
     /// Paused. `remainingDelayMs` is how much of the pre-yield sleep
     /// for `plannedEvents()[eventCursor]` was still outstanding when
     /// the pause fired. On resume, the VM sleeps exactly that many
-    /// milliseconds (scaled by `speedMultiplier`) before publishing
-    /// the paused event.
+    /// milliseconds (computed at the speed *active when the pause was
+    /// captured*, not the current ``playbackSpeed`` — see that
+    /// property's doc-comment for the worked example) before
+    /// publishing the paused event.
     ///
     /// `reason` distinguishes scene-phase auto-pauses from explicit
     /// user-driven pauses; see ``PauseReason``. The two reasons share
@@ -118,6 +120,23 @@ final class ReplayViewModel {
 
   /// Most-recent `.roundStarted.totalRounds`. See ``currentRound``.
   private(set) var currentTotalRounds: Int?
+
+  /// User-selectable playback speed. Initialized from
+  /// ``ReplayPlaybackConfig/playbackSpeed`` and writable at runtime
+  /// (Demo controlBar's Speed Menu binds directly here, mirroring
+  /// ``SimulationViewModel/speed``).
+  ///
+  /// **Next-event reflection only.** A speed change does not interrupt
+  /// the in-flight `Task.sleep`; it takes effect at the next call to
+  /// ``scaledDelay(for:)``. Worst-case latency: `turnDelayMs / .slow.multiplier`
+  /// = ~2400ms with the default 1200ms turn delay. Example: at
+  /// `.normal`, paused with `remainingDelayMs == 600` (computed at
+  /// `.normal` rate); user changes to `.slow`; the resumed event still
+  /// sleeps 600ms — the new `.slow` rate applies starting at event N+1.
+  /// This matches ``SimulationViewModel``'s general inter-event-sleep
+  /// behavior; recompute-on-change was deferred as the simpler mirror
+  /// is acceptable for the Demo screen.
+  var playbackSpeed: PlaybackSpeed
 
   /// Filtered agent-output events in publish order. Consumed by the
   /// host view's chat-stream component (``AgentOutputRow``). The
@@ -171,10 +190,12 @@ final class ReplayViewModel {
   ///     (``BundledDemoReplaySource``); by the time sources reach the
   ///     VM they are already validated.
   ///   - config: Playback pacing + loop policy (spec §4.6). The VM
-  ///     reads `turnDelayMs` / `codePhaseDelayMs` / `speedMultiplier`
+  ///     reads `turnDelayMs` / `codePhaseDelayMs` / `playbackSpeed`
   ///     for per-event sleeps and `loopBehaviour` / `onComplete` for
   ///     end-of-source behaviour (loop rotation lands in a follow-up
-  ///     commit on this branch).
+  ///     commit on this branch). `config.playbackSpeed` seeds
+  ///     ``playbackSpeed``, which is the runtime-mutable knob the UI
+  ///     binds against; `config` itself stays immutable.
   ///   - contentFilter: Filter instance applied to user-visible text
   ///     at render time (spec §3.4).
   ///
@@ -189,6 +210,7 @@ final class ReplayViewModel {
     self.sources = sources
     self.config = config
     self.contentFilter = contentFilter
+    self.playbackSpeed = config.playbackSpeed
   }
 
   // MARK: - Transition methods
@@ -502,8 +524,18 @@ final class ReplayViewModel {
 
   // MARK: - Pacing helpers
 
+  /// Per-event sleep in milliseconds. Reads ``playbackSpeed`` (the
+  /// runtime-mutable VM state, not `config.playbackSpeed`) so a Speed
+  /// Menu change reflects on the next call.
+  ///
+  /// `.instant` short-circuits to 0ms before the multiplier division —
+  /// symmetric with the early-return in ``YAMLReplaySource``. The
+  /// `.infinity` sentinel on `.instant.multiplier` would arithmetically
+  /// produce 0 too, but explicit early-return avoids depending on
+  /// IEEE-754 division semantics.
   private func scaledDelay(for kind: PacedEvent.Kind) -> Int {
-    let speed = max(config.speedMultiplier, 0.001)
+    if playbackSpeed == .instant { return 0 }
+    let speed = max(playbackSpeed.multiplier, 0.001)
     switch kind {
     case .turn:
       return Int(Double(config.turnDelayMs) / speed)

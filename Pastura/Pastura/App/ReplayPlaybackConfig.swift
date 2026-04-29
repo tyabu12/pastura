@@ -10,16 +10,25 @@ import Foundation
 /// (Phase 2.5+, spec §4.5) can pick the appropriate preset without
 /// introducing a second config type.
 nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
-  /// Multiplier applied to the per-event delay before each yield.
-  /// `1.0` plays at the nominal rhythm; values < 1.0 slow playback
-  /// (e.g. `0.5` doubles a 1200 ms nominal gap to 2400 ms), values
-  /// > 1.0 speed it up. `demoDefault` fixes this at 1.0 per spec §2
-  /// decision 5; test fixtures commonly use `100.0` to fast-forward.
-  public var speedMultiplier: Double
+  /// Speed tier applied to ``turnDelayMs`` / ``codePhaseDelayMs`` via
+  /// ``PlaybackSpeed/multiplier``. `.normal` plays at the nominal
+  /// rhythm; `.slow` doubles delays, `.fast` shortens them by 1/1.5×;
+  /// `.instant` collapses the per-event sleep to 0ms (every consumer
+  /// special-cases `.instant` rather than relying on the sentinel
+  /// `.infinity` multiplier).
+  ///
+  /// Replaces the `speedMultiplier: Double` knob (#290 / PR 1b of
+  /// #273): Sim and replay now share the same `.slow / .normal /
+  /// .fast / .instant` vocabulary, eliminating the replay-only
+  /// coefficient.
+  ///
+  /// Test fixtures: `100.0` → `.instant`; `1.0` → `.normal`. See
+  /// `ReplayViewModelTests.fastConfig` for the canonical example.
+  public var playbackSpeed: PlaybackSpeed
 
   /// Nominal delay inserted before each agent turn (`agentOutput`
-  /// event). At 1× speed this is the perceived "one agent speaks,
-  /// next agent reacts" rhythm of a live simulation.
+  /// event). At ``PlaybackSpeed/normal`` this is the perceived "one
+  /// agent speaks, next agent reacts" rhythm of a live simulation.
   ///
   /// Stored on the config — not on each recorded event — because
   /// per-event pacing would baker per-turn LLM inference time into
@@ -57,27 +66,27 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
   }
 
   public init(
-    speedMultiplier: Double,
+    playbackSpeed: PlaybackSpeed = .normal,
     turnDelayMs: Int = 1200,
     codePhaseDelayMs: Int = 500,
     loopBehaviour: LoopBehaviour,
     onComplete: CompletionAction
   ) {
-    self.speedMultiplier = speedMultiplier
+    self.playbackSpeed = playbackSpeed
     self.turnDelayMs = turnDelayMs
     self.codePhaseDelayMs = codePhaseDelayMs
     self.loopBehaviour = loopBehaviour
     self.onComplete = onComplete
   }
 
-  /// Preset for the DL-time demo host: 1× speed, loop forever, wait for
-  /// the download-complete transition signal.
+  /// Preset for the DL-time demo host: nominal speed, loop forever,
+  /// wait for the download-complete transition signal.
   ///
-  /// Speed history: originally 2× per spec §2 decision 5, revised to 1×
-  /// when #170 manual QA on bundled demos found 2× too fast to follow.
-  /// Spec §2 decision 5 was updated in the same PR.
+  /// Speed history: originally 2× per spec §2 decision 5, revised to
+  /// `.normal` (1×) when #170 manual QA on bundled demos found 2× too
+  /// fast to follow. Spec §2 decision 5 was updated in the same PR.
   public static let demoDefault = ReplayPlaybackConfig(
-    speedMultiplier: 1.0,
+    playbackSpeed: .normal,
     loopBehaviour: .loop,
     onComplete: .awaitTransitionSignal)
 }

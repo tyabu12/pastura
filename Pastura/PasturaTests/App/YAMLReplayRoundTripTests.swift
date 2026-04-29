@@ -83,7 +83,7 @@ struct YAMLReplayRoundTripTests {
 
   private var fastConfig: ReplayPlaybackConfig {
     ReplayPlaybackConfig(
-      speedMultiplier: 100.0,
+      playbackSpeed: .instant,
       loopBehaviour: .stopAfterLast,
       onComplete: .stopPlayback)
   }
