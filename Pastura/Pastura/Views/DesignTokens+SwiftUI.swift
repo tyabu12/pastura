@@ -115,6 +115,11 @@ extension Color {
   static let chart2 = PasturaPalette.chart2.color
   static let chart3 = PasturaPalette.chart3.color
   static let chart4 = PasturaPalette.chart4.color
+
+  // §2.12 Header Slots — GameHeader role-anchored
+  static let headerRule = PasturaPalette.headerRule.color
+  static let headerMetaInk = PasturaPalette.headerMetaInk.color
+  static let headerMetaSubdued = PasturaPalette.headerMetaSubdued.color
 }
 
 // MARK: - View modifier

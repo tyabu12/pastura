@@ -116,10 +116,30 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   /// Most-recent `.roundStarted.round`. Paired with
   /// ``currentTotalRounds`` for the phase-header's "round N/M" label.
+  ///
+  /// **Real game-round counter** — driven by `.roundStarted` events,
+  /// independent of ``currentPhaseIndex``. Most preset scenarios (e.g.
+  /// Word Wolf) play a single game round but step through multiple
+  /// phases, so `currentRound == 1` while `currentPhaseIndex` walks
+  /// 1..N. The chat-stream's `roundSeparator` reads this; the GameHeader
+  /// row 2 displays ``currentPhaseIndex`` (the pseudo-ROUND for Demo).
   private(set) var currentRound: Int?
 
   /// Most-recent `.roundStarted.totalRounds`. See ``currentRound``.
   private(set) var currentTotalRounds: Int?
+
+  /// Tracks `.phaseStarted` event count consumed within the
+  /// currently-playing source. Backs ``currentPhaseIndex``.
+  /// Lives on the underlying state (not gated by `state`) so the
+  /// counter survives pause/resume; the public computed property
+  /// hides it during non-playing states.
+  private var phaseProgress: Int = 0
+
+  /// Cached total `.phaseStarted` event count for the currently-
+  /// playing source. Set in ``resetPerDemoState(forSourceIndex:)``;
+  /// re-derived on `.loop` rotation against the new source. Backs
+  /// ``totalPhaseCount``.
+  private var cachedTotalPhaseCount: Int = 0
 
   /// User-selectable playback speed. Initialized from
   /// ``ReplayPlaybackConfig/playbackSpeed`` and writable at runtime
@@ -222,6 +242,46 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     self.playbackSpeed = config.playbackSpeed
   }
 
+  // MARK: - Public computed properties (GameHeader integration)
+
+  /// 1-based phase index within the currently-playing source. Increments
+  /// on each consumed `.phaseStarted`. `nil` outside `.playing` so the
+  /// GameHeader's ROUND fragment collapses during `.idle` /
+  /// `.transitioning` / `.paused` (per #297 PR 3 spec).
+  ///
+  /// Distinct from ``currentRound`` (real game-rounds from
+  /// `.roundStarted` events). Demo's GameHeader displays this
+  /// pseudo-ROUND because most preset scenarios play one game-round
+  /// across multiple phases, leaving the real round counter stuck
+  /// at `1/1` for the entire demo.
+  var currentPhaseIndex: Int? {
+    guard case .playing = state else { return nil }
+    return phaseProgress > 0 ? phaseProgress : nil
+  }
+
+  /// Total `.phaseStarted` event count for the currently-playing
+  /// source. Re-derived on `.loop` rotation against the new source's
+  /// `plannedEvents()`. `nil` outside `.playing` so the GameHeader's
+  /// ROUND fragment collapses uniformly with ``currentPhaseIndex``.
+  var totalPhaseCount: Int? {
+    guard case .playing = state else { return nil }
+    return cachedTotalPhaseCount > 0 ? cachedTotalPhaseCount : nil
+  }
+
+  /// `GameHeaderStatus` for the trailing pill. `.demoing` while
+  /// playing or in the brief `.transitioning` fade; `.paused` while
+  /// paused (any reason). `.idle` defaults to `.demoing` —
+  /// effectively unreachable in production (host view doesn't show
+  /// the header pre-`start()`), but the fall-through is defensive.
+  var status: GameHeaderStatus {
+    switch state {
+    case .idle, .transitioning, .playing:
+      return .demoing
+    case .paused:
+      return .paused
+    }
+  }
+
   // MARK: - Transition methods
 
   /// Begins playback from the first source, first event.
@@ -231,11 +291,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   func start() {
     guard case .idle = state else { return }
     guard !sources.isEmpty else { return }
-    agentOutputs = []
-    currentPhase = nil
-    currentRound = nil
-    currentTotalRounds = nil
     let startIndex = 0
+    resetPerDemoState(forSourceIndex: startIndex)
     state = .playing(sourceIndex: startIndex, eventCursor: 0)
     launchPlayback(sourceIndex: startIndex, startCursor: 0, firstSleepOverrideMs: nil)
   }
@@ -459,7 +516,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     switch config.loopBehaviour {
     case .loop:
       let nextIndex = (currentIndex + 1) % sources.count
-      resetPerDemoState()
+      resetPerDemoState(forSourceIndex: nextIndex)
       if case .playing = state {
         state = .playing(sourceIndex: nextIndex, eventCursor: 0)
       }
@@ -468,7 +525,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       // Advance to next source without wrap-around. Spec §4.6:
       // `.stopAfterLast` plays each source once in order.
       let nextIndex = currentIndex + 1
-      resetPerDemoState()
+      resetPerDemoState(forSourceIndex: nextIndex)
       if case .playing = state {
         state = .playing(sourceIndex: nextIndex, eventCursor: 0)
       }
@@ -491,11 +548,29 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
-  private func resetPerDemoState() {
+  /// Per-source state reset. Called from `start()` (initial source)
+  /// and `advanceAfterSource()` (loop / sequential rotation). The
+  /// `forSourceIndex` parameter is load-bearing for the
+  /// ``cachedTotalPhaseCount`` re-derivation against the new source's
+  /// `plannedEvents()`.
+  private func resetPerDemoState(forSourceIndex sourceIndex: Int) {
     agentOutputs = []
     currentPhase = nil
     currentRound = nil
     currentTotalRounds = nil
+    phaseProgress = 0
+    cachedTotalPhaseCount = Self.countPhases(in: sources[sourceIndex])
+  }
+
+  /// Pre-computes the number of `.phaseStarted` events in a source's
+  /// planned event list. Done once per source-entry rather than on
+  /// every observation read so a Demo running for minutes doesn't
+  /// repeatedly walk the plan array each SwiftUI render pass.
+  private static func countPhases(in source: any ReplaySource) -> Int {
+    source.plannedEvents().filter { paced in
+      if case .phaseStarted = paced.event { return true }
+      return false
+    }.count
   }
 
   // MARK: - Render-time state updates
@@ -512,6 +587,9 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
     case .phaseStarted(let phaseType, _):
       currentPhase = phaseType
+      // Increment pseudo-ROUND counter. Survives pause/resume; reset
+      // only on source rotation via ``resetPerDemoState(forSourceIndex:)``.
+      phaseProgress += 1
 
     case .agentOutput(let agent, let output, let phaseType):
       let filtered = contentFilter.filter(output)

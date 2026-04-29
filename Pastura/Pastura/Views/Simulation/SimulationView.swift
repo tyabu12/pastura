@@ -47,11 +47,19 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         ProgressView(String(localized: "Loading scenario..."))
       }
     }
-    // 3-tier fallback (ADR-008): loaded scenario name (authoritative,
-    // wins after loadAndRun completes) → push-time `initialName` hint
-    // → empty string (defensive default; "Simulation" would be a
-    // misleading flash if ever reached).
-    .navigationTitle(scenario?.name ?? initialName ?? "")
+    // Empty navigation title — `GameHeader` (#297 PR 3) now carries
+    // the scenario name on row 1, and surfacing the same value in the
+    // nav bar would duplicate it. The 3-tier fallback chain
+    // (loaded VM name → push-time `initialName` hint → empty string)
+    // moved into `GameHeader`'s `scenarioName` / `initialName`
+    // arguments — see `headerBar(viewModel:)`. ADR-008 §Amendment
+    // 2026-04-29 records the sink pivot.
+    //
+    // Back chevron continues to read the upstream `ScenarioDetail`
+    // view's title (iOS uses the previous view's title, not the
+    // current view's, for the back-button label) so popping back
+    // remains discoverable.
+    .navigationTitle("")
     .navigationBarTitleDisplayMode(.inline)
     .task {
       await loadAndRun()
@@ -276,58 +284,75 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Header
 
+  /// Sim composition of the shared `GameHeader` (#297 PR 3 — header
+  /// content unification). Demo's `+GameHeader.swift` extension uses
+  /// the same component on the DL-time replay screen. See
+  /// `Views/Components/GameHeader.swift` for the contract.
+  ///
+  /// Sim passes:
+  /// - `scenarioName` / `initialName` — the same 3-tier fallback chain
+  ///   that previously fed `.navigationTitle()`. ADR-008 §Amendment
+  ///   2026-04-29 documents the sink pivot.
+  /// - `currentRound` / `totalRounds` — real game-rounds from
+  ///   `.roundStarted` events. Suppressed (nil) until the first
+  ///   `.roundStarted` lands so the ROUND fragment doesn't flash a
+  ///   stale `0/0` between scenario load and first round.
+  /// - `phaseLabel` — formatted from `viewModel.currentPhase`.
+  /// - `tokensPerSecond` — `averageTokensPerSecond` (live moving
+  ///   average). Drops the inference-duration display the legacy
+  ///   PhaseHeader trailing slot carried (`InferenceStatsFormatter`'s
+  ///   `"12.4 tok/s • 1.8s"`) — the new design has only one mono slot
+  ///   on row 2 for inference rate.
+  /// - `extendsIntoTopSafeArea: false` — Sim's NavigationStack-pushed
+  ///   nav bar already paints the top safe area; opting in would
+  ///   double the frosted material.
   private func headerBar(viewModel: SimulationViewModel) -> some View {
-    PhaseHeader {
-      if viewModel.totalRounds > 0 {
-        Text("Round \(viewModel.currentRound)/\(viewModel.totalRounds)")
-          .textStyle(Typography.metaEta)
-          .monospacedDigit()
-      }
-    } trailing: {
-      HStack(spacing: Spacing.xs) {
-        inferenceStatsLabel(viewModel: viewModel)
-        statusBadge(viewModel: viewModel)
-      }
-    }
+    GameHeader(
+      scenarioName: scenario?.name,
+      initialName: initialName,
+      status: viewModel.status,
+      currentRound: viewModel.totalRounds > 0 ? viewModel.currentRound : nil,
+      totalRounds: viewModel.totalRounds > 0 ? viewModel.totalRounds : nil,
+      phaseLabel: Self.phaseDisplayLabel(for: viewModel.currentPhase),
+      tokensPerSecond: viewModel.averageTokensPerSecond,
+      extendsIntoTopSafeArea: false
+    )
   }
 
-  @ViewBuilder
-  private func inferenceStatsLabel(viewModel: SimulationViewModel) -> some View {
-    if let text = InferenceStatsFormatter.format(
-      durationSeconds: viewModel.lastInferenceDurationSeconds,
-      tokensPerSecond: viewModel.averageTokensPerSecond) {
-      HStack(spacing: 4) {
-        Image(systemName: "speedometer")
-        Text(text).monospacedDigit()
-      }
-      .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
-    }
+  /// Maps a `PhaseType` to its display label for the GameHeader's
+  /// row-2 phase fragment. Returns `nil` when phase is `nil` so the
+  /// caller can pass `viewModel.currentPhase` directly without
+  /// flattening the optional.
+  ///
+  /// **i18n deferral.** The 10 phase-name strings (発言 / 個別発言 / …)
+  /// are hard-coded Japanese, mirroring the pre-existing pattern in
+  /// `ModelDownloadHostView.phaseDisplayName(_:)`. Wrapping in
+  /// `String(localized:)` and consolidating both into a shared helper
+  /// is tracked as a follow-up to the i18n Step A-1 work (#276 / #277,
+  /// ADR-010 stub #279) — out of scope for #297 PR 3 since the
+  /// duplication is pre-existing and the consolidation touches
+  /// `+PhaseLabels.swift`.
+  ///
+  /// Implementation: split into nil-guard wrapper + pure switch so
+  /// neither half crosses swiftlint's `cyclomatic_complexity`
+  /// 10-branch ceiling.
+  static func phaseDisplayLabel(for phase: PhaseType?) -> String? {
+    guard let phase else { return nil }
+    return phaseName(for: phase)
   }
 
-  @ViewBuilder
-  private func statusBadge(viewModel: SimulationViewModel) -> some View {
-    if viewModel.isCompleted {
-      Label(String(localized: "Completed"), systemImage: "checkmark.circle.fill")
-        .textStyle(Typography.titlePhase)
-        // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
-        // enumerate されている。moss は fills/borders 系、moss-ink は完了
-        // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
-        // なので moss-dark が用途的に正解。ResultsView の statusBadge も
-        // 同じ理由で moss-dark に揃えてある。
-        .foregroundStyle(Color.mossDark)
-    } else if viewModel.isPaused {
-      Label(String(localized: "Paused"), systemImage: "pause.circle.fill")
-        .textStyle(Typography.titlePhase)
-        .foregroundStyle(Color.inkSecondary)
-    } else if viewModel.isRunning {
-      HStack(spacing: 4) {
-        ProgressView()
-          .scaleEffect(0.7)
-        Text(String(localized: "Running"))
-          .textStyle(Typography.titlePhase)
-          .foregroundStyle(Color.inkSecondary)
-      }
+  private static func phaseName(for phase: PhaseType) -> String {
+    switch phase {
+    case .speakAll: return "発言"
+    case .speakEach: return "個別発言"
+    case .vote: return "投票"
+    case .choose: return "選択"
+    case .scoreCalc: return "スコア計算"
+    case .assign: return "割当"
+    case .eliminate: return "脱落"
+    case .summarize: return "要約"
+    case .conditional: return "条件分岐"
+    case .eventInject: return "イベント注入"
     }
   }
 

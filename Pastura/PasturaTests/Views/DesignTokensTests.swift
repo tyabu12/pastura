@@ -268,6 +268,11 @@ struct DesignTokensTests {
     #expect(approxEqual(Double(style.trackingPoints), 10.5 * 0.02))
   }
 
+  // GameHeader-specific token tests (§2.12 Header Slots + §3 Typography
+  // GameHeader scale) live in `DesignTokensTests+GameHeader.swift` —
+  // sibling extension to keep this file's struct body under the 250-line
+  // `type_body_length` cap.
+
   // MARK: - §4 Spacing
 
   @Test func spacingScaleMatchesSpec() {
@@ -293,7 +298,10 @@ struct DesignTokensTests {
 
   // MARK: - Helpers
 
-  private func approxEqual(_ lhs: Double, _ rhs: Double, tolerance: Double = 0.001) -> Bool {
+  // Internal (not `private`) so the sibling `+GameHeader.swift` extension
+  // can use it — `private` only reaches same-file extensions per
+  // `.claude/rules/testing.md`.
+  func approxEqual(_ lhs: Double, _ rhs: Double, tolerance: Double = 0.001) -> Bool {
     abs(lhs - rhs) < tolerance
   }
 }
