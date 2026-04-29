@@ -47,7 +47,7 @@ public protocol ModelDownloader: Sendable {
 ///
 /// ## Actor isolation
 ///
-/// `nonisolated` at type level so the synchronous accessors (`captureResumeData`,
+/// `nonisolated` at type level so the synchronous accessors (`updateResumeDataFromError`,
 /// `cachedResumeData`) can be invoked from any executor. Without this, the
 /// project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would bind the class
 /// to MainActor and break tests that exercise the cache lifecycle from the
@@ -187,7 +187,7 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
       try mergeIntoDestination(
         result: result, resumeOffset: resumeOffset, destination: destination)
     } catch {
-      captureResumeData(from: error, for: url)
+      updateResumeDataFromError(error, for: url)
       throw error
     }
   }
@@ -256,12 +256,12 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// from the `catch` block in `download(...)`. Tests construct an `NSError`
   /// with a known resumeData blob to verify cache lifecycle without depending
   /// on Apple's internal heuristic for when resumeData is populated.
-  func captureResumeData(from error: any Error, for url: URL) {
+  func updateResumeDataFromError(_ error: any Error, for url: URL) {
     let nsError = error as NSError
     let fresh = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
     Self.logger.notice(
       """
-      captureResumeData url=\(url.absoluteString, privacy: .public) \
+      updateResumeDataFromError url=\(url.absoluteString, privacy: .public) \
       freshBlob=\(fresh?.count ?? -1, privacy: .public)bytes \
       errorDomain=\(nsError.domain, privacy: .public) \
       errorCode=\(nsError.code, privacy: .public)
