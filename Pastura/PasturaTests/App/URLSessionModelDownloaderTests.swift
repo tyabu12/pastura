@@ -12,7 +12,11 @@ import Testing
 
 /// URLProtocol that captures incoming requests and answers from a configurable
 /// per-test response handler. Reset state between tests via `reset()`.
-final class CapturingMockURLProtocol: URLProtocol, @unchecked Sendable {
+///
+/// Not `final` so the `class func canInit/canonicalRequest` overrides URLProtocol
+/// requires don't trip swiftlint's `static_over_final_class` rule. The class
+/// only lives in the test target.
+class CapturingMockURLProtocol: URLProtocol, @unchecked Sendable {
   // nonisolated(unsafe) is the documented escape valve for static mutable test
   // fixtures under Swift 6 strict concurrency. Safe because tests using this
   // protocol are gated by the suite's `.serialized` trait.

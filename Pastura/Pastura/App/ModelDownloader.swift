@@ -44,13 +44,16 @@ public protocol ModelDownloader: Sendable {
 /// **Out of scope:** cross-session resume (cache is in-memory only). If the user
 /// force-kills the app mid-download, the next launch starts from byte zero. See
 /// Issue #275 for the follow-up that would persist the blob to disk.
-// `nonisolated` at type level so the synchronous accessors (`captureResumeData`,
-// `cachedResumeData`) can be invoked from any executor. Without this, the
-// project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would bind the class
-// to MainActor and break tests that exercise the cache lifecycle from the
-// non-isolated test context. The original `download(...) async throws` method
-// was unaffected because the `async` hop conceals the binding; the new
-// synchronous accessors are not.
+///
+/// ## Actor isolation
+///
+/// `nonisolated` at type level so the synchronous accessors (`captureResumeData`,
+/// `cachedResumeData`) can be invoked from any executor. Without this, the
+/// project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would bind the class
+/// to MainActor and break tests that exercise the cache lifecycle from the
+/// non-isolated test context. The `download(...) async throws` method was
+/// unaffected before adding sync accessors because the `async` hop conceals
+/// the binding; the new synchronous accessors are not.
 nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
   // @unchecked Sendable: `sessionConfiguration` is set once at init and never
   // mutated; `resumeDataCache` is guarded by `OSAllocatedUnfairLock`.
@@ -127,38 +130,45 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
       // (e.g., re-download after delete) starts cleanly.
       resumeDataCache.withLock { $0[url] = nil }
 
-      // File handling (after continuation resumes, on the caller's executor).
-      // With `withResumeData`, URLSession internally stitches resumed chunks
-      // into a single complete file, so the result is delivered as 200-OK
-      // semantically and falls into the truncate-and-move branch below.
-      let statusCode = result.statusCode
-      let tempURL = result.tempURL
-      let fileManager = FileManager.default
-
-      if statusCode == 200 || resumeOffset == 0 {
-        if fileManager.fileExists(atPath: destination.path) {
-          try fileManager.removeItem(at: destination)
-        }
-        try fileManager.moveItem(at: tempURL, to: destination)
-      } else {
-        // Partial content (206) — append downloaded chunk to existing file.
-        // Reached via the explicit Range-header fallback (cache miss with
-        // resumeOffset > 0), not via `withResumeData`.
-        let downloadedData = try Data(contentsOf: tempURL)
-        if fileManager.fileExists(atPath: destination.path) {
-          let fileHandle = try FileHandle(forWritingTo: destination)
-          fileHandle.seekToEndOfFile()
-          fileHandle.write(downloadedData)
-          try fileHandle.close()
-        } else {
-          try downloadedData.write(to: destination)
-        }
-        try? fileManager.removeItem(at: tempURL)
-      }
+      try mergeIntoDestination(
+        result: result, resumeOffset: resumeOffset, destination: destination)
     } catch {
       captureResumeData(from: error, for: url)
       throw error
     }
+  }
+
+  /// Moves or appends the URLSession-staged temp file into `destination`.
+  ///
+  /// With `withResumeData`, URLSession internally stitches resumed chunks into
+  /// a single complete file, so the result is delivered as 200-OK semantically
+  /// and falls into the truncate-and-move branch. The 206/append branch
+  /// remains for the explicit Range-header fallback (cache miss with
+  /// `resumeOffset > 0`).
+  private func mergeIntoDestination(
+    result: DownloadResult, resumeOffset: Int64, destination: URL
+  ) throws {
+    let fileManager = FileManager.default
+    let tempURL = result.tempURL
+
+    if result.statusCode == 200 || resumeOffset == 0 {
+      if fileManager.fileExists(atPath: destination.path) {
+        try fileManager.removeItem(at: destination)
+      }
+      try fileManager.moveItem(at: tempURL, to: destination)
+      return
+    }
+    // Partial content (206) — append downloaded chunk to existing file.
+    let downloadedData = try Data(contentsOf: tempURL)
+    if fileManager.fileExists(atPath: destination.path) {
+      let fileHandle = try FileHandle(forWritingTo: destination)
+      fileHandle.seekToEndOfFile()
+      fileHandle.write(downloadedData)
+      try fileHandle.close()
+    } else {
+      try downloadedData.write(to: destination)
+    }
+    try? fileManager.removeItem(at: tempURL)
   }
 
   /// Captures any `NSURLSessionDownloadTaskResumeData` Apple attached to the
