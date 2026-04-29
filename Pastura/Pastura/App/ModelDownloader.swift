@@ -64,6 +64,19 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// successful download.
   private let resumeDataCache: OSAllocatedUnfairLock<[URL: Data]> = .init(initialState: [:])
 
+  /// `.notice`-level logger kept in release builds so the resume-path
+  /// telemetry (cache populate vs. miss, blob size, error domain/code,
+  /// completion status code) survives in Console.app for QA + future
+  /// regression checks. The events are infrequent (one per download
+  /// attempt + one per failure) so log volume is negligible.
+  ///
+  /// All interpolations are diagnostic primitives (URL, byte count,
+  /// integer code) — no user content per `CLAUDE.md` Logger-privacy rule.
+  /// Filter in Console.app:
+  /// `subsystem:com.tyabu12.Pastura category:ModelDownloader`.
+  private static let logger = Logger(
+    subsystem: "com.tyabu12.Pastura", category: "ModelDownloader")
+
   init(sessionConfiguration: URLSessionConfiguration = .default) {
     self.sessionConfiguration = sessionConfiguration
   }
@@ -75,6 +88,8 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
   ) async throws {
     let cachedResumeData = resumeDataCache.withLock { $0[url] }
+    logDownloadStart(
+      url: url, resumeOffset: resumeOffset, cachedBlobSize: cachedResumeData?.count)
 
     // Thread-safe holder so onCancel can reach the URLSessionDownloadTask.
     // Swift Task cancellation does NOT propagate to URLSession automatically —
@@ -130,12 +145,36 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
       // (e.g., re-download after delete) starts cleanly.
       resumeDataCache.withLock { $0[url] = nil }
 
+      Self.logger.notice(
+        """
+        download success url=\(url.absoluteString, privacy: .public) \
+        statusCode=\(result.statusCode, privacy: .public) \
+        resumeOffset=\(resumeOffset, privacy: .public)
+        """)
+
       try mergeIntoDestination(
         result: result, resumeOffset: resumeOffset, destination: destination)
     } catch {
       captureResumeData(from: error, for: url)
       throw error
     }
+  }
+
+  /// Emits a `.notice`-level entry log identifying which of the three resume
+  /// paths the current call is taking. Extracted from `download(...)` to keep
+  /// that function under swiftlint's `function_body_length` cap.
+  private func logDownloadStart(url: URL, resumeOffset: Int64, cachedBlobSize: Int?) {
+    let path: String =
+      cachedBlobSize != nil
+      ? "withResumeData"
+      : (resumeOffset > 0 ? "rangeHeader" : "fresh")
+    Self.logger.notice(
+      """
+      download start url=\(url.absoluteString, privacy: .public) \
+      resumeOffset=\(resumeOffset, privacy: .public) \
+      cachedBlob=\(cachedBlobSize ?? -1, privacy: .public)bytes \
+      path=\(path, privacy: .public)
+      """)
   }
 
   /// Moves or appends the URLSession-staged temp file into `destination`.
@@ -188,6 +227,13 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   func captureResumeData(from error: any Error, for url: URL) {
     let nsError = error as NSError
     let fresh = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+    Self.logger.notice(
+      """
+      captureResumeData url=\(url.absoluteString, privacy: .public) \
+      freshBlob=\(fresh?.count ?? -1, privacy: .public)bytes \
+      errorDomain=\(nsError.domain, privacy: .public) \
+      errorCode=\(nsError.code, privacy: .public)
+      """)
     resumeDataCache.withLock { $0[url] = fresh }
   }
 
