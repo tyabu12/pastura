@@ -41,7 +41,16 @@
         }
       }
     },
-    "Active": {},
+    "Active": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中"
+          }
+        }
+      }
+    },
     "Add": {
       "localizations": {
         "ja": {
@@ -88,6 +97,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "追加済み"
+          }
+        }
+      }
+    },
+    "Agents": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェント数"
           }
         }
       }
@@ -183,12 +202,12 @@
         }
       }
     },
-    "Cannot overwrite gallery scenario '%arg'. Use Share Board to update, or delete the local copy first.": {
+    "Cannot overwrite gallery scenario '%arg'. Use Shared Scenarios to update, or delete the local copy first.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ギャラリーシナリオ '%arg' は上書きできません。更新には Share Board を使用するか、ローカルコピーを削除してください。"
+            "value": "ギャラリーシナリオ '%arg' は上書きできません。更新には共有シナリオを使用するか、ローカルコピーを削除してください。"
           }
         }
       }
@@ -306,17 +325,27 @@
         }
       }
     },
-    "Could not reach the Share Board and no cached content is available.": {
+    "Could not reach Shared Scenarios and no cached content is available.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share Board に接続できず、キャッシュされたコンテンツもありません。"
+            "value": "共有シナリオに接続できず、キャッシュされたコンテンツもありません。"
           }
         }
       }
     },
     "Couldn't start the download. Please try again.": {},
+    "Creative": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クリエイティブ"
+          }
+        }
+      }
+    },
     "Database migration failed: %arg": {},
     "Database open failed: %arg": {},
     "Decoding failed: %arg": {},
@@ -336,6 +365,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%arg を削除しますか？"
+          }
+        }
+      }
+    },
+    "Delete Scenario?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シナリオを削除しますか？"
           }
         }
       }
@@ -380,8 +419,26 @@
         }
       }
     },
-    "Download": {},
-    "Download Failed": {},
+    "Download": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロード"
+          }
+        }
+      }
+    },
+    "Download Failed": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードに失敗"
+          }
+        }
+      }
+    },
     "Download anyway": {
       "localizations": {
         "ja": {
@@ -432,7 +489,17 @@
         }
       }
     },
-    "Downloading Model...": {},
+    "Downloading Model...": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モデルをダウンロード中..."
+          }
+        }
+      }
+    },
+    "Edit": {},
     "Edit Persona": {
       "localizations": {
         "ja": {
@@ -504,6 +571,16 @@
         }
       }
     },
+    "Est. Inferences": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推論回数（推定）"
+          }
+        }
+      }
+    },
     "Est. inferences": {
       "localizations": {
         "ja": {
@@ -514,12 +591,32 @@
         }
       }
     },
+    "Ethics": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "倫理"
+          }
+        }
+      }
+    },
     "Exclude Self": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "自分を除外"
+          }
+        }
+      }
+    },
+    "Experimental": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実験的"
           }
         }
       }
@@ -664,6 +761,16 @@
         }
       }
     },
+    "From Shared Scenarios (read-only)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有シナリオから取得（読み取り専用）"
+          }
+        }
+      }
+    },
     "Gallery Cache Corrupted": {
       "localizations": {
         "ja": {
@@ -740,12 +847,12 @@
         }
       }
     },
-    "Gallery scenarios are read-only. Use Share Board to update.": {
+    "Gallery scenarios are read-only. Use Shared Scenarios to update.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ギャラリーシナリオは読み取り専用です。更新には Share Board を使用してください。"
+            "value": "ギャラリーシナリオは読み取り専用です。更新には共有シナリオを使用してください。"
           }
         }
       }
@@ -756,6 +863,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ギャラリーサーバーが想定外のステータスを返しました: %arg"
+          }
+        }
+      }
+    },
+    "Game Theory": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲーム理論"
           }
         }
       }
@@ -1081,7 +1198,16 @@
         }
       }
     },
-    "Not downloaded": {},
+    "Not downloaded": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未ダウンロード"
+          }
+        }
+      }
+    },
     "Not supported on this device": {},
     "Nothing is sent to a server. The model lives on this device.": {},
     "OK": {
@@ -1114,12 +1240,12 @@
         }
       }
     },
-    "Open Share Board to refresh, then try the link again.": {
+    "Open Shared Scenarios to refresh, then try the link again.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share Board を開いて更新してから、もう一度リンクを試してください。"
+            "value": "共有シナリオを開いて更新してから、もう一度リンクを試してください。"
           }
         }
       }
@@ -1190,6 +1316,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "出力フィールド"
+          }
+        }
+      }
+    },
+    "Overview": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "概要"
           }
         }
       }
@@ -1276,6 +1412,16 @@
         }
       }
     },
+    "Personas (%arg)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ペルソナ（%arg）"
+          }
+        }
+      }
+    },
     "Phase %arg (assign): unknown target '%arg'. Use 'all' or 'random_one'.": {
       "localizations": {
         "en": {
@@ -1328,6 +1474,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "フェーズ"
+          }
+        }
+      }
+    },
+    "Phases (%arg)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フェーズ（%arg）"
           }
         }
       }
@@ -1414,7 +1570,16 @@
         }
       }
     },
-    "Ready": {},
+    "Ready": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能"
+          }
+        }
+      }
+    },
     "Recommended model": {
       "localizations": {
         "ja": {
@@ -1486,16 +1651,6 @@
         }
       }
     },
-    "Reports about scenarios on the Share Board are reviewed by the Pastura maintainer (github.com/tyabu12).": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Share Board のシナリオに関する報告は Pastura のメンテナ (github.com/tyabu12) が確認します。"
-          }
-        }
-      }
-    },
     "Reports are reviewed by the Pastura maintainer. You'll receive a confirmation email when your report is received.": {
       "localizations": {
         "ja": {
@@ -1536,6 +1691,16 @@
         }
       }
     },
+    "Roleplay": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロールプレイ"
+          }
+        }
+      }
+    },
     "Roll < probability fires. 1 = always fires; 0 = never fires.": {
       "localizations": {
         "ja": {
@@ -1562,6 +1727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ラウンド"
+          }
+        }
+      }
+    },
+    "Run Simulation": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シミュレーション実行"
           }
         }
       }
@@ -1676,6 +1851,16 @@
         }
       }
     },
+    "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12).": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有シナリオに関するシナリオ報告は Pastura のメンテナ (github.com/tyabu12) が確認します。"
+          }
+        }
+      }
+    },
     "Scoreboard": {
       "localizations": {
         "ja": {
@@ -1706,12 +1891,12 @@
         }
       }
     },
-    "Share Board": {
+    "Shared Scenarios": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share Board"
+            "value": "共有シナリオ"
           }
         }
       }
@@ -1733,6 +1918,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 項比較: lhs OP rhs（OP は ==, !=, <, <=, >, >= のいずれか）。識別子: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>、またはテンプレート変数。文字列リテラルはダブルクォートで囲んでください。"
+          }
+        }
+      }
+    },
+    "Social Psychology": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "社会心理学"
           }
         }
       }
@@ -1920,12 +2115,12 @@
         }
       }
     },
-    "To report a scenario: open it from the Share Board, tap the More menu, and choose Report this scenario.": {
+    "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "シナリオを報告するには: Share Board から該当シナリオを開き、More メニューをタップして「Report this scenario」を選択してください。"
+            "value": "シナリオを報告するには: 共有シナリオから該当シナリオを開き、More メニューをタップして「Report this scenario」を選択してください。"
           }
         }
       }
@@ -1940,7 +2135,16 @@
         }
       }
     },
-    "Try Again": {},
+    "Try Again": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再試行"
+          }
+        }
+      }
+    },
     "Try this scenario": {
       "localizations": {
         "ja": {
@@ -1971,7 +2175,16 @@
         }
       }
     },
-    "Unsupported Device": {},
+    "Unsupported Device": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サポートされていないデバイス"
+          }
+        }
+      }
+    },
     "Unsupported Link": {
       "localizations": {
         "ja": {
@@ -1992,7 +2205,36 @@
         }
       }
     },
-    "Use this model": {},
+    "Update available from Shared Scenarios": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有シナリオから更新が利用可能"
+          }
+        }
+      }
+    },
+    "Use as Template": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テンプレートとして使用"
+          }
+        }
+      }
+    },
+    "Use this model": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このモデルを使う"
+          }
+        }
+      }
+    },
     "Valid scenario": {
       "localizations": {
         "ja": {

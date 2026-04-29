@@ -13,7 +13,7 @@ struct ShareBoardView: View {
         ProgressView()
       }
     }
-    .navigationTitle(String(localized: "Share Board"))
+    .navigationTitle(String(localized: "Shared Scenarios"))
     .task {
       let newViewModel = ShareBoardViewModel(
         galleryService: dependencies.galleryService,
@@ -50,7 +50,7 @@ struct ShareBoardView: View {
     } description: {
       Text(
         String(
-          localized: "Could not reach the Share Board and no cached content is available."))
+          localized: "Could not reach Shared Scenarios and no cached content is available."))
     } actions: {
       Button(String(localized: "Retry")) {
         Task { await viewModel.refresh() }
@@ -173,12 +173,12 @@ extension GalleryCategory {
   /// Human-readable display name for the UI picker.
   public var displayName: String {
     switch self {
-    case .socialPsychology: return "Social Psychology"
-    case .gameTheory: return "Game Theory"
-    case .ethics: return "Ethics"
-    case .roleplay: return "Roleplay"
-    case .creative: return "Creative"
-    case .experimental: return "Experimental"
+    case .socialPsychology: return String(localized: "Social Psychology")
+    case .gameTheory: return String(localized: "Game Theory")
+    case .ethics: return String(localized: "Ethics")
+    case .roleplay: return String(localized: "Roleplay")
+    case .creative: return String(localized: "Creative")
+    case .experimental: return String(localized: "Experimental")
     }
   }
 }

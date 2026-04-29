@@ -267,7 +267,7 @@ struct SettingsView: View {
       Text(
         String(
           localized:
-            "Reports about scenarios on the Share Board are reviewed by the Pastura maintainer (github.com/tyabu12)."
+            "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12)."
         )
       )
       .font(.body)
@@ -275,7 +275,7 @@ struct SettingsView: View {
       Text(
         String(
           localized:
-            "To report a scenario: open it from the Share Board, tap the More menu, and choose Report this scenario."
+            "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario."
         )
       )
       .font(.body)

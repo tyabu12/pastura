@@ -320,7 +320,7 @@ private struct RootView: View {
       deepLinkError = DeepLinkErrorAlert(
         title: String(localized: "Gallery Cache Corrupted"),
         message: String(
-          localized: "Open Share Board to refresh, then try the link again.")
+          localized: "Open Shared Scenarios to refresh, then try the link again.")
       )
     }
   }

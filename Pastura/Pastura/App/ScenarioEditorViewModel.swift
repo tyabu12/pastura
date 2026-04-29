@@ -107,7 +107,7 @@ final class ScenarioEditorViewModel {
       }) {
         if record.sourceType == ScenarioSourceType.gallery {
           validationErrors = [
-            String(localized: "Gallery scenarios are read-only. Use Share Board to update.")
+            String(localized: "Gallery scenarios are read-only. Use Shared Scenarios to update.")
           ]
           return
         }
@@ -244,7 +244,7 @@ final class ScenarioEditorViewModel {
           validationErrors = [
             String(
               localized:
-                "Cannot overwrite gallery scenario '\(existing.name)'. Use Share Board to update, or delete the local copy first."
+                "Cannot overwrite gallery scenario '\(existing.name)'. Use Shared Scenarios to update, or delete the local copy first."
             )
           ]
           return false

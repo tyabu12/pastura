@@ -85,7 +85,7 @@ struct HomeView: View {
 
       Section {
         NavigationLink(value: Route.shareBoard) {
-          Label(String(localized: "Share Board"), systemImage: "square.grid.2x2.fill")
+          Label(String(localized: "Shared Scenarios"), systemImage: "square.grid.2x2.fill")
         }
         .accessibilityIdentifier("home.shareBoardButton")
         NavigationLink(value: Route.results(scenarioId: "")) {
