@@ -23,10 +23,10 @@ NOT use the wrapper — see the table below.
 
 ### Canonical invocation
 
-**Always invoke via the absolute path resolved by `git rev-parse`:**
+**Run from the repository root with the cwd-relative path:**
 
 ```bash
-"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <subcommand> [--tail N] [args]
+scripts/xcodebuild.sh <subcommand> [--tail N] [args]
 ```
 
 `--tail N` is a wrapper-only flag (xcodebuild itself uses single-dash
@@ -35,16 +35,36 @@ among the args and consumed before forwarding the rest to xcodebuild;
 duplicates follow xcodebuild's own repeated-flag convention (last wins).
 See **Running xcodebuild from an agent session** below for when to use it.
 
-This matches `sim-dest.sh`'s convention and is the only form the Bash
-allowlist (`Bash("$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"*)`)
-matches. cwd-independent — works correctly from any subdirectory of the
-worktree (agent sessions in particular shift cwd often, so relative-path
-invocations like `scripts/xcodebuild.sh ...` are NOT allowlisted and would
-trigger permission prompts).
+This is the only form the Bash allowlist
+(`Bash(scripts/xcodebuild.sh*)`) matches. The same cwd-relative
+convention applies to `source scripts/sim-dest.sh` (matched by
+`Bash(source scripts/sim-dest.sh)`).
 
-The wrapper also resolves `REPO_ROOT` internally (so `-project` and the
-`sim-dest.sh` source path are absolute regardless of cwd) — invocation
-form and wrapper internals are independently cwd-safe.
+The wrapper resolves `REPO_ROOT` internally (so `-project` and the
+`sim-dest.sh` source path are absolute regardless of cwd), so running
+from a subdirectory still produces correct paths — but the allowlist
+match is on the literal command prefix, so do not introduce variable
+expansion (`"$xcb" ...`), `cd ... && scripts/xcodebuild.sh ...`, or
+absolute paths in agent invocations. They bypass the allowlist and
+trigger an approval prompt.
+
+#### Why cwd-relative (#31373)
+
+Earlier revisions of this rule prescribed
+`"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"` as the
+canonical form, on the (correct) reasoning that the absolute path is
+cwd-independent. That form is now banned for agent-issued commands
+because Claude Code's permission safety heuristic raises an approval
+dialog for any executed command containing `$(...)`, regardless of
+`allow` rules ([anthropics/claude-code#31373](https://github.com/anthropics/claude-code/issues/31373) — OPEN).
+The cwd-relative form sidesteps the heuristic.
+
+Hook commands in `.claude/settings.json` continue to use the
+`$(git rev-parse --show-toplevel)/scripts/...` form because hooks
+execute as direct shell processes and bypass the Claude Code
+permission gate (and the `$(...)` heuristic with it). The
+inconsistency between allowlist entries and hook commands is
+intentional — see the `PreToolUse` block in `.claude/settings.json`.
 
 ### Wrapper behavior
 
@@ -72,36 +92,31 @@ for repeated single-value flags, so caller passthrough wins on duplicates.
   pre-commit builds hit warm cache).
 
 ```bash
-# Convenience alias for shell history (or use the full form inline)
-xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
+# Run from the repository root for all of the following.
 
 # TDD cycle — narrow to one suite for fast iteration
-"$xcb" test -only-testing PasturaTests/JSONResponseParserTests
+scripts/xcodebuild.sh test -only-testing PasturaTests/JSONResponseParserTests
 
 # Pre-PR full local run
-"$xcb" test
+scripts/xcodebuild.sh test
 
 # Skip UI tests when the change doesn't touch UI code
-"$xcb" test -skip-testing:PasturaUITests
+scripts/xcodebuild.sh test -skip-testing:PasturaUITests
 
 # Build only (no tests) — type-check verification after refactor
-"$xcb" build
+scripts/xcodebuild.sh build
 
 # Cap output for context-window budget — `--tail N` is built-in,
 # pipefail-safe (preserves xcodebuild's exit code), and accepted at
 # any position. Use instead of external `| tail`.
-"$xcb" build --tail 30
-"$xcb" test -only-testing PasturaTests/JSONResponseParserTests --tail 80
+scripts/xcodebuild.sh build --tail 30
+scripts/xcodebuild.sh test -only-testing PasturaTests/JSONResponseParserTests --tail 80
 
 # Run Ollama integration tests (requires local Ollama with target model pulled)
 # Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
-"$xcb" test -only-testing PasturaTests/OllamaIntegrationTests
+scripts/xcodebuild.sh test -only-testing PasturaTests/OllamaIntegrationTests
 # These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
 ```
-
-> Agents that don't use the `xcb` alias should expand the full
-> `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" ...` form
-> on every call — the allowlist match is on the literal string.
 
 ### Auto-sync of Localizable.xcstrings
 
@@ -117,7 +132,7 @@ IDE just to sync.
 
 - **Opt out**: `PASTURA_SKIP_XCSTRINGS_SYNC=1`. Already set in the
   pre-commit hook so commits do not mutate the catalog outside the
-  staging index (drift caught by the next non-commit `xcb build`/`test`).
+  staging index (drift caught by the next non-commit `scripts/xcodebuild.sh build`/`test`).
   Translators editing the catalog directly should set it too.
 - **Failure-tolerant**: extract/sync failures write a sentinel at
   `Pastura/DerivedData/.xcstrings-sync-failed` (with captured stderr)
@@ -184,7 +199,7 @@ burning wall-clock and orphaning processes:
 **Prevention (do this up-front):**
 
 - Narrow scope whenever possible —
-  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -only-testing PasturaTests/<Suite>`.
+  `scripts/xcodebuild.sh test -only-testing PasturaTests/<Suite>`.
 - If the change doesn't touch UI code, add `-skip-testing:PasturaUITests`
   (UI tests are not required for MVP; CI will still cover them).
 - Always pass an explicit bash `timeout` — the default 120s is shorter
@@ -195,7 +210,7 @@ burning wall-clock and orphaning processes:
   and poll with Monitor / BashOutput rather than blocking the session.
 - For context-window-capped output, prefer the built-in `--tail N`
   flag over an external `| tail`:
-  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test ... --tail 80`.
+  `scripts/xcodebuild.sh test ... --tail 80`.
   The flag is pipefail-safe (preserves xcodebuild's exit code), accepts
   its value anywhere among the args, and suppresses `set -x` xtrace so
   the visible window stays focused on build output. External `| tail`
