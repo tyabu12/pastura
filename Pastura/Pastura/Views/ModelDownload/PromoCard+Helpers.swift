@@ -72,8 +72,10 @@ extension PromoCard {
   ///
   /// **Heuristic**: a > 5 % progress jump within 1.5 s of the current anchor
   /// is unambiguously a resume burst. A 3 GB download on the fastest realistic
-  /// network (~100 MB/s) advances at ~3.3 % per second, so legitimate progress
-  /// can't reach this threshold in this time window.
+  /// network (~100 MB/s) advances at ~3.3 % per second — legitimate progress
+  /// can't *exceed* this threshold in this time window. (Both comparisons are
+  /// strict: `progressDelta > 0.05` and `elapsedSinceAnchor < 1.5`. Boundary
+  /// tests in `PromoCardEtaTests` lock in this contract.)
   ///
   /// Returns `true` when the caller should re-anchor `downloadStartDate` /
   /// `downloadStartProgress` to the new sample.

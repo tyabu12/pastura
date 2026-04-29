@@ -169,6 +169,27 @@ struct PromoCardComputeEtaSecondsTests {
         newProgress: 0.20, anchorProgress: 0.30, elapsedSinceAnchor: 1.0))
   }
 
+  @Test("isResumeJump rejects exact-threshold delta (strict `>` boundary)")
+  func isResumeJumpExactDeltaThreshold() {
+    // delta == 0.05, elapsed = 1.0 → guard is `progressDelta > 0.05`, so a
+    // delta exactly at the threshold rejects. Locks in the strict-inequality
+    // choice so a refactor flipping `>` to `>=` would surface here rather
+    // than as a silent regression.
+    #expect(
+      !PromoCard.isResumeJump(
+        newProgress: 0.05, anchorProgress: 0.0, elapsedSinceAnchor: 1.0))
+  }
+
+  @Test("isResumeJump rejects exact-elapsed boundary (strict `<` window)")
+  func isResumeJumpExactElapsedBoundary() {
+    // elapsed == 1.5, delta = 0.30 → guard is `elapsedSinceAnchor < 1.5`, so
+    // exactly at the window edge rejects. Same purpose as the delta-boundary
+    // test: a refactor flipping `<` to `<=` would surface here.
+    #expect(
+      !PromoCard.isResumeJump(
+        newProgress: 0.30, anchorProgress: 0.0, elapsedSinceAnchor: 1.5))
+  }
+
   // MARK: - The reported regression
 
   @Test("retry scenario — 1000-min ETA bug is fixed by delta-progress + reset")
