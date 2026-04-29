@@ -50,7 +50,7 @@ import Testing
       category: .socialPsychology,
       description: "desc",
       author: "t",
-      recommendedModel: "gemma4_e2b",
+      recommendedModel: ModelRegistry.gemma4E2B.id,
       estimatedInferences: 10,
       // swiftlint:disable:next force_unwrapping
       yamlURL: URL(string: "https://example.com/\(id).yaml")!,

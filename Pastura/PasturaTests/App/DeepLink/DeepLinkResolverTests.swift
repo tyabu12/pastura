@@ -14,7 +14,7 @@ import Testing
       category: .experimental,
       description: "test fixture",
       author: "test",
-      recommendedModel: "mock",
+      recommendedModel: ModelRegistry.gemma4E2B.id,
       estimatedInferences: 1,
       // swiftlint:disable:next force_unwrapping
       yamlURL: URL(string: "https://example.com/\(id).yaml")!,
