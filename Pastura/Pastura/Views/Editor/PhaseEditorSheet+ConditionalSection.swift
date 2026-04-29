@@ -110,12 +110,8 @@ extension PhaseEditorSheet {
     } header: {
       Text(title)
     } footer: {
-      Text(
-        String(
-          localized: "Long-press a sub-phase to move it to the end of the other branch."
-        )
-      )
-      .font(.caption)
+      Text(String(localized: "Long-press a sub-phase to move it to the end of the other branch."))
+        .font(.caption)
     }
   }
 }
