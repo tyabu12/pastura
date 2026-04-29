@@ -323,9 +323,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// `ModelDownloadHostView.phaseDisplayName(_:)` — consolidating the
   /// two into a shared helper is a follow-up (would expand this PR's
   /// scope into the existing `+PhaseLabels.swift` extension; the
-  /// tracked duplication is 12 lines).
+  /// tracked duplication is 10 cases).
+  ///
+  /// Split into nil-guard wrapper + pure switch so neither half
+  /// crosses swiftlint's `cyclomatic_complexity` 10-branch ceiling.
   static func phaseDisplayLabel(for phase: PhaseType?) -> String? {
     guard let phase else { return nil }
+    return phaseName(for: phase)
+  }
+
+  private static func phaseName(for phase: PhaseType) -> String {
     switch phase {
     case .speakAll: return "発言"
     case .speakEach: return "個別発言"
