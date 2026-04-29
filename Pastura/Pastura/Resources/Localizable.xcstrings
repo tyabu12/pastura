@@ -1699,7 +1699,14 @@
       }
     },
     "Pause playback" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生を一時停止"
+          }
+        }
+      }
     },
     "Paused" : {
       "localizations" : {
@@ -1838,7 +1845,14 @@
       }
     },
     "Playback speed" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生速度"
+          }
+        }
+      }
     },
     "Playback speed (available during simulation)" : {
       "extractionState" : "stale",
@@ -2072,7 +2086,14 @@
       }
     },
     "Resume playback" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生を再開"
+          }
+        }
+      }
     },
     "Retry" : {
       "localizations" : {
