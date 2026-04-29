@@ -44,7 +44,12 @@ struct PromoCard: View {
   @State private var currentSlot: Int = 0
   @State private var foregroundElapsed: TimeInterval = 0
   @State private var lastForegroundAnchor: Date? = Date()
+  /// ETA anchor — re-set on every `non-.downloading → .downloading` transition
+  /// so a retry after an error doesn't reuse the original session's start time.
+  /// `downloadStartProgress` snapshots the progress at anchor time so the ETA
+  /// formula works correctly when resuming from a non-zero offset.
   @State private var downloadStartDate: Date?
+  @State private var downloadStartProgress: Double = 0
 
   /// Provisional 20 s / slot; the spec marks this as "暫定値" to be tuned
   /// during the copy pass.
@@ -312,17 +317,36 @@ struct PromoCard: View {
   }
 
   private func handleModelStateChange(_ newState: ModelState) {
-    if case .downloading = newState, downloadStartDate == nil {
-      downloadStartDate = Date()
+    // Symmetric anchor management:
+    //   - any `.downloading` arrival with no prior anchor sets one (handles
+    //     initial entry on view appear, fresh DL start, and retry after error)
+    //   - any non-`.downloading` arrival resets the anchor (so the next
+    //     `.downloading` re-anchors to the retry's start time, not the original
+    //     attempt's)
+    // `downloadStartProgress` snapshots the progress at anchor time so the
+    // delta-progress ETA formula works when resuming from `.download` partial
+    // bytes (initial progress > 0).
+    if case .downloading(let progress) = newState {
+      if downloadStartDate == nil {
+        downloadStartDate = Date()
+        downloadStartProgress = progress
+      }
+    } else {
+      downloadStartDate = nil
+      downloadStartProgress = 0
     }
   }
 
   private func computeEtaMinutes(progress: Double) -> Int? {
-    guard let start = downloadStartDate, progress >= 0.01 else { return nil }
+    guard let start = downloadStartDate else { return nil }
     let elapsed = Date().timeIntervalSince(start)
-    let total = elapsed / progress
-    let remaining = max(0, total - elapsed)
-    return Int(remaining / 60)
+    guard
+      let seconds = Self.computeEtaSeconds(
+        currentProgress: progress,
+        startProgress: downloadStartProgress,
+        elapsed: elapsed)
+    else { return nil }
+    return seconds / 60
   }
 
 }
@@ -385,6 +409,48 @@ extension PromoCard {
   static func formatEta(minutes: Int?) -> String? {
     guard let minutes = minutes else { return nil }
     return minutes <= 0 ? "まもなく" : "残り約\(minutes)分"
+  }
+
+  /// Computes the remaining-seconds estimate from the **delta** between current
+  /// progress and the anchor progress (snapshot at `.downloading` entry), over
+  /// `elapsed` seconds since the anchor was set.
+  ///
+  /// Why delta-progress: when a retry resumes from a non-zero offset (e.g., the
+  /// `.download` file already had 50 % from a prior attempt, or `URLSession`
+  /// resumed via `withResumeData`), using raw progress would treat the
+  /// pre-retry bytes as if they were earned in the current `elapsed` window —
+  /// inflating the throughput estimate. The delta restores the throughput
+  /// to "bytes earned during this retry / time spent in this retry".
+  ///
+  /// Why the early-return guards:
+  /// - `progressDelta < 0.005`: just after the retry begins, before the first
+  ///   progress callback fires, the delta is near-zero. Without this guard the
+  ///   formula would emit `まもなく` (zero-seconds remaining) prematurely.
+  /// - `elapsed < 2.0 s`: same divide-by-near-zero protection on the time axis.
+  ///
+  /// Why BG time is not subtracted from `elapsed`: during a BG sojourn the user
+  /// is not viewing the screen, and `BGContinuedProcessingTask` (ADR-003) keeps
+  /// the download running, so `progressDelta` advances roughly in proportion to
+  /// the BG-included `elapsed`. The ratio averages cleanly. Subtracting BG time
+  /// would require a foreground-only accumulator (mirroring `foregroundElapsed`
+  /// in the slot-rotation logic) and is a refinement, not a correctness fix.
+  ///
+  /// Returns `nil` to hide the ETA; otherwise the remaining-seconds estimate
+  /// (caller divides by 60 for minute display).
+  nonisolated static func computeEtaSeconds(
+    currentProgress: Double,
+    startProgress: Double,
+    elapsed: TimeInterval
+  ) -> Int? {
+    let progressDelta = currentProgress - startProgress
+    guard progressDelta >= 0.005, elapsed >= 2.0 else { return nil }
+    let progressPerSecond = progressDelta / elapsed
+    guard progressPerSecond > 0 else { return nil }
+    let remainingProgress = max(0, 1.0 - currentProgress)
+    let remainingSeconds = remainingProgress / progressPerSecond
+    // Round-to-nearest rather than truncate — `Double` accumulates error in
+    // the divisions above (e.g., 0.49 / 0.005 evaluates to 97.999… not 98.0).
+    return Int(remainingSeconds.rounded())
   }
 }
 
