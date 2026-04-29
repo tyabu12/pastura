@@ -66,9 +66,13 @@ public struct PhaseHeader: View {
       }
     }
     .overlay(alignment: .bottom) {
-      // 1pt bottom border per spec: rgba(60,62,48,0.07)
+      // 1pt bottom border per spec: rgba(60,62,48,0.07). `Color.ink`
+      // is the project's "warm dark ink" token (`#2D2E26`); Sim's
+      // controlBar uses the same token at the same alpha. (#273 PR 1a
+      // drift fix — was `Color.black.opacity(0.07)` until the Demo
+      // controlBar made the cross-bar drift visible.)
       Rectangle()
-        .fill(Color.black.opacity(0.07))
+        .fill(Color.ink.opacity(0.07))
         .frame(height: 1)
     }
   }

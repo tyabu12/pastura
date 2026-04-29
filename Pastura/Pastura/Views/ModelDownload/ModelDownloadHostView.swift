@@ -84,6 +84,13 @@ struct ModelDownloadHostView: View {
   @State private var replayHadStarted: Bool = false
   @State private var sources: [any ReplaySource] = []
   @State private var isShowingCancelConfirmation: Bool = false
+  /// Whether agent thought lines (`▸ THINKING`) are expanded across the
+  /// chat stream. Default `true` mirrors the Sim / Results state and the
+  /// `docs/specs/demo-replay-ui.md` §163-165 amendment in this PR
+  /// (project-wide "expanded by default"). Module-internal (drops
+  /// `private`) so the sibling `+ControlBar.swift` extension can bind
+  /// to it via `$showAllThoughts`.
+  @State var showAllThoughts: Bool = true
   /// Re-entry guard for `handleModelStateChange`: `.onChange(of: currentState)`
   /// only fires on inequality, but a defensive same-value re-emit by
   /// `ModelManager` (or a future refactor) would otherwise dispatch the
@@ -221,7 +228,7 @@ struct ModelDownloadHostView: View {
                 agent: entry.agent,
                 output: entry.output,
                 phaseType: entry.phaseType,
-                showAllThoughts: true,
+                showAllThoughts: showAllThoughts,
                 isLatest: entry.id == viewModel.agentOutputs.last?.id,
                 charsPerSecond: 60,
                 agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
@@ -246,6 +253,13 @@ struct ModelDownloadHostView: View {
           }
         }
       }
+
+      // Sim-style frosted controlBar (#273): mirrors `SimulationView.controlBar`
+      // shape so users learn the layout before reaching the live simulation.
+      // Pause / Speed are visible-but-disabled placeholders (PR 1b enables them
+      // via a new `ReplayViewModel.userPause()` API); only the thought toggle
+      // is interactive in the demo.
+      controlBar()
     }
     .background(Color.screenBackground.ignoresSafeArea())
     // PromoCard lives in the bottom safe area instead of a ZStack overlay:
