@@ -325,6 +325,43 @@ enum Typography {
     size: 11, weight: .regular, design: .monospaced,
     lineHeight: 1.2, letterSpacingEm: 0.1,
     isItalic: false, textCase: nil)
+
+  // MARK: GameHeader (§5.1 — Demo / Sim shared 2-row header)
+
+  /// title/scenario — GameHeader row 1 main title (シナリオ名).
+  /// Sits a step above `titlePhase` (13pt) because the scenario name is
+  /// the row's primary anchor, not a sub-label.
+  static let titleScenario = PasturaTextStyle(
+    size: 16, weight: .semibold, design: .default,
+    lineHeight: 1.2, letterSpacingEm: 0.02,
+    isItalic: false, textCase: nil)
+
+  /// meta/round — GameHeader row 2 ROUND counter (`ROUND 1 / 3`).
+  /// Mono UPPER for typographic distinction from the phase name (which
+  /// uses Japanese mixed-case). Intentionally heavier than `metaInline`
+  /// so the round counter reads as the row's anchor.
+  static let metaRound = PasturaTextStyle(
+    size: 10, weight: .semibold, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.06,
+    isItalic: false, textCase: .uppercase)
+
+  /// meta/inline — GameHeader row 2 inline secondary fragments (phase
+  /// name, tok/s). Same size as `metaRound` (10pt) for vertical-rhythm
+  /// alignment, but regular weight + mixed-case to recede behind the
+  /// ROUND anchor.
+  static let metaInline = PasturaTextStyle(
+    size: 10, weight: .regular, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.04,
+    isItalic: false, textCase: nil)
+
+  /// pill/status — GameHeader row 1 trailing status pill (`Simulating`,
+  /// `Demoing`, `Paused`, `Completed`, ...). Wider tracking than
+  /// `metaLabel` (0.06em) so the small caps-y feel reads at the pill's
+  /// reduced size.
+  static let pillStatus = PasturaTextStyle(
+    size: 9, weight: .semibold, design: .monospaced,
+    lineHeight: 1.2, letterSpacingEm: 0.18,
+    isItalic: false, textCase: nil)
 }
 
 // MARK: - §4 Spacing + Radius tokens

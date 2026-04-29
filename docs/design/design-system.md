@@ -175,6 +175,16 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `chart3` | `#7B8FA8` | == `info` |
 | `chart4` | `#B57870` | == `danger` |
 
+### 2.12 Header Slots（GameHeader 専用）
+
+`GameHeader`（§5.1, Demo / Sim 共通の上部 2 段ヘッダー）の slot 専用トークン。役割で命名しており、§2.4 の depth-tone preset (`metaBaseL1..L4`) や §2.2 の汎用 `rule` とは独立して進化させる。Hex が偶然重なる場合があるが、意味の取り違えを避けるため統合しない。
+
+| Token | Hex | 用途 |
+|-------|-----|-----|
+| `headerRule` | `#C2C0AE` | Meta 行の中黒セパレータ `·`。汎用 `rule` (#E0DBCE) より暗く、行内タイポセパレータとして機能 |
+| `headerMetaInk` | `#4A4E3D` | Meta 行のフェーズ名前景色（`metaBaseL3` と同 hex、role-anchored） |
+| `headerMetaSubdued` | `#7B7D68` | Meta 行右寄せの推論 tok/s 値前景色（`metaBaseL1` と `metaBaseL2` の中間明度） |
+
 ---
 
 ## 3. タイポグラフィ
@@ -202,6 +212,10 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `meta/eta` | 10pt | 500 mono | 1.3 | 0 | 残り約4分 |
 | `status/complete` | 16pt | 500 | 1.4 | 0.22em | 準備ができました |
 | `status/hint` | 11pt | 400 mono | 1.2 | 0.1em | tap anywhere to begin |
+| `title/scenario` | 16pt | 600 | 1.2 | 0.02em | GameHeader row 1 シナリオ名 (Demo / Sim 共通) |
+| `meta/round` | 10pt | 600 mono | 1.2 | 0.06em, UPPER | GameHeader row 2 ROUND カウンタ |
+| `meta/inline` | 10pt | 400 mono | 1.2 | 0.04em | GameHeader row 2 フェーズ名 / tok/s |
+| `pill/status` | 9pt | 600 mono | 1.2 | 0.18em | GameHeader row 1 ステータスピル (Simulating / Demoing / Paused / Completed / ...) |
 
 ### 3.3 日本語タイポの作法
 
