@@ -156,7 +156,7 @@ struct ScenarioLoaderTests {
         - type: speak_all
           prompt: "Go"
           output:
-            boke: string
+            statement: string
       topics:
         - "A cat in a suit"
         - "A dog driving"

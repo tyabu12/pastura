@@ -47,11 +47,11 @@ struct JSONResponseParserTests {
   @Test func extractsFromUnlabeledCodeBlock() throws {
     let input = """
       ```
-      {"boke": "Why did the chicken cross the road?"}
+      {"statement": "Why did the chicken cross the road?"}
       ```
       """
     let output = try parser.parse(input)
-    #expect(output.fields["boke"] == "Why did the chicken cross the road?")
+    #expect(output.fields["statement"] == "Why did the chicken cross the road?")
   }
 
   // MARK: - 5. Leading garbage text
@@ -119,12 +119,12 @@ struct JSONResponseParserTests {
       Analyzing the situation...
       <channel|>
       ```json
-      {"inner_thought": "I should betray", "declaration": "I will cooperate"}
+      {"inner_thought": "I should betray", "statement": "I will cooperate"}
       ```
       """
     let output = try parser.parse(input)
     #expect(output.fields["inner_thought"] == "I should betray")
-    #expect(output.fields["declaration"] == "I will cooperate")
+    #expect(output.fields["statement"] == "I will cooperate")
   }
 
   // MARK: - 12. Empty input throws
@@ -251,12 +251,12 @@ struct JSONResponseParserTests {
       Let me analyze the situation...
       </think>
       ```json
-      {"inner_thought": "I should betray", "declaration": "I will cooperate"}
+      {"inner_thought": "I should betray", "statement": "I will cooperate"}
       ```
       """
     let output = try parser.parse(input)
     #expect(output.fields["inner_thought"] == "I should betray")
-    #expect(output.fields["declaration"] == "I will cooperate")
+    #expect(output.fields["statement"] == "I will cooperate")
   }
 
   // MARK: - 23. Raw-text propagation (#194)

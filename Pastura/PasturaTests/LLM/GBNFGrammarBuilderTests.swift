@@ -301,16 +301,6 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar == Self.goldenChooseActionBetray)
   }
 
-  @Test("golden: prisoners_dilemma speak_all phase")
-  func goldenPrisonersDilemmaSpeakAll() throws {
-    let phase = Phase(
-      type: .speakAll, prompt: "…",
-      outputSchema: ["declaration": "string", "inner_thought": "string"])
-    let schema = try #require(OutputSchema.from(phase: phase))
-    let grammar = try builder.build(from: schema)
-    #expect(grammar == Self.goldenDeclarationInnerThought)
-  }
-
   @Test("golden: word_wolf speak_all phase")
   func goldenWordWolfSpeakAll() throws {
     let phase = Phase(
@@ -342,11 +332,6 @@ struct GBNFGrammarBuilderTests {
   private static let goldenChooseActionBetray = """
     root ::= "{" ws "\\"action\\"" ws ":" ws action-value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
     action-value ::= "\\"cooperate\\"" | "\\"betray\\""
-    \(sharedTail)
-    """
-
-  private static let goldenDeclarationInnerThought = """
-    root ::= "{" ws "\\"declaration\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
     \(sharedTail)
     """
 

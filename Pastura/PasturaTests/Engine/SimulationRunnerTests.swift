@@ -336,8 +336,8 @@ struct SimulationRunnerTests {
 
   @Test func fullPrisonersDilemmaIntegration() async throws {
     let mock = MockLLMService(responses: [
-      #"{"declaration": "I'll cooperate!", "inner_thought": "lying"}"#,
-      #"{"declaration": "Let's work together", "inner_thought": "maybe"}"#,
+      #"{"statement": "I'll cooperate!", "inner_thought": "lying"}"#,
+      #"{"statement": "Let's work together", "inner_thought": "maybe"}"#,
       #"{"action": "betray"}"#,
       #"{"action": "cooperate"}"#,
       #"{"action": "cooperate"}"#,
@@ -351,7 +351,7 @@ struct SimulationRunnerTests {
       phases: [
         Phase(
           type: .speakAll, prompt: "Declare!",
-          outputSchema: ["declaration": "string", "inner_thought": "string"]
+          outputSchema: ["statement": "string", "inner_thought": "string"]
         ),
         Phase(
           type: .choose, prompt: "Opponent: {opponent_name}",

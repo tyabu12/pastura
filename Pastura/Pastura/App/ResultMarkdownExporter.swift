@@ -378,14 +378,17 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     return output
   }
 
-  // Picks the most natural field for display per phase. Falls back to a JSON
-  // dump of all fields if none of the common ones are present — keeps unknown
-  // phase types readable without requiring exporter changes.
+  // Picks the canonical primary field per phase via
+  // `TurnOutput.primaryText(for:)` (keyed by `ScenarioConventions`). Falls
+  // back to a JSON dump of all fields when the canonical field is missing
+  // or the phase type is unknown (e.g. forward-compat with future phase
+  // types added to TurnRecord without exporter changes).
   private func formatOutput(_ output: TurnOutput, phaseType: String) -> String {
-    if let statement = output.statement, !statement.isEmpty { return statement }
-    if let vote = output.vote, !vote.isEmpty { return "→ \(vote)" }
-    if let action = output.action, !action.isEmpty { return "(action: \(action))" }
-    if let declaration = output.declaration, !declaration.isEmpty { return declaration }
+    if let pt = PhaseType(rawValue: phaseType),
+      let primary = output.primaryText(for: pt),
+      !primary.isEmpty {
+      return primary
+    }
     if output.fields.isEmpty { return "_(empty)_" }
     let pairs = output.fields.keys.sorted().map { "\($0)=\(output.fields[$0] ?? "")" }
     return pairs.joined(separator: ", ")
