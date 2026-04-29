@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    ", " : {
+      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "、"
+          }
+        }
+      }
+    },
     "%arg actions" : {
       "localizations" : {
         "ja" : {
@@ -17,17 +28,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "（条件なし）"
-          }
-        }
-      }
-    },
-    ", " : {
-      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "、"
           }
         }
       }
