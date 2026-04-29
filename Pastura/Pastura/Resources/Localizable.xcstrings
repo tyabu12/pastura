@@ -241,6 +241,16 @@
         }
       }
     },
+    "Cancelled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
     "Cannot export replay: the scenario definition is not valid YAML." : {
       "localizations" : {
         "ja" : {
@@ -507,6 +517,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオを削除しますか？"
+          }
+        }
+      }
+    },
+    "Demoing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デモ中"
           }
         }
       }
@@ -2035,6 +2055,16 @@
         }
       }
     },
+    "Replaying" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リプレイ中"
+          }
+        }
+      }
+    },
     "Report scenario" : {
       "localizations" : {
         "ja" : {
@@ -2121,6 +2151,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ロール値 < 確率で発火します。1 = 常に発火、0 = 発火しません。"
+          }
+        }
+      }
+    },
+    "Round %lld / %lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド %lld / %lld"
           }
         }
       }
@@ -2321,6 +2361,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考をすべて表示"
+          }
+        }
+      }
+    },
+    "Simulating" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シミュレーション中"
           }
         }
       }
