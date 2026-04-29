@@ -153,7 +153,7 @@ personas:
 phases:
   - type: speak_all
     prompt: "全員に向けて1文だけ宣言してください。ブラフも可。"
-    output: { declaration: string, inner_thought: string }
+    output: { statement: string, inner_thought: string }
 
   - type: choose
     pairing: round_robin
