@@ -129,7 +129,7 @@ i18n is split into staged Steps so the harder design questions (per-language YAM
 ```
 ROADMAP merge (this PR)
   → Pre-ADR-010 stub PR
-        + CLAUDE.md "Completed in Phase 2 so far" line
+        + CLAUDE.md "Phase 2 progress" entry
         + dependency-graph corrections (this section, if needed)
   → Step A (A-1 / A-2 PR split recommended) + Step B-1a (parallel)
   → Step B-1b (after A — UI must be English to capture screenshots)
