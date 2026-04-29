@@ -61,6 +61,31 @@ extension PromoCard {
     return minutes <= 0 ? "まもなく" : "残り約\(minutes)分"
   }
 
+  /// Detects the "resume burst" — `URLSession`'s first `didWriteData` callback
+  /// after a `withResumeData` retry reports the cumulative `totalBytesWritten`
+  /// including the pre-failure portion, snapping progress from the
+  /// `ModelManager.performDownload` placeholder ~0.0 up to the resumed offset
+  /// (e.g., 0.30) within ≤ 2 s. Without re-anchoring at that moment, the ETA
+  /// formula would attribute the resumed bytes to the just-started retry and
+  /// emit ridiculously short remaining-time estimates ("残り約2分" while
+  /// multiple GB still need to download).
+  ///
+  /// **Heuristic**: a > 5 % progress jump within 1.5 s of the current anchor
+  /// is unambiguously a resume burst. A 3 GB download on the fastest realistic
+  /// network (~100 MB/s) advances at ~3.3 % per second, so legitimate progress
+  /// can't reach this threshold in this time window.
+  ///
+  /// Returns `true` when the caller should re-anchor `downloadStartDate` /
+  /// `downloadStartProgress` to the new sample.
+  nonisolated static func isResumeJump(
+    newProgress: Double,
+    anchorProgress: Double,
+    elapsedSinceAnchor: TimeInterval
+  ) -> Bool {
+    let progressDelta = newProgress - anchorProgress
+    return elapsedSinceAnchor < 1.5 && progressDelta > 0.05
+  }
+
   /// Computes the remaining-seconds estimate from the **delta** between current
   /// progress and the anchor progress (snapshot at `.downloading` entry), over
   /// `elapsed` seconds since the anchor was set.

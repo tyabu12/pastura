@@ -115,6 +115,60 @@ struct PromoCardComputeEtaSecondsTests {
     #expect(seconds == 0)
   }
 
+  // MARK: - Resume-jump detection
+
+  @Test("isResumeJump catches placeholder→resume burst (0.0 → 0.30 in <1s)")
+  func isResumeJumpCatchesBurst() {
+    // URLSession's first didWriteData after withResumeData reports cumulative
+    // bytes including the pre-failure portion. ModelManager set a placeholder
+    // 0.0 right before, so progress snaps from 0.0 → 0.30 within ~1s.
+    #expect(
+      PromoCard.isResumeJump(
+        newProgress: 0.30, anchorProgress: 0.0, elapsedSinceAnchor: 1.0))
+  }
+
+  @Test("isResumeJump catches mid-progress resume (0.0 → 0.65)")
+  func isResumeJumpCatchesMidResume() {
+    // Higher resume offset case (network died at 65 % during attempt 1).
+    #expect(
+      PromoCard.isResumeJump(
+        newProgress: 0.65, anchorProgress: 0.0, elapsedSinceAnchor: 0.5))
+  }
+
+  @Test("isResumeJump rejects normal slow progress")
+  func isResumeJumpRejectsSlowProgress() {
+    // Cellular DL: ~0.5 %/s → 0.005 progress per 1s. Far below threshold.
+    #expect(
+      !PromoCard.isResumeJump(
+        newProgress: 0.105, anchorProgress: 0.10, elapsedSinceAnchor: 1.0))
+  }
+
+  @Test("isResumeJump rejects sub-threshold delta even when fast")
+  func isResumeJumpRejectsSubThresholdDelta() {
+    // 4 % jump in 1s — fast LAN/Wi-Fi but below 5 % threshold.
+    #expect(
+      !PromoCard.isResumeJump(
+        newProgress: 0.04, anchorProgress: 0.0, elapsedSinceAnchor: 1.0))
+  }
+
+  @Test("isResumeJump rejects late jump (past 1.5s window)")
+  func isResumeJumpRejectsLateJump() {
+    // After 2s the natural-progress measurement window has begun. Even if a
+    // big jump arrives, treat it as legitimate (e.g., bursty network) rather
+    // than a resume burst — re-anchoring this far in would lose the
+    // throughput history.
+    #expect(
+      !PromoCard.isResumeJump(
+        newProgress: 0.30, anchorProgress: 0.0, elapsedSinceAnchor: 2.0))
+  }
+
+  @Test("isResumeJump rejects negative delta (defensive — should never happen)")
+  func isResumeJumpRejectsNegativeDelta() {
+    #expect(
+      !PromoCard.isResumeJump(
+        newProgress: 0.20, anchorProgress: 0.30, elapsedSinceAnchor: 1.0))
+  }
+
   // MARK: - The reported regression
 
   @Test("retry scenario — 1000-min ETA bug is fixed by delta-progress + reset")

@@ -316,28 +316,42 @@ struct PromoCard: View {
     }
   }
 
-  private func handleModelStateChange(_ newState: ModelState) {
-    // Symmetric anchor management:
-    //   - any `.downloading` arrival with no prior anchor sets one (handles
-    //     initial entry on view appear, fresh DL start, and retry after error)
-    //   - any non-`.downloading` arrival resets the anchor (so the next
-    //     `.downloading` re-anchors to the retry's start time, not the original
-    //     attempt's)
-    // `downloadStartProgress` snapshots the progress at anchor time so the
-    // delta-progress ETA formula works when resuming from `.download` partial
-    // bytes (initial progress > 0).
-    if case .downloading(let progress) = newState {
-      if downloadStartDate == nil {
-        downloadStartDate = Date()
-        downloadStartProgress = progress
-      }
-    } else {
+}
+
+// MARK: - ETA anchor behavior
+//
+// Lifted to a same-file extension so the bookkeeping can be unit-test-shaped
+// (delegate decisions to `nonisolated static` pure helpers) without inflating
+// the main struct body past swiftlint's `type_body_length` cap.
+extension PromoCard {
+
+  fileprivate func handleModelStateChange(_ newState: ModelState) {
+    // Anchor lifecycle (full rationale in `isResumeJump` doc comment):
+    //   1. non-`.downloading` clears the anchor.
+    //   2. first `.downloading` after a clear sets the anchor.
+    //   3. resume-burst jump re-anchors so URLSession's cumulative-bytes
+    //      report doesn't poison the throughput estimate.
+    guard case .downloading(let progress) = newState else {
       downloadStartDate = nil
       downloadStartProgress = 0
+      return
+    }
+    let shouldAnchor: Bool
+    if let anchor = downloadStartDate {
+      shouldAnchor = Self.isResumeJump(
+        newProgress: progress,
+        anchorProgress: downloadStartProgress,
+        elapsedSinceAnchor: Date().timeIntervalSince(anchor))
+    } else {
+      shouldAnchor = true
+    }
+    if shouldAnchor {
+      downloadStartDate = Date()
+      downloadStartProgress = progress
     }
   }
 
-  private func computeEtaMinutes(progress: Double) -> Int? {
+  fileprivate func computeEtaMinutes(progress: Double) -> Int? {
     guard let start = downloadStartDate else { return nil }
     let elapsed = Date().timeIntervalSince(start)
     guard
@@ -348,9 +362,9 @@ struct PromoCard: View {
     else { return nil }
     return seconds / 60
   }
-
 }
 
-// Pure helpers (`computeSlotState`, `computeEtaSeconds`, `slotCopy`, `formatEta`)
-// live in `PromoCard+Helpers.swift`. `#Preview` blocks live in `PromoCard+Previews.swift`.
-// Both splits keep this file under swiftlint's 400-line cap.
+// Pure helpers (`computeSlotState`, `computeEtaSeconds`, `isResumeJump`,
+// `slotCopy`, `formatEta`) live in `PromoCard+Helpers.swift`. `#Preview` blocks
+// live in `PromoCard+Previews.swift`. Both splits keep this file under
+// swiftlint's 400-line cap.
