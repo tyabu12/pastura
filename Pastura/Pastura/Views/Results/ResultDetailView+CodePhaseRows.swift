@@ -81,12 +81,15 @@ extension ResultDetailView {
       // like "Vote Results" read worse shouty. `tagPhase` stays on
       // one-word tag markers (WORD WOLF, ROUND 1) per design-system
       // §3.2.
-      Text("Vote Results").textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
+      Text(String(localized: "Vote Results")).textStyle(Typography.metaLabel).foregroundStyle(
+        Color.inkSecondary)
       ForEach(orderedTallies, id: \.key) { name, count in
         Text("  \(filtered(name)): \(count) votes").textStyle(Typography.metaValue)
       }
-      Text("Votes").textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
-        .padding(.top, 4)
+      Text(String(localized: "Votes")).textStyle(Typography.metaLabel).foregroundStyle(
+        Color.inkSecondary
+      )
+      .padding(.top, 4)
       ForEach(orderedVotes, id: \.key) { voter, target in
         Text("  \(filtered(voter)) → \(filtered(target))").textStyle(Typography.metaValue)
       }
@@ -99,7 +102,7 @@ extension ResultDetailView {
   ) -> some View {
     HStack {
       Text("\(filtered(agent1))(\(filtered(action1)))")
-      Text("vs").foregroundStyle(Color.muted)
+      Text(String(localized: "vs")).foregroundStyle(Color.muted)
       Text("\(filtered(agent2))(\(filtered(action2)))")
     }
     .textStyle(Typography.titlePhase)
@@ -121,7 +124,7 @@ extension ResultDetailView {
         .textStyle(Typography.bodyBubble)
         .foregroundStyle(Color.inkSecondary)
     } else {
-      Text("No event this round")
+      Text(String(localized: "No event this round"))
         .textStyle(Typography.metaValue)
         .foregroundStyle(Color.muted)
     }

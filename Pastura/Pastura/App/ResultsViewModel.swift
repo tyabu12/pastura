@@ -61,14 +61,14 @@ final class ResultsViewModel {
         if !sims.isEmpty {
           groups = [
             ScenarioGroup(
-              scenarioName: scenario?.name ?? "Unknown",
+              scenarioName: scenario?.name ?? String(localized: "Unknown"),
               simulations: sims
             )
           ]
         }
       }
     } catch {
-      errorMessage = "Failed to load results: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to load results: \(error.localizedDescription)")
     }
 
     isLoading = false
@@ -81,7 +81,7 @@ final class ResultsViewModel {
         try turnRepository.fetchBySimulationId(simulationId)
       }
     } catch {
-      errorMessage = "Failed to load turns: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to load turns: \(error.localizedDescription)")
       return []
     }
   }

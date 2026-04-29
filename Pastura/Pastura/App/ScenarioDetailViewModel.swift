@@ -48,7 +48,7 @@ final class ScenarioDetailViewModel {
           try repository.fetchById(scenarioId)
         })
       else {
-        errorMessage = "Scenario not found"
+        errorMessage = String(localized: "Scenario not found")
         isLoading = false
         return
       }
@@ -65,7 +65,9 @@ final class ScenarioDetailViewModel {
         validationError = error.localizedDescription
       }
     } catch {
-      errorMessage = "Failed to load scenario: \(error.localizedDescription)"
+      errorMessage = String(
+        localized: "Failed to load scenario: \(error.localizedDescription)"
+      )
     }
 
     isLoading = false
@@ -107,7 +109,7 @@ final class ScenarioDetailViewModel {
       }
       return true
     } catch {
-      errorMessage = "Failed to delete: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to delete: \(error.localizedDescription)")
       return false
     }
   }

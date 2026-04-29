@@ -53,7 +53,7 @@ struct SettingsView: View {
       Section {
         contentReportingBody
       } header: {
-        Text("Content reporting")
+        Text(String(localized: "Content reporting"))
       }
       Section {
         Button {
@@ -71,10 +71,10 @@ struct SettingsView: View {
         }
         .accessibilityIdentifier("settings.privacyPolicyLink")
       } header: {
-        Text("About")
+        Text(String(localized: "About"))
       }
     }
-    .navigationTitle("Settings")
+    .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
     #if !targetEnvironment(simulator)
       .confirmationDialog(
@@ -171,7 +171,7 @@ struct SettingsView: View {
           )
         }
       } header: {
-        Text("Models")
+        Text(String(localized: "Models"))
       } footer: {
         if dependencies.simulationActivityRegistry.isActive {
           Text(
@@ -265,21 +265,27 @@ struct SettingsView: View {
   private var contentReportingBody: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text(
-        "Reports about scenarios on the Share Board are reviewed by "
-          + "the Pastura maintainer (github.com/tyabu12)."
+        String(
+          localized:
+            "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12)."
+        )
       )
       .font(.body)
 
       Text(
-        "To report a scenario: open it from the Share Board, tap "
-          + "the More menu, and choose Report this scenario."
+        String(
+          localized:
+            "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario."
+        )
       )
       .font(.body)
       .foregroundStyle(.secondary)
 
-      Text("You'll receive a confirmation email when your report is received.")
-        .font(.footnote)
-        .foregroundStyle(.secondary)
+      Text(
+        String(localized: "You'll receive a confirmation email when your report is received.")
+      )
+      .font(.footnote)
+      .foregroundStyle(.secondary)
     }
     .padding(.vertical, 4)
   }

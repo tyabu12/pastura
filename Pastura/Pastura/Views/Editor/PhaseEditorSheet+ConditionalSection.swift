@@ -14,7 +14,7 @@ extension PhaseEditorSheet {
     Group {
       Section {
         TextField(
-          "e.g. max_score >= 10",
+          String(localized: "e.g. max_score >= 10"),
           text: $phase.condition,
           axis: .vertical
         )
@@ -22,14 +22,14 @@ extension PhaseEditorSheet {
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
       } header: {
-        Text("Condition")
+        Text(String(localized: "Condition"))
       } footer: {
         VStack(alignment: .leading, spacing: 4) {
           Text(
-            "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. "
-              + "Identifiers: current_round, total_rounds, max_score, min_score, "
-              + "eliminated_count, active_count, vote_winner, scores.<Name>, "
-              + "or any template variable. Wrap string literals in double quotes."
+            String(
+              localized:
+                "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes."
+            )
           )
           .font(.caption)
           if let conditionError {
@@ -41,12 +41,12 @@ extension PhaseEditorSheet {
       }
 
       branchSection(
-        title: "Then branch (condition true)",
+        title: String(localized: "Then branch (condition true)"),
         phases: $phase.thenPhases,
         branch: .then
       )
       branchSection(
-        title: "Else branch (condition false)",
+        title: String(localized: "Else branch (condition false)"),
         phases: $phase.elsePhases,
         branch: .else
       )
@@ -83,7 +83,9 @@ extension PhaseEditorSheet {
             phase.moveSubPhase(id: subPhase.id, to: branch == .then ? .else : .then)
           } label: {
             Label(
-              branch == .then ? "Move to Else Branch" : "Move to Then Branch",
+              branch == .then
+                ? String(localized: "Move to Else Branch")
+                : String(localized: "Move to Then Branch"),
               systemImage: "arrow.left.arrow.right"
             )
           }
@@ -103,12 +105,12 @@ extension PhaseEditorSheet {
         phases.wrappedValue.append(newPhase)
         editingSubPhase = SubPhaseEditContext(branch: branch, phase: newPhase)
       } label: {
-        Label("Add sub-phase", systemImage: "plus.circle")
+        Label(String(localized: "Add sub-phase"), systemImage: "plus.circle")
       }
     } header: {
       Text(title)
     } footer: {
-      Text("Long-press a sub-phase to move it to the end of the other branch.")
+      Text(String(localized: "Long-press a sub-phase to move it to the end of the other branch."))
         .font(.caption)
     }
   }

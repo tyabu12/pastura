@@ -9,14 +9,17 @@ extension PhaseEditorSheet {
   var eventInjectSection: some View {
     Group {
       Section {
-        TextField("Top-level YAML key", text: $phase.source)
+        TextField(String(localized: "Top-level YAML key"), text: $phase.source)
           .textInputAutocapitalization(.never)
           .accessibilityLabel("Source")
       } header: {
-        Text("Source")
+        Text(String(localized: "Source"))
       } footer: {
         Text(
-          "References a top-level field in the scenario YAML — must be a list of strings (e.g., random_events: [...])"
+          String(
+            localized:
+              "References a top-level field in the scenario YAML — must be a list of strings (e.g., random_events: [...])"
+          )
         )
       }
 
@@ -28,18 +31,28 @@ extension PhaseEditorSheet {
           step: 0.1
         )
       } footer: {
-        Text("Roll < probability fires. 1 = always fires; 0 = never fires.")
+        Text(
+          String(
+            localized: "Roll < probability fires. 1 = always fires; 0 = never fires."
+          )
+        )
       }
 
       Section {
+        // Placeholder "current_event" is the literal default value the
+        // phase falls back to when this field is empty (see footer);
+        // localizing it would diverge from the model-layer default.
         TextField("current_event", text: $phase.eventVariable)
           .textInputAutocapitalization(.never)
           .accessibilityLabel("Variable name")
       } header: {
-        Text("Variable name")
+        Text(String(localized: "Variable name"))
       } footer: {
         Text(
-          "Variable written by this phase. Reference in subsequent prompts as {<name>}. Defaults to current_event when empty."
+          String(
+            localized:
+              "Variable written by this phase. Reference in subsequent prompts as {<name>}. Defaults to current_event when empty."
+          )
         )
       }
     }
