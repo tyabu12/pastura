@@ -212,16 +212,15 @@ struct ModelDownloadHostView: View {
 
   private func chatStream(viewModel: ReplayViewModel) -> some View {
     VStack(spacing: 0) {
-      PhaseHeader(
-        presetName: currentPresetName(viewModel: viewModel).uppercased(),
-        phaseLabel: currentPhaseLabel(viewModel: viewModel))
+      phaseHeader(viewModel: viewModel)
 
       ScrollViewReader { proxy in
         ScrollView {
           // `spacing` uses the ChatBubbleLayout.bubbleSpacing token so a
-          // future design-system tweak flows through both the demo screen
-          // and the live SimulationView in one place. Reference HTML
-          // `.stream { gap: 14px }`.
+          // future design-system tweak flows through Demo / Sim / Results
+          // in one place. Production value is 8pt project-wide (#273 PR 2);
+          // see the token's docstring for the historical 14pt prototype
+          // reference and the divergence rationale.
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.agentOutputs) { entry in
               AgentOutputRow(
@@ -278,7 +277,9 @@ struct ModelDownloadHostView: View {
     }
   }
 
-  private func currentPresetName(viewModel: ReplayViewModel) -> String {
+  // Module-internal so the sibling `+PhaseHeader.swift` extension can
+  // call this helper. `private` only reaches same-file extensions.
+  func currentPresetName(viewModel: ReplayViewModel) -> String {
     guard case .playing(let sourceIndex, _) = viewModel.state,
       sourceIndex < sources.count
     else { return "" }

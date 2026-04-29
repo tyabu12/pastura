@@ -22,11 +22,14 @@ extension ModelDownloadHostViewTests {
   // MARK: - ChatBubbleLayout — reference HTML values
 
   @Test func demoChatStreamUsesCanonicalBubbleSpacing() {
-    // Reference HTML `.stream { gap: 14px }`. The demo screen's
-    // `LazyVStack(spacing: ChatBubbleLayout.bubbleSpacing)` must agree
-    // — a mismatch would make bubbles visually cramped or loose vs the
-    // prototype the design was signed off against.
-    #expect(ChatBubbleLayout.bubbleSpacing == 14)
+    // Tightened from the reference HTML's 14px to 8pt project-wide
+    // in #273 PR 2 — Sim/Results' tighter spacing wins so long
+    // simulation logs fit more turns per viewport, and Demo's loop
+    // adopts the same value. The demo screen's
+    // `LazyVStack(spacing: ChatBubbleLayout.bubbleSpacing)` must
+    // continue to consume the token (not a literal) so the unified
+    // value flows through.
+    #expect(ChatBubbleLayout.bubbleSpacing == 8)
   }
 
   @Test func demoChatStreamUsesCanonicalAvatarSize() {

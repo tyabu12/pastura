@@ -3,6 +3,15 @@ import SwiftUI
 // Helpers factored out of SimulationView so that the main file stays under
 // SwiftLint's file-length ceiling. These render individual log-entry kinds
 // used by the live simulation screen.
+//
+// Per-row `.padding(.horizontal)` was stripped from every helper here in
+// #273 PR 2 — the parent `LazyVStack` now applies a container-level
+// `.padding(.horizontal, 20)` once, matching Demo's strategy and unifying
+// chat-stream gutters across Demo / Sim / Results. `roundSeparator` is
+// included in the strip; its horizontal rule now spans the container's
+// 20pt-inset width rather than the prior system-default ~16pt-inset width
+// (4pt-narrower per side, accepted as part of the design-system
+// unification).
 extension SimulationView {
   func eliminationEntry(agent: String, voteCount: Int) -> some View {
     HStack(spacing: 4) {
@@ -11,21 +20,18 @@ extension SimulationView {
       Text("\(agent) eliminated (\(voteCount) votes)")
         .textStyle(Typography.titlePhase)
     }
-    .padding(.horizontal)
   }
 
   func assignmentEntry(agent: String, value: String) -> some View {
     Text("\(agent) assigned: \(value)")
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
-      .padding(.horizontal)
   }
 
   func summaryEntry(text: String) -> some View {
     Text(text)
       .textStyle(Typography.bodyBubble)
       .foregroundStyle(Color.inkSecondary)
-      .padding(.horizontal)
   }
 
   func voteResultsEntry(tallies: [String: Int]) -> some View {
@@ -43,7 +49,6 @@ extension SimulationView {
       }
     }
     .foregroundStyle(Color.muted)
-    .padding(.horizontal)
   }
 
   func pairingResultEntry(
@@ -56,7 +61,6 @@ extension SimulationView {
       Text("\(agent2)(\(act2))")
     }
     .textStyle(Typography.titlePhase)
-    .padding(.horizontal)
   }
 
   /// Live row for `event_inject` phase results.
@@ -73,12 +77,10 @@ extension SimulationView {
           .textStyle(Typography.bodyBubble)
           .foregroundStyle(Color.inkSecondary)
       }
-      .padding(.horizontal)
     } else {
       Text("No event this round")
         .textStyle(Typography.metaValue)
         .foregroundStyle(Color.muted)
-        .padding(.horizontal)
     }
   }
 
@@ -94,7 +96,6 @@ extension SimulationView {
         .foregroundStyle(Color.inkSecondary)
       Rectangle().fill(Color.rule).frame(height: 1)
     }
-    .padding(.horizontal)
     .padding(.vertical, 4)
   }
 
@@ -107,6 +108,5 @@ extension SimulationView {
       }
     }
     .foregroundStyle(Color.muted)
-    .padding(.horizontal)
   }
 }

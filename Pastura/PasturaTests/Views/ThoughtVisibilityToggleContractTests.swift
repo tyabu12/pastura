@@ -9,12 +9,12 @@ struct ThoughtVisibilityToggleContractTests {
 
   // MARK: - iconName(for:)
 
-  @Test func iconNameForOnStateIsFilledBubble() {
-    #expect(ThoughtVisibilityToggle.iconName(for: true) == "text.bubble.fill")
+  @Test func iconNameForOnStateIsFilledEye() {
+    #expect(ThoughtVisibilityToggle.iconName(for: true) == "eye.fill")
   }
 
-  @Test func iconNameForOffStateIsOutlinedBubble() {
-    #expect(ThoughtVisibilityToggle.iconName(for: false) == "text.bubble")
+  @Test func iconNameForOffStateIsSlashedEye() {
+    #expect(ThoughtVisibilityToggle.iconName(for: false) == "eye.slash")
   }
 
   // MARK: - tint(for:)

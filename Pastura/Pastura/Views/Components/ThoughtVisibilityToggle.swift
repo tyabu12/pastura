@@ -2,9 +2,9 @@ import SwiftUI
 
 /// A toggle button that controls "show all thoughts" mode in chat-stream
 /// views (Simulation / Results / DL-time demo). On state uses the filled
-/// chat-bubble icon + moss accent; off state uses the outlined icon +
-/// muted ink. Caller provides `font` via `.font(...)` on the toggle if
-/// they want sizing larger than system default.
+/// eye icon + moss accent; off state uses the slashed eye icon + muted
+/// ink. Caller provides `font` via `.font(...)` on the toggle if they
+/// want sizing larger than system default.
 ///
 /// Used by `SimulationView`, `ResultDetailView`, and
 /// `ModelDownloadHostView` — see issue #273.
@@ -21,11 +21,14 @@ struct ThoughtVisibilityToggle: View {
     .accessibilityLabel(Self.accessibilityLabel(for: isOn))
   }
 
-  /// Filled chat-bubble for the "showing thoughts" state, outlined for
-  /// "hidden". Pinned by `ThoughtVisibilityToggleContractTests` to catch
-  /// accidental swaps.
+  /// Filled eye for the "showing thoughts" state, slashed eye for
+  /// "hidden". Switched from `text.bubble.fill` / `text.bubble` in
+  /// #273 PR 2 — real-device QA after PR 1a found the eye family
+  /// communicates the show / hide affordance more directly than the
+  /// chat-bubble outline. Pinned by
+  /// `ThoughtVisibilityToggleContractTests` to catch accidental swaps.
   static func iconName(for isOn: Bool) -> String {
-    isOn ? "text.bubble.fill" : "text.bubble"
+    isOn ? "eye.fill" : "eye.slash"
   }
 
   /// `Color.moss` (accent) for ON, `Color.inkSecondary` (neutral muted)
