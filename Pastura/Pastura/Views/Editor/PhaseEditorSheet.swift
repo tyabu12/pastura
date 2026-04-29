@@ -377,18 +377,23 @@ struct PhaseEditorSheet: View {
 
   // MARK: - Helpers
 
+  // Returned as `String` (not `LocalizedStringKey`) because the consumer is
+  // `Text(phaseTypeDescription)` which uses the verbatim-String overload —
+  // wrap each branch with `String(localized:)` so the value goes through
+  // Bundle resolution before display.
   private var phaseTypeDescription: String {
     switch phase.type {
-    case .speakAll: return "All agents speak simultaneously"
-    case .speakEach: return "Agents speak in turn (accumulating context)"
-    case .vote: return "All agents vote for one agent"
-    case .choose: return "Choose from predefined options"
-    case .scoreCalc: return "Calculate scores (code, no LLM)"
-    case .assign: return "Distribute info to agents (code)"
-    case .eliminate: return "Remove most-voted agent (code)"
-    case .summarize: return "Format round summary (code)"
-    case .conditional: return "Branch on state (code, then/else sub-phases)"
-    case .eventInject: return "Inject a random event from extraData (code, no LLM)"
+    case .speakAll: return String(localized: "All agents speak simultaneously")
+    case .speakEach: return String(localized: "Agents speak in turn (accumulating context)")
+    case .vote: return String(localized: "All agents vote for one agent")
+    case .choose: return String(localized: "Choose from predefined options")
+    case .scoreCalc: return String(localized: "Calculate scores (code, no LLM)")
+    case .assign: return String(localized: "Distribute info to agents (code)")
+    case .eliminate: return String(localized: "Remove most-voted agent (code)")
+    case .summarize: return String(localized: "Format round summary (code)")
+    case .conditional: return String(localized: "Branch on state (code, then/else sub-phases)")
+    case .eventInject:
+      return String(localized: "Inject a random event from extraData (code, no LLM)")
     }
   }
 }

@@ -111,12 +111,42 @@
         }
       }
     },
+    "Agents speak in turn (accumulating context)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントが順番に発言（コンテキストを累積）"
+          }
+        }
+      }
+    },
     "All": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "すべて"
+          }
+        }
+      }
+    },
+    "All agents speak simultaneously": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのエージェントが同時に発言"
+          }
+        }
+      }
+    },
+    "All agents vote for one agent": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全エージェントが1人に投票"
           }
         }
       }
@@ -167,6 +197,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "基本情報"
+          }
+        }
+      }
+    },
+    "Branch on state (code, then/else sub-phases)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状態で分岐（コード、then/else サブフェーズ）"
+          }
+        }
+      }
+    },
+    "Calculate scores (code, no LLM)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スコアを計算（コード、LLM 不使用）"
           }
         }
       }
@@ -244,6 +294,16 @@
     },
     "Checking device...": {},
     "Choose a model to start": {},
+    "Choose from predefined options": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "事前定義された選択肢から選ぶ"
+          }
+        }
+      }
+    },
     "Close this sheet to open the shared scenario": {
       "localizations": {
         "ja": {
@@ -405,6 +465,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "詳細"
+          }
+        }
+      }
+    },
+    "Distribute info to agents (code)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントへ情報を配布（コード）"
           }
         }
       }
@@ -761,6 +831,16 @@
         }
       }
     },
+    "Format round summary (code)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ラウンドサマリを整形（コード）"
+          }
+        }
+      }
+    },
     "From Shared Scenarios (read-only)": {
       "localizations": {
         "ja": {
@@ -919,6 +999,16 @@
       }
     },
     "Inference was suspended and will retry": {},
+    "Inject a random event from extraData (code, no LLM)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "extraData からランダムイベントを注入（コード、LLM 不使用）"
+          }
+        }
+      }
+    },
     "Installed": {
       "localizations": {
         "ja": {
@@ -1617,6 +1707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "モデルを再読み込み中..."
+          }
+        }
+      }
+    },
+    "Remove most-voted agent (code)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最多得票のエージェントを除外（コード）"
           }
         }
       }
