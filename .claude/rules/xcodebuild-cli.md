@@ -103,6 +103,33 @@ xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
 > `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" ...` form
 > on every call — the allowlist match is on the literal string.
 
+### Auto-sync of Localizable.xcstrings
+
+`test` and `build` run `xcrun xcstringstool extract` + `sync` against
+`Pastura/Pastura/Resources/Localizable.xcstrings` before xcodebuild so
+new `String(localized:)` keys land in the catalog (Xcode IDE does this
+automatically; CLI does not — [#293](https://github.com/tyabu12/pastura/issues/293)).
+Pairs with CLAUDE.md's "User-facing String literals" rule and the
+`localization-coverage` CI job (`scripts/check_localization_coverage.py`):
+wrapper auto-populates at edit time, CI enforces at merge time.
+Contributors do not need to manually run `xcstringstool` or open Xcode
+IDE just to sync.
+
+- **Opt out**: `PASTURA_SKIP_XCSTRINGS_SYNC=1`. Already set in the
+  pre-commit hook so commits do not mutate the catalog outside the
+  staging index (drift caught by the next non-commit `xcb build`/`test`).
+  Translators editing the catalog directly should set it too.
+- **Failure-tolerant**: extract/sync failures write a sentinel at
+  `Pastura/DerivedData/.xcstrings-sync-failed` (with captured stderr)
+  and return 0; next invocation re-warns until success. `mkdir` mutex
+  at `Pastura/DerivedData/.xcstrings.sync.lock` gates concurrent runs.
+- **CI bypasses** the wrapper ([#189](https://github.com/tyabu12/pastura/issues/189));
+  catalog drift is detected by the coverage job
+  ([#292](https://github.com/tyabu12/pastura/issues/292)) instead.
+- **Xcode-version upgrades** can shift the catalog's whitespace format
+  one-time — absorb in a single commit (see #293 for the format-shift
+  collision pattern that affects in-flight translator branches).
+
 ### DerivedData location
 
 `sim-dest.sh` exports `DERIVED_DATA` pointing at `Pastura/DerivedData/` inside
