@@ -23,21 +23,21 @@ struct HomeView: View {
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
           NavigationLink(value: Route.settings) {
-            Label("Settings", systemImage: "gearshape")
+            Label(String(localized: "Settings"), systemImage: "gearshape")
           }
           .accessibilityIdentifier("home.settingsButton")
         }
         ToolbarItem(placement: .primaryAction) {
           Menu {
             NavigationLink(value: newScenarioRoute()) {
-              Label("New Scenario", systemImage: "doc.badge.plus")
+              Label(String(localized: "New Scenario"), systemImage: "doc.badge.plus")
             }
             .accessibilityIdentifier("home.newScenarioButton")
             NavigationLink(value: Route.importScenario()) {
-              Label("Import YAML", systemImage: "doc.text")
+              Label(String(localized: "Import YAML"), systemImage: "doc.text")
             }
           } label: {
-            Label("Add", systemImage: "plus")
+            Label(String(localized: "Add"), systemImage: "plus")
           }
         }
       }
@@ -74,7 +74,7 @@ struct HomeView: View {
   private func scenarioList(viewModel: HomeViewModel) -> some View {
     List {
       if !viewModel.presets.isEmpty {
-        Section("Presets") {
+        Section(String(localized: "Presets")) {
           ForEach(viewModel.presets, id: \.id) { scenario in
             scenarioRow(scenario)
           }
@@ -85,11 +85,11 @@ struct HomeView: View {
 
       Section {
         NavigationLink(value: Route.shareBoard) {
-          Label("Share Board", systemImage: "square.grid.2x2.fill")
+          Label(String(localized: "Share Board"), systemImage: "square.grid.2x2.fill")
         }
         .accessibilityIdentifier("home.shareBoardButton")
         NavigationLink(value: Route.results(scenarioId: "")) {
-          Label("Past Results", systemImage: "clock.arrow.circlepath")
+          Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
         }
       }
     }
@@ -100,7 +100,7 @@ struct HomeView: View {
     .overlay {
       if let error = viewModel.errorMessage {
         ContentUnavailableView(
-          "Error",
+          String(localized: "Error"),
           systemImage: "exclamationmark.triangle",
           description: Text(error)
         )
@@ -110,12 +110,12 @@ struct HomeView: View {
 
   @ViewBuilder
   private func userScenariosSection(viewModel: HomeViewModel) -> some View {
-    Section("My Scenarios") {
+    Section(String(localized: "My Scenarios")) {
       if viewModel.userScenarios.isEmpty {
         ContentUnavailableView(
-          "No Scenarios",
+          String(localized: "No Scenarios"),
           systemImage: "doc.text",
-          description: Text("Tap + to import a YAML scenario")
+          description: Text(String(localized: "Tap + to import a YAML scenario"))
         )
       } else {
         ForEach(viewModel.userScenarios, id: \.id) { scenario in
@@ -159,7 +159,7 @@ struct HomeView: View {
         Text(scenario.name)
           .font(.headline)
         if hasGalleryUpdate {
-          Text("Update")
+          Text(String(localized: "Update"))
             .font(.caption2.bold())
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -168,7 +168,7 @@ struct HomeView: View {
         }
       }
       if scenario.isPreset {
-        Text("Preset")
+        Text(String(localized: "Preset"))
           .font(.caption)
           .foregroundStyle(.secondary)
           .padding(.horizontal, 6)

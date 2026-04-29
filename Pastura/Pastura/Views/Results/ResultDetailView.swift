@@ -56,18 +56,18 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   var body: some View {
     Group {
       if isLoading {
-        ProgressView("Loading...")
+        ProgressView(String(localized: "Loading..."))
       } else if items.isEmpty {
         ContentUnavailableView(
-          "No Data",
+          String(localized: "No Data"),
           systemImage: "tray",
-          description: Text("No turn records found for this simulation")
+          description: Text(String(localized: "No turn records found for this simulation"))
         )
       } else {
         timelineLog
       }
     }
-    .navigationTitle("Result Detail")
+    .navigationTitle(String(localized: "Result Detail"))
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
@@ -117,24 +117,24 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       ShareSheet(activityItems: [payload.text, payload.fileURL])
     }
     .alert(
-      "Export failed",
+      String(localized: "Export failed"),
       isPresented: Binding(
         get: { exportError != nil },
         set: { if !$0 { exportError = nil } }
       )
     ) {
-      Button("OK", role: .cancel) { exportError = nil }
+      Button(String(localized: "OK"), role: .cancel) { exportError = nil }
     } message: {
       Text(exportError ?? "")
     }
     .alert(
-      "Replay export failed",
+      String(localized: "Replay export failed"),
       isPresented: Binding(
         get: { yamlExportError != nil },
         set: { if !$0 { yamlExportError = nil } }
       )
     ) {
-      Button("OK", role: .cancel) { yamlExportError = nil }
+      Button(String(localized: "OK"), role: .cancel) { yamlExportError = nil }
     } message: {
       Text(yamlExportError ?? "")
     }
@@ -180,7 +180,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         // would force "↳ SUB-PHASE" UPPER which reads shouty for a
         // prose-like marker. tagPhase stays for one-word phase tags
         // (WORD WOLF). See design-system §3.2.
-        Text("↳ sub-phase")
+        Text(String(localized: "↳ sub-phase"))
           .textStyle(Typography.metaLabel)
           .foregroundStyle(Color.muted)
           .padding(.leading, 32)

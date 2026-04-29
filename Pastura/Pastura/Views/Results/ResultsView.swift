@@ -11,12 +11,12 @@ struct ResultsView: View {
     Group {
       if let viewModel {
         if viewModel.isLoading {
-          ProgressView("Loading...")
+          ProgressView(String(localized: "Loading..."))
         } else if viewModel.groups.isEmpty {
           ContentUnavailableView(
-            "No Results",
+            String(localized: "No Results"),
             systemImage: "tray",
-            description: Text("Run a simulation to see results here")
+            description: Text(String(localized: "Run a simulation to see results here"))
           )
         } else {
           resultsList(viewModel: viewModel)
@@ -25,7 +25,7 @@ struct ResultsView: View {
         ProgressView()
       }
     }
-    .navigationTitle("Past Results")
+    .navigationTitle(String(localized: "Past Results"))
     .task {
       viewModel = ResultsViewModel(
         scenarioRepository: dependencies.scenarioRepository,
