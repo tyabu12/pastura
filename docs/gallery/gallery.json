@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-15T00:00:00Z",
+  "updated_at": "2026-04-29T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -37,6 +37,18 @@
       "yaml_url": "detective_scene_v1.yaml",
       "yaml_sha256": "ec28d433ae5db0064d1eaa57443587efd61386785f17b5557b9983416d9b7abd",
       "added_at": "2026-04-15"
+    },
+    {
+      "id": "kinoko_takenoko_v1",
+      "title": "きのこの山 vs たけのこの里",
+      "category": "creative",
+      "description": "5人の参加者がチョコ菓子の二大巨頭をめぐって議論。情熱派・理論派・揺れ動く中立が最終派閥を宣言する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma4_e2b",
+      "estimated_inferences": 20,
+      "yaml_url": "kinoko_takenoko_v1.yaml",
+      "yaml_sha256": "3435529e567252f95c78a3020ae3d7038270296a04d0ef2a58ecba4a583c1549",
+      "added_at": "2026-04-29"
     }
   ]
 }

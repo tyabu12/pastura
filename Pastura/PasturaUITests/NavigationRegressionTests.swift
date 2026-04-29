@@ -39,7 +39,7 @@ final class NavigationRegressionTests: XCTestCase {
     shareBoardCell.tap()
 
     XCTAssertTrue(
-      app.navigationBars["Share Board"].waitForExistence(timeout: 5),
+      app.navigationBars["Shared Scenarios"].waitForExistence(timeout: 5),
       "Share Board did not appear.")
 
     // Share Board → Gallery scenario detail.
