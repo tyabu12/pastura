@@ -188,7 +188,8 @@ struct ReplayViewModelTests {
     // Sleep briefly so the playback task begins its first sleep.
     try await Task.sleep(for: .milliseconds(20))
     viewModel.onBackground()
-    if case .paused(let idx, let cursor, let remaining) = viewModel.state {
+    if case .paused(let idx, let cursor, let remaining, let reason) =
+      viewModel.state {
       #expect(idx == 0)
       // Cursor is 0 (we haven't published the first roundStarted yet
       // because lifecycle delay is 0 — actually 0-delay "sleeps"
@@ -197,6 +198,9 @@ struct ReplayViewModelTests {
       // state shape.
       #expect(cursor >= 0)
       #expect(remaining >= 0)
+      // onBackground() always tags pauses as `.scenePhase`; assertion
+      // strengthening per critic Axis 2 (PR 1b).
+      #expect(reason == .scenePhase)
     } else {
       Issue.record("Expected .paused, got \(viewModel.state)")
     }
@@ -214,8 +218,9 @@ struct ReplayViewModelTests {
     // Wait for some progress.
     await Self.waitForState(viewModel) { _ in viewModel.agentOutputs.count >= 1 }
     viewModel.onBackground()
-    guard case .paused(let idx, let cursor, _) = viewModel.state else {
-      Issue.record("Expected .paused after onBackground, got \(viewModel.state)")
+    guard case .paused(let idx, let cursor, _, .scenePhase) = viewModel.state
+    else {
+      Issue.record("Expected .paused(.scenePhase) after onBackground, got \(viewModel.state)")
       return
     }
     viewModel.onForeground()

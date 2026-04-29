@@ -244,8 +244,11 @@ struct DemoReplayIntegrationTests {
     await Self.waitForState(viewModel) { _ in viewModel.agentOutputs.count >= 1 }
 
     viewModel.onBackground()
-    guard case .paused(let pausedIdx, let pausedCursor, _) = viewModel.state else {
-      Issue.record("Expected .paused after onBackground(), got \(viewModel.state)")
+    guard
+      case .paused(let pausedIdx, let pausedCursor, _, .scenePhase) =
+        viewModel.state
+    else {
+      Issue.record("Expected .paused(.scenePhase) after onBackground(), got \(viewModel.state)")
       return
     }
 
@@ -282,8 +285,11 @@ struct DemoReplayIntegrationTests {
     // Wait for at least one agent output, then pause.
     await Self.waitForState(viewModel) { _ in viewModel.agentOutputs.count >= 1 }
     viewModel.onBackground()
-    guard case .paused(let sourceIndex, let cursor, _) = viewModel.state else {
-      Issue.record("Expected .paused after onBackground, got \(viewModel.state)")
+    guard
+      case .paused(let sourceIndex, let cursor, _, .scenePhase) =
+        viewModel.state
+    else {
+      Issue.record("Expected .paused(.scenePhase) after onBackground, got \(viewModel.state)")
       return
     }
     let pausedOutputs = viewModel.agentOutputs.count
