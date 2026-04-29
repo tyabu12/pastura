@@ -88,6 +88,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | `event_inject` phase type                | Medium   | Done        | Random extraData-string injection into `state.variables` (default key `current_event`); Models→Engine→App→Views→Preset full-stack incl. word_wolf mid-flow showcase + demo replay re-record + bundled-demo phase_index alignment CI test (#256) |
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
+| Localization (i18n: ja / en)             | High     | Planned     | App Store launch blocker (Steps A / B-1a / B-1b / C-1 / C-2 / D required); Step E is post-release polish. Promoted from Phase 3 on 2026-04-29. See § Localization Plan below. |
 | Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Scenario deep link (`pastura://` scheme) | Medium   | Done        | 1-tap install from external contexts (SNS, QR, blog). IDs resolved through the curated gallery index only — no arbitrary URL fetch, no auto-execute. Preview via `GalleryScenarioDetailView` with external-link origin banner (#88). Universal Links / QR code generation deferred. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
@@ -117,6 +118,79 @@ First App Store submission depends on a set of cross-cutting blockers tracked in
 
 Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) auto-applies; revisit if Phase 3 introduces server-side data flows (gated on ADR-006).
 
+### Localization Plan
+
+> Promoted from Phase 3 on 2026-04-29. Reason: App Store release readiness for English-speaking users. Tracking issue #276.
+
+i18n is split into staged Steps so the harder design questions (per-language YAML, cross-language simulation) can be sequenced after the App Store launch surface. **Minimum English App Store release ships Steps A + B-1a + B-1b + C-1 + C-2 + D** in dependency order; Step E is a post-release polish iteration.
+
+#### Dependency graph
+
+```
+ROADMAP merge (this PR)
+  → Pre-ADR-010 stub PR
+        + CLAUDE.md "Completed in Phase 2 so far" line
+        + dependency-graph corrections (this section, if needed)
+  → Step A (A-1 / A-2 PR split recommended) + Step B-1a (parallel)
+  → Step B-1b (after A — UI must be English to capture screenshots)
+  → Step C-1 (ADR-010 body + Engine dynamic localization)
+  → Step C-2 (DB compat + drift script + demo replay + gallery + ADR-007 §3)
+  → Step D (bundled English presets + English DL Demo Replay)
+  → English App Store release
+  → Step E (post-release polish)
+```
+
+#### Step table
+
+| Step | Scope | Required for App Store | Complexity | Dependencies |
+|------|-------|-----------------------|-----------|--------------|
+| **A: UI shell + Error messages** | UI string conversion (~70 hardcoded user-facing `Text("...")` to `String(localized:)`), error message wrapping with `ja` translations, an audit of confirmed strings across navigation / notification / export / marketing surfaces, plus the absorbed B-2 documentation scope and a `ja` coverage CI gate. **Out-of-Scope**: Engine prompt strings and scoring summaries (deferred to Step C). See **Step A details** below. | Required | Medium | Pre-ADR-010 stub |
+| **B-1a: Store metadata + legal pages** | App Store Connect metadata (description, keywords, screenshot captions) in ja and en; Japanese versions of `pages/legal/privacy-policy/` and `pages/support/`. | Required | Low | None (parallel with A) |
+| **B-1b: English screenshots** | Capture App Store screenshots with the English UI rendered. Cannot proceed before A — this is the only hard cross-step gate inside B-1. | Required | Low | **A complete** |
+| **C-1: ADR-010 body + Engine dynamic localization** | ADR-010 body (Option B: per-language YAML files; `simulation_language` field schema — parse / validate only, wiring deferred to E; per-language scenario IDs with gallery curation aliases; `ContentFilter` continues full-set application regardless of UI locale). Dynamic localization of Engine hardcoded Japanese (`PromptBuilder` system / section / rule strings, `SpeakAllHandler` / `SpeakEachHandler` / `VoteHandler` defaults, `WordwolfJudgeLogic` summaries — ~10 sites total). Maintain `nonisolated` on Engine types. **Test compatibility (DoD)**: existing Japanese assertions in `PromptBuilderTests` / `SimulationRunnerTests` keep passing via the `scenario.language = "ja"` path; new `language = "en"` cases are added so both go green. | Required | High | A |
+| **C-2: DB compat + drift + demo replay language selection + gallery** | Phase 1 existing scenario IDs (`word_wolf` etc.) preserved without breaking Past Results — alias or migration confirmed in ADR-010. `scripts/check_demo_replay_drift.py` `REQUIRED_LANGUAGE` hardcode replaced with `ALLOWED_LANGUAGES = {"ja", "en"}` (C-2 alone keeps `ja`-only verification green; Step D adds `en` demos and the script gains a second target). ADR-007 §3 amended with the demo replay language-selection logic. `docs/gallery/README.md` adds a language field. | Required | High | C-1 |
+| **D: Bundled English presets + English DL Demo Replay** | English versions of the 4 bundled presets (`*_en.yaml`); English DL Demo Replay (device `ja` → ja, `en` → en, otherwise → en fallback); preset list UI prioritizes the device-language match. | Required | Medium-High | C-2 |
+| **E: Cross-language simulation** | Wire `simulation_language` override into the Engine; implement LLM-output-language enforcement. **DoD (measurable)**: each English bundled preset achieves JSON parse success ≥ N% and target-language adherence ≥ M% on Qwen 3 4B Q4_K_M. The specific N, M values and the language detector (Apple `NLLanguageRecognizer` / cld3 / langdetect — TBD) are confirmed in ADR-010. The benchmark harness (`PasturaTests/Localization/LanguageAdherenceBenchmark.swift` etc.) is built within Step E, gated by an env var (mirroring `OLLAMA_INTEGRATION`), CI-disabled by default. | Post-release (strongly recommended) | High | D |
+
+#### Step A details
+
+The Step A row above is summarized; the full scope is:
+
+- **xcstrings setup**: new `Localizable.xcstrings`, `knownRegions += ja`, `CFBundleDevelopmentRegion = en` retained.
+- **UI string conversion**: ~70 hardcoded user-facing `Text("...")` literals (rg-measured 68 non-interpolated English-letter literals across `Pastura/Pastura/Views/` + `Pastura/Pastura/App/`; final count subject to A's audit, which will exclude `Text(verbatim:)` and accessibility-only labels) wrapped in `String(localized:)`.
+- **Error messages**: wrap existing English `errorDescription` literals on `SimulationError` / `LLMError` / `DataError` without text changes; add `ja` translations to the catalog.
+- **Audit list**: `.claude/rules/navigation.md` scenarios 7 / 11–17 confirmed strings, `BackgroundSimulationManager` notifications, `ResultMarkdownExporter` headers, `ImportViewModel.scenarioGenerationPrompt` policy, `PromoCard` / `DLCompleteOverlay` deliberate-Japanese marketing copy.
+- **Audit decision frame**: each audit item logs a (keep / translate / replace-on-en) decision in the PR description; deferrals not allowed.
+- **Audit two-phase work**: (a) wrap existing English in `String(localized:)`, then (b) author the `ja` translations.
+- **Absorbed B-2 scope**: ContentBlocklist `lang` field documented in `docs/blocklist/README.md` — `ContentFilter` applies all entries regardless of UI locale.
+- **CI coverage**: `scripts/check_localization_coverage.py` added to CI; fails when `ja` key coverage < 100%.
+- **Out-of-Scope**: Engine prompt strings and scoring summaries (deferred to Step C).
+- **PR-level split (recommended)**: A-1 (xcstrings + UI shell `ja` + B-2 docs) and A-2 (error i18n + audit + CI coverage).
+
+#### Language-resolution priority (3 layers, confirmed in ADR-010)
+
+`simulation_language` (Step E wires) > `scenario.language` (Step C introduces) > `Bundle.main.preferredLocalizations` (Step D preset-list UI only).
+
+#### Pre-ADR-010 stub (precedes Step A)
+
+A short follow-up PR creates `docs/decisions/ADR-010.md` (Status: Proposed) with the minimum decisions Step A needs, kept narrow so the body can still iterate freely:
+
+1. Scenario YAML language field name (`language`) and default value
+2. Phase 1 backward-compat rule (missing field ⇒ implicit `ja`)
+3. Engine hardcoded-Japanese strategy (X: `Localizable.xcstrings`-based / Y: dynamic per `scenario.language`) — body confirms which; the stub records "TBD in body"
+4. Engine layer is excluded from Step A's `Localizable.xcstrings`; `nonisolated` is retained
+
+The stub PR also adds a "Localization in progress" line to CLAUDE.md "Completed in Phase 2 so far" and refines this dependency graph if the early decisions shift it.
+
+### Phase 2 → Phase 3 Go Criteria
+
+Phase 2 is complete when:
+
+- Localization Plan Steps A / B-1a / B-1b / C-1 / C-2 / D are all merged.
+- The English App Store submission has reached Approve. Quantitative signals (DL count, review count and content) are tracked separately as post-release polish indicators rather than Go gates.
+- Phase 2 features already shipped (Visual Editor, BG execution, Multi-model, Share Board, DL Demo Replay, ...) have no critical regressions.
+- Step E (Cross-language simulation) may run in parallel within Phase 2 but is **not** a completion gate.
+
 ---
 
 ## Phase 3: Community
@@ -136,7 +210,7 @@ Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.ap
 | Relationship graph visualization     | Agent interaction network diagram          |
 | Android support                      | Direction under evaluation — see [ADR-004 (Draft)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + **llama.cpp via a KMP binding, unified with iOS during Phase 3.0** (ADR-004 §3.6). Synchronised LiteRT-LM migration once iOS Swift SDK + GPU ships. |
 | PC companion app                     | Form factor decided at Phase 3.2 — KMP-shared Engine + Compose Desktop is the current lean (see ADR-004). LLM backend unified with iOS / Android during Phase 3.0 (llama.cpp via a KMP binding; ADR-004 §3.6). |
-| Localization (English)               | Expand beyond Japanese-speaking users      |
+| Localization (English)               | **Promoted to Phase 2 on 2026-04-29** — see Phase 2 § Localization Plan. Reason: App Store release readiness for English-speaking users. Tracking issue #276. |
 | Early-termination phase type         | `conditional` branches but does not stop a simulation early — `rounds` still governs the loop. A new phase type (working name `terminate` / `break`) would let a branch signal "end the simulation now, run the remaining phases, then skip unrun rounds." Keeps `conditional` purely about evaluation + branching; termination is orthogonal. See PR #141 discussion. |
 
 ---
