@@ -168,10 +168,10 @@ struct GalleryScenarioDetailView: View {
     case .conflict(let existingName, _):
       outcomeAlert = OutcomeAlert(
         title: String(localized: "Cannot install"),
-        // Interpolated — existingName is user data; non-interpolated part is not extractable separately
-        message:
-          "A scenario named “\(existingName)” already uses this id. "
-          + "Delete or rename it first, then try again.")
+        message: String(
+          localized:
+            "A scenario named “\(existingName)” already uses this id. Delete or rename it first, then try again."
+        ))
     case .hashMismatch:
       outcomeAlert = OutcomeAlert(
         title: String(localized: "Integrity check failed"),

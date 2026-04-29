@@ -21,6 +21,16 @@
         }
       }
     },
+    "A scenario named “%arg” already uses this id. Delete or rename it first, then try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%arg」という ID のシナリオがすでに存在します。先に削除するかリネームしてから再試行してください。"
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "ja": {
