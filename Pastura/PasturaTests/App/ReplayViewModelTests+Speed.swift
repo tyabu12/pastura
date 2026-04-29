@@ -76,7 +76,10 @@ extension ReplayViewModelTests {
     // resolve well under the at-`.normal` per-event delay (200ms).
     // Generous upper bound for CI; lower bound omitted because it'd
     // need to be 0 — too tight to assert.
-    #expect(elapsed < .seconds(2))
+    // Generous upper bound for CI under code coverage (per
+    // `feedback_ci_wallclock_test_bounds.md`); the signal-to-noise is
+    // in "did all events arrive at all," not in the exact budget.
+    #expect(elapsed < .seconds(30))
   }
 
   @Test func instantSpeedFromIdleProducesAllEventsRapidly() async throws {
@@ -91,7 +94,10 @@ extension ReplayViewModelTests {
     let elapsed = ContinuousClock.now - mark
     // 3 turns + 2 lifecycle events at `.instant` collapse to a series
     // of `Task.yield()`s. Generous bound for CI.
-    #expect(elapsed < .seconds(2))
+    // Generous upper bound for CI under code coverage (per
+    // `feedback_ci_wallclock_test_bounds.md`); the signal-to-noise is
+    // in "did all events arrive at all," not in the exact budget.
+    #expect(elapsed < .seconds(30))
   }
 
   // MARK: - Resume preserves the speed-at-pause-time semantic

@@ -123,8 +123,17 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   /// User-selectable playback speed. Initialized from
   /// ``ReplayPlaybackConfig/playbackSpeed`` and writable at runtime
-  /// (Demo controlBar's Speed Menu binds directly here, mirroring
+  /// (Demo controlBar's Speed Menu assigns to it directly, mirroring
   /// ``SimulationViewModel/speed``).
+  ///
+  /// **Plain `var` (intentionally not `private(set)`) for Sim parity.**
+  /// Every other observable property on this VM is `private(set) var`
+  /// (`state`, `currentPhase`, `currentRound`, …) and routes mutation
+  /// through explicit transition methods. `playbackSpeed` instead
+  /// matches ``SimulationViewModel/speed`` — the UI assigns directly
+  /// (`viewModel.playbackSpeed = .fast`) over `PlaybackSpeed.allCases`.
+  /// All four cases are valid; no validation guard is required, so a
+  /// dedicated `setPlaybackSpeed(_:)` would only add API surface.
   ///
   /// **Next-event reflection only.** A speed change does not interrupt
   /// the in-flight `Task.sleep`; it takes effect at the next call to
@@ -285,6 +294,13 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   ///   load-bearing.
   /// - From `.idle`, `.transitioning`, `.paused(.user)`: no-op.
   func userPause() {
+    // CASE-EXHAUSTIVE on `PauseReason`: each new reason added to
+    // ``PauseReason`` must make an explicit choice here between
+    // "user-pause overrides this reason" (current behavior for
+    // `.scenePhase`) vs. "user-pause is no-op against this reason."
+    // The current intuition is "newer pause reasons are less sticky
+    // than .user", but the compiler will force the decision when a
+    // third case lands.
     switch state {
     case .playing(let sourceIndex, let cursor):
       let remaining = remainingDelayMs()

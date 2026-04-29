@@ -18,16 +18,22 @@ import Foundation
 /// `SimulationViewModel` is `@MainActor` and consumes this type
 /// freely — no isolation friction for value-type enums.
 ///
-/// **Two consumers, two pacing models:**
+/// **Two consumers, two pacing models — properties are NOT
+/// universally consumed:**
 /// - Sim uses ``charsPerSecond`` (typing animation) and
 ///   ``interEventDelayMs`` (non-agent inter-event delay).
 /// - Replay uses ``multiplier`` to scale ``ReplayPlaybackConfig``'s
-///   `turnDelayMs` / `codePhaseDelayMs`. ``.instant`` should be
-///   handled by an explicit early-return at each delay-scaling
-///   callsite (see ``ReplayViewModel.scaledDelay(for:)`` and
-///   ``YAMLReplaySource``); the sentinel value below is provided
-///   only so that arithmetic-only paths happen to compute zero, not
-///   as the load-bearing way to get instant pacing.
+///   `turnDelayMs` / `codePhaseDelayMs`. Replay does **not** consume
+///   ``charsPerSecond`` (no typing animation on replay) nor
+///   ``interEventDelayMs`` (its turn vs. codePhase distinction is
+///   richer than Sim's flat 120ms-or-zero gap). Don't extend replay
+///   pacing through the Sim-side properties; add a replay-side
+///   property here if a new pacing dimension is needed.
+/// - ``.instant`` should be handled by an explicit early-return at
+///   each delay-scaling callsite (see ``ReplayViewModel/scaledDelay(for:)``
+///   and ``YAMLReplaySource``); the sentinel ``multiplier`` value is
+///   provided only so that arithmetic-only paths happen to compute
+///   zero, not as the load-bearing way to get instant pacing.
 nonisolated public enum PlaybackSpeed:
   String, CaseIterable, Identifiable, Sendable, Equatable {
   case slow
