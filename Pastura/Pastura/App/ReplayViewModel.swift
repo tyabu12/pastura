@@ -49,7 +49,7 @@ import Foundation
 /// can emit it; if yes, mirror the filter here; if no, leave alone.
 @Observable
 @MainActor
-final class ReplayViewModel {
+final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Public state
 
