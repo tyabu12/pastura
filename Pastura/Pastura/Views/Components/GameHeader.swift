@@ -112,7 +112,9 @@ public struct GameHeader: View {
 
   /// Combined accessibility label so VoiceOver reads the header as
   /// one focusable element rather than fragmenting across icon /
-  /// title / pill / meta-row pieces.
+  /// title / pill / meta-row pieces. The list separator is itself
+  /// localized (en `, ` / ja `、`) so VO honours the locale's natural
+  /// punctuation when pausing between fragments.
   private var accessibilityLabelText: String {
     var parts: [String] = [status.label]
     if !displayedTitle.isEmpty { parts.append(displayedTitle) }
@@ -123,8 +125,17 @@ public struct GameHeader: View {
     if let tokensPerSecond {
       parts.append(Self.formatTokensPerSecond(tokensPerSecond))
     }
-    return parts.joined(separator: ", ")
+    return parts.joined(separator: String(localized: ", "))
   }
+
+  // Local layout constants — the GameHeader has its own dimensional
+  // spec (HEADER_UPDATE.md design hand-off) independent of the
+  // chat-stream rhythm the `Spacing.*` token scale was tuned for. Named
+  // here so a future grep finds the GameHeader spec deliberately rather
+  // than chasing magic numbers.
+  private static let headerInsets = EdgeInsets(
+    top: 12, leading: 18, bottom: 10, trailing: 18)
+  private static let metaRowSpacing: CGFloat = 6
 
   public var body: some View {
     VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -133,11 +144,7 @@ public struct GameHeader: View {
         metaRow
       }
     }
-    // Padding values are pinned to the design hand-off (HEADER_UPDATE.md
-    // — top 12 / x 18 / bottom 10) rather than the Spacing.* token scale
-    // because the GameHeader has its own dimensional spec independent
-    // of the chat-stream rhythm those tokens were tuned for.
-    .padding(EdgeInsets(top: 12, leading: 18, bottom: 10, trailing: 18))
+    .padding(Self.headerInsets)
     .background {
       ZStack {
         Color.screenBackground.opacity(0.78)
@@ -168,7 +175,7 @@ public struct GameHeader: View {
 
   @ViewBuilder
   private var metaRow: some View {
-    HStack(alignment: .center, spacing: 6) {
+    HStack(alignment: .center, spacing: Self.metaRowSpacing) {
       if let currentRound, let totalRounds {
         Text(Self.formatRoundLabel(current: currentRound, total: totalRounds))
           .textStyle(Typography.metaRound)
@@ -224,9 +231,6 @@ private struct LeafIcon: View {
 /// Conditionally applies `.ignoresSafeArea(.container, edges: .top)`.
 /// `ViewModifier` form keeps the conditional out of the view-builder
 /// path so the type system doesn't infer two divergent body shapes.
-/// Mirrors the helper inside `PhaseHeader.swift` (which is removed in
-/// PR 3 commit 6); the duplication is deliberate for the migration
-/// period.
 private struct GameHeaderTopSafeAreaExtension: ViewModifier {
   let enabled: Bool
 

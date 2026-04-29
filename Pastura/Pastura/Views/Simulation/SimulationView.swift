@@ -319,14 +319,23 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     )
   }
 
-  /// Japanese display label for a phase type. Mirrors
-  /// `ModelDownloadHostView.phaseDisplayName(_:)` — consolidating the
-  /// two into a shared helper is a follow-up (would expand this PR's
-  /// scope into the existing `+PhaseLabels.swift` extension; the
-  /// tracked duplication is 10 cases).
+  /// Maps a `PhaseType` to its display label for the GameHeader's
+  /// row-2 phase fragment. Returns `nil` when phase is `nil` so the
+  /// caller can pass `viewModel.currentPhase` directly without
+  /// flattening the optional.
   ///
-  /// Split into nil-guard wrapper + pure switch so neither half
-  /// crosses swiftlint's `cyclomatic_complexity` 10-branch ceiling.
+  /// **i18n deferral.** The 10 phase-name strings (発言 / 個別発言 / …)
+  /// are hard-coded Japanese, mirroring the pre-existing pattern in
+  /// `ModelDownloadHostView.phaseDisplayName(_:)`. Wrapping in
+  /// `String(localized:)` and consolidating both into a shared helper
+  /// is tracked as a follow-up to the i18n Step A-1 work (#276 / #277,
+  /// ADR-010 stub #279) — out of scope for #297 PR 3 since the
+  /// duplication is pre-existing and the consolidation touches
+  /// `+PhaseLabels.swift`.
+  ///
+  /// Implementation: split into nil-guard wrapper + pure switch so
+  /// neither half crosses swiftlint's `cyclomatic_complexity`
+  /// 10-branch ceiling.
   static func phaseDisplayLabel(for phase: PhaseType?) -> String? {
     guard let phase else { return nil }
     return phaseName(for: phase)

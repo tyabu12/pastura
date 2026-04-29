@@ -176,6 +176,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// a stale value across a pause→cancel flip. See
   /// ``SimulationViewModel/deriveStatus(isCancelled:errorMessage:isCompleted:isPaused:)``
   /// for the precedence and rationale.
+  ///
+  /// Observability of the `isPaused` axis is inherited from the manual
+  /// `access(keyPath:\.isPaused)` / `withMutation(keyPath:\.isPaused)`
+  /// bridge on the `isPaused` getter and mutation sites —
+  /// `runner.isPaused` is non-`@Observable`, so direct flips without
+  /// the bridge would leave this computed property stale. All current
+  /// `runner.isPaused` mutation sites in the file are wrapped; verified
+  /// by `pauseSimulationInvalidatesIsPausedObservation` in the
+  /// lifecycle-test suite.
   var status: GameHeaderStatus {
     Self.deriveStatus(
       isCancelled: isCancelled,

@@ -77,8 +77,15 @@ extension ReplayViewModelTests {
   /// Polls `condition` on the main actor until it returns true or the
   /// timeout elapses. Returns silently on either outcome (callers
   /// follow up with `#expect` against the observable state).
+  ///
+  /// Default timeout is 10s — well above the synchronous-ish state
+  /// changes these tests poll on, but generous enough for CI's
+  /// coverage-instrumented runs (memory: `feedback_ci_wallclock_test_bounds`
+  /// recommends ≥30s for wall-clock waits; the loop costs nothing on
+  /// green runs because it short-circuits the moment `condition()`
+  /// returns true).
   static func waitForCondition(
-    timeout: Duration = .seconds(2),
+    timeout: Duration = .seconds(10),
     _ condition: @MainActor () -> Bool
   ) async {
     let deadline = ContinuousClock.now.advanced(by: timeout)
@@ -201,8 +208,10 @@ extension ReplayViewModelTests {
     viewModel.start()
     // Initial totalPhaseCount = 1 (source 0).
     #expect(viewModel.totalPhaseCount == 1)
-    // Wait for rotation to source 1.
-    await Self.waitForCondition(timeout: .seconds(5)) {
+    // Wait for rotation to source 1. Generous wall-clock bound for
+    // CI's coverage-instrumented runs (per
+    // `feedback_ci_wallclock_test_bounds` memory).
+    await Self.waitForCondition(timeout: .seconds(30)) {
       if case .playing(let idx, _) = viewModel.state { return idx >= 1 }
       return false
     }

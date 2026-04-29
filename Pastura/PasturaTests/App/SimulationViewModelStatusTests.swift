@@ -11,17 +11,22 @@ private func makeStatusSUT() throws -> (sut: SimulationViewModel, scenario: Scen
   let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
   let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
 
-  let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-  try scenarioRepo.save(
-    ScenarioRecord(
-      id: "test", name: "Test", yamlDefinition: "",
-      isPreset: false, createdAt: Date(), updatedAt: Date()
-    ))
-
   let scenario = makeTestScenario(
     agentNames: ["Alice", "Bob"], rounds: 1,
     phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
   )
+
+  // ScenarioRecord seed satisfies FK constraints when `run()` triggers
+  // turn persistence. Keyed on `scenario.id` so the lookup actually
+  // resolves rather than silent-no-op against a hard-coded "test"
+  // string that would not match.
+  let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+  try scenarioRepo.save(
+    ScenarioRecord(
+      id: scenario.id, name: scenario.name, yamlDefinition: "",
+      isPreset: false, createdAt: Date(), updatedAt: Date()
+    ))
+
   let sut = SimulationViewModel(
     contentFilter: ContentFilter(),
     simulationRepository: simRepo,
