@@ -145,7 +145,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
 
   private var timelineLog: some View {
     ScrollView {
-      LazyVStack(alignment: .leading, spacing: 8) {
+      LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
         ForEach(items) { item in
           switch item {
           case .roundSeparator(let round):
@@ -157,6 +157,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
           }
         }
       }
+      // Container-level horizontal padding (20pt, matching Demo
+      // strategy) replaces the per-row `.padding(.horizontal)` on
+      // `roundSeparator` / `turnRow` / legacy fallback. See #273
+      // PR 2 — chat-stream token alignment across Demo / Sim / Results.
+      .padding(.horizontal, 20)
       .padding(.vertical, 8)
     }
   }
@@ -199,7 +204,6 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         .foregroundStyle(Color.inkSecondary)
       Rectangle().fill(Color.rule).frame(height: 1)
     }
-    .padding(.horizontal)
     .padding(.vertical, 4)
   }
 
@@ -214,7 +218,6 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         showAllThoughts: showAllThoughts,
         agentPosition: agentOrder.firstIndex(of: agentName)
       )
-      .padding(.horizontal)
     } else {
       // Pre-#92 fallback: TurnRecord without agentName. Newer code phases
       // emit CodePhaseEventRecord rows instead, so this path is only hit
@@ -227,7 +230,6 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.inkSecondary)
       }
-      .padding(.horizontal)
     }
   }
 

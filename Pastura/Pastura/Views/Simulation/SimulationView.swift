@@ -141,7 +141,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // Log
       ScrollViewReader { proxy in
         ScrollView {
-          LazyVStack(alignment: .leading, spacing: 8) {
+          LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.logEntries) { entry in
               logEntryView(entry, viewModel: viewModel)
                 .id(entry.id)
@@ -166,7 +166,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
                 debugRowID: "stream-\(snapshot.agent)"
               )
-              .padding(.horizontal)
               .id("streaming-\(snapshot.agent)")
             }
 
@@ -182,7 +181,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                     .textStyle(Typography.thinkingBody)
                     .foregroundStyle(Color.muted)
                 }
-                .padding(.horizontal)
               }
             }
 
@@ -194,6 +192,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               .frame(height: 1)
               .id(Self.bottomSentinelID)
           }
+          // Container-level horizontal padding (20pt, matching Demo
+          // strategy) replaces the per-row `.padding(.horizontal)` on
+          // each log entry / thinking indicator / streaming row. See
+          // #273 PR 2 — chat-stream token alignment across Demo / Sim
+          // / Results.
+          .padding(.horizontal, 20)
           .padding(.vertical, 8)
         }
         .onChange(of: viewModel.logEntries.count) { _, _ in
@@ -273,76 +277,58 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // MARK: - Header
 
   private func headerBar(viewModel: SimulationViewModel) -> some View {
-    HStack {
+    PhaseHeader {
       if viewModel.totalRounds > 0 {
         Text("Round \(viewModel.currentRound)/\(viewModel.totalRounds)")
           .textStyle(Typography.metaEta)
           .monospacedDigit()
       }
-
-      Spacer()
-
-      inferenceStatsLabel(viewModel: viewModel)
-
-      if viewModel.isCompleted {
-        Label("Completed", systemImage: "checkmark.circle.fill")
-          .textStyle(Typography.titlePhase)
-          // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
-          // enumerate されている。moss は fills/borders 系、moss-ink は完了
-          // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
-          // なので moss-dark が用途的に正解。ResultsView の statusBadge も
-          // 同じ理由で moss-dark に揃えてある。
-          .foregroundStyle(Color.mossDark)
-      } else if viewModel.isPaused {
-        Label("Paused", systemImage: "pause.circle.fill")
-          .textStyle(Typography.titlePhase)
-          .foregroundStyle(Color.inkSecondary)
-      } else if viewModel.isRunning {
-        HStack(spacing: 4) {
-          ProgressView()
-            .scaleEffect(0.7)
-          Text("Running")
-            .textStyle(Typography.titlePhase)
-            .foregroundStyle(Color.inkSecondary)
-        }
+    } trailing: {
+      HStack(spacing: Spacing.xs) {
+        inferenceStatsLabel(viewModel: viewModel)
+        statusBadge(viewModel: viewModel)
       }
-    }
-    .padding(.horizontal)
-    .padding(.vertical, 8)
-    .background {
-      ZStack {
-        Color.screenBackground.opacity(0.78)
-        Rectangle().fill(.ultraThinMaterial)
-      }
-    }
-    .overlay(alignment: .bottom) {
-      Rectangle()
-        .fill(Color.ink.opacity(0.07))
-        .frame(height: 1)
     }
   }
 
   @ViewBuilder
   private func inferenceStatsLabel(viewModel: SimulationViewModel) -> some View {
-    let duration = viewModel.lastInferenceDurationSeconds
-    let tps = viewModel.averageTokensPerSecond
-    if duration != nil || tps != nil {
+    if let text = InferenceStatsFormatter.format(
+      durationSeconds: viewModel.lastInferenceDurationSeconds,
+      tokensPerSecond: viewModel.averageTokensPerSecond) {
       HStack(spacing: 4) {
         Image(systemName: "speedometer")
-        Text(formatInferenceStats(durationSeconds: duration, tokensPerSecond: tps))
-          .monospacedDigit()
+        Text(text).monospacedDigit()
       }
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
     }
   }
 
-  private func formatInferenceStats(
-    durationSeconds: Double?, tokensPerSecond: Double?
-  ) -> String {
-    let tpsPart = tokensPerSecond.map { String(format: "%.1f tok/s", $0) } ?? "— tok/s"
-    let durationPart = durationSeconds.map { String(format: "%.1fs", $0) } ?? "—"
-    return "\(tpsPart) • \(durationPart)"
+  @ViewBuilder
+  private func statusBadge(viewModel: SimulationViewModel) -> some View {
+    if viewModel.isCompleted {
+      Label("Completed", systemImage: "checkmark.circle.fill")
+        .textStyle(Typography.titlePhase)
+        // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
+        // enumerate されている。moss は fills/borders 系、moss-ink は完了
+        // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
+        // なので moss-dark が用途的に正解。ResultsView の statusBadge も
+        // 同じ理由で moss-dark に揃えてある。
+        .foregroundStyle(Color.mossDark)
+    } else if viewModel.isPaused {
+      Label("Paused", systemImage: "pause.circle.fill")
+        .textStyle(Typography.titlePhase)
+        .foregroundStyle(Color.inkSecondary)
+    } else if viewModel.isRunning {
+      HStack(spacing: 4) {
+        ProgressView()
+          .scaleEffect(0.7)
+        Text("Running")
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.inkSecondary)
+      }
+    }
   }
 
   // MARK: - Log Entries
@@ -369,10 +355,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         debugRowID: entry.id.uuidString
       )
-      .padding(.horizontal)
     case .phaseStarted(let phaseType):
       PhaseTypeLabel(phaseType: phaseType)
-        .padding(.horizontal)
         .padding(.top, 4)
     case .roundStarted(let round, let total):
       roundSeparator("Round \(round)/\(total)")
@@ -382,7 +366,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       Label(message, systemImage: "exclamationmark.triangle.fill")
         .textStyle(Typography.titlePhase)
         .foregroundStyle(Color.inkSecondary)
-        .padding(.horizontal)
     default:
       secondaryLogEntryView(entry)
     }
@@ -473,7 +456,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   private func controlBar(viewModel: SimulationViewModel) -> some View {
-    HStack(spacing: 16) {
+    let isPauseDisabled = !viewModel.isRunning || viewModel.isCompleted
+    return HStack(spacing: 16) {
       // Pause/Resume
       Button {
         if viewModel.isPaused {
@@ -482,10 +466,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           viewModel.pauseSimulation()
         }
       } label: {
+        // Explicit `Color.disabledText` (design-system §2.7) when
+        // disabled, matching Demo's controlBar (#273 PR 1a). Enabled
+        // state uses `Color.ink` for the icon color rather than the
+        // system tint so the bar's color story stays in our palette.
         Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
           .font(.title3)
+          .foregroundStyle(isPauseDisabled ? Color.disabledText : Color.ink)
       }
-      .disabled(!viewModel.isRunning || viewModel.isCompleted)
+      .disabled(isPauseDisabled)
 
       // Speed picker while running; swapped with an export button once the
       // simulation is completed because playback speed is no longer relevant.
