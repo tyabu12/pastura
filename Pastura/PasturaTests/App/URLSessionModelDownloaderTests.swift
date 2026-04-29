@@ -85,14 +85,44 @@ struct URLSessionModelDownloaderTests {
     #expect(downloader.cachedResumeData(for: url) == blob)
   }
 
-  @Test("captureResumeData no-ops when error lacks resumeData userInfo key")
-  func captureResumeDataNoOpsWithoutKey() {
+  @Test("captureResumeData leaves cache empty when error lacks resumeData and no prior blob")
+  func captureResumeDataNoBlobNoPrior() {
     let downloader = URLSessionModelDownloader()
     let url = URL(string: "https://example.com/model.gguf")!
     let error = NSError(
       domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: [:])
 
     downloader.captureResumeData(from: error, for: url)
+
+    #expect(downloader.cachedResumeData(for: url) == nil)
+  }
+
+  @Test(
+    "captureResumeData clears stale prior blob when error lacks fresh resumeData"
+  )
+  func captureResumeDataClearsStaleOnNonResumableError() {
+    // Scenario: attempt 1 timed out with resumeData → blob A cached. Attempt 2
+    // failed with a non-resumable error (e.g., 5xx, DNS, badServerResponse) so
+    // Apple did not supply a fresh blob. Blob A's referenced URLSession temp
+    // file was consumed by attempt 2 and is now invalid; passing A to
+    // `downloadTask(withResumeData:)` on attempt 3 would fail at decode-time.
+    // The cache must be cleared so attempt 3 starts fresh.
+    let downloader = URLSessionModelDownloader()
+    let url = URL(string: "https://example.com/model.gguf")!
+
+    let blobA = Data("blob-A".utf8)
+    downloader.captureResumeData(
+      from: NSError(
+        domain: NSURLErrorDomain, code: NSURLErrorTimedOut,
+        userInfo: [NSURLSessionDownloadTaskResumeData: blobA]),
+      for: url)
+    #expect(downloader.cachedResumeData(for: url) == blobA)
+
+    // Attempt 2 — error without resumeData. Should clear blob A.
+    downloader.captureResumeData(
+      from: NSError(
+        domain: NSURLErrorDomain, code: NSURLErrorBadServerResponse, userInfo: [:]),
+      for: url)
 
     #expect(downloader.cachedResumeData(for: url) == nil)
   }

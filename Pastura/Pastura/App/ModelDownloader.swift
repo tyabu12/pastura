@@ -171,18 +171,24 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     try? fileManager.removeItem(at: tempURL)
   }
 
-  /// Captures any `NSURLSessionDownloadTaskResumeData` Apple attached to the
-  /// thrown error into the in-memory cache, keyed by `url`.
+  /// Updates the per-URL resumeData cache from a thrown error.
   ///
-  /// Extracted for unit-testability — production callers should only invoke
-  /// this from the `catch` block in `download(...)`. Tests construct an
-  /// `NSError` with a known resumeData blob to verify cache lifecycle without
-  /// depending on Apple's internal heuristic for when resumeData is populated.
+  /// - When the error's `userInfo` contains `NSURLSessionDownloadTaskResumeData`,
+  ///   the fresh blob is stored — Apple has signalled that the partial bytes
+  ///   are still resumable.
+  /// - Otherwise the existing entry for `url` is cleared. Any prior cached
+  ///   blob references a URLSession temp file that the just-completed attempt
+  ///   has invalidated; passing it to `downloadTask(withResumeData:)` on the
+  ///   next retry would fail at decode-time. Clearing forces a clean restart.
+  ///
+  /// Extracted for unit-testability — production callers only invoke this
+  /// from the `catch` block in `download(...)`. Tests construct an `NSError`
+  /// with a known resumeData blob to verify cache lifecycle without depending
+  /// on Apple's internal heuristic for when resumeData is populated.
   func captureResumeData(from error: any Error, for url: URL) {
     let nsError = error as NSError
-    guard let data = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
-    else { return }
-    resumeDataCache.withLock { $0[url] = data }
+    let fresh = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+    resumeDataCache.withLock { $0[url] = fresh }
   }
 
   /// Test-only: inspect cached resumeData for a URL.
