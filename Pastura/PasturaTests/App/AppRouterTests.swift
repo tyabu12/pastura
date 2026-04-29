@@ -158,7 +158,7 @@ import Testing
     GalleryScenario(
       id: id, title: id, category: .experimental,
       description: "", author: "",
-      recommendedModel: "", estimatedInferences: 0,
+      recommendedModel: ModelRegistry.gemma4E2B.id, estimatedInferences: 0,
       // swiftlint:disable:next force_unwrapping
       yamlURL: URL(string: "https://example.com/\(id).yaml")!,
       yamlSHA256: "h", addedAt: "2026-04-15")

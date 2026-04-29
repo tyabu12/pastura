@@ -36,7 +36,7 @@ app. Fields:
       "category": "social_psychology | game_theory | ethics | roleplay | creative | experimental",
       "description": "<1-2 sentences>",
       "author": "<github handle>",
-      "recommended_model": "<model id>",     // e.g. "gemma4_e2b"
+      "recommended_model": "<model id>",     // must match a `ModelRegistry.catalog` id, e.g. "gemma-4-e2b-q4-k-m"
       "estimated_inferences": <int>,         // rough total LLM calls to complete
       "yaml_url": "<filename or absolute https URL>",  // resolved relative to gallery.json
       "yaml_sha256": "<lowercase hex>",      // SHA-256 of the YAML body

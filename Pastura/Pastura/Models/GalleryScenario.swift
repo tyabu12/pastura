@@ -38,7 +38,13 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   public let author: String
 
   /// Identifier of the LLM model recommended for this scenario.
-  public let recommendedModel: String
+  ///
+  /// Validated only via the `recommendedModelMatchesRegistry` curation test,
+  /// NOT at decode time, to preserve forward compatibility for older app
+  /// versions reading a newer `gallery.json` containing model ids they
+  /// don't yet know about. A future contributor "hardening" this with a
+  /// throwing decoder would silently break those old installs.
+  public let recommendedModel: ModelID
 
   /// Approximate number of LLM inferences the scenario requires.
   public let estimatedInferences: Int
@@ -60,7 +66,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     category: GalleryCategory,
     description: String,
     author: String,
-    recommendedModel: String,
+    recommendedModel: ModelID,
     estimatedInferences: Int,
     yamlURL: URL,
     yamlSHA256: String,

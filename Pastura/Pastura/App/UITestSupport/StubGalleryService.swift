@@ -77,7 +77,7 @@
         category: .experimental,
         description: "Minimal fixture for UI tests.",
         author: "UITest",
-        recommendedModel: "mock",
+        recommendedModel: ModelRegistry.gemma4E2B.id,
         estimatedInferences: 2,
         yamlURL: canaryYAMLURL,
         yamlSHA256: "0000000000000000000000000000000000000000000000000000000000000000",
