@@ -48,11 +48,11 @@ struct ThoughtVisibilityToggle: View {
 
 #Preview {
   struct Wrapper: View {
-    @State private var on = true
+    @State private var isOn = true
     var body: some View {
       VStack(spacing: 16) {
-        ThoughtVisibilityToggle(isOn: $on).font(.title3)
-        Text("isOn: \(String(on))")
+        ThoughtVisibilityToggle(isOn: $isOn).font(.title3)
+        Text("isOn: \(String(isOn))")
       }
     }
   }
