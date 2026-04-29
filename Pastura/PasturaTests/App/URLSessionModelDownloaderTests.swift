@@ -67,10 +67,10 @@ class CapturingMockURLProtocol: URLProtocol, @unchecked Sendable {
 @Suite("URLSessionModelDownloader", .serialized, .timeLimit(.minutes(1)))
 struct URLSessionModelDownloaderTests {
 
-  // MARK: captureResumeData (cache lifecycle, pure logic)
+  // MARK: updateResumeDataFromError (cache lifecycle, pure logic)
 
-  @Test("captureResumeData stores blob when error has NSURLSessionDownloadTaskResumeData")
-  func captureResumeDataStoresBlob() {
+  @Test("updateResumeDataFromError stores blob when error has NSURLSessionDownloadTaskResumeData")
+  func updateResumeDataFromErrorStoresBlob() {
     let downloader = URLSessionModelDownloader()
     let url = URL(string: "https://example.com/model.gguf")!
     let blob = Data("opaque-resume-blob".utf8)
@@ -80,27 +80,28 @@ struct URLSessionModelDownloaderTests {
       userInfo: [NSURLSessionDownloadTaskResumeData: blob]
     )
 
-    downloader.captureResumeData(from: error, for: url)
+    downloader.updateResumeDataFromError(error, for: url)
 
     #expect(downloader.cachedResumeData(for: url) == blob)
   }
 
-  @Test("captureResumeData leaves cache empty when error lacks resumeData and no prior blob")
-  func captureResumeDataNoBlobNoPrior() {
+  @Test(
+    "updateResumeDataFromError leaves cache empty when error lacks resumeData and no prior blob")
+  func updateResumeDataFromErrorNoBlobNoPrior() {
     let downloader = URLSessionModelDownloader()
     let url = URL(string: "https://example.com/model.gguf")!
     let error = NSError(
       domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: [:])
 
-    downloader.captureResumeData(from: error, for: url)
+    downloader.updateResumeDataFromError(error, for: url)
 
     #expect(downloader.cachedResumeData(for: url) == nil)
   }
 
   @Test(
-    "captureResumeData clears stale prior blob when error lacks fresh resumeData"
+    "updateResumeDataFromError clears stale prior blob when error lacks fresh resumeData"
   )
-  func captureResumeDataClearsStaleOnNonResumableError() {
+  func updateResumeDataFromErrorClearsStaleOnNonResumableError() {
     // Scenario: attempt 1 timed out with resumeData → blob A cached. Attempt 2
     // failed with a non-resumable error (e.g., 5xx, DNS, badServerResponse) so
     // Apple did not supply a fresh blob. Blob A's referenced URLSession temp
@@ -111,37 +112,37 @@ struct URLSessionModelDownloaderTests {
     let url = URL(string: "https://example.com/model.gguf")!
 
     let blobA = Data("blob-A".utf8)
-    downloader.captureResumeData(
-      from: NSError(
+    downloader.updateResumeDataFromError(
+      NSError(
         domain: NSURLErrorDomain, code: NSURLErrorTimedOut,
         userInfo: [NSURLSessionDownloadTaskResumeData: blobA]),
       for: url)
     #expect(downloader.cachedResumeData(for: url) == blobA)
 
     // Attempt 2 — error without resumeData. Should clear blob A.
-    downloader.captureResumeData(
-      from: NSError(
+    downloader.updateResumeDataFromError(
+      NSError(
         domain: NSURLErrorDomain, code: NSURLErrorBadServerResponse, userInfo: [:]),
       for: url)
 
     #expect(downloader.cachedResumeData(for: url) == nil)
   }
 
-  @Test("captureResumeData overwrites prior blob for same URL (last wins)")
-  func captureResumeDataLastWins() {
+  @Test("updateResumeDataFromError overwrites prior blob for same URL (last wins)")
+  func updateResumeDataFromErrorLastWins() {
     let downloader = URLSessionModelDownloader()
     let url = URL(string: "https://example.com/model.gguf")!
 
     let first = Data("first".utf8)
     let second = Data("second".utf8)
 
-    downloader.captureResumeData(
-      from: NSError(
+    downloader.updateResumeDataFromError(
+      NSError(
         domain: NSURLErrorDomain, code: NSURLErrorTimedOut,
         userInfo: [NSURLSessionDownloadTaskResumeData: first]),
       for: url)
-    downloader.captureResumeData(
-      from: NSError(
+    downloader.updateResumeDataFromError(
+      NSError(
         domain: NSURLErrorDomain, code: NSURLErrorTimedOut,
         userInfo: [NSURLSessionDownloadTaskResumeData: second]),
       for: url)
@@ -149,8 +150,8 @@ struct URLSessionModelDownloaderTests {
     #expect(downloader.cachedResumeData(for: url) == second)
   }
 
-  @Test("captureResumeData scopes by URL (different URLs are independent)")
-  func captureResumeDataScopesByURL() {
+  @Test("updateResumeDataFromError scopes by URL (different URLs are independent)")
+  func updateResumeDataFromErrorScopesByURL() {
     let downloader = URLSessionModelDownloader()
     let urlA = URL(string: "https://example.com/a.gguf")!
     let urlB = URL(string: "https://example.com/b.gguf")!
@@ -158,13 +159,13 @@ struct URLSessionModelDownloaderTests {
     let blobA = Data("blobA".utf8)
     let blobB = Data("blobB".utf8)
 
-    downloader.captureResumeData(
-      from: NSError(
+    downloader.updateResumeDataFromError(
+      NSError(
         domain: NSURLErrorDomain, code: NSURLErrorTimedOut,
         userInfo: [NSURLSessionDownloadTaskResumeData: blobA]),
       for: urlA)
-    downloader.captureResumeData(
-      from: NSError(
+    downloader.updateResumeDataFromError(
+      NSError(
         domain: NSURLErrorDomain, code: NSURLErrorTimedOut,
         userInfo: [NSURLSessionDownloadTaskResumeData: blobB]),
       for: urlB)
