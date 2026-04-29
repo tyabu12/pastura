@@ -51,11 +51,13 @@ struct GalleryScenarioDetailView: View {
           Button {
             isReportSheetPresented = true
           } label: {
-            Label("Report this scenario", systemImage: "exclamationmark.bubble")
+            Label(
+              String(localized: "Report this scenario"),
+              systemImage: "exclamationmark.bubble")
           }
           .accessibilityIdentifier("galleryDetail.reportMenuItem")
         } label: {
-          Label("More", systemImage: "ellipsis.circle")
+          Label(String(localized: "More"), systemImage: "ellipsis.circle")
         }
       }
     }
@@ -77,7 +79,7 @@ struct GalleryScenarioDetailView: View {
       if wasOpenedFromDeepLink {
         Section {
           Label {
-            Text("Opened from an external link")
+            Text(String(localized: "Opened from an external link"))
               .font(.footnote)
               .foregroundStyle(.secondary)
           } icon: {
@@ -96,19 +98,22 @@ struct GalleryScenarioDetailView: View {
         }
         .padding(.vertical, 4)
       }
-      Section("Details") {
-        LabeledContent("Category", value: scenario.category.displayName)
-        LabeledContent("Author", value: scenario.author)
-        LabeledContent("Recommended model", value: scenario.recommendedModel)
-        LabeledContent("Est. inferences", value: "\(scenario.estimatedInferences)")
-        LabeledContent("Added", value: scenario.addedAt)
+      Section(String(localized: "Details")) {
+        LabeledContent(String(localized: "Category"), value: scenario.category.displayName)
+        LabeledContent(String(localized: "Author"), value: scenario.author)
+        LabeledContent(String(localized: "Recommended model"), value: scenario.recommendedModel)
+        LabeledContent(
+          String(localized: "Est. inferences"), value: "\(scenario.estimatedInferences)")
+        LabeledContent(String(localized: "Added"), value: scenario.addedAt)
       }
       Section {
         actionButton(viewModel: viewModel)
       } footer: {
         Text(
-          "Gallery scenarios are read-only — "
-            + "local edits are not permitted. Updates replace the stored YAML.")
+          String(
+            localized:
+              "Gallery scenarios are read-only — local edits are not permitted. Updates replace the stored YAML."
+          ))
       }
     }
   }
@@ -118,11 +123,11 @@ struct GalleryScenarioDetailView: View {
     let hasUpdate = viewModel.hasUpdate(for: scenario)
     let title: String
     if !installed {
-      title = "Try this scenario"
+      title = String(localized: "Try this scenario")
     } else if hasUpdate {
-      title = "Update"
+      title = String(localized: "Update")
     } else {
-      title = "Open local copy"
+      title = String(localized: "Open local copy")
     }
 
     return Button {
@@ -162,18 +167,21 @@ struct GalleryScenarioDetailView: View {
       pushToInstalled(scenarioId: id)
     case .conflict(let existingName, _):
       outcomeAlert = OutcomeAlert(
-        title: "Cannot install",
+        title: String(localized: "Cannot install"),
+        // Interpolated — existingName is user data; non-interpolated part is not extractable separately
         message:
           "A scenario named “\(existingName)” already uses this id. "
           + "Delete or rename it first, then try again.")
     case .hashMismatch:
       outcomeAlert = OutcomeAlert(
-        title: "Integrity check failed",
-        message:
-          "The downloaded scenario does not match its expected signature. "
-          + "The gallery may have been updated. Pull to refresh and try again.")
+        title: String(localized: "Integrity check failed"),
+        message: String(
+          localized:
+            "The downloaded scenario does not match its expected signature. The gallery may have been updated. Pull to refresh and try again."
+        ))
     case .networkError(let description):
-      outcomeAlert = OutcomeAlert(title: "Download failed", message: description)
+      // description is a runtime error string from the network layer — not wrapped
+      outcomeAlert = OutcomeAlert(title: String(localized: "Download failed"), message: description)
     }
   }
 

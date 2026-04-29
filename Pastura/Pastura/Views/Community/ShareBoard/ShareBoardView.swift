@@ -13,7 +13,7 @@ struct ShareBoardView: View {
         ProgressView()
       }
     }
-    .navigationTitle("Share Board")
+    .navigationTitle(String(localized: "Share Board"))
     .task {
       let newViewModel = ShareBoardViewModel(
         galleryService: dependencies.galleryService,
@@ -40,17 +40,19 @@ struct ShareBoardView: View {
   // MARK: - States
 
   private var loadingView: some View {
-    ProgressView("Loading gallery…")
+    ProgressView(String(localized: "Loading gallery…"))
       .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private func emptyState(viewModel: ShareBoardViewModel) -> some View {
     ContentUnavailableView {
-      Label("Gallery Unavailable", systemImage: "wifi.slash")
+      Label(String(localized: "Gallery Unavailable"), systemImage: "wifi.slash")
     } description: {
-      Text("Could not reach the Share Board and no cached content is available.")
+      Text(
+        String(
+          localized: "Could not reach the Share Board and no cached content is available."))
     } actions: {
-      Button("Retry") {
+      Button(String(localized: "Retry")) {
         Task { await viewModel.refresh() }
       }
       .buttonStyle(.borderedProminent)
@@ -59,11 +61,11 @@ struct ShareBoardView: View {
 
   private func errorState(message: String, viewModel: ShareBoardViewModel) -> some View {
     ContentUnavailableView {
-      Label("Error", systemImage: "exclamationmark.triangle")
+      Label(String(localized: "Error"), systemImage: "exclamationmark.triangle")
     } description: {
       Text(message)
     } actions: {
-      Button("Retry") { Task { await viewModel.refresh() } }
+      Button(String(localized: "Retry")) { Task { await viewModel.refresh() } }
     }
   }
 
@@ -81,7 +83,7 @@ struct ShareBoardView: View {
       }
       Section {
         if viewModel.visibleScenarios.isEmpty {
-          Text("No scenarios in this category.")
+          Text(String(localized: "No scenarios in this category."))
             .foregroundStyle(.secondary)
         } else {
           ForEach(viewModel.visibleScenarios, id: \.id) { scenario in
@@ -103,15 +105,18 @@ struct ShareBoardView: View {
   }
 
   private var offlineBanner: some View {
-    Label("Offline — showing cached content", systemImage: "wifi.exclamationmark")
-      .foregroundStyle(.secondary)
-      .font(.footnote)
-      .listRowBackground(Color.clear)
+    Label(
+      String(localized: "Offline — showing cached content"),
+      systemImage: "wifi.exclamationmark"
+    )
+    .foregroundStyle(.secondary)
+    .font(.footnote)
+    .listRowBackground(Color.clear)
   }
 
   private func categoryPicker(selection: Binding<GalleryCategory?>) -> some View {
-    Picker("Category", selection: selection) {
-      Text("All").tag(GalleryCategory?.none)
+    Picker(String(localized: "Category"), selection: selection) {
+      Text(String(localized: "All")).tag(GalleryCategory?.none)
       ForEach(GalleryCategory.allCases, id: \.self) { category in
         Text(category.displayName).tag(GalleryCategory?.some(category))
       }
@@ -127,9 +132,9 @@ struct ShareBoardView: View {
         Text(scenario.title).font(.headline)
         Spacer()
         if viewModel.hasUpdate(for: scenario) {
-          badge(text: "Update", style: .tint)
+          badge(text: String(localized: "Update"), style: .tint)
         } else if viewModel.isInstalled(scenario) {
-          badge(text: "Installed", style: .secondary)
+          badge(text: String(localized: "Installed"), style: .secondary)
         }
       }
       Text(scenario.description)
