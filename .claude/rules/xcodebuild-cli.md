@@ -21,14 +21,22 @@ NOT use the wrapper — see the table below.
 
 ### Canonical invocation
 
-**Always invoke as `scripts/xcodebuild.sh <subcommand> [args]` from the
-repository root.** The Bash allowlist matches the literal command prefix;
-the canonical form keeps prompts down to zero across agent sessions whose
-cwd is the worktree root. `bash scripts/xcodebuild.sh ...` and
-`./scripts/xcodebuild.sh ...` are also allowlisted as fallbacks, but
-absolute-path forms (or `$(git rev-parse --show-toplevel)/scripts/...`
-prefixes) are NOT — they re-introduce the same brittleness that motivated
-this wrapper. Stick to the canonical form.
+**Always invoke via the absolute path resolved by `git rev-parse`:**
+
+```bash
+"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <subcommand> [args]
+```
+
+This matches `sim-dest.sh`'s convention and is the only form the Bash
+allowlist (`Bash("$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"*)`)
+matches. cwd-independent — works correctly from any subdirectory of the
+worktree (agent sessions in particular shift cwd often, so relative-path
+invocations like `scripts/xcodebuild.sh ...` are NOT allowlisted and would
+trigger permission prompts).
+
+The wrapper also resolves `REPO_ROOT` internally (so `-project` and the
+`sim-dest.sh` source path are absolute regardless of cwd) — invocation
+form and wrapper internals are independently cwd-safe.
 
 ### Wrapper behavior
 
@@ -53,23 +61,30 @@ for repeated single-value flags, so caller passthrough wins on duplicates.
   build output lands in the worktree-local `Pastura/DerivedData/`.
 
 ```bash
+# Convenience alias for shell history (or use the full form inline)
+xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
+
 # TDD cycle — narrow to one suite for fast iteration
-scripts/xcodebuild.sh test -only-testing PasturaTests/JSONResponseParserTests
+"$xcb" test -only-testing PasturaTests/JSONResponseParserTests
 
 # Pre-PR full local run
-scripts/xcodebuild.sh test
+"$xcb" test
 
 # Skip UI tests when the change doesn't touch UI code
-scripts/xcodebuild.sh test -skip-testing:PasturaUITests
+"$xcb" test -skip-testing:PasturaUITests
 
 # Build only (no tests) — type-check verification after refactor
-scripts/xcodebuild.sh build
+"$xcb" build
 
 # Run Ollama integration tests (requires local Ollama with target model pulled)
 # Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
-scripts/xcodebuild.sh test -only-testing PasturaTests/OllamaIntegrationTests
+"$xcb" test -only-testing PasturaTests/OllamaIntegrationTests
 # These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
 ```
+
+> Agents that don't use the `xcb` alias should expand the full
+> `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" ...` form
+> on every call — the allowlist match is on the literal string.
 
 ### DerivedData location
 
@@ -125,7 +140,7 @@ burning wall-clock and orphaning processes:
 **Prevention (do this up-front):**
 
 - Narrow scope whenever possible —
-  `scripts/xcodebuild.sh test -only-testing PasturaTests/<Suite>`.
+  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -only-testing PasturaTests/<Suite>`.
 - If the change doesn't touch UI code, add `-skip-testing:PasturaUITests`
   (UI tests are not required for MVP; CI will still cover them).
 - Always pass an explicit bash `timeout` — the default 120s is shorter
@@ -135,8 +150,8 @@ burning wall-clock and orphaning processes:
 - For runs expected to exceed 5 minutes, prefer `run_in_background: true`
   and poll with Monitor / BashOutput rather than blocking the session.
 - When piping through `tail` (e.g.
-  `scripts/xcodebuild.sh test ... 2>&1 | tail -80`), the pipe's exit code
-  is `tail`'s, not the wrapper's — a failed build reports `exit code 0`.
+  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test ... 2>&1 | tail -80`),
+  the pipe's exit code is `tail`'s, not the wrapper's — a failed build reports `exit code 0`.
   Grep the tailed output for `** BUILD|TEST SUCCEEDED/FAILED **` or
   `xcodebuild: error:` before trusting the harness exit code, or use
   `set -o pipefail`. When the SUCCEEDED marker has been trimmed off

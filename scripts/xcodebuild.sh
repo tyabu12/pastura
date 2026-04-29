@@ -1,11 +1,15 @@
 #!/bin/bash
 # Run xcodebuild test / build with Pastura's standard env + flags pre-applied.
 #
-# Usage:
-#   scripts/xcodebuild.sh test                                # full unit + UI suite
-#   scripts/xcodebuild.sh test -only-testing PasturaTests/Foo # single-suite TDD cycle
-#   scripts/xcodebuild.sh test -skip-testing:PasturaUITests   # skip UI tests
-#   scripts/xcodebuild.sh build                               # build only (no tests)
+# Usage (canonical form — cwd-independent, matches the Bash allowlist):
+#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test
+#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -only-testing PasturaTests/Foo
+#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -skip-testing:PasturaUITests
+#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" build
+#
+# Shorter convenience alias for interactive shells:
+#   xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
+#   "$xcb" test -only-testing PasturaTests/Foo
 #
 # Subcommand maps directly to xcodebuild's; remaining args forward
 # verbatim via "$@". xcodebuild honors the last value for repeated
@@ -38,13 +42,19 @@
 # statement under `set -e`). For context-window-sized output in agent
 # sessions, pipe externally:
 #
-#   scripts/xcodebuild.sh test ...  2>&1 | grep -E 'error:|TEST|passed|failed' | tail -30
-#   scripts/xcodebuild.sh build ... 2>&1 | grep -E 'error:|warning:|BUILD'    | head -30
+#   "$xcb" test ...  2>&1 | grep -E 'error:|TEST|passed|failed' | tail -30
+#   "$xcb" build ... 2>&1 | grep -E 'error:|warning:|BUILD'    | head -30
 
 set -euo pipefail
 
+# Resolve repo root once so every subsequent path is absolute. Lets the
+# wrapper work correctly from any cwd inside the worktree (e.g., a
+# nested Pastura/PasturaTests/ subdirectory) — relative paths like
+# `Pastura/Pastura.xcodeproj` would silently break under cwd shifts.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
 if [[ $# -eq 0 ]]; then
-  echo "Usage: scripts/xcodebuild.sh <test|build> [args...]" >&2
+  echo 'Usage: "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <test|build> [args...]' >&2
   exit 2
 fi
 
@@ -68,7 +78,7 @@ case "$cmd" in
 esac
 
 # shellcheck source=scripts/sim-dest.sh
-source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+source "$REPO_ROOT/scripts/sim-dest.sh"
 
 if [[ "$cmd" == "build" ]]; then
   destination="generic/platform=iOS Simulator"
@@ -82,7 +92,7 @@ set -x
 # trips `nounset` for zero-length arrays).
 xcodebuild "$cmd" \
   -scheme Pastura \
-  -project Pastura/Pastura.xcodeproj \
+  -project "$REPO_ROOT/Pastura/Pastura.xcodeproj" \
   -destination "$destination" \
   -derivedDataPath "$DERIVED_DATA" \
   ${extra_flags[@]+"${extra_flags[@]}"} \
