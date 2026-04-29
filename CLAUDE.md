@@ -8,13 +8,14 @@
 Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
 If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
 
-Completed in Phase 2 so far:
+Phase 2 progress:
 - **Visual Scenario Editor** — dual-mode form + YAML (#83)
 - **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
 - **Share Board** — read-only curated scenario gallery (#87/#93)
 - **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
 - **Inference speed display** — tok/s + simulation playback UX (#99)
 - **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
+- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279)
 
 ## Language Rules
 
