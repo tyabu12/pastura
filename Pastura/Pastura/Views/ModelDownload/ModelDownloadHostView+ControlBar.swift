@@ -4,16 +4,18 @@ extension ModelDownloadHostView {
 
   /// Sim-style frosted controlBar for the DL-time demo. Mirrors
   /// `SimulationView.controlBar` shape so users learn the layout
-  /// before reaching the live simulation (issue #273).
+  /// before reaching the live simulation (issue #273 / PR 1a).
   ///
-  /// **Disabled-mirror layout** — Pause and Speed are visually
-  /// present but `.disabled(true)` and styled with `Color.disabledText`
-  /// (design-system §2.7 — Interactive States); only
-  /// `ThoughtVisibilityToggle` is interactive. PR 1b enables Pause /
-  /// Speed by adding a user-driven pause / resume API to
-  /// `ReplayViewModel`; at that point `.disabled(true)` is removed
-  /// and the controls wire to the new API. Until then, the disabled
-  /// layout serves as tutorial preview.
+  /// All three controls are interactive (PR 1b / #290):
+  /// - Pause toggles via `viewModel.userPause()` / `userResume()`,
+  ///   icon flips between `pause.fill` and `play.fill` based on
+  ///   ``ReplayViewModel/isUserPaused``.
+  /// - Speed Menu binds directly to ``ReplayViewModel/playbackSpeed``
+  ///   over `PlaybackSpeed.allCases`, matching Sim's pattern at
+  ///   `SimulationView.swift:434`.
+  /// - Thought toggle remains bound to `showAllThoughts` (Sim and
+  ///   Replay diverge here — Sim's is a per-VM property, Demo's is a
+  ///   View-local `@State`).
   ///
   /// Does **not** apply `.ignoresSafeArea(.container, edges: .bottom)`
   /// (unlike `SimulationView.controlBar`). The host's
@@ -21,16 +23,11 @@ extension ModelDownloadHostView {
   /// for `PromoCard`; adding the ignore would extend tint into the
   /// inset region with unpredictable interaction with the
   /// PromoCard layer (#273 critic Axis 2).
-  ///
-  /// `.buttonStyle(.plain)` is used on the disabled controls to
-  /// suppress the system's default button decoration so the explicit
-  /// `Color.disabledText` token is the dominant rendered color rather
-  /// than the system's accent-tint × disabled-opacity composite.
   @ViewBuilder
-  func controlBar() -> some View {
+  func controlBar(viewModel: ReplayViewModel) -> some View {
     HStack(spacing: 16) {
-      pausePreviewButton
-      speedPreviewButton
+      pauseButton(viewModel: viewModel)
+      speedMenu(viewModel: viewModel)
 
       Spacer()
 
@@ -50,41 +47,58 @@ extension ModelDownloadHostView {
     }
   }
 
-  /// Disabled "preview" Pause button — same icon as Sim's running-state
-  /// Pause (`pause.fill`). PR 1b wires the action to
-  /// `replayVM?.userPause()` and removes `.disabled(true)`.
+  /// Pause / Resume button. Action toggles via
+  /// ``ReplayViewModel/isUserPaused``; icon mirrors the same flag
+  /// (`play.fill` while user-paused, otherwise `pause.fill`).
+  /// Scene-phase pause does **not** flip the icon — the UI is hidden
+  /// during BG anyway, but the boundary is meaningful for the
+  /// transient redraw frame on FG return.
   @ViewBuilder
-  private var pausePreviewButton: some View {
+  private func pauseButton(viewModel: ReplayViewModel) -> some View {
     Button {
+      if viewModel.isUserPaused {
+        viewModel.userResume()
+      } else {
+        viewModel.userPause()
+      }
     } label: {
-      Image(systemName: "pause.fill").font(.title3)
+      Image(systemName: viewModel.isUserPaused ? "play.fill" : "pause.fill")
+        .font(.title3)
     }
     .buttonStyle(.plain)
-    .foregroundStyle(Color.disabledText)
-    .disabled(true)
     .accessibilityLabel(
-      String(localized: "Pause (available during simulation)"))
+      viewModel.isUserPaused
+        ? String(localized: "Resume playback")
+        : String(localized: "Pause playback"))
   }
 
-  /// Disabled "preview" Speed picker — same label structure as Sim's
-  /// `speedOrExportControl` Menu (gauge icon + value + chevron). Static
-  /// `1×` since `ReplayViewModel` runs at a fixed `speedMultiplier`.
-  /// PR 1b replaces this with a real `Menu` over `PlaybackSpeed.allCases`.
+  /// Speed Menu — drives ``ReplayViewModel/playbackSpeed`` over
+  /// `PlaybackSpeed.allCases`. Mirrors `SimulationView.speedOrExportControl`'s
+  /// Menu-with-explicit-buttons pattern (`SimulationView.swift:433`)
+  /// rather than `Picker.pickerStyle(.menu)` to avoid the iOS 17/18
+  /// reparenting warnings + label-wrap quirks documented there.
   @ViewBuilder
-  private var speedPreviewButton: some View {
-    Button {
+  private func speedMenu(viewModel: ReplayViewModel) -> some View {
+    Menu {
+      ForEach(PlaybackSpeed.allCases) { speed in
+        Button {
+          viewModel.playbackSpeed = speed
+        } label: {
+          if speed == viewModel.playbackSpeed {
+            Label(speed.label, systemImage: "checkmark")
+          } else {
+            Text(speed.label)
+          }
+        }
+      }
     } label: {
       HStack(spacing: 4) {
         Image(systemName: "gauge.with.dots.needle.50percent")
-        Text(verbatim: "1×")
+        Text(viewModel.playbackSpeed.label)
         Image(systemName: "chevron.down").font(.caption2)
       }
       .textStyle(Typography.titlePhase)
     }
-    .buttonStyle(.plain)
-    .foregroundStyle(Color.disabledText)
-    .disabled(true)
-    .accessibilityLabel(
-      String(localized: "Playback speed (available during simulation)"))
+    .accessibilityLabel(String(localized: "Playback speed"))
   }
 }
