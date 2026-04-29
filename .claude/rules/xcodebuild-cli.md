@@ -3,55 +3,102 @@
 Extracted from CLAUDE.md to keep the top-level project file lean. Always-loaded
 — see CLAUDE.md "Context-Specific Rules" for the loading-mode rationale.
 
-## Test Execution
+## Test & Build Execution
+
+All local `xcodebuild test` / `xcodebuild build` invocations — including
+the `git commit` pre-commit build hook — go through
+`scripts/xcodebuild.sh`. The wrapper sources `sim-dest.sh`, applies the right
+flags per subcommand, and streams output directly to the terminal. CI does
+NOT use the wrapper — see the table below.
 
 ### When to use what
 
-| Scope | Command | Parallel testing |
-|---|---|---|
-| TDD red/green cycle (single class / method) | `xcodebuild test ... -only-testing PasturaTests/<Class>` (direct) | n/a (single class — no benefit) |
-| Pre-PR full local run | `scripts/test-full.sh` | **OFF** (forced — see below) |
-| CI full run | `.github/workflows/ci.yml` | **OFF** (already applied — see [#189](https://github.com/tyabu12/pastura/issues/189)) |
+| Scope | Command |
+|---|---|
+| TDD red/green cycle (single class) | `scripts/xcodebuild.sh test -only-testing PasturaTests/<Class>` |
+| Pre-PR full local run | `scripts/xcodebuild.sh test` |
+| Build only (no tests) | `scripts/xcodebuild.sh build` |
+| CI full run | `.github/workflows/ci.yml` (uses `xcodebuild test ... -parallel-testing-enabled NO` inline; CI's SPM cache key depends on `~/Library/...` so it intentionally bypasses the wrapper — see [#189](https://github.com/tyabu12/pastura/issues/189)) |
 
-`scripts/test-full.sh` is a thin wrapper that sources `sim-dest.sh` and runs
-`xcodebuild test` with `-parallel-testing-enabled NO` injected before any
-forwarded args. It mirrors the CI workaround for the within-process
-simulator-clone crash cascade — local Apple Silicon runs reproduce the
-cascade at ~50% frequency on the full suite, so any pre-PR full run should
-go through the wrapper. Root-cause investigation continues in
-[#189](https://github.com/tyabu12/pastura/issues/189); this is the
-symptom-level mitigation. TDD-focused runs (`-only-testing PasturaTests/<Class>`)
-are unaffected by the cascade and should bypass the wrapper for speed.
+### Canonical invocation
+
+**Always invoke via the absolute path resolved by `git rev-parse`:**
 
 ```bash
-source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <subcommand> [args]
+```
 
-# Pre-PR full local run (parallel testing forced OFF)
-scripts/test-full.sh
-# Forwards extra args verbatim — narrow scope, skip UI tests, etc.
-scripts/test-full.sh -skip-testing:PasturaUITests
+This matches `sim-dest.sh`'s convention and is the only form the Bash
+allowlist (`Bash("$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"*)`)
+matches. cwd-independent — works correctly from any subdirectory of the
+worktree (agent sessions in particular shift cwd often, so relative-path
+invocations like `scripts/xcodebuild.sh ...` are NOT allowlisted and would
+trigger permission prompts).
 
-# Run specific test class (TDD cycle — direct invocation, no wrapper)
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-  -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
-  -only-testing PasturaTests/JSONResponseParserTests
+The wrapper also resolves `REPO_ROOT` internally (so `-project` and the
+`sim-dest.sh` source path are absolute regardless of cwd) — invocation
+form and wrapper internals are independently cwd-safe.
+
+### Wrapper behavior
+
+`scripts/xcodebuild.sh` is a thin dispatcher. Args after the subcommand
+forward verbatim to xcodebuild via `"$@"`. xcodebuild honors the last value
+for repeated single-value flags, so caller passthrough wins on duplicates.
+
+- **`test`**: uses the UDID-pinned simulator (`$DEST` from `sim-dest.sh`)
+  and adds `-parallel-testing-enabled NO`. The parallel-OFF flag mirrors
+  the CI workaround for the within-process simulator-clone crash cascade
+  (200+ tests reporting `failed` at 0.000s on a single clone PID — local
+  Apple Silicon reproduces at ~50% on the full suite). Harmless for narrow
+  TDD runs since `@Suite(.serialized)` already orders within-suite tests.
+  Root-cause work stays in [#189](https://github.com/tyabu12/pastura/issues/189).
+
+- **`build`**: uses `generic/platform=iOS Simulator` (no UDID) and exports
+  `PASTURA_SKIP_SIM_WAIT=1` before sourcing `sim-dest.sh` so the
+  concurrent-session simulator gate is bypassed. Build artifacts are
+  architecturally identical across simulator UDIDs, so booking a specific
+  UDID wastes time and reintroduces gate contention. `$DERIVED_DATA` is
+  still populated so build output lands in the worktree-local
+  `Pastura/DerivedData/` — and since the pre-commit hook now also
+  invokes `scripts/xcodebuild.sh build`, its build cache shares the
+  same worktree-local path as agent-driven test runs (so post-test
+  pre-commit builds hit warm cache).
+
+```bash
+# Convenience alias for shell history (or use the full form inline)
+xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
+
+# TDD cycle — narrow to one suite for fast iteration
+"$xcb" test -only-testing PasturaTests/JSONResponseParserTests
+
+# Pre-PR full local run
+"$xcb" test
+
+# Skip UI tests when the change doesn't touch UI code
+"$xcb" test -skip-testing:PasturaUITests
+
+# Build only (no tests) — type-check verification after refactor
+"$xcb" build
 
 # Run Ollama integration tests (requires local Ollama with target model pulled)
 # Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
-xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-  -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
-  -only-testing PasturaTests/OllamaIntegrationTests
+"$xcb" test -only-testing PasturaTests/OllamaIntegrationTests
 # These tests are automatically skipped when OLLAMA_INTEGRATION is not enabled in the scheme.
 ```
+
+> Agents that don't use the `xcb` alias should expand the full
+> `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" ...` form
+> on every call — the allowlist match is on the literal string.
 
 ### DerivedData location
 
 `sim-dest.sh` exports `DERIVED_DATA` pointing at `Pastura/DerivedData/` inside
-the current worktree. Always pass `-derivedDataPath "$DERIVED_DATA"` to
-`xcodebuild` so the CLI matches the Xcode.app Workspace-relative layout
-configured in `project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings`.
+the current worktree. The wrapper passes `-derivedDataPath "$DERIVED_DATA"`
+for both subcommands so the CLI matches the Xcode.app Workspace-relative
+layout configured in `project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings`.
 This keeps GUI and CLI builds sharing one cache per worktree and makes
-`git worktree remove` auto-clean all build artifacts. Two gotchas:
+`git worktree remove` auto-clean all build artifacts. Two gotchas (relevant
+when invoking xcodebuild manually outside the wrapper):
 
 - **Pass `-derivedDataPath` with a space**, not `=`. The `=` form is silently
   ignored by `xcodebuild` (known since Xcode 15.4).
@@ -67,11 +114,17 @@ UDID-pinned iOS Simulator destination (`...,id=<UDID>`) is already running
 on this machine — poll every 5s, jitter 1.0–5.0s before claiming, 15-min
 timeout. This avoids same-UDID clone/boot/teardown collisions across
 concurrent worktree sessions, which otherwise produce 200+ 0.000s "failed"
-cascades. The match pattern intentionally requires `,id=` so the pre-commit
-`xcodebuild build -destination 'generic/platform=iOS Simulator'` hook does
-not trigger the gate (build-only invocations don't book a simulator).
+cascades. The match pattern intentionally requires `,id=` so build-only
+invocations (which use `generic/platform=iOS Simulator`, no UDID) bypass
+the gate — `scripts/xcodebuild.sh build` (and therefore the pre-commit
+hook, which now invokes the wrapper) benefits from this exclusion.
 
-Override with `PASTURA_SKIP_SIM_WAIT=1 source scripts/sim-dest.sh ...`:
+`scripts/xcodebuild.sh build` additionally exports `PASTURA_SKIP_SIM_WAIT=1`
+before sourcing `sim-dest.sh`, providing belt-and-suspenders gate skip even
+if the destination check ever shifts.
+
+Override with `PASTURA_SKIP_SIM_WAIT=1 source scripts/sim-dest.sh ...` when
+NOT using the wrapper:
 
 - when intentionally running parallel suites on distinct simulators, or
 - when sourcing only to inspect `$DEST` (e.g., for `xcrun simctl` /
@@ -90,7 +143,8 @@ burning wall-clock and orphaning processes:
 
 **Prevention (do this up-front):**
 
-- Narrow scope whenever possible — `-only-testing PasturaTests/<Suite>`.
+- Narrow scope whenever possible —
+  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -only-testing PasturaTests/<Suite>`.
 - If the change doesn't touch UI code, add `-skip-testing:PasturaUITests`
   (UI tests are not required for MVP; CI will still cover them).
 - Always pass an explicit bash `timeout` — the default 120s is shorter
@@ -99,12 +153,14 @@ burning wall-clock and orphaning processes:
   `timeout: 900000` (15 min) when UI tests are included.
 - For runs expected to exceed 5 minutes, prefer `run_in_background: true`
   and poll with Monitor / BashOutput rather than blocking the session.
-- When piping through `tail` (e.g. `xcodebuild ... 2>&1 | tail -80`), the
-  pipe's exit code is `tail`'s, not `xcodebuild`'s — a failed build reports
-  `exit code 0`. Grep the tailed output for `** BUILD|TEST SUCCEEDED/FAILED **`
-  or `xcodebuild: error:` before trusting the harness exit code, or use
-  `set -o pipefail`. When the SUCCEEDED marker has been trimmed off entirely,
-  extract the verdict from the xcresult bundle: `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
+- When piping through `tail` (e.g.
+  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test ... 2>&1 | tail -80`),
+  the pipe's exit code is `tail`'s, not the wrapper's — a failed build reports `exit code 0`.
+  Grep the tailed output for `** BUILD|TEST SUCCEEDED/FAILED **` or
+  `xcodebuild: error:` before trusting the harness exit code, or use
+  `set -o pipefail`. When the SUCCEEDED marker has been trimmed off
+  entirely, extract the verdict from the xcresult bundle:
+  `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
 
 **Recovery (if a run hangs or a retry immediately stalls):**
 
