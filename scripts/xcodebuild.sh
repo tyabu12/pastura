@@ -6,10 +6,11 @@
 #   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -only-testing PasturaTests/Foo
 #   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -skip-testing:PasturaUITests
 #   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" build
+#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" build --tail 30
 #
 # Shorter convenience alias for interactive shells:
 #   xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
-#   "$xcb" test -only-testing PasturaTests/Foo
+#   "$xcb" test -only-testing PasturaTests/Foo --tail 80
 #
 # Subcommand maps directly to xcodebuild's; remaining args forward
 # verbatim via "$@". xcodebuild honors the last value for repeated
@@ -38,12 +39,26 @@
 #   worktree-local Pastura/DerivedData/ alongside test runs.
 #
 # Streams output directly to the terminal — no tee, no log file. Exit
-# code is xcodebuild's exit code unmodified (xcodebuild is the last
-# statement under `set -e`). For context-window-sized output in agent
-# sessions, pipe externally:
+# code is xcodebuild's exit code (preserved through `pipefail` when
+# `--tail` is used; `set -x` xtrace is suppressed in `--tail` mode so
+# the visible window stays focused on build output).
 #
-#   "$xcb" test ...  2>&1 | grep -E 'error:|TEST|passed|failed' | tail -30
-#   "$xcb" build ... 2>&1 | grep -E 'error:|warning:|BUILD'    | head -30
+# For context-window-capped output in agent sessions, prefer the
+# built-in `--tail N` flag — accepted at any position, consumed before
+# forwarding to xcodebuild, last-wins on duplicates:
+#
+#   "$xcb" build --tail 30
+#   "$xcb" test --tail 80
+#   "$xcb" test -only-testing PasturaTests/Foo --tail 30
+#
+# External `| grep` for pattern-filtering still works. Do NOT pipe
+# through external `| tail` — it defeats `pipefail`, so a failed
+# xcodebuild reports exit 0 to the harness (see memory
+# `feedback_xcodebuild_pipefail.md` for the original incident). Use
+# the built-in flag instead.
+#
+#   "$xcb" test  ... 2>&1 | grep -E 'error:|TEST|passed|failed'
+#   "$xcb" build ... 2>&1 | grep -E 'error:|warning:|BUILD'
 
 set -euo pipefail
 
@@ -54,12 +69,51 @@ set -euo pipefail
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 if [[ $# -eq 0 ]]; then
-  echo 'Usage: "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <test|build> [args...]' >&2
+  echo 'Usage: "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <test|build> [--tail N] [args...]' >&2
   exit 2
 fi
 
 cmd=$1
 shift
+
+# Parse wrapper-only `--tail N` / `--tail=N` flags. xcodebuild uses
+# single-dash flags (e.g. `-only-testing`), so `--`-prefixed names are
+# unambiguously ours. Accepted at any position among the args; the value
+# is validated as a positive integer BEFORE `shift 2`, so a missing or
+# non-numeric value fails cleanly under `set -u` instead of producing a
+# confusing shift-past-end abort. Duplicate `--tail` follows xcodebuild's
+# own repeated-flag convention: last value wins.
+tail_n=""
+forwarded=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tail)
+      if [[ ! "${2-}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "--tail requires a positive integer (e.g. --tail 30)" >&2
+        exit 2
+      fi
+      tail_n=$2
+      shift 2
+      ;;
+    --tail=*)
+      tail_val=${1#--tail=}
+      if [[ ! "$tail_val" =~ ^[1-9][0-9]*$ ]]; then
+        echo "--tail= requires a positive integer (e.g. --tail=30)" >&2
+        exit 2
+      fi
+      tail_n=$tail_val
+      shift
+      ;;
+    *)
+      forwarded+=("$1")
+      shift
+      ;;
+  esac
+done
+# Reset positional params to the forwarded args. Empty-array `+`
+# expansion mirrors `extra_flags` below — bare `"${arr[@]}"` would trip
+# `set -u` on macOS bash 3.2 when forwarded[] is empty.
+set -- ${forwarded[@]+"${forwarded[@]}"}
 
 case "$cmd" in
   test)
@@ -86,14 +140,29 @@ else
   destination="$DEST"
 fi
 
-set -x
+# Build the xcodebuild command as an array so the two execution paths
+# (with / without `--tail`) share a single source of truth.
 # `${extra_flags[@]+"${extra_flags[@]}"}` survives `set -u` when the
 # array is empty (macOS bash 3.2 quirk: bare `"${arr[@]}"` expansion
 # trips `nounset` for zero-length arrays).
-xcodebuild "$cmd" \
-  -scheme Pastura \
-  -project "$REPO_ROOT/Pastura/Pastura.xcodeproj" \
-  -destination "$destination" \
-  -derivedDataPath "$DERIVED_DATA" \
-  ${extra_flags[@]+"${extra_flags[@]}"} \
+xcb_cmd=(
+  xcodebuild "$cmd"
+  -scheme Pastura
+  -project "$REPO_ROOT/Pastura/Pastura.xcodeproj"
+  -destination "$destination"
+  -derivedDataPath "$DERIVED_DATA"
+  ${extra_flags[@]+"${extra_flags[@]}"}
   "$@"
+)
+
+if [[ -n "$tail_n" ]]; then
+  # Internal `| tail` preserves xcodebuild's exit code via `set -o
+  # pipefail` (top of script). We deliberately suppress `set -x` here:
+  # its multi-line xtrace would fold into `2>&1` and compete with build
+  # output for the visible tail window, pushing real `error:` lines off
+  # the bottom — the exact regression `--tail` exists to prevent.
+  "${xcb_cmd[@]}" 2>&1 | tail -n "$tail_n"
+else
+  set -x
+  "${xcb_cmd[@]}"
+fi

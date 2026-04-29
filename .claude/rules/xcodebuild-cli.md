@@ -18,6 +18,7 @@ NOT use the wrapper — see the table below.
 | TDD red/green cycle (single class) | `scripts/xcodebuild.sh test -only-testing PasturaTests/<Class>` |
 | Pre-PR full local run | `scripts/xcodebuild.sh test` |
 | Build only (no tests) | `scripts/xcodebuild.sh build` |
+| Cap output for context-window budget | `scripts/xcodebuild.sh <cmd> --tail N [args]` (built-in flag; preserves xcodebuild's exit code via `pipefail`; use instead of external `\| tail`) |
 | CI full run | `.github/workflows/ci.yml` (uses `xcodebuild test ... -parallel-testing-enabled NO` inline; CI's SPM cache key depends on `~/Library/...` so it intentionally bypasses the wrapper — see [#189](https://github.com/tyabu12/pastura/issues/189)) |
 
 ### Canonical invocation
@@ -25,8 +26,14 @@ NOT use the wrapper — see the table below.
 **Always invoke via the absolute path resolved by `git rev-parse`:**
 
 ```bash
-"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <subcommand> [args]
+"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <subcommand> [--tail N] [args]
 ```
+
+`--tail N` is a wrapper-only flag (xcodebuild itself uses single-dash
+flags, so `--`-prefixed names are unambiguous). Accepted at any position
+among the args and consumed before forwarding the rest to xcodebuild;
+duplicates follow xcodebuild's own repeated-flag convention (last wins).
+See **Running xcodebuild from an agent session** below for when to use it.
 
 This matches `sim-dest.sh`'s convention and is the only form the Bash
 allowlist (`Bash("$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"*)`)
@@ -79,6 +86,12 @@ xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
 
 # Build only (no tests) — type-check verification after refactor
 "$xcb" build
+
+# Cap output for context-window budget — `--tail N` is built-in,
+# pipefail-safe (preserves xcodebuild's exit code), and accepted at
+# any position. Use instead of external `| tail`.
+"$xcb" build --tail 30
+"$xcb" test -only-testing PasturaTests/JSONResponseParserTests --tail 80
 
 # Run Ollama integration tests (requires local Ollama with target model pulled)
 # Enable OLLAMA_INTEGRATION in scheme: Edit Scheme → Run → Environment Variables → toggle ON
@@ -153,13 +166,24 @@ burning wall-clock and orphaning processes:
   `timeout: 900000` (15 min) when UI tests are included.
 - For runs expected to exceed 5 minutes, prefer `run_in_background: true`
   and poll with Monitor / BashOutput rather than blocking the session.
-- When piping through `tail` (e.g.
-  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test ... 2>&1 | tail -80`),
-  the pipe's exit code is `tail`'s, not the wrapper's — a failed build reports `exit code 0`.
-  Grep the tailed output for `** BUILD|TEST SUCCEEDED/FAILED **` or
-  `xcodebuild: error:` before trusting the harness exit code, or use
-  `set -o pipefail`. When the SUCCEEDED marker has been trimmed off
-  entirely, extract the verdict from the xcresult bundle:
+- For context-window-capped output, prefer the built-in `--tail N`
+  flag over an external `| tail`:
+  `"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test ... --tail 80`.
+  The flag is pipefail-safe (preserves xcodebuild's exit code), accepts
+  its value anywhere among the args, and suppresses `set -x` xtrace so
+  the visible window stays focused on build output. External `| tail`
+  defeats `pipefail` — a failed build reports `exit code 0` to the
+  harness, silently masking failures (see memory
+  `feedback_xcodebuild_pipefail.md` for the original incident).
+- For pattern filtering, external `| grep` is still acceptable, but
+  note that any external pipe (grep, tail, head) replaces the wrapper's
+  exit code with the last command's. Treat the harness exit-code
+  notification as informational only when piping externally — verify
+  success by grepping the output for `** BUILD SUCCEEDED **` /
+  `** TEST SUCCEEDED **` (or the corresponding FAILED markers), or use
+  caller-side `set -o pipefail`. When the SUCCEEDED marker has been
+  trimmed off entirely (long suites past `--tail` budget), extract the
+  verdict from the xcresult bundle:
   `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
 
 **Recovery (if a run hangs or a retry immediately stalls):**
