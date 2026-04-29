@@ -61,6 +61,15 @@ enum ModelRegistry {
   /// ID of the model selected by default for new users (first-run onboarding fallback).
   nonisolated static let defaultInitialModelID: ModelID = gemma4E2B.id
 
+  /// Returns the catalog descriptor matching `id`, or `nil` if no descriptor exists.
+  ///
+  /// Strict resolution: callers wanting a fallback (e.g., active model for unknown
+  /// gallery `recommendedModel` values) should compose with `ModelManager.activeModelID`
+  /// explicitly rather than baking that policy into this helper.
+  nonisolated static func lookup(id: ModelID) -> ModelDescriptor? {
+    catalog.first { $0.id == id }
+  }
+
   /// Returns diagnostic reasons if `catalog` contains duplicate `id` or `fileName` values.
   /// Empty result means the catalog is valid. Exposed for testability; `validateNoCollisions`
   /// wraps this in a precondition.

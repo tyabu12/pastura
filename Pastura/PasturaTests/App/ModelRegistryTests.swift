@@ -56,6 +56,16 @@ struct ModelRegistryTests {
     #expect(reasons.contains(where: { $0.contains("id") }))
   }
 
+  // lookup helper
+  @Test func lookupReturnsDescriptorForKnownID() {
+    #expect(ModelRegistry.lookup(id: ModelRegistry.gemma4E2B.id)?.id == ModelRegistry.gemma4E2B.id)
+    #expect(ModelRegistry.lookup(id: ModelRegistry.qwen34B.id)?.id == ModelRegistry.qwen34B.id)
+  }
+
+  @Test func lookupReturnsNilForUnknownID() {
+    #expect(ModelRegistry.lookup(id: "no-such-model") == nil)
+  }
+
   @Test func findCollisions_detectsDuplicateFileNames() {
     // Fabricate two descriptors with same fileName but different ids
     let base = ModelRegistry.gemma4E2B
