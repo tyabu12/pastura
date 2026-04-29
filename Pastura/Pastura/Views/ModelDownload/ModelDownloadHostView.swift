@@ -217,9 +217,10 @@ struct ModelDownloadHostView: View {
       ScrollViewReader { proxy in
         ScrollView {
           // `spacing` uses the ChatBubbleLayout.bubbleSpacing token so a
-          // future design-system tweak flows through both the demo screen
-          // and the live SimulationView in one place. Reference HTML
-          // `.stream { gap: 14px }`.
+          // future design-system tweak flows through Demo / Sim / Results
+          // in one place. Production value is 8pt project-wide (#273 PR 2);
+          // see the token's docstring for the historical 14pt prototype
+          // reference and the divergence rationale.
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.agentOutputs) { entry in
               AgentOutputRow(

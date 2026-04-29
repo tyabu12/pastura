@@ -11,6 +11,14 @@ import SwiftUI
 // names, action labels, summary text, assignment values, vote targets) is
 // passed through `contentFilter` to match the exporter's whole-string filter
 // pass. Vote counts and scores are pure integers and don't need filtering.
+//
+// Per-row `.padding(.horizontal)` was stripped from every helper here in
+// #273 PR 2 — `ResultDetailView.timelineLog` now applies a container-level
+// `.padding(.horizontal, 20)` once on its parent `LazyVStack`, matching
+// the strategy already in `SimulationView+LogEntries.swift`. Without the
+// strip, code-phase rows would render at ~36pt-inset (20pt container +
+// ~16pt per-row default) while turn rows render at 20pt-inset, which is
+// exactly the cross-row misalignment this refactor was meant to eliminate.
 extension ResultDetailView {
 
   @ViewBuilder
@@ -39,7 +47,6 @@ extension ResultDetailView {
       Text("\(filtered(agent)) eliminated (\(voteCount) votes)")
         .textStyle(Typography.titlePhase)
     }
-    .padding(.horizontal)
   }
 
   private func scoreUpdateRow(scores: [String: Int]) -> some View {
@@ -52,14 +59,12 @@ extension ResultDetailView {
       .textStyle(Typography.metaValue)
       .monospacedDigit()
       .foregroundStyle(Color.muted)
-      .padding(.horizontal)
   }
 
   private func summaryRow(text: String) -> some View {
     Text(filtered(text))
       .textStyle(Typography.bodyBubble)
       .foregroundStyle(Color.inkSecondary)
-      .padding(.horizontal)
   }
 
   private func voteResultsRow(
@@ -87,7 +92,6 @@ extension ResultDetailView {
       }
     }
     .foregroundStyle(Color.muted)
-    .padding(.horizontal)
   }
 
   private func pairingRow(
@@ -99,14 +103,12 @@ extension ResultDetailView {
       Text("\(filtered(agent2))(\(filtered(action2)))")
     }
     .textStyle(Typography.titlePhase)
-    .padding(.horizontal)
   }
 
   private func assignmentRow(agent: String, value: String) -> some View {
     Text("\(filtered(agent)) assigned: \(filtered(value))")
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
-      .padding(.horizontal)
   }
 
   // The miss case (`event == nil`) renders an explicit "no event"
@@ -118,12 +120,10 @@ extension ResultDetailView {
       Text("Event: \(filtered(event))")
         .textStyle(Typography.bodyBubble)
         .foregroundStyle(Color.inkSecondary)
-        .padding(.horizontal)
     } else {
       Text("No event this round")
         .textStyle(Typography.metaValue)
         .foregroundStyle(Color.muted)
-        .padding(.horizontal)
     }
   }
 

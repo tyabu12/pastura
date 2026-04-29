@@ -25,6 +25,11 @@ public struct PhaseHeader<Leading: View, Trailing: View>: View {
   /// to fit Demo's natural typography stack (tagPhase ~9.5pt + 3pt
   /// spacing + titlePhase ~13pt ≈ 25.5pt) with comfort margin.
   /// Pinned by `PhaseHeaderContractTests`.
+  ///
+  /// Computed (not stored) because Swift forbids static stored
+  /// properties on generic types — `PhaseHeader<Leading, Trailing>`
+  /// has two type parameters, so the per-instantiation storage rule
+  /// kicks in. Behavior is identical to a `let`.
   public static var minLeadingHeight: CGFloat { 32 }
 
   /// When `true`, the frosted background extends behind the top
