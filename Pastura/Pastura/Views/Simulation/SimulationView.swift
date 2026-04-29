@@ -273,76 +273,58 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // MARK: - Header
 
   private func headerBar(viewModel: SimulationViewModel) -> some View {
-    HStack {
+    PhaseHeader {
       if viewModel.totalRounds > 0 {
         Text("Round \(viewModel.currentRound)/\(viewModel.totalRounds)")
           .textStyle(Typography.metaEta)
           .monospacedDigit()
       }
-
-      Spacer()
-
-      inferenceStatsLabel(viewModel: viewModel)
-
-      if viewModel.isCompleted {
-        Label("Completed", systemImage: "checkmark.circle.fill")
-          .textStyle(Typography.titlePhase)
-          // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
-          // enumerate されている。moss は fills/borders 系、moss-ink は完了
-          // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
-          // なので moss-dark が用途的に正解。ResultsView の statusBadge も
-          // 同じ理由で moss-dark に揃えてある。
-          .foregroundStyle(Color.mossDark)
-      } else if viewModel.isPaused {
-        Label("Paused", systemImage: "pause.circle.fill")
-          .textStyle(Typography.titlePhase)
-          .foregroundStyle(Color.inkSecondary)
-      } else if viewModel.isRunning {
-        HStack(spacing: 4) {
-          ProgressView()
-            .scaleEffect(0.7)
-          Text("Running")
-            .textStyle(Typography.titlePhase)
-            .foregroundStyle(Color.inkSecondary)
-        }
+    } trailing: {
+      HStack(spacing: Spacing.xs) {
+        inferenceStatsLabel(viewModel: viewModel)
+        statusBadge(viewModel: viewModel)
       }
-    }
-    .padding(.horizontal)
-    .padding(.vertical, 8)
-    .background {
-      ZStack {
-        Color.screenBackground.opacity(0.78)
-        Rectangle().fill(.ultraThinMaterial)
-      }
-    }
-    .overlay(alignment: .bottom) {
-      Rectangle()
-        .fill(Color.ink.opacity(0.07))
-        .frame(height: 1)
     }
   }
 
   @ViewBuilder
   private func inferenceStatsLabel(viewModel: SimulationViewModel) -> some View {
-    let duration = viewModel.lastInferenceDurationSeconds
-    let tps = viewModel.averageTokensPerSecond
-    if duration != nil || tps != nil {
+    if let text = InferenceStatsFormatter.format(
+      durationSeconds: viewModel.lastInferenceDurationSeconds,
+      tokensPerSecond: viewModel.averageTokensPerSecond) {
       HStack(spacing: 4) {
         Image(systemName: "speedometer")
-        Text(formatInferenceStats(durationSeconds: duration, tokensPerSecond: tps))
-          .monospacedDigit()
+        Text(text).monospacedDigit()
       }
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
     }
   }
 
-  private func formatInferenceStats(
-    durationSeconds: Double?, tokensPerSecond: Double?
-  ) -> String {
-    let tpsPart = tokensPerSecond.map { String(format: "%.1f tok/s", $0) } ?? "— tok/s"
-    let durationPart = durationSeconds.map { String(format: "%.1fs", $0) } ?? "—"
-    return "\(tpsPart) • \(durationPart)"
+  @ViewBuilder
+  private func statusBadge(viewModel: SimulationViewModel) -> some View {
+    if viewModel.isCompleted {
+      Label("Completed", systemImage: "checkmark.circle.fill")
+        .textStyle(Typography.titlePhase)
+        // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
+        // enumerate されている。moss は fills/borders 系、moss-ink は完了
+        // タイトル（大型表示）。ここはヘッダー右肩のインライン状態表示
+        // なので moss-dark が用途的に正解。ResultsView の statusBadge も
+        // 同じ理由で moss-dark に揃えてある。
+        .foregroundStyle(Color.mossDark)
+    } else if viewModel.isPaused {
+      Label("Paused", systemImage: "pause.circle.fill")
+        .textStyle(Typography.titlePhase)
+        .foregroundStyle(Color.inkSecondary)
+    } else if viewModel.isRunning {
+      HStack(spacing: 4) {
+        ProgressView()
+          .scaleEffect(0.7)
+        Text("Running")
+          .textStyle(Typography.titlePhase)
+          .foregroundStyle(Color.inkSecondary)
+      }
+    }
   }
 
   // MARK: - Log Entries
