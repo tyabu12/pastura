@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    ", " : {
+      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "、"
+          }
+        }
+      }
+    },
     "%arg actions" : {
       "localizations" : {
         "ja" : {
@@ -237,6 +248,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロードをキャンセル"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
           }
         }
       }
@@ -507,6 +528,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオを削除しますか？"
+          }
+        }
+      }
+    },
+    "Demoing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デモ中"
           }
         }
       }
@@ -2035,6 +2066,16 @@
         }
       }
     },
+    "Replaying" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リプレイ中"
+          }
+        }
+      }
+    },
     "Report scenario" : {
       "localizations" : {
         "ja" : {
@@ -2125,6 +2166,16 @@
         }
       }
     },
+    "Round %lld / %lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド %lld / %lld"
+          }
+        }
+      }
+    },
     "Round Robin" : {
       "localizations" : {
         "ja" : {
@@ -2166,6 +2217,7 @@
       }
     },
     "Running" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2321,6 +2373,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考をすべて表示"
+          }
+        }
+      }
+    },
+    "Simulating" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シミュレーション中"
           }
         }
       }
