@@ -55,7 +55,12 @@ struct ScenarioDetailViewModelTests {
     await viewModel.load(scenarioId: "nonexistent")
 
     #expect(viewModel.scenario == nil)
-    #expect(viewModel.errorMessage == "Scenario not found")
+    // Use partial match (`.contains`) — `errorMessage` is wrapped in
+    // `String(localized:)`, so equality would flip under non-en locales
+    // once `ja` translations land in Item 7. Mirror the
+    // `LocalizedError`-tests convention from CLAUDE.md "Error message i18n
+    // prep" preemptively (axis 3 of the A-1 plan critic review).
+    #expect(viewModel.errorMessage?.contains("Scenario not found") == true)
   }
 
   @Test func loadDetectsValidationErrors() async throws {

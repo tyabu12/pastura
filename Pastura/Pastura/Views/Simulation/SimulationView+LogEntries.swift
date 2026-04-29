@@ -40,7 +40,7 @@ extension SimulationView {
       // — the latter uppercases, and "Vote Results" as a prose-ish
       // section heading reads worse as "VOTE RESULTS". `tagPhase` is
       // reserved for one-word tags (WORD WOLF, ROUND 1).
-      Text("Vote Results")
+      Text(String(localized: "Vote Results"))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
       ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
@@ -56,7 +56,7 @@ extension SimulationView {
   ) -> some View {
     HStack {
       Text("\(agent1)(\(act1))")
-      Text("vs")
+      Text(String(localized: "vs"))
         .foregroundStyle(Color.muted)
       Text("\(agent2)(\(act2))")
     }
@@ -78,7 +78,7 @@ extension SimulationView {
           .foregroundStyle(Color.inkSecondary)
       }
     } else {
-      Text("No event this round")
+      Text(String(localized: "No event this round"))
         .textStyle(Typography.metaValue)
         .foregroundStyle(Color.muted)
     }

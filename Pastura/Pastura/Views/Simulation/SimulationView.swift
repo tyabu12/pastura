@@ -44,7 +44,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           description: Text(loadError)
         )
       } else {
-        ProgressView("Loading scenario...")
+        ProgressView(String(localized: "Loading scenario..."))
       }
     }
     // 3-tier fallback (ADR-008): loaded scenario name (authoritative,
@@ -115,13 +115,13 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       ShareSheet(activityItems: [payload.text, payload.fileURL])
     }
     .alert(
-      "Export failed",
+      String(localized: "Export failed"),
       isPresented: Binding(
         get: { exportError != nil },
         set: { if !$0 { exportError = nil } }
       )
     ) {
-      Button("OK", role: .cancel) { exportError = nil }
+      Button(String(localized: "OK"), role: .cancel) { exportError = nil }
     } message: {
       Text(exportError ?? "")
     }
@@ -261,10 +261,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       VStack(spacing: 12) {
         ProgressView()
           .scaleEffect(1.2)
-        Text("Reloading model...")
+        Text(String(localized: "Reloading model..."))
           .textStyle(Typography.titlePhase)
           .foregroundStyle(Color.ink)
-        Text("This can take a few seconds")
+        Text(String(localized: "This can take a few seconds"))
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.muted)
       }
@@ -308,7 +308,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @ViewBuilder
   private func statusBadge(viewModel: SimulationViewModel) -> some View {
     if viewModel.isCompleted {
-      Label("Completed", systemImage: "checkmark.circle.fill")
+      Label(String(localized: "Completed"), systemImage: "checkmark.circle.fill")
         .textStyle(Typography.titlePhase)
         // §2.3: moss-dark の用途として「ステータスラベル（Completed 等）」が
         // enumerate されている。moss は fills/borders 系、moss-ink は完了
@@ -317,14 +317,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         // 同じ理由で moss-dark に揃えてある。
         .foregroundStyle(Color.mossDark)
     } else if viewModel.isPaused {
-      Label("Paused", systemImage: "pause.circle.fill")
+      Label(String(localized: "Paused"), systemImage: "pause.circle.fill")
         .textStyle(Typography.titlePhase)
         .foregroundStyle(Color.inkSecondary)
     } else if viewModel.isRunning {
       HStack(spacing: 4) {
         ProgressView()
           .scaleEffect(0.7)
-        Text("Running")
+        Text(String(localized: "Running"))
           .textStyle(Typography.titlePhase)
           .foregroundStyle(Color.inkSecondary)
       }
@@ -416,7 +416,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         if isExporting {
           ProgressView().frame(minWidth: Self.controlSlotMinWidth)
         } else {
-          Label("Export", systemImage: "square.and.arrow.up")
+          Label(String(localized: "Export"), systemImage: "square.and.arrow.up")
             .font(.title3)
             .frame(minWidth: Self.controlSlotMinWidth)
         }

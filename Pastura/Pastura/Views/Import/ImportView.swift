@@ -19,7 +19,10 @@ struct ImportView: View {
         ProgressView()
       }
     }
-    .navigationTitle(editingId != nil ? "Edit Scenario" : "Import Scenario")
+    .navigationTitle(
+      editingId != nil
+        ? String(localized: "Edit Scenario") : String(localized: "Import Scenario")
+    )
     .navigationBarTitleDisplayMode(.inline)
     .task {
       // Defer assignment until loadForEditing completes so the TextEditor
@@ -79,7 +82,7 @@ struct ImportView: View {
       .padding(.horizontal)
       .padding(.vertical, 8)
     } else if viewModel.isValid {
-      Label("Valid scenario", systemImage: "checkmark.circle.fill")
+      Label(String(localized: "Valid scenario"), systemImage: "checkmark.circle.fill")
         .font(.caption)
         .foregroundStyle(Color.successInk)
         .padding(.horizontal)
@@ -92,7 +95,7 @@ struct ImportView: View {
       Button {
         showFilePicker = true
       } label: {
-        Label("File", systemImage: "doc")
+        Label(String(localized: "File"), systemImage: "doc")
           .font(.subheadline)
       }
 
@@ -100,7 +103,7 @@ struct ImportView: View {
         UIPasteboard.general.string = ImportViewModel.scenarioGenerationPrompt
         showPromptCopied = true
       } label: {
-        Label("Copy Gen Prompt", systemImage: "doc.on.doc")
+        Label(String(localized: "Copy Gen Prompt"), systemImage: "doc.on.doc")
           .font(.subheadline)
       }
 
@@ -113,7 +116,7 @@ struct ImportView: View {
           }
         }
       } label: {
-        Text("Import")
+        Text(String(localized: "Import"))
           .fontWeight(.semibold)
       }
       .buttonStyle(.borderedProminent)
@@ -125,7 +128,7 @@ struct ImportView: View {
   @ViewBuilder
   private var promptCopiedToast: some View {
     if showPromptCopied {
-      Text("Prompt copied!")
+      Text(String(localized: "Prompt copied!"))
         .font(.caption)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

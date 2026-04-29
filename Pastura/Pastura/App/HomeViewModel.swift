@@ -35,7 +35,7 @@ final class HomeViewModel {
       presets = all.filter(\.isPreset)
       userScenarios = all.filter { !$0.isPreset }
     } catch {
-      errorMessage = "Failed to load scenarios: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to load scenarios: \(error.localizedDescription)")
     }
 
     isLoading = false
@@ -48,7 +48,7 @@ final class HomeViewModel {
       }
       userScenarios.removeAll { $0.id == id }
     } catch {
-      errorMessage = "Failed to delete scenario: \(error.localizedDescription)"
+      errorMessage = String(localized: "Failed to delete scenario: \(error.localizedDescription)")
     }
   }
 

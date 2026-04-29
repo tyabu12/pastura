@@ -20,12 +20,12 @@ struct ScenarioDetailView: View {
     Group {
       if let viewModel {
         if viewModel.isLoading {
-          ProgressView("Loading...")
+          ProgressView(String(localized: "Loading..."))
         } else if let scenario = viewModel.scenario {
           scenarioContent(scenario: scenario, viewModel: viewModel)
         } else if let error = viewModel.errorMessage {
           ContentUnavailableView(
-            "Error",
+            String(localized: "Error"),
             systemImage: "exclamationmark.triangle",
             description: Text(error)
           )
@@ -44,14 +44,17 @@ struct ScenarioDetailView: View {
     .toolbar {
       if let record = viewModel?.record, !record.isPreset {
         ToolbarItem(placement: .destructiveAction) {
-          Button("Delete", role: .destructive) {
+          Button(String(localized: "Delete"), role: .destructive) {
             showDeleteConfirm = true
           }
         }
       }
     }
-    .confirmationDialog("Delete Scenario?", isPresented: $showDeleteConfirm) {
-      Button("Delete", role: .destructive) {
+    .confirmationDialog(
+      String(localized: "Delete Scenario?"),
+      isPresented: $showDeleteConfirm
+    ) {
+      Button(String(localized: "Delete"), role: .destructive) {
         Task {
           if let viewModel, await viewModel.deleteScenario() {
             dismiss()
@@ -62,7 +65,7 @@ struct ScenarioDetailView: View {
     .task {
       // Defer assignment until both `load()` and `refreshGalleryStatus()`
       // complete so the gallery banner never flips from
-      // "From Share Board (read-only)" to "Update available" mid-render.
+      // "From Shared Scenarios (read-only)" to "Update available" mid-render.
       // Guard prevents re-creation under `.task` re-fire.
       guard viewModel == nil else { return }
       let newViewModel = ScenarioDetailViewModel(
@@ -94,7 +97,7 @@ struct ScenarioDetailView: View {
       Section {
         NavigationLink(value: Route.galleryScenarioDetail(scenario: entry)) {
           Label(
-            "Update available from Share Board",
+            String(localized: "Update available from Shared Scenarios"),
             systemImage: "arrow.down.circle.fill"
           )
           .foregroundStyle(.tint)
@@ -102,9 +105,12 @@ struct ScenarioDetailView: View {
       }
     } else if viewModel.isGallerySourced {
       Section {
-        Label("From Share Board (read-only)", systemImage: "square.and.arrow.down.fill")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+        Label(
+          String(localized: "From Shared Scenarios (read-only)"),
+          systemImage: "square.and.arrow.down.fill"
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
       }
     }
   }
@@ -112,10 +118,13 @@ struct ScenarioDetailView: View {
   private func overviewSection(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
-    Section("Overview") {
-      LabeledContent("Agents", value: "\(scenario.agentCount)")
-      LabeledContent("Rounds", value: "\(scenario.rounds)")
-      LabeledContent("Est. Inferences", value: "\(viewModel.estimatedInferences)")
+    Section(String(localized: "Overview")) {
+      LabeledContent(String(localized: "Agents"), value: "\(scenario.agentCount)")
+      LabeledContent(String(localized: "Rounds"), value: "\(scenario.rounds)")
+      LabeledContent(
+        String(localized: "Est. Inferences"),
+        value: "\(viewModel.estimatedInferences)"
+      )
       if !scenario.description.isEmpty {
         Text(scenario.description)
           .font(.subheadline)
@@ -125,14 +134,14 @@ struct ScenarioDetailView: View {
   }
 
   private func contextSection(scenario: Scenario) -> some View {
-    Section("Context") {
+    Section(String(localized: "Context")) {
       Text(scenario.context)
         .font(.subheadline)
     }
   }
 
   private func personasSection(scenario: Scenario) -> some View {
-    Section("Personas (\(scenario.personas.count))") {
+    Section(String(localized: "Personas (\(scenario.personas.count))")) {
       ForEach(scenario.personas, id: \.name) { persona in
         VStack(alignment: .leading, spacing: 4) {
           Text(persona.name)
@@ -147,7 +156,7 @@ struct ScenarioDetailView: View {
   }
 
   private func phasesSection(scenario: Scenario) -> some View {
-    Section("Phases (\(scenario.phases.count))") {
+    Section(String(localized: "Phases (\(scenario.phases.count))")) {
       ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
         HStack {
           Text("\(index + 1).")
@@ -190,13 +199,13 @@ struct ScenarioDetailView: View {
           initialName: .init(scenario.name)
         )
       ) {
-        Label("Run Simulation", systemImage: "play.fill")
+        Label(String(localized: "Run Simulation"), systemImage: "play.fill")
       }
       .disabled(!viewModel.canRun)
       .accessibilityIdentifier("scenarioDetail.runSimulationButton")
 
       NavigationLink(value: Route.results(scenarioId: scenarioId)) {
-        Label("Past Results", systemImage: "clock.arrow.circlepath")
+        Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
       }
 
       if let record = viewModel.record {
@@ -206,13 +215,13 @@ struct ScenarioDetailView: View {
           NavigationLink(
             value: Route.editor(templateYAML: record.yamlDefinition)
           ) {
-            Label("Use as Template", systemImage: "doc.on.doc")
+            Label(String(localized: "Use as Template"), systemImage: "doc.on.doc")
           }
         } else {
           NavigationLink(
             value: Route.editor(editingId: scenarioId)
           ) {
-            Label("Edit", systemImage: "pencil")
+            Label(String(localized: "Edit"), systemImage: "pencil")
           }
         }
       }

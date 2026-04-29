@@ -21,9 +21,9 @@ struct ScenarioEditorView: View {
   var body: some View {
     VStack(spacing: 0) {
       // Mode toggle
-      Picker("Editor Mode", selection: modeBinding) {
-        Text("Visual").tag(EditorMode.visual)
-        Text("YAML").tag(EditorMode.yaml)
+      Picker(String(localized: "Editor Mode"), selection: modeBinding) {
+        Text(String(localized: "Visual")).tag(EditorMode.visual)
+        Text(String(localized: "YAML")).tag(EditorMode.yaml)
       }
       .pickerStyle(.segmented)
       .padding()
@@ -40,11 +40,13 @@ struct ScenarioEditorView: View {
         yamlEditor
       }
     }
-    .navigationTitle(viewModel.scenarioName.isEmpty ? "New Scenario" : viewModel.scenarioName)
+    .navigationTitle(
+      viewModel.scenarioName.isEmpty ? String(localized: "New Scenario") : viewModel.scenarioName
+    )
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .confirmationAction) {
-        Button("Save") {
+        Button(String(localized: "Save")) {
           Task {
             if await viewModel.save() {
               dismiss()
@@ -102,15 +104,17 @@ struct ScenarioEditorView: View {
   }
 
   private var basicInfoSection: some View {
-    Section("Basic Info") {
-      TextField("Scenario ID", text: $viewModel.scenarioId)
+    Section(String(localized: "Basic Info")) {
+      TextField(String(localized: "Scenario ID"), text: $viewModel.scenarioId)
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .font(.body.monospaced())
-      TextField("Name", text: $viewModel.scenarioName)
+      TextField(String(localized: "Name"), text: $viewModel.scenarioName)
         .accessibilityIdentifier("editor.titleField")
-      TextField("Description", text: $viewModel.scenarioDescription, axis: .vertical)
-        .lineLimit(2...5)
+      TextField(
+        String(localized: "Description"), text: $viewModel.scenarioDescription, axis: .vertical
+      )
+      .lineLimit(2...5)
       roundsControl
     }
   }
@@ -121,7 +125,7 @@ struct ScenarioEditorView: View {
   private var roundsControl: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack {
-        Text("Rounds")
+        Text(String(localized: "Rounds"))
         Spacer()
         Text("\(viewModel.rounds)")
           .monospacedDigit()
@@ -159,7 +163,7 @@ struct ScenarioEditorView: View {
   }
 
   private var contextSection: some View {
-    Section("Context") {
+    Section(String(localized: "Context")) {
       TextEditor(text: $viewModel.context)
         .frame(minHeight: 88)
     }
@@ -193,11 +197,11 @@ struct ScenarioEditorView: View {
       Button {
         showNewPersonaSheet = true
       } label: {
-        Label("Add Persona", systemImage: "plus.circle")
+        Label(String(localized: "Add Persona"), systemImage: "plus.circle")
       }
     } header: {
       HStack {
-        Text("Personas")
+        Text(String(localized: "Personas"))
         Spacer()
         Text("\(viewModel.personas.count) agents")
           .font(.caption)
@@ -226,11 +230,11 @@ struct ScenarioEditorView: View {
       Button {
         showNewPhaseSheet = true
       } label: {
-        Label("Add Phase", systemImage: "plus.circle")
+        Label(String(localized: "Add Phase"), systemImage: "plus.circle")
       }
     } header: {
       HStack {
-        Text("Phases")
+        Text(String(localized: "Phases"))
         Spacer()
         Text("\(viewModel.phases.count) steps")
           .font(.caption)

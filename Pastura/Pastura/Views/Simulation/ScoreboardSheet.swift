@@ -42,11 +42,11 @@ struct ScoreboardSheet: View {
           }
         }
       }
-      .navigationTitle("Scoreboard")
+      .navigationTitle(String(localized: "Scoreboard"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button("Done") { dismiss() }
+          Button(String(localized: "Done")) { dismiss() }
         }
       }
     }
