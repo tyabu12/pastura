@@ -19,11 +19,13 @@ nonisolated public struct PacedEvent: Sendable, Equatable {
   /// Classifies the event so the consumer can pick the right delay bucket.
   public enum Kind: Sendable, Equatable {
     /// LLM-phase agent output (`.agentOutput`). Pre-yield delay =
-    /// `ReplayPlaybackConfig.turnDelayMs / speedMultiplier`.
+    /// `ReplayPlaybackConfig.turnDelayMs / playbackSpeed.multiplier`
+    /// (consumer also early-returns 0 when `playbackSpeed == .instant`).
     case turn
     /// Code-phase result (`.scoreUpdate` / `.elimination` / `.summary` /
     /// `.voteResults` / `.pairingResult` / `.assignment`). Pre-yield
-    /// delay = `ReplayPlaybackConfig.codePhaseDelayMs / speedMultiplier`.
+    /// delay = `ReplayPlaybackConfig.codePhaseDelayMs /
+    /// playbackSpeed.multiplier` (`.instant` short-circuits to 0).
     case codePhase
     /// Synthesised round/phase boundary (`.roundStarted` / `.phaseStarted`).
     /// Pre-yield delay = 0 — the marker fires alongside the event it

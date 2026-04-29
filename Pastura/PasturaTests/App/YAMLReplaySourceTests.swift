@@ -37,11 +37,11 @@ struct YAMLReplaySourceTests {
     try ScenarioLoader().load(yaml: Self.scenarioYAML)
   }
 
-  /// Speed up replay for tests — 100× means a 1200 ms nominal delay
-  /// finishes in 12 ms, keeping the suite well under the 1-minute cap.
+  /// Speed up replay for tests — `.instant` collapses every per-event
+  /// sleep to 0, keeping the suite well under the 1-minute cap.
   var fastConfig: ReplayPlaybackConfig {
     ReplayPlaybackConfig(
-      speedMultiplier: 100.0,
+      playbackSpeed: .instant,
       loopBehaviour: .stopAfterLast,
       onComplete: .stopPlayback)
   }
@@ -301,8 +301,8 @@ struct YAMLReplaySourceTests {
   @Test func pacingIsSourcedFromConfigNotYAML() async throws {
     // The YAML carries NO delay hint. The source derives per-event
     // sleep from `ReplayPlaybackConfig.turnDelayMs` /
-    // `codePhaseDelayMs` scaled by `speedMultiplier`. A tiny delay
-    // here keeps the test fast; doubling it doubles wall time.
+    // `codePhaseDelayMs` scaled by `playbackSpeed.multiplier`. A tiny
+    // delay here keeps the test fast; doubling it doubles wall time.
     let yaml = """
       schema_version: 1
       turns:
@@ -318,7 +318,8 @@ struct YAMLReplaySourceTests {
           fields: { statement: 'hi' }
       """
     let slowConfig = ReplayPlaybackConfig(
-      speedMultiplier: 1.0, turnDelayMs: 60, codePhaseDelayMs: 20,
+      playbackSpeed: .normal,
+      turnDelayMs: 60, codePhaseDelayMs: 20,
       loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
     let source = try YAMLReplaySource(
       yaml: yaml, scenario: makeScenario(), config: slowConfig)

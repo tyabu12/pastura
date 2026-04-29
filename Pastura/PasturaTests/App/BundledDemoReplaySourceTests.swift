@@ -78,7 +78,7 @@ struct BundledDemoReplaySourceTests {
   }
 
   static let testConfig = ReplayPlaybackConfig(
-    speedMultiplier: 100.0,
+    playbackSpeed: .instant,
     turnDelayMs: 20,
     codePhaseDelayMs: 5,
     loopBehaviour: .stopAfterLast,

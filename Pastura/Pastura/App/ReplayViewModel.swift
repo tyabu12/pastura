@@ -49,7 +49,7 @@ import Foundation
 /// can emit it; if yes, mirror the filter here; if no, leave alone.
 @Observable
 @MainActor
-final class ReplayViewModel {
+final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Public state
 
@@ -63,16 +63,48 @@ final class ReplayViewModel {
     /// the index into that source's `plannedEvents()` that will be
     /// published *next* (cursor = 0 means "about to publish event 0").
     case playing(sourceIndex: Int, eventCursor: Int)
-    /// Paused while backgrounded. `remainingDelayMs` is how much of
-    /// the pre-yield sleep for `plannedEvents()[eventCursor]` was
-    /// still outstanding when the pause fired. On resume, the VM
-    /// sleeps exactly that many milliseconds (scaled by
-    /// `speedMultiplier`) before publishing the paused event.
-    case paused(sourceIndex: Int, eventCursor: Int, remainingDelayMs: Int)
+    /// Paused. `remainingDelayMs` is how much of the pre-yield sleep
+    /// for `plannedEvents()[eventCursor]` was still outstanding when
+    /// the pause fired. On resume, the VM sleeps exactly that many
+    /// milliseconds (computed at the speed *active when the pause was
+    /// captured*, not the current ``playbackSpeed`` — see that
+    /// property's doc-comment for the worked example) before
+    /// publishing the paused event.
+    ///
+    /// `reason` distinguishes scene-phase auto-pauses from explicit
+    /// user-driven pauses; see ``PauseReason``. The two reasons share
+    /// the same payload but have different resume semantics:
+    /// ``onForeground()`` resumes only `.scenePhase`; ``userResume()``
+    /// resumes only `.user`. `.user` is **sticky** across scene-phase
+    /// transitions (a backgrounded user-paused VM stays paused on
+    /// foreground return).
+    case paused(
+      sourceIndex: Int, eventCursor: Int, remainingDelayMs: Int,
+      reason: PauseReason)
     /// Transitioning to the setup-complete screen. ``downloadComplete()``
     /// drives this; the host view's `.transition` animation keys off
     /// state identity.
     case transitioning
+  }
+
+  /// Discriminator on ``State/paused`` distinguishing automatic
+  /// scene-phase pauses from explicit user-driven pauses. Resume
+  /// semantics fork on this tag — see ``onForeground()`` and
+  /// ``userResume()``.
+  ///
+  /// Modeled as a tag on `.paused` rather than a 5th `State` case to
+  /// avoid doubling transition logic for the two reasons; the
+  /// resume-from-position invariant
+  /// (`firstSleepOverrideMs = remainingDelayMs`) is identical for both.
+  nonisolated enum PauseReason: Sendable, Equatable {
+    /// App auto-paused on backgrounding. Cleared by ``onForeground()``
+    /// (auto-resume).
+    case scenePhase
+    /// User explicitly tapped Pause. Cleared only by ``userResume()`` —
+    /// scene-phase transitions never clear `.user`. Sticky-by-design so
+    /// that backgrounding + foregrounding does not silently override
+    /// the user's pause intent.
+    case user
   }
 
   private(set) var state: State = .idle
@@ -88,6 +120,32 @@ final class ReplayViewModel {
 
   /// Most-recent `.roundStarted.totalRounds`. See ``currentRound``.
   private(set) var currentTotalRounds: Int?
+
+  /// User-selectable playback speed. Initialized from
+  /// ``ReplayPlaybackConfig/playbackSpeed`` and writable at runtime
+  /// (Demo controlBar's Speed Menu assigns to it directly, mirroring
+  /// ``SimulationViewModel/speed``).
+  ///
+  /// **Plain `var` (intentionally not `private(set)`) for Sim parity.**
+  /// Every other observable property on this VM is `private(set) var`
+  /// (`state`, `currentPhase`, `currentRound`, …) and routes mutation
+  /// through explicit transition methods. `playbackSpeed` instead
+  /// matches ``SimulationViewModel/speed`` — the UI assigns directly
+  /// (`viewModel.playbackSpeed = .fast`) over `PlaybackSpeed.allCases`.
+  /// All four cases are valid; no validation guard is required, so a
+  /// dedicated `setPlaybackSpeed(_:)` would only add API surface.
+  ///
+  /// **Next-event reflection only.** A speed change does not interrupt
+  /// the in-flight `Task.sleep`; it takes effect at the next call to
+  /// ``scaledDelay(for:)``. Worst-case latency: `turnDelayMs / .slow.multiplier`
+  /// = ~2400ms with the default 1200ms turn delay. Example: at
+  /// `.normal`, paused with `remainingDelayMs == 600` (computed at
+  /// `.normal` rate); user changes to `.slow`; the resumed event still
+  /// sleeps 600ms — the new `.slow` rate applies starting at event N+1.
+  /// This matches ``SimulationViewModel``'s general inter-event-sleep
+  /// behavior; recompute-on-change was deferred as the simpler mirror
+  /// is acceptable for the Demo screen.
+  var playbackSpeed: PlaybackSpeed
 
   /// Filtered agent-output events in publish order. Consumed by the
   /// host view's chat-stream component (``AgentOutputRow``). The
@@ -141,10 +199,12 @@ final class ReplayViewModel {
   ///     (``BundledDemoReplaySource``); by the time sources reach the
   ///     VM they are already validated.
   ///   - config: Playback pacing + loop policy (spec §4.6). The VM
-  ///     reads `turnDelayMs` / `codePhaseDelayMs` / `speedMultiplier`
+  ///     reads `turnDelayMs` / `codePhaseDelayMs` / `playbackSpeed`
   ///     for per-event sleeps and `loopBehaviour` / `onComplete` for
   ///     end-of-source behaviour (loop rotation lands in a follow-up
-  ///     commit on this branch).
+  ///     commit on this branch). `config.playbackSpeed` seeds
+  ///     ``playbackSpeed``, which is the runtime-mutable knob the UI
+  ///     binds against; `config` itself stays immutable.
   ///   - contentFilter: Filter instance applied to user-visible text
   ///     at render time (spec §3.4).
   ///
@@ -159,6 +219,7 @@ final class ReplayViewModel {
     self.sources = sources
     self.config = config
     self.contentFilter = contentFilter
+    self.playbackSpeed = config.playbackSpeed
   }
 
   // MARK: - Transition methods
@@ -183,7 +244,10 @@ final class ReplayViewModel {
   /// pre-yield delay captured for accurate resumption (ADR-007 §3.4).
   ///
   /// Called by the host view's `scenePhase` observer when the scene
-  /// drops below `.active`. No-op if not currently `.playing`.
+  /// drops below `.active`. Only triggers from `.playing` — a VM
+  /// already paused (either reason) stays put. In particular, a
+  /// ``State/paused``(``PauseReason/user``) VM stays user-paused
+  /// through the BG cycle so foreground does not auto-resume.
   func onBackground() {
     guard case .playing(let sourceIndex, let cursor) = state else { return }
     let remaining = remainingDelayMs()
@@ -191,21 +255,93 @@ final class ReplayViewModel {
     streamTask = nil
     currentSleepDeadline = nil
     state = .paused(
-      sourceIndex: sourceIndex, eventCursor: cursor, remainingDelayMs: remaining)
+      sourceIndex: sourceIndex, eventCursor: cursor, remainingDelayMs: remaining,
+      reason: .scenePhase)
   }
 
   /// Resumes playback from the paused position, sleeping exactly the
   /// remaining delay before publishing the next event.
   ///
   /// Called by the host view's `scenePhase` observer when the scene
-  /// returns to `.active`. No-op if not currently `.paused`.
+  /// returns to `.active`. Auto-resumes only from
+  /// ``State/paused``(``PauseReason/scenePhase``). User-driven pauses
+  /// (``PauseReason/user``) are sticky — the user must call
+  /// ``userResume()`` to leave them.
   func onForeground() {
-    guard case .paused(let sourceIndex, let cursor, let remainingMs) = state
+    guard
+      case .paused(let sourceIndex, let cursor, let remainingMs, .scenePhase) =
+        state
     else { return }
     state = .playing(sourceIndex: sourceIndex, eventCursor: cursor)
     launchPlayback(
       sourceIndex: sourceIndex, startCursor: cursor,
       firstSleepOverrideMs: remainingMs)
+  }
+
+  /// Pauses playback at the user's explicit request. Sticky across
+  /// scene-phase transitions — ``onForeground()`` will NOT auto-resume
+  /// from the resulting `.paused(.user)`; the caller must invoke
+  /// ``userResume()``.
+  ///
+  /// Reason precedence:
+  /// - From `.playing`: captures `remainingDelayMs` (mirroring
+  ///   ``onBackground()``) and transitions to `.paused(.user)`.
+  /// - From `.paused(.scenePhase)`: race-safety override — promotes the
+  ///   reason to `.user`, preserving `remainingDelayMs`. A subsequent
+  ///   ``onForeground()`` then no-ops, so the user's intent wins over
+  ///   the implicit scene-phase auto-resume. The UI is normally hidden
+  ///   during scene-phase pause so this branch is defense-in-depth, not
+  ///   load-bearing.
+  /// - From `.idle`, `.transitioning`, `.paused(.user)`: no-op.
+  func userPause() {
+    // CASE-EXHAUSTIVE on `PauseReason`: each new reason added to
+    // ``PauseReason`` must make an explicit choice here between
+    // "user-pause overrides this reason" (current behavior for
+    // `.scenePhase`) vs. "user-pause is no-op against this reason."
+    // The current intuition is "newer pause reasons are less sticky
+    // than .user", but the compiler will force the decision when a
+    // third case lands.
+    switch state {
+    case .playing(let sourceIndex, let cursor):
+      let remaining = remainingDelayMs()
+      streamTask?.cancel()
+      streamTask = nil
+      currentSleepDeadline = nil
+      state = .paused(
+        sourceIndex: sourceIndex, eventCursor: cursor,
+        remainingDelayMs: remaining, reason: .user)
+    case .paused(let sourceIndex, let cursor, let remainingMs, .scenePhase):
+      state = .paused(
+        sourceIndex: sourceIndex, eventCursor: cursor,
+        remainingDelayMs: remainingMs, reason: .user)
+    case .idle, .transitioning, .paused(_, _, _, .user):
+      return
+    }
+  }
+
+  /// Resumes playback from a user-driven pause. No-op from any other
+  /// state — including `.paused(.scenePhase)` (the UI is normally
+  /// hidden during scene-phase pause; the scenePhase observer's
+  /// ``onForeground()`` is the canonical resume path for that reason).
+  func userResume() {
+    guard
+      case .paused(let sourceIndex, let cursor, let remainingMs, .user) = state
+    else { return }
+    state = .playing(sourceIndex: sourceIndex, eventCursor: cursor)
+    launchPlayback(
+      sourceIndex: sourceIndex, startCursor: cursor,
+      firstSleepOverrideMs: remainingMs)
+  }
+
+  /// `true` when the VM is currently paused due to an explicit
+  /// ``userPause()``. Drives the controlBar's Pause button icon flip
+  /// (`pause.fill` ↔ `play.fill`) in the DL-time demo host view.
+  /// Scene-phase pauses do NOT make this `true` — the UI is normally
+  /// hidden then anyway, but the boundary is meaningful for the
+  /// transient FG-redraw frame after `.scenePhase` auto-resume.
+  var isUserPaused: Bool {
+    if case .paused(_, _, _, .user) = state { return true }
+    return false
   }
 
   /// Transitions to `.transitioning` and tears down the active
@@ -404,8 +540,18 @@ final class ReplayViewModel {
 
   // MARK: - Pacing helpers
 
+  /// Per-event sleep in milliseconds. Reads ``playbackSpeed`` (the
+  /// runtime-mutable VM state, not `config.playbackSpeed`) so a Speed
+  /// Menu change reflects on the next call.
+  ///
+  /// `.instant` short-circuits to 0ms before the multiplier division —
+  /// symmetric with the early-return in ``YAMLReplaySource``. The
+  /// `.infinity` sentinel on `.instant.multiplier` would arithmetically
+  /// produce 0 too, but explicit early-return avoids depending on
+  /// IEEE-754 division semantics.
   private func scaledDelay(for kind: PacedEvent.Kind) -> Int {
-    let speed = max(config.speedMultiplier, 0.001)
+    if playbackSpeed == .instant { return 0 }
+    let speed = max(playbackSpeed.multiplier, 0.001)
     switch kind {
     case .turn:
       return Int(Double(config.turnDelayMs) / speed)
