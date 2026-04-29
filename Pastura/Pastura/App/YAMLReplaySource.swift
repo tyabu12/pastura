@@ -172,13 +172,22 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
     let plan = self.plan
     let turnDelay = config.turnDelayMs
     let codePhaseDelay = config.codePhaseDelayMs
-    let speed = max(config.speedMultiplier, 0.001)
+    let playbackSpeed = config.playbackSpeed
+    // `.instant` short-circuits per-event sleeps to 0 — symmetric with
+    // the early-return in `ReplayViewModel.scaledDelay(for:)`. The
+    // sentinel `.infinity` multiplier on `.instant` would arithmetically
+    // produce 0 too, but the explicit branch avoids depending on
+    // IEEE-754 division semantics.
+    let speed = max(playbackSpeed.multiplier, 0.001)
     return AsyncStream { continuation in
       let task = Task {
         for planned in plan {
           if Task.isCancelled { break }
           let baseDelay = planned.kind == .turn ? turnDelay : codePhaseDelay
-          let sleepMs = Int(Double(baseDelay) / speed)
+          let sleepMs: Int = {
+            if playbackSpeed == .instant { return 0 }
+            return Int(Double(baseDelay) / speed)
+          }()
           if sleepMs > 0 {
             try? await Task.sleep(for: .milliseconds(sleepMs))
           }

@@ -255,10 +255,10 @@ struct ModelDownloadHostView: View {
 
       // Sim-style frosted controlBar (#273): mirrors `SimulationView.controlBar`
       // shape so users learn the layout before reaching the live simulation.
-      // Pause / Speed are visible-but-disabled placeholders (PR 1b enables them
-      // via a new `ReplayViewModel.userPause()` API); only the thought toggle
-      // is interactive in the demo.
-      controlBar()
+      // Pause / Speed / Toggle all interactive — Pause drives
+      // `viewModel.userPause()`/`userResume()`, Speed binds to
+      // `viewModel.playbackSpeed` (#290).
+      controlBar(viewModel: viewModel)
     }
     .background(Color.screenBackground.ignoresSafeArea())
     // PromoCard lives in the bottom safe area instead of a ZStack overlay:

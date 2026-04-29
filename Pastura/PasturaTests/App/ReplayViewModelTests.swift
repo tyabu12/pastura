@@ -61,9 +61,11 @@ struct ReplayViewModelTests {
     try ScenarioLoader().load(yaml: scenarioYAML)
   }
 
-  /// Fast pacing: 100× speed collapses the nominal 1200 ms turn delay
-  /// to ~12 ms — tests still observe the state machine transitions
-  /// without paying human-scale wait times.
+  /// Fast pacing: `.instant` collapses every per-event sleep to 0 —
+  /// tests still observe the state machine transitions without paying
+  /// human-scale wait times. (Pre-#290 used `speedMultiplier: 100.0`
+  /// for ~12 ms turns; the new shape is strictly faster but no test
+  /// here pins on the residual delay.)
   ///
   /// Uses `.stopAfterLast + .awaitTransitionSignal` so the VM HOLDS at
   /// `.playing(lastIndex, plan.count)` after the single source's plan
@@ -71,7 +73,7 @@ struct ReplayViewModelTests {
   /// premature termination. Rotation-specific tests override with
   /// their own config (see `ReplayViewModelTests+Rotation.swift`).
   static let fastConfig = ReplayPlaybackConfig(
-    speedMultiplier: 100.0,
+    playbackSpeed: .instant,
     turnDelayMs: 20,
     codePhaseDelayMs: 5,
     loopBehaviour: .stopAfterLast,
@@ -173,12 +175,12 @@ struct ReplayViewModelTests {
   // MARK: - onBackground / onForeground
 
   @Test func onBackgroundTransitionsPlayingToPaused() async throws {
-    // Slow pacing (1× speed) so we can catch the VM mid-sleep. The
-    // turnDelayMs=20ms scaled by 1× = 20ms per event. Calling
-    // onBackground immediately after start should catch the first
-    // sleep in progress.
+    // Slow pacing (`.normal` = 1×) so we can catch the VM mid-sleep.
+    // turnDelayMs=200ms × 1.0 = 200ms per event; calling onBackground
+    // ~20ms after start catches the first sleep in progress.
     let slowConfig = ReplayPlaybackConfig(
-      speedMultiplier: 1.0, turnDelayMs: 200, codePhaseDelayMs: 50,
+      playbackSpeed: .normal,
+      turnDelayMs: 200, codePhaseDelayMs: 50,
       loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
     let source = try YAMLReplaySource(
       yaml: Self.threeTurnYAML, scenario: Self.makeScenario(),
@@ -188,7 +190,8 @@ struct ReplayViewModelTests {
     // Sleep briefly so the playback task begins its first sleep.
     try await Task.sleep(for: .milliseconds(20))
     viewModel.onBackground()
-    if case .paused(let idx, let cursor, let remaining) = viewModel.state {
+    if case .paused(let idx, let cursor, let remaining, let reason) =
+      viewModel.state {
       #expect(idx == 0)
       // Cursor is 0 (we haven't published the first roundStarted yet
       // because lifecycle delay is 0 — actually 0-delay "sleeps"
@@ -197,6 +200,9 @@ struct ReplayViewModelTests {
       // state shape.
       #expect(cursor >= 0)
       #expect(remaining >= 0)
+      // onBackground() always tags pauses as `.scenePhase`; assertion
+      // strengthening per critic Axis 2 (PR 1b).
+      #expect(reason == .scenePhase)
     } else {
       Issue.record("Expected .paused, got \(viewModel.state)")
     }
@@ -214,8 +220,9 @@ struct ReplayViewModelTests {
     // Wait for some progress.
     await Self.waitForState(viewModel) { _ in viewModel.agentOutputs.count >= 1 }
     viewModel.onBackground()
-    guard case .paused(let idx, let cursor, _) = viewModel.state else {
-      Issue.record("Expected .paused after onBackground, got \(viewModel.state)")
+    guard case .paused(let idx, let cursor, _, .scenePhase) = viewModel.state
+    else {
+      Issue.record("Expected .paused(.scenePhase) after onBackground, got \(viewModel.state)")
       return
     }
     viewModel.onForeground()

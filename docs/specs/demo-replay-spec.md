@@ -162,10 +162,10 @@ metadata:
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true   # §3.4 — curator asserts record-time ContentFilter coverage
   total_turns: 12
-  estimated_duration_ms: 90000   # nominal 1× playback duration using
+  estimated_duration_ms: 90000   # nominal `.normal` playback duration using
                                  # `ReplayPlaybackConfig.demoDefault`
-                                 # pacing; divide by speedMultiplier
-                                 # for actual wall time
+                                 # pacing; divide by playbackSpeed.multiplier
+                                 # (`.instant` collapses to ~0) for actual wall time
   captured_by: tyabu12           # pseudonymous identifier; §6 stash flow
 
 turns:
@@ -207,7 +207,8 @@ Notes on field choices:
   a separate schema layer.
 - **Inter-event pacing lives on the consumer, not the YAML.** Replay
   cadence (`turnDelayMs`, `codePhaseDelayMs`) is set via
-  `ReplayPlaybackConfig` and scaled by `speedMultiplier`. Baking a
+  `ReplayPlaybackConfig` and scaled by `playbackSpeed.multiplier`
+  (`.instant` short-circuits to 0 via consumer early-return). Baking a
   per-event `delay_ms_before` into the recording would bake LLM-
   inference wait time into the replay — dead time the viewer should
   never experience. If a future demo needs a dramatic in-sequence
@@ -443,7 +444,7 @@ Known future concerns to flag now (tracked in §7 Risks):
 
 ```swift
 public struct ReplayPlaybackConfig: Sendable {
-  public var speedMultiplier: Double          // delays are divided by this
+  public var playbackSpeed: PlaybackSpeed     // .slow / .normal / .fast / .instant
   public var loopBehaviour: LoopBehaviour     // .loop / .stopAfterLast
   public var onComplete: CompletionAction     // .awaitTransitionSignal / .stopPlayback
 
@@ -454,14 +455,20 @@ public struct ReplayPlaybackConfig: Sendable {
   }
 
   public static let demoDefault = ReplayPlaybackConfig(
-    speedMultiplier: 1.0,
+    playbackSpeed: .normal,
     loopBehaviour: .loop,
     onComplete: .awaitTransitionSignal)
 }
 ```
 
-The DL-time demo uses `demoDefault` (1× per decision 5). Future
-user-replay would use `.stopAfterLast` + `.stopPlayback` + a
+`PlaybackSpeed` is the shared enum used by both the live simulation
+and replay (extracted to `App/PlaybackSpeed.swift` in #290). Replay
+reads `playbackSpeed.multiplier` to scale `turnDelayMs` /
+`codePhaseDelayMs`; `.instant` is special-cased at every consumer to
+short-circuit to 0ms.
+
+The DL-time demo uses `demoDefault` (`.normal` per decision 5).
+Future user-replay would use `.stopAfterLast` + `.stopPlayback` + a
 user-selectable speed.
 
 ### 4.7 View integration — shared render components

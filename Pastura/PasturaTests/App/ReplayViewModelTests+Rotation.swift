@@ -42,21 +42,21 @@ extension ReplayViewModelTests {
   /// collapse delays to 0 ms + `Task.yield()` which makes rotation
   /// cycle sub-ms — rotation assertions race against the poll loop.
   fileprivate static let stopConfig = ReplayPlaybackConfig(
-    speedMultiplier: 1.0,
+    playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .stopAfterLast,
     onComplete: .stopPlayback)
 
   fileprivate static let holdConfig = ReplayPlaybackConfig(
-    speedMultiplier: 1.0,
+    playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .stopAfterLast,
     onComplete: .awaitTransitionSignal)
 
   fileprivate static let loopConfig = ReplayPlaybackConfig(
-    speedMultiplier: 1.0,
+    playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .loop,
