@@ -1778,6 +1778,22 @@
         }
       }
     },
+    "Phase %arg (%arg) requires field '%arg' in output." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phase %1$arg (%2$arg) requires field '%3$arg' in output."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phase %1$arg (%2$arg) には output に '%3$arg' フィールドが必要です。"
+          }
+        }
+      }
+    },
     "Phase %arg (assign): unknown target '%arg'. Use 'all' or 'random_one'." : {
       "localizations" : {
         "en" : {
