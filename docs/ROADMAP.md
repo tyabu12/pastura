@@ -177,10 +177,10 @@ A short follow-up PR creates `docs/decisions/ADR-010.md` (Status: Proposed) with
 
 1. Scenario YAML language field name (`language`) and default value
 2. Phase 1 backward-compat rule (missing field ⇒ implicit `ja`)
-3. Engine hardcoded-Japanese strategy (X: `Localizable.xcstrings`-based / Y: dynamic per `scenario.language`) — body confirms which; the stub records "TBD in body"
-4. Engine layer is excluded from Step A's `Localizable.xcstrings`; `nonisolated` is retained
+3. Engine hardcoded-Japanese strategy: **Y (dynamic per `scenario.language`)**. X (`Localizable.xcstrings`-based) was rejected because Step C-1 retains `nonisolated` on Engine types — keeping the strategy choice consistent with the existing dependency-rule constraint. The body PR specifies the per-site translation table; the stub fixes the strategy only.
+4. Engine layer is excluded from Step A's `Localizable.xcstrings`; `nonisolated` is retained.
 
-The stub PR also adds a "Localization in progress" line to CLAUDE.md "Completed in Phase 2 so far" and refines this dependency graph if the early decisions shift it.
+The stub PR also renames CLAUDE.md "Completed in Phase 2 so far" → "Phase 2 progress" so the section can carry mixed-status entries, and adds a `Localization (i18n: ja/en) — in progress` entry under it. This dependency graph is refined in the same PR if the early decisions shift it.
 
 ### Phase 2 → Phase 3 Go Criteria
 
