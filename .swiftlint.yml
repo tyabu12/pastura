@@ -34,6 +34,24 @@ opt_in_rules:
   - unused_import
 
 custom_rules:
+  # i18n leak tripwire (#292) — fires on the empirical 10 property names
+  # surfaced by the PR #288 audit + LocalizedError cleanup in PR #299. This
+  # is a TRIPWIRE for the common `errorMessage = "..."` leak shape, NOT a
+  # coverage check; broad coverage is Tier 2's job (see
+  # `scripts/check_i18n_potential_keys.py`). The narrow property-name list is
+  # what keeps the false-positive rate at zero — widening to all `String`
+  # assignments would re-introduce noise that drowned out the empirical
+  # signal in PR #288's analysis. To extend when a new ViewModel lands a
+  # user-facing `String?` property: append the property name to the regex
+  # alternation. See `docs/i18n/leak-detection.md` for the full architecture.
+  unwrapped_user_facing_string:
+    name: "Unwrapped user-facing String"
+    regex: '(errorMessage|validationErrors|alertMessage|toastMessage|nameError|descriptionError|conditionError|promptError|outcomeAlert|deepLinkError)\s*[+=]+\s*\[?\s*"[^"]+"'
+    included:
+      - 'Pastura/Pastura/.*\.swift'
+    severity: warning
+    message: "User-facing String must be wrapped with String(localized: \"...\") so it lands in Localizable.xcstrings and gets a `ja` translation. See CLAUDE.md § 'User-facing String literals' and docs/i18n/leak-detection.md."
+
   # ADR-002 §12 — `tryClaimGeneratingGuard` / `forceClaimGeneratingGuard` are
   # internal-access only because the cross-file `+Lifecycle.swift` extension
   # cannot reach the `private` `generatingGuard`. They are NOT a public
