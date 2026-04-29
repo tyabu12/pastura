@@ -18,7 +18,7 @@ import Testing
           "category": "social_psychology",
           "description": "4人のサクラが…",
           "author": "tyabu12",
-          "recommended_model": "gemma4_e2b",
+          "recommended_model": "gemma-4-e2b-q4-k-m",
           "estimated_inferences": 15,
           "yaml_url": "https://raw.githubusercontent.com/tyabu12/pastura/main/docs/gallery/asch_conformity_v1.yaml",
           "yaml_sha256": "abc123",
@@ -43,7 +43,7 @@ import Testing
       category: .socialPsychology,
       description: "4人のサクラが…",
       author: "tyabu12",
-      recommendedModel: "gemma4_e2b",
+      recommendedModel: ModelRegistry.gemma4E2B.id,
       estimatedInferences: 15,
       // swiftlint:disable:next force_unwrapping
       yamlURL: URL(
@@ -89,7 +89,7 @@ import Testing
     #expect(scenario.category == .socialPsychology)
     #expect(scenario.description == "4人のサクラが…")
     #expect(scenario.author == "tyabu12")
-    #expect(scenario.recommendedModel == "gemma4_e2b")
+    #expect(scenario.recommendedModel == ModelRegistry.gemma4E2B.id)
     #expect(scenario.estimatedInferences == 15)
     #expect(
       scenario.yamlURL.absoluteString

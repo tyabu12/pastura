@@ -2723,6 +2723,16 @@
         }
       }
     },
+    "Unknown model (%arg)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未対応のモデル (%arg)"
+          }
+        }
+      }
+    },
     "Unsupported Device" : {
       "localizations" : {
         "ja" : {

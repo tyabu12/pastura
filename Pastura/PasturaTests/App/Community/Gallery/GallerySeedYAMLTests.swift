@@ -128,6 +128,35 @@ import Testing
     }
   }
 
+  /// Pins the curation invariant that every `gallery.json` entry's
+  /// `recommendedModel` is a valid `ModelRegistry.catalog` id.
+  ///
+  /// A stale or mistyped `recommended_model` value in `gallery.json` would
+  /// silently be ignored at runtime — `GalleryScenarioDetailView` surfaces it
+  /// as the model badge, and `GalleryViewModel.tryInstall` passes it through
+  /// without validation. This test catches the mismatch at curation time so
+  /// it never ships to TestFlight.
+  @Test func recommendedModelMatchesRegistry() throws {
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let indexURL = galleryDir.appendingPathComponent("gallery.json")
+    let indexData = try Data(contentsOf: indexURL)
+    let index = try JSONDecoder().decode(GalleryIndex.self, from: indexData)
+
+    #expect(!index.scenarios.isEmpty, "gallery.json has no scenarios")
+
+    let validIDs = Set(ModelRegistry.catalog.map(\.id))
+
+    for entry in index.scenarios {
+      #expect(
+        validIDs.contains(entry.recommendedModel),
+        """
+        gallery entry id=\(entry.id) has recommendedModel="\(entry.recommendedModel)" \
+        which is not in ModelRegistry.catalog. \
+        Valid ids: \(validIDs.sorted().joined(separator: ", "))
+        """)
+    }
+  }
+
   /// Resolve the repo root relative to this test file. `#filePath` expands
   /// at compile time to the absolute source path; we walk up until we find
   /// the directory that contains `docs/gallery`.
