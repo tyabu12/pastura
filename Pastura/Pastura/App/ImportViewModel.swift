@@ -27,7 +27,7 @@ final class ImportViewModel {
 
     let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
-      validationErrors = ["YAML is empty"]
+      validationErrors = [String(localized: "YAML is empty")]
       return
     }
 
@@ -59,13 +59,17 @@ final class ImportViewModel {
         try repository.fetchById(scenario.id)
       }) {
         if existing.isPreset {
-          validationErrors = ["Cannot overwrite preset scenario '\(existing.name)'"]
+          validationErrors = [
+            String(localized: "Cannot overwrite preset scenario '\(existing.name)'")
+          ]
           return false
         }
         if existing.sourceType == ScenarioSourceType.gallery {
           validationErrors = [
-            "Cannot overwrite gallery scenario '\(existing.name)'. "
-              + "Use Share Board to update, or delete the local copy first."
+            String(
+              localized:
+                "Cannot overwrite gallery scenario '\(existing.name)'. Use Share Board to update, or delete the local copy first."
+            )
           ]
           return false
         }
@@ -85,7 +89,9 @@ final class ImportViewModel {
       savedScenarioId = scenario.id
       return true
     } catch {
-      validationErrors = ["Save failed: \(error.localizedDescription)"]
+      validationErrors = [
+        String(localized: "Save failed: \(error.localizedDescription)")
+      ]
       return false
     }
   }
@@ -100,7 +106,7 @@ final class ImportViewModel {
       }) {
         if record.sourceType == ScenarioSourceType.gallery {
           validationErrors = [
-            "Gallery scenarios are read-only. Use Share Board to update."
+            String(localized: "Gallery scenarios are read-only. Use Share Board to update.")
           ]
           return
         }
@@ -108,7 +114,9 @@ final class ImportViewModel {
         validate()
       }
     } catch {
-      validationErrors = ["Failed to load: \(error.localizedDescription)"]
+      validationErrors = [
+        String(localized: "Failed to load: \(error.localizedDescription)")
+      ]
     }
   }
 

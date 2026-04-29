@@ -92,7 +92,9 @@ final class ScenarioEditorViewModel {
       scenarioId = UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "_")
       validationErrors = []
     } catch {
-      validationErrors = ["Template load failed: \(error.localizedDescription)"]
+      validationErrors = [
+        String(localized: "Template load failed: \(error.localizedDescription)")
+      ]
     }
   }
 
@@ -105,7 +107,7 @@ final class ScenarioEditorViewModel {
       }) {
         if record.sourceType == ScenarioSourceType.gallery {
           validationErrors = [
-            "Gallery scenarios are read-only. Use Share Board to update."
+            String(localized: "Gallery scenarios are read-only. Use Share Board to update.")
           ]
           return
         }
@@ -115,7 +117,9 @@ final class ScenarioEditorViewModel {
         validationErrors = []
       }
     } catch {
-      validationErrors = ["Failed to load: \(error.localizedDescription)"]
+      validationErrors = [
+        String(localized: "Failed to load: \(error.localizedDescription)")
+      ]
     }
   }
 
@@ -139,7 +143,7 @@ final class ScenarioEditorViewModel {
   func switchToVisualMode() -> Bool {
     let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
-      validationErrors = ["YAML is empty"]
+      validationErrors = [String(localized: "YAML is empty")]
       return false
     }
 
@@ -166,7 +170,7 @@ final class ScenarioEditorViewModel {
     if editorMode == .yaml {
       let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
       guard !trimmed.isEmpty else {
-        validationErrors = ["YAML is empty"]
+        validationErrors = [String(localized: "YAML is empty")]
         return
       }
       do {
@@ -178,16 +182,16 @@ final class ScenarioEditorViewModel {
     } else {
       // Visual mode: check basic fields first
       if scenarioName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        validationErrors.append("Scenario name is required")
+        validationErrors.append(String(localized: "Scenario name is required"))
       }
       if scenarioId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        validationErrors.append("Scenario ID is required")
+        validationErrors.append(String(localized: "Scenario ID is required"))
       }
       if personas.isEmpty {
-        validationErrors.append("At least one persona is required")
+        validationErrors.append(String(localized: "At least one persona is required"))
       }
       if phases.isEmpty {
-        validationErrors.append("At least one phase is required")
+        validationErrors.append(String(localized: "At least one phase is required"))
       }
 
       validationErrors.append(contentsOf: invalidAssignTargetErrors())
@@ -231,13 +235,17 @@ final class ScenarioEditorViewModel {
         try repository.fetchById(scenario.id)
       }) {
         if existing.isPreset {
-          validationErrors = ["Cannot overwrite preset scenario '\(existing.name)'"]
+          validationErrors = [
+            String(localized: "Cannot overwrite preset scenario '\(existing.name)'")
+          ]
           return false
         }
         if existing.sourceType == ScenarioSourceType.gallery {
           validationErrors = [
-            "Cannot overwrite gallery scenario '\(existing.name)'. "
-              + "Use Share Board to update, or delete the local copy first."
+            String(
+              localized:
+                "Cannot overwrite gallery scenario '\(existing.name)'. Use Share Board to update, or delete the local copy first."
+            )
           ]
           return false
         }
@@ -257,7 +265,9 @@ final class ScenarioEditorViewModel {
       savedScenarioId = scenario.id
       return true
     } catch {
-      validationErrors = ["Save failed: \(error.localizedDescription)"]
+      validationErrors = [
+        String(localized: "Save failed: \(error.localizedDescription)")
+      ]
       return false
     }
   }
@@ -273,7 +283,10 @@ final class ScenarioEditorViewModel {
       let trimmed = phase.target.trimmingCharacters(in: .whitespacesAndNewlines)
       if !trimmed.isEmpty, AssignTarget(rawValue: trimmed) == nil {
         errors.append(
-          "Phase \(idx + 1) (assign): unknown target '\(trimmed)'. Use 'all' or 'random_one'."
+          String(
+            localized:
+              "Phase \(idx + 1) (assign): unknown target '\(trimmed)'. Use 'all' or 'random_one'."
+          )
         )
       }
     }
