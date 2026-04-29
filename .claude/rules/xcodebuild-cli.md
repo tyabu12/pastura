@@ -44,7 +44,9 @@ The wrapper resolves `REPO_ROOT` internally (so `-project` and the
 `sim-dest.sh` source path are absolute regardless of cwd), so running
 from a subdirectory still produces correct paths — but the allowlist
 match is on the literal command prefix, so do not introduce variable
-expansion (`"$xcb" ...`), `cd ... && scripts/xcodebuild.sh ...`, or
+expansion (`"$xcb" ...`), `cd ... && scripts/xcodebuild.sh ...`,
+leading env-var assignments
+(`PASTURA_SKIP_XCSTRINGS_SYNC=1 scripts/xcodebuild.sh ...`), or
 absolute paths in agent invocations. They bypass the allowlist and
 trigger an approval prompt.
 
@@ -184,6 +186,12 @@ NOT using the wrapper:
 - when intentionally running parallel suites on distinct simulators, or
 - when sourcing only to inspect `$DEST` (e.g., for `xcrun simctl` /
   `xcodebuild -showBuildSettings`) without running tests.
+
+This override variant does not match the exact-match allowlist entry
+`Bash(source scripts/sim-dest.sh)` and triggers an approval prompt by
+design — it is a rare manual operation, and the wrapper
+(`scripts/xcodebuild.sh build`) covers the common case by exporting
+`PASTURA_SKIP_SIM_WAIT=1` internally.
 
 If the gate consistently times out and you don't recall starting another
 test run, the busy PID is likely a stale `xcodebuild`/`testmanagerd`/
