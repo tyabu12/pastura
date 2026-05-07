@@ -184,7 +184,7 @@ struct PhaseEditorSheet: View {
   }
 
   private var outputFieldsSection: some View {
-    Section(String(localized: "Output Fields")) {
+    Section {
       ForEach(phase.outputFields.keys.sorted(), id: \.self) { key in
         HStack {
           Text(key)
@@ -215,6 +215,34 @@ struct PhaseEditorSheet: View {
         }
         .disabled(newOutputFieldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
       }
+    } header: {
+      Text(String(localized: "Output Fields"))
+    } footer: {
+      // Per-phase canonical primary-field hint. Surfaces the convention
+      // enforced by `ScenarioValidator.validateForCommit` so curators
+      // discover the canonical field name at compose time, not at Save.
+      if let hint = canonicalFieldHint {
+        Text(hint)
+      }
+    }
+  }
+
+  private var canonicalFieldHint: String? {
+    switch phase.type {
+    case .speakAll, .speakEach:
+      return String(
+        localized:
+          "Use `statement` for the main spoken text. UI display and conversation log key on this field."
+      )
+    case .choose:
+      return String(
+        localized:
+          "Use `action` for the chosen value. The options enum constraint binds to this field."
+      )
+    case .vote:
+      return String(localized: "Use `vote` for the target name.")
+    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+      return nil
     }
   }
 

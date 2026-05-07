@@ -2727,6 +2727,54 @@
         }
       }
     },
+    "Use `action` for the chosen value. The options enum constraint binds to this field." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use `action` for the chosen value. The options enum constraint binds to this field."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択結果は `action` フィールドで追加してください。options の列挙制約はこのフィールドに紐づきます。"
+          }
+        }
+      }
+    },
+    "Use `statement` for the main spoken text. UI display and conversation log key on this field." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use `statement` for the main spoken text. UI display and conversation log key on this field."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発言本文は `statement` フィールドで追加してください。UI 表示と会話ログはこのフィールドを参照します。"
+          }
+        }
+      }
+    },
+    "Use `vote` for the target name." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use `vote` for the target name."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票先は `vote` フィールドで追加してください。"
+          }
+        }
+      }
+    },
     "Use as Template" : {
       "localizations" : {
         "ja" : {
