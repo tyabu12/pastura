@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"warning\":\"CLAUDE.md not modified in this branch. Check if implementation progress needs updating.\"}}'"
+            "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"CLAUDE.md not modified in this branch. Check if implementation progress needs updating.\"}}'"
           }
         ]
       }
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"additionalContext\":\"Reminder: This is Pastura (Swift/iOS). Follow CLAUDE.md hard rules. No force unwrap (!), no Engine→Data imports, TDD mandatory for Engine/LLM layers.\"}}'"
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Reminder: This is Pastura (Swift/iOS). Follow CLAUDE.md hard rules. No force unwrap (!), no Engine→Data imports, TDD mandatory for Engine/LLM layers.\"}}'"
           }
         ]
       }
@@ -93,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"additionalContext\":\"Before exiting: (1) Check if any memory files need to be created or updated based on this session. (2) Share any concerns, observations, or suggestions you noticed during this session but did not have a chance to mention.\"}}'"
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Before exiting: (1) Check if any memory files need to be created or updated based on this session. (2) Share any concerns, observations, or suggestions you noticed during this session but did not have a chance to mention.\"}}'"
           }
         ]
       },
