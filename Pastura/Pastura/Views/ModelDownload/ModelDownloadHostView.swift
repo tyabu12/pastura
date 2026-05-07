@@ -212,7 +212,7 @@ struct ModelDownloadHostView: View {
 
   private func chatStream(viewModel: ReplayViewModel) -> some View {
     VStack(spacing: 0) {
-      phaseHeader(viewModel: viewModel)
+      gameHeader(viewModel: viewModel)
 
       ScrollViewReader { proxy in
         ScrollView {
@@ -277,7 +277,7 @@ struct ModelDownloadHostView: View {
     }
   }
 
-  // Module-internal so the sibling `+PhaseHeader.swift` extension can
+  // Module-internal so the sibling `+GameHeader.swift` extension can
   // call this helper. `private` only reaches same-file extensions.
   func currentPresetName(viewModel: ReplayViewModel) -> String {
     guard case .playing(let sourceIndex, _) = viewModel.state,

@@ -1,16 +1,19 @@
 #!/bin/bash
 # Run xcodebuild test / build with Pastura's standard env + flags pre-applied.
 #
-# Usage (canonical form — cwd-independent, matches the Bash allowlist):
-#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test
-#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -only-testing PasturaTests/Foo
-#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" test -skip-testing:PasturaUITests
-#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" build
-#   "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" build --tail 30
+# Usage (run from the repository root — matches the Bash allowlist):
+#   scripts/xcodebuild.sh test
+#   scripts/xcodebuild.sh test -only-testing PasturaTests/Foo
+#   scripts/xcodebuild.sh test -skip-testing:PasturaUITests
+#   scripts/xcodebuild.sh build
+#   scripts/xcodebuild.sh build --tail 30
 #
-# Shorter convenience alias for interactive shells:
-#   xcb="$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh"
-#   "$xcb" test -only-testing PasturaTests/Foo --tail 80
+# The wrapper resolves REPO_ROOT internally, so running from a
+# subdirectory still produces correct paths — but agent-issued
+# invocations must use the cwd-relative form above to match the
+# allowlist (`Bash(scripts/xcodebuild.sh*)`); a `$()`-bearing form
+# triggers an approval dialog regardless of the allowlist
+# (anthropics/claude-code#31373).
 #
 # Subcommand maps directly to xcodebuild's; remaining args forward
 # verbatim via "$@". xcodebuild honors the last value for repeated
@@ -58,9 +61,9 @@
 # built-in `--tail N` flag — accepted at any position, consumed before
 # forwarding to xcodebuild, last-wins on duplicates:
 #
-#   "$xcb" build --tail 30
-#   "$xcb" test --tail 80
-#   "$xcb" test -only-testing PasturaTests/Foo --tail 30
+#   scripts/xcodebuild.sh build --tail 30
+#   scripts/xcodebuild.sh test --tail 80
+#   scripts/xcodebuild.sh test -only-testing PasturaTests/Foo --tail 30
 #
 # External `| grep` for pattern-filtering still works. Do NOT pipe
 # through external `| tail` — it defeats `pipefail`, so a failed
@@ -68,8 +71,8 @@
 # `feedback_xcodebuild_pipefail.md` for the original incident). Use
 # the built-in flag instead.
 #
-#   "$xcb" test  ... 2>&1 | grep -E 'error:|TEST|passed|failed'
-#   "$xcb" build ... 2>&1 | grep -E 'error:|warning:|BUILD'
+#   scripts/xcodebuild.sh test  ... 2>&1 | grep -E 'error:|TEST|passed|failed'
+#   scripts/xcodebuild.sh build ... 2>&1 | grep -E 'error:|warning:|BUILD'
 
 set -euo pipefail
 
@@ -80,7 +83,7 @@ set -euo pipefail
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 if [[ $# -eq 0 ]]; then
-  echo 'Usage: "$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh" <test|build> [--tail N] [args...]' >&2
+  echo 'Usage: scripts/xcodebuild.sh <test|build> [--tail N] [args...]' >&2
   exit 2
 fi
 

@@ -208,7 +208,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
 1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🟢 branch's escape at the Sonnet prompt below).
 2. Run targeted tests — confirm failure:
    ```bash
-   source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+   source scripts/sim-dest.sh
    xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
      -destination "$DEST" -only-testing PasturaTests/<CurrentTestClass>
    ```
@@ -252,7 +252,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 >   1. Write the test first in `PasturaTests/`
 >   2. Run the test — confirm it fails:
 >      ```bash
->      source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+>      source scripts/sim-dest.sh
 >      xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
 >        -destination "$DEST" -only-testing PasturaTests/{TestClass}
 >      ```
@@ -280,7 +280,7 @@ After all implementation, run full verification directly from the main session:
 
 1. Run the full test suite:
    ```bash
-   source "$(git rev-parse --show-toplevel)/scripts/sim-dest.sh"
+   source scripts/sim-dest.sh
    xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
      -destination "$DEST" 2>&1 | tail -80
    ```

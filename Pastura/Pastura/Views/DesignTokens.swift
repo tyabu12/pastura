@@ -325,6 +325,9 @@ enum Typography {
     size: 11, weight: .regular, design: .monospaced,
     lineHeight: 1.2, letterSpacingEm: 0.1,
     isItalic: false, textCase: nil)
+
+  // GameHeader (§5.1) typography lives in `DesignTokens+ExtendedTypography.swift`
+  // to keep this file under the 400-line `file_length` cap.
 }
 
 // MARK: - §4 Spacing + Radius tokens

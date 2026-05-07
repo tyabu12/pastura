@@ -144,4 +144,27 @@ extension PasturaPalette {
   static let chart3 = PasturaColorValue(hex: 0x7B8FA8)
   /// Chart category 4 — same hex as `danger`.
   static let chart4 = PasturaColorValue(hex: 0xB57870)
+
+  // MARK: §2.12 Header Slots — GameHeader (Demo / Sim shared)
+  //
+  // Role-anchored tokens for the GameHeader 2-row layout (`title` row +
+  // `meta` row). Named after their slot rather than depth-tone preset so a
+  // future change in chat-stream's L1..L4 family scale (§2.4) does not
+  // ripple into header-bar styling. Hex values overlap with the L-family
+  // by coincidence — `headerMetaInk` is the same hex as `metaBaseL3` —
+  // but the semantic role (header phase-name vs DL-progress meta) is
+  // distinct, so do NOT collapse to a single token.
+
+  /// GameHeader meta-row middle-dot separator (`·`). Lighter than
+  /// general-purpose `rule` (#E0DBCE) so it reads as a typographic
+  /// separator inside one mono line, not as a layout divider.
+  static let headerRule = PasturaColorValue(hex: 0xC2C0AE)
+  /// GameHeader meta-row phase-name foreground. Same hex as `metaBaseL3`
+  /// (#4A4E3D) but role-anchored to the header slot.
+  static let headerMetaInk = PasturaColorValue(hex: 0x4A4E3D)
+  /// GameHeader meta-row subdued foreground (tok/s right side). Sits
+  /// between `muted` and `metaBaseL2` in lightness; chosen so the
+  /// inference-rate value reads as secondary information without
+  /// collapsing into the meta-row separator.
+  static let headerMetaSubdued = PasturaColorValue(hex: 0x7B7D68)
 }

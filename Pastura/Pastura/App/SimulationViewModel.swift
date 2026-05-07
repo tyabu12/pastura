@@ -156,6 +156,78 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     return runner.isPaused
   }
 
+  // MARK: - GameHeader integration (#297 PR 3)
+
+  /// The most recently entered phase. Drives `GameHeader`'s row-2
+  /// phase-name fragment via `SimulationView`'s formatter helper.
+  /// Public-read mirror of the private `currentPhaseType` so the
+  /// existing persistence / log-entry callsites stay encapsulated
+  /// while view-layer code still gets the typed value.
+  ///
+  /// Naming-aligned with `ReplayViewModel.currentPhase` so the two
+  /// VMs present a parallel surface to their respective GameHeader
+  /// composers (Demo's `+GameHeader.swift` extension and Sim's
+  /// `headerBar` helper).
+  var currentPhase: PhaseType? { currentPhaseType }
+
+  /// Computed `GameHeaderStatus` for the always-visible status pill.
+  /// Reads stored flags (`isCancelled` / `errorMessage` / `isCompleted`
+  /// / `isPaused`) fresh on every observation so callers cannot snapshot
+  /// a stale value across a pause→cancel flip. See
+  /// ``SimulationViewModel/deriveStatus(isCancelled:errorMessage:isCompleted:isPaused:)``
+  /// for the precedence and rationale.
+  ///
+  /// Observability of the `isPaused` axis is inherited from the manual
+  /// `access(keyPath:\.isPaused)` / `withMutation(keyPath:\.isPaused)`
+  /// bridge on the `isPaused` getter and mutation sites —
+  /// `runner.isPaused` is non-`@Observable`, so direct flips without
+  /// the bridge would leave this computed property stale. All current
+  /// `runner.isPaused` mutation sites in the file are wrapped; verified
+  /// by `pauseSimulationInvalidatesIsPausedObservation` in the
+  /// lifecycle-test suite.
+  var status: GameHeaderStatus {
+    Self.deriveStatus(
+      isCancelled: isCancelled,
+      errorMessage: errorMessage,
+      isCompleted: isCompleted,
+      isPaused: isPaused
+    )
+  }
+
+  /// Pure derivation of `GameHeaderStatus` from the four flags Sim's
+  /// header pill cares about. Lifted to a `static` so
+  /// `SimulationViewModelStatusTests` can pin every precedence pair
+  /// (especially the pathological `isCancelled && errorMessage != nil`
+  /// case) without having to drive the full `run()` lifecycle.
+  ///
+  /// **Precedence (load-bearing)**: cancellation supersedes everything
+  /// because it is terminal user intent — the alternative would mean
+  /// a race-condition error or a stale paused flag could mask the
+  /// user's deliberate stop. Within the failure tier, an unhandled
+  /// error supersedes a successful completion (a run that completed
+  /// then errored during teardown is still an error from the user's
+  /// perspective). `isPaused` sits below the terminal flags because a
+  /// completed/cancelled/errored run with a stale paused flag (the
+  /// runner clears it defensively, but precedence is defense-in-depth)
+  /// must still report its terminal verdict, not "Paused".
+  ///
+  /// 1. `isCancelled` → `.cancelled`
+  /// 2. `errorMessage != nil` → `.error`
+  /// 3. `isCompleted` → `.completed`
+  /// 4. `isPaused` → `.paused`
+  /// 5. else → `.simulating` (running, or pre-`run()` initialization
+  ///    window where the host view does not yet show the header)
+  static func deriveStatus(
+    isCancelled: Bool, errorMessage: String?,
+    isCompleted: Bool, isPaused: Bool
+  ) -> GameHeaderStatus {
+    if isCancelled { return .cancelled }
+    if errorMessage != nil { return .error }
+    if isCompleted { return .completed }
+    if isPaused { return .paused }
+    return .simulating
+  }
+
   // MARK: - Background continuation state
 
   /// Whether the user has enabled background simulation continuation.
@@ -411,9 +483,19 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     )
     runTask?.cancel()
     isCancelled = true
-    // Cancellation supersedes pause: without this clear, a paused-then-cancelled
-    // run would leave `isPaused == true` and leak an orange "Paused" pill into
-    // the terminal state (the header `else if` chain doesn't check `isCancelled`).
+    // Cancellation supersedes pause. Two consumers depend on `isPaused`
+    // being cleared here:
+    //  1. `GameHeader`'s status pill (#297 PR 3) — defense-in-depth.
+    //     The new `status` derivation explicitly checks `isCancelled`
+    //     first (see `deriveStatus(...)`), so the pill would report
+    //     `.cancelled` even without this clear. Keeping it ensures any
+    //     future precedence reorder cannot reintroduce the "orange
+    //     Paused pill on a cancelled run" regression.
+    //  2. The pause-button icon flip (`pause.fill` ↔ `play.fill`) —
+    //     load-bearing. The button reads `isPaused` directly; without
+    //     this clear, a cancelled run would render the play icon as
+    //     if waiting for the user to resume. The status pill's
+    //     precedence does not cover this widget.
     withMutation(keyPath: \.isPaused) {
       runner.isPaused = false
     }

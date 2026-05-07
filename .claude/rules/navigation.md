@@ -159,6 +159,22 @@ surface changes in areas the automated tests do not exercise.
    route automatically. Manually verify the remaining routes still pop
    exactly one screen (not all the way to root): Editor, Import,
    Simulation, Results, GalleryScenarioDetail.
+
+   **Sim's nav title is intentionally empty** (#297 PR 3, ADR-008
+   §Amendment 2026-04-29) because the `GameHeader` row 1 carries the
+   scenario name. While verifying back-gesture pops, also confirm
+   visually:
+   - Sim's nav bar **title slot** reads empty (no scenario name).
+   - The **back chevron** still shows the upstream `ScenarioDetail`'s
+     title (iOS uses the previous view's title for the back button,
+     not the current view's).
+   - `GameHeader` row 1 shows the scenario name on first frame
+     (driven by `Route.simulation.initialName` `RouteHint`) — no
+     visible pop-in delay between push and `loadAndRun()` finishing.
+   - VoiceOver focus on the `GameHeader` reads the combined
+     accessibility label ("Simulating, scenarioName, Round X of Y,
+     phaseLabel, …") — Sim's nav-title-empty does not leave the
+     screen unannounced.
 3. **Editor save → Home reload** — `EditorReloadTests` covers the
    `onChange(of: router.path.count)` pop-trigger path. Note: the trigger
    only fires when `newCount < oldCount` (a pop). Flows that finish by
