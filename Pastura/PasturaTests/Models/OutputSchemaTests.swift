@@ -30,28 +30,6 @@ struct OutputSchemaTests {
     #expect(schema.fields.map(\.name) == ["vote", "reason"])
   }
 
-  @Test("primary-first ordering: declaration before inner_thought")
-  func primaryBeforeSecondary_declaration() throws {
-    // prisoners_dilemma speak_all schema
-    let schema = try #require(
-      OutputSchema.from(
-        phase: Phase(
-          type: .speakAll, prompt: "…",
-          outputSchema: ["inner_thought": "string", "declaration": "string"])))
-    #expect(schema.fields.map(\.name) == ["declaration", "inner_thought"])
-  }
-
-  @Test("primary-first ordering: boke before inner_thought")
-  func primaryBeforeSecondary_boke() throws {
-    // bokete speak schema
-    let schema = try #require(
-      OutputSchema.from(
-        phase: Phase(
-          type: .speakAll, prompt: "…",
-          outputSchema: ["inner_thought": "string", "boke": "string"])))
-    #expect(schema.fields.map(\.name) == ["boke", "inner_thought"])
-  }
-
   @Test("primary-first ordering: action before inner_thought (choose)")
   func primaryBeforeSecondary_action() throws {
     // prisoners_dilemma choose schema
@@ -204,9 +182,9 @@ struct OutputSchemaTests {
       // bokete
       .init(
         label: "bokete.speakAll",
-        schema: ["boke": "string", "inner_thought": "string"],
+        schema: ["statement": "string", "inner_thought": "string"],
         type: .speakAll, options: nil,
-        expectedOrder: ["boke", "inner_thought"]),
+        expectedOrder: ["statement", "inner_thought"]),
       .init(
         label: "bokete.vote",
         schema: ["vote": "string", "reason": "string"],
@@ -215,9 +193,9 @@ struct OutputSchemaTests {
       // prisoners_dilemma
       .init(
         label: "prisoners_dilemma.speakAll",
-        schema: ["declaration": "string", "inner_thought": "string"],
+        schema: ["statement": "string", "inner_thought": "string"],
         type: .speakAll, options: nil,
-        expectedOrder: ["declaration", "inner_thought"]),
+        expectedOrder: ["statement", "inner_thought"]),
       .init(
         label: "prisoners_dilemma.choose",
         schema: ["action": "string", "inner_thought": "string"],

@@ -50,23 +50,19 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
 
   // MARK: - Typed Accessors
 
-  /// Agent's spoken statement (e.g., speak_all declaration, speak_each comment).
+  /// Agent's spoken statement (canonical primary field for speak phases).
   public var statement: String? { fields["statement"] }
 
-  /// Agent's vote target name.
+  /// Agent's vote target name (canonical primary field for `.vote` phases).
   public var vote: String? { fields["vote"] }
 
-  /// Agent's chosen action (e.g., "cooperate" or "betray").
+  /// Agent's chosen action (canonical primary field for `.choose` phases —
+  /// e.g., "cooperate" or "betray"). `OutputSchema.from(phase:)` binds this
+  /// field to a GBNF enum constraint when the phase has non-empty `options`.
   public var action: String? { fields["action"] }
 
   /// Agent's private inner thought (hidden by default in UI, revealed on tap).
   public var innerThought: String? { fields["inner_thought"] }
-
-  /// Agent's declaration text.
-  public var declaration: String? { fields["declaration"] }
-
-  /// Agent's boke (joke) text for comedy scenarios.
-  public var boke: String? { fields["boke"] }
 
   /// Reason for a vote or decision.
   public var reason: String? { fields["reason"] }
@@ -89,20 +85,23 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   /// that represents an agent's main visible action for the phase type.
   /// Used by UI and by streaming divergence telemetry to align a partial
   /// extractor snapshot with the canonical parse result.
+  ///
+  /// Speak / choose phases return the value at
+  /// ``ScenarioConventions/primaryField(for:)`` (canonical-field lookup).
+  /// `.vote` returns a composite `→ <voted> (<reason>)` string so the
+  /// markdown export and live UI surface the reason inline. Code phases
+  /// have no LLM output and return `nil`.
   public func primaryText(for phaseType: PhaseType) -> String? {
-    switch phaseType {
-    case .speakAll, .speakEach:
-      return statement ?? declaration ?? boke
-    case .vote:
+    if phaseType == .vote {
       return vote.map { voted in
         let reasonPart = reason.map { " (\($0))" } ?? ""
         return "→ \(voted)\(reasonPart)"
       }
-    case .choose:
-      return action ?? declaration
-    default:
-      return fields.values.first
     }
+    guard let key = ScenarioConventions.primaryField(for: phaseType) else {
+      return nil
+    }
+    return fields[key]
   }
 }
 

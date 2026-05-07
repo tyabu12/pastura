@@ -229,6 +229,17 @@ final class ScenarioEditorViewModel {
     let scenario = buildScenario()
     let yaml = serializer.serialize(scenario)
 
+    // Strict commit-time check: every LLM phase must declare its
+    // canonical primary field. Lives here (and not in `validate()`)
+    // so the visual editor's keystroke-time `validate()` stays lenient
+    // — users see canonical-field errors only at the Save action.
+    do {
+      _ = try validator.validateForCommit(scenario)
+    } catch {
+      validationErrors = [error.localizedDescription]
+      return false
+    }
+
     do {
       // Check for preset collision
       if let existing = try await offMain({ [repository] in

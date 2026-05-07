@@ -13,7 +13,7 @@ schema_version: 1
 preset_ref:
   id: prisoners_dilemma
   version: '1.0'
-  yaml_sha256: 'bbe6e4658cf4144e38c6d7f25f63f1b0de6c13744e742392e6573c84117cfc10'
+  yaml_sha256: '70dd7baaa4e9b3aae2222de99099fd02bfe8d7e4dd36310224d5420263a24d54'
 
 metadata:
   title: '囚人のジレンマ — 協力か裏切りか'
@@ -32,35 +32,35 @@ turns:
     phase_type: speak_all
     agent: アキラ
     fields:
-      declaration: 'データ上、協力の期待値が高い。まずは全員で協力しませんか。'
+      statement: 'データ上、協力の期待値が高い。まずは全員で協力しませんか。'
       inner_thought: '初回は信頼を築いて後半で判断する。'
   - round: 1
     phase_index: 0
     phase_type: speak_all
     agent: ミサキ
     fields:
-      declaration: 'みんなで協力すればきっとうまくいく！私は協力で行きます。'
+      statement: 'みんなで協力すればきっとうまくいく！私は協力で行きます。'
       inner_thought: 'みんなが協力してくれると嬉しい。'
   - round: 1
     phase_index: 0
     phase_type: speak_all
     agent: リュウジ
     fields:
-      declaration: '俺は空気なんて読まないぜ。チャンスがあれば狙うからな。'
+      statement: '俺は空気なんて読まないぜ。チャンスがあれば狙うからな。'
       inner_thought: 'ブラフで相手を揺さぶる。でも報復はくらいたくない。'
   - round: 1
     phase_index: 0
     phase_type: speak_all
     agent: ハルカ
     fields:
-      declaration: 'ここは手を組みませんか？協調の方が長期的に得だと思います。'
+      statement: 'ここは手を組みませんか？協調の方が長期的に得だと思います。'
       inner_thought: '同盟を持ちかけて安定した得点源を作る。'
   - round: 1
     phase_index: 0
     phase_type: speak_all
     agent: ケンタ
     fields:
-      declaration: 'さーて、今回はどうしよっかなー？気分次第だね。'
+      statement: 'さーて、今回はどうしよっかなー？気分次第だね。'
       inner_thought: '予測不能に見せて場を引っかき回す。'
   - round: 1
     phase_index: 1

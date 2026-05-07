@@ -125,6 +125,24 @@ struct AgentOutputRowContractTests {
     #expect(row.targetLength == 20)
   }
 
+  /// Even when the parsed `output` already has a canonical primary field,
+  /// a non-nil `streamingPrimary` must short-circuit. Pinned because the
+  /// item-2 refactor delegates the non-streaming branch to
+  /// ``TurnOutput/primaryText(for:)``; a future "consolidation" that drops
+  /// the `if let streamingPrimary` short-circuit would silently revert
+  /// live UI to materialising-from-final-fields and lose token-by-token
+  /// growth.
+  @Test func targetLengthPrefersStreamingPrimaryOverParsedPrimary() {
+    let row = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: ["statement": "FINAL TEN"]),  // 9 chars
+      phaseType: .speakAll,
+      showAllThoughts: false,
+      streamingPrimary: "live"  // 4 chars — must win
+    )
+    #expect(row.targetLength == 4)
+  }
+
   @Test func targetLengthPrefersStreamingThoughtOverPhaseField() {
     let row = AgentOutputRow(
       agent: "Alice",

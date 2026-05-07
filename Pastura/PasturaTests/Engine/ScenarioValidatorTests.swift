@@ -392,7 +392,9 @@ struct ScenarioValidatorTests {
 
   // MARK: - Helpers
 
-  private func makeScenario(agents: Int, rounds: Int, phases: [Phase]) -> Scenario {
+  // Internal (not private) so sibling-file extensions
+  // (ScenarioValidatorTests+Commit.swift) can call into the same factory.
+  func makeScenario(agents: Int, rounds: Int, phases: [Phase]) -> Scenario {
     Scenario(
       id: "test", name: "Test", description: "Test",
       agentCount: agents, rounds: rounds, context: "Context",

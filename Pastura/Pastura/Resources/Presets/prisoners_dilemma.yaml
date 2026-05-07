@@ -49,7 +49,7 @@ phases:
 
       全員に向けて宣言してください。協力を呼びかけても、ブラフをかけてもOKです。
     output:
-      declaration: string
+      statement: string
       inner_thought: string
 
   - type: choose

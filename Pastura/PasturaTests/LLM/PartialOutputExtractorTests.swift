@@ -52,7 +52,7 @@ struct PartialOutputExtractorTests {
   }
 
   @Test func allKnownPrimaryKeysResolve() {
-    for key in ["statement", "declaration", "boke", "action", "vote"] {
+    for key in PartialOutputExtractor.primaryKeys {
       let snap = extractor.extract(from: #"{"\#(key)":"val"}"#)
       #expect(snap.primary == "val", "primary key \(key) failed to resolve")
     }
@@ -189,8 +189,6 @@ struct PartialOutputExtractorTests {
     let finalParsed = try? parser.parse(fixture.finalText)
     let canonicalPrimary =
       finalParsed?.statement
-      ?? finalParsed?.declaration
-      ?? finalParsed?.boke
       ?? finalParsed?.action
       ?? finalParsed?.vote
 

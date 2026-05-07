@@ -57,29 +57,35 @@ struct PromptBuilderTests {
 
   // MARK: - Get Main Field
 
-  @Test func getMainFieldReturnsStatementWhenPresent() {
+  /// Speak phases route the canonical `statement` field into the
+  /// conversation log, regardless of which other fields the schema
+  /// happens to carry.
+  @Test func getMainFieldReturnsStatementForSpeakPhases() {
     let phase = Phase(
       type: .speakAll, outputSchema: ["statement": "string", "inner_thought": "string"])
     #expect(builder.getMainField(phase: phase) == "statement")
   }
 
-  @Test func getMainFieldReturnsDeclarationWhenPresent() {
-    let phase = Phase(type: .choose, outputSchema: ["declaration": "string", "action": "string"])
-    #expect(builder.getMainField(phase: phase) == "declaration")
+  /// Choose phases use `action` (the canonical primary field bound to the
+  /// GBNF enum constraint) — speak handlers don't dispatch to choose, but
+  /// `getMainField` is generic on phase type and the conventions table is
+  /// the single source of truth.
+  @Test func getMainFieldReturnsActionForChoose() {
+    let phase = Phase(type: .choose, outputSchema: ["action": "string"])
+    #expect(builder.getMainField(phase: phase) == "action")
   }
 
-  @Test func getMainFieldReturnsBokeWhenPresent() {
-    let phase = Phase(type: .speakAll, outputSchema: ["boke": "string", "inner_thought": "string"])
-    #expect(builder.getMainField(phase: phase) == "boke")
+  /// Vote phases canonicalise on `vote`.
+  @Test func getMainFieldReturnsVoteForVote() {
+    let phase = Phase(type: .vote, outputSchema: ["vote": "string", "reason": "string"])
+    #expect(builder.getMainField(phase: phase) == "vote")
   }
 
-  @Test func getMainFieldDefaultsToStatementWhenNoKnownField() {
-    let phase = Phase(type: .speakAll, outputSchema: ["custom_field": "string"])
-    #expect(builder.getMainField(phase: phase) == "statement")
-  }
-
-  @Test func getMainFieldDefaultsToStatementWhenNoOutputSchema() {
-    let phase = Phase(type: .speakAll)
+  /// Code phases have no canonical field; the speak fallback applies so
+  /// callers (today: only the speak handlers) receive a non-nil string
+  /// even if the conventions table returns `nil`.
+  @Test func getMainFieldFallsBackToStatementForCodePhases() {
+    let phase = Phase(type: .scoreCalc)
     #expect(builder.getMainField(phase: phase) == "statement")
   }
 

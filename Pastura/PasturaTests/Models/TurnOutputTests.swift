@@ -11,8 +11,6 @@ struct TurnOutputTests {
       "vote": "Alice",
       "action": "cooperate",
       "inner_thought": "I should cooperate",
-      "declaration": "Let's work together",
-      "boke": "That's funny",
       "reason": "Because they're trustworthy"
     ])
 
@@ -20,8 +18,6 @@ struct TurnOutputTests {
     #expect(output.vote == "Alice")
     #expect(output.action == "cooperate")
     #expect(output.innerThought == "I should cooperate")
-    #expect(output.declaration == "Let's work together")
-    #expect(output.boke == "That's funny")
     #expect(output.reason == "Because they're trustworthy")
   }
 
