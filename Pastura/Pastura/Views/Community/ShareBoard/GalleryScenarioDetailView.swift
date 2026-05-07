@@ -11,11 +11,16 @@ import SwiftUI
 struct GalleryScenarioDetailView: View {
   let scenario: GalleryScenario
 
-  @Environment(AppDependencies.self) private var dependencies
+  // `dependencies` / `modelManager` / `isWorking` drop `private` so the
+  // sibling extension in `GalleryScenarioDetailView+RecommendedModel.swift`
+  // can read them. Same pattern as `.claude/rules/testing.md`'s sibling-file
+  // extension guidance — `private` blocks cross-file extension access.
+  @Environment(AppDependencies.self) var dependencies
   @Environment(AppRouter.self) private var router
+  @Environment(ModelManager.self) var modelManager
   @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
   @State private var viewModel: ShareBoardViewModel?
-  @State private var isWorking = false
+  @State var isWorking = false
   @State private var outcomeAlert: OutcomeAlert?
   @State private var isReportSheetPresented = false
 
@@ -110,6 +115,7 @@ struct GalleryScenarioDetailView: View {
           String(localized: "Est. inferences"), value: "\(scenario.estimatedInferences)")
         LabeledContent(String(localized: "Added"), value: scenario.addedAt)
       }
+      recommendedModelSection
       Section {
         actionButton(viewModel: viewModel)
       } footer: {
