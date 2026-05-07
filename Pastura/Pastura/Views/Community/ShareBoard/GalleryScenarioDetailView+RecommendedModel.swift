@@ -14,6 +14,10 @@ extension GalleryScenarioDetailView {
     let status = recommendedModelStatus
     switch status {
     case .matched, .unknownModel, .unsupportedDevice:
+      // `EmptyView()` in a `List` collapses to nothing — no Section is
+      // emitted, no divider, no row spacing. The consuming site at
+      // `GalleryScenarioDetailView.content(viewModel:)` always calls this
+      // computed property, so the suppression must be at this layer.
       EmptyView()
     case .switchAvailable(let isLocked):
       Section {

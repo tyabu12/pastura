@@ -40,6 +40,19 @@ struct RecommendedModelStatusTests {
     #expect(status == .unsupportedDevice)
   }
 
+  @Test func rule3_unsupportedDeviceWinsOverRule4_evenIfActiveMatchesRecommended() {
+    // Pins Rule 3 (.unsupportedDevice) precedence over Rule 4 (active==recommended).
+    // The two cases produce the same surface map today (no banner, no affordance)
+    // but the distinction matters: a future copy revision for `.unsupportedDevice`
+    // ("This device cannot run the recommended model") would silently revert
+    // to `.matched` if the rule order ever flipped. This test guards that.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: gemma,
+      state: [gemma: .unsupportedDevice],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .unsupportedDevice)
+  }
+
   // MARK: - Rule 4: active matches recommended → matched regardless of state
 
   @Test func rule4_activeMatchesRecommendedReturnsMatched_evenWhileDownloading() {
