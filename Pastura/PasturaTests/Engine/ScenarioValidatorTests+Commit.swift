@@ -160,9 +160,12 @@ extension ScenarioValidatorTests {
       Issue.record("Expected validateForCommit to throw")
     } catch let SimulationError.scenarioValidationFailed(message) {
       // Partial-match per CLAUDE.md i18n rule — assert the message names
-      // the canonical field and the phase, not exact wording.
+      // the canonical field, phase type, and 1-based phase index, not exact
+      // wording. The phase-index part of the contract is what lets a user
+      // disambiguate when several phases share a type.
       #expect(message.contains("statement"))
       #expect(message.contains("speak_all"))
+      #expect(message.contains("Phase 1"))
     } catch {
       Issue.record("Unexpected error type: \(error)")
     }

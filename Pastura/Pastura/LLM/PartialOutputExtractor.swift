@@ -11,8 +11,10 @@ import Foundation
 /// result — every partial primary must be a prefix of the final one.
 nonisolated public struct PartialSnapshot: Sendable, Equatable {
   /// Currently-visible value of the first primary key present in the
-  /// buffer (one of: statement, declaration, boke, action, vote). `nil`
-  /// while the extractor is waiting for that key's opening quote.
+  /// buffer (one of `PartialOutputExtractor.primaryKeys` —
+  /// `statement` / `action` / `vote`, matching
+  /// ``ScenarioConventions/primaryField(for:)``). `nil` while the
+  /// extractor is waiting for that key's opening quote.
   public let primary: String?
 
   /// Currently-visible value of `inner_thought`, or `nil` until its

@@ -35,15 +35,20 @@ struct ScenarioConventionsTests {
     }
   }
 
-  /// Defends against accidental drift if a new `PhaseType` case is added —
-  /// the new case should be classified explicitly in `primaryField(for:)`'s
-  /// switch, and this test enumerates every case to surface the omission.
-  @Test func everyPhaseTypeIsClassified() {
+  /// Defends against drift if a new `PhaseType` case lands with a non-canonical
+  /// value (e.g. someone returns `"speech"` for a new speak-shape phase). Pins
+  /// the partition: every case maps to one of `{statement, action, vote}` or
+  /// `nil` (code phases). Compiler exhaustiveness already catches a *missing*
+  /// case in `primaryField(for:)`; this test catches a *wrong* classification.
+  @Test func everyPhaseTypeMapsToCanonicalSetOrNil() {
+    let canonical: Set<String> = ["statement", "action", "vote"]
     for phaseType in PhaseType.allCases {
-      _ = ScenarioConventions.primaryField(for: phaseType)
+      let field = ScenarioConventions.primaryField(for: phaseType)
+      if let field {
+        #expect(
+          canonical.contains(field),
+          "phase \(phaseType.rawValue) returned non-canonical primary field '\(field)'")
+      }
     }
-    // No assertion — switch-exhaustiveness in `primaryField(for:)` guarantees
-    // every case is handled. The point of this test is to fail compilation
-    // (in `primaryField`) when a new case lands without a classification.
   }
 }
