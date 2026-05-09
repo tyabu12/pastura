@@ -90,31 +90,29 @@ struct GameHeaderContractTests {
 
   @Test func acceptsAllNilMetaInputs() {
     // Pin the contract: caller can pass nil for every row-2 slot
-    // without crashing. The view will render only row 1.
+    // without crashing. The view will render only row 1. After #313
+    // the ROUND fragment is gated on a single `round: GameHeaderRound?`,
+    // so the partial-pair test (`currentRound` without `totalRounds`)
+    // became unrepresentable and was removed.
     let header = GameHeader(
       scenarioName: "X", status: .completed,
-      currentRound: nil, totalRounds: nil,
-      phaseLabel: nil, tokensPerSecond: nil
+      round: nil, phaseLabel: nil, tokensPerSecond: nil
     )
     #expect(header.scenarioName == "X")
-    #expect(header.currentRound == nil)
-    #expect(header.totalRounds == nil)
+    #expect(header.round == nil)
     #expect(header.phaseLabel == nil)
     #expect(header.tokensPerSecond == nil)
   }
 
-  // MARK: - Partial ROUND inputs (one of currentRound/totalRounds nil)
+  // MARK: - Round wrapper round-trip (#313)
 
-  @Test func acceptsCurrentRoundWithoutTotalRounds() {
-    // Documented behavior: `formatRoundLabel` is only called when both
-    // are non-nil. Passing one without the other doesn't crash; the
-    // ROUND fragment is suppressed. Pinned at the input level here;
-    // visual suppression is verified manually.
+  @Test func roundWrapperRoundTripsThroughInit() {
+    // Pin the contract that `init`'s `round` parameter survives
+    // unchanged onto the public `round` property.
     let header = GameHeader(
       scenarioName: "X", status: .simulating,
-      currentRound: 2, totalRounds: nil
+      round: GameHeaderRound(current: 2, total: 5)
     )
-    #expect(header.currentRound == 2)
-    #expect(header.totalRounds == nil)
+    #expect(header.round == GameHeaderRound(current: 2, total: 5))
   }
 }

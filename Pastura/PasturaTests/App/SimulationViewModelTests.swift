@@ -6,8 +6,12 @@ import Testing
 // MARK: - Test Helpers
 
 /// Creates a configured SimulationViewModel for testing with in-memory DB.
+///
+/// Internal (not `private`) so sibling-file extensions of
+/// `SimulationViewModelTests` can call it. See
+/// `.claude/rules/testing.md` § "Splitting a Suite Across Files".
 @MainActor
-private func makeSUT(
+func makeSUT(
   contentFilter: ContentFilter = ContentFilter(blockedPatterns: ["badword"])
 ) throws -> (sut: SimulationViewModel, scenario: Scenario) {
   let db = try DatabaseManager.inMemory()

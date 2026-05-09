@@ -293,8 +293,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// - `scenarioName` / `initialName` — the same 3-tier fallback chain
   ///   that previously fed `.navigationTitle()`. ADR-008 §Amendment
   ///   2026-04-29 documents the sink pivot.
-  /// - `currentRound` / `totalRounds` — real game-rounds from
-  ///   `.roundStarted` events. Suppressed (nil) until the first
+  /// - `round` — `viewModel.headerRound` (`GameHeaderRound?`). Real
+  ///   game-rounds from `.roundStarted` events; the VM colocates the
+  ///   pair-or-nothing guard (`totalRounds > 0`) so the call site
+  ///   doesn't re-derive it (#313). Suppressed (nil) until the first
   ///   `.roundStarted` lands so the ROUND fragment doesn't flash a
   ///   stale `0/0` between scenario load and first round.
   /// - `phaseLabel` — formatted from `viewModel.currentPhase`.
@@ -311,8 +313,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       scenarioName: scenario?.name,
       initialName: initialName,
       status: viewModel.status,
-      currentRound: viewModel.totalRounds > 0 ? viewModel.currentRound : nil,
-      totalRounds: viewModel.totalRounds > 0 ? viewModel.totalRounds : nil,
+      round: viewModel.headerRound,
       phaseLabel: Self.phaseDisplayLabel(for: viewModel.currentPhase),
       tokensPerSecond: viewModel.averageTokensPerSecond,
       extendsIntoTopSafeArea: false
