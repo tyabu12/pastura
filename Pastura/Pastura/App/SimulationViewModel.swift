@@ -228,6 +228,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     return .simulating
   }
 
+  /// Round-counter pair for `GameHeader`'s row-2 ROUND fragment.
+  /// `nil` until the first `.roundStarted` event lands (`totalRounds`
+  /// stays at its initial `0` until then), so the fragment doesn't
+  /// flash a stale `0/0` between scenario load and first round.
+  ///
+  /// The pair-or-nothing invariant lives here — at the source of truth
+  /// for round state — rather than at the call site. `SimulationView`
+  /// passes `viewModel.headerRound` directly into `GameHeader.init`
+  /// without re-deriving the guard.
+  var headerRound: GameHeaderRound? {
+    guard totalRounds > 0 else { return nil }
+    return GameHeaderRound(current: currentRound, total: totalRounds)
+  }
+
   // MARK: - Background continuation state
 
   /// Whether the user has enabled background simulation continuation.
