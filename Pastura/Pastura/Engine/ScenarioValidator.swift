@@ -70,6 +70,43 @@ nonisolated struct ScenarioValidator: Sendable {
     return ValidationResult(warnings: warnings, estimatedInferences: estimated)
   }
 
+  /// Strict validation gate for commit-to-persist callsites
+  /// (`ImportViewModel.save()` / `ScenarioEditorViewModel.save()`).
+  ///
+  /// Runs every check `validate(_:)` runs, then adds the canonical
+  /// primary-field requirement: every LLM phase must declare its
+  /// ``ScenarioConventions/primaryField(for:)`` key in `output:`. The
+  /// engine and UI key on those canonical fields, so a scenario that
+  /// omits them silently breaks (empty conversation log, blank UI rows,
+  /// `options[0]` fallback for choose). Surfacing the error at commit
+  /// time keeps already-persisted scenarios runnable while preventing
+  /// new ones from entering the database in the broken shape.
+  func validateForCommit(_ scenario: Scenario) throws -> ValidationResult {
+    let result = try validate(scenario)
+    try validateCanonicalPrimaryFields(scenario)
+    return result
+  }
+
+  /// Enforces ``ScenarioConventions/primaryField(for:)`` for LLM phases.
+  /// Code phases are exempt (the conventions table returns `nil` and the
+  /// loop skips them).
+  private func validateCanonicalPrimaryFields(_ scenario: Scenario) throws {
+    for (index, phase) in scenario.phases.enumerated() {
+      guard let canonical = ScenarioConventions.primaryField(for: phase.type) else {
+        continue
+      }
+      let schema = phase.outputSchema ?? [:]
+      if schema[canonical] == nil {
+        throw SimulationError.scenarioValidationFailed(
+          String(
+            localized:
+              "Phase \(index + 1) (\(phase.type.rawValue)) requires field '\(canonical)' in output."
+          )
+        )
+      }
+    }
+  }
+
   /// Per-phase semantic checks beyond execution-limit validation.
   ///
   /// Covers `assign` target/source shape compatibility and `conditional`

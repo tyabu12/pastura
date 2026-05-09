@@ -13,7 +13,7 @@ schema_version: 1
 preset_ref:
   id: bokete
   version: '1.0'
-  yaml_sha256: '0dd3a268d33d0feff5684be3dfd7a7851cd93aeb393c55f747123cb9c1b46e9a'
+  yaml_sha256: 'ef7d6cea301d74e22553c93df508fd0fd07f28a5b7ccfd0414ea33ff226a6c8e'
 
 metadata:
   title: 'ボケて — AI大喜利バトル'
@@ -32,35 +32,35 @@ turns:
     phase_type: speak_all
     agent: ツッコミ太郎
     fields:
-      boke: 'それ、坂道じゃなくて人生を下ってる。'
+      statement: 'それ、坂道じゃなくて人生を下ってる。'
       inner_thought: '短く鋭く。テーマをズラして一言で刺す。'
   - round: 1
     phase_index: 1
     phase_type: speak_all
     agent: シュール子
     fields:
-      boke: 'あの坂の先で、10年前の自分が待っている。'
+      statement: 'あの坂の先で、10年前の自分が待っている。'
       inner_thought: 'なんの脈絡もないほど面白い。時間軸をいじろう。'
   - round: 1
     phase_index: 1
     phase_type: speak_all
     agent: あるある先生
     fields:
-      boke: '田舎のおばあちゃん、運動会前日になぜか全力で練習しがち。'
+      statement: '田舎のおばあちゃん、運動会前日になぜか全力で練習しがち。'
       inner_thought: '共感で持っていく。誰でも知ってる情景に寄せる。'
   - round: 1
     phase_index: 1
     phase_type: speak_all
     agent: ブラック山田
     fields:
-      boke: '年金支給日の前日、残高とレース中。'
+      statement: '年金支給日の前日、残高とレース中。'
       inner_thought: '皮肉を効かせる。苦笑で笑わせる方向。'
   - round: 1
     phase_index: 1
     phase_type: speak_all
     agent: 天然ボケ美
     fields:
-      boke: 'わあ、おばあちゃんの新しい趣味ですね！免許いるのかな？'
+      statement: 'わあ、おばあちゃんの新しい趣味ですね！免許いるのかな？'
       inner_thought: '計算せずに素直に感想を言っちゃえ。'
   - round: 1
     phase_index: 2

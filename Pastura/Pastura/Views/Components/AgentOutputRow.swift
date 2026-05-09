@@ -624,22 +624,11 @@ struct AgentOutputRow: View {
   /// over the phase-derived value from `output` so the partial LLM
   /// output grows in place instead of materialising from the final
   /// parsed fields. Completed rows (no streaming override) fall through
-  /// to the existing phase-specific extraction.
+  /// to ``TurnOutput/primaryText(for:)`` — the canonical per-phase
+  /// extraction, keyed by ``ScenarioConventions``.
   private var primaryText: String? {
     if let streamingPrimary { return streamingPrimary }
-    switch phaseType {
-    case .speakAll, .speakEach:
-      return output.statement ?? output.declaration ?? output.boke
-    case .vote:
-      return output.vote.map { vote in
-        let reason = output.reason.map { " (\($0))" } ?? ""
-        return "→ \(vote)\(reason)"
-      }
-    case .choose:
-      return output.action ?? output.declaration
-    default:
-      return output.fields.values.first
-    }
+    return output.primaryText(for: phaseType)
   }
 
   /// Inner thought text, honouring the streaming override when present.

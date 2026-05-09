@@ -50,7 +50,7 @@ phases:
       あなたの推し陣営の魅力を1〜2文で熱く語ってください。
       （中立の方は、両陣営の良いところを率直に挙げてください。）
     output:
-      appeal: string
+      statement: string
       inner_thought: string
 
   - type: speak_each
@@ -59,7 +59,7 @@ phases:
       相手陣営の主張への反論を1〜2文で。攻撃的にならず、根拠で返してください。
       （中立の方は、より響いた主張に触れつつ、反対側への素朴な疑問を述べてください。）
     output:
-      counter: string
+      statement: string
       inner_thought: string
 
   - type: choose
@@ -71,7 +71,7 @@ phases:
       - kinoko
       - takenoko
     output:
-      faction: string
+      action: string
       reason: string
 
   - type: speak_each
@@ -81,7 +81,7 @@ phases:
       勝者陣営の方は祝辞を、敗者陣営の方は所感や負け惜しみを、
       中立の方は判決の所感と決断の理由を率直に述べてください。
     output:
-      closing: string
+      statement: string
       inner_thought: string
 
   - type: summarize

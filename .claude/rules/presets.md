@@ -54,7 +54,7 @@ personas:
 phases:
   - type: speak_all
     prompt: "現在のスコア: {scoreboard}\n全員に向けて1〜2文で宣言してください。ブラフも可。"
-    output: { declaration: string, inner_thought: string }
+    output: { statement: string, inner_thought: string }
 
   - type: choose
     pairing: round_robin
@@ -122,7 +122,7 @@ phases:
 
   - type: speak_all
     prompt: "お題: {assigned_topic}\n1文だけボケてください。説明ではなくボケ。簡潔に。"
-    output: { boke: string, inner_thought: string }
+    output: { statement: string, inner_thought: string }
 
   - type: vote
     prompt: |

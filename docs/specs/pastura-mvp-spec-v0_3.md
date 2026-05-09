@@ -114,16 +114,22 @@ E2B実機テスト（Ollama + Gemma 4 E2B on M1 MacBook）で以下を確認:
 
 ### 4.2 フェーズタイプ一覧
 
-| タイプ | 説明 | 処理主体 |
-|--------|------|----------|
-| `speak_all` | 全員が1つの発言を生成 | LLM |
-| `speak_each` | 指名された1人が順番に発言 | LLM |
-| `vote` | 全員が誰か1人に投票 | LLM |
-| `choose` | 選択肢から1つ選ぶ | LLM |
-| `score_calc` | スコアを計算 | コード |
-| `assign` | エージェントに情報を配布 | コード |
-| `eliminate` | 最多得票者を脱落 | コード |
-| `summarize` | 結果を要約テキスト化 | コード |
+| タイプ | 説明 | 処理主体 | Canonical primary field |
+|--------|------|----------|-------------------------|
+| `speak_all` | 全員が1つの発言を生成 | LLM | `statement` |
+| `speak_each` | 指名された1人が順番に発言 | LLM | `statement` |
+| `vote` | 全員が誰か1人に投票 | LLM | `vote` |
+| `choose` | 選択肢から1つ選ぶ | LLM | `action` |
+| `score_calc` | スコアを計算 | コード | — |
+| `assign` | エージェントに情報を配布 | コード | — |
+| `eliminate` | 最多得票者を脱落 | コード | — |
+| `summarize` | 結果を要約テキスト化 | コード | — |
+
+LLM フェーズの `output:` には canonical primary field を必ず含めること。
+ハンドラ・UI 表示・会話ログがこれをキーとして読むため、別名を付けると無音で
+壊れる。`ScenarioValidator.validateForCommit(_:)` が import / editor save
+時に強制し、定義は `Pastura/Pastura/Models/ScenarioConventions.swift` を
+single source of truth とする。
 
 **Phase 2以降:**
 - `conditional` — 条件分岐 (出荷済み, #126/#141)
@@ -153,7 +159,7 @@ personas:
 phases:
   - type: speak_all
     prompt: "全員に向けて1文だけ宣言してください。ブラフも可。"
-    output: { declaration: string, inner_thought: string }
+    output: { statement: string, inner_thought: string }
 
   - type: choose
     pairing: round_robin

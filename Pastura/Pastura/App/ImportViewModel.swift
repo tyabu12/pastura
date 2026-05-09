@@ -54,6 +54,18 @@ final class ImportViewModel {
     do {
       let scenario = try loader.load(yaml: yamlText)
 
+      // Strict commit-time check: every LLM phase must declare its
+      // canonical primary field. Lives here (and not in `validate()`)
+      // so users get keystroke-time feedback on structural errors but
+      // see canonical-field errors only at the commit gate, surfacing
+      // the issue at "Save" rather than mid-typing.
+      do {
+        _ = try validator.validateForCommit(scenario)
+      } catch {
+        validationErrors = [error.localizedDescription]
+        return false
+      }
+
       // Check for ID collision
       if let existing = try await offMain({ [repository] in
         try repository.fetchById(scenario.id)

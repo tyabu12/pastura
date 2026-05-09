@@ -19,8 +19,6 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
     public var vote: String? { fields["vote"] }
     public var action: String? { fields["action"] }
     public var innerThought: String? { fields["inner_thought"] }
-    public var declaration: String? { fields["declaration"] }
-    public var boke: String? { fields["boke"] }
     public var reason: String? { fields["reason"] }
 
     public func require(_ key: String) throws -> String { ... }

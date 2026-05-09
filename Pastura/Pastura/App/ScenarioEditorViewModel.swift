@@ -229,6 +229,8 @@ final class ScenarioEditorViewModel {
     let scenario = buildScenario()
     let yaml = serializer.serialize(scenario)
 
+    guard runCommitTimeValidation(scenario) else { return false }
+
     do {
       // Check for preset collision
       if let existing = try await offMain({ [repository] in
@@ -273,6 +275,20 @@ final class ScenarioEditorViewModel {
   }
 
   // MARK: - Private
+
+  /// Strict commit-time check: every LLM phase must declare its canonical
+  /// primary field. Lives outside `validate()` so the visual editor's
+  /// keystroke-time `validate()` stays lenient — users see canonical-field
+  /// errors only at the Save action.
+  private func runCommitTimeValidation(_ scenario: Scenario) -> Bool {
+    do {
+      _ = try validator.validateForCommit(scenario)
+      return true
+    } catch {
+      validationErrors = [error.localizedDescription]
+      return false
+    }
+  }
 
   /// Visual editor uses a free-text TextField for `target` (#83 will replace
   /// with a Picker). Surface typos as user-visible errors so they do not silently

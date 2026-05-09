@@ -79,7 +79,7 @@ struct ScenarioSerializerTests {
         Phase(
           type: .speakAll,
           prompt: "Declare your intent.",
-          outputSchema: ["declaration": "string"]
+          outputSchema: ["statement": "string"]
         )
       ],
       extraData: [

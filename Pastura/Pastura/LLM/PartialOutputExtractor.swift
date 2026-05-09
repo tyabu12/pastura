@@ -11,8 +11,10 @@ import Foundation
 /// result — every partial primary must be a prefix of the final one.
 nonisolated public struct PartialSnapshot: Sendable, Equatable {
   /// Currently-visible value of the first primary key present in the
-  /// buffer (one of: statement, declaration, boke, action, vote). `nil`
-  /// while the extractor is waiting for that key's opening quote.
+  /// buffer (one of `PartialOutputExtractor.primaryKeys` —
+  /// `statement` / `action` / `vote`, matching
+  /// ``ScenarioConventions/primaryField(for:)``). `nil` while the
+  /// extractor is waiting for that key's opening quote.
   public let primary: String?
 
   /// Currently-visible value of `inner_thought`, or `nil` until its
@@ -48,18 +50,13 @@ nonisolated public struct PartialSnapshot: Sendable, Equatable {
 nonisolated public struct PartialOutputExtractor: Sendable {
   /// Recognised primary-output keys in the order they are checked.
   ///
-  /// Ordered so that first-match-wins aligns with
-  /// ``TurnOutput/primaryText(for:)``'s phase-specific preferences:
-  /// - speak phases: `statement ?? declaration ?? boke`
-  /// - choose phase: `action ?? declaration`
-  /// - vote phase: `vote`
-  ///
-  /// By putting `action` before `declaration`, a `.choose`-phase
-  /// buffer containing both keys reports `action` — matching the
-  /// canonical parser. Speak phases don't typically carry `action`,
-  /// so the earlier-in-list priority is harmless there.
+  /// Matches the canonical fields advertised by
+  /// ``ScenarioConventions/primaryField(for:)`` (one canonical field per
+  /// LLM phase: speak → `statement`, choose → `action`, vote → `vote`)
+  /// and is kept consistent with ``OutputSchema/knownPrimaryKeys`` —
+  /// verified by `OutputSchemaTests.primaryKeySuperset`.
   public static let primaryKeys = [
-    "statement", "action", "declaration", "boke", "vote"
+    "statement", "action", "vote"
   ]
   public static let thoughtKey = "inner_thought"
 

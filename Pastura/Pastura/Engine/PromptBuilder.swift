@@ -6,12 +6,6 @@ import Foundation
 /// and scenario context, and conversation log formatting for prompt injection.
 nonisolated struct PromptBuilder: Sendable {
 
-  /// Priority-ordered list of field names considered "main" output fields.
-  /// Used to determine which field goes into the conversation log.
-  private static let mainFieldPriority = [
-    "statement", "declaration", "boke", "speech", "response", "answer"
-  ]
-
   // MARK: - Template Expansion
 
   /// Replaces `{key}` placeholders in a template with values from the variables dictionary.
@@ -50,16 +44,16 @@ nonisolated struct PromptBuilder: Sendable {
 
   // MARK: - Main Field Detection
 
-  /// Returns the primary output field name for a phase.
+  /// Returns the canonical primary output field name for a phase, used as
+  /// the dictionary key when populating the conversation log from
+  /// ``TurnOutput/fields``.
   ///
-  /// Checks the phase's `outputSchema` keys against a priority list of known speech-like
-  /// field names. Falls back to `"statement"` to avoid non-deterministic dictionary iteration.
+  /// Defers to ``ScenarioConventions/primaryField(for:)`` for the canonical
+  /// per-phase field; falls back to `"statement"` for code phases (which
+  /// don't normally reach this method since the speak handlers are the
+  /// only callers).
   func getMainField(phase: Phase) -> String {
-    guard let schema = phase.outputSchema else { return "statement" }
-    for candidate in Self.mainFieldPriority where schema[candidate] != nil {
-      return candidate
-    }
-    return "statement"
+    ScenarioConventions.primaryField(for: phase.type) ?? "statement"
   }
 
   // MARK: - System Prompt

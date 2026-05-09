@@ -33,8 +33,12 @@ nonisolated public struct OutputSchema: Codable, Sendable, Equatable {
   /// in generated output. Kept in sync with
   /// ``PartialOutputExtractor/primaryKeys`` — the consistency is
   /// verified by `OutputSchemaTests.primaryKeySuperset`.
+  ///
+  /// Matches the canonical fields advertised by
+  /// ``ScenarioConventions/primaryField(for:)`` (one canonical field per
+  /// LLM phase: speak → `statement`, choose → `action`, vote → `vote`).
   public static let knownPrimaryKeys: [String] = [
-    "statement", "action", "declaration", "boke", "vote"
+    "statement", "action", "vote"
   ]
 
   /// Known secondary-output field names (reasoning / justification).

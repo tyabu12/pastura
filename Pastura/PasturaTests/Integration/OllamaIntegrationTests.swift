@@ -177,7 +177,7 @@ struct OllamaIntegrationTests {
         Phase(
           type: .speakAll,
           prompt: "Declare your intention!",
-          outputSchema: ["declaration": "string", "inner_thought": "string"]
+          outputSchema: ["statement": "string", "inner_thought": "string"]
         ),
         Phase(
           type: .choose,

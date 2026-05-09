@@ -54,7 +54,7 @@ phases:
       このお題の写真に一言ボケをつけてください。
       あなたのお笑いスタイルを活かして、面白い一言を考えてください。
     output:
-      boke: string
+      statement: string
       inner_thought: string
 
   - type: vote

@@ -35,11 +35,23 @@ phases:
 
 ### LLMが処理するフェーズ（エージェントが発言・判断する）
 
+各 LLM フェーズには **canonical primary field** が決まっており、`output:`
+の中に必ず含めること。エンジン側のハンドラ・UI 表示・会話ログがこれをキー
+として読むため、別名にすると無音で壊れる（speak で `appeal:` などにすると
+会話ログが空、choose で `faction:` などにすると options[0] フォールバック
+固定）。
+
+| Phase | Canonical primary field |
+|-------|-------------------------|
+| `speak_all` / `speak_each` | `statement` |
+| `choose` | `action` |
+| `vote` | `vote` |
+
 1. **speak_all** — 全員が同時に1つの発言を生成
    ```yaml
    - type: speak_all
      prompt: "あなたの意見を述べてください。"
-     output: { statement: string, inner_thought: string }
+     output: { statement: string, inner_thought: string }   # statement 必須
    ```
 
 2. **speak_each** — 1人ずつ順番に発言（会話の蓄積あり）
@@ -47,7 +59,7 @@ phases:
    - type: speak_each
      rounds: 3              # 何周するか
      prompt: "これまでの会話: {conversation_log}\nあなたの番です。"
-     output: { statement: string, inner_thought: string }
+     output: { statement: string, inner_thought: string }   # statement 必須
    ```
 
 3. **vote** — 全員が誰か1人に投票
@@ -55,7 +67,7 @@ phases:
    - type: vote
      prompt: "最も怪しいと思う人に投票してください。"
      exclude_self: true      # 自分への投票を除外
-     output: { vote: agent_name, reason: string }
+     output: { vote: agent_name, reason: string }   # vote 必須
    ```
 
 4. **choose** — 選択肢から1つ選ぶ
@@ -64,7 +76,7 @@ phases:
      prompt: "「cooperate」か「betray」を選べ。"
      options: [cooperate, betray]
      pairing: round_robin    # 省略可。対戦形式の場合に指定
-     output: { action: string, inner_thought: string }
+     output: { action: string, inner_thought: string }   # action 必須
    ```
 
 ### コードが処理するフェーズ（確定的な処理）
