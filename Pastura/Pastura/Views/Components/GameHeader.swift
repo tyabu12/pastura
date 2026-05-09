@@ -35,12 +35,10 @@ public struct GameHeader: View {
   /// Always-visible trailing pill. See `GameHeaderStatus` for the
   /// 7-case shape and color groupings.
   public let status: GameHeaderStatus
-  /// Round-counter numerator. ROUND fragment renders only when both
-  /// `currentRound` and `totalRounds` are non-nil.
-  public let currentRound: Int?
-  /// Round-counter denominator. ROUND fragment renders only when
-  /// both `currentRound` and `totalRounds` are non-nil.
-  public let totalRounds: Int?
+  /// Round-counter pair. ROUND fragment renders only when non-nil;
+  /// the pair-or-nothing semantic is enforced by `GameHeaderRound`
+  /// itself (#313) so callers cannot construct a partial pair.
+  public let round: GameHeaderRound?
   /// Current phase label — already-localized display string from the
   /// caller (e.g., `"発言ラウンド 1"`). Nil hides the phase fragment.
   public let phaseLabel: String?
@@ -57,8 +55,7 @@ public struct GameHeader: View {
     scenarioName: String?,
     initialName: String? = nil,
     status: GameHeaderStatus,
-    currentRound: Int? = nil,
-    totalRounds: Int? = nil,
+    round: GameHeaderRound? = nil,
     phaseLabel: String? = nil,
     tokensPerSecond: Double? = nil,
     extendsIntoTopSafeArea: Bool = false
@@ -66,8 +63,7 @@ public struct GameHeader: View {
     self.scenarioName = scenarioName
     self.initialName = initialName
     self.status = status
-    self.currentRound = currentRound
-    self.totalRounds = totalRounds
+    self.round = round
     self.phaseLabel = phaseLabel
     self.tokensPerSecond = tokensPerSecond
     self.extendsIntoTopSafeArea = extendsIntoTopSafeArea
@@ -105,9 +101,7 @@ public struct GameHeader: View {
   /// Whether row 2 has any visible fragment. Row collapses entirely
   /// when none of ROUND / phase / tok/s is present.
   private var hasMetaRow: Bool {
-    (currentRound != nil && totalRounds != nil)
-      || phaseLabel != nil
-      || tokensPerSecond != nil
+    round != nil || phaseLabel != nil || tokensPerSecond != nil
   }
 
   /// Combined accessibility label so VoiceOver reads the header as
@@ -118,8 +112,8 @@ public struct GameHeader: View {
   private var accessibilityLabelText: String {
     var parts: [String] = [status.label]
     if !displayedTitle.isEmpty { parts.append(displayedTitle) }
-    if let currentRound, let totalRounds {
-      parts.append(Self.formatRoundLabel(current: currentRound, total: totalRounds))
+    if let round {
+      parts.append(Self.formatRoundLabel(current: round.current, total: round.total))
     }
     if let phaseLabel { parts.append(phaseLabel) }
     if let tokensPerSecond {
@@ -176,8 +170,8 @@ public struct GameHeader: View {
   @ViewBuilder
   private var metaRow: some View {
     HStack(alignment: .center, spacing: Self.metaRowSpacing) {
-      if let currentRound, let totalRounds {
-        Text(Self.formatRoundLabel(current: currentRound, total: totalRounds))
+      if let round {
+        Text(Self.formatRoundLabel(current: round.current, total: round.total))
           .textStyle(Typography.metaRound)
           .foregroundStyle(Color.mossDark)
           .monospacedDigit()
@@ -250,8 +244,7 @@ private struct GameHeaderTopSafeAreaExtension: ViewModifier {
     GameHeader(
       scenarioName: "ワードウルフ",
       status: .demoing,
-      currentRound: 1,
-      totalRounds: 4,
+      round: GameHeaderRound(current: 1, total: 4),
       phaseLabel: "個別発言",
       extendsIntoTopSafeArea: true
     )
@@ -265,8 +258,7 @@ private struct GameHeaderTopSafeAreaExtension: ViewModifier {
     GameHeader(
       scenarioName: "囚人のジレンマ",
       status: .simulating,
-      currentRound: 2,
-      totalRounds: 5,
+      round: GameHeaderRound(current: 2, total: 5),
       phaseLabel: "negotiation",
       tokensPerSecond: 16.5
     )
@@ -280,8 +272,7 @@ private struct GameHeaderTopSafeAreaExtension: ViewModifier {
     GameHeader(
       scenarioName: "囚人のジレンマ",
       status: .paused,
-      currentRound: 2,
-      totalRounds: 5,
+      round: GameHeaderRound(current: 2, total: 5),
       phaseLabel: "negotiation",
       tokensPerSecond: 12.3
     )
@@ -295,8 +286,7 @@ private struct GameHeaderTopSafeAreaExtension: ViewModifier {
     GameHeader(
       scenarioName: "囚人のジレンマ",
       status: .completed,
-      currentRound: 5,
-      totalRounds: 5,
+      round: GameHeaderRound(current: 5, total: 5),
       phaseLabel: "scoreboard"
     )
     Spacer()

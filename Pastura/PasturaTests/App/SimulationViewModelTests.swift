@@ -6,8 +6,12 @@ import Testing
 // MARK: - Test Helpers
 
 /// Creates a configured SimulationViewModel for testing with in-memory DB.
+///
+/// Internal (not `private`) so sibling-file extensions of
+/// `SimulationViewModelTests` can call it. See
+/// `.claude/rules/testing.md` § "Splitting a Suite Across Files".
 @MainActor
-private func makeSUT(
+func makeSUT(
   contentFilter: ContentFilter = ContentFilter(blockedPatterns: ["badword"])
 ) throws -> (sut: SimulationViewModel, scenario: Scenario) {
   let db = try DatabaseManager.inMemory()
@@ -379,32 +383,5 @@ struct SimulationViewModelTests {
 
     #expect(sut.isPaused == false, "Guard should prevent isPaused mutation")
     #expect(sut.logEntries.isEmpty, "Guard should prevent reason from being logged")
-  }
-
-  // MARK: - headerRound (GameHeader integration)
-
-  @Test func headerRoundIsNilBeforeRoundStarted() throws {
-    // Pre-`.roundStarted`, `totalRounds == 0` (the initial value), so the
-    // pair-or-nothing guard suppresses the ROUND fragment. Pinning this
-    // prevents a regression where the stored 0/0 leaks into the header.
-    let (sut, _) = try makeSUT()
-    #expect(sut.headerRound == nil)
-  }
-
-  @Test func headerRoundReflectsRoundStartedEvent() throws {
-    let (sut, scenario) = try makeSUT()
-
-    sut.handleEvent(.roundStarted(round: 1, totalRounds: 3), scenario: scenario)
-
-    #expect(sut.headerRound == GameHeaderRound(current: 1, total: 3))
-  }
-
-  @Test func headerRoundUpdatesAcrossMultipleRounds() throws {
-    let (sut, scenario) = try makeSUT()
-
-    sut.handleEvent(.roundStarted(round: 1, totalRounds: 3), scenario: scenario)
-    sut.handleEvent(.roundStarted(round: 2, totalRounds: 3), scenario: scenario)
-
-    #expect(sut.headerRound == GameHeaderRound(current: 2, total: 3))
   }
 }

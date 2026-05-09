@@ -16,8 +16,9 @@ import SwiftUI
 ///
 /// Demo passes:
 /// - `scenarioName` — preset display name (e.g. "ワードウルフ")
-/// - ROUND fragment — pseudo `currentPhaseIndex` / `totalPhaseCount`
-///   from `ReplayViewModel`. Demo's preset scenarios use a single
+/// - `round` — `viewModel.headerRound` (`GameHeaderRound?`). The
+///   pseudo-ROUND derives from `currentPhaseIndex` / `totalPhaseCount`
+///   inside the VM (#313). Demo's preset scenarios use a single
 ///   game-round across multiple phases, so the real `currentRound`
 ///   sits at 1/1 the whole time; the pseudo-ROUND walks every phase
 ///   for visible progression.
@@ -34,8 +35,7 @@ extension ModelDownloadHostView {
     GameHeader(
       scenarioName: currentPresetName(viewModel: viewModel),
       status: viewModel.status,
-      currentRound: viewModel.currentPhaseIndex,
-      totalRounds: viewModel.totalPhaseCount,
+      round: viewModel.headerRound,
       phaseLabel: phaseDisplayLabel(viewModel: viewModel),
       tokensPerSecond: nil,
       extendsIntoTopSafeArea: true
