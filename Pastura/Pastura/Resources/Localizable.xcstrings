@@ -642,6 +642,16 @@
         }
       }
     },
+    "Download recommended model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推奨モデルをダウンロード"
+          }
+        }
+      }
+    },
     "Downloading %arg on cellular may use significant data. Wi-Fi is recommended." : {
       "localizations" : {
         "ja" : {
@@ -968,6 +978,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ファイル"
+          }
+        }
+      }
+    },
+    "Finish the current simulation before switching models." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルを切り替える前に実行中のシミュレーションを終了してください。"
           }
         }
       }
@@ -2523,6 +2543,16 @@
         }
       }
     },
+    "Switch to recommended model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推奨モデルに切り替える"
+          }
+        }
+      }
+    },
     "THINKING" : {
       "localizations" : {
         "ja" : {
@@ -2929,6 +2959,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このシミュレーションを終了したら開きます"
+          }
+        }
+      }
+    },
+    "Will run on %arg, not the recommended %arg" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Will run on %1$arg, not the recommended %2$arg"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推奨モデル %2$arg ではなく %1$arg で実行されます"
           }
         }
       }
