@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-29T00:00:00Z",
+  "updated_at": "2026-05-09T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -47,7 +47,7 @@
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 20,
       "yaml_url": "kinoko_takenoko_v1.yaml",
-      "yaml_sha256": "3435529e567252f95c78a3020ae3d7038270296a04d0ef2a58ecba4a583c1549",
+      "yaml_sha256": "7c34fd00ab7e5e946d901664d839d91ba18a18fda987954eb5daa70aca8db785",
       "added_at": "2026-04-29"
     }
   ]

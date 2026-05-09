@@ -63,6 +63,10 @@
           {
             "type": "command",
             "command": "bash $(git rev-parse --show-toplevel)/scripts/blocklist-precommit-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $(git rev-parse --show-toplevel)/scripts/gallery-precommit-gate.sh"
           }
         ]
       },
