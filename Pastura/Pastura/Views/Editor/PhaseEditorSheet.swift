@@ -37,7 +37,9 @@ struct PhaseEditorSheet: View {
   /// share the same validator and remain test-deterministic.
   var validator: ScenarioContentValidator = ScenarioContentValidator()
 
-  @State private var newOutputFieldName: String = ""
+  // `internal` (default) so the `outputFieldsSection` extension in
+  // `PhaseEditorSheet+CanonicalFieldHint.swift` can bind `$newOutputFieldName`.
+  @State var newOutputFieldName: String = ""
   @State private var newOptionText: String = ""
   // Internal (not private) so the sibling conditional-section extension
   // can present the nested editor from the "Add sub-phase" button.
@@ -180,69 +182,6 @@ struct PhaseEditorSheet: View {
             .foregroundStyle(Color.danger)
         }
       }
-    }
-  }
-
-  private var outputFieldsSection: some View {
-    Section {
-      ForEach(phase.outputFields.keys.sorted(), id: \.self) { key in
-        HStack {
-          Text(key)
-            .font(.body.monospaced())
-          Spacer()
-          Text(phase.outputFields[key] ?? "string")
-            .foregroundStyle(.secondary)
-          Button(role: .destructive) {
-            phase.outputFields.removeValue(forKey: key)
-          } label: {
-            Image(systemName: "minus.circle.fill")
-          }
-          .buttonStyle(.plain)
-        }
-      }
-
-      HStack {
-        TextField(String(localized: "Field name"), text: $newOutputFieldName)
-          .font(.body.monospaced())
-          .textInputAutocapitalization(.never)
-        Button {
-          let name = newOutputFieldName.trimmingCharacters(in: .whitespacesAndNewlines)
-          guard !name.isEmpty else { return }
-          phase.outputFields[name] = "string"
-          newOutputFieldName = ""
-        } label: {
-          Image(systemName: "plus.circle.fill")
-        }
-        .disabled(newOutputFieldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-      }
-    } header: {
-      Text(String(localized: "Output Fields"))
-    } footer: {
-      // Per-phase canonical primary-field hint. Surfaces the convention
-      // enforced by `ScenarioValidator.validateForCommit` so curators
-      // discover the canonical field name at compose time, not at Save.
-      if let hint = canonicalFieldHint {
-        Text(hint)
-      }
-    }
-  }
-
-  private var canonicalFieldHint: String? {
-    switch phase.type {
-    case .speakAll, .speakEach:
-      return String(
-        localized:
-          "Use `statement` for the main spoken text. UI display and conversation log key on this field."
-      )
-    case .choose:
-      return String(
-        localized:
-          "Use `action` for the chosen value. The options enum constraint binds to this field."
-      )
-    case .vote:
-      return String(localized: "Use `vote` for the target name.")
-    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
-      return nil
     }
   }
 

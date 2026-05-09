@@ -384,8 +384,8 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
   // or the phase type is unknown (e.g. forward-compat with future phase
   // types added to TurnRecord without exporter changes).
   private func formatOutput(_ output: TurnOutput, phaseType: String) -> String {
-    if let pt = PhaseType(rawValue: phaseType),
-      let primary = output.primaryText(for: pt),
+    if let resolved = PhaseType(rawValue: phaseType),
+      let primary = output.primaryText(for: resolved),
       !primary.isEmpty {
       return primary
     }
