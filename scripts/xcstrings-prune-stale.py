@@ -144,7 +144,8 @@ def main() -> int:
       "Localizable.xcstrings. See Issue #304."
     ),
   )
-  parser.add_argument(
+  mode_group = parser.add_mutually_exclusive_group()
+  mode_group.add_argument(
     "--dry-run",
     action="store_true",
     help=(
@@ -152,7 +153,7 @@ def main() -> int:
       " Does not write."
     ),
   )
-  parser.add_argument(
+  mode_group.add_argument(
     "--prune",
     action="store_true",
     help=(
@@ -189,6 +190,12 @@ def main() -> int:
   stale = collect_stale(parsed)
 
   if not args.dry_run and not args.prune:
+    if args.keep_translated:
+      print(
+        "note: --keep-translated has no effect in listing mode; "
+        "pass --dry-run or --prune.",
+        file=sys.stderr,
+      )
     print(format_listing(stale))
     return 0
 
