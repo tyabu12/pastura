@@ -50,27 +50,26 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash(git commit*)",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(git commit*)",
             "command": "cd $(git rev-parse --show-toplevel) && swiftlint lint --quiet --strict 2>&1 || (echo 'SwiftLint violations. Fix before committing.' >&2 && exit 2)"
           },
           {
             "type": "command",
+            "if": "Bash(git commit*)",
             "command": "PASTURA_SKIP_XCSTRINGS_SYNC=1 \"$(git rev-parse --show-toplevel)/scripts/xcodebuild.sh\" build -quiet 2>&1 || (echo 'Build failed. Fix compile errors before committing.' >&2 && exit 2)"
           },
           {
             "type": "command",
+            "if": "Bash(git commit*)",
             "command": "bash $(git rev-parse --show-toplevel)/scripts/blocklist-precommit-gate.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash(gh pr create*)",
-        "hooks": [
+          },
           {
             "type": "command",
+            "if": "Bash(gh pr create*)",
             "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"CLAUDE.md not modified in this branch. Check if implementation progress needs updating.\"}}'"
           }
         ]
