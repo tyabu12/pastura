@@ -121,7 +121,14 @@ if [ ! -f "$YAML_PATH" ]; then
   exit 1
 fi
 
-YAML_PATH="$(cd "$(dirname "$YAML_PATH")" && pwd)/$(basename "$YAML_PATH")"
+# Canonicalize to absolute (no symlink resolution needed — basename
+# and jq lookups only care about identity, not realpath). Avoids the
+# `$(cd "$(dirname …)" && pwd)` form that Claude Code's permission
+# heuristic flags (anthropics/claude-code#31373).
+case "$YAML_PATH" in
+  /*) ;;
+  *) YAML_PATH="$PWD/$YAML_PATH" ;;
+esac
 YAML_BASENAME="$(basename "$YAML_PATH")"
 YAML_STEM="$(basename "$YAML_PATH" .yaml)"
 

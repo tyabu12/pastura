@@ -17,6 +17,11 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
+# Strict regex: only the flat docs/gallery/ directory triggers. If a
+# future contributor adds a subdirectory under docs/gallery/ (e.g.
+# archive/), the gate will silently skip it — relax to
+# `^docs/gallery/.*\.(yaml|json)$` then, and let check-gallery-entry.sh
+# ignore irrelevant siblings. Today the directory is flat by design.
 if ! git diff --cached --name-only | grep -qE '^docs/gallery/([^/]+\.yaml|gallery\.json)$'; then
   exit 0
 fi
