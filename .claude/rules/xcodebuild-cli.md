@@ -86,7 +86,8 @@ When the SUCCEEDED marker has been trimmed off entirely:
   hook so commits do not mutate the catalog outside the staging
   index). Failures write a sentinel at
   `Pastura/DerivedData/.xcstrings-sync-failed` and return 0 — never
-  blocks build.
+  blocks build. Stale entries (kept by Apple by design) can be pruned
+  manually via `python3 scripts/xcstrings-prune-stale.py` ([#304](https://github.com/tyabu12/pastura/issues/304)).
 - **DerivedData**: pinned to worktree-local `Pastura/DerivedData/`
   via `-derivedDataPath "$DERIVED_DATA"`. **Pass with a space, not
   `=`** — the `=` form is silently ignored (Xcode 15.4+).
