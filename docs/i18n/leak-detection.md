@@ -34,7 +34,7 @@ The rule fires on the regex shape
 ```
 (errorMessage|validationErrors|alertMessage|toastMessage|nameError
  |descriptionError|conditionError|promptError|outcomeAlert|deepLinkError)
-\s*[+=]+\s*\[?\s*"[^"]+"
+\s*(?:=|\+=)\s*\[?\s*"[^"]+"
 ```
 
 against any file under `Pastura/Pastura/`. The 10 property names are an
