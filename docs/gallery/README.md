@@ -55,13 +55,18 @@ new case to the Swift enum before shipping a JSON that uses it.
 
 Gallery scenario ids **MUST NOT** collide with:
 
-- Bundled presets: `prisoners_dilemma`, `bokete`, `word_wolf`.
+- Bundled presets — see `Pastura/Pastura/App/PresetLoader.swift`
+  `presetFileNames` for the current list (each entry's stem is the
+  scenario id). `scripts/check-gallery-entry.sh` enumerates this
+  directory at runtime and fails the commit on collision, so this
+  README does not need to track additions to the bundle.
 - Any other gallery scenario id, current or historical.
 
 The iOS app refuses to install a gallery scenario whose id matches an
 existing local row with a different source. The fix is to rename the
-gallery scenario (append `_v2`, `_alt`, etc.), regenerate its hash, and
-update `gallery.json`.
+gallery scenario (append `_v2`, `_alt`, etc.) and re-run
+`scripts/add-gallery-entry.sh` (or, when editing `gallery.json` by
+hand, regenerate the SHA-256 and update the entry).
 
 ### Suffix versioning
 
@@ -81,30 +86,94 @@ Gallery scenarios are public and curator-endorsed. Keep content:
 
 ## Adding a scenario
 
-1. Draft a YAML following the existing examples. Keep it under 256 KiB
-   (the app's per-YAML size cap).
-2. Pick a unique id per the rules above.
-3. Commit the YAML to `docs/gallery/<id>.yaml`.
-4. Compute the SHA-256:
-   ```sh
-   shasum -a 256 docs/gallery/<id>.yaml
-   ```
-5. Add an entry to `gallery.json` with the hash, URL, and metadata.
-6. **Run end-to-end before merging.** Push the feature branch, run a
-   Debug build (so `PASTURA_GALLERY_BASE_URL` takes effect — see *Testing
-   changes from a feature branch* below), and open the scenario from
-   Share Board. Either (a) on a physical device with the bundled
-   llama.cpp model already downloaded, or (b) in the iOS Simulator
-   pointing at a local Ollama with the recommended model pulled. Run a
-   full simulation and read the output. Confirm: rounds reach a
-   meaningful conclusion (no truncation), agent personas come through
-   clearly, and total inferences match the `estimated_inferences`
-   ballpark. (Content-filter triggers are an authoring-time concern —
-   see the *Content guidelines* bullet above and
-   `App/ContentFilter.swift`.)
-7. Open a PR. The scenario becomes available in the app after merge —
-   the app uses ETag-conditional GET, so users pick up the update on
-   their next Share Board visit.
+### 1. Draft the YAML
+
+Write `docs/gallery/<id>.yaml` following the existing examples. Keep
+it under 256 KiB (the app's per-YAML size cap, enforced by both the
+add script and `URLSessionGalleryService.yamlSizeLimit`). Pick an id
+that satisfies *Globally unique scenario ids* above; the file stem
+**must** equal the YAML's `id:` field — the gallery resolver
+round-trips on `yaml_url.lastPathComponent → file`, and the add
+script refuses a stem-vs-id mismatch.
+
+### 2. Run `scripts/add-gallery-entry.sh`
+
+```sh
+bash scripts/add-gallery-entry.sh docs/gallery/<id>.yaml
+```
+
+The script:
+
+- Parses `id`, `name`, `description` from the YAML.
+- Computes `shasum -a 256` and emits the canonical hex.
+- Bumps top-level `updated_at` to today (UTC, midnight) — guarded by a
+  `max(now, existing)` monotonicity check that warns on backward clock
+  skew.
+- Prompts for the four non-derivable fields, with choice lists read
+  from the Swift sources at runtime so this README does not duplicate
+  enums or model-registry contents:
+  - `category` — see `GalleryCategory.allCases` in
+    `Pastura/Pastura/Models/GalleryScenario.swift`
+  - `recommended_model` — see `ModelRegistry.catalog` in
+    `Pastura/Pastura/App/ModelRegistry.swift`
+  - `estimated_inferences` — positive integer (rough total LLM calls)
+  - `added_at` — defaults to today, override with `--added-at YYYY-MM-DD`
+- Writes `gallery.json` atomically (tmp + mv) and re-runs
+  `scripts/check-gallery-entry.sh --all` as a post-write gate. Any
+  failure restores the byte-identical original.
+
+`bash scripts/add-gallery-entry.sh --help` prints the full flag list
+including `--non-interactive` (CI scripting) and `--description`
+(override the YAML's description for a shorter card-friendly summary).
+
+### 3. Run the scenario end-to-end before merging
+
+Push the feature branch, run a Debug build (so
+`PASTURA_GALLERY_BASE_URL` takes effect — see *Testing changes from a
+feature branch* below), and open the scenario from Share Board.
+Either (a) on a physical device with the bundled llama.cpp model
+already downloaded, or (b) in the iOS Simulator pointing at a local
+Ollama with the recommended model pulled. Run a full simulation and
+read the output. Confirm: rounds reach a meaningful conclusion (no
+truncation), agent personas come through clearly, and total
+inferences match the `estimated_inferences` ballpark.
+(Content-filter triggers are an authoring-time concern — see the
+*Content guidelines* bullet above and `App/ContentFilter.swift`.)
+
+### 4. Open a PR
+
+The scenario becomes available in the app after merge — the app uses
+ETag-conditional GET, so users pick up the update on their next Share
+Board visit.
+
+### What enforces this contract
+
+Three independent gates catch drift between the YAML and its
+`gallery.json` entry:
+
+1. **`scripts/check-gallery-entry.sh`** — runs as a pre-commit hook
+   when the staged diff touches `docs/gallery/<id>.yaml` or
+   `gallery.json`. Validates SHA-256 byte-match, size cap, id
+   uniqueness across `gallery.json` + bundled presets, and
+   `<stem>.yaml ↔ id: <stem>`.
+2. **CI `gallery-drift` job** — re-runs the same check on every PR
+   (catches `--no-verify` commits and PRs landed via the GitHub web
+   UI that bypass the local hook).
+3. **`PasturaTests/.../GallerySeedYAMLTests.swift`** — pins the
+   yaml_sha256, title==name, recommended_model ∈ ModelRegistry, and
+   category enum invariants in the iOS test suite. Runs on every PR.
+
+### Manual fallback (when the script can't be used)
+
+If `scripts/add-gallery-entry.sh` is unavailable for some reason
+(missing PyYAML, bash unavailable, etc.), the manual flow is:
+
+1. Compute `shasum -a 256 docs/gallery/<id>.yaml | awk '{print $1}'`.
+2. Add an entry to `gallery.json` with the hash, `yaml_url:
+   <stem>.yaml`, and the four prompted fields above. Bump top-level
+   `updated_at` to today UTC at midnight (`YYYY-MM-DDT00:00:00Z`).
+3. Run `bash scripts/check-gallery-entry.sh --all` before committing —
+   it catches every error the script would have caught.
 
 ## Files in this directory
 
