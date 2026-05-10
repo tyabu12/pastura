@@ -27,12 +27,14 @@
   --moss-dark: #6B7852;
   --moss-ink: #3D4030;
   --moss-soft: #D4CBA8;
+  --moss-light: #A8B68B; /* Lighter moss for accents on dark backgrounds */
 
   /* Character palette (sheep avatars) */
   --alice: #F2E3C8;
   --bob: #D9E2C6;
   --carol: #EBD4D4;
   --dave: #D0D7DC;
+  --sheep-wool: #E8D9BC; /* Shared ear/wool tuft cream across all sheep */
 
   --r-card: 14px;
   --shadow-card:
@@ -197,7 +199,7 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #E8D9BC;
+  background: var(--sheep-wool);
   top: 0;
 }
 .sheep::before {
@@ -233,7 +235,7 @@ body {
   width: 2.4px;
   height: 2.4px;
   border-radius: 50%;
-  background: #2D2E26;
+  background: var(--ink);
   display: block;
 }
 .sheep .nose {
@@ -244,7 +246,7 @@ body {
   width: 3px;
   height: 2px;
   border-radius: 50%;
-  background: #3D4030;
+  background: var(--moss-ink);
 }
 
 /* ----- Chat bubble ----- */
@@ -320,6 +322,18 @@ body {
   text-decoration: none;
   transition: all 0.25s ease-out;
 }
+/* When .badge is rendered as a <button> (e.g., disabled "Coming soon" CTA),
+   strip browser-default button chrome so it matches the <a> path visually. */
+button.badge {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+button.badge:disabled {
+  cursor: not-allowed;
+}
 .badge .b-eyebrow {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 9.5px;
@@ -335,11 +349,11 @@ body {
 }
 .badge.primary {
   background: var(--moss-ink);
-  color: #F3EFE7;
+  color: var(--page);
   border-color: var(--moss-ink);
 }
 .badge.primary .b-eyebrow {
-  color: #A8B68B;
+  color: var(--moss-light);
 }
 .badge.secondary {
   background: transparent;

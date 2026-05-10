@@ -55,6 +55,12 @@
   }
 }
 
+/* Section-leading eyebrow — repeated pattern (was inline style x5).
+   Used on the first .eyebrow inside section content wrappers. */
+.section-eyebrow {
+  margin-bottom: 24px;
+}
+
 /* ----- Content max-width wrappers ----- */
 .lp-narrow {
   max-width: 880px;

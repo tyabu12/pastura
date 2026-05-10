@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Pastura — An AI you observe, not operate.</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pastura runs multi-agent scenarios entirely on your device. On-device LLM, fully offline, no cloud calls. Beta on TestFlight.">
+  <meta name="description" content="Pastura runs multi-agent scenarios entirely on your device. On-device LLM, fully offline, no cloud calls.">
   <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)">
 
@@ -35,6 +35,8 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Pastura",
+    "description": "Multi-agent scenarios that run entirely on your device.",
+    "url": "https://tyabu12.github.io/pastura/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "iOS 17+"
   }
@@ -71,9 +73,9 @@
           <p class="lead">Pastura is a closed pasture inside your device where AI agents act out scenarios you wrote. Nothing leaves the device.</p>
           <p class="privacy-line">No data leaves your device. There is no opt-out, because there is no opt-in.</p>
           <div class="badges">
-            <span role="link" aria-disabled="true" tabindex="-1"
-                  class="badge secondary is-disabled"
-                  aria-label="Pastura on the App Store — coming soon">
+            <button type="button" disabled
+                    class="badge secondary is-disabled"
+                    aria-label="Pastura on the App Store — coming soon">
               <svg width="20" height="22" viewBox="0 0 24 28" fill="none" aria-hidden="true" focusable="false">
                 <path d="M12 2 L20 8 L20 22 L12 27 L4 22 L4 8 Z"
                       stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>
@@ -83,7 +85,7 @@
                 <span class="b-eyebrow">App Store</span>
                 <span class="b-label">Coming soon</span>
               </span>
-            </span>
+            </button>
           </div>
           <p class="meta tagline">On-device · Offline · Zero-cost</p>
         </div>
@@ -168,7 +170,7 @@
     <!-- ===== What is Pastura ===== -->
     <section class="lp-section alt alt-both compact-mobile" aria-labelledby="what-h">
       <div class="lp-narrow">
-        <p class="eyebrow" style="margin-bottom:24px">What is Pastura</p>
+        <p class="eyebrow section-eyebrow">What is Pastura</p>
         <h2 id="what-h" class="display-sm" style="margin:0">
           <span style="color:var(--muted)">Operate vs. observe.</span><br>
           Pastura is the second one.
@@ -182,7 +184,7 @@
     <!-- ===== The observation journey ===== -->
     <section id="watch" class="lp-section" aria-labelledby="journey-h">
       <div class="lp-wide">
-        <p class="eyebrow" style="margin-bottom:24px">The observation journey</p>
+        <p class="eyebrow section-eyebrow">The observation journey</p>
         <h2 id="journey-h" class="section-title" style="margin:0 0 56px; max-width:560px">
           Three small acts. One quiet afternoon.
         </h2>
@@ -282,7 +284,7 @@
          handoff — confirm with the design owner before re-adding. -->
     <section id="capabilities" class="lp-section alt" aria-labelledby="cap-h">
       <div class="lp-mid">
-        <h2 id="cap-h" class="eyebrow" style="margin-bottom:24px; font-size:11px">Quietly capable</h2>
+        <h2 id="cap-h" class="eyebrow section-eyebrow">Quietly capable</h2>
         <ul class="lp-cap-grid">
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" aria-hidden="true" focusable="false">
@@ -334,7 +336,7 @@
     <!-- ===== Why on-device ===== -->
     <section class="lp-section" aria-labelledby="why-h">
       <div class="lp-narrow">
-        <p class="eyebrow" style="margin-bottom:24px">Why on-device</p>
+        <p class="eyebrow section-eyebrow">Why on-device</p>
         <h2 id="why-h" class="display-sm" style="margin:0 0 16px">
           <span class="mono" style="color:var(--moss-dark)">3.0 GB.</span> Once.
         </h2>
@@ -353,7 +355,7 @@
     <!-- ===== FAQ ===== -->
     <section id="faq" class="lp-section alt" aria-labelledby="faq-h">
       <div class="lp-mid">
-        <h2 id="faq-h" class="eyebrow" style="margin-bottom:24px; font-size:11px">Questions</h2>
+        <h2 id="faq-h" class="eyebrow section-eyebrow">Questions</h2>
         <details class="faq-item">
           <summary class="faq-q">
             <span>Is it free?</span>
@@ -391,9 +393,9 @@
           An AI you observe, not operate. On-device, offline, no cloud calls.
         </p>
         <div class="badges">
-          <span role="link" aria-disabled="true" tabindex="-1"
-                class="badge ghost is-disabled"
-                aria-label="App Store — coming soon">
+          <button type="button" disabled
+                  class="badge ghost is-disabled"
+                  aria-label="App Store — coming soon">
             <svg width="20" height="22" viewBox="0 0 24 28" fill="none" aria-hidden="true" focusable="false">
               <path d="M12 2 L20 8 L20 22 L12 27 L4 22 L4 8 Z"
                     stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>
@@ -403,7 +405,7 @@
               <span class="b-eyebrow">App Store</span>
               <span class="b-label">Coming soon</span>
             </span>
-          </span>
+          </button>
         </div>
       </div>
       <div>
