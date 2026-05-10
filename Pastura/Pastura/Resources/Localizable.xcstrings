@@ -59,6 +59,22 @@
         }
       }
     },
+    "%arg (%arg) requires field '%arg' in output." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$arg (%2$arg) requires field '%3$arg' in output."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$arg（%2$arg）には output に '%3$arg' フィールドが必要です。"
+          }
+        }
+      }
+    },
     "%arg actions" : {
       "localizations" : {
         "ja" : {
@@ -1978,6 +1994,7 @@
       }
     },
     "Phase %arg (%arg) requires field '%arg' in output." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

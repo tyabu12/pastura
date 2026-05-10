@@ -112,4 +112,33 @@ struct PresetLoaderTests {
       }
     }
   }
+
+  /// Regression guard for the "speak_all missing statement" bug class
+  /// (#318 / #343). Asserts every bundled preset survives the strict
+  /// commit-time gate — the same gate `ScenarioEditorViewModel.save()`
+  /// runs when a user clones a preset via "Use as Template" and saves.
+  /// A canonical-field omission slipping into a preset YAML would block
+  /// that flow on every cloned copy.
+  @Test func presetYAMLsPassValidateForCommit() throws {
+    let loader = ScenarioLoader()
+    let validator = ScenarioValidator()
+    let bundle = Bundle(for: DatabaseManager.self)
+
+    // Phantom-pass guard — if `presetFileNames` is ever emptied or the
+    // bundle resource group is misnamed, an empty iteration would
+    // trivially pass without auditing anything.
+    #expect(PresetLoader.presetFileNames.count >= 4)
+
+    for fileName in PresetLoader.presetFileNames {
+      guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
+        Issue.record("Missing preset: \(fileName).yaml")
+        continue
+      }
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      #expect(throws: Never.self) {
+        _ = try validator.validateForCommit(scenario)
+      }
+    }
+  }
 }
