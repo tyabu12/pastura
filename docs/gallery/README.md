@@ -181,8 +181,9 @@ In update mode:
 
 ### What auto-syncs from YAML on `--update`?
 
-| YAML field      | Gallery field   | Auto-syncs? | Why                                                                                                                       |
+| YAML source     | Gallery field   | Auto-syncs? | Why                                                                                                                       |
 |-----------------|-----------------|-------------|---------------------------------------------------------------------------------------------------------------------------|
+| (file body)     | `yaml_sha256`   | **Yes**     | Recomputed via `shasum -a 256` on every run — the whole point of `--update`.                                              |
 | `name:`         | `title`         | **Yes**     | `GallerySeedYAMLTests.galleryTitleMatchesYAMLName` enforces byte-equality; can't drift.                                   |
 | `description:`  | `description`   | **No**      | Curators commonly use `--description "shorter card summary"` to give the gallery card a tighter blurb than the YAML body. |
 
@@ -191,8 +192,12 @@ YAML, pass it explicitly. One-liner that pulls the current YAML value:
 
 ```sh
 bash scripts/add-gallery-entry.sh --update <id> \
-  --description "$(python3 -c "import yaml; print(yaml.safe_load(open('docs/gallery/<id>.yaml')).get('description','').strip())")"
+  --description "$(python3 -c "import yaml; print(((yaml.safe_load(open('docs/gallery/<id>.yaml')).get('description') or '')).strip())")"
 ```
+
+(The `(d or '')` guard mirrors the script — without it, a YAML with
+`description: null` or `description:` (no value) would raise
+`AttributeError` instead of cleanly resolving to an empty string.)
 
 ### Curator smoke test
 
@@ -202,8 +207,8 @@ reverts each step.
 
 1. **No-op** — re-run `--update <id>` after the first successful
    update with no further edits. Expected: `No change needed —
-   candidate entry is byte-identical to existing.`, exit 0, no
-   `gallery.json` mutation.
+   candidate entry is byte-identical to existing (id=<id>).`, exit 0,
+   no `gallery.json` mutation.
 2. **Override-persist** — pass a flag whose value differs from the
    existing entry, e.g. `--update <id> --estimated-inferences 99
    --non-interactive`. Expected: `gallery.json` shows the new value;

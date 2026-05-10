@@ -129,6 +129,13 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || { echo "ERROR: --update requires an id argument" >&2; exit 1; }
       UPDATE_ID="$2"
       [ -n "$UPDATE_ID" ] || { echo "ERROR: --update id cannot be empty" >&2; exit 1; }
+      # Guard against `--update --category foo` where the next token is
+      # another flag — would otherwise be silently stored as the id and
+      # produce a confusing yaml-not-found / stem-mismatch error far
+      # downstream.
+      case "$UPDATE_ID" in
+        -*) echo "ERROR: --update id '$UPDATE_ID' looks like a flag (did you forget the id?)" >&2; exit 1 ;;
+      esac
       shift 2 ;;
     --category) CATEGORY="$2"; shift 2 ;;
     --recommended-model) RECOMMENDED_MODEL="$2"; shift 2 ;;
