@@ -66,6 +66,45 @@
   margin-bottom: 24px;
 }
 
+/* Section title spacing — shared by journey / capabilities / FAQ h2s.
+   Hero h1 and "What is Pastura" / "Why on-device" h2s have unique
+   spacing handled by their own classes below. */
+.lp-section .section-title {
+  margin: 0 0 56px;
+  max-width: 560px;
+}
+
+/* "What is Pastura" section — flush h2 + muted sub-line, wider lead */
+.what-h {
+  margin: 0;
+}
+.what-h .sub {
+  color: var(--muted);
+}
+.what-lead {
+  margin: 24px 0 0;
+  max-width: 600px;
+}
+
+/* "Why on-device" section — tight h2 spacing, moss-tinted figure, narrow lead */
+.why-h {
+  margin: 0 0 16px;
+}
+.why-h .figure {
+  color: var(--moss-dark);
+}
+.why-lead {
+  margin: 0 0 32px;
+  max-width: 560px;
+}
+
+/* Footer brand description tagline (under brand mark) */
+.foot-tag {
+  margin: 16px 0 24px;
+  max-width: 340px;
+  font-size: 14px;
+}
+
 /* ----- Content max-width wrappers -----
    Two widths only: Hero is wider for visual breathing, every other
    section uses the same content width for a consistent reading rhythm. */
