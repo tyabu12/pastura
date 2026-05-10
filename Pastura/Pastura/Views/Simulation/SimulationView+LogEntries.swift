@@ -17,13 +17,13 @@ extension SimulationView {
     HStack(spacing: 4) {
       Image(systemName: "xmark.circle.fill")
         .foregroundStyle(Color.inkSecondary)
-      Text("\(agent) eliminated (\(voteCount) votes)")
+      Text(String(format: String(localized: "%@ eliminated (%lld votes)"), agent, voteCount))
         .textStyle(Typography.titlePhase)
     }
   }
 
   func assignmentEntry(agent: String, value: String) -> some View {
-    Text("\(agent) assigned: \(value)")
+    Text(String(format: String(localized: "%@ assigned: %@"), agent, value))
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
   }
@@ -44,7 +44,7 @@ extension SimulationView {
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
       ForEach(tallies.sorted(by: { $0.value > $1.value }), id: \.key) { name, count in
-        Text("  \(name): \(count) votes")
+        Text(String(format: String(localized: "  %@: %lld votes"), name, count))
           .textStyle(Typography.metaValue)
       }
     }
