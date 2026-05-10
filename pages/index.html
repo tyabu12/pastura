@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pastura — An AI you observe, not operate.</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Pastura runs multi-agent scenarios entirely on your device. On-device LLM, fully offline, no cloud calls. Beta on TestFlight.">
+  <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)">
+
+  <link rel="canonical" href="https://tyabu12.github.io/pastura/">
+  <link rel="alternate" hreflang="en" href="https://tyabu12.github.io/pastura/">
+  <!-- hreflang ja intentionally omitted — /ja/ route not yet implemented -->
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20x%3D%229%22%20y%3D%229%22%20width%3D%2214%22%20height%3D%2214%22%20rx%3D%222%22%20transform%3D%22rotate(45%2016%2016)%22%20fill%3D%22%238A9A6C%22%2F%3E%3C%2Fsvg%3E">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Pastura — An AI you observe, not operate.">
+  <meta property="og:description" content="Multi-agent scenarios that run entirely on your device.">
+  <meta property="og:url" content="https://tyabu12.github.io/pastura/">
+  <!-- TODO: og:image — 1200×630 PNG export of OGP design pending. -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Pastura — An AI you observe, not operate.">
+  <meta name="twitter:description" content="Multi-agent scenarios that run entirely on your device.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/lp.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pastura",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "iOS 17+"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header role="banner" class="lp-header">
+    <a href="./" class="brand">
+      <span class="leaf" aria-hidden="true"></span>
+      <span class="brand-name">Pastura</span>
+    </a>
+    <nav aria-label="Primary" class="lp-nav">
+      <span class="lp-nav-links">
+        <a href="#watch">Watch</a>
+        <a href="#capabilities">Capabilities</a>
+        <a href="#faq">FAQ</a>
+      </span>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" aria-pressed="true" lang="en" class="on">EN</button>
+        <button type="button" aria-disabled="true" lang="ja" tabindex="-1">JA</button>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+
+    <!-- ===== Hero ===== -->
+    <section class="lp-hero" aria-labelledby="hero-h">
+      <div class="lp-hero-wrap lp-hero-grid">
+        <div>
+          <h1 id="hero-h" class="display">You arrived. They&rsquo;re already talking.</h1>
+          <p class="lead">Pastura is a closed pasture inside your device where AI agents act out scenarios you wrote. Nothing leaves the device.</p>
+          <p class="privacy-line">No data leaves your device. There is no opt-out, because there is no opt-in.</p>
+          <div class="badges">
+            <span role="link" aria-disabled="true" tabindex="-1"
+                  class="badge secondary is-disabled"
+                  aria-label="Pastura on the App Store — coming soon">
+              <svg width="20" height="22" viewBox="0 0 24 28" fill="none" aria-hidden="true" focusable="false">
+                <path d="M12 2 L20 8 L20 22 L12 27 L4 22 L4 8 Z"
+                      stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>
+                <circle cx="12" cy="14" r="3" fill="currentColor" opacity=".6"/>
+              </svg>
+              <span>
+                <span class="b-eyebrow">App Store</span>
+                <span class="b-label">Coming soon</span>
+              </span>
+            </span>
+          </div>
+          <p class="meta tagline">On-device · Offline · Zero-cost</p>
+        </div>
+
+        <figure class="lp-hero-figure" aria-label="Sample run — Word Wolf, round 1">
+          <figcaption class="lp-hero-figure-head">
+            <span class="leaf" aria-hidden="true"></span>
+            <span class="label">WORD WOLF — ROUND 1</span>
+            <span class="live" aria-hidden="true"><span class="live-dot"></span>live</span>
+          </figcaption>
+
+          <div class="bubble-row">
+            <span class="sheep" data-tone="alice" aria-hidden="true">
+              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
+            </span>
+            <div class="bubble-stack">
+              <div class="bubble-name" aria-hidden="true">Alice</div>
+              <div class="bubble">
+                <blockquote>
+                  <span class="sr-only">Alice said: </span>公園を歩くのが好きなんです。
+                </blockquote>
+              </div>
+            </div>
+          </div>
+
+          <div class="bubble-row">
+            <span class="sheep" data-tone="bob" aria-hidden="true">
+              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
+            </span>
+            <div class="bubble-stack">
+              <div class="bubble-name" aria-hidden="true">Bob</div>
+              <div class="bubble">
+                <blockquote>
+                  <span class="sr-only">Bob said: </span>私も最近、近所をよく歩いていて——
+                </blockquote>
+              </div>
+            </div>
+          </div>
+
+          <div class="bubble-row">
+            <span class="sheep" data-tone="dave" aria-hidden="true">
+              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
+            </span>
+            <div class="bubble-stack">
+              <div class="bubble-name" aria-hidden="true">Dave</div>
+              <div class="bubble">
+                <div class="reason" aria-hidden="true">THINKING</div>
+                <blockquote>
+                  <span class="sr-only">Dave (thinking): </span>散歩……？それとも、もっと別の場所？お題が違う気がする。
+                </blockquote>
+              </div>
+            </div>
+          </div>
+
+          <div class="bubble-row">
+            <span class="sheep" data-tone="carol" aria-hidden="true">
+              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
+            </span>
+            <div class="bubble-stack">
+              <div class="bubble-name" aria-hidden="true">Carol</div>
+              <div class="bubble">
+                <div class="reason" aria-hidden="true">VOTE → Dave</div>
+                <blockquote>
+                  <span class="sr-only">Carol (vote → dave): </span>&ldquo;散歩&rdquo;って言葉、他の人も使ってない。
+                </blockquote>
+              </div>
+            </div>
+          </div>
+
+          <div class="lp-hero-figure-foot">
+            <span>4 agents · Gemma 4 E2B · 2.5 GB</span>
+            <span>cloud calls — 0</span>
+          </div>
+        </figure>
+      </div>
+
+      <div class="scroll-cue-wrap">
+        <span class="scroll-cue" aria-hidden="true"><span class="line"></span>keep watching</span>
+      </div>
+    </section>
+
+    <!-- ===== What is Pastura ===== -->
+    <section class="lp-section alt alt-both compact-mobile" aria-labelledby="what-h">
+      <div class="lp-narrow">
+        <p class="eyebrow" style="margin-bottom:24px">What is Pastura</p>
+        <h2 id="what-h" class="display-sm" style="margin:0">
+          <span style="color:var(--muted)">Operate vs. observe.</span><br>
+          Pastura is the second one.
+        </h2>
+        <p class="lead" style="margin:24px 0 0; max-width:600px">
+          Other apps put a chat box in front of you. Pastura puts a window in front of a closed paddock — and a few agents already inside it, debating, betraying, voting, reasoning aloud and quietly.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== The observation journey ===== -->
+    <section id="watch" class="lp-section" aria-labelledby="journey-h">
+      <div class="lp-wide">
+        <p class="eyebrow" style="margin-bottom:24px">The observation journey</p>
+        <h2 id="journey-h" class="section-title" style="margin:0 0 56px; max-width:560px">
+          Three small acts. One quiet afternoon.
+        </h2>
+
+        <div class="lp-journey-act">
+          <div class="num" aria-hidden="true">01</div>
+          <div>
+            <h3><span class="sr-only">Step 01. </span>Pick or write the world.</h3>
+            <p class="body">Choose a preset — Word Wolf, Prisoner&rsquo;s Dilemma, Ultimatum — or write your own scenario in YAML. The visual editor handles names, roles, win conditions; the YAML handles everything else.</p>
+          </div>
+          <div>
+            <pre class="journey-yaml"><span class="comment"># scenarios/word_wolf.yaml</span>
+<span class="key">title:</span> Word Wolf
+<span class="key">agents:</span> [Alice, Bob, Carol, Dave]
+<span class="key">topic_majority:</span> 公園
+<span class="key">topic_wolf:</span> 散歩
+<span class="key">rounds:</span> 3</pre>
+          </div>
+        </div>
+
+        <div class="lp-journey-act">
+          <div class="num" aria-hidden="true">02</div>
+          <div>
+            <h3><span class="sr-only">Step 02. </span>Choose a model. Wait once.</h3>
+            <p class="body">Gemma 4 E2B (~2.5 GB) or Qwen 3 4B (~3.1 GB). Stays on your device. While it downloads, the dog sits beside the progress bar. That&rsquo;s all that happens.</p>
+          </div>
+          <div>
+            <div class="promo journey-promo">
+              <div class="journey-promo-row">
+                <svg width="36" height="36" viewBox="0 0 44 44" fill="none" aria-hidden="true" focusable="false">
+                  <path d="M9 26 Q 9 17, 16 14 L 19 9 L 22 15 Q 30 16, 34 21 Q 36 24, 36 27 L 38 30 L 34 31 Q 31 35, 25 35 L 17 35 Q 11 34, 9 30 Z"
+                        fill="#FFFFFF" stroke="#3D4030" stroke-width="1.6" stroke-linejoin="round"/>
+                  <circle cx="33" cy="26" r="1.4" fill="#3D4030"/>
+                  <circle cx="23" cy="22" r="1.1" fill="#3D4030"/>
+                  <path d="M16 14 Q 14 19, 15.5 23" stroke="#3D4030" stroke-width="1" fill="none" stroke-linecap="round"/>
+                  <path d="M37 30 Q 40 28, 41 25 Q 41.5 27, 39 31" fill="#8A9A6C" opacity=".9"/>
+                </svg>
+                <div style="flex:1">
+                  <div class="meta-row">
+                    <span>DL</span>
+                    <span class="dl-dots" aria-hidden="true">
+                      <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span>
+                    </span>
+                    <span>50% · 1.5 GB / 3.0 GB</span>
+                  </div>
+                  <div class="body-line">少しだけお待ちください...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lp-journey-act">
+          <div class="num" aria-hidden="true">03</div>
+          <div>
+            <h3><span class="sr-only">Step 03. </span>Step back. Observe.</h3>
+            <p class="body">Speech, internal reasoning, votes, scores arrive in real time. Replay later. Export as Markdown. Switch the model. Try the same scenario again — the agents will not behave the same.</p>
+          </div>
+          <div>
+            <div class="journey-bubbles">
+              <div class="bubble-row">
+                <span class="sheep" data-tone="alice" aria-hidden="true">
+                  <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
+                </span>
+                <div class="bubble-stack">
+                  <div class="bubble-name" aria-hidden="true">Alice</div>
+                  <div class="bubble">
+                    <blockquote>
+                      <span class="sr-only">Alice said: </span>公園のベンチで本を読むのも好きで。
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+              <div class="bubble-row">
+                <span class="sheep" data-tone="dave" aria-hidden="true">
+                  <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
+                </span>
+                <div class="bubble-stack">
+                  <div class="bubble-name" aria-hidden="true">Dave</div>
+                  <div class="bubble">
+                    <div class="reason" aria-hidden="true">VOTE → Alice</div>
+                    <blockquote>
+                      <span class="sr-only">Dave (vote → alice): </span>……ベンチ、と言ったのは Alice だけ。少し気になる。
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Capabilities ===== -->
+    <!-- Capabilities are intentionally 5 items. Background execution
+         (Phase 2 #84) is omitted from the public LP per the design
+         handoff — confirm with the design owner before re-adding. -->
+    <section id="capabilities" class="lp-section alt" aria-labelledby="cap-h">
+      <div class="lp-mid">
+        <h2 id="cap-h" class="eyebrow" style="margin-bottom:24px; font-size:11px">Quietly capable</h2>
+        <ul class="lp-cap-grid">
+          <li class="cap-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" aria-hidden="true" focusable="false">
+              <path d="M3 12a9 9 0 0 1 18 0"/>
+              <path d="M7 12a5 5 0 0 1 10 0"/>
+              <circle cx="12" cy="17" r="1.2" fill="currentColor"/>
+              <path d="M4 4l16 16" stroke-width="1.2"/>
+            </svg>
+            <h3>Fully offline</h3>
+            <p>No cloud calls. Airplane mode is fine.</p>
+          </li>
+          <li class="cap-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M5 8h11l-3-3M19 16H8l3 3"/>
+            </svg>
+            <h3>Swappable models</h3>
+            <p>Gemma 4 E2B, Qwen 3 4B, or your own GGUF.</p>
+          </li>
+          <li class="cap-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <circle cx="6" cy="12" r="2.4"/>
+              <circle cx="18" cy="6" r="2.4"/>
+              <circle cx="18" cy="18" r="2.4"/>
+              <path d="M8.2 11l7.6-3.6M8.2 13l7.6 3.6"/>
+            </svg>
+            <h3>Shared scenarios gallery</h3>
+            <p>Browse and import what others wrote.</p>
+          </li>
+          <li class="cap-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <rect x="3" y="6" width="18" height="12" rx="1.5"/>
+              <path d="M7 14V10l2 2 2-2v4M15 10v4M15 14l-1.4-1.4M15 14l1.4-1.4"/>
+            </svg>
+            <h3>Markdown export</h3>
+            <p>Take the transcript with you. Plain text. Yours.</p>
+          </li>
+          <li class="cap-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+            <h3>Data sovereignty</h3>
+            <p>No telemetry. No analytics. No anonymous-stats checkbox.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== Why on-device ===== -->
+    <section class="lp-section" aria-labelledby="why-h">
+      <div class="lp-narrow">
+        <p class="eyebrow" style="margin-bottom:24px">Why on-device</p>
+        <h2 id="why-h" class="display-sm" style="margin:0 0 16px">
+          <span class="mono" style="color:var(--moss-dark)">3.0 GB.</span> Once.
+        </h2>
+        <p class="lead" style="margin:0 0 32px; max-width:560px">
+          That&rsquo;s the price of never sending a byte to the cloud. Privacy, cost, latency, sovereignty — settled by storing the model on your device instead of someone else&rsquo;s.
+        </p>
+        <p class="why-list">
+          cloud calls — 0<br>
+          monthly bill — ¥0<br>
+          data leaving the device — 0 bytes<br>
+          on-device weight — ~3.0 GB
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== FAQ ===== -->
+    <section id="faq" class="lp-section alt" aria-labelledby="faq-h">
+      <div class="lp-mid">
+        <h2 id="faq-h" class="eyebrow" style="margin-bottom:24px; font-size:11px">Questions</h2>
+        <details class="faq-item">
+          <summary class="faq-q">
+            <span>Is it free?</span>
+            <span aria-hidden="true" class="faq-chev">+</span>
+          </summary>
+          <div class="faq-a">Yes. No server bill, no subscription.</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            <span>Why iOS only?</span>
+            <span aria-hidden="true" class="faq-chev">+</span>
+          </summary>
+          <div class="faq-a">On-device LLM runtime is fastest there today. Android is on the list.</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            <span>Can I use my own model?</span>
+            <span aria-hidden="true" class="faq-chev">+</span>
+          </summary>
+          <div class="faq-a">Bring a supported GGUF; configure it in settings.</div>
+        </details>
+      </div>
+    </section>
+
+  </main>
+
+  <footer role="contentinfo" class="lp-footer">
+    <div class="foot-grid">
+      <div>
+        <a href="./" class="brand">
+          <span class="leaf" aria-hidden="true"></span>
+          <span class="brand-name">Pastura</span>
+        </a>
+        <p class="body" style="margin:16px 0 24px; max-width:340px; font-size:14px">
+          An AI you observe, not operate. On-device, offline, no cloud calls.
+        </p>
+        <div class="badges">
+          <span role="link" aria-disabled="true" tabindex="-1"
+                class="badge ghost is-disabled"
+                aria-label="App Store — coming soon">
+            <svg width="20" height="22" viewBox="0 0 24 28" fill="none" aria-hidden="true" focusable="false">
+              <path d="M12 2 L20 8 L20 22 L12 27 L4 22 L4 8 Z"
+                    stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>
+              <circle cx="12" cy="14" r="3" fill="currentColor" opacity=".6"/>
+            </svg>
+            <span>
+              <span class="b-eyebrow">App Store</span>
+              <span class="b-label">Coming soon</span>
+            </span>
+          </span>
+        </div>
+      </div>
+      <div>
+        <h2 class="foot-h">Product</h2>
+        <a class="foot-link" href="#watch">Watch a run</a>
+        <a class="foot-link" href="#capabilities">Capabilities</a>
+        <a class="foot-link" href="#faq">FAQ</a>
+      </div>
+      <div>
+        <h2 class="foot-h">Resources</h2>
+        <a class="foot-link" href="legal/privacy-policy/">Privacy Policy</a>
+        <a class="foot-link" href="support/">Support · Feedback</a>
+        <a class="foot-link" href="https://github.com/tyabu12/pastura" rel="noopener">GitHub</a>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 Pastura · last updated 2026-05-11 · v0.4 beta</span>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" aria-pressed="true" lang="en" class="on">EN</button>
+        <button type="button" aria-disabled="true" lang="ja" tabindex="-1">JA</button>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
