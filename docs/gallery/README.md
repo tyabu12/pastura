@@ -65,8 +65,10 @@ Gallery scenario ids **MUST NOT** collide with:
 The iOS app refuses to install a gallery scenario whose id matches an
 existing local row with a different source. The fix is to rename the
 gallery scenario (append `_v2`, `_alt`, etc.) and re-run
-`scripts/add-gallery-entry.sh` (or, when editing `gallery.json` by
-hand, regenerate the SHA-256 and update the entry).
+`scripts/add-gallery-entry.sh`. To refresh an existing entry's hash
+or metadata in place (without renaming), use
+`scripts/add-gallery-entry.sh --update <id>` — see *Updating an
+existing scenario* below.
 
 ### Suffix versioning
 
@@ -146,7 +148,80 @@ The scenario becomes available in the app after merge — the app uses
 ETag-conditional GET, so users pick up the update on their next Share
 Board visit.
 
-### What enforces this contract
+## Updating an existing scenario
+
+When you need to refresh an *existing* gallery entry (typically because
+you edited its YAML and `yaml_sha256` is now stale, or you want to tweak
+the gallery card metadata), use the script's `--update <id>` mode:
+
+```sh
+# Refresh the hash after editing docs/gallery/<id>.yaml.
+# <yaml-path> defaults to docs/gallery/<id>.yaml; pass it explicitly
+# only if your YAML lives elsewhere.
+bash scripts/add-gallery-entry.sh --update <id>
+
+# Tweak gallery-card metadata in place (no YAML edit needed):
+bash scripts/add-gallery-entry.sh --update <id> \
+  --recommended-model qwen-3-4b-q4-k-m \
+  --estimated-inferences 25
+```
+
+In update mode:
+
+- Fields not overridden by a flag are **preserved** from the existing
+  `gallery.json` entry — `--non-interactive` works without forcing
+  every field to be re-supplied.
+- If the candidate entry is byte-identical to the existing one (no
+  flag overrides AND unchanged YAML body), the script exits 0 with
+  *No change needed* — `updated_at` is **not** bumped, so re-running
+  is free.
+- The confirmation prompt shows an old → new diff for changed fields
+  only, with `(from YAML)` source labels on `title` / `yaml_sha256` so
+  you can tell YAML-driven changes from flag-driven ones.
+
+### What auto-syncs from YAML on `--update`?
+
+| YAML field      | Gallery field   | Auto-syncs? | Why                                                                                                                       |
+|-----------------|-----------------|-------------|---------------------------------------------------------------------------------------------------------------------------|
+| `name:`         | `title`         | **Yes**     | `GallerySeedYAMLTests.galleryTitleMatchesYAMLName` enforces byte-equality; can't drift.                                   |
+| `description:`  | `description`   | **No**      | Curators commonly use `--description "shorter card summary"` to give the gallery card a tighter blurb than the YAML body. |
+
+If you actually want the gallery `description` to re-sync from the
+YAML, pass it explicitly. One-liner that pulls the current YAML value:
+
+```sh
+bash scripts/add-gallery-entry.sh --update <id> \
+  --description "$(python3 -c "import yaml; print(yaml.safe_load(open('docs/gallery/<id>.yaml')).get('description','').strip())")"
+```
+
+### Curator smoke test
+
+Before opening the PR, run these four cases against your edit. The
+current branch's `gallery.json` is the source of truth — `git checkout`
+reverts each step.
+
+1. **No-op** — re-run `--update <id>` after the first successful
+   update with no further edits. Expected: `No change needed —
+   candidate entry is byte-identical to existing.`, exit 0, no
+   `gallery.json` mutation.
+2. **Override-persist** — pass a flag whose value differs from the
+   existing entry, e.g. `--update <id> --estimated-inferences 99
+   --non-interactive`. Expected: `gallery.json` shows the new value;
+   `updated_at` bumped. Then `git checkout docs/gallery/gallery.json`
+   to revert.
+3. **Typo / unknown id** — `bash scripts/add-gallery-entry.sh --update
+   nonexistent_v999 --non-interactive`. The default YAML path resolves
+   to `docs/gallery/nonexistent_v999.yaml`, which does not exist;
+   expected exit 1 with `ERROR: file not found:`. (If the curator
+   instead has a YAML on disk whose `id:` is not yet in
+   `gallery.json` — the only way to actually reach the *id-not-in-
+   gallery* branch — the script lists available ids and suggests
+   dropping `--update`.)
+4. **Revert** — `git checkout docs/gallery/gallery.json
+   docs/gallery/<id>.yaml` to leave the working tree clean before
+   commit / PR.
+
+## What enforces this contract
 
 Three independent gates catch drift between the YAML and its
 `gallery.json` entry:
@@ -163,16 +238,22 @@ Three independent gates catch drift between the YAML and its
    yaml_sha256, title==name, recommended_model ∈ ModelRegistry, and
    category enum invariants in the iOS test suite. Runs on every PR.
 
-### Manual fallback (when the script can't be used)
+## Manual fallback (when the script can't be used)
 
 If `scripts/add-gallery-entry.sh` is unavailable for some reason
-(missing PyYAML, bash unavailable, etc.), the manual flow is:
+(missing PyYAML, bash unavailable, etc.), the same manual flow covers
+both adding a new entry and updating an existing one:
 
 1. Compute `shasum -a 256 docs/gallery/<id>.yaml | awk '{print $1}'`.
-2. Add an entry to `gallery.json` with the hash, `yaml_url:
-   <stem>.yaml`, and the four prompted fields above. Bump top-level
-   `updated_at` to today UTC at midnight (`YYYY-MM-DDT00:00:00Z`).
-3. Run `bash scripts/check-gallery-entry.sh --all` before committing —
+2. Edit `gallery.json`:
+   - **Adding**: append a new object to `.scenarios` with the hash,
+     `yaml_url: <stem>.yaml`, and the four prompted fields above.
+   - **Updating**: locate the existing object by `id` and rewrite its
+     `yaml_sha256` (and any other fields the curator intended to
+     change) in place. Preserve the array position.
+3. Bump top-level `updated_at` to today UTC at midnight
+   (`YYYY-MM-DDT00:00:00Z`).
+4. Run `bash scripts/check-gallery-entry.sh --all` before committing —
    it catches every error the script would have caught.
 
 ## Files in this directory
