@@ -115,4 +115,77 @@ struct GameHeaderContractTests {
     )
     #expect(header.round == GameHeaderRound(current: 2, total: 5))
   }
+
+  // MARK: - titleAccessibilityLabel composition (#312)
+
+  @Test func titleAccessibilityLabelPutsStatusFirst() {
+    // VoiceOver should announce screen state before identity.
+    let label = GameHeader.titleAccessibilityLabel(
+      scenarioName: "X", initialName: nil, status: .simulating)
+    #expect(label.hasPrefix("Simulating"))
+  }
+
+  @Test func titleAccessibilityLabelJoinsStatusAndTitleWithSeparator() {
+    // The `, ` separator is `String(localized: ", ")` — en resolves to ", ".
+    let label = GameHeader.titleAccessibilityLabel(
+      scenarioName: "Word Wolf", initialName: nil, status: .simulating)
+    #expect(label == "Simulating, Word Wolf")
+  }
+
+  @Test func titleAccessibilityLabelFallsBackToInitialName() {
+    let label = GameHeader.titleAccessibilityLabel(
+      scenarioName: nil, initialName: "WW Hint", status: .demoing)
+    #expect(label == "Demoing, WW Hint")
+  }
+
+  @Test func titleAccessibilityLabelCollapsesEmptyTitle() {
+    // Both nil → title is empty → no trailing separator, status only.
+    let label = GameHeader.titleAccessibilityLabel(
+      scenarioName: nil, initialName: nil, status: .completed)
+    #expect(label == "Completed")
+  }
+
+  @Test func titleAccessibilityLabelTreatsEmptyScenarioNameAsTitle() {
+    // `scenarioName: ""` wins over `initialName` per `resolveDisplayedTitle`
+    // contract (mirrors `emptyScenarioNameStillBeatsInitialName` above).
+    // Empty title → collapses to status only.
+    let label = GameHeader.titleAccessibilityLabel(
+      scenarioName: "", initialName: "WW Hint", status: .simulating)
+    #expect(label == "Simulating")
+  }
+
+  // MARK: - metaAccessibilityLabel composition (#312)
+
+  @Test func metaAccessibilityLabelReturnsEmptyWhenAllNil() {
+    let label = GameHeader.metaAccessibilityLabel(
+      round: nil, phaseLabel: nil, tokensPerSecond: nil)
+    #expect(label == "")
+  }
+
+  @Test func metaAccessibilityLabelIncludesRoundOnly() {
+    let label = GameHeader.metaAccessibilityLabel(
+      round: GameHeaderRound(current: 2, total: 5),
+      phaseLabel: nil, tokensPerSecond: nil)
+    #expect(label == "Round 2 / 5")
+  }
+
+  @Test func metaAccessibilityLabelIncludesPhaseOnly() {
+    let label = GameHeader.metaAccessibilityLabel(
+      round: nil, phaseLabel: "negotiation", tokensPerSecond: nil)
+    #expect(label == "negotiation")
+  }
+
+  @Test func metaAccessibilityLabelIncludesTokensOnly() {
+    // 16.5 — exactly representable as a half (16 + 0.5), platform-stable.
+    let label = GameHeader.metaAccessibilityLabel(
+      round: nil, phaseLabel: nil, tokensPerSecond: 16.5)
+    #expect(label == "16.5 tok/s")
+  }
+
+  @Test func metaAccessibilityLabelJoinsAllThreeWithSeparator() {
+    let label = GameHeader.metaAccessibilityLabel(
+      round: GameHeaderRound(current: 2, total: 5),
+      phaseLabel: "negotiation", tokensPerSecond: 16.5)
+    #expect(label == "Round 2 / 5, negotiation, 16.5 tok/s")
+  }
 }
