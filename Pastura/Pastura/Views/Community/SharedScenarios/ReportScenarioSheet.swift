@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Presentation surface for "Report this scenario" from Share Board.
+/// Presentation surface for "Report this scenario" from Shared Scenarios.
 ///
 /// Uses progressive disclosure: the primary action opens a pre-filled
 /// Google Forms report in Safari (no account required); a secondary
@@ -9,7 +9,7 @@ import SwiftUI
 /// is a metadata display and launching pad only.
 ///
 /// See ADR-005 §6 for the policy rationale, and
-/// `docs/gallery/share-board-reports.md` for operational details.
+/// `docs/gallery/shared-scenario-reports.md` for operational details.
 struct ReportScenarioSheet: View {
   let scenario: GalleryScenario
 

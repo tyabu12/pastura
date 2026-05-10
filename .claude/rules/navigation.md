@@ -149,7 +149,7 @@ definition + standalone tests:
 its primary route. Run the manual steps below whenever the navigation
 surface changes in areas the automated tests do not exercise.
 
-1. **Share Board → Try → Run Simulation** — Automated by
+1. **Shared Scenarios → Try → Run Simulation** — Automated by
    `NavigationRegressionTests.testGalleryInstallThenRunSimulationReachesSimulationView`
    (PR #105). Regression symptom: ScenarioDetailView re-pushes itself.
    Re-run the manual flow only if the `--ui-test` DI path diverges from

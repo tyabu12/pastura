@@ -5,7 +5,7 @@ import Testing
 @testable import Pastura
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct ShareBoardViewModelTests {
+@Suite(.timeLimit(.minutes(1))) struct SharedScenariosViewModelTests {
 
   // MARK: - Fixtures
 
@@ -71,7 +71,7 @@ import Testing
     service.cachedIndex = cachedIndex
     service.refreshResult = .success(nil)  // 304 unchanged
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
 
     #expect(viewModel.state == .loaded)
@@ -84,7 +84,7 @@ import Testing
     service.cachedIndex = nil
     service.refreshResult = .failure(GalleryServiceError.invalidResponse)
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
 
     #expect(viewModel.state == .empty)
@@ -97,7 +97,7 @@ import Testing
     service.cachedIndex = makeIndex([makeGalleryScenario()])
     service.refreshResult = .failure(GalleryServiceError.invalidResponse)
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
 
     #expect(viewModel.state == .offlineWithCache)
@@ -110,7 +110,7 @@ import Testing
     service.cachedIndex = nil
     service.refreshResult = .success(makeIndex([makeGalleryScenario()]))
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
 
     #expect(viewModel.state == .loaded)
@@ -133,7 +133,7 @@ import Testing
     service.cachedIndex = makeIndex([first, second])
     service.refreshResult = .success(nil)
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
     #expect(viewModel.visibleScenarios.count == 2)
 
@@ -155,7 +155,7 @@ import Testing
     let service = MockGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     let outcome = await viewModel.tryInstall(scenario)
 
     #expect(outcome == .installed(scenarioId: "asch_v1"))
@@ -176,7 +176,7 @@ import Testing
 
     let scenario = makeGalleryScenario()
     let service = MockGalleryService()
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
 
     let outcome = await viewModel.tryInstall(scenario)
     #expect(outcome == .conflict(existingName: "My Local Version", existingId: "asch_v1"))
@@ -188,7 +188,7 @@ import Testing
     let service = MockGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     _ = await viewModel.tryInstall(scenario)  // install
 
     // Bump hash → update path
@@ -205,7 +205,7 @@ import Testing
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
     service.mismatchMode = .rejectHash
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     let outcome = await viewModel.tryInstall(scenario)
     #expect(outcome == .hashMismatch)
 
@@ -219,7 +219,7 @@ import Testing
     let service = MockGalleryService()
     service.yamlErrorFor = [scenario.yamlURL: GalleryServiceError.unexpectedStatus(500)]
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     let outcome = await viewModel.tryInstall(scenario)
 
     if case .networkError = outcome {
@@ -238,7 +238,7 @@ import Testing
     let service = MockGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
 
-    let viewModel = ShareBoardViewModel(galleryService: service, repository: repo)
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
 
     #expect(!viewModel.isInstalled(scenario))
     #expect(!viewModel.hasUpdate(for: scenario))

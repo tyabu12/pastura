@@ -1,8 +1,8 @@
-name: Share Board scenario report
-description: Report a concern about a scenario published on Pastura's Share Board.
-title: "[Share Board Report] "
+name: Shared Scenario report
+description: Report a concern about a scenario published in Pastura's Shared Scenarios gallery.
+title: "[Shared Scenario Report] "
 labels:
-  - share-board-report
+  - shared-scenario-report
 body:
   - type: markdown
     attributes:

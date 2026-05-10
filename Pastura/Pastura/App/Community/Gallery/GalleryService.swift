@@ -6,7 +6,7 @@
 
 import Foundation
 
-/// Service that fetches the remote Share Board index and downloads individual
+/// Service that fetches the remote Shared Scenarios index and downloads individual
 /// scenario YAMLs listed in that index.
 ///
 /// Implementations MUST:

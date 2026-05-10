@@ -1,6 +1,6 @@
 import Foundation
 
-/// ViewModel for the Share Board screen.
+/// ViewModel for the Shared Scenarios screen.
 ///
 /// Orchestrates offline-first loading of the gallery index, category
 /// filtering, and the "Try" / "Update" install flow. Keeps a snapshot of
@@ -8,7 +8,7 @@ import Foundation
 /// installation-status checks can be rendered synchronously from views.
 @Observable
 @MainActor
-final class ShareBoardViewModel {
+final class SharedScenariosViewModel {
 
   /// The top-level screen state the view renders.
   enum LoadState: Equatable, Sendable {
