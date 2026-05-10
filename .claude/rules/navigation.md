@@ -251,10 +251,12 @@ surface changes in areas the automated tests do not exercise.
      chat row.
    - **Rotor → Headings** lands on the title row (Stop 2 carries
      `.accessibilityAddTraits(.isHeader)`).
-   - The title-row `.isHeader` trait does not bleed into Demo's
-     unified `body` rendering (Demo's `body` re-combines into a
-     single stop with the joined label and remains a single VO
-     focus — verify on Demo screen).
+   - On Demo (unified `body` host): the `.isHeader` trait propagates
+     up via `.accessibilityElement(children: .combine)` so Demo's
+     single VO stop also responds to rotor-Headings. Semantically
+     fine — Demo's GameHeader is the screen's primary heading. Verify
+     rotor-Headings on Demo lands on the GameHeader, not on a chat
+     row.
 3. **Editor save → Home reload** — `EditorReloadTests` covers the
    `onChange(of: router.path.count)` pop-trigger path. Note: the trigger
    only fires when `newCount < oldCount` (a pop). Flows that finish by

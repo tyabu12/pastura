@@ -364,6 +364,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           .padding(.horizontal, 18)
           .padding(.top, 4)
           .padding(.bottom, 8)
+      } else {
+        // Pre-load and post-completion states can land here with all
+        // three meta-row inputs nil. The inset must still have positive
+        // layout height for its frosted background's
+        // `.ignoresSafeArea(.container, edges: .top)` to anchor and
+        // paint behind the (transparent) nav bar — otherwise the
+        // principal-slot title would sit naked over scrolling chat
+        // content. A 1pt invisible spacer is the minimal anchor.
+        Color.clear.frame(height: 1)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
