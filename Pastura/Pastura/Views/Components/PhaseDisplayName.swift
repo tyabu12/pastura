@@ -39,7 +39,7 @@ public enum PhaseDisplayName {
     case .eliminate: return String(localized: "Eliminate")
     case .summarize: return String(localized: "Summarize")
     case .conditional: return String(localized: "Conditional")
-    case .eventInject: return String(localized: "Event Inject")
+    case .eventInject: return String(localized: "Event")
     }
   }
 }

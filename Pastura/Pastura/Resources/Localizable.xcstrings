@@ -842,12 +842,12 @@
         }
       }
     },
-    "Event Inject" : {
+    "Event" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "イベント注入"
+            "value" : "イベント"
           }
         }
       }
