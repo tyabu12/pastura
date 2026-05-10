@@ -59,6 +59,16 @@
         }
       }
     },
+    "%arg (%arg) requires field '%arg' in output." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$arg (%2$arg) requires field '%3$arg' in output."
+          }
+        }
+      }
+    },
     "%arg actions" : {
       "localizations" : {
         "ja" : {
@@ -1978,6 +1988,7 @@
       }
     },
     "Phase %arg (%arg) requires field '%arg' in output." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
