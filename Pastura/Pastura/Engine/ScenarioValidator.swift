@@ -156,6 +156,17 @@ nonisolated struct ScenarioValidator: Sendable {
       )
     }
 
+    // Parse-only pre-flight: malformed `if:` (mismatched parens, dangling
+    // combinator, empty operand) surfaces here at scenario-load time
+    // rather than mid-simulation when the handler dispatches. Critical
+    // for gallery curation — a bad `if:` in a curated scenario would
+    // otherwise only fail when a user runs it.
+    do {
+      try ConditionEvaluator().parse(trimmedCondition)
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      throw SimulationError.scenarioValidationFailed("\(phaseLabel): \(message)")
+    }
+
     let thenCount = phase.thenPhases?.count ?? 0
     let elseCount = phase.elsePhases?.count ?? 0
     if thenCount == 0 && elseCount == 0 {

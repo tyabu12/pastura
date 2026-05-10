@@ -1,21 +1,33 @@
 import Foundation
 
-/// Evaluates a single-comparison condition expression used by the
-/// `conditional` phase type.
+/// Evaluates a boolean condition expression used by the `conditional` phase
+/// type. Supports `&&` / `||` combinators and parenthesized grouping on top
+/// of a single-comparison primitive.
 ///
-/// Grammar (v1):
+/// Grammar:
 ///
-///     expression ::= lhs OP rhs
+///     expression ::= or
+///     or         ::= and ('||' and)*
+///     and        ::= factor ('&&' factor)*
+///     factor     ::= '(' or ')'  |  comparison
+///     comparison ::= operand OP operand
 ///     OP         ::= "==" | "!=" | "<=" | ">=" | "<" | ">"
-///     lhs, rhs   ::= Identifier ("." Identifier)?  |  NumberLiteral  |  StringLiteral
+///     operand    ::= Identifier ("." Identifier)?
+///                    | NumberLiteral
+///                    | StringLiteral
 ///     StringLiteral ::= '"' .* '"'
 ///
-/// Tokenization is "scan for operator first, then expand each side", so an
-/// operator character inside a quoted RHS (e.g. `"A>B"`) does not split the
-/// expression. `&&` / `||` combinators are deliberately not supported in v1
-/// — see the follow-up issue on the PR description.
+/// Precedence (loosest to tightest): `||` < `&&` < comparison. Both `&&`
+/// and `||` are left-associative — `a || b || c` evaluates as
+/// `(a || b) || c`. Parens may group any boolean sub-expression and
+/// override precedence; an operand itself cannot be parenthesized
+/// (`(current_round) == 1` is rejected).
 ///
-/// Derived read-only variables available on the LHS (or RHS as an identifier):
+/// Tokenization is quote-aware: operator-like characters inside a quoted
+/// string literal (e.g. `"a && b"`, `"x>y"`, `"(foo)"`) are treated as
+/// literal content rather than tokens.
+///
+/// Derived read-only variables available on either side of a comparison:
 ///
 /// | Identifier         | Source                                      |
 /// |--------------------|---------------------------------------------|
@@ -30,157 +42,167 @@ import Foundation
 ///
 /// Any other identifier is resolved from `state.variables`.
 ///
-/// Parse-time errors (missing operator, empty LHS / RHS) throw
-/// `SimulationError.scenarioValidationFailed`. Runtime-absent values (e.g.
-/// `vote_winner` before any vote this round, `scores.Nobody`) do **not**
-/// throw; they return `value: false` and attach a warning string to
-/// `EvaluationResult.warnings` so the caller can surface it via the normal
-/// `.summary` warning channel.
+/// **Parse-time errors** (missing operator, empty operand, mismatched
+/// parens, dangling `&&` / `||`, empty `()`) throw
+/// `SimulationError.scenarioValidationFailed`. Use ``parse(_:)`` to fail
+/// fast at scenario-load time rather than waiting for handler dispatch
+/// — `ScenarioValidator.validateConditionalPhase` does this.
+///
+/// **Runtime-absent values** (e.g. `vote_winner` before any vote this
+/// round, `scores.Nobody`) do not throw; the comparison they appear in
+/// returns `value: false` and a warning string is appended to
+/// ``EvaluationResult/warnings`` so the caller can surface it via the
+/// normal `.summary` warning channel.
+///
+/// **Short-circuit policy** (Swift-style): the dropped side of `false &&
+/// X` / `true || X` is **not** resolved, so absent-variable warnings on
+/// the skipped branch never appear. Trade-off: a typo in a never-evaluated
+/// sub-expression (e.g. `current_round > 999 && scores.Aliec > 5` with
+/// `Alice` typo'd) stays hidden because the always-false LHS short-
+/// circuits before the parser ever asks the resolver about `Aliec`.
+/// Authors debugging an always-same-branch condition should temporarily
+/// flip operands or remove the combinator to surface warnings on both
+/// sides.
 ///
 /// This type is the sole owner of the expression grammar — callers pass an
-/// expression string only. Future upgrades (e.g. adding `&&`/`||`) replace
-/// the internals without changing the call site.
+/// expression string only. Tokenizer + recursive-descent parser internals
+/// live in `ConditionEvaluator+Parser.swift`.
 nonisolated public struct ConditionEvaluator: Sendable {
 
   /// Result of evaluating a condition expression.
   public struct EvaluationResult: Sendable, Equatable {
-    /// The evaluated boolean. `false` when either side is runtime-absent.
+    /// The evaluated boolean. `false` when a comparison's operand is
+    /// runtime-absent, or when a sub-expression's truth value (and short-
+    /// circuit policy) drives it false.
     public let value: Bool
 
-    /// Non-fatal diagnostics (e.g. runtime-absent variables). Callers should
-    /// forward these to the `.summary` event so users can debug their DSL.
+    /// Non-fatal diagnostics (e.g. runtime-absent variables). Callers
+    /// should forward these to the `.summary` event so users can debug
+    /// their DSL. Warnings from short-circuited sub-expressions are
+    /// suppressed by design — see the type-level doc comment.
     public let warnings: [String]
   }
 
-  /// Operators scanned in priority order. Two-character operators appear
-  /// before their one-character prefixes so `<=` is not broken into `<` + `=`.
-  private static let operatorsByPriority: [String] = [
-    "<=", ">=", "==", "!=", "<", ">"
-  ]
+  /// Lexical token classes recognized by the DSL. Defined as a nested
+  /// type so the parser file (a sibling extension) can reference it
+  /// without widening visibility module-internal-or-tighter.
+  enum Token: Equatable {
+    case openParen
+    case closeParen
+    case logicalAnd
+    case logicalOr
+    case comparisonOp(String)
+    /// String preserving its source form: numbers as their digits, bare
+    /// identifiers as-is (including dotted access like `scores.Alice`),
+    /// and quoted strings WITH surrounding `"` so the resolver can
+    /// distinguish `Alice` (identifier) from `"Alice"` (string literal).
+    case operand(String)
+  }
+
+  /// AST node for the parsed expression. Walker lives in this file;
+  /// builder lives in `ConditionEvaluator+Parser.swift`.
+  indirect enum Node: Equatable {
+    case logicalOr(Node, Node)
+    case logicalAnd(Node, Node)
+    case comparison(lhs: String, symbol: String, rhs: String)
+  }
 
   public init() {}
 
   /// Evaluates `expression` against `state` and `scenario`.
   ///
   /// - Throws: `SimulationError.scenarioValidationFailed` for parse-time
-  ///   errors (missing operator, empty side).
+  ///   errors (missing operator, empty operand, mismatched parens,
+  ///   dangling combinator, empty parens).
   public func evaluate(
     _ expression: String,
     state: SimulationState,
     scenario: Scenario
   ) throws -> EvaluationResult {
-    let split = try splitByOperator(expression)
+    let ast = try parseToAST(expression)
+    return walk(ast, state: state, scenario: scenario)
+  }
 
+  /// Parses `expression` and discards the AST. Used by
+  /// `ScenarioValidator.validateConditionalPhase` to surface malformed
+  /// `if:` strings at scenario-load time, before any `state` exists.
+  ///
+  /// - Throws: `SimulationError.scenarioValidationFailed` on syntactic
+  ///   errors. Runtime-absent identifiers do not throw — those only
+  ///   surface during ``evaluate(_:state:scenario:)`` as warnings.
+  public func parse(_ expression: String) throws {
+    _ = try parseToAST(expression)
+  }
+
+  // MARK: - AST walker (with short-circuit)
+
+  private func walk(
+    _ node: Node, state: SimulationState, scenario: Scenario
+  ) -> EvaluationResult {
+    switch node {
+    case .comparison(let lhs, let symbol, let rhs):
+      return walkComparison(
+        lhs: lhs, symbol: symbol, rhs: rhs, state: state, scenario: scenario)
+    case .logicalAnd(let lhs, let rhs):
+      let lhsResult = walk(lhs, state: state, scenario: scenario)
+      // Short-circuit: dropped side is NOT resolved, so its warnings
+      // never enter the result. Documented Swift-style policy.
+      if !lhsResult.value { return lhsResult }
+      let rhsResult = walk(rhs, state: state, scenario: scenario)
+      return EvaluationResult(
+        value: rhsResult.value,
+        warnings: lhsResult.warnings + rhsResult.warnings)
+    case .logicalOr(let lhs, let rhs):
+      let lhsResult = walk(lhs, state: state, scenario: scenario)
+      if lhsResult.value { return lhsResult }
+      let rhsResult = walk(rhs, state: state, scenario: scenario)
+      return EvaluationResult(
+        value: rhsResult.value,
+        warnings: lhsResult.warnings + rhsResult.warnings)
+    }
+  }
+
+  private func walkComparison(
+    lhs: String, symbol: String, rhs: String,
+    state: SimulationState, scenario: Scenario
+  ) -> EvaluationResult {
     var warnings: [String] = []
     let lhsValue = resolve(
-      token: split.lhs, state: state, scenario: scenario, warnings: &warnings)
+      token: lhs, state: state, scenario: scenario, warnings: &warnings)
     let rhsValue = resolve(
-      token: split.rhs, state: state, scenario: scenario, warnings: &warnings)
-
+      token: rhs, state: state, scenario: scenario, warnings: &warnings)
     guard let left = lhsValue, let right = rhsValue else {
       return EvaluationResult(value: false, warnings: warnings)
     }
-
-    return EvaluationResult(value: compare(left, split.symbol, right), warnings: warnings)
+    return EvaluationResult(
+      value: compare(left, symbol, right), warnings: warnings)
   }
 
-  // MARK: - Tokenization
+  // MARK: - Operand resolution
 
-  /// Parsed operands + operator symbol from the expression.
-  private struct Split {
-    let lhs: String
-    let symbol: String
-    let rhs: String
-  }
-
-  /// Splits the expression into its three parts.
-  ///
-  /// Walks left-to-right, tracking whether we are inside a double-quoted
-  /// literal, and returns the position of the first operator found outside
-  /// quotes. Two-character operators are tried before one-character so that
-  /// `<=` is never read as `<` + `=`.
-  private func splitByOperator(_ expression: String) throws -> Split {
-    let chars = Array(expression)
-    var inQuote = false
-    var index = 0
-
-    while index < chars.count {
-      let char = chars[index]
-      if char == "\"" {
-        inQuote.toggle()
-        index += 1
-        continue
-      }
-      if !inQuote {
-        // Try operators in priority order (longest first).
-        for symbol in Self.operatorsByPriority {
-          let symbolChars = Array(symbol)
-          if index + symbolChars.count <= chars.count
-            && Array(chars[index..<index + symbolChars.count]) == symbolChars {
-            let lhs = String(chars[0..<index]).trimmingCharacters(in: .whitespaces)
-            let rhs = String(chars[index + symbolChars.count..<chars.count])
-              .trimmingCharacters(in: .whitespaces)
-            guard !lhs.isEmpty, !rhs.isEmpty else {
-              throw SimulationError.scenarioValidationFailed(
-                "Condition expression '\(expression)' has empty operand for operator '\(symbol)'"
-              )
-            }
-            return Split(lhs: lhs, symbol: symbol, rhs: rhs)
-          }
-        }
-      }
-      index += 1
-    }
-
-    throw SimulationError.scenarioValidationFailed(
-      "Condition expression '\(expression)' contains no comparison operator "
-        + "(one of \(Self.operatorsByPriority.joined(separator: ", ")))"
-    )
-  }
-
-  // MARK: - Resolution
-
-  /// Resolves a token to a string value, or returns `nil` if the identifier
-  /// refers to data that is not present at runtime (with a warning appended).
+  /// Resolves a token to a string value, or returns `nil` if the
+  /// identifier refers to data not present at runtime (with a warning
+  /// appended to `warnings`).
   private func resolve(
     token: String,
     state: SimulationState,
     scenario: Scenario,
     warnings: inout [String]
   ) -> String? {
-    // Double-quoted string literal: strip quotes and return content verbatim.
     if token.hasPrefix("\"") && token.hasSuffix("\"") && token.count >= 2 {
       return String(token.dropFirst().dropLast())
     }
-
-    // Numeric literal: accept as-is (Int or Double). Comparison decides type.
     if Double(token) != nil {
       return token
     }
-
-    // Dotted access: only `scores.<Name>` is valid in v1.
     if let dotIndex = token.firstIndex(of: ".") {
-      let head = String(token[..<dotIndex])
-      let tail = String(token[token.index(after: dotIndex)...])
-      if head == "scores" {
-        if let score = state.scores[tail] {
-          return String(score)
-        }
-        warnings.append("scores.\(tail) is not set (agent absent from scores)")
-        return nil
-      }
-      // Any other dotted identifier is unknown — treat as absent.
-      warnings.append("Unknown dotted identifier '\(token)'")
-      return nil
+      return resolveDotted(token, dotIndex: dotIndex, state: state, warnings: &warnings)
     }
 
-    // Bare identifier: try derived vars first, then state.variables.
     switch resolveDerived(token, state: state, scenario: scenario, warnings: &warnings) {
     case .value(let resolved):
       return resolved
     case .absent:
-      // Recognized as derived but has no runtime value; warning already
-      // appended by resolveDerived.
       return nil
     case .notDerived:
       break
@@ -193,15 +215,33 @@ nonisolated public struct ConditionEvaluator: Sendable {
     return nil
   }
 
+  private func resolveDotted(
+    _ token: String,
+    dotIndex: String.Index,
+    state: SimulationState,
+    warnings: inout [String]
+  ) -> String? {
+    let head = String(token[..<dotIndex])
+    let tail = String(token[token.index(after: dotIndex)...])
+    if head == "scores" {
+      if let score = state.scores[tail] {
+        return String(score)
+      }
+      warnings.append("scores.\(tail) is not set (agent absent from scores)")
+      return nil
+    }
+    warnings.append("Unknown dotted identifier '\(token)'")
+    return nil
+  }
+
   /// Tri-state result for derived-variable resolution.
   private enum DerivedResolution {
-    /// Identifier is derived and resolved to a value.
     case value(String)
-    /// Identifier is recognized as derived but has no runtime value.
-    /// A warning has already been appended by the producer.
+    /// Recognized as derived but has no runtime value. A warning has
+    /// already been appended by the producer.
     case absent
-    /// Identifier is not a derived variable at all; caller should fall
-    /// through to `state.variables`.
+    /// Not a derived variable at all; caller should fall through to
+    /// `state.variables`.
     case notDerived
   }
 
@@ -211,12 +251,9 @@ nonisolated public struct ConditionEvaluator: Sendable {
     scenario: Scenario,
     warnings: inout [String]
   ) -> DerivedResolution {
-    // "Always present" derived variables resolve without possibly being absent.
     if let value = resolveAlwaysPresentDerived(identifier, state: state, scenario: scenario) {
       return .value(value)
     }
-    // "May be absent" derived variables — some depend on runtime-populated
-    // state (scores, voteResults) and can be unavailable mid-simulation.
     return resolveMayBeAbsentDerived(identifier, state: state, warnings: &warnings)
   }
 
@@ -271,9 +308,6 @@ nonisolated public struct ConditionEvaluator: Sendable {
 
   // MARK: - Comparison
 
-  /// Compares two resolved string values. If both parse as `Double`, compares
-  /// numerically; otherwise compares as strings. Dispatching through a
-  /// Comparable-generic helper keeps the operator table in one place.
   private func compare(_ lhs: String, _ symbol: String, _ rhs: String) -> Bool {
     if let lhsNum = Double(lhs), let rhsNum = Double(rhs) {
       return applyOperator(symbol, lhsNum, rhsNum)
