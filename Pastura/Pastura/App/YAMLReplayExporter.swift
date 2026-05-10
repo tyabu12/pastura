@@ -244,8 +244,8 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   /// Serialises a ``CodePhaseEventPayload`` as a `payload:` stanza with
   /// a `kind` discriminator. Added in E1 beyond the spec §3.2 example
   /// so structured payloads survive round-trip — the bare `summary:`
-  /// field would force #C to parse narrative strings back into structured
-  /// data, which is lossy by construction.
+  /// field would force downstream consumers to parse narrative strings
+  /// back into structured data, which is lossy by construction.
   private func renderPayloadStanza(
     _ payload: CodePhaseEventPayload?, filter: ContentFilter
   ) -> [String] {
