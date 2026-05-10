@@ -25,7 +25,7 @@ struct ScoreboardSheet: View {
 
             Spacer()
 
-            Text("\(entry.score) pts")
+            Text(String(format: String(localized: "%lld pts"), entry.score))
               .textStyle(Typography.bodyBubble)
               .monospacedDigit()
               .foregroundStyle(entry.isEliminated ? Color.muted : Color.ink)

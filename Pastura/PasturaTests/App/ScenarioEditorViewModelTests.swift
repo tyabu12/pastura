@@ -187,6 +187,104 @@ struct ScenarioEditorViewModelTests {
     #expect(!sut.validationErrors.isEmpty)
   }
 
+  /// Issue #336: paste valid YAML in YAML mode and save without toggling Visual.
+  /// Pre-fix, `save()` called `buildScenario()` regardless of mode → empty visual
+  /// fields → `runCommitTimeValidation` surfaced the misleading
+  /// "Agent count (0) is below minimum of 2" error even though the pasted YAML
+  /// declared `agents: 2`.
+  @Test func yamlModeSavePersistsWithoutToggle() async throws {
+    let (sut, repo) = try makeSUTWithRepo()
+    sut.yamlText = Self.validYAML
+    sut.editorMode = .yaml
+
+    let success = await sut.save()
+
+    #expect(success)
+    #expect(sut.savedScenarioId == "editor_test")
+    #expect(sut.validationErrors.isEmpty)
+    let record = try repo.fetchById("editor_test")
+    #expect(record?.name == "Editor Test")
+    let reloaded = try ScenarioLoader().load(yaml: record?.yamlDefinition ?? "")
+    #expect(reloaded.agentCount == 2)
+    #expect(reloaded.personas.count == 2)
+  }
+
+  /// YAML-mode save persists the user's exact text. The canonical serializer
+  /// (used in visual-mode save) strips comments and normalizes key order, so
+  /// pasting an authored YAML and saving must NOT round-trip through it.
+  @Test func yamlModeSavePreservesUserText() async throws {
+    let (sut, repo) = try makeSUTWithRepo()
+    let yamlWithComment = """
+      # custom comment from author
+      id: comment_preservation_test
+      name: Comment Preservation Test
+      description: Tests comment survival on save
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    sut.yamlText = yamlWithComment
+    sut.editorMode = .yaml
+
+    let success = await sut.save()
+
+    #expect(success)
+    let record = try repo.fetchById("comment_preservation_test")
+    let saved = record?.yamlDefinition ?? ""
+    // Canonical serializer would strip this comment line.
+    #expect(saved.contains("# custom comment from author"))
+  }
+
+  /// Regression for #336's underlying drift class. extraData (e.g. bokete `topics`)
+  /// must survive a YAML-mode-direct save (no Visual toggle). Pre-fix, save() went
+  /// through `buildScenario()` → empty visual state, so this would fail with the
+  /// agentCount=0 error before extraData ever entered the picture. Post-fix, this
+  /// test guards against a future "simplify by routing both modes through
+  /// buildScenario()" refactor that would silently re-introduce the bug.
+  @Test func yamlModeSavePreservesExtraData() async throws {
+    let (sut, repo) = try makeSUTWithRepo()
+    let boketeYAML = """
+      id: bokete_yaml_save_test
+      name: Bokete Save Test
+      description: Tests extraData survival on YAML-mode save
+      agents: 2
+      rounds: 1
+      context: Context
+      topics:
+        - Photo A
+        - Photo B
+        - Photo C
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: assign
+          source: topics
+          target: all
+      """
+    sut.yamlText = boketeYAML
+    sut.editorMode = .yaml
+
+    let success = await sut.save()
+
+    #expect(success)
+    let record = try repo.fetchById("bokete_yaml_save_test")
+    let reloaded = try ScenarioLoader().load(yaml: record?.yamlDefinition ?? "")
+    #expect(reloaded.extraData["topics"] == .array(["Photo A", "Photo B", "Photo C"]))
+  }
+
   @Test func saveSurfacesSourceNotFoundValidationMessage() async throws {
     let sut = try makeSUT()
     // YAML with an `assign` phase referencing a non-existent `topics` source.

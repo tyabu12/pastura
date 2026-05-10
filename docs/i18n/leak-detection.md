@@ -33,15 +33,18 @@ The rule fires on the regex shape
 
 ```
 (errorMessage|validationErrors|alertMessage|toastMessage|nameError
- |descriptionError|conditionError|promptError|outcomeAlert|deepLinkError)
+ |descriptionError|conditionError|promptError|outcomeAlert|deepLinkError
+ |loadError)
 \s*(?:=|\+=)\s*\[?\s*"[^"]+"
 ```
 
-against any file under `Pastura/Pastura/`. The 10 property names are an
-**empirical** list, drawn from the PR #288 audit and the four
-`SimulationViewModel*.swift` wraps fixed in PR #299. The narrow scope is
-the entire point: widening to all `String` assignments re-introduces the
-noise floor that PR #288's analysis was unable to cut through.
+against any file under `Pastura/Pastura/`. The 11 property names are an
+**empirical** list, drawn from the PR #288 audit, the four
+`SimulationViewModel*.swift` wraps fixed in PR #299, and the
+`SimulationView.loadError` Tier 2 leak surfaced in #311. The narrow
+scope is the entire point: widening to all `String` assignments
+re-introduces the noise floor that PR #288's analysis was unable to
+cut through.
 
 ### What it cannot catch (by design)
 

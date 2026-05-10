@@ -46,7 +46,7 @@ custom_rules:
   # alternation. See `docs/i18n/leak-detection.md` for the full architecture.
   unwrapped_user_facing_string:
     name: "Unwrapped user-facing String"
-    regex: '(errorMessage|validationErrors|alertMessage|toastMessage|nameError|descriptionError|conditionError|promptError|outcomeAlert|deepLinkError)\s*(?:=|\+=)\s*\[?\s*"[^"]+"'
+    regex: '(errorMessage|validationErrors|alertMessage|toastMessage|nameError|descriptionError|conditionError|promptError|outcomeAlert|deepLinkError|loadError)\s*(?:=|\+=)\s*\[?\s*"[^"]+"'
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: warning
