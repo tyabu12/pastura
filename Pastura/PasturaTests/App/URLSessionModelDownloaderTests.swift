@@ -284,4 +284,50 @@ struct URLSessionModelDownloaderTests {
 
     #expect(downloader.cachedResumeData(for: url) == injectedBlob)
   }
+
+  @Test("206 with missing destination throws (precondition guard)")
+  func partialContentMissingDestinationThrows() async throws {
+    CapturingMockURLProtocol.reset()
+    defer { CapturingMockURLProtocol.reset() }
+
+    // 206 partial-content with `resumeOffset > 0` but no pre-existing
+    // destination file. Unreachable from current production callers
+    // (`ModelManager.performDownload` computes `resumeOffset` only when
+    // `partialURL` exists); the precondition guard surfaces it as an
+    // explicit throw rather than silently writing a head-truncated file.
+    // Regression target for Issue #275 cross-session resume follow-up.
+    CapturingMockURLProtocol.responseProvider = { _ in
+      .success(
+        statusCode: 206,
+        headers: [
+          "Content-Length": "500",
+          "Content-Range": "bytes 500-999/1000"
+        ],
+        body: Data(repeating: 0x43, count: 500)
+      )
+    }
+
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+
+    let url = URL(string: "https://example.com/model.gguf")!
+    let dest = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString + ".download")
+    // Intentionally NOT pre-writing dest — exercises the missing-destination guard.
+    defer { try? FileManager.default.removeItem(at: dest) }
+
+    do {
+      try await downloader.download(
+        from: url, resumeOffset: 500, to: dest, progressHandler: { _, _ in })
+      Issue.record("expected throw on 206 + missing destination, but download succeeded")
+    } catch let urlError as URLError {
+      #expect(urlError.code == .badServerResponse)
+    } catch {
+      Issue.record("expected URLError, got \(type(of: error)): \(error)")
+    }
+
+    // Verify no head-truncated file was left behind.
+    #expect(!FileManager.default.fileExists(atPath: dest.path))
+  }
 }

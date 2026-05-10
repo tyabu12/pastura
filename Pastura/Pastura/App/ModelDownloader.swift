@@ -221,6 +221,10 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   ) throws {
     let fileManager = FileManager.default
     let tempURL = result.tempURL
+    // Throw-safe tempURL cleanup: covers the 200 success path (moveItem
+    // consumes tempURL → try? no-ops) and every throw site in the 206 path
+    // (precondition guard, Data(contentsOf:), FileHandle open/close).
+    defer { try? fileManager.removeItem(at: tempURL) }
 
     if result.statusCode == 200 || resumeOffset == 0 {
       if fileManager.fileExists(atPath: destination.path) {
@@ -230,16 +234,32 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
       return
     }
     // Partial content (206) — append downloaded chunk to existing file.
-    let downloadedData = try Data(contentsOf: tempURL)
-    if fileManager.fileExists(atPath: destination.path) {
-      let fileHandle = try FileHandle(forWritingTo: destination)
-      fileHandle.seekToEndOfFile()
-      fileHandle.write(downloadedData)
-      try fileHandle.close()
-    } else {
-      try downloadedData.write(to: destination)
+    guard fileManager.fileExists(atPath: destination.path) else {
+      // Precondition tightening: 206 + missing destination is a callsite
+      // invariant violation. `ModelManager.performDownload` only passes
+      // resumeOffset > 0 when `partialURL` exists, and there is no
+      // concurrent deletion path before merge — this branch is dead under
+      // current callers. Throwing surfaces a future violation (e.g.,
+      // Issue #275 cross-session resume from disk-cached metadata) rather
+      // than silently writing a head-truncated file that would fail the
+      // subsequent SHA256 check without self-recovery.
+      // `URLError(.badServerResponse)` matches the existing transport-error
+      // vocabulary in this file and avoids `.cannotCreateFile`'s misleading
+      // "Cannot create file" UI copy.
+      Self.logger.error(
+        """
+        mergeIntoDestination 206 path: destination missing — \
+        callsite invariant violated. \
+        destination=\(destination.path, privacy: .public) \
+        resumeOffset=\(resumeOffset, privacy: .public)
+        """)
+      throw URLError(.badServerResponse)
     }
-    try? fileManager.removeItem(at: tempURL)
+    let downloadedData = try Data(contentsOf: tempURL)
+    let fileHandle = try FileHandle(forWritingTo: destination)
+    fileHandle.seekToEndOfFile()
+    fileHandle.write(downloadedData)
+    try fileHandle.close()
   }
 
   /// Updates the per-URL resumeData cache from a thrown error.
@@ -272,120 +292,5 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// Test-only: inspect cached resumeData for a URL.
   func cachedResumeData(for url: URL) -> Data? {
     resumeDataCache.withLock { $0[url] }
-  }
-}
-
-// MARK: - Download Result
-
-/// Value returned from the delegate via continuation.
-private struct DownloadResult: Sendable {
-  let tempURL: URL
-  let statusCode: Int
-}
-
-// MARK: - Download Delegate
-
-/// Session-level delegate that handles progress, completion, and error reporting.
-///
-/// Continuation is resumed exactly once, in `didCompleteWithError`:
-/// - On success: `didFinishDownloadingTo` saves the temp URL, then
-///   `didCompleteWithError(nil)` resumes with the result.
-/// - On failure: `didCompleteWithError(error)` resumes with the error.
-private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-  // @unchecked Sendable: mutable state accessed only from URLSession's serial delegate queue,
-  // except `task` which is set once before resume() and read only for cancellation.
-  let resumeOffset: Int64
-  let progressHandler: @Sendable (Int64, Int64) -> Void
-  private var continuation: CheckedContinuation<DownloadResult, any Error>?
-  private var downloadedFileURL: URL?
-
-  /// Held to prevent session deallocation during download.
-  var session: URLSession?
-  /// Held for cancellation support.
-  var task: URLSessionDownloadTask?
-
-  init(
-    resumeOffset: Int64,
-    progressHandler: @Sendable @escaping (Int64, Int64) -> Void,
-    continuation: CheckedContinuation<DownloadResult, any Error>
-  ) {
-    self.resumeOffset = resumeOffset
-    self.progressHandler = progressHandler
-    self.continuation = continuation
-  }
-
-  // MARK: - URLSessionDownloadDelegate
-
-  func urlSession(
-    _ session: URLSession,
-    downloadTask: URLSessionDownloadTask,
-    didWriteData bytesWritten: Int64,
-    totalBytesWritten: Int64,
-    totalBytesExpectedToWrite: Int64
-  ) {
-    let received = resumeOffset + totalBytesWritten
-    let total: Int64 =
-      totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown
-      ? resumeOffset + totalBytesExpectedToWrite : -1
-    progressHandler(received, total)
-  }
-
-  func urlSession(
-    _ session: URLSession,
-    downloadTask: URLSessionDownloadTask,
-    didFinishDownloadingTo location: URL
-  ) {
-    // The file at `location` is deleted after this method returns.
-    // Copy it to a stable temp path so the continuation can use it.
-    let tempCopy = FileManager.default.temporaryDirectory
-      .appendingPathComponent(UUID().uuidString + ".gguf.tmp")
-    do {
-      try FileManager.default.moveItem(at: location, to: tempCopy)
-      downloadedFileURL = tempCopy
-    } catch {
-      downloadedFileURL = nil
-    }
-  }
-
-  // MARK: - URLSessionTaskDelegate
-
-  func urlSession(
-    _ session: URLSession,
-    task: URLSessionTask,
-    didCompleteWithError error: (any Error)?
-  ) {
-    defer {
-      // Always invalidate the session to prevent resource leaks.
-      self.session?.finishTasksAndInvalidate()
-      self.session = nil
-    }
-
-    if let error {
-      continuation?.resume(throwing: error)
-      continuation = nil
-      return
-    }
-
-    // Success path
-    guard let tempURL = downloadedFileURL else {
-      continuation?.resume(
-        throwing: URLError(.cannotCreateFile)
-      )
-      continuation = nil
-      return
-    }
-
-    let statusCode = (task.response as? HTTPURLResponse)?.statusCode ?? 200
-
-    guard statusCode == 200 || statusCode == 206 else {
-      // Clean up temp file for unexpected status codes
-      try? FileManager.default.removeItem(at: tempURL)
-      continuation?.resume(throwing: URLError(.badServerResponse))
-      continuation = nil
-      return
-    }
-
-    continuation?.resume(returning: DownloadResult(tempURL: tempURL, statusCode: statusCode))
-    continuation = nil
   }
 }
