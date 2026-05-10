@@ -44,12 +44,9 @@ extension ModelDownloadHostView {
 
   /// Phase display label without the round-suffix. The GameHeader's
   /// row-2 layout splits ROUND and phase into separate slots, so the
-  /// suffix the legacy `currentPhaseLabel(viewModel:)` baked in is
-  /// no longer needed here. `currentPhaseLabel` is preserved in the
-  /// `+PhaseLabels.swift` extension for potential future callers
-  /// (chat-stream separator, etc.) that want the combined form.
+  /// combined `<phase>ラウンド <round>` form the legacy `PhaseHeader`
+  /// baked in is no longer needed here.
   private func phaseDisplayLabel(viewModel: ReplayViewModel) -> String? {
-    guard let phase = viewModel.currentPhase else { return nil }
-    return Self.phaseDisplayName(phase)
+    viewModel.currentPhase.map(PhaseDisplayName.label(for:))
   }
 }

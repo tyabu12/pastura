@@ -3,8 +3,8 @@ import Foundation
 /// Localized human-readable label for a `PhaseType`, suitable for the
 /// `GameHeader` row-2 phase fragment in both Sim and Demo. Single
 /// source of truth — replaces the formerly-duplicated 10-case switches
-/// in `SimulationView.phaseName(for:)` and
-/// `ModelDownloadHostView.phaseDisplayName(_:)`.
+/// that previously lived in `SimulationView` and the
+/// `ModelDownloadHostView+PhaseLabels` extension.
 ///
 /// Each label routes through `String(localized:)` so it lands in
 /// `Localizable.xcstrings` and gets a `ja` translation, satisfying
