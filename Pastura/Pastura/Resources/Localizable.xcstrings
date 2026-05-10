@@ -162,6 +162,16 @@
         }
       }
     },
+    "Assign" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "割当"
+          }
+        }
+      }
+    },
     "Assignment" : {
       "localizations" : {
         "ja" : {
@@ -332,6 +342,16 @@
         }
       }
     },
+    "Choose" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択"
+          }
+        }
+      }
+    },
     "Choose a model to start" : {
       "localizations" : {
         "ja" : {
@@ -388,6 +408,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "条件に許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Conditional" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "条件分岐"
           }
         }
       }
@@ -732,6 +762,16 @@
         }
       }
     },
+    "Eliminate" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脱落"
+          }
+        }
+      }
+    },
     "Else branch (condition false)" : {
       "localizations" : {
         "ja" : {
@@ -798,6 +838,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "倫理"
+          }
+        }
+      }
+    },
+    "Event Inject" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント注入"
           }
         }
       }
@@ -2363,6 +2413,16 @@
         }
       }
     },
+    "Score Calc" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコア計算"
+          }
+        }
+      }
+    },
     "Scoreboard" : {
       "localizations" : {
         "ja" : {
@@ -2483,6 +2543,26 @@
         }
       }
     },
+    "Speak" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発言"
+          }
+        }
+      }
+    },
+    "Speak Each" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "個別発言"
+          }
+        }
+      }
+    },
     "Start with %arg, %arg download" : {
       "localizations" : {
         "en" : {
@@ -2545,6 +2625,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サブラウンド"
+          }
+        }
+      }
+    },
+    "Summarize" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要約"
           }
         }
       }
@@ -2943,6 +3033,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ビジュアル"
+          }
+        }
+      }
+    },
+    "Vote" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票"
           }
         }
       }
