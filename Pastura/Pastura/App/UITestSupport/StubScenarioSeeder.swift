@@ -16,7 +16,7 @@
   ///    UUID regeneration (see `StubScenarioSeederTests`).
   ///
   /// Distinct from ``StubGalleryService/canaryYAML`` (id `ui_test_canary`,
-  /// used by the Share Board install-flow canary) — the seeds here use
+  /// used by the Shared Scenarios install-flow canary) — the seeds here use
   /// `ui_test_home_seed` / `ui_test_editor_reload_seed` to keep provenance
   /// obvious to future maintainers.
   nonisolated public enum StubScenarioSeeder {

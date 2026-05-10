@@ -7,6 +7,6 @@ import Foundation
 /// constant avoids scattering the string literal across call sites — a
 /// typo anywhere becomes a compile error rather than a silent bypass.
 nonisolated public enum ScenarioSourceType {
-  /// Row imported from the Share Board (read-only gallery).
+  /// Row imported from Shared Scenarios (read-only gallery).
   public static let gallery: String = "gallery"
 }
