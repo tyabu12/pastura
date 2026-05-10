@@ -88,11 +88,11 @@ struct ReportURLBuilderTests {
       ReportURLBuilder.buildGitHubIssueURL(scenarioId: "prisoners_dilemma_v2"))
     let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
     let items = components.queryItems ?? []
-    #expect(items.contains { $0.name == "template" && $0.value == "share-board-report.yml" })
-    #expect(items.contains { $0.name == "labels" && $0.value == "share-board-report" })
+    #expect(items.contains { $0.name == "template" && $0.value == "shared-scenario-report.yml" })
+    #expect(items.contains { $0.name == "labels" && $0.value == "shared-scenario-report" })
     #expect(
       items.contains {
-        $0.name == "title" && $0.value == "[Share Board Report] prisoners_dilemma_v2"
+        $0.name == "title" && $0.value == "[Shared Scenario Report] prisoners_dilemma_v2"
       })
   }
 
@@ -102,7 +102,7 @@ struct ReportURLBuilderTests {
     let url = try #require(ReportURLBuilder.buildGitHubIssueURL(scenarioId: japanese))
     let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
     let match = components.queryItems?.first {
-      $0.name == "title" && $0.value == "[Share Board Report] \(japanese)"
+      $0.name == "title" && $0.value == "[Shared Scenario Report] \(japanese)"
     }
     #expect(match != nil)
   }
