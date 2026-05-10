@@ -498,6 +498,14 @@
   margin: 0;
   max-width: 640px;
 }
+.faq-a a {
+  color: var(--moss-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.faq-a a:hover {
+  color: var(--moss-ink);
+}
 
 /* ----- Footer ----- */
 .lp-footer {
