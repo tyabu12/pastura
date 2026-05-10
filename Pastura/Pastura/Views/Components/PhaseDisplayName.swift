@@ -1,0 +1,45 @@
+import Foundation
+
+/// Localized human-readable label for a `PhaseType`, suitable for the
+/// `GameHeader` row-2 phase fragment in both Sim and Demo. Single
+/// source of truth — replaces the formerly-duplicated 10-case switches
+/// that previously lived in `SimulationView` and the
+/// `ModelDownloadHostView+PhaseLabels` extension.
+///
+/// Each label routes through `String(localized:)` so it lands in
+/// `Localizable.xcstrings` and gets a `ja` translation, satisfying
+/// the project's i18n mandate (CLAUDE.md "User-facing String literals").
+///
+/// ## Scope
+///
+/// Compact labels suitable for header / status surfaces (1-2 words).
+/// For the long-form phase descriptions used in the editor's helper
+/// text (e.g. "All agents speak simultaneously"), see
+/// `PhaseEditorSheet.phaseTypeDescription` — that surface is
+/// intentionally separate (sentence form vs compact label) and the
+/// two should not be merged. The third phase-label surface,
+/// `PhaseTypeLabel` in `Views/Components/`, renders
+/// `PhaseType.rawValue` ("speak_all", etc.) as a moss/ink capsule
+/// badge for inline log markers; it is also intentionally separate
+/// (raw-value debug-style tag vs localized header label).
+public enum PhaseDisplayName {
+
+  /// Compact display label for `phase`. The English source string is
+  /// the xcstrings key (literal-en convention used throughout the
+  /// catalog); `ja` translations are authored in
+  /// `Localizable.xcstrings`.
+  public static func label(for phase: PhaseType) -> String {
+    switch phase {
+    case .speakAll: return String(localized: "Speak")
+    case .speakEach: return String(localized: "Speak Each")
+    case .vote: return String(localized: "Vote")
+    case .choose: return String(localized: "Choose")
+    case .scoreCalc: return String(localized: "Score Calc")
+    case .assign: return String(localized: "Assign")
+    case .eliminate: return String(localized: "Eliminate")
+    case .summarize: return String(localized: "Summarize")
+    case .conditional: return String(localized: "Conditional")
+    case .eventInject: return String(localized: "Event")
+    }
+  }
+}
