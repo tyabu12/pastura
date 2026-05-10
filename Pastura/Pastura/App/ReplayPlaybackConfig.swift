@@ -1,14 +1,14 @@
 import Foundation
 
-/// Playback policy applied by a ``ReplaySource`` consumer (the future
-/// `ReplayViewModel`, landing in Issue #C).
+/// Playback policy applied by ``ReplayViewModel`` against a
+/// ``ReplaySource``.
 ///
 /// Spec: `docs/specs/demo-replay-spec.md` §4.6.
 ///
 /// Shipped as part of the Phase 2 E1 primitive so the DL-time
-/// `BundledDemoReplaySource` (#C) and future `UserSimulationReplaySource`
-/// (Phase 2.5+, spec §4.5) can pick the appropriate preset without
-/// introducing a second config type.
+/// ``BundledDemoReplaySource`` and the future
+/// `UserSimulationReplaySource` (Phase 2.5+, spec §4.5) can pick the
+/// appropriate preset without introducing a second config type.
 nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
   /// Speed tier applied to ``turnDelayMs`` / ``codePhaseDelayMs`` via
   /// ``PlaybackSpeed/multiplier``. `.normal` plays at the nominal
@@ -52,7 +52,10 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
   public enum LoopBehaviour: Sendable, Equatable {
     /// Rewind to the first event and keep playing — DL-time demo default.
     case loop
-    /// Stop after the last event — future user-initiated replay default.
+    /// Play each source once in order without wrap-around. The switch
+    /// arm ships in ``ReplayViewModel`` `advanceAfterSource(currentIndex:)`
+    /// today and is exercised by tests; the user-initiated replay
+    /// surface that selects this as default is Phase 2.5+ (spec §4.5).
     case stopAfterLast
   }
 
@@ -60,8 +63,10 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
     /// Hold the "done" state until an external signal (e.g. the
     /// download-complete trigger) arrives. DL-time demo default.
     case awaitTransitionSignal
-    /// Tear down immediately once playback ends. Future user-replay
-    /// default.
+    /// Reset to `.idle` so the UI can offer a restart. The switch arm
+    /// ships in ``ReplayViewModel`` `advanceAfterSource(currentIndex:)`
+    /// today and is exercised by tests; the user-initiated replay
+    /// surface that selects this as default is Phase 2.5+ (spec §4.5).
     case stopPlayback
   }
 

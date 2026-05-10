@@ -44,8 +44,10 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
 ///
 /// ContentFilter is applied **at record time** (spec §3.4) to every
 /// `fields.*` value and every `code_phase_events[].summary` string.
-/// Render-time filtering is the future `ReplayViewModel`'s concern and
-/// is out of scope for E1 (#C tracks it).
+/// Render-time filtering happens in ``ReplayViewModel`` `apply(_:)`,
+/// which today filters `agentOutput` events on consumption; code-phase
+/// render surfaces (scoreboard, results strip) are tracked as a
+/// follow-up per the inline note in that method.
 ///
 /// `metadata.content_filter_applied` is emitted `false` — spec §3.4
 /// reserves the `true` value for curators to set after **manual audit**.
