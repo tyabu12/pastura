@@ -223,7 +223,7 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     let tempURL = result.tempURL
     // Throw-safe tempURL cleanup: covers the 200 success path (moveItem
     // consumes tempURL → try? no-ops) and every throw site in the 206 path
-    // (precondition guard, Data(contentsOf:), FileHandle open/close).
+    // (precondition guard, FileHandle open/close).
     defer { try? fileManager.removeItem(at: tempURL) }
 
     if result.statusCode == 200 || resumeOffset == 0 {
