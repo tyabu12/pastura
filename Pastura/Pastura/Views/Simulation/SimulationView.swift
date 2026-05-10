@@ -314,47 +314,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       initialName: initialName,
       status: viewModel.status,
       round: viewModel.headerRound,
-      phaseLabel: Self.phaseDisplayLabel(for: viewModel.currentPhase),
+      phaseLabel: viewModel.currentPhase.map(PhaseDisplayName.label(for:)),
       tokensPerSecond: viewModel.averageTokensPerSecond,
       extendsIntoTopSafeArea: false
     )
-  }
-
-  /// Maps a `PhaseType` to its display label for the GameHeader's
-  /// row-2 phase fragment. Returns `nil` when phase is `nil` so the
-  /// caller can pass `viewModel.currentPhase` directly without
-  /// flattening the optional.
-  ///
-  /// **i18n deferral.** The 10 phase-name strings (発言 / 個別発言 / …)
-  /// are hard-coded Japanese, mirroring the pre-existing pattern in
-  /// `ModelDownloadHostView.phaseDisplayName(_:)`. Wrapping in
-  /// `String(localized:)` and consolidating both into a shared helper
-  /// is tracked as a follow-up to the i18n Step A-1 work (#276 / #277,
-  /// ADR-010 stub #279) — out of scope for #297 PR 3 since the
-  /// duplication is pre-existing and the consolidation touches
-  /// `+PhaseLabels.swift`.
-  ///
-  /// Implementation: split into nil-guard wrapper + pure switch so
-  /// neither half crosses swiftlint's `cyclomatic_complexity`
-  /// 10-branch ceiling.
-  static func phaseDisplayLabel(for phase: PhaseType?) -> String? {
-    guard let phase else { return nil }
-    return phaseName(for: phase)
-  }
-
-  private static func phaseName(for phase: PhaseType) -> String {
-    switch phase {
-    case .speakAll: return "発言"
-    case .speakEach: return "個別発言"
-    case .vote: return "投票"
-    case .choose: return "選択"
-    case .scoreCalc: return "スコア計算"
-    case .assign: return "割当"
-    case .eliminate: return "脱落"
-    case .summarize: return "要約"
-    case .conditional: return "条件分岐"
-    case .eventInject: return "イベント注入"
-    }
   }
 
   // MARK: - Log Entries
