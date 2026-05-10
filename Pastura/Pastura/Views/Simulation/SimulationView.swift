@@ -68,6 +68,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .navigationTitle("")
     .navigationBarTitleDisplayMode(.inline)
     .toolbarBackground(.hidden, for: .navigationBar)
+    // Replace iOS-26 Liquid Glass back chevron with Pastura's flat
+    // PasturaBackButton. The custom chevron is narrower than the
+    // system "< Pastura" rendering, so the principal slot's available
+    // width INCREASES rather than compresses on small iPhones (Critic
+    // Axis 2 width-gate verification: chevron-only ~30pt vs system
+    // chevron+text ~80pt). View-level swipe-back probe per
+    // PasturaBackButton's UIKit bridge documentation.
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .task {
       await loadAndRun()
     }
@@ -267,6 +276,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // extending up behind the (transparent) bar for visual
     // continuity. See ADR-008 §Amendment 2026-05-10.
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
       ToolbarItem(placement: .principal) {
         makeHeader(viewModel: viewModel)
           .titleRow
