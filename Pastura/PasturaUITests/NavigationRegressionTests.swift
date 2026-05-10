@@ -32,18 +32,18 @@ final class NavigationRegressionTests: XCTestCase {
       app.navigationBars["Pastura"].waitForExistence(timeout: 10),
       "Home did not appear within 10s.")
 
-    // Home → Share Board.
-    let shareBoardCell = app.buttons["home.shareBoardButton"]
+    // Home → Shared Scenarios.
+    let sharedScenariosCell = app.buttons["home.sharedScenariosButton"]
     XCTAssertTrue(
-      shareBoardCell.waitForExistence(timeout: 5), "Share Board entry missing.")
-    shareBoardCell.tap()
+      sharedScenariosCell.waitForExistence(timeout: 5), "Shared Scenarios entry missing.")
+    sharedScenariosCell.tap()
 
     XCTAssertTrue(
       app.navigationBars["Shared Scenarios"].waitForExistence(timeout: 5),
-      "Share Board did not appear.")
+      "Shared Scenarios did not appear.")
 
-    // Share Board → Gallery scenario detail.
-    let galleryCell = app.buttons["shareBoard.galleryCell.ui_test_canary"]
+    // Shared Scenarios → Gallery scenario detail.
+    let galleryCell = app.buttons["sharedScenarios.galleryCell.ui_test_canary"]
     XCTAssertTrue(
       galleryCell.waitForExistence(timeout: 5),
       "Canary gallery cell missing — StubGalleryService fixture may be wrong.")

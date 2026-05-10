@@ -43,7 +43,7 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     /// scripts), and subsequent chars must be letter / digit / `_`.
     /// Leading `_` and `-` are intentionally rejected to keep
     /// sanitized rule identifiers (`<name>-value`) from starting
-    /// with `-` (see Share Board concern in ADR-002 §12.8). The
+    /// with `-` (see Shared Scenarios concern in ADR-002 §12.8). The
     /// actual GBNF rule-name shape (`[a-zA-Z0-9-]` per
     /// `llama-grammar.cpp:98`) is enforced separately at emit time
     /// via `sanitizeRuleName(_:)` — input validation gates Pastura
@@ -51,7 +51,7 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     case invalidFieldName(String)
     /// An enumeration option contains a character that would need
     /// escaping in the GBNF literal form (`"`, `\`, or a control
-    /// byte). Share Board scenarios can inject arbitrary `options`
+    /// byte). Shared Scenarios entries can inject arbitrary `options`
     /// strings, so we validate up-front and throw a clear error
     /// rather than emit malformed grammar the sampler would reject.
     case invalidEnumerationOption(field: String, option: String)
@@ -179,7 +179,7 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   private func validateEnumerationOption(_ option: String, field: String) throws {
     // Reject characters that would need GBNF escaping in the `"\"opt\""`
     // literal form. Pastura's YAML presets contain only identifier-like
-    // options (`cooperate`, `betray`), but Share Board scenarios can
+    // options (`cooperate`, `betray`), but Shared Scenarios entries can
     // inject arbitrary strings — guard at builder time so the failure
     // mode is a clear `BuilderError`, not a NULL-return from
     // `llama_sampler_init_grammar` via `LLMError.invalidGrammar`.
@@ -193,7 +193,7 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
 
   private func validateFieldName(_ name: String) throws {
     // First char must be a letter — leading `_` (or `-`) was previously
-    // tolerated for Pastura's snake_case convention but Share Board
+    // tolerated for Pastura's snake_case convention but Shared Scenarios
     // scenarios can ship arbitrary YAML, and a leading-`_` field name
     // would sanitize to a leading-`-` rule identifier (`-thing-value`).
     // b8694's parser accepts that, but it is unconventional and a

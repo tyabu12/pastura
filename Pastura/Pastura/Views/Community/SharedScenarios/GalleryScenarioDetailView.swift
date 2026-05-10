@@ -19,7 +19,7 @@ struct GalleryScenarioDetailView: View {
   @Environment(AppRouter.self) private var router
   @Environment(ModelManager.self) var modelManager
   @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
-  @State private var viewModel: ShareBoardViewModel?
+  @State private var viewModel: SharedScenariosViewModel?
   @State var isWorking = false
   @State private var outcomeAlert: OutcomeAlert?
   @State private var isReportSheetPresented = false
@@ -41,7 +41,7 @@ struct GalleryScenarioDetailView: View {
       // / "Open local copy". Guard prevents re-creation under `.task`
       // re-fire.
       guard viewModel == nil else { return }
-      let newViewModel = ShareBoardViewModel(
+      let newViewModel = SharedScenariosViewModel(
         galleryService: dependencies.galleryService,
         repository: dependencies.scenarioRepository)
       await newViewModel.load()
@@ -79,7 +79,7 @@ struct GalleryScenarioDetailView: View {
   // MARK: - Content
 
   @ViewBuilder
-  private func content(viewModel: ShareBoardViewModel) -> some View {
+  private func content(viewModel: SharedScenariosViewModel) -> some View {
     List {
       if wasOpenedFromDeepLink {
         Section {
@@ -128,7 +128,7 @@ struct GalleryScenarioDetailView: View {
     }
   }
 
-  private func actionButton(viewModel: ShareBoardViewModel) -> some View {
+  private func actionButton(viewModel: SharedScenariosViewModel) -> some View {
     let installed = viewModel.isInstalled(scenario)
     let hasUpdate = viewModel.hasUpdate(for: scenario)
     let title: String
@@ -157,7 +157,7 @@ struct GalleryScenarioDetailView: View {
   // MARK: - Actions
 
   private func tap(
-    viewModel: ShareBoardViewModel, installed: Bool, hasUpdate: Bool
+    viewModel: SharedScenariosViewModel, installed: Bool, hasUpdate: Bool
   ) async {
     if installed && !hasUpdate {
       // Already up to date — no install needed; jump straight to the
@@ -171,7 +171,7 @@ struct GalleryScenarioDetailView: View {
     handle(outcome)
   }
 
-  private func handle(_ outcome: ShareBoardViewModel.TryOutcome) {
+  private func handle(_ outcome: SharedScenariosViewModel.TryOutcome) {
     switch outcome {
     case .installed(let id), .updated(let id):
       pushToInstalled(scenarioId: id)

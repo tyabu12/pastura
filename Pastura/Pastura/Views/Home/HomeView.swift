@@ -84,10 +84,10 @@ struct HomeView: View {
       userScenariosSection(viewModel: viewModel)
 
       Section {
-        NavigationLink(value: Route.shareBoard) {
+        NavigationLink(value: Route.sharedScenarios) {
           Label(String(localized: "Shared Scenarios"), systemImage: "square.grid.2x2.fill")
         }
-        .accessibilityIdentifier("home.shareBoardButton")
+        .accessibilityIdentifier("home.sharedScenariosButton")
         NavigationLink(value: Route.results(scenarioId: "")) {
           Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
         }
@@ -194,8 +194,8 @@ struct HomeView: View {
       ResultsView(scenarioId: scenarioId)
     case .resultDetail(let simulationId):
       ResultDetailView(simulationId: simulationId)
-    case .shareBoard:
-      ShareBoardView()
+    case .sharedScenarios:
+      SharedScenariosListView()
     case .galleryScenarioDetail(let scenario):
       GalleryScenarioDetailView(scenario: scenario)
     case .settings:

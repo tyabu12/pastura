@@ -3,7 +3,7 @@
 # check. Runs `check-gallery-entry.sh --all` only when the staged diff
 # touches docs/gallery/<id>.yaml or docs/gallery/gallery.json.
 #
-# README.md and share-board-reports.md edits in the same directory are
+# README.md and shared-scenario-reports.md edits in the same directory are
 # intentionally NOT triggers — they are not the published manifest and
 # the check has nothing to validate against them.
 #
