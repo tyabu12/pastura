@@ -1,12 +1,80 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "  %@: %lld votes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "  %1$@: %2$lld votes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "  %1$@: %2$lld 票"
+          }
+        }
+      }
+    },
+    "%@ assigned: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ assigned: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ に %2$@ を割り当て"
+          }
+        }
+      }
+    },
+    "%@ eliminated (%lld votes)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ eliminated (%2$lld votes)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 脱落 (%2$lld 票)"
+          }
+        }
+      }
+    },
+    "%@ is thinking..." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は考え中..."
+          }
+        }
+      }
+    },
     "%arg actions" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%arg のアクション"
+          }
+        }
+      }
+    },
+    "%lld pts" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 点"
           }
         }
       }
@@ -208,6 +276,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "作者"
+          }
+        }
+      }
+    },
+    "Background continuation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックグラウンド継続"
           }
         }
       }
@@ -1798,6 +1876,16 @@
         }
       }
     },
+    "Pastura simulation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastura シミュレーション"
+          }
+        }
+      }
+    },
     "Pause (available during simulation)" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2319,6 +2407,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "実行中"
+          }
+        }
+      }
+    },
+    "Running in background" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックグラウンドで実行中"
           }
         }
       }
@@ -3194,6 +3292,16 @@
         }
       }
     },
+    "disabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無効"
+          }
+        }
+      }
+    },
     "e.g. max_score >= 10" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3211,6 +3319,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "例: max_score >= 10 && active_count > 1"
+          }
+        }
+      }
+    },
+    "enabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効"
           }
         }
       }

@@ -39,7 +39,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         simulationContent(viewModel: viewModel)
       } else if let loadError {
         ContentUnavailableView(
-          "Error",
+          String(localized: "Error"),
           systemImage: "exclamationmark.triangle",
           description: Text(loadError)
         )
@@ -185,7 +185,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 HStack(spacing: 8) {
                   ProgressView()
                     .scaleEffect(0.7)
-                  Text("\(agent) is thinking...")
+                  Text(String(format: String(localized: "%@ is thinking..."), agent))
                     .textStyle(Typography.thinkingBody)
                     .foregroundStyle(Color.muted)
                 }
@@ -348,7 +348,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       PhaseTypeLabel(phaseType: phaseType)
         .padding(.top, 4)
     case .roundStarted(let round, let total):
-      roundSeparator("Round \(round)/\(total)")
+      // Reuses the `Round %lld / %lld` key already wired into GameHeader
+      // so the round-separator label and header label stay translation-aligned.
+      roundSeparator(String(format: String(localized: "Round %lld / %lld"), round, total))
     case .roundCompleted(_, let scores), .scoreUpdate(let scores):
       scoresSummary(scores)
     case .error(let message):
@@ -521,7 +523,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           try deps.scenarioRepository.fetchById(scenarioId)
         })
       else {
-        loadError = "Scenario not found"
+        loadError = String(localized: "Scenario not found")
         return
       }
 

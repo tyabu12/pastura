@@ -15,8 +15,8 @@ extension SimulationView {
         viewModel.disableBackgroundContinuation()
       } else {
         viewModel.enableBackgroundContinuation(
-          title: "Pastura simulation",
-          subtitle: scenario?.name ?? "Running in background"
+          title: String(localized: "Pastura simulation"),
+          subtitle: scenario?.name ?? String(localized: "Running in background")
         )
       }
     } label: {
@@ -30,7 +30,9 @@ extension SimulationView {
       // はデザインシステムの飽和色禁則（§1）と Pastura パレット非準拠で置換。
       .foregroundStyle(viewModel.isBackgroundContinuationEnabled ? Color.mossDark : Color.muted)
     }
-    .accessibilityLabel("Background continuation")
-    .accessibilityValue(viewModel.isBackgroundContinuationEnabled ? "enabled" : "disabled")
+    .accessibilityLabel(String(localized: "Background continuation"))
+    .accessibilityValue(
+      viewModel.isBackgroundContinuationEnabled
+        ? String(localized: "enabled") : String(localized: "disabled"))
   }
 }
