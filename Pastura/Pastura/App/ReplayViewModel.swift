@@ -167,12 +167,50 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// is acceptable for the Demo screen.
   var playbackSpeed: PlaybackSpeed
 
-  /// Filtered agent-output events in publish order. Consumed by the
-  /// host view's chat-stream component (``AgentOutputRow``). The
-  /// array grows append-only within a source; on source rotation
-  /// (Item 4), the consumer decides whether to clear it for a fresh
-  /// demo or carry over the log.
-  private(set) var agentOutputs: [AgentOutputEntry] = []
+  /// Chat-stream timeline backing the host view's `ScrollView` —
+  /// mixed agent outputs and demo-boundary markers in publish order.
+  ///
+  /// Accumulates **across demo rotation** (#208): when a demo ends and
+  /// the VM advances to the next source, the previous bubbles stay in
+  /// `chatItems` and a ``ChatItem/demoBoundary`` separator is appended
+  /// before the next source's events start arriving. The host view's
+  /// existing `scrollTo(lastId, anchor: .bottom)` then naturally scrolls
+  /// the older content up.
+  ///
+  /// **Reset rules**:
+  /// - ``start()`` clears `chatItems` (fresh-start invariant — survives
+  ///   re-`start()` after `.stopPlayback`-driven terminal `.idle`).
+  /// - On `.loop` wrap-around (last source → source 0), `chatItems` is
+  ///   wiped without a boundary marker; the full visual reset is itself
+  ///   the "new cycle" signal (see UI spec §"Demo boundary marker").
+  /// - On mid-cycle rotation (any non-wrap rotation), `chatItems` keeps
+  ///   accumulating; a ``ChatItem/demoBoundary`` carrying
+  ///   `sources[nextIndex].scenario.name` is appended before the next
+  ///   source publishes.
+  /// - On `.stopAfterLast` terminal (both `.awaitTransitionSignal` and
+  ///   `.stopPlayback`), `chatItems` is left untouched — the last source's
+  ///   bubbles remain on screen through the hold/idle state.
+  private(set) var chatItems: [ChatItem] = []
+
+  /// Derived projection over ``chatItems`` exposing only agent outputs.
+  /// Boundary markers are filtered out.
+  ///
+  /// Retained as a compatibility shim so existing test sites
+  /// (`ReplayViewModelTests+ContentFilter`, `+UserPause`, `+Speed`,
+  /// `DemoReplayIntegrationTests`) reading `agentOutputs.count >= 1`
+  /// patterns continue to work; **new code should read ``chatItems``
+  /// directly** to render the boundary markers between demos.
+  ///
+  /// SwiftUI observation works correctly because @Observable instruments
+  /// reads on the underlying stored ``chatItems``; consumers reading
+  /// `agentOutputs` reach `chatItems` through the computed body and the
+  /// registrar tracks the dependency.
+  var agentOutputs: [AgentOutputEntry] {
+    chatItems.compactMap {
+      if case .agentOutput(let entry) = $0 { return entry }
+      return nil
+    }
+  }
 
   /// One rendered agent output suitable for `AgentOutputRow`.
   nonisolated struct AgentOutputEntry: Sendable, Equatable, Identifiable {
@@ -188,6 +226,25 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       self.agent = agent
       self.output = output
       self.phaseType = phaseType
+    }
+  }
+
+  /// Heterogeneous chat-stream item — either an agent's rendered output
+  /// or a demo-boundary marker inserted between sources during rotation
+  /// (#208). Used by the host view's `ForEach` to dispatch on case.
+  ///
+  /// `id` is projected from the inner payload so SwiftUI's
+  /// `ForEach`/`scrollTo(_:anchor:)` keep working identically to the
+  /// pre-#208 `AgentOutputEntry`-only timeline.
+  nonisolated enum ChatItem: Sendable, Equatable, Identifiable {
+    case agentOutput(AgentOutputEntry)
+    case demoBoundary(id: UUID, scenarioName: String)
+
+    var id: UUID {
+      switch self {
+      case .agentOutput(let entry): return entry.id
+      case .demoBoundary(let id, _): return id
+      }
     }
   }
 
@@ -304,11 +361,16 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// Begins playback from the first source, first event.
   ///
   /// No-op if already playing or transitioning. Resets observable
-  /// state so a second `.idle → .playing` cycle gets a clean slate.
+  /// state so a second `.idle → .playing` cycle gets a clean slate —
+  /// including ``chatItems``, which is the only piece of accumulator
+  /// state that survives across rotation. Required for re-`start()`
+  /// after `.stopPlayback` terminal `.idle`, where leftover items from
+  /// the prior session would otherwise leak into the new run.
   func start() {
     guard case .idle = state else { return }
     guard !sources.isEmpty else { return }
     let startIndex = 0
+    chatItems = []
     resetPerDemoState(forSourceIndex: startIndex)
     state = .playing(sourceIndex: startIndex, eventCursor: 0)
     launchPlayback(sourceIndex: startIndex, startCursor: 0, firstSleepOverrideMs: nil)
@@ -533,22 +595,42 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     switch config.loopBehaviour {
     case .loop:
       let nextIndex = (currentIndex + 1) % sources.count
+      // Branch (a) wrap vs (b) mid-cycle (#208). Wrap = full cycle of
+      // `sources` complete; the visual reset itself signals the new
+      // cycle, so no boundary marker. Mid-cycle keeps accumulating with
+      // a marker carrying the next source's scenario name.
+      if nextIndex == 0 {
+        chatItems = []
+      } else {
+        chatItems.append(
+          .demoBoundary(
+            id: UUID(),
+            scenarioName: sources[nextIndex].scenario.name))
+      }
       resetPerDemoState(forSourceIndex: nextIndex)
       if case .playing = state {
         state = .playing(sourceIndex: nextIndex, eventCursor: 0)
       }
       return .continue(nextIndex: nextIndex)
     case .stopAfterLast where !isLastSource:
-      // Advance to next source without wrap-around. Spec §4.6:
-      // `.stopAfterLast` plays each source once in order.
+      // Branch (c). Advance to next source without wrap-around. Spec
+      // §4.6: `.stopAfterLast` plays each source once in order.
+      // Sequential rotation always accumulates with a boundary marker —
+      // there is no wrap variant under `.stopAfterLast`.
       let nextIndex = currentIndex + 1
+      chatItems.append(
+        .demoBoundary(
+          id: UUID(),
+          scenarioName: sources[nextIndex].scenario.name))
       resetPerDemoState(forSourceIndex: nextIndex)
       if case .playing = state {
         state = .playing(sourceIndex: nextIndex, eventCursor: 0)
       }
       return .continue(nextIndex: nextIndex)
     case .stopAfterLast:
-      // Last source finished — honour `onComplete`.
+      // Branch (d). Last source finished — honour `onComplete`.
+      // No `chatItems` mutation in either terminal branch: the last
+      // source's bubbles stay on screen through the hold / idle state.
       switch config.onComplete {
       case .awaitTransitionSignal:
         // Hold at `.playing(lastIndex, plan.count)` until the
@@ -558,7 +640,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         return .stop
       case .stopPlayback:
         // Future user-replay surface (spec §4.5). Revert to `.idle`
-        // so the UI can offer a restart.
+        // so the UI can offer a restart. `chatItems` survives until the
+        // next `start()` clears it (see `start()` doc-comment).
         state = .idle
         return .stop
       }
@@ -570,8 +653,12 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// `forSourceIndex` parameter is load-bearing for the
   /// ``cachedTotalPhaseCount`` re-derivation against the new source's
   /// `plannedEvents()`.
+  ///
+  /// **Does not touch ``chatItems``** (#208): caller decides — `start()`
+  /// clears unconditionally, `advanceAfterSource` decides per the
+  /// rotation branch (wrap → wipe, mid-cycle → append boundary +
+  /// accumulate, terminal → no-op).
   private func resetPerDemoState(forSourceIndex sourceIndex: Int) {
-    agentOutputs = []
     currentPhase = nil
     currentRound = nil
     currentTotalRounds = nil
@@ -610,8 +697,9 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
     case .agentOutput(let agent, let output, let phaseType):
       let filtered = contentFilter.filter(output)
-      agentOutputs.append(
-        AgentOutputEntry(agent: agent, output: filtered, phaseType: phaseType))
+      chatItems.append(
+        .agentOutput(
+          AgentOutputEntry(agent: agent, output: filtered, phaseType: phaseType)))
 
     case .summary, .scoreUpdate, .elimination, .voteResults,
       .pairingResult, .assignment, .eventInjected:
