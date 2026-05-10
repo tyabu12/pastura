@@ -43,6 +43,24 @@ form because hooks execute as direct shell processes and bypass the
 permission gate (and the heuristic). The asymmetry between allowlist
 entries and hook commands is intentional.
 
+### Re-passing wrapper-supplied flags
+
+The wrapper auto-supplies `-scheme`, `-project`, `-destination`, and
+`-derivedDataPath`. Their override semantics differ:
+
+| Flag | Re-pass via `[args]`? |
+|------|------------------------|
+| `-scheme` | **Rejected** — `error: option '-scheme' may only be provided once` |
+| `-project` | **Rejected** — same |
+| `-derivedDataPath` | **Rejected** — same |
+| `-destination` | **Accepted** — last-wins, intentional override per wrapper §"Mode-specific behavior" |
+
+xcodebuild prints the rejection error followed by its full usage page
+(exit 64). The error line lands between the wrapper's xtrace and the
+usage page, so it is easy to miss — the failure looks like a wrapper
+bug. Forward only what the wrapper does not supply: typically just
+`-only-testing` / `-skip-testing` / `--tail N`.
+
 ## When to use what
 
 | Scope | Command |
