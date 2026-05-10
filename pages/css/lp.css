@@ -11,7 +11,7 @@
 }
 .lp-nav {
   display: flex;
-  gap: 28px;
+  gap: 36px;
   align-items: center;
   color: var(--ink-2);
   font-size: 14px;
@@ -19,6 +19,11 @@
 .lp-nav a {
   color: inherit;
   text-decoration: none;
+}
+.lp-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 32px;
 }
 
 @media (max-width: 768px) {
