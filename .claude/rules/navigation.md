@@ -160,21 +160,101 @@ surface changes in areas the automated tests do not exercise.
    exactly one screen (not all the way to root): Editor, Import,
    Simulation, Results, GalleryScenarioDetail.
 
-   **Sim's nav title is intentionally empty** (#297 PR 3, ADR-008
-   §Amendment 2026-04-29) because the `GameHeader` row 1 carries the
-   scenario name. While verifying back-gesture pops, also confirm
-   visually:
-   - Sim's nav bar **title slot** reads empty (no scenario name).
+   **Sim's nav bar uses the "fill the bar" pattern** (#312, ADR-008
+   §Amendment 2026-05-10): `.toolbarBackground(.hidden, for:
+   .navigationBar)` makes the bar's background transparent while the
+   bar itself stays in the layout (preserving the chevron + swipe-back
+   gesture); `GameHeader.titleRow` is hosted inside the bar via
+   `ToolbarItem(placement: .principal)`, and `GameHeader.metaRow`
+   mounts via `.safeAreaInset(.top)` directly below — its frosted BG
+   `.ignoresSafeArea(.container, edges: .top)` so the moss material
+   fills behind the bar AND status bar. Demo's `.fullScreenCover`
+   composition uses the unified `GameHeader.body` and is unaffected.
+
+   While verifying back-gesture pops, also confirm visually:
+
+   **Visual stack & swipe-back** (single-device baseline)
+   - Sim's nav bar **principal slot** shows leaf icon + scenario name
+     (single-line, truncating with `…` if too long) + status pill
+     ("Simulating" / "Paused" / "Completed").
    - The **back chevron** still shows the upstream `ScenarioDetail`'s
-     title (iOS uses the previous view's title for the back button,
-     not the current view's).
-   - `GameHeader` row 1 shows the scenario name on first frame
-     (driven by `Route.simulation.initialName` `RouteHint`) — no
-     visible pop-in delay between push and `loadAndRun()` finishing.
-   - VoiceOver focus on the `GameHeader` reads the combined
-     accessibility label ("Simulating, scenarioName, Round X of Y,
-     phaseLabel, …") — Sim's nav-title-empty does not leave the
-     screen unannounced.
+     title (iOS uses the previous view's title — chevron + label
+     remain Liquid-Glass-styled on iOS 26; tracked separately at
+     #342).
+   - `GameHeader.titleRow` (in the bar) shows the scenario name on
+     first frame (driven by `Route.simulation.initialName`
+     `RouteHint`) — no visible pop-in delay between push and
+     `loadAndRun()` finishing.
+   - **No transient double-title** during the push-in animation from
+     `ScenarioDetail` (the bda1f70 regression that forced 7af22d0).
+   - **Swipe-back from left edge** returns to `ScenarioDetail`. The
+     bar slot stays interactive throughout (FB13484530 — the
+     `.toolbar(.hidden)` regression — does NOT affect
+     `.toolbarBackground(.hidden)`).
+
+   **Frosted-BG continuity & scroll-edge transition**
+   - The frosted moss material visually spans status bar + nav bar
+     slot + meta-row inset as one continuous strip — no hairline at
+     the bar / inset boundary.
+   - Scroll the chat-stream from the very top to mid-conversation
+     and back. The bar's background **stays transparent**
+     throughout (no flicker between iOS's `scrollEdgeAppearance`
+     and `standardAppearance` — `.toolbarBackground(.hidden, for:
+     .navigationBar)` covers both).
+
+   **Multi-device truncation matrix** (cross-device)
+   - On a small iPhone (SE 3rd gen / 13 mini) verify the principal
+     slot fits without unexpected truncation:
+     - With each of the 4 status pills (`Simulating`, `Paused`,
+       `Completed`, `Demoing`) — the longest localized status drives
+       the worst-case width pressure.
+     - With a long Japanese scenario name (e.g.,
+       "とても長い日本語のシナリオ名で切り詰めを検証する").
+     - Title truncates with trailing `…`; status pill never
+       compresses (`.fixedSize(horizontal: true)` +
+       `.layoutPriority(1)` contract from `GameHeader.titleRow`).
+   - Run on **iOS 17.x** AND **iOS 18.x** simulator / device. iOS
+     17 is the deployment-target floor and the version where
+     FB13484530 surfaced — verify swipe-back independently on each.
+
+   **Status bar legibility against frosted moss BG**
+   - Pull-up Control Center / observe the status bar glyphs (clock,
+     battery, signal) over the GameHeader's frosted moss material.
+     Verify legibility in:
+     - **Light mode**, **Dark mode**.
+     - **Increase Contrast** accessibility setting on (Settings >
+       Accessibility > Display & Text Size > Increase Contrast).
+     - High-contrast chat content scrolled to the very top
+       (white / black bubble against the glyphs).
+   - If glyphs are hard to read in any combination, file a follow-up
+     to set `.toolbarColorScheme(.dark, for: .navigationBar)` (or
+     `preferredStatusBarStyle`) on Sim.
+
+   **VoiceOver — 3-stop traversal**
+   The split rendering crosses the UIKit ↔ SwiftUI a11y boundary;
+   the original single combined-element stop becomes 3 stops:
+
+   - **Stop 1 — back button** (system-managed): "Back, button,
+     `<ScenarioDetailViewTitle>`".
+   - **Stop 2 — title row** (combined element with `.isHeader`
+     trait): `"<status>, <scenarioName>"` — e.g., `"Simulating,
+     ワードウルフ"` or `"Completed"` (collapses to status when title
+     is empty).
+   - **Stop 3 — meta row** (combined element): `"<round>,
+     <phase>, <tok/s>"` — e.g., `"Round 2 / 5, negotiation, 16.5
+     tok/s"`. Each fragment collapses on nil; the row itself is
+     skipped when all 3 inputs are nil.
+
+   Verifications:
+   - VoiceOver swipe-right from focus on `Back` advances through the
+     two header stops in the order above before reaching the first
+     chat row.
+   - **Rotor → Headings** lands on the title row (Stop 2 carries
+     `.accessibilityAddTraits(.isHeader)`).
+   - The title-row `.isHeader` trait does not bleed into Demo's
+     unified `body` rendering (Demo's `body` re-combines into a
+     single stop with the joined label and remains a single VO
+     focus — verify on Demo screen).
 3. **Editor save → Home reload** — `EditorReloadTests` covers the
    `onChange(of: router.path.count)` pop-trigger path. Note: the trigger
    only fires when `newCount < oldCount` (a pop). Flows that finish by
