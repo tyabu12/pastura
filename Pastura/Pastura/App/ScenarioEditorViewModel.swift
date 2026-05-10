@@ -166,21 +166,11 @@ final class ScenarioEditorViewModel {
     validationErrors = []
     isValid = false
 
-    let scenario: Scenario
-    if editorMode == .yaml {
-      let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !trimmed.isEmpty else {
-        validationErrors = [String(localized: "YAML is empty")]
-        return
-      }
-      do {
-        scenario = try loader.load(yaml: trimmed)
-      } catch {
-        validationErrors = [error.localizedDescription]
-        return
-      }
-    } else {
-      // Visual mode: check basic fields first
+    // Mode-specific pre-checks (visual: field UX errors, YAML: empty guard).
+    // Materialization itself is delegated to currentScenario() below so that
+    // save() and validate() share one mode-dispatch funnel — see #336 for the
+    // drift bug that motivated centralizing this.
+    if editorMode == .visual {
       if scenarioName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         validationErrors.append(String(localized: "Scenario name is required"))
       }
@@ -193,12 +183,22 @@ final class ScenarioEditorViewModel {
       if phases.isEmpty {
         validationErrors.append(String(localized: "At least one phase is required"))
       }
-
       validationErrors.append(contentsOf: invalidAssignTargetErrors())
-
       if !validationErrors.isEmpty { return }
+    } else {
+      let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !trimmed.isEmpty else {
+        validationErrors = [String(localized: "YAML is empty")]
+        return
+      }
+    }
 
-      scenario = buildScenario()
+    let scenario: Scenario
+    do {
+      scenario = try currentScenario().scenario
+    } catch {
+      validationErrors = [error.localizedDescription]
+      return
     }
 
     do {
@@ -217,8 +217,10 @@ final class ScenarioEditorViewModel {
 
   /// Saves the current scenario to the repository.
   ///
-  /// Serializes visual state to YAML if in visual mode. Checks for
-  /// preset collision before saving.
+  /// Materializes the scenario via `currentScenario()` so save honors whichever
+  /// mode the user last touched. YAML mode persists the user's exact text
+  /// (comments, key order); visual mode re-serializes the canonical form.
+  /// Checks for preset collision before saving.
   /// - Returns: `true` if save succeeded.
   func save() async -> Bool {
     validate()
@@ -226,33 +228,23 @@ final class ScenarioEditorViewModel {
     isSaving = true
     defer { isSaving = false }
 
-    let scenario = buildScenario()
-    let yaml = serializer.serialize(scenario)
+    let scenario: Scenario
+    let yaml: String
+    do {
+      (scenario, yaml) = try currentScenario()
+    } catch {
+      // Defensive: validate() already proved currentScenario() succeeds for
+      // the current state under @MainActor (no concurrent yamlText mutation).
+      // Keep the catch as belt-and-braces so a future loader change cannot
+      // crash the editor.
+      validationErrors = [error.localizedDescription]
+      return false
+    }
 
     guard runCommitTimeValidation(scenario) else { return false }
 
     do {
-      // Check for preset collision
-      if let existing = try await offMain({ [repository] in
-        try repository.fetchById(scenario.id)
-      }) {
-        if existing.isPreset {
-          validationErrors = [
-            String(localized: "Cannot overwrite preset scenario '\(existing.name)'")
-          ]
-          return false
-        }
-        if existing.sourceType == ScenarioSourceType.gallery {
-          validationErrors = [
-            String(
-              localized:
-                "Cannot overwrite gallery scenario '\(existing.name)'. Use Shared Scenarios to update, or delete the local copy first."
-            )
-          ]
-          return false
-        }
-      }
-
+      guard try await checkNoOverwriteCollision(scenarioId: scenario.id) else { return false }
       let record = ScenarioRecord(
         id: scenario.id,
         name: scenario.name,
@@ -272,6 +264,32 @@ final class ScenarioEditorViewModel {
       ]
       return false
     }
+  }
+
+  /// Rejects overwrites of preset and gallery-sourced scenarios with mode-specific
+  /// error messages. Returns `true` when the id is free or refers to a user-owned
+  /// scenario the editor may overwrite.
+  private func checkNoOverwriteCollision(scenarioId: String) async throws -> Bool {
+    let existing = try await offMain { [repository] in
+      try repository.fetchById(scenarioId)
+    }
+    guard let existing else { return true }
+    if existing.isPreset {
+      validationErrors = [
+        String(localized: "Cannot overwrite preset scenario '\(existing.name)'")
+      ]
+      return false
+    }
+    if existing.sourceType == ScenarioSourceType.gallery {
+      validationErrors = [
+        String(
+          localized:
+            "Cannot overwrite gallery scenario '\(existing.name)'. Use Shared Scenarios to update, or delete the local copy first."
+        )
+      ]
+      return false
+    }
+    return true
   }
 
   // MARK: - Private
@@ -307,6 +325,30 @@ final class ScenarioEditorViewModel {
       }
     }
     return errors
+  }
+
+  /// Returns the scenario plus its persistable YAML for the active editor mode.
+  ///
+  /// Single materialization point shared by `save()` and `validate()` so the
+  /// mode dispatch lives in one place. Adding new callsites (preview, export,
+  /// share) routes them through the same funnel and prevents silently reading
+  /// from the wrong side — the drift class that produced #336.
+  ///
+  /// - YAML mode: parses `yamlText` and persists the user's *exact* text so
+  ///   author-supplied comments and key order survive. Re-serializing would
+  ///   normalize them away.
+  /// - Visual mode: builds from typed fields and serializes canonically (the
+  ///   visual editor has no place to surface raw text artifacts anyway).
+  private func currentScenario() throws -> (scenario: Scenario, yaml: String) {
+    switch editorMode {
+    case .yaml:
+      let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
+      let parsed = try loader.load(yaml: trimmed)
+      return (parsed, trimmed)
+    case .visual:
+      let scenario = buildScenario()
+      return (scenario, serializer.serialize(scenario))
+    }
   }
 
   /// Builds a ``Scenario`` from the current visual editor state.
