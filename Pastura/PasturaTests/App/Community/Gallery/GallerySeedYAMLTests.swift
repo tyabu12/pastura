@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 
@@ -74,6 +75,42 @@ import Testing
         gallery.title (\(entry.title)) != yaml.name (\(scenario.name)) \
         for entry id=\(entry.id). \
         See ADR-008 — Route.scenarioDetail.initialName depends on this match.
+        """)
+    }
+  }
+
+  /// Pins the curation invariant that every gallery entry's
+  /// `yaml_sha256` matches the byte-level SHA-256 of the YAML file at
+  /// `yamlURL`. A drifted hash silently ships and fails at install
+  /// time on user devices ("YAML hash mismatch") because
+  /// `URLSessionGalleryService` rejects body-vs-hash mismatches before
+  /// any partial write reaches the local DB. Catching the drift here
+  /// — at PR CI time — closes the hole that `--no-verify` commits and
+  /// GitHub-UI merges leave open in the script-side pre-commit gate.
+  @Test func galleryYAMLHashMatchesIndex() throws {
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let indexURL = galleryDir.appendingPathComponent("gallery.json")
+    let indexData = try Data(contentsOf: indexURL)
+    let index = try JSONDecoder().decode(GalleryIndex.self, from: indexData)
+
+    #expect(!index.scenarios.isEmpty, "gallery.json has no scenarios")
+
+    for entry in index.scenarios {
+      let yamlPath =
+        galleryDir
+        .appendingPathComponent(entry.yamlURL.lastPathComponent)
+      let yamlData = try Data(contentsOf: yamlPath)
+      let actualHex =
+        SHA256.hash(data: yamlData)
+        .map { String(format: "%02x", $0) }
+        .joined()
+      #expect(
+        actualHex == entry.yamlSHA256,
+        """
+        gallery.json entry id=\(entry.id) yaml_sha256=\(entry.yamlSHA256) \
+        does not match SHA-256 of \(entry.yamlURL.lastPathComponent) \
+        (actual=\(actualHex)). Run scripts/check-gallery-entry.sh --all \
+        to identify drifted entries.
         """)
     }
   }

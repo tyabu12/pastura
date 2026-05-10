@@ -365,6 +365,28 @@ jobs:
       - name: Run blocklist drift guard
         run: bash scripts/build-blocklist.sh --check
 
+  gallery-drift:
+    name: Gallery drift guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # jq + shasum are pre-installed on ubuntu-latest. PyYAML is the
+      # only third-party dep — pin major to keep the install
+      # deterministic. The script's --all mode validates yaml_sha256
+      # byte-match, size cap (256 KiB), id uniqueness across
+      # gallery.json + bundled presets, and filename-stem == id. No
+      # `|| true` wrapper — any failure must fail the job so merge-time
+      # drift cannot land silently. (GallerySeedYAMLTests inside the
+      # iOS test target is the second line of defense.)
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet 'pyyaml>=6,<7'
+
+      - name: Run gallery drift guard
+        run: bash scripts/check-gallery-entry.sh --all
+
   localization-coverage:
     name: Localization coverage (ja 100%)
     runs-on: ubuntu-latest

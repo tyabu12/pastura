@@ -226,4 +226,41 @@ extension ReplayViewModelTests {
     #expect(viewModel.currentPhaseIndex == nil || viewModel.currentPhaseIndex == 1)
     #expect(viewModel.status == .demoing)
   }
+
+  // MARK: - headerRound (GameHeader pair wrapper, #313)
+
+  @Test func headerRoundIsNilPreStart() throws {
+    let viewModel = try Self.makeVM()
+    #expect(viewModel.headerRound == nil)
+  }
+
+  @Test func headerRoundIsNilBetweenStartAndFirstPhaseStarted() async throws {
+    // `start()` sets `cachedTotalPhaseCount` synchronously but
+    // `phaseProgress` stays at `0` until the playback task consumes
+    // the first `.phaseStarted`. The wrapper must collapse to nil in
+    // that intermediate window — proving it doesn't leak a partial
+    // pair (`current: nil, total: 1`) to the GameHeader.
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    // totalPhaseCount is non-nil immediately, but currentPhaseIndex
+    // is still nil → headerRound must be nil.
+    #expect(viewModel.totalPhaseCount == 1)
+    #expect(viewModel.currentPhaseIndex == nil)
+    #expect(viewModel.headerRound == nil)
+  }
+
+  @Test func headerRoundReflectsPhaseConsumption() async throws {
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
+    #expect(viewModel.headerRound == GameHeaderRound(current: 1, total: 1))
+  }
+
+  @Test func headerRoundIsNilDuringPause() async throws {
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
+    viewModel.userPause()
+    #expect(viewModel.headerRound == nil)
+  }
 }

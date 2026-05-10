@@ -268,6 +268,23 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     return cachedTotalPhaseCount > 0 ? cachedTotalPhaseCount : nil
   }
 
+  /// Round-counter pair for `GameHeader`'s row-2 ROUND fragment.
+  /// Re-uses ``currentPhaseIndex`` and ``totalPhaseCount`` so the
+  /// pair-or-nothing semantic is satisfied automatically: both are
+  /// gated on `.playing` AND a positive backing value, so the wrapper
+  /// collapses to `nil` whenever either piece is missing — including
+  /// the brief post-`start()` window where `cachedTotalPhaseCount` has
+  /// pre-computed but `phaseProgress` is still `0` (no `.phaseStarted`
+  /// consumed yet).
+  ///
+  /// Demo's call site passes `viewModel.headerRound` directly into
+  /// `GameHeader.init` instead of the pre-#313 two-Optional-Int form.
+  var headerRound: GameHeaderRound? {
+    guard let current = currentPhaseIndex, let total = totalPhaseCount
+    else { return nil }
+    return GameHeaderRound(current: current, total: total)
+  }
+
   /// `GameHeaderStatus` for the trailing pill. `.demoing` while
   /// playing or in the brief `.transitioning` fade; `.paused` while
   /// paused (any reason). `.idle` defaults to `.demoing` —
