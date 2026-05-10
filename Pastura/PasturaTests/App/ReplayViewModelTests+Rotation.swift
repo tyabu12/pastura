@@ -9,7 +9,11 @@ extension ReplayViewModelTests {
 
   // MARK: - Fixtures
 
-  fileprivate static func makeTwoSources() throws -> [YAMLReplaySource] {
+  // Module-internal (drops `fileprivate`) so sibling-file extensions
+  // such as `ReplayViewModelTests+ChatLogAccumulation.swift` can call
+  // these helpers — same access discipline documented in
+  // `.claude/rules/testing.md` "Splitting a Suite Across Files".
+  static func makeTwoSources() throws -> [YAMLReplaySource] {
     let yaml1 = """
       schema_version: 1
       turns:
@@ -41,21 +45,21 @@ extension ReplayViewModelTests {
   /// (5 ms). Faster configs (see `fastConfig` in the main suite file)
   /// collapse delays to 0 ms + `Task.yield()` which makes rotation
   /// cycle sub-ms — rotation assertions race against the poll loop.
-  fileprivate static let stopConfig = ReplayPlaybackConfig(
+  static let stopConfig = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .stopAfterLast,
     onComplete: .stopPlayback)
 
-  fileprivate static let holdConfig = ReplayPlaybackConfig(
+  static let holdConfig = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .stopAfterLast,
     onComplete: .awaitTransitionSignal)
 
-  fileprivate static let loopConfig = ReplayPlaybackConfig(
+  static let loopConfig = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
@@ -230,4 +234,5 @@ extension ReplayViewModelTests {
     viewModel.downloadComplete()
     #expect(viewModel.state == .transitioning)
   }
+
 }
