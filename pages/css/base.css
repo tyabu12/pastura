@@ -1,0 +1,440 @@
+/* Pastura Pages — base design tokens and shared primitives.
+   Inherits from docs/design/design-system.md. The "lp/*" typography
+   tier is added here (not in lp.css) because it is consumable by
+   future redesigns of pages/legal/ and pages/support/.
+
+   Responsive contract: desktop sizing is the default; mobile values
+   live behind `@media (max-width: 768px)`. There are NO `.lp.desktop`
+   or `.lp.mobile` ancestor classes — the JSX prototype gated these on
+   a JS-set flag, but a static page must rely on media queries. */
+
+:root {
+  /* Surfaces */
+  --page: #F3EFE7;
+  --screen-bg: #FCFAF4;
+  --bubble-bg: #FFFFFF;
+  --promo-bg: #FBFAF2;
+  --promo-border: #E4E7D2;
+
+  /* Ink */
+  --ink: #2D2E26;
+  --ink-2: #5A5A55;
+  --muted: #8A8A83;
+  --rule: #E0DBCE;
+
+  /* Moss accent */
+  --moss: #8A9A6C;
+  --moss-dark: #6B7852;
+  --moss-ink: #3D4030;
+  --moss-soft: #D4CBA8;
+
+  /* Character palette (sheep avatars) */
+  --alice: #F2E3C8;
+  --bob: #D9E2C6;
+  --carol: #EBD4D4;
+  --dave: #D0D7DC;
+
+  --r-card: 14px;
+  --shadow-card:
+    0 1px 2px rgba(90, 100, 60, 0.04),
+    0 12px 26px -12px rgba(90, 100, 60, 0.2);
+  --shadow-soft: 0 1px 2px rgba(60, 62, 48, 0.04);
+}
+
+/* ----- Base reset (very light) ----- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--screen-bg);
+  color: var(--ink);
+  font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt";
+  text-rendering: geometricPrecision;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ----- Typography scale (LP-extended; mobile via media query) ----- */
+.display {
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  text-wrap: balance;
+  font-size: 64px;
+  line-height: 1.08;
+}
+
+.display-sm {
+  font-weight: 400;
+  letter-spacing: -0.008em;
+  color: var(--ink);
+  text-wrap: balance;
+  font-size: 48px;
+  line-height: 1.12;
+}
+
+.section-title {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-wrap: balance;
+  font-size: 32px;
+  line-height: 1.22;
+}
+
+.lead {
+  font-weight: 400;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  font-size: 19px;
+  line-height: 1.6;
+}
+
+.body {
+  font-weight: 400;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.meta {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .display {
+    font-size: 36px;
+    line-height: 1.12;
+  }
+  .display-sm {
+    font-size: 30px;
+    line-height: 1.18;
+  }
+  .section-title {
+    font-size: 24px;
+    line-height: 1.25;
+  }
+  .lead {
+    font-size: 16px;
+  }
+  .body {
+    font-size: 15px;
+  }
+}
+
+/* ----- Brand mark (leaf + word) ----- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--moss-ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.brand .leaf {
+  width: 11px;
+  height: 11px;
+  background: var(--moss);
+  transform: rotate(45deg);
+  border-radius: 1.5px;
+}
+.brand-name {
+  font-size: 17px;
+}
+
+/* ----- Sheep avatar -----
+   Pure CSS pseudo-element implementation. Names are conveyed by the
+   adjacent .bubble-name element, so the sheep itself is decorative. */
+.sheep {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+.sheep::before,
+.sheep::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #E8D9BC;
+  top: 0;
+}
+.sheep::before {
+  left: 2px;
+  transform: rotate(-15deg);
+}
+.sheep::after {
+  right: 2px;
+  transform: rotate(15deg);
+}
+.sheep .face {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.sheep[data-tone="alice"] .face { background: var(--alice); }
+.sheep[data-tone="bob"]   .face { background: var(--bob);   }
+.sheep[data-tone="carol"] .face { background: var(--carol); }
+.sheep[data-tone="dave"]  .face { background: var(--dave);  }
+
+.sheep .eyes {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sheep .eyes i {
+  width: 2.4px;
+  height: 2.4px;
+  border-radius: 50%;
+  background: #2D2E26;
+  display: block;
+}
+.sheep .nose {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 2px;
+  border-radius: 50%;
+  background: #3D4030;
+}
+
+/* ----- Chat bubble ----- */
+.bubble-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.bubble-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.bubble-name {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.bubble {
+  background: var(--bubble-bg);
+  border: 1px solid var(--rule);
+  border-radius: 14px 14px 14px 4px;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+  max-width: 520px;
+}
+.bubble.tail-tl {
+  border-radius: 4px 14px 14px 14px;
+}
+.bubble blockquote {
+  margin: 0;
+}
+.bubble .reason {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--moss-dark);
+  margin-bottom: 6px;
+}
+
+/* ----- Promo card (DS §5.4) ----- */
+.promo {
+  background: var(--promo-bg);
+  border: 1px solid var(--promo-border);
+  border-left: 3px solid var(--moss);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+/* ----- CTA badges ----- */
+.badges {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: all 0.25s ease-out;
+}
+.badge .b-eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+}
+.badge .b-label {
+  font-size: 14px;
+  font-weight: 500;
+  display: block;
+}
+.badge.primary {
+  background: var(--moss-ink);
+  color: #F3EFE7;
+  border-color: var(--moss-ink);
+}
+.badge.primary .b-eyebrow {
+  color: #A8B68B;
+}
+.badge.secondary {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule);
+}
+.badge.secondary .b-eyebrow {
+  color: var(--muted);
+}
+.badge.ghost {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: transparent;
+  padding: 12px 0;
+}
+.badge.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ===== Accessibility ===== */
+
+/* Visually hidden but available to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link — invisible until focused */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  background: var(--moss-ink);
+  color: var(--screen-bg);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: top 0.2s ease-out;
+}
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid var(--moss);
+  outline-offset: 3px;
+}
+
+/* Universal focus ring — moss outline only on keyboard nav */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+.badge:focus-visible {
+  outline: 2px solid var(--moss-dark);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.badge:focus-visible {
+  border-radius: 10px;
+}
+
+/* Live indicator dot — slow pulse, killed under prefers-reduced-motion */
+.live-dot {
+  animation: livePulse 2400ms ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .live-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
