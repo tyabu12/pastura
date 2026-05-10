@@ -246,7 +246,7 @@ struct GBNFGrammarBuilderTests {
 
   @Test("enumeration options with GBNF-hostile chars throw")
   func enumerationOptionWithHostileCharsThrows() {
-    // Share Board scenarios can inject arbitrary option strings; the
+    // Shared Scenarios entries can inject arbitrary option strings; the
     // builder validates upfront so failures surface as a clear
     // BuilderError rather than a NULL-return from llama.cpp's grammar
     // parser (which would hit `LLMError.invalidGrammar` at sampler init).

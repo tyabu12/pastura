@@ -10,7 +10,7 @@ import GRDB
 ///
 /// `sourceType` / `sourceId` / `sourceHash` record where a scenario came from
 /// when it is not locally authored. In MVP, the only non-nil value for
-/// `sourceType` is `"gallery"` (Share Board). `NULL` means user-created or
+/// `sourceType` is `"gallery"` (Shared Scenarios). `NULL` means user-created or
 /// a bundled preset. `sourceHash` is the SHA256 of the YAML at fetch time,
 /// used for update detection against the remote gallery.
 nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
@@ -24,7 +24,7 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
   public var createdAt: Date
   public var updatedAt: Date
 
-  /// Provenance tag. `"gallery"` for Share Board imports, `nil` for local scenarios.
+  /// Provenance tag. `"gallery"` for Shared Scenarios imports, `nil` for local scenarios.
   public var sourceType: String?
 
   /// Canonical id in the source system (e.g. the original gallery scenario id).

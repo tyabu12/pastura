@@ -1,6 +1,6 @@
-# Share Board Report Handling
+# Shared Scenario Report Handling
 
-Operational procedure for Share Board scenario reports, per
+Operational procedure for Shared Scenario reports, per
 [ADR-005 §6](../decisions/ADR-005.md).
 
 This document is **maintainer-facing**. User-visible copy in the app
@@ -42,7 +42,7 @@ editing.
 | # | Type | Label | Required | Note |
 |---|------|-------|----------|------|
 | auto | Email | Email | yes (enforced) | Auto-added by Responder input. Not pre-fillable by URL parameter (Google design). |
-| 1 | Short answer | Scenario ID | **no** | Pre-filled by the app via URL parameter when reporting from Share Board. Left blank on the §1.5 general-contact path. Helper text: "Auto-filled when reporting from the app. Leave blank for general feedback." |
+| 1 | Short answer | Scenario ID | **no** | Pre-filled by the app via URL parameter when reporting from Shared Scenarios. Left blank on the §1.5 general-contact path. Helper text: "Auto-filled when reporting from the app. Leave blank for general feedback." |
 | 2 | Short answer | App Version | no | Pre-filled by the app. Blank on the §1.5 path. |
 | 3 | Paragraph | Reason | yes | User writes the report body or feedback text. |
 
@@ -56,8 +56,8 @@ that changes the form.
 
 ### 1.2 GitHub issue template
 
-Located at `.github/ISSUE_TEMPLATE/share-board-report.yml`. Issues
-filed via this template carry the `share-board-report` label.
+Located at `.github/ISSUE_TEMPLATE/shared-scenario-report.yml`. Issues
+filed via this template carry the `shared-scenario-report` label.
 
 Reporter contact is **not collected** — reply via @-mention on the
 issue (the GitHub author is visible in the issue header). This keeps
@@ -73,13 +73,13 @@ response-receipt email.
 **English:**
 
 > Thanks for your message. We've received it and will respond as
-> needed. Share Board reports indicating clear policy violations are
+> needed. Shared Scenario reports indicating clear policy violations are
 > hidden from the gallery during triage.
 
 **Japanese:**
 
 > ご連絡ありがとうございます。受領し、必要に応じて返信します。
-> Share Board の通報で明らかな policy 違反が確認できた場合は、triage
+> Shared Scenarios の通報で明らかな policy 違反が確認できた場合は、triage
 > 中にギャラリーから該当シナリオを非表示にします。
 
 ### 2.2 Vacation-mode confirmation message
@@ -94,7 +94,7 @@ appears (ADR-005 §6.3).
 > Thanks for your message. We've received it.
 >
 > Note: the maintainer is currently away through **YYYY-MM-DD** and
-> will resume reviewing after that date. Share Board reports
+> will resume reviewing after that date. Shared Scenario reports
 > indicating clearly policy-violating content may still be actioned
 > before then.
 
@@ -103,7 +103,7 @@ appears (ADR-005 §6.3).
 > ご連絡ありがとうございます。受領しました。
 >
 > メンテナ不在期間: **YYYY-MM-DD** まで。復帰後に順次確認します。
-> Share Board の通報で明らかな policy 違反が確認できる場合は、不在
+> Shared Scenarios の通報で明らかな policy 違反が確認できる場合は、不在
 > 期間中でも対応することがあります。
 
 **Procedure:**
@@ -155,8 +155,8 @@ access.
 3. Remove the offending scenario's object from the `scenarios` array,
    including its trailing comma.
 4. Commit directly to `main` with a clear message, e.g.
-   `🐛 fix: hide share-board scenario <id> pending triage`.
-5. Users pick up the removal on their next Share Board visit via the
+   `🐛 fix: hide shared scenario <id> pending triage`.
+5. Users pick up the removal on their next Shared Scenarios visit via the
    existing ETag-conditional GET (see [`README.md`](README.md)).
 
 The scenario's YAML at `docs/gallery/<id>.yaml` can remain in the
@@ -183,8 +183,8 @@ bound.
 
 ## 6. References
 
-- [ADR-005 §6](../decisions/ADR-005.md) — Share Board Report Mechanism
+- [ADR-005 §6](../decisions/ADR-005.md) — Shared Scenario Report Mechanism
 - [`docs/gallery/README.md`](README.md) — Gallery curation + trust model
-- [`.github/ISSUE_TEMPLATE/share-board-report.yml`](../../.github/ISSUE_TEMPLATE/share-board-report.yml)
+- [`.github/ISSUE_TEMPLATE/shared-scenario-report.yml`](../../.github/ISSUE_TEMPLATE/shared-scenario-report.yml)
 - [`Pastura/Pastura/Utilities/ReportURLBuilder.swift`](../../Pastura/Pastura/Utilities/ReportURLBuilder.swift)
-- [`Pastura/Pastura/Views/Community/ShareBoard/ReportScenarioSheet.swift`](../../Pastura/Pastura/Views/Community/ShareBoard/ReportScenarioSheet.swift)
+- [`Pastura/Pastura/Views/Community/SharedScenarios/ReportScenarioSheet.swift`](../../Pastura/Pastura/Views/Community/SharedScenarios/ReportScenarioSheet.swift)

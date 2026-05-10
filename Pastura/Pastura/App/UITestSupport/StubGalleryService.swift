@@ -6,7 +6,7 @@
   ///
   /// Serves a preconfigured `GalleryIndex` and returns YAML bytes from an
   /// in-memory dictionary keyed by URL — no network access. Used by the
-  /// `--ui-test` launch-argument branch in `PasturaApp` to keep Share Board
+  /// `--ui-test` launch-argument branch in `PasturaApp` to keep Shared Scenarios
   /// flows deterministic. Hash verification is skipped because UI tests
   /// exercise navigation flow, not integrity checks.
   nonisolated public final class StubGalleryService: GalleryService {

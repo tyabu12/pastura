@@ -36,7 +36,7 @@ final class AppDependencies: @unchecked Sendable {
   /// opts into background continuation via the toggle in `SimulationView`.
   let backgroundManager: BackgroundSimulationManager
 
-  /// Service that fetches the remote Share Board (gallery) index and YAMLs.
+  /// Service that fetches the remote Shared Scenarios (gallery) index and YAMLs.
   let galleryService: any GalleryService
 
   /// Process-wide counter tracking whether a simulation is in flight.
