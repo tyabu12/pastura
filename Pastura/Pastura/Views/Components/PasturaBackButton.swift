@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Pastura's flat back chevron, replacing the iOS-26 Liquid Glass system
 /// back button on root-stack pushed views. SF Symbol `chevron.backward`
@@ -36,14 +37,16 @@ import SwiftUI
 /// normally append (e.g. `"Back, button, Pastura"`). This regression is
 /// documented in `.claude/rules/navigation.md` QA scenario 2.
 ///
-/// ## Swipe-back gesture
+/// ## Swipe-back gesture (UIKit bridging)
 ///
-/// `.navigationBarBackButtonHidden(true)` hides the back BUTTON only —
-/// the bar itself stays in the layout, so iOS keeps the
-/// `interactivePopGestureRecognizer` enabled. (Contrast with
-/// `.toolbar(.hidden, for: .navigationBar)` which triggers FB13484530
-/// on iOS 17.x and disables the gesture — see memory
-/// `reference_swiftui_toolbar_hide_apis.md`.)
+/// On iOS 26, `.navigationBarBackButtonHidden(true)` disables the
+/// `interactivePopGestureRecognizer` (verified by `BackGestureTests` —
+/// hiding the back button alone breaks edge-pan even though the bar
+/// stays in the layout). The button mounts an invisible
+/// `UIViewControllerRepresentable` probe that walks the parent chain
+/// to the host `UINavigationController` and reinstalls the gesture
+/// with a delegate gating on `viewControllers.count > 1`, preserving
+/// the swipe-back affordance without re-enabling pop on the root.
 struct PasturaBackButton: View {
   @Environment(AppRouter.self) private var router
 
@@ -140,4 +143,128 @@ struct PasturaToolbarButtonStyle: ButtonStyle {
   /// `0.6` keeps the chevron / label clearly visible while signalling
   /// the touch.
   static let pressedOpacity: Double = 0.6
+}
+
+// MARK: - View-level swipe-back preservation
+
+extension View {
+  /// Apply on every root-stack pushed view that uses
+  /// `.navigationBarBackButtonHidden(true)` + ``PasturaBackButton``.
+  ///
+  /// On iOS 26, hiding the back button via
+  /// `.navigationBarBackButtonHidden` disables the
+  /// `interactivePopGestureRecognizer` (verified by `BackGestureTests`).
+  /// This modifier mounts an invisible `UIViewControllerRepresentable`
+  /// probe at the view level (where the SwiftUI hosting controller
+  /// reliably has a `UINavigationController` ancestor) and reinstalls
+  /// the gesture with a delegate gating on
+  /// `viewControllers.count > 1` — preserving swipe-back on pushed
+  /// views without re-enabling pop on the root.
+  ///
+  /// The toolbar slot is too constrained to host the probe (zero-size
+  /// background views in `ToolbarItem` may not be mounted), hence the
+  /// view-level placement.
+  func preservesPasturaSwipeBackGesture() -> some View {
+    background(SwipeBackGestureProbe().allowsHitTesting(false))
+  }
+}
+
+// MARK: - UIKit bridge for swipe-back gesture preservation
+
+/// Invisible probe that walks the parent chain to the host
+/// `UINavigationController` and reinstalls the
+/// `interactivePopGestureRecognizer` after
+/// `.navigationBarBackButtonHidden(true)` disables it on iOS 26.
+///
+/// Lifetime is tied to ``PasturaBackButton``'s view tree, so the
+/// gesture restoration applies exactly while the back button is
+/// mounted (i.e., while the pushed view is on screen). On pop, the
+/// probe deallocates and its `SwipeBackGestureDelegate` (held by the
+/// VC) deallocates with it; the recognizer's `weak delegate` becomes
+/// nil and iOS reverts to default gating.
+private struct SwipeBackGestureProbe: UIViewControllerRepresentable {
+  func makeUIViewController(context: Context) -> SwipeBackProbeViewController {
+    SwipeBackProbeViewController()
+  }
+
+  func updateUIViewController(
+    _ uiViewController: SwipeBackProbeViewController, context: Context
+  ) {}
+}
+
+/// Hosting `UIViewController` for ``SwipeBackGestureProbe``. Walks up
+/// the parent chain on `didMove(toParent:)` to find the
+/// `UINavigationController` and installs a delegate that gates the
+/// gesture on `viewControllers.count > 1` (so swipe-back works on
+/// pushed views but stays inert on the root, matching iOS default).
+private final class SwipeBackProbeViewController: UIViewController {
+  private var gestureDelegate: SwipeBackGestureDelegate?
+
+  override func didMove(toParent parent: UIViewController?) {
+    super.didMove(toParent: parent)
+    installGestureDelegate()
+  }
+
+  override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+    // Re-install on viewDidAppear in case SwiftUI applies
+    // `.navigationBarBackButtonHidden` after our `didMove` ran — without
+    // this, the recognizer disable can win the race against our enable.
+    installGestureDelegate()
+  }
+
+  private func installGestureDelegate() {
+    let nav: UINavigationController? =
+      Self.findNavigationController(starting: parent)
+      ?? Self.findNavigationController(in: view.window?.rootViewController)
+    guard let nav else { return }
+    let delegate = SwipeBackGestureDelegate()
+    delegate.navigationController = nav
+    self.gestureDelegate = delegate
+    nav.interactivePopGestureRecognizer?.isEnabled = true
+    nav.interactivePopGestureRecognizer?.delegate = delegate
+  }
+
+  private static func findNavigationController(
+    starting startingViewController: UIViewController?
+  ) -> UINavigationController? {
+    var current = startingViewController
+    while let view = current {
+      if let nav = view as? UINavigationController { return nav }
+      if let nav = view.navigationController { return nav }
+      current = view.parent
+    }
+    return nil
+  }
+
+  /// Recursive descent from window root — covers the case where
+  /// SwiftUI's NavigationStack hosts its UINavigationController
+  /// outside the probe's parent chain.
+  private static func findNavigationController(
+    in viewController: UIViewController?
+  ) -> UINavigationController? {
+    guard let viewController else { return nil }
+    if let nav = viewController as? UINavigationController { return nav }
+    if let presented = viewController.presentedViewController,
+      let nav = findNavigationController(in: presented) {
+      return nav
+    }
+    for child in viewController.children {
+      if let nav = findNavigationController(in: child) { return nav }
+    }
+    return nil
+  }
+}
+
+/// Gesture-recognizer delegate that allows the interactive pop gesture
+/// only when the host `UINavigationController` has more than one VC on
+/// the stack (i.e., not on the root). Mirrors the default iOS gating
+/// that `.navigationBarBackButtonHidden(true)` accidentally clobbers
+/// on iOS 26.
+private final class SwipeBackGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+  weak var navigationController: UINavigationController?
+
+  func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    (navigationController?.viewControllers.count ?? 0) > 1
+  }
 }
