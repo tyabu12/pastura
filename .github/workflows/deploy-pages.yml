@@ -1,5 +1,10 @@
 # Deploys public-facing HTML under `pages/` to GitHub Pages. Currently:
 #
+#   - `pages/index.html`                   → `https://tyabu12.github.io/pastura/`
+#     (Marketing landing page — see #345)
+#   - `pages/css/base.css`                 → `https://tyabu12.github.io/pastura/css/base.css`
+#   - `pages/css/lp.css`                   → `https://tyabu12.github.io/pastura/css/lp.css`
+#     (Shared design tokens + LP-specific layout for the landing page)
 #   - `pages/support/index.html`           → `https://tyabu12.github.io/pastura/support/`
 #     (App Store Connect Support URL — see ADR-005 §6 / §6.7 / §9.2 row #9 / #182)
 #   - `pages/legal/privacy-policy/index.html`
@@ -25,9 +30,10 @@
 # cancelling a Pages deploy mid-flight can leave the site in an
 # inconsistent state.
 #
-# A post-deploy smoke check `curl -fsS`'s both deployed URLs so silent
-# staging-step omissions surface as a workflow failure instead of a
-# 404 noticed days later.
+# A post-deploy smoke check `curl -fsS`'s every deployed URL (HTML AND
+# CSS) so silent staging-step omissions surface as a workflow failure
+# instead of a 404 noticed days later. CSS coverage matters: HTML 200
+# with broken CSS 404 would still pass without it.
 
 name: Deploy Pages
 
@@ -67,7 +73,10 @@ jobs:
         # add a new file under `pages/`, add a matching line here — silent
         # drift on this step means the new asset 404s on the deployed site.
         run: |
-          mkdir -p _site/support _site/legal/privacy-policy
+          mkdir -p _site/support _site/legal/privacy-policy _site/css
+          cp pages/index.html _site/index.html
+          cp pages/css/base.css _site/css/base.css
+          cp pages/css/lp.css _site/css/lp.css
           cp pages/support/index.html _site/support/index.html
           cp pages/legal/privacy-policy/index.html _site/legal/privacy-policy/index.html
           touch _site/.nojekyll
@@ -90,6 +99,9 @@ jobs:
         run: |
           set -euo pipefail
           for url in \
+            "https://tyabu12.github.io/pastura/" \
+            "https://tyabu12.github.io/pastura/css/base.css" \
+            "https://tyabu12.github.io/pastura/css/lp.css" \
             "https://tyabu12.github.io/pastura/support/" \
             "https://tyabu12.github.io/pastura/legal/privacy-policy/"; do
             echo "Checking ${url}"
