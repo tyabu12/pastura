@@ -5,7 +5,7 @@ import SwiftUI
 /// this to decide whether to render a "Opened from external link"
 /// banner. The key is scoped to `RootView` and reset on pop-to-root so
 /// the banner doesn't falsely appear when the user revisits the same
-/// scenario through Share Board.
+/// scenario through Shared Scenarios.
 ///
 /// The value is `Optional<String>` rather than a richer "source" enum
 /// because navigation state lives on `AppRouter.Route` and must stay

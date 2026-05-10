@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Browse view for the curated gallery of scenarios (Share Board).
-struct ShareBoardView: View {
+/// Browse view for the curated gallery of scenarios (Shared Scenarios).
+struct SharedScenariosListView: View {
   @Environment(AppDependencies.self) private var dependencies
-  @State private var viewModel: ShareBoardViewModel?
+  @State private var viewModel: SharedScenariosViewModel?
 
   var body: some View {
     Group {
@@ -15,7 +15,7 @@ struct ShareBoardView: View {
     }
     .navigationTitle(String(localized: "Shared Scenarios"))
     .task {
-      let newViewModel = ShareBoardViewModel(
+      let newViewModel = SharedScenariosViewModel(
         galleryService: dependencies.galleryService,
         repository: dependencies.scenarioRepository)
       viewModel = newViewModel
@@ -24,7 +24,7 @@ struct ShareBoardView: View {
   }
 
   @ViewBuilder
-  private func content(viewModel: ShareBoardViewModel) -> some View {
+  private func content(viewModel: SharedScenariosViewModel) -> some View {
     switch viewModel.state {
     case .idle, .loading:
       loadingView
@@ -44,7 +44,7 @@ struct ShareBoardView: View {
       .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
-  private func emptyState(viewModel: ShareBoardViewModel) -> some View {
+  private func emptyState(viewModel: SharedScenariosViewModel) -> some View {
     ContentUnavailableView {
       Label(String(localized: "Gallery Unavailable"), systemImage: "wifi.slash")
     } description: {
@@ -59,7 +59,7 @@ struct ShareBoardView: View {
     }
   }
 
-  private func errorState(message: String, viewModel: ShareBoardViewModel) -> some View {
+  private func errorState(message: String, viewModel: SharedScenariosViewModel) -> some View {
     ContentUnavailableView {
       Label(String(localized: "Error"), systemImage: "exclamationmark.triangle")
     } description: {
@@ -72,7 +72,7 @@ struct ShareBoardView: View {
   // MARK: - Scenario list
 
   @ViewBuilder
-  private func scenarioList(viewModel: ShareBoardViewModel) -> some View {
+  private func scenarioList(viewModel: SharedScenariosViewModel) -> some View {
     @Bindable var bindable = viewModel
     List {
       if case .offlineWithCache = viewModel.state {
@@ -90,7 +90,7 @@ struct ShareBoardView: View {
             NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
               scenarioRow(scenario: scenario, viewModel: viewModel)
             }
-            .accessibilityIdentifier("shareBoard.galleryCell.\(scenario.id)")
+            .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
           }
         }
       } footer: {
@@ -125,7 +125,7 @@ struct ShareBoardView: View {
   }
 
   private func scenarioRow(
-    scenario: GalleryScenario, viewModel: ShareBoardViewModel
+    scenario: GalleryScenario, viewModel: SharedScenariosViewModel
   ) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {

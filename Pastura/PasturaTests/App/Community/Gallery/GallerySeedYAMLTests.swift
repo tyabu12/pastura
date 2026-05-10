@@ -132,7 +132,7 @@ import Testing
     let loader = ScenarioLoader()
     let validator = ScenarioContentValidator()
 
-    // Gallery YAMLs (docs/gallery/*.yaml — fetched by Share Board)
+    // Gallery YAMLs (docs/gallery/*.yaml — fetched by Shared Scenarios)
     let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
     let galleryFiles = try FileManager.default.contentsOfDirectory(
       atPath: galleryDir.path
