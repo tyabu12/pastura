@@ -48,14 +48,20 @@
 .lp-section.alt-both {
   border-bottom: 1px solid var(--rule);
 }
+/* "What is Pastura" — tighter top padding so the eyebrow peeks above
+   the fold on typical desktop viewports. Bottom padding stays at the
+   .alt default so the rhythm into the next section is preserved. */
+.lp-section.compact {
+  padding-top: 64px;
+}
 @media (max-width: 768px) {
   .lp-section,
   .lp-section.alt {
     padding: 56px 24px;
   }
-  /* "What is Pastura" is intentionally a touch tighter than the rest
-     in the prototype (48px vs 56px). Honor that subtle rhythm. */
-  .lp-section.compact-mobile {
+  /* Mobile: tighter on both edges, mirroring the original prototype
+     rhythm (48px vs 56px). */
+  .lp-section.compact {
     padding: 48px 24px;
   }
 }
@@ -149,17 +155,8 @@
   max-width: 560px;
 }
 .lp-hero .lead {
-  margin: 24px 0 14px;
+  margin: 24px 0 34px;
   max-width: 520px;
-}
-.lp-hero .privacy-line {
-  margin: 0 0 32px;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
-  max-width: 520px;
-  line-height: 1.6;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 .lp-hero .tagline {
   margin-top: 24px;
@@ -224,18 +221,6 @@
   height: 6px;
   border-radius: 50%;
   background: var(--moss-dark);
-}
-
-.lp-hero-figure-foot {
-  border-top: 1px solid var(--rule);
-  padding-top: 14px;
-  margin-top: 6px;
-  display: flex;
-  justify-content: space-between;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
-  color: var(--muted);
-  letter-spacing: 0.06em;
 }
 
 /* ----- Observation journey ----- */

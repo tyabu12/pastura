@@ -76,7 +76,6 @@
         <div>
           <h1 id="hero-h" class="display">An AI you observe, not operate.</h1>
           <p class="lead">You arrived. They&rsquo;re already talking. — Pastura is a closed pasture inside your device where AI agents act out scenarios you wrote. Nothing leaves the device.</p>
-          <p class="privacy-line">No data leaves your device. There is no opt-out, because there is no opt-in.</p>
           <div class="badges">
             <button type="button" aria-disabled="true"
                     class="appstore-cta"
@@ -94,7 +93,7 @@
             <span class="sr-only">Sample run: </span>
             <span class="leaf" aria-hidden="true"></span>
             <span class="label">WORD WOLF — ROUND 1</span>
-            <span class="live" aria-hidden="true"><span class="live-dot"></span>live</span>
+            <span class="live" aria-hidden="true"><span class="live-dot"></span>SIMULATING</span>
           </figcaption>
 
           <div class="bubble-row">
@@ -118,6 +117,12 @@
                   <span class="sr-only">Alice said: </span>I like walking through the park.
                 </blockquote>
               </div>
+              <div class="thinking-toggle" aria-hidden="true">
+                <span class="chev">▾</span><span class="tag">THINKING</span>
+              </div>
+              <p class="thought-body">
+                <span class="sr-only">Alice (thinking): </span>Park&rsquo;s vague enough — most outdoor words fit.
+              </p>
             </div>
           </div>
 
@@ -142,6 +147,12 @@
                   <span class="sr-only">Bob said: </span>Same — I&rsquo;ve been wandering my neighborhood lately.
                 </blockquote>
               </div>
+              <div class="thinking-toggle" aria-hidden="true">
+                <span class="chev">▾</span><span class="tag">THINKING</span>
+              </div>
+              <p class="thought-body">
+                <span class="sr-only">Bob (thinking): </span>Echo Alice. Stay safe until I read the room.
+              </p>
             </div>
           </div>
 
@@ -161,49 +172,26 @@
             </svg>
             <div class="bubble-stack">
               <div class="bubble-name" aria-hidden="true">Dave</div>
+              <div class="bubble">
+                <blockquote>
+                  <span class="sr-only">Dave said: </span>Mine&rsquo;s a bit different — takes some planning.
+                </blockquote>
+              </div>
               <div class="thinking-toggle" aria-hidden="true">
                 <span class="chev">▾</span><span class="tag">THINKING</span>
               </div>
               <p class="thought-body">
-                <span class="sr-only">Dave (thinking): </span>A walk…? Or somewhere else? My topic feels different.
+                <span class="sr-only">Dave (thinking): </span>A walk…? Mine&rsquo;s nothing like that. Stay vague.
               </p>
             </div>
           </div>
 
-          <div class="bubble-row">
-            <svg class="sheep" data-tone="carol" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
-              <circle class="wool" cx="14" cy="15" r="8"/>
-              <circle class="wool" cx="9"  cy="13" r="3.2"/>
-              <circle class="wool" cx="19" cy="13" r="3.2"/>
-              <circle class="wool" cx="11" cy="18" r="3"/>
-              <circle class="wool" cx="17" cy="18" r="3"/>
-              <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
-              <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
-              <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
-              <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
-              <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
-              <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
-            </svg>
-            <div class="bubble-stack">
-              <div class="bubble-name" aria-hidden="true">Carol</div>
-              <div class="bubble">
-                <blockquote>
-                  <span class="sr-only">Carol said: </span>&ldquo;A walk&rdquo; — nobody else has said that word.
-                </blockquote>
-              </div>
-            </div>
-          </div>
-
-          <div class="lp-hero-figure-foot">
-            <span>4 agents · Gemma 4 E2B · ~3 GB</span>
-            <span>cloud calls — 0</span>
-          </div>
         </figure>
       </div>
     </section>
 
     <!-- ===== What is Pastura ===== -->
-    <section class="lp-section alt alt-both compact-mobile" aria-labelledby="what-h">
+    <section class="lp-section alt alt-both compact" aria-labelledby="what-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">What is Pastura</p>
         <h2 id="what-h" class="display-sm what-h">
@@ -329,6 +317,12 @@
                       <span class="sr-only">Alice said: </span>I also like reading on a park bench.
                     </blockquote>
                   </div>
+                  <div class="thinking-toggle" aria-hidden="true">
+                    <span class="chev">▾</span><span class="tag">THINKING</span>
+                  </div>
+                  <p class="thought-body">
+                    <span class="sr-only">Alice (thinking): </span>Bench narrows it — but still sounds innocuous.
+                  </p>
                 </div>
               </div>
               <div class="bubble-row">
@@ -347,6 +341,11 @@
                 </svg>
                 <div class="bubble-stack">
                   <div class="bubble-name" aria-hidden="true">Dave</div>
+                  <div class="bubble">
+                    <blockquote>
+                      <span class="sr-only">Dave said: </span>Mine&rsquo;s less of a park thing, honestly.
+                    </blockquote>
+                  </div>
                   <div class="thinking-toggle" aria-hidden="true">
                     <span class="chev">▾</span><span class="tag">THINKING</span>
                   </div>
