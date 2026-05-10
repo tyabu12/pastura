@@ -89,11 +89,11 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
 | Localization (i18n: ja / en)             | High     | Planned     | App Store launch blocker (Steps A / B-1a / B-1b / C-1 / C-2 / D required); Step E is post-release polish. Promoted from Phase 3 on 2026-04-29. See § Localization Plan below. |
-| Scenario sharing (Share Board)           | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
+| Scenario sharing (Shared Scenarios)      | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Scenario deep link (`pastura://` scheme) | Medium   | Done        | 1-tap install from external contexts (SNS, QR, blog). IDs resolved through the curated gallery index only — no arbitrary URL fetch, no auto-execute. Preview via `GalleryScenarioDetailView` with external-link origin banner (#88). Universal Links / QR code generation deferred. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
 | Past results — code-phase event display  | Medium   | Done        | Score_calc / scenario gen events shown in past-results viewer (#102/#113) |
-| YAML simulation replay primitive         | Medium   | Done        | Past Results YAML exporter + `YAMLReplaySource` importer primitive shipped (#175). Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Share Board integration deferred to Phase 3. |
+| YAML simulation replay primitive         | Medium   | Done        | Past Results YAML exporter + `YAMLReplaySource` importer primitive shipped (#175). Foundation for DL demo replay and future user-replay (spec §4.4 / §4.5). Replay gallery / Shared Scenarios integration deferred to Phase 3. |
 | DL-time demo replay                      | Medium   | Done        | Bundled YAML replays during model download — end-to-end: spec + ADR-007 (#153), VM + Source (#186), host view + UI components (#197), wire into `.needsModelDownload` (#200), bundled YAMLs + CI drift guard (#205). |
 | Multi-model support (Qwen / E4B / other) | Medium   | Done        | Dual-model catalog shipped (Gemma 4 E2B + Qwen 3 4B Q4_K_M) via the `ModelDescriptor` / `ModelRegistry` abstraction over `LLMService` (ADR-001 §7 / ADR-002): plumbing — descriptor, multi-model storage, sequential download, legacy Gemma file auto-recognition (#206); UI — first-run model picker (`AppState.needsModelSelection`), Settings → Models active-model switch + delete, race-prevention via `SimulationActivityRegistry` (#218). Tracking issue #203. E4B and additional models remain forward-looking; add a new `ModelDescriptor` entry to `ModelRegistry` when a model is approved for shipment. |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
@@ -189,7 +189,7 @@ Phase 2 is complete when:
 
 - Localization Plan Steps A / B-1a / B-1b / C-1 / C-2 / D are all merged.
 - The English App Store submission has reached Approve. Quantitative signals (DL count, review count and content) are tracked separately as post-release polish indicators rather than Go gates.
-- Phase 2 features already shipped (Visual Editor, BG execution, Multi-model, Share Board, DL Demo Replay, ...) have no critical regressions.
+- Phase 2 features already shipped (Visual Editor, BG execution, Multi-model, Shared Scenarios, DL Demo Replay, ...) have no critical regressions.
 - Step E (Cross-language simulation) may run in parallel within Phase 2 but is **not** a completion gate.
 
 ---

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Builds pre-filled URLs for Share Board scenario reports.
+/// Builds pre-filled URLs for Shared Scenario reports.
 ///
 /// Backs `ReportScenarioSheet`'s primary (Google Forms) and secondary
-/// (GitHub issue) surfaces. See `docs/gallery/share-board-reports.md`
+/// (GitHub issue) surfaces. See `docs/gallery/shared-scenario-reports.md`
 /// for the form configuration and ADR-005 §6.6 for the record of the
 /// chosen mechanism.
 ///
@@ -12,7 +12,7 @@ import Foundation
 /// constants in the same PR that changes the form.
 nonisolated enum ReportURLBuilder {
   // Google Forms identifiers — mirror the form configuration
-  // documented in docs/gallery/share-board-reports.md §1.1.
+  // documented in docs/gallery/shared-scenario-reports.md §1.1.
   private static let googleFormID =
     "1FAIpQLSfsZkY9-R3QxqVfdXSzsUnx3SXR-g9O7DxjdN-1-VtMjMXSAw"
   private static let scenarioIdFieldID = "entry.149667905"
@@ -20,10 +20,10 @@ nonisolated enum ReportURLBuilder {
 
   // GitHub issue identifiers.
   private static let githubRepoPath = "tyabu12/pastura"
-  private static let githubTemplateSlug = "share-board-report.yml"
-  private static let githubLabel = "share-board-report"
+  private static let githubTemplateSlug = "shared-scenario-report.yml"
+  private static let githubLabel = "shared-scenario-report"
 
-  /// Build the pre-filled Google Forms URL for a Share Board report.
+  /// Build the pre-filled Google Forms URL for a Shared Scenario report.
   ///
   /// Opens the form in Safari with the Scenario ID and App Version
   /// fields populated; the Reason and Email fields are left blank for
@@ -62,11 +62,11 @@ nonisolated enum ReportURLBuilder {
     return components.url
   }
 
-  /// Build the pre-seeded GitHub issue URL for a Share Board report.
+  /// Build the pre-seeded GitHub issue URL for a Shared Scenario report.
   ///
-  /// Opens github.com's new-issue page with the Share Board template
-  /// selected, the title pre-filled (`[Share Board Report] <id>`), and
-  /// the `share-board-report` label attached. The reporter must be
+  /// Opens github.com's new-issue page with the Shared Scenario template
+  /// selected, the title pre-filled (`[Shared Scenario Report] <id>`), and
+  /// the `shared-scenario-report` label attached. The reporter must be
   /// signed into GitHub to submit — this is why this surface is the
   /// secondary "public discussion" path, not the primary report path.
   ///
@@ -83,7 +83,7 @@ nonisolated enum ReportURLBuilder {
     }
     components.queryItems = [
       URLQueryItem(name: "template", value: githubTemplateSlug),
-      URLQueryItem(name: "title", value: "[Share Board Report] \(scenarioId)"),
+      URLQueryItem(name: "title", value: "[Shared Scenario Report] \(scenarioId)"),
       URLQueryItem(name: "labels", value: githubLabel)
     ]
     return components.url

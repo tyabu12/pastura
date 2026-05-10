@@ -20,7 +20,7 @@ nonisolated public enum DeepLinkResolution: Equatable, Sendable {
 
   /// The local cache is corrupted and the refresh attempt also failed.
   /// Distinguished from `networkAndCacheMiss` so the UI can suggest the
-  /// explicit "open Share Board to refresh" recovery path.
+  /// explicit "open Shared Scenarios to refresh" recovery path.
   case corruptedCache
 }
 
@@ -43,7 +43,7 @@ nonisolated public struct DeepLinkResolver {
   /// possible outcomes.
   public func resolve(id: String) async -> DeepLinkResolution {
     // Cache first — the hot path for users who have recently opened
-    // Share Board or HomeView (both refresh the cache behind the scenes).
+    // Shared Scenarios or HomeView (both refresh the cache behind the scenes).
     var cachedIndex: GalleryIndex?
     var cacheWasCorrupted = false
     do {

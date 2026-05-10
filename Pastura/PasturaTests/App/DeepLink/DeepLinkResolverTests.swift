@@ -118,7 +118,7 @@ import Testing
 ///
 /// Tracks refresh call count so tests can assert the cache-hit fast path
 /// avoids the network entirely. Deliberately separate from the
-/// `MockGalleryService` in `ShareBoardViewModelTests.swift` — that one is
+/// `MockGalleryService` in `SharedScenariosViewModelTests.swift` — that one is
 /// `private` to its test file and carries ViewModel-specific hooks.
 private final class MockGalleryService: GalleryService, @unchecked Sendable {
   var cachedIndex: GalleryIndex?

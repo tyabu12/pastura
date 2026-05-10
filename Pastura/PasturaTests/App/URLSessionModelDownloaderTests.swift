@@ -284,4 +284,101 @@ struct URLSessionModelDownloaderTests {
 
     #expect(downloader.cachedResumeData(for: url) == injectedBlob)
   }
+
+  @Test("206 with missing destination throws (precondition guard)")
+  func partialContentMissingDestinationThrows() async throws {
+    CapturingMockURLProtocol.reset()
+    defer { CapturingMockURLProtocol.reset() }
+
+    // 206 partial-content with `resumeOffset > 0` but no pre-existing
+    // destination file. Unreachable from current production callers
+    // (`ModelManager.performDownload` computes `resumeOffset` only when
+    // `partialURL` exists); the precondition guard surfaces it as an
+    // explicit throw rather than silently writing a head-truncated file.
+    // Regression target for Issue #275 cross-session resume follow-up.
+    CapturingMockURLProtocol.responseProvider = { _ in
+      .success(
+        statusCode: 206,
+        headers: [
+          "Content-Length": "500",
+          "Content-Range": "bytes 500-999/1000"
+        ],
+        body: Data(repeating: 0x43, count: 500)
+      )
+    }
+
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+
+    let url = URL(string: "https://example.com/model.gguf")!
+    let dest = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString + ".download")
+    // Intentionally NOT pre-writing dest — exercises the missing-destination guard.
+    defer { try? FileManager.default.removeItem(at: dest) }
+
+    do {
+      try await downloader.download(
+        from: url, resumeOffset: 500, to: dest, progressHandler: { _, _ in })
+      Issue.record("expected throw on 206 + missing destination, but download succeeded")
+    } catch let urlError as URLError {
+      #expect(urlError.code == .badServerResponse)
+    } catch {
+      Issue.record("expected URLError, got \(type(of: error)): \(error)")
+    }
+
+    // Verify no head-truncated file was left behind.
+    #expect(!FileManager.default.fileExists(atPath: dest.path))
+  }
+
+  @Test("206 stream-append handles multi-buffer body (boundary + tail)")
+  func partialContentStreamingMultiBuffer() async throws {
+    CapturingMockURLProtocol.reset()
+    defer { CapturingMockURLProtocol.reset() }
+
+    // Body sized at 2.5 MB so the streaming loop hits all three cases:
+    //   read 1: 1 MB full chunk
+    //   read 2: 1 MB full chunk
+    //   read 3: 0.5 MB tail partial chunk
+    //   read 4: empty → loop terminator
+    // Pre-existing destination bytes use 0x42; new body uses 0x43.
+    // Asserting both halves catches a missing `seekToEndOfFile` (would
+    // overwrite the head bytes with 0x43 instead of appending after them).
+    let preExisting = 500
+    let bodySize = 2_500_000
+    let body = Data(repeating: 0x43, count: bodySize)
+
+    CapturingMockURLProtocol.responseProvider = { _ in
+      .success(
+        statusCode: 206,
+        headers: [
+          "Content-Length": "\(bodySize)",
+          "Content-Range":
+            "bytes \(preExisting)-\(preExisting + bodySize - 1)/\(preExisting + bodySize)"
+        ],
+        body: body
+      )
+    }
+
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+
+    let url = URL(string: "https://example.com/model.gguf")!
+    let dest = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString + ".download")
+    try Data(repeating: 0x42, count: preExisting).write(to: dest)
+    defer { try? FileManager.default.removeItem(at: dest) }
+
+    try await downloader.download(
+      from: url, resumeOffset: Int64(preExisting), to: dest, progressHandler: { _, _ in })
+
+    let attrs = try FileManager.default.attributesOfItem(atPath: dest.path)
+    #expect((attrs[.size] as? Int64) == Int64(preExisting + bodySize))
+
+    // Spot-check head (preserved pre-existing 0x42) and tail (new body 0x43).
+    let written = try Data(contentsOf: dest)
+    #expect(written.prefix(preExisting) == Data(repeating: 0x42, count: preExisting))
+    #expect(written.suffix(bodySize) == body)
+  }
 }
