@@ -69,6 +69,8 @@ struct GalleryScenarioDetailView: View {
         } label: {
           Label(String(localized: "More"), systemImage: "ellipsis.circle")
         }
+        .menuStyle(.button)
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
       }
     }
     .sheet(isPresented: $isReportSheetPresented) {

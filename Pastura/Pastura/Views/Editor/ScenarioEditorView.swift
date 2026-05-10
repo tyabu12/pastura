@@ -58,6 +58,7 @@ struct ScenarioEditorView: View {
             }
           }
         }
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .primary))
         .disabled(viewModel.isSaving)
         .accessibilityIdentifier("editor.saveButton")
       }

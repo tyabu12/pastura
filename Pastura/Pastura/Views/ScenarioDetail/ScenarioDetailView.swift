@@ -58,6 +58,7 @@ struct ScenarioDetailView: View {
           Button(String(localized: "Delete"), role: .destructive) {
             showDeleteConfirm = true
           }
+          .buttonStyle(PasturaToolbarButtonStyle(variant: .destructive))
         }
       }
     }

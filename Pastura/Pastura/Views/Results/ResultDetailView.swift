@@ -85,6 +85,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
             Image(systemName: "square.and.arrow.up")
           }
         }
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
         .disabled(!canExport)
       }
       ToolbarItem(placement: .primaryAction) {
@@ -103,6 +104,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
             Image(systemName: "film")
           }
         }
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
         .disabled(!canExportYAML)
       }
       ToolbarItem(placement: .secondaryAction) {
