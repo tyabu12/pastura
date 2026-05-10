@@ -7,7 +7,11 @@ import Testing
 struct ConditionalValidatorTests {
   let validator = ScenarioValidator()
 
-  private func makeScenario(phases: [Phase]) -> Scenario {
+  // Internal (not private) so sibling-file extensions can call it; per
+  // .claude/rules/testing.md, helpers shared across split test files must
+  // drop `private` because Swift `private` doesn't reach extensions in
+  // sibling files.
+  func makeScenario(phases: [Phase]) -> Scenario {
     Scenario(
       id: "t", name: "T", description: "t",
       agentCount: 2, rounds: 1, context: "c",

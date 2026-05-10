@@ -14,7 +14,7 @@ extension PhaseEditorSheet {
     Group {
       Section {
         TextField(
-          String(localized: "e.g. max_score >= 10"),
+          String(localized: "e.g. max_score >= 10 && active_count > 1"),
           text: $phase.condition,
           axis: .vertical
         )
@@ -28,7 +28,7 @@ extension PhaseEditorSheet {
           Text(
             String(
               localized:
-                "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes."
+                "Comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Combine with && (AND) and || (OR); && binds tighter than ||. Use parentheses to group. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes."
             )
           )
           .font(.caption)

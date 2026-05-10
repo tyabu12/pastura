@@ -13,8 +13,8 @@ import Yams
 /// Errors produced by ``YAMLReplaySource``.
 ///
 /// Spec §3.5 mandates "silent skip" on unknown `schema_version`. That
-/// policy is enforced by the **wrapper** source (future
-/// `BundledDemoReplaySource`, #C), not the primitive — callers
+/// policy is enforced by the **wrapper** source
+/// (``BundledDemoReplaySource``), not the primitive — callers
 /// implementing user-visible replay flows can surface the same errors
 /// as actionable diagnostics instead of swallowing them.
 nonisolated public enum YAMLReplaySourceError: Error, Equatable {
@@ -38,7 +38,7 @@ nonisolated public enum YAMLReplaySourceError: Error, Equatable {
 /// ``SimulationEvent`` sequence back out via ``events()``.
 ///
 /// Shipped as part of the Phase 2 E1 "YAML simulation replay primitive"
-/// (Issue #167). The DL-time `BundledDemoReplaySource` (#C) and future
+/// (Issue #167). The DL-time ``BundledDemoReplaySource`` and the future
 /// `UserSimulationReplaySource` (Phase 2.5+, spec §4.5) compose on top
 /// of this type.
 ///

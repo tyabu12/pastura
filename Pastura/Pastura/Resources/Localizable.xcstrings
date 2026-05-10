@@ -1,17 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    ", " : {
-      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "、"
-          }
-        }
-      }
-    },
     "%arg actions" : {
       "localizations" : {
         "ja" : {
@@ -28,6 +17,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "（条件なし）"
+          }
+        }
+      }
+    },
+    ", " : {
+      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "、"
           }
         }
       }
@@ -378,6 +378,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シェアされたシナリオを開くには、このシートを閉じてください"
+          }
+        }
+      }
+    },
+    "Comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Combine with && (AND) and || (OR); && binds tighter than ||. Use parentheses to group. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比較: lhs OP rhs（OP は ==, !=, <, <=, >, >= のいずれか）。&&（AND）と ||（OR）で組み合わせ可能で、&& の方が優先順位が高い。括弧でグループ化できます。識別子: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>、またはテンプレート変数。文字列リテラルはダブルクォートで囲んでください。"
           }
         }
       }
@@ -2494,6 +2504,7 @@
       }
     },
     "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3184,11 +3195,22 @@
       }
     },
     "e.g. max_score >= 10" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "例: max_score >= 10"
+          }
+        }
+      }
+    },
+    "e.g. max_score >= 10 && active_count > 1" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例: max_score >= 10 && active_count > 1"
           }
         }
       }

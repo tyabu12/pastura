@@ -104,7 +104,7 @@ enum PasturaPalette {
 
   // L3 is the documented default. Consumers hard-code `L3` unless they have
   // an explicit reason to override — environment-based preset switching is
-  // deferred to #B1/#C.
+  // not yet implemented.
   static let metaBaseL1 = PasturaColorValue(hex: 0x8A8B76)
   static let metaStrongL1 = PasturaColorValue(hex: 0x5D6848)
   static let metaDotOnL1 = PasturaColorValue(hex: 0x8A9A6C)
@@ -214,7 +214,7 @@ enum PasturaShadows {
 // MARK: - §3 Typography tokens
 
 /// Pastura text style descriptor. Data-only — application to SwiftUI `Text`
-/// lives in consumer sites (first is #B1 `AgentOutputRow` refactor).
+/// lives in consumer sites (e.g. ``AgentOutputRow``).
 ///
 /// SwiftUI `Font` alone cannot carry line-height, letter-spacing, italic, or
 /// text-case; callers combine `font` with `.lineSpacing(lineSpacingPoints)`,
@@ -252,7 +252,8 @@ struct PasturaTextStyle: Sendable, Equatable {
 
 /// Pastura typography scale. See `design-system.md` §3. Apply at callsites
 /// via `.font(style.font).lineSpacing(style.lineSpacingPoints).tracking(style.trackingPoints)
-/// .textCase(style.textCase)` — a `View.textStyle(_:)` modifier is deferred to #B1.
+/// .textCase(style.textCase)`, or use the ``View/textStyle(_:)`` modifier to
+/// apply all four at once.
 enum Typography {
   /// title/phase — フェーズ見出し
   static let titlePhase = PasturaTextStyle(
