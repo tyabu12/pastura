@@ -1,8 +1,8 @@
-# Pastura Gallery (Share Board)
+# Pastura Gallery (Shared Scenarios)
 
 Curated, read-only gallery of scenarios bundled with the Pastura iOS app.
 The app fetches `gallery.json` from this directory and downloads individual
-YAMLs listed in it when users tap **Try** on a Share Board entry.
+YAMLs listed in it when users tap **Try** on a Shared Scenarios entry.
 
 ## Trust Model
 
@@ -130,7 +130,7 @@ including `--non-interactive` (CI scripting) and `--description`
 
 Push the feature branch, run a Debug build (so
 `PASTURA_GALLERY_BASE_URL` takes effect — see *Testing changes from a
-feature branch* below), and open the scenario from Share Board.
+feature branch* below), and open the scenario from Shared Scenarios.
 Either (a) on a physical device with the bundled llama.cpp model
 already downloaded, or (b) in the iOS Simulator pointing at a local
 Ollama with the recommended model pulled. Run a full simulation and
