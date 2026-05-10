@@ -117,13 +117,17 @@
   margin: 0 auto;
 }
 
-/* ----- Hero ----- */
+/* ----- Hero -----
+   Bottom padding is intentionally tight: the next section's eyebrow
+   ("What is Pastura") should peek above the fold on a typical
+   desktop viewport (≈800–900px tall), acting as a stronger scroll
+   affordance than any decorative cue would. */
 .lp-hero {
-  padding: 48px 56px 96px;
+  padding: 48px 56px 48px;
 }
 @media (max-width: 768px) {
   .lp-hero {
-    padding: 32px 20px 56px;
+    padding: 32px 20px 32px;
   }
 }
 
@@ -232,34 +236,6 @@
   font-size: 10px;
   color: var(--muted);
   letter-spacing: 0.06em;
-}
-
-/* Scroll cue (desktop only) */
-.scroll-cue {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-.scroll-cue .line {
-  width: 1px;
-  height: 36px;
-  background: var(--rule);
-}
-.scroll-cue-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 64px;
-}
-@media (max-width: 768px) {
-  .scroll-cue-wrap {
-    display: none;
-  }
 }
 
 /* ----- Observation journey ----- */
