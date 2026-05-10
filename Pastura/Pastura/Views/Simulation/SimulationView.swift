@@ -47,20 +47,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         ProgressView(String(localized: "Loading scenario..."))
       }
     }
-    // Empty navigation title — `GameHeader` (#297 PR 3) now carries
-    // the scenario name on row 1, and surfacing the same value in the
-    // nav bar would duplicate it. The 3-tier fallback chain
-    // (loaded VM name → push-time `initialName` hint → empty string)
-    // moved into `GameHeader`'s `scenarioName` / `initialName`
-    // arguments — see `headerBar(viewModel:)`. ADR-008 §Amendment
-    // 2026-04-29 records the sink pivot.
+    // "Fill the bar" pattern (#312, ADR-008 §Amendment 2026-05-10).
+    // The system nav bar stays in the layout (preserving swipe-back
+    // gesture and the chevron + back-button label that reads the
+    // upstream `ScenarioDetail`'s title), but its background is
+    // hidden so the GameHeader's frosted material — extended into
+    // the top safe area from the meta-row inset below — fills the
+    // 44pt slot continuously. Row 1 of the GameHeader (title +
+    // status pill) is hosted inside the bar via `ToolbarItem`
+    // (`.principal`) so the previously-empty 44pt is now reclaimed
+    // by useful content. Row 2 (round + phase + tok/s) mounts via
+    // `.safeAreaInset(.top)` directly below.
     //
-    // Back chevron continues to read the upstream `ScenarioDetail`
-    // view's title (iOS uses the previous view's title, not the
-    // current view's, for the back-button label) so popping back
-    // remains discoverable.
+    // bda1f70 attempted to reclaim the 44pt by hiding the bar
+    // entirely (`.toolbar(.hidden, for: .navigationBar)`) and was
+    // reverted in 7af22d0 because that API has a known iOS 17.x bug
+    // (FB13484530) that disables the interactive pop gesture. The
+    // background-only `.toolbarBackground(.hidden, ...)` used here
+    // does NOT share that bug — the bar remains in the hierarchy.
     .navigationTitle("")
     .navigationBarTitleDisplayMode(.inline)
+    .toolbarBackground(.hidden, for: .navigationBar)
     .task {
       await loadAndRun()
     }
@@ -139,13 +146,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     viewModel: SimulationViewModel
   ) -> some View {
     VStack(spacing: 0) {
-      // Header bar
-      headerBar(viewModel: viewModel)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("simulation.header")
-
-      Divider()
-
       // Log
       ScrollViewReader { proxy in
         ScrollView {
@@ -261,6 +261,24 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         modelReloadingOverlay
       }
     }
+    // "Fill the bar" — title row goes into the system nav bar's
+    // principal slot (reclaiming the previously-empty 44pt strip);
+    // meta row mounts via `safeAreaInset(.top)` with frosted BG
+    // extending up behind the (transparent) bar for visual
+    // continuity. See ADR-008 §Amendment 2026-05-10.
+    .toolbar {
+      ToolbarItem(placement: .principal) {
+        makeHeader(viewModel: viewModel)
+          .titleRow
+          // Pin a non-collapsing identity for the toolbar item so
+          // SwiftUI doesn't re-create / re-animate it on every
+          // VM-driven status change.
+          .accessibilityIdentifier("simulation.header.title")
+      }
+    }
+    .safeAreaInset(edge: .top, spacing: 0) {
+      headerMetaInset(viewModel: viewModel)
+    }
   }
 
   private var modelReloadingOverlay: some View {
@@ -284,31 +302,32 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Header
 
-  /// Sim composition of the shared `GameHeader` (#297 PR 3 — header
-  /// content unification). Demo's `+GameHeader.swift` extension uses
-  /// the same component on the DL-time replay screen. See
-  /// `Views/Components/GameHeader.swift` for the contract.
+  /// Sim composition of the shared `GameHeader`. Sim uses the
+  /// **split** rendering — title row hosted in `ToolbarItem(.principal)`,
+  /// meta row mounted via `safeAreaInset(.top)`. Demo's
+  /// `+GameHeader.swift` extension uses the unified `body` instead
+  /// (it's hosted in `.fullScreenCover` with no nav bar above).
+  /// See `Views/Components/GameHeader.swift` for the rendering-modes
+  /// contract and ADR-008 §Amendment 2026-05-10 for the "fill the
+  /// bar" pivot rationale.
   ///
-  /// Sim passes:
-  /// - `scenarioName` / `initialName` — the same 3-tier fallback chain
-  ///   that previously fed `.navigationTitle()`. ADR-008 §Amendment
-  ///   2026-04-29 documents the sink pivot.
+  /// Inputs:
+  /// - `scenarioName` / `initialName` — the 3-tier fallback chain.
+  ///   ADR-008 §Amendment 2026-04-29 documents the sink pivot from
+  ///   `.navigationTitle()` to GameHeader's row 1.
   /// - `round` — `viewModel.headerRound` (`GameHeaderRound?`). Real
-  ///   game-rounds from `.roundStarted` events; the VM colocates the
-  ///   pair-or-nothing guard (`totalRounds > 0`) so the call site
-  ///   doesn't re-derive it (#313). Suppressed (nil) until the first
-  ///   `.roundStarted` lands so the ROUND fragment doesn't flash a
-  ///   stale `0/0` between scenario load and first round.
+  ///   game-rounds from `.roundStarted` events; pair-or-nothing
+  ///   guard lives on the VM (#313). Suppressed (nil) until the
+  ///   first `.roundStarted` lands so ROUND doesn't flash a stale
+  ///   `0/0` between scenario load and first round.
   /// - `phaseLabel` — formatted from `viewModel.currentPhase`.
   /// - `tokensPerSecond` — `averageTokensPerSecond` (live moving
-  ///   average). Drops the inference-duration display the legacy
-  ///   PhaseHeader trailing slot carried (`InferenceStatsFormatter`'s
-  ///   `"12.4 tok/s • 1.8s"`) — the new design has only one mono slot
-  ///   on row 2 for inference rate.
-  /// - `extendsIntoTopSafeArea: false` — Sim's NavigationStack-pushed
-  ///   nav bar already paints the top safe area; opting in would
-  ///   double the frosted material.
-  private func headerBar(viewModel: SimulationViewModel) -> some View {
+  ///   average).
+  /// - `extendsIntoTopSafeArea: false` — irrelevant for the split
+  ///   rendering (the unified `body` is not used). Sim's frosted
+  ///   continuity comes from `headerMetaInset`'s background ignoring
+  ///   the top safe area.
+  private func makeHeader(viewModel: SimulationViewModel) -> GameHeader {
     GameHeader(
       scenarioName: scenario?.name,
       initialName: initialName,
@@ -318,6 +337,50 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       tokensPerSecond: viewModel.averageTokensPerSecond,
       extendsIntoTopSafeArea: false
     )
+  }
+
+  /// Meta-row inset content + frosted background that fills behind
+  /// the (transparent) nav bar via `.ignoresSafeArea(.container,
+  /// edges: .top)`. Always renders the BG strip (even when the meta
+  /// row collapses to empty for late-load / completion states), so
+  /// the principal-slot title above always sits over a frosted
+  /// surface — the visual unification that addresses #312's
+  /// cramped-stream finding.
+  ///
+  /// Padding: 18pt horizontal matches `GameHeader.headerInsets`
+  /// (HEADER_UPDATE.md design hand-off); vertical is asymmetric
+  /// (small top, full bottom) because the principal slot above
+  /// already provides the title row's vertical breathing room.
+  /// Bottom 1pt overlay rule mirrors the unified `body`'s
+  /// `Color.ink.opacity(0.07)` divider so split and unified
+  /// renderings share the same delineation against the chat stream.
+  private func headerMetaInset(
+    viewModel: SimulationViewModel
+  ) -> some View {
+    let header = makeHeader(viewModel: viewModel)
+    return Group {
+      if header.hasMetaRow {
+        header.metaRow
+          .padding(.horizontal, 18)
+          .padding(.top, 4)
+          .padding(.bottom, 8)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background {
+      ZStack {
+        Color.screenBackground.opacity(0.78)
+        Rectangle().fill(.ultraThinMaterial)
+      }
+      .ignoresSafeArea(.container, edges: .top)
+    }
+    .overlay(alignment: .bottom) {
+      Rectangle()
+        .fill(Color.ink.opacity(0.07))
+        .frame(height: 1)
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("simulation.header.meta")
   }
 
   // MARK: - Log Entries

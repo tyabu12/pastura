@@ -150,8 +150,10 @@ public struct GameHeader: View {
   }
 
   /// Whether row 2 has any visible fragment. Row collapses entirely
-  /// when none of ROUND / phase / tok/s is present.
-  private var hasMetaRow: Bool {
+  /// when none of ROUND / phase / tok/s is present. Exposed so the
+  /// split-rendering host (Sim's `safeAreaInset`) can guard whether
+  /// to mount `metaRow` at all.
+  var hasMetaRow: Bool {
     round != nil || phaseLabel != nil || tokensPerSecond != nil
   }
 
