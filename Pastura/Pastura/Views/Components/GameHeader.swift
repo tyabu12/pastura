@@ -5,24 +5,42 @@ import SwiftUI
 /// deferred — see #297).
 ///
 /// Two-row layout:
-/// - **Row 1** — leaf icon + scenario title (`titleScenario`, 16pt) +
-///   `GameHeaderStatus` pill (always visible).
-/// - **Row 2** — `ROUND X / Y` (`metaRound`, mono UPPER) + `·`
-///   separator + phase name (`metaInline`) + `Spacer` + tok/s
+/// - **Row 1** (`titleRow`) — leaf icon + scenario title (`titleScenario`,
+///   16pt, single-line truncating) + `GameHeaderStatus` pill (always
+///   visible, fixed-size, layout-priority protected).
+/// - **Row 2** (`metaRow`) — `ROUND X / Y` (`metaRound`, mono UPPER) +
+///   `·` separator + phase name (`metaInline`) + `Spacer` + tok/s
 ///   (`metaInline`, right-aligned). Each fragment is conditional —
-///   nil/missing inputs collapse the corresponding piece.
+///   nil/missing inputs collapse the corresponding piece. The whole
+///   row collapses when all three are nil.
 ///
 /// First-frame correctness for the title comes from ADR-008's
 /// `RouteHint<String>` pattern: `scenarioName` (the loaded VM value,
 /// authoritative once available) falls back to `initialName` (the
-/// push-time hint) and then to an empty string while loading. This
-/// sink replaces `.navigationTitle()`'s previous role on
-/// `SimulationView` — see ADR-008 §Amendment.
+/// push-time hint) and then to an empty string while loading.
 ///
-/// Sim opts out of `extendsIntoTopSafeArea` (default `false`) because
-/// its NavigationStack-pushed nav bar already paints the top safe
-/// area; Demo opts in (`true`) because it presents inside
-/// `.fullScreenCover` with no system nav bar above it.
+/// ## Rendering modes
+///
+/// - **Unified `body`** — Demo's `ModelDownloadHostView` path. Both
+///   rows render together inside a single frosted-material container,
+///   `extendsIntoTopSafeArea: true` so the moss-tinted material fills
+///   behind the status bar / Dynamic Island. VoiceOver reads as a
+///   single combined element.
+/// - **Split `titleRow` / `metaRow`** — Sim's "fill the bar" path
+///   (ADR-008 §Amendment 2026-05-10). Title row is hosted inside the
+///   system nav bar via `ToolbarItem(placement: .principal)`; meta
+///   row is mounted via `.safeAreaInset(edge: .top)` directly below.
+///   The system bar's background is hidden via
+///   `.toolbarBackground(.hidden, for: .navigationBar)` so the chevron
+///   stays interactive (preserving swipe-back gesture and the upstream
+///   view's title as the back-button label) while the 44pt slot is
+///   reclaimed by the title row's content. VoiceOver traversal becomes
+///   3-stop: back-button → title row → meta row → first chat row. The
+///   caller is responsible for providing frosted-material backgrounds
+///   per row in this mode (the sub-views render content only).
+///
+/// `extendsIntoTopSafeArea` applies only to the unified `body`; the
+/// split sub-views ignore it (the host decides their containment).
 public struct GameHeader: View {
 
   /// Resolved scenario title (authoritative). Pass `nil` while the
@@ -46,9 +64,9 @@ public struct GameHeader: View {
   /// fragment — Demo passes nil per the "no synthetic numbers"
   /// product principle.
   public let tokensPerSecond: Double?
-  /// When `true`, the frosted background extends behind the top
-  /// safe area (status bar / Dynamic Island). See type doc-comment
-  /// for Demo / Sim guidance.
+  /// When `true`, the unified `body`'s frosted background extends
+  /// behind the top safe area (status bar / Dynamic Island). Has no
+  /// effect on `titleRow` / `metaRow` when used as split sub-views.
   public let extendsIntoTopSafeArea: Bool
 
   public init(
@@ -92,6 +110,39 @@ public struct GameHeader: View {
     String(format: "%.1f tok/s", value)
   }
 
+  /// VoiceOver label for the title row (status + scenario name).
+  /// Status comes first so the user hears the screen state before
+  /// the scenario identity — matches the original combined-label
+  /// ordering. Empty title (both `scenarioName` and `initialName` nil
+  /// or empty string) collapses to status-only.
+  static func titleAccessibilityLabel(
+    scenarioName: String?, initialName: String?, status: GameHeaderStatus
+  ) -> String {
+    let title = resolveDisplayedTitle(
+      scenarioName: scenarioName, initialName: initialName)
+    var parts: [String] = [status.label]
+    if !title.isEmpty { parts.append(title) }
+    return parts.joined(separator: String(localized: ", "))
+  }
+
+  /// VoiceOver label for the meta row (round + phase + tok/s).
+  /// Returns the empty string when all three inputs are nil — caller
+  /// can guard on `isEmpty` to skip applying the label when the row
+  /// itself is collapsed. Locale-aware separator (`, ` en / `、` ja).
+  static func metaAccessibilityLabel(
+    round: GameHeaderRound?, phaseLabel: String?, tokensPerSecond: Double?
+  ) -> String {
+    var parts: [String] = []
+    if let round {
+      parts.append(formatRoundLabel(current: round.current, total: round.total))
+    }
+    if let phaseLabel { parts.append(phaseLabel) }
+    if let tokensPerSecond {
+      parts.append(formatTokensPerSecond(tokensPerSecond))
+    }
+    return parts.joined(separator: String(localized: ", "))
+  }
+
   // MARK: - Layout
 
   private var displayedTitle: String {
@@ -99,27 +150,32 @@ public struct GameHeader: View {
   }
 
   /// Whether row 2 has any visible fragment. Row collapses entirely
-  /// when none of ROUND / phase / tok/s is present.
-  private var hasMetaRow: Bool {
+  /// when none of ROUND / phase / tok/s is present. Exposed so the
+  /// split-rendering host (Sim's `safeAreaInset`) can guard whether
+  /// to mount `metaRow` at all.
+  var hasMetaRow: Bool {
     round != nil || phaseLabel != nil || tokensPerSecond != nil
   }
 
-  /// Combined accessibility label so VoiceOver reads the header as
-  /// one focusable element rather than fragmenting across icon /
-  /// title / pill / meta-row pieces. The list separator is itself
-  /// localized (en `, ` / ja `、`) so VO honours the locale's natural
-  /// punctuation when pausing between fragments.
-  private var accessibilityLabelText: String {
-    var parts: [String] = [status.label]
-    if !displayedTitle.isEmpty { parts.append(displayedTitle) }
-    if let round {
-      parts.append(Self.formatRoundLabel(current: round.current, total: round.total))
-    }
-    if let phaseLabel { parts.append(phaseLabel) }
-    if let tokensPerSecond {
-      parts.append(Self.formatTokensPerSecond(tokensPerSecond))
-    }
-    return parts.joined(separator: String(localized: ", "))
+  private var titleA11yLabel: String {
+    Self.titleAccessibilityLabel(
+      scenarioName: scenarioName, initialName: initialName, status: status)
+  }
+
+  private var metaA11yLabel: String {
+    Self.metaAccessibilityLabel(
+      round: round, phaseLabel: phaseLabel, tokensPerSecond: tokensPerSecond)
+  }
+
+  /// Combined label for the unified `body` rendering — preserves the
+  /// pre-split single-stop UX (Demo path). The split sub-views own
+  /// their own labels independently when hosted in different
+  /// containers (Sim path).
+  private var combinedAccessibilityLabel: String {
+    let title = titleA11yLabel
+    let meta = metaA11yLabel
+    if meta.isEmpty { return title }
+    return "\(title)\(String(localized: ", "))\(meta)"
   }
 
   // Local layout constants — the GameHeader has its own dimensional
@@ -152,23 +208,51 @@ public struct GameHeader: View {
         .frame(height: 1)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(accessibilityLabelText)
+    .accessibilityLabel(combinedAccessibilityLabel)
   }
 
-  private var titleRow: some View {
+  /// Title row — leaf icon + scenario name + status pill. Renders
+  /// content only (no background); caller wraps with material as
+  /// needed when used as a split sub-view.
+  ///
+  /// Layout contract (Sim's `ToolbarItem(.principal)` placement is
+  /// width-constrained on small iPhones — see ADR-008 §Amendment
+  /// 2026-05-10):
+  /// - Title shrinks first via `.lineLimit(1) + .truncationMode(.tail)`.
+  ///   No `.minimumScaleFactor` — the design system's load-bearing
+  ///   fixed sizes (see `PasturaTextStyle.font`) preclude runtime
+  ///   font scaling.
+  /// - Status pill protected via `.fixedSize(horizontal: true) +
+  ///   .layoutPriority(1)` so the pill never compresses; the title
+  ///   yields the available width.
+  /// - Carries `.accessibilityAddTraits(.isHeader)` so the rotor
+  ///   "Headings" navigation can jump to it on Sim and Demo alike.
+  var titleRow: some View {
     HStack(alignment: .center, spacing: Spacing.xs) {
       LeafIcon()
         .frame(width: 9, height: 9)
       Text(displayedTitle)
         .textStyle(Typography.titleScenario)
         .foregroundStyle(Color.ink)
+        .lineLimit(1)
+        .truncationMode(.tail)
       Spacer(minLength: Spacing.xs)
       statusPill
+        .fixedSize(horizontal: true, vertical: false)
+        .layoutPriority(1)
     }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(titleA11yLabel)
+    .accessibilityAddTraits(.isHeader)
   }
 
+  /// Meta row — ROUND + phase + tok/s. Renders content only (no
+  /// background). Caller is responsible for collapsing the row entirely
+  /// when `hasMetaRow == false` is preferred — when used as a split
+  /// sub-view the placement (e.g., `.safeAreaInset`) decides whether
+  /// to mount this view at all.
   @ViewBuilder
-  private var metaRow: some View {
+  var metaRow: some View {
     HStack(alignment: .center, spacing: Self.metaRowSpacing) {
       if let round {
         Text(Self.formatRoundLabel(current: round.current, total: round.total))
@@ -194,6 +278,8 @@ public struct GameHeader: View {
           .monospacedDigit()
       }
     }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(metaA11yLabel)
   }
 
   private var statusPill: some View {
@@ -237,72 +323,5 @@ private struct GameHeaderTopSafeAreaExtension: ViewModifier {
   }
 }
 
-// MARK: - Previews
-
-#Preview("Demo (preset + phase, no tok/s)") {
-  VStack(spacing: 0) {
-    GameHeader(
-      scenarioName: "ワードウルフ",
-      status: .demoing,
-      round: GameHeaderRound(current: 1, total: 4),
-      phaseLabel: "個別発言",
-      extendsIntoTopSafeArea: true
-    )
-    Spacer()
-  }
-  .background(Color.screenBackground)
-}
-
-#Preview("Sim — Simulating") {
-  VStack(spacing: 0) {
-    GameHeader(
-      scenarioName: "囚人のジレンマ",
-      status: .simulating,
-      round: GameHeaderRound(current: 2, total: 5),
-      phaseLabel: "negotiation",
-      tokensPerSecond: 16.5
-    )
-    Spacer()
-  }
-  .background(Color.screenBackground)
-}
-
-#Preview("Sim — Paused") {
-  VStack(spacing: 0) {
-    GameHeader(
-      scenarioName: "囚人のジレンマ",
-      status: .paused,
-      round: GameHeaderRound(current: 2, total: 5),
-      phaseLabel: "negotiation",
-      tokensPerSecond: 12.3
-    )
-    Spacer()
-  }
-  .background(Color.screenBackground)
-}
-
-#Preview("Sim — Completed") {
-  VStack(spacing: 0) {
-    GameHeader(
-      scenarioName: "囚人のジレンマ",
-      status: .completed,
-      round: GameHeaderRound(current: 5, total: 5),
-      phaseLabel: "scoreboard"
-    )
-    Spacer()
-  }
-  .background(Color.screenBackground)
-}
-
-#Preview("First-frame fallback (initialName)") {
-  VStack(spacing: 0) {
-    GameHeader(
-      scenarioName: nil,
-      initialName: "ワードウルフ",
-      status: .simulating,
-      phaseLabel: "loading"
-    )
-    Spacer()
-  }
-  .background(Color.screenBackground)
-}
+// Previews live in `GameHeader+Previews.swift` (sibling file) — the
+// file_length cap was forcing a split after the row-split refactor.
