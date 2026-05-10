@@ -127,7 +127,7 @@ YAML shape:
 
 ```yaml
 - type: conditional
-  if: "max_score >= 10"       # single-comparison DSL, see ConditionEvaluator
+  if: "max_score >= 10 && active_count > 1"   # boolean DSL with && / || / parens, see ConditionEvaluator
   then:
     - type: summarize
       template: "Game over — someone hit the threshold"
@@ -141,9 +141,14 @@ Rules enforced at both `ScenarioLoader` (YAML path) and `ScenarioValidator`
 (programmatic construction path):
 
 - `if:` must be non-empty after trimming whitespace
+- `if:` must parse — `ScenarioValidator.validateConditionalPhase` calls
+  `ConditionEvaluator.parse(_:)` so malformed expressions (mismatched
+  parens, dangling `&&` / `||`, empty operand) fail at scenario-load
+  time, not mid-simulation
 - at least one of `then:` / `else:` must contain at least one sub-phase
-- nested `conditional` inside a branch is rejected (**depth-1 only**). Follow-up
-  issues relax this once `&&` / `||` combinators land in the DSL.
+- nested `conditional` inside a branch is rejected (**depth-1 only**).
+  Multi-condition needs are met by `&&` / `||` within a single `if:`;
+  full nesting is tracked separately if a need surfaces.
 
 `ConditionalHandler` additionally enforces depth-1 structurally — it holds
 a sub-handler dict that omits `.conditional`, so a nested conditional that

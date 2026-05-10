@@ -42,12 +42,14 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// Number of sub-rounds for `speak_each` phases. Defaults to 1 if not specified.
   public let subRounds: Int?
 
-  /// Single-comparison condition expression for `conditional` phases.
+  /// Boolean condition expression for `conditional` phases.
   ///
-  /// Grammar: `Identifier(.Identifier)? OP (Number | "String" | Identifier)` where
-  /// `OP` is one of `==`, `!=`, `<`, `<=`, `>`, `>=`. Evaluated by
-  /// `ConditionEvaluator` at handler dispatch time. `&&` / `||` combinators
-  /// are deliberately not supported in v1 — see follow-up issue.
+  /// Single-comparison primitive (`Identifier(.Identifier)? OP Operand`)
+  /// composed with `&&` / `||` and parenthesized grouping. Precedence:
+  /// comparison > `&&` > `||`, both combinators left-associative.
+  /// Parsed and evaluated by `ConditionEvaluator`; see that type's doc
+  /// comment for the full grammar, derived-variable table, and Swift-
+  /// style short-circuit policy.
   public let condition: String?
 
   /// Sub-phases executed when `condition` evaluates to true. May be `nil`
