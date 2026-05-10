@@ -185,11 +185,22 @@ struct DemoReplayIntegrationTests {
     } else {
       Issue.record("Expected held .playing(1, _), got \(viewModel.state)")
     }
-    // Source 1's final agentOutputs should only reflect its own
-    // turns — source 0's were cleared by `resetPerDemoState()`.
-    #expect(viewModel.agentOutputs.count == 2)
-    #expect(viewModel.agentOutputs[0].agent == "Alice")
-    #expect(viewModel.agentOutputs[1].agent == "Bob")
+    // Per #208, rotation accumulates instead of wiping. After both
+    // demos play, chatItems = source 0's 3 turns (Alice / Bob / Carol,
+    // with Bob filtered) + boundary marker + source 1's 2 turns
+    // (Alice / Bob) = 6 items. The compat-shim agentOutputs filters
+    // out the boundary and surfaces all 5 agent turns.
+    #expect(viewModel.chatItems.count == 6)
+    if case .demoBoundary(_, let scenarioName) = viewModel.chatItems[3] {
+      #expect(scenarioName == "Prisoner's Dilemma")
+    } else {
+      Issue.record(
+        "chatItems[3] expected .demoBoundary, got \(viewModel.chatItems[3])")
+    }
+    #expect(viewModel.agentOutputs.count == 5)
+    #expect(viewModel.agentOutputs[0].agent == "Alice")  // word_wolf
+    #expect(viewModel.agentOutputs[3].agent == "Alice")  // prisoners_dilemma
+    #expect(viewModel.agentOutputs[4].agent == "Bob")
   }
 
   @Test func contentFilterAppliedToAgentOutputsThroughFullPipeline() async throws {
