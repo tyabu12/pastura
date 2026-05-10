@@ -63,8 +63,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "%1$arg (%2$arg) requires field '%3$arg' in output."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$arg（%2$arg）には output に '%3$arg' フィールドが必要です。"
           }
         }
       }

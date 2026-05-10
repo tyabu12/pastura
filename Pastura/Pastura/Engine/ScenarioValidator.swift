@@ -99,10 +99,14 @@ nonisolated struct ScenarioValidator: Sendable {
     for (index, phase) in scenario.phases.enumerated() {
       let label = "Phase \(index + 1)"
       try validateCanonicalPrimaryField(in: phase, label: label)
+      // Mirror `validateBranch`'s label shape so sub-phase errors carry
+      // the parent's "(conditional)" annotation — keeps a single mental
+      // template across all branch-related validator messages.
+      let parentLabel = "\(label) (\(phase.type.rawValue))"
       try validateBranchCanonicalFields(
-        phase.thenPhases, parentLabel: label, branchLabel: "then")
+        phase.thenPhases, parentLabel: parentLabel, branchLabel: "then")
       try validateBranchCanonicalFields(
-        phase.elsePhases, parentLabel: label, branchLabel: "else")
+        phase.elsePhases, parentLabel: parentLabel, branchLabel: "else")
     }
   }
 
