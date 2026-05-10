@@ -148,6 +148,52 @@ extension ScenarioValidatorTests {
     _ = try validator.validate(scenario)
   }
 
+  // MARK: - Conditional sub-phases (canonical-field check recurses depth-1)
+
+  @Test func validateForCommit_rejectsSpeakAllInsideThenBranchMissingStatement() {
+    // Regression: `validateCanonicalPrimaryFields` originally walked only
+    // `scenario.phases` and ignored `thenPhases` / `elsePhases`. A
+    // conditional branch with a misnamed canonical field would slip past
+    // the commit gate and recreate the exact "speak_all missing statement"
+    // bug class #318 was meant to prevent. Recursion is depth-1 by validator
+    // construction so termination is trivial.
+    let nested = Phase(
+      type: .speakAll, prompt: "Inner.",
+      outputSchema: ["appeal": "string"])
+    let conditional = Phase(
+      type: .conditional, condition: "max_score >= 1",
+      thenPhases: [nested])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [conditional])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_rejectsVoteInsideElseBranchMissingVoteField() {
+    let nested = Phase(
+      type: .vote, prompt: "Vote.",
+      outputSchema: ["target": "string"])
+    let conditional = Phase(
+      type: .conditional, condition: "max_score >= 1",
+      thenPhases: [Phase(type: .summarize, template: "ok")],
+      elsePhases: [nested])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [conditional])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_acceptsSpeakAllInsideThenBranchWithStatement() throws {
+    let nested = Phase(
+      type: .speakAll, prompt: "Inner.",
+      outputSchema: ["statement": "string"])
+    let conditional = Phase(
+      type: .conditional, condition: "max_score >= 1",
+      thenPhases: [nested])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [conditional])
+    _ = try validator.validateForCommit(scenario)
+  }
+
   // MARK: - Error message includes phase index + canonical field name
 
   @Test func validateForCommit_errorMentionsPhaseAndCanonicalField() {
