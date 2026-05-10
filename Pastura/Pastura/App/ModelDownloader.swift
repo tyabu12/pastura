@@ -41,9 +41,12 @@ public protocol ModelDownloader: Sendable {
 /// in-process retry resumes — the URL protocol's internal byte-position tracking
 /// + ETag validation are preserved transparently.
 ///
-/// **Out of scope:** cross-session resume (cache is in-memory only). If the user
-/// force-kills the app mid-download, the next launch starts from byte zero. See
-/// Issue #275 for the follow-up that would persist the blob to disk.
+/// **Out of scope:** persisting the `NSURLSessionDownloadTaskResumeData` blob
+/// across app launches. Cross-session resume itself works via the explicit
+/// `Range:` header fallback (`ModelManager.performDownload` reads the on-disk
+/// `.download` partial size and passes it as `resumeOffset`), but the
+/// OS-managed ETag / If-Range validation that the cached blob preserves is
+/// bypassed on relaunch. No open Issue currently tracks blob persistence.
 ///
 /// ## Actor isolation
 ///
@@ -239,8 +242,7 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
       // invariant violation. `ModelManager.performDownload` only passes
       // resumeOffset > 0 when `partialURL` exists, and there is no
       // concurrent deletion path before merge — this branch is dead under
-      // current callers. Throwing surfaces a future violation (e.g.,
-      // Issue #275 cross-session resume from disk-cached metadata) rather
+      // current callers. Throwing surfaces a future violation rather
       // than silently writing a head-truncated file that would fail the
       // subsequent SHA256 check without self-recovery.
       // `URLError(.badServerResponse)` matches the existing transport-error
