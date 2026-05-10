@@ -295,7 +295,7 @@ struct URLSessionModelDownloaderTests {
     // (`ModelManager.performDownload` computes `resumeOffset` only when
     // `partialURL` exists); the precondition guard surfaces it as an
     // explicit throw rather than silently writing a head-truncated file.
-    // Regression target for Issue #275 cross-session resume follow-up.
+    // Regression target for any future cross-session resume work.
     CapturingMockURLProtocol.responseProvider = { _ in
       .success(
         statusCode: 206,
