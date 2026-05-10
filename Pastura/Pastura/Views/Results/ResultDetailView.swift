@@ -69,7 +69,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     }
     .navigationTitle(String(localized: "Result Detail"))
     .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
       ToolbarItem(placement: .primaryAction) {
         Button {
           Task { await triggerExport() }

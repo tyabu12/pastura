@@ -33,6 +33,8 @@ struct GalleryScenarioDetailView: View {
       }
     }
     .navigationTitle(scenario.title)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .task {
       // Defer assignment until `load()` completes so the action button
       // never renders "Try this scenario" between VM creation and the
@@ -51,6 +53,9 @@ struct GalleryScenarioDetailView: View {
       Alert(title: Text(alert.title), message: Text(alert.message))
     }
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
       ToolbarItem(placement: .primaryAction) {
         Menu {
           Button {

@@ -76,6 +76,13 @@ struct SettingsView: View {
     }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
+    .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+    }
     #if !targetEnvironment(simulator)
       .confirmationDialog(
         // Inline-interpolated title so VoiceOver reads the specific model name

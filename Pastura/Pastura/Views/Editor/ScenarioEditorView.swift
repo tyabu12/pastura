@@ -44,7 +44,12 @@ struct ScenarioEditorView: View {
       viewModel.scenarioName.isEmpty ? String(localized: "New Scenario") : viewModel.scenarioName
     )
     .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
       ToolbarItem(placement: .confirmationAction) {
         Button(String(localized: "Save")) {
           Task {
