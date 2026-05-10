@@ -1,0 +1,497 @@
+/* Pastura Landing Page — LP-specific layout & sections.
+   Loaded after pages/css/base.css. Responsive contract: desktop is
+   the default; mobile values via @media (max-width: 768px). */
+
+/* ----- Header ----- */
+.lp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 56px;
+}
+.lp-nav {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.lp-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .lp-header {
+    padding: 16px 20px;
+  }
+  /* Hide anchor nav links on mobile — only the LangToggle stays */
+  .lp-nav-links {
+    display: none;
+  }
+}
+
+/* ----- Section padding presets ----- */
+.lp-section {
+  padding: 120px 56px;
+}
+.lp-section.alt {
+  padding: 100px 56px;
+  background: var(--page);
+  border-top: 1px solid var(--rule);
+}
+.lp-section.alt-both {
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 768px) {
+  .lp-section,
+  .lp-section.alt {
+    padding: 56px 24px;
+  }
+  /* "What is Pastura" is intentionally a touch tighter than the rest
+     in the prototype (48px vs 56px). Honor that subtle rhythm. */
+  .lp-section.compact-mobile {
+    padding: 48px 24px;
+  }
+}
+
+/* ----- Content max-width wrappers ----- */
+.lp-narrow {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.lp-mid {
+  max-width: 980px;
+  margin: 0 auto;
+}
+.lp-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.lp-hero-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ----- Hero ----- */
+.lp-hero {
+  padding: 48px 56px 96px;
+}
+@media (max-width: 768px) {
+  .lp-hero {
+    padding: 32px 20px 56px;
+  }
+}
+
+.lp-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .lp-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
+.lp-hero h1 {
+  margin: 0;
+  max-width: 560px;
+}
+.lp-hero .lead {
+  margin: 24px 0 14px;
+  max-width: 520px;
+}
+.lp-hero .privacy-line {
+  margin: 0 0 32px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  max-width: 520px;
+  line-height: 1.6;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.lp-hero .tagline {
+  margin-top: 24px;
+  font-size: 11.5px;
+}
+
+@media (max-width: 768px) {
+  .lp-hero h1 {
+    max-width: none;
+  }
+}
+
+/* Hero figure (live preview cascade) */
+.lp-hero-figure {
+  margin: 0;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+}
+@media (max-width: 768px) {
+  .lp-hero-figure {
+    padding: 22px 18px;
+  }
+}
+
+.lp-hero-figure-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.lp-hero-figure-head .leaf {
+  width: 8px;
+  height: 8px;
+  background: var(--moss);
+  transform: rotate(45deg);
+  display: inline-block;
+}
+.lp-hero-figure-head .label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--ink-2);
+}
+.lp-hero-figure-head .live {
+  margin-left: auto;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--moss-dark);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-hero-figure-head .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--moss-dark);
+}
+
+.lp-hero-figure-foot {
+  border-top: 1px solid var(--rule);
+  padding-top: 14px;
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+/* Scroll cue (desktop only) */
+.scroll-cue {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.scroll-cue .line {
+  width: 1px;
+  height: 36px;
+  background: var(--rule);
+}
+.scroll-cue-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 64px;
+}
+@media (max-width: 768px) {
+  .scroll-cue-wrap {
+    display: none;
+  }
+}
+
+/* ----- Observation journey ----- */
+.lp-journey-act {
+  display: grid;
+  grid-template-columns: 60px 1.1fr 1fr;
+  gap: 40px;
+  padding-bottom: 56px;
+  margin-bottom: 56px;
+  border-bottom: 1px solid var(--rule);
+}
+.lp-journey-act:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.lp-journey-act .num {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--moss-dark);
+  letter-spacing: 0.22em;
+  padding-top: 6px;
+}
+.lp-journey-act h3 {
+  margin: 0 0 12px;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.lp-journey-act .body {
+  margin: 0;
+  max-width: 480px;
+}
+
+.journey-yaml {
+  background: var(--bubble-bg);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 18px 20px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink);
+  max-width: 420px;
+}
+.journey-yaml .comment {
+  color: var(--muted);
+}
+.journey-yaml .key {
+  color: var(--moss-dark);
+}
+
+.journey-promo {
+  max-width: 420px;
+}
+.journey-promo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.journey-promo .meta-row {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--moss-ink);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  letter-spacing: 0.06em;
+}
+.journey-promo .dl-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.journey-promo .dl-dots .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.journey-promo .dl-dots .dot.on {
+  background: var(--moss-dark);
+}
+.journey-promo .dl-dots .dot.off {
+  background: rgba(90, 100, 60, 0.32);
+}
+.journey-promo .body-line {
+  font-size: 13px;
+  color: var(--ink);
+  margin-top: 6px;
+}
+
+.journey-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 420px;
+}
+
+@media (max-width: 768px) {
+  .lp-journey-act {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding-bottom: 40px;
+    margin-bottom: 40px;
+  }
+  .lp-journey-act h3 {
+    font-size: 22px;
+  }
+}
+
+/* ----- Capabilities ----- */
+.lp-cap-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 64px;
+}
+@media (max-width: 768px) {
+  .lp-cap-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cap-item {
+  border-top: 1px solid var(--rule);
+  padding: 22px 0;
+}
+.cap-item h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.cap-item p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.cap-glyph {
+  width: 22px;
+  height: 22px;
+  color: var(--moss-ink);
+  margin-bottom: 10px;
+  display: block;
+}
+
+/* ----- Why on-device meta list ----- */
+.why-list {
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  line-height: 2;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--muted);
+}
+
+/* ----- FAQ — native <details><summary> ----- */
+.faq-item {
+  border-top: 1px solid var(--rule);
+}
+.faq-item:last-of-type {
+  border-bottom: 1px solid var(--rule);
+}
+.faq-item[open] .faq-chev {
+  transform: rotate(45deg);
+}
+.faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 22px 0;
+  font-size: 16px;
+  color: var(--ink);
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+  outline: none;
+}
+.faq-q::-webkit-details-marker {
+  display: none;
+}
+.faq-chev {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--moss-dark);
+  transition: transform 0.35s ease-out;
+  flex-shrink: 0;
+}
+.faq-a {
+  font-size: 15px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  padding: 0 0 22px;
+  max-width: 640px;
+}
+
+/* ----- Footer ----- */
+.lp-footer {
+  border-top: 1px solid var(--rule);
+  padding: 48px 56px 40px;
+  background: var(--page);
+}
+.foot-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 32px;
+}
+.foot-link {
+  display: block;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 2;
+}
+.foot-h {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.foot-base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--muted);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .lp-footer {
+    padding: 36px 20px;
+  }
+  .foot-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+/* ----- Language toggle ----- */
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  overflow: hidden;
+}
+.lang-toggle button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-2);
+  font: inherit;
+  letter-spacing: 0.18em;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.lang-toggle button.on,
+.lang-toggle button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--screen-bg);
+}
+.lang-toggle button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
