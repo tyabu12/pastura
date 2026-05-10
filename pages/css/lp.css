@@ -257,60 +257,154 @@
   max-width: 480px;
 }
 
-.journey-yaml {
+/* Step 01 — Visual Editor mock card.
+   Mirrors Pastura/Pastura/Views/Editor/ScenarioEditorView.swift:
+   Form with Basic Info / Personas / Phases sections. */
+.editor-mock {
   background: var(--bubble-bg);
   border: 1px solid var(--rule);
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 0;
+  max-width: 420px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.editor-mock .em-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.editor-mock .em-section:last-child {
+  border-bottom: none;
+}
+.editor-mock .em-section-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+.editor-mock .em-field {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(224, 219, 206, 0.5);
+}
+.editor-mock .em-field:last-child {
+  border-bottom: none;
+}
+.editor-mock .em-field-label {
+  color: var(--ink-2);
+  flex: 0 0 auto;
+  min-width: 80px;
+}
+.editor-mock .em-field-value {
+  color: var(--ink);
+  flex: 1;
+}
+.editor-mock .em-field-value.muted {
+  color: var(--muted);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
-  line-height: 1.7;
-  color: var(--ink);
-  max-width: 420px;
 }
-.journey-yaml .comment {
-  color: var(--muted);
-}
-.journey-yaml .key {
-  color: var(--moss-dark);
-}
-
-.journey-promo {
-  max-width: 420px;
-}
-.journey-promo-row {
+.editor-mock .em-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(224, 219, 206, 0.5);
+}
+.editor-mock .em-row:last-child {
+  border-bottom: none;
+}
+.editor-mock .em-row .em-pill {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--moss-dark);
+  background: rgba(138, 154, 108, 0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.editor-mock .em-row .em-name {
+  flex: 1;
+}
+.editor-mock .em-count {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.editor-mock-aside {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 12px;
+  max-width: 420px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+
+/* Step 02 — Promo card.
+   Mirrors Pastura/Pastura/Views/ModelDownload/PromoCard.swift:
+   metaRow (DL bar + percent) on top, ETA below dots, bodyRow below
+   (DogMark + slot copy). Vertical, not side-by-side. */
+.journey-promo {
+  max-width: 420px;
+  padding: 0;
 }
 .journey-promo .meta-row {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--moss-ink);
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   letter-spacing: 0.06em;
+  padding: 10px 14px 4px;
+  flex-wrap: wrap;
 }
 .journey-promo .dl-dots {
   display: inline-flex;
-  gap: 3px;
+  gap: 2.5px;
 }
 .journey-promo .dl-dots .dot {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
 }
 .journey-promo .dl-dots .dot.on {
   background: var(--moss-dark);
 }
 .journey-promo .dl-dots .dot.off {
-  background: rgba(90, 100, 60, 0.32);
+  background: rgba(138, 154, 108, 0.38);
+}
+.journey-promo .eta-row {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--moss-ink);
+  letter-spacing: 0.06em;
+  padding: 0 14px 8px 16px;
+  font-weight: 600;
+}
+.journey-promo .body-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 14px 13px;
 }
 .journey-promo .body-line {
   font-size: 13px;
   color: var(--ink);
-  margin-top: 6px;
+  line-height: 1.5;
 }
 
 .journey-bubbles {
@@ -382,45 +476,27 @@
   color: var(--muted);
 }
 
-/* ----- FAQ — native <details><summary> ----- */
+/* ----- FAQ — always-expanded list -----
+   No collapsibility per design decision: all answers are short enough
+   to read at a glance, and expand/collapse adds noise without value. */
 .faq-item {
   border-top: 1px solid var(--rule);
+  padding: 22px 0;
 }
 .faq-item:last-of-type {
   border-bottom: 1px solid var(--rule);
 }
-.faq-item[open] .faq-chev {
-  transform: rotate(45deg);
-}
 .faq-q {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 22px 0;
   font-size: 16px;
   color: var(--ink);
   font-weight: 500;
-  list-style: none;
-  cursor: pointer;
-  outline: none;
-}
-.faq-q::-webkit-details-marker {
-  display: none;
-}
-.faq-chev {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 18px;
-  font-weight: 300;
-  color: var(--moss-dark);
-  transition: transform 0.35s ease-out;
-  flex-shrink: 0;
+  margin: 0 0 8px;
 }
 .faq-a {
   font-size: 15px;
   color: var(--ink-2);
   line-height: 1.7;
-  padding: 0 0 22px;
+  margin: 0;
   max-width: 640px;
 }
 
@@ -461,6 +537,10 @@
   color: var(--muted);
   gap: 16px;
   flex-wrap: wrap;
+}
+.foot-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 @media (max-width: 768px) {

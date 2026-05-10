@@ -29,12 +29,22 @@
   --moss-soft: #D4CBA8;
   --moss-light: #A8B68B; /* Lighter moss for accents on dark backgrounds */
 
-  /* Character palette (sheep avatars) */
-  --alice: #F2E3C8;
-  --bob: #D9E2C6;
-  --carol: #EBD4D4;
-  --dave: #D0D7DC;
-  --sheep-wool: #E8D9BC; /* Shared ear/wool tuft cream across all sheep */
+  /* Character palette (sheep avatars) — body / face / horn per character.
+     Mirrors Pastura/Pastura/Views/DesignTokens.swift PasturaPalette
+     avatar* values (the Swift side is the source of truth). */
+  --avatar-body-alice: #F2E3C8;
+  --avatar-body-bob:   #DDE4CC;
+  --avatar-body-carol: #EAD6D1;
+  --avatar-body-dave:  #D9D7C9;
+  --avatar-face-alice: #C9A979;
+  --avatar-face-bob:   #8A9A6C;
+  --avatar-face-carol: #B8877C;
+  --avatar-face-dave:  #6B6858;
+  --avatar-horn-alice: #B29364;
+  --avatar-horn-bob:   #6F7F54;
+  --avatar-horn-carol: #9C6E64;
+  --avatar-horn-dave:  #4F4C3F;
+  --avatar-highlight: rgba(255, 255, 255, 0.6);
 
   --r-card: 14px;
   --shadow-card:
@@ -159,7 +169,7 @@ body {
   }
 }
 
-/* ----- Brand mark (leaf + word) ----- */
+/* ----- Brand mark (app icon + word) ----- */
 .brand {
   display: inline-flex;
   align-items: center;
@@ -167,92 +177,61 @@ body {
   color: var(--moss-ink);
   font-weight: 600;
   letter-spacing: 0.04em;
+  text-decoration: none;
 }
-.brand .leaf {
-  width: 11px;
-  height: 11px;
-  background: var(--moss);
-  transform: rotate(45deg);
-  border-radius: 1.5px;
+.brand .icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: block;
+  flex-shrink: 0;
 }
 .brand-name {
   font-size: 17px;
 }
 
-/* ----- Sheep avatar -----
-   Pure CSS pseudo-element implementation. Names are conveyed by the
-   adjacent .bubble-name element, so the sheep itself is decorative. */
+/* ----- Sheep avatar (SVG) -----
+   Mirrors Pastura/Pastura/Views/Components/SheepAvatar.swift — 28-unit
+   viewBox, five wool circles, face oval, two eyes, highlight dot, two
+   horns. Decorative; names are conveyed by the adjacent .bubble-name. */
 .sheep {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+  width: 48px;
+  height: 48px;
+  display: block;
   flex-shrink: 0;
 }
-.sheep::before,
-.sheep::after {
-  content: "";
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--sheep-wool);
-  top: 0;
-}
-.sheep::before {
-  left: 2px;
-  transform: rotate(-15deg);
-}
-.sheep::after {
-  right: 2px;
-  transform: rotate(15deg);
-}
-.sheep .face {
-  position: relative;
-  z-index: 1;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
-}
-.sheep[data-tone="alice"] .face { background: var(--alice); }
-.sheep[data-tone="bob"]   .face { background: var(--bob);   }
-.sheep[data-tone="carol"] .face { background: var(--carol); }
-.sheep[data-tone="dave"]  .face { background: var(--dave);  }
-
-.sheep .eyes {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-.sheep .eyes i {
-  width: 2.4px;
-  height: 2.4px;
-  border-radius: 50%;
-  background: var(--ink);
-  display: block;
-}
-.sheep .nose {
-  position: absolute;
-  bottom: 7px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 3px;
-  height: 2px;
-  border-radius: 50%;
-  background: var(--moss-ink);
+.sheep .wool { fill: currentColor; }
+.sheep .eye { fill: var(--ink); }
+.sheep .highlight { fill: var(--avatar-highlight); }
+.sheep .horn {
+  stroke-width: 1;
+  stroke-linecap: round;
+  fill: none;
 }
 
-/* ----- Chat bubble ----- */
+.sheep[data-tone="alice"] { color: var(--avatar-body-alice); }
+.sheep[data-tone="alice"] .face { fill: var(--avatar-face-alice); }
+.sheep[data-tone="alice"] .horn { stroke: var(--avatar-horn-alice); }
+
+.sheep[data-tone="bob"] { color: var(--avatar-body-bob); }
+.sheep[data-tone="bob"] .face { fill: var(--avatar-face-bob); }
+.sheep[data-tone="bob"] .horn { stroke: var(--avatar-horn-bob); }
+
+.sheep[data-tone="carol"] { color: var(--avatar-body-carol); }
+.sheep[data-tone="carol"] .face { fill: var(--avatar-face-carol); }
+.sheep[data-tone="carol"] .horn { stroke: var(--avatar-horn-carol); }
+
+.sheep[data-tone="dave"] { color: var(--avatar-body-dave); }
+.sheep[data-tone="dave"] .face { fill: var(--avatar-face-dave); }
+.sheep[data-tone="dave"] .horn { stroke: var(--avatar-horn-dave); }
+
+/* ----- Chat row (avatar + content column) -----
+   Mirrors Pastura/Pastura/Views/Components/ChatBubble.swift +
+   AgentOutputRow.swift: HStack { AvatarSlot; VStack(name, bubble,
+   thoughtSection) }. Tail at TOP-LEFT (4px), other corners 14px. */
 .bubble-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
 }
 .bubble-stack {
@@ -270,28 +249,44 @@ body {
 }
 .bubble {
   background: var(--bubble-bg);
-  border: 1px solid var(--rule);
-  border-radius: 14px 14px 14px 4px;
-  padding: 14px 16px;
+  border: 1px solid rgba(90, 90, 70, 0.12);
+  border-radius: 4px 14px 14px 14px;
+  padding: 8px 12px;
   font-size: 14px;
   line-height: 1.65;
   color: var(--ink);
   box-shadow: var(--shadow-soft);
   max-width: 520px;
 }
-.bubble.tail-tl {
-  border-radius: 4px 14px 14px 14px;
-}
 .bubble blockquote {
   margin: 0;
 }
-.bubble .reason {
+
+/* THINKING toggle row + thought body — sit OUTSIDE the bubble.
+   Toggle: ▾ THINKING (chevron + small mono uppercase tag).
+   Thought body: moss-soft 1.5px left rule with 8px gutter. */
+.thinking-toggle {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--moss-dark);
-  margin-bottom: 6px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.thinking-toggle .chev {
+  color: var(--moss);
+  margin-right: 4px;
+}
+.thinking-toggle .tag {
+  color: var(--muted);
+}
+.thought-body {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  border-left: 1.5px solid var(--moss-soft);
+  padding-left: 8px;
+  margin-top: 4px;
 }
 
 /* ----- Promo card (DS §5.4) ----- */

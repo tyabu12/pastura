@@ -12,7 +12,8 @@
   <link rel="alternate" hreflang="en" href="https://tyabu12.github.io/pastura/">
   <!-- hreflang ja intentionally omitted — /ja/ route not yet implemented -->
 
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20x%3D%229%22%20y%3D%229%22%20width%3D%2214%22%20height%3D%2214%22%20rx%3D%222%22%20transform%3D%22rotate(45%2016%2016)%22%20fill%3D%22%238A9A6C%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="icon" type="image/png" sizes="64x64" href="img/favicon-64.png">
+  <link rel="apple-touch-icon" href="img/app-icon.png">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="Pastura — An AI you observe, not operate.">
@@ -47,7 +48,7 @@
 
   <header role="banner" class="lp-header">
     <a href="./" class="brand">
-      <span class="leaf" aria-hidden="true"></span>
+      <img class="icon" src="img/app-icon.png" alt="" aria-hidden="true" width="28" height="28">
       <span class="brand-name">Pastura</span>
     </a>
     <nav aria-label="Primary" class="lp-nav">
@@ -98,9 +99,19 @@
           </figcaption>
 
           <div class="bubble-row">
-            <span class="sheep" data-tone="alice" aria-hidden="true">
-              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
-            </span>
+            <svg class="sheep" data-tone="alice" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+              <circle class="wool" cx="14" cy="15" r="8"/>
+              <circle class="wool" cx="9"  cy="13" r="3.2"/>
+              <circle class="wool" cx="19" cy="13" r="3.2"/>
+              <circle class="wool" cx="11" cy="18" r="3"/>
+              <circle class="wool" cx="17" cy="18" r="3"/>
+              <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+              <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+              <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+              <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+              <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+              <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+            </svg>
             <div class="bubble-stack">
               <div class="bubble-name" aria-hidden="true">Alice</div>
               <div class="bubble">
@@ -112,9 +123,19 @@
           </div>
 
           <div class="bubble-row">
-            <span class="sheep" data-tone="bob" aria-hidden="true">
-              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
-            </span>
+            <svg class="sheep" data-tone="bob" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+              <circle class="wool" cx="14" cy="15" r="8"/>
+              <circle class="wool" cx="9"  cy="13" r="3.2"/>
+              <circle class="wool" cx="19" cy="13" r="3.2"/>
+              <circle class="wool" cx="11" cy="18" r="3"/>
+              <circle class="wool" cx="17" cy="18" r="3"/>
+              <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+              <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+              <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+              <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+              <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+              <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+            </svg>
             <div class="bubble-stack">
               <div class="bubble-name" aria-hidden="true">Bob</div>
               <div class="bubble">
@@ -126,30 +147,49 @@
           </div>
 
           <div class="bubble-row">
-            <span class="sheep" data-tone="dave" aria-hidden="true">
-              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
-            </span>
+            <svg class="sheep" data-tone="dave" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+              <circle class="wool" cx="14" cy="15" r="8"/>
+              <circle class="wool" cx="9"  cy="13" r="3.2"/>
+              <circle class="wool" cx="19" cy="13" r="3.2"/>
+              <circle class="wool" cx="11" cy="18" r="3"/>
+              <circle class="wool" cx="17" cy="18" r="3"/>
+              <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+              <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+              <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+              <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+              <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+              <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+            </svg>
             <div class="bubble-stack">
               <div class="bubble-name" aria-hidden="true">Dave</div>
-              <div class="bubble">
-                <div class="reason" aria-hidden="true">THINKING</div>
-                <blockquote>
-                  <span class="sr-only">Dave (thinking): </span>散歩……？それとも、もっと別の場所？お題が違う気がする。
-                </blockquote>
+              <div class="thinking-toggle" aria-hidden="true">
+                <span class="chev">▾</span><span class="tag">THINKING</span>
               </div>
+              <p class="thought-body">
+                <span class="sr-only">Dave (thinking): </span>散歩……？それとも、もっと別の場所？お題が違う気がする。
+              </p>
             </div>
           </div>
 
           <div class="bubble-row">
-            <span class="sheep" data-tone="carol" aria-hidden="true">
-              <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
-            </span>
+            <svg class="sheep" data-tone="carol" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+              <circle class="wool" cx="14" cy="15" r="8"/>
+              <circle class="wool" cx="9"  cy="13" r="3.2"/>
+              <circle class="wool" cx="19" cy="13" r="3.2"/>
+              <circle class="wool" cx="11" cy="18" r="3"/>
+              <circle class="wool" cx="17" cy="18" r="3"/>
+              <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+              <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+              <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+              <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+              <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+              <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+            </svg>
             <div class="bubble-stack">
               <div class="bubble-name" aria-hidden="true">Carol</div>
               <div class="bubble">
-                <div class="reason" aria-hidden="true">VOTE → Dave</div>
                 <blockquote>
-                  <span class="sr-only">Carol (vote → dave): </span>&ldquo;散歩&rdquo;って言葉、他の人も使ってない。
+                  <span class="sr-only">Carol said: </span>&ldquo;散歩&rdquo;って言葉、他の人も使ってない。
                 </blockquote>
               </div>
             </div>
@@ -193,15 +233,42 @@
           <div class="num" aria-hidden="true">01</div>
           <div>
             <h3><span class="sr-only">Step 01. </span>Pick or write the world.</h3>
-            <p class="body">Choose a preset — Word Wolf, Prisoner&rsquo;s Dilemma, Ultimatum — or write your own scenario in YAML. The visual editor handles names, roles, win conditions; the YAML handles everything else.</p>
+            <p class="body">Build your scenario in the visual editor — names, personas, phases, win conditions all come from form fields. Or pick a preset: Word Wolf, Prisoner&rsquo;s Dilemma, Ultimatum.</p>
+            <p class="editor-mock-aside"># or toggle to YAML for direct text editing</p>
           </div>
           <div>
-            <pre class="journey-yaml"><span class="comment"># scenarios/word_wolf.yaml</span>
-<span class="key">title:</span> Word Wolf
-<span class="key">agents:</span> [Alice, Bob, Carol, Dave]
-<span class="key">topic_majority:</span> 公園
-<span class="key">topic_wolf:</span> 散歩
-<span class="key">rounds:</span> 3</pre>
+            <div class="editor-mock" aria-label="Visual scenario editor mock — Word Wolf">
+              <div class="em-section">
+                <div class="em-section-h"><span>Basic Info</span></div>
+                <div class="em-field">
+                  <span class="em-field-label">Name</span>
+                  <span class="em-field-value">Word Wolf</span>
+                </div>
+                <div class="em-field">
+                  <span class="em-field-label">ID</span>
+                  <span class="em-field-value muted">word_wolf</span>
+                </div>
+              </div>
+              <div class="em-section">
+                <div class="em-section-h">
+                  <span>Personas</span>
+                  <span class="em-count">4 agents</span>
+                </div>
+                <div class="em-row"><span class="em-pill">A</span><span class="em-name">Alice</span></div>
+                <div class="em-row"><span class="em-pill">B</span><span class="em-name">Bob</span></div>
+                <div class="em-row"><span class="em-pill">C</span><span class="em-name">Carol</span></div>
+                <div class="em-row"><span class="em-pill">D</span><span class="em-name">Dave</span></div>
+              </div>
+              <div class="em-section">
+                <div class="em-section-h">
+                  <span>Phases</span>
+                  <span class="em-count">3 rounds</span>
+                </div>
+                <div class="em-row"><span class="em-pill">1</span><span class="em-name">speak_all</span></div>
+                <div class="em-row"><span class="em-pill">2</span><span class="em-name">speak_all</span></div>
+                <div class="em-row"><span class="em-pill">3</span><span class="em-name">vote</span></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -212,9 +279,19 @@
             <p class="body">Gemma 4 E2B (~2.5 GB) or Qwen 3 4B (~3.1 GB). Stays on your device. While it downloads, the dog sits beside the progress bar. That&rsquo;s all that happens.</p>
           </div>
           <div>
-            <div class="promo journey-promo">
-              <div class="journey-promo-row">
-                <svg width="36" height="36" viewBox="0 0 44 44" fill="none" aria-hidden="true" focusable="false">
+            <div class="promo journey-promo" aria-label="Model download promo card mock">
+              <div class="meta-row">
+                <span>DL</span>
+                <span class="dl-dots" aria-hidden="true">
+                  <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span>
+                </span>
+                <span>50%</span>
+                <span>·</span>
+                <span>1.5 GB / 3.0 GB</span>
+              </div>
+              <div class="eta-row">残り約4分</div>
+              <div class="body-row">
+                <svg width="26" height="26" viewBox="0 0 44 44" fill="none" aria-hidden="true" focusable="false" style="flex-shrink:0;margin-top:2px">
                   <path d="M9 26 Q 9 17, 16 14 L 19 9 L 22 15 Q 30 16, 34 21 Q 36 24, 36 27 L 38 30 L 34 31 Q 31 35, 25 35 L 17 35 Q 11 34, 9 30 Z"
                         fill="#FFFFFF" stroke="#3D4030" stroke-width="1.6" stroke-linejoin="round"/>
                   <circle cx="33" cy="26" r="1.4" fill="#3D4030"/>
@@ -222,16 +299,7 @@
                   <path d="M16 14 Q 14 19, 15.5 23" stroke="#3D4030" stroke-width="1" fill="none" stroke-linecap="round"/>
                   <path d="M37 30 Q 40 28, 41 25 Q 41.5 27, 39 31" fill="#8A9A6C" opacity=".9"/>
                 </svg>
-                <div style="flex:1">
-                  <div class="meta-row">
-                    <span>DL</span>
-                    <span class="dl-dots" aria-hidden="true">
-                      <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span>
-                    </span>
-                    <span>50% · 1.5 GB / 3.0 GB</span>
-                  </div>
-                  <div class="body-line">少しだけお待ちください...</div>
-                </div>
+                <span class="body-line">少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ。</span>
               </div>
             </div>
           </div>
@@ -246,9 +314,19 @@
           <div>
             <div class="journey-bubbles">
               <div class="bubble-row">
-                <span class="sheep" data-tone="alice" aria-hidden="true">
-                  <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
-                </span>
+                <svg class="sheep" data-tone="alice" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+                  <circle class="wool" cx="14" cy="15" r="8"/>
+                  <circle class="wool" cx="9"  cy="13" r="3.2"/>
+                  <circle class="wool" cx="19" cy="13" r="3.2"/>
+                  <circle class="wool" cx="11" cy="18" r="3"/>
+                  <circle class="wool" cx="17" cy="18" r="3"/>
+                  <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+                  <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+                  <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+                  <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+                  <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+                  <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+                </svg>
                 <div class="bubble-stack">
                   <div class="bubble-name" aria-hidden="true">Alice</div>
                   <div class="bubble">
@@ -259,17 +337,27 @@
                 </div>
               </div>
               <div class="bubble-row">
-                <span class="sheep" data-tone="dave" aria-hidden="true">
-                  <span class="face"><span class="eyes"><i></i><i></i></span><span class="nose"></span></span>
-                </span>
+                <svg class="sheep" data-tone="dave" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+                  <circle class="wool" cx="14" cy="15" r="8"/>
+                  <circle class="wool" cx="9"  cy="13" r="3.2"/>
+                  <circle class="wool" cx="19" cy="13" r="3.2"/>
+                  <circle class="wool" cx="11" cy="18" r="3"/>
+                  <circle class="wool" cx="17" cy="18" r="3"/>
+                  <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+                  <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+                  <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+                  <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+                  <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+                  <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+                </svg>
                 <div class="bubble-stack">
                   <div class="bubble-name" aria-hidden="true">Dave</div>
-                  <div class="bubble">
-                    <div class="reason" aria-hidden="true">VOTE → Alice</div>
-                    <blockquote>
-                      <span class="sr-only">Dave (vote → alice): </span>……ベンチ、と言ったのは Alice だけ。少し気になる。
-                    </blockquote>
+                  <div class="thinking-toggle" aria-hidden="true">
+                    <span class="chev">▾</span><span class="tag">THINKING</span>
                   </div>
+                  <p class="thought-body">
+                    <span class="sr-only">Dave (thinking): </span>……ベンチ、と言ったのは Alice だけ。少し気になる。
+                  </p>
                 </div>
               </div>
             </div>
@@ -356,27 +444,18 @@
     <section id="faq" class="lp-section alt" aria-labelledby="faq-h">
       <div class="lp-mid">
         <h2 id="faq-h" class="eyebrow section-eyebrow">Questions</h2>
-        <details class="faq-item">
-          <summary class="faq-q">
-            <span>Is it free?</span>
-            <span aria-hidden="true" class="faq-chev">+</span>
-          </summary>
-          <div class="faq-a">Yes. No server bill, no subscription.</div>
-        </details>
-        <details class="faq-item">
-          <summary class="faq-q">
-            <span>Why iOS only?</span>
-            <span aria-hidden="true" class="faq-chev">+</span>
-          </summary>
-          <div class="faq-a">On-device LLM runtime is fastest there today. Android is on the list.</div>
-        </details>
-        <details class="faq-item">
-          <summary class="faq-q">
-            <span>Can I use my own model?</span>
-            <span aria-hidden="true" class="faq-chev">+</span>
-          </summary>
-          <div class="faq-a">Bring a supported GGUF; configure it in settings.</div>
-        </details>
+        <div class="faq-item">
+          <h3 class="faq-q">Is it free?</h3>
+          <p class="faq-a">Yes. No server bill, no subscription.</p>
+        </div>
+        <div class="faq-item">
+          <h3 class="faq-q">Why iOS only?</h3>
+          <p class="faq-a">On-device LLM runtime is fastest there today. Android is on the list.</p>
+        </div>
+        <div class="faq-item">
+          <h3 class="faq-q">Can I use my own model?</h3>
+          <p class="faq-a">Bring a supported GGUF; configure it in settings.</p>
+        </div>
       </div>
     </section>
 
@@ -386,7 +465,7 @@
     <div class="foot-grid">
       <div>
         <a href="./" class="brand">
-          <span class="leaf" aria-hidden="true"></span>
+          <img class="icon" src="img/app-icon.png" alt="" aria-hidden="true" width="28" height="28">
           <span class="brand-name">Pastura</span>
         </a>
         <p class="body" style="margin:16px 0 24px; max-width:340px; font-size:14px">
@@ -422,7 +501,7 @@
       </div>
     </div>
     <div class="foot-base">
-      <span>© 2026 Pastura · last updated 2026-05-11 · v0.4 beta</span>
+      <span class="foot-copy">© 2026 Pastura</span>
       <div class="lang-toggle" role="group" aria-label="Language">
         <button type="button" aria-pressed="true" lang="en" class="on">EN</button>
         <button type="button" aria-disabled="true" lang="ja" tabindex="-1">JA</button>
