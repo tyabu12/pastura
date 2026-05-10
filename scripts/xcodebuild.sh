@@ -15,10 +15,17 @@
 # triggers an approval dialog regardless of the allowlist
 # (anthropics/claude-code#31373).
 #
+# Caller passthrough / flag override:
+#
 # Subcommand maps directly to xcodebuild's; remaining args forward
-# verbatim via "$@". xcodebuild honors the last value for repeated
+# verbatim via "$@". xcodebuild honors the last value for many repeated
 # single-value flags, so caller passthrough wins on duplicates (e.g.
 # override the destination: `... test -destination 'platform=iOS Simulator,name=...'`).
+# Note: `-scheme`, `-project`, and `-derivedDataPath` are exceptions —
+# xcodebuild rejects duplicates with `error: option 'X' may only be
+# provided once`. Re-pass only `-destination` from the wrapper-supplied
+# set; see `.claude/rules/xcodebuild-cli.md` §"Re-passing wrapper-supplied
+# flags" for the full table.
 #
 # Mode-specific behavior:
 #
