@@ -330,4 +330,55 @@ struct URLSessionModelDownloaderTests {
     // Verify no head-truncated file was left behind.
     #expect(!FileManager.default.fileExists(atPath: dest.path))
   }
+
+  @Test("206 stream-append handles multi-buffer body (boundary + tail)")
+  func partialContentStreamingMultiBuffer() async throws {
+    CapturingMockURLProtocol.reset()
+    defer { CapturingMockURLProtocol.reset() }
+
+    // Body sized at 2.5 MB so the streaming loop hits all three cases:
+    //   read 1: 1 MB full chunk
+    //   read 2: 1 MB full chunk
+    //   read 3: 0.5 MB tail partial chunk
+    //   read 4: empty → loop terminator
+    // Pre-existing destination bytes use 0x42; new body uses 0x43.
+    // Asserting both halves catches a missing `seekToEndOfFile` (would
+    // overwrite the head bytes with 0x43 instead of appending after them).
+    let preExisting = 500
+    let bodySize = 2_500_000
+    let body = Data(repeating: 0x43, count: bodySize)
+
+    CapturingMockURLProtocol.responseProvider = { _ in
+      .success(
+        statusCode: 206,
+        headers: [
+          "Content-Length": "\(bodySize)",
+          "Content-Range":
+            "bytes \(preExisting)-\(preExisting + bodySize - 1)/\(preExisting + bodySize)"
+        ],
+        body: body
+      )
+    }
+
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+
+    let url = URL(string: "https://example.com/model.gguf")!
+    let dest = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString + ".download")
+    try Data(repeating: 0x42, count: preExisting).write(to: dest)
+    defer { try? FileManager.default.removeItem(at: dest) }
+
+    try await downloader.download(
+      from: url, resumeOffset: Int64(preExisting), to: dest, progressHandler: { _, _ in })
+
+    let attrs = try FileManager.default.attributesOfItem(atPath: dest.path)
+    #expect((attrs[.size] as? Int64) == Int64(preExisting + bodySize))
+
+    // Spot-check head (preserved pre-existing 0x42) and tail (new body 0x43).
+    let written = try Data(contentsOf: dest)
+    #expect(written.prefix(preExisting) == Data(repeating: 0x42, count: preExisting))
+    #expect(written.suffix(bodySize) == body)
+  }
 }

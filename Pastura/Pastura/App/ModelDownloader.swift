@@ -255,11 +255,25 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
         """)
       throw URLError(.badServerResponse)
     }
-    let downloadedData = try Data(contentsOf: tempURL)
-    let fileHandle = try FileHandle(forWritingTo: destination)
-    fileHandle.seekToEndOfFile()
-    fileHandle.write(downloadedData)
-    try fileHandle.close()
+    // Stream-append in 1 MB chunks rather than loading the full chunk
+    // into memory via `Data(contentsOf:)` — for a cross-session resume
+    // hitting the explicit Range fallback (cache miss + on-disk partial),
+    // the chunk can be multi-GB. `autoreleasepool` is load-bearing:
+    // `readData(ofLength:)` returns NSData-backed buffers that need
+    // per-iteration drain to keep peak resident memory bounded.
+    // Mirrors the idiom in `ModelManager.computeSHA256`.
+    let readHandle = try FileHandle(forReadingFrom: tempURL)
+    defer { try? readHandle.close() }
+    let writeHandle = try FileHandle(forWritingTo: destination)
+    defer { try? writeHandle.close() }
+    writeHandle.seekToEndOfFile()
+    let bufferSize = 1_024 * 1_024  // 1 MB
+    while autoreleasepool(invoking: {
+      let chunk = readHandle.readData(ofLength: bufferSize)
+      guard !chunk.isEmpty else { return false }
+      writeHandle.write(chunk)
+      return true
+    }) {}
   }
 
   /// Updates the per-URL resumeData cache from a thrown error.
