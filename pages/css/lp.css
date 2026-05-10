@@ -61,16 +61,10 @@
   margin-bottom: 24px;
 }
 
-/* ----- Content max-width wrappers ----- */
-.lp-narrow {
-  max-width: 880px;
-  margin: 0 auto;
-}
-.lp-mid {
-  max-width: 980px;
-  margin: 0 auto;
-}
-.lp-wide {
+/* ----- Content max-width wrappers -----
+   Two widths only: Hero is wider for visual breathing, every other
+   section uses the same content width for a consistent reading rhythm. */
+.lp-content {
   max-width: 1080px;
   margin: 0 auto;
 }

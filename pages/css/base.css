@@ -180,14 +180,14 @@ body {
   text-decoration: none;
 }
 .brand .icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: block;
   flex-shrink: 0;
 }
 .brand-name {
-  font-size: 17px;
+  font-size: 18px;
 }
 
 /* ----- Sheep avatar (SVG) -----
