@@ -588,6 +588,12 @@
   flex: 1;
   min-width: 0;
 }
+.foot-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
 
 @media (max-width: 768px) {
   .lp-footer {
