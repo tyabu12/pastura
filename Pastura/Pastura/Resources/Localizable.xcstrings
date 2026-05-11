@@ -127,6 +127,7 @@
       }
     },
     "About" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -537,6 +538,7 @@
       }
     },
     "Content reporting" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -1450,6 +1452,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試行しても LLM の出力が不正でした。再度実行するか、モデルの状態を確認してください。"
+          }
+        }
+      }
+    },
+    "Legal" : {
+      "comment" : "Settings section header grouping Privacy Policy and content report link.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "法的事項"
           }
         }
       }
@@ -2561,6 +2574,7 @@
       }
     },
     "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12)." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2596,6 +2610,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "スコアリングロジック"
+          }
+        }
+      }
+    },
+    "Send a content report" : {
+      "comment" : "Settings → Legal section row that opens ReportScenarioSheet with no specific scenario context.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンテンツの報告を送信"
           }
         }
       }
@@ -2969,6 +2994,7 @@
       }
     },
     "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3343,6 +3369,7 @@
       }
     },
     "You'll receive a confirmation email when your report is received." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

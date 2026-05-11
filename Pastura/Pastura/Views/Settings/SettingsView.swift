@@ -22,6 +22,12 @@ import os
 struct SettingsView: View {
   @Environment(\.openURL) private var openURL
 
+  /// Bound to `.sheet(isPresented:)` for the "Send a content report"
+  /// row inside the Legal section. The sheet reuses
+  /// `ReportScenarioSheet` with `scenario: nil` (Settings has no
+  /// specific scenario context) — see ADR-005 §6.7 dual-use precedent.
+  @State private var isReportSheetPresented: Bool = false
+
   #if !targetEnvironment(simulator)
     @Environment(ModelManager.self) private var modelManager
     @Environment(AppDependencies.self) private var dependencies
@@ -51,11 +57,6 @@ struct SettingsView: View {
         modelsSection
       #endif
       Section {
-        contentReportingBody
-      } header: {
-        Text(String(localized: "Content reporting"))
-      }
-      Section {
         Button {
           guard let url = URL(string: "https://tyabu12.github.io/pastura/legal/privacy-policy/")
           else { return }
@@ -70,8 +71,19 @@ struct SettingsView: View {
           }
         }
         .accessibilityIdentifier("settings.privacyPolicyLink")
+
+        Button {
+          isReportSheetPresented = true
+        } label: {
+          HStack {
+            Text(String(localized: "Send a content report"))
+              .foregroundStyle(.primary)
+            Spacer()
+          }
+        }
+        .accessibilityIdentifier("settings.sendContentReportButton")
       } header: {
-        Text(String(localized: "About"))
+        Text(String(localized: "Legal"))
       }
     }
     .navigationTitle(String(localized: "Settings"))
@@ -83,6 +95,15 @@ struct SettingsView: View {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
+    }
+    // `.deepLinkGated()` mirrors the existing report sheet at
+    // GalleryScenarioDetailView's call site — a `pastura://` URL
+    // arriving while the user is mid-report queues until the sheet
+    // dismisses, rather than pushing a gallery detail under it (see
+    // navigation.md QA scenario 9).
+    .sheet(isPresented: $isReportSheetPresented) {
+      ReportScenarioSheet(scenario: nil)
+        .deepLinkGated()
     }
     #if !targetEnvironment(simulator)
       .confirmationDialog(
@@ -269,32 +290,4 @@ struct SettingsView: View {
       dependencies.regenerateLLMService(newService)
     }
   #endif
-
-  private var contentReportingBody: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(
-        String(
-          localized:
-            "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12)."
-        )
-      )
-      .font(.body)
-
-      Text(
-        String(
-          localized:
-            "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario."
-        )
-      )
-      .font(.body)
-      .foregroundStyle(.secondary)
-
-      Text(
-        String(localized: "You'll receive a confirmation email when your report is received.")
-      )
-      .font(.footnote)
-      .foregroundStyle(.secondary)
-    }
-    .padding(.vertical, 4)
-  }
 }
