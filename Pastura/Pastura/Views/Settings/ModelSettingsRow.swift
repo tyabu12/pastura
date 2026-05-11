@@ -31,6 +31,48 @@ struct ModelSettingsRow: View {
   let onSwitchActive: () -> Void
   let onRequestDelete: () -> Void
 
+  // MARK: - Trailing control
+
+  /// Discriminator for what to render in the row's trailing slot.
+  ///
+  /// Extracted as a pure-logic enum so the (state, isActive,
+  /// otherDownloadInProgress) → control kind mapping can be unit-tested
+  /// without a SwiftUI host (ADR-009 view-testing strategy).
+  ///
+  /// `disabled: Bool` on `.downloadButton` is LOAD-BEARING — it carries
+  /// the sequential-DL guard + cellular-consent multi-row guard
+  /// (`.claude/rules/navigation.md` QA scenarios 16 & 17, ADR-007 §3.3 (c)).
+  /// Collapsing this into a payload-less case would let a body refactor
+  /// silently drop `.disabled(otherDownloadInProgress)` from the new
+  /// direct download button.
+  internal enum TrailingControl: Equatable {
+    /// Direct download icon button. `disabled` mirrors
+    /// `otherDownloadInProgress` so a competing row's mid-download or
+    /// pending cellular-consent state propagates here.
+    case downloadButton(disabled: Bool)
+    /// Existing ellipsis Menu (Cancel / Use this model / Delete actions).
+    case menu
+    /// Nothing rendered — used for `.ready+active`, `.checking`, and
+    /// `.unsupportedDevice` where there is no actionable trailing affordance.
+    case none
+  }
+
+  /// Pure derivation of the trailing slot's control kind from
+  /// `(state, isActive, otherDownloadInProgress)`. Internal so
+  /// `ModelSettingsRowTrailingControlTests` can pin every case.
+  internal var trailingControl: TrailingControl {
+    switch state {
+    case .notDownloaded, .error:
+      return .downloadButton(disabled: otherDownloadInProgress)
+    case .downloading:
+      return .menu
+    case .ready:
+      return isActive ? .none : .menu
+    case .checking, .unsupportedDevice:
+      return .none
+    }
+  }
+
   var body: some View {
     HStack(alignment: .top, spacing: Spacing.s) {
       VStack(alignment: .leading, spacing: Spacing.xxs) {
