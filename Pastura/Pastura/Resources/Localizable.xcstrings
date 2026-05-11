@@ -296,6 +296,16 @@
         }
       }
     },
+    "Back" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "戻る"
+          }
+        }
+      }
+    },
     "Background continuation" : {
       "localizations" : {
         "ja" : {
@@ -1628,6 +1638,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新しい選択肢"
+          }
+        }
+      }
+    },
+    "Next demo: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次のデモ: %@"
           }
         }
       }

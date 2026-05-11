@@ -14,6 +14,14 @@ struct SharedScenariosListView: View {
       }
     }
     .navigationTitle(String(localized: "Shared Scenarios"))
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
+    .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+      .hidingPasturaSharedBackground()
+    }
     .task {
       let newViewModel = SharedScenariosViewModel(
         galleryService: dependencies.galleryService,

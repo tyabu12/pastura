@@ -319,6 +319,75 @@ box-shadow:
 
 26pt or 44pt（完了画面）。Pastura 全体を象徴するアシスタントマーク。白ベース、輪郭 `--moss-ink`、尾は `--moss` のカール。
 
+### 5.8 Toolbar buttons（iOS 26 Liquid Glass opt-out）
+
+iOS 26 では `NavigationStack` 配下のシステム製 toolbar item（戻る chevron、`.confirmationAction` の Save、`.destructiveAction` の Delete など）が自動的に半透明 capsule "Liquid Glass" 効果でレンダリングされる。これは §1 の「静謐・観察・牧草地」に対し過剰に立体的で、Pastura のフラットな苔色トーンと衝突する。
+
+このサブセクションでは、Liquid Glass を opt-out するための 2 つの再利用可能コンポーネントを定義する。Source: `Pastura/Pastura/Views/Components/PasturaBackButton.swift`。
+
+#### 5.8.1 PasturaBackButton
+
+root `NavigationStack` に push された全ビューで、システム back chevron を置き換える chevron-only ボタン。
+
+| 仕様項目 | 値 / 出典 |
+|---------|----------|
+| アイコン | SF Symbol `chevron.backward`（RTL 対応版を選択） |
+| 前景色 | `Color.ink` (#2D2E26、§2.2) |
+| ボタンスタイル | `.buttonStyle(.plain)` で iOS 26 の Liquid Glass を抑制 |
+| タップ動作 | `router.pop()`（`.claude/rules/navigation.md` 準拠） |
+| アクセシビリティラベル | `String(localized: "Back")` → ja "戻る" |
+| swipe-back gesture | `.preservesPasturaSwipeBackGesture()` View modifier 必須 |
+
+**callsite テンプレート**:
+
+```swift
+.navigationBarBackButtonHidden(true)
+.preservesPasturaSwipeBackGesture()
+.toolbar {
+  ToolbarItem(placement: .topBarLeading) { PasturaBackButton() }
+  // ... 他の action items ...
+}
+```
+
+**`.preservesPasturaSwipeBackGesture()` が必須な理由**: iOS 26 では `.navigationBarBackButtonHidden(true)` が `interactivePopGestureRecognizer` まで無効化する。view-level に `UIViewControllerRepresentable` の probe を mount し、host `UINavigationController` の gesture を再有効化（`viewControllers.count > 1` で gating）。詳細は `PasturaBackButton.swift` の doc-comment 参照。
+
+**スコープ**: root NavigationStack に push されたビュー専用。sheet / fullScreenCover 内では `@Environment(\.dismiss)` を直接使うこと（`PasturaBackButton` は sheet を dismiss しない）。
+
+**accessibility 既知の縮退**: システム back button は `"Back, button, <親ビュータイトル>"` を読み上げるが、PasturaBackButton は `"Back, button"` のみ（chevron-only 設計のため）。`.claude/rules/navigation.md` QA scenario 2 で明示的受容。
+
+#### 5.8.2 PasturaToolbarButtonStyle
+
+action item ボタン用の `ButtonStyle`。3 variant で Liquid Glass を opt-out しつつ、デザイン意図（Save / Delete / Share）を色に encode。
+
+| Variant | 前景色 | 用途 | 例 |
+|---------|--------|-----|-----|
+| `.primary` | `Color.mossDark` (#6B7852, §2.3) | 確定・保存 | `ScenarioEditorView` の Save |
+| `.destructive` | `Color.dangerInk` (#6F4540, §2.6) | 削除・破棄 | `ScenarioDetailView` の Delete |
+| `.secondary` | `Color.ink` (#2D2E26, §2.2) | 補助アクション | `ResultDetailView` の Share/Film、`GalleryScenarioDetailView` の More menu |
+
+**callsite テンプレート**:
+
+```swift
+ToolbarItem(placement: .primaryAction) {
+  Button("Save") { ... }
+    .buttonStyle(PasturaToolbarButtonStyle(variant: .primary))
+}
+```
+
+押下時は `pressedOpacity` (0.6) で前景色を減光。capsule 背景・scale animation は付かない（§1 の「静的・観察される」voice を維持）。
+
+**variant ↔ token mapping は `PasturaToolbarButtonStyleVariantTests` で pin** されており、不用意な token swap を CI で検知する。
+
+#### 5.8.3 いつシステムを使い、いつカスタムを使うか
+
+| シチュエーション | 選択 | 理由 |
+|-----------------|------|------|
+| root NavigationStack に push されたビューの toolbar | **カスタム** (`PasturaBackButton` + `PasturaToolbarButtonStyle`) | iOS 26 の Liquid Glass 衝突を回避 |
+| Sheet / fullScreenCover 内の `NavigationStack` | システム標準 | sheet 内 NavigationStack は別 navigation context、現状 Liquid Glass の影響軽微（要観察） |
+| `.confirmationDialog` / `.alert` のボタン | システム標準 | カスタム化 API なし。中立色のまま |
+
+> **Note**: sheet 内 NavigationStack toolbar item の Liquid Glass 適用が visual problem になった場合、本サブセクションを更新して例外条件を明記すること。現時点では sheet 経路は scope 外。
+
 ---
 
 ## 6. モーション / アニメーション
