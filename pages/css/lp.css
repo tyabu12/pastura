@@ -439,6 +439,14 @@
   color: var(--ink-2);
   line-height: 1.6;
 }
+/* The 1-line core lead between h3 and the benefit/concrete body.
+   Slightly stronger (full ink color, medium weight) so the card has
+   a clear h3 → lead → body rhythm. */
+.cap-item .cap-lead {
+  color: var(--ink);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
 .cap-glyph {
   width: 22px;
   height: 22px;
