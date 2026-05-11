@@ -136,41 +136,48 @@ extension ReplayViewModelTests {
     #expect(viewModel.totalPhaseCount == 1)
   }
 
-  // MARK: - Pause hides ROUND fragment
+  // MARK: - Pause keeps ROUND fragment visible (#355 follow-up)
 
-  @Test func userPauseHidesPhaseCountsAndFlipsStatusToPaused() async throws {
+  @Test func userPauseKeepsPhaseCountsAndFlipsStatusToPaused() async throws {
     let viewModel = try Self.makeVM()
     viewModel.start()
     await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
     viewModel.userPause()
-    // Both fragments collapse during pause so the GameHeader's row 2
-    // ROUND piece disappears uniformly across all paused reasons
-    // (per #297 spec).
-    #expect(viewModel.currentPhaseIndex == nil)
-    #expect(viewModel.totalPhaseCount == nil)
+    // ROUND fragment stays put so the user retains the position
+    // context while paused. Status pill flips to `.paused` to make
+    // the pause-vs-play distinction obvious without dropping ROUND
+    // visibility. Original #297 PR3 spec collapsed both fragments;
+    // re-evaluated in #355 follow-up — the collapse was conflating
+    // playback state with identity state (cf. #355 avatar-color
+    // and scenarioName regressions, same root cause).
+    #expect(viewModel.currentPhaseIndex == 1)
+    #expect(viewModel.totalPhaseCount == 1)
     #expect(viewModel.status == .paused)
   }
 
-  @Test func scenePhasePauseAlsoHidesPhaseCounts() async throws {
+  @Test func scenePhasePauseAlsoKeepsPhaseCounts() async throws {
     let viewModel = try Self.makeVM()
     viewModel.start()
     await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
     viewModel.onBackground()
-    #expect(viewModel.currentPhaseIndex == nil)
-    #expect(viewModel.totalPhaseCount == nil)
+    // Same rule applies on the scene-phase auto-pause path — the
+    // UI is normally hidden during BG anyway, but the boundary is
+    // meaningful for the transient FG-redraw frame.
+    #expect(viewModel.currentPhaseIndex == 1)
+    #expect(viewModel.totalPhaseCount == 1)
     #expect(viewModel.status == .paused)
   }
 
-  // MARK: - Resume restores ROUND fragment
+  // MARK: - Resume flips status without changing ROUND values
 
-  @Test func userResumeRestoresPhaseCountsAndStatus() async throws {
+  @Test func userResumeKeepsPhaseCountsAndFlipsStatusBackToDemoing() async throws {
     let viewModel = try Self.makeVM()
     viewModel.start()
     await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
     viewModel.userPause()
     viewModel.userResume()
-    // Pause does not reset the underlying counter, so resume restores
-    // the same currentPhaseIndex value and the cached total.
+    // Underlying counter is unchanged across the pause / resume
+    // round-trip; the visible difference is only the status pill.
     #expect(viewModel.currentPhaseIndex == 1)
     #expect(viewModel.totalPhaseCount == 1)
     #expect(viewModel.status == .demoing)
@@ -256,11 +263,22 @@ extension ReplayViewModelTests {
     #expect(viewModel.headerRound == GameHeaderRound(current: 1, total: 1))
   }
 
-  @Test func headerRoundIsNilDuringPause() async throws {
+  @Test func headerRoundStaysAvailableDuringPause() async throws {
     let viewModel = try Self.makeVM()
     viewModel.start()
     await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
     viewModel.userPause()
-    #expect(viewModel.headerRound == nil)
+    // Mirrors `userPauseKeepsPhaseCountsAndFlipsStatusToPaused` —
+    // headerRound is the GameHeader-facing pair wrapper and inherits
+    // the new `.playing` + `.paused` policy automatically.
+    #expect(viewModel.headerRound == GameHeaderRound(current: 1, total: 1))
+  }
+
+  @Test func headerRoundStaysAvailableDuringScenePhasePause() async throws {
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    await Self.waitForCondition { viewModel.currentPhaseIndex != nil }
+    viewModel.onBackground()
+    #expect(viewModel.headerRound == GameHeaderRound(current: 1, total: 1))
   }
 }
