@@ -4,7 +4,8 @@
 #     (Marketing landing page — see #345)
 #   - `pages/css/base.css`                 → `https://tyabu12.github.io/pastura/css/base.css`
 #   - `pages/css/lp.css`                   → `https://tyabu12.github.io/pastura/css/lp.css`
-#     (Shared design tokens + LP-specific layout for the landing page)
+#   - `pages/css/page.css`                 → `https://tyabu12.github.io/pastura/css/page.css`
+#     (Shared design tokens + LP layout + prose styling for legal/support)
 #   - `pages/img/app-icon.png`             → `https://tyabu12.github.io/pastura/img/app-icon.png`
 #   - `pages/img/favicon-64.png`           → `https://tyabu12.github.io/pastura/img/favicon-64.png`
 #     (Brand mark + favicon, sourced from the iOS app icon)
@@ -83,6 +84,7 @@ jobs:
           cp pages/index.html _site/index.html
           cp pages/css/base.css _site/css/base.css
           cp pages/css/lp.css _site/css/lp.css
+          cp pages/css/page.css _site/css/page.css
           cp pages/img/app-icon.png _site/img/app-icon.png
           cp pages/img/favicon-64.png _site/img/favicon-64.png
           cp pages/img/app-store-badge-en.svg _site/img/app-store-badge-en.svg
@@ -111,6 +113,7 @@ jobs:
             "https://tyabu12.github.io/pastura/" \
             "https://tyabu12.github.io/pastura/css/base.css" \
             "https://tyabu12.github.io/pastura/css/lp.css" \
+            "https://tyabu12.github.io/pastura/css/page.css" \
             "https://tyabu12.github.io/pastura/img/app-icon.png" \
             "https://tyabu12.github.io/pastura/img/favicon-64.png" \
             "https://tyabu12.github.io/pastura/img/app-store-badge-en.svg" \

@@ -1,0 +1,174 @@
+/* Pastura Pages — prose-page styles for legal/ and support/.
+   Loaded after pages/css/base.css. Uses ONLY tokens declared in
+   base.css — no new --* custom properties. Mirrors lp.css's
+   responsive contract: desktop default, mobile values via
+   @media (max-width: 768px). */
+
+/* ----- Shell & layout ----- */
+
+/* Top-level wrapper: flex column so the footer always sticks to
+   the bottom even on short-content pages. */
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* <main> content area: flex: 1 consumes remaining vertical space
+   inside the .page-shell flex column, pushing .lp-footer to the
+   bottom on short pages. */
+.page-main {
+  flex: 1;
+  padding: 80px 56px;
+}
+
+@media (max-width: 768px) {
+  .page-main {
+    padding: 48px 24px;
+  }
+}
+
+/* Inner prose wrapper: caps reading width and centres the content. */
+.page-prose {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ----- Prose typography ----- */
+
+.page-prose h1 {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-wrap: balance;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 12px;
+  margin: 0 0 12px;
+}
+
+.page-prose h2 {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+  margin: 48px 0 16px;
+}
+
+.page-prose h3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+  margin: 32px 0 10px;
+}
+
+.page-prose p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  margin: 0 0 16px;
+}
+
+.page-prose ul,
+.page-prose ol {
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin: 0 0 16px;
+  padding-left: 1.5em;
+}
+
+.page-prose li + li {
+  margin-top: 6px;
+}
+
+.page-prose a {
+  color: var(--moss-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.page-prose a:hover {
+  color: var(--moss-ink);
+}
+
+.page-prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.page-prose hr {
+  margin: 40px 0 24px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* ----- Inline code ----- */
+
+.page-prose code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.92em;
+  color: var(--moss-ink);
+}
+
+/* ----- Table ----- */
+
+.page-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 20px;
+  font-size: 14px;
+}
+
+.page-prose th,
+.page-prose td {
+  border: 1px solid var(--rule);
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: top;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+.page-prose th {
+  background: var(--page);
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ----- Utility class overrides inside .page-prose ----- */
+
+/* .lead (from base.css): add bottom rhythm when it follows the h1. */
+.page-prose .lead {
+  margin: 0 0 24px;
+}
+
+/* .meta (from base.css): bottom rhythm for the "Effective date /
+   Last updated" block at the top of the privacy policy. */
+.page-prose .meta {
+  margin: 0 0 32px;
+  line-height: 1.7;
+}
+
+/* ----- Responsive type scaling ----- */
+
+@media (max-width: 768px) {
+  .page-prose h1 {
+    font-size: 24px;
+  }
+
+  .page-prose h2 {
+    font-size: 19px;
+  }
+
+  .page-prose h3 {
+    font-size: 15px;
+  }
+}
