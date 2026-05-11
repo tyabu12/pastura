@@ -1,11 +1,15 @@
 import SwiftUI
 import os
 
-/// Settings screen hosting static informational copy for the Pastura app.
+/// Settings screen hosting the Models section (device only) and a
+/// Legal section with Privacy Policy + content-report sheet.
 ///
 /// Pushed onto the root `NavigationStack` via `Route.settings`. Per
 /// `.claude/rules/navigation.md`, this view must NOT add
-/// `navigationDestination(item:|isPresented:)` modifiers.
+/// `navigationDestination(item:|isPresented:)` modifiers — sheets
+/// (`.sheet(isPresented:)`) and `.fullScreenCover(item:)` are exempt
+/// from that rule and are used here for the report sheet and download
+/// cover respectively.
 ///
 /// ## Models section (device only)
 ///
@@ -19,8 +23,25 @@ import os
 /// `AppDependencies.regenerateLLMService(_:)`; it's gated on
 /// `simulationActivityRegistry.isActive == false` at the UI layer so
 /// the service is never torn down mid-inference.
+///
+/// ## Legal section
+///
+/// Two rows: an external Privacy Policy link (opens Safari via
+/// `Environment(\.openURL)`) and a "Send a content report" Button
+/// that presents `ReportScenarioSheet(scenario: nil)` via
+/// `.sheet(isPresented:)`. The sheet carries `.deepLinkGated()` for
+/// symmetry with `GalleryScenarioDetailView`'s callsite — see
+/// navigation.md QA scenario 9. ADR-005 §6.6 substantive commitment
+/// ("Settings surface exposes report-mechanism copy per §6.4") is
+/// preserved by `ReportScenarioSheet`'s introCopy.
 struct SettingsView: View {
   @Environment(\.openURL) private var openURL
+
+  /// Bound to `.sheet(isPresented:)` for the "Send a content report"
+  /// row inside the Legal section. The sheet reuses
+  /// `ReportScenarioSheet` with `scenario: nil` (Settings has no
+  /// specific scenario context) — see ADR-005 §6.7 dual-use precedent.
+  @State private var isReportSheetPresented: Bool = false
 
   #if !targetEnvironment(simulator)
     @Environment(ModelManager.self) private var modelManager
@@ -51,11 +72,6 @@ struct SettingsView: View {
         modelsSection
       #endif
       Section {
-        contentReportingBody
-      } header: {
-        Text(String(localized: "Content reporting"))
-      }
-      Section {
         Button {
           guard let url = URL(string: "https://tyabu12.github.io/pastura/legal/privacy-policy/")
           else { return }
@@ -70,8 +86,19 @@ struct SettingsView: View {
           }
         }
         .accessibilityIdentifier("settings.privacyPolicyLink")
+
+        Button {
+          isReportSheetPresented = true
+        } label: {
+          HStack {
+            Text(String(localized: "Send a content report"))
+              .foregroundStyle(.primary)
+            Spacer()
+          }
+        }
+        .accessibilityIdentifier("settings.sendContentReportButton")
       } header: {
-        Text(String(localized: "About"))
+        Text(String(localized: "Legal"))
       }
     }
     .navigationTitle(String(localized: "Settings"))
@@ -83,6 +110,15 @@ struct SettingsView: View {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
+    }
+    // `.deepLinkGated()` mirrors the existing report sheet at
+    // GalleryScenarioDetailView's call site — a `pastura://` URL
+    // arriving while the user is mid-report queues until the sheet
+    // dismisses, rather than pushing a gallery detail under it (see
+    // navigation.md QA scenario 9).
+    .sheet(isPresented: $isReportSheetPresented) {
+      ReportScenarioSheet(scenario: nil)
+        .deepLinkGated()
     }
     #if !targetEnvironment(simulator)
       .confirmationDialog(
@@ -269,32 +305,4 @@ struct SettingsView: View {
       dependencies.regenerateLLMService(newService)
     }
   #endif
-
-  private var contentReportingBody: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(
-        String(
-          localized:
-            "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12)."
-        )
-      )
-      .font(.body)
-
-      Text(
-        String(
-          localized:
-            "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario."
-        )
-      )
-      .font(.body)
-      .foregroundStyle(.secondary)
-
-      Text(
-        String(localized: "You'll receive a confirmation email when your report is received.")
-      )
-      .font(.footnote)
-      .foregroundStyle(.secondary)
-    }
-    .padding(.vertical, 4)
-  }
 }
