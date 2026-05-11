@@ -264,4 +264,9 @@ struct AgentOutputRowContractTests {
     #expect(expanded.targetLength == 10)  // primary + thought
     #expect(expanded.targetLength - collapsed.targetLength == 5)  // = thought
   }
+
+  // `shouldRevealThoughtSection(visibleChars:)` tests live in the sibling
+  // file `AgentOutputRowContractTests+ThoughtSectionGate.swift` per
+  // `.claude/rules/testing.md` § "Splitting a Suite Across Files" (this
+  // file crossed the 400-line `file_length` cap when the gate landed).
 }
