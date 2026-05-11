@@ -2,13 +2,12 @@
 
 **Scope**: `nonisolated` annotation traps under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` only. Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
 
-Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference traps in four specific patterns. All four fail with the same diagnostic family:
+Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference traps in four specific patterns. The four share the same root cause (MainActor inference) but surface in two diagnostic forms:
 
-```
-Call to main actor-isolated <thing> in a synchronous nonisolated context
-```
+- **Conformance-site** (Pattern 1): `conformance of '<Type>' to protocol '<Protocol>' crosses into main actor-isolated code and can cause data races` — a previously-compiling type suddenly refusing to build.
+- **Use-site** (Patterns 2–4): `Call to main actor-isolated <thing> in a synchronous nonisolated context` — fires at the test, generic collection, or Sendable closure callsite, not the declaration.
 
-The diagnostic fires at the **use site** (test, generic collection, Sendable closure), not the declaration site — easy to miss when only building.
+Easy to miss because the diagnostic doesn't point at the type definition.
 
 ## Pattern 1 — Protocol-extension default impl + escaping closure
 

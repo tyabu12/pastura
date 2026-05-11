@@ -85,8 +85,9 @@ Utilities/ → depends on nothing
   All types in `Models/`, `LLM/`, `Engine/`, and `Data/` **MUST** be marked `nonisolated` at the
   type level to avoid unnecessary MainActor binding.
   `Views/` and `App/` use the default (MainActor).
-  Protocol-extension default implementations may additionally need explicit `nonisolated`
-  when their body builds escaping closures — see `.claude/rules/swift-isolation.md`.
+  Specific traps requiring explicit `nonisolated` (protocol-ext default impls building
+  escaping closures, custom-witness value types, sibling-file extensions, reference-type
+  sync methods) — see `.claude/rules/swift-isolation.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
 - **Observable bridge for non-`@Observable` state:** When an `@Observable` class exposes
   a computed property that reads mutable state from a `nonisolated` class / actor,
