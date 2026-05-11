@@ -2600,6 +2600,17 @@
         }
       }
     },
+    "Send report" : {
+      "comment" : "Navigation title for ReportScenarioSheet when invoked from Settings (no specific scenario context).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "報告を送信"
+          }
+        }
+      }
+    },
     "Settings" : {
       "localizations" : {
         "ja" : {
