@@ -38,6 +38,42 @@ import Testing
     }
   }
 
+  /// Strict commit-time check on every gallery entry. Companion to
+  /// `allSeedYAMLsParseAndValidate` (which uses the lenient runtime
+  /// `validate(_:)`). A canonical-field omission inside a `then:` /
+  /// `else:` branch would compile, parse, and run, but block any user
+  /// who clones the gallery scenario via "Use as Template" → Save.
+  /// The recursion landed in #343 closes the historical gap where
+  /// `validateCanonicalPrimaryFields` walked top-level phases only.
+  @Test func allSeedYAMLsPassValidateForCommit() throws {
+    let loader = ScenarioLoader()
+    let validator = ScenarioValidator()
+
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let files = try FileManager.default.contentsOfDirectory(
+      atPath: galleryDir.path
+    ).filter { $0.hasSuffix(".yaml") }
+
+    #expect(files.count >= 3, "Expected at least 3 seed gallery YAMLs")
+
+    for name in files {
+      let yaml = try String(
+        contentsOf: galleryDir.appendingPathComponent(name), encoding: .utf8)
+      let scenario: Scenario
+      do {
+        scenario = try loader.load(yaml: yaml)
+      } catch {
+        Issue.record("Failed to load \(name): \(error)")
+        continue
+      }
+      do {
+        _ = try validator.validateForCommit(scenario)
+      } catch {
+        Issue.record("Commit-time validation failed for \(name): \(error)")
+      }
+    }
+  }
+
   /// Pins the curation invariant that every gallery entry's `title`
   /// matches the corresponding YAML's `name:` field.
   ///

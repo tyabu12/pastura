@@ -1,0 +1,602 @@
+/* Pastura Pages — base design tokens and shared primitives.
+   Inherits from docs/design/design-system.md. The "lp/*" typography
+   tier is added here (not in lp.css) because it is consumable by
+   future redesigns of pages/legal/ and pages/support/.
+
+   Responsive contract: desktop sizing is the default; mobile values
+   live behind `@media (max-width: 768px)`. There are NO `.lp.desktop`
+   or `.lp.mobile` ancestor classes — the JSX prototype gated these on
+   a JS-set flag, but a static page must rely on media queries. */
+
+:root {
+  /* Surfaces */
+  --page: #F3EFE7;
+  --screen-bg: #FCFAF4;
+  --bubble-bg: #FFFFFF;
+  --promo-bg: #FBFAF2;
+  --promo-border: #E4E7D2;
+
+  /* Ink */
+  --ink: #2D2E26;
+  --ink-2: #5A5A55;
+  --muted: #6B6B65;
+  --rule: #E0DBCE;
+
+  /* Moss accent */
+  --moss: #8A9A6C;
+  --moss-dark: #6B7852;
+  --moss-ink: #3D4030;
+  --moss-soft: #D4CBA8;
+  --moss-light: #A8B68B; /* Lighter moss for accents on dark backgrounds */
+
+  /* Character palette (sheep avatars) — body / face / horn per character.
+     Mirrors Pastura/Pastura/Views/DesignTokens.swift PasturaPalette
+     avatar* values (the Swift side is the source of truth). */
+  --avatar-body-alice: #F2E3C8;
+  --avatar-body-bob:   #DDE4CC;
+  --avatar-body-carol: #EAD6D1;
+  --avatar-body-dave:  #D9D7C9;
+  --avatar-face-alice: #C9A979;
+  --avatar-face-bob:   #8A9A6C;
+  --avatar-face-carol: #B8877C;
+  --avatar-face-dave:  #6B6858;
+  --avatar-horn-alice: #B29364;
+  --avatar-horn-bob:   #6F7F54;
+  --avatar-horn-carol: #9C6E64;
+  --avatar-horn-dave:  #4F4C3F;
+  --avatar-highlight: rgba(255, 255, 255, 0.6);
+
+  --r-card: 14px;
+  --shadow-card:
+    0 1px 2px rgba(90, 100, 60, 0.04),
+    0 12px 26px -12px rgba(90, 100, 60, 0.2);
+  --shadow-soft: 0 1px 2px rgba(60, 62, 48, 0.04);
+}
+
+/* ----- Base reset (very light) ----- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--screen-bg);
+  color: var(--ink);
+  font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt";
+  text-rendering: geometricPrecision;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ----- Typography scale (LP-extended; mobile via media query) ----- */
+.display {
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  text-wrap: balance;
+  font-size: 64px;
+  line-height: 1.08;
+}
+
+.display-sm {
+  font-weight: 400;
+  letter-spacing: -0.008em;
+  color: var(--ink);
+  text-wrap: balance;
+  font-size: 48px;
+  line-height: 1.12;
+}
+
+.section-title {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-wrap: balance;
+  font-size: 32px;
+  line-height: 1.22;
+}
+
+.lead {
+  font-weight: 400;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  font-size: 19px;
+  line-height: 1.6;
+}
+
+.body {
+  font-weight: 400;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.meta {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .display {
+    font-size: 36px;
+    line-height: 1.12;
+  }
+  .display-sm {
+    font-size: 30px;
+    line-height: 1.18;
+  }
+  .section-title {
+    font-size: 24px;
+    line-height: 1.25;
+  }
+  .lead {
+    font-size: 16px;
+  }
+  .body {
+    font-size: 15px;
+  }
+}
+
+/* ----- Brand mark (app icon + word) ----- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--moss-ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.brand .icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: block;
+  flex-shrink: 0;
+}
+.brand-name {
+  font-size: 18px;
+}
+
+/* ----- Cross-page chrome (header / footer / language toggle) -----
+   Shared by the landing page (pages/index.html) and prose pages
+   (pages/support/, pages/legal/privacy-policy/). LP-specific bits
+   like .lp-nav-links and the anchor menu live in lp.css instead. */
+
+.lp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 56px;
+}
+.lp-nav {
+  display: flex;
+  gap: 36px;
+  align-items: center;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.lp-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .lp-header {
+    padding: 16px 20px;
+  }
+}
+
+.lp-footer {
+  border-top: 1px solid var(--rule);
+  padding: 48px 56px 40px;
+  background: var(--page);
+}
+.foot-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 32px;
+}
+.foot-link {
+  display: block;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 2;
+}
+.foot-h {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.foot-tag {
+  margin: 16px 0 24px;
+  max-width: 340px;
+  font-size: 14px;
+}
+.foot-base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--muted);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.foot-copy {
+  flex: 1;
+  min-width: 0;
+}
+.foot-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .lp-footer {
+    padding: 36px 20px;
+  }
+  .foot-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  overflow: hidden;
+}
+.lang-toggle button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-2);
+  font: inherit;
+  letter-spacing: 0.18em;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.lang-toggle button.on,
+.lang-toggle button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--screen-bg);
+}
+.lang-toggle button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ----- Sheep avatar (SVG) -----
+   Mirrors Pastura/Pastura/Views/Components/SheepAvatar.swift — 28-unit
+   viewBox, five wool circles, face oval, two eyes, highlight dot, two
+   horns. Decorative; names are conveyed by the adjacent .bubble-name. */
+.sheep {
+  width: 48px;
+  height: 48px;
+  display: block;
+  flex-shrink: 0;
+}
+.sheep .wool { fill: currentColor; }
+.sheep .eye { fill: var(--ink); }
+.sheep .highlight { fill: var(--avatar-highlight); }
+.sheep .horn {
+  stroke-width: 1;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.sheep[data-tone="alice"] { color: var(--avatar-body-alice); }
+.sheep[data-tone="alice"] .face { fill: var(--avatar-face-alice); }
+.sheep[data-tone="alice"] .horn { stroke: var(--avatar-horn-alice); }
+
+.sheep[data-tone="bob"] { color: var(--avatar-body-bob); }
+.sheep[data-tone="bob"] .face { fill: var(--avatar-face-bob); }
+.sheep[data-tone="bob"] .horn { stroke: var(--avatar-horn-bob); }
+
+.sheep[data-tone="carol"] { color: var(--avatar-body-carol); }
+.sheep[data-tone="carol"] .face { fill: var(--avatar-face-carol); }
+.sheep[data-tone="carol"] .horn { stroke: var(--avatar-horn-carol); }
+
+.sheep[data-tone="dave"] { color: var(--avatar-body-dave); }
+.sheep[data-tone="dave"] .face { fill: var(--avatar-face-dave); }
+.sheep[data-tone="dave"] .horn { stroke: var(--avatar-horn-dave); }
+
+/* ----- Chat row (avatar + content column) -----
+   Mirrors Pastura/Pastura/Views/Components/ChatBubble.swift +
+   AgentOutputRow.swift: HStack { AvatarSlot; VStack(name, bubble,
+   thoughtSection) }. Tail at TOP-LEFT (4px), other corners 14px. */
+.bubble-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.bubble-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.bubble-name {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.bubble {
+  background: var(--bubble-bg);
+  border: 1px solid rgba(90, 90, 70, 0.12);
+  border-radius: 4px 14px 14px 14px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+  max-width: 520px;
+}
+.bubble blockquote {
+  margin: 0;
+}
+
+/* THINKING toggle row + thought body — sit OUTSIDE the bubble.
+   Toggle: ▾ THINKING (chevron + small mono uppercase tag).
+   Thought body: moss-soft 1.5px left rule with 8px gutter. */
+.thinking-toggle {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.thinking-toggle .chev {
+  color: var(--moss);
+  margin-right: 4px;
+}
+.thinking-toggle .tag {
+  color: var(--muted);
+}
+.thought-body {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  border-left: 1.5px solid var(--moss-soft);
+  padding-left: 8px;
+  margin-top: 4px;
+}
+
+/* ----- Promo card (DS §5.4) ----- */
+.promo {
+  background: var(--promo-bg);
+  border: 1px solid var(--promo-border);
+  border-left: 3px solid var(--moss);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+/* ----- CTA badges ----- */
+.badges {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: all 0.25s ease-out;
+}
+/* When .badge is rendered as a <button> (e.g., disabled "Coming soon" CTA),
+   strip browser-default button chrome so it matches the <a> path visually. */
+button.badge {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+button.badge:disabled {
+  cursor: not-allowed;
+}
+
+/* Apple's official "Download on the App Store" badge — used for the
+   pre-launch CTA. The badge itself is unmodified per Apple's brand
+   guidelines; visual disabled state is conveyed via opacity + a
+   "Coming soon" caption below. */
+.appstore-cta {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-decoration: none;
+  cursor: not-allowed;
+}
+.appstore-cta .appstore-img {
+  display: block;
+  width: 144px;
+  height: auto;
+  opacity: 0.55;
+  transition: opacity 0.2s ease-out;
+}
+.appstore-cta .appstore-status {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.badge .b-eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+}
+.badge .b-label {
+  font-size: 14px;
+  font-weight: 500;
+  display: block;
+}
+.badge.primary {
+  background: var(--moss-ink);
+  color: var(--page);
+  border-color: var(--moss-ink);
+}
+.badge.primary .b-eyebrow {
+  color: var(--moss-light);
+}
+.badge.secondary {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule);
+}
+.badge.secondary .b-eyebrow {
+  color: var(--muted);
+}
+.badge.ghost {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: transparent;
+  padding: 12px 0;
+}
+.badge.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ===== Accessibility ===== */
+
+/* Visually hidden but available to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link — invisible until focused */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  background: var(--moss-ink);
+  color: var(--screen-bg);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: top 0.2s ease-out;
+}
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid var(--moss);
+  outline-offset: 3px;
+}
+
+/* Universal focus ring — moss outline only on keyboard nav */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+.badge:focus-visible {
+  outline: 2px solid var(--moss-dark);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.badge:focus-visible {
+  border-radius: 10px;
+}
+
+/* Live indicator dot — slow pulse, killed under prefers-reduced-motion */
+.live-dot {
+  animation: livePulse 2400ms ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .live-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}

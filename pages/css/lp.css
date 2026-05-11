@@ -1,0 +1,489 @@
+/* Pastura Landing Page — LP-only layout (hero, journey acts,
+   capabilities, FAQ, anchor menu). Shared page chrome (header /
+   footer / language toggle) lives in pages/css/base.css.
+   Loaded after pages/css/base.css. Responsive contract: desktop
+   is the default; mobile values via @media (max-width: 768px). */
+
+/* ----- Header anchor menu (LP-only) -----
+   .lp-header / .lp-nav / .lang-toggle are shared chrome in base.css.
+   The anchor-link strip (.lp-nav-links) is LP-only because the
+   prose pages have no in-page sections to link to. */
+.lp-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 32px;
+}
+
+@media (max-width: 768px) {
+  /* Hide anchor nav links on mobile — only the LangToggle stays */
+  .lp-nav-links {
+    display: none;
+  }
+}
+
+/* ----- Section padding presets ----- */
+.lp-section {
+  padding: 120px 56px;
+}
+.lp-section.alt {
+  padding: 100px 56px;
+  background: var(--page);
+  border-top: 1px solid var(--rule);
+}
+.lp-section.alt-both {
+  border-bottom: 1px solid var(--rule);
+}
+/* "What is Pastura" — tighter top padding so the eyebrow peeks above
+   the fold on typical desktop viewports. Bottom padding stays at the
+   .alt default so the rhythm into the next section is preserved. */
+.lp-section.compact {
+  padding-top: 64px;
+}
+@media (max-width: 768px) {
+  .lp-section,
+  .lp-section.alt {
+    padding: 56px 24px;
+  }
+  /* Mobile: tighter on both edges, mirroring the original prototype
+     rhythm (48px vs 56px). */
+  .lp-section.compact {
+    padding: 48px 24px;
+  }
+}
+
+/* Section-leading eyebrow — repeated pattern (was inline style x5).
+   Used on the first .eyebrow inside section content wrappers. */
+.section-eyebrow {
+  margin-bottom: 24px;
+}
+
+/* Section title spacing — shared by journey / capabilities / FAQ h2s.
+   Hero h1 and "What is Pastura" / "Why on-device" h2s have unique
+   spacing handled by their own classes below. */
+.lp-section .section-title {
+  margin: 0 0 56px;
+  max-width: 560px;
+}
+
+/* "What is Pastura" section — flush h2 + muted sub-line, wider lead */
+.what-h {
+  margin: 0;
+}
+.what-h .sub {
+  color: var(--muted);
+}
+.what-lead {
+  margin: 24px 0 0;
+  max-width: 600px;
+}
+
+/* "Why on-device" section — tight h2 spacing, moss-tinted figure, narrow lead */
+.why-h {
+  margin: 0 0 16px;
+}
+.why-h .figure {
+  color: var(--moss-dark);
+}
+.why-lead {
+  margin: 0 0 32px;
+  max-width: 560px;
+}
+
+/* ----- Content max-width wrappers -----
+   Two widths only: Hero is wider for visual breathing, every other
+   section uses the same content width for a consistent reading rhythm. */
+.lp-content {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.lp-hero-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ----- Hero -----
+   Bottom padding is intentionally tight: the next section's eyebrow
+   ("What is Pastura") should peek above the fold on a typical
+   desktop viewport (≈800–900px tall), acting as a stronger scroll
+   affordance than any decorative cue would. */
+.lp-hero {
+  padding: 48px 56px 48px;
+}
+@media (max-width: 768px) {
+  .lp-hero {
+    padding: 32px 20px 32px;
+  }
+}
+
+.lp-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .lp-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
+.lp-hero h1 {
+  margin: 0;
+  max-width: 560px;
+}
+.lp-hero .lead {
+  margin: 24px 0 34px;
+  max-width: 520px;
+}
+.lp-hero .tagline {
+  margin-top: 24px;
+  font-size: 11.5px;
+}
+
+@media (max-width: 768px) {
+  .lp-hero h1 {
+    max-width: none;
+  }
+}
+
+/* Hero figure (live preview cascade) */
+.lp-hero-figure {
+  margin: 0;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+}
+@media (max-width: 768px) {
+  .lp-hero-figure {
+    padding: 22px 18px;
+  }
+}
+
+.lp-hero-figure-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.lp-hero-figure-head .leaf {
+  width: 8px;
+  height: 8px;
+  background: var(--moss);
+  transform: rotate(45deg);
+  display: inline-block;
+}
+.lp-hero-figure-head .label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--ink-2);
+}
+.lp-hero-figure-head .live {
+  margin-left: auto;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--moss-dark);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-hero-figure-head .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--moss-dark);
+}
+
+/* ----- Observation journey ----- */
+.lp-journey-act {
+  display: grid;
+  grid-template-columns: 60px 1.1fr 1fr;
+  gap: 40px;
+  padding-bottom: 56px;
+  margin-bottom: 56px;
+  border-bottom: 1px solid var(--rule);
+}
+.lp-journey-act:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.lp-journey-act .num {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--moss-dark);
+  letter-spacing: 0.22em;
+  padding-top: 6px;
+}
+.lp-journey-act h3 {
+  margin: 0 0 12px;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.lp-journey-act .body {
+  margin: 0;
+  max-width: 480px;
+}
+
+/* Step 01 — Visual Editor mock card.
+   Mirrors Pastura/Pastura/Views/Editor/ScenarioEditorView.swift:
+   Form with Basic Info / Personas / Phases sections. */
+.editor-mock {
+  background: var(--bubble-bg);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 0;
+  max-width: 420px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.editor-mock .em-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.editor-mock .em-section:last-child {
+  border-bottom: none;
+}
+.editor-mock .em-section-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+.editor-mock .em-field {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(224, 219, 206, 0.5);
+}
+.editor-mock .em-field:last-child {
+  border-bottom: none;
+}
+.editor-mock .em-field-label {
+  color: var(--ink-2);
+  flex: 0 0 auto;
+  min-width: 80px;
+}
+.editor-mock .em-field-value {
+  color: var(--ink);
+  flex: 1;
+}
+.editor-mock .em-field-value.muted {
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+}
+.editor-mock .em-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(224, 219, 206, 0.5);
+}
+.editor-mock .em-row:last-child {
+  border-bottom: none;
+}
+.editor-mock .em-row .em-pill {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--moss-dark);
+  background: rgba(138, 154, 108, 0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.editor-mock .em-row .em-name {
+  flex: 1;
+}
+.editor-mock .em-count {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.editor-mock-aside {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 12px;
+  max-width: 420px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+
+/* Step 02 — Promo card.
+   Mirrors Pastura/Pastura/Views/ModelDownload/PromoCard.swift:
+   metaRow (DL bar + percent) on top, ETA below dots, bodyRow below
+   (DogMark + slot copy). Vertical, not side-by-side. */
+.journey-promo {
+  max-width: 420px;
+  padding: 0;
+}
+.journey-promo .meta-row {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--moss-ink);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  letter-spacing: 0.06em;
+  padding: 10px 14px 4px;
+  flex-wrap: wrap;
+}
+.journey-promo .dl-dots {
+  display: inline-flex;
+  gap: 2.5px;
+}
+.journey-promo .dl-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+.journey-promo .dl-dots .dot.on {
+  background: var(--moss-dark);
+}
+.journey-promo .dl-dots .dot.off {
+  background: rgba(138, 154, 108, 0.38);
+}
+.journey-promo .eta-row {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--moss-ink);
+  letter-spacing: 0.06em;
+  padding: 0 14px 8px 16px;
+  font-weight: 600;
+}
+.journey-promo .body-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 14px 13px;
+}
+.journey-promo .body-line {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.journey-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 420px;
+}
+
+@media (max-width: 768px) {
+  .lp-journey-act {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding-bottom: 40px;
+    margin-bottom: 40px;
+  }
+  .lp-journey-act h3 {
+    font-size: 22px;
+  }
+}
+
+/* ----- Capabilities ----- */
+.lp-cap-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 64px;
+}
+@media (max-width: 768px) {
+  .lp-cap-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cap-item {
+  border-top: 1px solid var(--rule);
+  padding: 22px 0;
+}
+.cap-item h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.cap-item p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.cap-glyph {
+  width: 22px;
+  height: 22px;
+  color: var(--moss-ink);
+  margin-bottom: 10px;
+  display: block;
+}
+
+/* ----- Why on-device meta list ----- */
+.why-list {
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  line-height: 2;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--muted);
+}
+
+/* ----- FAQ — always-expanded list -----
+   No collapsibility per design decision: all answers are short enough
+   to read at a glance, and expand/collapse adds noise without value. */
+.faq-item {
+  border-top: 1px solid var(--rule);
+  padding: 22px 0;
+}
+.faq-item:last-of-type {
+  border-bottom: 1px solid var(--rule);
+}
+.faq-q {
+  font-size: 16px;
+  color: var(--ink);
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.faq-a {
+  font-size: 15px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin: 0;
+  max-width: 640px;
+}
+.faq-a a {
+  color: var(--moss-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.faq-a a:hover {
+  color: var(--moss-ink);
+}
+
+/* .lp-footer + .foot-* + .lang-toggle moved to base.css — shared by
+   prose pages (pages/support/, pages/legal/privacy-policy/). */

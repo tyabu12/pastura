@@ -87,23 +87,51 @@ nonisolated struct ScenarioValidator: Sendable {
     return result
   }
 
-  /// Enforces ``ScenarioConventions/primaryField(for:)`` for LLM phases.
+  /// Enforces ``ScenarioConventions/primaryField(for:)`` for LLM phases,
+  /// recursing into `conditional` branches so canonical-field violations
+  /// inside `then:` / `else:` sub-phases are caught at commit time.
   /// Code phases are exempt (the conventions table returns `nil` and the
-  /// loop skips them).
+  /// per-phase check returns early). Termination is trivial: `.conditional`
+  /// is depth-1 by both `validateConditionalPhase` and the YAML parser
+  /// (`ScenarioLoader.mapPhase`), so the recursion bottoms out after one
+  /// descent.
   private func validateCanonicalPrimaryFields(_ scenario: Scenario) throws {
     for (index, phase) in scenario.phases.enumerated() {
-      guard let canonical = ScenarioConventions.primaryField(for: phase.type) else {
-        continue
-      }
-      let schema = phase.outputSchema ?? [:]
-      if schema[canonical] == nil {
-        throw SimulationError.scenarioValidationFailed(
-          String(
-            localized:
-              "Phase \(index + 1) (\(phase.type.rawValue)) requires field '\(canonical)' in output."
-          )
+      let label = "Phase \(index + 1)"
+      try validateCanonicalPrimaryField(in: phase, label: label)
+      // Mirror `validateBranch`'s label shape so sub-phase errors carry
+      // the parent's "(conditional)" annotation — keeps a single mental
+      // template across all branch-related validator messages.
+      let parentLabel = "\(label) (\(phase.type.rawValue))"
+      try validateBranchCanonicalFields(
+        phase.thenPhases, parentLabel: parentLabel, branchLabel: "then")
+      try validateBranchCanonicalFields(
+        phase.elsePhases, parentLabel: parentLabel, branchLabel: "else")
+    }
+  }
+
+  private func validateCanonicalPrimaryField(in phase: Phase, label: String) throws {
+    guard let canonical = ScenarioConventions.primaryField(for: phase.type) else {
+      return
+    }
+    let schema = phase.outputSchema ?? [:]
+    if schema[canonical] == nil {
+      throw SimulationError.scenarioValidationFailed(
+        String(
+          localized:
+            "\(label) (\(phase.type.rawValue)) requires field '\(canonical)' in output."
         )
-      }
+      )
+    }
+  }
+
+  private func validateBranchCanonicalFields(
+    _ phases: [Phase]?, parentLabel: String, branchLabel: String
+  ) throws {
+    guard let phases else { return }
+    for (subIndex, subPhase) in phases.enumerated() {
+      try validateCanonicalPrimaryField(
+        in: subPhase, label: "\(parentLabel) \(branchLabel)[\(subIndex + 1)]")
     }
   }
 

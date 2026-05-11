@@ -79,23 +79,21 @@ final class NavigationRegressionTests: XCTestCase {
     wait(for: [enabledExpectation], timeout: 10)
     runSimulation.tap()
 
-    // Canary assertion: SimulationView header is the first element that
-    // renders after the route transition, BEFORE any LLM inference. If the
-    // regression returns, this times out because the stack either stays on
-    // ScenarioDetailView or re-pushes it.
-    //
-    // Identifier was `simulation.header` until the "fill the bar" refactor
-    // (#344, commit 9b235cf) split the unified header into `titleRow`
-    // (hosted in `ToolbarItem(.principal)`) + `metaRow` (mounted via
-    // `safeAreaInset(.top)`). Title row is the post-push first-render
-    // element and stays attached to the route transition. Toolbar
-    // principal slot rendering can land in any XCUI element class
-    // (button / staticText / other depending on iOS version), so we
-    // match by identifier across all descendants rather than gambling
-    // on a specific element type.
-    let simulationHeader = app.descendants(matching: .any)["simulation.header.title"]
+    // Canary assertion: SimulationView's meta-row inset is the always-
+    // rendered surface after the route transition, BEFORE any LLM
+    // inference (its `safeAreaInset(.top)` falls through to a 1pt spacer
+    // when `hasMetaRow == false`, so the identifier exists from first
+    // frame — see `SimulationView.headerMetaInset`). The split-header
+    // refactor in #344 moved the title row into `ToolbarItem(.principal)`
+    // (UIKit-bridged tree placement), so we anchor on the meta inset
+    // instead of the previously-unified `simulation.header`. Using
+    // `descendants(matching:)` keeps the query immune to UIKit/SwiftUI
+    // tree-placement quirks. If the PR #93 regression returns, this
+    // times out because the stack either stays on ScenarioDetailView or
+    // re-pushes it.
+    let simulationHeader = app.descendants(matching: .any)["simulation.header.meta"]
     XCTAssertTrue(
       simulationHeader.waitForExistence(timeout: 10),
-      "SimulationView header did not appear — navigation regression suspected.")
+      "SimulationView meta-row inset did not appear — navigation regression suspected.")
   }
 }
