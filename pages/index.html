@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Pastura — An AI you observe, not operate.</title>
+  <title>Pastura — AIgazing for local LLMs.</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pastura runs multi-agent scenarios entirely on your device. On-device LLM, fully offline, no cloud calls.">
+  <meta name="description" content="AIgazing — a local LLM sandbox for multi-agent scenarios. Fully offline, fully on-device. Watch AI agents reason, negotiate, and play — without sending a token to the cloud.">
   <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)">
 
@@ -16,8 +16,8 @@
   <link rel="apple-touch-icon" href="img/app-icon.png">
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Pastura — An AI you observe, not operate.">
-  <meta property="og:description" content="Multi-agent scenarios that run entirely on your device.">
+  <meta property="og:title" content="Pastura — AIgazing for local LLMs.">
+  <meta property="og:description" content="AIgazing — a local LLM sandbox. Fully offline, fully on-device.">
   <meta property="og:url" content="https://tyabu12.github.io/pastura/">
   <!-- Stub: app-icon (256×256) used as og:image until proper 1200×630 OGP design ships. -->
   <meta property="og:image" content="https://tyabu12.github.io/pastura/img/app-icon.png">
@@ -25,8 +25,8 @@
   <meta property="og:image:height" content="256">
   <meta property="og:image:alt" content="Pastura app icon">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Pastura — An AI you observe, not operate.">
-  <meta name="twitter:description" content="Multi-agent scenarios that run entirely on your device.">
+  <meta name="twitter:title" content="Pastura — AIgazing for local LLMs.">
+  <meta name="twitter:description" content="AIgazing — a local LLM sandbox. Fully offline, fully on-device.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,7 +40,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Pastura",
-    "description": "Multi-agent scenarios that run entirely on your device.",
+    "description": "AIgazing — a local LLM sandbox. Fully offline, fully on-device.",
     "url": "https://tyabu12.github.io/pastura/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "iOS 17+"
@@ -74,8 +74,11 @@
     <section class="lp-hero" aria-labelledby="hero-h">
       <div class="lp-hero-wrap lp-hero-grid">
         <div>
-          <h1 id="hero-h" class="display">An AI you observe, not operate.</h1>
-          <p class="lead">You arrived. They&rsquo;re already talking. — Pastura is a closed pasture inside your device where AI agents act out scenarios you wrote. Nothing leaves the device.</p>
+          <!-- AIgazing is an English-only genre word (a portmanteau of AI + stargazing).
+               The Japanese LP, once it ships, will need a structurally different Hero h1
+               — do not machine-translate this line. -->
+          <h1 id="hero-h" class="display">AIgazing.<br>Like stargazing,<br>but for local LLMs.</h1>
+          <p class="lead">You arrived. They&rsquo;re already talking.<br>Pastura is a closed pasture inside your device where AI agents act out scenarios you wrote. Nothing leaves the device.</p>
           <div class="badges">
             <button type="button" aria-disabled="true"
                     class="appstore-cta"
@@ -372,21 +375,21 @@
         </h2>
         <ul class="lp-cap-grid">
           <li class="cap-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" aria-hidden="true" focusable="false">
-              <path d="M3 12a9 9 0 0 1 18 0"/>
-              <path d="M7 12a5 5 0 0 1 10 0"/>
-              <circle cx="12" cy="17" r="1.2" fill="currentColor"/>
-              <path d="M4 4l16 16" stroke-width="1.2"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <rect x="4" y="3" width="16" height="18" rx="1.5"/>
+              <path d="M8 8h8M8 12h8M8 16h5"/>
             </svg>
-            <h3>Fully offline</h3>
-            <p>No cloud calls. Airplane mode is fine.</p>
+            <h3>Declarative scenarios</h3>
+            <p class="cap-lead">Write the world before pressing play.</p>
+            <p>Define personas, phases, and win conditions in a form. Or toggle to YAML for direct control. Scenarios are validated at load and re-runnable like code.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 8h11l-3-3M19 16H8l3 3"/>
             </svg>
             <h3>Swappable models</h3>
-            <p>Gemma 4 E2B and Qwen 3 4B today &mdash; more to come.</p>
+            <p class="cap-lead">Local models, your choice.</p>
+            <p>Ships with Gemma 4 E2B and Qwen 3 4B today, around 3 GB each. More models on the way. Pick one, switch any time. All run on-device, no servers between you and the inference.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -396,23 +399,27 @@
               <path d="M8.2 11l7.6-3.6M8.2 13l7.6 3.6"/>
             </svg>
             <h3>Shared Scenarios</h3>
-            <p>Browse and import what others wrote.</p>
+            <p class="cap-lead">Browse what others wrote.</p>
+            <p>A curated gallery of community scenarios. Preview, import in one tap, replay on your own model. Read-only for now; submissions land in a later phase.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <rect x="3" y="6" width="18" height="12" rx="1.5"/>
-              <path d="M7 14V10l2 2 2-2v4M15 10v4M15 14l-1.4-1.4M15 14l1.4-1.4"/>
+              <path d="M5 12v7c0 .5.5 1 1 1h12c.5 0 1-.5 1-1v-7"/>
+              <path d="M12 3v12"/>
+              <path d="M8 7l4-4 4 4"/>
             </svg>
-            <h3>Markdown export</h3>
-            <p>Take the transcript with you. Plain text. Yours.</p>
+            <h3>Exportable logs</h3>
+            <p class="cap-lead">Take the conversation with you.</p>
+            <p>Export observation logs in Markdown or YAML. Paste into a notebook, commit to a repo, share as a gist. The transcript is yours; nothing stays locked in the app.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>
               <path d="M9 12l2 2 4-4"/>
             </svg>
-            <h3>Data sovereignty</h3>
-            <p>No telemetry. No analytics. No anonymous-stats checkbox.</p>
+            <h3>No cloud, no telemetry</h3>
+            <p class="cap-lead">Privacy by structure, not by promise.</p>
+            <p>Inference happens on-device. Airplane mode is fine. Nothing leaves the device: no telemetry, no analytics, no anonymous-stats checkbox to debate.</p>
           </li>
         </ul>
       </div>
@@ -433,6 +440,28 @@
           monthly bill — $0<br>
           data leaving the device — 0 bytes<br>
           on-device weight — ~3 GB
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== Bigger picture (AIgazing landing) ===== -->
+    <!-- Intentionally not linked from header / footer nav. A
+         contemplative coda — readers arrive by scrolling, not by
+         jumping. Mirrors the `What is Pastura` Strip's visual
+         treatment (`alt-both compact`) so the LP's thought →
+         concrete → thought sandwich is structurally visible.
+         Placed between Why on-device and FAQ so the contemplative
+         mode flows alongside the on-device thought rather than
+         jumping from FAQ's Q&A list into a meditative coda. -->
+    <section class="lp-section alt alt-both compact" aria-labelledby="picture-h">
+      <div class="lp-content">
+        <p class="eyebrow section-eyebrow">A bigger picture</p>
+        <h2 id="picture-h" class="display-sm">
+          Stargazing taught us to look up.<br>
+          AIgazing teaches us to look at what we&rsquo;ve made.
+        </h2>
+        <p class="lead">
+          We rarely stop to watch our own machines think. Pastura is a window into that, quiet, on-device, yours alone. Whether it tells us something about them, or about us, is left as an exercise for the observer.
         </p>
       </div>
     </section>
@@ -468,9 +497,6 @@
           <img class="icon" src="img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
           <span class="brand-name">Pastura</span>
         </a>
-        <p class="body foot-tag">
-          An AI you observe, not operate. On-device, offline, no cloud calls.
-        </p>
         <div class="badges">
           <button type="button" aria-disabled="true"
                   class="appstore-cta"
