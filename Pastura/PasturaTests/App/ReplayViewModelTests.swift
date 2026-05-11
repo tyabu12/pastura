@@ -272,4 +272,75 @@ struct ReplayViewModelTests {
     viewModel.downloadComplete()
     #expect(viewModel.state == .idle)
   }
+
+  // MARK: - currentSourceIndex (identity-state surface)
+  //
+  // Regression suite for #355: `currentSourceIndex` must return the
+  // active source index across BOTH `.playing` and `.paused` so the
+  // host view's position-based render state (sheep-avatar colors,
+  // GameHeader scenario name) does not flicker on user pause / resume.
+  // Contrast with `currentPhaseIndex` / `totalPhaseCount` / `headerRound`,
+  // which intentionally collapse on pause (#297 PR3).
+
+  @Test func currentSourceIndexIsNilWhileIdle() throws {
+    let viewModel = try Self.makeVM()
+    #expect(viewModel.currentSourceIndex == nil)
+  }
+
+  @Test func currentSourceIndexReturnsIndexWhilePlaying() throws {
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    #expect(viewModel.currentSourceIndex == 0)
+  }
+
+  @Test func currentSourceIndexReturnsIndexWhilePausedByScenePhase() async throws {
+    // Mirrors `onBackgroundTransitionsPlayingToPaused` setup so we
+    // reliably land in `.paused(.scenePhase)` with a valid sourceIndex.
+    let slowConfig = ReplayPlaybackConfig(
+      playbackSpeed: .normal,
+      turnDelayMs: 200, codePhaseDelayMs: 50,
+      loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
+    let source = try YAMLReplaySource(
+      yaml: Self.threeTurnYAML, scenario: Self.makeScenario(),
+      config: slowConfig)
+    let viewModel = ReplayViewModel(sources: [source], config: slowConfig)
+    viewModel.start()
+    try await Task.sleep(for: .milliseconds(20))
+    viewModel.onBackground()
+    guard case .paused(_, _, _, .scenePhase) = viewModel.state else {
+      Issue.record("Expected .paused(.scenePhase), got \(viewModel.state)")
+      return
+    }
+    #expect(viewModel.currentSourceIndex == 0)
+  }
+
+  @Test func currentSourceIndexReturnsIndexWhilePausedByUser() async throws {
+    // `.user` pauses are the path the controlBar drives — the actual
+    // bug surface in #355. `PauseReason` must not change identity.
+    let slowConfig = ReplayPlaybackConfig(
+      playbackSpeed: .normal,
+      turnDelayMs: 200, codePhaseDelayMs: 50,
+      loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
+    let source = try YAMLReplaySource(
+      yaml: Self.threeTurnYAML, scenario: Self.makeScenario(),
+      config: slowConfig)
+    let viewModel = ReplayViewModel(sources: [source], config: slowConfig)
+    viewModel.start()
+    try await Task.sleep(for: .milliseconds(20))
+    viewModel.userPause()
+    guard case .paused(_, _, _, .user) = viewModel.state else {
+      Issue.record("Expected .paused(.user), got \(viewModel.state)")
+      return
+    }
+    #expect(viewModel.currentSourceIndex == 0)
+  }
+
+  @Test func currentSourceIndexIsNilWhileTransitioning() async throws {
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    await Self.waitForState(viewModel) { _ in viewModel.agentOutputs.count >= 1 }
+    viewModel.downloadComplete()
+    #expect(viewModel.state == .transitioning)
+    #expect(viewModel.currentSourceIndex == nil)
+  }
 }

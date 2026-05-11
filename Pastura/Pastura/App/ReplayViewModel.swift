@@ -301,6 +301,35 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Public computed properties (GameHeader integration)
 
+  /// Currently-active source index — the identity of "which demo is on
+  /// screen right now," independent of playback progress. Returns the
+  /// `sourceIndex` for BOTH `.playing` and `.paused`; `nil` for `.idle`
+  /// and `.transitioning` where no source is active.
+  ///
+  /// **Contrast with the `.playing`-only gated properties below**
+  /// (`currentPhaseIndex`, `totalPhaseCount`, `headerRound`). Those
+  /// intentionally collapse on pause per #297 PR3 so the GameHeader's
+  /// ROUND fragment hides during pause. `currentSourceIndex` is the
+  /// inverse — pausing must NOT change which source the user is
+  /// viewing, otherwise position-based render state (sheep-avatar
+  /// colors, scenario name in the header) flickers between pause and
+  /// resume (regression fixed in #355).
+  ///
+  /// **Prefer this over external `if case .playing(let i, _) = state`
+  /// pattern-matching** when only source identity is needed —
+  /// `.paused(sourceIndex: i, ...)` carries the same identity. The
+  /// `.playing`-only habit is precisely the bug class this property
+  /// guards against.
+  var currentSourceIndex: Int? {
+    switch state {
+    case .playing(let sourceIndex, _),
+      .paused(let sourceIndex, _, _, _):
+      return sourceIndex
+    case .idle, .transitioning:
+      return nil
+    }
+  }
+
   /// 1-based phase index within the currently-playing source. Increments
   /// on each consumed `.phaseStarted`. `nil` outside `.playing` so the
   /// GameHeader's ROUND fragment collapses during `.idle` /

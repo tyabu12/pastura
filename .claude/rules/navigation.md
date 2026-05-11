@@ -310,6 +310,15 @@ surface changes in areas the automated tests do not exercise.
      fine — Demo's GameHeader is the screen's primary heading. Verify
      rotor-Headings on Demo lands on the GameHeader, not on a chat
      row.
+   - **Demo pause — Stop 2 must keep scenarioName** (#355 regression
+     guard): tap the controlBar's pause button on Demo and re-traverse
+     the header. Stop 2 should announce `"Paused, <scenarioName>"`
+     (e.g., `"Paused, ワードウルフ"`), NOT `"Paused"` (collapsed). The
+     prior `currentPresetName`-on-`.playing`-only gating made it
+     collapse; the fix routes through `ReplayViewModel.currentSourceIndex`
+     which spans `.playing` + `.paused`. Also verify the speaker
+     sheep avatar colors do not shift between pre-pause and paused
+     state — same root cause, same regression guard.
 3. **Editor save → Home reload** — `EditorReloadTests` covers the
    `onChange(of: router.path.count)` pop-trigger path. Note: the trigger
    only fires when `newCount < oldCount` (a pop). Flows that finish by
