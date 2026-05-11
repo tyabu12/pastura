@@ -14,6 +14,7 @@ goes through `Route` cases resolved by HomeView's
 | `router.push(.X)` | **Programmatic** push from synchronous code (button action, callback). |
 | `router.pushIfOnTop(expected:next:)` | **Programmatic push after `await`** — guards against pushing onto an unrelated screen if the user popped back during the suspension. |
 | `router.pop()` / `router.popToRoot()` | Programmatic back / unwind. |
+| `PasturaBackButton()` | Custom back chevron for **root NavigationStack** pushed views. Wraps `router.pop()`. Use with `.navigationBarBackButtonHidden(true)` + `.preservesPasturaSwipeBackGesture()`. See "Custom back button" section below. |
 | `@Environment(\.dismiss)` | Dismissing a sheet / modal that is **not** part of the root stack. |
 
 ## Forbidden inside the root stack
@@ -58,6 +59,50 @@ struct GalleryScenarioDetailView: View {
   }
 }
 ```
+
+## Custom back button — `PasturaBackButton`
+
+Every view pushed onto the root `NavigationStack` MUST replace the
+system back chevron with `PasturaBackButton()` to opt out of iOS 26's
+automatic Liquid Glass capsule styling. The pair of modifiers is
+load-bearing — omitting either breaks behavior:
+
+```swift
+.navigationBarBackButtonHidden(true)        // hide system back BUTTON
+.preservesPasturaSwipeBackGesture()         // re-enable swipe-back gesture
+.toolbar {
+  ToolbarItem(placement: .topBarLeading) { PasturaBackButton() }
+  // ... other action items in the SAME toolbar { } block ...
+}
+```
+
+**Why `.preservesPasturaSwipeBackGesture()` is required**: on iOS 26,
+`.navigationBarBackButtonHidden(true)` ALSO disables the
+`UINavigationController.interactivePopGestureRecognizer` (verified by
+`BackGestureTests` regressing without the modifier). The modifier
+mounts an invisible `UIViewControllerRepresentable` probe at the view
+level (NOT inside the `ToolbarItem` — toolbar slots constrain size
+enough that `.background()` doesn't render the representable) which
+walks to the host `UINavigationController` and reinstalls the gesture
+with a delegate gating on `viewControllers.count > 1` — preserving
+swipe-back on pushed views without re-enabling pop on the root.
+
+**Scope**: root NavigationStack push only. Sheet / fullScreenCover
+content has its own dismiss path — use `@Environment(\.dismiss)`
+directly. `PasturaBackButton` calls `router.pop()` which mutates
+`AppRouter.path` and does NOT dismiss sheets.
+
+**Accepted accessibility regression**: System back announces
+`"Back, button, <upstream view title>"`; `PasturaBackButton` announces
+only `"Back, button"`. The chevron-only design intentionally drops
+the contextual upstream title for visual quietude (design-system §1).
+QA scenario 2 below documents the new VoiceOver expectation.
+
+**Action item button styling**: pair `PasturaToolbarButtonStyle`
+(`.primary` / `.destructive` / `.secondary` variants) with toolbar
+action buttons to opt out of the Liquid Glass capsule that iOS 26
+auto-applies based on `ToolbarItemPlacement`. See
+`docs/design/design-system.md` § 5.8 for variant → token mapping.
 
 ## Sheets, popovers, fullScreenCover — out of scope
 
@@ -177,10 +222,11 @@ surface changes in areas the automated tests do not exercise.
    - Sim's nav bar **principal slot** shows leaf icon + scenario name
      (single-line, truncating with `…` if too long) + status pill
      ("Simulating" / "Paused" / "Completed").
-   - The **back chevron** still shows the upstream `ScenarioDetail`'s
-     title (iOS uses the previous view's title — chevron + label
-     remain Liquid-Glass-styled on iOS 26; tracked separately at
-     #342).
+   - The **back chevron** is `PasturaBackButton` (#342) — flat
+     `chevron.backward` SF Symbol in `Color.ink`, NO Liquid Glass
+     capsule. Upstream view title is intentionally NOT shown
+     (chevron-only design). Verify on **iOS 26** specifically that
+     no translucent capsule background appears around the chevron.
    - `GameHeader.titleRow` (in the bar) shows the scenario name on
      first frame (driven by `Route.simulation.initialName`
      `RouteHint`) — no visible pop-in delay between push and
@@ -188,9 +234,13 @@ surface changes in areas the automated tests do not exercise.
    - **No transient double-title** during the push-in animation from
      `ScenarioDetail` (the bda1f70 regression that forced 7af22d0).
    - **Swipe-back from left edge** returns to `ScenarioDetail`. The
-     bar slot stays interactive throughout (FB13484530 — the
-     `.toolbar(.hidden)` regression — does NOT affect
-     `.toolbarBackground(.hidden)`).
+     bar slot stays interactive throughout. The
+     `.preservesPasturaSwipeBackGesture()` probe must be mounted at
+     the view level (not inside `ToolbarItem`); `BackGestureTests`
+     regresses if the probe is missing (#342). Verify on iOS 17, 18,
+     and 26 — the swipe-back disable on hidden back button surfaced
+     on iOS 26 specifically and is the canary for that platform's
+     `interactivePopGestureRecognizer` semantics.
 
    **Frosted-BG continuity & scroll-edge transition**
    - The frosted moss material visually spans status bar + nav bar
@@ -234,8 +284,11 @@ surface changes in areas the automated tests do not exercise.
    The split rendering crosses the UIKit ↔ SwiftUI a11y boundary;
    the original single combined-element stop becomes 3 stops:
 
-   - **Stop 1 — back button** (system-managed): "Back, button,
-     `<ScenarioDetailViewTitle>`".
+   - **Stop 1 — back button** (`PasturaBackButton`, #342): "Back,
+     button". The contextual upstream title (`<ScenarioDetailViewTitle>`)
+     that the system back button used to append is intentionally
+     dropped — chevron-only design choice. Accept the regression;
+     do NOT wire upstream title back into the `accessibilityLabel`.
    - **Stop 2 — title row** (combined element with `.isHeader`
      trait): `"<status>, <scenarioName>"` — e.g., `"Simulating,
      ワードウルフ"` or `"Completed"` (collapses to status when title

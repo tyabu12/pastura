@@ -44,19 +44,9 @@ struct ScenarioEditorView: View {
       viewModel.scenarioName.isEmpty ? String(localized: "New Scenario") : viewModel.scenarioName
     )
     .navigationBarTitleDisplayMode(.inline)
-    .toolbar {
-      ToolbarItem(placement: .confirmationAction) {
-        Button(String(localized: "Save")) {
-          Task {
-            if await viewModel.save() {
-              dismiss()
-            }
-          }
-        }
-        .disabled(viewModel.isSaving)
-        .accessibilityIdentifier("editor.saveButton")
-      }
-    }
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
+    .toolbar { toolbarContent }
     .sheet(isPresented: $showNewPersonaSheet) {
       PersonaEditorSheet(name: "", description: "") { name, description in
         viewModel.personas.append(EditablePersona(name: name, description: description))
@@ -90,6 +80,25 @@ struct ScenarioEditorView: View {
       }
       .deepLinkGated()
     }
+  }
+
+  // MARK: - Toolbar
+
+  @ToolbarContentBuilder
+  private var toolbarContent: some ToolbarContent {
+    ToolbarItem(placement: .topBarLeading) { PasturaBackButton() }
+      .hidingPasturaSharedBackground()
+    ToolbarItem(placement: .confirmationAction) {
+      Button(String(localized: "Save")) {
+        Task {
+          if await viewModel.save() { dismiss() }
+        }
+      }
+      .buttonStyle(PasturaToolbarButtonStyle(variant: .primary))
+      .disabled(viewModel.isSaving)
+      .accessibilityIdentifier("editor.saveButton")
+    }
+    .hidingPasturaSharedBackground()
   }
 
   // MARK: - Visual Editor

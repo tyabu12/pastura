@@ -24,6 +24,14 @@ struct ImportView: View {
         ? String(localized: "Edit Scenario") : String(localized: "Import Scenario")
     )
     .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
+    .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+      .hidingPasturaSharedBackground()
+    }
     .task {
       // Defer assignment until loadForEditing completes so the TextEditor
       // never renders the default empty `yamlText` between VM creation and

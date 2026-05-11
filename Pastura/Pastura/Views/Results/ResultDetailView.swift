@@ -69,7 +69,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     }
     .navigationTitle(String(localized: "Result Detail"))
     .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         Button {
           Task { await triggerExport() }
@@ -80,8 +86,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
             Image(systemName: "square.and.arrow.up")
           }
         }
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
         .disabled(!canExport)
       }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         // Sits next to the Markdown share button so the two export
         // paths are equally discoverable. Keeping it in
@@ -98,8 +106,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
             Image(systemName: "film")
           }
         }
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
         .disabled(!canExportYAML)
       }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .secondaryAction) {
         // Currently the only `.secondaryAction` — renders inline. If a future
         // toolbar change adds a second `.secondaryAction`, SwiftUI promotes

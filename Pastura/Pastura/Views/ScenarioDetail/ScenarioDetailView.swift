@@ -41,13 +41,27 @@ struct ScenarioDetailView: View {
     // a hint; "Scenario" would be a misleading flash).
     .navigationTitle(viewModel?.scenario?.name ?? initialName ?? "")
     .navigationBarTitleDisplayMode(.large)
+    // Hide the system back button to escape iOS 26's Liquid Glass capsule
+    // styling on the chevron. `.navigationBarBackButtonHidden` ALSO
+    // disables the `interactivePopGestureRecognizer` on iOS 26 (verified
+    // by `BackGestureTests` — see PasturaBackButton's UIKit bridge for
+    // why), so we pair it with `.preservesPasturaSwipeBackGesture()`
+    // which mounts an invisible probe to reinstall the gesture.
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+      .hidingPasturaSharedBackground()
       if let record = viewModel?.record, !record.isPreset {
         ToolbarItem(placement: .destructiveAction) {
           Button(String(localized: "Delete"), role: .destructive) {
             showDeleteConfirm = true
           }
+          .buttonStyle(PasturaToolbarButtonStyle(variant: .destructive))
         }
+        .hidingPasturaSharedBackground()
       }
     }
     .confirmationDialog(

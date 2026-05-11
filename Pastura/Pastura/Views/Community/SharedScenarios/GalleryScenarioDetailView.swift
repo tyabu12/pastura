@@ -33,6 +33,8 @@ struct GalleryScenarioDetailView: View {
       }
     }
     .navigationTitle(scenario.title)
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
     .task {
       // Defer assignment until `load()` completes so the action button
       // never renders "Try this scenario" between VM creation and the
@@ -51,6 +53,10 @@ struct GalleryScenarioDetailView: View {
       Alert(title: Text(alert.title), message: Text(alert.message))
     }
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         Menu {
           Button {
@@ -64,7 +70,10 @@ struct GalleryScenarioDetailView: View {
         } label: {
           Label(String(localized: "More"), systemImage: "ellipsis.circle")
         }
+        .menuStyle(.button)
+        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
       }
+      .hidingPasturaSharedBackground()
     }
     .sheet(isPresented: $isReportSheetPresented) {
       ReportScenarioSheet(scenario: scenario)

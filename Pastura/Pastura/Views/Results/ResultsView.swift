@@ -26,6 +26,14 @@ struct ResultsView: View {
       }
     }
     .navigationTitle(String(localized: "Past Results"))
+    .navigationBarBackButtonHidden(true)
+    .preservesPasturaSwipeBackGesture()
+    .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        PasturaBackButton()
+      }
+      .hidingPasturaSharedBackground()
+    }
     .task {
       viewModel = ResultsViewModel(
         scenarioRepository: dependencies.scenarioRepository,
