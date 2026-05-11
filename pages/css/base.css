@@ -229,6 +229,14 @@ body {
   grid-template-columns: 1.4fr 1fr 1fr;
   gap: 32px;
 }
+/* The first column stacks brand + App Store badge vertically. Without this,
+   .brand (inline-flex) and .badges (inline-flex) would sit on one line. */
+.foot-grid > div:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+}
 .foot-link {
   display: block;
   color: var(--ink-2);

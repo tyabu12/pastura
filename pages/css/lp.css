@@ -131,6 +131,9 @@
 .lp-hero h1 {
   margin: 0;
   max-width: 560px;
+  /* Override .display 64px — the AIgazing tagline needs to fit the grid's
+     left column (~558px wide) without forcing a third line break. */
+  font-size: 52px;
 }
 .lp-hero .lead {
   margin: 24px 0 34px;
