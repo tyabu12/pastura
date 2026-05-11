@@ -222,18 +222,29 @@ struct ModelDownloadHostView: View {
           // see the token's docstring for the historical 14pt prototype
           // reference and the divergence rationale.
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
-            ForEach(viewModel.agentOutputs) { entry in
-              AgentOutputRow(
-                agent: entry.agent,
-                output: entry.output,
-                phaseType: entry.phaseType,
-                showAllThoughts: showAllThoughts,
-                isLatest: entry.id == viewModel.agentOutputs.last?.id,
-                charsPerSecond: 60,
-                agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
-              )
-              .id(entry.id)
-              .transition(reduceMotion ? .identity : .opacity)
+            // `isLatest` keys off the last agent output, not the last
+            // chatItem (#208), so a `.demoBoundary` does not retrigger
+            // the typing animation on the bubble that precedes it.
+            let lastAgentId = viewModel.agentOutputs.last?.id
+            ForEach(viewModel.chatItems) { item in
+              switch item {
+              case .agentOutput(let entry):
+                AgentOutputRow(
+                  agent: entry.agent,
+                  output: entry.output,
+                  phaseType: entry.phaseType,
+                  showAllThoughts: showAllThoughts,
+                  isLatest: entry.id == lastAgentId,
+                  charsPerSecond: 60,
+                  agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
+                )
+                .id(entry.id)
+                .transition(reduceMotion ? .identity : .opacity)
+              case .demoBoundary(let id, let scenarioName):
+                DemoBoundaryRow(scenarioName: scenarioName)
+                  .id(id)
+                  .transition(reduceMotion ? .identity : .opacity)
+              }
             }
           }
           // Screen-level gutters (20pt horizontal / 8pt top) match the
@@ -243,10 +254,10 @@ struct ModelDownloadHostView: View {
           .padding(.top, 8)
           .animation(
             reduceMotion ? nil : .easeOut(duration: 0.7),
-            value: viewModel.agentOutputs.count)
+            value: viewModel.chatItems.count)
         }
-        .onChange(of: viewModel.agentOutputs.count) { _, _ in
-          guard let lastId = viewModel.agentOutputs.last?.id else { return }
+        .onChange(of: viewModel.chatItems.count) { _, _ in
+          guard let lastId = viewModel.chatItems.last?.id else { return }
           withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
             proxy.scrollTo(lastId, anchor: .bottom)
           }

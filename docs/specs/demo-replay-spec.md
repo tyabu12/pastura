@@ -544,6 +544,18 @@ setup-complete screen has a named state to key view-disappear logic
 against; the animation itself is owned by the DL-time host view, not
 the VM.
 
+> **2026-05-11 amendment (#208)** — `ReplayViewModel` exposes
+> `chatItems: [ChatItem]` (mixed agent outputs + demo-boundary
+> markers) as the chat-stream backing array. `agentOutputs:
+> [AgentOutputEntry]` remains as a derived projection for legacy
+> callers. Cross-rotation accumulation policy + boundary marker
+> visual spec live in `docs/specs/demo-replay-ui.md`
+> §"Demo boundary marker"; that doc is authoritative for the
+> visual side, this §4.9 stays authoritative for the state-machine
+> wiring (loop wrap clears `chatItems`; mid-cycle rotation appends
+> a boundary marker; `.stopAfterLast` terminal is a `chatItems`
+> no-op).
+
 ---
 
 ## 5. Bundle Layout, Copy Slots, Multilingual, MVP Scope

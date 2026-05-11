@@ -1642,6 +1642,16 @@
         }
       }
     },
+    "Next demo: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次のデモ: %@"
+          }
+        }
+      }
+    },
     "No Data" : {
       "localizations" : {
         "ja" : {
