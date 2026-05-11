@@ -115,4 +115,30 @@ nonisolated enum ReportURLBuilder {
     ]
     return components.url
   }
+
+  /// Build the pre-seeded GitHub issue URL for a general report
+  /// submitted from Settings (no specific scenario context).
+  ///
+  /// Title is the bare `[Shared Scenario Report]` prefix (no scenario
+  /// id suffix). The issue template's `scenario_id` field is
+  /// configured as optional with a "Leave blank for general feedback"
+  /// hint so reporters arriving from this path can submit without
+  /// inventing a value.
+  ///
+  /// - Returns: The pre-seeded issue-creation URL, or `nil` if URL
+  ///   construction fails.
+  static func buildGitHubIssueURL() -> URL? {
+    guard
+      var components = URLComponents(
+        string: "https://github.com/\(githubRepoPath)/issues/new")
+    else {
+      return nil
+    }
+    components.queryItems = [
+      URLQueryItem(name: "template", value: githubTemplateSlug),
+      URLQueryItem(name: "title", value: "[Shared Scenario Report]"),
+      URLQueryItem(name: "labels", value: githubLabel)
+    ]
+    return components.url
+  }
 }

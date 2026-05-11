@@ -4,22 +4,25 @@ import SwiftUI
 ///
 /// - **Scenario-scoped** (`scenario != nil`): pushed from a Shared
 ///   Scenarios detail's More menu. Shows scenario metadata, pre-fills
-///   the form / GitHub URLs with scenarioId, exposes both Google Form
-///   (primary) and GitHub (secondary) paths.
+///   the form / GitHub URLs with scenarioId.
 /// - **General** (`scenario == nil`): pushed from Settings → Legal →
-///   "Send a content report". Hides scenarioMetadata; omits the
-///   GitHub secondary action because the repo's issue template
-///   (`.github/ISSUE_TEMPLATE/shared-scenario-report.yml`) marks
-///   `scenario_id` as `required: true`. Routes the primary form to
-///   `ReportURLBuilder.buildGoogleFormURL(appVersion:)` (no
-///   pre-filled scenarioId) — same shape as the App Store Connect
-///   §1.5 Support URL co-tenancy precedent in ADR-005 §6.7.
+///   "Send a content report". Hides scenarioMetadata; routes the
+///   form and GitHub URLs to the no-scenarioId variants in
+///   `ReportURLBuilder`. The Google Forms scenario id field and the
+///   GitHub issue template's `scenario_id` are both configured as
+///   optional with "leave blank for general feedback" hints — same
+///   shape as the App Store Connect §1.5 Support URL co-tenancy
+///   precedent in ADR-005 §6.7.
 ///
 /// Progressive disclosure: the primary action opens a Google Forms
-/// report in Safari (no account required); the secondary, when shown,
-/// opens a GitHub issue for reporters who prefer public discussion.
-/// Text entry happens on the external page — this sheet is a metadata
+/// report in Safari (no account required); the secondary opens a
+/// GitHub issue for reporters who prefer public discussion. Text
+/// entry happens on the external page — this sheet is a metadata
 /// display and launching pad only.
+///
+/// Dismissal: there is no Cancel toolbar item. The sheet relies on
+/// the swipe-down gesture (interactive dismiss is enabled by default
+/// for `.presentationDetents([.medium, .large])`).
 ///
 /// See ADR-005 §6 (and §6.7 for the dual-use precedent) for the
 /// policy rationale, and `docs/gallery/shared-scenario-reports.md`
@@ -43,20 +46,13 @@ struct ReportScenarioSheet: View {
           }
           introCopy
           primarySection
-          if scenario != nil {
-            Divider()
-            secondarySection
-          }
+          Divider()
+          secondarySection
         }
         .padding()
       }
       .navigationTitle(navigationTitleText)
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button(String(localized: "Cancel")) { dismiss() }
-        }
-      }
     }
     .presentationDetents([.medium, .large])
   }
@@ -156,17 +152,19 @@ struct ReportScenarioSheet: View {
     dismiss()
   }
 
-  /// GitHub action is only mounted when `scenario != nil` (the
-  /// `secondarySection` body is gated by the same nil-check). The
-  /// `guard let scenario` here is defense-in-depth: if a future
-  /// refactor exposes the action callsite outside that gate, the
-  /// guard keeps `scenario.id` access safe rather than reintroducing
-  /// a force unwrap.
+  /// Dispatches by nil-ness, mirroring `openReportForm`. The general
+  /// path (`scenario == nil`) produces a bare `[Shared Scenario
+  /// Report]` title; the reporter fills in details on GitHub. The
+  /// issue template's `scenario_id` field is optional, so general
+  /// reports can submit without a value.
   private func openGitHubIssue() {
-    guard
-      let scenario,
-      let url = ReportURLBuilder.buildGitHubIssueURL(scenarioId: scenario.id)
-    else { return }
+    let urlOrNil: URL? = {
+      if let scenario {
+        return ReportURLBuilder.buildGitHubIssueURL(scenarioId: scenario.id)
+      }
+      return ReportURLBuilder.buildGitHubIssueURL()
+    }()
+    guard let url = urlOrNil else { return }
     openURL(url)
     dismiss()
   }

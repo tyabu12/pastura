@@ -149,4 +149,25 @@ struct ReportURLBuilderTests {
     let values = (components.queryItems ?? []).compactMap { $0.value }
     #expect(values.contains("1.2.3"))
   }
+
+  // MARK: - GitHub issue URL (no scenarioId)
+
+  @Test
+  func gitHubIssueURLNoScenarioBuildsWithExpectedHostAndPath() throws {
+    let url = try #require(ReportURLBuilder.buildGitHubIssueURL())
+    #expect(url.scheme == "https")
+    #expect(url.host == "github.com")
+    #expect(url.path == "/tyabu12/pastura/issues/new")
+  }
+
+  @Test
+  func gitHubIssueURLNoScenarioCarriesTemplateLabelAndBareTitle() throws {
+    let url = try #require(ReportURLBuilder.buildGitHubIssueURL())
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let items = components.queryItems ?? []
+    #expect(items.contains { $0.name == "template" && $0.value == "shared-scenario-report.yml" })
+    #expect(items.contains { $0.name == "labels" && $0.value == "shared-scenario-report" })
+    // Title is exactly the bare prefix — no trailing space, no scenario id.
+    #expect(items.contains { $0.name == "title" && $0.value == "[Shared Scenario Report]" })
+  }
 }

@@ -22,10 +22,14 @@ body:
     id: scenario_id
     attributes:
       label: Scenario ID
-      description: The `id` field from the gallery entry (e.g. `prisoners_dilemma_v2`).
-      placeholder: "<scenario_id>"
+      description: |
+        The `id` field from the gallery entry (e.g. `prisoners_dilemma_v2`).
+        Leave blank for general feedback that isn't tied to a specific
+        scenario — reports from Settings → Legal arrive here without a
+        scenario context.
+      placeholder: "<scenario_id> (leave blank for general feedback)"
     validations:
-      required: true
+      required: false
 
   - type: input
     id: app_version
