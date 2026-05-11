@@ -300,7 +300,8 @@ struct SettingsView: View {
         modelPath: modelPath,
         stopSequence: descriptor.stopSequence,
         modelIdentifier: descriptor.displayName,
-        systemPromptSuffix: descriptor.systemPromptSuffix
+        systemPromptSuffix: descriptor.systemPromptSuffix,
+        assistantPrefix: descriptor.assistantPrefix
       )
       dependencies.regenerateLLMService(newService)
     }
