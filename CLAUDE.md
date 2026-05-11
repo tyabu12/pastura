@@ -86,7 +86,7 @@ Utilities/ → depends on nothing
   type level to avoid unnecessary MainActor binding.
   `Views/` and `App/` use the default (MainActor).
   Protocol-extension default implementations may additionally need explicit `nonisolated`
-  when their body builds escaping closures — see `.claude/rules/llm.md`.
+  when their body builds escaping closures — see `.claude/rules/swift-isolation.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
 - **Observable bridge for non-`@Observable` state:** When an `@Observable` class exposes
   a computed property that reads mutable state from a `nonisolated` class / actor,
@@ -217,7 +217,7 @@ pages/                           # Public HTML deployed via .github/workflows/de
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
-- `llm.md` — LLM-layer traps (e.g., `nonisolated` protocol-default impls that build escaping closures) can fire from any conformer, including types added in `App/` or test targets, so the rule must stay visible regardless of which file is being edited.
+- `swift-isolation.md` — `nonisolated` annotation traps (protocol-ext default impls, custom witnesses, sibling-file extensions, reference-type sync methods) under default-MainActor isolation. Diagnostic fires at use site, not declaration — always-loaded so it's visible regardless of which file is being edited.
 - `navigation.md` — `AppRouter` pattern: programmatic root-stack navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto the root stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
 - `subagent-usage.md` — Subagent invocation discipline (32K output-token cap, scope budget heuristics, Sonnet override). Always-loaded because subagent calls can originate from `/orchestrate`, slash commands, or any direct `Agent` invocation.
