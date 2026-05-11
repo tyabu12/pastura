@@ -27,6 +27,7 @@ struct HomeView: View {
           }
           .accessibilityIdentifier("home.settingsButton")
         }
+        .hidingPasturaSharedBackground()
         ToolbarItem(placement: .primaryAction) {
           Menu {
             NavigationLink(value: newScenarioRoute()) {
@@ -40,6 +41,7 @@ struct HomeView: View {
             Label(String(localized: "Add"), systemImage: "plus")
           }
         }
+        .hidingPasturaSharedBackground()
       }
       .navigationDestination(for: Route.self) { route in
         routeDestination(route)
