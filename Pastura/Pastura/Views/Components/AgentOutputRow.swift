@@ -38,12 +38,22 @@ import SwiftUI
 ///
 /// ## Reflow-stable rendering
 ///
-/// **Replay path (non-streaming):** text is rendered as
+/// **Replay path (non-streaming):** primary text is rendered as
 /// `Text(visible) + Text(hidden).foregroundStyle(.clear)` so the full string
 /// is laid out from the first frame. This keeps line-wrap positions from
 /// shifting as characters appear and lets the parent `ScrollViewReader`
-/// land its single `scrollTo(last.id)` correctly without mid-typing
+/// land its single `scrollTo(last.id)` correctly without per-character
 /// follow-up scrolls.
+///
+/// The thought section (`▸ THINKING` chevron + optional body) is the one
+/// intentional exception: it is gated on
+/// ``shouldRevealThoughtSection(visibleChars:)`` so it appears only after
+/// the primary reveal counter catches up to the primary buffer length,
+/// matching Sim's live-streaming behavior where `streamingThought` is
+/// empty until the LLM emits the `inner_thought` key. This is a single
+/// discrete height delta at chevron pop-in, not per-token growth, so the
+/// parent's item-count-driven anchor remains correct in practice. See the
+/// helper's doc-comment for the full rationale.
 ///
 /// **Streaming path:** the concat trick degenerates because the "final
 /// string" is the partial buffer and grows with each token. Layout
@@ -303,21 +313,67 @@ struct AgentOutputRow: View {
       .animation(nil, value: streamingPrimary)
   }
 
-  /// Single render path for the thought area: chevron toggle is **always**
-  /// rendered when a thought exists; the body appears only when the user
-  /// (or the `showAllThoughts` seed) has expanded the row. The previous
-  /// `if showAllThoughts { auto } else { button }` split was an
-  /// implementation accident — design-system.md §5.2 specifies one
-  /// `▸ THINKING / ▾ タグ＋本文` structure regardless of mode, and the
-  /// dual paths made the affordance disappear in auto mode.
+  /// Single render path for the thought area: chevron toggle is rendered
+  /// when a thought exists **and** primary reveal has completed; the body
+  /// appears only when the user (or the `showAllThoughts` seed) has
+  /// expanded the row. The previous `if showAllThoughts { auto } else
+  /// { button }` split was an implementation accident — design-system.md
+  /// §5.2 specifies one `▸ THINKING / ▾ タグ＋本文` structure regardless of
+  /// mode, and the dual paths made the affordance disappear in auto mode.
+  ///
+  /// The primary-reveal gate (``shouldRevealThoughtSection(visibleChars:)``)
+  /// matches Sim's live-streaming two-phase behavior on replay paths
+  /// (DL Demo, Results, past-log replay), where `resolvedThought` is a
+  /// fully-known string from frame 1 and the chevron would otherwise
+  /// pop in while primary is still typing.
   @ViewBuilder
   private func thoughtSection() -> some View {
-    if let thought = resolvedThought, !thought.isEmpty {
+    if shouldRevealThoughtSection(visibleChars: visibleChars),
+      let thought = resolvedThought {
       thoughtToggleHeader()
       if showInnerThought {
         thoughtBody(fullText: thought)
       }
     }
+  }
+
+  /// Whether the `▸ THINKING` chevron + optional body should render at
+  /// the given reveal counter.
+  ///
+  /// Pure over `(shouldAnimate, resolvedThought presence, primaryText
+  /// length, visibleChars)` so ``AgentOutputRowContractTests`` can
+  /// exercise the gate across the animating / non-animating split
+  /// without a SwiftUI host. The `@ViewBuilder` body in
+  /// ``thoughtSection()`` reads its own `@State visibleChars`; tests
+  /// pass the value explicitly.
+  ///
+  /// **Why a gate at all:** the Sim path naturally suppresses the chevron
+  /// until primary completes because `streamingThought` is empty until the
+  /// LLM emits the `inner_thought` key. Replay paths (DL Demo, Results,
+  /// past logs) fall back to `output.innerThought` — a fully-known
+  /// string — so without this gate the chevron would render from frame 1
+  /// while primary is still typing in. The counter-driven gate unifies
+  /// behavior across all four call sites: chevron appears at the moment
+  /// the reveal counter reaches the primary buffer length, regardless of
+  /// whether thought content is streaming or pre-known.
+  ///
+  /// **Non-animating rows short-circuit to `true`.** Older rows,
+  /// `ResultDetailView` turnRow, and any row with `!shouldAnimate` snap
+  /// `visibleChars` to target inside `.onAppear` — but the first body
+  /// pass runs before `.onAppear` with `visibleChars == 0`, which would
+  /// hide the chevron for one frame and produce a visible flicker on
+  /// row mount. Suppressing the gate in this case keeps non-animating
+  /// rows visually identical to the pre-fix behavior.
+  ///
+  /// **Gate scope is chevron presence only.** Body visibility (the
+  /// thought text itself) is driven independently by `showInnerThought`
+  /// inside ``thoughtSection()`` — `showInnerThought` MUST NOT be folded
+  /// into this gate, or manual chevron taps in collapsed mode would
+  /// nuke chevron presence too.
+  func shouldRevealThoughtSection(visibleChars: Int) -> Bool {
+    guard let thought = resolvedThought, !thought.isEmpty else { return false }
+    if !shouldAnimate { return true }
+    return visibleChars >= (primaryText?.count ?? 0)
   }
 
   /// `▸ THINKING` / `▾ THINKING` chevron + tag. Tap toggles
