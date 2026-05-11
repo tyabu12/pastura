@@ -62,6 +62,33 @@ nonisolated enum ReportURLBuilder {
     return components.url
   }
 
+  /// Build the bare Google Forms URL for a general report submitted from
+  /// Settings (no specific scenario context).
+  ///
+  /// Omits the Scenario ID query parameter — the form's Scenario ID
+  /// field is configured as optional per ADR-005 §6.7, identical to the
+  /// App Store Connect §1.5 Support URL co-tenancy path. Reporters fill
+  /// in the rest on the form itself. App version is still pre-filled so
+  /// triage has it for free.
+  ///
+  /// - Parameter appVersion: Running app version (e.g. "1.0.0"). Empty
+  ///   strings are permitted and leave the App Version field blank.
+  /// - Returns: The pre-filled (app-version-only) form URL, or `nil` if
+  ///   URL construction fails.
+  static func buildGoogleFormURL(appVersion: String) -> URL? {
+    guard
+      var components = URLComponents(
+        string: "https://docs.google.com/forms/d/e/\(googleFormID)/viewform")
+    else {
+      return nil
+    }
+    components.queryItems = [
+      URLQueryItem(name: "usp", value: "pp_url"),
+      URLQueryItem(name: appVersionFieldID, value: appVersion)
+    ]
+    return components.url
+  }
+
   /// Build the pre-seeded GitHub issue URL for a Shared Scenario report.
   ///
   /// Opens github.com's new-issue page with the Shared Scenario template
@@ -84,6 +111,32 @@ nonisolated enum ReportURLBuilder {
     components.queryItems = [
       URLQueryItem(name: "template", value: githubTemplateSlug),
       URLQueryItem(name: "title", value: "[Shared Scenario Report] \(scenarioId)"),
+      URLQueryItem(name: "labels", value: githubLabel)
+    ]
+    return components.url
+  }
+
+  /// Build the pre-seeded GitHub issue URL for a general report
+  /// submitted from Settings (no specific scenario context).
+  ///
+  /// Title is the bare `[Shared Scenario Report]` prefix (no scenario
+  /// id suffix). The issue template's `scenario_id` field is
+  /// configured as optional with a "Leave blank for general feedback"
+  /// hint so reporters arriving from this path can submit without
+  /// inventing a value.
+  ///
+  /// - Returns: The pre-seeded issue-creation URL, or `nil` if URL
+  ///   construction fails.
+  static func buildGitHubIssueURL() -> URL? {
+    guard
+      var components = URLComponents(
+        string: "https://github.com/\(githubRepoPath)/issues/new")
+    else {
+      return nil
+    }
+    components.queryItems = [
+      URLQueryItem(name: "template", value: githubTemplateSlug),
+      URLQueryItem(name: "title", value: "[Shared Scenario Report]"),
       URLQueryItem(name: "labels", value: githubLabel)
     ]
     return components.url
