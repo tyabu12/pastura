@@ -131,6 +131,10 @@
 .lp-hero h1 {
   margin: 0;
   max-width: 560px;
+  /* Override .display defaults — the AIgazing tagline is 3 short lines;
+     1.08 line-height (tuned for 64px display) feels cramped at 52px. */
+  font-size: 52px;
+  line-height: 1.2;
 }
 .lp-hero .lead {
   margin: 24px 0 34px;
@@ -434,6 +438,14 @@
   font-size: 14px;
   color: var(--ink-2);
   line-height: 1.6;
+}
+/* The 1-line core lead between h3 and the benefit/concrete body.
+   Slightly stronger (full ink color, medium weight) so the card has
+   a clear h3 → lead → body rhythm. */
+.cap-item .cap-lead {
+  color: var(--ink);
+  font-weight: 500;
+  margin-bottom: 6px;
 }
 .cap-glyph {
   width: 22px;
