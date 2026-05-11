@@ -1,11 +1,15 @@
 import SwiftUI
 import os
 
-/// Settings screen hosting static informational copy for the Pastura app.
+/// Settings screen hosting the Models section (device only) and a
+/// Legal section with Privacy Policy + content-report sheet.
 ///
 /// Pushed onto the root `NavigationStack` via `Route.settings`. Per
 /// `.claude/rules/navigation.md`, this view must NOT add
-/// `navigationDestination(item:|isPresented:)` modifiers.
+/// `navigationDestination(item:|isPresented:)` modifiers — sheets
+/// (`.sheet(isPresented:)`) and `.fullScreenCover(item:)` are exempt
+/// from that rule and are used here for the report sheet and download
+/// cover respectively.
 ///
 /// ## Models section (device only)
 ///
@@ -19,6 +23,17 @@ import os
 /// `AppDependencies.regenerateLLMService(_:)`; it's gated on
 /// `simulationActivityRegistry.isActive == false` at the UI layer so
 /// the service is never torn down mid-inference.
+///
+/// ## Legal section
+///
+/// Two rows: an external Privacy Policy link (opens Safari via
+/// `Environment(\.openURL)`) and a "Send a content report" Button
+/// that presents `ReportScenarioSheet(scenario: nil)` via
+/// `.sheet(isPresented:)`. The sheet carries `.deepLinkGated()` for
+/// symmetry with `GalleryScenarioDetailView`'s callsite — see
+/// navigation.md QA scenario 9. ADR-005 §6.6 substantive commitment
+/// ("Settings surface exposes report-mechanism copy per §6.4") is
+/// preserved by `ReportScenarioSheet`'s introCopy.
 struct SettingsView: View {
   @Environment(\.openURL) private var openURL
 
