@@ -106,4 +106,47 @@ struct ReportURLBuilderTests {
     }
     #expect(match != nil)
   }
+
+  // MARK: - Google Forms URL (no scenarioId)
+
+  @Test
+  func googleFormURLNoScenarioBuildsWithExpectedHostAndPath() throws {
+    let url = try #require(ReportURLBuilder.buildGoogleFormURL(appVersion: "1.0.0"))
+    #expect(url.scheme == "https")
+    #expect(url.host == "docs.google.com")
+    #expect(url.path.hasPrefix("/forms/d/e/"))
+    #expect(url.path.hasSuffix("/viewform"))
+  }
+
+  @Test
+  func googleFormURLNoScenarioIncludesPreFillMarker() throws {
+    let url = try #require(ReportURLBuilder.buildGoogleFormURL(appVersion: ""))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let items = components.queryItems ?? []
+    #expect(items.contains { $0.name == "usp" && $0.value == "pp_url" })
+  }
+
+  @Test
+  func googleFormURLNoScenarioOmitsScenarioIdField() throws {
+    let url = try #require(ReportURLBuilder.buildGoogleFormURL(appVersion: "1.0.0"))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    // The scenario-scoped variant has 2 entry.* items; this variant should have exactly 1
+    // (appVersion only — no scenarioId entry).
+    let entryItems = (components.queryItems ?? []).filter { $0.name.hasPrefix("entry.") }
+    #expect(entryItems.count == 1)
+    // Additionally, no query item name should equal the scenarioId field name
+    // — the scenario-scoped variant uses "entry.149667905" (2nd entry.*).
+    // Since we can't reference the private constant directly, we verify by count
+    // and by confirming no item value contains a scenario-id-like value.
+    let allNames = (components.queryItems ?? []).map { $0.name }
+    #expect(!allNames.contains("entry.149667905"))
+  }
+
+  @Test
+  func googleFormURLNoScenarioEmbedsAppVersion() throws {
+    let url = try #require(ReportURLBuilder.buildGoogleFormURL(appVersion: "1.2.3"))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let values = (components.queryItems ?? []).compactMap { $0.value }
+    #expect(values.contains("1.2.3"))
+  }
 }
