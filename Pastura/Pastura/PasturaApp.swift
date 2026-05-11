@@ -409,7 +409,8 @@ private struct RootView: View {
         modelPath: modelPath,
         stopSequence: descriptor.stopSequence,
         modelIdentifier: descriptor.displayName,
-        systemPromptSuffix: descriptor.systemPromptSuffix
+        systemPromptSuffix: descriptor.systemPromptSuffix,
+        assistantPrefix: descriptor.assistantPrefix
       )
       let deps = try AppDependencies.production(llmService: llm)
       // Register BG task handler early so iOS 26+ can launch us in background.
