@@ -291,21 +291,21 @@ struct ModelDownloadHostView: View {
   // Module-internal so the sibling `+GameHeader.swift` extension can
   // call this helper. `private` only reaches same-file extensions.
   func currentPresetName(viewModel: ReplayViewModel) -> String {
-    guard case .playing(let sourceIndex, _) = viewModel.state,
+    guard let sourceIndex = viewModel.currentSourceIndex,
       sourceIndex < sources.count
     else { return "" }
     return sources[sourceIndex].scenario.name
   }
 
-  /// Agent's zero-based index in the currently-playing replay's agent
-  /// list, used by ``AvatarSlot`` for position-priority avatar color
-  /// assignment. Returns `nil` when no replay is active or the agent
-  /// isn't in the current source's `agents` list; the row then falls
-  /// back to the name-based avatar resolution.
+  /// Agent's zero-based index in the current replay's agent list, used
+  /// by ``AvatarSlot`` for position-priority avatar color assignment.
+  /// Returns `nil` when no replay is active or the agent isn't in the
+  /// current source's `agents` list; the row then falls back to the
+  /// name-based avatar resolution.
   private func agentPosition(
     for agentName: String, viewModel: ReplayViewModel
   ) -> Int? {
-    guard case .playing(let sourceIndex, _) = viewModel.state,
+    guard let sourceIndex = viewModel.currentSourceIndex,
       sourceIndex < sources.count
     else { return nil }
     return sources[sourceIndex].scenario.personas.firstIndex(where: { $0.name == agentName })
