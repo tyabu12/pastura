@@ -7,6 +7,7 @@ import SwiftUI
   PromoCard(
     modelState: .downloading(progress: 0.35),
     replayHadStarted: true,
+    totalBytes: ModelRegistry.gemma4E2B.fileSize,
     onRetry: {}
   )
   .padding(.vertical, 40)
@@ -17,6 +18,7 @@ import SwiftUI
   PromoCard(
     modelState: .downloading(progress: 0.35),
     replayHadStarted: true,
+    totalBytes: ModelRegistry.gemma4E2B.fileSize,
     onRetry: {},
     onCancel: {}
   )
@@ -28,6 +30,7 @@ import SwiftUI
   PromoCard(
     modelState: .downloading(progress: 0.95),
     replayHadStarted: true,
+    totalBytes: ModelRegistry.gemma4E2B.fileSize,
     onRetry: {}
   )
   .padding(.vertical, 40)
@@ -38,6 +41,7 @@ import SwiftUI
   PromoCard(
     modelState: .error("ネットワーク接続が切れました"),
     replayHadStarted: true,
+    totalBytes: ModelRegistry.gemma4E2B.fileSize,
     onRetry: {}
   )
   .padding(.vertical, 40)
@@ -48,6 +52,7 @@ import SwiftUI
   PromoCard(
     modelState: .error("ネットワーク接続が切れました"),
     replayHadStarted: true,
+    totalBytes: ModelRegistry.gemma4E2B.fileSize,
     onRetry: {},
     onCancel: {}
   )

@@ -90,7 +90,7 @@ extension ModelDownloadHostView {
         Spacer()
       }
       .padding()
-      .navigationTitle("Model Setup")
+      .navigationTitle(String(localized: "Model Setup"))
     }
   }
 
