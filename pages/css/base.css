@@ -244,11 +244,6 @@ body {
   color: var(--muted);
   margin: 0 0 12px;
 }
-.foot-tag {
-  margin: 16px 0 24px;
-  max-width: 340px;
-  font-size: 14px;
-}
 .foot-base {
   display: flex;
   justify-content: space-between;
