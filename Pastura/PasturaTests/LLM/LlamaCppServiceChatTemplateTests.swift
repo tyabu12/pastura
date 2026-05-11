@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import Pastura
@@ -63,6 +64,61 @@ struct LlamaCppServiceChatTemplateTests {
     } catch {
       Issue.record("expected LLMError, got \(error)")
     }
+  }
+
+  // MARK: - Assistant-turn prefill (#366)
+
+  /// Helper: build a `LlamaCppService` configured purely for the chat-template
+  /// path. `applyChatTemplate` does not touch the model context or sampler, so
+  /// `modelPath` can be empty — no `loadModel()` is required.
+  private static func makeService(assistantPrefix: String?) -> LlamaCppService {
+    LlamaCppService(
+      modelPath: "",
+      stopSequence: "<|im_end|>",
+      modelIdentifier: "ChatTemplate Test Service",
+      systemPromptSuffix: nil,
+      assistantPrefix: assistantPrefix
+    )
+  }
+
+  /// Gemma regression pin: with `assistantPrefix == nil`, the formatted prompt
+  /// must NOT carry a stray `<think>` block (i.e., behavior is byte-identical
+  /// to the pre-fix output for the Gemma path). Asserting absence of `<think>`
+  /// is the simplest invariant — full byte-identity is implied because the
+  /// new branch only appends a string when `assistantPrefix` is non-nil.
+  @Test func gemmaPathDoesNotAppendThinkBlock() throws {
+    let service = Self.makeService(assistantPrefix: nil)
+    let prompt = try service.applyChatTemplate(
+      system: "You are a test fixture.", user: "Say hi.")
+    #expect(!prompt.contains("<think>"))
+    #expect(!prompt.contains("</think>"))
+  }
+
+  /// Qwen prefill: with `assistantPrefix == "<think>\n\n</think>\n\n"`, the
+  /// formatted prompt must end with that exact suffix. Anchoring at the suffix
+  /// catches the easy ordering regression where someone moves the append to
+  /// before the chat-template marker — that would still contain the substring
+  /// but break the actual Jinja-equivalent semantics.
+  @Test func qwenPrefixIsAppendedAsSuffix() throws {
+    let service = Self.makeService(assistantPrefix: "<think>\n\n</think>\n\n")
+    let prompt = try service.applyChatTemplate(
+      system: "You are a test fixture.", user: "Say hi.")
+    #expect(
+      prompt.hasSuffix("<think>\n\n</think>\n\n"),
+      "Expected prompt to end with the prefill; got tail: \(prompt.suffix(50))"
+    )
+  }
+
+  /// Cross-check: the prefill text must appear EXACTLY ONCE in the formatted
+  /// prompt. If it appears twice, something duplicated it — e.g., a future
+  /// regression where both the system suffix and the assistant prefix wire
+  /// `<think>` content.
+  @Test func qwenPrefixAppearsExactlyOnce() throws {
+    let service = Self.makeService(assistantPrefix: "<think>\n\n</think>\n\n")
+    let prompt = try service.applyChatTemplate(
+      system: "You are a test fixture.", user: "Say hi.")
+    let occurrences = prompt.components(separatedBy: "<think>").count - 1
+    #expect(occurrences == 1, "Expected exactly 1 <think> occurrence, got \(occurrences)")
   }
 
   // MARK: - Boundary documentation (out-of-scope cases)

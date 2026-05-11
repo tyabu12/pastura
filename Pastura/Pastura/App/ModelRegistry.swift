@@ -52,7 +52,15 @@ enum ModelRegistry {
     stopSequence: "<|im_end|>",
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/Qwen/Qwen3-4B-GGUF"),
-    systemPromptSuffix: "/no_think"
+    systemPromptSuffix: "/no_think",
+    // Prefill the assistant turn with the empty-thinking marker so Qwen 3
+    // bypasses thinking mode entirely. Issue #366 — without this, Qwen
+    // emits `<think>` (token 151667) as its first sampled token and the
+    // GBNF grammar sampler crashes on `accept_token` (uncaught C++ exception).
+    // The `/no_think` system suffix above is a soft training hint that does
+    // not prevent the leading `<think>` token; the prefill is the load-bearing
+    // fix. `/no_think` stays as belt-and-suspenders.
+    assistantPrefix: "<think>\n\n</think>\n\n"
   )
 
   /// Full production catalog, ordered by display preference (Gemma first, Qwen second).

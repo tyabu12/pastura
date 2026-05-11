@@ -92,6 +92,15 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// suffix.
   let systemPromptSuffix: String?
 
+  /// Optional text appended to the formatted prompt after the chat template's
+  /// assistant-role marker — i.e., prefilled into the assistant turn so the
+  /// model continues from this text instead of generating it.
+  ///
+  /// Used by Qwen 3 (`"<think>\n\n</think>\n\n"`) to bypass thinking mode and
+  /// avoid the GBNF grammar crash on the leading `<think>` special token
+  /// (Issue #366). `nil` for models that need no prefill (Gemma).
+  let assistantPrefix: String?
+
   private let loadedState: OSAllocatedUnfairLock<Bool>
   // Synchronizing fence for the sequential-access contract (ADR-002 §6).
   // generate() / generateStream() acquire this via acquireGenerateGuard
@@ -163,16 +172,21 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   ///   - modelIdentifier: Human-readable label for exports / replay metadata.
   ///   - systemPromptSuffix: Optional suffix appended to the system prompt
   ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
+  ///   - assistantPrefix: Optional text prefilled into the assistant turn
+  ///     after the chat template's assistant-role marker (e.g.,
+  ///     `"<think>\n\n</think>\n\n"` for Qwen 3 to disable thinking mode).
   public init(
     modelPath: String,
     stopSequence: String,
     modelIdentifier: String,
-    systemPromptSuffix: String?
+    systemPromptSuffix: String?,
+    assistantPrefix: String? = nil
   ) {
     self.modelPath = modelPath
     self.stopSequence = stopSequence
     self.modelIdentifier = modelIdentifier
     self.systemPromptSuffix = systemPromptSuffix
+    self.assistantPrefix = assistantPrefix
     self.loadedState = OSAllocatedUnfairLock(initialState: false)
     // Install llama.cpp's C-runtime log capture once — routes grammar
     // parse errors ("invalid character", "expected ::=", etc.) into

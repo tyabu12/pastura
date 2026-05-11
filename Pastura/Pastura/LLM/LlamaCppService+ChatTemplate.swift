@@ -55,7 +55,23 @@ extension LlamaCppService {
       )
     }
 
-    return try LlamaCppService.decodeAppliedTemplate(buffer: buffer, written: written)
+    let decoded = try LlamaCppService.decodeAppliedTemplate(buffer: buffer, written: written)
+
+    // Assistant-turn prefill. `llama_chat_apply_template` (called with
+    // `add_ass: true` above) ends the formatted prompt at the assistant
+    // role marker (e.g., `<|im_start|>assistant\n`). For Qwen 3, the Jinja
+    // chat template would also emit `<think>\n\n</think>\n\n` here when
+    // `enable_thinking=false`, but the C-API simplified template does NOT
+    // perform that prefill — so we do it explicitly. Without this, Qwen
+    // emits `<think>` (token 151667) as its first generated token, which
+    // the GBNF grammar's `root` rule cannot accept; `llama_grammar_accept_token`
+    // throws `std::runtime_error: Unexpected empty grammar stack`, crashing
+    // the process via an uncaught C++ exception (Issue #366). `nil`-default
+    // for models that need no prefill (Gemma).
+    if let assistantPrefix {
+      return decoded + assistantPrefix
+    }
+    return decoded
   }
 
   /// Decodes the buffer produced by `llama_chat_apply_template` and rejects
