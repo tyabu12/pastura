@@ -1,6 +1,8 @@
-/* Pastura Landing Page — LP-specific layout & sections.
-   Loaded after pages/css/base.css. Responsive contract: desktop is
-   the default; mobile values via @media (max-width: 768px). */
+/* Pastura Landing Page — LP-only layout (hero, journey acts,
+   capabilities, FAQ, anchor menu). Shared page chrome (header /
+   footer / language toggle) lives in pages/css/base.css.
+   Loaded after pages/css/base.css. Responsive contract: desktop
+   is the default; mobile values via @media (max-width: 768px). */
 
 /* ----- Header anchor menu (LP-only) -----
    .lp-header / .lp-nav / .lang-toggle are shared chrome in base.css.
