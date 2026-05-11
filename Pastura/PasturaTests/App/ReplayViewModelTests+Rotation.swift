@@ -9,7 +9,11 @@ extension ReplayViewModelTests {
 
   // MARK: - Fixtures
 
-  fileprivate static func makeTwoSources() throws -> [YAMLReplaySource] {
+  // Module-internal (drops `fileprivate`) so sibling-file extensions
+  // such as `ReplayViewModelTests+ChatLogAccumulation.swift` can call
+  // these helpers — same access discipline documented in
+  // `.claude/rules/testing.md` "Splitting a Suite Across Files".
+  static func makeTwoSources() throws -> [YAMLReplaySource] {
     let yaml1 = """
       schema_version: 1
       turns:
@@ -41,21 +45,21 @@ extension ReplayViewModelTests {
   /// (5 ms). Faster configs (see `fastConfig` in the main suite file)
   /// collapse delays to 0 ms + `Task.yield()` which makes rotation
   /// cycle sub-ms — rotation assertions race against the poll loop.
-  fileprivate static let stopConfig = ReplayPlaybackConfig(
+  static let stopConfig = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .stopAfterLast,
     onComplete: .stopPlayback)
 
-  fileprivate static let holdConfig = ReplayPlaybackConfig(
+  static let holdConfig = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
     loopBehaviour: .stopAfterLast,
     onComplete: .awaitTransitionSignal)
 
-  fileprivate static let loopConfig = ReplayPlaybackConfig(
+  static let loopConfig = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     turnDelayMs: 150,
     codePhaseDelayMs: 50,
@@ -82,12 +86,17 @@ extension ReplayViewModelTests {
     }
   }
 
-  @Test func rotationClearsPerDemoObservableState() async throws {
+  @Test func rotationAccumulatesChatItemsWithBoundaryMarker() async throws {
     // Uses `holdConfig` (stopAfterLast + awaitTransitionSignal) rather
     // than `loopConfig`, so the test observes a deterministic
     // source-0 → source-1 transition without racing against loop
     // wraparound. After rotation completes the VM holds at
-    // `.playing(1, 3)` — agentOutputs is source 1's only.
+    // `.playing(1, 3)`.
+    //
+    // Per #208, mid-cycle rotation no longer wipes the chat stream.
+    // chatItems is now: source 0's 1 agent output, a boundary marker
+    // carrying source 1's scenario name, then source 1's 1 agent
+    // output. The compat-shim `agentOutputs` filters out the boundary.
     let sources = try Self.makeTwoSources()
     let viewModel = ReplayViewModel(
       sources: sources, config: Self.holdConfig,
@@ -102,10 +111,32 @@ extension ReplayViewModelTests {
       }
       return false
     }
-    // agentOutputs must be source 1's only — rotation's
-    // `resetPerDemoState()` cleared source 0's entry.
-    #expect(viewModel.agentOutputs.count == 1)
-    #expect(viewModel.agentOutputs[0].output.statement == "demo 2 bob")
+    #expect(viewModel.chatItems.count == 3)
+    if case .agentOutput(let entry) = viewModel.chatItems[0] {
+      #expect(entry.output.statement == "demo 1 alice")
+    } else {
+      Issue.record(
+        "chatItems[0] expected .agentOutput, got \(viewModel.chatItems[0])")
+    }
+    if case .demoBoundary(_, let scenarioName) = viewModel.chatItems[1] {
+      // Both fixture sources are built from `makeScenario()` (name
+      // "Test"); the marker reads `sources[nextIndex].scenario.name`,
+      // which here is source 1's scenario.
+      #expect(scenarioName == "Test")
+    } else {
+      Issue.record(
+        "chatItems[1] expected .demoBoundary, got \(viewModel.chatItems[1])")
+    }
+    if case .agentOutput(let entry) = viewModel.chatItems[2] {
+      #expect(entry.output.statement == "demo 2 bob")
+    } else {
+      Issue.record(
+        "chatItems[2] expected .agentOutput, got \(viewModel.chatItems[2])")
+    }
+    // Compat-shim view: boundary filtered out, both turns visible.
+    #expect(viewModel.agentOutputs.count == 2)
+    #expect(viewModel.agentOutputs[0].output.statement == "demo 1 alice")
+    #expect(viewModel.agentOutputs[1].output.statement == "demo 2 bob")
   }
 
   @Test func loopWrapsAroundAfterLastSource() async throws {
@@ -203,4 +234,5 @@ extension ReplayViewModelTests {
     viewModel.downloadComplete()
     #expect(viewModel.state == .transitioning)
   }
+
 }

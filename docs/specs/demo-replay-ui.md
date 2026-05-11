@@ -202,6 +202,44 @@ ZStack(alignment: .top) {
   - Dave: `#d9d7c9`（スレート）
 - SwiftUI 実装は `ZStack` で丸 + カスタム `Shape` による耳・顔輪郭でOK
 
+#### Demo boundary marker（デモ境界マーカー）
+
+> **2026-05-11 amendment (#208)** — DL-time デモループは複数のデモを順次再生
+> しますが、デモ N 終了 → デモ N+1 開始の瞬間に **chat stream を wipe しない**
+> （旧仕様: 全消去）。代わりに直前のバブル群を画面に残したまま、次のデモの
+> バブルを下に追加し、その間に **デモ境界マーカー** を挟みます。ScrollView の
+> 自然な動きで古いデモが上にスクロールアウトしていくため、UX 上の急な
+> フラッシュがなくなります。
+
+**マーカーの表示**:
+- 横方向 divider（chat stream 全幅）+ 中央寄せ caption「次のデモ: `<デモ名>`」
+- caption の typography は ChatStream の name label 系列（`10.5pt` 前後、
+  `#7a7e68` 系のサブ色、`letterSpacing 0.04em`）。具体的トークンは実装 PR で確定
+- divider 色は bubble border 系列（`rgba(90,90,70,0.07)` 近似）の薄い線
+- 縦方向の余白は前のバブルとの間 `16pt` / 次のバブルとの間 `16pt` 程度
+
+**VoiceOver / アクセシビリティ**:
+- マーカー要素は `.accessibilityElement(children: .combine)` +
+  `.accessibilityAddTraits(.isHeader)` でセクション境界として読まれる
+  （`GameHeader.titleRow` の a11y 処理に倣う）
+
+**ループ折り返し時の挙動（最終デモ → 最初のデモへの wrap）**:
+- chat stream を **wipe** し、boundary marker は挿入しない
+- 完全なフラッシュリセットがそれ自体「新しい cycle」のシグナルになるため、
+  余分なマーカーは情報の重複になる
+
+**GameHeader との整合**:
+- GameHeader（画面上部）は **常に再生中のデモ** を追従する（現状維持）
+- スクロールアップで過去のデモのバブルを見たときに header が現在のデモを
+  指し続けることになるが、boundary marker が履歴上の文脈を吸収する
+
+**i18n**:
+- 「次のデモ: %@」は `Localizable.xcstrings` 経由で localizable。en stub は
+  `"Next demo: %@"`。`String(format: String(localized: "Next demo: %@"), name)`
+  パターンで wrap（Pastura 既存の format-string 慣習）
+
+状態機械側の権威定義は `demo-replay-spec.md §4.9` 参照。
+
 ### PromoCard（Frame 1/2/3）
 
 - 位置: bottom 22pt, leading/trailing 14pt
