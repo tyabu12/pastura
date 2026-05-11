@@ -737,11 +737,23 @@
       }
     },
     "Download" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロード"
+          }
+        }
+      }
+    },
+    "Download %@" : {
+      "comment" : "Accessibility label for the direct download button in ModelSettingsRow; %@ is the model display name.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をダウンロード"
           }
         }
       }

@@ -2,14 +2,14 @@ import SwiftUI
 
 /// Single row inside the Settings → Models section. Renders the
 /// descriptor's display name, vendor, file size, and current state,
-/// plus a Menu whose actions depend on the state:
+/// plus a trailing control whose kind is derived by `trailingControl`:
 ///
-/// - `.notDownloaded / .error` → Download (disabled when another model
-///   is already downloading — the sequential policy)
-/// - `.downloading` → Cancel download
-/// - `.ready` non-active → Use this model (switch active) + Delete
-/// - `.ready` active → Delete is hidden (use `.cannotDeleteActive` is
-///   pre-empted by the UI); Active badge shown
+/// - `.notDownloaded / .error` → direct ↓ download button (disabled
+///   when another model is already downloading — sequential policy)
+/// - `.downloading` → ellipsis Menu → Cancel download
+/// - `.ready` non-active → ellipsis Menu → Use this model + Delete
+/// - `.ready` active / `.checking` / `.unsupportedDevice` → no
+///   trailing control (no actionable affordance)
 ///
 /// Destructive actions surface a `ConfirmationDialog` binding up to
 /// the parent `SettingsView`, since a per-row dialog state would
@@ -97,7 +97,7 @@ struct ModelSettingsRow: View {
           .padding(.top, 2)
       }
       Spacer(minLength: 0)
-      menu
+      trailingView
         .foregroundStyle(Color.inkSecondary)
     }
     .padding(.vertical, Spacing.xxs)
@@ -140,21 +140,53 @@ struct ModelSettingsRow: View {
     }
   }
 
-  // MARK: - Actions menu
+  // MARK: - Trailing slot
 
-  private var menu: some View {
+  /// Renders the trailing slot per the `trailingControl` discriminator.
+  /// One-tap direct download for `.notDownloaded`/`.error`; ellipsis
+  /// Menu for `.downloading` and `.ready` non-active; nothing for the
+  /// remaining states (closes the previously-empty-Menu UX bug).
+  @ViewBuilder
+  private var trailingView: some View {
+    switch trailingControl {
+    case .downloadButton(let disabled):
+      directDownloadButton(disabled: disabled)
+    case .menu:
+      actionsMenu
+    case .none:
+      EmptyView()
+    }
+  }
+
+  /// Direct download icon button — single tap fires `onDownload()`,
+  /// which routes through `SettingsView.presentDownloadCover(for:)`
+  /// (Wi-Fi → immediate; cellular without consent → confirmation
+  /// dialog; sequential rejection → no-op already pre-empted by
+  /// `.disabled(disabled)`). Sized to match the ellipsis (font 18 +
+  /// top-2 padding) so the trailing-edge optical position is
+  /// preserved.
+  private func directDownloadButton(disabled: Bool) -> some View {
+    Button {
+      onDownload()
+    } label: {
+      Image(systemName: "arrow.down.circle")
+        .font(.system(size: 18))
+        .padding(.top, 2)
+    }
+    .buttonStyle(.borderless)
+    .disabled(disabled)
+    .accessibilityLabel(
+      String(format: String(localized: "Download %@"), descriptor.displayName))
+  }
+
+  /// Ellipsis Menu — surfaces Cancel for `.downloading` and
+  /// Use-this-model + Delete for `.ready` non-active. The inner switch
+  /// is constrained by the `trailingControl` invariant (only `.menu`
+  /// for those two state combinations); other branches collapse to
+  /// `EmptyView` defensively but should be unreachable.
+  private var actionsMenu: some View {
     Menu {
       switch state {
-      case .notDownloaded, .error:
-        Button {
-          onDownload()
-        } label: {
-          Label(
-            String(localized: "Download"),
-            systemImage: "arrow.down.circle")
-        }
-        .disabled(otherDownloadInProgress)
-
       case .downloading:
         Button(role: .destructive) {
           onCancel()
@@ -165,25 +197,23 @@ struct ModelSettingsRow: View {
         }
 
       case .ready:
-        if !isActive {
-          Button {
-            onSwitchActive()
-          } label: {
-            Label(
-              String(localized: "Use this model"),
-              systemImage: "checkmark.circle")
-          }
-          .disabled(isSwitchLocked)
-          Button(role: .destructive) {
-            onRequestDelete()
-          } label: {
-            Label(
-              String(localized: "Delete"),
-              systemImage: "trash")
-          }
+        Button {
+          onSwitchActive()
+        } label: {
+          Label(
+            String(localized: "Use this model"),
+            systemImage: "checkmark.circle")
+        }
+        .disabled(isSwitchLocked)
+        Button(role: .destructive) {
+          onRequestDelete()
+        } label: {
+          Label(
+            String(localized: "Delete"),
+            systemImage: "trash")
         }
 
-      case .checking, .unsupportedDevice:
+      default:
         EmptyView()
       }
     } label: {
