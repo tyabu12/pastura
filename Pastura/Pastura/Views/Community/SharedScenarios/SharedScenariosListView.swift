@@ -20,6 +20,7 @@ struct SharedScenariosListView: View {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
     }
     .task {
       let newViewModel = SharedScenariosViewModel(

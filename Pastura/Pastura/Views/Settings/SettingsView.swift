@@ -82,6 +82,7 @@ struct SettingsView: View {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
     }
     #if !targetEnvironment(simulator)
       .confirmationDialog(

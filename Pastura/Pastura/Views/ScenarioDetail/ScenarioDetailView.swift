@@ -53,6 +53,7 @@ struct ScenarioDetailView: View {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
       if let record = viewModel?.record, !record.isPreset {
         ToolbarItem(placement: .destructiveAction) {
           Button(String(localized: "Delete"), role: .destructive) {
@@ -60,6 +61,7 @@ struct ScenarioDetailView: View {
           }
           .buttonStyle(PasturaToolbarButtonStyle(variant: .destructive))
         }
+        .hidingPasturaSharedBackground()
       }
     }
     .confirmationDialog(

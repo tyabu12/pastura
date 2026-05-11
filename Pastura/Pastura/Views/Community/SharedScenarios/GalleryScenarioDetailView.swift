@@ -56,6 +56,7 @@ struct GalleryScenarioDetailView: View {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         Menu {
           Button {
@@ -72,6 +73,7 @@ struct GalleryScenarioDetailView: View {
         .menuStyle(.button)
         .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
       }
+      .hidingPasturaSharedBackground()
     }
     .sheet(isPresented: $isReportSheetPresented) {
       ReportScenarioSheet(scenario: scenario)

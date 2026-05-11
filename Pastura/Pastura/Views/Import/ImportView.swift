@@ -30,6 +30,7 @@ struct ImportView: View {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
     }
     .task {
       // Defer assignment until loadForEditing completes so the TextEditor

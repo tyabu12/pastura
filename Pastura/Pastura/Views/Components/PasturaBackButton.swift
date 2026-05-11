@@ -145,6 +145,33 @@ struct PasturaToolbarButtonStyle: ButtonStyle {
   static let pressedOpacity: Double = 0.6
 }
 
+// MARK: - Toolbar shared-background opt-out (iOS 26+)
+
+extension ToolbarContent {
+  /// Hide the iOS 26 Liquid Glass shared background that the system
+  /// applies to toolbar items by default. No-op on iOS < 26 where the
+  /// `sharedBackgroundVisibility(_:)` API doesn't exist.
+  ///
+  /// `.buttonStyle(.plain)` on the inner `Button` alone does NOT
+  /// remove the capsule that wraps every `ToolbarItem` on iOS 26 —
+  /// the wrapping happens at the toolbar level, not the button level.
+  /// This modifier is the documented opt-out mechanism (Apple Dev Docs,
+  /// WWDC25). Real-device verified on iPhone 16e (iOS 26.4.2) — the
+  /// chevron renders flat against the bar background, no capsule.
+  ///
+  /// Apply to every `ToolbarItem` that wraps a custom Pastura control
+  /// (`PasturaBackButton`, action items styled with
+  /// `PasturaToolbarButtonStyle`).
+  @ToolbarContentBuilder
+  func hidingPasturaSharedBackground() -> some ToolbarContent {
+    if #available(iOS 26.0, *) {
+      self.sharedBackgroundVisibility(.hidden)
+    } else {
+      self
+    }
+  }
+}
+
 // MARK: - View-level swipe-back preservation
 
 extension View {

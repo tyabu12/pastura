@@ -32,6 +32,7 @@ struct ResultsView: View {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
     }
     .task {
       viewModel = ResultsViewModel(

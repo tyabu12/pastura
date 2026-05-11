@@ -279,6 +279,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .principal) {
         makeHeader(viewModel: viewModel)
           .titleRow
@@ -287,6 +288,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           // VM-driven status change.
           .accessibilityIdentifier("simulation.header.title")
       }
+      .hidingPasturaSharedBackground()
     }
     .safeAreaInset(edge: .top, spacing: 0) {
       headerMetaInset(viewModel: viewModel)
