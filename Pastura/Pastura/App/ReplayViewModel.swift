@@ -301,10 +301,43 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Public computed properties (GameHeader integration)
 
-  /// 1-based phase index within the currently-playing source. Increments
-  /// on each consumed `.phaseStarted`. `nil` outside `.playing` so the
-  /// GameHeader's ROUND fragment collapses during `.idle` /
-  /// `.transitioning` / `.paused` (per #297 PR 3 spec).
+  /// Currently-active source index — "which demo is on screen right
+  /// now." Returns the `sourceIndex` for BOTH `.playing` and `.paused`;
+  /// `nil` for `.idle` and `.transitioning` where no source is active.
+  ///
+  /// **Canonical identity gate for the GameHeader surface.** The four
+  /// computed properties below (``currentPhaseIndex``,
+  /// ``totalPhaseCount``, ``headerRound``, and the identity reads on
+  /// the host view side — `currentPresetName` and `agentPosition`) all
+  /// gate on this, so the GameHeader's scenario name, ROUND fragment,
+  /// and sheep-avatar colors stay stable across pause / resume. The
+  /// `status` pill (.paused vs .demoing) is the user signal for
+  /// pause; the other fragments preserve position context.
+  ///
+  /// **History**: #297 PR3 originally had ROUND collapse on pause
+  /// (`.playing`-only gate); #355 found avatar colors and scenario
+  /// name flickered for the same reason; the follow-up unified all
+  /// identity reads onto this gate (#355 PR body).
+  ///
+  /// **Prefer this over external `if case .playing(let i, _) = state`
+  /// pattern-matching** when only source identity is needed —
+  /// `.paused(sourceIndex: i, ...)` carries the same identity.
+  var currentSourceIndex: Int? {
+    switch state {
+    case .playing(let sourceIndex, _),
+      .paused(let sourceIndex, _, _, _):
+      return sourceIndex
+    case .idle, .transitioning:
+      return nil
+    }
+  }
+
+  /// 1-based phase index within the active source. Increments on each
+  /// consumed `.phaseStarted`. `nil` while no source is active
+  /// (`.idle` / `.transitioning`) so the GameHeader's ROUND fragment
+  /// collapses uniformly with the rest of the identity surface; stays
+  /// visible across `.paused` so the user keeps position context
+  /// (re-evaluation of #297 PR3 spec — see ``currentSourceIndex``).
   ///
   /// Distinct from ``currentRound`` (real game-rounds from
   /// `.roundStarted` events). Demo's GameHeader displays this
@@ -312,25 +345,27 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// across multiple phases, leaving the real round counter stuck
   /// at `1/1` for the entire demo.
   var currentPhaseIndex: Int? {
-    guard case .playing = state else { return nil }
+    guard currentSourceIndex != nil else { return nil }
     return phaseProgress > 0 ? phaseProgress : nil
   }
 
-  /// Total `.phaseStarted` event count for the currently-playing
-  /// source. Re-derived on `.loop` rotation against the new source's
-  /// `plannedEvents()`. `nil` outside `.playing` so the GameHeader's
-  /// ROUND fragment collapses uniformly with ``currentPhaseIndex``.
+  /// Total `.phaseStarted` event count for the active source.
+  /// Re-derived on `.loop` rotation against the new source's
+  /// `plannedEvents()`. `nil` while no source is active so the
+  /// GameHeader's ROUND fragment collapses uniformly with
+  /// ``currentPhaseIndex``; stays visible across `.paused`.
   var totalPhaseCount: Int? {
-    guard case .playing = state else { return nil }
+    guard currentSourceIndex != nil else { return nil }
     return cachedTotalPhaseCount > 0 ? cachedTotalPhaseCount : nil
   }
 
   /// Round-counter pair for `GameHeader`'s row-2 ROUND fragment.
   /// Re-uses ``currentPhaseIndex`` and ``totalPhaseCount`` so the
-  /// pair-or-nothing semantic is satisfied automatically: both are
-  /// gated on `.playing` AND a positive backing value, so the wrapper
-  /// collapses to `nil` whenever either piece is missing — including
-  /// the brief post-`start()` window where `cachedTotalPhaseCount` has
+  /// pair-or-nothing semantic is satisfied automatically: both gate on
+  /// ``currentSourceIndex`` (non-nil for `.playing` + `.paused`) AND a
+  /// positive backing value, so the wrapper collapses to `nil`
+  /// whenever either piece is missing — including the brief
+  /// post-`start()` window where `cachedTotalPhaseCount` has
   /// pre-computed but `phaseProgress` is still `0` (no `.phaseStarted`
   /// consumed yet).
   ///
