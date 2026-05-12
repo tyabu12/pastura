@@ -115,7 +115,16 @@ public struct SheepAvatar: View {
         style: StrokeStyle(lineWidth: unit, lineCap: .round))
     }
     .frame(width: size, height: size)
-    .accessibilityLabel(character.accessibilityLabel)
+    // Decorative reinforcement of the adjacent `Text(agent)` in
+    // `AgentOutputRow.body` (see L208–211). `Character.accessibilityLabel`
+    // is the **color-slot canonical name** ("Alice"/"Bob"/"Carol"/"Dave"),
+    // allocated by `forAgent(name:position:)` from `position` first — so
+    // for a user-authored agent named `"Tomoko"` at position 0 it would
+    // announce "Alice. Tomoko." next to `Text(agent)`. Hiding the avatar
+    // from VoiceOver lets the agent's actual display name carry identity
+    // without the color-slot dissonance, and avoids committing the
+    // canonical names as translatable personal names in the i18n catalog.
+    .accessibilityHidden(true)
   }
 
   private struct WoolCircle {
@@ -218,6 +227,13 @@ extension SheepAvatar.Character {
     }
   }
 
+  /// Color-slot canonical name. Preview-only at runtime: the chat-row
+  /// `SheepAvatar` carries `.accessibilityHidden(true)` so VoiceOver
+  /// announces only `Text(agent)`. The previews below still consume this
+  /// as a `ForEach` identity key and visible label, so the getter stays.
+  /// Treat as a stable identifier rather than a user-facing string — i18n
+  /// wrap deferred per `docs/i18n/leak-detection.md` § "Explicitly-deferred
+  /// items".
   var accessibilityLabel: String {
     switch self {
     case .alice: return "Alice"

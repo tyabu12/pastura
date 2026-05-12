@@ -1373,6 +1373,16 @@
         }
       }
     },
+    "Hide thought" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "思考を隠す"
+          }
+        }
+      }
+    },
     "Import" : {
       "localizations" : {
         "ja" : {
@@ -2729,6 +2739,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考をすべて表示"
+          }
+        }
+      }
+    },
+    "Show thought" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "思考を表示"
           }
         }
       }
