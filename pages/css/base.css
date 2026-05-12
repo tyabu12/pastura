@@ -131,8 +131,10 @@ body {
   letter-spacing: -0.008em;
   color: var(--ink);
   text-wrap: balance;
-  /* Fluid 24px → 48px. min/max = 2.0× → WCAG SC 1.4.4 safe. */
-  font-size: clamp(1.5rem, 4vw + 0.5rem, 3rem);
+  /* Fluid 18px → 44px. min/max ≈ 2.44× → WCAG SC 1.4.4 safe.
+     Slope tuned so 430px viewport (iPhone 14 Pro Max) yields ~19px,
+     letting longer JA section headlines fit on one line. */
+  font-size: clamp(1.125rem, 3.5vw + 0.25rem, 2.75rem);
   line-height: 1.12;
 }
 
