@@ -48,6 +48,24 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// that need no suffix.
   public let systemPromptSuffix: String?
 
+  /// Optional text appended to the formatted prompt *after* the chat template's
+  /// assistant-role marker (i.e., prefilled into the assistant turn).
+  ///
+  /// Used by Qwen 3 to disable thinking mode via the official
+  /// `"<think>\n\n</think>\n\n"` prefill — equivalent to what the Jinja chat
+  /// template would emit under `enable_thinking=false`. llama.cpp's C-API
+  /// `llama_chat_apply_template` is the simplified non-Jinja implementation and
+  /// does not perform this prefill automatically, so we append it post-template.
+  ///
+  /// Without this prefill, Qwen 3 emits `<think>` (token 151667) as its first
+  /// generated token, which the GBNF grammar's `root` rule cannot accept —
+  /// `llama_grammar_accept_token` throws `std::runtime_error: Unexpected empty
+  /// grammar stack`, crashing the process via an uncaught C++ exception
+  /// (Issue #366).
+  ///
+  /// `nil` for models that need no prefill (Gemma 4 E2B).
+  public let assistantPrefix: String?
+
   /// Returns `true` iff `name` matches `^[A-Za-z0-9._-]+\.gguf$`.
   ///
   /// Use this to validate a candidate filename before constructing a `ModelDescriptor`.
@@ -71,7 +89,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     stopSequence: String,
     minRAM: UInt64,
     modelInfoURL: URL,
-    systemPromptSuffix: String?
+    systemPromptSuffix: String?,
+    assistantPrefix: String? = nil
   ) {
     precondition(
       Self.isValidFileName(fileName),
@@ -89,6 +108,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     self.minRAM = minRAM
     self.modelInfoURL = modelInfoURL
     self.systemPromptSuffix = systemPromptSuffix
+    self.assistantPrefix = assistantPrefix
   }
 }
 
