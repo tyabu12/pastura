@@ -10,7 +10,8 @@
 
   <link rel="canonical" href="https://tyabu12.github.io/pastura/">
   <link rel="alternate" hreflang="en" href="https://tyabu12.github.io/pastura/">
-  <!-- hreflang ja intentionally omitted — /ja/ route not yet implemented -->
+  <link rel="alternate" hreflang="ja" href="https://tyabu12.github.io/pastura/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://tyabu12.github.io/pastura/">
 
   <link rel="icon" type="image/png" sizes="64x64" href="img/favicon-64.png">
   <link rel="apple-touch-icon" href="img/app-icon.png">
@@ -19,6 +20,8 @@
   <meta property="og:title" content="Pastura — AIgazing for local LLMs.">
   <meta property="og:description" content="AIgazing — a local LLM sandbox. Fully offline, fully on-device.">
   <meta property="og:url" content="https://tyabu12.github.io/pastura/">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ja_JP">
   <!-- Stub: app-icon (256×256) used as og:image until proper 1200×630 OGP design ships. -->
   <meta property="og:image" content="https://tyabu12.github.io/pastura/img/app-icon.png">
   <meta property="og:image:width" content="256">
@@ -62,8 +65,8 @@
         <a href="#faq">FAQ</a>
       </span>
       <div class="lang-toggle" role="group" aria-label="Language">
-        <button type="button" aria-pressed="true" lang="en" class="on">EN</button>
-        <button type="button" aria-disabled="true" lang="ja" tabindex="-1">JA</button>
+        <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
+        <a lang="ja" hreflang="ja" href="ja/">JA</a>
       </div>
     </nav>
   </header>
@@ -75,8 +78,9 @@
       <div class="lp-hero-wrap lp-hero-grid">
         <div>
           <!-- AIgazing is an English-only genre word (a portmanteau of AI + stargazing).
-               The Japanese LP, once it ships, will need a structurally different Hero h1
-               — do not machine-translate this line. -->
+               The JA mirror at /ja/ uses 「AI観測」 — a stargazing portmanteau coined
+               for the JA side — to preserve the wordplay. Both Hero h1s are
+               hand-crafted per language; do not machine-translate either. -->
           <h1 id="hero-h" class="display">AIgazing.<br>Like stargazing,<br>but for local LLMs.</h1>
           <p class="lead">Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you&rsquo;ve written.</p>
           <div class="badges">
@@ -533,8 +537,8 @@
     <div class="foot-base">
       <span class="foot-copy">© 2026 Pastura</span>
       <div class="lang-toggle" role="group" aria-label="Language">
-        <button type="button" aria-pressed="true" lang="en" class="on">EN</button>
-        <button type="button" aria-disabled="true" lang="ja" tabindex="-1">JA</button>
+        <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
+        <a lang="ja" hreflang="ja" href="ja/">JA</a>
       </div>
     </div>
     <p class="foot-note">This page uses Google Fonts. The app itself stays fully on-device.</p>

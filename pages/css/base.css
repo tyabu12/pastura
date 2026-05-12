@@ -293,24 +293,19 @@ body {
   font-size: 11px;
   overflow: hidden;
 }
-.lang-toggle button {
-  appearance: none;
-  background: transparent;
-  border: 0;
+.lang-toggle a {
   color: var(--ink-2);
   font: inherit;
   letter-spacing: 0.18em;
   padding: 6px 12px;
-  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
 }
-.lang-toggle button.on,
-.lang-toggle button[aria-pressed="true"] {
+.lang-toggle a.on,
+.lang-toggle a[aria-current="page"] {
   background: var(--ink);
   color: var(--screen-bg);
-}
-.lang-toggle button[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.55;
+  cursor: default;
 }
 
 /* ----- Sheep avatar (SVG) -----
