@@ -141,7 +141,7 @@ body {
   letter-spacing: -0.005em;
   color: var(--ink);
   text-wrap: balance;
-  font-size: 1.5rem; /* 24px mobile */
+  font-size: 1.375rem; /* 22px mobile */
   line-height: 1.25;
 }
 
@@ -149,7 +149,7 @@ body {
   font-weight: 400;
   color: var(--ink-2);
   text-wrap: pretty;
-  font-size: 1rem; /* 16px mobile */
+  font-size: 0.9375rem; /* 15px mobile */
   line-height: 1.6;
 }
 
