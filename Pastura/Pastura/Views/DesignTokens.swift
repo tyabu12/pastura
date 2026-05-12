@@ -309,13 +309,13 @@ enum Typography {
     lineHeight: 1.2, letterSpacingEm: 0,
     isItalic: false, textCase: nil)
 
-  /// meta/eta — 残り約4分 (mono medium)
+  /// meta/eta — "About 4 min left" (mono medium)
   static let metaEta = PasturaTextStyle(
     size: 10, weight: .medium, design: .monospaced,
     lineHeight: 1.3, letterSpacingEm: 0,
     isItalic: false, textCase: nil)
 
-  /// status/complete — 準備ができました
+  /// status/complete — "Setup complete"
   static let statusComplete = PasturaTextStyle(
     size: 16, weight: .medium, design: .default,
     lineHeight: 1.4, letterSpacingEm: 0.22,

@@ -41,6 +41,19 @@ struct ModelRegistryTests {
       ModelRegistry.qwen34B.sha256
         == "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5")
     #expect(ModelRegistry.qwen34B.systemPromptSuffix == "/no_think")
+    // Issue #366 — without this prefill, Qwen 3 emits `<think>` as its first
+    // generated token and the GBNF grammar sampler crashes via uncaught C++
+    // exception. The exact string is load-bearing (matches the Qwen 3 Jinja
+    // chat template's `enable_thinking=false` output).
+    #expect(ModelRegistry.qwen34B.assistantPrefix == "<think>\n\n</think>\n\n")
+  }
+
+  /// Gemma must NOT carry an `assistantPrefix` — the bridge between the
+  /// chat template and Gemma's training assumes the assistant turn starts
+  /// empty. A non-nil prefix here would silently change Gemma's generation
+  /// surface.
+  @Test func gemma_hasNoAssistantPrefix() {
+    #expect(ModelRegistry.gemma4E2B.assistantPrefix == nil)
   }
 
   // findCollisions testability — covers the uniqueness check without

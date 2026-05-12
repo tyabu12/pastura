@@ -20,6 +20,13 @@ struct PromoCard: View {
 
   let modelState: ModelState
   let replayHadStarted: Bool
+  /// Total file size of the model being downloaded, in bytes. Drives both
+  /// the `downloadedGB = progress * totalGB` calculation and the `/ X.X GB`
+  /// denominator. Sourced from `ModelDescriptor.fileSize` by the host.
+  /// Non-defaulted so production callsites must thread the active
+  /// descriptor — previously the file hardcoded `3.0` GB, which under-
+  /// or over-reported for any non-Gemma model.
+  let totalBytes: Int64
   let onRetry: () -> Void
   /// When set, renders a small `X` button at the trailing edge of the
   /// progress / retry row. When `nil`, no cancel affordance is shown
@@ -29,14 +36,21 @@ struct PromoCard: View {
   init(
     modelState: ModelState,
     replayHadStarted: Bool,
+    totalBytes: Int64,
     onRetry: @escaping () -> Void,
     onCancel: (() -> Void)? = nil
   ) {
     self.modelState = modelState
     self.replayHadStarted = replayHadStarted
+    self.totalBytes = totalBytes
     self.onRetry = onRetry
     self.onCancel = onCancel
   }
+
+  /// Total size in decimal GB (bytes / 1e9), matching the CLAUDE.md
+  /// tech-stack table convention. Decimal not binary because the catalog
+  /// figures are stated as `~2.5–3.1 GB each` (decimal).
+  private var totalGB: Double { Double(totalBytes) / 1_000_000_000 }
 
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -113,12 +127,12 @@ struct PromoCard: View {
   private func progressView(progress: Double) -> some View {
     let pct = Int(progress * 100)
     let dotsLit = Int((progress * 8).rounded())
-    let downloadedGB = progress * 3.0
+    let downloadedGB = progress * totalGB
     let etaMinutes = computeEtaMinutes(progress: progress)
 
     VStack(alignment: .leading, spacing: 3) {
       HStack(spacing: 6) {
-        Text("DL")
+        Text(String(localized: "DL"))
           .textStyle(Typography.metaLabel)
           .foregroundStyle(Color.metaBaseL3)
 
@@ -144,7 +158,7 @@ struct PromoCard: View {
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.metaBaseL3.opacity(0.6))
 
-        Text(String(format: "%.1f GB / 3.0 GB", downloadedGB))
+        Text(String(format: String(localized: "%.1f GB / %.1f GB"), downloadedGB, totalGB))
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.metaBaseL3)
 
@@ -202,7 +216,7 @@ struct PromoCard: View {
   private func retryView(message: String) -> some View {
     HStack(alignment: .center, spacing: Spacing.s) {
       VStack(alignment: .leading, spacing: 2) {
-        Text("ダウンロードが中断しました")
+        Text(String(localized: "Download interrupted"))
           .textStyle(Typography.metaEta)
           .foregroundStyle(Color.metaStrongL3)
         Text(message)
@@ -212,7 +226,7 @@ struct PromoCard: View {
       }
       Spacer(minLength: 0)
       Button(action: onRetry) {
-        Text("リトライ")
+        Text(String(localized: "Retry"))
           .textStyle(Typography.metaLabel)
           .foregroundStyle(Color.white)
           .padding(.horizontal, 10)

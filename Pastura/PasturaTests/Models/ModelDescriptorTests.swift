@@ -67,7 +67,8 @@ struct ModelDescriptorTests {
       stopSequence: "<|im_end|>",
       minRAM: 6_000_000_000,
       modelInfoURL: modelInfoURL,
-      systemPromptSuffix: "/no_think"
+      systemPromptSuffix: "/no_think",
+      assistantPrefix: "<think>\n\n</think>\n\n"
     )
 
     #expect(descriptor.id == "gemma-4-e2b-q4-k-m")
@@ -82,6 +83,15 @@ struct ModelDescriptorTests {
     #expect(descriptor.minRAM == 6_000_000_000)
     #expect(descriptor.modelInfoURL == modelInfoURL)
     #expect(descriptor.systemPromptSuffix == "/no_think")
+    #expect(descriptor.assistantPrefix == "<think>\n\n</think>\n\n")
+  }
+
+  /// `assistantPrefix` is optional with a `nil` default to keep construction
+  /// ergonomic for the common Gemma-shaped case. Verifies that omitting the
+  /// argument lands as `nil`, not as a fault.
+  @Test func construction_assistantPrefixDefaultsToNil() {
+    let descriptor = makeDescriptor()
+    #expect(descriptor.assistantPrefix == nil)
   }
 
   // MARK: - Hashable

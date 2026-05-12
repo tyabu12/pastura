@@ -50,20 +50,31 @@ private enum QwenConfig {
 /// - Test (a) fails → the Q4_K_M quantization is incompatible with
 ///   llama.cpp's chatml fallback path. Revise plan to add a
 ///   `chatTemplateOverride` field on `ModelDescriptor`.
-/// - Test (b) fails → `/no_think` in the system prompt does not suppress
-///   thinking mode. Try moving the suffix to the user message
-///   (introduce `PromptSuffixPosition` enum) OR raise `maxTokens` per
-///   descriptor so the JSON survives the thinking prefix.
+/// - Test (b) fails → the `<think>\n\n</think>\n\n` assistant prefill
+///   (`ModelDescriptor.assistantPrefix`) is being dropped or has the wrong
+///   shape. Confirm `LlamaCppService.applyChatTemplate` appends the prefix
+///   to the formatted prompt after `llama_chat_apply_template`. The
+///   `/no_think` system suffix is a soft training hint and is not the
+///   load-bearing mechanism — do NOT debug this test by altering the
+///   suffix. History: Issue #366 — without the prefill, Qwen 3 emits
+///   `<think>` (token 151667) as its first generated token, crashing
+///   the grammar sampler.
+/// - Test (c) fails → schema-constrained generation hit the grammar-sampler
+///   crash that motivated the prefill. The whole process terminates
+///   (uncaught C++ exception); test (c) regresses test-process side too.
 extension LlamaCppIntegrationTests {
 
   // MARK: - Helpers
 
   private func makeQwenService() -> LlamaCppService {
+    // Mirror `ModelRegistry.qwen34B` — keep `/no_think` and the prefill in
+    // lockstep with production so integration regressions track real builds.
     LlamaCppService(
       modelPath: QwenConfig.modelPath,
       stopSequence: "<|im_end|>",
       modelIdentifier: "Qwen 3 4B (Q4_K_M)",
-      systemPromptSuffix: "/no_think"
+      systemPromptSuffix: "/no_think",
+      assistantPrefix: "<think>\n\n</think>\n\n"
     )
   }
 
@@ -128,11 +139,58 @@ extension LlamaCppIntegrationTests {
 
     #expect(
       !result.contains("<think>"),
-      "Qwen emitted <think> block despite /no_think suffix. Raw: \(result)"
+      "Qwen emitted <think> block despite assistant prefill. Raw: \(result)"
     )
     #expect(
       !result.contains("</think>"),
-      "Qwen emitted </think> close tag despite /no_think suffix. Raw: \(result)"
+      "Qwen emitted </think> close tag despite assistant prefill. Raw: \(result)"
+    )
+  }
+
+  // MARK: - Test (c): Schema-constrained generate does NOT crash on <think>
+
+  /// Verifies that schema-constrained generation does not regress the
+  /// grammar-sampler crash that motivated `assistantPrefix` (Issue #366).
+  ///
+  /// Without the `<think>\n\n</think>\n\n` prefill, Qwen 3 emits `<think>`
+  /// (token 151667) as its first generated token. The GBNF grammar's `root`
+  /// rule cannot accept that piece, so `llama_grammar_accept_token` throws
+  /// `std::runtime_error: Unexpected empty grammar stack` — an uncaught C++
+  /// exception that terminates the test process. A regression here will
+  /// take down the whole test runner, not just this test; if you see the
+  /// xctest harness exit without reporting, this is the prime suspect.
+  ///
+  /// This test exercises the same code path as Engine's
+  /// `speak_all` / `choose` handlers when they wire GBNF grammar through
+  /// `LLMService.generate(system:user:schema:)`.
+  @Test(
+    "Qwen: schema-constrained generate does not crash on <think>",
+    .enabled(if: QwenConfig.isEnabled),
+    .timeLimit(.minutes(3))
+  )
+  func qwenWithGrammarDoesNotCrash() async throws {
+    let service = makeQwenService()
+    try await service.loadModel()
+    defer { Task { try? await service.unloadModel() } }
+
+    let schema = OutputSchema(fields: [
+      OutputSchema.Field(name: "statement", kind: .string)
+    ])
+
+    // Reaching this `#expect` means no C++ exception terminated the process.
+    let result = try await service.generate(
+      system: """
+        You are a character in a game. Respond ONLY with a JSON object.
+        Required format: {"statement": "your statement here"}
+        """,
+      user: "Introduce yourself briefly.",
+      schema: schema
+    )
+
+    #expect(!result.isEmpty, "Qwen produced empty output under grammar")
+    #expect(
+      result.contains("{") && result.contains("}"),
+      "Qwen output is not JSON-shaped under grammar. Raw: \(result)"
     )
   }
 }

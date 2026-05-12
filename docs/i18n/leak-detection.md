@@ -105,10 +105,22 @@ Internally:
 
 Empirically the filters drop ~42% of raw extractions on the current
 codebase (1108 → 647 candidates). The reviewer is expected to triage
-the remainder against the actual call site to decide *intentional Japanese
-marketing copy* (e.g. PromoCard `ダウンロードが中断しました`), *internal log
-strings* (Logger `%public` interpolations), or *real wrap leaks* (e.g.
-`SimulationView.swift:535 loadError = "Scenario not found"`).
+the remainder against the actual call site to decide *intentional
+design-pending copy* (see § "Explicitly-deferred items" below), *internal
+log strings* (Logger `%public` interpolations), or *real wrap leaks*
+(e.g. `SimulationView.swift:535 loadError = "Scenario not found"`).
+
+### Explicitly-deferred items
+
+Audit candidates that are **knowingly** un-wrapped pending a downstream
+gating event. They will keep surfacing in `check_i18n_potential_keys.py`
+output — recognize them as documented carve-outs rather than wrap leaks.
+When the gating event lands, wrap with English source strings and add
+the ja translation in the catalog at the same time.
+
+| Item | Source location | Gating event |
+|------|-----------------|--------------|
+| `slotCopy(_:)` 3 marketing strings | `Pastura/Pastura/Views/ModelDownload/PromoCard+Helpers.swift` | `docs/design/design-system.md` §7 copy pass (spec §2 decision 13) |
 
 ### Self-test
 

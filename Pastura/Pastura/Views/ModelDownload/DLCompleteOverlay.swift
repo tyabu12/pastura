@@ -3,8 +3,8 @@ import SwiftUI
 /// Fullscreen overlay shown while `ReplayViewModel.state == .transitioning`.
 ///
 /// Per `demo-replay-ui.md` §DLCompleteOverlay: ultra-thin material
-/// background + pulsing 44 pt dog mark + "準備ができました" +
-/// "tap anywhere to begin". The hint text is now load-bearing — the
+/// background + pulsing 44 pt dog mark + "Setup complete" +
+/// "Tap anywhere to begin". The hint text is now load-bearing — the
 /// overlay waits for a user tap before transitioning to `HomeView` so
 /// the user gets a clear "setup complete" beat instead of waking up on
 /// the home screen mid-task. (Spec §2 decision 6 / 8 originally
@@ -44,10 +44,10 @@ struct DLCompleteOverlay: View {
       VStack(spacing: Spacing.s) {
         DogMark(size: 44)
           .pulsing()
-        Text("準備ができました")
+        Text(String(localized: "Setup complete"))
           .textStyle(Typography.statusComplete)
           .foregroundStyle(Color.mossInk)
-        Text("tap anywhere to begin")
+        Text(String(localized: "Tap anywhere to begin"))
           .textStyle(Typography.statusHint)
           .foregroundStyle(Color.muted)
       }
