@@ -132,9 +132,11 @@
   margin: 0;
   max-width: 560px;
   /* Override .display defaults — the AIgazing tagline is 3 short lines;
-     1.08 line-height (tuned for 64px display) feels cramped at 52px. */
-  font-size: 52px;
-  line-height: 1.2;
+     fluid scaling: 28px min on iPhone-narrow widths so each <br>-segment
+     fits on one line, 52px max on desktop. 1.25 line-height (slightly
+     looser than .display's 1.08) feels right across the range. */
+  font-size: clamp(1.75rem, 3.5vw + 0.75rem, 3.25rem);
+  line-height: 1.25;
 }
 .lp-hero .lead {
   margin: 24px 0 34px;

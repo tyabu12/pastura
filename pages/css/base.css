@@ -94,7 +94,10 @@ body {
   letter-spacing: -0.012em;
   color: var(--ink);
   text-wrap: balance;
-  font-size: 64px;
+  /* Fluid typography (2026 best practice): clamp(min, vw-based, max).
+     32px-min at ≤375px viewport, 64px-max at ≥1024px viewport.
+     `rem` honours user font-size preference (WCAG accessibility). */
+  font-size: clamp(2rem, 5vw + 0.5rem, 4rem);
   line-height: 1.08;
 }
 
@@ -103,7 +106,8 @@ body {
   letter-spacing: -0.008em;
   color: var(--ink);
   text-wrap: balance;
-  font-size: 48px;
+  /* Fluid 24px → 48px. See `.display` note. */
+  font-size: clamp(1.5rem, 4vw + 0.5rem, 3rem);
   line-height: 1.12;
 }
 
@@ -149,14 +153,8 @@ body {
 }
 
 @media (max-width: 768px) {
-  .display {
-    font-size: 36px;
-    line-height: 1.12;
-  }
-  .display-sm {
-    font-size: 30px;
-    line-height: 1.18;
-  }
+  /* `.display` and `.display-sm` are now fluid-typography (clamp())
+     so they self-adjust without a media-query override. */
   .section-title {
     font-size: 24px;
     line-height: 1.25;
