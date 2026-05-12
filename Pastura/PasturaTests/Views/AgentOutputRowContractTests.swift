@@ -269,4 +269,28 @@ struct AgentOutputRowContractTests {
   // file `AgentOutputRowContractTests+ThoughtSectionGate.swift` per
   // `.claude/rules/testing.md` § "Splitting a Suite Across Files" (this
   // file crossed the 400-line `file_length` cap when the gate landed).
+
+  // MARK: - thoughtToggleAccessibilityLabel(showInnerThought:)
+
+  @Test func thoughtToggleAccessibilityLabelOnStateContainsHide() {
+    let label = AgentOutputRow.thoughtToggleAccessibilityLabel(
+      showInnerThought: true)
+    #expect(!label.isEmpty)
+    #expect(label.contains("Hide"))
+  }
+
+  @Test func thoughtToggleAccessibilityLabelOffStateContainsShow() {
+    let label = AgentOutputRow.thoughtToggleAccessibilityLabel(
+      showInnerThought: false)
+    #expect(!label.isEmpty)
+    #expect(label.contains("Show"))
+  }
+
+  @Test func thoughtToggleAccessibilityLabelsForOnAndOffDiffer() {
+    let onLabel = AgentOutputRow.thoughtToggleAccessibilityLabel(
+      showInnerThought: true)
+    let offLabel = AgentOutputRow.thoughtToggleAccessibilityLabel(
+      showInnerThought: false)
+    #expect(onLabel != offLabel)
+  }
 }
