@@ -121,6 +121,7 @@ the ja translation in the catalog at the same time.
 | Item | Source location | Gating event |
 |------|-----------------|--------------|
 | `slotCopy(_:)` 3 marketing strings | `Pastura/Pastura/Views/ModelDownload/PromoCard+Helpers.swift` | `docs/design/design-system.md` §7 copy pass (spec §2 decision 13) |
+| `Character.accessibilityLabel` 4 cases (`Alice`/`Bob`/`Carol`/`Dave`) | `Pastura/Pastura/Views/Components/SheepAvatar.swift` | Preview-only after #340 bucket-3 PR — runtime application carries `.accessibilityHidden(true)` because the names are color-slot identifiers (allocated by `forAgent(position:)`), not agent display names. Re-evaluate only if a future design binds avatars to real translated identities. |
 
 ### Self-test
 
