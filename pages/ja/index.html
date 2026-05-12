@@ -1,72 +1,72 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8">
-  <title>Pastura — AIgazing for local LLMs.</title>
+  <title>Pastura：ローカルLLMでAI観測。</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="AIgazing — a local LLM sandbox for multi-agent scenarios. Fully offline, fully on-device. Watch AI agents reason, negotiate, and play — without sending a token to the cloud.">
+  <meta name="description" content="ローカルLLMでAI観測。マルチエージェントシナリオのための、端末内サンドボックス。AIエージェントが推論し、議論し、話す様子を、眺める。">
   <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)">
 
-  <link rel="canonical" href="https://tyabu12.github.io/pastura/">
+  <link rel="canonical" href="https://tyabu12.github.io/pastura/ja/">
   <link rel="alternate" hreflang="en" href="https://tyabu12.github.io/pastura/">
   <link rel="alternate" hreflang="ja" href="https://tyabu12.github.io/pastura/ja/">
   <link rel="alternate" hreflang="x-default" href="https://tyabu12.github.io/pastura/">
 
-  <link rel="icon" type="image/png" sizes="64x64" href="img/favicon-64.png">
-  <link rel="apple-touch-icon" href="img/app-icon.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="../img/favicon-64.png">
+  <link rel="apple-touch-icon" href="../img/app-icon.png">
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Pastura — AIgazing for local LLMs.">
-  <meta property="og:description" content="AIgazing — a local LLM sandbox. Fully offline, fully on-device.">
-  <meta property="og:url" content="https://tyabu12.github.io/pastura/">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:locale:alternate" content="ja_JP">
+  <meta property="og:title" content="Pastura：ローカルLLMでAI観測。">
+  <meta property="og:description" content="ローカルLLMでAI観測。完全オフライン、完全オンデバイス。">
+  <meta property="og:url" content="https://tyabu12.github.io/pastura/ja/">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:locale:alternate" content="en_US">
   <!-- Stub: app-icon (256×256) used as og:image until proper 1200×630 OGP design ships. -->
   <meta property="og:image" content="https://tyabu12.github.io/pastura/img/app-icon.png">
   <meta property="og:image:width" content="256">
   <meta property="og:image:height" content="256">
-  <meta property="og:image:alt" content="Pastura app icon">
+  <meta property="og:image:alt" content="Pastura アプリアイコン">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Pastura — AIgazing for local LLMs.">
-  <meta name="twitter:description" content="AIgazing — a local LLM sandbox. Fully offline, fully on-device.">
+  <meta name="twitter:title" content="Pastura：ローカルLLMでAI観測。">
+  <meta name="twitter:description" content="ローカルLLMでAI観測。完全オフライン、完全オンデバイス。">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/lp.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/lp.css">
 
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Pastura",
-    "description": "AIgazing — a local LLM sandbox. Fully offline, fully on-device.",
-    "url": "https://tyabu12.github.io/pastura/",
+    "description": "ローカルLLMでAI観測。完全オフライン、完全オンデバイス。",
+    "url": "https://tyabu12.github.io/pastura/ja/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "iOS 17+"
   }
   </script>
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
+  <a class="skip-link" href="#main">本文へスキップ</a>
 
   <header role="banner" class="lp-header">
     <a href="./" class="brand">
-      <img class="icon" src="img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+      <img class="icon" src="../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
       <span class="brand-name">Pastura</span>
     </a>
-    <nav aria-label="Primary" class="lp-nav">
+    <nav aria-label="主要" class="lp-nav">
       <span class="lp-nav-links">
-        <a href="#usage">Usage</a>
-        <a href="#features">Features</a>
+        <a href="#usage">使い方</a>
+        <a href="#features">特徴</a>
         <a href="#faq">FAQ</a>
       </span>
-      <div class="lang-toggle" role="group" aria-label="Language">
-        <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
-        <a lang="ja" hreflang="ja" href="ja/">JA</a>
+      <div class="lang-toggle" role="group" aria-label="言語">
+        <a lang="en" hreflang="en" href="../">EN</a>
+        <a lang="ja" hreflang="ja" aria-current="page" class="on" href="./">JA</a>
       </div>
     </nav>
   </header>
@@ -77,29 +77,29 @@
     <section class="lp-hero" aria-labelledby="hero-h">
       <div class="lp-hero-wrap lp-hero-grid">
         <div>
-          <!-- AIgazing is an English-only genre word (a portmanteau of AI + stargazing).
-               The JA mirror at /ja/ uses 「AI観測」 — a stargazing portmanteau coined
-               for the JA side — to preserve the wordplay. Both Hero h1s are
-               hand-crafted per language; do not machine-translate either. -->
-          <h1 id="hero-h" class="display">AIgazing.<br>Like stargazing,<br>but for local LLMs.</h1>
-          <p class="lead">Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you&rsquo;ve written.</p>
+          <!-- 「AI観測」は AIgazing（AI + stargazing の portmanteau）の日本語側の造語。
+               天体観測のもじりという原語の意図を保つため Hero と Bigger picture の
+               2 セクションでのみ使用し、Features / FAQ では具体語に切り替える
+               (EN の AIgazing と同じ配置ルール)。 -->
+          <h1 id="hero-h" class="display">AI 観測。<br>天体観測のように、<br>ローカル LLM を眺める。</h1>
+          <p class="lead">Pastura は端末の中で動く、AI エージェントたちの閉じた牧場。<br>あなたの書いたシナリオをエージェント達が演じる。</p>
           <div class="badges">
             <button type="button" aria-disabled="true"
                     class="appstore-cta"
-                    aria-label="Pastura on the App Store — coming soon">
-              <img class="appstore-img" src="img/app-store-badge-en.svg"
-                   alt="" aria-hidden="true" width="120" height="40">
-              <span class="appstore-status">Coming soon</span>
+                    aria-label="Pastura を App Store で、近日公開">
+              <img class="appstore-img" src="../img/app-store-badge-ja.svg"
+                   alt="" aria-hidden="true" height="40">
+              <span class="appstore-status">近日公開</span>
             </button>
           </div>
         </div>
 
         <figure class="lp-hero-figure">
           <figcaption class="lp-hero-figure-head">
-            <span class="sr-only">Sample run: </span>
+            <span class="sr-only">サンプル実行：</span>
             <span class="leaf" aria-hidden="true"></span>
-            <span class="label">WORD WOLF — ROUND 1</span>
-            <span class="live" aria-hidden="true"><span class="live-dot"></span>SIMULATING</span>
+            <span class="label">ワードウルフ・ラウンド 1</span>
+            <span class="live" aria-hidden="true"><span class="live-dot"></span>実行中</span>
           </figcaption>
 
           <div class="bubble-row">
@@ -120,14 +120,14 @@
               <div class="bubble-name" aria-hidden="true">Alice</div>
               <div class="bubble">
                 <blockquote>
-                  <span class="sr-only">Alice said: </span>I like walking through the park.
+                  <span class="sr-only">アリス：</span>公園を歩くのが好き。
                 </blockquote>
               </div>
               <div class="thinking-toggle" aria-hidden="true">
                 <span class="chev">▾</span><span class="tag">THINKING</span>
               </div>
               <p class="thought-body">
-                <span class="sr-only">Alice (thinking): </span>Park&rsquo;s vague enough — most outdoor words fit.
+                <span class="sr-only">アリス（内心）：</span>公園って曖昧。たいていの屋外ワードに当てはまる。
               </p>
             </div>
           </div>
@@ -150,14 +150,14 @@
               <div class="bubble-name" aria-hidden="true">Bob</div>
               <div class="bubble">
                 <blockquote>
-                  <span class="sr-only">Bob said: </span>Same — I&rsquo;ve been wandering my neighborhood lately.
+                  <span class="sr-only">ボブ：</span>自分も。最近、近所をぶらぶらしてる。
                 </blockquote>
               </div>
               <div class="thinking-toggle" aria-hidden="true">
                 <span class="chev">▾</span><span class="tag">THINKING</span>
               </div>
               <p class="thought-body">
-                <span class="sr-only">Bob (thinking): </span>Echo Alice. Stay safe until I read the room.
+                <span class="sr-only">ボブ（内心）：</span>アリスに合わせよう。様子を見るまでは無難に。
               </p>
             </div>
           </div>
@@ -180,14 +180,14 @@
               <div class="bubble-name" aria-hidden="true">Dave</div>
               <div class="bubble">
                 <blockquote>
-                  <span class="sr-only">Dave said: </span>Mine&rsquo;s a bit different — takes some planning.
+                  <span class="sr-only">デイブ：</span>僕はちょっと違うかな。計画しないとダメなんだよね。
                 </blockquote>
               </div>
               <div class="thinking-toggle" aria-hidden="true">
                 <span class="chev">▾</span><span class="tag">THINKING</span>
               </div>
               <p class="thought-body">
-                <span class="sr-only">Dave (thinking): </span>A walk…? Mine&rsquo;s nothing like that. Stay vague.
+                <span class="sr-only">デイブ（内心）：</span>散歩…？自分は全く違う。曖昧にやり過ごそう。
               </p>
             </div>
           </div>
@@ -199,34 +199,38 @@
     <!-- ===== What is Pastura ===== -->
     <section class="lp-section alt alt-both compact" aria-labelledby="what-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">What is Pastura</p>
+        <p class="eyebrow section-eyebrow">Pastura とは</p>
         <h2 id="what-h" class="display-sm what-h">
-          All you have to do is step back and observe.
+          Pastura は、シナリオを書いたら、眺めるだけ。
         </h2>
         <p class="lead what-lead">
-          Pastura puts a window in front of a closed paddock.<br>
-          Unlike other apps, you cannot chat.<br>
-          Agents are reasoning, debating, betraying, voting, or thinking hard.
+          Pastura は AI エージェントたちの会話を観察する窓。<br>
+          他のアプリと違い、ユーザーは発言できない。<br>
+          エージェント達は、発言、議論、裏切り、投票、あるいは静かに考えている。
         </p>
       </div>
     </section>
 
-    <!-- ===== The observation journey ===== -->
+    <!-- ===== The usage journey ===== -->
     <section id="usage" class="lp-section" aria-labelledby="journey-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">Usage</p>
+        <p class="eyebrow section-eyebrow">使い方</p>
         <h2 id="journey-h" class="section-title">
-          Three small acts. One quiet afternoon.
+          3 ステップで、静かに観察。
         </h2>
+
 
         <div class="lp-journey-act">
           <div class="num" aria-hidden="true">01</div>
           <div>
-            <h3><span class="sr-only">Step 01. </span>Choose a model. Wait once.</h3>
-            <p class="body">Gemma 4 E2B or Qwen 3 4B, about 3 GB each. Stays on your device. While it downloads, the dog sits beside the progress bar. That&rsquo;s all that happens.</p>
+            <h3><span class="sr-only">Step 01. </span>LLM のモデルを選び、しばし待つ。</h3>
+            <p class="body">
+              Gemma 4 E2B か Qwen 3 4B、それぞれ約 3 GBを端末にダウンロード。
+              ダウンロードの間は、進捗バーの隣で犬がおすわり。しばしの辛抱。
+            </p>
           </div>
           <div>
-            <div class="promo journey-promo" aria-label="Model download promo card mock">
+            <div class="promo journey-promo" aria-label="モデルダウンロードプロモカードのモック">
               <div class="meta-row">
                 <span>DL</span>
                 <span class="dl-dots" aria-hidden="true">
@@ -236,7 +240,7 @@
                 <span>·</span>
                 <span>1.5 GB / 3.0 GB</span>
               </div>
-              <div class="eta-row">About 4 min left</div>
+              <div class="eta-row">残り 4 分ほど</div>
               <div class="body-row">
                 <svg width="26" height="26" viewBox="0 0 44 44" fill="none" aria-hidden="true" focusable="false" style="flex-shrink:0;margin-top:2px">
                   <path d="M9 26 Q 9 17, 16 14 L 19 9 L 22 15 Q 30 16, 34 21 Q 36 24, 36 27 L 38 30 L 34 31 Q 31 35, 25 35 L 17 35 Q 11 34, 9 30 Z"
@@ -246,7 +250,7 @@
                   <path d="M16 14 Q 14 19, 15.5 23" stroke="#3D4030" stroke-width="1" fill="none" stroke-linecap="round"/>
                   <path d="M37 30 Q 40 28, 41 25 Q 41.5 27, 39 31" fill="#8A9A6C" opacity=".9"/>
                 </svg>
-                <span class="body-line">Just a few minutes. Meanwhile, watch the other agents settle in.</span>
+                <span class="body-line">あと数分。そのあいだ、ほかのエージェントが落ち着いていく様子でも眺めてみて。</span>
               </div>
             </div>
           </div>
@@ -255,19 +259,20 @@
         <div class="lp-journey-act">
           <div class="num" aria-hidden="true">02</div>
           <div>
-            <h3><span class="sr-only">Step 02. </span>Pick or write the scenario.</h3>
+            <h3><span class="sr-only">Step 02. </span>シナリオを選ぶか、書く。</h3>
             <p class="body">
-              Pick a preset like Word Wolf or Prisoner&rsquo;s Dilemma.
-              Shared Scenarios has more.
-              Or build your scenario in the visual editor: names, personas, phases, win conditions all come from form fields.
+              初期シナリオはワードウルフや囚人のジレンマなど。
+              共有シナリオからシナリオ追加も可能。
+              ビジュアルエディターやYAMLで独自シナリオも書ける。
+              名前、ペルソナ、フェーズ、勝利条件などをフォームで入力。
             </p>
           </div>
           <div>
-            <div class="editor-mock" aria-label="Visual scenario editor mock — Word Wolf">
+            <div class="editor-mock" aria-label="ビジュアルシナリオエディターのモック・ワードウルフ">
               <div class="em-section">
-                <div class="em-section-h"><span>Basic Info</span></div>
+                <div class="em-section-h"><span>基本情報</span></div>
                 <div class="em-field">
-                  <span class="em-field-label">Name</span>
+                  <span class="em-field-label">名前</span>
                   <span class="em-field-value">Word Wolf</span>
                 </div>
                 <div class="em-field">
@@ -277,8 +282,8 @@
               </div>
               <div class="em-section">
                 <div class="em-section-h">
-                  <span>Personas</span>
-                  <span class="em-count">4 agents</span>
+                  <span>ペルソナ</span>
+                  <span class="em-count">エージェント 4 体</span>
                 </div>
                 <div class="em-row"><span class="em-pill">A</span><span class="em-name">Alice</span></div>
                 <div class="em-row"><span class="em-pill">B</span><span class="em-name">Bob</span></div>
@@ -287,8 +292,8 @@
               </div>
               <div class="em-section">
                 <div class="em-section-h">
-                  <span>Phases</span>
-                  <span class="em-count">3 rounds</span>
+                  <span>フェーズ</span>
+                  <span class="em-count">3 ラウンド</span>
                 </div>
                 <div class="em-row"><span class="em-pill">1</span><span class="em-name">speak_all</span></div>
                 <div class="em-row"><span class="em-pill">2</span><span class="em-name">speak_all</span></div>
@@ -301,11 +306,10 @@
         <div class="lp-journey-act">
           <div class="num" aria-hidden="true">03</div>
           <div>
-            <h3><span class="sr-only">Step 03. </span>Step back. Observe.</h3>
+            <h3><span class="sr-only">Step 03. </span>一歩下がって、エージェントの会話を観察。</h3>
             <p class="body">
-              Speech, internal reasoning, votes, scores arrive in real time.
-              Same scenario, same model: the agents won&rsquo;t speak the same way twice.
-              Switch the model. See what changes.
+              発言、内心の声、投票、スコアをリアルタイムで表示。
+              同じシナリオ、同じモデルでもエージェントの発言は毎回ちょっと違う。モデルを変えるとどうなるかな。
             </p>
           </div>
           <div>
@@ -328,14 +332,14 @@
                   <div class="bubble-name" aria-hidden="true">Alice</div>
                   <div class="bubble">
                     <blockquote>
-                      <span class="sr-only">Alice said: </span>I also like reading on a park bench.
+                      <span class="sr-only">アリス：</span>公園のベンチで本を読むのも好き。
                     </blockquote>
                   </div>
                   <div class="thinking-toggle" aria-hidden="true">
                     <span class="chev">▾</span><span class="tag">THINKING</span>
                   </div>
                   <p class="thought-body">
-                    <span class="sr-only">Alice (thinking): </span>Bench narrows it — but still sounds innocuous.
+                    <span class="sr-only">アリス（内心）：</span>ベンチで少し絞り込めた。でも、まだ怪しまれない範囲。
                   </p>
                 </div>
               </div>
@@ -357,14 +361,14 @@
                   <div class="bubble-name" aria-hidden="true">Dave</div>
                   <div class="bubble">
                     <blockquote>
-                      <span class="sr-only">Dave said: </span>Mine&rsquo;s less of a park thing, honestly.
+                      <span class="sr-only">デイブ：</span>自分のは正直、公園系じゃないかな。
                     </blockquote>
                   </div>
                   <div class="thinking-toggle" aria-hidden="true">
                     <span class="chev">▾</span><span class="tag">THINKING</span>
                   </div>
                   <p class="thought-body">
-                    <span class="sr-only">Dave (thinking): </span>…Alice is the only one who mentioned a bench. Curious.
+                    <span class="sr-only">デイブ（内心）：</span>…ベンチに触れたのはアリスだけ。気になる。
                   </p>
                 </div>
               </div>
@@ -375,14 +379,13 @@
     </section>
 
     <!-- ===== Features ===== -->
-    <!-- Features are intentionally 5 items. Background execution
-         (Phase 2 #84) is omitted from the public LP per the design
-         handoff — confirm with the design owner before re-adding. -->
+    <!-- 5 項目構成は EN 版と同じ。BG 実行 (Phase 2 #84) は public LP から
+         意図的に除外（デザイン引き継ぎ準拠）。再追加前にデザインオーナーへ確認。 -->
     <section id="features" class="lp-section alt" aria-labelledby="cap-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">Features</p>
+        <p class="eyebrow section-eyebrow">機能</p>
         <h2 id="cap-h" class="section-title">
-          What it does, in plain terms.
+          Pastura の特徴
         </h2>
         <ul class="lp-cap-grid">
           <li class="cap-item">
@@ -390,17 +393,17 @@
               <rect x="4" y="3" width="16" height="18" rx="1.5"/>
               <path d="M8 8h8M8 12h8M8 16h5"/>
             </svg>
-            <h3>Declarative scenarios</h3>
-            <p class="cap-lead">Write the world before pressing play.</p>
-            <p>Define personas, phases, and win conditions in a form. Or toggle to YAML for direct control. Scenarios are re-runnable like code.</p>
+            <h3>宣言的なシナリオ</h3>
+            <p class="cap-lead">推論する前に、世界を書く。</p>
+            <p>ペルソナ、フェーズ、勝利条件をフォームで定義。YAMLで直接編集もできる。コードのように何度でも再実行できる。</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 8h11l-3-3M19 16H8l3 3"/>
             </svg>
-            <h3>Swappable models</h3>
-            <p class="cap-lead">Local models, your choice.</p>
-            <p>Ships with Gemma 4 E2B and Qwen 3 4B today, around 3 GB each. More models on the way. Pick one, switch any time. All run on-device, no servers between you and the inference.</p>
+            <h3>切り替え可能なモデル</h3>
+            <p class="cap-lead">ローカルモデルを選ぼう。</p>
+            <p>現在は Gemma 4 E2B と Qwen 3 4B をサポート。それぞれ約 3 GB。他のモデルも準備中。好きなモデルを選んで、いつでも切り替えられる。サーバー不要で、すべて端末内で動く。</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -409,9 +412,9 @@
               <circle cx="18" cy="18" r="2.4"/>
               <path d="M8.2 11l7.6-3.6M8.2 13l7.6 3.6"/>
             </svg>
-            <h3>Shared Scenarios</h3>
-            <p class="cap-lead">Browse what others wrote.</p>
-            <p>A curated gallery of community scenarios. Preview, import in one tap, replay on your chosen model. Official picks for now; community submissions land in a later phase.</p>
+            <h3>共有シナリオ</h3>
+            <p class="cap-lead">ほかの人が書いたものを、覗く。</p>
+            <p>コミュニティシナリオの厳選ギャラリー。プレビューして、ワンタップでインポート、選んだモデルで再生できる。今はオフィシャルなシナリオのみ。共有シナリオへの投稿機能は将来対応予定。</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -419,18 +422,18 @@
               <path d="M12 3v12"/>
               <path d="M8 7l4-4 4 4"/>
             </svg>
-            <h3>Exportable logs</h3>
-            <p class="cap-lead">Take the conversation with you.</p>
-            <p>Export observation logs in Markdown. Paste into a notebook, commit to a repo, share as a gist. The transcript is yours to keep, paste, or share.</p>
+            <h3>エクスポートログ</h3>
+            <p class="cap-lead">会話を持ち出し。</p>
+            <p>観察ログを Markdown でエクスポート。ノートブックに貼る、リポジトリにコミットする、gist で共有する。記録はあなたの自由に使って。</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>
               <path d="M9 12l2 2 4-4"/>
             </svg>
-            <h3>No data leaves the device</h3>
-            <p class="cap-lead">Privacy by structure, not by promise.</p>
-            <p>Inference happens on-device. Airplane mode is fine. Nothing leaves the device: no telemetry, no analytics, no anonymous-stats checkbox to debate.</p>
+            <h3>データの外部送信はなし</h3>
+            <p class="cap-lead">約束ではなく、仕組みで守るプライバシー。</p>
+            <p>ローカル LLM の名前の通り、推論は端末上で行う。機内モードでも動き、端末からは何も出ない。テレメトリも分析も、「匿名統計を送信」のチェックボックスを巡る議論も、ない。</p>
           </li>
         </ul>
       </div>
@@ -439,43 +442,42 @@
     <!-- ===== Why on-device ===== -->
     <section class="lp-section" aria-labelledby="why-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">Why on-device</p>
+        <p class="eyebrow section-eyebrow">なぜローカル処理か</p>
         <h2 id="why-h" class="display-sm why-h">
-          <span class="mono figure">~3 GB</span> once.
+          <span class="mono figure">~3 GB</span> を一度だけ。
         </h2>
         <p class="lead why-lead">
-          That&rsquo;s the price of never sending a byte to the cloud.
-          Privacy, cost, latency, sovereignty — settled by storing the model on your device instead of someone else&rsquo;s.
+          クラウドに 1 バイトも送らない。
+          プライバシー、コスト、レイテンシ、データ。
+          他人のサーバーではなく自分の端末にモデルを置く、それですべて片付く。
         </p>
         <p class="why-list">
-          cloud calls — 0<br>
-          monthly bill — $0<br>
-          data leaving the device — 0 bytes<br>
-          on-device storage — ~3 GB (model dependent)
+          クラウド呼び出し：0 回<br>
+          月額：0 円<br>
+          端末から出るデータ：0 バイト<br>
+          端末上のストレージ：~3 GB (モデルによる)
         </p>
       </div>
     </section>
 
-    <!-- ===== Bigger picture (AIgazing landing) ===== -->
-    <!-- Intentionally not linked from header / footer nav. A
-         contemplative coda — readers arrive by scrolling, not by
-         jumping. Mirrors the `What is Pastura` Strip's visual
-         treatment (`alt-both compact`) so the LP's thought →
-         concrete → thought sandwich is structurally visible.
-         Placed between Why on-device and FAQ so the contemplative
-         mode flows alongside the on-device thought rather than
-         jumping from FAQ's Q&A list into a meditative coda. -->
+    <!-- ===== Bigger picture (AI観測 再登場) ===== -->
+    <!-- ヘッダー / フッターのナビからは意図的にリンクしない。読み手は
+         スクロールで辿り着く詩的なコーダ。`What is Pastura` ストリップと
+         同じ視覚処理（`alt-both compact`）にして、LP の「思索 → 具体 →
+         思索」のサンドイッチ構造を可視化する。FAQ の Q&A から瞑想的な
+         コーダへ飛ぶより、Why on-device の思索的流れに繋がるよう、
+         Why on-device と FAQ のあいだに配置。 -->
     <section class="lp-section alt alt-both compact" aria-labelledby="picture-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">A bigger picture</p>
+        <p class="eyebrow section-eyebrow">より大きな視野で</p>
         <h2 id="picture-h" class="display-sm">
-          Stargazing taught us to look up at the stars.<br>
-          AIgazing teaches us to look at the agent.
+          天体観測は、空の星を眺めることを教えた。<br>
+          AI 観測は、閉じた牧場でエージェントを眺めることを教える。
         </h2>
         <p class="lead">
-          We rarely stop to observe our AI. <br>
-          Pastura is a window into that, quiet, on-device, yours alone. <br>
-          Whether it tells us something about them, or about us, is left as a question for the observer.
+          人類が作った AI の様子を、立ち止まって眺めることはあまりない。<br>
+          Pastura はそのための窓。静かに端末の中で動く、あなた一人のもの。<br>
+          AI 観測が彼らについて何かを語るのか、それとも私たち自身についてかは、観察する人への宿題。
         </p>
       </div>
     </section>
@@ -485,19 +487,19 @@
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">FAQ</p>
         <h2 id="faq-h" class="section-title">
-          Common questions, frequently asked.
+          みんな気になる、よくある質問。
         </h2>
         <div class="faq-item">
-          <h3 class="faq-q">Is it free?</h3>
-          <p class="faq-a">Yes. No server bill, no subscription.</p>
+          <h3 class="faq-q">無料ですか？</h3>
+          <p class="faq-a">はい。サーバー料金もサブスクリプションもありません。</p>
         </div>
         <div class="faq-item">
-          <h3 class="faq-q">Why iOS only?</h3>
-          <p class="faq-a">iOS for now, due to development bandwidth. Android is on the list.</p>
+          <h3 class="faq-q">なぜ iOS だけなんですか？</h3>
+          <p class="faq-a">開発の都合上、今のところ iOS のみです。Android もいずれ対応予定です。</p>
         </div>
         <div class="faq-item">
-          <h3 class="faq-q">Want another model supported?</h3>
-          <p class="faq-a">Tell us on the <a href="support/">Support page</a>. We can&rsquo;t promise to add every request, but your input shapes what ships next.</p>
+          <h3 class="faq-q">ほかの LLM モデルの追加はできますか？</h3>
+          <p class="faq-a"><a href="support/">サポートページ</a>で要望を出してください。必ず対応するとは約束できませんが、ご意見は参考にします。</p>
         </div>
       </div>
     </section>
@@ -508,40 +510,40 @@
     <div class="foot-grid">
       <div>
         <a href="./" class="brand">
-          <img class="icon" src="img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+          <img class="icon" src="../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
           <span class="brand-name">Pastura</span>
         </a>
         <div class="badges">
           <button type="button" aria-disabled="true"
                   class="appstore-cta"
-                  aria-label="Pastura on the App Store — coming soon">
-            <img class="appstore-img" src="img/app-store-badge-en.svg"
-                 alt="" aria-hidden="true" width="120" height="40">
-            <span class="appstore-status">Coming soon</span>
+                  aria-label="Pastura を App Store で、近日公開">
+            <img class="appstore-img" src="../img/app-store-badge-ja.svg"
+                 alt="" aria-hidden="true" height="40">
+            <span class="appstore-status">近日公開</span>
           </button>
         </div>
       </div>
       <div>
-        <h3 class="foot-h">Product</h3>
-        <a class="foot-link" href="#usage">Usage</a>
-        <a class="foot-link" href="#features">Features</a>
+        <h3 class="foot-h">プロダクト</h3>
+        <a class="foot-link" href="#usage">使い方</a>
+        <a class="foot-link" href="#features">特徴</a>
         <a class="foot-link" href="#faq">FAQ</a>
       </div>
       <div>
-        <h3 class="foot-h">Resources</h3>
-        <a class="foot-link" href="legal/privacy-policy/">Privacy Policy</a>
-        <a class="foot-link" href="support/">Support · Feedback</a>
+        <h3 class="foot-h">リソース</h3>
+        <a class="foot-link" href="legal/privacy-policy/">プライバシーポリシー</a>
+        <a class="foot-link" href="support/">サポート・フィードバック</a>
         <a class="foot-link" href="https://github.com/tyabu12/pastura" rel="noopener">GitHub</a>
       </div>
     </div>
     <div class="foot-base">
       <span class="foot-copy">© 2026 Pastura</span>
-      <div class="lang-toggle" role="group" aria-label="Language">
-        <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
-        <a lang="ja" hreflang="ja" href="ja/">JA</a>
+      <div class="lang-toggle" role="group" aria-label="言語">
+        <a lang="en" hreflang="en" href="../">EN</a>
+        <a lang="ja" hreflang="ja" aria-current="page" class="on" href="./">JA</a>
       </div>
     </div>
-    <p class="foot-note">This page uses Google Fonts. The app itself stays fully on-device.</p>
+    <p class="foot-note">このページは Google Fonts を使用しています。アプリ本体は完全にデバイス上で動作します。</p>
   </footer>
 </body>
 </html>
