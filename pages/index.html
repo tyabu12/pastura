@@ -57,8 +57,8 @@
     </a>
     <nav aria-label="Primary" class="lp-nav">
       <span class="lp-nav-links">
-        <a href="#watch">Observe</a>
-        <a href="#capabilities">Capabilities</a>
+        <a href="#usage">Usage</a>
+        <a href="#features">Features</a>
         <a href="#faq">FAQ</a>
       </span>
       <div class="lang-toggle" role="group" aria-label="Language">
@@ -78,7 +78,7 @@
                The Japanese LP, once it ships, will need a structurally different Hero h1
                — do not machine-translate this line. -->
           <h1 id="hero-h" class="display">AIgazing.<br>Like stargazing,<br>but for local LLMs.</h1>
-          <p class="lead">You arrived. They&rsquo;re already talking.<br>Pastura is a closed pasture inside your device where AI agents act out scenarios you wrote. Nothing leaves the device.</p>
+          <p class="lead">Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you&rsquo;ve written.</p>
           <div class="badges">
             <button type="button" aria-disabled="true"
                     class="appstore-cta"
@@ -88,7 +88,6 @@
               <span class="appstore-status">Coming soon</span>
             </button>
           </div>
-          <p class="meta tagline">On-device · Offline · Zero-cost</p>
         </div>
 
         <figure class="lp-hero-figure">
@@ -198,19 +197,20 @@
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">What is Pastura</p>
         <h2 id="what-h" class="display-sm what-h">
-          <span class="sub">Operate vs. observe.</span><br>
-          Pastura is the second one.
+          All you have to do is step back and observe.
         </h2>
         <p class="lead what-lead">
-          Other apps put a chat box in front of you. Pastura puts a window in front of a closed paddock — and a few agents already inside it, debating, betraying, voting, reasoning aloud and quietly.
+          Pastura puts a window in front of a closed paddock.<br>
+          Unlike other apps, you cannot chat.<br>
+          Agents are reasoning, debating, betraying, voting, or thinking hard.
         </p>
       </div>
     </section>
 
     <!-- ===== The observation journey ===== -->
-    <section id="watch" class="lp-section" aria-labelledby="journey-h">
+    <section id="usage" class="lp-section" aria-labelledby="journey-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">Observe</p>
+        <p class="eyebrow section-eyebrow">Usage</p>
         <h2 id="journey-h" class="section-title">
           Three small acts. One quiet afternoon.
         </h2>
@@ -218,9 +218,45 @@
         <div class="lp-journey-act">
           <div class="num" aria-hidden="true">01</div>
           <div>
-            <h3><span class="sr-only">Step 01. </span>Pick or write the world.</h3>
-            <p class="body">Build your scenario in the visual editor — names, personas, phases, win conditions all come from form fields. Or pick a preset like Word Wolf or Prisoner&rsquo;s Dilemma. Shared Scenarios has more.</p>
-            <p class="editor-mock-aside"># or toggle to YAML for direct text editing</p>
+            <h3><span class="sr-only">Step 01. </span>Choose a model. Wait once.</h3>
+            <p class="body">Gemma 4 E2B or Qwen 3 4B, about 3 GB each. Stays on your device. While it downloads, the dog sits beside the progress bar. That&rsquo;s all that happens.</p>
+          </div>
+          <div>
+            <div class="promo journey-promo" aria-label="Model download promo card mock">
+              <div class="meta-row">
+                <span>DL</span>
+                <span class="dl-dots" aria-hidden="true">
+                  <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span>
+                </span>
+                <span>50%</span>
+                <span>·</span>
+                <span>1.5 GB / 3.0 GB</span>
+              </div>
+              <div class="eta-row">About 4 min left</div>
+              <div class="body-row">
+                <svg width="26" height="26" viewBox="0 0 44 44" fill="none" aria-hidden="true" focusable="false" style="flex-shrink:0;margin-top:2px">
+                  <path d="M9 26 Q 9 17, 16 14 L 19 9 L 22 15 Q 30 16, 34 21 Q 36 24, 36 27 L 38 30 L 34 31 Q 31 35, 25 35 L 17 35 Q 11 34, 9 30 Z"
+                        fill="#FFFFFF" stroke="#3D4030" stroke-width="1.6" stroke-linejoin="round"/>
+                  <circle cx="33" cy="26" r="1.4" fill="#3D4030"/>
+                  <circle cx="23" cy="22" r="1.1" fill="#3D4030"/>
+                  <path d="M16 14 Q 14 19, 15.5 23" stroke="#3D4030" stroke-width="1" fill="none" stroke-linecap="round"/>
+                  <path d="M37 30 Q 40 28, 41 25 Q 41.5 27, 39 31" fill="#8A9A6C" opacity=".9"/>
+                </svg>
+                <span class="body-line">Just a few minutes. Meanwhile, watch the other agents settle in.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lp-journey-act">
+          <div class="num" aria-hidden="true">02</div>
+          <div>
+            <h3><span class="sr-only">Step 02. </span>Pick or write the scenario.</h3>
+            <p class="body">
+              Pick a preset like Word Wolf or Prisoner&rsquo;s Dilemma.
+              Shared Scenarios has more.
+              Or build your scenario in the visual editor: names, personas, phases, win conditions all come from form fields.
+            </p>
           </div>
           <div>
             <div class="editor-mock" aria-label="Visual scenario editor mock — Word Wolf">
@@ -259,43 +295,14 @@
         </div>
 
         <div class="lp-journey-act">
-          <div class="num" aria-hidden="true">02</div>
-          <div>
-            <h3><span class="sr-only">Step 02. </span>Choose a model. Wait once.</h3>
-            <p class="body">Gemma 4 E2B or Qwen 3 4B &mdash; about 3 GB each. Stays on your device. While it downloads, the dog sits beside the progress bar. That&rsquo;s all that happens.</p>
-          </div>
-          <div>
-            <div class="promo journey-promo" aria-label="Model download promo card mock">
-              <div class="meta-row">
-                <span>DL</span>
-                <span class="dl-dots" aria-hidden="true">
-                  <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span><span class="dot off"></span>
-                </span>
-                <span>50%</span>
-                <span>·</span>
-                <span>1.5 GB / 3.0 GB</span>
-              </div>
-              <div class="eta-row">About 4 min left</div>
-              <div class="body-row">
-                <svg width="26" height="26" viewBox="0 0 44 44" fill="none" aria-hidden="true" focusable="false" style="flex-shrink:0;margin-top:2px">
-                  <path d="M9 26 Q 9 17, 16 14 L 19 9 L 22 15 Q 30 16, 34 21 Q 36 24, 36 27 L 38 30 L 34 31 Q 31 35, 25 35 L 17 35 Q 11 34, 9 30 Z"
-                        fill="#FFFFFF" stroke="#3D4030" stroke-width="1.6" stroke-linejoin="round"/>
-                  <circle cx="33" cy="26" r="1.4" fill="#3D4030"/>
-                  <circle cx="23" cy="22" r="1.1" fill="#3D4030"/>
-                  <path d="M16 14 Q 14 19, 15.5 23" stroke="#3D4030" stroke-width="1" fill="none" stroke-linecap="round"/>
-                  <path d="M37 30 Q 40 28, 41 25 Q 41.5 27, 39 31" fill="#8A9A6C" opacity=".9"/>
-                </svg>
-                <span class="body-line">Just a few minutes. Meanwhile, watch the other agents settle in.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="lp-journey-act">
           <div class="num" aria-hidden="true">03</div>
           <div>
             <h3><span class="sr-only">Step 03. </span>Step back. Observe.</h3>
-            <p class="body">Speech, internal reasoning, votes, scores arrive in real time. Replay later. Export as Markdown. Switch the model. Try the same scenario again — the agents will not behave the same.</p>
+            <p class="body">
+              Speech, internal reasoning, votes, scores arrive in real time.
+              Same scenario, same model: the agents won&rsquo;t speak the same way twice.
+              Switch the model. See what changes.
+            </p>
           </div>
           <div>
             <div class="journey-bubbles">
@@ -363,13 +370,13 @@
       </div>
     </section>
 
-    <!-- ===== Capabilities ===== -->
-    <!-- Capabilities are intentionally 5 items. Background execution
+    <!-- ===== Features ===== -->
+    <!-- Features are intentionally 5 items. Background execution
          (Phase 2 #84) is omitted from the public LP per the design
          handoff — confirm with the design owner before re-adding. -->
-    <section id="capabilities" class="lp-section alt" aria-labelledby="cap-h">
+    <section id="features" class="lp-section alt" aria-labelledby="cap-h">
       <div class="lp-content">
-        <p class="eyebrow section-eyebrow">Capabilities</p>
+        <p class="eyebrow section-eyebrow">Features</p>
         <h2 id="cap-h" class="section-title">
           What it does, in plain terms.
         </h2>
@@ -381,7 +388,7 @@
             </svg>
             <h3>Declarative scenarios</h3>
             <p class="cap-lead">Write the world before pressing play.</p>
-            <p>Define personas, phases, and win conditions in a form. Or toggle to YAML for direct control. Scenarios are validated at load and re-runnable like code.</p>
+            <p>Define personas, phases, and win conditions in a form. Or toggle to YAML for direct control. Scenarios are re-runnable like code.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -400,7 +407,7 @@
             </svg>
             <h3>Shared Scenarios</h3>
             <p class="cap-lead">Browse what others wrote.</p>
-            <p>A curated gallery of community scenarios. Preview, import in one tap, replay on your own model. Read-only for now; submissions land in a later phase.</p>
+            <p>A curated gallery of community scenarios. Preview, import in one tap, replay on your chosen model. Official picks for now; community submissions land in a later phase.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -410,14 +417,14 @@
             </svg>
             <h3>Exportable logs</h3>
             <p class="cap-lead">Take the conversation with you.</p>
-            <p>Export observation logs in Markdown or YAML. Paste into a notebook, commit to a repo, share as a gist. The transcript is yours; nothing stays locked in the app.</p>
+            <p>Export observation logs in Markdown. Paste into a notebook, commit to a repo, share as a gist. The transcript is yours to keep, paste, or share.</p>
           </li>
           <li class="cap-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>
               <path d="M9 12l2 2 4-4"/>
             </svg>
-            <h3>No cloud, no telemetry</h3>
+            <h3>No data leaves the device</h3>
             <p class="cap-lead">Privacy by structure, not by promise.</p>
             <p>Inference happens on-device. Airplane mode is fine. Nothing leaves the device: no telemetry, no analytics, no anonymous-stats checkbox to debate.</p>
           </li>
@@ -430,16 +437,17 @@
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">Why on-device</p>
         <h2 id="why-h" class="display-sm why-h">
-          <span class="mono figure">~3 GB.</span> Once.
+          <span class="mono figure">~3 GB</span> once.
         </h2>
         <p class="lead why-lead">
-          That&rsquo;s the price of never sending a byte to the cloud. Privacy, cost, latency, sovereignty — settled by storing the model on your device instead of someone else&rsquo;s.
+          That&rsquo;s the price of never sending a byte to the cloud.
+          Privacy, cost, latency, sovereignty — settled by storing the model on your device instead of someone else&rsquo;s.
         </p>
         <p class="why-list">
           cloud calls — 0<br>
           monthly bill — $0<br>
           data leaving the device — 0 bytes<br>
-          on-device weight — ~3 GB
+          on-device storage — ~3 GB (model dependent)
         </p>
       </div>
     </section>
@@ -457,11 +465,13 @@
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">A bigger picture</p>
         <h2 id="picture-h" class="display-sm">
-          Stargazing taught us to look up.<br>
-          AIgazing teaches us to look at what we&rsquo;ve made.
+          Stargazing taught us to look up at the stars.<br>
+          AIgazing teaches us to look at the agent.
         </h2>
         <p class="lead">
-          We rarely stop to watch our own machines think. Pastura is a window into that, quiet, on-device, yours alone. Whether it tells us something about them, or about us, is left as an exercise for the observer.
+          We rarely stop to observe our AI. <br>
+          Pastura is a window into that, quiet, on-device, yours alone. <br>
+          Whether it tells us something about them, or about us, is left as a question for the observer.
         </p>
       </div>
     </section>
@@ -471,7 +481,7 @@
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">FAQ</p>
         <h2 id="faq-h" class="section-title">
-          Common questions, short answers.
+          Common questions, frequently asked.
         </h2>
         <div class="faq-item">
           <h3 class="faq-q">Is it free?</h3>
@@ -479,11 +489,11 @@
         </div>
         <div class="faq-item">
           <h3 class="faq-q">Why iOS only?</h3>
-          <p class="faq-a">iOS for now. Android is on the list.</p>
+          <p class="faq-a">iOS for now, due to development bandwidth. Android is on the list.</p>
         </div>
         <div class="faq-item">
           <h3 class="faq-q">Want another model supported?</h3>
-          <p class="faq-a">Tell us on the <a href="support/">Support page</a>. Model requests shape what ships next.</p>
+          <p class="faq-a">Tell us on the <a href="support/">Support page</a>. We can&rsquo;t promise to add every request, but your input shapes what ships next.</p>
         </div>
       </div>
     </section>
@@ -509,8 +519,8 @@
       </div>
       <div>
         <h3 class="foot-h">Product</h3>
-        <a class="foot-link" href="#watch">Observe</a>
-        <a class="foot-link" href="#capabilities">Capabilities</a>
+        <a class="foot-link" href="#usage">Usage</a>
+        <a class="foot-link" href="#features">Features</a>
         <a class="foot-link" href="#faq">FAQ</a>
       </div>
       <div>

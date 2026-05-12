@@ -140,10 +140,6 @@
   margin: 24px 0 34px;
   max-width: 520px;
 }
-.lp-hero .tagline {
-  margin-top: 24px;
-  font-size: 11.5px;
-}
 
 @media (max-width: 768px) {
   .lp-hero h1 {
