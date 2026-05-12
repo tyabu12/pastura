@@ -1,8 +1,8 @@
 /* Pastura Pages — prose-page styles for legal/ and support/.
    Loaded after pages/css/base.css. Uses ONLY tokens declared in
-   base.css — no new --* custom properties. Mirrors lp.css's
-   responsive contract: desktop default, mobile values via
-   @media (max-width: 768px). */
+   base.css — no new --* custom properties. Mobile-first responsive
+   contract; see base.css header for the full strategy (idiom split,
+   48rem boundary, container-query deferral). */
 
 /* ----- Shell & layout ----- */
 
@@ -19,12 +19,12 @@
    bottom on short pages. */
 .page-main {
   flex: 1;
-  padding: 80px 56px;
+  padding: 48px 24px;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 48rem) {
   .page-main {
-    padding: 48px 24px;
+    padding: 80px 56px;
   }
 }
 
@@ -37,7 +37,7 @@
 /* ----- Prose typography ----- */
 
 .page-prose h1 {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 600;
   line-height: 1.22;
   letter-spacing: -0.005em;
@@ -49,7 +49,7 @@
 }
 
 .page-prose h2 {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 600;
   line-height: 1.3;
   color: var(--ink);
@@ -57,7 +57,7 @@
 }
 
 .page-prose h3 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--ink);
@@ -159,16 +159,16 @@
 
 /* ----- Responsive type scaling ----- */
 
-@media (max-width: 768px) {
+@media (min-width: 48rem) {
   .page-prose h1 {
-    font-size: 24px;
+    font-size: 32px;
   }
 
   .page-prose h2 {
-    font-size: 19px;
+    font-size: 22px;
   }
 
   .page-prose h3 {
-    font-size: 15px;
+    font-size: 16px;
   }
 }
