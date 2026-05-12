@@ -47,6 +47,13 @@ extension PromoCard {
 
   /// Slot copy (draft) from `docs/design/design-system.md` §7.
   /// Final wording is gated on the copy pass per spec §2 decision 13.
+  ///
+  /// Intentionally NOT routed through `String(localized:)` — these
+  /// strings are listed under `docs/i18n/leak-detection.md`
+  /// § "Explicitly-deferred items" so the Tier 2 audit recognizes
+  /// them as a documented carve-out, not a wrap leak. When the copy
+  /// pass lands, wrap with English source strings and add ja
+  /// translations in the catalog at the same time.
   static func slotCopy(_ slot: Int) -> String {
     switch slot % 3 {
     case 0: return "AIエージェントが、あなたのiPhoneの中で対話します"
@@ -55,10 +62,13 @@ extension PromoCard {
     }
   }
 
-  /// `残り約N分` when minutes > 0, `まもなく` when <= 0, nil to hide.
+  /// `About N min left` when minutes > 0, `Soon` when <= 0, nil to hide.
+  /// Localized via `Localizable.xcstrings`; ja maps to `残り約 N 分` / `まもなく`.
   static func formatEta(minutes: Int?) -> String? {
     guard let minutes = minutes else { return nil }
-    return minutes <= 0 ? "まもなく" : "残り約\(minutes)分"
+    return minutes <= 0
+      ? String(localized: "Soon")
+      : String(format: String(localized: "About %lld min left"), minutes)
   }
 
   /// Detects the "resume burst" — `URLSession`'s first `didWriteData` callback
