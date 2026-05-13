@@ -1,0 +1,86 @@
+/* Pastura LP — Fade-up animation layer (final).
+   One variant only: gentle 14px translate + opacity fade, ease-out,
+   tightened to NN/g-friendly durations (≈460ms) with a small 60ms
+   stagger. Applied to both the hero entrance (on load) and to
+   every section as it enters the viewport. Respects
+   prefers-reduced-motion. No runtime toggle — this is the final pick. */
+
+:root{
+  --anim-ease: cubic-bezier(.22,.61,.36,1); /* ease-out */
+  --anim-dur: 460ms;
+  --anim-step: 60ms;
+}
+
+/* ===== HERO entrance ===== */
+.anim-host .hero-fx{
+  opacity: 0;
+  transform: translateY(14px);
+  will-change: opacity, transform;
+  transition:
+    opacity var(--anim-dur) var(--anim-ease),
+    transform var(--anim-dur) var(--anim-ease);
+  transition-delay: calc(var(--i, 0) * var(--anim-step));
+}
+.anim-host.is-entered .hero-fx{
+  opacity: 1;
+  transform: none;
+}
+
+/* Bubbles inside the hero figure use their own stagger so the
+   conversation reads top-to-bottom even though it shares the figure's
+   reveal moment. ~120ms between bubbles after a short base delay. */
+.anim-host .hero-bubble-row{
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 440ms var(--anim-ease),
+    transform 480ms var(--anim-ease);
+  transition-delay: calc(var(--bi, 0) * 120ms + 260ms);
+}
+.anim-host.is-entered .hero-bubble-row{
+  opacity: 1;
+  transform: none;
+}
+
+/* ===== SCROLL reveal ===== */
+.anim-host .reveal-fx{
+  opacity: 0;
+  transform: translateY(14px);
+  will-change: opacity, transform;
+  transition:
+    opacity var(--anim-dur) var(--anim-ease),
+    transform var(--anim-dur) var(--anim-ease);
+  transition-delay: calc(var(--i, 0) * var(--anim-step));
+}
+.anim-host .reveal-fx.is-in{
+  opacity: 1;
+  transform: none;
+}
+
+/* Inner children inside a section also fade up in turn — gives the
+   capability grid and FAQ a quiet rhythm without re-animating per row.
+   Stagger kicks in slightly after the parent settles. */
+.anim-host .reveal-fx .reveal-child{
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 440ms var(--anim-ease),
+    transform 480ms var(--anim-ease);
+  transition-delay: calc(var(--i, 0) * 80ms + 180ms);
+}
+.anim-host .reveal-fx.is-in .reveal-child{
+  opacity: 1;
+  transform: none;
+}
+
+/* ===== Reduced motion ===== */
+@media (prefers-reduced-motion: reduce){
+  .anim-host .hero-fx,
+  .anim-host .reveal-fx,
+  .anim-host .reveal-fx .reveal-child,
+  .anim-host .hero-bubble-row{
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
