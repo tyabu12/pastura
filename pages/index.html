@@ -37,6 +37,26 @@
 
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/lp.css">
+  <!-- anim.css MUST load last so its `opacity:0; transform: translateY(...)`
+       baselines override any cascade above. The runtime in js/anim.js toggles
+       .is-entered / .is-in to play the fade-up. -->
+  <link rel="stylesheet" href="css/anim.css">
+  <script src="js/anim.js" defer></script>
+  <noscript>
+    <!-- JS-disabled visitors would otherwise sit at opacity:0 forever
+         (anim.css's baseline). Reset to the final state with explicit
+         per-selector overrides so the cascade specificity matches
+         anim.css's @media (prefers-reduced-motion: reduce) block. -->
+    <style>
+      .anim-host .hero-fx,
+      .anim-host .reveal-fx,
+      .anim-host .reveal-fx .reveal-child,
+      .anim-host .hero-bubble-row {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    </style>
+  </noscript>
 
   <script type="application/ld+json">
   {
@@ -50,7 +70,7 @@
   }
   </script>
 </head>
-<body>
+<body class="anim-host">
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header role="banner" class="lp-header">
@@ -81,9 +101,9 @@
                The JA mirror at /ja/ uses 「AI観測」 — a stargazing portmanteau coined
                for the JA side — to preserve the wordplay. Both Hero h1s are
                hand-crafted per language; do not machine-translate either. -->
-          <h1 id="hero-h" class="display">AIgazing.<br>Like stargazing,<br>but for local LLMs.</h1>
-          <p class="lead">Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you&rsquo;ve written.</p>
-          <div class="badges">
+          <h1 id="hero-h" class="display hero-fx" style="--i: 0">AIgazing.<br>Like stargazing,<br>but for local LLMs.</h1>
+          <p class="lead hero-fx" style="--i: 1">Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you&rsquo;ve written.</p>
+          <div class="badges hero-fx" style="--i: 2">
             <button type="button" aria-disabled="true"
                     class="appstore-cta"
                     aria-label="Pastura on the App Store — coming soon">
@@ -94,7 +114,7 @@
           </div>
         </div>
 
-        <figure class="lp-hero-figure">
+        <figure class="lp-hero-figure hero-fx" style="--i: 3">
           <figcaption class="lp-hero-figure-head">
             <span class="sr-only">Sample run: </span>
             <span class="leaf" aria-hidden="true"></span>
@@ -102,7 +122,7 @@
             <span class="live" aria-hidden="true"><span class="live-dot"></span>SIMULATING</span>
           </figcaption>
 
-          <div class="bubble-row">
+          <div class="bubble-row hero-bubble-row" style="--bi: 0">
             <svg class="sheep" data-tone="alice" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
               <circle class="wool" cx="14" cy="15" r="8"/>
               <circle class="wool" cx="9"  cy="13" r="3.2"/>
@@ -132,7 +152,7 @@
             </div>
           </div>
 
-          <div class="bubble-row">
+          <div class="bubble-row hero-bubble-row" style="--bi: 1">
             <svg class="sheep" data-tone="bob" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
               <circle class="wool" cx="14" cy="15" r="8"/>
               <circle class="wool" cx="9"  cy="13" r="3.2"/>
@@ -162,7 +182,7 @@
             </div>
           </div>
 
-          <div class="bubble-row">
+          <div class="bubble-row hero-bubble-row" style="--bi: 2">
             <svg class="sheep" data-tone="dave" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
               <circle class="wool" cx="14" cy="15" r="8"/>
               <circle class="wool" cx="9"  cy="13" r="3.2"/>
@@ -197,7 +217,7 @@
     </section>
 
     <!-- ===== What is Pastura ===== -->
-    <section class="lp-section alt alt-both compact" aria-labelledby="what-h">
+    <section class="lp-section alt alt-both compact reveal-fx" aria-labelledby="what-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">What is Pastura</p>
         <h2 id="what-h" class="display-sm what-h">
@@ -212,14 +232,14 @@
     </section>
 
     <!-- ===== The observation journey ===== -->
-    <section id="usage" class="lp-section" aria-labelledby="journey-h">
+    <section id="usage" class="lp-section reveal-fx" aria-labelledby="journey-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">Usage</p>
         <h2 id="journey-h" class="section-title">
           Three small acts. One quiet afternoon.
         </h2>
 
-        <div class="lp-journey-act">
+        <div class="lp-journey-act reveal-child" style="--i: 0">
           <div class="num" aria-hidden="true">01</div>
           <div>
             <h3><span class="sr-only">Step 01. </span>Choose a model. Wait once.</h3>
@@ -252,7 +272,7 @@
           </div>
         </div>
 
-        <div class="lp-journey-act">
+        <div class="lp-journey-act reveal-child" style="--i: 1">
           <div class="num" aria-hidden="true">02</div>
           <div>
             <h3><span class="sr-only">Step 02. </span>Pick or write the scenario.</h3>
@@ -298,7 +318,7 @@
           </div>
         </div>
 
-        <div class="lp-journey-act">
+        <div class="lp-journey-act reveal-child" style="--i: 2">
           <div class="num" aria-hidden="true">03</div>
           <div>
             <h3><span class="sr-only">Step 03. </span>Step back. Observe.</h3>
@@ -378,14 +398,14 @@
     <!-- Features are intentionally 5 items. Background execution
          (Phase 2 #84) is omitted from the public LP per the design
          handoff — confirm with the design owner before re-adding. -->
-    <section id="features" class="lp-section alt" aria-labelledby="cap-h">
+    <section id="features" class="lp-section alt reveal-fx" aria-labelledby="cap-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">Features</p>
         <h2 id="cap-h" class="section-title">
           What it does, in plain terms.
         </h2>
         <ul class="lp-cap-grid">
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <rect x="4" y="3" width="16" height="18" rx="1.5"/>
               <path d="M8 8h8M8 12h8M8 16h5"/>
@@ -394,7 +414,7 @@
             <p class="cap-lead">Write the world before pressing play.</p>
             <p>Define personas, phases, and win conditions in a form. Or toggle to YAML for direct control. Scenarios are re-runnable like code.</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 8h11l-3-3M19 16H8l3 3"/>
             </svg>
@@ -402,7 +422,7 @@
             <p class="cap-lead">Local models, your choice.</p>
             <p>Ships with Gemma 4 E2B and Qwen 3 4B today, around 3 GB each. More models on the way. Pick one, switch any time. All run on-device, no servers between you and the inference.</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 2">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <circle cx="6" cy="12" r="2.4"/>
               <circle cx="18" cy="6" r="2.4"/>
@@ -413,7 +433,7 @@
             <p class="cap-lead">Browse what others wrote.</p>
             <p>A curated gallery of community scenarios. Preview, import in one tap, replay on your chosen model. Official picks for now; community submissions land in a later phase.</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 3">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 12v7c0 .5.5 1 1 1h12c.5 0 1-.5 1-1v-7"/>
               <path d="M12 3v12"/>
@@ -423,7 +443,7 @@
             <p class="cap-lead">Take the conversation with you.</p>
             <p>Export observation logs in Markdown. Paste into a notebook, commit to a repo, share as a gist. The transcript is yours to keep, paste, or share.</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 4">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>
               <path d="M9 12l2 2 4-4"/>
@@ -437,7 +457,7 @@
     </section>
 
     <!-- ===== Why on-device ===== -->
-    <section class="lp-section" aria-labelledby="why-h">
+    <section class="lp-section reveal-fx" aria-labelledby="why-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">Why on-device</p>
         <h2 id="why-h" class="display-sm why-h">
@@ -465,7 +485,7 @@
          Placed between Why on-device and FAQ so the contemplative
          mode flows alongside the on-device thought rather than
          jumping from FAQ's Q&A list into a meditative coda. -->
-    <section class="lp-section alt alt-both compact" aria-labelledby="picture-h">
+    <section class="lp-section alt alt-both compact reveal-fx" aria-labelledby="picture-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">A bigger picture</p>
         <h2 id="picture-h" class="display-sm">
@@ -481,21 +501,21 @@
     </section>
 
     <!-- ===== FAQ ===== -->
-    <section id="faq" class="lp-section alt" aria-labelledby="faq-h">
+    <section id="faq" class="lp-section alt reveal-fx" aria-labelledby="faq-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">FAQ</p>
         <h2 id="faq-h" class="section-title">
           Common questions, frequently asked.
         </h2>
-        <div class="faq-item">
+        <div class="faq-item reveal-child" style="--i: 0">
           <h3 class="faq-q">Is it free?</h3>
           <p class="faq-a">Yes. No server bill, no subscription.</p>
         </div>
-        <div class="faq-item">
+        <div class="faq-item reveal-child" style="--i: 1">
           <h3 class="faq-q">Why iOS only?</h3>
           <p class="faq-a">iOS for now, due to development bandwidth. Android is on the list.</p>
         </div>
-        <div class="faq-item">
+        <div class="faq-item reveal-child" style="--i: 2">
           <h3 class="faq-q">Want another model supported?</h3>
           <p class="faq-a">Tell us on the <a href="support/">Support page</a>. We can&rsquo;t promise to add every request, but your input shapes what ships next.</p>
         </div>
@@ -504,7 +524,7 @@
 
   </main>
 
-  <footer role="contentinfo" class="lp-footer">
+  <footer role="contentinfo" class="lp-footer reveal-fx">
     <div class="foot-grid">
       <div>
         <a href="./" class="brand">
