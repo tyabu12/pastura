@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `feature/kmp-spike-models` is the long-lived integration branch for issue
+    # #220 (KMP Models Layer Validation Spike, ADR-004 §3.6). Trigger is removed
+    # at W6 GO merge or branch deletion (NO-GO). See #220 T8 / T11.
+    branches: [main, feature/kmp-spike-models]
   pull_request:
     branches: [main]
 
