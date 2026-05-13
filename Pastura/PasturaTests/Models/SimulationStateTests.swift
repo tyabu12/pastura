@@ -43,6 +43,7 @@ struct SimulationStateTests {
       id: "test",
       name: "Test",
       description: "A test scenario",
+      language: "ja",
       agentCount: 2,
       rounds: 3,
       context: "Test context",

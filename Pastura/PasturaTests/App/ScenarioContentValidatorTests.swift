@@ -16,6 +16,7 @@ struct ScenarioContentValidatorTests {
       id: "test",
       name: name,
       description: description,
+      language: "ja",
       agentCount: personas.count,
       rounds: 1,
       context: "",

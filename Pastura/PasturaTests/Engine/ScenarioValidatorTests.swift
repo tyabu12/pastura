@@ -91,6 +91,7 @@ struct ScenarioValidatorTests {
     // Constructed directly because makeScenario auto-generates matching personas
     let scenario = Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: 3, rounds: 1, context: "Context",
       personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
       phases: [Phase(type: .speakAll)]
@@ -313,6 +314,7 @@ struct ScenarioValidatorTests {
       thenPhases: [inner])
     let scenario = Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "Context",
       personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
       phases: [conditional],
@@ -397,6 +399,7 @@ struct ScenarioValidatorTests {
   func makeScenario(agents: Int, rounds: Int, phases: [Phase]) -> Scenario {
     Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: agents, rounds: rounds, context: "Context",
       personas: (0..<agents).map { Persona(name: "A\($0)", description: "D") },
       phases: phases
@@ -410,6 +413,7 @@ struct ScenarioValidatorTests {
   ) -> Scenario {
     Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "Context",
       personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
       phases: [Phase(type: .assign, source: source, target: target)],
@@ -424,6 +428,7 @@ struct ScenarioValidatorTests {
   ) -> Scenario {
     Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "Context",
       personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
       phases: [Phase(type: .eventInject, source: source, probability: probability)],

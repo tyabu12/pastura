@@ -315,6 +315,7 @@ struct PromptBuilderTests {
       id: "test",
       name: "Test Scenario",
       description: "A test scenario",
+      language: "ja",
       agentCount: 3,
       rounds: 3,
       context: "You are in a game show.",

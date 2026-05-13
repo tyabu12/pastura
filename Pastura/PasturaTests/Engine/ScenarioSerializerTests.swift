@@ -36,6 +36,7 @@ struct ScenarioSerializerTests {
       id: "synthetic_all_fields",
       name: "Synthetic Test",
       description: "Tests all phase fields and extraData variants",
+      language: "ja",
       agentCount: 3,
       rounds: 2,
       context: "A test context with\nmultiple lines.",
@@ -152,6 +153,7 @@ struct ScenarioSerializerTests {
   @Test func mapsSubRoundsToRoundsKey() throws {
     let scenario = Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "Context",
       personas: [
         Persona(name: "A", description: "A"),
@@ -176,6 +178,7 @@ struct ScenarioSerializerTests {
   @Test func mapsExcludeSelfToExcludeSelfKey() throws {
     let scenario = Scenario(
       id: "test", name: "Test", description: "Test",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "Context",
       personas: [
         Persona(name: "A", description: "A"),
@@ -194,6 +197,7 @@ struct ScenarioSerializerTests {
   @Test func roundTripEventInjectFullSpec() throws {
     let scenario = Scenario(
       id: "ei", name: "EI", description: "EI",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "C",
       personas: [
         Persona(name: "A", description: "A"),
@@ -220,6 +224,7 @@ struct ScenarioSerializerTests {
     // (those are handler-level defaults, not Phase-level defaults).
     let scenario = Scenario(
       id: "ei", name: "EI", description: "EI",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "C",
       personas: [
         Persona(name: "A", description: "A"),
@@ -241,6 +246,7 @@ struct ScenarioSerializerTests {
     // suppresses precision dust so YAML output stays readable and stable.
     let scenario = Scenario(
       id: "ei", name: "EI", description: "EI",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "C",
       personas: [
         Persona(name: "A", description: "A"),
@@ -261,6 +267,7 @@ struct ScenarioSerializerTests {
     // intentional Int → Double coercion accepts. Keeps preset YAML readable.
     let scenario = Scenario(
       id: "ei", name: "EI", description: "EI",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "C",
       personas: [
         Persona(name: "A", description: "A"),
@@ -345,6 +352,7 @@ struct ScenarioSerializerTests {
       id: "test_scenario",
       name: "Test",
       description: "A test scenario",
+      language: "ja",
       agentCount: 2,
       rounds: 3,
       context: context,

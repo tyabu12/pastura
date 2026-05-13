@@ -99,6 +99,7 @@ struct PhaseEditorSheetValidationTests {
       id: "s",
       name: "n",
       description: "",
+      language: "ja",
       agentCount: 1,
       rounds: 1,
       context: "",

@@ -357,6 +357,7 @@ final class ScenarioEditorViewModel {
       id: scenarioId,
       name: scenarioName,
       description: scenarioDescription,
+      language: "ja",
       agentCount: personas.count,
       rounds: rounds,
       context: context,

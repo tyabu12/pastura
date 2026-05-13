@@ -61,8 +61,13 @@ func collectAllEvents(_ stream: AsyncStream<SimulationEvent>) async -> [Simulati
 }
 
 /// Creates a minimal test scenario with the given agents and phases.
+///
+/// `language` defaults to `"ja"` for tests covering the legacy Japanese
+/// path. Tests targeting English Engine output pass `language: "en"`
+/// explicitly. See ADR-010 D1 / D11.
 func makeTestScenario(
   agentNames: [String] = ["Alice", "Bob", "Charlie"],
+  language: String = "ja",
   rounds: Int = 1,
   phases: [Phase] = [],
   context: String = "You are in a game.",
@@ -73,6 +78,7 @@ func makeTestScenario(
     id: "test",
     name: "Test Scenario",
     description: "A test scenario",
+    language: language,
     agentCount: agentNames.count,
     rounds: rounds,
     context: context,

@@ -18,6 +18,23 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
   /// Brief description of what this scenario simulates.
   public let description: String
 
+  /// Scenario authoring language: ISO 639-1 lowercase code (`"ja"` or `"en"`).
+  ///
+  /// Drives Engine output language at runtime (prompt templates, scoring
+  /// summaries, handler default fallbacks) via per-site `switch
+  /// scenario.language` dispatch. Validator enforces `{ja, en}` at load
+  /// time; absence is rejected by `ScenarioLoader` (no backward-compat
+  /// fill). See ADR-010 D1 / D7.
+  public let language: String
+
+  /// Optional Engine override language for cross-language simulation.
+  ///
+  /// When non-nil, Step E will use this to drive Engine output instead of
+  /// ``language`` — enabling "run an `en` scenario on a `ja` device with
+  /// `simulation_language: ja`." Parsed and validated in Step C-1, but
+  /// **not propagated to the Engine until Step E**. See ADR-010 D5.
+  public let simulationLanguage: String?
+
   /// Expected number of agents. Must match `personas.count`.
   public let agentCount: Int
 
@@ -45,6 +62,8 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     id: String,
     name: String,
     description: String,
+    language: String,
+    simulationLanguage: String? = nil,
     agentCount: Int,
     rounds: Int,
     context: String,
@@ -55,6 +74,8 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     self.id = id
     self.name = name
     self.description = description
+    self.language = language
+    self.simulationLanguage = simulationLanguage
     self.agentCount = agentCount
     self.rounds = rounds
     self.context = context

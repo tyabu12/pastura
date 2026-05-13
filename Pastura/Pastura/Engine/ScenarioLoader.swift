@@ -187,6 +187,7 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
 
     return Scenario(
       id: id, name: name, description: description,
+      language: "ja",
       agentCount: agentCount, rounds: rounds, context: context,
       personas: personas, phases: phases, extraData: extraData
     )

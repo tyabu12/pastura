@@ -307,7 +307,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesSpeakAllInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 3, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 3, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .speakAll)]
     )
@@ -317,7 +317,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesSpeakEachWithSubRounds() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 3, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 3, rounds: 2, context: "C",
       personas: (0..<3).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .speakEach, subRounds: 3)]
     )
@@ -327,7 +327,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesVoteInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 2, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .vote)]
     )
@@ -337,7 +337,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesChooseRoundRobinInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 2, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .choose, pairing: .roundRobin)]
     )
@@ -347,7 +347,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesChooseIndividualInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 2, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .choose)]
     )
@@ -357,7 +357,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesZeroForCodePhases() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 3, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 3, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [
         Phase(type: .scoreCalc, logic: .voteTally),

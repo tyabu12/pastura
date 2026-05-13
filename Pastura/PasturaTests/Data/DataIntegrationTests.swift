@@ -39,6 +39,7 @@ import Testing
       for: Scenario(
         id: "s1", name: "Prisoner's Dilemma",
         description: "Classic game theory scenario",
+        language: "ja",
         agentCount: 2, rounds: 3, context: "You are playing...",
         personas: [
           Persona(name: "Alice", description: "Cooperative"),
