@@ -15,7 +15,7 @@ Phase 2 progress:
 - **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
 - **Inference speed display** — tok/s + simulation playback UX (#99)
 - **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
-- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, body #367)
+- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, body #367, B-1a public pages #369, responsive-design migration #373)
 
 ## Language Rules
 
@@ -201,7 +201,8 @@ Pastura/
 
 pages/                           # Public HTML deployed via .github/workflows/deploy-pages.yml
 ├── support/                     # ASC Support URL
-└── legal/privacy-policy/        # App Store privacy policy URL
+├── legal/privacy-policy/        # App Store privacy policy URL
+└── ja/                          # Japanese mirror (LP / support / privacy-policy)
 ```
 
 ## Context-Specific Rules

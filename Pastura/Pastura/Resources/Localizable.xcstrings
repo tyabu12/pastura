@@ -17,6 +17,22 @@
         }
       }
     },
+    "%.1f GB / %.1f GB" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.1f GB / %2$.1f GB"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.1f GB / %2$.1f GB"
+          }
+        }
+      }
+    },
     "%@ assigned: %@" : {
       "localizations" : {
         "en" : {
@@ -133,6 +149,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "概要"
+          }
+        }
+      }
+    },
+    "About %lld min left" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り約 %lld 分"
           }
         }
       }
@@ -618,6 +644,17 @@
         }
       }
     },
+    "DL" : {
+      "comment" : "Status abbreviation in PromoCard meta row. Intentionally identical en/ja — kept short to fit the dot-progress strip.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DL"
+          }
+        }
+      }
+    },
     "Database migration failed: %arg" : {
       "localizations" : {
         "ja" : {
@@ -786,6 +823,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロードに失敗しました"
+          }
+        }
+      }
+    },
+    "Download interrupted" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロードが中断しました"
           }
         }
       }
@@ -1326,6 +1373,16 @@
         }
       }
     },
+    "Hide thought" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "思考を隠す"
+          }
+        }
+      }
+    },
     "Import" : {
       "localizations" : {
         "ja" : {
@@ -1533,6 +1590,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サブフェーズを長押しすると、もう一方のブランチの末尾に移動します。"
+          }
+        }
+      }
+    },
+    "Model Setup" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルセットアップ"
           }
         }
       }
@@ -2646,6 +2713,16 @@
         }
       }
     },
+    "Setup complete" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備ができました"
+          }
+        }
+      }
+    },
     "Shared Scenarios" : {
       "localizations" : {
         "ja" : {
@@ -2662,6 +2739,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考をすべて表示"
+          }
+        }
+      }
+    },
+    "Show thought" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "思考を表示"
           }
         }
       }
@@ -2703,6 +2790,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "社会心理学"
+          }
+        }
+      }
+    },
+    "Soon" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まもなく"
           }
         }
       }
@@ -2869,6 +2966,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "+ をタップして YAML シナリオをインポート"
+          }
+        }
+      }
+    },
+    "Tap anywhere to begin" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップして開始"
           }
         }
       }

@@ -265,27 +265,27 @@ struct ModelDownloadHostView: View {
       }
 
       // Sim-style frosted controlBar (#273): mirrors `SimulationView.controlBar`
-      // shape so users learn the layout before reaching the live simulation.
-      // Pause / Speed / Toggle all interactive — Pause drives
-      // `viewModel.userPause()`/`userResume()`, Speed binds to
-      // `viewModel.playbackSpeed` (#290).
+      // shape so users learn the layout before the live simulation. Pause /
+      // Speed / Toggle interactive — Pause → `viewModel.userPause()`/
+      // `userResume()`, Speed → `viewModel.playbackSpeed` (#290).
       controlBar(viewModel: viewModel)
     }
     .background(Color.screenBackground.ignoresSafeArea())
-    // PromoCard lives in the bottom safe area instead of a ZStack overlay:
-    // that way the ScrollView's viewport shrinks to exclude the card's
-    // footprint, so `scrollTo(lastId, anchor: .bottom)` lands the newest
-    // message at the visible bottom — above the card, not hidden beneath
-    // it. The previous `.padding(.bottom, 160)` approach reserved scroll
-    // content space but did NOT shrink the viewport, so the anchor still
-    // slid the last message under the overlay.
-    .safeAreaInset(edge: .bottom, spacing: Spacing.l) {
-      PromoCard(
-        modelState: currentState,
-        replayHadStarted: replayHadStarted,
-        onRetry: { modelManager.startDownload(descriptor: descriptor) },
-        onCancel: triggerCancelConfirmation)
-    }
+    .safeAreaInset(edge: .bottom, spacing: Spacing.l) { promoCardInset }
+  }
+
+  /// PromoCard lives in the bottom safe area (not a ZStack overlay) so the
+  /// ScrollView viewport shrinks to exclude the card's footprint;
+  /// `scrollTo(lastId, anchor: .bottom)` then lands the newest message
+  /// above the card. The earlier `.padding(.bottom, 160)` reserved space
+  /// but didn't shrink the viewport — the anchor slid under the overlay.
+  private var promoCardInset: some View {
+    PromoCard(
+      modelState: currentState,
+      replayHadStarted: replayHadStarted,
+      totalBytes: descriptor.fileSize,
+      onRetry: { modelManager.startDownload(descriptor: descriptor) },
+      onCancel: triggerCancelConfirmation)
   }
 
   // Module-internal so the sibling `+GameHeader.swift` extension can
@@ -358,7 +358,7 @@ struct ModelDownloadHostView: View {
       hasReplayVM: replayVM != nil) {
     case .fireOnComplete:
       // Settings cover: dismiss immediately. The overlay's
-      // "tap anywhere to begin" copy is meaningless here — the user
+      // "Tap anywhere to begin" copy is meaningless here — the user
       // returns to the Settings list, not a fresh app session.
       onComplete?()
     case .fireOnReady(let awaitsTap) where awaitsTap:

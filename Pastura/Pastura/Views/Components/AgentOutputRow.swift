@@ -451,7 +451,8 @@ struct AgentOutputRow: View {
       // collapse semantic to VoiceOver so the label reads the way
       // a Button would.
       .accessibilityAddTraits(.isButton)
-      .accessibilityLabel(showInnerThought ? "Hide thought" : "Show thought")
+      .accessibilityLabel(
+        Self.thoughtToggleAccessibilityLabel(showInnerThought: showInnerThought))
   }
 
   /// Thought body — pre-measured concat driven by the unified reveal
@@ -472,6 +473,19 @@ struct AgentOutputRow: View {
       .foregroundStyle(Color.muted)
       .thoughtLeftRule()
       .transition(.opacity.combined(with: .move(edge: .top)))
+  }
+
+  // MARK: - Pure helpers (extracted for unit-test reach per ADR-009)
+
+  /// Per-row thought-toggle VoiceOver label. Singular form, intentionally
+  /// distinct from the global toggle's plural "Hide / Show all thoughts"
+  /// (`ThoughtVisibilityToggle.accessibilityLabel(for:)`) so a screen-reader
+  /// user can tell whether the next tap collapses just this row or every
+  /// row on screen.
+  static func thoughtToggleAccessibilityLabel(showInnerThought: Bool) -> String {
+    showInnerThought
+      ? String(localized: "Hide thought")
+      : String(localized: "Show thought")
   }
 
   // MARK: - Derived lengths
