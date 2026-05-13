@@ -13,7 +13,7 @@ schema_version: 1
 preset_ref:
   id: prisoners_dilemma
   version: '1.0'
-  yaml_sha256: '70dd7baaa4e9b3aae2222de99099fd02bfe8d7e4dd36310224d5420263a24d54'
+  yaml_sha256: 'c8b04853484f1e13b58bd1103c511c5c6e230677d2e585e14581eedbae31a3db'
 
 metadata:
   title: '囚人のジレンマ — 協力か裏切りか'

@@ -1,4 +1,5 @@
 id: word_wolf
+language: ja
 name: ワードウルフ
 description: >
   5人の参加者に「お題」が配られるが、1人だけ違うお題を持つ少数派（ウルフ）。

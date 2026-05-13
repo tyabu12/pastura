@@ -1,4 +1,5 @@
 id: prisoners_dilemma
+language: ja
 name: 囚人のジレンマ
 description: >
   5人のプレイヤーが「協力」か「裏切り」を選ぶ戦略ゲーム。

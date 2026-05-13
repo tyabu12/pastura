@@ -1,4 +1,5 @@
 id: trolley_dilemma_v1
+language: ja
 name: トロッコ問題
 description: >
   暴走トロッコが5人の作業員に向かっている。レバーを引けば1人の作業員がいる線路に
