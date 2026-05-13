@@ -15,7 +15,7 @@ Phase 2 progress:
 - **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
 - **Inference speed display** — tok/s + simulation playback UX (#99)
 - **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
-- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, B-1a public pages #369, responsive-design migration #373)
+- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, body #367, B-1a public pages #369, responsive-design migration #373)
 
 ## Language Rules
 
@@ -251,7 +251,7 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 | `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
 | `docs/decisions/ADR-008.md`           | Route identity vs render-time hints (`RouteHint<T>` pattern, #245) |
 | `docs/decisions/ADR-009.md`           | View testing strategy (no ViewInspector / snapshot; #269) |
-| `docs/decisions/ADR-010.md`           | Localization (i18n: ja/en) — pre-Step A stub (Status: Proposed; #279) |
+| `docs/decisions/ADR-010.md`           | Localization (i18n: ja/en) — ADR body for Step C-1 design (Status: Proposed; stub #279, body #367) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
 | `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
