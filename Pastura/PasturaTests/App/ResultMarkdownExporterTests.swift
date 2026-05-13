@@ -106,7 +106,9 @@ import Testing
     #expect(result.text.hasPrefix("<!-- pastura-export v1 -->"))
     #expect(result.text.contains("# Simulation Export: Prisoners Dilemma"))
     #expect(result.text.contains("## Metadata"))
-    #expect(result.text.contains("**Status**: completed"))
+    // `renderStatus` maps SimulationStatus.rawValue → localized capitalized
+    // form; the lowercase enum-raw is no longer surfaced verbatim.
+    #expect(result.text.contains("**Status**: Completed"))
     #expect(result.text.contains("**Started**: 2024-04-01T19:33:20Z"))
     #expect(result.text.contains("**Ended**: 2024-04-01T19:39:02Z"))
     #expect(result.text.contains("**Duration**: 5m 42s"))
@@ -267,7 +269,7 @@ import Testing
 
     let result = try exporter.export(input)
 
-    #expect(result.text.contains("**Status**: failed"))
+    #expect(result.text.contains("**Status**: Failed"))
     #expect(result.text.contains("**Inference count**: 0"))
     #expect(result.text.contains("_No turns recorded._"))
     #expect(!result.text.contains("## Final Scores"))
@@ -339,6 +341,22 @@ import Testing
   @Test func normalizeOSVersionLeavesUnfamiliarStringsUnchanged() {
     let raw = "custom-os-26.4"
     #expect(ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(raw) == raw)
+  }
+
+  @Test func renderStatusMapsCanonicalCasesToLocalizedLabels() {
+    // Asserts against literal en source strings — Swift Testing runs in the
+    // development locale (en), so `String(localized:)` resolves to the en
+    // catalog value. en-literal pin makes a future ja-locale test run fail
+    // loudly instead of silently mismatching the helper's locale-dependent
+    // output (critic Axis 6 — `String(localized:)` on both sides is tautology).
+    #expect(ResultMarkdownExporter.renderStatus("running") == "Running")
+    #expect(ResultMarkdownExporter.renderStatus("paused") == "Paused")
+    #expect(ResultMarkdownExporter.renderStatus("completed") == "Completed")
+    #expect(ResultMarkdownExporter.renderStatus("failed") == "Failed")
+    #expect(ResultMarkdownExporter.renderStatus("cancelled") == "Cancelled")
+    // Forward-compat: unknown raw values pass through verbatim so a future
+    // SimulationStatus case is rendered as-is rather than crashing.
+    #expect(ResultMarkdownExporter.renderStatus("future-case") == "future-case")
   }
 
   @Test func writesMarkdownFileToTempDirectory() throws {

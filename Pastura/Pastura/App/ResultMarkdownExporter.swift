@@ -102,8 +102,13 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
 
   private func renderMarkdown(_ input: Input) -> String {
     var sections: [String] = []
+    // <!-- pastura-export v1 --> stays raw — machine-readable schema version
+    // marker (see docs/i18n/leak-detection.md § permanent carve-outs).
     sections.append("<!-- pastura-export v1 -->")
-    sections.append("# Simulation Export: \(input.scenario.name)")
+    sections.append(
+      String(
+        format: String(localized: "# Simulation Export: %@"),
+        input.scenario.name))
     sections.append(renderMetadata(input))
     sections.append(renderScenarioYAML(input))
     sections.append(renderTurnLog(input))
@@ -134,32 +139,48 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
 
   private func renderMetadata(_ input: Input) -> String {
     let sim = input.simulation
-    let status = sim.simulationStatus?.rawValue ?? sim.status
+    let status = Self.renderStatus(sim.simulationStatus?.rawValue ?? sim.status)
     let started = Self.isoFormatter.string(from: sim.createdAt)
     let ended = Self.isoFormatter.string(from: sim.updatedAt)
     let duration = formatDuration(sim.updatedAt.timeIntervalSince(sim.createdAt))
-    let model = sim.modelIdentifier ?? "(unknown)"
-    let backend = sim.llmBackend ?? "(unknown)"
+    let unknown = String(localized: "(unknown)")
+    let model = sim.modelIdentifier ?? unknown
+    let backend = sim.llmBackend ?? unknown
     let inferenceCount = input.turns.filter { $0.agentName != nil }.count
 
-    return """
-      ## Metadata
-
-      - **Scenario**: \(input.scenario.name) (`\(input.scenario.id)`)
-      - **Status**: \(status)
-      - **Started**: \(started)
-      - **Ended**: \(ended)
-      - **Duration**: \(duration)
-      - **Model**: \(model)
-      - **Backend**: \(backend)
-      - **Device**: \(environment.deviceModel) / \(environment.osVersion)
-      - **Inference count**: \(inferenceCount)
-      """
+    // Restructured from a multi-line `"""` literal to per-line format strings
+    // so each row is an independently-extractable catalog key — multi-line
+    // string interpolation cannot carry per-line positional `%@` placeholders
+    // that translators can reorder per language. Enabling refactor for i18n,
+    // not a behavior change (line set + join semantics preserved).
+    var lines: [String] = [String(localized: "## Metadata"), ""]
+    lines.append(
+      String(
+        format: String(localized: "- **Scenario**: %@ (`%@`)"),
+        input.scenario.name, input.scenario.id))
+    lines.append(String(format: String(localized: "- **Status**: %@"), status))
+    lines.append(String(format: String(localized: "- **Started**: %@"), started))
+    lines.append(String(format: String(localized: "- **Ended**: %@"), ended))
+    lines.append(String(format: String(localized: "- **Duration**: %@"), duration))
+    lines.append(String(format: String(localized: "- **Model**: %@"), model))
+    lines.append(String(format: String(localized: "- **Backend**: %@"), backend))
+    lines.append(
+      String(
+        format: String(localized: "- **Device**: %@ / %@"),
+        environment.deviceModel, environment.osVersion))
+    lines.append(
+      String(
+        format: String(localized: "- **Inference count**: %lld"),
+        inferenceCount))
+    return lines.joined(separator: "\n")
   }
 
   private func renderScenarioYAML(_ input: Input) -> String {
+    // YAML fence + language tag stay raw — they are Markdown structure, not
+    // display text. The fenced content is the user's authored YAML, rendered
+    // verbatim.
     """
-    ## Scenario Definition
+    \(String(localized: "## Scenario Definition"))
 
     ```yaml
     \(input.scenario.yamlDefinition)
@@ -220,14 +241,18 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       }
     }
 
-    /// Markdown heading for this group.
+    /// Markdown heading for this group. `phaseType` (e.g. `speak_all`) is the
+    /// YAML schema identifier and stays raw; only the surrounding label is
+    /// translated.
     var heading: String {
       switch self {
       case .topLevel(let phaseType):
-        return "#### Phase: \(phaseType)"
+        return String(format: String(localized: "#### Phase: %@"), phaseType)
       case .nested(let path, let phaseType):
         let formatted = path.map { String($0) }.joined(separator: ", ")
-        return "#### Sub-phase: \(phaseType) (path [\(formatted)])"
+        return String(
+          format: String(localized: "#### Sub-phase: %@ (path [%@])"),
+          phaseType, formatted)
       }
     }
   }
@@ -244,19 +269,21 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
         }
         // Defensive: unknown payload shape shouldn't happen, but if it does
         // we skip silently rather than crash the export.
-        return TimelineItem.codePhase(record, .summary(text: "(unreadable payload)"))
+        return TimelineItem.codePhase(
+          record, .summary(text: String(localized: "(unreadable payload)")))
       })
     timeline.sort { $0.sequenceNumber < $1.sequenceNumber }
 
+    let turnLogHeader = String(localized: "## Turn Log")
     guard !timeline.isEmpty else {
-      return "## Turn Log\n\n_No turns recorded._"
+      return "\(turnLogHeader)\n\n\(String(localized: "_No turns recorded._"))"
     }
 
-    var lines: [String] = ["## Turn Log"]
+    var lines: [String] = [turnLogHeader]
     let grouped = Dictionary(grouping: timeline, by: { $0.round })
     for round in grouped.keys.sorted() {
       lines.append("")
-      lines.append("### Round \(round)")
+      lines.append(String(format: String(localized: "### Round %lld"), round))
       let itemsInRound = (grouped[round] ?? [])
         .sorted { $0.sequenceNumber < $1.sequenceNumber }
       // Group by PhaseGroupKey within round, preserving first-seen order.
@@ -295,39 +322,50 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       // Legacy fallback: a TurnRecord without an agent can only appear in
       // pre-#92 databases that never existed in practice. Emit a placeholder
       // so any stray row doesn't render as a blank bullet.
-      return "- _(code phase — no agent output)_"
+      return String(localized: "- _(code phase — no agent output)_")
     }
     let output = decodeOutput(turn)
     let content = formatOutput(output, phaseType: turn.phaseType)
-    var line = "- **\(agent)**: \(content)"
+    var line = String(format: String(localized: "- **%@**: %@"), agent, content)
     // Include inner_thought as a nested bullet — the gap between outward
     // behavior and inner reasoning is often the most analyzable signal in a
     // multi-agent run (e.g. Asch-style conformity).
     if let thought = output.innerThought, !thought.isEmpty {
-      line += "\n  - 💭 _\(thought)_"
+      line += String(format: String(localized: "\n  - 💭 _%@_"), thought)
     }
     return line
   }
 
-  // swiftlint:disable:next cyclomatic_complexity
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   private func renderCodePhasePayload(_ payload: CodePhaseEventPayload) -> String {
     switch payload {
     case .elimination(let agent, let voteCount):
-      return "- **\(agent)** was eliminated (\(voteCount) votes)"
+      return String(
+        format: String(localized: "- **%@** was eliminated (%lld votes)"),
+        agent, voteCount)
     case .scoreUpdate(let scores):
       let ordered = scores.sorted { lhs, rhs in
         if lhs.value != rhs.value { return lhs.value > rhs.value }
         return lhs.key < rhs.key
       }
+      // `key: value` is a universal joiner — left raw; the surrounding label
+      // ("Scores — ") carries the localized part.
       let pairs = ordered.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-      return "- Scores — \(pairs)"
+      return String(format: String(localized: "- Scores — %@"), pairs)
     case .summary(let text):
+      // `text` is already-rendered prose from the engine; passed through verbatim.
       return "- \(text)"
     case .voteResults(let votes, let tallies):
       var lines: [String] = []
-      lines.append("- Tallies:")
+      lines.append(String(localized: "- Tallies:"))
       lines.append("")
-      lines.append("  | Candidate | Votes |")
+      // Table header — column labels translated individually so `Votes` / etc.
+      // can be reused across other tables. Separator and data rows stay raw
+      // (pure Markdown structure).
+      lines.append(
+        String(
+          format: "  | %@ | %@ |",
+          String(localized: "Candidate"), String(localized: "Votes")))
       lines.append("  |-----------|-------|")
       let orderedTallies = tallies.sorted { lhs, rhs in
         if lhs.value != rhs.value { return lhs.value > rhs.value }
@@ -337,23 +375,28 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
         lines.append("  | \(candidate) | \(count) |")
       }
       lines.append("")
-      lines.append("- Votes:")
+      lines.append(String(localized: "- Votes:"))
       let orderedVotes = votes.sorted { $0.key < $1.key }
       for (voter, target) in orderedVotes {
+        // `voter → target` is a universal arrow joiner; kept raw.
         lines.append("  - \(voter) → \(target)")
       }
       return lines.joined(separator: "\n")
     case .pairingResult(let agent1, let action1, let agent2, let action2):
-      return "- **\(agent1)** (\(action1)) ↔ **\(agent2)** (\(action2))"
+      return String(
+        format: String(localized: "- **%@** (%@) ↔ **%@** (%@)"),
+        agent1, action1, agent2, action2)
     case .assignment(let agent, let value):
-      return "- **\(agent)** was assigned: \(value)"
+      return String(
+        format: String(localized: "- **%@** was assigned: %@"),
+        agent, value)
     case .eventInjected(let event):
       // Past results need to surface the miss explicitly so a reader
       // can tell whether the phase ran at all.
       if let event {
-        return "- 🎲 Event: \(event)"
+        return String(format: String(localized: "- 🎲 Event: %@"), event)
       }
-      return "- 🎲 No event this round"
+      return String(localized: "- 🎲 No event this round")
     }
   }
 
@@ -389,7 +432,9 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       !primary.isEmpty {
       return primary
     }
-    if output.fields.isEmpty { return "_(empty)_" }
+    if output.fields.isEmpty { return String(localized: "_(empty)_") }
+    // `key=value` is a debug-shape joiner for the unknown-phase-type fallback;
+    // left raw.
     let pairs = output.fields.keys.sorted().map { "\($0)=\(output.fields[$0] ?? "")" }
     return pairs.joined(separator: ", ")
   }
@@ -409,13 +454,24 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     let eliminatedSet = eliminatedAgents(in: payloads)
     let roster = rosterAgents(input: input, latestScores: latestScores)
 
+    let header = String(localized: "## Final Scores")
     guard !roster.isEmpty else {
-      return "## Final Scores\n\n_No score data._"
+      return "\(header)\n\n\(String(localized: "_No score data._"))"
     }
 
+    // Column labels translated individually so each label is reused across
+    // tables (`Agent`/`Status` also appear in Roster Status). Separator row
+    // stays raw — it is Markdown structure, not display text.
+    let columns = String(
+      format: "| %@ | %@ | %@ |",
+      String(localized: "Agent"),
+      String(localized: "Score"),
+      String(localized: "Status"))
     var lines: [String] = [
-      "## Final Scores", "", "| Agent | Score | Status |", "|-------|-------|--------|"
+      header, "", columns, "|-------|-------|--------|"
     ]
+    let activeLabel = String(localized: "active")
+    let eliminatedLabel = String(localized: "eliminated")
     // Sort by score desc, then by name asc for deterministic output.
     let ordered = roster.sorted { lhs, rhs in
       let lhsScore = latestScores[lhs] ?? 0
@@ -425,7 +481,8 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     }
     for agent in ordered {
       let score = latestScores[agent] ?? 0
-      let status = eliminatedSet.contains(agent) ? "eliminated" : "active"
+      let status = eliminatedSet.contains(agent) ? eliminatedLabel : activeLabel
+      // Data row stays raw — pure Markdown table structure.
       lines.append("| \(agent) | \(score) | \(status) |")
     }
     return lines.joined(separator: "\n")
@@ -442,13 +499,18 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     let eliminatedSet = eliminatedAgents(in: payloads)
     let roster = rosterAgents(input: input, latestScores: [:])
 
+    let header = String(localized: "## Roster Status")
     guard !roster.isEmpty else {
-      return "## Roster Status\n\n_No roster data._"
+      return "\(header)\n\n\(String(localized: "_No roster data._"))"
     }
 
-    var lines: [String] = [
-      "## Roster Status", "", "| Agent | Status |", "|-------|--------|"
-    ]
+    let columns = String(
+      format: "| %@ | %@ |",
+      String(localized: "Agent"),
+      String(localized: "Status"))
+    var lines: [String] = [header, "", columns, "|-------|--------|"]
+    let activeLabel = String(localized: "active")
+    let eliminatedLabel = String(localized: "eliminated")
     // Eliminated agents first (narrative interest), then by name.
     let ordered = roster.sorted { lhs, rhs in
       let lElim = eliminatedSet.contains(lhs)
@@ -457,7 +519,7 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       return lhs < rhs
     }
     for agent in ordered {
-      let status = eliminatedSet.contains(agent) ? "eliminated" : "active"
+      let status = eliminatedSet.contains(agent) ? eliminatedLabel : activeLabel
       lines.append("| \(agent) | \(status) |")
     }
     return lines.joined(separator: "\n")
@@ -496,14 +558,37 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     return Array(set)
   }
 
+  // MARK: - Status mapping
+
+  /// Maps a `SimulationStatus.rawValue` (or unknown raw string) to a
+  /// localized display label. Unknown values pass through verbatim so a
+  /// future `SimulationStatus` case renders as-is rather than crashing.
+  ///
+  /// Lives App-side (not on `Models/SimulationStatus`) because `Models/` is
+  /// `nonisolated` and excluded from `Localizable.xcstrings` per ADR-010 §4.
+  /// `static internal` (default access) so tests can validate the mapping
+  /// directly without constructing an instance.
+  static func renderStatus(_ raw: String) -> String {
+    switch raw {
+    case "running": return String(localized: "Running")
+    case "paused": return String(localized: "Paused")
+    case "completed": return String(localized: "Completed")
+    case "failed": return String(localized: "Failed")
+    case "cancelled": return String(localized: "Cancelled")
+    default: return raw
+    }
+  }
+
   // MARK: - Duration formatting
 
   private func formatDuration(_ seconds: TimeInterval) -> String {
     let total = max(Int(seconds.rounded()), 0)
     let minutes = total / 60
     let secs = total % 60
-    if minutes == 0 { return "\(secs)s" }
-    return "\(minutes)m \(secs)s"
+    if minutes == 0 {
+      return String(format: String(localized: "%llds"), secs)
+    }
+    return String(format: String(localized: "%lldm %llds"), minutes, secs)
   }
 
   // MARK: - File writing
