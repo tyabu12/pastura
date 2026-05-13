@@ -6,6 +6,10 @@
 #   - `pages/css/lp.css`                   → `https://tyabu12.github.io/pastura/css/lp.css`
 #   - `pages/css/page.css`                 → `https://tyabu12.github.io/pastura/css/page.css`
 #     (Shared design tokens + LP layout + prose styling for legal/support)
+#   - `pages/css/anim.css`                 → `https://tyabu12.github.io/pastura/css/anim.css`
+#     (Fade-up animation stylesheet — hero entrance + scroll reveal — see #377)
+#   - `pages/js/anim.js`                   → `https://tyabu12.github.io/pastura/js/anim.js`
+#     (Vanilla-JS runtime that toggles `.is-entered` / `.is-in` on the LP — see #377)
 #   - `pages/img/app-icon.png`             → `https://tyabu12.github.io/pastura/img/app-icon.png`
 #   - `pages/img/favicon-64.png`           → `https://tyabu12.github.io/pastura/img/favicon-64.png`
 #     (Brand mark + favicon, sourced from the iOS app icon)
@@ -92,11 +96,13 @@ jobs:
         # add a new file under `pages/`, add a matching line here — silent
         # drift on this step means the new asset 404s on the deployed site.
         run: |
-          mkdir -p _site/support _site/legal/privacy-policy _site/ja/support _site/ja/legal/privacy-policy _site/css _site/img
+          mkdir -p _site/support _site/legal/privacy-policy _site/ja/support _site/ja/legal/privacy-policy _site/css _site/js _site/img
           cp pages/index.html _site/index.html
           cp pages/css/base.css _site/css/base.css
           cp pages/css/lp.css _site/css/lp.css
           cp pages/css/page.css _site/css/page.css
+          cp pages/css/anim.css _site/css/anim.css
+          cp pages/js/anim.js _site/js/anim.js
           cp pages/img/app-icon.png _site/img/app-icon.png
           cp pages/img/favicon-64.png _site/img/favicon-64.png
           cp pages/img/app-store-badge-en.svg _site/img/app-store-badge-en.svg
@@ -130,6 +136,8 @@ jobs:
             "https://tyabu12.github.io/pastura/css/base.css" \
             "https://tyabu12.github.io/pastura/css/lp.css" \
             "https://tyabu12.github.io/pastura/css/page.css" \
+            "https://tyabu12.github.io/pastura/css/anim.css" \
+            "https://tyabu12.github.io/pastura/js/anim.js" \
             "https://tyabu12.github.io/pastura/img/app-icon.png" \
             "https://tyabu12.github.io/pastura/img/favicon-64.png" \
             "https://tyabu12.github.io/pastura/img/app-store-badge-en.svg" \

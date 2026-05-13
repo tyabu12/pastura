@@ -37,6 +37,26 @@
 
   <link rel="stylesheet" href="../css/base.css">
   <link rel="stylesheet" href="../css/lp.css">
+  <!-- anim.css MUST load last so its `opacity:0; transform: translateY(...)`
+       baselines override any cascade above. The runtime in ../js/anim.js toggles
+       .is-entered / .is-in to play the fade-up. -->
+  <link rel="stylesheet" href="../css/anim.css">
+  <script src="../js/anim.js" defer></script>
+  <noscript>
+    <!-- JS-disabled visitors would otherwise sit at opacity:0 forever
+         (anim.css's baseline). Reset to the final state with explicit
+         per-selector overrides so the cascade specificity matches
+         anim.css's @media (prefers-reduced-motion: reduce) block. -->
+    <style>
+      .anim-host .hero-fx,
+      .anim-host .reveal-fx,
+      .anim-host .reveal-fx .reveal-child,
+      .anim-host .hero-bubble-row {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    </style>
+  </noscript>
 
   <script type="application/ld+json">
   {
@@ -50,7 +70,7 @@
   }
   </script>
 </head>
-<body>
+<body class="anim-host">
   <a class="skip-link" href="#main">本文へスキップ</a>
 
   <header role="banner" class="lp-header">
@@ -81,9 +101,9 @@
                天体観測のもじりという原語の意図を保つため Hero と Bigger picture の
                2 セクションでのみ使用し、Features / FAQ では具体語に切り替える
                (EN の AIgazing と同じ配置ルール)。 -->
-          <h1 id="hero-h" class="display">AI 観測。<br>天体観測のように、<br>ローカル LLM を眺める。</h1>
-          <p class="lead">Pastura は端末の中で動く、AI エージェントたちの閉じた牧場。<br>あなたの書いたシナリオをエージェント達が演じる。</p>
-          <div class="badges">
+          <h1 id="hero-h" class="display hero-fx" style="--i: 0">AI 観測。<br>天体観測のように、<br>ローカル LLM を眺める。</h1>
+          <p class="lead hero-fx" style="--i: 1">Pastura は端末の中で動く、AI エージェントたちの閉じた牧場。<br>あなたの書いたシナリオをエージェント達が演じる。</p>
+          <div class="badges hero-fx" style="--i: 2">
             <button type="button" aria-disabled="true"
                     class="appstore-cta"
                     aria-label="Pastura を App Store で、近日公開">
@@ -94,7 +114,7 @@
           </div>
         </div>
 
-        <figure class="lp-hero-figure">
+        <figure class="lp-hero-figure hero-fx" style="--i: 3">
           <figcaption class="lp-hero-figure-head">
             <span class="sr-only">サンプル実行：</span>
             <span class="leaf" aria-hidden="true"></span>
@@ -102,7 +122,7 @@
             <span class="live" aria-hidden="true"><span class="live-dot"></span>実行中</span>
           </figcaption>
 
-          <div class="bubble-row">
+          <div class="bubble-row hero-bubble-row" style="--bi: 0">
             <svg class="sheep" data-tone="alice" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
               <circle class="wool" cx="14" cy="15" r="8"/>
               <circle class="wool" cx="9"  cy="13" r="3.2"/>
@@ -132,7 +152,7 @@
             </div>
           </div>
 
-          <div class="bubble-row">
+          <div class="bubble-row hero-bubble-row" style="--bi: 1">
             <svg class="sheep" data-tone="bob" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
               <circle class="wool" cx="14" cy="15" r="8"/>
               <circle class="wool" cx="9"  cy="13" r="3.2"/>
@@ -162,7 +182,7 @@
             </div>
           </div>
 
-          <div class="bubble-row">
+          <div class="bubble-row hero-bubble-row" style="--bi: 2">
             <svg class="sheep" data-tone="dave" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
               <circle class="wool" cx="14" cy="15" r="8"/>
               <circle class="wool" cx="9"  cy="13" r="3.2"/>
@@ -197,7 +217,7 @@
     </section>
 
     <!-- ===== What is Pastura ===== -->
-    <section class="lp-section alt alt-both compact" aria-labelledby="what-h">
+    <section class="lp-section alt alt-both compact reveal-fx" aria-labelledby="what-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">Pastura とは</p>
         <h2 id="what-h" class="display-sm what-h">
@@ -212,7 +232,7 @@
     </section>
 
     <!-- ===== The usage journey ===== -->
-    <section id="usage" class="lp-section" aria-labelledby="journey-h">
+    <section id="usage" class="lp-section reveal-fx" aria-labelledby="journey-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">使い方</p>
         <h2 id="journey-h" class="section-title">
@@ -220,7 +240,7 @@
         </h2>
 
 
-        <div class="lp-journey-act">
+        <div class="lp-journey-act reveal-child" style="--i: 0">
           <div class="num" aria-hidden="true">01</div>
           <div>
             <h3><span class="sr-only">Step 01. </span>LLM のモデルを選び、しばし待つ。</h3>
@@ -256,7 +276,7 @@
           </div>
         </div>
 
-        <div class="lp-journey-act">
+        <div class="lp-journey-act reveal-child" style="--i: 1">
           <div class="num" aria-hidden="true">02</div>
           <div>
             <h3><span class="sr-only">Step 02. </span>シナリオを選ぶか、書く。</h3>
@@ -303,7 +323,7 @@
           </div>
         </div>
 
-        <div class="lp-journey-act">
+        <div class="lp-journey-act reveal-child" style="--i: 2">
           <div class="num" aria-hidden="true">03</div>
           <div>
             <h3><span class="sr-only">Step 03. </span>一歩下がって、エージェントの会話を観察。</h3>
@@ -381,14 +401,14 @@
     <!-- ===== Features ===== -->
     <!-- 5 項目構成は EN 版と同じ。BG 実行 (Phase 2 #84) は public LP から
          意図的に除外（デザイン引き継ぎ準拠）。再追加前にデザインオーナーへ確認。 -->
-    <section id="features" class="lp-section alt" aria-labelledby="cap-h">
+    <section id="features" class="lp-section alt reveal-fx" aria-labelledby="cap-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">機能</p>
         <h2 id="cap-h" class="section-title">
           Pastura の特徴
         </h2>
         <ul class="lp-cap-grid">
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <rect x="4" y="3" width="16" height="18" rx="1.5"/>
               <path d="M8 8h8M8 12h8M8 16h5"/>
@@ -397,7 +417,7 @@
             <p class="cap-lead">推論する前に、世界を書く。</p>
             <p>ペルソナ、フェーズ、勝利条件をフォームで定義。YAMLで直接編集もできる。コードのように何度でも再実行できる。</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 8h11l-3-3M19 16H8l3 3"/>
             </svg>
@@ -405,7 +425,7 @@
             <p class="cap-lead">ローカルモデルを選ぼう。</p>
             <p>現在は Gemma 4 E2B と Qwen 3 4B をサポート。それぞれ約 3 GB。他のモデルも準備中。好きなモデルを選んで、いつでも切り替えられる。サーバー不要で、すべて端末内で動く。</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 2">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <circle cx="6" cy="12" r="2.4"/>
               <circle cx="18" cy="6" r="2.4"/>
@@ -416,7 +436,7 @@
             <p class="cap-lead">ほかの人が書いたものを、覗く。</p>
             <p>コミュニティシナリオの厳選ギャラリー。プレビューして、ワンタップでインポート、選んだモデルで再生できる。今はオフィシャルなシナリオのみ。共有シナリオへの投稿機能は将来対応予定。</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 3">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 12v7c0 .5.5 1 1 1h12c.5 0 1-.5 1-1v-7"/>
               <path d="M12 3v12"/>
@@ -426,7 +446,7 @@
             <p class="cap-lead">会話を持ち出し。</p>
             <p>観察ログを Markdown でエクスポート。ノートブックに貼る、リポジトリにコミットする、gist で共有する。記録はあなたの自由に使って。</p>
           </li>
-          <li class="cap-item">
+          <li class="cap-item reveal-child" style="--i: 4">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="cap-glyph" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>
               <path d="M9 12l2 2 4-4"/>
@@ -440,7 +460,7 @@
     </section>
 
     <!-- ===== Why on-device ===== -->
-    <section class="lp-section" aria-labelledby="why-h">
+    <section class="lp-section reveal-fx" aria-labelledby="why-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">なぜローカル処理か</p>
         <h2 id="why-h" class="display-sm why-h">
@@ -467,7 +487,7 @@
          思索」のサンドイッチ構造を可視化する。FAQ の Q&A から瞑想的な
          コーダへ飛ぶより、Why on-device の思索的流れに繋がるよう、
          Why on-device と FAQ のあいだに配置。 -->
-    <section class="lp-section alt alt-both compact" aria-labelledby="picture-h">
+    <section class="lp-section alt alt-both compact reveal-fx" aria-labelledby="picture-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">より大きな視野で</p>
         <h2 id="picture-h" class="display-sm">
@@ -483,21 +503,21 @@
     </section>
 
     <!-- ===== FAQ ===== -->
-    <section id="faq" class="lp-section alt" aria-labelledby="faq-h">
+    <section id="faq" class="lp-section alt reveal-fx" aria-labelledby="faq-h">
       <div class="lp-content">
         <p class="eyebrow section-eyebrow">FAQ</p>
         <h2 id="faq-h" class="section-title">
           みんな気になる、よくある質問。
         </h2>
-        <div class="faq-item">
+        <div class="faq-item reveal-child" style="--i: 0">
           <h3 class="faq-q">無料ですか？</h3>
           <p class="faq-a">はい。サーバー料金もサブスクリプションもありません。</p>
         </div>
-        <div class="faq-item">
+        <div class="faq-item reveal-child" style="--i: 1">
           <h3 class="faq-q">なぜ iOS だけなんですか？</h3>
           <p class="faq-a">開発の都合上、今のところ iOS のみです。Android もいずれ対応予定です。</p>
         </div>
-        <div class="faq-item">
+        <div class="faq-item reveal-child" style="--i: 2">
           <h3 class="faq-q">ほかの LLM モデルの追加はできますか？</h3>
           <p class="faq-a"><a href="support/">サポートページ</a>で要望を出してください。必ず対応するとは約束できませんが、ご意見は参考にします。</p>
         </div>
@@ -506,7 +526,7 @@
 
   </main>
 
-  <footer role="contentinfo" class="lp-footer">
+  <footer role="contentinfo" class="lp-footer reveal-fx">
     <div class="foot-grid">
       <div>
         <a href="./" class="brand">
