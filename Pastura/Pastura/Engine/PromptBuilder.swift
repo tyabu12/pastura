@@ -34,10 +34,11 @@ nonisolated struct PromptBuilder: Sendable {
 
   /// Serializes structured conversation entries into a plain text string for prompt injection.
   ///
-  /// Returns `"（まだなし）"` for an empty log, matching the prototype's behavior.
-  func formatConversationLog(_ entries: [ConversationEntry]) -> String {
+  /// Empty-log placeholder is `"（まだなし）"` (ja) / `"(none yet)"` (en),
+  /// chosen via `scenario.language`. ADR-010 D7 Translation Table.
+  func formatConversationLog(_ entries: [ConversationEntry], language: String) -> String {
     if entries.isEmpty {
-      return "（まだなし）"
+      return pickLanguage(language, ja: "（まだなし）", en: "(none yet)")
     }
     return entries.map { "  \($0.agentName): \($0.content)" }.joined(separator: "\n")
   }
@@ -60,9 +61,11 @@ nonisolated struct PromptBuilder: Sendable {
 
   /// Builds the system prompt for an agent's LLM call.
   ///
-  /// Includes: scenario context, persona description, answer rules (Japanese output,
-  /// no empty fields, single-line JSON), output format specification, and phase-specific
-  /// constraints (options for choose, candidate list for vote).
+  /// Includes: scenario context, persona description, answer rules
+  /// (target-language output, no empty fields, single-line JSON), output
+  /// format specification, and phase-specific constraints (options for
+  /// choose, candidate list for vote). All user-facing strings dispatch
+  /// on `scenario.language` per ADR-010 D7.
   func buildSystemPrompt(
     scenario: Scenario,
     persona: Persona,
@@ -70,44 +73,87 @@ nonisolated struct PromptBuilder: Sendable {
     state: SimulationState
   ) -> String {
     var sections: [String] = []
+    let language = scenario.language
 
     // Header
     sections.append(
-      "あなたはシミュレーションの参加者です。キャラクターになりきってください。")
+      pickLanguage(
+        language,
+        ja: "あなたはシミュレーションの参加者です。キャラクターになりきってください。",
+        en: "You are a participant in a simulation. Stay in character."))
 
     // Scenario context
+    let scenarioHeader = pickLanguage(language, ja: "## シナリオ", en: "## Scenario")
     sections.append(
       """
-      ## シナリオ
+      \(scenarioHeader)
       \(scenario.context)
       """)
 
     // Persona
+    let personaHeader = pickLanguage(
+      language, ja: "## あなたのキャラクター", en: "## Your Character")
+    let nameLabel = pickLanguage(language, ja: "名前", en: "Name")
     sections.append(
       """
-      ## あなたのキャラクター
-      名前: \(persona.name)
+      \(personaHeader)
+      \(nameLabel): \(persona.name)
       \(persona.description)
       """)
 
-    // Answer rules. The two trailing "syntax error" / "single object only"
-    // rules below were added in #194 PR#a Item 3 (A3 prompt hardening) to
-    // reduce Hyp A (JSON parse retry) frequency by reinforcing structural
-    // validity at the source on Gemma 4 E2B Q4_K_M.
-    var rules = """
-      ## 回答ルール（厳守）
-      - 必ず日本語で回答すること
-      - 全フィールドに必ず文章を書くこと（空欄「...」は禁止）
-      - JSONは必ず1行で書くこと（改行を入れない）
-      - JSON以外のテキストやコードブロック(```)は書かないこと
-      - JSONに構文エラーがあると失敗扱いになる（カッコ・引用符・カンマを正しく閉じること）
-      - {で始まり}で終わる単一オブジェクトのみ出力し、前後にテキストを付けないこと
-      """
+    sections.append(
+      buildAnswerRules(scenario: scenario, persona: persona, phase: phase, state: state))
 
-    // Phase-specific constraints
+    if let formatSection = formatOutputSchema(OutputSchema.from(phase: phase), language: language) {
+      sections.append(formatSection)
+    }
+
+    return sections.joined(separator: "\n\n")
+  }
+
+  /// Builds the `## 回答ルール / ## Response Rules` block + phase-specific
+  /// constraints (choose options, vote candidate list). Extracted from
+  /// `buildSystemPrompt` so the Translation Table per-site dispatch fits
+  /// inside the function_body_length cap.
+  ///
+  /// The two trailing "syntax error" / "single object only" rules in the
+  /// base block were added in #194 PR#a Item 3 (A3 prompt hardening) to
+  /// reduce Hyp A (JSON parse retry) frequency by reinforcing structural
+  /// validity at the source on Gemma 4 E2B Q4_K_M.
+  private func buildAnswerRules(
+    scenario: Scenario,
+    persona: Persona,
+    phase: Phase,
+    state: SimulationState
+  ) -> String {
+    let language = scenario.language
+    var rules = pickLanguage(
+      language,
+      ja: """
+        ## 回答ルール（厳守）
+        - 必ず日本語で回答すること
+        - 全フィールドに必ず文章を書くこと（空欄「...」は禁止）
+        - JSONは必ず1行で書くこと（改行を入れない）
+        - JSON以外のテキストやコードブロック(```)は書かないこと
+        - JSONに構文エラーがあると失敗扱いになる（カッコ・引用符・カンマを正しく閉じること）
+        - {で始まり}で終わる単一オブジェクトのみ出力し、前後にテキストを付けないこと
+        """,
+      en: """
+        ## Response Rules (strict)
+        - Respond in English only.
+        - Every field must contain a sentence (no empty "..." values).
+        - The JSON output must be a single line (no newlines).
+        - Do not include any text or code fences (```) outside the JSON.
+        - JSON syntax errors are treated as failure: close every bracket, quote, and comma correctly.
+        - Output exactly one object starting with { and ending with }, with no surrounding text.
+        """)
+
     if phase.type == .choose, let options = phase.options {
       let optionsList = options.joined(separator: ", ")
-      rules += "\n- actionフィールドは必ず次のいずれかを書くこと: \(optionsList)"
+      rules += pickLanguage(
+        language,
+        ja: "\n- actionフィールドは必ず次のいずれかを書くこと: \(optionsList)",
+        en: "\n- The action field must be one of: \(optionsList)")
     }
 
     if phase.type == .vote {
@@ -120,32 +166,28 @@ nonisolated struct PromptBuilder: Sendable {
           return true
         }
       let candidatesList = candidates.joined(separator: ", ")
-      rules +=
-        "\n- voteフィールドは必ず次の名前のいずれかを正確に書くこと: \(candidatesList)"
+      rules += pickLanguage(
+        language,
+        ja: "\n- voteフィールドは必ず次の名前のいずれかを正確に書くこと: \(candidatesList)",
+        en: "\n- The vote field must be exactly one of these names: \(candidatesList)")
     }
 
-    sections.append(rules)
-
-    if let formatSection = formatOutputSchema(OutputSchema.from(phase: phase)) {
-      sections.append(formatSection)
-    }
-
-    return sections.joined(separator: "\n\n")
+    return rules
   }
 
-  /// Render the `## 出力フォーマット（JSON）` section + placeholder `例:`
-  /// line (#194 PR#a Item 3). Placeholder syntax `<ここに{key}>` is
-  /// intentional — concrete Japanese like `"こんにちは"` was rejected
-  /// because 2B-class models tend to parrot demonstrated content
-  /// verbatim across all agents. Angle-bracketed Japanese is
-  /// unambiguously meta-syntax.
+  /// Render the `## 出力フォーマット（JSON）` / `## Output Format (JSON)`
+  /// section + placeholder example line (#194 PR#a Item 3). Placeholder
+  /// syntax `<ここに{key}>` (ja) / `<insert {key}>` (en) is intentional —
+  /// concrete content like `"こんにちは"` was rejected because 2B-class
+  /// models tend to parrot demonstrated content verbatim across all
+  /// agents. Angle-bracketed meta-syntax avoids that trap.
   ///
   /// Consumes ``OutputSchema/fields`` order (primary-first) so the
   /// prompt example aligns with the GBNF grammar the LLM backend
   /// receives — single source of truth, see #194 PR#b. Alphabetical
   /// ordering would invert `inner_thought` before `statement` and
   /// break ``PartialOutputExtractor`` streaming UX.
-  private func formatOutputSchema(_ schema: OutputSchema?) -> String? {
+  private func formatOutputSchema(_ schema: OutputSchema?, language: String) -> String? {
     guard let schema else { return nil }
     let spec =
       schema.fields
@@ -153,12 +195,19 @@ nonisolated struct PromptBuilder: Sendable {
       .joined(separator: ", ")
     let example =
       schema.fields
-      .map { field in "\"\(field.name)\": \"<ここに\(field.name)>\"" }
+      .map { field in
+        let placeholder = pickLanguage(
+          language, ja: "<ここに\(field.name)>", en: "<insert \(field.name)>")
+        return "\"\(field.name)\": \"\(placeholder)\""
+      }
       .joined(separator: ", ")
+    let header = pickLanguage(
+      language, ja: "## 出力フォーマット（JSON）", en: "## Output Format (JSON)")
+    let examplePrefix = pickLanguage(language, ja: "例", en: "Example")
     return """
-      ## 出力フォーマット（JSON）
+      \(header)
       {\(spec)}
-      例: {\(example)}
+      \(examplePrefix): {\(example)}
       """
   }
 }

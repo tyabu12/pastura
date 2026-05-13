@@ -13,7 +13,12 @@ nonisolated struct ChooseHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    let promptTemplate = context.phase.prompt ?? "選択してください。"
+    let promptTemplate =
+      context.phase.prompt
+      ?? pickLanguage(
+        context.scenario.language,
+        ja: "選択してください。",
+        en: "Make a choice.")
     let options = context.phase.options ?? []
 
     if context.phase.pairing == .roundRobin {
@@ -77,7 +82,8 @@ nonisolated struct ChooseHandler: PhaseHandler {
     var variables = state.variables
     variables["opponent_name"] = opponent.name
     variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
-    variables["conversation_log"] = promptBuilder.formatConversationLog(state.conversationLog)
+    variables["conversation_log"] = promptBuilder.formatConversationLog(
+      state.conversationLog, language: context.scenario.language)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
     let output = try await llmCaller.call(
@@ -107,7 +113,8 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
-      variables["conversation_log"] = promptBuilder.formatConversationLog(state.conversationLog)
+      variables["conversation_log"] = promptBuilder.formatConversationLog(
+        state.conversationLog, language: context.scenario.language)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(

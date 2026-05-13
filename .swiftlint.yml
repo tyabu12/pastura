@@ -19,6 +19,8 @@ identifier_name:
     - t   # GRDB convention for table definition builder
     - i   # Standard loop variable
     - id  # Common identifier property
+    - ja  # ISO 639-1 code — Translation Table column key (ADR-010 D7)
+    - en  # ISO 639-1 code — Translation Table column key (ADR-010 D7)
 
 opt_in_rules:
   - empty_count

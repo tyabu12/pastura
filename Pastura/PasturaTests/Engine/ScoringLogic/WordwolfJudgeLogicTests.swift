@@ -11,7 +11,7 @@ struct WordwolfJudgeLogicTests {
     state.voteResults = ["Wolf": 3, "Other": 1]
     state.variables["wolf_name"] = "Wolf"
     let collector = EventCollector()
-    logic.calculate(state: &state, emitter: collector.emit)
+    logic.calculate(state: &state, language: "ja", emitter: collector.emit)
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }
       return nil
@@ -25,7 +25,7 @@ struct WordwolfJudgeLogicTests {
     state.voteResults = ["Innocent": 3, "Wolf": 1]
     state.variables["wolf_name"] = "Wolf"
     let collector = EventCollector()
-    logic.calculate(state: &state, emitter: collector.emit)
+    logic.calculate(state: &state, language: "ja", emitter: collector.emit)
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }
       return nil
@@ -36,7 +36,7 @@ struct WordwolfJudgeLogicTests {
   @Test func handlesEmptyVoteResults() {
     var state = SimulationState()
     let collector = EventCollector()
-    logic.calculate(state: &state, emitter: collector.emit)
+    logic.calculate(state: &state, language: "ja", emitter: collector.emit)
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }
       return nil
