@@ -24,6 +24,7 @@ struct DemoReplayIntegrationTests {
 
   static let wordWolfPresetYAML = """
     id: word_wolf
+    language: ja
     name: Word Wolf
     description: ''
     agents: 3
@@ -45,6 +46,7 @@ struct DemoReplayIntegrationTests {
 
   static let prisonersDilemmaPresetYAML = """
     id: prisoners_dilemma
+    language: ja
     name: Prisoner's Dilemma
     description: ''
     agents: 2

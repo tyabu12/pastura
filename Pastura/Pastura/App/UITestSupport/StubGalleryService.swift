@@ -50,6 +50,7 @@
     /// completion is not a goal (MockLLMService has no canned responses).
     public static let canaryYAML: String = """
       id: ui_test_canary
+      language: ja
       name: UITest Canary
       description: Minimal scenario used by PasturaUITests navigation regression coverage.
       agents: 2

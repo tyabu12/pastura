@@ -13,6 +13,7 @@ struct ScenarioLoaderTests {
   @Test func loadsMinimalValidScenario() throws {
     let yaml = """
       id: test_scenario
+      language: ja
       name: Test
       description: A test scenario
       agents: 2
@@ -60,6 +61,7 @@ struct ScenarioLoaderTests {
   @Test func parsesPhaseWithAllFields() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -142,6 +144,7 @@ struct ScenarioLoaderTests {
   @Test func parsesExtraDataStringArray() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -173,6 +176,7 @@ struct ScenarioLoaderTests {
   @Test func parsesExtraDataArrayOfDictionaries() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -209,6 +213,7 @@ struct ScenarioLoaderTests {
     let yaml = """
       ```yaml
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -255,6 +260,7 @@ struct ScenarioLoaderTests {
   @Test func throwsOnInvalidPhaseType() {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -277,6 +283,7 @@ struct ScenarioLoaderTests {
   @Test func throwsOnAgentCountMismatch() {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 5
@@ -490,6 +497,7 @@ struct ScenarioLoaderTests {
   func makeYAMLWithAssignTarget(_ target: String) -> String {
     """
     id: t
+    language: ja
     name: T
     description: T
     agents: 2
@@ -512,6 +520,7 @@ struct ScenarioLoaderTests {
   func makeMinimalYAML(phasesBlock: String) -> String {
     """
     id: t
+    language: ja
     name: T
     description: T
     agents: 2
@@ -529,6 +538,7 @@ struct ScenarioLoaderTests {
   private func makeMinimalYAML() -> String {
     """
     id: test_scenario
+    language: ja
     name: Test
     description: A test scenario
     agents: 2

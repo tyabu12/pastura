@@ -18,6 +18,7 @@ struct ConditionalScenarioIOTests {
   @Test func loadsConditionalWithBothBranches() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -58,6 +59,7 @@ struct ConditionalScenarioIOTests {
   @Test func loadsConditionalWithOnlyThenBranch() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -89,6 +91,7 @@ struct ConditionalScenarioIOTests {
   @Test func rejectsNestedConditionalInThenBranch() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -118,6 +121,7 @@ struct ConditionalScenarioIOTests {
   @Test func rejectsNestedConditionalInElseBranch() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2

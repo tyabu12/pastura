@@ -11,6 +11,7 @@ struct YAMLReplayRoundTripTests {
 
   private static let scenarioYAML = """
     id: rt_scn
+    language: ja
     name: Round-trip Scenario
     description: ''
     agents: 2

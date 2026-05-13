@@ -14,8 +14,16 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
 
   /// Standard fields that are mapped to `Scenario` properties (not collected as extraData).
   private static let standardKeys: Set<String> = [
-    "id", "name", "description", "agents", "rounds", "context", "personas", "phases"
+    "id", "name", "description", "language", "simulation_language",
+    "agents", "rounds", "context", "personas", "phases"
   ]
+
+  /// Accepted values for `language` (D1) and `simulation_language` (D5).
+  ///
+  /// Engine output dispatch (`Pastura/Pastura/Engine/PromptBuilder.swift` and
+  /// friends) treats `scenario.language` as effectively this set per ADR-010
+  /// Fallback rule — `String` is the storage type, the validator owns the gate.
+  private static let acceptedLanguages: Set<String> = ["ja", "en"]
 
   // MARK: - Loading
 
@@ -163,6 +171,22 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     let id: String = try parseRequired(dict, key: "id", label: "Scenario")
     let name: String = try parseRequired(dict, key: "name", label: "Scenario")
     let description: String = try parseRequired(dict, key: "description", label: "Scenario")
+    let language: String = try parseRequired(dict, key: "language", label: "Scenario")
+    guard Self.acceptedLanguages.contains(language) else {
+      let allowed = Self.acceptedLanguages.sorted().joined(separator: ", ")
+      throw SimulationError.scenarioValidationFailed(
+        "Scenario: field 'language' must be one of {\(allowed)}, got '\(language)'"
+      )
+    }
+    let simulationLanguage: String? = try parseOptional(
+      dict, key: "simulation_language", label: "Scenario")
+    if let simulationLanguage, !Self.acceptedLanguages.contains(simulationLanguage) {
+      let allowed = Self.acceptedLanguages.sorted().joined(separator: ", ")
+      throw SimulationError.scenarioValidationFailed(
+        "Scenario: field 'simulation_language' must be one of {\(allowed)} or absent, "
+          + "got '\(simulationLanguage)'"
+      )
+    }
     let agentCount: Int = try parseRequired(dict, key: "agents", label: "Scenario")
     let rounds: Int = try parseRequired(dict, key: "rounds", label: "Scenario")
     let context: String = try parseRequired(dict, key: "context", label: "Scenario")
@@ -187,7 +211,8 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
 
     return Scenario(
       id: id, name: name, description: description,
-      language: "ja",
+      language: language,
+      simulationLanguage: simulationLanguage,
       agentCount: agentCount, rounds: rounds, context: context,
       personas: personas, phases: phases, extraData: extraData
     )

@@ -8,6 +8,7 @@ import Testing
 struct ScenarioDetailViewModelTests {
   private static let validYAML = """
     id: test_scenario
+    language: ja
     name: Test
     description: A test scenario
     agents: 2
@@ -67,6 +68,7 @@ struct ScenarioDetailViewModelTests {
     // Too many agents (>10) will trigger validation error
     let badYAML = """
       id: bad
+      language: ja
       name: Bad
       description: Too many agents
       agents: 11

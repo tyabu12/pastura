@@ -20,6 +20,7 @@ extension YAMLReplaySourceTests {
   /// assertions.
   fileprivate static let twoRoundScenarioYAML = """
     id: ts2
+    language: ja
     name: Test2
     description: ''
     agents: 2
