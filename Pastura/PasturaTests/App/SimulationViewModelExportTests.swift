@@ -57,7 +57,7 @@ struct SimulationViewModelExportTests {
     let unwrapped = try #require(payload)
     #expect(unwrapped.text.contains("<!-- pastura-export v1 -->"))
     #expect(unwrapped.text.contains("# Simulation Export: Test Scenario"))
-    #expect(unwrapped.text.contains("**Status**: completed"))
+    #expect(unwrapped.text.contains("**Status**: Completed"))
     #expect(unwrapped.text.contains("hello from Alice"))
     #expect(unwrapped.fileURL.pathExtension == "md")
   }

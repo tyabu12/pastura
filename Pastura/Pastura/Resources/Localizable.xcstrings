@@ -1,6 +1,22 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "\n  - 💭 _%@_" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\n  - 💭 _%@_"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\n  - 💭 _%@_"
+          }
+        }
+      }
+    },
     "  %@: %lld votes" : {
       "localizations" : {
         "en" : {
@@ -13,6 +29,150 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "  %1$@: %2$lld 票"
+          }
+        }
+      }
+    },
+    "# Simulation Export: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "# Simulation Export: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "# シミュレーション結果: %@"
+          }
+        }
+      }
+    },
+    "## Final Scores" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Final Scores"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## 最終スコア"
+          }
+        }
+      }
+    },
+    "## Metadata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Metadata"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## メタデータ"
+          }
+        }
+      }
+    },
+    "## Roster Status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Roster Status"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## ロスター状況"
+          }
+        }
+      }
+    },
+    "## Scenario Definition" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Scenario Definition"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## シナリオ定義"
+          }
+        }
+      }
+    },
+    "## Turn Log" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Turn Log"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## ターンログ"
+          }
+        }
+      }
+    },
+    "### Round %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "### Round %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "### ラウンド %lld"
+          }
+        }
+      }
+    },
+    "#### Phase: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#### Phase: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#### フェーズ: %@"
+          }
+        }
+      }
+    },
+    "#### Sub-phase: %@ (path [%@])" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#### Sub-phase: %1$@ (path [%2$@])"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#### サブフェーズ: %@ (path [%@])"
           }
         }
       }
@@ -111,12 +271,76 @@
         }
       }
     },
+    "%lldm %llds" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lldm %2$llds"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld分%lld秒"
+          }
+        }
+      }
+    },
+    "%llds" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%llds"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld秒"
+          }
+        }
+      }
+    },
     "(no condition)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "（条件なし）"
+          }
+        }
+      }
+    },
+    "(unknown)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(unknown)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(不明)"
+          }
+        }
+      }
+    },
+    "(unreadable payload)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(unreadable payload)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(ペイロード解読不可)"
           }
         }
       }
@@ -128,6 +352,310 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "、"
+          }
+        }
+      }
+    },
+    "- **%@** (%@) ↔ **%@** (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@** (%2$@) ↔ **%3$@** (%4$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@** (%@) ↔ **%@** (%@)"
+          }
+        }
+      }
+    },
+    "- **%@** was assigned: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@** was assigned: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@** に割り当て: %@"
+          }
+        }
+      }
+    },
+    "- **%@** was eliminated (%lld votes)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@** was eliminated (%2$lld votes)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@** が脱落 (%lld 票)"
+          }
+        }
+      }
+    },
+    "- **%@**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@**: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@**: %@"
+          }
+        }
+      }
+    },
+    "- **Backend**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Backend**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **バックエンド**: %@"
+          }
+        }
+      }
+    },
+    "- **Device**: %@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Device**: %1$@ / %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **デバイス**: %@ / %@"
+          }
+        }
+      }
+    },
+    "- **Duration**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Duration**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **所要時間**: %@"
+          }
+        }
+      }
+    },
+    "- **Ended**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Ended**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **終了**: %@"
+          }
+        }
+      }
+    },
+    "- **Inference count**: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Inference count**: %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **推論回数**: %lld"
+          }
+        }
+      }
+    },
+    "- **Model**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Model**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **モデル**: %@"
+          }
+        }
+      }
+    },
+    "- **Scenario**: %@ (`%@`)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Scenario**: %1$@ (`%2$@`)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **シナリオ**: %@ (`%@`)"
+          }
+        }
+      }
+    },
+    "- **Started**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Started**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **開始**: %@"
+          }
+        }
+      }
+    },
+    "- **Status**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Status**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **ステータス**: %@"
+          }
+        }
+      }
+    },
+    "- Scores — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- Scores — %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- スコア — %@"
+          }
+        }
+      }
+    },
+    "- Tallies:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- Tallies:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 集計:"
+          }
+        }
+      }
+    },
+    "- Votes:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- Votes:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 投票:"
+          }
+        }
+      }
+    },
+    "- _(code phase — no agent output)_" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- _(code phase — no agent output)_"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- _(コードフェーズ — エージェント出力なし)_"
+          }
+        }
+      }
+    },
+    "- 🎲 Event: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 Event: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 イベント: %@"
+          }
+        }
+      }
+    },
+    "- 🎲 No event this round" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 No event this round"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 このラウンドはイベントなし"
           }
         }
       }
@@ -219,6 +747,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "追加済み"
+          }
+        }
+      }
+    },
+    "Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェント"
           }
         }
       }
@@ -395,10 +939,32 @@
     },
     "Cancelled" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelled"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "キャンセル"
+            "value" : "中断"
+          }
+        }
+      }
+    },
+    "Candidate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Candidate"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "候補者"
           }
         }
       }
@@ -525,6 +1091,12 @@
     },
     "Completed" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1063,6 +1635,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "エクスポートに失敗しました"
+          }
+        }
+      }
+    },
+    "Failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失敗"
           }
         }
       }
@@ -2037,10 +2625,16 @@
     },
     "Paused" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一時停止中"
+            "value" : "一時停止"
           }
         }
       }
@@ -2530,8 +3124,13 @@
       }
     },
     "Running" : {
-      "extractionState" : "stale",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2647,6 +3246,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共有シナリオに関するシナリオ報告は Pastura のメンテナ (github.com/tyabu12) が確認します。"
+          }
+        }
+      }
+    },
+    "Score" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Score"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコア"
           }
         }
       }
@@ -2876,6 +3491,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このモデルで始める"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "状態"
           }
         }
       }
@@ -3361,10 +3992,16 @@
     },
     "Votes" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votes"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "投票"
+            "value" : "票数"
           }
         }
       }
@@ -3486,6 +4123,86 @@
         }
       }
     },
+    "_(empty)_" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_(empty)_"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_(なし)_"
+          }
+        }
+      }
+    },
+    "_No roster data._" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_No roster data._"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_ロスターデータなし_"
+          }
+        }
+      }
+    },
+    "_No score data._" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_No score data._"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_スコアデータなし_"
+          }
+        }
+      }
+    },
+    "_No turns recorded._" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_No turns recorded._"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_ターン記録なし_"
+          }
+        }
+      }
+    },
+    "active" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "active"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクティブ"
+          }
+        }
+      }
+    },
     "disabled" : {
       "localizations" : {
         "ja" : {
@@ -3513,6 +4230,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "例: max_score >= 10 && active_count > 1"
+          }
+        }
+      }
+    },
+    "eliminated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eliminated"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脱落"
           }
         }
       }
