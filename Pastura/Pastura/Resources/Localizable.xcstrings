@@ -948,7 +948,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中断"
+            "value" : "キャンセル"
           }
         }
       }
@@ -2634,7 +2634,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一時停止"
+            "value" : "一時停止中"
           }
         }
       }
