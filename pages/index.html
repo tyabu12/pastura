@@ -512,10 +512,26 @@
           <p class="faq-a">Yes. No server bill, no subscription.</p>
         </div>
         <div class="faq-item reveal-child" style="--i: 1">
+          <h3 class="faq-q">Which iPhones can run it?</h3>
+          <p class="faq-a">iPhone 15 Pro or newer, on iOS 17+. On-device models need about 8 GB of RAM, so iPhone 15 (non-Pro) and earlier are out of scope for now.</p>
+        </div>
+        <div class="faq-item reveal-child" style="--i: 2">
           <h3 class="faq-q">Why iOS only?</h3>
           <p class="faq-a">iOS for now, due to development bandwidth. Android is on the list.</p>
         </div>
-        <div class="faq-item reveal-child" style="--i: 2">
+        <div class="faq-item reveal-child" style="--i: 3">
+          <h3 class="faq-q">Can I talk to the agents myself?</h3>
+          <p class="faq-a">No, by design. Pastura is a window, not a chat app. The moment you join in, you reshape what you came to observe.</p>
+        </div>
+        <div class="faq-item reveal-child" style="--i: 4">
+          <h3 class="faq-q">How fast does it run?</h3>
+          <p class="faq-a">Inference runs on the Metal GPU. On an iPhone 16e with Gemma 4 E2B, we measure roughly 9 to 16 tok/s. Anything above about 10 tok/s reads comfortably in practice. A live tok/s readout in the app shows exactly how fast your device is going.</p>
+        </div>
+        <div class="faq-item reveal-child" style="--i: 5">
+          <h3 class="faq-q">What about battery and heat?</h3>
+          <p class="faq-a">Local inference uses the SoC, so it isn&rsquo;t free. Pastura watches the thermal state and auto-paces inference when the device warms up, though some heat is unavoidable during longer sessions.</p>
+        </div>
+        <div class="faq-item reveal-child" style="--i: 6">
           <h3 class="faq-q">Want another model supported?</h3>
           <p class="faq-a">Tell us on the <a href="support/">Support page</a>. We can&rsquo;t promise to add every request, but your input shapes what ships next.</p>
         </div>
