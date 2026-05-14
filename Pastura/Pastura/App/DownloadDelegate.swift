@@ -127,23 +127,37 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
   }
 
   /// PR2 reattach: invoked from the AsyncStream's `onTermination` closure
-  /// when the consumer drops the iterator (or finishes consuming). Removes
-  /// the per-task entry under the lock and, if a staged temp file is still
-  /// referenced, deletes it.
+  /// when the consumer drops the iterator (or the downloader calls
+  /// `continuation.finish()` for any reason — including the slot-occupied
+  /// branch in `URLSessionModelDownloader.attachToInFlight`, which builds
+  /// a stream and then `finish()`s it when registration is skipped).
+  ///
+  /// Only `.reattached` entries are managed by this method — `.foreground`
+  /// entries (PR1 download flow) MUST be left intact because their
+  /// `CheckedContinuation` is resumed by `didCompleteWithError`. Removing a
+  /// foreground entry here would strand the caller's `await
+  /// download(...)` permanently.
   ///
   /// Sequencing notes:
   /// - **Happy path** (consumer iterates `.completed` then exits the loop):
   ///   `didCompleteWithError` already removed the entry. This method's
-  ///   lookup returns `nil` → no cleanup needed (consumer took ownership
-  ///   of the staged file).
+  ///   `case .reattached` guard fails → no-op (consumer owns the staged file).
   /// - **Consumer-drop path** (consumer dies before terminal event):
-  ///   entry is still in the map. We remove it and delete the staged file
-  ///   if present.
+  ///   entry is still `.reattached` in the map. Remove it and delete the
+  ///   staged file if present.
+  /// - **Slot-occupied finish path** (attach hit an existing `.foreground`
+  ///   slot, called `finish()` on its locally-built stream): entry remains
+  ///   `.foreground` — the `case .reattached` guard fails and we leave it
+  ///   alone so its continuation can still resume.
   /// - **Failure path** (`.failed` yielded): `didCompleteWithError` already
-  ///   deleted the staged file and removed the entry. Same as happy path.
+  ///   deleted the staged file and removed the entry. Same no-op as happy path.
   func handleReattachedStreamTermination(taskIdentifier: Int) {
-    let removed = taskStates.withLock { $0.removeValue(forKey: taskIdentifier) }
-    if case .reattached(_, let stagedFileURL) = removed, let stagedFileURL {
+    let stagedFileURL: URL? = taskStates.withLock { map in
+      guard case .reattached(_, let url) = map[taskIdentifier] else { return nil }
+      map.removeValue(forKey: taskIdentifier)
+      return url
+    }
+    if let stagedFileURL {
       try? FileManager.default.removeItem(at: stagedFileURL)
     }
   }
@@ -190,8 +204,12 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
           fraction = min(
             Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 1.0)
         } else {
-          // Unknown total: approach but never reach 1.0. Pick a smoothed
-          // approximation rather than yielding 0.0 forever.
+          // Unknown total: yield 0.0. UI consumers (ModelDownloadView via
+          // `state[descriptor.id] == .downloading(progress:)`) read the
+          // fraction directly — a stable 0.0 surfaces as "starting" rather
+          // than a fake-progress estimate that would mislead. Hugging Face
+          // GGUF URLs always return `Content-Length` so this branch is
+          // theoretical for production reattach.
           fraction = 0.0
         }
         cont.yield(.progress(fraction))

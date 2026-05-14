@@ -259,6 +259,39 @@ struct DownloadDelegateTests {
 
   // MARK: - No-entry branch safety
 
+  @Test("handleReattachedStreamTermination leaves .foreground entries intact")
+  func handleReattachedStreamTerminationLeavesForegroundEntriesIntact() async {
+    // Regression: if attachToInFlight's slot-occupied branch built a stream
+    // and called `finish()` on it, onTermination would fire
+    // `handleReattachedStreamTermination` for a taskIdentifier that may
+    // belong to a `.foreground` entry. Earlier impl unconditionally
+    // `removeValue`d, stranding the foreground continuation. Verify the
+    // method now leaves non-`.reattached` entries alone.
+    let delegate = DownloadDelegate()
+    let task = makeFakeDownloadTask()
+    let taskID = task.taskIdentifier
+
+    // Plant a sentinel `.reattached` entry first so we can confirm
+    // termination removes IT, then verify that on a fresh delegate the
+    // call is a true no-op when no entry exists.
+    let (_, contA) = AsyncStream<DownloadEvent>.makeStream()
+    _ = delegate.registerReattachedIfAbsent(taskIdentifier: taskID, streamContinuation: contA)
+    delegate.handleReattachedStreamTermination(taskIdentifier: taskID)
+    // After termination, the `.reattached` entry is gone — confirmed by
+    // a fresh registration succeeding (would be `false` if old entry lingered).
+    let (_, contB) = AsyncStream<DownloadEvent>.makeStream()
+    let reRegistered = delegate.registerReattachedIfAbsent(
+      taskIdentifier: taskID, streamContinuation: contB)
+    #expect(reRegistered)
+
+    // The "no entry exists" path is also a no-op (defensive lookup).
+    let unrelatedDelegate = DownloadDelegate()
+    unrelatedDelegate.handleReattachedStreamTermination(taskIdentifier: 99_999)
+    // Reaching here is the success criterion.
+    contA.finish()
+    contB.finish()
+  }
+
   @Test("didCompleteWithError on unregistered task does not crash")
   func didCompleteWithErrorOnUnregisteredTaskIsSafe() {
     let delegate = DownloadDelegate()

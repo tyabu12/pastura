@@ -328,8 +328,14 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   func attachToInFlightDownloads() async {
     let urlStreamMap = await downloader.attachToInFlight()
     guard !urlStreamMap.isEmpty else { return }
+    // Defensive `uniquingKeysWith:`: `ModelRegistry.validateNoCollisions`
+    // currently checks `id` + `fileName` but NOT `downloadURL`, so a future
+    // catalog entry that accidentally aliases an existing URL would crash
+    // `uniqueKeysWithValues:` at relaunch. First-wins keeps the BG-DL
+    // attach loop alive; the collision should surface as a catalog audit
+    // failure in CI, not a crash here.
     let descriptorByURL = Dictionary(
-      uniqueKeysWithValues: catalog.map { ($0.downloadURL, $0) })
+      catalog.map { ($0.downloadURL, $0) }, uniquingKeysWith: { first, _ in first })
 
     for (url, stream) in urlStreamMap {
       guard let descriptor = descriptorByURL[url] else {
@@ -345,6 +351,14 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
       // must have run BEFORE this method (handled by `PasturaApp.initialize`)
       // so `networkPathMonitor.isCellular` reads the actual path, not its
       // launch default of `false`.
+      //
+      // TODO: multi-descriptor edge case. If `urlStreamMap` carries >1
+      // catalog-matched URL on cellular without consent, this loop sets
+      // `pendingCellularConsent` once per URL and the dialog only surfaces
+      // the LAST descriptor. In practice the sequential-download policy
+      // in `startDownload` keeps only one task in-flight, so this is a
+      // theoretical degraded UX. If it becomes reachable, file a follow-up
+      // to queue all pending descriptors or present a composite prompt.
       if requiresCellularConsent {
         Self.logger.notice(
           """
