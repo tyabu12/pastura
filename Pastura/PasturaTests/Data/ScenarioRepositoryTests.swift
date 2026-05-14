@@ -193,6 +193,35 @@ import Testing
     }
   }
 
+  // MARK: - ADR-010 Phase 1 baseline (Step C-2)
+
+  @Test func fetchByIdResolvesPhase1BaselinePresetWordWolf() throws {
+    // Phase 1 baseline (and current C-2 state): bundled presets like
+    // `word_wolf` install with `sourceId == nil` — the `sourceId`
+    // column is only set on gallery imports (see
+    // `fetchBySourceFindsGalleryRow` for that path). ADR-010 D4's
+    // "per-language IDs share sourceId" path is forward-looking until
+    // Step D ships `word_wolf_en` and the installer starts writing
+    // sourceId on bundled presets. This test pins the id-equality
+    // Past Results lookup that C-1's `language` wrapping must not
+    // have broken: a `word_wolf` row whose `yamlDefinition` declares
+    // `language: ja` remains discoverable by exact-id lookup.
+    // See `PastResultsLanguageCompatTests` for the disabled D4
+    // cross-language grouping scaffold.
+    let repo = try makeRepo()
+    let record = ScenarioRecord(
+      id: "word_wolf", name: "ワードウルフ",
+      yamlDefinition: "id: word_wolf\nlanguage: ja\nname: ワードウルフ\n",
+      isPreset: true, createdAt: Date(), updatedAt: Date(),
+      sourceType: nil, sourceId: nil, sourceHash: nil)
+    try repo.save(record)
+
+    let fetched = try repo.fetchById("word_wolf")
+    #expect(fetched?.id == "word_wolf")
+    #expect(fetched?.sourceId == nil)
+    #expect(fetched?.yamlDefinition.contains("language: ja") == true)
+  }
+
   // MARK: - UPDATE (not REPLACE) preserves FK cascade
 
   @Test func saveUpdatesInPlaceSoSimulationsSurvive() throws {
