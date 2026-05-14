@@ -351,6 +351,12 @@ private struct RootView: View {
         appState = .error("Database error: \(error.localizedDescription)")
       }
     #else
+      // Cancel any BG URLSession tasks `nsurlsessiond` carried over from a
+      // prior process generation. PR1 has no reattach path, so leaving them
+      // running would waste cellular bandwidth without any in-process
+      // handler. Must run before `checkModelStatus` / `startDownload` so
+      // the cancellation completes before the user can trigger a fresh DL.
+      await modelManager.cleanupOrphanBackgroundTasks()
       modelManager.checkModelStatus()
       // Fresh-install multi-model gate — returning users (persisted id)
       // or single-model catalogs bypass the picker. See

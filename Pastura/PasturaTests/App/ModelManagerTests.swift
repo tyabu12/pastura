@@ -1,10 +1,33 @@
 import CryptoKit
 import Foundation
 import Testing
+import os
 
 @testable import Pastura
 
-// MARK: - Mock
+// MARK: - Mocks
+
+/// Test double tracking `cancelInFlightTasks()` invocations. Used by
+/// `cleanupOrphanBackgroundTasksDelegatesCancel` to verify the
+/// `ModelManager` → `ModelDownloader.cancelInFlightTasks` wiring.
+final class CancelTrackingDownloader: ModelDownloader, @unchecked Sendable {
+  // @unchecked Sendable: only mutable state is `cancelCallCount`, guarded
+  // by `OSAllocatedUnfairLock`.
+  let cancelCallCount: OSAllocatedUnfairLock<Int> = .init(initialState: 0)
+
+  func download(
+    from url: URL,
+    resumeOffset: Int64,
+    to destination: URL,
+    progressHandler: @Sendable @escaping (Int64, Int64) -> Void
+  ) async throws {
+    // No-op: this mock exists for cancel-tracking, not download tests.
+  }
+
+  func cancelInFlightTasks() async {
+    cancelCallCount.withLock { $0 += 1 }
+  }
+}
 
 /// A test double for `ModelDownloader` that returns immediately or throws.
 struct MockModelDownloader: ModelDownloader, Sendable {
@@ -166,6 +189,19 @@ struct ModelManagerTests {
 
     sut.checkModelStatus()
     #expect(sut.activeState == .ready(modelPath: modelPath.path))
+  }
+
+  @Test("cleanupOrphanBackgroundTasks delegates to downloader.cancelInFlightTasks")
+  func cleanupOrphanBackgroundTasksDelegatesCancel() async {
+    // Verifies the wiring from `ModelManager.cleanupOrphanBackgroundTasks`
+    // (called by `PasturaApp.initialize` at cold start) through to the
+    // downloader. The production downloader (`URLSessionModelDownloader.shared`)
+    // is bypassed here — the tracking mock asserts the call landed without
+    // touching real `nsurlsessiond` state in the test process.
+    let mock = CancelTrackingDownloader()
+    let sut = makeSUT(downloader: mock)
+    await sut.cleanupOrphanBackgroundTasks()
+    #expect(mock.cancelCallCount.withLock { $0 } == 1)
   }
 
   // MARK: - Download

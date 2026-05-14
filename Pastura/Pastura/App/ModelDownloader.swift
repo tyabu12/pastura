@@ -1,3 +1,13 @@
+// swiftlint:disable file_length
+// Deliberately long: this file owns the full download abstraction surface —
+// `ModelDownloader` protocol, `URLSessionModelDownloader` singleton lifecycle,
+// `.background(withIdentifier:)` configuration, the `download(...)` async
+// bridge to `URLSessionDownloadDelegate`, and the 200/206-merge filesystem
+// path. Splitting the merge logic into a sibling extension would widen
+// `private` fields (`resumeDataCache`, `logger`) to module-internal for no
+// behavioral gain. The doc-comment density (BG URLSession constraints,
+// `.shared` identifier-uniqueness, cellular handoff caveat, network-warmup
+// limitation) is load-bearing for future maintainers.
 import Foundation
 import os
 
@@ -21,15 +31,81 @@ public protocol ModelDownloader: Sendable {
     to destination: URL,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
   ) async throws
+
+  /// Cancels every in-flight task currently owned by this downloader's
+  /// underlying URLSession.
+  ///
+  /// PR1 calls this once at cold start (from `ModelManager.cleanupOrphanBackgroundTasks`)
+  /// to terminate any background tasks that `nsurlsessiond` carried over from a
+  /// prior process generation — orphaned tasks would otherwise consume cellular
+  /// bandwidth invisibly until PR2's `attachToInFlight` reattach path replaces
+  /// them.
+  ///
+  /// Default implementation is a no-op (test mocks rely on it). Production
+  /// `URLSessionModelDownloader` overrides via `session.getAllTasks` + per-task
+  /// `cancel()`.
+  func cancelInFlightTasks() async
 }
 
-/// Production downloader using delegate-based `URLSession` + `URLSessionDownloadTask`.
+extension ModelDownloader {
+  /// No-op default — test mocks that don't manage real URLSession tasks
+  /// inherit this.
+  ///
+  /// **MUST stay body-only.** Adding a `Task { ... }` or
+  /// `AsyncThrowingStream { ... }` here would introduce an escaping closure
+  /// from a protocol-extension default impl, which requires `nonisolated`
+  /// per `.claude/rules/swift-isolation.md` § Pattern 1. The current empty
+  /// body avoids the trap; future additions to this default need to re-read
+  /// Pattern 1 before extending.
+  public func cancelInFlightTasks() async {}
+}
+
+/// Production downloader using a singleton-lifetime `URLSession` +
+/// session-level `DownloadDelegate` with per-task fan-out.
 ///
-/// The async `URLSession.download(for:delegate:)` API does not reliably deliver
-/// `URLSessionDownloadDelegate` callbacks (didWriteData, didFinishDownloadingTo)
-/// to per-request delegates. This implementation creates a dedicated session with
-/// a session-level delegate and bridges completion back to async/await via
-/// `CheckedContinuation`.
+/// ## Singleton design
+///
+/// Use `URLSessionModelDownloader.shared` from production code (e.g.
+/// `ModelManager.init`'s default arg). `.shared` is bound to a
+/// `.background(withIdentifier:)` URLSession created **once per process** —
+/// Apple's per-identifier uniqueness constraint means constructing a second
+/// `URLSession` with the same identifier raises `NSGenericException`.
+///
+/// The `init(sessionConfiguration:)` initializer is preserved as a DI seam
+/// for tests: each test instance constructs its own `URLSession` from a
+/// custom `.ephemeral` / `.default` configuration carrying `URLProtocol`
+/// mocks. The default arg stays `.default` so the pre-refactor test suite
+/// compiles unchanged. Production must NOT instantiate via this path with a
+/// `.background` config — `.shared` is the sole owner of the background
+/// identifier in this process.
+///
+/// ## Why background URLSession (PR1)
+///
+/// Foreground `URLSession` is suspended together with the app after ~30s of
+/// inactivity, killing the TCP connection mid-transfer. `.background(...)`
+/// hands the transfer off to the system's `nsurlsessiond` daemon, which
+/// continues independently of app suspension. For PR1 scope this fixes the
+/// screen-off / app-backgrounded interruption case (the primary user
+/// complaint).
+///
+/// Out of scope in PR1 — addressed by PR2:
+/// - **OS-termination mid-DL**: `sessionSendsLaunchEvents = false` opts out
+///   of cross-launch relaunch in PR1 (no reattach logic yet). PR2 flips the
+///   flag to `true` and adds `attachToInFlight` + `finalizeReattachedDownload`.
+/// - **Force-quit**: Apple's policy — force-quitting via the app switcher
+///   stops background URLSession transfers until the user manually relaunches.
+///   Out of any PR's scope.
+///
+/// ## Cellular handoff caveat
+///
+/// `allowsCellularAccess = true` is set on the BG configuration; the
+/// app-level cellular consent gate (`ModelManager.startDownload`) is the
+/// source of truth for whether a download begins on cellular. Once a task
+/// is in flight, if iOS hands off Wi-Fi → cellular mid-transfer, URLSession
+/// continues without re-firing the consent gate. This matches the
+/// pre-refactor foreground behavior; PR2's cross-launch reattach will
+/// re-evaluate consent on relaunch (a different network context), but
+/// intra-session handoff stays as-is.
 ///
 /// ## Resume after transient errors
 ///
@@ -46,53 +122,77 @@ public protocol ModelDownloader: Sendable {
 /// `Range:` header fallback (`ModelManager.performDownload` reads the on-disk
 /// `.download` partial size and passes it as `resumeOffset`), but the
 /// OS-managed ETag / If-Range validation that the cached blob preserves is
-/// bypassed on relaunch. No open Issue currently tracks blob persistence.
+/// bypassed on relaunch. Hugging Face GGUF download URLs are immutable
+/// revisions so ETag drift is not a correctness concern in practice. No
+/// open Issue currently tracks blob persistence.
 ///
 /// ## Actor isolation
 ///
-/// `nonisolated` at type level so the synchronous accessors (`updateResumeDataFromError`,
-/// `cachedResumeData`) can be invoked from any executor. Without this, the
-/// project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would bind the class
-/// to MainActor and break tests that exercise the cache lifecycle from the
-/// non-isolated test context. The `download(...) async throws` method was
-/// unaffected before adding sync accessors because the `async` hop conceals
-/// the binding; the new synchronous accessors are not.
+/// `nonisolated` at type level so the synchronous accessors
+/// (`updateResumeDataFromError`, `cachedResumeData`) can be invoked from any
+/// executor. See `.claude/rules/swift-isolation.md` § Pattern 4 — adding
+/// sync methods to a `Sendable`-protocol class without `nonisolated`
+/// surfaces MainActor binding at use sites.
 ///
 /// ## Known limitation: iOS network-warmup pause on Wi-Fi/Airplane toggle
 ///
-/// After the user toggles Wi-Fi or Airplane Mode OFF → ON to recover from a
-/// download interruption, tapping Retry produces a 3-5 second visible
-/// "freeze" on the progress UI before bytes start arriving. The freeze does
-/// **not** occur after device sleep stops a download — that distinction is
-/// the diagnostic signal pointing at the cause. Observed during PR #278
-/// device QA.
-///
-/// Root cause is not in this code path. iOS reinitializes the network stack
-/// on Wi-Fi/Airplane toggle (DHCP, DNS resolver re-init, captive-portal
-/// probe to `captive.apple.com`). During warmup, all outbound connections —
-/// including this downloader's `URLSessionDownloadTask` — are queued at the
-/// system level until iOS confirms internet availability. Sleep preserves
-/// network state, so wake-up doesn't trigger this warmup. Pastura's main
-/// thread stays responsive throughout (the UI just has nothing to show
-/// because the `ModelManager.performDownload` `.downloading(0.0)`
-/// placeholder is already on screen and no `didWriteData` callbacks have
-/// arrived yet).
-///
-/// **Accepted as iOS-side behavior; not actionable from app code.** If the
-/// UX cost grows, candidate improvements (out of scope for #278; track in
-/// a future Issue when revisiting):
-///
-/// - PromoCard "再接続中…" hint between retry tap and first progress
-///   sample (requires a new state plumbed from this downloader signalling
-///   "URLSession.resume() called, no bytes yet").
-/// - Skip the `.downloading(0.0)` placeholder in
-///   `ModelManager.performDownload` and stay in `.error` until the first
-///   real progress sample arrives — at the cost of the Retry button
-///   appearing inert for 3-5 seconds.
+/// After toggling Wi-Fi / Airplane Mode OFF → ON, tapping Retry produces a
+/// 3-5 second visible "freeze" before bytes arrive — iOS reinitializes the
+/// network stack (DHCP, DNS, captive-portal probe) and queues outbound
+/// connections during warmup. Sleep preserves network state so wake-up
+/// does NOT trigger this. Accepted as iOS-side behavior; not actionable
+/// from app code. Observed during PR #278 device QA.
 nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked Sendable {
-  // @unchecked Sendable: `sessionConfiguration` is set once at init and never
-  // mutated; `resumeDataCache` is guarded by `OSAllocatedUnfairLock`.
-  private let sessionConfiguration: URLSessionConfiguration
+  // @unchecked Sendable: `session` and `delegate` are stored once at init and
+  // never mutated; `resumeDataCache` is guarded by `OSAllocatedUnfairLock`.
+
+  /// Process-unique identifier for the production background URLSession.
+  ///
+  /// Apple's `.background(withIdentifier:)` requires at most ONE live
+  /// `URLSession` instance per identifier per process — a second
+  /// construction raises `NSGenericException`. The singleton `.shared`
+  /// owns this identifier; tests use `.default` / `.ephemeral` configs
+  /// via `init(sessionConfiguration:)` and never touch this constant.
+  static let backgroundSessionIdentifier = "com.tyabu12.Pastura.modelDownload"
+
+  /// Production singleton bound to the background `URLSession`. Lazily
+  /// constructed on first access (Swift `static let` semantics — thread-safe).
+  ///
+  /// `ModelManager.init`'s default downloader arg points here. Tests do
+  /// NOT access `.shared`; they construct via `init(sessionConfiguration:)`.
+  static let shared = URLSessionModelDownloader(
+    sessionConfiguration: makeBackgroundConfiguration()
+  )
+
+  /// Builds the production `.background(withIdentifier:)` configuration.
+  /// Private so the BG identifier is locked behind `.shared`.
+  private static func makeBackgroundConfiguration() -> URLSessionConfiguration {
+    let config = URLSessionConfiguration.background(withIdentifier: backgroundSessionIdentifier)
+    // PR1 explicit opt-out: without `attachToInFlight` reattach logic, iOS
+    // waking the app to deliver completion events would arrive at a fresh
+    // process with no per-task state registered — the events would be
+    // routed to no handler. PR2 flips this to `true` together with the
+    // reattach + finalizeReattachedDownload work.
+    config.sessionSendsLaunchEvents = false
+    // User-initiated foreground operation; opt out of OS bandwidth deferral.
+    config.isDiscretionary = false
+    // App-level cellular consent gate (ModelManager.startDownload) is the
+    // source of truth. URLSession permits cellular unconditionally; the
+    // app's gate decides whether to call `download(...)` in the first
+    // place. See § "Cellular handoff caveat" above for the mid-transfer
+    // handoff limitation.
+    config.allowsCellularAccess = true
+    return config
+  }
+
+  /// The URLSession this downloader owns. Created once at init from the
+  /// passed configuration; reused for every `download(...)` call.
+  let session: URLSession
+
+  /// Per-`URLSessionModelDownloader` instance — `.shared` has its own,
+  /// each test instance has its own. The delegate's per-task state map is
+  /// not shared across `URLSessionModelDownloader` instances.
+  private let delegate: DownloadDelegate
 
   /// Per-URL in-memory cache of `NSURLSessionDownloadTaskResumeData` blobs.
   /// Populated on transient error (when Apple supplies resumeData), cleared on
@@ -112,8 +212,21 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   private static let logger = Logger(
     subsystem: "com.tyabu12.Pastura", category: "ModelDownloader")
 
+  /// Constructs a downloader bound to a fresh `URLSession` built from
+  /// `sessionConfiguration`. Production code must use `.shared` instead —
+  /// passing `.background(...)` here would either collide with `.shared`'s
+  /// identifier (crash) or invent a duplicate identifier.
+  ///
+  /// The `.default` default-arg matches the pre-refactor signature so the
+  /// existing `URLSessionModelDownloaderTests` suite compiles unchanged.
   init(sessionConfiguration: URLSessionConfiguration = .default) {
-    self.sessionConfiguration = sessionConfiguration
+    let delegate = DownloadDelegate()
+    self.delegate = delegate
+    self.session = URLSession(
+      configuration: sessionConfiguration,
+      delegate: delegate,
+      delegateQueue: nil
+    )
   }
 
   func download(
@@ -134,18 +247,6 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     do {
       let result: DownloadResult = try await withTaskCancellationHandler {
         try await withCheckedThrowingContinuation { continuation in
-          let delegate = DownloadDelegate(
-            resumeOffset: resumeOffset,
-            progressHandler: progressHandler,
-            continuation: continuation
-          )
-          let session = URLSession(
-            configuration: sessionConfiguration,
-            delegate: delegate,
-            delegateQueue: nil
-          )
-          delegate.session = session
-
           let downloadTask: URLSessionDownloadTask
           if let resumeData = cachedResumeData {
             // Resume via OS-managed blob. URLSession decodes the blob to recover
@@ -166,7 +267,18 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
             }
             downloadTask = session.downloadTask(with: request)
           }
-          delegate.task = downloadTask
+
+          // Register per-task state in the persistent session-level delegate
+          // BEFORE `resume()`. URLSession can fire `didWriteData` on the first
+          // packet; an empty map at that point would silently drop early
+          // progress samples.
+          delegate.register(
+            taskIdentifier: downloadTask.taskIdentifier,
+            resumeOffset: resumeOffset,
+            progressHandler: progressHandler,
+            continuation: continuation
+          )
+
           taskHolder.withLock { $0 = downloadTask }
           downloadTask.resume()
         }
@@ -192,6 +304,36 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     } catch {
       updateResumeDataFromError(error, for: url)
       throw error
+    }
+  }
+
+  /// Cancels every in-flight `URLSessionDownloadTask` on this downloader's
+  /// session. Returns when all per-task cancellations have been **issued**,
+  /// NOT when they complete — the associated
+  /// `didCompleteWithError(NSURLErrorCancelled)` callbacks fire
+  /// asynchronously on the delegate queue after `cancel()` returns.
+  /// `getAllTasks` returning empty on a subsequent call does NOT imply
+  /// "all prior tasks have completed their delegate callbacks". The PR1
+  /// callsite (`PasturaApp.initialize` before any UI / `startDownload`
+  /// path is reachable) tolerates this race; PR2 callsites that need
+  /// completion-wait will need separate synchronization.
+  ///
+  /// PR1 usage: cold-start orphan cleanup. `nsurlsessiond` retains BG tasks
+  /// from a prior process generation; reconstructing the same-identifier
+  /// `URLSession` (via `.shared`) reattaches them to this session, where
+  /// they would otherwise progress without a handler. `getAllTasks` plus
+  /// per-task `cancel()` terminates them. PR2 replaces this with proper
+  /// `attachToInFlight` reattach.
+  func cancelInFlightTasks() async {
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      session.getAllTasks { tasks in
+        for task in tasks {
+          task.cancel()
+        }
+        Self.logger.notice(
+          "cancelInFlightTasks tasks=\(tasks.count, privacy: .public)")
+        continuation.resume()
+      }
     }
   }
 

@@ -226,7 +226,7 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   // MARK: - Init
 
   init(
-    downloader: any ModelDownloader = URLSessionModelDownloader(),
+    downloader: any ModelDownloader = URLSessionModelDownloader.shared,
     fileManager: FileManager = .default,
     physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory,
     userDefaults: UserDefaults = .standard,
@@ -293,6 +293,25 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     for descriptor in catalog {
       state[descriptor.id] = computeState(for: descriptor)
     }
+  }
+
+  /// Cancels every in-flight BG URLSession task that `nsurlsessiond` carried
+  /// over from a prior process generation, before any user-initiated download
+  /// can begin in this process.
+  ///
+  /// PR1 calls this at cold start (from `PasturaApp.initialize`) because
+  /// `sessionSendsLaunchEvents = false` opts out of relaunch — tasks that
+  /// survived process termination would otherwise progress on cellular
+  /// without any in-process handler, wasting bandwidth and bypassing the
+  /// app-level consent gate. Cancelling them is correctness-conservative:
+  /// any partial bytes URLSession had cached are discarded, and the next
+  /// `startDownload` re-issues from the on-disk `.download` partial via the
+  /// explicit Range-header fallback (`performDownload` at L535-542).
+  ///
+  /// PR2 will replace this with `attachToInFlight` — observe rather than
+  /// abort — preserving cross-launch progress instead of restarting.
+  func cleanupOrphanBackgroundTasks() async {
+    await downloader.cancelInFlightTasks()
   }
 
   /// Sets the active model to `id` and persists it in UserDefaults. No-op if
