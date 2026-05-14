@@ -48,6 +48,7 @@ extension ReplayViewModelTests {
     // `entry.output.fields.values` is filtered.
     let scenarioWithColliderYAML = """
       id: ts
+      language: ja
       name: Test
       description: ''
       agents: 2

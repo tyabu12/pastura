@@ -18,6 +18,7 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
   /// cases that don't care about scenario content.
   private static let baseScenarioYAML = """
     id: test_scn
+    language: ja
     name: Test Scenario
     description: test
     agents: 2
@@ -373,6 +374,7 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
     // still locate the enclosing phase context when rendering.
     let yaml = """
       id: cond_scn
+      language: ja
       name: Conditional
       description: ''
       agents: 2

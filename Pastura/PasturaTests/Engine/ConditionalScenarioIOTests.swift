@@ -18,6 +18,7 @@ struct ConditionalScenarioIOTests {
   @Test func loadsConditionalWithBothBranches() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -58,6 +59,7 @@ struct ConditionalScenarioIOTests {
   @Test func loadsConditionalWithOnlyThenBranch() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -89,6 +91,7 @@ struct ConditionalScenarioIOTests {
   @Test func rejectsNestedConditionalInThenBranch() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -118,6 +121,7 @@ struct ConditionalScenarioIOTests {
   @Test func rejectsNestedConditionalInElseBranch() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: test
       agents: 2
@@ -154,6 +158,7 @@ struct ConditionalScenarioIOTests {
       id: "rt",
       name: "RT",
       description: "round trip",
+      language: "ja",
       agentCount: 2,
       rounds: 1,
       context: "ctx",
@@ -199,6 +204,7 @@ struct ConditionalScenarioIOTests {
       id: "rt2",
       name: "RT",
       description: "round trip with special chars",
+      language: "ja",
       agentCount: 2,
       rounds: 1,
       context: "ctx",
@@ -229,6 +235,7 @@ struct ConditionalScenarioIOTests {
       id: "rt3",
       name: "RT",
       description: "empty else",
+      language: "ja",
       agentCount: 2,
       rounds: 1,
       context: "ctx",
@@ -264,6 +271,7 @@ struct ConditionalScenarioIOTests {
       id: "est",
       name: "est",
       description: "estimator",
+      language: "ja",
       agentCount: 2,
       rounds: 3,
       context: "ctx",
@@ -297,6 +305,7 @@ struct ConditionalScenarioIOTests {
       id: "asym",
       name: "asym",
       description: "asymmetric",
+      language: "ja",
       agentCount: 2,
       rounds: 2,
       context: "ctx",

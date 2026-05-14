@@ -12,7 +12,12 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    let promptTemplate = context.phase.prompt ?? "あなたの意見を述べてください。"
+    let promptTemplate =
+      context.phase.prompt
+      ?? pickLanguage(
+        context.scenario.language,
+        ja: "あなたの意見を述べてください。",
+        en: "Share your opinion.")
 
     for persona in context.scenario.personas {
       guard state.eliminated[persona.name] != true else { continue }
@@ -23,7 +28,8 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
 
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
-      variables["conversation_log"] = promptBuilder.formatConversationLog(state.conversationLog)
+      variables["conversation_log"] = promptBuilder.formatConversationLog(
+        state.conversationLog, language: context.scenario.language)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(

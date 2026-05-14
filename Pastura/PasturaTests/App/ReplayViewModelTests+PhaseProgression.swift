@@ -18,6 +18,7 @@ extension ReplayViewModelTests {
   /// zeroing).
   fileprivate static let twoPhaseScenarioYAML = """
     id: tp
+    language: ja
     name: TwoPhase
     description: ''
     agents: 2

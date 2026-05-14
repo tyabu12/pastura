@@ -21,6 +21,10 @@ nonisolated struct ScenarioSerializer: Sendable {
     var lines: [String] = []
 
     lines.append("id: \(scenario.id)")
+    lines.append("language: \(scenario.language)")
+    if let simulationLanguage = scenario.simulationLanguage {
+      lines.append("simulation_language: \(simulationLanguage)")
+    }
     lines.append("name: \(yamlScalar(scenario.name))")
     lines.append("description: \(yamlScalar(scenario.description))")
     lines.append("agents: \(scenario.agentCount)")

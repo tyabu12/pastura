@@ -13,6 +13,7 @@ struct ScenarioLoaderTests {
   @Test func loadsMinimalValidScenario() throws {
     let yaml = """
       id: test_scenario
+      language: ja
       name: Test
       description: A test scenario
       agents: 2
@@ -60,6 +61,7 @@ struct ScenarioLoaderTests {
   @Test func parsesPhaseWithAllFields() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -142,6 +144,7 @@ struct ScenarioLoaderTests {
   @Test func parsesExtraDataStringArray() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -173,6 +176,7 @@ struct ScenarioLoaderTests {
   @Test func parsesExtraDataArrayOfDictionaries() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -209,6 +213,7 @@ struct ScenarioLoaderTests {
     let yaml = """
       ```yaml
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -255,6 +260,7 @@ struct ScenarioLoaderTests {
   @Test func throwsOnInvalidPhaseType() {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -277,6 +283,7 @@ struct ScenarioLoaderTests {
   @Test func throwsOnAgentCountMismatch() {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: 5
@@ -307,7 +314,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesSpeakAllInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 3, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 3, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .speakAll)]
     )
@@ -317,7 +324,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesSpeakEachWithSubRounds() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 3, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 3, rounds: 2, context: "C",
       personas: (0..<3).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .speakEach, subRounds: 3)]
     )
@@ -327,7 +334,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesVoteInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 2, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .vote)]
     )
@@ -337,7 +344,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesChooseRoundRobinInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 2, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .choose, pairing: .roundRobin)]
     )
@@ -347,7 +354,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesChooseIndividualInferences() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 2, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 2, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [Phase(type: .choose)]
     )
@@ -357,7 +364,7 @@ struct ScenarioLoaderTests {
 
   @Test func estimatesZeroForCodePhases() {
     let scenario = Scenario(
-      id: "t", name: "T", description: "T", agentCount: 5, rounds: 3, context: "C",
+      id: "t", name: "T", description: "T", language: "ja", agentCount: 5, rounds: 3, context: "C",
       personas: (0..<5).map { Persona(name: "A\($0)", description: "D") },
       phases: [
         Phase(type: .scoreCalc, logic: .voteTally),
@@ -490,6 +497,7 @@ struct ScenarioLoaderTests {
   func makeYAMLWithAssignTarget(_ target: String) -> String {
     """
     id: t
+    language: ja
     name: T
     description: T
     agents: 2
@@ -512,6 +520,7 @@ struct ScenarioLoaderTests {
   func makeMinimalYAML(phasesBlock: String) -> String {
     """
     id: t
+    language: ja
     name: T
     description: T
     agents: 2
@@ -529,6 +538,7 @@ struct ScenarioLoaderTests {
   private func makeMinimalYAML() -> String {
     """
     id: test_scenario
+    language: ja
     name: Test
     description: A test scenario
     agents: 2

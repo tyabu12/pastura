@@ -41,7 +41,7 @@ struct PromptBuilderTests {
   // MARK: - Conversation Log Formatting
 
   @Test func formatsEmptyConversationLog() {
-    let result = builder.formatConversationLog([])
+    let result = builder.formatConversationLog([], language: "ja")
     #expect(result == "（まだなし）")
   }
 
@@ -50,7 +50,7 @@ struct PromptBuilderTests {
       ConversationEntry(agentName: "Alice", content: "Hello!", phaseType: .speakAll, round: 1),
       ConversationEntry(agentName: "Bob", content: "Hi there!", phaseType: .speakAll, round: 1)
     ]
-    let result = builder.formatConversationLog(entries)
+    let result = builder.formatConversationLog(entries, language: "ja")
     #expect(result.contains("Alice: Hello!"))
     #expect(result.contains("Bob: Hi there!"))
   }
@@ -315,6 +315,7 @@ struct PromptBuilderTests {
       id: "test",
       name: "Test Scenario",
       description: "A test scenario",
+      language: "ja",
       agentCount: 3,
       rounds: 3,
       context: "You are in a game show.",

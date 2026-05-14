@@ -17,6 +17,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnWrongTypeForRequiredString() throws {
     let yaml = """
       id: 42
+      language: ja
       name: Test
       description: Test
       agents: 2
@@ -48,6 +49,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnWrongTypeForRequiredInt() throws {
     let yaml = """
       id: test
+      language: ja
       name: Test
       description: Test
       agents: "2"
@@ -82,6 +84,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnWrongTypeForPersonasList() throws {
     let yaml = """
       id: t
+      language: ja
       name: T
       description: T
       agents: 2
@@ -109,6 +112,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnWrongTypeForPersonaName() throws {
     let yaml = """
       id: t
+      language: ja
       name: T
       description: T
       agents: 2
@@ -313,6 +317,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnScalarTopLevelExtraData() throws {
     let yaml = """
       id: t
+      language: ja
       name: T
       description: T
       agents: 2
@@ -344,6 +349,7 @@ extension ScenarioLoaderTests {
   @Test func acceptsQuotedScalarTopLevelExtraData() throws {
     let yaml = """
       id: t
+      language: ja
       name: T
       description: T
       agents: 2
@@ -373,6 +379,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnMixedTypeExtraDataArray() throws {
     let yaml = """
       id: t
+      language: ja
       name: T
       description: T
       agents: 2
@@ -406,6 +413,7 @@ extension ScenarioLoaderTests {
   @Test func throwsOnNonStringValueInArrayOfDicts() throws {
     let yaml = """
       id: t
+      language: ja
       name: T
       description: T
       agents: 2

@@ -42,6 +42,15 @@ final class ScenarioEditorViewModel {
   var scenarioId: String = ""
   var scenarioName: String = ""
   var scenarioDescription: String = ""
+  /// Scenario authoring language. Seeded from the device locale via
+  /// `LocaleResolver.deviceDefault()` for a fresh editor; overwritten in
+  /// `populateFromScenario` when a template or existing scenario loads.
+  /// ADR-010 D2 / D6 (new-scenario creation seed).
+  var editorLanguage: String = LocaleResolver.deviceDefault()
+  /// Optional cross-language override. Parsed-and-preserved in Step C-1,
+  /// Engine-wired in Step E (ADR-010 D5). The Visual mode has no UI for
+  /// this field yet — round-trip preservation only.
+  var editorSimulationLanguage: String?
   var agentCount: Int = 2
   var rounds: Int = 1
   var context: String = ""
@@ -357,6 +366,8 @@ final class ScenarioEditorViewModel {
       id: scenarioId,
       name: scenarioName,
       description: scenarioDescription,
+      language: editorLanguage,
+      simulationLanguage: editorSimulationLanguage,
       agentCount: personas.count,
       rounds: rounds,
       context: context,
@@ -371,6 +382,8 @@ final class ScenarioEditorViewModel {
     scenarioId = scenario.id
     scenarioName = scenario.name
     scenarioDescription = scenario.description
+    editorLanguage = scenario.language
+    editorSimulationLanguage = scenario.simulationLanguage
     agentCount = scenario.agentCount
     rounds = scenario.rounds
     context = scenario.context

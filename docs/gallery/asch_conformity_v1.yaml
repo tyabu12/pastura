@@ -1,4 +1,5 @@
 id: asch_conformity_v1
+language: ja
 name: アッシュの同調実験
 description: >
   4人のサクラと1人の被験者で構成される古典的同調実験の再現。

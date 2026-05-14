@@ -16,6 +16,7 @@ import Testing
 
   private static let sampleYAML = """
     id: asch_v1
+    language: ja
     name: Asch Conformity
     description: Conformity under social pressure
     agents: 3

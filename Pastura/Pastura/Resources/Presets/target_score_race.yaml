@@ -1,4 +1,5 @@
 id: target_score_race
+language: ja
 name: 先取りゲーム
 description: >
   投票で得点を奪い合い、目標点に先に届いた人が優勢を掴むゲーム。

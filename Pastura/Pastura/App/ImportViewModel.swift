@@ -140,6 +140,7 @@ final class ImportViewModel {
     Required structure:
 
     id: unique_snake_case_id
+    language: ja|en   # required: authoring language; drives Engine output
     name: Scenario Name
     description: Brief description
     agents: <number 2-10>
@@ -157,5 +158,9 @@ final class ImportViewModel {
     Available phase types: speak_all, speak_each, vote, choose, \
     score_calc (logic: prisoners_dilemma|vote_tally|wordwolf_judge), \
     assign (source: key, target: all), eliminate, summarize (template: text).
+
+    The `language` field is mandatory and accepts only `ja` or `en`. \
+    Write all user-facing strings (name, description, context, prompt, \
+    template, persona name/description) in that language.
     """
 }

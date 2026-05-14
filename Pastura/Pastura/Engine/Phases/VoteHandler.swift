@@ -13,7 +13,12 @@ nonisolated struct VoteHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    let promptTemplate = context.phase.prompt ?? "最も怪しいと思う人に投票してください。"
+    let promptTemplate =
+      context.phase.prompt
+      ?? pickLanguage(
+        context.scenario.language,
+        ja: "最も怪しいと思う人に投票してください。",
+        en: "Vote for the person you find most suspicious.")
     let excludeSelf = context.phase.excludeSelf ?? true
 
     var votes: [String: String] = [:]  // voter -> target
@@ -36,7 +41,8 @@ nonisolated struct VoteHandler: PhaseHandler {
 
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
-      variables["conversation_log"] = promptBuilder.formatConversationLog(state.conversationLog)
+      variables["conversation_log"] = promptBuilder.formatConversationLog(
+        state.conversationLog, language: context.scenario.language)
       variables["candidates"] = candidates.joined(separator: ", ")
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 

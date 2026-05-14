@@ -10,6 +10,7 @@ struct ResultDetailExportAssemblerTests {
 
   private let validYAML = """
     id: test
+    language: ja
     name: Test Scenario
     description: A scenario fixture
     agents: 2

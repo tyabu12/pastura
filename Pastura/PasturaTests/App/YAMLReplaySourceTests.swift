@@ -16,6 +16,7 @@ struct YAMLReplaySourceTests {
 
   static let scenarioYAML = """
     id: ts
+    language: ja
     name: Test
     description: ''
     agents: 2

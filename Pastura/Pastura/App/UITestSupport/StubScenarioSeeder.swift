@@ -61,6 +61,7 @@
     /// (English-only non-blocklisted text).
     static let homeSeedYAML: String = """
       id: ui_test_home_seed
+      language: ja
       name: UITest Home Seed
       description: Seed scenario shown on the Home list under --ui-test.
       agents: 2
@@ -84,6 +85,7 @@
     /// the name stays stable for assertion).
     public static let editorSeedYAML: String = """
       id: ui_test_editor_reload_seed
+      language: ja
       name: UITest Editor Reload Seed
       description: Seed YAML pre-filled into the editor for #110.
       agents: 2

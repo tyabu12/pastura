@@ -13,7 +13,7 @@ schema_version: 1
 preset_ref:
   id: bokete
   version: '1.0'
-  yaml_sha256: 'ef7d6cea301d74e22553c93df508fd0fd07f28a5b7ccfd0414ea33ff226a6c8e'
+  yaml_sha256: 'bd61f7026f2432e85ce3e234364efb81fec316dd752940af40af0797e8757e8c'
 
 metadata:
   title: 'ボケて — AI大喜利バトル'

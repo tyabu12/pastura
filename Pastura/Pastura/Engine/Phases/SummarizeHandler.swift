@@ -11,7 +11,12 @@ nonisolated struct SummarizeHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    let template = context.phase.template ?? "ラウンド {current_round} 完了"
+    let template =
+      context.phase.template
+      ?? pickLanguage(
+        context.scenario.language,
+        ja: "ラウンド {current_round} 完了",
+        en: "Round {current_round} complete")
 
     if !state.pairings.isEmpty && template.contains("{agent1}") {
       // Expand template per pairing

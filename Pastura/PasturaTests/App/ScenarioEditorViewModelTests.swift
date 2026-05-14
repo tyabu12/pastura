@@ -10,6 +10,7 @@ import Testing
 struct ScenarioEditorViewModelTests {
   private static let validYAML = """
     id: editor_test
+    language: ja
     name: Editor Test
     description: A test
     agents: 2
@@ -217,6 +218,7 @@ struct ScenarioEditorViewModelTests {
     let yamlWithComment = """
       # custom comment from author
       id: comment_preservation_test
+      language: ja
       name: Comment Preservation Test
       description: Tests comment survival on save
       agents: 2
@@ -255,6 +257,7 @@ struct ScenarioEditorViewModelTests {
     let (sut, repo) = try makeSUTWithRepo()
     let boketeYAML = """
       id: bokete_yaml_save_test
+      language: ja
       name: Bokete Save Test
       description: Tests extraData survival on YAML-mode save
       agents: 2
@@ -292,6 +295,7 @@ struct ScenarioEditorViewModelTests {
     // `topics:` from bokete.yaml and hits Save.
     let yamlMissingTopics = """
       id: missing_topics_test
+      language: ja
       name: Missing Topics Test
       description: triggers validator's missing-source path
       agents: 2
@@ -348,6 +352,7 @@ struct ScenarioEditorViewModelTests {
   @Test func loadFromTemplatePreservesArrayExtraData() throws {
     let yaml = """
       id: bokete_test
+      language: ja
       name: Bokete Test
       description: Bokete-shaped scenario
       agents: 2
@@ -381,6 +386,7 @@ struct ScenarioEditorViewModelTests {
   @Test func loadFromTemplatePreservesArrayOfDictionariesExtraData() throws {
     let yaml = """
       id: word_wolf_test
+      language: ja
       name: Word Wolf Test
       description: Word-wolf-shaped scenario
       agents: 2
@@ -414,6 +420,7 @@ struct ScenarioEditorViewModelTests {
   @Test func loadFromTemplatePreservesStringExtraData() throws {
     let yaml = """
       id: string_extra_test
+      language: ja
       name: String Extra Test
       description: Scenario with string extraData
       agents: 2
@@ -444,6 +451,7 @@ struct ScenarioEditorViewModelTests {
   @Test func loadFromTemplatePreservesDictionaryExtraData() throws {
     let yaml = """
       id: dict_extra_test
+      language: ja
       name: Dict Extra Test
       description: Scenario with dictionary extraData
       agents: 2
@@ -476,6 +484,7 @@ struct ScenarioEditorViewModelTests {
   @Test func modeSwitchPreservesExtraData() throws {
     let yaml = """
       id: roundtrip_test
+      language: ja
       name: Round-Trip Test
       description: Mode-switch round-trip
       agents: 2
@@ -539,6 +548,7 @@ struct ScenarioEditorViewModelTests {
     let sut = try makeSUT()
     sut.yamlText = """
       id: content_yaml_test
+      language: ja
       name: Content YAML Test
       description: A test
       agents: 2

@@ -17,7 +17,7 @@ schema_version: 1
 preset_ref:
   id: word_wolf
   version: '1.0'
-  yaml_sha256: '1cf7086a3fbce96fa62b6f9dfd5192e8eabf79210db210511558c401a5874fc0'
+  yaml_sha256: 'b56208895eceb7012879d7ba3e0d1edbebdff75a685e1dd290a5f2f7cc8d10f5'
 
 metadata:
   title: 'ワードウルフ — 少数派を見抜け'

@@ -13,6 +13,7 @@ struct PresetResolverTests {
   /// required fields.
   private static let fixtureYAML = """
     id: fx
+    language: ja
     name: Fixture
     description: ''
     agents: 2

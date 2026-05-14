@@ -17,12 +17,35 @@ nonisolated struct ScenarioValidator: Sendable {
     let estimatedInferences: Int
   }
 
+  /// Accepted values for `Scenario.language` and `Scenario.simulationLanguage`
+  /// (ADR-010 D1 / D5). Mirrors `ScenarioLoader`'s private set — kept
+  /// duplicated for layer locality, same intentional parallel as
+  /// `validateConditionalPhase` ↔ `mapPhase`.
+  private static let acceptedLanguages: Set<String> = ["ja", "en"]
+
   /// Validates a scenario against execution limits.
   ///
   /// - Parameter scenario: The scenario to validate.
   /// - Returns: A ``ValidationResult`` with any warnings and the inference estimate.
   /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` if limits are exceeded.
   func validate(_ scenario: Scenario) throws -> ValidationResult {
+    // Language values (ADR-010 D1 / D5 — programmatic-construction path
+    // gate, mirrors `ScenarioLoader`'s YAML-parse path).
+    if !Self.acceptedLanguages.contains(scenario.language) {
+      let allowed = Self.acceptedLanguages.sorted().joined(separator: ", ")
+      throw SimulationError.scenarioValidationFailed(
+        "Scenario: field 'language' must be one of {\(allowed)}, got '\(scenario.language)'"
+      )
+    }
+    if let simulationLanguage = scenario.simulationLanguage,
+      !Self.acceptedLanguages.contains(simulationLanguage) {
+      let allowed = Self.acceptedLanguages.sorted().joined(separator: ", ")
+      throw SimulationError.scenarioValidationFailed(
+        "Scenario: field 'simulationLanguage' must be one of {\(allowed)} or nil, "
+          + "got '\(simulationLanguage)'"
+      )
+    }
+
     // Agent count limits (checked first for clearer error messages)
     if scenario.agentCount < 2 {
       throw SimulationError.scenarioValidationFailed(

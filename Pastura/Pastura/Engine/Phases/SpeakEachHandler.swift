@@ -15,7 +15,10 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
     let subRounds = context.phase.subRounds ?? 1
     let promptTemplate =
       context.phase.prompt
-      ?? "これまでの会話: {conversation_log}\nあなたの番です。"
+      ?? pickLanguage(
+        context.scenario.language,
+        ja: "これまでの会話: {conversation_log}\nあなたの番です。",
+        en: "Conversation so far: {conversation_log}\nYour turn.")
 
     for _ in 1...subRounds {
       for persona in context.scenario.personas {
@@ -28,7 +31,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
         var variables = state.variables
         variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["conversation_log"] = promptBuilder.formatConversationLog(
-          state.conversationLog)
+          state.conversationLog, language: context.scenario.language)
         let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
         let output = try await llmCaller.call(

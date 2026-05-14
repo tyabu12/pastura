@@ -1,4 +1,5 @@
 id: asch_conformity
+language: ja
 name: アッシュの同調実験
 description: |
   4人のサクラが意図的に間違った答えを言う中で、1人の被験者がどう判断するかを観察する

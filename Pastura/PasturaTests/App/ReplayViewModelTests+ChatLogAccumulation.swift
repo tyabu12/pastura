@@ -15,6 +15,7 @@ import Testing
 
 private let firstScenarioYAML = """
   id: first
+  language: ja
   name: First Scenario
   description: ''
   agents: 1
@@ -32,6 +33,7 @@ private let firstScenarioYAML = """
 
 private let secondScenarioYAML = """
   id: second
+  language: ja
   name: Second Scenario
   description: ''
   agents: 1

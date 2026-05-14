@@ -11,7 +11,7 @@
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 10,
       "yaml_url": "asch_conformity_v1.yaml",
-      "yaml_sha256": "8d165c4684b68dd5402319ada3165a9f30f44d3a34eb461299cce68964569dcf",
+      "yaml_sha256": "c4dc793962bfa5309efb8a00930958070f875e271aab8cda2fc0c662c0648947",
       "added_at": "2026-04-15"
     },
     {
@@ -23,7 +23,7 @@
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 12,
       "yaml_url": "trolley_dilemma_v1.yaml",
-      "yaml_sha256": "f3abcd0603a52ce0700323064f60c03c082d30166f75adb3a9c285f7f5cce767",
+      "yaml_sha256": "8e4f2d870c1ada91f42cb269d35d7c3c032940a2f76ba7c417186378fdc63d0b",
       "added_at": "2026-04-15"
     },
     {
@@ -35,7 +35,7 @@
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 15,
       "yaml_url": "detective_scene_v1.yaml",
-      "yaml_sha256": "ec28d433ae5db0064d1eaa57443587efd61386785f17b5557b9983416d9b7abd",
+      "yaml_sha256": "9b01a7ced10853e5e46b036961d9930b10bdfcadd0b3dd89651c0a3d6857bbad",
       "added_at": "2026-04-15"
     },
     {
@@ -47,7 +47,7 @@
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 20,
       "yaml_url": "kinoko_takenoko_v1.yaml",
-      "yaml_sha256": "7c34fd00ab7e5e946d901664d839d91ba18a18fda987954eb5daa70aca8db785",
+      "yaml_sha256": "d382514728e1bb484868c0f5a02fdc9a2ba6b463f208d76a4f691172df096024",
       "added_at": "2026-04-29"
     }
   ]

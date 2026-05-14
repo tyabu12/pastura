@@ -8,6 +8,7 @@ import Testing
 struct ImportViewModelTests {
   private static let validYAML = """
     id: import_test
+    language: ja
     name: Import Test
     description: A test
     agents: 2
@@ -115,6 +116,7 @@ struct ImportViewModelTests {
     // trigger this validator anymore.)
     viewModel.yamlText = """
       id: blocked_content_test
+      language: ja
       name: Blocked Content Test
       description: A test
       agents: 2

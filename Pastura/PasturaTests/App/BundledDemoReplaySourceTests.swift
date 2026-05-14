@@ -20,6 +20,7 @@ struct BundledDemoReplaySourceTests {
   /// matches the shape the fixture demo YAML targets.
   static let presetYAML = """
     id: wf
+    language: ja
     name: Preset
     description: ''
     agents: 2

@@ -14,6 +14,7 @@ struct ConditionalValidatorTests {
   func makeScenario(phases: [Phase]) -> Scenario {
     Scenario(
       id: "t", name: "T", description: "t",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "c",
       personas: [Persona(name: "A", description: "a"), Persona(name: "B", description: "b")],
       phases: phases
@@ -153,6 +154,7 @@ struct ConditionalValidatorTests {
   @Test func rejectsAssignShapeMismatchInThenBranch() {
     let scenario = Scenario(
       id: "t", name: "T", description: "t",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "c",
       personas: [
         Persona(name: "A", description: "a"),
@@ -187,6 +189,7 @@ struct ConditionalValidatorTests {
   @Test func acceptsEventInjectInThenBranch() throws {
     let scenario = Scenario(
       id: "t", name: "T", description: "t",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "c",
       personas: [
         Persona(name: "A", description: "a"),
@@ -209,6 +212,7 @@ struct ConditionalValidatorTests {
   @Test func rejectsEventInjectInThenBranchWithMissingSource() {
     let scenario = Scenario(
       id: "t", name: "T", description: "t",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "c",
       personas: [
         Persona(name: "A", description: "a"),
@@ -242,6 +246,7 @@ struct ConditionalValidatorTests {
   @Test func rejectsEventInjectInElseBranchWithProbabilityOutOfRange() {
     let scenario = Scenario(
       id: "t", name: "T", description: "t",
+      language: "ja",
       agentCount: 2, rounds: 1, context: "c",
       personas: [
         Persona(name: "A", description: "a"),

@@ -11,6 +11,7 @@ import Testing
 
   private static let validYAML = """
     id: gallery_test
+    language: ja
     name: Gallery Test
     description: A gallery scenario
     agents: 2
