@@ -49,6 +49,52 @@ app. Fields:
 Unknown `category` values cause the app to reject the whole index — add a
 new case to the Swift enum before shipping a JSON that uses it.
 
+## Per-scenario YAML schema
+
+The per-scenario YAML files (`docs/gallery/<id>.yaml`) follow Pastura's
+top-level Scenario schema, validated by `Pastura/Pastura/Engine/ScenarioLoader.swift`.
+This README documents only the gallery-specific concerns; for the full
+field reference see `docs/specs/pastura-mvp-spec-v0_3.md` and the
+ScenarioLoader source.
+
+### `language` (required, ADR-010 D1)
+
+Each gallery YAML MUST declare its language at the top level:
+
+```yaml
+id: asch_conformity_v1
+language: ja        # ISO 639-1; "ja" or "en" per ADR-010 D1
+name: ...
+```
+
+Allowed values: `ja`, `en` (ADR-010 D1 mandatory rule;
+`scripts/check_demo_replay_drift.py`'s `ALLOWED_LANGUAGES` set
+mirrors this for demo YAMLs). Missing or unknown values are
+rejected by ScenarioLoader as `scenarioValidationFailed`.
+
+Note: this is a property of the **YAML body**, not the `gallery.json`
+index entry above. The index does not duplicate language; the iOS
+app reads it from the downloaded YAML at install time.
+
+## Current entries
+
+Snapshot of the 4 shipped entries (informational; `gallery.json` is the
+source of truth). Adding new entries follows the workflow in
+**Adding a scenario** below.
+
+| id | name (Japanese) | language | category | added_at |
+|---|---|---|---|---|
+| `asch_conformity_v1` | アッシュの同調実験 | `ja` | social_psychology | 2026-04-15 |
+| `trolley_dilemma_v1` | トロッコ問題 | `ja` | ethics | 2026-04-15 |
+| `detective_scene_v1` | 探偵の推理会議 | `ja` | roleplay | 2026-04-15 |
+| `kinoko_takenoko_v1` | きのこの山 vs たけのこの里 | `ja` | creative | 2026-04-29 |
+
+Per-language sibling entries (e.g., `asch_conformity_v1_en` with
+`language: en`) ship in ADR-010 Step D alongside the bundled English
+presets; the `language` column will gain `en` rows then. Cross-language
+canonical grouping uses `ScenarioRecord.sourceId` per ADR-010 D4 — out
+of scope for this README.
+
 ## Curation Rules
 
 ### Globally unique scenario ids
