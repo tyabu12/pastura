@@ -1,3 +1,13 @@
+// swiftlint:disable file_length
+// Deliberately long: this file owns the full download abstraction surface —
+// `ModelDownloader` protocol, `URLSessionModelDownloader` singleton lifecycle,
+// `.background(withIdentifier:)` configuration, the `download(...)` async
+// bridge to `URLSessionDownloadDelegate`, and the 200/206-merge filesystem
+// path. Splitting the merge logic into a sibling extension would widen
+// `private` fields (`resumeDataCache`, `logger`) to module-internal for no
+// behavioral gain. The doc-comment density (BG URLSession constraints,
+// `.shared` identifier-uniqueness, cellular handoff caveat, network-warmup
+// limitation) is load-bearing for future maintainers.
 import Foundation
 import os
 
@@ -21,6 +31,27 @@ public protocol ModelDownloader: Sendable {
     to destination: URL,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
   ) async throws
+
+  /// Cancels every in-flight task currently owned by this downloader's
+  /// underlying URLSession.
+  ///
+  /// PR1 calls this once at cold start (from `ModelManager.cleanupOrphanBackgroundTasks`)
+  /// to terminate any background tasks that `nsurlsessiond` carried over from a
+  /// prior process generation — orphaned tasks would otherwise consume cellular
+  /// bandwidth invisibly until PR2's `attachToInFlight` reattach path replaces
+  /// them.
+  ///
+  /// Default implementation is a no-op (test mocks rely on it). Production
+  /// `URLSessionModelDownloader` overrides via `session.getAllTasks` + per-task
+  /// `cancel()`.
+  func cancelInFlightTasks() async
+}
+
+extension ModelDownloader {
+  /// No-op default — test mocks that don't manage real URLSession tasks
+  /// inherit this. Pure async with no escaping closures, so the protocol-ext
+  /// Pattern 1 trap (`.claude/rules/swift-isolation.md`) does not apply.
+  public func cancelInFlightTasks() async {}
 }
 
 /// Production downloader using a singleton-lifetime `URLSession` +
@@ -267,6 +298,30 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     } catch {
       updateResumeDataFromError(error, for: url)
       throw error
+    }
+  }
+
+  /// Cancels every in-flight `URLSessionDownloadTask` on this downloader's
+  /// session. Returns when all per-task cancellations have been issued (the
+  /// associated `didCompleteWithError(NSURLErrorCancelled)` callbacks fire
+  /// asynchronously after `cancel()` and resume their continuations).
+  ///
+  /// PR1 usage: cold-start orphan cleanup. `nsurlsessiond` retains BG tasks
+  /// from a prior process generation; reconstructing the same-identifier
+  /// `URLSession` (via `.shared`) reattaches them to this session, where
+  /// they would otherwise progress without a handler. `getAllTasks` plus
+  /// per-task `cancel()` terminates them. PR2 replaces this with proper
+  /// `attachToInFlight` reattach.
+  func cancelInFlightTasks() async {
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      session.getAllTasks { tasks in
+        for task in tasks {
+          task.cancel()
+        }
+        Self.logger.notice(
+          "cancelInFlightTasks tasks=\(tasks.count, privacy: .public)")
+        continuation.resume()
+      }
     }
   }
 

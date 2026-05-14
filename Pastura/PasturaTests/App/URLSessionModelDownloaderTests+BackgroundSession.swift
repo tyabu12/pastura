@@ -23,6 +23,23 @@ extension URLSessionModelDownloaderTests {
     #expect(first === second)
   }
 
+  // MARK: - Orphan cleanup (PR1 item 2 prep)
+
+  @Test("cancelInFlightTasks completes on a session with no in-flight tasks")
+  func cancelInFlightTasksCompletesOnEmptySession() async {
+    // Smoke test for the `getAllTasks` path. The session has no tasks
+    // (no `download(...)` was ever called), so `getAllTasks` returns an
+    // empty array and `cancelInFlightTasks` resumes immediately. Verifies
+    // the URLSession plumbing doesn't deadlock or crash when there is
+    // nothing to cancel — the common case at cold start when the user
+    // has never started a BG download.
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+    await downloader.cancelInFlightTasks()
+    // No assertions: the test passes if `await` returns.
+  }
+
   @Test("two consecutive downloads on the same instance both succeed")
   func twoConsecutiveDownloadsSucceedOnSameInstance() async throws {
     // Regression guard for the singleton-session refactor: with the old
