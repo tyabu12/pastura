@@ -94,6 +94,12 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   /// is reserved for Phase 3 tier-auto (where a lighter model targets 6 GB devices).
   static let minimumRAM: UInt64 = 6_500_000_000
 
+  /// `.notice`-level logger for ModelManager-internal events. Filter in
+  /// Console.app: `subsystem:com.tyabu12.Pastura category:ModelManager`.
+  /// Used by `attachToInFlightDownloads` for routine reattach telemetry.
+  private static let logger = Logger(
+    subsystem: "com.tyabu12.Pastura", category: "ModelManager")
+
   /// UserDefaults key for the persisted active model id.
   static let activeModelIDKey = "com.pastura.activeModelID"
 
@@ -295,23 +301,119 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// Cancels every in-flight BG URLSession task that `nsurlsessiond` carried
-  /// over from a prior process generation, before any user-initiated download
-  /// can begin in this process.
+  /// PR2 cross-launch reattach. Replaces PR1's `cleanupOrphanBackgroundTasks`.
   ///
-  /// PR1 calls this at cold start (from `PasturaApp.initialize`) because
-  /// `sessionSendsLaunchEvents = false` opts out of relaunch — tasks that
-  /// survived process termination would otherwise progress on cellular
-  /// without any in-process handler, wasting bandwidth and bypassing the
-  /// app-level consent gate. Cancelling them is correctness-conservative:
-  /// any partial bytes URLSession had cached are discarded, and the next
-  /// `startDownload` re-issues from the on-disk `.download` partial via the
-  /// explicit Range-header fallback (`performDownload` at L535-542).
+  /// `PasturaApp.initialize` invokes this AFTER `checkModelStatus()` so any
+  /// `.error` from `finalizeReattachedDownload` (SHA mismatch) can't be
+  /// overwritten by `computeState`'s filesystem-derived fallback. attach only
+  /// transitions descriptors from `.notDownloaded` → `.downloading(progress: 0)`;
+  /// non-`.notDownloaded` slots (`.ready` post-crash window, `.unsupportedDevice`)
+  /// get a defensive `cancel(url:)`. Catalog-miss URLs are also cancelled.
   ///
-  /// PR2 will replace this with `attachToInFlight` — observe rather than
-  /// abort — preserving cross-launch progress instead of restarting.
-  func cleanupOrphanBackgroundTasks() async {
-    await downloader.cancelInFlightTasks()
+  /// **Cellular re-evaluation**: if `requiresCellularConsent` is true at
+  /// attach-time (relaunch on cellular without prior consent), the matched
+  /// URL is cancelled, descriptor state stays `.notDownloaded`, and
+  /// `pendingCellularConsent` is set so the existing scene-level
+  /// `.confirmationDialog` fires. `cancel(byProducingResumeData:)` stashes
+  /// the resume blob into `resumeDataCache` so a post-consent retry resumes
+  /// transparently (intra-session) or via the Range-header fallback
+  /// (cross-launch).
+  ///
+  /// **Observers**: for each catalog-matched / cellular-passing URL, a
+  /// detached Task observes the `AsyncStream<DownloadEvent>` and updates
+  /// descriptor state on `.progress`, calls `finalizeReattachedDownload` on
+  /// `.completed`, transitions to `.error` (or `.notDownloaded` for a
+  /// cancellation error) on `.failed`. Observers exit naturally when the
+  /// stream finishes; no explicit lifecycle tracking is required.
+  func attachToInFlightDownloads() async {
+    let urlStreamMap = await downloader.attachToInFlight()
+    guard !urlStreamMap.isEmpty else { return }
+    let descriptorByURL = Dictionary(
+      uniqueKeysWithValues: catalog.map { ($0.downloadURL, $0) })
+
+    for (url, stream) in urlStreamMap {
+      guard let descriptor = descriptorByURL[url] else {
+        Self.logger.notice(
+          """
+          attach: catalog miss — url=\(url.absoluteString, privacy: .public) \
+          — cancelling
+          """)
+        await downloader.cancel(url: url)
+        continue
+      }
+      // Cellular re-evaluation gate (PR2 item 5). `waitForNetworkPathReady`
+      // must have run BEFORE this method (handled by `PasturaApp.initialize`)
+      // so `networkPathMonitor.isCellular` reads the actual path, not its
+      // launch default of `false`.
+      if requiresCellularConsent {
+        Self.logger.notice(
+          """
+          attach: cellular without consent — descriptor=\
+          \(descriptor.id, privacy: .public) — cancelling for consent re-prompt
+          """)
+        await downloader.cancel(url: url)
+        state[descriptor.id] = .notDownloaded
+        pendingCellularConsent = descriptor
+        continue
+      }
+      // State-machine guard. `checkModelStatus` ran first; only
+      // `.notDownloaded` / `.ready` / `.unsupportedDevice` are reachable
+      // here (`computeState` never returns the other variants).
+      guard case .notDownloaded = state[descriptor.id] else {
+        Self.logger.notice(
+          """
+          attach: defensive cancel — descriptor=\(descriptor.id, privacy: .public) \
+          stateNotNotDownloaded
+          """)
+        await downloader.cancel(url: url)
+        continue
+      }
+      state[descriptor.id] = .downloading(progress: 0.0)
+      spawnReattachObserver(descriptor: descriptor, stream: stream)
+    }
+  }
+
+  /// Per-URL observer Task. Detached fire-and-forget — exits naturally when
+  /// the stream finishes (`.completed` / `.failed` yield + `finish()` in the
+  /// delegate). Lives on MainActor because `state` is MainActor-isolated.
+  private func spawnReattachObserver(
+    descriptor: ModelDescriptor, stream: AsyncStream<DownloadEvent>
+  ) {
+    let descriptorID = descriptor.id
+    Task { [weak self] in
+      for await event in stream {
+        guard let self else { break }
+        switch event {
+        case .progress(let value):
+          // Skip if state diverged (e.g., user-initiated cancel between
+          // observer-Task scheduling and event arrival).
+          guard case .downloading = self.state[descriptorID] else { continue }
+          self.state[descriptorID] = .downloading(progress: min(value, 1.0))
+        case .completed(let stagedURL):
+          do {
+            try await self.finalizeReattachedDownload(
+              descriptor: descriptor, stagedFileURL: stagedURL)
+          } catch {
+            self.state[descriptorID] = .error(error.localizedDescription)
+          }
+        case .failed(let error):
+          // URLError(.cancelled) indicates a `cancel(url:)` call — either
+          // the cellular gate above, or a future user-initiated cancel.
+          // Map to `.notDownloaded` so the picker / progress fallback UI
+          // can re-prompt; preserve `.error` for genuine transport failures.
+          if (error as? URLError)?.code == .cancelled {
+            // Preserve any `pendingCellularConsent` already set by the
+            // cellular gate — only flip to `.notDownloaded` if the slot is
+            // still `.downloading` (i.e., no other state mutation won).
+            if case .downloading = self.state[descriptorID] {
+              self.state[descriptorID] = .notDownloaded
+            }
+          } else {
+            self.state[descriptorID] = .error(error.localizedDescription)
+          }
+        }
+      }
+    }
   }
 
   /// Sets the active model to `id` and persists it in UserDefaults. No-op if
@@ -650,6 +752,30 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
 
     excludeFromBackup(modelURL)
     state[descriptor.id] = .ready(modelPath: modelURL.path)
+  }
+
+  /// PR2 finalize for the cross-launch reattach path. The URLSession-staged
+  /// temp file (from `DownloadDelegate.didFinishDownloadingTo`) is first
+  /// moved to the canonical `.download` partial location, then the shared
+  /// `finalizeDownload` path (SHA256 + atomic rename + state update) runs.
+  ///
+  /// Doing the stage→partial move first means we reuse a single integrity
+  /// + atomic-rename helper for both code paths — the alternative would
+  /// have been to parameterize `verifyDownloadIntegrity` by file URL, which
+  /// widens the integrity surface for a one-off use. Both files are on the
+  /// app sandbox's single volume, so `moveItem` is an atomic directory-entry
+  /// swap (no copy).
+  private func finalizeReattachedDownload(
+    descriptor: ModelDescriptor, stagedFileURL: URL
+  ) async throws {
+    let partialURL = downloadFileURL(for: descriptor)
+    let modelURL = modelFileURL(for: descriptor)
+    if fileManager.fileExists(atPath: partialURL.path) {
+      try fileManager.removeItem(at: partialURL)
+    }
+    try fileManager.moveItem(at: stagedFileURL, to: partialURL)
+    try await finalizeDownload(
+      descriptor: descriptor, modelURL: modelURL, partialURL: partialURL)
   }
 
   // MARK: - Private: Integrity

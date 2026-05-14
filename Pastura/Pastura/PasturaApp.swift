@@ -357,13 +357,24 @@ private struct RootView: View {
         appState = .error("Database error: \(error.localizedDescription)")
       }
     #else
-      // Cancel any BG URLSession tasks `nsurlsessiond` carried over from a
-      // prior process generation. PR1 has no reattach path, so leaving them
-      // running would waste cellular bandwidth without any in-process
-      // handler. Must run before `checkModelStatus` / `startDownload` so
-      // the cancellation completes before the user can trigger a fresh DL.
-      await modelManager.cleanupOrphanBackgroundTasks()
+      // PR2 cross-launch reattach. Order is load-bearing:
+      //   1. `waitForNetworkPathReady` warms `NetworkPathMonitor` so the
+      //      cellular gate inside `attachToInFlightDownloads` reads the
+      //      actual path (not the launch-time default of `false`). On real
+      //      devices, a relaunch on cellular without consent races this
+      //      callback — awaiting here closes the race.
+      //   2. `checkModelStatus` runs BEFORE attach so any `.error` set by
+      //      `finalizeReattachedDownload` (SHA mismatch on a reattached DL)
+      //      cannot be overwritten by `computeState`'s `.notDownloaded`
+      //      filesystem fallback.
+      //   3. `attachToInFlightDownloads` observes any BG tasks that
+      //      `nsurlsessiond` carried over from a prior process generation
+      //      (including ones the OS-relaunch path delivered for completion)
+      //      and transitions matched descriptors to `.downloading`. Replaces
+      //      PR1's heavy-handed `cleanupOrphanBackgroundTasks` cancel-all.
+      await modelManager.waitForNetworkPathReady()
       modelManager.checkModelStatus()
+      await modelManager.attachToInFlightDownloads()
       // Fresh-install multi-model gate — returning users (persisted id)
       // or single-model catalogs bypass the picker. See
       // `ModelManager.shouldShowInitialModelPicker` for the precise
@@ -379,26 +390,29 @@ private struct RootView: View {
         // Auto-resume: user has already opted in (active id was persisted
         // by a prior picker tap or by single-model catalog default), so
         // the only reason we'd be in `.notDownloaded` here is that the
-        // download wasn't completed — either the app was killed mid-DL
-        // (partial file on disk; `performDownload` reads the partial size
-        // for the resume offset) or never started a session. Start it now
-        // so the user lands directly on the demo host body / progress
-        // fallback (or, on cellular without consent, the Wi-Fi advisory
-        // + scene-level confirmation dialog — #191).
+        // download wasn't completed AND `attachToInFlightDownloads` didn't
+        // find an OS-attached BG task for this descriptor — either the app
+        // was killed before the BG session even started, or the OS reaped
+        // the task pre-launch. Start a fresh `startDownload` so the user
+        // lands directly on the demo host body / progress fallback (or, on
+        // cellular without consent, the Wi-Fi advisory + scene-level
+        // confirmation dialog — #191).
         //
-        // `waitForNetworkPathReady` is load-bearing: `NetworkPathMonitor`
-        // reads `false` until its first `NWPathMonitor` callback bridges
-        // to MainActor, and a relaunch on cellular without consent races
-        // that callback on real devices — confirmed in QA. Awaiting here
-        // closes the race so the cellular gate sees the actual path.
+        // Reaching this branch implies attach did NOT transition this
+        // descriptor to `.downloading`, so no double-`startDownload` race
+        // is possible (the overlap-safety invariant — PR2 critic axis 5).
         if let descriptor = modelManager.activeDescriptor {
-          await modelManager.waitForNetworkPathReady()
           modelManager.startDownload(descriptor: descriptor)
         }
         appState = .needsModelDownload
+      case .downloading:
+        // PR2 reattach path active for the active descriptor — observer
+        // Task is updating progress; ModelDownloadView observes the same
+        // state and shows the in-flight progress UI.
+        appState = .needsModelDownload
       case .unsupportedDevice, .error:
         appState = .needsModelDownload
-      case .checking, .downloading:
+      case .checking:
         // Should not happen after synchronous checkModelStatus, but handle gracefully
         appState = .needsModelDownload
       }

@@ -52,20 +52,6 @@ public protocol ModelDownloader: Sendable {
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
   ) async throws
 
-  /// Cancels every in-flight task currently owned by this downloader's
-  /// underlying URLSession.
-  ///
-  /// PR1 calls this once at cold start (from `ModelManager.cleanupOrphanBackgroundTasks`)
-  /// to terminate any background tasks that `nsurlsessiond` carried over from a
-  /// prior process generation — orphaned tasks would otherwise consume cellular
-  /// bandwidth invisibly until PR2's `attachToInFlight` reattach path replaces
-  /// them.
-  ///
-  /// Default implementation is a no-op (test mocks rely on it). Production
-  /// `URLSessionModelDownloader` overrides via `session.getAllTasks` + per-task
-  /// `cancel()`.
-  func cancelInFlightTasks() async
-
   /// Reattaches to background URLSession tasks that `nsurlsessiond` carried
   /// over from a prior process generation.
   ///
@@ -92,8 +78,8 @@ public protocol ModelDownloader: Sendable {
   ///
   /// PR2 uses this to surgically cancel a single reattached download — e.g.
   /// when the relaunched app is on cellular without consent, we cancel the
-  /// reattached task and re-prompt the user. Unlike `cancelInFlightTasks`
-  /// (session-wide), this preserves other concurrent downloads.
+  /// reattached task and re-prompt the user. Per-URL scope preserves other
+  /// concurrent downloads.
   ///
   /// Production `URLSessionModelDownloader` matches via `getAllTasks` and
   /// calls `cancel(byProducingResumeData:)`, stashing the resume blob in the
@@ -104,22 +90,17 @@ public protocol ModelDownloader: Sendable {
 }
 
 extension ModelDownloader {
-  /// No-op default — test mocks that don't manage real URLSession tasks
+  /// Empty default — test mocks that don't simulate cross-launch state
   /// inherit this.
   ///
   /// **MUST stay body-only.** Adding a `Task { ... }` or
   /// `AsyncThrowingStream { ... }` here would introduce an escaping closure
   /// from a protocol-extension default impl, which requires `nonisolated`
-  /// per `.claude/rules/swift-isolation.md` § Pattern 1. The current empty
-  /// body avoids the trap; future additions to this default need to re-read
-  /// Pattern 1 before extending.
-  public func cancelInFlightTasks() async {}
-
-  /// Empty default — test mocks that don't simulate cross-launch state
-  /// inherit this. **MUST stay body-only** (see Pattern 1 note above).
+  /// per `.claude/rules/swift-isolation.md` § Pattern 1.
   public func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>] { [:] }
 
-  /// No-op default — test mocks inherit this. **MUST stay body-only.**
+  /// No-op default — test mocks inherit this. **MUST stay body-only** (see
+  /// Pattern 1 note above).
   public func cancel(url: URL) async {}
 }
 
@@ -379,36 +360,6 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     } catch {
       updateResumeDataFromError(error, for: url)
       throw error
-    }
-  }
-
-  /// Cancels every in-flight `URLSessionDownloadTask` on this downloader's
-  /// session. Returns when all per-task cancellations have been **issued**,
-  /// NOT when they complete — the associated
-  /// `didCompleteWithError(NSURLErrorCancelled)` callbacks fire
-  /// asynchronously on the delegate queue after `cancel()` returns.
-  /// `getAllTasks` returning empty on a subsequent call does NOT imply
-  /// "all prior tasks have completed their delegate callbacks". The PR1
-  /// callsite (`PasturaApp.initialize` before any UI / `startDownload`
-  /// path is reachable) tolerates this race; PR2 callsites that need
-  /// completion-wait will need separate synchronization.
-  ///
-  /// PR1 usage: cold-start orphan cleanup. `nsurlsessiond` retains BG tasks
-  /// from a prior process generation; reconstructing the same-identifier
-  /// `URLSession` (via `.shared`) reattaches them to this session, where
-  /// they would otherwise progress without a handler. `getAllTasks` plus
-  /// per-task `cancel()` terminates them. PR2 replaces this with proper
-  /// `attachToInFlight` reattach.
-  func cancelInFlightTasks() async {
-    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-      session.getAllTasks { tasks in
-        for task in tasks {
-          task.cancel()
-        }
-        Self.logger.notice(
-          "cancelInFlightTasks tasks=\(tasks.count, privacy: .public)")
-        continuation.resume()
-      }
     }
   }
 
