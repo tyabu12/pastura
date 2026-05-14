@@ -166,18 +166,7 @@ struct EnginePathLanguageTests {
   @Test func promptBuilderIgnoresSimulationLanguageInC1() {
     // Build with language: "ja", simulationLanguage: "en".
     // Engine MUST still emit Japanese (simulationLanguage wiring deferred to Step E).
-    let scenario = makeTestScenario(
-      agentNames: ["Alice", "Bob"],
-      language: "ja",
-      phases: [
-        Phase(
-          type: .speakAll,
-          prompt: "Go!",
-          outputSchema: ["statement": "string"])
-      ]
-    )
-    // Inject simulationLanguage by constructing via ScenarioFixture
-    let scenarioWithSimLang = ScenarioFixture.make(
+    let scenario = ScenarioFixture.make(
       language: "ja",
       simulationLanguage: "en",
       phases: [
@@ -187,12 +176,11 @@ struct EnginePathLanguageTests {
           outputSchema: ["statement": "string"])
       ]
     )
-    _ = scenario  // suppress unused warning
-    let persona = scenarioWithSimLang.personas[0]
-    let phase = scenarioWithSimLang.phases[0]
-    let state = SimulationState.initial(for: scenarioWithSimLang)
+    let persona = scenario.personas[0]
+    let phase = scenario.phases[0]
+    let state = SimulationState.initial(for: scenario)
     let prompt = PromptBuilder().buildSystemPrompt(
-      scenario: scenarioWithSimLang, persona: persona, phase: phase, state: state)
+      scenario: scenario, persona: persona, phase: phase, state: state)
 
     // Must contain Japanese (language: "ja" drives Engine in C-1)
     #expect(prompt.contains("あなたはシミュレーション"))
