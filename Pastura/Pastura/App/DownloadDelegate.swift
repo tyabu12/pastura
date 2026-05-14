@@ -1,45 +1,119 @@
 import Foundation
+import os
 
 // MARK: - Download Result
 
 /// Value returned from `DownloadDelegate` to `URLSessionModelDownloader`'s
-/// continuation. Internal-by-default (was `private` in `ModelDownloader.swift`
-/// before the file was split for `file_length` cap; sibling-file access
-/// requires module-internal visibility).
+/// per-task continuation. Internal-by-default (was `private` in
+/// `ModelDownloader.swift` before the file was split for `file_length` cap;
+/// sibling-file access requires module-internal visibility).
 struct DownloadResult: Sendable {
   let tempURL: URL
   let statusCode: Int
 }
 
-// MARK: - Download Delegate
+// MARK: - Per-Task State
 
-/// Session-level delegate that handles progress, completion, and error reporting.
+/// State held in `DownloadDelegate.taskStates` for one in-flight task, keyed
+/// by `URLSessionTask.taskIdentifier`.
 ///
-/// Continuation is resumed exactly once, in `didCompleteWithError`:
-/// - On success: `didFinishDownloadingTo` saves the temp URL, then
-///   `didCompleteWithError(nil)` resumes with the result.
-/// - On failure: `didCompleteWithError(error)` resumes with the error.
-final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-  // @unchecked Sendable: mutable state accessed only from URLSession's serial delegate queue,
-  // except `task` which is set once before resume() and read only for cancellation.
+/// - `resumeOffset`: added to URLSession's `totalBytesWritten` so reported
+///   progress reflects the absolute byte position when resuming via the
+///   explicit `Range:` header path.
+/// - `progressHandler`: caller-supplied `@Sendable` closure invoked from the
+///   delegate queue.
+/// - `continuation`: per-task `CheckedContinuation`, resumed exactly once in
+///   `didCompleteWithError`.
+/// - `downloadedFileURL`: temp URL where `didFinishDownloadingTo` staged the
+///   file (set on success, consumed by `didCompleteWithError`).
+struct PerTaskState: @unchecked Sendable {
+  // @unchecked: `continuation` is `Sendable` only conditionally on iOS 17+
+  // (resilient to checked-continuation generic constraints); rather than
+  // chase that, accept @unchecked since the struct is only ever read/written
+  // under `OSAllocatedUnfairLock`.
   let resumeOffset: Int64
   let progressHandler: @Sendable (Int64, Int64) -> Void
-  private var continuation: CheckedContinuation<DownloadResult, any Error>?
-  private var downloadedFileURL: URL?
+  let continuation: CheckedContinuation<DownloadResult, any Error>
+  var downloadedFileURL: URL?
+}
 
-  /// Held to prevent session deallocation during download.
-  var session: URLSession?
-  /// Held for cancellation support.
-  var task: URLSessionDownloadTask?
+// MARK: - Download Delegate
 
-  init(
+/// Session-level multi-task delegate. One instance per `URLSessionModelDownloader`,
+/// shared across all concurrent download tasks created on that session.
+///
+/// ## Why keyed by `taskIdentifier`, not URL
+///
+/// The same download URL can produce two distinct `URLSessionDownloadTask`
+/// instances during retry-overlap or future cross-launch reattach paths (PR2).
+/// Keying by `URLSessionTask.taskIdentifier` — process-unique per session —
+/// avoids the URL collision.
+///
+/// ## Threading
+///
+/// - URLSession invokes the `URLSessionDownloadDelegate` protocol methods on
+///   the session's serial delegate queue (off-MainActor; `delegateQueue: nil`
+///   creates a private serial `OperationQueue`).
+/// - `register(taskIdentifier:...)` is called synchronously from
+///   `URLSessionModelDownloader.download(...)` (nonisolated context) before
+///   `URLSessionDownloadTask.resume()`, so the per-task state is always in
+///   the map before the first `didWriteData` callback fires.
+/// - `taskStates` is guarded by `OSAllocatedUnfairLock` to coordinate the two
+///   access paths.
+///
+/// ## Lifecycle
+///
+/// - Created in `URLSessionModelDownloader.init`; lives for the lifetime of
+///   the `URLSessionModelDownloader` instance (the process, for `.shared`).
+/// - **`finishTasksAndInvalidate()` is intentionally NOT called** in
+///   `didCompleteWithError` — invalidating the singleton session would break
+///   every subsequent download. The pre-refactor per-call-session pattern
+///   invalidated on every completion; the singleton pattern requires the
+///   session to outlive any individual task.
+///
+/// ## Pattern 4 — class-level `nonisolated` required
+///
+/// `register(...)` is a synchronous instance method on a `Sendable`-protocol-
+/// conforming `@unchecked Sendable` class. Without class-level `nonisolated`,
+/// the project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would bind
+/// the class to MainActor and break calls from `URLSessionModelDownloader`
+/// (itself nonisolated). The diagnostic surfaces at the use site, not the
+/// declaration. See `.claude/rules/swift-isolation.md` § Pattern 4.
+nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
+  @unchecked Sendable {
+  // @unchecked Sendable: `taskStates` — the only mutable state — is guarded
+  // by `OSAllocatedUnfairLock`.
+
+  /// Per-task state map. Lifecycle:
+  /// - Entry added in `register(...)` before `task.resume()`.
+  /// - `downloadedFileURL` slot mutated in `didFinishDownloadingTo`.
+  /// - Entry atomically removed and consumed in `didCompleteWithError`,
+  ///   where the continuation is resumed exactly once.
+  private let taskStates: OSAllocatedUnfairLock<[Int: PerTaskState]> = .init(initialState: [:])
+
+  /// `.debug`-level logger for delegate-internal trace. The notice-level
+  /// telemetry lives on `URLSessionModelDownloader`.
+  private static let logger = Logger(
+    subsystem: "com.tyabu12.Pastura", category: "DownloadDelegate")
+
+  /// Registers per-task state for a freshly-created `URLSessionDownloadTask`.
+  ///
+  /// Must be called BEFORE `URLSessionDownloadTask.resume()` — URLSession
+  /// can fire `didWriteData` on its first packet, and an empty map at that
+  /// point would silently drop progress reporting until completion.
+  func register(
+    taskIdentifier: Int,
     resumeOffset: Int64,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void,
     continuation: CheckedContinuation<DownloadResult, any Error>
   ) {
-    self.resumeOffset = resumeOffset
-    self.progressHandler = progressHandler
-    self.continuation = continuation
+    let state = PerTaskState(
+      resumeOffset: resumeOffset,
+      progressHandler: progressHandler,
+      continuation: continuation,
+      downloadedFileURL: nil
+    )
+    taskStates.withLock { $0[taskIdentifier] = state }
   }
 
   // MARK: - URLSessionDownloadDelegate
@@ -51,11 +125,20 @@ final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked S
     totalBytesWritten: Int64,
     totalBytesExpectedToWrite: Int64
   ) {
+    // Snapshot resumeOffset + handler under the lock; invoke handler outside.
+    // Holding the lock across the user callback risks deadlock if the handler
+    // (in a future iteration) calls back into a downloader API that also
+    // touches taskStates.
+    let snapshot = taskStates.withLock { map -> (Int64, (@Sendable (Int64, Int64) -> Void))? in
+      guard let state = map[downloadTask.taskIdentifier] else { return nil }
+      return (state.resumeOffset, state.progressHandler)
+    }
+    guard let (resumeOffset, handler) = snapshot else { return }
     let received = resumeOffset + totalBytesWritten
     let total: Int64 =
       totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown
       ? resumeOffset + totalBytesExpectedToWrite : -1
-    progressHandler(received, total)
+    handler(received, total)
   }
 
   func urlSession(
@@ -63,16 +146,25 @@ final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked S
     downloadTask: URLSessionDownloadTask,
     didFinishDownloadingTo location: URL
   ) {
-    // The file at `location` is deleted after this method returns.
-    // Copy it to a stable temp path so the continuation can use it.
+    // URLSession deletes the file at `location` after this method returns.
+    // Move it to a stable temp path so `didCompleteWithError` can hand it to
+    // the continuation safely.
     let tempCopy = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString + ".gguf.tmp")
+    let movedURL: URL?
     do {
       try FileManager.default.moveItem(at: location, to: tempCopy)
-      downloadedFileURL = tempCopy
+      movedURL = tempCopy
     } catch {
-      downloadedFileURL = nil
+      Self.logger.error(
+        """
+        didFinishDownloadingTo: failed to move staged temp — \
+        taskID=\(downloadTask.taskIdentifier, privacy: .public) \
+        errorCode=\((error as NSError).code, privacy: .public)
+        """)
+      movedURL = nil
     }
+    taskStates.withLock { $0[downloadTask.taskIdentifier]?.downloadedFileURL = movedURL }
   }
 
   // MARK: - URLSessionTaskDelegate
@@ -82,38 +174,43 @@ final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked S
     task: URLSessionTask,
     didCompleteWithError error: (any Error)?
   ) {
-    defer {
-      // Always invalidate the session to prevent resource leaks.
-      self.session?.finishTasksAndInvalidate()
-      self.session = nil
-    }
-
-    if let error {
-      continuation?.resume(throwing: error)
-      continuation = nil
+    // Atomic remove-and-extract: the entry is gone from the map before the
+    // continuation resumes. Prevents a hypothetical future task with the
+    // same `taskIdentifier` (process-unique within a session, but could
+    // overlap during cross-launch reattach in PR2) from colliding with
+    // stale state.
+    let state = taskStates.withLock { $0.removeValue(forKey: task.taskIdentifier) }
+    guard let state else {
+      // Spurious callback for an unregistered task. Possible if the
+      // delegate received a queued event from a task created in a prior
+      // process generation (PR2's cross-launch reattach context). In PR1
+      // we have no reattach, so log as warning.
+      Self.logger.error(
+        """
+        didCompleteWithError: unregistered taskID=\(task.taskIdentifier, privacy: .public) \
+        — ignoring (no PerTaskState in map)
+        """)
       return
     }
 
-    // Success path
-    guard let tempURL = downloadedFileURL else {
-      continuation?.resume(
-        throwing: URLError(.cannotCreateFile)
-      )
-      continuation = nil
+    if let error {
+      state.continuation.resume(throwing: error)
+      return
+    }
+
+    guard let tempURL = state.downloadedFileURL else {
+      state.continuation.resume(throwing: URLError(.cannotCreateFile))
       return
     }
 
     let statusCode = (task.response as? HTTPURLResponse)?.statusCode ?? 200
 
     guard statusCode == 200 || statusCode == 206 else {
-      // Clean up temp file for unexpected status codes
       try? FileManager.default.removeItem(at: tempURL)
-      continuation?.resume(throwing: URLError(.badServerResponse))
-      continuation = nil
+      state.continuation.resume(throwing: URLError(.badServerResponse))
       return
     }
 
-    continuation?.resume(returning: DownloadResult(tempURL: tempURL, statusCode: statusCode))
-    continuation = nil
+    state.continuation.resume(returning: DownloadResult(tempURL: tempURL, statusCode: statusCode))
   }
 }
