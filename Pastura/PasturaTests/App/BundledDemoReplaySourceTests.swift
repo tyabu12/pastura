@@ -94,7 +94,7 @@ struct BundledDemoReplaySourceTests {
       (name: "demo1", contents: Self.validDemoYAML(sha256: correctSHA))
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: Self.testConfig)
+      yamls, presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.count == 1)
     #expect(sources[0].scenario.id == "wf")
     // plannedEvents should produce the synthesised lifecycle + turn.
@@ -113,7 +113,7 @@ struct BundledDemoReplaySourceTests {
       )
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: Self.testConfig)
+      yamls, presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -129,7 +129,7 @@ struct BundledDemoReplaySourceTests {
       """
     let sources = BundledDemoReplaySource.loadFromYAMLs(
       [(name: "future", contents: yaml)],
-      presetResolver: resolver, config: Self.testConfig)
+      presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -147,7 +147,7 @@ struct BundledDemoReplaySourceTests {
       """
     let sources = BundledDemoReplaySource.loadFromYAMLs(
       [(name: "noversion", contents: yaml)],
-      presetResolver: resolver, config: Self.testConfig)
+      presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -158,7 +158,7 @@ struct BundledDemoReplaySourceTests {
       (name: "orphan", contents: Self.validDemoYAML(sha256: correctSHA, id: "other"))
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: Self.testConfig)
+      yamls, presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -170,7 +170,7 @@ struct BundledDemoReplaySourceTests {
       """
     let sources = BundledDemoReplaySource.loadFromYAMLs(
       [(name: "nopresetref", contents: yaml)],
-      presetResolver: resolver, config: Self.testConfig)
+      presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -180,7 +180,7 @@ struct BundledDemoReplaySourceTests {
       (name: "garbage", contents: "\t\tnot: [valid: yaml::")
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: Self.testConfig)
+      yamls, presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -191,7 +191,7 @@ struct BundledDemoReplaySourceTests {
       (name: "demo", contents: Self.validDemoYAML(sha256: correctSHA))
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: Self.testConfig)
+      yamls, presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -207,7 +207,7 @@ struct BundledDemoReplaySourceTests {
       (name: "good2", contents: Self.validDemoYAML(sha256: correctSHA))
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: Self.testConfig)
+      yamls, presetResolver: resolver, config: Self.testConfig, language: "ja")
     // Only the two validated demos survive; the drift + unknown-id
     // entries silent-skip.
     #expect(sources.count == 2)
@@ -218,7 +218,7 @@ struct BundledDemoReplaySourceTests {
   @Test func emptyInputReturnsEmptySourcesArray() throws {
     let resolver = StubPresetResolver(id: "wf", yaml: Self.presetYAML)
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      [], presetResolver: resolver, config: Self.testConfig)
+      [], presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
@@ -233,33 +233,63 @@ struct BundledDemoReplaySourceTests {
     let testBundle = Bundle(for: TestBundleAnchor.self)
     let resolver = StubPresetResolver(id: "wf", yaml: Self.presetYAML)
     let sources = BundledDemoReplaySource.loadAll(
-      bundle: testBundle, presetResolver: resolver, config: Self.testConfig)
+      bundle: testBundle, presetResolver: resolver, config: Self.testConfig, language: "ja")
     #expect(sources.isEmpty)
   }
 
   // MARK: - Production bundle layout (#170)
 
-  @Test func bundleMainLoadsAllShippedDemos() throws {
-    // Issue #170 populates `Resources/DemoReplays/` with 3 bundled demos
+  @Test func bundleMainLoadsAllShippedJaDemos() throws {
+    // Issue #170 populates `Resources/DemoReplays/` with 3 JA demos
     // (word_wolf_demo, prisoners_dilemma_demo, bokete_demo). Verify the
-    // production enumeration + real `BundledPresetResolver` successfully
-    // load all 3 against `Bundle.main` (test host = `Pastura.app`).
+    // production enumeration + real `BundledPresetResolver` resolves
+    // all 3 against `Bundle.main` (test host = `Pastura.app`) when the
+    // locale filter requests `ja`.
     // Guards against (a) bundle-layout regressions — e.g. a demo
     // filename drops the `_demo` suffix and is silently skipped by the
     // loader's enumeration filter — and (b) preset-SHA drift that
     // would silent-skip at runtime without CI catching it.
-    let sources = BundledDemoReplaySource.loadAll()
+    let sources = BundledDemoReplaySource.loadAll(language: "ja")
     let scenarioIds = Set(sources.map { $0.scenario.id })
     #expect(scenarioIds.contains("word_wolf"))
     #expect(scenarioIds.contains("prisoners_dilemma"))
     #expect(scenarioIds.contains("bokete"))
-    // Spec §5.2: bundled count floor is ≥ 3; shipped count is 3 today.
-    // Using `>= 3` rather than `== 3` so a future demo addition is
-    // backward-compatible with this assertion. (The §5.2 minimum-playable
-    // runtime floor of ≥ 2 is separate and handled by the host view's
-    // fallback path — it does not apply here because nothing can
-    // silent-skip in this test environment.)
+    // Spec §5.2: bundled count floor is ≥ 3; shipped JA count is 3
+    // today. `>= 3` keeps the test forward-compatible with future demo
+    // additions; the language filter prevents EN demos from inflating
+    // the count erroneously.
     #expect(sources.count >= 3)
+    // Cross-check the filter actually filters — none of the EN demo
+    // ids should appear in the JA bucket.
+    #expect(!scenarioIds.contains("word_wolf_en"))
+    #expect(!scenarioIds.contains("prisoners_dilemma_en"))
+    #expect(!scenarioIds.contains("bokete_en"))
+  }
+
+  /// Step D (#388) sibling of ``bundleMainLoadsAllShippedJaDemos`` —
+  /// asserts the EN locale filter resolves the EN demos via the
+  /// production bundle path, and excludes the JA demos.
+  @Test func bundleMainLoadsAllShippedEnDemos() throws {
+    let sources = BundledDemoReplaySource.loadAll(language: "en")
+    let scenarioIds = Set(sources.map { $0.scenario.id })
+    #expect(scenarioIds.contains("word_wolf_en"))
+    #expect(scenarioIds.contains("prisoners_dilemma_en"))
+    #expect(scenarioIds.contains("bokete_en"))
+    #expect(sources.count >= 3)
+    #expect(!scenarioIds.contains("word_wolf"))
+    #expect(!scenarioIds.contains("prisoners_dilemma"))
+    #expect(!scenarioIds.contains("bokete"))
+  }
+
+  /// Locale filter rejection: requesting a language with no shipped
+  /// demos returns an empty rotation. This is the contract production
+  /// callers rely on — `LocaleResolver.deviceDefault()` only ever
+  /// returns `"ja"` or `"en"` today, but a defensive call with an
+  /// unrelated string (e.g. a future bug or test fixture) must not
+  /// surface JA / EN demos under a wrong-locale rotation.
+  @Test func bundleMainReturnsEmptyForUnshippedLanguage() throws {
+    let sources = BundledDemoReplaySource.loadAll(language: "fr")
+    #expect(sources.isEmpty)
   }
 
   /// Cross-checks that every bundled demo's `phase_index` lines up with
@@ -282,41 +312,47 @@ struct BundledDemoReplaySourceTests {
   /// `phase_type` legitimately names a sub-phase type; the alignment
   /// check accepts any non-`conditional` PhaseType in that slot.
   @Test func bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes() throws {
-    let sources = BundledDemoReplaySource.loadAll()
-    #expect(
-      !sources.isEmpty, "loadAll() returned no sources — earlier test should have caught this")
+    // Step D (#388): exercise both shipped languages explicitly so the
+    // alignment guard catches phase-index drift on either side.
+    for language in ["ja", "en"] {
+      let sources = BundledDemoReplaySource.loadAll(language: language)
+      #expect(
+        !sources.isEmpty,
+        "loadAll(language: \"\(language)\") returned no sources — earlier test should have caught this"
+      )
 
-    for source in sources {
-      let scenarioId = source.scenario.id
-      let phases = source.scenario.phases
+      for source in sources {
+        let scenarioId = source.scenario.id
+        let phases = source.scenario.phases
 
-      guard
-        let demoURL = Bundle.main.url(
-          forResource: "\(scenarioId)_demo", withExtension: "yaml"),
-        let demoText = try? String(contentsOf: demoURL, encoding: .utf8)
-      else {
-        Issue.record("Demo file for scenario id '\(scenarioId)' not found in bundle")
-        continue
-      }
+        guard
+          let demoURL = Bundle.main.url(
+            forResource: "\(scenarioId)_demo", withExtension: "yaml"),
+          let demoText = try? String(contentsOf: demoURL, encoding: .utf8)
+        else {
+          Issue.record("Demo file for scenario id '\(scenarioId)' not found in bundle")
+          continue
+        }
 
-      let raw: [String: Any]
-      do {
-        raw = try Self.parseYAMLAsDictionary(demoText)
-      } catch {
-        Issue.record("Failed to parse \(scenarioId)_demo.yaml as YAML mapping: \(error)")
-        continue
-      }
+        let raw: [String: Any]
+        do {
+          raw = try Self.parseYAMLAsDictionary(demoText)
+        } catch {
+          Issue.record("Failed to parse \(scenarioId)_demo.yaml as YAML mapping: \(error)")
+          continue
+        }
 
-      let turns = raw["turns"] as? [[String: Any]] ?? []
-      let codeEvents = raw["code_phase_events"] as? [[String: Any]] ?? []
+        let turns = raw["turns"] as? [[String: Any]] ?? []
+        let codeEvents = raw["code_phase_events"] as? [[String: Any]] ?? []
 
-      for (i, turn) in turns.enumerated() {
-        try Self.assertPhaseAlignment(
-          entry: turn, label: "\(scenarioId)_demo turns[\(i)]", phases: phases)
-      }
-      for (i, event) in codeEvents.enumerated() {
-        try Self.assertPhaseAlignment(
-          entry: event, label: "\(scenarioId)_demo code_phase_events[\(i)]", phases: phases)
+        for (i, turn) in turns.enumerated() {
+          try Self.assertPhaseAlignment(
+            entry: turn, label: "\(scenarioId)_demo turns[\(i)]", phases: phases)
+        }
+        for (i, event) in codeEvents.enumerated() {
+          try Self.assertPhaseAlignment(
+            entry: event, label: "\(scenarioId)_demo code_phase_events[\(i)]", phases: phases)
+        }
       }
     }
   }
