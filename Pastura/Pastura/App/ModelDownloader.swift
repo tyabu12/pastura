@@ -11,6 +11,26 @@
 import Foundation
 import os
 
+/// Cross-launch reattach event yielded from `ModelDownloader.attachToInFlight`'s
+/// per-URL stream.
+///
+/// PR2 introduces this enum so the reattach path can drive `ModelManager` state
+/// updates without a continuation. `.completed` and `.failed` are terminal — the
+/// downloader yields one of them and then calls `continuation.finish()`. Consumers
+/// observing via `for await event in stream` exit the loop on terminal events.
+public enum DownloadEvent: Sendable {
+  /// Progress update; argument is a 0.0...1.0 fraction. Yielded by the downloader
+  /// from URLSession's `didWriteData` callback.
+  case progress(Double)
+  /// Successful completion. `modelURL` points to a session-scoped temp file
+  /// holding the downloaded bytes — the consumer must move it to its final
+  /// destination (see `ModelManager.finalizeReattachedDownload`).
+  case completed(modelURL: URL)
+  /// Failure. The error is the one Apple surfaced via `didCompleteWithError`
+  /// (including `URLError(.cancelled)` for user-initiated cancellations).
+  case failed(any Error)
+}
+
 /// Abstraction over URLSession download for testability.
 ///
 /// Production implementation uses a delegate-based `URLSession` with
@@ -45,6 +65,42 @@ public protocol ModelDownloader: Sendable {
   /// `URLSessionModelDownloader` overrides via `session.getAllTasks` + per-task
   /// `cancel()`.
   func cancelInFlightTasks() async
+
+  /// Reattaches to background URLSession tasks that `nsurlsessiond` carried
+  /// over from a prior process generation.
+  ///
+  /// On cold start, the system retains BG tasks created in the previous
+  /// process. Re-constructing the same-identifier `URLSession` (via `.shared`)
+  /// transparently re-binds those tasks to the new session. This method
+  /// enumerates them via `session.getAllTasks`, registers per-URL state inside
+  /// the delegate, and returns one `AsyncStream<DownloadEvent>` per URL so
+  /// `ModelManager` can observe progress + completion without holding a
+  /// continuation across the process boundary.
+  ///
+  /// The returned dictionary is keyed by the task's `originalRequest?.url`.
+  /// Tasks without a resolvable URL are skipped silently. Each stream yields a
+  /// terminal event (`.completed` or `.failed`) exactly once and then finishes.
+  /// Dropping the iterator before observing the terminal event causes the
+  /// downloader to deregister per-URL state and delete any staged temp file
+  /// — see `URLSessionModelDownloader.attachToInFlight` for the cleanup contract.
+  ///
+  /// Default implementation returns an empty dictionary (test mocks rely on
+  /// this). Production `URLSessionModelDownloader` overrides.
+  func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>]
+
+  /// Cancels the in-flight task whose `originalRequest?.url == url`, if any.
+  ///
+  /// PR2 uses this to surgically cancel a single reattached download — e.g.
+  /// when the relaunched app is on cellular without consent, we cancel the
+  /// reattached task and re-prompt the user. Unlike `cancelInFlightTasks`
+  /// (session-wide), this preserves other concurrent downloads.
+  ///
+  /// Production `URLSessionModelDownloader` matches via `getAllTasks` and
+  /// calls `cancel(byProducingResumeData:)`, stashing the resume blob in the
+  /// per-URL cache so a subsequent `startDownload` resumes cleanly.
+  ///
+  /// Default implementation is a no-op (test mocks rely on it).
+  func cancel(url: URL) async
 }
 
 extension ModelDownloader {
@@ -58,6 +114,13 @@ extension ModelDownloader {
   /// body avoids the trap; future additions to this default need to re-read
   /// Pattern 1 before extending.
   public func cancelInFlightTasks() async {}
+
+  /// Empty default — test mocks that don't simulate cross-launch state
+  /// inherit this. **MUST stay body-only** (see Pattern 1 note above).
+  public func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>] { [:] }
+
+  /// No-op default — test mocks inherit this. **MUST stay body-only.**
+  public func cancel(url: URL) async {}
 }
 
 /// Production downloader using a singleton-lifetime `URLSession` +

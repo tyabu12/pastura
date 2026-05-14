@@ -183,16 +183,13 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
     // stale state.
     let state = taskStates.withLock { $0.removeValue(forKey: task.taskIdentifier) }
     guard let state else {
-      // Spurious callback for an unregistered task. In PR1 this is genuinely
-      // unexpected (we cancel orphans on cold start; no other path produces
-      // unregistered tasks), so log at `.error` for visibility.
-      //
-      // TODO(PR2): When `attachToInFlight` lands, callbacks for tasks created
-      // in a prior process generation become routine (the OS delivers them
-      // before the reattach map is populated, in the narrow window between
-      // session construction and reattach). Drop this log level to `.debug`
-      // or remove the branch entirely depending on the reattach design.
-      Self.logger.error(
+      // Spurious callback for an unregistered task. PR2's reattach path
+      // pre-populates `taskStates` with `.reattachedPending` entries before
+      // any delegate callback can fire (`attachToInFlight` registers under
+      // the same lock that `didCompleteWithError` takes), so this branch is
+      // a defensive fallback rather than a routine path — `.debug` is the
+      // right level: the event is benign and not actionable.
+      Self.logger.debug(
         """
         didCompleteWithError: unregistered taskID=\(task.taskIdentifier, privacy: .public) \
         — ignoring (no PerTaskState in map)
