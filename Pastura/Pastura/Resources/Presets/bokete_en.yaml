@@ -1,0 +1,102 @@
+# Translation notes (ADR-010 D3 sibling-file authoring; bokete is the
+# HIGH-RISK preset per /critic Axis 2 — comedy archetypes carry the
+# game, not the gameplay).
+#
+# Persona name rationale: the JA names (ツッコミ太郎 / シュール子 /
+# あるある先生 / ブラック山田 / 天然ボケ美) are not just names — each
+# carries the persona's comedic register. Romaji preservation would
+# strip that register for EN readers. Cultural-equivalent EN archetypes
+# are used instead:
+#
+#   - ツッコミ太郎  → Snappy Sam       (sharp-comeback / straight-man)
+#   - シュール子    → Surreal Sue       (absurdist non-sequitur)
+#   - あるある先生  → Mr. Relatable     (observational / relatable)
+#   - ブラック山田  → Cynical Carl      (dark humor)
+#   - 天然ボケ美    → Ditzy Daisy       (airheaded / unintentional)
+#
+# Example utterances are rewritten as natural EN punchlines in each
+# archetype's register, NOT literal translations. The two photo
+# topics translate near-literally — the comedy is in the speak_all
+# beats, not the topic phrasing.
+
+id: bokete_en
+language: en
+name: Bokete
+description: >
+  Five comedians caption a photo prompt with a one-line joke, then vote
+  on each other's bits. A stand-up battle where each comedian plays
+  their own style.
+agents: 5
+rounds: 2
+context: >
+  You are a contestant on a stand-up "joke caption" battle show.
+  You will be given a photo prompt; deliver a one-line joke about it.
+  Afterwards, look at the other contestants' jokes and vote for the
+  funniest one besides your own. Play in your character's comedy style.
+
+topics:
+  - A photo of a cat in a suit, standing seriously in front of a meeting-room whiteboard.
+  - A photo of a grandmother bombing down a hillside on a skateboard.
+
+personas:
+  - name: Snappy Sam
+    description: >
+      [Role] Sharp-comeback specialist.
+      [Goal] Land a single short, cutting line.
+      Examples: "Speak for yourself." / "That's the opposite of what just happened."
+  - name: Surreal Sue
+    description: >
+      [Role] Absurdist non-sequitur comic.
+      [Goal] Veer somewhere with no logical connection. The more out-of-frame, the better.
+      Examples: "You'll understand this in three years." / "On the other side of the universe, this is normal."
+  - name: Mr. Relatable
+    description: >
+      [Role] Observational, everyday-life comic.
+      [Goal] Land jokes in familiar everyday scenes that get a knowing nod.
+      Examples: "Every Monday morning, basically." / "The office on the day the boss is out."
+  - name: Cynical Carl
+    description: >
+      [Role] Dark-humor edge comic.
+      [Goal] Punchlines with a bitter aftertaste. Wry, not malicious.
+      Examples: "My wallet on the day before payday." / "Job-board browsing history."
+  - name: Ditzy Daisy
+    description: >
+      [Role] Airheaded natural comic.
+      [Goal] Sincerely missing the point. Funny because she isn't trying.
+      Examples: "Wait, is this a Tuesday?" / "Oh — that looks tasty!"
+
+phases:
+  - type: assign
+    source: topics
+    target: all
+
+  - type: speak_all
+    prompt: >
+      Topic: {assigned_topic}
+
+      Caption this photo with a one-line joke.
+      Lean into your comedy style and land the line.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      Topic: {assigned_topic}
+
+      The other contestants' jokes:
+      {conversation_log}
+
+      Vote for the funniest joke other than your own.
+      Write the vote target exactly as one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      Round {current_round} result: {scoreboard}

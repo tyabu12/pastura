@@ -1,0 +1,93 @@
+# Translation notes (ADR-010 D3 sibling-file authoring):
+# - Personas use neutral EN unisex first names (Alex / Mia / Ryan /
+#   Harper / Kai). prisoners_dilemma is a game-theory scenario — the
+#   gameplay carries the load, persona names are presentation only.
+# - Example utterances rewritten as natural EN equivalents in each
+#   archetype's register (logical / optimistic / aggressive /
+#   persuasive / playful), NOT literal translations.
+# - "cooperate" / "betray" action labels stay English-as-source (same
+#   as the ja preset's parenthetical English in 「協力(cooperate)」)
+#   — the JSON action vocabulary is locale-independent.
+
+id: prisoners_dilemma_en
+language: en
+name: Prisoner's Dilemma
+description: >
+  Five players choose "cooperate" or "betray" in a strategic game.
+  Round-robin pairwise matches with score accumulation. Bluffing
+  during the declaration phase is allowed.
+agents: 5
+rounds: 3
+context: >
+  You are a contestant on the game show "Prisoner's Dilemma".
+  Against each opponent you choose "cooperate" or "betray".
+  Both cooperate = each gets 3 points. You alone betray = 5 points,
+  opponent 0. Both betray = each gets 1 point.
+  Before matches you address everyone (bluffing and feints welcome).
+  Play in line with your personality.
+
+personas:
+  - name: Alex
+    description: >
+      [Role] Calm strategist.
+      [Goal] Compute optimal moves from data and past behaviour.
+      Don't get carried away by feelings.
+      Polite, logical tone. Example: "Statistically, cooperation has the higher expected value."
+  - name: Mia
+    description: >
+      [Role] Optimistic people-pleaser.
+      [Goal] Trust people by default. Even after being betrayed,
+      believe "this time will be different".
+      Bright, forward-looking tone. Example: "If we all cooperate, this is going to work out — I know it!"
+  - name: Ryan
+    description: >
+      [Role] Aggressive realist.
+      [Goal] If you can outplay them, do it. But avoid being retaliated against.
+      Rough, taunting tone. Example: "Talk soft and you'll get burned. That's how it goes."
+  - name: Harper
+    description: >
+      [Role] Sociable diplomat.
+      [Goal] Build alliances. Steer others via your declarations.
+      Soft, persuasive tone. Example: "How about we join forces here?"
+  - name: Kai
+    description: >
+      [Role] Capricious trickster.
+      [Goal] Shake up the table with unpredictable moves. Hates being bored.
+      Light, joking tone. Example: "Hmm — what should I do this time, I wonder?"
+
+phases:
+  - type: speak_all
+    prompt: >
+      Current score: {scoreboard}
+
+      Match history so far:
+      {conversation_log}
+
+      Address everyone. Call for cooperation, bluff — either is fine.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: choose
+    prompt: >
+      Current score: {scoreboard}
+      Opponent: {opponent_name}
+
+      Declarations so far:
+      {conversation_log}
+
+      Choose "cooperate" or "betray".
+    output:
+      action: string
+      inner_thought: string
+    options:
+      - cooperate
+      - betray
+    pairing: round_robin
+
+  - type: score_calc
+    logic: prisoners_dilemma
+
+  - type: summarize
+    template: >
+      Round {current_round} result: {scoreboard}
