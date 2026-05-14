@@ -156,7 +156,8 @@ def validate_demo(path: Path, preset_shas: dict[str, str]) -> list[str]:
     if language not in ALLOWED_LANGUAGES:
       errors.append(
         f"{path.name}: metadata.language {language!r} not in "
-        f"{sorted(ALLOWED_LANGUAGES)} (per ADR-010 D1)"
+        f"{sorted(ALLOWED_LANGUAGES)} (curation-gate label; tracks "
+        f"ADR-010 D1 accepted values per ADR-007 §4.5)"
       )
     if metadata.get("content_filter_applied") is not True:
       errors.append(
