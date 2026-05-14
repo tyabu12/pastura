@@ -40,7 +40,7 @@ MAX_TOTAL_BYTES = 3 * 1024 * 1024
 MAX_PER_FILE_BYTES = 1 * 1024 * 1024
 MIN_TURNS = 6
 REQUIRED_SCHEMA_VERSION = 1
-REQUIRED_LANGUAGE = "ja"
+ALLOWED_LANGUAGES = {"ja", "en"}
 # Mirror BundledDemoReplaySource.demoFilenameSuffix — demos on disk use
 # `<slug>_demo.yaml` so Xcode's synchronized-group flat-bundle copy does
 # not collide with preset `<slug>.yaml` files.
@@ -153,10 +153,11 @@ def validate_demo(path: Path, preset_shas: dict[str, str]) -> list[str]:
     errors.append(f"{path.name}: metadata missing or not a mapping")
   else:
     language = metadata.get("language")
-    if language != REQUIRED_LANGUAGE:
+    if language not in ALLOWED_LANGUAGES:
       errors.append(
-        f"{path.name}: metadata.language {language!r} != "
-        f"{REQUIRED_LANGUAGE!r} (Phase 2 is JA-only, spec §5.5)"
+        f"{path.name}: metadata.language {language!r} not in "
+        f"{sorted(ALLOWED_LANGUAGES)} (curation-gate label; tracks "
+        f"ADR-010 D1 accepted values per ADR-007 §4.5)"
       )
     if metadata.get("content_filter_applied") is not True:
       errors.append(

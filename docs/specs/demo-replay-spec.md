@@ -112,7 +112,7 @@ Each references where in the spec the detailed treatment lives.
 | 9 | ViewModel architecture: **new `ReplayViewModel`** (NOT reuse of `SimulationViewModel`, which is too entangled with production DB persistence) | §4 |
 | 10 | Data-source abstraction: `ReplaySource` protocol + `BundledDemoReplaySource` (this PR) + `UserSimulationReplaySource` (future, Phase 2.5+ scaffolded) | §4 |
 | 11 | Render component sharing: at `AgentOutputRow`-level only (NOT at VM-level); different from `ResultDetailView` (static timeline) | §4 |
-| 12 | Multilingual: **JA-only** demos for Phase 2 ship; EN localisation framework prepared via `Localizable.xcstrings` but no EN demos bundled | §5 |
+| 12 | Multilingual: drift script accepts `{ja, en}` from Step C-2; English demos ship in Step D alongside the bundled English presets | §5 |
 | 13 | Fixed UI copy: **role-only** definition in spec; final Japanese wording decided at implementation PR copy pass | §5 |
 
 ### 2.2 Scope framing
@@ -157,7 +157,7 @@ preset_ref:
 metadata:
   title: Word Wolf — spot the imposter
   description: Four agents vote on who holds the different word.
-  language: ja               # ISO 639-1; Phase 2 ship is ja-only
+  language: ja               # ISO 639-1; accepts {ja, en} from ADR-010 Step C-2 onward
   recorded_at: 2026-04-15T12:00:00Z
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true   # §3.4 — curator asserts record-time ContentFilter coverage
@@ -637,22 +637,17 @@ in slot rotation.
 
 ### 5.5 Multilingual posture
 
-- **Phase 2 ship**: Japanese only. JA entries in
-  `Localizable.xcstrings` for slots A/B/C. Demo YAML files are JA
-  recordings (`metadata.language: ja`).
-- **EN scaffolding**: the localisation keys exist in
-  `Localizable.xcstrings` from day one, with EN entries left as stubs
-  (either a literal `—` placeholder or the JA text with a
-  `TODO(localisation)` comment — implementation chooses the more
-  consistent pattern with rest of the app).
-- **Phase 3 (future)**: EN demo recordings bundled alongside JA. Demo
-  language selection is driven by device locale, with JA fallback for
-  any non-EN-non-JA locale.
-
-EN *demo recordings* are out of scope for Phase 2 regardless of whether
-the app otherwise supports EN UI. Recording EN demos requires running
-the scenarios against an EN-capable LLM prompt set, which is separate
-curator work.
+- **Step C-1** (PR #383): Engine dynamic localization landed; app UI
+  served from `Localizable.xcstrings` in the device locale (JA/EN).
+- **Step C-2** (this PR): drift script widens `ALLOWED_LANGUAGES` from
+  `{"ja"}` to `{"ja", "en"}`; current shipped demos remain JA-only so
+  verification stays green.
+- **Step D**: English demo replays ship alongside the bundled English
+  presets. Demo language selection driven by device locale (ja → ja,
+  en → en) with EN fallback for any other locale (App Store launch
+  target language, per ADR-010 D2).
+- **Step E**: Cross-language simulation override (user can select locale
+  independent of device setting).
 
 ### 5.6 MVP preset candidates
 
