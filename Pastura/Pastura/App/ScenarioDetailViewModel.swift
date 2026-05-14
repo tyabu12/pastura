@@ -21,6 +21,18 @@ final class ScenarioDetailViewModel {
   /// True when `record.sourceHash` differs from `galleryScenario?.yamlSHA256`.
   private(set) var hasGalleryUpdate = false
 
+  /// Cross-language sibling variant per ADR-010 D4 — a different
+  /// `ScenarioRecord.id` that shares this scenario's canonical
+  /// `sourceId`. `nil` when no sibling exists (the user-authored
+  /// scenarios path) or when the current record's `sourceId` is `nil`
+  /// (Phase 1 / pre-Step-D legacy install without the install-time
+  /// `sourceId` wiring — D11 row 351 install-base reset territory).
+  ///
+  /// Populated by ``loadSibling()`` after ``load(scenarioId:)``
+  /// completes; the View renders a "View in [other language]"
+  /// affordance when non-nil.
+  private(set) var siblingVariant: ScenarioRecord?
+
   /// Whether the scenario can be launched (valid + within limits).
   var canRun: Bool { scenario != nil && validationError == nil }
 
@@ -99,6 +111,38 @@ final class ScenarioDetailViewModel {
     }
     galleryScenario = entry
     hasGalleryUpdate = record.sourceHash != entry.yamlSHA256
+  }
+
+  /// Populates ``siblingVariant`` by searching the repository for a
+  /// different record sharing the loaded record's canonical
+  /// `sourceId`. Silent no-op when no current record is loaded or its
+  /// `sourceId` is `nil` — both paths produce `siblingVariant == nil`,
+  /// which the View renders as "no language-switch affordance".
+  ///
+  /// Step D ships ja↔en sibling pairs for the 4 bundled presets via
+  /// ``PresetLoader/canonicalSourceId(for:)`` (#388 Item 3). Gallery-
+  /// imported scenarios don't currently ship language siblings; if a
+  /// future curation flow produces them they automatically participate
+  /// in this resolver via the same `sourceId` column (ADR-010 D4
+  /// "cross-language alias" semantics).
+  func loadSibling() async {
+    guard
+      let record,
+      let sourceId = record.sourceId
+    else {
+      siblingVariant = nil
+      return
+    }
+
+    // Repository fetch off MainActor — same idiom as the gallery
+    // refresh path above. Cheap for the bundled-preset table (~ 8 rows
+    // today).
+    let all = try? await offMain { [repository] in
+      try repository.fetchAll()
+    }
+    siblingVariant = all?.first { other in
+      other.id != record.id && other.sourceId == sourceId
+    }
   }
 
   func deleteScenario() async -> Bool {

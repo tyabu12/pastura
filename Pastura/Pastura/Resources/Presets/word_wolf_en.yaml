@@ -1,0 +1,146 @@
+# Translation notes (ADR-010 D3 sibling-file authoring):
+# - Personas use neutral EN unisex first names (Avery / Riley / Morgan /
+#   Casey / Jordan). Names carry no comedic load in word_wolf — the
+#   game is gameplay-driven, not persona-archetype-driven, so a culture-
+#   transparent name set keeps the persona descriptions doing the work.
+# - Persona example utterances rewritten as natural EN equivalents
+#   (mirroring tone — observational / outgoing / analytical / laid-back /
+#   strategic), NOT translated literally.
+# - The word pair stays apple / orange (りんご / みかん) — both are
+#   archetypal "round fruit" referents in EN identical to JA, so the
+#   gameplay obfuscation (similar shape/season cues) carries over.
+
+id: word_wolf_en
+language: en
+name: Word Wolf
+description: >
+  Five players each receive a "topic word", but one is given a different
+  word — the minority (the wolf). Discuss the topic, then vote to expose
+  the wolf.
+agents: 5
+rounds: 1
+context: >
+  You are a contestant on the game show "Word Wolf".
+  Each of you has been given a topic word, but one player has a
+  different word from the rest. Never say your topic word out loud.
+  Talk about the topic, then vote to identify the minority (the wolf).
+  You do not know whether you are the majority or the minority.
+
+words:
+  - majority: apple
+    minority: orange
+
+mid_game_announcements:
+  - "📺 Host: Mid-show check-in — time is running short, let's narrow it down."
+  - "📺 Audience: We want more depth! Give us specific stories."
+  - "📺 Host: A suspect is starting to emerge. Lock in your impression with one final remark."
+
+personas:
+  - name: Avery
+    description: >
+      [Role] Cautious observer.
+      [Goal] Avoid revealing your own information; watch how others speak.
+      Calm, measured tone. Example: "Hm, I see what you mean — there's something to that take."
+  - name: Riley
+    description: >
+      [Role] Outgoing chatter.
+      [Goal] Speak in concrete anecdotes and keep energy in the room.
+      Bright, friendly tone. Example: "Oh, I had this just the other day — it was so good!"
+  - name: Morgan
+    description: >
+      [Role] Analytical detective.
+      [Goal] Look for inconsistencies in what others say.
+      Sharp, intellectual tone. Example: "Hold on — doesn't that contradict what you said earlier?"
+  - name: Casey
+    description: >
+      [Role] Laid-back natural.
+      [Goal] Don't overthink — just say what comes to mind.
+      Easy, unhurried tone. Example: "Mmm, I just like the feel of it — kind of warm, you know?"
+  - name: Jordan
+    description: >
+      [Role] Poker-faced strategist.
+      [Goal] Speak in vague terms and watch how others react.
+      Cool, detached tone. Example: "Well, it depends — different people picture it differently."
+
+phases:
+  - type: assign
+    source: words
+    target: random_one
+
+  - type: speak_each
+    prompt: >
+      Your topic: {assigned_word}
+
+      Conversation so far:
+      {conversation_log}
+
+      Talk about the topic. Never say the topic word itself.
+      Watch closely for clues about who might be the minority.
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 2
+
+  # 50% chance a mid-show announcement is injected as external disruption.
+  # event_inject's primary use (text injection) is leveraged here to
+  # perturb the running conversation.
+  - type: event_inject
+    source: mid_game_announcements
+    probability: 0.5
+
+  # Surface a summary line only when an announcement actually fired.
+  # When event_inject misses, current_event is an empty string — gate
+  # the summarize on that condition.
+  - type: conditional
+    if: 'current_event != ""'
+    then:
+      - type: summarize
+        template: "{current_event}"
+
+  # Final remark after the announcement. Reaction speak_each.
+  - type: speak_each
+    prompt: >
+      Your topic: {assigned_word}
+
+      Conversation so far:
+      {conversation_log}
+
+      Announcement from the show: {current_event}
+
+      Reflecting on the conversation and (if any) the announcement,
+      make your final pre-vote remark. Never say the topic word itself.
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 1
+
+  - type: vote
+    prompt: >
+      Your topic: {assigned_word}
+
+      Conversation log:
+      {conversation_log}
+
+      Vote for whoever you think is the minority (the wolf).
+      Write the vote target exactly as one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: eliminate
+  - type: score_calc
+    logic: wordwolf_judge
+
+  - type: conditional
+    if: "vote_winner == wolf_name"
+    then:
+      - type: summarize
+        template: >
+          🎯 Wolf found! {wolf_name} received the most votes and was the minority ({vote_results}).
+          The majority wins.
+    else:
+      - type: summarize
+        template: >
+          😈 Wolf escapes! The actual minority was {wolf_name}, but the votes went elsewhere ({vote_results}).
+          The minority wins.

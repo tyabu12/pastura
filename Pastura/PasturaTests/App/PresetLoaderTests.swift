@@ -15,16 +15,22 @@ struct PresetLoaderTests {
     )
 
     let all = try repo.fetchAll()
-    #expect(all.count == 4)
+    #expect(all.count == 8)
 
     let presets = try repo.fetchPresets()
-    #expect(presets.count == 4)
+    #expect(presets.count == 8)
 
     let ids = Set(presets.map(\.id))
+    // JA siblings (Phase 1 baseline, retained)
     #expect(ids.contains("prisoners_dilemma"))
     #expect(ids.contains("bokete"))
     #expect(ids.contains("word_wolf"))
     #expect(ids.contains("target_score_race"))
+    // EN siblings (Step D, ADR-010 D3 sibling-files layout)
+    #expect(ids.contains("prisoners_dilemma_en"))
+    #expect(ids.contains("bokete_en"))
+    #expect(ids.contains("word_wolf_en"))
+    #expect(ids.contains("target_score_race_en"))
   }
 
   @Test func loadPresetsSkipsExistingRecords() throws {
@@ -47,7 +53,60 @@ struct PresetLoaderTests {
     let second = try repo.fetchById("prisoners_dilemma")
 
     #expect(second?.createdAt == firstDate)
-    #expect(try repo.fetchAll().count == 4)
+    #expect(try repo.fetchAll().count == 8)
+  }
+
+  /// ADR-010 D4: per-language sibling presets share a canonical
+  /// `sourceId` (the JA filename / id without `_<lang>` suffix). The
+  /// `id` column remains per-language; `sourceId` is the cross-language
+  /// grouping key for Past Results aggregation surfaces (consumer
+  /// surface deferred per #388 item 7 tracking issue).
+  @Test func presetsWriteCanonicalSourceIdOnInsert() throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+    PresetLoader.loadPresetsIfNeeded(
+      repository: repo,
+      bundle: Bundle(for: DatabaseManager.self)
+    )
+
+    // JA siblings: id == sourceId (no suffix to strip).
+    #expect(try repo.fetchById("word_wolf")?.sourceId == "word_wolf")
+    #expect(try repo.fetchById("bokete")?.sourceId == "bokete")
+    #expect(try repo.fetchById("prisoners_dilemma")?.sourceId == "prisoners_dilemma")
+    #expect(try repo.fetchById("target_score_race")?.sourceId == "target_score_race")
+
+    // EN siblings: `_en` suffix stripped to match the JA canonical id.
+    #expect(try repo.fetchById("word_wolf_en")?.sourceId == "word_wolf")
+    #expect(try repo.fetchById("bokete_en")?.sourceId == "bokete")
+    #expect(try repo.fetchById("prisoners_dilemma_en")?.sourceId == "prisoners_dilemma")
+    #expect(try repo.fetchById("target_score_race_en")?.sourceId == "target_score_race")
+  }
+
+  /// Cross-language grouping invariant: for each canonical id, both
+  /// language siblings carry the same `sourceId`. This is the
+  /// schema-level pin for ADR-010 D4; the production Past Results UI
+  /// consumer that aggregates by this key is tracked separately and
+  /// not part of Step D.
+  @Test func perLanguageSiblingsShareSourceId() throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+    PresetLoader.loadPresetsIfNeeded(
+      repository: repo,
+      bundle: Bundle(for: DatabaseManager.self)
+    )
+
+    for canonical in ["word_wolf", "bokete", "prisoners_dilemma", "target_score_race"] {
+      let ja = try repo.fetchById(canonical)
+      let en = try repo.fetchById("\(canonical)_en")
+      #expect(ja?.sourceId == canonical, "JA \(canonical) sourceId")
+      #expect(en?.sourceId == canonical, "EN \(canonical) sourceId")
+      // Cross-language grouping reachable by sourceId — distinct PKs,
+      // shared canonical key.
+      let bySourceId = try repo.fetchAll().filter { $0.sourceId == canonical }
+      #expect(bySourceId.count == 2)
+    }
   }
 
   @Test func loadPresetsMarksRecordsAsPreset() throws {
@@ -127,7 +186,7 @@ struct PresetLoaderTests {
     // Phantom-pass guard — if `presetFileNames` is ever emptied or the
     // bundle resource group is misnamed, an empty iteration would
     // trivially pass without auditing anything.
-    #expect(PresetLoader.presetFileNames.count >= 4)
+    #expect(PresetLoader.presetFileNames.count >= 8)
 
     for fileName in PresetLoader.presetFileNames {
       guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {

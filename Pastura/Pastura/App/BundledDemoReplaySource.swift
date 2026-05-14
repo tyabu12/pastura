@@ -64,27 +64,38 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
   /// - Demo's `schema_version` unsupported — `YAMLReplaySource` throws
   ///   `YAMLReplaySourceError.unsupportedSchemaVersion`; wrapper
   ///   catches per spec §3.5.
+  ///
+  /// **Language filter (ADR-007 §4.5, ADR-010 D6 demo-replay resolver).**
+  /// `language` keeps only demos whose `resolvedPreset.scenario.language`
+  /// equals it. Defaults to ``LocaleResolver/deviceDefault()`` (the App-
+  /// layer device-effective locale), so production callers get
+  /// device-language demos without explicit wiring. Tests pin the
+  /// language explicitly (`language: "ja"`) to keep assertions
+  /// deterministic across CI runner locales.
   public static func loadAll(
     bundle: Bundle = .main,
     presetResolver: any PresetResolver = BundledPresetResolver(),
-    config: ReplayPlaybackConfig = .demoDefault
+    config: ReplayPlaybackConfig = .demoDefault,
+    language: String = LocaleResolver.deviceDefault()
   ) -> [BundledDemoReplaySource] {
     let yamls = enumerateDemoYAMLs(bundle: bundle)
-    return loadFromYAMLs(yamls, presetResolver: presetResolver, config: config)
+    return loadFromYAMLs(
+      yamls, presetResolver: presetResolver, config: config, language: language)
   }
 
   /// Test seam: construct from an already-enumerated list of
   /// `(filename, yaml-contents)` pairs. Production callers go through
-  /// ``loadAll(bundle:presetResolver:config:)``.
+  /// ``loadAll(bundle:presetResolver:config:language:)``.
   internal static func loadFromYAMLs(
     _ yamls: [(name: String, contents: String)],
     presetResolver: any PresetResolver,
-    config: ReplayPlaybackConfig
+    config: ReplayPlaybackConfig,
+    language: String = LocaleResolver.deviceDefault()
   ) -> [BundledDemoReplaySource] {
     yamls.compactMap { yaml in
       loadOne(
         name: yaml.name, contents: yaml.contents,
-        presetResolver: presetResolver, config: config)
+        presetResolver: presetResolver, config: config, language: language)
     }
   }
 
@@ -95,7 +106,8 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
   private static func loadOne(
     name: String, contents: String,
     presetResolver: any PresetResolver,
-    config: ReplayPlaybackConfig
+    config: ReplayPlaybackConfig,
+    language: String
   ) -> BundledDemoReplaySource? {
     // Parse just `preset_ref` first — we need its `id` to resolve the
     // scenario and its `yaml_sha256` for drift verification before
@@ -131,6 +143,17 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
       return nil
     }
 
+    // Language filter (ADR-007 §4.5, ADR-010 D6 demo-replay resolver).
+    // Silent (debug-level) skip — wrong-language demos are normal under
+    // the device-locale filter, not an anomaly. Notice-level logging
+    // would spam every app launch with the language(s) the user isn't on.
+    guard resolvedPreset.scenario.language == language else {
+      logger.debug(
+        "Demo replay '\(name, privacy: .public)' filtered out (preset language '\(resolvedPreset.scenario.language, privacy: .public)' != requested '\(language, privacy: .public)')."
+      )
+      return nil
+    }
+
     // SHA drift check (spec §3.3).
     guard resolvedPreset.sha256 == presetRef.sha256 else {
       logger.notice(
@@ -139,12 +162,20 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
       return nil
     }
 
-    // Hand off to `YAMLReplaySource` for full validation (schema
-    // version, turns, code_phase_events). Spec §3.5 mandates silent
-    // skip on `unsupportedSchemaVersion`.
+    return buildSourceOrSkip(
+      name: name, contents: contents, scenario: resolvedPreset.scenario, config: config)
+  }
+
+  /// Final stage of ``loadOne(name:contents:presetResolver:config:language:)``
+  /// — hands the validated demo YAML off to ``YAMLReplaySource`` and
+  /// silent-skips on schema-version or full-validation failures per
+  /// spec §3.5. Extracted so `loadOne`'s body stays under SwiftLint's
+  /// `function_body_length` cap with the added language filter.
+  private static func buildSourceOrSkip(
+    name: String, contents: String, scenario: Scenario, config: ReplayPlaybackConfig
+  ) -> BundledDemoReplaySource? {
     do {
-      let inner = try YAMLReplaySource(
-        yaml: contents, scenario: resolvedPreset.scenario, config: config)
+      let inner = try YAMLReplaySource(yaml: contents, scenario: scenario, config: config)
       return BundledDemoReplaySource(inner: inner)
     } catch YAMLReplaySourceError.unsupportedSchemaVersion(let version) {
       logger.notice(

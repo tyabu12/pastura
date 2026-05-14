@@ -112,8 +112,8 @@ Each references where in the spec the detailed treatment lives.
 | 9 | ViewModel architecture: **new `ReplayViewModel`** (NOT reuse of `SimulationViewModel`, which is too entangled with production DB persistence) | §4 |
 | 10 | Data-source abstraction: `ReplaySource` protocol + `BundledDemoReplaySource` (this PR) + `UserSimulationReplaySource` (future, Phase 2.5+ scaffolded) | §4 |
 | 11 | Render component sharing: at `AgentOutputRow`-level only (NOT at VM-level); different from `ResultDetailView` (static timeline) | §4 |
-| 12 | Multilingual: drift script accepts `{ja, en}` from Step C-2; English demos ship in Step D alongside the bundled English presets | §5 |
-| 13 | Fixed UI copy: **role-only** definition in spec; final Japanese wording decided at implementation PR copy pass | §5 |
+| 12 | Multilingual: drift script accepts `{ja, en}` from Step C-2; English demos ship in Step D alongside the bundled English presets (Step D shipped via #388) | §5 |
+| 13 | Fixed UI copy: **role-only** definition in spec; final Japanese + English wording shipped together in Step D's PromoCard copy pass (#388) | §5 |
 
 ### 2.2 Scope framing
 
@@ -642,10 +642,15 @@ in slot rotation.
 - **Step C-2** (this PR): drift script widens `ALLOWED_LANGUAGES` from
   `{"ja"}` to `{"ja", "en"}`; current shipped demos remain JA-only so
   verification stays green.
-- **Step D**: English demo replays ship alongside the bundled English
-  presets. Demo language selection driven by device locale (ja → ja,
-  en → en) with EN fallback for any other locale (App Store launch
-  target language, per ADR-010 D2).
+- **Step D** (PR #388): English demo replays ship alongside the
+  bundled English presets — 3 EN demos (`word_wolf_en_demo`,
+  `bokete_en_demo`, `prisoners_dilemma_en_demo`) target the 4 EN
+  sibling presets. Demo language selection driven by device locale
+  (ja → ja, en → en) with EN fallback for any other locale (App
+  Store launch target language, per ADR-010 D2). `BundledDemoReplaySource.loadAll`
+  takes a `language: String = LocaleResolver.deviceDefault()`
+  parameter and silent-skips wrong-language demos at preset-resolution
+  time — see `Pastura/Pastura/App/BundledDemoReplaySource.swift`.
 - **Step E**: Cross-language simulation override (user can select locale
   independent of device setting).
 
