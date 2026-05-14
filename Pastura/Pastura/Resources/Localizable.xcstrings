@@ -3960,6 +3960,26 @@
         }
       }
     },
+    "View in English" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英語版で見る"
+          }
+        }
+      }
+    },
+    "View in Japanese" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日本語版で見る"
+          }
+        }
+      }
+    },
     "Visual" : {
       "localizations" : {
         "ja" : {
