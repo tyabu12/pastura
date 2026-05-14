@@ -400,6 +400,110 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     }
   }
 
+  /// Reattaches to background URLSession tasks carried over from a prior
+  /// process generation. Enumerates `session.getAllTasks`, registers per-task
+  /// `.reattached` slots on the delegate, and returns one
+  /// `AsyncStream<DownloadEvent>` per URL.
+  ///
+  /// **Race-window closure**: Registration happens INSIDE the
+  /// `getAllTasks` completion handler — which runs on the session's serial
+  /// delegate queue. No other delegate callback for the same task can
+  /// interleave between enumeration and registration, so the
+  /// "no-entry race" the round-3 critic flagged is structurally impossible.
+  /// The only remaining edge case is tasks that completed BEFORE
+  /// `attachToInFlight` was invoked (their callbacks already fired and
+  /// hit the `.debug`-level unregistered branch); those tasks are not
+  /// included in `getAllTasks` and PR2 accepts the loss — they re-download
+  /// next launch through the normal `.notDownloaded` path.
+  func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>] {
+    typealias AttachContinuation = CheckedContinuation<[URL: AsyncStream<DownloadEvent>], Never>
+    return await withCheckedContinuation { (outerCont: AttachContinuation) in
+      session.getAllTasks { [weak self] tasks in
+        guard let self else {
+          outerCont.resume(returning: [:])
+          return
+        }
+        var result: [URL: AsyncStream<DownloadEvent>] = [:]
+        for task in tasks {
+          guard let url = task.originalRequest?.url else { continue }
+          let taskID = task.taskIdentifier
+          var capturedContinuation: AsyncStream<DownloadEvent>.Continuation?
+          let stream = AsyncStream<DownloadEvent> { continuation in
+            capturedContinuation = continuation
+            continuation.onTermination = { @Sendable [weak self] _ in
+              self?.delegate.handleReattachedStreamTermination(taskIdentifier: taskID)
+            }
+          }
+          guard let continuation = capturedContinuation else { continue }
+          let registered = self.delegate.registerReattachedIfAbsent(
+            taskIdentifier: taskID, streamContinuation: continuation
+          )
+          if registered {
+            result[url] = stream
+          } else {
+            // Slot already occupied (e.g., a foreground `download(...)` in
+            // flight on the same task identifier). Finish the stream we
+            // built so the caller doesn't hold a dangling continuation.
+            continuation.finish()
+          }
+        }
+        Self.logger.notice(
+          """
+          attachToInFlight tasks=\(tasks.count, privacy: .public) \
+          attached=\(result.count, privacy: .public)
+          """)
+        outerCont.resume(returning: result)
+      }
+    }
+  }
+
+  /// Surgically cancels the in-flight task whose `originalRequest?.url == url`.
+  /// Uses `cancel(byProducingResumeData:)` so the resume blob (if any) is
+  /// stashed in the per-URL `resumeDataCache` for the next `startDownload`
+  /// to consume. The cancellation triggers `didCompleteWithError(NSURLErrorCancelled)`
+  /// which routes via the delegate's `.reattached` arm → yields `.failed`
+  /// then `finish()`s the stream.
+  ///
+  /// No-op if no task matches `url`.
+  func cancel(url: URL) async {
+    typealias TaskMatch = CheckedContinuation<URLSessionDownloadTask?, Never>
+    let target: URLSessionDownloadTask? = await withCheckedContinuation { (cont: TaskMatch) in
+      session.getAllTasks { tasks in
+        let match = tasks.first { $0.originalRequest?.url == url } as? URLSessionDownloadTask
+        cont.resume(returning: match)
+      }
+    }
+    guard let task = target else {
+      Self.logger.notice(
+        "cancel(url:) no-match url=\(url.absoluteString, privacy: .public)")
+      return
+    }
+    await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+      task.cancel(byProducingResumeData: { [weak self] resumeData in
+        if let resumeData {
+          self?.resumeDataCache.withLock { $0[url] = resumeData }
+        }
+        Self.logger.notice(
+          """
+          cancel(url:) issued url=\(url.absoluteString, privacy: .public) \
+          resumeBlob=\(resumeData?.count ?? -1, privacy: .public)bytes
+          """)
+        cont.resume()
+      })
+    }
+  }
+
+  /// PR3 hook: stores the OS-supplied background completion handler so the
+  /// delegate's `urlSessionDidFinishEvents(forBackgroundURLSession:)` can
+  /// invoke it on the main queue. Called from `PasturaAppDelegate.application(_:handleEventsForBackgroundURLSession:completionHandler:)`.
+  ///
+  /// Pass `nil` to clear. Implementation-side detail: storage lives on
+  /// `DownloadDelegate` (under its existing `OSAllocatedUnfairLock`) since
+  /// the firing site is on the delegate's `URLSessionDelegate` method.
+  func setBackgroundCompletionHandler(_ handler: (@Sendable () -> Void)?) {
+    delegate.storeBackgroundCompletionHandler(handler)
+  }
+
   /// Emits a `.notice`-level entry log identifying which of the three resume
   /// paths the current call is taking. Extracted from `download(...)` to keep
   /// that function under swiftlint's `function_body_length` cap.
