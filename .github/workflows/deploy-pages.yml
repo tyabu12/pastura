@@ -33,6 +33,11 @@
 #   - `pages/ja/legal/privacy-policy/index.html`
 #                                          → `https://tyabu12.github.io/pastura/ja/legal/privacy-policy/`
 #     (Japanese mirror of the privacy policy page)
+#   - `pages/CNAME`                        → `_site/CNAME` (apex custom domain)
+#     (Single line `pastura.app`. GitHub Pages reads CNAME from the
+#     deployed artifact root to persist `Settings → Pages → Custom
+#     domain` across deploys — omission would wipe the custom-domain
+#     binding on the next deploy.)
 #
 # Precondition: Settings → Pages → Source = "GitHub Actions" (NOT
 # "Deploy from a branch", which would publish the entire `pages/` tree
@@ -112,6 +117,7 @@ jobs:
           cp pages/ja/index.html _site/ja/index.html
           cp pages/ja/support/index.html _site/ja/support/index.html
           cp pages/ja/legal/privacy-policy/index.html _site/ja/legal/privacy-policy/index.html
+          cp pages/CNAME _site/CNAME
           touch _site/.nojekyll
 
       - name: Upload artifact
