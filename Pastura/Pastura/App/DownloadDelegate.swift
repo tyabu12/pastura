@@ -26,11 +26,13 @@ struct DownloadResult: Sendable {
 ///   `didCompleteWithError`.
 /// - `downloadedFileURL`: temp URL where `didFinishDownloadingTo` staged the
 ///   file (set on success, consumed by `didCompleteWithError`).
-struct PerTaskState: @unchecked Sendable {
-  // @unchecked: `continuation` is `Sendable` only conditionally on iOS 17+
-  // (resilient to checked-continuation generic constraints); rather than
-  // chase that, accept @unchecked since the struct is only ever read/written
-  // under `OSAllocatedUnfairLock`.
+struct PerTaskState: Sendable {
+  // All fields are Sendable: Int64 / Sendable closure / CheckedContinuation
+  // (Sendable since Swift 5.7 when T+E are Sendable — DownloadResult is
+  // Sendable, `any Error` is implicitly Sendable via the error-throwing
+  // contract) / URL?. The mutable `var downloadedFileURL` is fine for
+  // value-type Sendable; the struct is always dict-stored under
+  // `OSAllocatedUnfairLock`, so mutation race is structurally precluded.
   let resumeOffset: Int64
   let progressHandler: @Sendable (Int64, Int64) -> Void
   let continuation: CheckedContinuation<DownloadResult, any Error>
@@ -181,10 +183,15 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
     // stale state.
     let state = taskStates.withLock { $0.removeValue(forKey: task.taskIdentifier) }
     guard let state else {
-      // Spurious callback for an unregistered task. Possible if the
-      // delegate received a queued event from a task created in a prior
-      // process generation (PR2's cross-launch reattach context). In PR1
-      // we have no reattach, so log as warning.
+      // Spurious callback for an unregistered task. In PR1 this is genuinely
+      // unexpected (we cancel orphans on cold start; no other path produces
+      // unregistered tasks), so log at `.error` for visibility.
+      //
+      // TODO(PR2): When `attachToInFlight` lands, callbacks for tasks created
+      // in a prior process generation become routine (the OS delivers them
+      // before the reattach map is populated, in the narrow window between
+      // session construction and reattach). Drop this log level to `.debug`
+      // or remove the branch entirely depending on the reattach design.
       Self.logger.error(
         """
         didCompleteWithError: unregistered taskID=\(task.taskIdentifier, privacy: .public) \

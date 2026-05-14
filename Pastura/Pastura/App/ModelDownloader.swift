@@ -49,8 +49,14 @@ public protocol ModelDownloader: Sendable {
 
 extension ModelDownloader {
   /// No-op default — test mocks that don't manage real URLSession tasks
-  /// inherit this. Pure async with no escaping closures, so the protocol-ext
-  /// Pattern 1 trap (`.claude/rules/swift-isolation.md`) does not apply.
+  /// inherit this.
+  ///
+  /// **MUST stay body-only.** Adding a `Task { ... }` or
+  /// `AsyncThrowingStream { ... }` here would introduce an escaping closure
+  /// from a protocol-extension default impl, which requires `nonisolated`
+  /// per `.claude/rules/swift-isolation.md` § Pattern 1. The current empty
+  /// body avoids the trap; future additions to this default need to re-read
+  /// Pattern 1 before extending.
   public func cancelInFlightTasks() async {}
 }
 
@@ -302,9 +308,15 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   }
 
   /// Cancels every in-flight `URLSessionDownloadTask` on this downloader's
-  /// session. Returns when all per-task cancellations have been issued (the
-  /// associated `didCompleteWithError(NSURLErrorCancelled)` callbacks fire
-  /// asynchronously after `cancel()` and resume their continuations).
+  /// session. Returns when all per-task cancellations have been **issued**,
+  /// NOT when they complete — the associated
+  /// `didCompleteWithError(NSURLErrorCancelled)` callbacks fire
+  /// asynchronously on the delegate queue after `cancel()` returns.
+  /// `getAllTasks` returning empty on a subsequent call does NOT imply
+  /// "all prior tasks have completed their delegate callbacks". The PR1
+  /// callsite (`PasturaApp.initialize` before any UI / `startDownload`
+  /// path is reachable) tolerates this race; PR2 callsites that need
+  /// completion-wait will need separate synchronization.
   ///
   /// PR1 usage: cold-start orphan cleanup. `nsurlsessiond` retains BG tasks
   /// from a prior process generation; reconstructing the same-identifier
