@@ -110,18 +110,25 @@ design-pending copy* (see § "Explicitly-deferred items" below), *internal
 log strings* (Logger `%public` interpolations), or *real wrap leaks*
 (e.g. `SimulationView.swift:535 loadError = "Scenario not found"`).
 
-### Explicitly-deferred items
+### Explicitly-deferred or permanent carve-outs
 
-Audit candidates that are **knowingly** un-wrapped pending a downstream
-gating event. They will keep surfacing in `check_i18n_potential_keys.py`
-output — recognize them as documented carve-outs rather than wrap leaks.
-When the gating event lands, wrap with English source strings and add
-the ja translation in the catalog at the same time.
+Audit candidates that are **knowingly** un-wrapped. Two flavours:
 
-| Item | Source location | Gating event |
-|------|-----------------|--------------|
-| `slotCopy(_:)` 3 marketing strings | `Pastura/Pastura/Views/ModelDownload/PromoCard+Helpers.swift` | `docs/design/design-system.md` §7 copy pass (spec §2 decision 13) |
-| `Character.accessibilityLabel` 4 cases (`Alice`/`Bob`/`Carol`/`Dave`) | `Pastura/Pastura/Views/Components/SheepAvatar.swift` | Preview-only after #340 bucket-3 PR — runtime application carries `.accessibilityHidden(true)` because the names are color-slot identifiers (allocated by `forAgent(position:)`), not agent display names. Re-evaluate only if a future design binds avatars to real translated identities. |
+- **Deferred** — pending a downstream gating event (design copy pass,
+  schema migration, etc.). Wrap when the gating event lands.
+- **Permanent** — structurally machine-stable tokens (Markdown
+  structure, version markers, format-string internals, user-authored
+  content rendered verbatim). External-tool stability or schema
+  contract outweighs locale display.
+
+Both keep surfacing in `check_i18n_potential_keys.py` output —
+recognize them as documented carve-outs rather than wrap leaks.
+
+| Item | Source location | Gating event / Status |
+|------|-----------------|-----------------------|
+| `slotCopy(_:)` 3 marketing strings | `Pastura/Pastura/Views/ModelDownload/PromoCard+Helpers.swift` | **Deferred** — `docs/design/design-system.md` §7 copy pass (spec §2 decision 13) |
+| `Character.accessibilityLabel` 4 cases (`Alice`/`Bob`/`Carol`/`Dave`) | `Pastura/Pastura/Views/Components/SheepAvatar.swift` | **Deferred** — Preview-only after #340 bucket-3 PR — runtime application carries `.accessibilityHidden(true)` because the names are color-slot identifiers (allocated by `forAgent(position:)`), not agent display names. Re-evaluate only if a future design binds avatars to real translated identities. |
+| `ResultMarkdownExporter` machine-stable tokens (~10 candidates) | `Pastura/Pastura/App/ResultMarkdownExporter.swift` | **Permanent** — Markdown structural tokens (`<!-- pastura-export v1 -->` version marker, table data rows, separator rows like `\|-------\|-------\|--------\|`), universal joiners (`%@: %@` score pair, `%@ → %@` vote arrow, `%@=%@` field dump), Apple OS-version normalize internals (`Version `, `iOS `, `(Build `, `(build ` — matchers for Apple's raw string format), filename / timestamp / locale-identifier internals (`%@_%@.md`, `yyyyMMdd-HHmmss`, `en_US_POSIX`), YAML scenario block (user-authored verbatim). External-tool stability over locale display per #340 slice-4 decision (PR for `App/ResultMarkdownExporter` i18n wraps). |
 
 ### Self-test
 
