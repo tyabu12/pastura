@@ -19,12 +19,19 @@ import Foundation
 /// — never fills missing fields in stored YAML. D1's mandatory rule
 /// applies to YAML; absence there is a validation error, not a default.
 ///
-/// **Isolation:** `nonisolated public` so it can default-initialise
-/// arguments on `nonisolated public` callers in App / Views — e.g.
-/// `BundledDemoReplaySource.loadAll(..., language: LocaleResolver.deviceDefault())`
-/// from Step D. The App layer is MainActor-isolated by default, but
-/// this resolver has no instance state and reads only the static
-/// `Bundle.main` accessor — no MainActor hop required.
+/// **Isolation:** `nonisolated` so it can default-initialise
+/// arguments on `nonisolated` callers (the App layer is MainActor-
+/// isolated by default, but this resolver has no instance state and
+/// reads only the static `Bundle.main` accessor — no MainActor hop
+/// required). The Step D motivating callsite is
+/// `BundledDemoReplaySource.loadAll(..., language: LocaleResolver.deviceDefault())`.
+///
+/// **Access:** `public` is forward-looking for the planned SPM module
+/// extraction (CLAUDE.md "future SPM module extraction"). The current
+/// app-target uses it across files; `internal` would also compile for
+/// the in-target callsites, but `public` aligns with the SPM-ready
+/// convention applied to other App-layer types touched by Engine
+/// adjacencies.
 nonisolated public enum LocaleResolver {
   /// Resolves the device-effective default scenario language.
   ///
