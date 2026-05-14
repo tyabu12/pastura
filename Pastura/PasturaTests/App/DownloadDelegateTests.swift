@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import os
 
 @testable import Pastura
 
@@ -277,5 +278,43 @@ struct DownloadDelegateTests {
     delegate.urlSession(URLSession.shared, downloadTask: task, didFinishDownloadingTo: sourceTemp)
     // Reaching here is the success criterion (move-to-tempCopy happens but is
     // leaked — documented trade-off for the cold-completion race).
+  }
+
+  // MARK: - Background completion handler routing (PR2 #3 plumbing)
+
+  @Test("storeBackgroundCompletionHandler + urlSessionDidFinishEvents fires handler on main, once")
+  func backgroundCompletionHandlerInvokedOnceOnMain() async throws {
+    let delegate = DownloadDelegate()
+    let counter = OSAllocatedUnfairLock<Int>(initialState: 0)
+    let mainDuringInvocation = OSAllocatedUnfairLock<Bool>(initialState: false)
+
+    delegate.storeBackgroundCompletionHandler { @Sendable in
+      counter.withLock { $0 += 1 }
+      mainDuringInvocation.withLock { $0 = Thread.isMainThread }
+    }
+
+    // Fire delegate callback from a non-main queue to verify the main-queue hop.
+    DispatchQueue.global().async {
+      delegate.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession.shared)
+    }
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    #expect(counter.withLock { $0 } == 1)
+    #expect(mainDuringInvocation.withLock { $0 } == true)
+
+    // Second firing without re-storing: handler must NOT run again
+    // (clear-on-extract under lock satisfies the "exactly once" invariant).
+    delegate.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession.shared)
+    try await Task.sleep(nanoseconds: 50_000_000)
+    #expect(counter.withLock { $0 } == 1)
+  }
+
+  @Test("urlSessionDidFinishEvents with no stored handler is a no-op (foreground launch path)")
+  func backgroundCompletionHandlerNoStoredHandlerNoOp() async throws {
+    let delegate = DownloadDelegate()
+    // Slot stays nil — call must not crash and must not invoke anything.
+    delegate.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession.shared)
+    try await Task.sleep(nanoseconds: 50_000_000)
+    // Reaching here is the success criterion.
   }
 }

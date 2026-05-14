@@ -151,10 +151,17 @@ extension ModelDownloader {
 /// screen-off / app-backgrounded interruption case (the primary user
 /// complaint).
 ///
-/// Out of scope in PR1 — addressed by PR2:
-/// - **OS-termination mid-DL**: `sessionSendsLaunchEvents = false` opts out
-///   of cross-launch relaunch in PR1 (no reattach logic yet). PR2 flips the
-///   flag to `true` and adds `attachToInFlight` + `finalizeReattachedDownload`.
+/// PR2 expansion (current):
+/// - **OS-termination mid-DL**: `sessionSendsLaunchEvents = true` opts INTO
+///   cross-launch relaunch. iOS wakes the app and calls
+///   `application(_:handleEventsForBackgroundURLSession:completionHandler:)`
+///   on `PasturaAppDelegate`, which forwards to
+///   `setBackgroundCompletionHandler(_:)`. `attachToInFlight()` then
+///   re-registers per-task state for any in-flight reattached tasks; the
+///   delegate's `urlSessionDidFinishEvents` fires the stashed handler on
+///   the main queue when replay completes.
+///
+/// Out of scope (still):
 /// - **Force-quit**: Apple's policy — force-quitting via the app switcher
 ///   stops background URLSession transfers until the user manually relaunches.
 ///   Out of any PR's scope.
@@ -231,12 +238,17 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// Private so the BG identifier is locked behind `.shared`.
   private static func makeBackgroundConfiguration() -> URLSessionConfiguration {
     let config = URLSessionConfiguration.background(withIdentifier: backgroundSessionIdentifier)
-    // PR1 explicit opt-out: without `attachToInFlight` reattach logic, iOS
-    // waking the app to deliver completion events would arrive at a fresh
-    // process with no per-task state registered — the events would be
-    // routed to no handler. PR2 flips this to `true` together with the
-    // reattach + finalizeReattachedDownload work.
-    config.sessionSendsLaunchEvents = false
+    // PR2: opt INTO cross-launch relaunch. When the OS terminates the app
+    // mid-DL (memory pressure) AND a task subsequently completes in
+    // `nsurlsessiond`, iOS relaunches the app and calls
+    // `application(_:handleEventsForBackgroundURLSession:completionHandler:)`
+    // on `PasturaAppDelegate`. The delegate forwards the handler to
+    // `URLSessionModelDownloader.shared.setBackgroundCompletionHandler(_:)`;
+    // `attachToInFlight` registers `.reattached` slots for any still-active
+    // tasks; replay-of-queued events drives the URL streams through
+    // `.completed` / `.failed`; finally `urlSessionDidFinishEvents` fires
+    // the stashed handler on the main queue to return UI control to iOS.
+    config.sessionSendsLaunchEvents = true
     // User-initiated foreground operation; opt out of OS bandwidth deferral.
     config.isDiscretionary = false
     // App-level cellular consent gate (ModelManager.startDownload) is the

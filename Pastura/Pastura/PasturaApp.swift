@@ -10,6 +10,12 @@ import SwiftUI
 
 @main
 struct PasturaApp: App {
+  // PR2: required to receive `application(_:handleEventsForBackgroundURLSession:completionHandler:)`
+  // — SwiftUI's `App` protocol doesn't surface this UIKit callback. The
+  // adaptor instantiates `PasturaAppDelegate` exactly once per process and
+  // routes the system callback to it.
+  @UIApplicationDelegateAdaptor(PasturaAppDelegate.self) private var appDelegate
+
   var body: some Scene {
     // RootView lives inside WindowGroup so each scene (iPad multi-window,
     // iPhone single window) gets its own @State — including its own
