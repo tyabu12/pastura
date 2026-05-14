@@ -90,7 +90,7 @@ extension ModelManagerTests {
     await sut.attachToInFlightDownloads()
 
     if case .downloading(let progress) = sut.state[descriptor.id] {
-      #expect(p == 0.0)
+      #expect(progress == 0.0)
     } else {
       Issue.record(
         "expected .downloading state, got \(String(describing: sut.state[descriptor.id]))")
@@ -182,7 +182,7 @@ extension ModelManagerTests {
     try await Task.sleep(nanoseconds: 50_000_000)
 
     if case .downloading(let progress) = sut.state[descriptor.id] {
-      #expect(p == 0.42)
+      #expect(progress == 0.42)
     } else {
       Issue.record("expected .downloading(0.42)")
     }
