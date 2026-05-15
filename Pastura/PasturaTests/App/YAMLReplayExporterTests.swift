@@ -204,6 +204,25 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
     #expect(result.text.contains("language: ja"))
   }
 
+  @Test func metadataReflectsScenarioLanguageForEnglishScenario() throws {
+    // Regression guard for the bundled L180 fix (#340 slice-5):
+    // metadata previously hardcoded `language: ja` regardless of
+    // scenario.language. After the fix, the metadata field follows
+    // scenario.language so EN-scenario exports no longer emit
+    // contradictory `language: ja` alongside locale-dependent
+    // summary text.
+    let enScenarioYAML = Self.baseScenarioYAML.replacingOccurrences(
+      of: "language: ja", with: "language: en")
+    let exporter = makeExporter()
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(yaml: enScenarioYAML),
+        turns: [], codePhaseEvents: []))
+
+    #expect(result.text.contains("language: en"))
+    #expect(!result.text.contains("language: ja"))
+  }
+
   @Test func metadataTotalTurnsCountsOnlyAgentRows() throws {
     let exporter = makeExporter()
     let turns = [
