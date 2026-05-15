@@ -133,6 +133,28 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// (e.g., Ollama without `usage` metadata). Consumers computing tok/s must
   /// treat nil as "unknown" rather than substituting zero.
   case inferenceCompleted(agent: String, durationSeconds: Double, tokenCount: Int?)
+
+  // MARK: - Language Adherence (ADR-010 Step E PR2)
+
+  /// LLM output language did not match `scenario.engineLanguage` after the
+  /// retry budget was exhausted (ADR-010 Step E PR2 / `LLMCaller`).
+  ///
+  /// Unlike `.error`, this is informational — the parse result is still
+  /// delivered via `.agentOutput` and the simulation continues. Consumers
+  /// can surface a "language drift" hint to the user, but no remediation is
+  /// required at the Engine layer.
+  ///
+  /// - Parameters:
+  ///   - agent: The agent whose output was flagged.
+  ///   - detected: The ISO 639-1 lowercase code returned by
+  ///     ``LanguageDetector``, or `nil` if the detector returned no
+  ///     confident classification on the final attempt (e.g., the output
+  ///     was mostly punctuation / very short — emitting the event with
+  ///     `detected: nil` is still useful as a "retry budget exhausted"
+  ///     signal).
+  ///   - expected: `scenario.engineLanguage` at the time of the call —
+  ///     usually `"ja"` or `"en"` per ADR-010 D1.
+  case languageMismatch(agent: String, detected: String?, expected: String)
 }
 
 /// Errors that can occur during simulation execution.
