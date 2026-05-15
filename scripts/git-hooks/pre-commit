@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# scripts/git-hooks/pre-commit — Pastura pre-commit gate.
+#
+# Runs the project's mandatory pre-commit checks in fail-fast order.
+# Migrated from `.claude/settings.json` PreToolUse Bash hooks (#406 →
+# #407 → this PR's #410) because Claude Code's `if` field gating
+# fails-open on complex Bash commands, which surfaced these gates'
+# error messages on non-`git commit` invocations ("SwiftLint
+# violations. Fix before committing." appearing on `xcodebuild test`,
+# etc.). git's pre-commit fires only on `git commit`, so the gating is
+# tight by construction.
+#
+# Reference: docs/decisions / memory `reference_claudecode_hook_matcher.md`
+# (Graceful degradation section).
+#
+# Activation:
+#   - `scripts/setup.sh` runs `git config core.hooksPath scripts/git-hooks`
+#     once per clone. After that, this script fires automatically on
+#     every `git commit`.
+#   - `.git/hooks/` is NOT used because it isn't repo-tracked; pinning
+#     hooks here lets every contributor share the same gate set.
+#   - Override: `git commit --no-verify` bypasses (CLAUDE.md prohibits).
+
+set -euo pipefail
+
+# Run from the repo root regardless of where `git commit` was invoked
+# (subdirectories, submodules, etc.).
+cd "$(git rev-parse --show-toplevel)"
+
+# 1. SwiftLint --strict — surface lint violations before they hit CI.
+swiftlint lint --quiet --strict 2>&1 \
+  || { echo 'SwiftLint violations. Fix before committing.' >&2; exit 2; }
+
+# 2. xcodebuild build — catch compile errors at commit time, not CI time.
+# PASTURA_SKIP_XCSTRINGS_SYNC keeps the catalog stable across commits
+# (memory `feedback_xcodebuild_pipefail.md` rationale preserved).
+PASTURA_SKIP_XCSTRINGS_SYNC=1 ./scripts/xcodebuild.sh build -quiet 2>&1 \
+  || { echo 'Build failed. Fix compile errors before committing.' >&2; exit 2; }
+
+# 3. Blocklist gate (ADR-005) — fails-fast inside.
+bash ./scripts/blocklist-precommit-gate.sh
+
+# 4. Gallery gate (curated scenario YAML schema) — fails-fast inside.
+bash ./scripts/gallery-precommit-gate.sh
