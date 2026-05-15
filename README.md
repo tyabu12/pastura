@@ -82,8 +82,8 @@ time. The trade-offs are documented in
 - Swift 6 (Xcode that supports it; CI runs on `macos-26`)
 - iOS 17.0 deployment target
 - iPhone 15 Pro or newer for on-device LLM testing (around 8 GB RAM)
-- Optional: install [Ollama](https://ollama.com) locally if you want
-  non-mock LLM inference in Debug or on the Simulator
+- [Ollama](https://ollama.com) (optional) if you want non-mock LLM
+  inference in Debug or on the Simulator
 
 ## Build and run
 
