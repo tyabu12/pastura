@@ -82,6 +82,11 @@
             value = "1"
             isEnabled = "NO">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "LANGUAGE_ADHERENCE_BENCHMARK"
+            value = "1"
+            isEnabled = "NO">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction

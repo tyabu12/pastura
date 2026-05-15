@@ -105,7 +105,8 @@ nonisolated struct ConditionalHandler: PhaseHandler {
         suspendController: context.suspendController,
         emitter: context.emitter,
         pauseCheck: context.pauseCheck,
-        phasePath: innerPath
+        phasePath: innerPath,
+        detector: context.detector
       )
 
       do {

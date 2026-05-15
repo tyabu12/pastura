@@ -747,11 +747,15 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
     case .roundCompleted, .phaseCompleted, .simulationCompleted,
       .simulationPaused, .conditionalEvaluated, .agentOutputStream,
-      .inferenceStarted, .inferenceCompleted, .error:
+      .inferenceStarted, .inferenceCompleted, .error,
+      .languageMismatch:
       // Never emitted by `YAMLReplaySource.plannedEvents()` (see the
       // sync-risk note in the header). A `.error` in particular would
       // signal primitive-level breakage; replay's own failure surface
       // goes through the state machine, not the event stream.
+      // `.languageMismatch` arises only from live LLM inference (ADR-010
+      // Step E PR2) — pre-recorded YAML replays cannot regenerate
+      // adherence verdicts after the fact.
       return
     }
   }

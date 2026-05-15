@@ -37,6 +37,19 @@ nonisolated struct LLMCaller: Sendable {
   ///     ``JSONResponseParser/parse(_:expectedKeys:)`` — single source
   ///     of truth, derived once at the handler boundary. `nil` means
   ///     unconstrained generation + no repair guard.
+  ///   - detector: Optional ``LanguageDetector`` for ADR-010 Step E PR2
+  ///     output-language adherence enforcement. When both `detector`
+  ///     and `expectedLanguage` are non-nil, a post-parse adherence
+  ///     check runs after the empty-field check; on mismatch within the
+  ///     existing ``maxRetries`` budget the call retries (`retryCause
+  ///     cause=language_mismatch`), and on exhaustion a
+  ///     ``SimulationEvent/languageMismatch(agent:detected:expected:)``
+  ///     is emitted and the parsed output is still returned (sim
+  ///     continues — structurally distinct from `parse_failed` /
+  ///     `empty_field` exhaustion which throws).
+  ///   - expectedLanguage: The scenario's `engineLanguage` per ADR-010
+  ///     D5/D6. `nil` skips the adherence check entirely (back-compat
+  ///     for callers that pre-date Step E PR2).
   ///   - suspendController: Controller used to coordinate cooperative suspend
   ///     with the LLM layer. When the LLM throws ``LLMError/suspended``, this
   ///     method awaits ``SuspendController/awaitResume()`` and retries the
@@ -51,6 +64,8 @@ nonisolated struct LLMCaller: Sendable {
     user: String,
     agentName: String,
     schema: OutputSchema? = nil,
+    detector: (any LanguageDetector)? = nil,
+    expectedLanguage: String? = nil,
     suspendController: SuspendController,
     emitter: @Sendable (SimulationEvent) -> Void
   ) async throws -> TurnOutput {
@@ -110,6 +125,20 @@ nonisolated struct LLMCaller: Sendable {
       if hasEmptyFields(output) && attempt < Self.maxRetries {
         logEmptyFields(fields: output.fields, attempt: attempt)
         emitRetryCause(agent: agentName, attempt: attempt + 1, cause: "empty_field")
+        continue
+      }
+
+      // Language adherence check (ADR-010 Step E PR2). Ordered after
+      // parse_failed + empty_field — shape failures take priority
+      // because a wrong-language-but-empty-field response should retry
+      // for the empty field first. The check no-ops when detector or
+      // expectedLanguage is nil (back-compat path) and when the joined
+      // natural-language input is below the min-length gate. See
+      // `handleLanguageAdherence` for the side-effect contract.
+      if handleLanguageAdherence(
+        output: output, schema: schema,
+        detector: detector, expectedLanguage: expectedLanguage,
+        agentName: agentName, attempt: attempt, emitter: emitter) {
         continue
       }
 
@@ -188,6 +217,110 @@ nonisolated struct LLMCaller: Sendable {
   private func logEmptyFields(fields: [String: String], attempt: Int) {
     logger.debug(
       "Empty fields detected (attempt \(attempt + 1)/\(Self.maxRetries + 1)): fields=\(fields)"
+    )
+  }
+
+  // MARK: - Language Adherence (ADR-010 Step E PR2)
+
+  /// Minimum codepoint count of joined natural-language values required
+  /// to run the adherence check. `NLLanguageRecognizer` confidence drops
+  /// sharply on short inputs (single proper nouns, enum tokens) — below
+  /// the gate we skip rather than spuriously flag a "mismatch" on text
+  /// that wasn't really natural language to begin with. Initial value
+  /// per critic pass 2; benchmark in item 6 records skip-rate so the
+  /// number can be revisited in a follow-up if needed.
+  private static let minDetectionLength = 12
+
+  /// Decide whether the current attempt's parsed output triggers a
+  /// language-adherence retry, and apply the side effects (emit retry
+  /// cause or emit `.languageMismatch` on exhaustion). Extracted from
+  /// `call()` so the loop body stays under the `function_body_length`
+  /// budget.
+  ///
+  /// - Returns: `true` when the caller should `continue` the loop
+  ///   (retry the inference). `false` when the caller should proceed
+  ///   to `return output` — either because no mismatch was detected,
+  ///   or because the retry budget was exhausted and the event has
+  ///   already been emitted (sim continues with the parsed output).
+  private func handleLanguageAdherence(  // swiftlint:disable:this function_parameter_count
+    output: TurnOutput, schema: OutputSchema?,
+    detector: (any LanguageDetector)?, expectedLanguage: String?,
+    agentName: String, attempt: Int,
+    emitter: @Sendable (SimulationEvent) -> Void
+  ) -> Bool {
+    guard
+      let detected = detectLanguageMismatch(
+        output: output, schema: schema,
+        detector: detector, expectedLanguage: expectedLanguage,
+        agentName: agentName)
+    else { return false }
+    if attempt < Self.maxRetries {
+      emitRetryCause(agent: agentName, attempt: attempt + 1, cause: "language_mismatch")
+      return true
+    }
+    // Exhausted: surface the verdict but fall through. expectedLanguage
+    // is non-nil here because detectLanguageMismatch only returns
+    // non-nil when both detector and expectedLanguage are set.
+    if let expected = expectedLanguage {
+      emitter(.languageMismatch(agent: agentName, detected: detected, expected: expected))
+    }
+    return false
+  }
+
+  /// Run the post-parse adherence check.
+  ///
+  /// - Returns: The detected language code when a mismatch was found
+  ///   (caller uses this to seed the `.languageMismatch` event on
+  ///   exhaustion). Returns `nil` when the check was skipped or the
+  ///   output matches the expected language — both cases mean "no
+  ///   retry needed".
+  private func detectLanguageMismatch(
+    output: TurnOutput, schema: OutputSchema?,
+    detector: (any LanguageDetector)?, expectedLanguage: String?,
+    agentName: String
+  ) -> String? {
+    guard let detector, let expected = expectedLanguage else { return nil }
+    let values = naturalLanguageFieldValues(output: output, schema: schema)
+    let joined = values.joined(separator: "\n")
+    if joined.unicodeScalars.count < Self.minDetectionLength {
+      emitLangCheckSkipped(agent: agentName, reason: "too_short")
+      return nil
+    }
+    guard let detected = detector.detect(text: joined) else { return nil }
+    return detected == expected ? nil : detected
+  }
+
+  /// Collect natural-language values from `output`, filtering out
+  /// schema fields whose `kind == .enumeration(...)` (author-supplied
+  /// tokens like `cooperate` / `betray` in a `choose` phase — their
+  /// language is fixed by the scenario author, not by the LLM, so they
+  /// would skew the detector's verdict).
+  ///
+  /// When `schema` is nil the caller hasn't opted into constrained
+  /// decoding; we treat every field as natural language (conservative
+  /// fallback — unconstrained generation is rare in the production
+  /// path).
+  private func naturalLanguageFieldValues(
+    output: TurnOutput, schema: OutputSchema?
+  ) -> [String] {
+    guard let schema else { return Array(output.fields.values) }
+    let naturalNames = Set(
+      schema.fields.compactMap { field -> String? in
+        if case .string = field.kind { return field.name }
+        return nil
+      })
+    return output.fields.compactMap { key, value in
+      naturalNames.contains(key) ? value : nil
+    }
+  }
+
+  /// Emit a `category:StreamingDiag` `langCheckSkipped` line. Field
+  /// order `agent=… reason=…` matches the existing `retryCause` /
+  /// `repaired` conventions (agent first; trailing key is the cause
+  /// classification). Consumed by `scripts/analyze-streaming-diag.sh`.
+  private func emitLangCheckSkipped(agent: String, reason: String) {
+    diagLogger.info(
+      "langCheckSkipped agent=\(agent, privacy: .public) reason=\(reason, privacy: .public)"
     )
   }
 

@@ -30,13 +30,18 @@ final class EventCollector: @unchecked Sendable {
 /// `pauseCheck` defaults to an always-false stub so handler unit tests don't
 /// need to set up the pause machinery. Tests that exercise nested pause
 /// semantics should pass an explicit closure.
+///
+/// `detector` defaults to `nil` so existing handler tests retain their
+/// pre-Step E PR2 behaviour. Tests exercising the adherence path
+/// (ADR-010 Step E PR2 item 4) pass an explicit detector.
 func makePhaseContext(
   scenario: Scenario,
   phaseIndex: Int = 0,
   llm: LLMService,
   suspendController: SuspendController = SuspendController(),
   collector: EventCollector,
-  pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool = { _ in false }
+  pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool = { _ in false },
+  detector: (any LanguageDetector)? = nil
 ) -> PhaseContext {
   PhaseContext(
     scenario: scenario,
@@ -45,7 +50,8 @@ func makePhaseContext(
     suspendController: suspendController,
     emitter: collector.emit,
     pauseCheck: pauseCheck,
-    phasePath: [phaseIndex]
+    phasePath: [phaseIndex],
+    detector: detector
   )
 }
 
