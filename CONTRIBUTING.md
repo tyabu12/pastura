@@ -12,26 +12,6 @@ maintained by one person, so the workflow stays light.
   in flight and what's out of scope for the current phase.
 - Doc fixes and typos can go straight to a PR.
 
-## Project layout
-
-```
-Pastura/Pastura/   # iOS app source
-├── App/           # App state, navigation, ViewModels
-├── Engine/        # Scenario engine (phases, scoring)
-├── LLM/           # Inference backends
-├── Data/          # GRDB persistence
-├── Models/        # Domain types
-├── Views/         # SwiftUI
-└── Resources/     # Presets, demo replays, blocklist
-
-PasturaTests/      # Unit and integration tests
-PasturaUITests/    # UI tests
-
-docs/              # Roadmap, ADRs, specs, design system
-scripts/           # Build, lint, content-blocklist helpers
-pages/             # The pastura.app site
-```
-
 ## Design principles
 
 Pastura is layered to make a future SPM module split painless. The

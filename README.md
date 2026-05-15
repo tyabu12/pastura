@@ -2,10 +2,13 @@
 
 # 🐑 Pastura
 
-**iOS app for running AI multi-agent simulations on-device.**
+**Running local LLM multi-agent simulations on-device.**
 
-Local LLMs, scenario YAML, no servers.\
-For the user-facing pitch, see [pastura.app](https://pastura.app).
+AIgazing.\
+Like stargazing,\
+but for local LLMs.
+
+Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you've written.
 
 [![CI](https://github.com/tyabu12/pastura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
 
@@ -15,14 +18,13 @@ For the user-facing pitch, see [pastura.app](https://pastura.app).
 > data layout may still change. The first App Store submission is in
 > preparation.
 
-## What's in this repo
+## What is Pastura
 
 You write a YAML scenario (or build it in the visual editor), pick a
 local LLM, and watch the agents talk, vote, and score themselves.
 Nothing leaves the device.
 
-This README is for people who want to read or modify the source code.
-For the product story, design philosophy, and screenshots, head to
+For the product story, design philosophy, and faq, head to
 [pastura.app](https://pastura.app) instead.
 
 ## Architecture
@@ -46,32 +48,42 @@ dependency direction is preparation for a future SPM module split.
 
 ## Tech stack
 
-| Component        | Choice                                            |
-|------------------|---------------------------------------------------|
-| Language         | Swift 6                                           |
-| UI               | SwiftUI                                           |
-| Minimum iOS      | 17.0                                              |
-| YAML parser      | [Yams](https://github.com/jpsim/Yams) 6.2.1       |
-| Local SQLite     | [GRDB](https://github.com/groue/GRDB.swift) 7.10  |
-| LLM (current)    | llama.cpp via [llama.swift](https://github.com/mattt/llama.swift) |
-| LLM (planned)    | LiteRT-LM iOS SDK                                 |
-| LLM (dev)        | Ollama via OpenAI-compatible API                  |
-| LLM (testing)    | `MockLLMService`                                  |
-| Bundled models   | Gemma 4 E2B (~3 GB), Qwen 3 4B Q4_K_M (~2.5 GB)   |
+- **Language and platform**
+  - Swift 6.x
+  - SwiftUI
+  - iOS 17.0 minimum deployment target
+- **Libraries**
+  - [Yams](https://github.com/jpsim/Yams) 6.2.1 for YAML parsing
+  - [GRDB](https://github.com/groue/GRDB.swift) 7.10 for SQLite
+- **LLM backends** (selected per build configuration)
+  - **`LlamaCppService`** via [llama.swift](https://github.com/mattt/llama.swift). On-device llama.cpp with Metal GPU. The shipping backend for Release builds.
+  - **LiteRT-LM iOS SDK**. Planned target backend, blocked on Google's Swift SDK + GPU support. See [ADR-002](docs/decisions/ADR-002.md).
+  - **`OllamaService`** via OpenAI-compatible API. Used in Debug builds and on the Simulator.
+  - **`MockLLMService`**. Deterministic stub for unit tests only.
 
-The LLM backend choice and the planned LiteRT-LM migration are recorded
-in [`docs/decisions/ADR-002.md`](docs/decisions/ADR-002.md).
+## Supported LLM models
+
+Bundled in
+[`Pastura/Pastura/App/ModelRegistry.swift`](Pastura/Pastura/App/ModelRegistry.swift).
+Both are GGUF Q4_K_M quants, downloaded on first launch.
+
+| Model                                                                | Vendor  | Size    | Notes                                                       |
+|----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
+| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Default. Conversational, plays well with most scenarios.    |
+| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | Reasoning-leaning. Good for scenarios that need deduction.  |
+
+Add more by appending a `ModelDescriptor` to `ModelRegistry.catalog`.
+The descriptor pins download URL, file size, and SHA-256 at compile
+time. The trade-offs are documented in
+[ADR-002](docs/decisions/ADR-002.md).
 
 ## Prerequisites
 
-- macOS with a recent Xcode that supports Swift 6. CI runs on
-  `macos-26`; see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-  for the exact configuration.
-- An iPhone 15 Pro or newer for on-device testing. The bundled models
-  need around 8 GB of RAM, which rules out iPhone 15 (non-Pro) and
-  earlier. The simulator builds against an Ollama dev backend instead,
-  which exercises the engine and UI without on-device inference.
-  `MockLLMService` is reserved for unit tests.
+- Swift 6 (Xcode that supports it; CI runs on `macos-26`)
+- iOS 17.0 deployment target
+- iPhone 15 Pro or newer for on-device LLM testing (around 8 GB RAM)
+- Optional: install [Ollama](https://ollama.com) locally if you want
+  non-mock LLM inference in Debug or on the Simulator
 
 ## Build and run
 
@@ -102,30 +114,29 @@ the full playbook.
 ## Project layout
 
 ```
-Pastura/Pastura/
-├── PasturaApp.swift
-├── App/         # App state, navigation, ViewModels
-├── Engine/      # Scenario engine (phases, scoring)
-├── LLM/         # Inference backends (llama.cpp, Ollama, Mock)
-├── Data/        # GRDB / SQLite persistence
-├── Models/      # Domain types, depends on nothing
-├── Views/       # SwiftUI screens and components
-├── Utilities/
-└── Resources/   # Bundled presets, demo replays, blocklist
-
-PasturaTests/    # Unit and integration tests
-PasturaUITests/  # UI tests
-
-docs/
-├── ROADMAP.md          # Phase scope and Go / No-Go criteria
-├── decisions/          # Architecture Decision Records
-├── specs/              # Feature specifications
-├── design/             # Design system, reference assets
-├── i18n/               # Localization workflow
-└── blocklist/          # ContentBlocklist source + build script
-
-pages/                  # The pastura.app site (deployed via GitHub Pages)
-scripts/                # Build, lint, content-blocklist helpers
+pastura/
+├── Pastura/
+│   ├── Pastura/             # iOS app source
+│   │   ├── PasturaApp.swift
+│   │   ├── App/             # App state, navigation, ViewModels
+│   │   ├── Engine/          # Scenario engine (phases, scoring)
+│   │   ├── LLM/             # Inference backends (llama.cpp, Ollama, Mock)
+│   │   ├── Data/            # GRDB / SQLite persistence
+│   │   ├── Models/          # Domain types, depends on nothing
+│   │   ├── Views/           # SwiftUI screens and components
+│   │   ├── Utilities/
+│   │   └── Resources/       # Bundled presets, demo replays, blocklist
+│   ├── PasturaTests/        # Unit and integration tests
+│   └── PasturaUITests/      # UI tests
+├── docs/
+│   ├── ROADMAP.md           # Phase scope and Go / No-Go criteria
+│   ├── decisions/           # Architecture Decision Records
+│   ├── specs/               # Feature specifications
+│   ├── design/              # Design system, reference assets
+│   ├── i18n/                # Localization workflow
+│   └── blocklist/           # ContentBlocklist source + build script
+├── pages/                   # The pastura.app site (deployed via GitHub Pages)
+└── scripts/                 # Build, lint, content-blocklist helpers
 ```
 
 ## Documentation
