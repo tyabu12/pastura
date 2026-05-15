@@ -239,8 +239,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "%1$@ needs about %2$@. Continue, or choose a lighter model?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@は約%2$@を使います。続行しますか、軽量モデルに切り替えますか？"
           }
         }
       }
@@ -788,7 +794,14 @@
       }
     },
     "Agents run entirely on your device." : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルのエージェントはあなたの端末上で動きます。"
+          }
+        }
+      }
     },
     "Agents speak in turn (accumulating context)" : {
       "localizations" : {
@@ -901,7 +914,14 @@
       }
     },
     "Balanced choice. Rich expression and measured reasoning." : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バランス型。表現が豊かで、推論も落ち着いた応答。"
+          }
+        }
+      }
     },
     "Basic Info" : {
       "localizations" : {
@@ -1087,7 +1107,14 @@
       }
     },
     "Choose your first model" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最初の LLM モデルを選ぶ"
+          }
+        }
+      }
     },
     "Close this sheet to open the shared scenario" : {
       "localizations" : {
@@ -1393,8 +1420,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Download %1$@ anyway, %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@をそれでもダウンロード、%2$@"
           }
         }
       }
@@ -1403,8 +1436,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Download %1$@, %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@をダウンロード、%2$@"
           }
         }
       }
@@ -2604,7 +2643,14 @@
       }
     },
     "PASTURA · SETUP" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PASTURA · セットアップ"
+          }
+        }
+      }
     },
     "Pairing" : {
       "localizations" : {
@@ -2949,7 +2995,14 @@
       }
     },
     "Recommended" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推奨"
+          }
+        }
+      }
     },
     "Recommended model" : {
       "localizations" : {
@@ -3198,7 +3251,14 @@
       }
     },
     "STORAGE" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ストレージ"
+          }
+        }
+      }
     },
     "Save" : {
       "localizations" : {
@@ -3585,7 +3645,14 @@
       }
     },
     "Storage is running low" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空き容量が少なめです"
+          }
+        }
+      }
     },
     "Strategy" : {
       "localizations" : {
@@ -4179,7 +4246,14 @@
       }
     },
     "You can add another model later." : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "別のモデルはあとから追加できます。"
+          }
+        }
+      }
     },
     "You can keep multiple models on this device. Only the active one is loaded in memory." : {
       "localizations" : {
