@@ -39,6 +39,9 @@
 #   - Leading whitespace, compound prefixes (`foo && gh pr create`),
 #     and other complex shapes do NOT match — intentional, mirrors
 #     the trade-off documented in `check-claude-md-modified.sh`.
+#   - Glob metachars in <prefix> (`*`, `?`, `[...]`) ARE interpreted
+#     by the case statement. Pass literal strings only; e.g., a prefix
+#     of `'gh pr [cv]reate'` would unexpectedly match `gh pr vreate`.
 #
 # Reference: memory `reference_claudecode_hook_matcher.md`
 #            (Graceful degradation section) + PR #407.
