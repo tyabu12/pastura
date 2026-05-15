@@ -1,0 +1,68 @@
+import SwiftUI
+
+/// Design tokens and easing-curve factories for the app-launch animation.
+///
+/// All members are `static` — this enum is a pure namespace with no instances.
+/// Values are sourced from the Claude Design handoff for the launch sequence.
+///
+/// **Why `public`:** Referenced from `Views/` (animation implementation) and
+/// `PasturaTests/` (design-token fidelity assertions). The enum carries only
+/// value-type constants and pure factory functions — no actor-isolation
+/// implications.
+///
+/// **Why `nonisolated`:** `App/` targets inherit `SWIFT_DEFAULT_ACTOR_ISOLATION
+/// = MainActor`, which would bind all static members to the main actor.
+/// These are pure compile-time constants with no mutable state, so there is no
+/// data-race risk — `nonisolated` lifts the unnecessary restriction so tests
+/// and `nonisolated` callers can read them without an `await`.
+nonisolated public enum LaunchAnimationConfig {
+
+  // MARK: - Duration tokens
+
+  /// Full animation duration for a cold launch (first open / background-evicted).
+  public static let coldDuration: TimeInterval = 1.6
+
+  /// Abbreviated animation duration for a warm launch (recently backgrounded).
+  public static let warmDuration: TimeInterval = 0.7
+
+  /// If the app was last foregrounded within this many seconds, treat the
+  /// launch as warm and use ``warmDuration`` instead of ``coldDuration``.
+  public static let warmThreshold: TimeInterval = 180
+
+  /// Fraction of ``coldDuration`` at which the haptic feedback fires.
+  /// E.g., `coldDuration * hapticDelayRatio ≈ 0.88 s`.
+  public static let hapticDelayRatio: Double = 0.55
+
+  /// Animation duration when the user has enabled Reduce Motion. Kept short
+  /// to respect the accessibility preference while still providing a minimal
+  /// fade-in cue.
+  public static let reducedMotionDuration: TimeInterval = 0.4
+
+  // MARK: - Layout tokens
+
+  /// Icon display size (width & height) in points, per design handoff.
+  public static let iconSize: CGFloat = 132
+
+  /// Icon corner radius in points, per design handoff.
+  public static let iconCornerRadius: CGFloat = 30
+
+  /// Horizontal drift distance for the sheep silhouette entrance, in points.
+  /// The sheep starts offset by this amount and slides to its resting position.
+  public static let sheepDriftDistance: CGFloat = 36
+
+  // MARK: - Easing curves
+
+  /// Pastoral ease-out curve — cubic-bezier(.22, .61, .36, 1).
+  /// Use for the icon settle and sheep drift, where an unhurried deceleration
+  /// matches the pastoral character of the product.
+  public static func easeOutPastoral(duration: TimeInterval) -> Animation {
+    .timingCurve(0.22, 0.61, 0.36, 1.0, duration: duration)
+  }
+
+  /// Material Design "Standard" ease — cubic-bezier(.4, 0, .2, 1).
+  /// Use for elements that need a familiar, neutral motion feel (e.g., fade
+  /// transitions on supporting UI elements).
+  public static func easeStandard(duration: TimeInterval) -> Animation {
+    .timingCurve(0.4, 0.0, 0.2, 1.0, duration: duration)
+  }
+}
