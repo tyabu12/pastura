@@ -36,6 +36,8 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
         llm: context.llm, system: systemPrompt, user: userPrompt,
         agentName: persona.name,
         schema: OutputSchema.from(phase: context.phase),
+        detector: context.detector,
+        expectedLanguage: context.scenario.engineLanguage,
         suspendController: context.suspendController,
         emitter: context.emitter
       )

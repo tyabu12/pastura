@@ -31,13 +31,22 @@ nonisolated public struct PhaseContext: Sendable {
   /// constructing lifecycle events for the inner work.
   public let phasePath: [Int]
 
+  /// Optional language detector used by ``LLMCaller`` for ADR-010 Step E PR2
+  /// adherence enforcement. `nil` (the default) disables the check — the
+  /// retry budget is then consumed only by `parse_failed` / `empty_field`,
+  /// matching pre-Step E PR2 behaviour. Handlers forward this to
+  /// `llmCaller.call(detector:expectedLanguage:)` alongside
+  /// `context.scenario.engineLanguage`.
+  public let detector: (any LanguageDetector)?
+
   public init(
     scenario: Scenario, phase: Phase,
     llm: LLMService,
     suspendController: SuspendController,
     emitter: @escaping @Sendable (SimulationEvent) -> Void,
     pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool,
-    phasePath: [Int]
+    phasePath: [Int],
+    detector: (any LanguageDetector)? = nil
   ) {
     self.scenario = scenario
     self.phase = phase
@@ -46,6 +55,7 @@ nonisolated public struct PhaseContext: Sendable {
     self.emitter = emitter
     self.pauseCheck = pauseCheck
     self.phasePath = phasePath
+    self.detector = detector
   }
 }
 

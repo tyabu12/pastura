@@ -28,8 +28,20 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private let pauseState = OSAllocatedUnfairLock(initialState: PauseState())
   private let dispatcher = PhaseDispatcher()
   private let validator = ScenarioValidator()
+  private let detector: (any LanguageDetector)?
 
-  public init() {}
+  /// Creates a runner.
+  ///
+  /// - Parameter detector: Optional language detector for ADR-010 Step E PR2
+  ///   output-language adherence enforcement. When provided alongside a
+  ///   `Scenario.engineLanguage`, ``LLMCaller`` retries on language drift
+  ///   within its existing budget and emits
+  ///   ``SimulationEvent/languageMismatch(agent:detected:expected:)`` on
+  ///   exhaustion. `nil` (the default) disables the check so existing
+  ///   callers / tests keep their pre-Step E PR2 behaviour.
+  public init(detector: (any LanguageDetector)? = nil) {
+    self.detector = detector
+  }
 
   /// Whether the simulation is currently paused.
   public var isPaused: Bool {
@@ -102,6 +114,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let dispatcher = self.dispatcher
     let validator = self.validator
     let pauseState = self.pauseState
+    let detector = self.detector
 
     return AsyncStream { continuation in
       let task = Task {
@@ -110,6 +123,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           dispatcher: dispatcher, validator: validator,
           pauseState: pauseState,
           suspendController: suspendController,
+          detector: detector,
           emitter: { continuation.yield($0) }
         )
         continuation.finish()
@@ -130,6 +144,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let dispatcher: PhaseDispatcher
     let pauseState: OSAllocatedUnfairLock<PauseState>
     let suspendController: SuspendController
+    let detector: (any LanguageDetector)?
     let emitter: @Sendable (SimulationEvent) -> Void
   }
 
@@ -139,6 +154,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     dispatcher: PhaseDispatcher, validator: ScenarioValidator,
     pauseState: OSAllocatedUnfairLock<PauseState>,
     suspendController: SuspendController,
+    detector: (any LanguageDetector)?,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
     // Validate scenario
@@ -157,7 +173,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
-      pauseState: pauseState, suspendController: suspendController, emitter: emitter
+      pauseState: pauseState, suspendController: suspendController,
+      detector: detector, emitter: emitter
     )
 
     var state = SimulationState.initial(for: scenario)
@@ -306,7 +323,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
             // so there's exactly one `.simulationPaused` emitter.
             await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
           },
-          phasePath: phasePath
+          phasePath: phasePath,
+          detector: ctx.detector
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {
