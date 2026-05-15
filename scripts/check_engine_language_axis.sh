@@ -48,11 +48,14 @@ EXCLUDES=(
   --exclude=ScenarioSerializer.swift
 )
 
-# Find every matching line, then filter out `///` doc-comment lines.
+# Find every matching line, then filter out comment-only lines.
 # `grep -E` output is `path:line:content`; we look for `:` then optional
-# whitespace then `///` to skip those.
+# whitespace then `//` (covers both `///` doc-comments and regular `//`
+# inline notes that legitimately mention the authoring field). Lines
+# where code precedes the comment (`let x = scenario.language  // ...`)
+# do NOT match this filter, so they still trip the guard as intended.
 raw=$(grep -rEn "${EXCLUDES[@]}" "$PATTERN" "$ENGINE_DIR" 2>/dev/null || true)
-violations=$(printf '%s\n' "$raw" | grep -vE ':[[:space:]]*///' || true)
+violations=$(printf '%s\n' "$raw" | grep -vE ':[[:space:]]*//' || true)
 
 # Trim a stray empty line so `-n "$violations"` is reliable.
 violations=$(printf '%s' "$violations" | sed '/^$/d')
