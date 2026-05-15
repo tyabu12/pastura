@@ -13,12 +13,11 @@ struct StorageWarningSheet: View {
   let onCancel: () -> Void
   let onProceed: () -> Void
 
+  // Reuses `ModelRow.formattedFileSize` so the sheet's body and the row's
+  // visible meta line share one source-of-truth for "how the picker
+  // formats a model size."
   private var sizeString: String {
-    let formatter = ByteCountFormatter()
-    formatter.countStyle = .file
-    formatter.allowedUnits = [.useGB]
-    formatter.includesUnit = true
-    return formatter.string(fromByteCount: descriptor.fileSize)
+    ModelRow.formattedFileSize(descriptor.fileSize)
   }
 
   private var displayName: String {
