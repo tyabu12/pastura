@@ -35,7 +35,9 @@ nonisolated struct PromptBuilder: Sendable {
   /// Serializes structured conversation entries into a plain text string for prompt injection.
   ///
   /// Empty-log placeholder is `"（まだなし）"` (ja) / `"(none yet)"` (en),
-  /// chosen via `scenario.language`. ADR-010 D7 Translation Table.
+  /// chosen via the effective Engine language (callers pass
+  /// `scenario.engineLanguage`, ADR-010 D5 / D6 row 1). ADR-010 D7
+  /// Translation Table.
   func formatConversationLog(_ entries: [ConversationEntry], language: String) -> String {
     if entries.isEmpty {
       return pickLanguage(language, ja: "（まだなし）", en: "(none yet)")
@@ -65,7 +67,8 @@ nonisolated struct PromptBuilder: Sendable {
   /// (target-language output, no empty fields, single-line JSON), output
   /// format specification, and phase-specific constraints (options for
   /// choose, candidate list for vote). All user-facing strings dispatch
-  /// on `scenario.language` per ADR-010 D7.
+  /// on `scenario.engineLanguage` per ADR-010 D7 (the override-aware
+  /// resolver defined in D5 / D6 row 1).
   func buildSystemPrompt(
     scenario: Scenario,
     persona: Persona,
@@ -73,7 +76,7 @@ nonisolated struct PromptBuilder: Sendable {
     state: SimulationState
   ) -> String {
     var sections: [String] = []
-    let language = scenario.language
+    let language = scenario.engineLanguage
 
     // Header
     sections.append(
@@ -126,7 +129,7 @@ nonisolated struct PromptBuilder: Sendable {
     phase: Phase,
     state: SimulationState
   ) -> String {
-    let language = scenario.language
+    let language = scenario.engineLanguage
     var rules = pickLanguage(
       language,
       ja: """

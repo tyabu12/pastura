@@ -22,7 +22,7 @@ nonisolated struct ScoreCalcHandler: PhaseHandler {
       VoteTallyLogic().calculate(state: &state, emitter: context.emitter)
     case .wordwolfJudge:
       WordwolfJudgeLogic().calculate(
-        state: &state, language: context.scenario.language, emitter: context.emitter)
+        state: &state, language: context.scenario.engineLanguage, emitter: context.emitter)
     }
   }
 }

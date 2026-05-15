@@ -127,4 +127,65 @@ struct VoteHandlerTests {
     #expect(state.voteResults["NonExistent"] == 1)
     #expect(state.voteResults["Alice"] == 1)
   }
+
+  // MARK: - simulationLanguage override (ADR-010 Step E)
+
+  @Test func voteHonorsSimulationLanguageOverride_jaToEn() async throws {
+    // Scenario: ja authoring, en simulation override. prompt:nil forces fallback.
+    // The captured prompt must contain the English fallback, not the Japanese one.
+    let mock = MockLLMService(responses: [
+      #"{"vote": "Bob"}"#,
+      #"{"vote": "Alice"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = ScenarioFixture.make(
+      language: "ja",
+      simulationLanguage: "en",
+      personas: [
+        Persona(name: "Alice", description: "A test persona"),
+        Persona(name: "Bob", description: "A test persona")
+      ],
+      phases: [Phase(type: .vote, prompt: nil, outputSchema: ["vote": "string"])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let prompt = mock.capturedPrompts[0].user
+    #expect(prompt.contains("Vote for the person"))
+    #expect(!prompt.contains("最も怪しい"))
+  }
+
+  @Test func voteHonorsSimulationLanguageOverride_enToJa() async throws {
+    // Reverse: en authoring, ja simulation override. Captured prompt must contain Japanese.
+    let mock = MockLLMService(responses: [
+      #"{"vote": "Bob"}"#,
+      #"{"vote": "Alice"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = ScenarioFixture.make(
+      language: "en",
+      simulationLanguage: "ja",
+      personas: [
+        Persona(name: "Alice", description: "A test persona"),
+        Persona(name: "Bob", description: "A test persona")
+      ],
+      phases: [Phase(type: .vote, prompt: nil, outputSchema: ["vote": "string"])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let prompt = mock.capturedPrompts[0].user
+    #expect(prompt.contains("最も怪しい"))
+    #expect(!prompt.contains("Vote for the person"))
+  }
 }

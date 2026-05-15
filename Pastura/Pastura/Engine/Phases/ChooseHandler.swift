@@ -16,7 +16,7 @@ nonisolated struct ChooseHandler: PhaseHandler {
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(
-        context.scenario.language,
+        context.scenario.engineLanguage,
         ja: "選択してください。",
         en: "Make a choice.")
     let options = context.phase.options ?? []
@@ -83,7 +83,7 @@ nonisolated struct ChooseHandler: PhaseHandler {
     variables["opponent_name"] = opponent.name
     variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
     variables["conversation_log"] = promptBuilder.formatConversationLog(
-      state.conversationLog, language: context.scenario.language)
+      state.conversationLog, language: context.scenario.engineLanguage)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
     let output = try await llmCaller.call(
@@ -114,7 +114,7 @@ nonisolated struct ChooseHandler: PhaseHandler {
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["conversation_log"] = promptBuilder.formatConversationLog(
-        state.conversationLog, language: context.scenario.language)
+        state.conversationLog, language: context.scenario.engineLanguage)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(

@@ -18,13 +18,6 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     "agents", "rounds", "context", "personas", "phases"
   ]
 
-  /// Accepted values for `language` (D1) and `simulation_language` (D5).
-  ///
-  /// Engine output dispatch (`Pastura/Pastura/Engine/PromptBuilder.swift` and
-  /// friends) treats `scenario.language` as effectively this set per ADR-010
-  /// Fallback rule — `String` is the storage type, the validator owns the gate.
-  private static let acceptedLanguages: Set<String> = ["ja", "en"]
-
   // MARK: - Loading
 
   /// Parse a YAML string into a ``Scenario`` model.
@@ -172,16 +165,16 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
     let name: String = try parseRequired(dict, key: "name", label: "Scenario")
     let description: String = try parseRequired(dict, key: "description", label: "Scenario")
     let language: String = try parseRequired(dict, key: "language", label: "Scenario")
-    guard Self.acceptedLanguages.contains(language) else {
-      let allowed = Self.acceptedLanguages.sorted().joined(separator: ", ")
+    guard Scenario.acceptedLanguages.contains(language) else {
+      let allowed = Scenario.acceptedLanguages.sorted().joined(separator: ", ")
       throw SimulationError.scenarioValidationFailed(
         "Scenario: field 'language' must be one of {\(allowed)}, got '\(language)'"
       )
     }
     let simulationLanguage: String? = try parseOptional(
       dict, key: "simulation_language", label: "Scenario")
-    if let simulationLanguage, !Self.acceptedLanguages.contains(simulationLanguage) {
-      let allowed = Self.acceptedLanguages.sorted().joined(separator: ", ")
+    if let simulationLanguage, !Scenario.acceptedLanguages.contains(simulationLanguage) {
+      let allowed = Scenario.acceptedLanguages.sorted().joined(separator: ", ")
       throw SimulationError.scenarioValidationFailed(
         "Scenario: field 'simulation_language' must be one of {\(allowed)} or absent, "
           + "got '\(simulationLanguage)'"

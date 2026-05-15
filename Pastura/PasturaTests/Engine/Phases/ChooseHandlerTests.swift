@@ -170,4 +170,77 @@ struct ChooseHandlerTests {
     // No pairings in individual mode
     #expect(state.pairings.isEmpty)
   }
+
+  // MARK: - simulationLanguage override (ADR-010 Step E)
+
+  @Test func chooseHonorsSimulationLanguageOverride_jaToEn() async throws {
+    // Scenario: ja authoring, en simulation override. prompt:nil forces fallback.
+    // The captured prompt must contain the English fallback, not the Japanese one.
+    let mock = MockLLMService(responses: [
+      #"{"action": "cooperate"}"#,
+      #"{"action": "betray"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = ScenarioFixture.make(
+      language: "ja",
+      simulationLanguage: "en",
+      personas: [
+        Persona(name: "Alice", description: "A test persona"),
+        Persona(name: "Bob", description: "A test persona")
+      ],
+      phases: [
+        Phase(
+          type: .choose, prompt: nil,
+          outputSchema: ["action": "string"],
+          options: ["cooperate", "betray"]
+        )
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let prompt = mock.capturedPrompts[0].user
+    #expect(prompt.contains("Make a choice"))
+    #expect(!prompt.contains("選択してください"))
+  }
+
+  @Test func chooseHonorsSimulationLanguageOverride_enToJa() async throws {
+    // Reverse: en authoring, ja simulation override. Captured prompt must contain Japanese.
+    let mock = MockLLMService(responses: [
+      #"{"action": "cooperate"}"#,
+      #"{"action": "betray"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = ScenarioFixture.make(
+      language: "en",
+      simulationLanguage: "ja",
+      personas: [
+        Persona(name: "Alice", description: "A test persona"),
+        Persona(name: "Bob", description: "A test persona")
+      ],
+      phases: [
+        Phase(
+          type: .choose, prompt: nil,
+          outputSchema: ["action": "string"],
+          options: ["cooperate", "betray"]
+        )
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let prompt = mock.capturedPrompts[0].user
+    #expect(prompt.contains("選択してください"))
+    #expect(!prompt.contains("Make a choice"))
+  }
 }
