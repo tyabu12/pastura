@@ -38,11 +38,38 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
 
   /// Optional Engine override language for cross-language simulation.
   ///
-  /// When non-nil, Step E will use this to drive Engine output instead of
-  /// ``language`` — enabling "run an `en` scenario on a `ja` device with
-  /// `simulation_language: ja`." Parsed and validated in Step C-1, but
-  /// **not propagated to the Engine until Step E**. See ADR-010 D5.
+  /// When non-nil, the Engine reads from this instead of ``language`` —
+  /// enabling "run an `en` scenario on a `ja` device with
+  /// `simulation_language: ja`." Resolved via ``engineLanguage`` at every
+  /// Engine site; never read directly outside that single resolve point.
+  /// See ADR-010 D5.
   public let simulationLanguage: String?
+
+  /// Engine-consumer resolver for cross-language simulation (ADR-010 D6
+  /// row 1). Returns ``simulationLanguage`` when set, falling through to
+  /// ``language`` otherwise.
+  ///
+  /// **Do not use as a generic resolver.** D6 defines four consumer rows,
+  /// each with its own resolver:
+  ///
+  /// - **Engine** (prompt / scoring / default text): `engineLanguage`
+  ///   (this property)
+  /// - **New scenario creation seed** (Editor): `LocaleResolver.deviceDefault()`
+  /// - **Preset / gallery initial selection** (picker): `LocaleResolver.deviceDefault()`
+  /// - **UI shell** (`Localizable.xcstrings`): `Bundle.main.preferredLocalizations`
+  ///
+  /// UI / Editor / Picker callsites **MUST** continue using their own D6
+  /// resolvers; reading ``engineLanguage`` from those layers silently
+  /// bypasses device-locale priority. Two Engine-adjacent sites also
+  /// stay on ``language`` (authoring axis), not ``engineLanguage``
+  /// (runtime axis):
+  ///
+  /// - ``ScenarioValidator`` validates the authoring `language` field.
+  /// - ``ScenarioSerializer`` writes the authoring `language` back to YAML.
+  ///
+  /// `scripts/check_engine_language_axis.sh` enforces the Engine-side
+  /// boundary in CI; cross-layer misuse is caught by code review.
+  public var engineLanguage: String { simulationLanguage ?? language }
 
   /// Expected number of agents. Must match `personas.count`.
   public let agentCount: Int
