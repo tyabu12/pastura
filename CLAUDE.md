@@ -239,8 +239,24 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 
 ## Reference Documents
 
-| Document                              | Content                                     |
-|---------------------------------------|---------------------------------------------|
+`README.md` and `CONTRIBUTING.md` at the project root are public-facing
+mirrors of parts of this document. When updating one of the following in
+this document (or in source), check whether the public docs need the
+same change:
+
+- Architecture / Hard Rules / Dependency Rules → README "Architecture",
+  CONTRIBUTING "Design principles" (anchor links)
+- Tech Stack versions (Yams, GRDB) → README "Tech stack"
+- Bundled models (`ModelRegistry.swift`) → README "Supported LLM models"
+- Git Conventions → CONTRIBUTING "Workflow" / "Commits"
+- Directory Structure → README "Project layout"
+- i18n workflow / ContentBlocklist procedure → CONTRIBUTING "Before
+  your first PR"
+
+| Document                              | Content                                                                       |
+|---------------------------------------|-------------------------------------------------------------------------------|
+| `README.md`                           | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
+| `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
 | `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
 | `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
