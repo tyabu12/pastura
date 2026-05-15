@@ -3,9 +3,11 @@ import Foundation
 /// Word wolf judge scoring logic.
 ///
 /// Checks if the most-voted agent matches `state.variables["wolf_name"]`.
-/// Emits a summary describing the result in `scenario.language` (ADR-010
-/// D7 / D8 — scenario-language-bound, so `String(format:)` is used with
-/// literal English / Japanese rather than `String(localized:)`).
+/// Emits a summary describing the result in the caller-supplied effective
+/// Engine language (the caller — `ScoreCalcHandler` — passes
+/// `scenario.engineLanguage`, ADR-010 D5 / D6 row 1). ADR-010 D7 / D8 —
+/// scenario-language-bound, so `String(format:)` is used with literal
+/// English / Japanese rather than `String(localized:)`.
 nonisolated struct WordwolfJudgeLogic: Sendable {
 
   func calculate(

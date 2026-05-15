@@ -15,7 +15,7 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(
-        context.scenario.language,
+        context.scenario.engineLanguage,
         ja: "あなたの意見を述べてください。",
         en: "Share your opinion.")
 
@@ -29,7 +29,7 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["conversation_log"] = promptBuilder.formatConversationLog(
-        state.conversationLog, language: context.scenario.language)
+        state.conversationLog, language: context.scenario.engineLanguage)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(

@@ -190,4 +190,55 @@ struct SummarizeHandlerTests {
     #expect(summaries.count == 1)
     #expect(summaries[0] == "Alice(cooperate)")
   }
+
+  // MARK: - simulationLanguage override (ADR-010 Step E)
+
+  @Test func summarizeHonorsSimulationLanguageOverride_jaToEn() async throws {
+    // Scenario: ja authoring, en simulation override. template:nil forces fallback.
+    // After {current_round} expansion, the summary must contain the English fallback.
+    let mock = MockLLMService(responses: [])
+    let scenario = ScenarioFixture.make(
+      language: "ja",
+      simulationLanguage: "en",
+      phases: [Phase(type: .summarize, template: nil)]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 2
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let summaries = collector.events.compactMap { event -> String? in
+      if case .summary(let text) = event { return text }
+      return nil
+    }
+    #expect(summaries.count == 1)
+    #expect(summaries[0].contains("Round"))
+    #expect(!summaries[0].contains("ラウンド"))
+  }
+
+  @Test func summarizeHonorsSimulationLanguageOverride_enToJa() async throws {
+    // Reverse: en authoring, ja simulation override. Summary must contain Japanese.
+    let mock = MockLLMService(responses: [])
+    let scenario = ScenarioFixture.make(
+      language: "en",
+      simulationLanguage: "ja",
+      phases: [Phase(type: .summarize, template: nil)]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 2
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let summaries = collector.events.compactMap { event -> String? in
+      if case .summary(let text) = event { return text }
+      return nil
+    }
+    #expect(summaries.count == 1)
+    #expect(summaries[0].contains("ラウンド"))
+    #expect(!summaries[0].contains("Round"))
+  }
 }

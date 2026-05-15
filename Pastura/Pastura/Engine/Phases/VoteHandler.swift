@@ -16,7 +16,7 @@ nonisolated struct VoteHandler: PhaseHandler {
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(
-        context.scenario.language,
+        context.scenario.engineLanguage,
         ja: "最も怪しいと思う人に投票してください。",
         en: "Vote for the person you find most suspicious.")
     let excludeSelf = context.phase.excludeSelf ?? true
@@ -42,7 +42,7 @@ nonisolated struct VoteHandler: PhaseHandler {
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["conversation_log"] = promptBuilder.formatConversationLog(
-        state.conversationLog, language: context.scenario.language)
+        state.conversationLog, language: context.scenario.engineLanguage)
       variables["candidates"] = candidates.joined(separator: ", ")
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 

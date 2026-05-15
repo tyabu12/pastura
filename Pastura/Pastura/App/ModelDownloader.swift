@@ -11,6 +11,26 @@
 import Foundation
 import os
 
+/// Cross-launch reattach event yielded from `ModelDownloader.attachToInFlight`'s
+/// per-URL stream.
+///
+/// PR2 introduces this enum so the reattach path can drive `ModelManager` state
+/// updates without a continuation. `.completed` and `.failed` are terminal — the
+/// downloader yields one of them and then calls `continuation.finish()`. Consumers
+/// observing via `for await event in stream` exit the loop on terminal events.
+public enum DownloadEvent: Sendable {
+  /// Progress update; argument is a 0.0...1.0 fraction. Yielded by the downloader
+  /// from URLSession's `didWriteData` callback.
+  case progress(Double)
+  /// Successful completion. `modelURL` points to a session-scoped temp file
+  /// holding the downloaded bytes — the consumer must move it to its final
+  /// destination (see `ModelManager.finalizeReattachedDownload`).
+  case completed(modelURL: URL)
+  /// Failure. The error is the one Apple surfaced via `didCompleteWithError`
+  /// (including `URLError(.cancelled)` for user-initiated cancellations).
+  case failed(any Error)
+}
+
 /// Abstraction over URLSession download for testability.
 ///
 /// Production implementation uses a delegate-based `URLSession` with
@@ -32,32 +52,56 @@ public protocol ModelDownloader: Sendable {
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void
   ) async throws
 
-  /// Cancels every in-flight task currently owned by this downloader's
-  /// underlying URLSession.
+  /// Reattaches to background URLSession tasks that `nsurlsessiond` carried
+  /// over from a prior process generation.
   ///
-  /// PR1 calls this once at cold start (from `ModelManager.cleanupOrphanBackgroundTasks`)
-  /// to terminate any background tasks that `nsurlsessiond` carried over from a
-  /// prior process generation — orphaned tasks would otherwise consume cellular
-  /// bandwidth invisibly until PR2's `attachToInFlight` reattach path replaces
-  /// them.
+  /// On cold start, the system retains BG tasks created in the previous
+  /// process. Re-constructing the same-identifier `URLSession` (via `.shared`)
+  /// transparently re-binds those tasks to the new session. This method
+  /// enumerates them via `session.getAllTasks`, registers per-URL state inside
+  /// the delegate, and returns one `AsyncStream<DownloadEvent>` per URL so
+  /// `ModelManager` can observe progress + completion without holding a
+  /// continuation across the process boundary.
   ///
-  /// Default implementation is a no-op (test mocks rely on it). Production
-  /// `URLSessionModelDownloader` overrides via `session.getAllTasks` + per-task
-  /// `cancel()`.
-  func cancelInFlightTasks() async
+  /// The returned dictionary is keyed by the task's `originalRequest?.url`.
+  /// Tasks without a resolvable URL are skipped silently. Each stream yields a
+  /// terminal event (`.completed` or `.failed`) exactly once and then finishes.
+  /// Dropping the iterator before observing the terminal event causes the
+  /// downloader to deregister per-URL state and delete any staged temp file
+  /// — see `URLSessionModelDownloader.attachToInFlight` for the cleanup contract.
+  ///
+  /// Default implementation returns an empty dictionary (test mocks rely on
+  /// this). Production `URLSessionModelDownloader` overrides.
+  func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>]
+
+  /// Cancels the in-flight task whose `originalRequest?.url == url`, if any.
+  ///
+  /// PR2 uses this to surgically cancel a single reattached download — e.g.
+  /// when the relaunched app is on cellular without consent, we cancel the
+  /// reattached task and re-prompt the user. Per-URL scope preserves other
+  /// concurrent downloads.
+  ///
+  /// Production `URLSessionModelDownloader` matches via `getAllTasks` and
+  /// calls `cancel(byProducingResumeData:)`, stashing the resume blob in the
+  /// per-URL cache so a subsequent `startDownload` resumes cleanly.
+  ///
+  /// Default implementation is a no-op (test mocks rely on it).
+  func cancel(url: URL) async
 }
 
 extension ModelDownloader {
-  /// No-op default — test mocks that don't manage real URLSession tasks
+  /// Empty default — test mocks that don't simulate cross-launch state
   /// inherit this.
   ///
   /// **MUST stay body-only.** Adding a `Task { ... }` or
   /// `AsyncThrowingStream { ... }` here would introduce an escaping closure
   /// from a protocol-extension default impl, which requires `nonisolated`
-  /// per `.claude/rules/swift-isolation.md` § Pattern 1. The current empty
-  /// body avoids the trap; future additions to this default need to re-read
-  /// Pattern 1 before extending.
-  public func cancelInFlightTasks() async {}
+  /// per `.claude/rules/swift-isolation.md` § Pattern 1.
+  public func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>] { [:] }
+
+  /// No-op default — test mocks inherit this. **MUST stay body-only** (see
+  /// Pattern 1 note above).
+  public func cancel(url: URL) async {}
 }
 
 /// Production downloader using a singleton-lifetime `URLSession` +
@@ -88,10 +132,17 @@ extension ModelDownloader {
 /// screen-off / app-backgrounded interruption case (the primary user
 /// complaint).
 ///
-/// Out of scope in PR1 — addressed by PR2:
-/// - **OS-termination mid-DL**: `sessionSendsLaunchEvents = false` opts out
-///   of cross-launch relaunch in PR1 (no reattach logic yet). PR2 flips the
-///   flag to `true` and adds `attachToInFlight` + `finalizeReattachedDownload`.
+/// PR2 expansion (current):
+/// - **OS-termination mid-DL**: `sessionSendsLaunchEvents = true` opts INTO
+///   cross-launch relaunch. iOS wakes the app and calls
+///   `application(_:handleEventsForBackgroundURLSession:completionHandler:)`
+///   on `PasturaAppDelegate`, which forwards to
+///   `setBackgroundCompletionHandler(_:)`. `attachToInFlight()` then
+///   re-registers per-task state for any in-flight reattached tasks; the
+///   delegate's `urlSessionDidFinishEvents` fires the stashed handler on
+///   the main queue when replay completes.
+///
+/// Out of scope (still):
 /// - **Force-quit**: Apple's policy — force-quitting via the app switcher
 ///   stops background URLSession transfers until the user manually relaunches.
 ///   Out of any PR's scope.
@@ -168,12 +219,17 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// Private so the BG identifier is locked behind `.shared`.
   private static func makeBackgroundConfiguration() -> URLSessionConfiguration {
     let config = URLSessionConfiguration.background(withIdentifier: backgroundSessionIdentifier)
-    // PR1 explicit opt-out: without `attachToInFlight` reattach logic, iOS
-    // waking the app to deliver completion events would arrive at a fresh
-    // process with no per-task state registered — the events would be
-    // routed to no handler. PR2 flips this to `true` together with the
-    // reattach + finalizeReattachedDownload work.
-    config.sessionSendsLaunchEvents = false
+    // PR2: opt INTO cross-launch relaunch. When the OS terminates the app
+    // mid-DL (memory pressure) AND a task subsequently completes in
+    // `nsurlsessiond`, iOS relaunches the app and calls
+    // `application(_:handleEventsForBackgroundURLSession:completionHandler:)`
+    // on `PasturaAppDelegate`. The delegate forwards the handler to
+    // `URLSessionModelDownloader.shared.setBackgroundCompletionHandler(_:)`;
+    // `attachToInFlight` registers `.reattached` slots for any still-active
+    // tasks; replay-of-queued events drives the URL streams through
+    // `.completed` / `.failed`; finally `urlSessionDidFinishEvents` fires
+    // the stashed handler on the main queue to return UI control to iOS.
+    config.sessionSendsLaunchEvents = true
     // User-initiated foreground operation; opt out of OS bandwidth deferral.
     config.isDiscretionary = false
     // App-level cellular consent gate (ModelManager.startDownload) is the
@@ -307,34 +363,108 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
     }
   }
 
-  /// Cancels every in-flight `URLSessionDownloadTask` on this downloader's
-  /// session. Returns when all per-task cancellations have been **issued**,
-  /// NOT when they complete — the associated
-  /// `didCompleteWithError(NSURLErrorCancelled)` callbacks fire
-  /// asynchronously on the delegate queue after `cancel()` returns.
-  /// `getAllTasks` returning empty on a subsequent call does NOT imply
-  /// "all prior tasks have completed their delegate callbacks". The PR1
-  /// callsite (`PasturaApp.initialize` before any UI / `startDownload`
-  /// path is reachable) tolerates this race; PR2 callsites that need
-  /// completion-wait will need separate synchronization.
+  /// Reattaches to background URLSession tasks carried over from a prior
+  /// process generation. Enumerates `session.getAllTasks`, registers per-task
+  /// `.reattached` slots on the delegate, and returns one
+  /// `AsyncStream<DownloadEvent>` per URL.
   ///
-  /// PR1 usage: cold-start orphan cleanup. `nsurlsessiond` retains BG tasks
-  /// from a prior process generation; reconstructing the same-identifier
-  /// `URLSession` (via `.shared`) reattaches them to this session, where
-  /// they would otherwise progress without a handler. `getAllTasks` plus
-  /// per-task `cancel()` terminates them. PR2 replaces this with proper
-  /// `attachToInFlight` reattach.
-  func cancelInFlightTasks() async {
-    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-      session.getAllTasks { tasks in
+  /// **Race-window closure**: Registration happens INSIDE the
+  /// `getAllTasks` completion handler — which runs on the session's serial
+  /// delegate queue. No other delegate callback for the same task can
+  /// interleave between enumeration and registration, so the
+  /// "no-entry race" the round-3 critic flagged is structurally impossible.
+  /// The only remaining edge case is tasks that completed BEFORE
+  /// `attachToInFlight` was invoked (their callbacks already fired and
+  /// hit the `.debug`-level unregistered branch); those tasks are not
+  /// included in `getAllTasks` and PR2 accepts the loss — they re-download
+  /// next launch through the normal `.notDownloaded` path.
+  func attachToInFlight() async -> [URL: AsyncStream<DownloadEvent>] {
+    typealias AttachContinuation = CheckedContinuation<[URL: AsyncStream<DownloadEvent>], Never>
+    return await withCheckedContinuation { (outerCont: AttachContinuation) in
+      session.getAllTasks { [weak self] tasks in
+        guard let self else {
+          outerCont.resume(returning: [:])
+          return
+        }
+        var result: [URL: AsyncStream<DownloadEvent>] = [:]
         for task in tasks {
-          task.cancel()
+          guard let url = task.originalRequest?.url else { continue }
+          let taskID = task.taskIdentifier
+          var capturedContinuation: AsyncStream<DownloadEvent>.Continuation?
+          let stream = AsyncStream<DownloadEvent> { continuation in
+            capturedContinuation = continuation
+            continuation.onTermination = { @Sendable [weak self] _ in
+              self?.delegate.handleReattachedStreamTermination(taskIdentifier: taskID)
+            }
+          }
+          guard let continuation = capturedContinuation else { continue }
+          let registered = self.delegate.registerReattachedIfAbsent(
+            taskIdentifier: taskID, streamContinuation: continuation
+          )
+          if registered {
+            result[url] = stream
+          } else {
+            // Slot already occupied (e.g., a foreground `download(...)` in
+            // flight on the same task identifier). Finish the stream we
+            // built so the caller doesn't hold a dangling continuation.
+            continuation.finish()
+          }
         }
         Self.logger.notice(
-          "cancelInFlightTasks tasks=\(tasks.count, privacy: .public)")
-        continuation.resume()
+          """
+          attachToInFlight tasks=\(tasks.count, privacy: .public) \
+          attached=\(result.count, privacy: .public)
+          """)
+        outerCont.resume(returning: result)
       }
     }
+  }
+
+  /// Surgically cancels the in-flight task whose `originalRequest?.url == url`.
+  /// Uses `cancel(byProducingResumeData:)` so the resume blob (if any) is
+  /// stashed in the per-URL `resumeDataCache` for the next `startDownload`
+  /// to consume. The cancellation triggers `didCompleteWithError(NSURLErrorCancelled)`
+  /// which routes via the delegate's `.reattached` arm → yields `.failed`
+  /// then `finish()`s the stream.
+  ///
+  /// No-op if no task matches `url`.
+  func cancel(url: URL) async {
+    typealias TaskMatch = CheckedContinuation<URLSessionDownloadTask?, Never>
+    let target: URLSessionDownloadTask? = await withCheckedContinuation { (cont: TaskMatch) in
+      session.getAllTasks { tasks in
+        let match = tasks.first { $0.originalRequest?.url == url } as? URLSessionDownloadTask
+        cont.resume(returning: match)
+      }
+    }
+    guard let task = target else {
+      Self.logger.notice(
+        "cancel(url:) no-match url=\(url.absoluteString, privacy: .public)")
+      return
+    }
+    await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+      task.cancel(byProducingResumeData: { [weak self] resumeData in
+        if let resumeData {
+          self?.resumeDataCache.withLock { $0[url] = resumeData }
+        }
+        Self.logger.notice(
+          """
+          cancel(url:) issued url=\(url.absoluteString, privacy: .public) \
+          resumeBlob=\(resumeData?.count ?? -1, privacy: .public)bytes
+          """)
+        cont.resume()
+      })
+    }
+  }
+
+  /// PR3 hook: stores the OS-supplied background completion handler so the
+  /// delegate's `urlSessionDidFinishEvents(forBackgroundURLSession:)` can
+  /// invoke it on the main queue. Called from `PasturaAppDelegate.application(_:handleEventsForBackgroundURLSession:completionHandler:)`.
+  ///
+  /// Pass `nil` to clear. Implementation-side detail: storage lives on
+  /// `DownloadDelegate` (under its existing `OSAllocatedUnfairLock`) since
+  /// the firing site is on the delegate's `URLSessionDelegate` method.
+  func setBackgroundCompletionHandler(_ handler: (@Sendable () -> Void)?) {
+    delegate.storeBackgroundCompletionHandler(handler)
   }
 
   /// Emits a `.notice`-level entry log identifying which of the three resume

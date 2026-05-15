@@ -161,14 +161,13 @@ struct EnginePathLanguageTests {
     #expect(!hasJapanese, "English prompt must not contain Japanese codepoints: \(prompt)")
   }
 
-  // MARK: - simulationLanguage does NOT affect Engine in C-1 (DoD #6 boundary, Step E)
+  // MARK: - simulationLanguage override drives PromptBuilder (ADR-010 D5 / D6 row 1)
 
-  @Test func promptBuilderIgnoresSimulationLanguageInC1() {
-    // Build with language: "ja", simulationLanguage: "en".
-    // Engine MUST still emit Japanese (simulationLanguage wiring deferred to Step E).
+  /// Helper: build a prompt for an arbitrary `(language, simulationLanguage)` pair.
+  private func makeOverridePrompt(language: String, simulationLanguage: String?) -> String {
     let scenario = ScenarioFixture.make(
-      language: "ja",
-      simulationLanguage: "en",
+      language: language,
+      simulationLanguage: simulationLanguage,
       phases: [
         Phase(
           type: .speakAll,
@@ -179,13 +178,42 @@ struct EnginePathLanguageTests {
     let persona = scenario.personas[0]
     let phase = scenario.phases[0]
     let state = SimulationState.initial(for: scenario)
-    let prompt = PromptBuilder().buildSystemPrompt(
+    return PromptBuilder().buildSystemPrompt(
       scenario: scenario, persona: persona, phase: phase, state: state)
+  }
 
-    // Must contain Japanese (language: "ja" drives Engine in C-1)
+  /// Canonical Step E case: a Japanese-authored scenario rendered in English via
+  /// `simulation_language: en`. Engine MUST emit English; Japanese MUST be absent.
+  @Test func promptBuilderHonorsSimulationLanguageOverrideJaToEn() {
+    let prompt = makeOverridePrompt(language: "ja", simulationLanguage: "en")
+    #expect(prompt.contains("You are a participant in a simulation"))
+    #expect(prompt.contains("## Scenario"))
+    #expect(!prompt.contains("あなたはシミュレーション"))
+    #expect(!prompt.contains("## シナリオ"))
+  }
+
+  /// Reverse direction: English-authored scenario rendered in Japanese via
+  /// `simulation_language: ja`.
+  @Test func promptBuilderHonorsSimulationLanguageOverrideEnToJa() {
+    let prompt = makeOverridePrompt(language: "en", simulationLanguage: "ja")
     #expect(prompt.contains("あなたはシミュレーション"))
-    // Must NOT contain English header (simulationLanguage not yet wired)
+    #expect(prompt.contains("## シナリオ"))
     #expect(!prompt.contains("You are a participant in a simulation"))
+    #expect(!prompt.contains("## Scenario"))
+  }
+
+  /// Regression guard: with no override, `language` still drives the Engine.
+  /// Without this, an `engineLanguage` implementation that always read
+  /// `simulationLanguage` (forgetting the `?? language` fallback) would
+  /// pass the override tests but silently break every existing scenario.
+  @Test func promptBuilderFallsThroughToLanguageWhenSimulationLanguageNil() {
+    let jaPrompt = makeOverridePrompt(language: "ja", simulationLanguage: nil)
+    #expect(jaPrompt.contains("あなたはシミュレーション"))
+    #expect(!jaPrompt.contains("You are a participant in a simulation"))
+
+    let enPrompt = makeOverridePrompt(language: "en", simulationLanguage: nil)
+    #expect(enPrompt.contains("You are a participant in a simulation"))
+    #expect(!enPrompt.contains("あなたはシミュレーション"))
   }
 }
 
