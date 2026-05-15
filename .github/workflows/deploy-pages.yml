@@ -1,38 +1,43 @@
 # Deploys public-facing HTML under `pages/` to GitHub Pages. Currently:
 #
-#   - `pages/index.html`                   → `https://tyabu12.github.io/pastura/`
+#   - `pages/index.html`                   → `https://pastura.app/`
 #     (Marketing landing page — see #345)
-#   - `pages/css/base.css`                 → `https://tyabu12.github.io/pastura/css/base.css`
-#   - `pages/css/lp.css`                   → `https://tyabu12.github.io/pastura/css/lp.css`
-#   - `pages/css/page.css`                 → `https://tyabu12.github.io/pastura/css/page.css`
+#   - `pages/css/base.css`                 → `https://pastura.app/css/base.css`
+#   - `pages/css/lp.css`                   → `https://pastura.app/css/lp.css`
+#   - `pages/css/page.css`                 → `https://pastura.app/css/page.css`
 #     (Shared design tokens + LP layout + prose styling for legal/support)
-#   - `pages/css/anim.css`                 → `https://tyabu12.github.io/pastura/css/anim.css`
+#   - `pages/css/anim.css`                 → `https://pastura.app/css/anim.css`
 #     (Fade-up animation stylesheet — hero entrance + scroll reveal — see #377)
-#   - `pages/js/anim.js`                   → `https://tyabu12.github.io/pastura/js/anim.js`
+#   - `pages/js/anim.js`                   → `https://pastura.app/js/anim.js`
 #     (Vanilla-JS runtime that toggles `.is-entered` / `.is-in` on the LP — see #377)
-#   - `pages/img/app-icon.png`             → `https://tyabu12.github.io/pastura/img/app-icon.png`
-#   - `pages/img/favicon-64.png`           → `https://tyabu12.github.io/pastura/img/favicon-64.png`
+#   - `pages/img/app-icon.png`             → `https://pastura.app/img/app-icon.png`
+#   - `pages/img/favicon-64.png`           → `https://pastura.app/img/favicon-64.png`
 #     (Brand mark + favicon, sourced from the iOS app icon)
-#   - `pages/img/app-store-badge-en.svg`      → `https://tyabu12.github.io/pastura/img/app-store-badge-en.svg`
+#   - `pages/img/app-store-badge-en.svg`      → `https://pastura.app/img/app-store-badge-en.svg`
 #     (Apple's official "Download on the App Store" badge, used as a
 #     dimmed pre-launch CTA. Do not modify the SVG content.)
-#   - `pages/img/app-store-badge-ja.svg`      → `https://tyabu12.github.io/pastura/img/app-store-badge-ja.svg`
+#   - `pages/img/app-store-badge-ja.svg`      → `https://pastura.app/img/app-store-badge-ja.svg`
 #     (Apple's official Japanese App Store badge. Intrinsic size is
 #     ~109×40 vs the EN badge's 120×40; the JA LP drops hardcoded
 #     width so the badge renders at native aspect. Do not modify the
 #     SVG content.)
-#   - `pages/support/index.html`           → `https://tyabu12.github.io/pastura/support/`
+#   - `pages/support/index.html`           → `https://pastura.app/support/`
 #     (App Store Connect Support URL — see ADR-005 §6 / §6.7 / §9.2 row #9 / #182)
 #   - `pages/legal/privacy-policy/index.html`
-#                                          → `https://tyabu12.github.io/pastura/legal/privacy-policy/`
+#                                          → `https://pastura.app/legal/privacy-policy/`
 #     (App Store privacy policy URL — see ADR-005 §9.2 / #233)
-#   - `pages/ja/index.html`                → `https://tyabu12.github.io/pastura/ja/`
+#   - `pages/ja/index.html`                → `https://pastura.app/ja/`
 #     (Japanese mirror of the marketing landing page — see #369)
-#   - `pages/ja/support/index.html`        → `https://tyabu12.github.io/pastura/ja/support/`
+#   - `pages/ja/support/index.html`        → `https://pastura.app/ja/support/`
 #     (Japanese mirror of the Support page)
 #   - `pages/ja/legal/privacy-policy/index.html`
-#                                          → `https://tyabu12.github.io/pastura/ja/legal/privacy-policy/`
+#                                          → `https://pastura.app/ja/legal/privacy-policy/`
 #     (Japanese mirror of the privacy policy page)
+#   - `pages/CNAME`                        → `_site/CNAME` (apex custom domain)
+#     (Single line `pastura.app`. GitHub Pages reads CNAME from the
+#     deployed artifact root to persist `Settings → Pages → Custom
+#     domain` across deploys — omission would wipe the custom-domain
+#     binding on the next deploy.)
 #
 # Precondition: Settings → Pages → Source = "GitHub Actions" (NOT
 # "Deploy from a branch", which would publish the entire `pages/` tree
@@ -112,6 +117,7 @@ jobs:
           cp pages/ja/index.html _site/ja/index.html
           cp pages/ja/support/index.html _site/ja/support/index.html
           cp pages/ja/legal/privacy-policy/index.html _site/ja/legal/privacy-policy/index.html
+          cp pages/CNAME _site/CNAME
           touch _site/.nojekyll
 
       - name: Upload artifact
@@ -132,21 +138,21 @@ jobs:
         run: |
           set -euo pipefail
           for url in \
-            "https://tyabu12.github.io/pastura/" \
-            "https://tyabu12.github.io/pastura/css/base.css" \
-            "https://tyabu12.github.io/pastura/css/lp.css" \
-            "https://tyabu12.github.io/pastura/css/page.css" \
-            "https://tyabu12.github.io/pastura/css/anim.css" \
-            "https://tyabu12.github.io/pastura/js/anim.js" \
-            "https://tyabu12.github.io/pastura/img/app-icon.png" \
-            "https://tyabu12.github.io/pastura/img/favicon-64.png" \
-            "https://tyabu12.github.io/pastura/img/app-store-badge-en.svg" \
-            "https://tyabu12.github.io/pastura/img/app-store-badge-ja.svg" \
-            "https://tyabu12.github.io/pastura/support/" \
-            "https://tyabu12.github.io/pastura/legal/privacy-policy/" \
-            "https://tyabu12.github.io/pastura/ja/" \
-            "https://tyabu12.github.io/pastura/ja/support/" \
-            "https://tyabu12.github.io/pastura/ja/legal/privacy-policy/"; do
+            "https://pastura.app/" \
+            "https://pastura.app/css/base.css" \
+            "https://pastura.app/css/lp.css" \
+            "https://pastura.app/css/page.css" \
+            "https://pastura.app/css/anim.css" \
+            "https://pastura.app/js/anim.js" \
+            "https://pastura.app/img/app-icon.png" \
+            "https://pastura.app/img/favicon-64.png" \
+            "https://pastura.app/img/app-store-badge-en.svg" \
+            "https://pastura.app/img/app-store-badge-ja.svg" \
+            "https://pastura.app/support/" \
+            "https://pastura.app/legal/privacy-policy/" \
+            "https://pastura.app/ja/" \
+            "https://pastura.app/ja/support/" \
+            "https://pastura.app/ja/legal/privacy-policy/"; do
             echo "Checking ${url}"
             curl -fsS --retry 5 --retry-delay 5 --retry-all-errors -o /dev/null "${url}"
           done

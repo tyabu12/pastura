@@ -77,15 +77,17 @@ struct ScenarioDetailView: View {
       }
     }
     .task {
-      // Defer assignment until both `load()` and `refreshGalleryStatus()`
-      // complete so the gallery banner never flips from
-      // "From Shared Scenarios (read-only)" to "Update available" mid-render.
+      // Defer assignment until `load()`, `refreshGalleryStatus()`, and
+      // `loadSibling()` all complete so the rendered sections don't
+      // pop in piecemeal — the gallery banner, the cross-language
+      // affordance, and the scenario content stabilise together.
       // Guard prevents re-creation under `.task` re-fire.
       guard viewModel == nil else { return }
       let newViewModel = ScenarioDetailViewModel(
         repository: dependencies.scenarioRepository)
       await newViewModel.load(scenarioId: scenarioId)
       await newViewModel.refreshGalleryStatus(using: dependencies.galleryService)
+      await newViewModel.loadSibling()
       viewModel = newViewModel
     }
   }
@@ -200,6 +202,34 @@ struct ScenarioDetailView: View {
     }
   }
 
+  /// Cross-language affordance per ADR-010 D6 — surfaces the sibling
+  /// variant when one exists (Step D ships sibling pairs for the 4
+  /// bundled presets). Hidden when no sibling is loaded.
+  ///
+  /// Label is the *destination* language name, resolved in the UI
+  /// locale: "View in English" / "View in Japanese". Step D only
+  /// ships ja↔en pairs — when a future language ships, the
+  /// `default` arm becomes a generic fallback.
+  @ViewBuilder
+  private func siblingLanguageLink(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
+    if let sibling = viewModel.siblingVariant {
+      let label: String =
+        scenario.language == "ja"
+        ? String(localized: "View in English")
+        : String(localized: "View in Japanese")
+      NavigationLink(
+        value: Route.scenarioDetail(
+          scenarioId: sibling.id,
+          initialName: .init(sibling.name)
+        )
+      ) {
+        Label(label, systemImage: "globe")
+      }
+    }
+  }
+
   private func actionsSection(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
@@ -221,6 +251,8 @@ struct ScenarioDetailView: View {
       NavigationLink(value: Route.results(scenarioId: scenarioId)) {
         Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
       }
+
+      siblingLanguageLink(scenario: scenario, viewModel: viewModel)
 
       if let record = viewModel.record {
         if record.isPreset || viewModel.isGallerySourced {

@@ -66,4 +66,97 @@ struct HomeViewModelTests {
     #expect(viewModel.userScenarios.isEmpty)
     #expect(viewModel.errorMessage == nil)
   }
+
+  // MARK: - ADR-010 D6 variant collapsing
+
+  /// Test fixture helper — bundled-preset row with parsed-from-YAML
+  /// `language` field. Keeps the per-test YAML minimal so the
+  /// language attribute is the only signal under test.
+  private func makePreset(
+    id: String, language: String, sourceId: String?
+  ) -> ScenarioRecord {
+    ScenarioRecord(
+      id: id, name: id,
+      yamlDefinition: "id: \(id)\nlanguage: \(language)\nname: \(id)\n",
+      isPreset: true, createdAt: Date(), updatedAt: Date(),
+      sourceType: nil, sourceId: sourceId, sourceHash: nil)
+  }
+
+  @Test func presetsResolvedForLanguageEmptyInputReturnsEmpty() {
+    let resolved = HomeViewModel.presetsResolvedForLanguage([], deviceLanguage: "ja")
+    #expect(resolved.isEmpty)
+  }
+
+  @Test func presetsResolvedForLanguageSingleVariantReturnsItself() {
+    let presets = [makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf")]
+
+    let jaResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "ja")
+    #expect(jaResolved.count == 1)
+    #expect(jaResolved.first?.id == "word_wolf")
+
+    // EN device with only a JA variant available — D6 fallback to
+    // "any available variant" still surfaces the row.
+    let enResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "en")
+    #expect(enResolved.count == 1)
+    #expect(enResolved.first?.id == "word_wolf")
+  }
+
+  @Test func presetsResolvedForLanguagePicksDeviceLanguageVariant() {
+    let presets = [
+      makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"),
+      makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf")
+    ]
+
+    let jaResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "ja")
+    #expect(jaResolved.count == 1)
+    #expect(jaResolved.first?.id == "word_wolf")
+
+    let enResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "en")
+    #expect(enResolved.count == 1)
+    #expect(enResolved.first?.id == "word_wolf_en")
+  }
+
+  @Test func presetsResolvedForLanguageGroupsMultipleSourceIds() {
+    let presets = [
+      makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"),
+      makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"),
+      makePreset(id: "bokete", language: "ja", sourceId: "bokete"),
+      makePreset(id: "bokete_en", language: "en", sourceId: "bokete")
+    ]
+
+    let enResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "en")
+    #expect(enResolved.count == 2)
+    let enIds = Set(enResolved.map(\.id))
+    #expect(enIds == ["word_wolf_en", "bokete_en"])
+
+    let jaResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "ja")
+    let jaIds = Set(jaResolved.map(\.id))
+    #expect(jaIds == ["word_wolf", "bokete"])
+  }
+
+  /// Phase 1 / pre-Step-D bundled row with `sourceId == nil`. Groups
+  /// by id (its own group), no cross-language sibling — keeps its
+  /// visibility regardless of device language.
+  @Test func presetsResolvedForLanguageLegacyNilSourceIdRowKeptVisible() {
+    let presets = [
+      makePreset(id: "word_wolf", language: "ja", sourceId: nil)
+    ]
+    let enResolved = HomeViewModel.presetsResolvedForLanguage(presets, deviceLanguage: "en")
+    #expect(enResolved.count == 1)
+    #expect(enResolved.first?.id == "word_wolf")
+  }
+
+  /// Malformed yamlDefinition falls back to `"ja"` rather than the row
+  /// disappearing. Phase 1 convention applies — a row stays visible
+  /// even if its YAML can't be re-parsed for the language field.
+  @Test func presetsResolvedForLanguageMalformedYamlFallsBackToJa() {
+    let bad = ScenarioRecord(
+      id: "broken", name: "broken",
+      yamlDefinition: "\t\tnot: [valid: yaml::",
+      isPreset: true, createdAt: Date(), updatedAt: Date(),
+      sourceType: nil, sourceId: "broken", sourceHash: nil)
+    let resolved = HomeViewModel.presetsResolvedForLanguage([bad], deviceLanguage: "ja")
+    #expect(resolved.count == 1)
+    #expect(resolved.first?.id == "broken")
+  }
 }

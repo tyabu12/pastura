@@ -18,7 +18,21 @@ import Foundation
 /// **Scope (D2):** seeds *new-data creation* and *multi-variant selection*
 /// — never fills missing fields in stored YAML. D1's mandatory rule
 /// applies to YAML; absence there is a validation error, not a default.
-enum LocaleResolver {
+///
+/// **Isolation:** `nonisolated` so it can default-initialise
+/// arguments on `nonisolated` callers (the App layer is MainActor-
+/// isolated by default, but this resolver has no instance state and
+/// reads only the static `Bundle.main` accessor — no MainActor hop
+/// required). The Step D motivating callsite is
+/// `BundledDemoReplaySource.loadAll(..., language: LocaleResolver.deviceDefault())`.
+///
+/// **Access:** `public` is forward-looking for the planned SPM module
+/// extraction (CLAUDE.md "future SPM module extraction"). The current
+/// app-target uses it across files; `internal` would also compile for
+/// the in-target callsites, but `public` aligns with the SPM-ready
+/// convention applied to other App-layer types touched by Engine
+/// adjacencies.
+nonisolated public enum LocaleResolver {
   /// Resolves the device-effective default scenario language.
   ///
   /// - Parameter preferredLocalizations: Override for unit tests. Production
@@ -26,7 +40,7 @@ enum LocaleResolver {
   /// - Returns: `"ja"` if the effective first localization is Japanese,
   ///   otherwise `"en"`. Empty list and unsupported codes fall back to
   ///   `"en"` — the App Store launch target.
-  static func deviceDefault(
+  public static func deviceDefault(
     preferredLocalizations: [String] = Bundle.main.preferredLocalizations
   ) -> String {
     switch preferredLocalizations.first {

@@ -1,0 +1,76 @@
+# Translation notes (ADR-010 D3 sibling-file authoring):
+# - 3 personas, distinct unisex EN first names (Quinn / Theo / Drew).
+#   Names carry no comedic load — gameplay is the point. The conditional
+#   summarize template demonstrating round-end branching is the
+#   pedagogical purpose of this preset (per the ja file's description).
+
+id: target_score_race_en
+language: en
+name: Score Race
+description: >
+  A vote-driven points race where the first to reach a target score
+  gets the lead. A demo of conditional phases — the round-end summary
+  branches on game state.
+agents: 3
+rounds: 4
+context: >
+  You are a contestant in a scoring race.
+  Each round, you vote for another participant; the votes you receive
+  become your score. (You add to your opponent's score by voting for them.)
+  The first to reach 3 points seizes the "lead" of the game.
+  At the end of each round, the summary differs depending on whether
+  someone has reached the target.
+  Play in line with your role.
+
+personas:
+  - name: Quinn
+    description: >
+      [Role] Tactician. Alternates alliances and betrayals to break out one step ahead.
+      Calm, logical tone. Example: "Probabilistically speaking, here's the play..."
+  - name: Theo
+    description: >
+      [Role] Straight shooter. Votes honestly for whoever was actually the most interesting.
+      Plain, candid tone. Example: "That was genuinely well done."
+  - name: Drew
+    description: >
+      [Role] Mood-keeper. Lifts the energy on the surface while calculating underneath.
+      Bright, jokey tone. Example: "C'mon, can't we all just get along? (...calculating beneath)"
+
+phases:
+  - type: speak_all
+    prompt: >
+      Current score: {scoreboard}
+      Round {current_round} begins. Declare your strategy in one or two sentences.
+      Bluffs and misdirection welcome.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      Current score: {scoreboard}
+      Declarations so far:
+      {conversation_log}
+      Vote for the participant other than yourself you most want to
+      support / who you thought played best.
+      Write the vote target exactly as one of these names: {candidates}
+    exclude_self: true
+    output:
+      vote: string
+      reason: string
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: conditional
+    if: "max_score >= 3"
+    then:
+      - type: summarize
+        template: >
+          🏆 R{current_round}: A leader has hit the target! Scores: {scoreboard}
+          Can they hold on, or will the next round flip things?
+    else:
+      - type: summarize
+        template: >
+          R{current_round} ended. Scores: {scoreboard}
+          No one has reached the target (3 points) yet.
