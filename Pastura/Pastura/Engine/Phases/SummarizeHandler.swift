@@ -14,7 +14,7 @@ nonisolated struct SummarizeHandler: PhaseHandler {
     let template =
       context.phase.template
       ?? pickLanguage(
-        context.scenario.language,
+        context.scenario.engineLanguage,
         ja: "ラウンド {current_round} 完了",
         en: "Round {current_round} complete")
 
