@@ -74,8 +74,7 @@
           },
           {
             "type": "command",
-            "if": "Bash(gh pr create*)",
-            "command": "cd $(git rev-parse --show-toplevel) && git diff main...HEAD --name-only | grep -q CLAUDE.md || echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"CLAUDE.md not modified in this branch. Check if implementation progress needs updating.\"}}'"
+            "command": "bash $(git rev-parse --show-toplevel)/scripts/hooks/check-claude-md-modified.sh"
           }
         ]
       }
