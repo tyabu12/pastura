@@ -9,6 +9,15 @@ import Foundation
 /// Scenarios are parsed from YAML via `ScenarioLoader` in the Engine layer
 /// using manual mapping (`Yams.load()` → `[String: Any]`).
 nonisolated public struct Scenario: Codable, Sendable, Equatable {
+  /// Accepted values for ``language`` (D1) and ``simulationLanguage`` (D5).
+  ///
+  /// Single source of truth — both ``ScenarioLoader`` (YAML path) and
+  /// ``ScenarioValidator`` (programmatic-construction path) gate against
+  /// this set. Adding a third language (Phase 3+) is new-ADR scope per
+  /// ADR-010 Out-of-Scope; extending this set is the first concrete step
+  /// but never sufficient on its own.
+  public static let acceptedLanguages: Set<String> = ["ja", "en"]
+
   /// Unique identifier for the scenario (from YAML `id` field).
   public let id: String
 
