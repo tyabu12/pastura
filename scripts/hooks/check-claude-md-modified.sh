@@ -28,9 +28,18 @@
 set -euo pipefail
 
 # Hook input arrives on stdin as JSON: { tool_name, tool_input: { command, ... }, ... }
+# `2>/dev/null || true` swallows malformed-JSON parse errors so the script
+# always falls through to the silent `*)` branch on bad input — preserves
+# the silent-no-op contract instead of surfacing a non-zero hook failure.
 INPUT=$(cat)
-COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
+# Pattern is anchored at the start of the command string — leading
+# whitespace ("  gh pr create ...") or compound prefixes ("foo && gh pr
+# create ...") will NOT match. That's intentional: those shapes don't
+# arise from Claude Code's tool dispatch in practice, and broadening the
+# pattern would re-introduce the same false-positive class the original
+# `if`-based gate exhibited under graceful-degradation.
 case "$COMMAND" in
   'gh pr create'*)
     # Match the intended gate. Run the original check.
