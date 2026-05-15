@@ -403,6 +403,20 @@ jobs:
       - name: Verify Localizable.xcstrings ja coverage
         run: python3 scripts/check_localization_coverage.py
 
+  engine-language-axis:
+    name: Engine language-axis guard (ADR-010 D5 / D8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Bash + grep only — both pre-installed on ubuntu-latest. The script
+      # blocks future regressions of the `scenario.language` → Engine
+      # dispatch antipattern; see docs/decisions/ADR-010.md § D5, D7, D8.
+      - name: Run Engine language-axis guard
+        run: bash scripts/check_engine_language_axis.sh
+
   coverage:
     name: Coverage
     needs: lint-and-test
