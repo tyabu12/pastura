@@ -2,13 +2,8 @@
 
 # 🐑 Pastura
 
-**Running local LLM multi-agent simulations on-device.**
-
-AIgazing.\
-Like stargazing,\
-but for local LLMs.
-
-Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you've written.
+*AIgazing. Like stargazing, but for local LLMs.*  
+Running local LLM multi-agent simulations on-device.
 
 [![CI](https://github.com/tyabu12/pastura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
 
@@ -19,6 +14,8 @@ Pastura is a closed pasture for AI agents on your device. Watch as the agents ac
 > preparation.
 
 ## What is Pastura
+
+Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you've written.
 
 You write a YAML scenario (or build it in the visual editor), pick a
 local LLM, and watch the agents talk, vote, and score themselves.
