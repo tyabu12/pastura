@@ -136,4 +136,123 @@ struct ScenarioDetailViewModelTests {
     #expect(deleted == true)
     #expect(try repo.fetchById("del") == nil)
   }
+
+  // MARK: - ADR-010 D6 cross-language sibling (Step D)
+
+  /// Minimal valid YAML for an EN sibling — same shape as `validYAML`
+  /// but `language: en`. Phase 1 baseline (no cross-language sibling)
+  /// uses `validYAML` alone; the sibling tests pair the two.
+  private static let validYAMLEn = """
+    id: test_scenario_en
+    language: en
+    name: Test
+    description: A test scenario
+    agents: 2
+    rounds: 1
+    context: Test context
+    personas:
+      - name: Alice
+        description: Agent A
+      - name: Bob
+        description: Agent B
+    phases:
+      - type: speak_all
+        prompt: "Say something"
+        output:
+          statement: string
+    """
+
+  /// JA scenario with EN sibling in the same repository — sibling
+  /// resolver returns the EN record.
+  @Test func loadSiblingFindsEnSiblingForJaScenario() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario", name: "Test", yamlDefinition: Self.validYAML,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario_en", name: "Test", yamlDefinition: Self.validYAMLEn,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "test_scenario")
+    await viewModel.loadSibling()
+
+    #expect(viewModel.siblingVariant?.id == "test_scenario_en")
+  }
+
+  /// EN scenario with JA sibling — symmetric to the above. The
+  /// resolver picks any different-id record sharing the canonical
+  /// `sourceId`, regardless of which side initiated.
+  @Test func loadSiblingFindsJaSiblingForEnScenario() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario", name: "Test", yamlDefinition: Self.validYAML,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario_en", name: "Test", yamlDefinition: Self.validYAMLEn,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "test_scenario_en")
+    await viewModel.loadSibling()
+
+    #expect(viewModel.siblingVariant?.id == "test_scenario")
+  }
+
+  /// Solo scenario without a sibling — resolver returns nil and the
+  /// View hides the affordance.
+  @Test func loadSiblingReturnsNilWhenNoSibling() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario", name: "Test", yamlDefinition: Self.validYAML,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "test_scenario")
+    await viewModel.loadSibling()
+
+    #expect(viewModel.siblingVariant == nil)
+  }
+
+  /// Legacy pre-Step-D row with `sourceId == nil` — sibling resolution
+  /// short-circuits (no canonical key to group by). Phase 1 / D11
+  /// install-base reset territory.
+  @Test func loadSiblingReturnsNilWhenSourceIdIsNil() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario", name: "Test", yamlDefinition: Self.validYAML,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: nil, sourceHash: nil))
+    // Another record with sourceId == nil — even though both have nil,
+    // the resolver still short-circuits when the current record has
+    // none (no canonical key to match against).
+    try repo.save(
+      ScenarioRecord(
+        id: "other", name: "Other", yamlDefinition: Self.validYAML,
+        isPreset: true, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: nil, sourceHash: nil))
+
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "test_scenario")
+    await viewModel.loadSibling()
+
+    #expect(viewModel.siblingVariant == nil)
+  }
 }

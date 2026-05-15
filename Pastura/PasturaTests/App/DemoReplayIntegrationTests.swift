@@ -144,7 +144,7 @@ struct DemoReplayIntegrationTests {
       (name: "prisoners_dilemma_demo", contents: prisonersDilemmaDemoYAML())
     ]
     return BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: resolver, config: integrationConfig)
+      yamls, presetResolver: resolver, config: integrationConfig, language: "ja")
   }
 
   static func waitForState(
@@ -213,7 +213,7 @@ struct DemoReplayIntegrationTests {
       (name: "ww", contents: Self.wordWolfDemoYAML())
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: Self.resolver, config: Self.integrationConfig)
+      yamls, presetResolver: Self.resolver, config: Self.integrationConfig, language: "ja")
     let viewModel = ReplayViewModel(
       sources: sources, config: Self.integrationConfig,
       contentFilter: ContentFilter())
@@ -292,7 +292,7 @@ struct DemoReplayIntegrationTests {
       (name: "ww", contents: Self.wordWolfDemoYAML())
     ]
     let sources = BundledDemoReplaySource.loadFromYAMLs(
-      yamls, presetResolver: Self.resolver, config: slowConfig)
+      yamls, presetResolver: Self.resolver, config: slowConfig, language: "ja")
     let viewModel = ReplayViewModel(
       sources: sources, config: slowConfig, contentFilter: ContentFilter())
     viewModel.start()
