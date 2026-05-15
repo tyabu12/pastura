@@ -2,6 +2,8 @@
 
 > Read this file in full before starting any task.
 
+> 📝 When editing this file, see "Reference Documents" first. README.md / CONTRIBUTING.md may need parallel updates.
+
 ## Current Phase
 
 **Phase 2: Expansion** — See `docs/ROADMAP.md` for scope.
@@ -246,7 +248,7 @@ same change:
 
 - Architecture / Hard Rules / Dependency Rules → README "Architecture",
   CONTRIBUTING "Design principles" (anchor links)
-- Tech Stack versions (Yams, GRDB) → README "Tech stack"
+- Tech Stack versions and platform (Swift, iOS minimum, Yams, GRDB) → README "Tech stack"
 - Bundled models (`ModelRegistry.swift`) → README "Supported LLM models"
 - Git Conventions → CONTRIBUTING "Workflow" / "Commits"
 - Directory Structure → README "Project layout"
