@@ -21,6 +21,31 @@ struct ModelRegistryTests {
     #expect(ModelRegistry.defaultInitialModelID == "gemma-4-e2b-q4-k-m")
   }
 
+  /// `recommendedModelID` is the picker-UI "推奨" badge source. Semantically
+  /// distinct from `defaultInitialModelID` (the resolve-order fallback), so
+  /// we only assert it resolves to a registered descriptor — NOT equality
+  /// with `defaultInitialModelID`. Asserting equality would create a brittle
+  /// "which one do I update?" test when the two diverge (e.g., a future
+  /// Qwen-recommended rollout).
+  @Test func recommendedModelID_resolvesToRegisteredDescriptor() {
+    #expect(ModelRegistry.lookup(id: ModelRegistry.recommendedModelID) != nil)
+  }
+
+  /// Gemma's UI metadata: tagline is set (non-empty) and shortDisplayName
+  /// strips the `(Q4_K_M)` quantization tag so the picker / settings can
+  /// show "Gemma 4 E2B" without exposing the quantization format.
+  @Test func gemma_taglineAndShortDisplayName_areSet() {
+    #expect(!ModelRegistry.gemma4E2B.tagline.isEmpty)
+    #expect(ModelRegistry.gemma4E2B.shortDisplayName != nil)
+    #expect(ModelRegistry.gemma4E2B.shortDisplayName?.contains("Q4_K_M") == false)
+  }
+
+  @Test func qwen_taglineAndShortDisplayName_areSet() {
+    #expect(!ModelRegistry.qwen34B.tagline.isEmpty)
+    #expect(ModelRegistry.qwen34B.shortDisplayName != nil)
+    #expect(ModelRegistry.qwen34B.shortDisplayName?.contains("Q4_K_M") == false)
+  }
+
   // Gemma upgrade-compat contract: filename must match the legacy constant
   // currently in ModelManager.swift. Changing this value without a migration
   // would force existing TestFlight users to re-download 3.1 GB.
