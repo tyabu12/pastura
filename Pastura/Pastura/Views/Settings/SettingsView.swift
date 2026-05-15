@@ -73,7 +73,7 @@ struct SettingsView: View {
       #endif
       Section {
         Button {
-          guard let url = URL(string: "https://tyabu12.github.io/pastura/legal/privacy-policy/")
+          guard let url = URL(string: "https://pastura.app/legal/privacy-policy/")
           else { return }
           openURL(url)
         } label: {
