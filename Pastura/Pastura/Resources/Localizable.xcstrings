@@ -193,6 +193,22 @@
         }
       }
     },
+    "%@ (%@) ↔ %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) ↔ %3$@ (%4$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (%@) ↔ %@ (%@)"
+          }
+        }
+      }
+    },
     "%@ assigned: %@" : {
       "localizations" : {
         "en" : {
@@ -231,6 +247,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ は考え中..."
+          }
+        }
+      }
+    },
+    "%@ needs about %@. Continue, or choose a lighter model?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ needs about %2$@. Continue, or choose a lighter model?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@は約%2$@を使います。続行しますか、軽量モデルに切り替えますか？"
+          }
+        }
+      }
+    },
+    "%@ was assigned: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ was assigned: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ に割り当て: %@"
+          }
+        }
+      }
+    },
+    "%@ was eliminated (%lld votes)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ was eliminated (%2$lld votes)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ が脱落 (%lld 票)"
           }
         }
       }
@@ -777,6 +841,16 @@
         }
       }
     },
+    "Agents run entirely on your device." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルのエージェントはあなたの端末上で動きます。"
+          }
+        }
+      }
+    },
     "Agents speak in turn (accumulating context)" : {
       "localizations" : {
         "ja" : {
@@ -883,6 +957,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "バックグラウンド継続"
+          }
+        }
+      }
+    },
+    "Balanced choice. Rich expression and measured reasoning." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バランス型。表現が豊かで、推論も落ち着いた応答。"
           }
         }
       }
@@ -1050,6 +1134,7 @@
       }
     },
     "Choose a model to start" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -1065,6 +1150,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "事前定義された選択肢から選ぶ"
+          }
+        }
+      }
+    },
+    "Choose your first model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最初の LLM モデルを選ぶ"
           }
         }
       }
@@ -1369,6 +1464,38 @@
         }
       }
     },
+    "Download %@ anyway, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download %1$@ anyway, %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@をそれでもダウンロード、%2$@"
+          }
+        }
+      }
+    },
+    "Download %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download %1$@, %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@をダウンロード、%2$@"
+          }
+        }
+      }
+    },
     "Download Failed" : {
       "localizations" : {
         "ja" : {
@@ -1595,6 +1722,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "イベント"
+          }
+        }
+      }
+    },
+    "Event: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Event: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント: %@"
           }
         }
       }
@@ -2433,6 +2576,7 @@
       }
     },
     "Nothing is sent to a server. The model lives on this device." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2562,6 +2706,16 @@
         }
       }
     },
+    "PASTURA · SETUP" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PASTURA · セットアップ"
+          }
+        }
+      }
+    },
     "Pairing" : {
       "localizations" : {
         "ja" : {
@@ -2583,6 +2737,7 @@
       }
     },
     "Pastura runs the conversation on your iPhone. Pick the model you'd like to download first — you can add the other one later from Settings." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2903,6 +3058,16 @@
         }
       }
     },
+    "Recommended" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推奨"
+          }
+        }
+      }
+    },
     "Recommended model" : {
       "localizations" : {
         "ja" : {
@@ -3149,6 +3314,16 @@
         }
       }
     },
+    "STORAGE" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ストレージ"
+          }
+        }
+      }
+    },
     "Save" : {
       "localizations" : {
         "ja" : {
@@ -3282,6 +3457,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "スコアボード"
+          }
+        }
+      }
+    },
+    "Scores — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scores — %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコア — %@"
           }
         }
       }
@@ -3470,6 +3661,7 @@
       }
     },
     "Start with %arg, %arg download" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3486,6 +3678,7 @@
       }
     },
     "Start with this model" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3527,6 +3720,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロードを停止しますか？"
+          }
+        }
+      }
+    },
+    "Storage is running low" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空き容量が少なめです"
           }
         }
       }
@@ -4026,6 +4229,22 @@
         }
       }
     },
+    "Votes — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votes — %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票 — %@"
+          }
+        }
+      }
+    },
     "Wait for Wi-Fi" : {
       "localizations" : {
         "ja" : {
@@ -4118,6 +4337,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "YAML が空です"
+          }
+        }
+      }
+    },
+    "You can add another model later." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "別のモデルはあとから追加できます。"
           }
         }
       }

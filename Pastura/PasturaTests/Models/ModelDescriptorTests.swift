@@ -58,6 +58,7 @@ struct ModelDescriptorTests {
     let descriptor = ModelDescriptor(
       id: "gemma-4-e2b-q4-k-m",
       displayName: "Gemma 4 E2B (Q4_K_M)",
+      shortDisplayName: "Gemma 4 E2B",
       vendor: "Google",
       vendorURL: vendorURL,
       downloadURL: downloadURL,
@@ -68,11 +69,13 @@ struct ModelDescriptorTests {
       minRAM: 6_000_000_000,
       modelInfoURL: modelInfoURL,
       systemPromptSuffix: "/no_think",
-      assistantPrefix: "<think>\n\n</think>\n\n"
+      assistantPrefix: "<think>\n\n</think>\n\n",
+      tagline: "Balanced choice."
     )
 
     #expect(descriptor.id == "gemma-4-e2b-q4-k-m")
     #expect(descriptor.displayName == "Gemma 4 E2B (Q4_K_M)")
+    #expect(descriptor.shortDisplayName == "Gemma 4 E2B")
     #expect(descriptor.vendor == "Google")
     #expect(descriptor.vendorURL == vendorURL)
     #expect(descriptor.downloadURL == downloadURL)
@@ -84,6 +87,7 @@ struct ModelDescriptorTests {
     #expect(descriptor.modelInfoURL == modelInfoURL)
     #expect(descriptor.systemPromptSuffix == "/no_think")
     #expect(descriptor.assistantPrefix == "<think>\n\n</think>\n\n")
+    #expect(descriptor.tagline == "Balanced choice.")
   }
 
   /// `assistantPrefix` is optional with a `nil` default to keep construction
@@ -92,6 +96,21 @@ struct ModelDescriptorTests {
   @Test func construction_assistantPrefixDefaultsToNil() {
     let descriptor = makeDescriptor()
     #expect(descriptor.assistantPrefix == nil)
+  }
+
+  /// `tagline` defaults to empty so test fixtures and historical callsites
+  /// don't need to thread it through. Production descriptors set it explicitly
+  /// in `ModelRegistry`.
+  @Test func construction_taglineDefaultsToEmpty() {
+    let descriptor = makeDescriptor()
+    #expect(descriptor.tagline.isEmpty)
+  }
+
+  /// `shortDisplayName` defaults to `nil` for the same reason; UI sites that
+  /// need a Q4_K_M-free label resolve to `displayName` when nil.
+  @Test func construction_shortDisplayNameDefaultsToNil() {
+    let descriptor = makeDescriptor()
+    #expect(descriptor.shortDisplayName == nil)
   }
 
   // MARK: - Hashable

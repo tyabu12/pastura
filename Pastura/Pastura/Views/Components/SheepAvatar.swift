@@ -172,7 +172,13 @@ extension SheepAvatar.Character {
   /// for arbitrary user-authored scenarios; callers that know the
   /// agent's canonical name can still omit `position` and fall
   /// through to step 2.
-  public static func forAgent(
+  /// `nonisolated` because this is a pure function (no MainActor state
+  /// access) and `ModelRow.character(for:)` — itself `nonisolated` for
+  /// pure-input testability — calls it as the unknown-descriptor
+  /// fallback. Without the annotation, the extension's implicit
+  /// MainActor binding makes the call unreachable from
+  /// `nonisolated` contexts (Pattern 3, `.claude/rules/swift-isolation.md`).
+  nonisolated public static func forAgent(
     _ name: String, position: Int? = nil
   ) -> SheepAvatar.Character {
     let cases = SheepAvatar.Character.allCases
