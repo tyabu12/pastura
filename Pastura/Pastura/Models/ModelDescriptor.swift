@@ -11,7 +11,20 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   public let id: ModelID
 
   /// Human-readable name shown in the UI (e.g., `"Gemma 4 E2B (Q4_K_M)"`).
+  ///
+  /// Includes the quantization tag (e.g., `(Q4_K_M)`) as the canonical
+  /// internal identifier. UI surfaces that should hide quantization
+  /// detail prefer `shortDisplayName` when non-nil.
   public let displayName: String
+
+  /// Optional shorter UI label that omits the quantization tag
+  /// (e.g., `"Gemma 4 E2B"` vs. `"Gemma 4 E2B (Q4_K_M)"`).
+  ///
+  /// `nil` means "fall back to `displayName`". Used by the first-launch
+  /// model picker and any UI following the design-system principle of
+  /// not exposing the quantization format on this surface (the user is
+  /// choosing a model, not a build variant).
+  public let shortDisplayName: String?
 
   /// Model publisher name (e.g., `"Google"`, `"Alibaba"`).
   public let vendor: String
@@ -66,6 +79,14 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// `nil` for models that need no prefill (Gemma 4 E2B).
   public let assistantPrefix: String?
 
+  /// User-facing tagline shown in the model picker — a single short sentence
+  /// describing the model's character ("Balanced choice. Rich expression
+  /// with measured reasoning."). Empty string when the descriptor was
+  /// constructed without picker UI in mind (test fixtures, future
+  /// descriptors not yet surfaced in the picker). UI sites must hide the
+  /// row when empty rather than render a blank line.
+  public let tagline: String
+
   /// Returns `true` iff `name` matches `^[A-Za-z0-9._-]+\.gguf$`.
   ///
   /// Use this to validate a candidate filename before constructing a `ModelDescriptor`.
@@ -76,10 +97,15 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
 
   /// Creates a new `ModelDescriptor` with all fields.
   ///
+  /// `shortDisplayName` and `tagline` are defaulted so historical test
+  /// fixtures don't need to thread them through; production descriptors
+  /// in `ModelRegistry` set them explicitly for picker UI.
+  ///
   /// - Precondition: `fileName` must match `^[A-Za-z0-9._-]+\.gguf$`.
   public init(
     id: ModelID,
     displayName: String,
+    shortDisplayName: String? = nil,
     vendor: String,
     vendorURL: URL,
     downloadURL: URL,
@@ -90,7 +116,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     minRAM: UInt64,
     modelInfoURL: URL,
     systemPromptSuffix: String?,
-    assistantPrefix: String? = nil
+    assistantPrefix: String? = nil,
+    tagline: String = ""
   ) {
     precondition(
       Self.isValidFileName(fileName),
@@ -98,6 +125,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     )
     self.id = id
     self.displayName = displayName
+    self.shortDisplayName = shortDisplayName
     self.vendor = vendor
     self.vendorURL = vendorURL
     self.downloadURL = downloadURL
@@ -109,6 +137,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     self.modelInfoURL = modelInfoURL
     self.systemPromptSuffix = systemPromptSuffix
     self.assistantPrefix = assistantPrefix
+    self.tagline = tagline
   }
 }
 
