@@ -10,8 +10,8 @@ Running local LLM multi-agent simulations on-device.
 </div>
 
 > 🚧 Pastura is under active development. The YAML format and on-device
-> data layout may still change. The first App Store submission is in
-> preparation.
+> data layout may still change. Not yet on the App Store or TestFlight.
+> Clone and run from Xcode to try it.
 
 ## What is Pastura
 
@@ -78,7 +78,9 @@ time. The trade-offs are documented in
 
 - Swift 6 (Xcode that supports it; CI runs on `macos-26`)
 - iOS 17.0 deployment target
-- iPhone 15 Pro or newer for on-device LLM testing (around 8 GB RAM)
+- iPhone with ~8 GB RAM for on-device LLM testing. `ModelRegistry.swift`
+  declares a 6.5 GB `minRAM` floor; in practice that's iPhone 15 Pro,
+  the iPhone 16 family (including 16e), or newer.
 - [Ollama](https://ollama.com) (optional) if you want non-mock LLM
   inference in Debug or on the Simulator
 
@@ -140,8 +142,7 @@ pastura/
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) for phase status and what ships
   next.
-- [`docs/decisions/`](docs/decisions/) for Architecture Decision Records
-  (ADR-001 through ADR-010).
+- [`docs/decisions/`](docs/decisions/) for Architecture Decision Records.
 - [`docs/specs/`](docs/specs/) for MVP and feature specifications.
 - [`docs/design/design-system.md`](docs/design/design-system.md) for
   design tokens, components, and philosophy.
