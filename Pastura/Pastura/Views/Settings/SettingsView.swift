@@ -73,8 +73,7 @@ struct SettingsView: View {
       #endif
       Section {
         Button {
-          guard let url = URL(string: "https://pastura.app/legal/privacy-policy/")
-          else { return }
+          guard let url = localizedPrivacyPolicyURL() else { return }
           openURL(url)
         } label: {
           HStack {
@@ -306,4 +305,29 @@ struct SettingsView: View {
       dependencies.regenerateLLMService(newService)
     }
   #endif
+}
+
+/// Returns the Privacy Policy URL appropriate for the device's UI shell locale.
+///
+/// Per ADR-010 D6, the UI-shell consumer reads `Bundle.main.preferredLocalizations`
+/// directly (Apple's standard `String(localized:)` resolution). `LocaleResolver` is
+/// deliberately NOT used here: its D2 scope is new-data creation seeds and
+/// multi-variant selection of stored content, not external URL routing for the
+/// shell itself. Routing the Privacy Policy link via `Bundle.main.preferredLocalizations`
+/// keeps `LocaleResolver`'s narrow D2 scope intact and matches the D6 prescription.
+///
+/// Japanese (`"ja"`) routes to `https://pastura.app/ja/legal/privacy-policy/`
+/// (mirrored at `pages/ja/legal/privacy-policy/`); every other locale falls
+/// through to the English page at `https://pastura.app/legal/privacy-policy/`.
+///
+/// - Parameter preferredLocalizations: Injectable for unit tests. Production callers
+///   pass `Bundle.main.preferredLocalizations` (the default).
+internal func localizedPrivacyPolicyURL(
+  preferredLocalizations: [String] = Bundle.main.preferredLocalizations
+) -> URL? {
+  let path =
+    preferredLocalizations.first == "ja"
+    ? "https://pastura.app/ja/legal/privacy-policy/"
+    : "https://pastura.app/legal/privacy-policy/"
+  return URL(string: path)
 }

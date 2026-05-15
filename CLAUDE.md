@@ -2,6 +2,8 @@
 
 > Read this file in full before starting any task.
 
+> 📝 When editing this file, see "Reference Documents" first. README.md / CONTRIBUTING.md may need parallel updates.
+
 ## Current Phase
 
 **Phase 2: Expansion** — See `docs/ROADMAP.md` for scope.
@@ -158,7 +160,7 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 
 ### Git Conventions
 
-- **Branch:** `feature/<description>`, `fix/<description>`
+- **Branch:** `feature/<description>`, `fix/<description>`, `docs/<description>`
 - **Branch ops:** Prefer `git switch <branch>` / `git switch -c <branch>` over `git checkout`.
   Never use `git switch` with `--discard-changes`, `--force`, `-f`, or `-C` — they discard
   uncommitted work or overwrite branch refs.
@@ -239,8 +241,24 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 
 ## Reference Documents
 
-| Document                              | Content                                     |
-|---------------------------------------|---------------------------------------------|
+`README.md` and `CONTRIBUTING.md` at the project root are public-facing
+mirrors of parts of this document. When updating one of the following in
+this document (or in source), check whether the public docs need the
+same change:
+
+- Architecture / Hard Rules / Dependency Rules → README "Architecture",
+  CONTRIBUTING "Design principles" (anchor links)
+- Tech Stack versions and platform (Swift, iOS minimum, Yams, GRDB) → README "Tech stack"
+- Bundled models (`ModelRegistry.swift`) → README "Supported LLM models"
+- Git Conventions → CONTRIBUTING "Workflow" / "Commits"
+- Directory Structure → README "Project layout"
+- i18n workflow / ContentBlocklist procedure → CONTRIBUTING "Before
+  your first PR"
+
+| Document                              | Content                                                                       |
+|---------------------------------------|-------------------------------------------------------------------------------|
+| `README.md`                           | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
+| `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
 | `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
 | `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
