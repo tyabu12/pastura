@@ -173,6 +173,59 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     cachesDirectoryURL.appendingPathComponent(descriptor.fileName + ".download")
   }
 
+  // MARK: - Storage
+
+  /// Safety margin added on top of `modelSizeBytes` when deciding whether to
+  /// warn the user. 1 GB (decimal) — large enough that the download leaves
+  /// breathing room for the OS to grow tmp/caches during the 3 GB transfer
+  /// without triggering an out-of-space failure mid-flight.
+  ///
+  /// Decimal (`1_000_000_000`) matches what Settings → General → Storage
+  /// reports back to the user, so the warning threshold matches their
+  /// mental model.
+  ///
+  /// `nonisolated` because `isLowStorage` (below) is `nonisolated static`
+  /// and references this constant — without the annotation, the implicit
+  /// MainActor on this property would make the pure function unreachable
+  /// from non-MainActor test contexts.
+  nonisolated static let lowStorageMarginBytes: Int64 = 1_000_000_000
+
+  /// Decides whether the picker should surface a "low storage" warning sheet
+  /// before starting a download. Pure-input function — no `self` access,
+  /// no filesystem touching — so tests can plant boundary cases without
+  /// stubbing `URLResourceValues`.
+  ///
+  /// - Parameters:
+  ///   - modelSizeBytes: Expected on-disk size of the model to download.
+  ///   - availableBytes: Free space available for important usage, as
+  ///     reported by `URLResourceValues.volumeAvailableCapacityForImportantUsage`,
+  ///     or `nil` when the volume cannot report a capacity.
+  /// - Returns: `true` iff `availableBytes` is non-nil AND
+  ///   `availableBytes < modelSizeBytes + lowStorageMarginBytes`. `nil`
+  ///   intentionally falls through to `false` — we trust the OS rather
+  ///   than block downloads on missing data (corp-managed devices and
+  ///   some external volumes don't expose a capacity figure).
+  nonisolated static func isLowStorage(modelSizeBytes: Int64, availableBytes: Int64?) -> Bool {
+    guard let available = availableBytes else { return false }
+    return available < modelSizeBytes + lowStorageMarginBytes
+  }
+
+  /// Free space available for important usage at the model directory's
+  /// volume, in bytes. Returns `nil` when the volume cannot report a
+  /// capacity (rare — typically only happens on corp-managed devices
+  /// and some external storage configurations).
+  ///
+  /// Thin shim over `URLResourceValues.volumeAvailableCapacityForImportantUsage`;
+  /// the actual decision logic lives in the pure `isLowStorage(...)`
+  /// function above, which the picker UI consumes.
+  func availableStorageBytes() -> Int64? {
+    let keys: Set<URLResourceKey> = [.volumeAvailableCapacityForImportantUsageKey]
+    guard let values = try? modelDirectoryURL.resourceValues(forKeys: keys) else {
+      return nil
+    }
+    return values.volumeAvailableCapacityForImportantUsage
+  }
+
   // MARK: - Convenience (active model)
 
   /// `true` iff `PasturaApp.initialize` should route first-launch through the
