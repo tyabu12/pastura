@@ -24,6 +24,7 @@ enum ModelRegistry {
   nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
     id: "gemma-4-e2b-q4-k-m",
     displayName: "Gemma 4 E2B (Q4_K_M)",
+    shortDisplayName: "Gemma 4 E2B",
     vendor: "Google",
     vendorURL: unsafeURL("https://deepmind.google"),
     downloadURL: unsafeURL(
@@ -35,12 +36,14 @@ enum ModelRegistry {
     stopSequence: "<|im_end|>",
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
-    systemPromptSuffix: nil
+    systemPromptSuffix: nil,
+    tagline: String(localized: "Balanced choice. Rich expression and measured reasoning.")
   )
 
   nonisolated static let qwen34B: ModelDescriptor = ModelDescriptor(
     id: "qwen-3-4b-q4-k-m",
     displayName: "Qwen 3 4B (Q4_K_M)",
+    shortDisplayName: "Qwen 3 4B",
     vendor: "Alibaba",
     vendorURL: unsafeURL("https://qwenlm.github.io"),
     downloadURL: unsafeURL(
@@ -60,14 +63,33 @@ enum ModelRegistry {
     // The `/no_think` system suffix above is a soft training hint that does
     // not prevent the leading `<think>` token; the prefill is the load-bearing
     // fix. `/no_think` stays as belt-and-suspenders.
-    assistantPrefix: "<think>\n\n</think>\n\n"
+    assistantPrefix: "<think>\n\n</think>\n\n",
+    // Reuses an existing translated catalog key (originally the conditional
+    // `ModelPickerView.hint(for:)` for `/no_think` descriptors). Item 6 of
+    // the picker redesign removes that helper and routes the tagline through
+    // this field instead.
+    tagline: String(localized: "Lightweight reasoning mode — faster responses, leaner footprint.")
   )
 
   /// Full production catalog, ordered by display preference (Gemma first, Qwen second).
   nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).
+  ///
+  /// Distinct from `recommendedModelID`: this drives `ModelManager.resolveInitialActiveID`
+  /// as the resolve-order fallback when no persisted active id exists. It is NOT the
+  /// picker UI's "推奨" badge source — picker consults `recommendedModelID` instead.
   nonisolated static let defaultInitialModelID: ModelID = gemma4E2B.id
+
+  /// ID surfaced in the first-launch model picker as the "推奨" badge.
+  ///
+  /// Identity-distinct from `defaultInitialModelID` (the onboarding fallback) so
+  /// future schemas — multi-recommended models, conditional recommendation by
+  /// device class, A/B-tested rollouts — don't have to reshape the fallback field.
+  /// Currently aliases to the same value as `defaultInitialModelID`, but the two
+  /// must not be tested for equality; tests should assert each independently
+  /// against the registered catalog.
+  nonisolated static let recommendedModelID: ModelID = gemma4E2B.id
 
   /// Returns the catalog descriptor matching `id`, or `nil` if no descriptor exists.
   ///
