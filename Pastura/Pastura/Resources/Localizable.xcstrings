@@ -787,6 +787,9 @@
         }
       }
     },
+    "Agents run entirely on your device." : {
+
+    },
     "Agents speak in turn (accumulating context)" : {
       "localizations" : {
         "ja" : {
@@ -1063,6 +1066,7 @@
       }
     },
     "Choose a model to start" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -1081,6 +1085,9 @@
           }
         }
       }
+    },
+    "Choose your first model" : {
+
     },
     "Close this sheet to open the shared scenario" : {
       "localizations" : {
@@ -1388,6 +1395,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Download %1$@ anyway, %2$@"
+          }
+        }
+      }
+    },
+    "Download %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Download %1$@, %2$@"
           }
         }
       }
@@ -2456,6 +2473,7 @@
       }
     },
     "Nothing is sent to a server. The model lives on this device." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2585,6 +2603,9 @@
         }
       }
     },
+    "PASTURA · SETUP" : {
+
+    },
     "Pairing" : {
       "localizations" : {
         "ja" : {
@@ -2606,6 +2627,7 @@
       }
     },
     "Pastura runs the conversation on your iPhone. Pick the model you'd like to download first — you can add the other one later from Settings." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3499,6 +3521,7 @@
       }
     },
     "Start with %arg, %arg download" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3515,6 +3538,7 @@
       }
     },
     "Start with this model" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4153,6 +4177,9 @@
           }
         }
       }
+    },
+    "You can add another model later." : {
+
     },
     "You can keep multiple models on this device. Only the active one is loaded in memory." : {
       "localizations" : {
