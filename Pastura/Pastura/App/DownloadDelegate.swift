@@ -1,43 +1,11 @@
 import Foundation
 import os
 
-// MARK: - Download Result
-
-/// Value returned from `DownloadDelegate` to `URLSessionModelDownloader`'s
-/// per-task continuation. Internal-by-default (was `private` in
-/// `ModelDownloader.swift` before the file was split for `file_length` cap;
-/// sibling-file access requires module-internal visibility).
-struct DownloadResult: Sendable {
-  let tempURL: URL
-  let statusCode: Int
-}
-
-// MARK: - Per-Task State
-
-/// State held in `DownloadDelegate.taskStates` for one in-flight task, keyed
-/// by `URLSessionTask.taskIdentifier`.
-///
-/// - `resumeOffset`: added to URLSession's `totalBytesWritten` so reported
-///   progress reflects the absolute byte position when resuming via the
-///   explicit `Range:` header path.
-/// - `progressHandler`: caller-supplied `@Sendable` closure invoked from the
-///   delegate queue.
-/// - `continuation`: per-task `CheckedContinuation`, resumed exactly once in
-///   `didCompleteWithError`.
-/// - `downloadedFileURL`: temp URL where `didFinishDownloadingTo` staged the
-///   file (set on success, consumed by `didCompleteWithError`).
-struct PerTaskState: Sendable {
-  // All fields are Sendable: Int64 / Sendable closure / CheckedContinuation
-  // (Sendable since Swift 5.7 when T+E are Sendable — DownloadResult is
-  // Sendable, `any Error` is implicitly Sendable via the error-throwing
-  // contract) / URL?. The mutable `var downloadedFileURL` is fine for
-  // value-type Sendable; the struct is always dict-stored under
-  // `OSAllocatedUnfairLock`, so mutation race is structurally precluded.
-  let resumeOffset: Int64
-  let progressHandler: @Sendable (Int64, Int64) -> Void
-  let continuation: CheckedContinuation<DownloadResult, any Error>
-  var downloadedFileURL: URL?
-}
+// Inner types (`DownloadResult`, `PerTaskState`, `ForegroundState`,
+// `ForegroundProgressDispatch`) live in `DownloadDelegateTypes.swift` to
+// keep this file under the 400-line cap. PR2's enum refactor pushed total
+// content past the boundary; extracting passive value types is cheaper than
+// disabling `file_length`.
 
 // MARK: - Download Delegate
 
@@ -47,21 +15,27 @@ struct PerTaskState: Sendable {
 /// ## Why keyed by `taskIdentifier`, not URL
 ///
 /// The same download URL can produce two distinct `URLSessionDownloadTask`
-/// instances during retry-overlap or future cross-launch reattach paths (PR2).
-/// Keying by `URLSessionTask.taskIdentifier` — process-unique per session —
-/// avoids the URL collision.
+/// instances during retry-overlap or cross-launch reattach (PR2). Keying by
+/// `URLSessionTask.taskIdentifier` — process-unique per session — avoids
+/// the URL collision.
 ///
 /// ## Threading
 ///
 /// - URLSession invokes the `URLSessionDownloadDelegate` protocol methods on
 ///   the session's serial delegate queue (off-MainActor; `delegateQueue: nil`
 ///   creates a private serial `OperationQueue`).
-/// - `register(taskIdentifier:...)` is called synchronously from
+/// - Foreground `register(taskIdentifier:...)` is called synchronously from
 ///   `URLSessionModelDownloader.download(...)` (nonisolated context) before
 ///   `URLSessionDownloadTask.resume()`, so the per-task state is always in
 ///   the map before the first `didWriteData` callback fires.
-/// - `taskStates` is guarded by `OSAllocatedUnfairLock` to coordinate the two
-///   access paths.
+/// - Reattach `registerReattachedIfAbsent(...)` is called INSIDE the
+///   `session.getAllTasks` completion handler — which runs on the same serial
+///   delegate queue. Because the queue is serial, no other delegate callback
+///   for the same task can interleave between getAllTasks's enumeration and
+///   the per-task `.reattached` registration. The "no-entry" race window
+///   the round-3 critic flagged is closed by this ordering.
+/// - `taskStates` is guarded by `OSAllocatedUnfairLock` to coordinate the
+///   register / dispatch / termination access paths.
 ///
 /// ## Lifecycle
 ///
@@ -86,19 +60,36 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
   // @unchecked Sendable: `taskStates` — the only mutable state — is guarded
   // by `OSAllocatedUnfairLock`.
 
-  /// Per-task state map. Lifecycle:
-  /// - Entry added in `register(...)` before `task.resume()`.
-  /// - `downloadedFileURL` slot mutated in `didFinishDownloadingTo`.
-  /// - Entry atomically removed and consumed in `didCompleteWithError`,
-  ///   where the continuation is resumed exactly once.
+  /// Per-task state map. Entries are added by `register` (foreground) or
+  /// `registerReattachedIfAbsent` (PR2 reattach), mutated in
+  /// `didFinishDownloadingTo`, and atomically removed in
+  /// `didCompleteWithError` or `handleReattachedStreamTermination`.
   private let taskStates: OSAllocatedUnfairLock<[Int: PerTaskState]> = .init(initialState: [:])
+
+  /// Optional BG completion handler from `application(_:handleEventsForBackgroundURLSession:)`.
+  /// Stored under lock; extracted-and-cleared atomically in
+  /// `urlSessionDidFinishEvents(forBackgroundURLSession:)` and dispatched
+  /// to the main queue per Apple's contract. Slot stays `nil` when the app
+  /// is foregrounded normally; the delegate firing in that path is a no-op.
+  ///
+  /// We rely on Apple's documented ordering: the AppDelegate method
+  /// (`application(_:handleEventsForBackgroundURLSession:completionHandler:)`)
+  /// fires BEFORE the recreated URLSession's `urlSessionDidFinishEvents`
+  /// for the same session identifier. See
+  /// `https://developer.apple.com/documentation/uikit/uiapplicationdelegate/application(_:handleeventsforbackgroundurlsession:completionhandler:)`.
+  ///
+  /// Used by PR2's `URLSessionModelDownloader.setBackgroundCompletionHandler(_:)`.
+  fileprivate let backgroundCompletionHandler: OSAllocatedUnfairLock<(@Sendable () -> Void)?> =
+    .init(initialState: nil)
 
   /// `.debug`-level logger for delegate-internal trace. The notice-level
   /// telemetry lives on `URLSessionModelDownloader`.
   private static let logger = Logger(
     subsystem: "com.tyabu12.Pastura", category: "DownloadDelegate")
 
-  /// Registers per-task state for a freshly-created `URLSessionDownloadTask`.
+  // MARK: - Registration
+
+  /// Registers per-task state for a foreground `URLSessionDownloadTask`.
   ///
   /// Must be called BEFORE `URLSessionDownloadTask.resume()` — URLSession
   /// can fire `didWriteData` on its first packet, and an empty map at that
@@ -109,13 +100,78 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
     progressHandler: @Sendable @escaping (Int64, Int64) -> Void,
     continuation: CheckedContinuation<DownloadResult, any Error>
   ) {
-    let state = PerTaskState(
+    let inner = ForegroundState(
       resumeOffset: resumeOffset,
       progressHandler: progressHandler,
       continuation: continuation,
       downloadedFileURL: nil
     )
-    taskStates.withLock { $0[taskIdentifier] = state }
+    taskStates.withLock { $0[taskIdentifier] = .foreground(inner) }
+  }
+
+  /// PR2 reattach: registers a `.reattached` slot for an OS-handed-back
+  /// background task. Returns `false` if a slot already exists (foreground
+  /// download in flight on the same taskIdentifier — defensive guard against
+  /// a hypothetical caller mistake). Caller must finish the continuation if
+  /// `false` is returned, to release the consumer.
+  func registerReattachedIfAbsent(
+    taskIdentifier: Int,
+    streamContinuation: AsyncStream<DownloadEvent>.Continuation
+  ) -> Bool {
+    taskStates.withLock { map in
+      if map[taskIdentifier] != nil { return false }
+      map[taskIdentifier] = .reattached(
+        streamContinuation: streamContinuation, stagedFileURL: nil)
+      return true
+    }
+  }
+
+  /// PR2 reattach: invoked from the AsyncStream's `onTermination` closure
+  /// when the consumer drops the iterator (or the downloader calls
+  /// `continuation.finish()` for any reason — including the slot-occupied
+  /// branch in `URLSessionModelDownloader.attachToInFlight`, which builds
+  /// a stream and then `finish()`s it when registration is skipped).
+  ///
+  /// Only `.reattached` entries are managed by this method — `.foreground`
+  /// entries (PR1 download flow) MUST be left intact because their
+  /// `CheckedContinuation` is resumed by `didCompleteWithError`. Removing a
+  /// foreground entry here would strand the caller's `await
+  /// download(...)` permanently.
+  ///
+  /// Sequencing notes:
+  /// - **Happy path** (consumer iterates `.completed` then exits the loop):
+  ///   `didCompleteWithError` already removed the entry. This method's
+  ///   `case .reattached` guard fails → no-op (consumer owns the staged file).
+  /// - **Consumer-drop path** (consumer dies before terminal event):
+  ///   entry is still `.reattached` in the map. Remove it and delete the
+  ///   staged file if present.
+  /// - **Slot-occupied finish path** (attach hit an existing `.foreground`
+  ///   slot, called `finish()` on its locally-built stream): entry remains
+  ///   `.foreground` — the `case .reattached` guard fails and we leave it
+  ///   alone so its continuation can still resume.
+  /// - **Failure path** (`.failed` yielded): `didCompleteWithError` already
+  ///   deleted the staged file and removed the entry. Same no-op as happy path.
+  func handleReattachedStreamTermination(taskIdentifier: Int) {
+    let stagedFileURL: URL? = taskStates.withLock { map in
+      guard case .reattached(_, let url) = map[taskIdentifier] else { return nil }
+      map.removeValue(forKey: taskIdentifier)
+      return url
+    }
+    if let stagedFileURL {
+      try? FileManager.default.removeItem(at: stagedFileURL)
+    }
+  }
+
+  /// PR2 reattach + test inspection: returns the currently-staged file URL
+  /// for a reattached task, or `nil` if the entry doesn't exist or hasn't
+  /// reached `didFinishDownloadingTo` yet.
+  func stagedFileURL(forTaskIdentifier id: Int) -> URL? {
+    taskStates.withLock { map in
+      if case .reattached(_, let url) = map[id] {
+        return url
+      }
+      return nil
+    }
   }
 
   // MARK: - URLSessionDownloadDelegate
@@ -127,20 +183,44 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
     totalBytesWritten: Int64,
     totalBytesExpectedToWrite: Int64
   ) {
-    // Snapshot resumeOffset + handler under the lock; invoke handler outside.
-    // Holding the lock across the user callback risks deadlock if the handler
-    // (in a future iteration) calls back into a downloader API that also
-    // touches taskStates.
-    let snapshot = taskStates.withLock { map -> (Int64, (@Sendable (Int64, Int64) -> Void))? in
-      guard let state = map[downloadTask.taskIdentifier] else { return nil }
-      return (state.resumeOffset, state.progressHandler)
+    // Snapshot under lock; mutate / yield as appropriate. Reattach yields
+    // directly inside the lock (AsyncStream.Continuation.yield is non-blocking
+    // — see `.claude/rules/swift-isolation.md` adjacent rule on no-await-
+    // under-lock; pure yield is safe). Foreground callback is captured and
+    // invoked OUTSIDE the lock to avoid handler-reentrant deadlock.
+    let foregroundCall: ForegroundProgressDispatch? = taskStates.withLock { map in
+      switch map[downloadTask.taskIdentifier] {
+      case .foreground(let inner):
+        let received = inner.resumeOffset + totalBytesWritten
+        let total: Int64 =
+          totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown
+          ? inner.resumeOffset + totalBytesExpectedToWrite : -1
+        return ForegroundProgressDispatch(
+          received: received, total: total, handler: inner.progressHandler)
+      case .reattached(let cont, _):
+        let fraction: Double
+        if totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown,
+          totalBytesExpectedToWrite > 0 {
+          fraction = min(
+            Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 1.0)
+        } else {
+          // Unknown total: yield 0.0. UI consumers (ModelDownloadView via
+          // `state[descriptor.id] == .downloading(progress:)`) read the
+          // fraction directly — a stable 0.0 surfaces as "starting" rather
+          // than a fake-progress estimate that would mislead. Hugging Face
+          // GGUF URLs always return `Content-Length` so this branch is
+          // theoretical for production reattach.
+          fraction = 0.0
+        }
+        cont.yield(.progress(fraction))
+        return nil
+      case nil:
+        return nil
+      }
     }
-    guard let (resumeOffset, handler) = snapshot else { return }
-    let received = resumeOffset + totalBytesWritten
-    let total: Int64 =
-      totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown
-      ? resumeOffset + totalBytesExpectedToWrite : -1
-    handler(received, total)
+    if let foregroundCall {
+      foregroundCall.handler(foregroundCall.received, foregroundCall.total)
+    }
   }
 
   func urlSession(
@@ -150,7 +230,10 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
   ) {
     // URLSession deletes the file at `location` after this method returns.
     // Move it to a stable temp path so `didCompleteWithError` can hand it to
-    // the continuation safely.
+    // the consumer safely. Move happens UNCONDITIONALLY (also when no entry
+    // exists in the map) so we never lose the file to URLSession's auto-
+    // delete — the file is then either picked up by a subsequent state
+    // transition or leaks (rare "cold-completion race" — see class header).
     let tempCopy = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString + ".gguf.tmp")
     let movedURL: URL?
@@ -166,7 +249,25 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
         """)
       movedURL = nil
     }
-    taskStates.withLock { $0[downloadTask.taskIdentifier]?.downloadedFileURL = movedURL }
+    taskStates.withLock { map in
+      switch map[downloadTask.taskIdentifier] {
+      case .foreground(var inner):
+        inner.downloadedFileURL = movedURL
+        map[downloadTask.taskIdentifier] = .foreground(inner)
+      case .reattached(let cont, _):
+        map[downloadTask.taskIdentifier] = .reattached(
+          streamContinuation: cont, stagedFileURL: movedURL)
+      case nil:
+        // Cold-completion race: task completed before reattach registered.
+        // tempCopy leaks (acceptable — see class header rationale).
+        Self.logger.debug(
+          """
+          didFinishDownloadingTo: unregistered taskID=\
+          \(downloadTask.taskIdentifier, privacy: .public) \
+          — staged file may leak
+          """)
+      }
+    }
   }
 
   // MARK: - URLSessionTaskDelegate
@@ -176,23 +277,20 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
     task: URLSessionTask,
     didCompleteWithError error: (any Error)?
   ) {
-    // Atomic remove-and-extract: the entry is gone from the map before the
-    // continuation resumes. Prevents a hypothetical future task with the
-    // same `taskIdentifier` (process-unique within a session, but could
-    // overlap during cross-launch reattach in PR2) from colliding with
-    // stale state.
+    // Atomic remove-and-extract: the entry is gone from the map BEFORE we
+    // dispatch to the foreground continuation or stream. This ordering
+    // (removeValue → dispatch) is load-bearing because PR2's reattach can
+    // overlap a future task with the same `taskIdentifier`; keeping
+    // dispatch on the removed value prevents stale-state collision and is
+    // already correct in PR1.
     let state = taskStates.withLock { $0.removeValue(forKey: task.taskIdentifier) }
     guard let state else {
-      // Spurious callback for an unregistered task. In PR1 this is genuinely
-      // unexpected (we cancel orphans on cold start; no other path produces
-      // unregistered tasks), so log at `.error` for visibility.
-      //
-      // TODO(PR2): When `attachToInFlight` lands, callbacks for tasks created
-      // in a prior process generation become routine (the OS delivers them
-      // before the reattach map is populated, in the narrow window between
-      // session construction and reattach). Drop this log level to `.debug`
-      // or remove the branch entirely depending on the reattach design.
-      Self.logger.error(
+      // Spurious callback for an unregistered task. PR2's reattach path
+      // registers via `registerReattachedIfAbsent` INSIDE the getAllTasks
+      // completion handler (same serial delegate queue), so this branch
+      // is a defensive fallback — not a routine path. `.debug` is the
+      // right level: the event is benign and not actionable.
+      Self.logger.debug(
         """
         didCompleteWithError: unregistered taskID=\(task.taskIdentifier, privacy: .public) \
         — ignoring (no PerTaskState in map)
@@ -200,24 +298,86 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
       return
     }
 
+    switch state {
+    case .foreground(let inner):
+      dispatchForegroundCompletion(state: inner, task: task, error: error)
+    case .reattached(let cont, let stagedFileURL):
+      dispatchReattachedCompletion(
+        continuation: cont, stagedFileURL: stagedFileURL, error: error)
+    }
+  }
+
+  private func dispatchForegroundCompletion(
+    state: ForegroundState, task: URLSessionTask, error: (any Error)?
+  ) {
     if let error {
       state.continuation.resume(throwing: error)
       return
     }
-
     guard let tempURL = state.downloadedFileURL else {
       state.continuation.resume(throwing: URLError(.cannotCreateFile))
       return
     }
-
     let statusCode = (task.response as? HTTPURLResponse)?.statusCode ?? 200
-
     guard statusCode == 200 || statusCode == 206 else {
       try? FileManager.default.removeItem(at: tempURL)
       state.continuation.resume(throwing: URLError(.badServerResponse))
       return
     }
-
     state.continuation.resume(returning: DownloadResult(tempURL: tempURL, statusCode: statusCode))
+  }
+
+  private func dispatchReattachedCompletion(
+    continuation: AsyncStream<DownloadEvent>.Continuation,
+    stagedFileURL: URL?,
+    error: (any Error)?
+  ) {
+    if let error {
+      continuation.yield(.failed(error))
+      continuation.finish()
+      // Error path: staged file (if any) is unconsumable; delete to avoid leak.
+      if let stagedFileURL {
+        try? FileManager.default.removeItem(at: stagedFileURL)
+      }
+      return
+    }
+    guard let stagedFileURL else {
+      continuation.yield(.failed(URLError(.cannotCreateFile)))
+      continuation.finish()
+      return
+    }
+    // Success: consumer takes ownership of `stagedFileURL`. Do NOT delete
+    // here — `ModelManager.finalizeReattachedDownload` will move it to
+    // Application Support.
+    continuation.yield(.completed(modelURL: stagedFileURL))
+    continuation.finish()
+  }
+
+  // MARK: - URLSessionDelegate (BG completion events)
+
+  /// Fired after all enqueued events for the relaunched-via-BG session have
+  /// been delivered. Drains the stored completion handler (set by
+  /// `PasturaAppDelegate` via `URLSessionModelDownloader.setBackgroundCompletionHandler`)
+  /// on the main queue, satisfying iOS's "handler must run on main queue"
+  /// contract.
+  func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+    let handler = backgroundCompletionHandler.withLock { slot -> (@Sendable () -> Void)? in
+      let captured = slot
+      slot = nil
+      return captured
+    }
+    if let handler {
+      DispatchQueue.main.async { handler() }
+    }
+  }
+}
+
+extension DownloadDelegate {
+  /// PR2 / PR3 wiring point: stores the OS-supplied BG-completion handler
+  /// so `urlSessionDidFinishEvents` can fire it on the main queue. Exposed
+  /// to `URLSessionModelDownloader.setBackgroundCompletionHandler(_:)` —
+  /// `fileprivate` on the storage slot keeps the API surface narrow.
+  func storeBackgroundCompletionHandler(_ handler: (@Sendable () -> Void)?) {
+    backgroundCompletionHandler.withLock { $0 = handler }
   }
 }

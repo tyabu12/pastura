@@ -23,23 +23,6 @@ extension URLSessionModelDownloaderTests {
     #expect(first === second)
   }
 
-  // MARK: - Orphan cleanup (PR1 item 2 prep)
-
-  @Test("cancelInFlightTasks completes on a session with no in-flight tasks")
-  func cancelInFlightTasksCompletesOnEmptySession() async {
-    // Smoke test for the `getAllTasks` path. The session has no tasks
-    // (no `download(...)` was ever called), so `getAllTasks` returns an
-    // empty array and `cancelInFlightTasks` resumes immediately. Verifies
-    // the URLSession plumbing doesn't deadlock or crash when there is
-    // nothing to cancel — the common case at cold start when the user
-    // has never started a BG download.
-    let config = URLSessionConfiguration.ephemeral
-    config.protocolClasses = [CapturingMockURLProtocol.self]
-    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
-    await downloader.cancelInFlightTasks()
-    // No assertions: the test passes if `await` returns.
-  }
-
   @Test("two consecutive downloads on the same instance both succeed")
   func twoConsecutiveDownloadsSucceedOnSameInstance() async throws {
     // Regression guard for the singleton-session refactor: with the old
@@ -86,5 +69,30 @@ extension URLSessionModelDownloaderTests {
     let attrsB = try FileManager.default.attributesOfItem(atPath: destB.path)
     #expect((attrsA[.size] as? Int64) == Int64(bodySize))
     #expect((attrsB[.size] as? Int64) == Int64(bodySize))
+  }
+
+  // MARK: - attachToInFlight (PR2 item 2)
+
+  @Test("attachToInFlight on a session with no in-flight tasks returns empty map")
+  func attachToInFlightOnEmptySessionReturnsEmpty() async {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+    let map = await downloader.attachToInFlight()
+    #expect(map.isEmpty)
+  }
+
+  // MARK: - cancel(url:) (PR2 item 2)
+
+  @Test("cancel(url:) on a URL with no matching task is a safe no-op")
+  func cancelUnknownURLIsNoOp() async {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [CapturingMockURLProtocol.self]
+    let downloader = URLSessionModelDownloader(sessionConfiguration: config)
+    await downloader.cancel(url: URL(string: "https://example.com/missing.gguf")!)
+    // No assertion: the test passes if `await` returns and the resume-data
+    // cache stays empty (no spurious blob writes).
+    #expect(
+      downloader.cachedResumeData(for: URL(string: "https://example.com/missing.gguf")!) == nil)
   }
 }
