@@ -235,6 +235,16 @@
         }
       }
     },
+    "%@ needs about %@. Continue, or choose a lighter model?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ needs about %2$@. Continue, or choose a lighter model?"
+          }
+        }
+      }
+    },
     "%arg (%arg) requires field '%arg' in output." : {
       "localizations" : {
         "en" : {
@@ -1368,6 +1378,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ をダウンロード"
+          }
+        }
+      }
+    },
+    "Download %@ anyway, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Download %1$@ anyway, %2$@"
           }
         }
       }
@@ -3152,6 +3172,9 @@
         }
       }
     },
+    "STORAGE" : {
+
+    },
     "Save" : {
       "localizations" : {
         "ja" : {
@@ -3533,6 +3556,9 @@
           }
         }
       }
+    },
+    "Storage is running low" : {
+
     },
     "Strategy" : {
       "localizations" : {
