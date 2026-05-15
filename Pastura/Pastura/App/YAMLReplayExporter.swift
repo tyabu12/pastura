@@ -147,7 +147,8 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     sections.append(renderPresetRef(input: input))
     sections.append(
       renderMetadata(
-        input: input, totalTurns: totalTurns,
+        input: input, scenarioLanguage: scenario.language,
+        totalTurns: totalTurns,
         estimatedDurationMs: estimatedDurationMs))
     sections.append(renderTurns(turns: sortedTurns, phaseIndices: turnPhaseIndices))
     if !sortedEvents.isEmpty {
@@ -171,13 +172,17 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   }
 
   private func renderMetadata(
-    input: Input, totalTurns: Int, estimatedDurationMs: Int
+    input: Input, scenarioLanguage: String,
+    totalTurns: Int, estimatedDurationMs: Int
   ) -> String {
     var lines: [String] = ["metadata:"]
     lines.append("  title: \(Self.yamlValue(input.scenario.name))")
     lines.append("  description: \(Self.yamlValue("", indent: 2))")
-    // Phase 2 ship is JA-only (spec §2 decision 12 / §5.5).
-    lines.append("  language: ja")
+    // Locale follows the parsed `Scenario.language`; ADR-010 Step D landed
+    // EN presets in PR #393, superseding spec §2 decision 12 / §5.5 (JA-only).
+    // Pairs with the locale-dependent `summary:` line emitted by
+    // ``summary(for:filter:)`` so metadata and content stay consistent.
+    lines.append("  language: \(scenarioLanguage)")
     lines.append("  recorded_at: \(Self.iso8601(now))")
     let model = input.simulation.modelIdentifier ?? ""
     lines.append("  recorded_with_model: \(Self.yamlValue(model))")
@@ -440,20 +445,32 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   /// Human-readable one-line summary for a code-phase payload. Pattern
   /// mirrors ``ResultMarkdownExporter/renderCodePhasePayload(_:)`` so
   /// the YAML reads the same way the Markdown export does.
+  ///
+  /// **Cross-locale behaviour.** Output is emitted in the export-device
+  /// UI locale because the format strings flow through
+  /// `String(localized:)`. The `summary:` line is a human-readable
+  /// hint — the structured `payload:` stanza emitted alongside it is
+  /// the source of truth for replay reconstruction
+  /// (``YAMLReplaySource/parseCodePhaseEvent(_:)`` uses `summary:` only
+  /// when `payload.kind == "summary"` is genuinely an unstructured
+  /// narrative). Bundled `Resources/DemoReplays/*.yaml` files reflect
+  /// their original recording-device locale by the same mechanism.
   private static func summary(  // swiftlint:disable:this cyclomatic_complexity
     for payload: CodePhaseEventPayload?, filter: ContentFilter
   ) -> String {
     guard let payload else { return "" }
     switch payload {
     case .elimination(let agent, let voteCount):
-      return "\(agent) was eliminated (\(voteCount) votes)"
+      return String(
+        format: String(localized: "%@ was eliminated (%lld votes)"),
+        agent, voteCount)
     case .scoreUpdate(let scores):
       let ordered = scores.sorted { lhs, rhs in
         if lhs.value != rhs.value { return lhs.value > rhs.value }
         return lhs.key < rhs.key
       }
       let pairs = ordered.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-      return "Scores — \(pairs)"
+      return String(format: String(localized: "Scores — %@"), pairs)
     case .summary(let text):
       return filter.filter(text)
     case .voteResults(_, let tallies):
@@ -462,18 +479,24 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
         return lhs.key < rhs.key
       }
       let pairs = ordered.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-      return "Votes — \(pairs)"
+      return String(format: String(localized: "Votes — %@"), pairs)
     case .pairingResult(let agent1, let action1, let agent2, let action2):
       let filtered1 = filter.filter(action1)
       let filtered2 = filter.filter(action2)
-      return "\(agent1) (\(filtered1)) ↔ \(agent2) (\(filtered2))"
+      return String(
+        format: String(localized: "%@ (%@) ↔ %@ (%@)"),
+        agent1, filtered1, agent2, filtered2)
     case .assignment(let agent, let value):
-      return "\(agent) was assigned: \(filter.filter(value))"
+      return String(
+        format: String(localized: "%@ was assigned: %@"),
+        agent, filter.filter(value))
     case .eventInjected(let event):
       // Match Markdown exporter wording so the timeline reads the same
       // way regardless of channel.
-      if let event { return "Event: \(filter.filter(event))" }
-      return "No event this round"
+      if let event {
+        return String(format: String(localized: "Event: %@"), filter.filter(event))
+      }
+      return String(localized: "No event this round")
     }
   }
 

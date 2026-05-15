@@ -193,6 +193,22 @@
         }
       }
     },
+    "%@ (%@) ↔ %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) ↔ %3$@ (%4$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (%@) ↔ %@ (%@)"
+          }
+        }
+      }
+    },
     "%@ assigned: %@" : {
       "localizations" : {
         "en" : {
@@ -247,6 +263,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@は約%2$@を使います。続行しますか、軽量モデルに切り替えますか？"
+          }
+        }
+      }
+    },
+    "%@ was assigned: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ was assigned: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ に割り当て: %@"
+          }
+        }
+      }
+    },
+    "%@ was eliminated (%lld votes)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ was eliminated (%2$lld votes)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ が脱落 (%lld 票)"
           }
         }
       }
@@ -1674,6 +1722,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "イベント"
+          }
+        }
+      }
+    },
+    "Event: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Event: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント: %@"
           }
         }
       }
@@ -3397,6 +3461,22 @@
         }
       }
     },
+    "Scores — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scores — %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコア — %@"
+          }
+        }
+      }
+    },
     "Scoring Logic" : {
       "localizations" : {
         "ja" : {
@@ -4145,6 +4225,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "票数"
+          }
+        }
+      }
+    },
+    "Votes — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votes — %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票 — %@"
           }
         }
       }
