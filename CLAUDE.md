@@ -158,7 +158,7 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 
 ### Git Conventions
 
-- **Branch:** `feature/<description>`, `fix/<description>`
+- **Branch:** `feature/<description>`, `fix/<description>`, `docs/<description>`
 - **Branch ops:** Prefer `git switch <branch>` / `git switch -c <branch>` over `git checkout`.
   Never use `git switch` with `--discard-changes`, `--force`, `-f`, or `-C` — they discard
   uncommitted work or overwrite branch refs.

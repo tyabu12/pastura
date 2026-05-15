@@ -64,10 +64,14 @@ in [`docs/decisions/ADR-002.md`](docs/decisions/ADR-002.md).
 
 ## Prerequisites
 
-- macOS with Xcode 16 or later.
+- macOS with a recent Xcode that supports Swift 6. CI runs on
+  `macos-26`; see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+  for the exact configuration.
 - An iPhone 15 Pro or newer for on-device testing. The bundled models
-  need around 8 GB of RAM. The simulator works for everything except
-  real LLM inference, which falls back to a mock.
+  need around 8 GB of RAM, which rules out iPhone 15 (non-Pro) and
+  earlier. The simulator builds against an Ollama dev backend instead,
+  which exercises the engine and UI without on-device inference.
+  `MockLLMService` is reserved for unit tests.
 
 ## Build and run
 
