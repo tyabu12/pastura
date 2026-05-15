@@ -678,6 +678,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // `.phaseStarted(.conditional, _)` + inner sub-phase events; UI
       // surfacing of the condition/result pair is deferred.
       break
+    case .languageMismatch:
+      // ADR-010 Step E PR2 — informational event. Surfaced via
+      // `StreamingDiag` log + benchmark harness aggregation; the in-app
+      // UI consumer is intentionally deferred. Tracked in #401.
+      break
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):

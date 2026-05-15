@@ -616,7 +616,13 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       let parsed = try loader.load(yaml: record.yamlDefinition)
       scenario = parsed
 
+      // ADR-010 Step E PR2 — production runner gets the
+      // `NLLanguageDetector` so adherence retry + `.languageMismatch`
+      // event are live. Tests construct `SimulationViewModel` directly
+      // with the default-nil detector to retain pre-Step E PR2 retry
+      // semantics.
       let simViewModel = SimulationViewModel(
+        runner: SimulationRunner(detector: NLLanguageDetector()),
         simulationRepository: deps.simulationRepository,
         turnRepository: deps.turnRepository,
         codePhaseEventRepository: deps.codePhaseEventRepository,

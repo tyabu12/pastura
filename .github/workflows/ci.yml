@@ -417,6 +417,14 @@ jobs:
       - name: Run Engine language-axis guard
         run: bash scripts/check_engine_language_axis.sh
 
+      # ADR-010 D8 dependency-rule guard — `import NaturalLanguage` is
+      # forbidden in Engine / LLM / Models / Data; only App/ imports the
+      # framework. The script catches `@preconcurrency` /
+      # `@_implementationOnly` / submodule import shapes alongside the
+      # bare `import NaturalLanguage`.
+      - name: Run NaturalLanguage import boundary guard
+        run: bash scripts/check_naturallanguage_axis.sh
+
   coverage:
     name: Coverage
     needs: lint-and-test
