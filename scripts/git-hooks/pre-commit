@@ -11,8 +11,7 @@
 # etc.). git's pre-commit fires only on `git commit`, so the gating is
 # tight by construction.
 #
-# Reference: docs/decisions / memory `reference_claudecode_hook_matcher.md`
-# (Graceful degradation section).
+# Reference: PR #410 (hooks migration).
 #
 # Activation:
 #   - `scripts/setup.sh` runs `git config core.hooksPath scripts/git-hooks`
@@ -33,8 +32,7 @@ swiftlint lint --quiet --strict 2>&1 \
   || { echo 'SwiftLint violations. Fix before committing.' >&2; exit 2; }
 
 # 2. xcodebuild build — catch compile errors at commit time, not CI time.
-# PASTURA_SKIP_XCSTRINGS_SYNC keeps the catalog stable across commits
-# (memory `feedback_xcodebuild_pipefail.md` rationale preserved).
+# PASTURA_SKIP_XCSTRINGS_SYNC keeps the catalog stable across commits.
 PASTURA_SKIP_XCSTRINGS_SYNC=1 ./scripts/xcodebuild.sh build -quiet 2>&1 \
   || { echo 'Build failed. Fix compile errors before committing.' >&2; exit 2; }
 
