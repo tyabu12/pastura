@@ -961,6 +961,22 @@
         }
       }
     },
+    "Background time exceeded — tap resume to continue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background time exceeded — tap resume to continue."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックグラウンド時間が上限に達しました。再開して続行できます。"
+          }
+        }
+      }
+    },
     "Balanced choice. Rich expression and measured reasoning." : {
       "localizations" : {
         "ja" : {
@@ -2321,6 +2337,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サブフェーズを長押しすると、もう一方のブランチの末尾に移動します。"
+          }
+        }
+      }
+    },
+    "Memory warning — simulation paused. Tap resume to continue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory warning — simulation paused. Tap resume to continue."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモリ不足のため一時停止しました。再開して続行できます。"
           }
         }
       }
