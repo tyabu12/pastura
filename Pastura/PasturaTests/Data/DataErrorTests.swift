@@ -4,7 +4,24 @@ import Testing
 @testable import Pastura
 
 @Suite(.timeLimit(.minutes(1)))
-struct DataErrorLocalizedErrorTests {
+struct DataErrorTests {
+  // MARK: - Equatable / Error conformance
+
+  @Test func casesAreEquatable() {
+    let error1 = DataError.databaseOpenFailed(description: "fail")
+    let error2 = DataError.databaseOpenFailed(description: "fail")
+    #expect(error1 == error2)
+
+    let notFound1 = DataError.recordNotFound(type: "Scenario", id: "123")
+    let notFound2 = DataError.recordNotFound(type: "Scenario", id: "456")
+    #expect(notFound1 != notFound2)
+  }
+
+  @Test func conformsToError() {
+    let error: any Error = DataError.encodingFailed(description: "bad json")
+    #expect(error is DataError)
+  }
+
   // MARK: - LocalizedError conformance
 
   @Test func conformsToLocalizedError() {
