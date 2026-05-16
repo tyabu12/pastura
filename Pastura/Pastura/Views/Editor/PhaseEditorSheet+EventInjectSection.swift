@@ -11,7 +11,7 @@ extension PhaseEditorSheet {
       Section {
         TextField(String(localized: "Top-level YAML key"), text: $phase.source)
           .textInputAutocapitalization(.never)
-          .accessibilityLabel("Source")
+          .accessibilityLabel(String(localized: "Source"))
       } header: {
         Text(String(localized: "Source"))
       } footer: {
@@ -25,11 +25,17 @@ extension PhaseEditorSheet {
 
       Section {
         Stepper(
-          "Chance: \(String(format: "%g", probabilityBinding.wrappedValue))",
           value: probabilityBinding,
           in: 0.0...1.0,
           step: 0.1
-        )
+        ) {
+          Text(
+            String(
+              format: String(localized: "Chance: %@"),
+              String(format: "%g", probabilityBinding.wrappedValue)
+            )
+          )
+        }
       } footer: {
         Text(
           String(
@@ -44,7 +50,7 @@ extension PhaseEditorSheet {
         // localizing it would diverge from the model-layer default.
         TextField("current_event", text: $phase.eventVariable)
           .textInputAutocapitalization(.never)
-          .accessibilityLabel("Variable name")
+          .accessibilityLabel(String(localized: "Variable name"))
       } header: {
         Text(String(localized: "Variable name"))
       } footer: {

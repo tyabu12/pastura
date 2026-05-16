@@ -185,7 +185,7 @@ struct ScenarioEditorView: View {
           editingPersona = persona
         } label: {
           VStack(alignment: .leading, spacing: 4) {
-            Text(persona.name.isEmpty ? "(unnamed)" : persona.name)
+            Text(persona.name.isEmpty ? String(localized: "(unnamed)") : persona.name)
               .font(.body.bold())
               .foregroundStyle(.primary)
             if !persona.description.isEmpty {
@@ -212,7 +212,7 @@ struct ScenarioEditorView: View {
       HStack {
         Text(String(localized: "Personas"))
         Spacer()
-        Text("\(viewModel.personas.count) agents")
+        Text(String(format: String(localized: "%lld agents"), viewModel.personas.count))
           .font(.caption)
           .foregroundStyle(.secondary)
       }
@@ -245,7 +245,7 @@ struct ScenarioEditorView: View {
       HStack {
         Text(String(localized: "Phases"))
         Spacer()
-        Text("\(viewModel.phases.count) steps")
+        Text(String(format: String(localized: "%lld steps"), viewModel.phases.count))
           .font(.caption)
           .foregroundStyle(.secondary)
       }

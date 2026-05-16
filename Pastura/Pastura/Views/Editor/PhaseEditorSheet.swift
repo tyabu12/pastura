@@ -266,10 +266,11 @@ struct PhaseEditorSheet: View {
   private var speakEachSection: some View {
     Section(String(localized: "Sub-Rounds")) {
       Stepper(
-        "Rounds: \(phase.subRounds ?? 1)",
         value: subRoundsBinding,
         in: 1...10
-      )
+      ) {
+        Text(String(format: String(localized: "Rounds: %lld"), phase.subRounds ?? 1))
+      }
     }
   }
 
