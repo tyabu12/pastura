@@ -1,0 +1,49 @@
+# Dependabot version updates for Pastura.
+#
+# Two ecosystems are tracked:
+#   1. swift           SPM dependencies declared in the Xcode project
+#                      (Yams, GRDB, mattt/llama.swift). Per GitHub's
+#                      2026-03-31 changelog, Dependabot auto-discovers
+#                      Xcode-managed Package.resolved files inside any
+#                      .xcodeproj / .xcworkspace under the configured
+#                      directory, so pointing `directory: "/Pastura"`
+#                      at the parent of Pastura.xcodeproj is sufficient.
+#                      If Dependancy graph reports the SPM ecosystem as
+#                      unparseable after merge, swap `directory:` to
+#                      `/Pastura/Pastura.xcodeproj/project.xcworkspace/xcshareddata/swiftpm`
+#                      as the explicit fallback.
+#   2. github-actions  Actions referenced by .github/workflows/*.yml.
+#
+# Cadence is monthly. With a single maintainer, weekly PRs create more
+# review noise than security benefit. CVE patches still flow through
+# Dependabot security updates, which are configured separately under
+# Settings > Code security and analysis and are not gated by this file.
+
+version: 2
+updates:
+  - package-ecosystem: "swift"
+    directory: "/Pastura"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "⬆️ chore(deps)"
+    ignore:
+      # mattt/llama.swift tags are date-encoded (e.g. 2.8694.0) rather
+      # than semver. Dependabot's semver comparator cannot reliably
+      # classify a tag bump as patch / minor / major. Suppress the noisy
+      # minor/patch buckets so only apparent-major bumps surface as PRs;
+      # upstream llama.cpp CVE response is tracked by watching the fork
+      # for new tags and reviewing manually.
+      - dependency-name: "llama.swift"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "⬆️ chore(ci)"
