@@ -111,6 +111,57 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     let phaseType: PhaseType
   }
 
+  // MARK: - Language adherence drift (ADR-010 §"Out of Scope" / #401)
+
+  /// Snapshot of the first `.languageMismatch` event in the current
+  /// `run()` cycle. Once set, subsequent events do NOT overwrite —
+  /// only `languageMismatchCount` increments. Cleared by
+  /// ``dismissLanguageMismatchToast()`` and on `run()` entry.
+  ///
+  /// Why one-shot: a model that drifts once typically drifts repeatedly
+  /// for the rest of the run (translation capability ceiling). Refiring
+  /// the toast on every event would saturate the screen; the cumulative
+  /// badge carries the running tally instead.
+  nonisolated struct LanguageMismatchToast: Equatable, Sendable {
+    let agent: String
+    let detected: String?
+    let expected: String
+  }
+
+  private(set) var pendingLanguageMismatchToast: LanguageMismatchToast?
+
+  /// Cumulative count of `.languageMismatch` events in the current
+  /// `run()` cycle. Reset on `run()` entry alongside
+  /// ``pendingLanguageMismatchToast``. Drives `GameHeader`'s drift
+  /// segment when > 0.
+  private(set) var languageMismatchCount: Int = 0
+
+  /// Localized toast copy derived from ``pendingLanguageMismatchToast``.
+  /// Branches on `detected` nil/non-nil into two format keys so
+  /// `String(format:)` never receives an `Optional<String>` (which
+  /// would leak as `Optional("ja")` or `nil` in the rendered string).
+  var languageMismatchToastText: String? {
+    guard let pending = pendingLanguageMismatchToast else { return nil }
+    let expectedName = LanguageDisplayName.resolve(pending.expected)
+    if let detected = pending.detected {
+      let detectedName = LanguageDisplayName.resolve(detected)
+      return String(
+        format: String(localized: "Output drifted to %@ (expected %@) for %@"),
+        detectedName, expectedName, pending.agent)
+    }
+    return String(
+      format: String(localized: "Output drifted from expected %@ for %@"),
+      expectedName, pending.agent)
+  }
+
+  /// Clears the pending toast trigger so the host view can collapse it.
+  /// Cumulative ``languageMismatchCount`` is preserved — the badge keeps
+  /// showing the running tally. The toast does NOT re-fire within the
+  /// same `run()` cycle, even on subsequent events.
+  func dismissLanguageMismatchToast() {
+    pendingLanguageMismatchToast = nil
+  }
+
   // Running totals for weighted tok/s. See `averageTokensPerSecond`.
   private var totalCompletionTokens = 0
   private var totalInferenceSeconds: Double = 0
@@ -536,6 +587,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     latestAgentOutputId = nil
     streamingSnapshot = nil
     prerevealedAgentOutputIds = []
+    // ADR-010 §"Out of Scope" — language-mismatch surface state must reset
+    // per `run()` so a re-used VM does not inherit the previous run's
+    // toast pending or accumulated count.
+    pendingLanguageMismatchToast = nil
+    languageMismatchCount = 0
     // Defense against VM reuse: today production creates a fresh VM per view
     // load, but that is not a documented invariant. A VM reused after a
     // pause-then-cancel sequence would otherwise start the next run with
@@ -678,11 +734,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // `.phaseStarted(.conditional, _)` + inner sub-phase events; UI
       // surfacing of the condition/result pair is deferred.
       break
-    case .languageMismatch:
-      // ADR-010 Step E PR2 — informational event. Surfaced via
-      // `StreamingDiag` log + benchmark harness aggregation; the in-app
-      // UI consumer is intentionally deferred. Tracked in #401.
-      break
+    case .languageMismatch(let agent, let detected, let expected):
+      // ADR-010 §"Out of Scope" / #401 — informational drift surface.
+      // First event sets the one-shot toast; subsequent events only
+      // increment the cumulative count (badge driver). Toast does NOT
+      // re-fire within the same `run()` cycle even after dismissal —
+      // burst-pattern noise suppression. Gating on `count == 0`
+      // (pre-increment) rather than `pendingLanguageMismatchToast == nil`
+      // is load-bearing: after dismissal, pending is nil but count is
+      // already > 0, so the next event correctly skips the toast set.
+      let isFirstEvent = languageMismatchCount == 0
+      languageMismatchCount += 1
+      if isFirstEvent {
+        pendingLanguageMismatchToast = LanguageMismatchToast(
+          agent: agent, detected: detected, expected: expected)
+      }
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):

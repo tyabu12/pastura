@@ -1831,6 +1831,9 @@
         }
       }
     },
+    "English" : {
+
+    },
     "Error" : {
       "localizations" : {
         "ja" : {
@@ -2399,6 +2402,9 @@
         }
       }
     },
+    "Japanese" : {
+
+    },
     "LLM" : {
       "localizations" : {
         "ja" : {
@@ -2892,6 +2898,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "出力フィールド"
+          }
+        }
+      }
+    },
+    "Output drifted from expected %@ for %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Output drifted from expected %1$@ for %2$@"
+          }
+        }
+      }
+    },
+    "Output drifted to %@ (expected %@) for %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Output drifted to %1$@ (expected %2$@) for %3$@"
           }
         }
       }
@@ -4121,6 +4147,9 @@
           }
         }
       }
+    },
+    "Unknown language" : {
+
     },
     "Unknown model (%@)" : {
       "localizations" : {
