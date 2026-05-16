@@ -40,24 +40,39 @@ gh api repos/tyabu12/pastura/private-vulnerability-reporting -i \
 | Vulnerability alerts | (no field; `PUT /.../vulnerability-alerts`) | `gh api -X PUT repos/tyabu12/pastura/vulnerability-alerts` |
 | Automated security fixes | (no field; `PUT /.../automated-security-fixes`) | `gh api -X PUT repos/tyabu12/pastura/automated-security-fixes` |
 
-### Settings to enable manually via UI
+### Secret-scanning sub-settings: Secret Protection (paid) features
 
-Two secret-scanning sub-settings are not reachable through the public
-REST API as of 2026-05. Enable them once in the UI; the verifier above
-will show their state going forward.
+Several `security_and_analysis` API fields beyond the base toggle
+require **GitHub Secret Protection**, a paid add-on. The familiar
+"Secret scanning is free for public repositories" headline applies
+only to the base `secret_scanning` + `secret_scanning_push_protection`
+toggles; everything listed below requires Secret Protection. Verified
+2026-05 against GitHub's Secret Protection product page (which lists
+Validity checks as a Secret Protection feature) and against the
+canonical paid-gate signal, namely that
+`PATCH security_and_analysis[X][status]=enabled` returns 200 OK but
+the field stays `disabled` on subsequent GET.
 
-* Settings > Code security and analysis > Secret scanning >
-  **"Scan for non-provider patterns"**
-* Settings > Code security and analysis > Secret scanning >
-  **"Validity checks"** (when available for public repos)
+* **`secret_scanning_non_provider_patterns`** covers generic /
+  non-provider secret detection (UI label: "Scan for non-provider
+  patterns").
 
-A check of `gh api repos/tyabu12/pastura --jq '.security_and_analysis'`
-should eventually show:
+* **`secret_scanning_validity_checks`** covers liveness verification
+  of detected secrets via partner APIs (UI label: "Automatically
+  verify if a secret is valid by sending it to the relevant
+  partner").
 
-```json
-"secret_scanning_non_provider_patterns": {"status": "enabled"},
-"secret_scanning_validity_checks": {"status": "enabled"}
-```
+* **`secret_scanning_ai_detection`** is Copilot-powered generic
+  pattern detection.
+
+* **`secret_scanning_delegated_alert_dismissal`** and
+  **`secret_scanning_delegated_bypass`** are org-level delegated
+  workflows.
+
+All of the above will stay `disabled` on Pastura's current free plan;
+that is expected, not a regression. Track Secret Protection adoption
+as a paid-plan consideration alongside Apple Developer Program
+registration (see § 2 below).
 
 ### Branch protection
 

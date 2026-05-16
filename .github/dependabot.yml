@@ -8,7 +8,7 @@
 #                      .xcodeproj / .xcworkspace under the configured
 #                      directory, so pointing `directory: "/Pastura"`
 #                      at the parent of Pastura.xcodeproj is sufficient.
-#                      If Dependancy graph reports the SPM ecosystem as
+#                      If Dependency graph reports the SPM ecosystem as
 #                      unparseable after merge, swap `directory:` to
 #                      `/Pastura/Pastura.xcodeproj/project.xcworkspace/xcshareddata/swiftpm`
 #                      as the explicit fallback.
@@ -35,7 +35,13 @@ updates:
       # minor/patch buckets so only apparent-major bumps surface as PRs;
       # upstream llama.cpp CVE response is tracked by watching the fork
       # for new tags and reviewing manually.
-      - dependency-name: "llama.swift"
+      #
+      # Name format: github.com/<owner>/<repo>. This is the canonical
+      # form Dependabot uses for swift-ecosystem deps in PR titles,
+      # branch names, and compatibility-score badges. The Package.resolved
+      # `identity` short name (e.g. "llama.swift") does NOT match here
+      # and makes the filter a silent no-op.
+      - dependency-name: "github.com/mattt/llama.swift"
         update-types:
           - "version-update:semver-minor"
           - "version-update:semver-patch"

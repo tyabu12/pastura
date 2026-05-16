@@ -247,11 +247,16 @@ public struct GameHeader: View {
     .accessibilityAddTraits(.isHeader)
   }
 
-  /// Meta row — ROUND + phase + tok/s. Renders content only (no
+  /// Meta row — ROUND + phase + tok/s + drift. Renders content only (no
   /// background). Caller is responsible for collapsing the row entirely
   /// when `hasMetaRow == false` is preferred — when used as a split
   /// sub-view the placement (e.g., `.safeAreaInset`) decides whether
   /// to mount this view at all.
+  ///
+  /// Drift badge (#401): right-cluster, AFTER `Spacer(minLength:)`,
+  /// AFTER tok/s. Subdued tone via `Color.headerMetaSubdued` matches
+  /// tok/s — it's informational, not alarmist. ContentFilter (ADR-005)
+  /// is a separate axis with its own UI treatment.
   @ViewBuilder
   var metaRow: some View {
     HStack(alignment: .center, spacing: Self.metaRowSpacing) {
