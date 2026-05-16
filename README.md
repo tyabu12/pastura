@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="pages/img/app-icon.png" width="120" height="120" alt="Pastura app icon" />
-
-# 🐑 Pastura
+# <img src="pages/img/app-icon.png" width="48" height="48" alt="" /> Pastura
 
 *AIgazing. Like stargazing, but for local LLMs.*  
 Running local LLM multi-agent simulations on-device.
