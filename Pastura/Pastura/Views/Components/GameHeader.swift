@@ -64,6 +64,12 @@ public struct GameHeader: View {
   /// fragment — Demo passes nil per the "no synthetic numbers"
   /// product principle.
   public let tokensPerSecond: Double?
+  /// Cumulative `.languageMismatch` event count for the current run
+  /// (#401). Drives the right-cluster drift badge in `metaRow` —
+  /// rendered only when `count > 0`. Default `nil` keeps the Demo /
+  /// Replay paths invisible since they never produce mismatch events
+  /// (ADR-010 D5 — adherence retry is live-inference only).
+  public let languageDriftCount: Int?
   /// When `true`, the unified `body`'s frosted background extends
   /// behind the top safe area (status bar / Dynamic Island). Has no
   /// effect on `titleRow` / `metaRow` when used as split sub-views.
@@ -76,6 +82,7 @@ public struct GameHeader: View {
     round: GameHeaderRound? = nil,
     phaseLabel: String? = nil,
     tokensPerSecond: Double? = nil,
+    languageDriftCount: Int? = nil,
     extendsIntoTopSafeArea: Bool = false
   ) {
     self.scenarioName = scenarioName
@@ -84,6 +91,7 @@ public struct GameHeader: View {
     self.round = round
     self.phaseLabel = phaseLabel
     self.tokensPerSecond = tokensPerSecond
+    self.languageDriftCount = languageDriftCount
     self.extendsIntoTopSafeArea = extendsIntoTopSafeArea
   }
 
@@ -111,6 +119,26 @@ public struct GameHeader: View {
     String(format: "%.1f tok/s", value)
   }
 
+  /// Visual text for the right-cluster language-drift badge (#401).
+  /// Returns `nil` for `count == 0` so the meta-row conditional and
+  /// a11y label can collapse cleanly. Intentionally NOT localized —
+  /// `×N` is universal mathematical notation, paired visually with a
+  /// `globe` SF Symbol for semantic context.
+  static func formatLanguageDriftBadgeText(count: Int) -> String? {
+    guard count > 0 else { return nil }
+    return "×\(count)"
+  }
+
+  /// VoiceOver fragment for the drift badge. Returns the localized
+  /// `"drift ×N"` form so the badge announces meaning (not just the
+  /// glyph + multiplier) when traversed in the meta-row's combined
+  /// element. Returns `nil` for `count == 0` so the parent label
+  /// composer can omit the fragment entirely.
+  static func formatLanguageDriftAccessibilityFragment(count: Int) -> String? {
+    guard count > 0 else { return nil }
+    return String(format: String(localized: "drift ×%lld"), count)
+  }
+
   /// VoiceOver label for the title row (status + scenario name).
   /// Status comes first so the user hears the screen state before
   /// the scenario identity — matches the original combined-label
@@ -126,12 +154,18 @@ public struct GameHeader: View {
     return parts.joined(separator: String(localized: ", "))
   }
 
-  /// VoiceOver label for the meta row (round + phase + tok/s).
-  /// Returns the empty string when all three inputs are nil — caller
+  /// VoiceOver label for the meta row (round + phase + tok/s + drift).
+  /// Returns the empty string when all four inputs collapse — caller
   /// can guard on `isEmpty` to skip applying the label when the row
   /// itself is collapsed. Locale-aware separator (`, ` en / `、` ja).
+  ///
+  /// Fragment order is the Stop-3 VoiceOver contract from
+  /// `.claude/rules/navigation.md`: ROUND → phase → tok/s → drift.
+  /// Drift sits at the tail because it is the optional informational
+  /// signal — the technical-stat fragments come first.
   static func metaAccessibilityLabel(
-    round: GameHeaderRound?, phaseLabel: String?, tokensPerSecond: Double?
+    round: GameHeaderRound?, phaseLabel: String?, tokensPerSecond: Double?,
+    languageDriftCount: Int? = nil
   ) -> String {
     var parts: [String] = []
     if let round {
@@ -140,6 +174,10 @@ public struct GameHeader: View {
     if let phaseLabel { parts.append(phaseLabel) }
     if let tokensPerSecond {
       parts.append(formatTokensPerSecond(tokensPerSecond))
+    }
+    if let count = languageDriftCount,
+      let fragment = formatLanguageDriftAccessibilityFragment(count: count) {
+      parts.append(fragment)
     }
     return parts.joined(separator: String(localized: ", "))
   }
@@ -151,11 +189,12 @@ public struct GameHeader: View {
   }
 
   /// Whether row 2 has any visible fragment. Row collapses entirely
-  /// when none of ROUND / phase / tok/s is present. Exposed so the
-  /// split-rendering host (Sim's `safeAreaInset`) can guard whether
+  /// when none of ROUND / phase / tok/s / drift is present. Exposed so
+  /// the split-rendering host (Sim's `safeAreaInset`) can guard whether
   /// to mount `metaRow` at all.
   var hasMetaRow: Bool {
     round != nil || phaseLabel != nil || tokensPerSecond != nil
+      || (languageDriftCount ?? 0) > 0
   }
 
   private var titleA11yLabel: String {
@@ -165,7 +204,8 @@ public struct GameHeader: View {
 
   private var metaA11yLabel: String {
     Self.metaAccessibilityLabel(
-      round: round, phaseLabel: phaseLabel, tokensPerSecond: tokensPerSecond)
+      round: round, phaseLabel: phaseLabel, tokensPerSecond: tokensPerSecond,
+      languageDriftCount: languageDriftCount)
   }
 
   /// Combined label for the unified `body` rendering — preserves the
@@ -247,11 +287,16 @@ public struct GameHeader: View {
     .accessibilityAddTraits(.isHeader)
   }
 
-  /// Meta row — ROUND + phase + tok/s. Renders content only (no
+  /// Meta row — ROUND + phase + tok/s + drift. Renders content only (no
   /// background). Caller is responsible for collapsing the row entirely
   /// when `hasMetaRow == false` is preferred — when used as a split
   /// sub-view the placement (e.g., `.safeAreaInset`) decides whether
   /// to mount this view at all.
+  ///
+  /// Drift badge (#401): right-cluster, AFTER `Spacer(minLength:)`,
+  /// AFTER tok/s. Subdued tone via `Color.headerMetaSubdued` matches
+  /// tok/s — it's informational, not alarmist. ContentFilter (ADR-005)
+  /// is a separate axis with its own UI treatment.
   @ViewBuilder
   var metaRow: some View {
     HStack(alignment: .center, spacing: Self.metaRowSpacing) {
@@ -277,6 +322,18 @@ public struct GameHeader: View {
           .textStyle(Typography.metaInline)
           .foregroundStyle(Color.headerMetaSubdued)
           .monospacedDigit()
+      }
+      if let count = languageDriftCount,
+        let badgeText = Self.formatLanguageDriftBadgeText(count: count) {
+        HStack(spacing: 2) {
+          Image(systemName: "globe")
+            .imageScale(.small)
+            .accessibilityHidden(true)
+          Text(badgeText)
+            .textStyle(Typography.metaInline)
+            .monospacedDigit()
+        }
+        .foregroundStyle(Color.headerMetaSubdued)
       }
     }
     .accessibilityElement(children: .combine)

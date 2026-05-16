@@ -4607,6 +4607,9 @@
         }
       }
     },
+    "drift ×%lld" : {
+
+    },
     "e.g. max_score >= 10 && active_count > 1" : {
       "localizations" : {
         "ja" : {
