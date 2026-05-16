@@ -293,10 +293,12 @@ surface changes in areas the automated tests do not exercise.
      trait): `"<status>, <scenarioName>"` — e.g., `"Simulating,
      ワードウルフ"` or `"Completed"` (collapses to status when title
      is empty).
-   - **Stop 3 — meta row** (combined element): `"<round>,
-     <phase>, <tok/s>"` — e.g., `"Round 2 / 5, negotiation, 16.5
-     tok/s"`. Each fragment collapses on nil; the row itself is
-     skipped when all 3 inputs are nil.
+   - **Stop 3 — meta row** (combined element): `"<round>, <phase>,
+     <tok/s>, <drift>"` — e.g., `"Round 2 / 5, negotiation, 16.5
+     tok/s, drift ×3"`. Each fragment collapses on nil; the row
+     itself is skipped when all inputs collapse. Drift sits at the
+     tail because it is the optional informational signal — technical
+     stats come first (#401).
 
    Verifications:
    - VoiceOver swipe-right from focus on `Back` advances through the
@@ -640,3 +642,62 @@ surface changes in areas the automated tests do not exercise.
       focused scene's gate is incremented (each scene owns its own
       `DeepLinkGate` and `ModelManager`), so a dialog in scene A
       does not block deep-link drain in scene B.
+
+18. **Language-mismatch toast + drift badge (#401)** — Run a
+    scenario whose `simulation_language` is set to a language the
+    selected model handles poorly (e.g., Qwen 3 4B with
+    `simulation_language: en` against a ja-heavy preset — measured
+    < 80% adherence on the benchmark harness). When the first
+    `.languageMismatch` event fires (after the existing
+    `maxRetries=2` exhausts), verify all of:
+
+    - **Toast — first-fire only** — A small capsule appears at the
+      top of the chat-stream area below the header, with copy like
+      `"Output drifted to Japanese (expected English) for アキラ"`
+      (or the locale-flipped form `"アキラ の出力が Japanese に
+      なりました(想定: English)"` on ja runtime). The capsule sits
+      over the chat content via `.overlay(alignment: .top)` — NOT
+      inside the GameHeader's frosted strip.
+    - **Auto-dismiss ~4s** — Without tapping, the toast fades out
+      after roughly 4 seconds (`Task.sleep(for: .seconds(4))` +
+      `dismissLanguageMismatchToast()`). The dismiss is animated by
+      the parent's `.animation(.default, value:
+      pendingLanguageMismatchToast)` modifier.
+    - **No re-fire on subsequent events** — Let the simulation
+      continue past several more mismatches. The toast must NOT
+      reappear. Only the meta-row badge increments. The VM gates
+      on `count == 0` pre-increment, so even after the user could
+      hypothetically have dismissed, the next event sees `count >
+      0` and skips the pending-set. (Validated by
+      `SimulationViewModelLanguageMismatchTests.eventAfterDismissDoesNotRefireToast`.)
+    - **Badge — meta-row right cluster** — `GameHeader`'s meta row
+      now reads e.g. `Round 2 / 5 · negotiation` (left) and
+      `16.5 tok/s 🌐 ×3` (right). The drift segment uses
+      `Color.headerMetaSubdued` (same tone as tok/s — informational,
+      NOT alarmist). ContentFilter (ADR-005) keeps its own danger
+      treatment — verify they look visually distinct.
+    - **Badge collapses at count == 0** — Before the first event
+      lands, the badge is absent. After dismiss, the badge still
+      shows the running count — count is preserved across dismiss
+      by design.
+    - **Worst-case width on small iPhone** — Reproduce via the
+      `"Sim — drift badge worst case"` preview (`languageDriftCount:
+      99 + long phase + tok/s + 320pt width`). Confirm the badge
+      doesn't compress phase or ROUND below their layout priority.
+    - **VoiceOver — Stop 3 includes drift fragment** — Turn on
+      VoiceOver, traverse to Stop 3 (meta row). The announcement
+      should append `, drift ×3` (en) or `, ずれ ×3` (ja) after
+      the tok/s fragment. When `count == 0`, the fragment is
+      omitted entirely. Verify on both en and ja system locales.
+    - **Replay path unaffected** — Tap a past-results entry. The
+      Demo / Replay `GameHeader` composer never passes
+      `languageDriftCount` (default-nil), so the badge stays
+      absent on past-results playback even if the original live
+      run flagged mismatches. Per ADR-010 D5 — adherence retry is
+      a live-inference concept; pre-recorded YAML replays cannot
+      regenerate verdicts after the fact.
+    - **Run reset** — Cancel the simulation and start a fresh one
+      with the same drift-prone configuration. The new run starts
+      with badge absent (`count = 0`) and the first event re-fires
+      the toast — `run()` resets both fields. (Validated by
+      `runResetsLanguageMismatchState`.)
