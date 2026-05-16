@@ -1,0 +1,70 @@
+# CodeQL static analysis for Pastura's Swift source.
+#
+# Trigger choice: weekly schedule + manual dispatch only.
+#
+# We intentionally do NOT run on push or pull_request. A full Swift
+# CodeQL pass requires a macOS runner with Xcode and a real
+# `xcodebuild build` (autobuild is not reliable against the wrapper-
+# managed simulator destination Pastura uses). Empirically that adds
+# 8 to 15 minutes of CI wall-clock, which would push the lint-and-test
+# job's contribution past the project's ~10-minute target and bump up
+# against the 20-minute "blocks merge" line (see CLAUDE.md / project
+# memory on CI time budget).
+#
+# Trade-off: findings now arrive with up to a 7-day lag. For a
+# pre-release codebase with zero installs and a single maintainer this
+# is acceptable. Before tagging the first public release, dispatch a
+# manual run (Actions tab > CodeQL > Run workflow) to refresh signal
+# on the exact release commit. If Pastura adopts parallel-suite CI
+# (#189) and lint-and-test drops well below the budget, revisit
+# adding a `pull_request` trigger gated to `Pastura/Pastura/**`
+# changes.
+
+name: CodeQL
+
+on:
+  schedule:
+    # Sunday 17:23 UTC. Off-peak; minute is randomized off the hour
+    # boundary per GitHub Actions scheduling guidance.
+    - cron: "23 17 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze Swift
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@458d36d7d4f47d0dd16ca424c1d3cda0060f1360 # v3.35.5
+        with:
+          languages: swift
+          build-mode: manual
+
+      - name: Build Pastura
+        # CodeQL traces this xcodebuild invocation to populate its Swift
+        # database. The wrapper handles simulator destination resolution
+        # and DerivedData pinning, matching the project's other CI jobs.
+        run: |
+          source scripts/sim-dest.sh
+          scripts/xcodebuild.sh build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@458d36d7d4f47d0dd16ca424c1d3cda0060f1360 # v3.35.5
+        with:
+          category: "/language:swift"
