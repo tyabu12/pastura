@@ -7,6 +7,26 @@ import Foundation
 /// branch can be unit-tested without instantiating the view per
 /// ADR-009. Returns `nil` when both inputs are nil so callers can
 /// short-circuit and render nothing instead of an all-dash string.
+///
+/// # Universal-unit display (canonical)
+///
+/// Output tokens are intentionally NOT localized:
+/// - `tok/s` — tokens-per-second rate (scientific-notation unit
+///   used as-is across locales in ML / inference contexts).
+/// - `s` — seconds-duration suffix (SI-derived unit).
+/// - `—` (U+2014 em-dash) — nil-fallback marker; purely typographic.
+/// - `•` (U+2022 bullet) — metric joiner; purely typographic.
+///
+/// This enum is the canonical source for Pastura's universal-unit
+/// display convention; `GameHeader.formatTokensPerSecond` cites it.
+/// Registered as a Permanent carve-out in
+/// `docs/i18n/leak-detection.md` § "Explicitly-deferred or permanent
+/// carve-outs" so future Tier 2 audit runs recognize the surfaced
+/// literals as documented decisions, not wrap leaks.
+///
+/// `InferenceStatsFormatterTests` literal-pins `"12.5 tok/s • 1.5s"`
+/// — accidental `String(localized:)` wrap would alter the output
+/// and fail the suite.
 nonisolated enum InferenceStatsFormatter {
 
   /// Returns a `"<tps> tok/s • <duration>s"` string when at least
