@@ -271,6 +271,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         modelReloadingOverlay
       }
     }
+    .overlay(alignment: .top) {
+      languageDriftToast(viewModel: viewModel)
+    }
+    .animation(.default, value: viewModel.pendingLanguageMismatchToast)
     // "Fill the bar" — title row goes into the system nav bar's
     // principal slot (reclaiming the previously-empty 44pt strip);
     // meta row mounts via `safeAreaInset(.top)` with frosted BG
@@ -293,6 +297,38 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
     .safeAreaInset(edge: .top, spacing: 0) {
       headerMetaInset(viewModel: viewModel)
+    }
+  }
+
+  /// One-shot toast for the first `.languageMismatch` event of the
+  /// current run (#401). Re-runs whenever
+  /// ``SimulationViewModel/pendingLanguageMismatchToast`` flips to a
+  /// new non-nil value (in practice only once per `run()` cycle, since
+  /// the VM's gating on `count == 0` prevents re-fire after dismissal).
+  ///
+  /// Auto-dismiss after 4 seconds — long enough for a glance, short
+  /// enough that a burst doesn't keep the toast pinned. Tone matches
+  /// the informational `ultraThinMaterial` capsule used by
+  /// `ImportView.promptCopiedToast`; ContentFilter has its own danger
+  /// surface (ADR-005) which we deliberately do not borrow.
+  @ViewBuilder
+  private func languageDriftToast(
+    viewModel: SimulationViewModel
+  ) -> some View {
+    if let text = viewModel.languageMismatchToastText {
+      Label(text, systemImage: "globe")
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.top, 8)
+        .padding(.horizontal, 16)
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .task(id: viewModel.pendingLanguageMismatchToast) {
+          try? await Task.sleep(for: .seconds(4))
+          viewModel.dismissLanguageMismatchToast()
+        }
+        .accessibilityIdentifier("simulation.languageDriftToast")
     }
   }
 
@@ -350,6 +386,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       round: viewModel.headerRound,
       phaseLabel: viewModel.currentPhase.map(PhaseDisplayName.label(for:)),
       tokensPerSecond: viewModel.averageTokensPerSecond,
+      // #401 — surface the cumulative drift count in the meta row's
+      // right cluster. Coerce 0 to nil so the badge collapses cleanly
+      // alongside the rest of the meta-row segments (matches the pure
+      // helper's `count == 0 → nil` semantic).
+      languageDriftCount: viewModel.languageMismatchCount > 0
+        ? viewModel.languageMismatchCount : nil,
       extendsIntoTopSafeArea: false
     )
   }
