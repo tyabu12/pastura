@@ -223,7 +223,8 @@ extension SimulationViewModel {
       lifecycleLogger.info("BG task expiration: skipped (app is foregrounded)")
       return
     }
-    pauseSimulation(reason: "Background time exceeded — tap resume to continue.")
+    pauseSimulation(
+      reason: String(localized: "Background time exceeded — tap resume to continue."))
   }
 
   /// Reloads the model on CPU.

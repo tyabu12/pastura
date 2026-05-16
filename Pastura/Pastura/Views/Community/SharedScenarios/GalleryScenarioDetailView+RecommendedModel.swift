@@ -76,8 +76,9 @@ extension GalleryScenarioDetailView {
     return Label {
       Text(
         String(
-          localized:
-            "Will run on \(activeDisplay), not the recommended \(recommendedDisplay)")
+          format: String(
+            localized: "Will run on %@, not the recommended %@"),
+          activeDisplay, recommendedDisplay)
       )
       .font(.footnote)
       .foregroundStyle(.secondary)

@@ -69,7 +69,7 @@ struct ReportScenarioSheet: View {
     VStack(alignment: .leading, spacing: 4) {
       Text(scenario.title)
         .font(.headline)
-      Text("id: \(scenario.id)")
+      Text(String(format: String(localized: "ID: %@"), scenario.id))
         .font(.caption)
         .foregroundStyle(.secondary)
         .textSelection(.enabled)

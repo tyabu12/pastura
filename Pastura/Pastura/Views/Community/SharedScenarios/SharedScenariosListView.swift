@@ -103,7 +103,7 @@ struct SharedScenariosListView: View {
         }
       } footer: {
         if let updated = viewModel.updatedAt {
-          Text("Last updated: \(updated)")
+          Text(String(format: String(localized: "Last updated: %@"), updated))
         }
       }
     }
@@ -152,7 +152,8 @@ struct SharedScenariosListView: View {
       HStack(spacing: 8) {
         Text(scenario.category.displayName)
         Text("·")
-        Text("~\(scenario.estimatedInferences) inferences")
+        Text(
+          String(format: String(localized: "~%lld inferences"), scenario.estimatedInferences))
       }
       .font(.caption)
       .foregroundStyle(.tertiary)
