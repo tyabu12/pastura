@@ -1,11 +1,17 @@
 <div align="center">
 
+<img src="pages/img/app-icon.png" width="120" alt="Pastura app icon" />
+
 # 🐑 Pastura
 
 *AIgazing. Like stargazing, but for local LLMs.*  
 Running local LLM multi-agent simulations on-device.
 
 [![CI](https://github.com/tyabu12/pastura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tyabu12/2e86dcd3eddf5d5294d75870c9ad62e7/raw/pastura-coverage.json)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
+[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<!-- Platform badge unversioned per ADR-004 (multi-platform). Do not add iOS 17+. -->
+[![Platform iOS](https://img.shields.io/badge/Platform-iOS-blue.svg)](#prerequisites)
 
 </div>
 
@@ -45,18 +51,25 @@ dependency direction is preparation for a future SPM module split.
 
 ## Tech stack
 
-- **Language and platform**
-  - Swift 6.x
-  - SwiftUI
-  - iOS 17.0 minimum deployment target
-- **Libraries**
-  - [Yams](https://github.com/jpsim/Yams) 6.2.1 for YAML parsing
-  - [GRDB](https://github.com/groue/GRDB.swift) 7.10 for SQLite
-- **LLM backends** (selected per build configuration)
-  - **`LlamaCppService`** via [llama.swift](https://github.com/mattt/llama.swift). On-device llama.cpp with Metal GPU. The shipping backend for Release builds.
-  - **LiteRT-LM iOS SDK**. Planned target backend, blocked on Google's Swift SDK + GPU support. See [ADR-002](docs/decisions/ADR-002.md).
-  - **`OllamaService`** via OpenAI-compatible API. Used in Debug builds and on the Simulator.
-  - **`MockLLMService`**. Deterministic stub for unit tests only.
+#### Language and platform
+
+- Swift 6.x
+- SwiftUI
+- iOS 17.0 minimum deployment target
+
+#### Libraries
+
+- [Yams](https://github.com/jpsim/Yams) 6.2.1 for YAML parsing
+- [GRDB](https://github.com/groue/GRDB.swift) 7.10 for SQLite
+
+#### LLM backends
+
+Selected per build configuration.
+
+- **`LlamaCppService`** via [llama.swift](https://github.com/mattt/llama.swift). On-device llama.cpp with Metal GPU. The shipping backend for Release builds.
+- **LiteRT-LM iOS SDK**. Planned target backend, blocked on Google's Swift SDK + GPU support. See [ADR-002](docs/decisions/ADR-002.md).
+- **`OllamaService`** via OpenAI-compatible API. Used in Debug builds and on the Simulator.
+- **`MockLLMService`**. Deterministic stub for unit tests only.
 
 ## Supported LLM models
 
