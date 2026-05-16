@@ -49,13 +49,14 @@ let us know your planned date so we can align the fix release.
 ## Supported Versions
 
 Pastura is pre-release. Only the latest commit on the `main` branch is
-maintained. Earlier branches, forks, and any TestFlight build older than
-the current `main` are out of support.
+maintained. Earlier commits, branches, forks, and any sideloaded build
+older than the current `main` are out of support. Pastura is not yet
+distributed via TestFlight or the App Store.
 
 | Version | Supported |
 |---------|-----------|
 | `main` (latest) | Yes |
-| Older commits / branches / forks | No |
+| Older commits / branches / forks / sideloaded builds | No |
 
 Once Pastura ships its first tagged release, this table will track at
 least the current minor release.

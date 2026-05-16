@@ -2,8 +2,16 @@
 #
 # Two ecosystems are tracked:
 #   1. swift           SPM dependencies declared in the Xcode project
-#                      (Yams, GRDB, mattt/llama.swift). Dependabot reads
-#                      Pastura/Pastura.xcodeproj/.../Package.resolved.
+#                      (Yams, GRDB, mattt/llama.swift). Per GitHub's
+#                      2026-03-31 changelog, Dependabot auto-discovers
+#                      Xcode-managed Package.resolved files inside any
+#                      .xcodeproj / .xcworkspace under the configured
+#                      directory, so pointing `directory: "/Pastura"`
+#                      at the parent of Pastura.xcodeproj is sufficient.
+#                      If Dependancy graph reports the SPM ecosystem as
+#                      unparseable after merge, swap `directory:` to
+#                      `/Pastura/Pastura.xcodeproj/project.xcworkspace/xcshareddata/swiftpm`
+#                      as the explicit fallback.
 #   2. github-actions  Actions referenced by .github/workflows/*.yml.
 #
 # Cadence is monthly. With a single maintainer, weekly PRs create more

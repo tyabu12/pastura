@@ -58,11 +58,11 @@ jobs:
 
       - name: Build Pastura
         # CodeQL traces this xcodebuild invocation to populate its Swift
-        # database. The wrapper handles simulator destination resolution
-        # and DerivedData pinning, matching the project's other CI jobs.
-        run: |
-          source scripts/sim-dest.sh
-          scripts/xcodebuild.sh build
+        # database. The wrapper handles DerivedData pinning, matching
+        # the project's other CI jobs. The `build` subcommand uses a
+        # generic iOS-Simulator destination and bypasses the simulator
+        # gate, so sourcing scripts/sim-dest.sh is unnecessary here.
+        run: scripts/xcodebuild.sh build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@458d36d7d4f47d0dd16ca424c1d3cda0060f1360 # v3.35.5
