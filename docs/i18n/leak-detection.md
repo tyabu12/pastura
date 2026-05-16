@@ -138,11 +138,22 @@ recognize them as documented carve-outs rather than wrap leaks.
 
 ### Self-test
 
-`python3 scripts/check_i18n_potential_keys.py --self-test` exercises 30
-fixtures: a TP + FP pair per noise category, plus path-exclusion checks
-for `Engine/` and `+Previews.swift`, plus real-leak smoke tests using
-the PR #288 `phaseTypeDescription` strings. CI does not run the
-self-test, but contributors editing the filter logic should.
+`python3 scripts/check_i18n_potential_keys.py --self-test` exercises 38
+fixtures across four families:
+
+- **Key-text noise filters (26)** — TP + FP pairs per `NOISE_FILTERS`
+  category, plus real-leak smoke tests using PR #288's
+  `phaseTypeDescription` strings.
+- **Path-exclusion (4)** — `Engine/` (ADR-010 §4), `+Previews.swift`
+  filename suffix, `App/` kept, `+Helpers.swift` kept.
+- **`#Preview` block-skip (7)** — TP / FP / nested closure / traits arg
+  / multi-line opening brace / unterminated block / etc.
+- **Filter precedence (1)** — confirms `+Previews.swift` filename
+  exclusion takes precedence over the content-based `#Preview` filter
+  so the two don't double-count.
+
+CI does not run the self-test, but contributors editing the filter
+logic should.
 
 ### CI gating
 
@@ -162,12 +173,31 @@ functions returning display-bound `String`.
 
 ### Extension protocol — adding filters
 
-Open `check_i18n_potential_keys.py`, add a regex/predicate to
+Two filter shapes coexist in `check_i18n_potential_keys.py`:
+
+**Key-text filters** (`NOISE_FILTERS`)
+
+Evaluate against the literal key string alone — no source-location
+context. Open `check_i18n_potential_keys.py`, add a regex/predicate to
 `NOISE_FILTERS`, and add **one TP fixture (drops as expected) plus one
-FP fixture (does NOT drop) to `_self_test`**. With ~85% noise floor,
-silent regressions in the filter logic re-classify real leaks as noise
-— self-test fixtures are the only barrier against this. The pattern
-mirrors `scripts/check_localization_coverage.py` (Tier 3 sibling).
+FP fixture (does NOT drop) to `_self_test`**.
+
+**Location-based filters** (e.g. `apply_preview_filter`)
+
+Evaluate against `(file, line)` — required when the filtering decision
+depends on where the literal lives, not just what it says. Add a sibling
+pass in `main()` BEFORE `filter_candidates()`; surface the dropped count
+as a separate row in `format_summary()`. Self-test fixtures operate on
+in-memory source text (not extracted keys) and live in a dedicated
+section of `_self_test()`. Include a **path-exclusion regression
+fixture** asserting that the existing filename filter still takes
+precedence — without it, a future contributor moving `+Previews.swift`
+under the location filter would silently double-count.
+
+With ~85% noise floor, silent regressions in either filter shape
+re-classify real leaks as noise — self-test fixtures are the only
+barrier against this. The pattern mirrors
+`scripts/check_localization_coverage.py` (Tier 3 sibling).
 
 ## Tier 3 — coverage gate (reference)
 
