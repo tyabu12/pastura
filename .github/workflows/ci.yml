@@ -154,6 +154,17 @@ jobs:
     # the suite runs in ~2 min; on CI it takes ~12 min. The 25 min budget
     # leaves headroom for build + simulator boot and future test additions.
     timeout-minutes: 25
+    # Skipped on the `feature/kmp-spike-models` integration branch during
+    # W1/W2 KMP-spike scaffolding (#220 W1 follow-up #2). Re-enabled at W3
+    # for H4 iOS smoke + H5 ASC dry-run, with +1 day triage budget for
+    # accumulated main-drift regressions absorbed via T12 weekly rebases
+    # (critic Axis 7 in W1 review). Event-aware shape mirrors the inverse
+    # of `kmp-build-test`'s gate (per critic Axis 2).
+    if: |
+      !(
+        (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
+        || (github.event_name == 'pull_request' && github.head_ref == 'feature/kmp-spike-models')
+      )
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
