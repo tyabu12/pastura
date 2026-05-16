@@ -7,7 +7,11 @@ on:
     # at W6 GO merge or branch deletion (NO-GO). See #220 T8 / T11.
     branches: [main, feature/kmp-spike-models]
   pull_request:
-    branches: [main]
+    # Also fire on PRs targeting the spike integration branch so W1+ feature
+    # PRs (e.g. `feat/kmp-w1-scaffold` → `feature/kmp-spike-models`) get CI
+    # validation BEFORE merge. Removed alongside the push trigger entry at
+    # W6 GO merge / NO-GO branch deletion.
+    branches: [main, feature/kmp-spike-models]
 
 permissions:
   contents: read
@@ -158,13 +162,14 @@ jobs:
     # W1/W2 KMP-spike scaffolding (#220 W1 follow-up #2). Re-enabled at W3
     # for H4 iOS smoke + H5 ASC dry-run, with +1 day triage budget for
     # accumulated main-drift regressions absorbed via T12 weekly rebases
-    # (critic Axis 7 in W1 review). Event-aware shape mirrors the inverse
-    # of `kmp-build-test`'s gate (per critic Axis 2).
-    # Matches inverse: skips when push to spike branch OR PR (any action)
-    # from the spike branch as source. Runs in all other cases.
+    # (critic Axis 7 in W1 review). Matches the inverse of `kmp-build-test`'s
+    # gate — skips on push to spike branch + PRs INTO spike branch + PRs
+    # FROM spike branch (e.g. W6 GO PR re-enables ui-test by removing this
+    # block entirely). Runs in all other cases (main pushes, PRs to main).
     if: |
       !(
         (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
+        || (github.event_name == 'pull_request' && github.base_ref == 'feature/kmp-spike-models')
         || (github.event_name == 'pull_request' && github.head_ref == 'feature/kmp-spike-models')
       )
     outputs:
@@ -345,18 +350,23 @@ jobs:
   # KMP build & test (Issue #220 — KMP Models Layer Validation Spike, W1+).
   # Gated to the long-lived `feature/kmp-spike-models` integration branch
   # (T11). Removed at W6 GO merge (folded into the GO PR diff) or branch
-  # deletion (NO-GO). The event-aware `if:` covers BOTH push to the spike
-  # branch AND pull_request from the spike branch — single-ref guard would
-  # misfire on the W6 GO PR where `github.ref` is `refs/pull/<N>/merge`
-  # (per critic Axis 2 in #220 W1 review).
+  # deletion (NO-GO). The event-aware `if:` covers THREE scenarios — see
+  # the `if:` block below for details. The single-ref `github.ref ==
+  # 'refs/heads/feature/kmp-spike-models'` shape would misfire on PRs
+  # (where `github.ref` is `refs/pull/<N>/merge`) — per pre-impl critic
+  # Axis 2 in #220 W1 review. The original two-clause shape missed the
+  # most common case (PRs INTO the spike branch); this three-clause shape
+  # covers all of:
+  #   1. Push to spike branch (post-merge or direct)
+  #   2. PR INTO spike branch (W1+ feature PR — head=feat/X, base=spike)
+  #   3. PR FROM spike branch (W6 GO PR — head=spike, base=main)
   kmp-build-test:
     name: KMP build & test (#220)
     runs-on: macos-26
     timeout-minutes: 25
-    # Matches: push to spike branch OR PR (any action: opened / synchronize /
-    # reopened / labeled / ...) from the spike branch as source.
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
+      || (github.event_name == 'pull_request' && github.base_ref == 'feature/kmp-spike-models')
       || (github.event_name == 'pull_request' && github.head_ref == 'feature/kmp-spike-models')
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
