@@ -118,7 +118,8 @@ struct GalleryScenarioDetailView: View {
         LabeledContent(
           String(localized: "Recommended model"),
           value: ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
-            ?? String(localized: "Unknown model (\(scenario.recommendedModel))")
+            ?? String(
+              format: String(localized: "Unknown model (%@)"), scenario.recommendedModel)
         )
         LabeledContent(
           String(localized: "Est. inferences"), value: "\(scenario.estimatedInferences)")
@@ -188,9 +189,11 @@ struct GalleryScenarioDetailView: View {
       outcomeAlert = OutcomeAlert(
         title: String(localized: "Cannot install"),
         message: String(
-          localized:
-            "A scenario named “\(existingName)” already uses this id. Delete or rename it first, then try again."
-        ))
+          format: String(
+            localized:
+              "A scenario named “%@” already uses this id. Delete or rename it first, then try again."
+          ),
+          existingName))
     case .hashMismatch:
       outcomeAlert = OutcomeAlert(
         title: String(localized: "Integrity check failed"),

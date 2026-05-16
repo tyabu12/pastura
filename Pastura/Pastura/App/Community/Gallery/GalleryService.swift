@@ -62,14 +62,17 @@ extension GalleryServiceError: LocalizedError {
     case .responseTooLarge(let limit):
       let formatted = ByteCountFormatter.string(
         fromByteCount: Int64(limit), countStyle: .file)
-      return String(localized: "Gallery response exceeds size limit (\(formatted))")
+      return String(
+        format: String(localized: "Gallery response exceeds size limit (%@)"), formatted)
     case .hashMismatch(let expected, let actual):
       return String(
-        localized: "Gallery scenario hash mismatch (expected \(expected), got \(actual))")
+        format: String(localized: "Gallery scenario hash mismatch (expected %@, got %@)"),
+        expected, actual)
     case .invalidResponse:
       return String(localized: "Gallery response was malformed")
     case .unexpectedStatus(let code):
-      return String(localized: "Gallery server returned unexpected status \(code)")
+      return String(
+        format: String(localized: "Gallery server returned unexpected status %lld"), code)
     case .corruptedCache:
       return String(localized: "Gallery cache is corrupted")
     }
