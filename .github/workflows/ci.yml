@@ -160,6 +160,8 @@ jobs:
     # accumulated main-drift regressions absorbed via T12 weekly rebases
     # (critic Axis 7 in W1 review). Event-aware shape mirrors the inverse
     # of `kmp-build-test`'s gate (per critic Axis 2).
+    # Matches inverse: skips when push to spike branch OR PR (any action)
+    # from the spike branch as source. Runs in all other cases.
     if: |
       !(
         (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
@@ -351,6 +353,8 @@ jobs:
     name: KMP build & test (#220)
     runs-on: macos-26
     timeout-minutes: 25
+    # Matches: push to spike branch OR PR (any action: opened / synchronize /
+    # reopened / labeled / ...) from the spike branch as source.
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
       || (github.event_name == 'pull_request' && github.head_ref == 'feature/kmp-spike-models')
@@ -381,22 +385,22 @@ jobs:
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Gradle dependencies (~/.gradle/caches)
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches
-          key: gradle-caches-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
-          restore-keys: gradle-caches-${{ runner.os }}-
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Gradle wrapper (~/.gradle/wrapper)
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/wrapper
-          key: gradle-wrapper-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-wrapper-${{ runner.os }}-
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Validate Gradle wrapper integrity
         uses: gradle/actions/wrapper-validation@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0

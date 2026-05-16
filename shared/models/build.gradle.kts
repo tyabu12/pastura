@@ -64,6 +64,12 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            // commonMain uses `implementation` (not `api`), so the
+            // kotlinx-serialization-json dep does NOT transitively expose to
+            // test sourceSets through Gradle's compile classpath. Adding it
+            // explicitly here makes the test compile contract robust to
+            // future commonMain dep scope changes.
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.pastura.models
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -34,3 +35,19 @@ public data class Pairing(
     val action1: String? = null,
     val action2: String? = null,
 )
+
+/**
+ * Strategy for generating agent pairings in phases that require matchups.
+ *
+ * Kotlin port of `Pastura/Pastura/Models/Pairing.swift:31` enum. Added in
+ * W1 (alongside [Pairing]) per code-reviewer warning #3 — exercises the
+ * raw-value-string-enum serialization surface that W2 canonicalizer must
+ * reconcile (Kotlin `@SerialName` vs Swift's `String` raw-value `Codable`
+ * default). Cheap to surface now; expensive to discover at W2 bulk port.
+ */
+@Serializable
+public enum class PairingStrategy {
+    /** Each agent plays against every other agent exactly once per round. */
+    @SerialName("round_robin")
+    ROUND_ROBIN,
+}
