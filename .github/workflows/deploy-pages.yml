@@ -73,10 +73,12 @@ on:
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
+# Workflow-level permissions are minimal. Only the `deploy` job needs
+# write access to Pages and the OIDC token; declaring those at job level
+# keeps the default-token contract narrow per
+# https://docs.github.com/en/actions/reference/security/secure-use
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -86,6 +88,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
