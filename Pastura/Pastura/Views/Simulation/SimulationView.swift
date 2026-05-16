@@ -294,11 +294,45 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           .accessibilityIdentifier("simulation.header.title")
       }
       .hidingPasturaSharedBackground()
+      #if DEBUG
+        // Manual `.languageMismatch` injector for #401 device QA.
+        // Real adherence drift requires a model that fails to comply
+        // with `simulation_language` — Gemma adheres reliably, so the
+        // event rarely fires in practice. This button bypasses the
+        // detector and dispatches a synthetic event so the toast +
+        // badge UI can be verified end-to-end on device. DEBUG-only;
+        // no Release impact.
+        ToolbarItem(placement: .topBarTrailing) {
+          Button {
+            injectLanguageMismatchForQA(viewModel: viewModel)
+          } label: {
+            Image(systemName: "ladybug.fill")
+          }
+          .accessibilityIdentifier("simulation.debug.injectLanguageMismatch")
+        }
+        .hidingPasturaSharedBackground()
+      #endif
     }
     .safeAreaInset(edge: .top, spacing: 0) {
       headerMetaInset(viewModel: viewModel)
     }
   }
+
+  #if DEBUG
+    /// Fires a synthetic `.languageMismatch` event for #401 device QA.
+    /// First tap shows the toast + sets badge to ×1; subsequent taps
+    /// only increment the badge (verifies the one-shot toast gating).
+    /// Alternates `detected` between `"ja"` and `nil` on odd / even
+    /// taps so the nil-detected branch of `languageMismatchToastText`
+    /// is also exercised. Has no production callsite.
+    private func injectLanguageMismatchForQA(viewModel: SimulationViewModel) {
+      guard let scenario, let agent = scenario.personas.first?.name else { return }
+      let detected: String? = viewModel.languageMismatchCount.isMultiple(of: 2) ? "ja" : nil
+      viewModel.handleEvent(
+        .languageMismatch(agent: agent, detected: detected, expected: "en"),
+        scenario: scenario)
+    }
+  #endif
 
   /// One-shot toast for the first `.languageMismatch` event of the
   /// current run (#401). Re-runs whenever
