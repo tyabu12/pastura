@@ -15,7 +15,7 @@ suspected vulnerabilities. Public reports give attackers time to exploit
 the issue before a fix is available.
 
 If GitHub PVR is unavailable to you, contact the maintainer at
-`tyabu1212@gmail.com` with a subject line beginning `[Pastura security]`.
+`developer@pastura.app` with a subject line beginning `[Pastura security]`.
 
 ### What to include
 
