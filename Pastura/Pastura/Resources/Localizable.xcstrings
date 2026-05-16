@@ -724,23 +724,12 @@
         }
       }
     },
-    "A scenario named “%arg” already uses this id. Delete or rename it first, then try again." : {
+    "A scenario named “%@” already uses this id. Delete or rename it first, then try again." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「%arg」という ID のシナリオがすでに存在します。先に削除するかリネームしてから再試行してください。"
-          }
-        }
-      }
-    },
-    "About" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "概要"
+            "value" : "「%@」という ID のシナリオがすでに存在します。先に削除するかリネームしてから再試行してください。"
           }
         }
       }
@@ -1149,17 +1138,6 @@
         }
       }
     },
-    "Choose a model to start" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "最初に使うモデルを選んでください"
-          }
-        }
-      }
-    },
     "Choose from predefined options" : {
       "localizations" : {
         "ja" : {
@@ -1246,17 +1224,6 @@
         }
       }
     },
-    "Content reporting" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コンテンツ報告"
-          }
-        }
-      }
-    },
     "Context" : {
       "localizations" : {
         "ja" : {
@@ -1293,6 +1260,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ギャラリーに接続できませんでした"
+          }
+        }
+      }
+    },
+    "Could not check local scenarios: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルシナリオの確認に失敗しました: %@"
           }
         }
       }
@@ -1454,17 +1431,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "完了"
-          }
-        }
-      }
-    },
-    "Download" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ダウンロード"
           }
         }
       }
@@ -1904,6 +1870,16 @@
         }
       }
     },
+    "Failed to parse gallery YAML: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ギャラリー YAML の解析に失敗しました: %@"
+          }
+        }
+      }
+    },
     "Failed to switch to CPU: %arg" : {
       "localizations" : {
         "ja" : {
@@ -2024,12 +2000,12 @@
         }
       }
     },
-    "Gallery response exceeds size limit (%arg)" : {
+    "Gallery response exceeds size limit (%@)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ギャラリーのレスポンスがサイズ上限を超えています (%arg)"
+            "value" : "ギャラリーのレスポンスがサイズ上限を超えています (%@)"
           }
         }
       }
@@ -2044,18 +2020,18 @@
         }
       }
     },
-    "Gallery scenario hash mismatch (expected %arg, got %arg)" : {
+    "Gallery scenario hash mismatch (expected %@, got %@)" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "Gallery scenario hash mismatch (expected %1$arg, got %2$arg)"
+            "state" : "translated",
+            "value" : "Gallery scenario hash mismatch (expected %1$@, got %2$@)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ギャラリーシナリオのハッシュ不一致 (期待: %1$arg, 実際: %2$arg)"
+            "value" : "ギャラリーシナリオのハッシュ不一致 (期待: %1$@, 実際: %2$@)"
           }
         }
       }
@@ -2080,12 +2056,12 @@
         }
       }
     },
-    "Gallery server returned unexpected status %arg" : {
+    "Gallery server returned unexpected status %lld" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ギャラリーサーバーが想定外のステータスを返しました: %arg"
+            "value" : "ギャラリーサーバーが想定外のステータスを返しました: %lld"
           }
         }
       }
@@ -2126,6 +2102,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考を隠す"
+          }
+        }
+      }
+    },
+    "ID: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID: %@"
           }
         }
       }
@@ -2256,6 +2242,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試行しても LLM の出力が不正でした。再度実行するか、モデルの状態を確認してください。"
+          }
+        }
+      }
+    },
+    "Last updated: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終更新: %@"
           }
         }
       }
@@ -2607,17 +2603,6 @@
         }
       }
     },
-    "Nothing is sent to a server. The model lives on this device." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "サーバーへの送信はありません。モデルはこのデバイス上で動作します。"
-          }
-        }
-      }
-    },
     "OK" : {
       "localizations" : {
         "ja" : {
@@ -2768,34 +2753,12 @@
         }
       }
     },
-    "Pastura runs the conversation on your iPhone. Pick the model you'd like to download first — you can add the other one later from Settings." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pastura はあなたの iPhone 上で会話を実行します。最初にダウンロードするモデルを選んでください。もう一方のモデルはあとから設定でも追加できます。"
-          }
-        }
-      }
-    },
     "Pastura simulation" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pastura シミュレーション"
-          }
-        }
-      }
-    },
-    "Pause (available during simulation)" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一時停止 (シミュレーション中のみ)"
           }
         }
       }
@@ -2886,23 +2849,6 @@
         }
       }
     },
-    "Phase %arg (%arg) requires field '%arg' in output." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Phase %1$arg (%2$arg) requires field '%3$arg' in output."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Phase %1$arg (%2$arg) には output に '%3$arg' フィールドが必要です。"
-          }
-        }
-      }
-    },
     "Phase %arg (assign): unknown target '%arg'. Use 'all' or 'random_one'." : {
       "localizations" : {
         "en" : {
@@ -2975,17 +2921,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再生速度"
-          }
-        }
-      }
-    },
-    "Playback speed (available during simulation)" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再生速度 (シミュレーション中のみ)"
           }
         }
       }
@@ -3366,12 +3301,12 @@
         }
       }
     },
-    "Save failed: %arg" : {
+    "Save failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存に失敗しました: %arg"
+            "value" : "保存に失敗しました: %@"
           }
         }
       }
@@ -3442,17 +3377,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオが見つかりません"
-          }
-        }
-      }
-    },
-    "Scenario reports from Shared Scenarios are reviewed by the Pastura maintainer (github.com/tyabu12)." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有シナリオに関するシナリオ報告は Pastura のメンテナ (github.com/tyabu12) が確認します。"
           }
         }
       }
@@ -3611,17 +3535,6 @@
         }
       }
     },
-    "Single comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 項比較: lhs OP rhs（OP は ==, !=, <, <=, >, >= のいずれか）。識別子: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>、またはテンプレート変数。文字列リテラルはダブルクォートで囲んでください。"
-          }
-        }
-      }
-    },
     "Social Psychology" : {
       "localizations" : {
         "ja" : {
@@ -3688,34 +3601,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "個別発言"
-          }
-        }
-      }
-    },
-    "Start with %arg, %arg download" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Start with %1$arg, %2$arg download"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%arg で開始（%arg のダウンロード）"
-          }
-        }
-      }
-    },
-    "Start with this model" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このモデルで始める"
           }
         }
       }
@@ -3966,17 +3851,6 @@
         }
       }
     },
-    "To report a scenario: open it from Shared Scenarios, tap the More menu, and choose Report this scenario." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオを報告するには: 共有シナリオから該当シナリオを開き、More メニューをタップして「Report this scenario」を選択してください。"
-          }
-        }
-      }
-    },
     "Top-level YAML key" : {
       "localizations" : {
         "ja" : {
@@ -4027,12 +3901,12 @@
         }
       }
     },
-    "Unknown model (%arg)" : {
+    "Unknown model (%@)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未対応のモデル (%arg)"
+            "value" : "未対応のモデル (%@)"
           }
         }
       }
@@ -4337,18 +4211,18 @@
         }
       }
     },
-    "Will run on %arg, not the recommended %arg" : {
+    "Will run on %@, not the recommended %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Will run on %1$arg, not the recommended %2$arg"
+            "value" : "Will run on %1$@, not the recommended %2$@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "推奨モデル %2$arg ではなく %1$arg で実行されます"
+            "value" : "推奨モデル %2$@ ではなく %1$@ で実行されます"
           }
         }
       }
@@ -4389,17 +4263,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このデバイスに複数のモデルを保持できます。メモリに読み込まれるのは使用中のモデルだけです。"
-          }
-        }
-      }
-    },
-    "You'll receive a confirmation email when your report is received." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "報告が受理されると確認メールが届きます。"
           }
         }
       }
@@ -4494,17 +4357,6 @@
         }
       }
     },
-    "e.g. max_score >= 10" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "例: max_score >= 10"
-          }
-        }
-      }
-    },
     "e.g. max_score >= 10 && active_count > 1" : {
       "localizations" : {
         "ja" : {
@@ -4547,6 +4399,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "vs"
+          }
+        }
+      }
+    },
+    "~%lld inferences" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%lld 回の推論"
           }
         }
       }
