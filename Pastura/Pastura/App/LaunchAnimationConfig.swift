@@ -29,11 +29,18 @@ nonisolated public enum LaunchAnimationConfig {
   /// launch as warm and use ``warmDuration`` instead of ``coldDuration``.
   public static let warmThreshold: TimeInterval = 180
 
+  /// Fraction of ``coldDuration`` at which the sheep begins drifting
+  /// into the pasture. The pre-drift hold (0 → this ratio) keeps the
+  /// motion readable; collapsing it into the sky's settle window made
+  /// the drift imperceptible. Must be strictly less than
+  /// ``hapticDelayRatio`` so `sheepDriftDuration` stays positive.
+  public static let sheepEnterRatio: Double = 0.20
+
   /// Fraction of ``coldDuration`` at which the haptic feedback fires —
   /// the moment the sheep reaches its resting position.
   /// E.g. `1.2 s × 0.65 = 0.78 s`. Also defines the sheep-drift end
-  /// instant for the cold splash; the sheep enters at 20 % of the
-  /// timeline and arrives at this ratio.
+  /// instant for the cold splash; the sheep enters at
+  /// ``sheepEnterRatio`` and arrives at this ratio.
   public static let hapticDelayRatio: Double = 0.65
 
   /// Animation duration when the user has enabled Reduce Motion. Kept short

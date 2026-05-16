@@ -41,4 +41,15 @@ struct LaunchAnimationConfigTests {
       LaunchAnimationConfig.coldDuration * LaunchAnimationConfig.hapticDelayRatio
     #expect(abs(hapticDelay - 0.78) < 1e-9)
   }
+
+  @Test func sheepEnterPrecedesHapticArrival() {
+    // ColdSplashView derives `sheepDriftDuration = coldDuration *
+    // (hapticDelayRatio - sheepEnterRatio)`. If this invariant ever
+    // breaks (e.g. someone bumps sheepEnterRatio past hapticDelayRatio
+    // during tuning), the derived duration goes negative and the splash
+    // breaks silently. Guard it here so the regression surfaces in CI.
+    #expect(
+      LaunchAnimationConfig.sheepEnterRatio < LaunchAnimationConfig.hapticDelayRatio)
+    #expect(LaunchAnimationConfig.sheepEnterRatio >= 0)
+  }
 }

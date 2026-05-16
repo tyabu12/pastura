@@ -12,22 +12,23 @@ import UIKit
 ///    — drifts horizontally `+ sheepDriftDistance → 0` during the drift
 ///    phase so the entire pasture appears to wander in under the sky.
 ///
-/// A single `UIImpactFeedbackGenerator(.light)` haptic fires at 55% of the
-/// timeline (~880 ms into the default 1.6s playback) — the audible-tactile
-/// confirmation that the sheep have landed. The haptic is scheduled via
-/// `.task` so it auto-cancels if the view disappears early.
+/// A single `UIImpactFeedbackGenerator(.light)` haptic fires at
+/// ``LaunchAnimationConfig/hapticDelayRatio`` of the timeline — by design,
+/// the same instant the pasture finishes drifting in. The haptic is
+/// scheduled via `.task` so it auto-cancels if the view disappears early.
 ///
 /// **Exit phase is owned by the parent.** This view holds at "settled"
-/// indefinitely; the README's 72→100% scale-up + fade-out is expressed as
+/// indefinitely; the README's 72→100 % scale-up + fade-out is expressed as
 /// a SwiftUI `.transition` on the parent's `splashKind` removal so that:
 /// (a) the splash can extend past the natural duration when initialisation
 /// runs slow, and (b) the exit is unified with whatever follow-on view
 /// (HomeView, ProgressView fallback) emerges underneath.
 ///
 /// **Reduce Motion:** when `accessibilityReduceMotion` is set, the view
-/// degrades to a simple opacity-only fade-in with no scale or drift. The
-/// haptic still fires — Reduce Motion targets visual stimulation, not
-/// tactile feedback (per the design handoff's accessibility note).
+/// degrades to a simple opacity-only fade-in of the combined `LaunchIcon`
+/// asset (no sky/pasture split, no scale, no drift). The haptic still
+/// fires — Reduce Motion targets visual stimulation, not tactile feedback
+/// (per the design handoff's accessibility note).
 struct ColdSplashView: View {
   /// Combined launch icon — used as a single layer under Reduce Motion
   /// and as the canonical reference for the static iOS LaunchScreen.
@@ -129,16 +130,17 @@ struct ColdSplashView: View {
     // compressed timeline doesn't leave room for a believable beat.
     guard !reduceMotion else { return }
 
-    // Phase B — sheep drift. Spec: sheep enters at 20 % of the timeline
-    // and arrives at the haptic instant (``hapticDelayRatio``). The 20 %
-    // pre-drift delay is what makes the drift readable; the previous
-    // implementation collapsed sheep into the base's 18 % settle window
-    // and the motion was imperceptible. Duration is derived from the
-    // haptic ratio so adjusting one keeps them in lock-step.
-    let sheepEnterRatio: Double = 0.20
-    let sheepDelay = duration * sheepEnterRatio
+    // Phase B — sheep drift. Spec: sheep enters at
+    // ``LaunchAnimationConfig/sheepEnterRatio`` of the timeline and
+    // arrives at the haptic instant (``hapticDelayRatio``). The pre-drift
+    // delay is what makes the drift readable; collapsing it into the
+    // sky's settle window made the motion imperceptible. Duration is
+    // derived from the two ratios so adjusting either keeps them locked.
+    let sheepDelay = duration * LaunchAnimationConfig.sheepEnterRatio
     let sheepDriftDuration =
-      duration * (LaunchAnimationConfig.hapticDelayRatio - sheepEnterRatio)
+      duration
+      * (LaunchAnimationConfig.hapticDelayRatio
+        - LaunchAnimationConfig.sheepEnterRatio)
     do {
       try await Task.sleep(nanoseconds: UInt64(sheepDelay * 1_000_000_000))
       withAnimation(
