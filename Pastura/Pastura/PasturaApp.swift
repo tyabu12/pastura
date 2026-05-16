@@ -551,19 +551,27 @@ extension RootView {
 
   /// Cold splash dismissal: hold for `coldDuration`, optionally extend up
   /// to `coldSplashMaxExtension` while init is still resolving, then play
-  /// the `.coldSplashExit` transition. See ``LaunchSplashTimer`` for the
-  /// pure logic that backs this behaviour — replicated here as a poll loop
-  /// because Swift Testing can pin the helper but a SwiftUI view's
-  /// `appStateKind` is a moving target.
+  /// the `.coldSplashExit` transition.
+  ///
+  /// Built on top of ``LaunchSplashTimer``: the timer encapsulates the
+  /// min-time + extension contract (with unit-test coverage of the four
+  /// resolution regimes), this function turns that into an observation
+  /// loop because a SwiftUI view's `appStateKind` is a moving target that
+  /// `LaunchSplashTimer.dismissalTime(...)` can't observe directly.
+  ///
+  /// `hardDeadline` from the timer drives the loop's upper bound so the
+  /// two definitions of "how long can extension last" stay locked.
   fileprivate func runColdSplashTimeline() async {
-    let minDuration = LaunchAnimationConfig.coldDuration
-    try? await Task.sleep(nanoseconds: UInt64(minDuration * 1_000_000_000))
+    let timer = LaunchSplashTimer(
+      minDuration: LaunchAnimationConfig.coldDuration,
+      maxExtension: Self.coldSplashMaxExtension
+    )
+    try? await Task.sleep(nanoseconds: UInt64(timer.minDuration * 1_000_000_000))
 
-    // Extension wait — poll up to `coldSplashMaxExtension`. 50 ms polling
-    // is invisible to the user (well under one perceived frame at 60 Hz on
-    // the wall-clock scale of "feels instant") and bounded — at most 20
-    // iterations for a 1-second cap.
-    let maxExtensionMs: UInt64 = UInt64(Self.coldSplashMaxExtension * 1000)
+    // Extension wait — poll up to `maxExtension`. 50 ms polling is
+    // invisible to the user (well under one perceived frame at 60 Hz) and
+    // bounded — at most 20 iterations for a 1-second cap.
+    let maxExtensionMs: UInt64 = UInt64(timer.maxExtension * 1000)
     let pollIntervalMs: UInt64 = 50
     var elapsedMs: UInt64 = 0
     while appStateKind == .initializing && elapsedMs < maxExtensionMs {

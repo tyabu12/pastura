@@ -89,29 +89,39 @@ struct WarmSplashView: View {
 
     let total = LaunchAnimationConfig.warmDuration
 
-    // Segment 1 — appear (0 → 18%, ~126 ms): scale .97 → 1.00, opacity 0 → 1
-    let appearDuration = total * 0.18
-    withAnimation(LaunchAnimationConfig.easeStandard(duration: appearDuration)) {
-      appeared = true
-    }
+    // Cancellation note: each segment uses `try await Task.sleep` + outer
+    // do/catch so a parent-driven dismissal during playback (e.g. user
+    // backgrounds again mid-Breath) propagates `CancellationError` out
+    // and skips the remaining segments. `try?` would swallow cancellation
+    // and trigger `withAnimation` against a soon-to-be-removed view —
+    // visually harmless but stylistically inconsistent with ColdSplashView.
+    do {
+      // Segment 1 — appear (0 → 18%, ~126 ms): scale .97 → 1.00, opacity 0 → 1
+      let appearDuration = total * 0.18
+      withAnimation(LaunchAnimationConfig.easeStandard(duration: appearDuration)) {
+        appeared = true
+      }
 
-    // Segment 2 — inhale (18 → 50%, ~224 ms): scale 1.00 → 1.02
-    let inhaleDuration = total * 0.32
-    let inhaleDelayNs = UInt64(appearDuration * 1_000_000_000)
-    try? await Task.sleep(nanoseconds: inhaleDelayNs)
-    withAnimation(LaunchAnimationConfig.easeStandard(duration: inhaleDuration)) {
-      inhaled = true
-    }
+      // Segment 2 — inhale (18 → 50%, ~224 ms): scale 1.00 → 1.02
+      let inhaleDuration = total * 0.32
+      let inhaleDelayNs = UInt64(appearDuration * 1_000_000_000)
+      try await Task.sleep(nanoseconds: inhaleDelayNs)
+      withAnimation(LaunchAnimationConfig.easeStandard(duration: inhaleDuration)) {
+        inhaled = true
+      }
 
-    // Segment 3 — exhale (50 → 72%, ~154 ms): scale 1.02 → 1.00
-    let exhaleDuration = total * 0.22
-    let exhaleDelayNs = UInt64(inhaleDuration * 1_000_000_000)
-    try? await Task.sleep(nanoseconds: exhaleDelayNs)
-    withAnimation(LaunchAnimationConfig.easeStandard(duration: exhaleDuration)) {
-      exhaled = true
-    }
+      // Segment 3 — exhale (50 → 72%, ~154 ms): scale 1.02 → 1.00
+      let exhaleDuration = total * 0.22
+      let exhaleDelayNs = UInt64(inhaleDuration * 1_000_000_000)
+      try await Task.sleep(nanoseconds: exhaleDelayNs)
+      withAnimation(LaunchAnimationConfig.easeStandard(duration: exhaleDuration)) {
+        exhaled = true
+      }
 
-    // Segment 4 — dissolve (72 → 100%) is parent-owned (.warmSplashExit).
+      // Segment 4 — dissolve (72 → 100%) is parent-owned (.warmSplashExit).
+    } catch {
+      // Task cancelled — view disappeared mid-animation. Skip remaining segments.
+    }
   }
 }
 

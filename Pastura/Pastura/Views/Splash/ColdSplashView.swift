@@ -88,7 +88,10 @@ struct ColdSplashView: View {
   /// - 72 → 100%: exit fade — NOT handled here, owned by parent transition
   ///
   /// The `.task` modifier on `body` owns this; cancellation on view
-  /// disappear stops the pending haptic.
+  /// disappear propagates out of `Task.sleep(nanoseconds:)` as
+  /// `CancellationError`, skipping the haptic. Using `try` (not `try?`)
+  /// + outer do/catch is load-bearing: `try?` would swallow the
+  /// cancellation and fire the haptic into a torn-down view.
   private func runAnimation() async {
     let duration =
       reduceMotion
@@ -107,8 +110,13 @@ struct ColdSplashView: View {
     if !reduceMotion {
       let hapticDelay = duration * LaunchAnimationConfig.hapticDelayRatio
       let hapticNs = UInt64(hapticDelay * 1_000_000_000)
-      try? await Task.sleep(nanoseconds: hapticNs)
-      Self.fireLandingHaptic()
+      do {
+        try await Task.sleep(nanoseconds: hapticNs)
+        Self.fireLandingHaptic()
+      } catch {
+        // Task was cancelled — view disappeared before the haptic beat.
+        // Intentionally skip the haptic.
+      }
     }
   }
 
