@@ -643,7 +643,7 @@
 			repositoryURL = "https://github.com/mattt/llama.swift.git";
 			requirement = {
 				kind = exactVersion;
-				version = 2.8694.0;
+				version = 2.9174.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
