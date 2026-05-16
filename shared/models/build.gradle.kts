@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 // `shared/models` — Kotlin Multiplatform port of Pastura's `Models/` Swift
 // layer (Issue #220 — KMP Models Layer Validation Spike).
@@ -30,9 +31,32 @@ kotlin {
         }
     }
 
-    iosArm64()
-    iosSimulatorArm64()
-    iosX64()
+    // Umbrella XCFramework export (D6 in #220). The three iOS targets each
+    // produce a framework binary named `PasturaShared`; the aggregate
+    // `XCFramework("PasturaShared")` task bundles them into
+    // `PasturaShared.xcframework`. Task name:
+    // `assemblePasturaSharedXCFramework` (also: `assemble<Debug|Release>PasturaSharedXCFramework`).
+    // Swift consumption (`import PasturaShared`) lands in W3 (H8); W1 only
+    // validates that the toolchain produces a valid XCFramework directory.
+    val xcf = XCFramework("PasturaShared")
+    iosArm64 {
+        binaries.framework {
+            baseName = "PasturaShared"
+            xcf.add(this)
+        }
+    }
+    iosSimulatorArm64 {
+        binaries.framework {
+            baseName = "PasturaShared"
+            xcf.add(this)
+        }
+    }
+    iosX64 {
+        binaries.framework {
+            baseName = "PasturaShared"
+            xcf.add(this)
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
