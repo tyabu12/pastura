@@ -61,6 +61,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
+            // YAML 1.2 parser. Backs `YamlCodec` actuals in
+            // jvmMain/iosMain via snakeyaml-engine-kmp's KMP API
+            // (W2 PR-A item 9 — Day-1 D3 in #220).
+            implementation(libs.snakeyaml.engine.kmp)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -70,6 +74,7 @@ kotlin {
             // explicitly here makes the test compile contract robust to
             // future commonMain dep scope changes.
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.snakeyaml.engine.kmp)
         }
     }
 }

@@ -8,6 +8,9 @@
 [versions]
 kotlin = "2.3.21"
 kotlinx-serialization = "1.7.3"
+# YAML 1.2 parser for Kotlin Multiplatform (JVM + Native iOS targets).
+# Backs `YamlCodec` actuals in `shared/models` (W2 PR-A item 9 — Day-1 D3 in #220).
+snakeyaml-engine-kmp = "4.0.1"
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -15,3 +18,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+snakeyaml-engine-kmp = { module = "it.krzeminski:snakeyaml-engine-kmp", version.ref = "snakeyaml-engine-kmp" }
