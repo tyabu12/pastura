@@ -7,7 +7,7 @@ Running local LLM multi-agent simulations on-device.
 
 [![CI](https://github.com/tyabu12/pastura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tyabu12/2e86dcd3eddf5d5294d75870c9ad62e7/raw/pastura-coverage.json)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
-[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License MIT](https://img.shields.io/badge/License-MIT-006400.svg)](LICENSE)
 <!-- Platform badge unversioned per ADR-004 (multi-platform). Do not add iOS 17+. -->
 [![Platform iOS](https://img.shields.io/badge/Platform-iOS-blue.svg)](#prerequisites)
 
