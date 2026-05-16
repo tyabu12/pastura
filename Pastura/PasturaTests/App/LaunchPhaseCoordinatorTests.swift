@@ -65,4 +65,63 @@ struct LaunchPhaseCoordinatorTests {
     coordinator.clearBackgrounded()
     #expect(coordinator.lastBackgroundedAt == nil)
   }
+
+  // MARK: - shouldPlayWarmSplash matrix
+
+  @Test func coldLaunchNeverPlaysWarmSplash() {
+    // Even with everything else green, a `.cold` kind never opens a warm
+    // splash — cold gets its own dedicated overlay path.
+    let result = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .cold,
+      appIsReady: true,
+      isSimulationOnTop: false,
+      isSheetActive: false
+    )
+    #expect(result == false)
+  }
+
+  @Test func warmPlaysWhenReadyAndIdle() {
+    let result = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: false,
+      isSheetActive: false
+    )
+    #expect(result == true)
+  }
+
+  @Test func warmSuppressedDuringSimulation() {
+    // Critical regression guard per plan critic axis 5: warm splash MUST
+    // NOT cover an in-flight simulation (the BGContinuedProcessingTask
+    // CPU↔GPU swap surface).
+    let result = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: true,
+      isSheetActive: false
+    )
+    #expect(result == false)
+  }
+
+  @Test func warmSuppressedWhileSheetPresented() {
+    let result = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: false,
+      isSheetActive: true
+    )
+    #expect(result == false)
+  }
+
+  @Test func warmSuppressedOutsideReadyState() {
+    // Picker / download flows have their own UI — warm splash would
+    // double-stack on top of them.
+    let result = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: false,
+      isSimulationOnTop: false,
+      isSheetActive: false
+    )
+    #expect(result == false)
+  }
 }

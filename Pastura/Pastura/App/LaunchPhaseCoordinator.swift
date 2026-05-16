@@ -57,6 +57,29 @@ public final class LaunchPhaseCoordinator {
     lastBackgroundedAt = nil
   }
 
+  /// Whether the warm splash should play given the current app state.
+  ///
+  /// Pure predicate so the suppression matrix can be unit-tested without
+  /// spinning up a `RootView`. Per the design handoff and the plan-critic
+  /// recommendation (`docs/issues/412`), the warm splash MUST suppress:
+  /// - Outside `.ready` — picker / download flows have their own UI
+  /// - During an in-flight simulation — would cover the CPU↔GPU swap
+  ///   surface that `BGContinuedProcessingTask` returns to
+  /// - While a sheet is presented — would visually steal focus from the
+  ///   user's in-progress edit / configuration
+  ///
+  /// Cold launches are *not* suppressed by these flags — cold means the
+  /// process is fresh and there is no simulation or sheet to interrupt.
+  nonisolated public static func shouldPlayWarmSplash(
+    launchKind: LaunchKind,
+    appIsReady: Bool,
+    isSimulationOnTop: Bool,
+    isSheetActive: Bool
+  ) -> Bool {
+    guard launchKind == .warm else { return false }
+    return appIsReady && !isSimulationOnTop && !isSheetActive
+  }
+
   /// Pure decision: given the current time and the last-backgrounded
   /// timestamp, classify the next launch as cold or warm.
   ///
