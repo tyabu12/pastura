@@ -33,6 +33,25 @@ and ``''`` (empty literals from runtime concatenation). They are NOT a
 hard guarantee — extension is expected as new noise patterns surface; see
 ``docs/i18n/leak-detection.md`` for the maintenance protocol.
 
+In addition to filename-suffix exclusion (``+Previews.swift``), inline
+``#Preview`` macro blocks at file scope are skipped via column-0 brace
+matching (see ``compute_preview_block_lines``). The audit relies on the
+project-wide convention that ``#Preview`` blocks live at column 0 — all
+current Pastura usage matches. Blocks at non-zero indent (inside ``#if
+DEBUG`` or nested types) are NOT recognized and surface their bodies as
+candidates. PR review enforces the file-scope convention (no SwiftLint
+rule covers this today).
+
+The filter pipeline distinguishes two filter shapes:
+
+* **Key-text filters** (``NOISE_FILTERS``) — ``Callable[[str], bool]``
+  predicates evaluated against the literal text. Extend by adding a row
+  to ``NOISE_FILTERS`` and a TP+FP fixture pair to ``_self_test``.
+* **Location-based filters** (``apply_preview_filter`` etc.) — pre-pass
+  before key-text filtering. Operate on the candidate dict's ``file`` /
+  ``line``. Extend by adding a sibling pass in ``main`` and dedicated
+  self-test fixtures keyed on source text.
+
 Run ``--self-test`` to exercise each filter against in-memory fixtures
 before invoking on the full tree. Unlike ``check_localization_coverage.py``
 this script is **NOT** wired into CI (per Issue #292 AC: ratio of true
@@ -142,6 +161,83 @@ def classify_key(key: str) -> str | None:
         if predicate(key):
             return name
     return None
+
+
+# ---------------------------------------------------------------------------
+# Location-based pre-filter — #Preview macro block-skip
+# ---------------------------------------------------------------------------
+# Pastura convention: `#Preview` macros live at file scope (column 0). The
+# closing `}` is therefore also at column 0, and the body's nested braces
+# (closures, struct literals) are at non-zero indent under swift-format.
+# Finding the first column-0 `}` after a column-0 `#Preview` line is
+# sufficient to bound the block without a real tokenizer — failing open
+# on stray column-0 `}` (early-terminates the block, leaves later content
+# visible) rather than swallowing real leaks. See
+# `docs/i18n/leak-detection.md` § "Explicitly-deferred or permanent
+# carve-outs" for the file-scope-only contract.
+
+_PREVIEW_START_RE = re.compile(r"^#Preview\b")
+_PREVIEW_FILTER_NAME = "preview-macro"
+_PREVIEW_FILTER_DESCRIPTION = "inside #Preview macro body (file-scope only)"
+
+
+def compute_preview_block_lines(source: str) -> set[int]:
+    """Returns 1-indexed line numbers inside file-scope ``#Preview { ... }`` bodies.
+
+    Includes the ``#Preview`` line itself and the closing ``}`` line.
+    """
+    lines = source.splitlines()
+    skip: set[int] = set()
+    i = 0
+    while i < len(lines):
+        if _PREVIEW_START_RE.match(lines[i]):
+            start_idx = i
+            end_idx: int | None = None
+            # Find the first column-0 closing brace AFTER the #Preview line.
+            # No brace-depth tracking needed under Pastura's swift-format
+            # convention — see header comment above.
+            for j in range(i + 1, len(lines)):
+                if lines[j].startswith("}"):
+                    end_idx = j
+                    break
+            if end_idx is None:
+                # Unterminated block — bail without over-extending.
+                i += 1
+                continue
+            for k in range(start_idx, end_idx + 1):
+                skip.add(k + 1)  # 1-indexed
+            i = end_idx + 1
+        else:
+            i += 1
+    return skip
+
+
+def apply_preview_filter(
+    candidates: Iterable[dict],
+) -> tuple[list[dict], int]:
+    """Drops candidates whose ``(file, line)`` falls inside a ``#Preview`` body.
+
+    Caches the per-file preview-line set so each source is read at most
+    once. Returns ``(kept_candidates, dropped_count)``; the caller
+    attributes ``dropped_count`` to the ``preview-macro`` row of the
+    summary breakdown.
+    """
+    preview_cache: dict[Path, set[int]] = {}
+    kept: list[dict] = []
+    dropped = 0
+    for cand in candidates:
+        path = cand["file"]
+        if path not in preview_cache:
+            try:
+                source = path.read_text()
+            except OSError:
+                source = ""
+            preview_cache[path] = compute_preview_block_lines(source)
+        if cand["line"] in preview_cache[path]:
+            dropped += 1
+        else:
+            kept.append(cand)
+    return kept, dropped
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +353,13 @@ def format_summary(kept: list[dict], dropped: dict[str, int]) -> str:
             count = dropped.get(name, 0)
             if count:
                 parts.append(f"  · {name:<13} {count:>4}  ({description})")
+        # Location-based filters live outside NOISE_FILTERS — render after.
+        preview_count = dropped.get(_PREVIEW_FILTER_NAME, 0)
+        if preview_count:
+            parts.append(
+                f"  · {_PREVIEW_FILTER_NAME:<13} {preview_count:>4}  "
+                f"({_PREVIEW_FILTER_DESCRIPTION})"
+            )
     return "\n".join(parts)
 
 
@@ -372,7 +475,121 @@ def _self_test() -> int:
         f"Path-exclusion: {len(path_cases) - path_failures}/{len(path_cases)} "
         "behaved as expected"
     )
-    return 0 if (failures == 0 and path_failures == 0) else 1
+
+    # `#Preview` block-skip fixtures — see leak-detection.md § "Extension
+    # protocol — adding filters" for the location-based filter shape.
+    print("Preview block-skip fixtures:")
+    preview_cases: list[tuple[str, str, set[int]]] = [
+        (
+            "TP — single-line #Preview with named arg",
+            "import SwiftUI\n"  # 1
+            '#Preview("name") {\n'  # 2
+            '  Text("inside")\n'  # 3
+            "}\n"  # 4
+            'Text("outside")\n',  # 5
+            {2, 3, 4},
+        ),
+        (
+            "TP — no-arg #Preview body still detected",
+            "#Preview {\n"  # 1
+            "  ContentView()\n"  # 2
+            "}\n",  # 3
+            {1, 2, 3},
+        ),
+        (
+            "FP — string outside #Preview not classified",
+            'Text("kept")\n#Preview { Inline() }\n',  # neither line is between
+            # The single-line `#Preview { Inline() }` form has its closing
+            # `}` on the same line — no subsequent column-0 `}`, so the
+            # block is unterminated and the algorithm bails. Line 1 (the
+            # real-leak shape) is therefore unaffected.
+            set(),
+        ),
+        (
+            "Edge — nested closure inside body",
+            'import SwiftUI\n'  # 1
+            '#Preview("name") {\n'  # 2
+            "  ForEach(items) { item in\n"  # 3
+            "    Text(item.name)\n"  # 4
+            "  }\n"  # 5  (nested `}` at non-zero indent)
+            "}\n",  # 6  (column-0 close)
+            {2, 3, 4, 5, 6},
+        ),
+        (
+            "Edge — #Preview with traits arg",
+            '#Preview("name", traits: .sizeThatFits) {\n'  # 1
+            '  Text("inside")\n'  # 2
+            "}\n",  # 3
+            {1, 2, 3},
+        ),
+        (
+            "Edge — multi-line opening (#Preview line and { on separate lines)",
+            "#Preview(\n"  # 1
+            '  "long arg list"\n'  # 2
+            ") {\n"  # 3
+            '  Text("inside")\n'  # 4
+            "}\n",  # 5
+            {1, 2, 3, 4, 5},
+        ),
+        (
+            "Edge — unterminated #Preview bails (no column-0 close)",
+            '#Preview("oops") {\n'
+            '  Text("inside")\n'
+            # No closing column-0 `}`
+            "  return body\n",
+            set(),
+        ),
+    ]
+    preview_failures = 0
+    for description, source, expected in preview_cases:
+        actual = compute_preview_block_lines(source)
+        if actual == expected:
+            print(f"  ok  {description!r}: lines={sorted(actual)}")
+        else:
+            preview_failures += 1
+            print(
+                f"  FAIL {description!r}: got {sorted(actual)}, "
+                f"expected {sorted(expected)}"
+            )
+    print(
+        f"Preview block-skip: {len(preview_cases) - preview_failures}/"
+        f"{len(preview_cases)} behaved as expected"
+    )
+
+    # Path-exclusion regression: `+Previews.swift` files MUST still be
+    # excluded by filename filter BEFORE the content-based preview filter
+    # runs. The two filters answer the same question at different
+    # granularities — whole-file vs inline block — and `+Previews.swift`
+    # never reaches `compute_preview_block_lines` because source discovery
+    # drops it first. This fixture protects against future "double-count"
+    # confusion if a contributor adds a `+Previews.swift` file with
+    # non-Preview code (anti-pattern, but the filename filter is intended
+    # to be the canonical contract for preview-only files).
+    print("Filter-precedence fixtures:")
+    precedence_failures = 0
+    preview_sidecar = (
+        SOURCE_DIR / "Views" / "ModelDownload" / "PromoCard+Previews.swift"
+    )
+    if is_excluded_path(preview_sidecar):
+        print(
+            "  ok  '+Previews.swift takes filename precedence over content filter'"
+        )
+    else:
+        precedence_failures += 1
+        print(
+            "  FAIL '+Previews.swift NOT excluded by filename — content filter "
+            "would double-count if reached'"
+        )
+    print(
+        f"Filter-precedence: {1 - precedence_failures}/1 behaved as expected"
+    )
+
+    return 0 if (
+        failures == 0
+        and path_failures == 0
+        and preview_failures == 0
+        and precedence_failures == 0
+    ) else 1
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +636,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     candidates = extract_potential_keys(sources)
+    # Location-based pre-filter: drop candidates inside #Preview macro
+    # bodies before key-text noise filters run.
+    candidates, preview_dropped = apply_preview_filter(candidates)
     kept, dropped = filter_candidates(candidates)
+    if preview_dropped:
+        dropped[_PREVIEW_FILTER_NAME] = preview_dropped
 
     if kept:
         print(format_kept(kept, ROOT))
