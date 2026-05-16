@@ -67,7 +67,7 @@ struct ResultsView: View {
         Text(simulation.createdAt, style: .date)
         Text(simulation.createdAt, style: .time)
         Spacer()
-        statusBadge(simulation.status)
+        statusBadge(simulation.simulationStatus)
       }
       .font(.subheadline)
 
@@ -75,7 +75,7 @@ struct ResultsView: View {
         let top3 = state.scores.sorted(by: { $0.value > $1.value }).prefix(3)
         HStack(spacing: 8) {
           ForEach(Array(top3), id: \.key) { name, score in
-            Text("\(name) (\(score))")
+            Text(String(format: String(localized: "%@ (%lld)"), name, score))
               .textStyle(Typography.metaValue)
               .foregroundStyle(Color.muted)
           }
@@ -85,7 +85,8 @@ struct ResultsView: View {
     .padding(.vertical, 2)
   }
 
-  private func statusBadge(_ status: String) -> some View {
+  @ViewBuilder
+  private func statusBadge(_ status: SimulationStatus?) -> some View {
     // Pastura tokens (§2.3): completed = moss-dark（ステータスラベル用途、§2.3
     // で "ステータスラベル（Completed 等）" と enumerate）、paused / default
     // は ink-secondary / muted の neutral。`.green / .orange / .secondary`
@@ -95,14 +96,28 @@ struct ResultsView: View {
     // Label font も同時に `Typography.metaLabel` 化（隣接トークンの一貫性
     // — `.caption` だけ残ると section 内で system font / Pastura token が
     // 混在するため）。
-    let (icon, color): (String, Color) =
-      switch status {
-      case "completed": ("checkmark.circle.fill", Color.mossDark)
-      case "paused": ("pause.circle.fill", Color.inkSecondary)
-      default: ("questionmark.circle", Color.muted)
-      }
-    return Label(status.capitalized, systemImage: icon)
-      .textStyle(Typography.metaLabel)
-      .foregroundStyle(color)
+    //
+    // Structured as individual cases (not a 3-tuple) to stay within
+    // SwiftLint's `large_tuple` limit of 2 members.
+    switch status {
+    case .completed:
+      Label(String(localized: "Completed"), systemImage: "checkmark.circle.fill")
+        .textStyle(Typography.metaLabel).foregroundStyle(Color.mossDark)
+    case .paused:
+      Label(String(localized: "Paused"), systemImage: "pause.circle.fill")
+        .textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
+    case .running:
+      Label(String(localized: "Running"), systemImage: "play.circle.fill")
+        .textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
+    case .failed:
+      Label(String(localized: "Failed"), systemImage: "exclamationmark.circle.fill")
+        .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
+    case .cancelled:
+      Label(String(localized: "Cancelled"), systemImage: "xmark.circle.fill")
+        .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
+    case .none:
+      Label(String(localized: "Unknown"), systemImage: "questionmark.circle")
+        .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
+    }
   }
 }

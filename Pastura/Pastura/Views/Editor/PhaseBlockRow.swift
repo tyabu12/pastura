@@ -40,7 +40,7 @@ struct PhaseBlockRow: View {
     case .assign:
       let src = phase.source.isEmpty ? "?" : phase.source
       let dst = phase.target.isEmpty ? "?" : phase.target
-      return "\(src) → \(dst)"
+      return String(format: String(localized: "%@ → %@"), src, dst)
     case .eliminate:
       return ""
     case .summarize:
@@ -58,7 +58,8 @@ struct PhaseBlockRow: View {
       if condition.isEmpty {
         return String(localized: "(no condition)")
       }
-      return "\(condition) → then:\(then) else:\(elseCount)"
+      return String(
+        format: String(localized: "%@ → then:%lld else:%lld"), String(condition), then, elseCount)
     case .eventInject:
       let src = phase.source.isEmpty ? "?" : phase.source
       // Hide the multiplier when probability is unset — `× 1` adds noise
@@ -67,7 +68,7 @@ struct PhaseBlockRow: View {
       // see at-a-glance probability tuning.
       guard let prob = phase.probability else { return src }
       let probText = String(format: "%g", prob)
-      return "\(src) × \(probText)"
+      return String(format: String(localized: "%@ × %@"), src, probText)
     }
   }
 }

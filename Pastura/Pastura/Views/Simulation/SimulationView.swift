@@ -114,7 +114,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       case .ignore: break
       case .pauseAndLog:
         viewModel.pauseSimulation(
-          reason: "Memory warning — simulation paused. Tap resume to continue."
+          reason: String(
+            localized: "Memory warning — simulation paused. Tap resume to continue.")
         )
       case .cancelDueToBackground:
         viewModel.cancelSimulation(caller: "memoryWarning-bg")

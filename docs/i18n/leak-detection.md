@@ -62,6 +62,17 @@ cut through.
   ```
 - Direct `Text("...")` literals (these are already auto-extracted by Xcode
   IDE, but only when Xcode runs — not under our pre-commit hook)
+- **Function-arg-with-literal call shapes** — e.g.
+  `pauseSimulation(reason: "Background time exceeded — tap resume to continue.")`
+  where the literal is passed as a keyword argument rather than assigned
+  to a known view-model property. The shape varies by callee name
+  (`pauseSimulation(reason:)`, `cancelSimulation(caller:)`, hypothetical
+  `showAlert(message:)`, etc.) and a regex covering them would either
+  enumerate every method name (maintenance burden) or widen to
+  `\(\w+:\s*"…"` (re-introduces the noise floor PR #288 was unable to
+  cut through). This is a design statement, not a deferred extension:
+  function-arg shapes belong to Tier 2's audit script, which catches
+  them at developer-run.
 
 These gaps belong to Tier 2.
 
@@ -97,7 +108,7 @@ Internally:
    | `empty` | `""`, `"   "` (whitespace only) |
    | `identifier` | Short lowercase token (≤ 8 chars) — `string`, `arg`, `id` |
    | `dot-notation` | `minus.circle.fill`, `home.scenario.row` (SF Symbol or accessibility id) |
-   | `url-or-path` | `https://…`, `/Users/…`, `~/Library` |
+   | `url-or-path` | `https://…`, `/Users/…`, `~/Library` (decorative `~%lld` / `~5 items` intentionally kept — PR #416 / #419) |
    | `format-only` | `%arg`, `%@`, `%d` (no surrounding text) |
    | `no-letter` | Punctuation/digits only — `: `, `12-34-56`. Unicode-aware: CJK / Cyrillic / Greek strings keep their letters and pass through. |
 
@@ -133,14 +144,31 @@ recognize them as documented carve-outs rather than wrap leaks.
 | `YAMLReplaySource` error-payload + wire-format internals (~18 candidates) | `Pastura/Pastura/App/YAMLReplaySource.swift` | **Permanent** — `YAMLReplaySourceError: Error, Equatable` (NOT `LocalizedError`) error-description payloads (`Top-level is not a mapping.`, `Input is not valid UTF-8.`, `expected: string-keyed mapping`, `expected: string-keyed integer mapping`), YAML wire-format field names (`schema_version`, `code_phase_events`, `phase_type`, `phase_index`, `vote_count`, payload `kind` discriminators `elimination` / `scoreUpdate` / `voteResults` / `pairingResult` / `assignment` / `eventInjected`). Never user-surfaced — consumed only by `BundledDemoReplaySource`'s `logger.notice/debug` calls per spec §3.5 silent-skip policy. |
 | `BundledDemoReplaySource` Logger interpolations (~13 candidates) | `Pastura/Pastura/App/BundledDemoReplaySource.swift` | **Permanent** — all `logger.notice` / `logger.debug` interpolations carry `privacy: .public` annotation per CLAUDE.md Logger-privacy rule, plus `os.Logger` subsystem / category strings (`com.tyabu12.Pastura`, `BundledDemoReplaySource`), preset-ref field names (`preset_ref`, `yaml_sha256`), filename suffix (`_demo`). Diagnostic-only, never user-facing UI strings. |
 | `InferenceStatsFormatter` universal display units (4 candidates) | `Pastura/Pastura/Views/Simulation/InferenceStatsFormatter.swift` | **Permanent** — Technical unit tokens (`tok/s` tokens-per-second rate, `s` seconds-duration suffix; scientific / SI-derived units used as-is across locales in ML / inference contexts) and typographic display glyphs (`—` U+2014 em-dash nil-fallback marker, `•` U+2022 bullet metric joiner). Canonical convention statement lives in the enum doc-comment at the source file; `Pastura/Pastura/Views/Components/GameHeader.swift` `formatTokensPerSecond` cites it. `InferenceStatsFormatterTests` literal-pins `"12.5 tok/s • 1.5s"` as the regression guard against accidental wrap. Per #340 slice-6 decision. |
+| `App/SimulationViewModel` suite Logger interpolations + BG identifiers (50 candidates) | `Pastura/Pastura/App/SimulationViewModel.swift`, `Pastura/Pastura/App/SimulationViewModel+Background.swift`, `Pastura/Pastura/App/BackgroundSimulationManager.swift` | **Permanent** — ~43 `os.Logger` `info` / `notice` / `error` interpolations annotated `privacy: .public` per CLAUDE.md Logger-privacy rule (lifecycle / scenePhase / BG-task diagnostics like `"scenePhase=.active enter: isRunning=%arg, ..."`, `"BG task activation: isRunning=%arg, ..."`, `"committed agent=%arg totalAttempts=%arg"`); 5 Logger subsystem / category strings (`com.tyabu12.Pastura` × 2 + `SimulationVM`, `StreamingDiag`, `BGSimManager`); 1 BGTaskScheduler identifier (`com.tyabu12.Pastura.simulation-continuation` per iOS 26 BGContinuedProcessingTask spec); 2 `cancelSimulation(caller:)` debug tags (`switchToCPUInference-error`, `switchToGPUInference-error`). Diagnostic-only, never user-facing UI strings. Per #340 slice-7 decision. |
+| `ModelRegistry` product/vendor + wire-format + diagnostic strings (19 candidates) | `Pastura/Pastura/App/ModelRegistry.swift` | **Permanent** — Four sub-classes: (a) Product proper nouns — `displayName` (`"Gemma 4 E2B (Q4_K_M)"`, `"Qwen 3 4B (Q4_K_M)"`), `shortDisplayName` (`"Gemma 4 E2B"`, `"Qwen 3 4B"`). Trademarked / official model names; App Store + package-manager convention is to NOT translate. The user-facing human-readable copy lives in `tagline` and IS wrapped via `String(localized:)` at L40 + L71. (b) Vendor proper nouns — `vendor` (`"Google"`, `"Alibaba"`). Company names treated identically to product names. (c) Wire-format identifiers — `id` (`"gemma-4-e2b-q4-k-m"`, `"qwen-3-4b-q4-k-m"`), `fileName` (`"gemma-4-E2B-it-Q4_K_M.gguf"`, `"Qwen3-4B-Q4_K_M.gguf"`), `sha256` hex digests (64 chars each), `stopSequence` chat-template tokens (`"<\|im_end\|>"`), `assistantPrefix` thinking-mode prefill (`"<think>\n\n</think>\n\n"`), `systemPromptSuffix` model directives (`"/no_think"`). (d) Dev-only precondition diagnostic strings — `preconditionFailure("Malformed URL literal: ...")` at L7, `findCollisions` `"Duplicate id \"...\" at indices ... and ..."` / `"Duplicate fileName \"...\" at indices ... and ..."` / `"ModelRegistry catalog collisions: ..."`. Fire only on programmer error in catalog construction; never reach end user. Per #340 slice-8 decision. |
+| `ModelDownloader` Logger + identifier strings (14 candidates) | `Pastura/Pastura/App/ModelDownloader.swift` | **Permanent** — Same shape as the `BundledDemoReplaySource` carve-out above. Four sub-classes: (a) `os.Logger` subsystem / category strings — `"com.tyabu12.Pastura"`, `"ModelDownloader"`. (b) Background URLSession identifier — `"com.tyabu12.Pastura.modelDownload"`. Apple's `.background(withIdentifier:)` per-identifier uniqueness constraint binds the string literal. (c) HTTP wire tokens — `"Range"` header name, `"bytes=\(resumeOffset)-"` interpolated value (audit reports the xcstringstool-substituted form `bytes=%arg-`). (d) Logger format strings carrying `privacy: .public` interpolations on diagnostic primitives per CLAUDE.md Logger-privacy rule — `"download start url=... resumeOffset=... cachedBlob=... path=..."`, `"download success url=... statusCode=... resumeOffset=..."`, `"attachToInFlight tasks=... attached=..."`, `"cancel(url:) no-match url=..."`, `"cancel(url:) issued url=... resumeBlob=..."`, `"mergeIntoDestination 206 path: destination missing — callsite invariant violated. destination=... resumeOffset=..."`, `"updateResumeDataFromError url=... freshBlob=... errorDomain=... errorCode=..."`. Plus inline resume-path labels embedded in those format strings — `"withResumeData"`, `"rangeHeader"`, `"fresh"`. Diagnostic-only, never user-facing UI. Per #340 slice-8 decision. |
+| `SharedScenariosListView` middle-dot separator (1 candidate) | `Pastura/Pastura/Views/Community/SharedScenarios/SharedScenariosListView.swift` (scenario row meta line, between category name and `~%lld inferences` count) | **Permanent** — Typographic separator glyph (`·`, U+00B7 MIDDLE DOT) used as a category/metric joiner. Universal across locales; no translator value. Same shape as `InferenceStatsFormatter` `•` (U+2022) per slice-6 precedent. Per #340 slice-9 decision. |
+| `current_event` TextField placeholder | `Pastura/Pastura/Views/Editor/PhaseEditorSheet+EventInjectSection.swift:51` | **Permanent** — placeholder text is the literal `eventVariable` default value the phase falls back to when the field is empty (see inline comment lines 48–50 and the section footer copy). Localizing would diverge from the model-layer default, breaking the curator's mental model that the placeholder = the YAML token written when blank. Per #340 slice-10 decision. |
+| `accessibilityIdentifier("editor.*")` UI-test selectors | `Pastura/Pastura/Views/Editor/ScenarioEditorView.swift:99,122` | **Permanent** — `accessibilityIdentifier(_:)` strings are UI-test programmatic selectors consumed by `PasturaUITests` (e.g., `EditorReloadTests`), NOT VoiceOver-spoken labels (those go through `accessibilityLabel(_:)`, which IS wrapped). Identifier stability over locale display per PR #376 memory `feedback_i18n_a11y_label_triage` (`accessibilityLabel` vs `accessibilityIdentifier` distinction). Per #340 slice-10 decision. |
 
 ### Self-test
 
-`python3 scripts/check_i18n_potential_keys.py --self-test` exercises 30
-fixtures: a TP + FP pair per noise category, plus path-exclusion checks
-for `Engine/` and `+Previews.swift`, plus real-leak smoke tests using
-the PR #288 `phaseTypeDescription` strings. CI does not run the
-self-test, but contributors editing the filter logic should.
+`python3 scripts/check_i18n_potential_keys.py --self-test` exercises 38
+fixtures across four families:
+
+- **Key-text noise filters (26)** — TP + FP pairs per `NOISE_FILTERS`
+  category, plus real-leak smoke tests using PR #288's
+  `phaseTypeDescription` strings.
+- **Path-exclusion (4)** — `Engine/` (ADR-010 §4), `+Previews.swift`
+  filename suffix, `App/` kept, `+Helpers.swift` kept.
+- **`#Preview` block-skip (7)** — TP / FP / nested closure / traits arg
+  / multi-line opening brace / unterminated block / etc.
+- **Filter precedence (1)** — confirms `+Previews.swift` filename
+  exclusion takes precedence over the content-based `#Preview` filter
+  so the two don't double-count.
+
+CI does not run the self-test, but contributors editing the filter
+logic should.
 
 ### CI gating
 
@@ -160,12 +188,31 @@ functions returning display-bound `String`.
 
 ### Extension protocol — adding filters
 
-Open `check_i18n_potential_keys.py`, add a regex/predicate to
+Two filter shapes coexist in `check_i18n_potential_keys.py`:
+
+**Key-text filters** (`NOISE_FILTERS`)
+
+Evaluate against the literal key string alone — no source-location
+context. Open `check_i18n_potential_keys.py`, add a regex/predicate to
 `NOISE_FILTERS`, and add **one TP fixture (drops as expected) plus one
-FP fixture (does NOT drop) to `_self_test`**. With ~85% noise floor,
-silent regressions in the filter logic re-classify real leaks as noise
-— self-test fixtures are the only barrier against this. The pattern
-mirrors `scripts/check_localization_coverage.py` (Tier 3 sibling).
+FP fixture (does NOT drop) to `_self_test`**.
+
+**Location-based filters** (e.g. `apply_preview_filter`)
+
+Evaluate against `(file, line)` — required when the filtering decision
+depends on where the literal lives, not just what it says. Add a sibling
+pass in `main()` BEFORE `filter_candidates()`; surface the dropped count
+as a separate row in `format_summary()`. Self-test fixtures operate on
+in-memory source text (not extracted keys) and live in a dedicated
+section of `_self_test()`. Include a **path-exclusion regression
+fixture** asserting that the existing filename filter still takes
+precedence — without it, a future contributor moving `+Previews.swift`
+under the location filter would silently double-count.
+
+With ~85% noise floor, silent regressions in either filter shape
+re-classify real leaks as noise — self-test fixtures are the only
+barrier against this. The pattern mirrors
+`scripts/check_localization_coverage.py` (Tier 3 sibling).
 
 ## Tier 3 — coverage gate (reference)
 

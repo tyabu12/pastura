@@ -16,8 +16,7 @@
 # gated-runner.sh ($CLAUDE_HOOK_INPUT, $CLAUDE_TOOL_INPUT_COMMAND) for
 # future scripts that need it; this one doesn't.
 #
-# Reference: PR #406/#407 + memory `reference_claudecode_hook_matcher.md`
-# (Graceful degradation section).
+# Reference: PR #406/#407.
 
 set -euo pipefail
 
