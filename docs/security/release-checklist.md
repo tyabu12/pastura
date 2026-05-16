@@ -162,9 +162,10 @@ land. Three buckets:
 
 Run `gh api repos/tyabu12/pastura/code-scanning/alerts \
   --jq '.[] | select(.state == "open") | {number, rule: .rule.id, severity: .rule.severity}'`
-on the first weekday of each month. The weekly schedule means findings
-may be up to seven days old; that is acceptable for a pre-release
-codebase.
+on the first weekday of each month. The daily schedule means findings
+arrive within 24 hours of landing on `main`; that is acceptable for a
+pre-release codebase, and the workflow runs free against the public
+repository's unlimited GitHub-hosted runner minutes.
 
 For the first public release: dispatch a manual CodeQL run (Actions tab
 > CodeQL > Run workflow) against the exact release commit and resolve
