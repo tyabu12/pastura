@@ -65,7 +65,8 @@ nonisolated enum ResultDetailTimelineBuilder {
     turns: [TurnRecord], events: [CodePhaseEventRecord]
   ) -> [Item] {
     let codeItems: [Item] = events.map { record in
-      let payload = decodePayload(record) ?? .summary(text: "(unreadable payload)")
+      let payload =
+        decodePayload(record) ?? .summary(text: String(localized: "(unreadable payload)"))
       return .codePhase(record, payload)
     }
     let turnItems: [Item] = turns.map { .turn($0) }

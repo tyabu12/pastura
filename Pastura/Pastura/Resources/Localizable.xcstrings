@@ -1721,6 +1721,38 @@
         }
       }
     },
+    "Download verification failed. The file may be corrupted — please try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download verification failed. The file may be corrupted — please try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード検証に失敗しました。ファイルが破損している可能性があります — もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Downloaded file size mismatch (expected %lld, got %lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloaded file size mismatch (expected %1$lld, got %2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロードしたファイルサイズが一致しません (期待: %1$lld, 実際: %2$lld)"
+          }
+        }
+      }
+    },
     "Downloading %arg on cellular may use significant data. Wi-Fi is recommended." : {
       "localizations" : {
         "ja" : {
@@ -2121,6 +2153,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GPU への切り替えに失敗しました: %arg"
+          }
+        }
+      }
+    },
+    "Failed to verify download: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to verify download: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード検証に失敗しました: %@"
           }
         }
       }
@@ -2594,6 +2642,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サブフェーズを長押しすると、もう一方のブランチの末尾に移動します。"
+          }
+        }
+      }
+    },
+    "Max" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最速"
           }
         }
       }
