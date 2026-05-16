@@ -19,5 +19,4 @@ dependencyResolutionManagement {
     }
 }
 
-// Modules are added incrementally per W1/W2/W3 deliverables.
-// `:shared:models` lands in W1 Item 2.
+include(":shared:models")
