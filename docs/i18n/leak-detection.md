@@ -108,7 +108,7 @@ Internally:
    | `empty` | `""`, `"   "` (whitespace only) |
    | `identifier` | Short lowercase token (≤ 8 chars) — `string`, `arg`, `id` |
    | `dot-notation` | `minus.circle.fill`, `home.scenario.row` (SF Symbol or accessibility id) |
-   | `url-or-path` | `https://…`, `/Users/…`, `~/Library` |
+   | `url-or-path` | `https://…`, `/Users/…`, `~/Library` (decorative `~%lld` / `~5 items` intentionally kept — PR #416 / #419) |
    | `format-only` | `%arg`, `%@`, `%d` (no surrounding text) |
    | `no-letter` | Punctuation/digits only — `: `, `12-34-56`. Unicode-aware: CJK / Cyrillic / Greek strings keep their letters and pass through. |
 
