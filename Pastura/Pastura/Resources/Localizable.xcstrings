@@ -1831,6 +1831,16 @@
         }
       }
     },
+    "English" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英語"
+          }
+        }
+      }
+    },
     "Error" : {
       "localizations" : {
         "ja" : {
@@ -2447,6 +2457,16 @@
         }
       }
     },
+    "Japanese" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日本語"
+          }
+        }
+      }
+    },
     "LLM" : {
       "localizations" : {
         "ja" : {
@@ -2473,6 +2493,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試行しても LLM の出力が不正でした。再度実行するか、モデルの状態を確認してください。"
+          }
+        }
+      }
+    },
+    "Language mismatch ×%lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語不一致 ×%lld"
           }
         }
       }
@@ -2956,6 +2986,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "出力フィールド"
+          }
+        }
+      }
+    },
+    "Output drifted from expected %@ for %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Output drifted from expected %1$@ for %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ の出力が想定の %1$@ から外れました"
+          }
+        }
+      }
+    },
+    "Output drifted to %@ (expected %@) for %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Output drifted to %1$@ (expected %2$@) for %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%3$@ の出力が %1$@ になりました(想定: %2$@)"
           }
         }
       }
@@ -4198,6 +4260,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不明"
+          }
+        }
+      }
+    },
+    "Unknown language" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不明な言語"
           }
         }
       }

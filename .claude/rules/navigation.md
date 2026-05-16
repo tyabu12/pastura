@@ -640,3 +640,51 @@ surface changes in areas the automated tests do not exercise.
       focused scene's gate is incremented (each scene owns its own
       `DeepLinkGate` and `ModelManager`), so a dialog in scene A
       does not block deep-link drain in scene B.
+
+18. **Language-mismatch toast + completion report (#401)** — Run a
+    scenario whose `simulation_language` is set to a language the
+    selected model handles poorly (or use the DEBUG-only ladybug
+    toolbar button to inject `.languageMismatch` synthetically).
+    Verify the two-surface UX:
+
+    - **Toast — first-fire only, in-run** — On the first event of
+      the run, a small capsule appears at the top of the chat-stream
+      area below the header, with copy like `"Output drifted to
+      Japanese (expected English) for アキラ"` (or the locale-flipped
+      form `"アキラ の出力が Japanese になりました(想定: English)"`
+      on ja runtime). The capsule sits over the chat content via
+      `.overlay(alignment: .top)` — NOT inside the GameHeader's
+      frosted strip.
+    - **Auto-dismiss ~4s** — Without tapping, the toast fades out
+      after roughly 4 seconds (`Task.sleep(for: .seconds(4))` +
+      `dismissLanguageMismatchToast()`).
+    - **No re-fire on subsequent events** — Let the simulation
+      continue past several more mismatches. The toast must NOT
+      reappear. The VM gates on `count == 0` pre-increment, so
+      even after dismissal the next event sees `count > 0` and
+      skips the pending-set. (Validated by
+      `SimulationViewModelLanguageMismatchTests.eventAfterDismissDoesNotRefireToast`.)
+    - **Header stays clean** — The GameHeader meta row shows only
+      `<round>, <phase>, <tok/s>` throughout the run. No persistent
+      badge for mismatch count — the header is always-visible
+      operational status, so context-free aggregated counters
+      (which require a mental model to read) are kept out.
+    - **Completion report — chat-stream summary line** — Let the
+      simulation run to natural completion. If
+      `languageMismatchCount > 0` when `.simulationCompleted`
+      arrives, a single `LogEntry.summary` line is appended near
+      the bottom of the chat stream: `"Language mismatch ×3"` (en)
+      / `"言語不一致 ×3"` (ja). When count == 0 the line is
+      omitted entirely. Surfacing the cumulative count post-run
+      is the moment the number is useful (review the run quality);
+      mid-run it would just be visual noise.
+    - **Replay path unaffected** — Tap a past-results entry. The
+      `.languageMismatch` event is never re-emitted during YAML
+      replay (ADR-010 D5 — adherence retry is live-inference only),
+      so no toast and no completion summary on replayed runs even
+      if the original live run flagged mismatches.
+    - **Run reset** — Cancel the simulation and start a fresh one.
+      The new run starts with `languageMismatchCount == 0` and
+      `pendingLanguageMismatchToast == nil`; the first event re-fires
+      the toast cleanly. (Validated by
+      `runResetsLanguageMismatchState`.)
