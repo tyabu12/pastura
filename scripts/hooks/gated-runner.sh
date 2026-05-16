@@ -43,8 +43,7 @@
 #     by the case statement. Pass literal strings only; e.g., a prefix
 #     of `'gh pr [cv]reate'` would unexpectedly match `gh pr vreate`.
 #
-# Reference: memory `reference_claudecode_hook_matcher.md`
-#            (Graceful degradation section) + PR #407.
+# Reference: PR #407.
 #
 # Example wiring:
 #   .claude/settings.json

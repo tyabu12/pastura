@@ -92,11 +92,7 @@ schema. Lint violations or compile errors block the commit.
 SwiftFormat and `swiftlint --fix` continue to run automatically on
 file edit when you use Claude Code's PostToolUse hooks. A
 `gh pr create`-time reminder also fires if the branch hasn't
-touched CLAUDE.md (helpful when adding Phase 2 entries). The split
-between git pre-commit (commit-time gates) and Claude Code hooks
-(edit-time + PR-creation reminders) is deliberate — see #410 /
-memory `reference_claudecode_hook_matcher.md` for the migration
-rationale.
+touched CLAUDE.md (helpful when adding Phase 2 entries).
 
 ### Localization
 
