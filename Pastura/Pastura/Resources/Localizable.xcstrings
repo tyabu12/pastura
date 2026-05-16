@@ -1832,7 +1832,14 @@
       }
     },
     "English" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英語"
+          }
+        }
+      }
     },
     "Error" : {
       "localizations" : {
@@ -2403,7 +2410,14 @@
       }
     },
     "Japanese" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日本語"
+          }
+        }
+      }
     },
     "LLM" : {
       "localizations" : {
@@ -2909,6 +2923,12 @@
             "state" : "new",
             "value" : "Output drifted from expected %1$@ for %2$@"
           }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ の出力が想定の %1$@ から外れました"
+          }
         }
       }
     },
@@ -2918,6 +2938,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Output drifted to %1$@ (expected %2$@) for %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%3$@ の出力が %1$@ になりました(想定: %2$@)"
           }
         }
       }
@@ -4149,7 +4175,14 @@
       }
     },
     "Unknown language" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不明な言語"
+          }
+        }
+      }
     },
     "Unknown model (%@)" : {
       "localizations" : {
@@ -4608,7 +4641,14 @@
       }
     },
     "drift ×%lld" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ずれ ×%lld"
+          }
+        }
+      }
     },
     "e.g. max_score >= 10 && active_count > 1" : {
       "localizations" : {
