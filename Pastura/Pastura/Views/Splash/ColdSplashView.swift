@@ -31,10 +31,15 @@ struct ColdSplashView: View {
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  // Single state flag — toggled once on first appearance so SwiftUI's
-  // implicit `withAnimation` transitions both layers from their .94 / +36
-  // starting values to their resting values.
+  // Two state flags so base and sheep can run on separate timelines per
+  // the CSS reference's `driftSheep` keyframes:
+  //   base:  0 % → 18 %  fade-in + scale .94 → 1.00
+  //   sheep: 20 % → 55 % fade-in + translateX 36 → 0
+  // The 20 % delay on the sheep is what makes the drift visible — without
+  // it the sheep collapses into the same 18 % window as the base and
+  // "ふっと現れる" before the user perceives the motion.
   @State private var settled = false
+  @State private var sheepArrived = false
 
   var body: some View {
     ZStack {
@@ -75,48 +80,66 @@ struct ColdSplashView: View {
           .resizable()
           .scaledToFit()
           .clipShape(SheepClipShape())
-          .opacity(settled ? 1 : 0)
-          .offset(x: settled ? 0 : LaunchAnimationConfig.sheepDriftDistance)
+          .opacity(sheepArrived ? 1 : 0)
+          .offset(x: sheepArrived ? 0 : LaunchAnimationConfig.sheepDriftDistance)
+          // Scale matches the base layer so they stay aligned during the
+          // brief co-visible window (≈18 → 20 %): base just reached scale
+          // 1.00 and sheep is about to begin its drift.
           .scaleEffect(settled ? 1.00 : 0.94)
       }
     }
   }
 
   /// Runs the animation timeline. Phases match the README keyframes:
-  /// - 0 → 18%: base + sheep fade in, base scales .94 → 1.00, sheep drifts
-  /// - 55% (~880 ms): haptic fires
-  /// - 72 → 100%: exit fade — NOT handled here, owned by parent transition
+  /// - **0 → 18 %**: base fades in + scales `.94 → 1.00`
+  /// - **20 → 55 %**: sheep drifts + fades in (`offset 36 → 0`, `opacity 0 → 1`)
+  /// - **55 %** (≈ 660 ms at 1.2 s): haptic fires the moment the sheep
+  ///   reaches its resting position
+  /// - **72 → 100 %**: exit fade — NOT handled here, owned by parent
+  ///   transition
   ///
   /// The `.task` modifier on `body` owns this; cancellation on view
   /// disappear propagates out of `Task.sleep(nanoseconds:)` as
-  /// `CancellationError`, skipping the haptic. Using `try` (not `try?`)
-  /// + outer do/catch is load-bearing: `try?` would swallow the
-  /// cancellation and fire the haptic into a torn-down view.
+  /// `CancellationError`, skipping the remaining phases. Using `try`
+  /// (not `try?`) + outer do/catch is load-bearing: `try?` would swallow
+  /// the cancellation and fire the haptic into a torn-down view.
   private func runAnimation() async {
     let duration =
       reduceMotion
       ? LaunchAnimationConfig.reducedMotionDuration
       : LaunchAnimationConfig.coldDuration
 
-    // Phase A — settle (0 → 18% of timeline, i.e. ~288 ms at 1.6 s).
+    // Phase A — base settle (0 → 18 %).
     let settleDuration = duration * 0.18
     withAnimation(LaunchAnimationConfig.easeOutPastoral(duration: settleDuration)) {
       settled = true
     }
 
-    // Phase B — haptic landing at 55% (~880 ms at 1.6 s). Skipped under
-    // reduce-motion because the compressed timeline doesn't leave a
-    // believable "landing" beat for the tactile cue to reinforce.
-    if !reduceMotion {
-      let hapticDelay = duration * LaunchAnimationConfig.hapticDelayRatio
-      let hapticNs = UInt64(hapticDelay * 1_000_000_000)
-      do {
-        try await Task.sleep(nanoseconds: hapticNs)
-        Self.fireLandingHaptic()
-      } catch {
-        // Task was cancelled — view disappeared before the haptic beat.
-        // Intentionally skip the haptic.
+    // Reduce Motion bypasses both the sheep drift (no second layer is
+    // rendered under `accessibilityReduceMotion`) and the haptic — the
+    // compressed timeline doesn't leave room for a believable beat.
+    guard !reduceMotion else { return }
+
+    // Phase B — sheep drift (20 → 55 % of total timeline). The 20 %
+    // pre-drift delay is what makes the drift readable; the previous
+    // implementation collapsed sheep into the base's 18 % settle window
+    // and the motion was imperceptible.
+    let sheepDelay = duration * 0.20
+    let sheepDriftDuration = duration * 0.35
+    do {
+      try await Task.sleep(nanoseconds: UInt64(sheepDelay * 1_000_000_000))
+      withAnimation(
+        LaunchAnimationConfig.easeOutPastoral(duration: sheepDriftDuration)
+      ) {
+        sheepArrived = true
       }
+
+      // Phase C — haptic at 55 % (sheep landing instant).
+      try await Task.sleep(nanoseconds: UInt64(sheepDriftDuration * 1_000_000_000))
+      Self.fireLandingHaptic()
+    } catch {
+      // Task cancelled — view disappeared mid-animation. Intentionally
+      // skip the remaining phases including the haptic.
     }
   }
 

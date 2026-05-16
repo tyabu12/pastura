@@ -20,7 +20,7 @@ nonisolated public enum LaunchAnimationConfig {
   // MARK: - Duration tokens
 
   /// Full animation duration for a cold launch (first open / background-evicted).
-  public static let coldDuration: TimeInterval = 1.6
+  public static let coldDuration: TimeInterval = 1.2
 
   /// Abbreviated animation duration for a warm launch (recently backgrounded).
   public static let warmDuration: TimeInterval = 0.7
@@ -52,8 +52,14 @@ nonisolated public enum LaunchAnimationConfig {
 
   // MARK: - Layout tokens
 
-  /// Icon display size (width & height) in points, per design handoff.
-  public static let iconSize: CGFloat = 132
+  /// Icon display size (width & height) in points.
+  ///
+  /// The Claude Design handoff specified 132 pt; we use 106 pt (~80 %) to
+  /// reduce visual weight in the launch sequence. The
+  /// `LaunchIcon.imageset` is rendered at the matching 106/212/318 px so
+  /// the static iOS LaunchScreen and the SwiftUI splash render at the
+  /// same on-screen size with no jump at the cold-splash 0 % frame.
+  public static let iconSize: CGFloat = 106
 
   /// Icon corner radius in points, per design handoff.
   public static let iconCornerRadius: CGFloat = 30

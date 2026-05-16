@@ -27,13 +27,18 @@ struct LaunchAnimationConfigTests {
   }
 
   @Test func designTokenFidelity() {
-    #expect(LaunchAnimationConfig.iconSize == CGFloat(132))
+    // Canonical-value reminders. If these change, also regenerate
+    // `LaunchIcon.imageset` (iconSize * {1,2,3}) and verify the static
+    // LaunchScreen lands at the same on-screen size as the cold splash's
+    // 0 % frame.
+    #expect(LaunchAnimationConfig.iconSize == CGFloat(106))
     #expect(LaunchAnimationConfig.iconCornerRadius == CGFloat(30))
   }
 
   @Test func hapticDelayIsAtExpectedOffset() {
+    // 1.2 s × 0.55 = 0.66 s — the "sheep arrival" beat.
     let hapticDelay =
       LaunchAnimationConfig.coldDuration * LaunchAnimationConfig.hapticDelayRatio
-    #expect(abs(hapticDelay - 0.88) < 1e-9)
+    #expect(abs(hapticDelay - 0.66) < 1e-9)
   }
 }
