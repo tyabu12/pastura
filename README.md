@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="pages/img/app-icon.png" width="120" alt="Pastura app icon" />
+<img src="pages/img/app-icon.png" width="120" height="120" alt="Pastura app icon" />
 
 # 🐑 Pastura
 
@@ -51,20 +51,20 @@ dependency direction is preparation for a future SPM module split.
 
 ## Tech stack
 
-#### Language and platform
+### Language and platform
 
 - Swift 6.x
 - SwiftUI
 - iOS 17.0 minimum deployment target
 
-#### Libraries
+### Libraries
 
 - [Yams](https://github.com/jpsim/Yams) 6.2.1 for YAML parsing
 - [GRDB](https://github.com/groue/GRDB.swift) 7.10 for SQLite
 
-#### LLM backends
+### LLM backends
 
-Selected per build configuration.
+*Selected per build configuration.*
 
 - **`LlamaCppService`** via [llama.swift](https://github.com/mattt/llama.swift). On-device llama.cpp with Metal GPU. The shipping backend for Release builds.
 - **LiteRT-LM iOS SDK**. Planned target backend, blocked on Google's Swift SDK + GPU support. See [ADR-002](docs/decisions/ADR-002.md).
