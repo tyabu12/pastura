@@ -46,3 +46,9 @@ fastlane/test_output
 # Python bytecode cache (e.g. from scripts/*.py via `python3 -m py_compile`).
 __pycache__/
 *.pyc
+
+# Gradle / Kotlin (KMP integration — Issue #220)
+# `build/` is already ignored above (Xcode rule), which also covers
+# `shared/<module>/build/` for Gradle module outputs.
+.gradle/
+local.properties

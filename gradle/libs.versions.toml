@@ -1,0 +1,17 @@
+# Version catalog (T4 in #220). Single source of truth for Gradle dependency
+# versions and plugin coordinates across the spike's Gradle modules.
+#
+# Cache-key impact: any change to this file invalidates the Gradle cache key
+# in CI (`hashFiles('gradle/libs.versions.toml')`). Kotlin version bumps also
+# invalidate `~/.konan` (cache key includes kotlin version).
+
+[versions]
+kotlin = "2.3.21"
+kotlinx-serialization = "1.7.3"
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+[libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }

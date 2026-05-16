@@ -7,7 +7,11 @@ on:
     # at W6 GO merge or branch deletion (NO-GO). See #220 T8 / T11.
     branches: [main, feature/kmp-spike-models]
   pull_request:
-    branches: [main]
+    # Also fire on PRs targeting the spike integration branch so W1+ feature
+    # PRs (e.g. `feat/kmp-w1-scaffold` → `feature/kmp-spike-models`) get CI
+    # validation BEFORE merge. Removed alongside the push trigger entry at
+    # W6 GO merge / NO-GO branch deletion.
+    branches: [main, feature/kmp-spike-models]
 
 permissions:
   contents: read
@@ -154,6 +158,20 @@ jobs:
     # the suite runs in ~2 min; on CI it takes ~12 min. The 25 min budget
     # leaves headroom for build + simulator boot and future test additions.
     timeout-minutes: 25
+    # Skipped on the `feature/kmp-spike-models` integration branch during
+    # W1/W2 KMP-spike scaffolding (#220 W1 follow-up #2). Re-enabled at W3
+    # for H4 iOS smoke + H5 ASC dry-run, with +1 day triage budget for
+    # accumulated main-drift regressions absorbed via T12 weekly rebases
+    # (critic Axis 7 in W1 review). Matches the inverse of `kmp-build-test`'s
+    # gate — skips on push to spike branch + PRs INTO spike branch + PRs
+    # FROM spike branch (e.g. W6 GO PR re-enables ui-test by removing this
+    # block entirely). Runs in all other cases (main pushes, PRs to main).
+    if: |
+      !(
+        (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
+        || (github.event_name == 'pull_request' && github.base_ref == 'feature/kmp-spike-models')
+        || (github.event_name == 'pull_request' && github.head_ref == 'feature/kmp-spike-models')
+      )
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
@@ -327,6 +345,88 @@ jobs:
         with:
           name: release-build-log
           path: /tmp/release-build.log
+          retention-days: 7
+
+  # KMP build & test (Issue #220 — KMP Models Layer Validation Spike, W1+).
+  # Gated to the long-lived `feature/kmp-spike-models` integration branch
+  # (T11). Removed at W6 GO merge (folded into the GO PR diff) or branch
+  # deletion (NO-GO). The event-aware `if:` covers THREE scenarios — see
+  # the `if:` block below for details. The single-ref `github.ref ==
+  # 'refs/heads/feature/kmp-spike-models'` shape would misfire on PRs
+  # (where `github.ref` is `refs/pull/<N>/merge`) — per pre-impl critic
+  # Axis 2 in #220 W1 review. The original two-clause shape missed the
+  # most common case (PRs INTO the spike branch); this three-clause shape
+  # covers all of:
+  #   1. Push to spike branch (post-merge or direct)
+  #   2. PR INTO spike branch (W1+ feature PR — head=feat/X, base=spike)
+  #   3. PR FROM spike branch (W6 GO PR — head=spike, base=main)
+  kmp-build-test:
+    name: KMP build & test (#220)
+    runs-on: macos-26
+    timeout-minutes: 25
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/feature/kmp-spike-models')
+      || (github.event_name == 'pull_request' && github.base_ref == 'feature/kmp-spike-models')
+      || (github.event_name == 'pull_request' && github.head_ref == 'feature/kmp-spike-models')
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Three independent caches per D5 in #220 — different invalidation
+      # rates:
+      #   - `~/.konan`: Kotlin/Native compiler + LLVM toolchain. Flips with
+      #     Kotlin version bumps (libs.versions.toml).
+      #   - `~/.gradle/caches`: resolved Maven artifacts + Gradle plugin
+      #     classpath. Flips with libs.versions.toml or any *.gradle.kts.
+      #   - `~/.gradle/wrapper`: bootstrapped Gradle distribution zip.
+      #     Flips with gradle-wrapper.properties.
+      # `lint-and-test`'s DerivedData cache (line 51) is independent and
+      # unchanged — that one keys on Package.resolved.
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Validate Gradle wrapper integrity
+        uses: gradle/actions/wrapper-validation@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+
+      - name: Run JVM tests
+        run: ./gradlew :shared:models:jvmTest --no-daemon --stacktrace
+
+      - name: Assemble PasturaShared XCFramework
+        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework --no-daemon --stacktrace
+
+      - name: Upload Gradle reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kmp-gradle-reports
+          path: shared/models/build/reports/
           retention-days: 7
 
   # Drift guard for bundled DL-time demo replays (#170, spec §3.3 / §5.2).
