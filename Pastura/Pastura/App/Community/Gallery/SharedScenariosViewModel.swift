@@ -137,14 +137,18 @@ final class SharedScenariosViewModel {
     do {
       parsed = try loader.load(yaml: yaml)
     } catch {
-      return .networkError("Failed to parse gallery YAML: \(error.localizedDescription)")
+      return .networkError(
+        String(
+          format: String(localized: "Failed to parse gallery YAML: %@"),
+          error.localizedDescription))
     }
 
     do {
       try await saveGalleryRecord(
         parsed: parsed, yaml: yaml, scenario: scenario, existing: existing)
     } catch {
-      return .networkError("Save failed: \(error.localizedDescription)")
+      return .networkError(
+        String(format: String(localized: "Save failed: %@"), error.localizedDescription))
     }
 
     await refreshInstalledSnapshot()
@@ -168,7 +172,10 @@ final class SharedScenariosViewModel {
       }
     } catch {
       return .conflict(
-        .networkError("Could not check local scenarios: \(error.localizedDescription)"))
+        .networkError(
+          String(
+            format: String(localized: "Could not check local scenarios: %@"),
+            error.localizedDescription)))
     }
     guard let existing else { return .fresh }
     let isSameGalleryRow =
