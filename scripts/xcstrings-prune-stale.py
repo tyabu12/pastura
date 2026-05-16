@@ -13,7 +13,7 @@ Format-fidelity invariant (load-bearing):
 - ``json.dumps(parsed, indent=2, separators=(',', ' : '), ensure_ascii=False)``
   with no ``+ '\n'`` produces a byte-identical round-trip.
 - A 1-byte deviation triggers a multi-thousand-line phantom diff at the next
-  ``xcstringstool sync`` (PR #301; memory ``feedback_xcstrings_json_roundtrip_trap``).
+  ``xcstringstool sync`` (PR #301).
 - ``assert_roundtrip_identity`` runs at startup and fails loud if Apple ever
   changes their canonical form, so a corrupting prune cannot be committed by
   accident.
