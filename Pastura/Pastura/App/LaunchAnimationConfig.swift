@@ -67,13 +67,6 @@ nonisolated public enum LaunchAnimationConfig {
   /// Icon corner radius in points, per design handoff.
   public static let iconCornerRadius: CGFloat = 30
 
-  /// Ratio of the launch icon's height at which the "sky" / "pasture"
-  /// horizontal cut line is drawn. Above this line is the static sky
-  /// layer; below it is the drifting pasture layer (grass + hill + sheep).
-  /// Tune both ``LaunchSkyClip`` and ``LaunchPastureClip`` together by
-  /// adjusting this single value.
-  public static let iconCutRatio: CGFloat = 0.56
-
   /// Horizontal drift distance for the sheep silhouette entrance, in points.
   /// The sheep starts offset by this amount and slides to its resting
   /// position. Average drift speed (with the current `coldDuration` /

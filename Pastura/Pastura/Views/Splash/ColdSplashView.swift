@@ -3,14 +3,14 @@ import UIKit
 
 /// "Pastoral Drift" — full-screen launch animation for cold starts.
 ///
-/// Composed of two overlapping layers — the icon is split horizontally
-/// at ~56 % of its height (see ``LaunchSkyClip`` / ``LaunchPastureClip``):
-/// 1. **Sky layer** (top 56 %) — fades in and scales `.94 → 1.00`
+/// Composed of two overlapping image layers — **pre-rendered as separate
+/// assets** so design elements that straddle the horizontal midline
+/// (e.g. the P brandmark dipping into the grass) are not truncated:
+/// 1. **Sky layer** (`LaunchIconSky`) — fades in and scales `.94 → 1.00`
 ///    during the settle phase. Static after settling.
-/// 2. **Pasture layer** (bottom 44 %, grass + hill + sheep) — drifts
-///    horizontally `+ sheepDriftDistance → 0` during the drift phase so
-///    the entire pasture (not just a corner) appears to slide into
-///    place under the sky.
+/// 2. **Pasture layer** (`LaunchIconPasture`, grass + hill + 3 sheep)
+///    — drifts horizontally `+ sheepDriftDistance → 0` during the drift
+///    phase so the entire pasture appears to wander in under the sky.
 ///
 /// A single `UIImpactFeedbackGenerator(.light)` haptic fires at 55% of the
 /// timeline (~880 ms into the default 1.6s playback) — the audible-tactile
@@ -29,18 +29,26 @@ import UIKit
 /// haptic still fires — Reduce Motion targets visual stimulation, not
 /// tactile feedback (per the design handoff's accessibility note).
 struct ColdSplashView: View {
-  /// Display name of the launch icon asset (`Assets.xcassets/LaunchIcon.imageset`).
-  private static let iconAssetName = "LaunchIcon"
+  /// Combined launch icon — used as a single layer under Reduce Motion
+  /// and as the canonical reference for the static iOS LaunchScreen.
+  private static let combinedAssetName = "LaunchIcon"
+
+  /// Top half of the launch icon (P + cream background, transparent
+  /// below). Static sky layer of the cold splash.
+  private static let skyAssetName = "LaunchIconSky"
+
+  /// Bottom half of the launch icon (grass + hill + 3 sheep, transparent
+  /// above). Drifting pasture layer of the cold splash.
+  private static let pastureAssetName = "LaunchIconPasture"
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  // Two state flags so base and sheep can run on separate timelines per
-  // the CSS reference's `driftSheep` keyframes:
-  //   base:  0 % → 18 %  fade-in + scale .94 → 1.00
-  //   sheep: 20 % → 55 % fade-in + translateX 36 → 0
-  // The 20 % delay on the sheep is what makes the drift visible — without
-  // it the sheep collapses into the same 18 % window as the base and
-  // "ふっと現れる" before the user perceives the motion.
+  // Two state flags so sky and pasture run on separate timelines:
+  //   sky:     0 % → 18 %  fade-in + scale .94 → 1.00
+  //   pasture: 20 % → 65 % fade-in + translateX 32 → 0
+  // The 20 % pre-drift hold on the pasture is what makes the drift
+  // readable — collapsing it into the sky's 18 % settle window made the
+  // motion imperceptible.
   @State private var settled = false
   @State private var sheepArrived = false
 
@@ -60,31 +68,29 @@ struct ColdSplashView: View {
   @ViewBuilder
   private var iconStack: some View {
     if reduceMotion {
-      // Reduced-motion path: single icon, opacity-only crossfade.
-      Image(Self.iconAssetName)
+      // Reduced-motion path: single combined icon, opacity-only crossfade.
+      Image(Self.combinedAssetName)
         .resizable()
         .scaledToFit()
-        .clipShape(
-          RoundedRectangle(cornerRadius: LaunchAnimationConfig.iconCornerRadius)
-        )
         .opacity(settled ? 1 : 0)
     } else {
       ZStack {
-        // Sky / brandmark — top 56 %. Settles in place; never drifts.
-        Image(Self.iconAssetName)
+        // Sky layer (P + cream background). Pre-rendered as a separate
+        // asset with transparent bottom so the pasture layer can drift
+        // underneath without truncating the P or any other element that
+        // would otherwise cross a horizontal clip line.
+        Image(Self.skyAssetName)
           .resizable()
           .scaledToFit()
-          .clipShape(LaunchSkyClip())
           .opacity(settled ? 1 : 0)
           .scaleEffect(settled ? 1.00 : 0.94)
 
-        // Pasture (grass + hill + sheep) — bottom 44 %. Drifts in from
-        // the right; scale matches the sky layer so the two halves align
-        // pixel-perfectly when they settle and form the complete icon.
-        Image(Self.iconAssetName)
+        // Pasture layer (grass + hill + 3 sheep). Drifts in from the
+        // right; scale matches the sky layer so the two halves align
+        // pixel-perfectly when both settle and form the complete icon.
+        Image(Self.pastureAssetName)
           .resizable()
           .scaledToFit()
-          .clipShape(LaunchPastureClip())
           .opacity(sheepArrived ? 1 : 0)
           .offset(x: sheepArrived ? 0 : LaunchAnimationConfig.sheepDriftDistance)
           .scaleEffect(settled ? 1.00 : 0.94)
