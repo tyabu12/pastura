@@ -35,6 +35,8 @@ permissions:
 
 # Defends against duplicate webhook delivery for the same workflow_run.
 # Keyed by the failed run's id so unrelated retries don't serialize.
+# Second invocation sees state mutated by the first (rerun already in
+# flight) → `gh run rerun` no-ops or errors; either way no cascade.
 concurrency:
   group: ci-retry-${{ github.event.workflow_run.id }}
   cancel-in-progress: false
@@ -46,6 +48,10 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: write
+    # `conclusion == 'failure'` deliberately excludes `cancelled` (manual
+    # stop), `timed_out` (legitimately stuck — retry would just re-hit the
+    # timeout), and `action_required` (waiting on approval). Do not
+    # broaden to `!= 'success'`.
     if: >-
       github.event.workflow_run.conclusion == 'failure'
       && (
