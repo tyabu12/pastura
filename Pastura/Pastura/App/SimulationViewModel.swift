@@ -121,7 +121,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Why one-shot: a model that drifts once typically drifts repeatedly
   /// for the rest of the run (translation capability ceiling). Refiring
   /// the toast on every event would saturate the screen; the cumulative
-  /// badge carries the running tally instead.
+  /// count is surfaced at run completion as a `LogEntry.summary` line
+  /// instead (see `case .simulationCompleted` in `handleEvent`).
   nonisolated struct LanguageMismatchToast: Equatable, Sendable {
     let agent: String
     let detected: String?
@@ -132,8 +133,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   /// Cumulative count of `.languageMismatch` events in the current
   /// `run()` cycle. Reset on `run()` entry alongside
-  /// ``pendingLanguageMismatchToast``. Drives `GameHeader`'s drift
-  /// segment when > 0.
+  /// ``pendingLanguageMismatchToast``. Surfaced at run completion as
+  /// a single chat-stream `LogEntry.summary` line when > 0.
   private(set) var languageMismatchCount: Int = 0
 
   /// Localized toast copy derived from ``pendingLanguageMismatchToast``.
@@ -155,9 +156,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   }
 
   /// Clears the pending toast trigger so the host view can collapse it.
-  /// Cumulative ``languageMismatchCount`` is preserved — the badge keeps
-  /// showing the running tally. The toast does NOT re-fire within the
-  /// same `run()` cycle, even on subsequent events.
+  /// Cumulative ``languageMismatchCount`` is preserved so the run-end
+  /// summary line still reflects every event that fired. The toast does
+  /// NOT re-fire within the same `run()` cycle, even on subsequent events.
   func dismissLanguageMismatchToast() {
     pendingLanguageMismatchToast = nil
   }
@@ -737,7 +738,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .languageMismatch(let agent, let detected, let expected):
       // ADR-010 §"Out of Scope" / #401 — informational drift surface.
       // First event sets the one-shot toast; subsequent events only
-      // increment the cumulative count (badge driver). Toast does NOT
+      // increment the cumulative count (surfaced post-run). Toast does NOT
       // re-fire within the same `run()` cycle even after dismissal —
       // burst-pattern noise suppression. Gating on `count == 0`
       // (pre-increment) rather than `pendingLanguageMismatchToast == nil`
