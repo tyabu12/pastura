@@ -1498,32 +1498,32 @@
         }
       }
     },
-    "Database migration failed: %arg" : {
+    "Database migration failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "データベースのマイグレーションに失敗しました: %arg"
+            "value" : "データベースのマイグレーションに失敗しました: %@"
           }
         }
       }
     },
-    "Database open failed: %arg" : {
+    "Database open failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "データベースのオープンに失敗しました: %arg"
+            "value" : "データベースのオープンに失敗しました: %@"
           }
         }
       }
     },
-    "Decoding failed: %arg" : {
+    "Decoding failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "デコードに失敗しました: %arg"
+            "value" : "デコードに失敗しました: %@"
           }
         }
       }
@@ -1821,12 +1821,12 @@
         }
       }
     },
-    "Encoding failed: %arg" : {
+    "Encoding failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エンコードに失敗しました: %arg"
+            "value" : "エンコードに失敗しました: %@"
           }
         }
       }
@@ -3308,22 +3308,28 @@
         }
       }
     },
-    "Record is read-only: id=%arg" : {
+    "Record is read-only: id=%@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "レコードは読み取り専用です: id=%arg"
+            "value" : "レコードは読み取り専用です: id=%@"
           }
         }
       }
     },
-    "Record not found: %arg id=%arg" : {
+    "Record not found: %@ id=%@" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record not found: %1$@ id=%2$@"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "レコードが見つかりません: %arg id=%arg"
+            "value" : "レコードが見つかりません: %1$@ id=%2$@"
           }
         }
       }
