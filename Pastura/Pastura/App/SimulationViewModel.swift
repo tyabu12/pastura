@@ -703,7 +703,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Event Handling
 
   // internal (not private) to allow direct unit testing via @testable import
-  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {  // swiftlint:disable:this cyclomatic_complexity
+  func handleEvent(_ event: SimulationEvent, scenario: Scenario) {  // swiftlint:disable:this cyclomatic_complexity function_body_length
 
     switch event {
     case .roundStarted(let round, let total):

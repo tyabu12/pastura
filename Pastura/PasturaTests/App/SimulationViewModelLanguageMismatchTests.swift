@@ -14,25 +14,25 @@ struct SimulationViewModelLanguageMismatchTests {
   // MARK: - LanguageMismatchToast value semantics
 
   @Test func toastEqualityHonorsAllFields() {
-    let a = SimulationViewModel.LanguageMismatchToast(
+    let alice = SimulationViewModel.LanguageMismatchToast(
       agent: "Alice", detected: "ja", expected: "en")
-    let b = SimulationViewModel.LanguageMismatchToast(
+    let aliceDup = SimulationViewModel.LanguageMismatchToast(
       agent: "Alice", detected: "ja", expected: "en")
-    let c = SimulationViewModel.LanguageMismatchToast(
+    let bob = SimulationViewModel.LanguageMismatchToast(
       agent: "Bob", detected: "ja", expected: "en")
-    #expect(a == b)
-    #expect(a != c)
+    #expect(alice == aliceDup)
+    #expect(alice != bob)
   }
 
   @Test func toastEqualityHandlesNilDetected() {
-    let a = SimulationViewModel.LanguageMismatchToast(
+    let nilDetected = SimulationViewModel.LanguageMismatchToast(
       agent: "Alice", detected: nil, expected: "en")
-    let b = SimulationViewModel.LanguageMismatchToast(
+    let nilDetectedDup = SimulationViewModel.LanguageMismatchToast(
       agent: "Alice", detected: nil, expected: "en")
-    let c = SimulationViewModel.LanguageMismatchToast(
+    let knownDetected = SimulationViewModel.LanguageMismatchToast(
       agent: "Alice", detected: "ja", expected: "en")
-    #expect(a == b)
-    #expect(a != c)
+    #expect(nilDetected == nilDetectedDup)
+    #expect(nilDetected != knownDetected)
   }
 
   // MARK: - Initial state
