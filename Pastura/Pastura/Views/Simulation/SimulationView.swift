@@ -324,6 +324,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .padding(.top, 8)
         .padding(.horizontal, 16)
         .transition(.move(edge: .top).combined(with: .opacity))
+        // Decorative SF Symbol — `text` already carries the semantic.
+        // Matches `GameHeader.metaRow`'s globe badge accessibility.
+        .accessibilityLabel(text)
         .task(id: viewModel.pendingLanguageMismatchToast) {
           try? await Task.sleep(for: .seconds(4))
           viewModel.dismissLanguageMismatchToast()
