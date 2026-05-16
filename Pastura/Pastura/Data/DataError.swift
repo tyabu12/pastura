@@ -34,17 +34,17 @@ extension DataError: LocalizedError {
   public var errorDescription: String? {
     switch self {
     case .databaseOpenFailed(let description):
-      return String(localized: "Database open failed: \(description)")
+      return String(format: String(localized: "Database open failed: %@"), description)
     case .migrationFailed(let description):
-      return String(localized: "Database migration failed: \(description)")
+      return String(format: String(localized: "Database migration failed: %@"), description)
     case .recordNotFound(let type, let id):
-      return String(localized: "Record not found: \(type) id=\(id)")
+      return String(format: String(localized: "Record not found: %@ id=%@"), type, id)
     case .encodingFailed(let description):
-      return String(localized: "Encoding failed: \(description)")
+      return String(format: String(localized: "Encoding failed: %@"), description)
     case .decodingFailed(let description):
-      return String(localized: "Decoding failed: \(description)")
+      return String(format: String(localized: "Decoding failed: %@"), description)
     case .readonly(let id):
-      return String(localized: "Record is read-only: id=\(id)")
+      return String(format: String(localized: "Record is read-only: id=%@"), id)
     }
   }
 }
