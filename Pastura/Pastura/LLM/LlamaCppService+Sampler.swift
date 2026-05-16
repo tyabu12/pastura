@@ -99,7 +99,8 @@ extension LlamaCppService {
           """)
         let snippet = grammarString.prefix(200)
         throw LLMError.invalidGrammar(
-          description: "GBNF grammar parse failed: \(snippet)")
+          description: String(
+            format: String(localized: "GBNF grammar parse failed: %@"), String(snippet)))
       }
       llama_sampler_chain_add(chain, grammarSampler)
     }
