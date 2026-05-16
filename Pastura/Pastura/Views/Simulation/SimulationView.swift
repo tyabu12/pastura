@@ -423,12 +423,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       round: viewModel.headerRound,
       phaseLabel: viewModel.currentPhase.map(PhaseDisplayName.label(for:)),
       tokensPerSecond: viewModel.averageTokensPerSecond,
-      // #401 — surface the cumulative drift count in the meta row's
-      // right cluster. Coerce 0 to nil so the badge collapses cleanly
-      // alongside the rest of the meta-row segments (matches the pure
-      // helper's `count == 0 → nil` semantic).
-      languageDriftCount: viewModel.languageMismatchCount > 0
-        ? viewModel.languageMismatchCount : nil,
       extendsIntoTopSafeArea: false
     )
   }

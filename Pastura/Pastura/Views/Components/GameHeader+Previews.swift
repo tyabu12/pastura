@@ -106,32 +106,3 @@ import SwiftUI
   }
   .background(Color.screenBackground)
 }
-
-// Worst-case for the drift badge (#401): long phase + tok/s populated +
-// double-digit drift count on iPhone SE width. Verifies the right-cluster
-// trio (tok/s + drift) doesn't compress phase / ROUND, and the badge is
-// visible in the existing typography rhythm.
-#Preview("Sim — drift badge worst case") {
-  VStack(spacing: 12) {
-    GameHeader(
-      scenarioName: "ワードウルフ",
-      status: .simulating,
-      round: GameHeaderRound(current: 2, total: 5),
-      phaseLabel: "発言ラウンド",
-      tokensPerSecond: 16.5,
-      languageDriftCount: 99
-    )
-    .frame(width: 320)
-    GameHeader(
-      scenarioName: "Prisoner's Dilemma",
-      status: .simulating,
-      round: GameHeaderRound(current: 12, total: 100),
-      phaseLabel: "long-phase-label",
-      tokensPerSecond: 125.0,
-      languageDriftCount: 1
-    )
-    .frame(width: 320)
-    Spacer()
-  }
-  .background(Color.screenBackground)
-}

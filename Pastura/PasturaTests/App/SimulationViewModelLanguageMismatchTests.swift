@@ -143,6 +143,49 @@ struct SimulationViewModelLanguageMismatchTests {
       "nil detected must not leak as the literal token 'nil'")
   }
 
+  // MARK: - Completion summary (chat-stream report)
+
+  @Test func completedWithZeroMismatchesAppendsNoSummary() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.handleEvent(.simulationCompleted, scenario: scenario)
+    let mismatchSummaries = sut.logEntries.compactMap { entry -> String? in
+      if case .summary(let text) = entry.kind,
+        text.contains("mismatch") || text.contains("不一致") {
+        return text
+      }
+      return nil
+    }
+    #expect(
+      mismatchSummaries.isEmpty,
+      "No mismatch-summary line should be appended when count == 0")
+  }
+
+  @Test func completedWithNonZeroMismatchesAppendsSummaryWithCount() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.handleEvent(
+      .languageMismatch(agent: "Alice", detected: "ja", expected: "en"),
+      scenario: scenario)
+    sut.handleEvent(
+      .languageMismatch(agent: "Bob", detected: "ja", expected: "en"),
+      scenario: scenario)
+    sut.handleEvent(
+      .languageMismatch(agent: "Carol", detected: "ja", expected: "en"),
+      scenario: scenario)
+    #expect(sut.languageMismatchCount == 3)
+
+    sut.handleEvent(.simulationCompleted, scenario: scenario)
+
+    let mismatchSummaries = sut.logEntries.compactMap { entry -> String? in
+      if case .summary(let text) = entry.kind, text.contains("3") {
+        return text
+      }
+      return nil
+    }
+    #expect(
+      mismatchSummaries.count == 1,
+      "Exactly one mismatch-summary line should be appended on completion")
+  }
+
   // MARK: - run() reset (integration)
 
   @Test func runResetsLanguageMismatchState() async throws {

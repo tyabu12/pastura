@@ -2497,6 +2497,16 @@
         }
       }
     },
+    "Language mismatch ×%lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語不一致 ×%lld"
+          }
+        }
+      }
+    },
     "Last updated: %@" : {
       "localizations" : {
         "ja" : {
@@ -4716,16 +4726,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無効"
-          }
-        }
-      }
-    },
-    "drift ×%lld" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ずれ ×%lld"
           }
         }
       }

@@ -758,6 +758,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       handleAgentOutputStream(agent: agent, primary: primary, thought: thought)
     case .simulationCompleted:
       isCompleted = true
+      // #401 — append a one-line completion report when adherence
+      // drift was observed during the run. Header stays clean during
+      // the run (drift count would be context-free at-a-glance);
+      // surfacing the cumulative count at the end is the post-run
+      // review moment where the number is useful.
+      if languageMismatchCount > 0 {
+        let text = String(
+          format: String(localized: "Language mismatch ×%lld"),
+          languageMismatchCount)
+        logEntries.append(LogEntry(kind: .summary(text: text)))
+      }
     case .error(let simError):
       // Use `localizedDescription` (LocalizedError-conforming) for both
       // the alert text and the log entry — `"\(simError)"` would render
