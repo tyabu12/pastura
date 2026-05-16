@@ -1,0 +1,94 @@
+# Interim auto-retry for CI failures dominated by ui-test runner-init flakes
+# (issue #444). The ui-test job intermittently fails with "The test runner
+# failed to initialize for UI testing. (Underlying Error: Timed out while
+# loading Accessibility.)" before any individual test runs, so xcodebuild's
+# `-retry-tests-on-failure -test-iterations 2` (which presupposes the runner
+# booted) cannot recover. Manual `gh run rerun --failed` recovers in ~9/10
+# cases (memory feedback_ci_uitest_launch_timeout_flake.md).
+#
+# Attempt arithmetic (workflow_run.run_attempt is the attempt that just
+# completed-as-failed):
+#   main push: rerun while attempt < 3 → up to 3 total (initial + 2 retries)
+#   pull_request: rerun while attempt < 2 → up to 2 total (initial + 1 retry)
+# Off-by-one here either disables the retry entirely or creates an unbounded
+# loop, so guard arithmetic carefully on edits.
+#
+# Selective gating: only retry when the `ui-test` job is among the failed
+# jobs. Whole-run rerun would amplify cost when a real lint regression
+# coincides with the flake (worst case: 25 min ui-test budget burned to
+# rediscover lint fail) and would erode signal quality.
+#
+# Fork-PR caveat: GITHUB_TOKEN on workflow_run from a fork PR is read-only
+# for `actions:` scope, so `gh run rerun` will silently fail. Retry is
+# best-effort for fork PRs by design — first-party PR retries cover the
+# common case.
+
+name: CI Retry
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# Defends against duplicate webhook delivery for the same workflow_run.
+# Keyed by the failed run's id so unrelated retries don't serialize.
+# Second invocation sees state mutated by the first (rerun already in
+# flight) → `gh run rerun` no-ops or errors; either way no cascade.
+concurrency:
+  group: ci-retry-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    name: Rerun failed CI jobs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    # `conclusion == 'failure'` deliberately excludes `cancelled` (manual
+    # stop), `timed_out` (legitimately stuck — retry would just re-hit the
+    # timeout), and `action_required` (waiting on approval). Do not
+    # broaden to `!= 'success'`.
+    if: >-
+      github.event.workflow_run.conclusion == 'failure'
+      && (
+        (github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_branch == 'main'
+          && github.event.workflow_run.run_attempt < 3)
+        || (github.event.workflow_run.event == 'pull_request'
+          && github.event.workflow_run.run_attempt < 2)
+      )
+    steps:
+      - name: Check whether ui-test was among the failed jobs
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          # Only retry when ui-test failed. Other failures (lint regression,
+          # ADR-005 §8 leak, drift guards) are deterministic — re-running
+          # them would mask signal and burn CI minutes.
+          UI_TEST_FAILED=$(gh run view "$RUN_ID" --json jobs \
+            --jq '[.jobs[] | select(.name == "ui-test" and .conclusion == "failure")] | length')
+          echo "ui_test_failed=$UI_TEST_FAILED" >> "$GITHUB_OUTPUT"
+          echo "ui-test failed-job count: $UI_TEST_FAILED"
+
+      - name: Rerun failed jobs
+        if: steps.check.outputs.ui_test_failed != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          EVENT: ${{ github.event.workflow_run.event }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          echo "Triggering rerun for run $RUN_ID (attempt=$ATTEMPT, event=$EVENT, branch=$BRANCH)"
+          # `--failed` reruns failed jobs AND any jobs that depend on them,
+          # so `pr-comment` (depends on ui-test) re-fires and the sticky CI
+          # report comment reflects the retry outcome.
+          gh run rerun --failed "$RUN_ID"

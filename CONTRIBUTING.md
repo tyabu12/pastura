@@ -39,6 +39,14 @@ If your change touches an architectural boundary, check
 
 `main` is push-protected, so all changes land via PR.
 
+On PRs and `main`, CI auto-reruns the `ui-test` job on intermittent
+runner-init failures (up to 2 total attempts on PRs, 3 on `main`). Other
+failures fall through unchanged. If attempt 2 turns the run green after
+attempt 1 failed, that is the retry firing as designed; the latest
+attempt holds the real verdict. See
+[`.github/workflows/ci-retry.yml`](.github/workflows/ci-retry.yml) for
+the trigger and gating logic.
+
 ### Commits
 
 Conventional Commits with an emoji prefix, under 72 chars on the
