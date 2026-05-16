@@ -44,8 +44,10 @@ extension ResultDetailView {
   private func eliminationRow(agent: String, voteCount: Int) -> some View {
     HStack(spacing: 4) {
       Image(systemName: "xmark.circle.fill").foregroundStyle(Color.inkSecondary)
-      Text("\(filtered(agent)) eliminated (\(voteCount) votes)")
-        .textStyle(Typography.titlePhase)
+      Text(
+        String(format: String(localized: "%@ eliminated (%lld votes)"), filtered(agent), voteCount)
+      )
+      .textStyle(Typography.titlePhase)
     }
   }
 
@@ -54,8 +56,10 @@ extension ResultDetailView {
       if lhs.value != rhs.value { return lhs.value > rhs.value }
       return lhs.key < rhs.key
     }
-    let pairs = ordered.map { "\(filtered($0.key)): \($0.value)" }.joined(separator: ", ")
-    return Text("Scores — \(pairs)")
+    let pairs = ordered.map {
+      String(format: String(localized: "%@: %lld"), filtered($0.key), $0.value)
+    }.joined(separator: ", ")
+    return Text(String(format: String(localized: "Scores — %@"), pairs))
       .textStyle(Typography.metaValue)
       .monospacedDigit()
       .foregroundStyle(Color.muted)
@@ -84,14 +88,16 @@ extension ResultDetailView {
       Text(String(localized: "Vote Results")).textStyle(Typography.metaLabel).foregroundStyle(
         Color.inkSecondary)
       ForEach(orderedTallies, id: \.key) { name, count in
-        Text("  \(filtered(name)): \(count) votes").textStyle(Typography.metaValue)
+        Text(String(format: String(localized: "  %@: %lld votes"), filtered(name), count))
+          .textStyle(Typography.metaValue)
       }
       Text(String(localized: "Votes")).textStyle(Typography.metaLabel).foregroundStyle(
         Color.inkSecondary
       )
       .padding(.top, 4)
       ForEach(orderedVotes, id: \.key) { voter, target in
-        Text("  \(filtered(voter)) → \(filtered(target))").textStyle(Typography.metaValue)
+        Text(String(format: String(localized: "  %@ → %@"), filtered(voter), filtered(target)))
+          .textStyle(Typography.metaValue)
       }
     }
     .foregroundStyle(Color.muted)
@@ -101,15 +107,15 @@ extension ResultDetailView {
     agent1: String, action1: String, agent2: String, action2: String
   ) -> some View {
     HStack {
-      Text("\(filtered(agent1))(\(filtered(action1)))")
+      Text(String(format: String(localized: "%@(%@)"), filtered(agent1), filtered(action1)))
       Text(String(localized: "vs")).foregroundStyle(Color.muted)
-      Text("\(filtered(agent2))(\(filtered(action2)))")
+      Text(String(format: String(localized: "%@(%@)"), filtered(agent2), filtered(action2)))
     }
     .textStyle(Typography.titlePhase)
   }
 
   private func assignmentRow(agent: String, value: String) -> some View {
-    Text("\(filtered(agent)) assigned: \(filtered(value))")
+    Text(String(format: String(localized: "%@ assigned: %@"), filtered(agent), filtered(value)))
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
   }
@@ -120,7 +126,7 @@ extension ResultDetailView {
   @ViewBuilder
   private func eventInjectedRow(event: String?) -> some View {
     if let event {
-      Text("Event: \(filtered(event))")
+      Text(String(format: String(localized: "Event: %@"), filtered(event)))
         .textStyle(Typography.bodyBubble)
         .foregroundStyle(Color.inkSecondary)
     } else {

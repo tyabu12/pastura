@@ -17,11 +17,28 @@
         }
       }
     },
+    "  %@ → %@" : {
+      "comment" : "Vote row in expanded vote-results display (Results tab), 2-space leading indent. Distinct from export %@ → %@ (top-level non-indented).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "  %1$@ → %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "  %1$@ → %2$@"
+          }
+        }
+      }
+    },
     "  %@: %lld votes" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "  %1$@: %2$lld votes"
           }
         },
@@ -209,6 +226,22 @@
         }
       }
     },
+    "%@ (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$lld)"
+          }
+        }
+      }
+    },
     "%@ assigned: %@" : {
       "localizations" : {
         "en" : {
@@ -299,6 +332,88 @@
         }
       }
     },
+    "%@ × %@" : {
+      "comment" : "Event-inject phase summary in scenario editor; first arg is YAML source key name, second arg is probability (e.g. 0.5).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ × %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ × %2$@"
+          }
+        }
+      }
+    },
+    "%@ → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@"
+          }
+        }
+      }
+    },
+    "%@ → then:%lld else:%lld" : {
+      "comment" : "Conditional phase summary in scenario editor; condition expr / then-branch count / else-branch count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → then:%2$lld else:%3$lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → then:%2$lld else:%3$lld"
+          }
+        }
+      }
+    },
+    "%@(%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@(%2$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@(%2$@)"
+          }
+        }
+      }
+    },
+    "%@: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld"
+          }
+        }
+      }
+    },
     "%arg (%arg) requires field '%arg' in output." : {
       "localizations" : {
         "en" : {
@@ -325,12 +440,46 @@
         }
       }
     },
+    "%lld agents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld agents"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld エージェント"
+          }
+        }
+      }
+    },
     "%lld pts" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 点"
+          }
+        }
+      }
+    },
+    "%lld steps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld steps"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ステップ"
           }
         }
       }
@@ -389,6 +538,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "(不明)"
+          }
+        }
+      }
+    },
+    "(unnamed)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(unnamed)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(無名)"
           }
         }
       }
@@ -1104,6 +1270,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "カテゴリ"
+          }
+        }
+      }
+    },
+    "Chance: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chance: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確率: %@"
           }
         }
       }
@@ -3205,6 +3388,17 @@
         }
       }
     },
+    "Round %lld" : {
+      "comment" : "Round separator in past-results timeline (in-app). Distinct from Markdown heading ### Round %lld used in ResultMarkdownExporter.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド %lld"
+          }
+        }
+      }
+    },
     "Round %lld / %lld" : {
       "localizations" : {
         "ja" : {
@@ -3231,6 +3425,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ラウンド"
+          }
+        }
+      }
+    },
+    "Rounds: %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rounds: %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド数: %lld"
           }
         }
       }
