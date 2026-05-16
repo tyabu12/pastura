@@ -190,10 +190,10 @@ extension SimulationError: LocalizedError {
     case .scenarioValidationFailed(let message):
       return message
     case .llmGenerationFailed(let description):
-      return String(localized: "LLM generation failed: \(description)")
+      return String(format: String(localized: "LLM generation failed: %@"), description)
     case .jsonParseFailed(let raw):
       let snippet = raw.count > 200 ? String(raw.prefix(200)) + "..." : raw
-      return String(localized: "JSON parse failed: \(snippet)")
+      return String(format: String(localized: "JSON parse failed: %@"), snippet)
     case .retriesExhausted:
       return String(
         localized: "LLM returned invalid output after retries. Try again or check model health.")
