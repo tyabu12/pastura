@@ -38,6 +38,18 @@ nonisolated public enum LaunchAnimationConfig {
   /// fade-in cue.
   public static let reducedMotionDuration: TimeInterval = 0.4
 
+  // MARK: - Color tokens
+
+  /// Splash background — design-handoff "cream" (`#F1ECDC`).
+  ///
+  /// Slightly more saturated than the runtime ``Color/page`` token
+  /// (`#F3EFE7`). The launch experience pivots on this specific value
+  /// matching the asset-catalog `launchScreenBackground` ColorSet read by
+  /// the Info.plist `UILaunchScreen` dict — keep the literal RGB and the
+  /// catalog entry in lock-step.
+  public static let backgroundColor = Color(
+    red: 241.0 / 255.0, green: 236.0 / 255.0, blue: 220.0 / 255.0)
+
   // MARK: - Layout tokens
 
   /// Icon display size (width & height) in points, per design handoff.
