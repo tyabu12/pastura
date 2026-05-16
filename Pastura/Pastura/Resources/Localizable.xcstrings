@@ -17,11 +17,28 @@
         }
       }
     },
+    "  %@ → %@" : {
+      "comment" : "Vote row in expanded vote-results display (Results tab), 2-space leading indent. Distinct from export %@ → %@ (top-level non-indented).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "  %1$@ → %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "  %1$@ → %2$@"
+          }
+        }
+      }
+    },
     "  %@: %lld votes" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "  %1$@: %2$lld votes"
           }
         },
@@ -209,6 +226,22 @@
         }
       }
     },
+    "%@ (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$lld)"
+          }
+        }
+      }
+    },
     "%@ assigned: %@" : {
       "localizations" : {
         "en" : {
@@ -345,6 +378,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ → then:%2$lld else:%3$lld"
+          }
+        }
+      }
+    },
+    "%@(%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@(%2$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@(%2$@)"
+          }
+        }
+      }
+    },
+    "%@: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld"
           }
         }
       }
@@ -3384,6 +3449,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ロール値 < 確率で発火します。1 = 常に発火、0 = 発火しません。"
+          }
+        }
+      }
+    },
+    "Round %lld" : {
+      "comment" : "Round separator in past-results timeline (in-app). Distinct from Markdown heading ### Round %lld used in ResultMarkdownExporter.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド %lld"
           }
         }
       }

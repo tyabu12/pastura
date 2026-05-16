@@ -209,7 +209,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       // upper-case to "ROUND N" which reads shouty for a prose
       // marker. tagPhase stays reserved for one-word phase tags
       // (WORD WOLF). See design-system §3.2.
-      Text("Round \(round)")
+      Text(String(format: String(localized: "Round %lld"), round))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
       Rectangle().fill(Color.rule).frame(height: 1)
@@ -236,7 +236,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         Text(turn.phaseType)
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.inkSecondary)
-        Text("Round \(turn.roundNumber)")
+        Text(String(format: String(localized: "Round %lld"), turn.roundNumber))
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.inkSecondary)
       }
