@@ -111,10 +111,29 @@ private struct RootView: View {
   @State private var lastDeepLinkedScenarioId: String?
   @State private var deepLinkError: DeepLinkErrorAlert?
 
+  // Launch animation state — see `Pastura/Pastura/Views/Splash/`.
+  // `splashKind` defaults to `.cold` (process-fresh = cold launch) except
+  // in UI-test mode where 1.6 s of splash would slow every test for no
+  // navigation-regression value.
+  @State private var coordinator = LaunchPhaseCoordinator()
+  @State private var splashKind: LaunchKind? = {
+    #if DEBUG
+      if CommandLine.arguments.contains("--ui-test") { return nil }
+    #endif
+    return .cold
+  }()
+  @Environment(\.scenePhase) private var scenePhase
+
+  /// Maximum extra hold the cold splash allows past `coldDuration` while
+  /// init is still resolving. Past this cap the splash dismisses and the
+  /// underlying `.initializing` ProgressView takes over.
+  private static let coldSplashMaxExtension: TimeInterval = 1.0
+
   var body: some View {
     ZStack {
       mainContent
       deepLinkToast
+      splashOverlay  // z-order above mainContent AND toast per critic axis 7
     }
     .onOpenURL { handleOpenURL($0) }
     // Drain triggers: fire whenever any signal that gates navigability
@@ -124,6 +143,7 @@ private struct RootView: View {
     .onChange(of: gate.sheetPresentationCount) { _, _ in tryDrain() }
     .onChange(of: router.path) { _, _ in tryDrain() }
     .onChange(of: gate.pendingURL) { _, new in if new != nil { tryDrain() } }
+    .onChange(of: scenePhase) { old, new in handleScenePhase(from: old, to: new) }
     // Reset source-attribution when the user pops all the way back. Any
     // subsequent visit to the same gallery scenario detail (via Share
     // Board, for instance) should not show the "Opened from external
@@ -218,7 +238,13 @@ private struct RootView: View {
     // the user dismisses the sheet and the drain fires immediately.
     // Init / modelDownload / error / simulation-active cases render over
     // the RootView's content and are visible.
-    if gate.pendingURL != nil, let reason = deepLinkBlockReason {
+    //
+    // Splash-presented case (cold or warm): suppress so the toast doesn't
+    // render invisibly under the splash with the next state's text. Per
+    // critic axis 7 — splash z-orders above the toast, and the existing
+    // `.initializing` block in `tryDrain` already prevents drain during
+    // cold launch, so suppressing the toast here is purely visual.
+    if gate.pendingURL != nil, let reason = deepLinkBlockReason, splashKind == nil {
       VStack {
         Spacer()
         Text(reason.toastText)
@@ -233,6 +259,27 @@ private struct RootView: View {
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
       .animation(.easeInOut(duration: 0.2), value: reason)
       .allowsHitTesting(false)
+    }
+  }
+
+  // MARK: - Splash overlay
+
+  @ViewBuilder
+  private var splashOverlay: some View {
+    if let kind = splashKind {
+      Group {
+        switch kind {
+        case .cold:
+          ColdSplashView()
+            .transition(.coldSplashExit)
+            .task { await runColdSplashTimeline() }
+        case .warm:
+          WarmSplashView()
+            .transition(.warmSplashExit)
+            .task { await runWarmSplashTimeline() }
+        }
+      }
+      .zIndex(1)
     }
   }
 
@@ -498,6 +545,108 @@ extension RootView {
       modelManager.startDownload(descriptor: descriptor)
     }
     appState = .needsModelDownload
+  }
+
+  // MARK: - Splash timelines & scenePhase
+
+  /// Cold splash dismissal: hold for `coldDuration`, optionally extend up
+  /// to `coldSplashMaxExtension` while init is still resolving, then play
+  /// the `.coldSplashExit` transition.
+  ///
+  /// Built on top of ``LaunchSplashTimer``: the timer encapsulates the
+  /// min-time + extension contract (with unit-test coverage of the four
+  /// resolution regimes), this function turns that into an observation
+  /// loop because a SwiftUI view's `appStateKind` is a moving target that
+  /// `LaunchSplashTimer.dismissalTime(...)` can't observe directly.
+  ///
+  /// `hardDeadline` from the timer drives the loop's upper bound so the
+  /// two definitions of "how long can extension last" stay locked.
+  fileprivate func runColdSplashTimeline() async {
+    let timer = LaunchSplashTimer(
+      minDuration: LaunchAnimationConfig.coldDuration,
+      maxExtension: Self.coldSplashMaxExtension
+    )
+    try? await Task.sleep(nanoseconds: UInt64(timer.minDuration * 1_000_000_000))
+
+    // Extension wait — poll up to `maxExtension`. 50 ms polling is
+    // invisible to the user (well under one perceived frame at 60 Hz) and
+    // bounded — at most 20 iterations for a 1-second cap.
+    let maxExtensionMs: UInt64 = UInt64(timer.maxExtension * 1000)
+    let pollIntervalMs: UInt64 = 50
+    var elapsedMs: UInt64 = 0
+    while appStateKind == .initializing && elapsedMs < maxExtensionMs {
+      try? await Task.sleep(nanoseconds: pollIntervalMs * 1_000_000)
+      elapsedMs += pollIntervalMs
+    }
+
+    // The exit's animation duration is the "72→100% of timeline" portion
+    // of the original design — 28% × 1.6 s ≈ 448 ms. easeStandard matches
+    // the README's fade-out curve cubic-bezier(.4, 0, .2, 1).
+    let exitDuration = LaunchAnimationConfig.coldDuration * 0.28
+    withAnimation(LaunchAnimationConfig.easeStandard(duration: exitDuration)) {
+      splashKind = nil
+    }
+  }
+
+  /// Warm splash dismissal: hold for `warmDuration`, then play the
+  /// `.warmSplashExit` transition. Clears `lastBackgroundedAt` so a
+  /// subsequent in-process toggle (foreground → background → foreground
+  /// again within the threshold) picks up a fresh measurement window.
+  fileprivate func runWarmSplashTimeline() async {
+    let total = LaunchAnimationConfig.warmDuration
+    // Hold through segments 1-3 (appear / inhale / exhale = 72%). The
+    // remaining 28% is the parent's `.warmSplashExit` transition.
+    let holdDuration = total * 0.72
+    try? await Task.sleep(nanoseconds: UInt64(holdDuration * 1_000_000_000))
+
+    let exitDuration = total * 0.28
+    withAnimation(LaunchAnimationConfig.easeStandard(duration: exitDuration)) {
+      splashKind = nil
+    }
+    coordinator.clearBackgrounded()
+  }
+
+  /// `scenePhase` observer driving the warm-launch decision and the
+  /// background timestamp.
+  ///
+  /// Background-recording fires on transition into `.background` only —
+  /// `.inactive` is a transient state (Control Center, incoming call, app
+  /// switcher dismiss) that should not reset the warm threshold.
+  ///
+  /// Warm-splash gating uses the pure
+  /// ``LaunchPhaseCoordinator/shouldPlayWarmSplash(launchKind:appIsReady:isSimulationOnTop:isSheetActive:)``
+  /// predicate so the suppression matrix stays unit-tested
+  /// (`LaunchPhaseCoordinatorTests`).
+  fileprivate func handleScenePhase(from old: ScenePhase, to new: ScenePhase) {
+    if new == .background {
+      coordinator.recordBackgrounded()
+      return
+    }
+    guard new == .active, old == .background else { return }
+    // Don't restart a splash that's already on screen (rapid bg/fg toggle
+    // mid-cold-launch). The cold splash owns its own dismissal timeline.
+    guard splashKind == nil else { return }
+    let kind = LaunchPhaseCoordinator.nextLaunchKind(
+      now: .now,
+      lastBackgroundedAt: coordinator.lastBackgroundedAt,
+      threshold: LaunchAnimationConfig.warmThreshold
+    )
+    let shouldPlay = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: kind,
+      appIsReady: appStateKind == .ready,
+      isSimulationOnTop: isSimulationOnTop,
+      isSheetActive: gate.isSheetActive
+    )
+    guard shouldPlay else {
+      // Warm-eligible by elapsed but suppressed by app state — clear the
+      // bg timestamp so a subsequent return after the user finishes their
+      // simulation / sheet doesn't mistakenly trigger warm splash.
+      if kind == .warm { coordinator.clearBackgrounded() }
+      return
+    }
+    withAnimation(LaunchAnimationConfig.easeStandard(duration: 0.15)) {
+      splashKind = .warm
+    }
   }
 }
 
