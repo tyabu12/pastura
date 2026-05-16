@@ -114,8 +114,13 @@ _IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9_]{0,7}$")
 # they would not need ``String(localized:)`` either way.
 _DOT_NOTATION_RE = re.compile(r"^[a-z0-9_-]*[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$")
 # URL scheme (``https://``, ``file:///``), absolute path (``/Users/...``),
-# or home-relative path (``~/Library``).
-_URL_OR_PATH_RE = re.compile(r"(?:^[/~]|://)")
+# or home-relative path (``~/Library``). The ``~`` branch only fires when
+# followed by ``/`` (canonical home shorthand) or another ``~``
+# (``~~debug~~``-style decorator). Decorative-tilde prefixes such as
+# ``~%lld inferences`` or ``~5 items`` are intentionally NOT filtered so
+# real wrap leaks surface — see PR #416 / Issue #419, where the previous
+# ``^[/~]`` pattern silently dropped a ``~\(N) inferences`` leak.
+_URL_OR_PATH_RE = re.compile(r"(?:^[/]|^~[/~]|://)")
 # Format-specifier-only key (``%arg``, ``%@``, ``%d``, ``%lld``).
 # Real user-facing format strings have a prefix or suffix and won't match.
 # ``@`` is included for ``%@`` (Objective-C-bridged object substitution).
@@ -397,7 +402,14 @@ def _self_test() -> int:
         ("path TP — URL scheme", "https://example.com", "url-or-path"),
         ("path TP — absolute path", "/Users/me/Library", "url-or-path"),
         ("path TP — home-relative path", "~/Documents", "url-or-path"),
+        ("path TP — home-double-tilde decorator", "~~debug~~", "url-or-path"),
         ("path FP — sentence containing 'or'", "Loading or saving", None),
+        # Decorative tilde-prefix shapes: intentionally NOT filtered so real
+        # wrap leaks surface. PR #416 / Issue #419 regression guard — the
+        # previous ``^[/~]`` pattern silently dropped ``~%lld inferences``.
+        ("path FP — decorative tilde-int prefix", "~5 items", None),
+        ("path FP — decorative tilde-format prefix", "~%lld inferences", None),
+        ("path FP — decorative tilde no space", "~current", None),
         # ─── format-only filter ───────────────────────────────────────────
         ("format TP — bare %arg", "%arg", "format-only"),
         ("format TP — %@ alone", "%@", "format-only"),
