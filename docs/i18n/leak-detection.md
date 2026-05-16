@@ -62,6 +62,17 @@ cut through.
   ```
 - Direct `Text("...")` literals (these are already auto-extracted by Xcode
   IDE, but only when Xcode runs — not under our pre-commit hook)
+- **Function-arg-with-literal call shapes** — e.g.
+  `pauseSimulation(reason: "Background time exceeded — tap resume to continue.")`
+  where the literal is passed as a keyword argument rather than assigned
+  to a known view-model property. The shape varies by callee name
+  (`pauseSimulation(reason:)`, `cancelSimulation(caller:)`, hypothetical
+  `showAlert(message:)`, etc.) and a regex covering them would either
+  enumerate every method name (maintenance burden) or widen to
+  `\(\w+:\s*"…"` (re-introduces the noise floor PR #288 was unable to
+  cut through). This is a design statement, not a deferred extension:
+  function-arg shapes belong to Tier 2's audit script, which catches
+  them at developer-run.
 
 These gaps belong to Tier 2.
 
@@ -133,6 +144,7 @@ recognize them as documented carve-outs rather than wrap leaks.
 | `YAMLReplaySource` error-payload + wire-format internals (~18 candidates) | `Pastura/Pastura/App/YAMLReplaySource.swift` | **Permanent** — `YAMLReplaySourceError: Error, Equatable` (NOT `LocalizedError`) error-description payloads (`Top-level is not a mapping.`, `Input is not valid UTF-8.`, `expected: string-keyed mapping`, `expected: string-keyed integer mapping`), YAML wire-format field names (`schema_version`, `code_phase_events`, `phase_type`, `phase_index`, `vote_count`, payload `kind` discriminators `elimination` / `scoreUpdate` / `voteResults` / `pairingResult` / `assignment` / `eventInjected`). Never user-surfaced — consumed only by `BundledDemoReplaySource`'s `logger.notice/debug` calls per spec §3.5 silent-skip policy. |
 | `BundledDemoReplaySource` Logger interpolations (~13 candidates) | `Pastura/Pastura/App/BundledDemoReplaySource.swift` | **Permanent** — all `logger.notice` / `logger.debug` interpolations carry `privacy: .public` annotation per CLAUDE.md Logger-privacy rule, plus `os.Logger` subsystem / category strings (`com.tyabu12.Pastura`, `BundledDemoReplaySource`), preset-ref field names (`preset_ref`, `yaml_sha256`), filename suffix (`_demo`). Diagnostic-only, never user-facing UI strings. |
 | `InferenceStatsFormatter` universal display units (4 candidates) | `Pastura/Pastura/Views/Simulation/InferenceStatsFormatter.swift` | **Permanent** — Technical unit tokens (`tok/s` tokens-per-second rate, `s` seconds-duration suffix; scientific / SI-derived units used as-is across locales in ML / inference contexts) and typographic display glyphs (`—` U+2014 em-dash nil-fallback marker, `•` U+2022 bullet metric joiner). Canonical convention statement lives in the enum doc-comment at the source file; `Pastura/Pastura/Views/Components/GameHeader.swift` `formatTokensPerSecond` cites it. `InferenceStatsFormatterTests` literal-pins `"12.5 tok/s • 1.5s"` as the regression guard against accidental wrap. Per #340 slice-6 decision. |
+| `App/SimulationViewModel` suite Logger interpolations + BG identifiers (50 candidates) | `Pastura/Pastura/App/SimulationViewModel.swift`, `Pastura/Pastura/App/SimulationViewModel+Background.swift`, `Pastura/Pastura/App/BackgroundSimulationManager.swift` | **Permanent** — ~43 `os.Logger` `info` / `notice` / `error` interpolations annotated `privacy: .public` per CLAUDE.md Logger-privacy rule (lifecycle / scenePhase / BG-task diagnostics like `"scenePhase=.active enter: isRunning=%arg, ..."`, `"BG task activation: isRunning=%arg, ..."`, `"committed agent=%arg totalAttempts=%arg"`); 5 Logger subsystem / category strings (`com.tyabu12.Pastura` × 2 + `SimulationVM`, `StreamingDiag`, `BGSimManager`); 1 BGTaskScheduler identifier (`com.tyabu12.Pastura.simulation-continuation` per iOS 26 BGContinuedProcessingTask spec); 2 `cancelSimulation(caller:)` debug tags (`switchToCPUInference-error`, `switchToGPUInference-error`). Diagnostic-only, never user-facing UI strings. Per #340 slice-7 decision. |
 
 ### Self-test
 
