@@ -3,11 +3,14 @@ import UIKit
 
 /// "Pastoral Drift" — full-screen launch animation for cold starts.
 ///
-/// Composed of two overlapping layers:
-/// 1. **Base icon** — fades in and scales `.94 → 1.00` over the settle phase.
-/// 2. **Sheep layer** — same icon clipped to the bottom-right region (see
-///    ``SheepClipShape``), drifts horizontally `+36 pt → 0` during the
-///    settle phase so the sheep silhouette appears to "arrive at the pasture".
+/// Composed of two overlapping layers — the icon is split horizontally
+/// at ~56 % of its height (see ``LaunchSkyClip`` / ``LaunchPastureClip``):
+/// 1. **Sky layer** (top 56 %) — fades in and scales `.94 → 1.00`
+///    during the settle phase. Static after settling.
+/// 2. **Pasture layer** (bottom 44 %, grass + hill + sheep) — drifts
+///    horizontally `+ sheepDriftDistance → 0` during the drift phase so
+///    the entire pasture (not just a corner) appears to slide into
+///    place under the sky.
 ///
 /// A single `UIImpactFeedbackGenerator(.light)` haptic fires at 55% of the
 /// timeline (~880 ms into the default 1.6s playback) — the audible-tactile
@@ -67,24 +70,23 @@ struct ColdSplashView: View {
         .opacity(settled ? 1 : 0)
     } else {
       ZStack {
+        // Sky / brandmark — top 56 %. Settles in place; never drifts.
         Image(Self.iconAssetName)
           .resizable()
           .scaledToFit()
-          .clipShape(
-            RoundedRectangle(cornerRadius: LaunchAnimationConfig.iconCornerRadius)
-          )
+          .clipShape(LaunchSkyClip())
           .opacity(settled ? 1 : 0)
           .scaleEffect(settled ? 1.00 : 0.94)
 
+        // Pasture (grass + hill + sheep) — bottom 44 %. Drifts in from
+        // the right; scale matches the sky layer so the two halves align
+        // pixel-perfectly when they settle and form the complete icon.
         Image(Self.iconAssetName)
           .resizable()
           .scaledToFit()
-          .clipShape(SheepClipShape())
+          .clipShape(LaunchPastureClip())
           .opacity(sheepArrived ? 1 : 0)
           .offset(x: sheepArrived ? 0 : LaunchAnimationConfig.sheepDriftDistance)
-          // Scale matches the base layer so they stay aligned during the
-          // brief co-visible window (≈18 → 20 %): base just reached scale
-          // 1.00 and sheep is about to begin its drift.
           .scaleEffect(settled ? 1.00 : 0.94)
       }
     }
