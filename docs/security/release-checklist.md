@@ -40,24 +40,36 @@ gh api repos/tyabu12/pastura/private-vulnerability-reporting -i \
 | Vulnerability alerts | (no field; `PUT /.../vulnerability-alerts`) | `gh api -X PUT repos/tyabu12/pastura/vulnerability-alerts` |
 | Automated security fixes | (no field; `PUT /.../automated-security-fixes`) | `gh api -X PUT repos/tyabu12/pastura/automated-security-fixes` |
 
-### Settings to enable manually via UI
+### Secret-scanning sub-settings: free vs paid
 
-Two secret-scanning sub-settings are not reachable through the public
-REST API as of 2026-05. Enable them once in the UI; the verifier above
-will show their state going forward.
+Two `security_and_analysis` API fields show `disabled` after PVR /
+push-protection / dependabot-security-updates are on. Subsequent
+verification (2026-05) reveals they have different plan requirements,
+not just a UI gap:
 
-* Settings > Code security and analysis > Secret scanning >
-  **"Scan for non-provider patterns"**
-* Settings > Code security and analysis > Secret scanning >
-  **"Validity checks"** (when available for public repos)
+* **`secret_scanning_non_provider_patterns`** (UI label: "Scan for
+  non-provider patterns"): requires **GitHub Secret Protection**, a
+  paid add-on. The UI option does not surface for free public repos
+  without GHAS / Secret Protection enabled. Track this as a paid-plan
+  upgrade consideration; the field will stay `disabled` until the
+  add-on is purchased.
 
-A check of `gh api repos/tyabu12/pastura --jq '.security_and_analysis'`
-should eventually show:
+* **`secret_scanning_validity_checks`** (UI label: "Automatically
+  verify if a secret is valid by sending it to the relevant partner"):
+  free for public repositories per GitHub's docs. Enable from Settings
+  > Code security and analysis > Secret scanning. If the option does
+  not appear, try an incognito browser session (cache) and search the
+  page for `verify`; if still absent, contact GitHub support since the
+  rollout has been account-dependent historically.
+
+After enabling Validity checks, the verifier output should change to:
 
 ```json
-"secret_scanning_non_provider_patterns": {"status": "enabled"},
 "secret_scanning_validity_checks": {"status": "enabled"}
 ```
+
+(`secret_scanning_non_provider_patterns` will stay `disabled` on the
+current free plan; that is expected, not a regression.)
 
 ### Branch protection
 
