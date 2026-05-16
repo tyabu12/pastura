@@ -1963,6 +1963,22 @@
         }
       }
     },
+    "Failed to create inference context" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to create inference context"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推論コンテキストの作成に失敗しました"
+          }
+        }
+      }
+    },
     "Failed to delete scenario: %arg" : {
       "localizations" : {
         "ja" : {
@@ -1999,6 +2015,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "LLM の読み込みに失敗しました: %arg"
+          }
+        }
+      }
+    },
+    "Failed to load model from %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to load model from %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルの読み込みに失敗しました: %@"
           }
         }
       }
@@ -2149,6 +2181,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共有シナリオから取得（読み取り専用）"
+          }
+        }
+      }
+    },
+    "GBNF grammar parse failed: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GBNF grammar parse failed: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GBNF 文法の解析に失敗しました: %@"
           }
         }
       }
@@ -2542,6 +2590,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "モデルセットアップ"
+          }
+        }
+      }
+    },
+    "Model generated no output tokens" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model generated no output tokens"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルが出力トークンを生成しませんでした"
           }
         }
       }
@@ -3164,6 +3228,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "プロンプト"
+          }
+        }
+      }
+    },
+    "Prompt (%lld tokens) exceeds context size (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt (%1$lld tokens) exceeds context size (%2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロンプト (%1$lld トークン) がコンテキストサイズ (%2$lld) を超えています"
           }
         }
       }
@@ -4610,6 +4690,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有効"
+          }
+        }
+      }
+    },
+    "llama_decode failed (error %lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "llama_decode failed (error %lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "llama_decode に失敗しました（エラー %lld）"
           }
         }
       }

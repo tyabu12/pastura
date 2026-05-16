@@ -290,7 +290,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
     guard let model = llama_model_load_from_file(modelPath, modelParams) else {
       llama_backend_free()
-      throw LLMError.loadFailed(description: "Failed to load model from \(modelPath)")
+      throw LLMError.loadFailed(
+        description: String(
+          format: String(localized: "Failed to load model from %@"), modelPath))
     }
 
     var ctxParams = llama_context_default_params()
@@ -300,7 +302,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     guard let context = llama_init_from_model(model, ctxParams) else {
       llama_model_free(model)
       llama_backend_free()
-      throw LLMError.loadFailed(description: "Failed to create inference context")
+      throw LLMError.loadFailed(
+        description: String(localized: "Failed to create inference context"))
     }
 
     _model = model
@@ -376,7 +379,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
       return .suspended
     }
     return .generationFailed(
-      description: "llama_decode failed (error \(result))"
+      description: String(
+        format: String(localized: "llama_decode failed (error %lld)"), Int(result))
     )
   }
 
@@ -466,7 +470,9 @@ extension LlamaCppService {
     let nCtx = Int(llama_n_ctx(context))
     guard tokens.count <= nCtx else {
       throw LLMError.generationFailed(
-        description: "Prompt (\(tokens.count) tokens) exceeds context size (\(nCtx))"
+        description: String(
+          format: String(localized: "Prompt (%lld tokens) exceeds context size (%lld)"),
+          tokens.count, nCtx)
       )
     }
 
@@ -549,7 +555,8 @@ extension LlamaCppService {
     }
 
     guard !outputText.isEmpty else {
-      throw LLMError.generationFailed(description: "Model generated no output tokens")
+      throw LLMError.generationFailed(
+        description: String(localized: "Model generated no output tokens"))
     }
 
     #if DEBUG
@@ -645,7 +652,9 @@ extension LlamaCppService {
     let nCtx = Int(llama_n_ctx(context))
     guard tokens.count <= nCtx else {
       throw LLMError.generationFailed(
-        description: "Prompt (\(tokens.count) tokens) exceeds context size (\(nCtx))"
+        description: String(
+          format: String(localized: "Prompt (%lld tokens) exceeds context size (%lld)"),
+          tokens.count, nCtx)
       )
     }
 
@@ -748,7 +757,7 @@ extension LlamaCppService {
 
     guard !decodedText.isEmpty else {
       throw LLMError.generationFailed(
-        description: "Model generated no output tokens")
+        description: String(localized: "Model generated no output tokens"))
     }
 
     #if DEBUG
