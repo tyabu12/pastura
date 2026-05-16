@@ -36,9 +36,9 @@ struct LaunchAnimationConfigTests {
   }
 
   @Test func hapticDelayIsAtExpectedOffset() {
-    // 1.2 s × 0.55 = 0.66 s — the "sheep arrival" beat.
+    // 1.2 s × 0.65 = 0.78 s — the "sheep arrival" beat.
     let hapticDelay =
       LaunchAnimationConfig.coldDuration * LaunchAnimationConfig.hapticDelayRatio
-    #expect(abs(hapticDelay - 0.66) < 1e-9)
+    #expect(abs(hapticDelay - 0.78) < 1e-9)
   }
 }

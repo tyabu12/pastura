@@ -90,10 +90,11 @@ struct ColdSplashView: View {
     }
   }
 
-  /// Runs the animation timeline. Phases match the README keyframes:
+  /// Runs the animation timeline. Phases:
   /// - **0 → 18 %**: base fades in + scales `.94 → 1.00`
-  /// - **20 → 55 %**: sheep drifts + fades in (`offset 36 → 0`, `opacity 0 → 1`)
-  /// - **55 %** (≈ 660 ms at 1.2 s): haptic fires the moment the sheep
+  /// - **20 → 65 %**: sheep drifts + fades in (`offset 32 → 0`,
+  ///   `opacity 0 → 1`) — gentle ~60 pt/s pastoral wander
+  /// - **65 %** (≈ 780 ms at 1.2 s): haptic fires the moment the sheep
   ///   reaches its resting position
   /// - **72 → 100 %**: exit fade — NOT handled here, owned by parent
   ///   transition
@@ -120,12 +121,16 @@ struct ColdSplashView: View {
     // compressed timeline doesn't leave room for a believable beat.
     guard !reduceMotion else { return }
 
-    // Phase B — sheep drift (20 → 55 % of total timeline). The 20 %
+    // Phase B — sheep drift. Spec: sheep enters at 20 % of the timeline
+    // and arrives at the haptic instant (``hapticDelayRatio``). The 20 %
     // pre-drift delay is what makes the drift readable; the previous
     // implementation collapsed sheep into the base's 18 % settle window
-    // and the motion was imperceptible.
-    let sheepDelay = duration * 0.20
-    let sheepDriftDuration = duration * 0.35
+    // and the motion was imperceptible. Duration is derived from the
+    // haptic ratio so adjusting one keeps them in lock-step.
+    let sheepEnterRatio: Double = 0.20
+    let sheepDelay = duration * sheepEnterRatio
+    let sheepDriftDuration =
+      duration * (LaunchAnimationConfig.hapticDelayRatio - sheepEnterRatio)
     do {
       try await Task.sleep(nanoseconds: UInt64(sheepDelay * 1_000_000_000))
       withAnimation(
