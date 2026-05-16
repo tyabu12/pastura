@@ -3311,6 +3311,16 @@
         }
       }
     },
+    "Save failed: %arg" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存に失敗しました: %arg"
+          }
+        }
+      }
+    },
     "Scenario ID" : {
       "localizations" : {
         "ja" : {
