@@ -104,8 +104,9 @@ public struct GameHeader: View {
   }
 
   /// Tok/s display string. Intentionally not localized — `tok/s` is a
-  /// technical unit treated as universal (matches existing
-  /// `InferenceStatsFormatter` convention).
+  /// universal technical unit. See `InferenceStatsFormatter` doc for
+  /// the canonical convention statement and the leak-detection.md
+  /// Permanent carve-out entry.
   static func formatTokensPerSecond(_ value: Double) -> String {
     String(format: "%.1f tok/s", value)
   }

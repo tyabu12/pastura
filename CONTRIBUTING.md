@@ -80,11 +80,23 @@ them up front saves a round-trip.
 
 ### Pre-commit hooks
 
-`git commit` runs `swiftlint lint --strict` and a full `xcodebuild build`.
-Lint violations or compile errors block the commit. SwiftFormat and
-`swiftlint --fix` also run automatically on file edit when you use
-Claude Code's PostToolUse hook. The hooks live in
-`.claude/settings.json`.
+Run **`./scripts/setup.sh`** once after your first clone. It points
+git's `core.hooksPath` at `scripts/git-hooks/`, activating the
+repo-tracked `pre-commit` hook for every `git commit` (no per-clone
+hand-config needed).
+
+`git commit` then runs four gates in fail-fast order: `swiftlint lint
+--strict`, `xcodebuild build`, blocklist integrity, gallery YAML
+schema. Lint violations or compile errors block the commit.
+
+SwiftFormat and `swiftlint --fix` continue to run automatically on
+file edit when you use Claude Code's PostToolUse hooks. A
+`gh pr create`-time reminder also fires if the branch hasn't
+touched CLAUDE.md (helpful when adding Phase 2 entries). The split
+between git pre-commit (commit-time gates) and Claude Code hooks
+(edit-time + PR-creation reminders) is deliberate — see #410 /
+memory `reference_claudecode_hook_matcher.md` for the migration
+rationale.
 
 ### Localization
 
