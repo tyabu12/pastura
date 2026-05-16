@@ -2317,12 +2317,12 @@
         }
       }
     },
-    "Generation failed: %arg" : {
+    "Generation failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "生成に失敗しました: %arg"
+            "value" : "生成に失敗しました: %@"
           }
         }
       }
@@ -2427,32 +2427,32 @@
         }
       }
     },
-    "Invalid LLM response: %arg" : {
+    "Invalid LLM response: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LLM の応答が不正です: %arg"
+            "value" : "LLM の応答が不正です: %@"
           }
         }
       }
     },
-    "Invalid grammar for constrained decoding: %arg" : {
+    "Invalid grammar for constrained decoding: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "制約付きデコードの文法が不正です: %arg"
+            "value" : "制約付きデコードの文法が不正です: %@"
           }
         }
       }
     },
-    "JSON parse failed: %arg" : {
+    "JSON parse failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "JSON 解析に失敗しました: %arg"
+            "value" : "JSON 解析に失敗しました: %@"
           }
         }
       }
@@ -2477,12 +2477,12 @@
         }
       }
     },
-    "LLM generation failed: %arg" : {
+    "LLM generation failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LLM の生成に失敗しました: %arg"
+            "value" : "LLM の生成に失敗しました: %@"
           }
         }
       }
@@ -2640,12 +2640,12 @@
         }
       }
     },
-    "Model load failed: %arg" : {
+    "Model load failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "モデルの読み込みに失敗しました: %arg"
+            "value" : "モデルの読み込みに失敗しました: %@"
           }
         }
       }
@@ -2730,12 +2730,12 @@
         }
       }
     },
-    "Network error: %arg" : {
+    "Network error: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ネットワークエラー: %arg"
+            "value" : "ネットワークエラー: %@"
           }
         }
       }

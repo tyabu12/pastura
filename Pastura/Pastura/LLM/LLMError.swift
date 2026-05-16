@@ -47,20 +47,21 @@ extension LLMError: LocalizedError {
   public var errorDescription: String? {
     switch self {
     case .loadFailed(let description):
-      return String(localized: "Model load failed: \(description)")
+      return String(format: String(localized: "Model load failed: %@"), description)
     case .generationFailed(let description):
-      return String(localized: "Generation failed: \(description)")
+      return String(format: String(localized: "Generation failed: %@"), description)
     case .notLoaded:
       return String(localized: "Model not loaded")
     case .invalidResponse(let raw):
       let snippet = raw.count > 200 ? String(raw.prefix(200)) + "..." : raw
-      return String(localized: "Invalid LLM response: \(snippet)")
+      return String(format: String(localized: "Invalid LLM response: %@"), snippet)
     case .networkError(let description):
-      return String(localized: "Network error: \(description)")
+      return String(format: String(localized: "Network error: %@"), description)
     case .suspended:
       return String(localized: "Inference was suspended and will retry")
     case .invalidGrammar(let description):
-      return String(localized: "Invalid grammar for constrained decoding: \(description)")
+      return String(
+        format: String(localized: "Invalid grammar for constrained decoding: %@"), description)
     }
   }
 }

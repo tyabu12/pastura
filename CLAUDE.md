@@ -280,4 +280,5 @@ same change:
 | `docs/specs/demo-replay-mockup-prompt.md` | Claude Design prompt for the DL-time demo visual exploration |
 | `docs/design/design-system.md`        | Cross-screen design system (tokens, philosophy, components) |
 | `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML)             |
+| `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |

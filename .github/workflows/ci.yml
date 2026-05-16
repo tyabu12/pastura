@@ -46,7 +46,7 @@ jobs:
       # "DerivedData location". If CI ever adopts -derivedDataPath, update
       # this cache path to match (and both instances of it in this file).
       - name: Cache SPM packages
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
@@ -189,7 +189,7 @@ jobs:
       # "DerivedData location". If CI ever adopts -derivedDataPath, update
       # this cache path to match (and both instances of it in this file).
       - name: Cache SPM packages
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
@@ -262,7 +262,7 @@ jobs:
       # See the lint-and-test Cache step for the rationale on CI staying on
       # the default ~/Library DerivedData path.
       - name: Cache SPM packages
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
