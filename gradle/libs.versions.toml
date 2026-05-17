@@ -9,7 +9,9 @@
 kotlin = "2.3.21"
 kotlinx-serialization = "1.7.3"
 # YAML 1.2 parser for Kotlin Multiplatform (JVM + Native iOS targets).
-# Backs `YamlCodec` actuals in `shared/models` (W2 PR-A item 9 — Day-1 D3 in #220).
+# Backs `SnakeYamlEngineCodec` in `shared/models` commonMain — no expect/actual
+# needed because the library's `Load` API is exposed across all KMP targets
+# (W2 PR-A item 9 — Day-1 D3 in #220).
 snakeyaml-engine-kmp = "4.0.1"
 
 [plugins]

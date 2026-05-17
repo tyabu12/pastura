@@ -61,8 +61,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
-            // YAML 1.2 parser. Backs `YamlCodec` actuals in
-            // jvmMain/iosMain via snakeyaml-engine-kmp's KMP API
+            // YAML 1.2 parser. Backs `SnakeYamlEngineCodec` in commonMain —
+            // no expect/actual needed because snakeyaml-engine-kmp's `Load`
+            // API is exposed across all KMP targets
             // (W2 PR-A item 9 — Day-1 D3 in #220).
             implementation(libs.snakeyaml.engine.kmp)
         }

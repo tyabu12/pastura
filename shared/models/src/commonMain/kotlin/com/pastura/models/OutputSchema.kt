@@ -85,8 +85,11 @@ public data class OutputSchema(
          * Primary keys appear in [knownPrimaryKeys] order; secondary keys in
          * [knownSecondaryKeys] order; unknown keys sorted alphabetically at the end.
          * Keys not present in the input are skipped.
+         *
+         * `internal` to match Swift's `private static`. PR-B test harness +
+         * future Engine port can promote if needed.
          */
-        public fun orderKeys(keys: List<String>): List<String> {
+        internal fun orderKeys(keys: List<String>): List<String> {
             val present = keys.toSet()
             val ordered = mutableListOf<String>()
             for (key in knownPrimaryKeys) {

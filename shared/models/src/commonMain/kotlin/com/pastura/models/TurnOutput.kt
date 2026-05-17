@@ -82,9 +82,10 @@ public data class TurnOutput(
  * Errors related to accessing [TurnOutput] fields.
  *
  * Kotlin port of `Pastura/Pastura/Models/TurnOutput.swift:TurnOutputError`.
- * Uses [Throwable] (not `RuntimeException`) for KMP commonMain compatibility.
+ * Extends [Exception] (Kotlin commonMain stdlib) for idiom alignment —
+ * `RuntimeException` is not in commonMain.
  */
-public sealed class TurnOutputError(message: String) : Throwable(message) {
+public sealed class TurnOutputError(message: String) : Exception(message) {
     /**
      * A required field was missing or empty in the LLM response.
      *

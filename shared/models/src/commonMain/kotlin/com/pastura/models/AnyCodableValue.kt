@@ -78,7 +78,7 @@ public object AnyCodableValueSerializer : KSerializer<AnyCodableValue> {
 
     override fun deserialize(decoder: Decoder): AnyCodableValue {
         val jsonDecoder = (decoder as? JsonDecoder)
-            ?: error("AnyCodableValue requires Json decoder")
+            ?: throw SerializationException("AnyCodableValue requires Json decoder")
         return when (val element = jsonDecoder.decodeJsonElement()) {
             is JsonPrimitive -> {
                 val s = element.content.takeIf { element.isString }
@@ -90,14 +90,7 @@ public object AnyCodableValueSerializer : KSerializer<AnyCodableValue> {
             is JsonArray -> {
                 if (element.isEmpty() || element.first() !is JsonObject) {
                     // Empty array or array of non-objects → ArrayValue.
-                    AnyCodableValue.ArrayValue(
-                        element.map { e ->
-                            (e as? JsonPrimitive)?.content
-                                ?: throw SerializationException(
-                                    "AnyCodableValue.ArrayValue: expected String element, got $e"
-                                )
-                        }
-                    )
+                    AnyCodableValue.ArrayValue(element.map { e -> requireJsonString(e) })
                 } else {
                     // First element is JsonObject → ArrayOfDictionariesValue.
                     AnyCodableValue.ArrayOfDictionariesValue(
@@ -106,24 +99,14 @@ public object AnyCodableValueSerializer : KSerializer<AnyCodableValue> {
                                 ?: throw SerializationException(
                                     "AnyCodableValue.ArrayOfDictionariesValue: expected object element, got $e"
                                 )
-                            obj.entries.associate { (k, v) ->
-                                k to ((v as? JsonPrimitive)?.content
-                                    ?: throw SerializationException(
-                                        "AnyCodableValue.ArrayOfDictionariesValue: expected String value for key $k, got $v"
-                                    ))
-                            }
+                            obj.entries.associate { (k, v) -> k to requireJsonString(v) }
                         }
                     )
                 }
             }
             is JsonObject -> {
                 AnyCodableValue.DictionaryValue(
-                    element.entries.associate { (k, v) ->
-                        k to ((v as? JsonPrimitive)?.content
-                            ?: throw SerializationException(
-                                "AnyCodableValue.DictionaryValue: expected String value for key $k, got $v"
-                            ))
-                    }
+                    element.entries.associate { (k, v) -> k to requireJsonString(v) }
                 )
             }
         }
@@ -131,8 +114,30 @@ public object AnyCodableValueSerializer : KSerializer<AnyCodableValue> {
 
     override fun serialize(encoder: Encoder, value: AnyCodableValue) {
         val jsonEncoder = (encoder as? JsonEncoder)
-            ?: error("AnyCodableValue requires Json encoder")
+            ?: throw SerializationException("AnyCodableValue requires Json encoder")
         jsonEncoder.encodeJsonElement(value.toJsonElement())
+    }
+
+    /**
+     * Require [element] to be a JSON **string** primitive (`isString == true`),
+     * matching Swift's strict element-type decode for `[String]` /
+     * `[String:String]` collections.
+     *
+     * Without this gate, an input like `[1, 2, 3]` or `{"a": 1}` would
+     * silently coerce to `ArrayValue(["1","2","3"])` / `DictionaryValue({"a":"1"})`
+     * in Kotlin while Swift's `try? container.decode([String].self)` rejects
+     * the numbers and falls through (eventually throwing). The asymmetry
+     * would let PR-B's roundtrip comparison see "same wire shape, different
+     * runtime variant" for a class of inputs that Swift treats as type-mismatch.
+     */
+    private fun requireJsonString(element: JsonElement): String {
+        val prim = element as? JsonPrimitive ?: throw SerializationException(
+            "AnyCodableValue: expected JSON string primitive, got $element"
+        )
+        return prim.content.takeIf { prim.isString }
+            ?: throw SerializationException(
+                "AnyCodableValue: expected quoted JSON string, got non-string primitive $element"
+            )
     }
 
     private fun AnyCodableValue.toJsonElement(): JsonElement = when (this) {

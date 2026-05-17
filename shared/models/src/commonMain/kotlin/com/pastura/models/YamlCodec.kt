@@ -50,7 +50,7 @@ public interface YamlCodec {
 }
 
 /** Errors thrown by [YamlCodec] implementations. */
-public sealed class YamlDecodeError(message: String) : Throwable(message) {
+public sealed class YamlDecodeError(message: String) : Exception(message) {
     /** The input was not valid YAML 1.2. */
     public data class MalformedYaml(public val reason: String) :
         YamlDecodeError("Malformed YAML: $reason")
@@ -115,7 +115,14 @@ internal fun yamlValueToJson(value: Any?): JsonElement = when (value) {
     is Double -> JsonPrimitive(value)
     is Map<*, *> -> JsonObject(
         value.entries.associate { (k, v) ->
-            (k?.toString() ?: "null") to yamlValueToJson(v)
+            // Defensive: a null YAML map key would silently collide with an
+            // explicit "null" string key. Pastura presets never use null
+            // keys, so fail loud rather than coerce.
+            val key = k ?: throw YamlDecodeError.UnsupportedScalar(
+                kotlinType = "null-key",
+                rendered = "<null map key>",
+            )
+            key.toString() to yamlValueToJson(v)
         },
     )
     is List<*> -> JsonArray(value.map { yamlValueToJson(it) })
