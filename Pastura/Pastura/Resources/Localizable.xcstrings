@@ -2061,22 +2061,6 @@
         }
       }
     },
-    "Failed to load model from %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to load model from %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "モデルの読み込みに失敗しました: %@"
-          }
-        }
-      }
-    },
     "Failed to load results: %arg" : {
       "localizations" : {
         "ja" : {
@@ -2521,16 +2505,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "LLM"
-          }
-        }
-      }
-    },
-    "LLM generation failed: %@" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LLM の生成に失敗しました: %@"
           }
         }
       }
