@@ -189,8 +189,11 @@ struct SimulationViewModelLifecycleTests {
 
     #expect(sut.isRunning == false)
     #expect(sut.isCompleted == false)
-    #expect(sut.errorMessage != nil)
-    #expect(sut.errorMessage?.contains("Failed to load LLM") == true)
+    // Issue #427 — `errorMessage` is the inner LLMError's localizedDescription
+    // pass-through (no outer "Failed to load LLM: " wrap). `FailingLLMService`
+    // throws `LLMError.notLoaded` whose description is "Model not loaded".
+    let expected = LLMError.notLoaded.localizedDescription
+    #expect(sut.errorMessage == expected)
   }
 
   // MARK: - Persistence Tests

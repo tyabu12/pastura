@@ -654,7 +654,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     do {
       try await llm.loadModel()
     } catch {
-      errorMessage = String(localized: "Failed to load LLM: \(error.localizedDescription)")
+      // #427 — show the inner `LocalizedError` text directly. The previous
+      // "Failed to load LLM: \(...)" form also triggered the LocalizedStringKey
+      // catalog-miss trap (interpolation runs before lookup), so dropping the
+      // prefix simultaneously fixes the stack-and-leak class of bug.
+      errorMessage = error.localizedDescription
       await finalizeSimulationStatus(.failed)
       return
     }

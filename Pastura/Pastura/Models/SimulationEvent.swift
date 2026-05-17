@@ -190,7 +190,12 @@ extension SimulationError: LocalizedError {
     case .scenarioValidationFailed(let message):
       return message
     case .llmGenerationFailed(let description):
-      return String(format: String(localized: "LLM generation failed: %@"), description)
+      // Issue #427 — `description` is expected to be a self-describing string
+      // routed via `readableDescription` from a `LocalizedError`-conforming
+      // inner error (typically `LLMError`, which carries its own domain prefix
+      // like "Model load failed:" / "Generation failed:"). Adding another outer
+      // prefix here stacks redundant prose, most visibly in ja translations.
+      return description
     case .jsonParseFailed(let raw):
       let snippet = raw.count > 200 ? String(raw.prefix(200)) + "..." : raw
       return String(format: String(localized: "JSON parse failed: %@"), snippet)
