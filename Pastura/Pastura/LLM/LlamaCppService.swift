@@ -290,9 +290,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
     guard let model = llama_model_load_from_file(modelPath, modelParams) else {
       llama_backend_free()
-      throw LLMError.loadFailed(
-        description: String(
-          format: String(localized: "Failed to load model from %@"), modelPath))
+      // #427 — pass raw context (path) only. `LLMError.errorDescription`'s
+      // "Model load failed: " prefix already conveys the failure category;
+      // an inner prose like "Failed to load model from" stacks redundant
+      // wording (especially in ja, where both translate to the same phrase).
+      throw LLMError.loadFailed(description: modelPath)
     }
 
     var ctxParams = llama_context_default_params()

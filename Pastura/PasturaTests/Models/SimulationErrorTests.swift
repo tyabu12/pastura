@@ -20,9 +20,12 @@ struct SimulationErrorTests {
   }
 
   @Test func llmGenerationFailedDescription() {
+    // Issue #427 — the outer wrap that previously prepended
+    // "LLM generation failed: " is removed. The inner description is expected
+    // to be self-describing (typically a `LocalizedError.errorDescription`
+    // routed via `readableDescription` from an inner `LLMError`).
     let error = SimulationError.llmGenerationFailed(description: "timeout")
-    #expect(error.errorDescription?.contains("generation failed") ?? false)
-    #expect(error.errorDescription?.contains("timeout") ?? false)
+    #expect(error.errorDescription == "timeout")
   }
 
   @Test func jsonParseFailedDescription() {
@@ -70,5 +73,57 @@ struct SimulationErrorTests {
     let description = error.errorDescription ?? ""
     #expect(!description.contains("..."))
     #expect(description.contains(shortRaw))
+  }
+
+  // MARK: - Wrap-chain prefix-collapse regression (#427)
+
+  // Regression guards for issue #427. The first two tests exercise the
+  // pass-through behavior change in `SimulationError.errorDescription` —
+  // re-introducing the outer "LLM generation failed: " prefix makes them
+  // fail. The third test is a forward-going convention guard that pins
+  // the shape of `LLMError.loadFailed`'s inner description (raw context,
+  // not prose) — it does NOT directly exercise `LlamaCppService`'s throw
+  // site. The matching call-site contract at `LlamaCppService.swift` is
+  // verified separately via the integration-test path under
+  // `LLAMACPP_INTEGRATION`.
+
+  @Test func loadFailedWrapChainProducesSingleLayerPrefix() {
+    let path = "/tmp/test-model.gguf"
+    let inner = LLMError.loadFailed(description: path)
+    let wrapped = SimulationError.llmGenerationFailed(
+      description: readableDescription(inner))
+    let final = wrapped.localizedDescription ?? ""
+    let expected = String(format: String(localized: "Model load failed: %@"), path)
+    #expect(final == expected)
+  }
+
+  @Test func generationFailedWrapChainProducesSingleLayerPrefix() {
+    let detail = "connection timeout"
+    let inner = LLMError.generationFailed(description: detail)
+    let wrapped = SimulationError.llmGenerationFailed(
+      description: readableDescription(inner))
+    let final = wrapped.localizedDescription ?? ""
+    let expected = String(format: String(localized: "Generation failed: %@"), detail)
+    #expect(final == expected)
+  }
+
+  @Test func loadFailedInnerDescriptionCarriesRawContextNotProse() {
+    // Convention: LLMError.loadFailed's inner description is raw context
+    // (a path, an error code) — never a prose restatement of "failed".
+    // The outer LLMError wrap "Model load failed: " already conveys the
+    // failure category; an inner prose like "Failed to load model from"
+    // stacks redundant wording (#427).
+    let path = "/var/mobile/test.gguf"
+    let err = LLMError.loadFailed(description: path)
+    let desc = err.errorDescription ?? ""
+    #expect(desc.contains(path))
+    // The description portion (after the outer prefix) must not itself
+    // begin with another "failed" / "Failed" verb — locale-agnostic by
+    // anchoring to the localized prefix at runtime.
+    let prefix = String(format: String(localized: "Model load failed: %@"), "")
+    if let range = desc.range(of: prefix) {
+      let innerPortion = String(desc[range.upperBound...])
+      #expect(!innerPortion.lowercased().hasPrefix("failed"))
+    }
   }
 }

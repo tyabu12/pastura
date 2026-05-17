@@ -1498,6 +1498,16 @@
         }
       }
     },
+    "Database error: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースエラー: %@"
+          }
+        }
+      }
+    },
     "Database migration failed: %@" : {
       "localizations" : {
         "ja" : {
@@ -2051,32 +2061,6 @@
         }
       }
     },
-    "Failed to load LLM: %arg" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LLM の読み込みに失敗しました: %arg"
-          }
-        }
-      }
-    },
-    "Failed to load model from %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to load model from %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "モデルの読み込みに失敗しました: %@"
-          }
-        }
-      }
-    },
     "Failed to load results: %arg" : {
       "localizations" : {
         "ja" : {
@@ -2445,6 +2429,26 @@
         }
       }
     },
+    "Initialization Failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初期化に失敗しました"
+          }
+        }
+      }
+    },
+    "Initializing..." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初期化中…"
+          }
+        }
+      }
+    },
     "Inject a random event from extraData (code, no LLM)" : {
       "localizations" : {
         "ja" : {
@@ -2521,16 +2525,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "LLM"
-          }
-        }
-      }
-    },
-    "LLM generation failed: %@" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LLM の生成に失敗しました: %@"
           }
         }
       }
@@ -2880,6 +2874,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アカウントは不要です。"
+          }
+        }
+      }
+    },
+    "No active model descriptor resolvable from catalog" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カタログから有効なモデル記述子を解決できませんでした"
           }
         }
       }
