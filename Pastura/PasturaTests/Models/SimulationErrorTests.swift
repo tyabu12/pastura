@@ -74,4 +74,53 @@ struct SimulationErrorTests {
     #expect(!description.contains("..."))
     #expect(description.contains(shortRaw))
   }
+
+  // MARK: - Wrap-chain prefix-collapse regression (#427)
+
+  // Regression guards for issue #427: the chain
+  //   LLMError → readableDescription(...) → SimulationError.llmGenerationFailed
+  //   → .localizedDescription
+  // must produce **exactly one** domain-prefix layer. Reverting either the
+  // `SimulationEvent.swift` pass-through (Item 1) or the LlamaCppService
+  // inner-description trim (Item 2) makes one of these tests fail.
+
+  @Test func loadFailedWrapChainProducesSingleLayerPrefix() {
+    let path = "/tmp/test-model.gguf"
+    let inner = LLMError.loadFailed(description: path)
+    let wrapped = SimulationError.llmGenerationFailed(
+      description: readableDescription(inner))
+    let final = wrapped.localizedDescription ?? ""
+    let expected = String(format: String(localized: "Model load failed: %@"), path)
+    #expect(final == expected)
+  }
+
+  @Test func generationFailedWrapChainProducesSingleLayerPrefix() {
+    let detail = "connection timeout"
+    let inner = LLMError.generationFailed(description: detail)
+    let wrapped = SimulationError.llmGenerationFailed(
+      description: readableDescription(inner))
+    let final = wrapped.localizedDescription ?? ""
+    let expected = String(format: String(localized: "Generation failed: %@"), detail)
+    #expect(final == expected)
+  }
+
+  @Test func loadFailedInnerDescriptionCarriesRawContextNotProse() {
+    // Convention: LLMError.loadFailed's inner description is raw context
+    // (a path, an error code) — never a prose restatement of "failed".
+    // The outer LLMError wrap "Model load failed: " already conveys the
+    // failure category; an inner prose like "Failed to load model from"
+    // stacks redundant wording (#427).
+    let path = "/var/mobile/test.gguf"
+    let err = LLMError.loadFailed(description: path)
+    let desc = err.errorDescription ?? ""
+    #expect(desc.contains(path))
+    // The description portion (after the outer prefix) must not itself
+    // begin with another "failed" / "Failed" verb — locale-agnostic by
+    // anchoring to the localized prefix at runtime.
+    let prefix = String(format: String(localized: "Model load failed: %@"), "")
+    if let range = desc.range(of: prefix) {
+      let innerPortion = String(desc[range.upperBound...])
+      #expect(!innerPortion.lowercased().hasPrefix("failed"))
+    }
+  }
 }
