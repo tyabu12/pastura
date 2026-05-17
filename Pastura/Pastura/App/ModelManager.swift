@@ -857,7 +857,9 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
       let attrs = try? fileManager.attributesOfItem(atPath: partialURL.path)
       let fileSize = attrs?[.size] as? Int64 ?? 0
       if fileSize != descriptor.fileSize {
-        return "Downloaded file size mismatch (expected \(descriptor.fileSize), got \(fileSize))"
+        return String(
+          format: String(localized: "Downloaded file size mismatch (expected %lld, got %lld)"),
+          descriptor.fileSize, fileSize)
       }
     }
 
@@ -871,10 +873,13 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
         try Self.computeSHA256(of: partialURL)
       }.value
     } catch {
-      return "Failed to verify download: \(error.localizedDescription)"
+      return String(
+        format: String(localized: "Failed to verify download: %@"), error.localizedDescription)
     }
     if actualSHA256 != descriptor.sha256 {
-      return "Download verification failed. The file may be corrupted — please try again."
+      return String(
+        localized:
+          "Download verification failed. The file may be corrupted — please try again.")
     }
     return nil
   }

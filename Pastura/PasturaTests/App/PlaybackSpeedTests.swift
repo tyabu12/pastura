@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import Pastura
@@ -26,10 +27,15 @@ struct PlaybackSpeedTests {
   }
 
   @Test func labels() {
+    // `.slow`/`.normal`/`.fast` literal-pin guards the slice-6 carve-out
+    // (universal multiplier notation never wrapped in `String(localized:)`);
+    // `.instant` routes through `String(localized: "Max")` and resolves
+    // via the same Bundle lookup the production code uses, so the
+    // assertion stays locale-resilient.
     #expect(PlaybackSpeed.slow.label == "x0.5")
     #expect(PlaybackSpeed.normal.label == "x1")
     #expect(PlaybackSpeed.fast.label == "x1.5")
-    #expect(PlaybackSpeed.instant.label == "Max")
+    #expect(PlaybackSpeed.instant.label == String(localized: "Max"))
   }
 
   @Test func multiplierValues() {

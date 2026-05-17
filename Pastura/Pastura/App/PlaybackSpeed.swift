@@ -84,12 +84,19 @@ nonisolated public enum PlaybackSpeed:
     }
   }
 
+  /// User-facing label rendered via `Text(speed.label)`. Only `.instant`
+  /// is wrapped in `String(localized:)` — the `x0.5`/`x1`/`x1.5` multiplier
+  /// notation is universal across locales (Netflix / YouTube / Apple TV
+  /// playback-control convention), same shape as
+  /// ``InferenceStatsFormatter``'s `tok/s`/`s` carve-out per
+  /// `docs/i18n/leak-detection.md`. ``PlaybackSpeedTests`` literal-pins all
+  /// four labels as the regression guard against accidental wrap.
   public var label: String {
     switch self {
     case .slow: "x0.5"
     case .normal: "x1"
     case .fast: "x1.5"
-    case .instant: "Max"
+    case .instant: String(localized: "Max")
     }
   }
 }

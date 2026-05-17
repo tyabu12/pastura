@@ -212,7 +212,10 @@ struct ResultDetailTimelineBuilderTests {
     #expect(result.count == 2)
     if case .codePhase(_, let payload) = result[1] {
       if case .summary(let text) = payload {
-        #expect(text == "(unreadable payload)")
+        // Routes through the same `String(localized:)` lookup the
+        // production fallback uses, keeping the equality assertion
+        // locale-resilient under a future ja-locale CI matrix.
+        #expect(text == String(localized: "(unreadable payload)"))
       } else {
         Issue.record("payload not summary fallback")
       }
