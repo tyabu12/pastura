@@ -172,7 +172,7 @@ private struct RootView: View {
     Group {
       switch appState {
       case .initializing:
-        ProgressView("Initializing...")
+        ProgressView(String(localized: "Initializing..."))
           .task {
             await initialize()
           }
@@ -215,13 +215,13 @@ private struct RootView: View {
           Image(systemName: "exclamationmark.triangle")
             .font(.largeTitle)
             .foregroundStyle(Color.danger)
-          Text("Initialization Failed")
+          Text(String(localized: "Initialization Failed"))
             .font(.headline)
           Text(message)
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
-          Button("Retry") {
+          Button(String(localized: "Retry")) {
             appState = .initializing
           }
           .buttonStyle(.borderedProminent)
@@ -401,7 +401,9 @@ private struct RootView: View {
         PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
         appState = .ready(deps)
       } catch {
-        appState = .error("Database error: \(error.localizedDescription)")
+        appState = .error(
+          String(
+            format: String(localized: "Database error: %@"), error.localizedDescription))
       }
     #else
       // PR2 cross-launch reattach. Order is load-bearing:
@@ -474,7 +476,7 @@ private struct RootView: View {
     // falling back to hardcoded Gemma values so future regressions in the
     // catalog wiring fail loudly.
     guard let descriptor = modelManager.activeDescriptor else {
-      appState = .error("No active model descriptor resolvable from catalog")
+      appState = .error(String(localized: "No active model descriptor resolvable from catalog"))
       return
     }
     do {
@@ -491,7 +493,9 @@ private struct RootView: View {
       PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
       appState = .ready(deps)
     } catch {
-      appState = .error("Database error: \(error.localizedDescription)")
+      appState = .error(
+        String(
+          format: String(localized: "Database error: %@"), error.localizedDescription))
     }
   }
 
