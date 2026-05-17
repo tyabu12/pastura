@@ -37,7 +37,7 @@ final class ResultsViewModel {
   /// content. When the variant is later renamed by the user, the
   /// label reflects the current name at view time (matching the
   /// section-name behavior in Phase 1).
-  struct SimulationRow: Identifiable {
+  struct SimulationRow: Identifiable, Sendable {
     let record: SimulationRecord
     let variantName: String
     var id: String { record.id }
@@ -49,7 +49,7 @@ final class ResultsViewModel {
   /// aggregation, or the single variant's `name` for Detail.
   /// `canonicalKey` is `sourceId ?? id` — distinct from per-language
   /// `id` only for aggregated groups.
-  struct ScenarioGroup: Identifiable {
+  struct ScenarioGroup: Identifiable, Sendable {
     let sectionName: String
     let canonicalKey: String
     let rows: [SimulationRow]
@@ -125,7 +125,11 @@ final class ResultsViewModel {
       // Fan-out: fetch sims per variant. Row's variantName uses the
       // already-fetched ScenarioRecord.name — no extra DB query per
       // row (avoids the Dependency-Rule violation of pushing the
-      // lookup into ResultsView).
+      // lookup into ResultsView). N+1 trips are bounded: ≤ 2-3
+      // variants × ≤ ~8-12 canonical groups in practice — when ADR-010
+      // D6's `variants(of:)` ships, this loop can co-migrate to a
+      // batched `fetchByScenarioIds([String])` if perf becomes a
+      // concern.
       var rows: [SimulationRow] = []
       for variant in variants {
         let sims = try await offMain { [simulationRepository] in
