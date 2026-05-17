@@ -77,12 +77,15 @@ struct SimulationErrorTests {
 
   // MARK: - Wrap-chain prefix-collapse regression (#427)
 
-  // Regression guards for issue #427: the chain
-  //   LLMError → readableDescription(...) → SimulationError.llmGenerationFailed
-  //   → .localizedDescription
-  // must produce **exactly one** domain-prefix layer. Reverting either the
-  // `SimulationEvent.swift` pass-through (Item 1) or the LlamaCppService
-  // inner-description trim (Item 2) makes one of these tests fail.
+  // Regression guards for issue #427. The first two tests exercise the
+  // pass-through behavior change in `SimulationError.errorDescription` —
+  // re-introducing the outer "LLM generation failed: " prefix makes them
+  // fail. The third test is a forward-going convention guard that pins
+  // the shape of `LLMError.loadFailed`'s inner description (raw context,
+  // not prose) — it does NOT directly exercise `LlamaCppService`'s throw
+  // site. The matching call-site contract at `LlamaCppService.swift` is
+  // verified separately via the integration-test path under
+  // `LLAMACPP_INTEGRATION`.
 
   @Test func loadFailedWrapChainProducesSingleLayerPrefix() {
     let path = "/tmp/test-model.gguf"

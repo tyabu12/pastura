@@ -2051,16 +2051,6 @@
         }
       }
     },
-    "Failed to load LLM: %arg" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LLM の読み込みに失敗しました: %arg"
-          }
-        }
-      }
-    },
     "Failed to load results: %arg" : {
       "localizations" : {
         "ja" : {

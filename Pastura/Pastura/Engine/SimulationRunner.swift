@@ -331,13 +331,15 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         // The catch-all fallback wraps non-`SimulationError` throws as
         // `.llmGenerationFailed`. After #427 this case's `errorDescription`
         // pass-through assumes the inner error is `LocalizedError`-conforming
-        // and self-describes its domain (e.g. `LLMError`). A leak of an
-        // un-prefixed Foundation/Swift error would surface raw
-        // `String(describing:)` output to the user — treat that as an
-        // error-wrap-discipline bug at the throw site, not a UX requirement
-        // to re-add an outer prefix here. To find such leaks if observed:
-        // grep for `throw` callsites in `LLM/` and ensure they wrap in
-        // `LLMError`, and audit handler-internal `throw` paths.
+        // and self-describes its domain (e.g. `LLMError`). A Foundation-typed
+        // throw (`URLError`, generic `NSError`) is also `LocalizedError`-
+        // conforming but its description is often opaque (e.g. `"The
+        // operation couldn't be completed."`); such a leak would surface
+        // that text directly to the user. Treat as an error-wrap-discipline
+        // bug at the throw site (handlers / `LLM/` must wrap in `LLMError`),
+        // not a UX requirement to re-add an outer prefix here. To find
+        // such leaks if observed: grep `throw` callsites in `LLM/` and
+        // audit handler-internal `throw` paths.
         ctx.emitter(
           .error(
             error as? SimulationError
