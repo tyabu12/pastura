@@ -20,9 +20,12 @@ struct SimulationErrorTests {
   }
 
   @Test func llmGenerationFailedDescription() {
+    // Issue #427 — the outer wrap that previously prepended
+    // "LLM generation failed: " is removed. The inner description is expected
+    // to be self-describing (typically a `LocalizedError.errorDescription`
+    // routed via `readableDescription` from an inner `LLMError`).
     let error = SimulationError.llmGenerationFailed(description: "timeout")
-    #expect(error.errorDescription?.contains("generation failed") ?? false)
-    #expect(error.errorDescription?.contains("timeout") ?? false)
+    #expect(error.errorDescription == "timeout")
   }
 
   @Test func jsonParseFailedDescription() {
