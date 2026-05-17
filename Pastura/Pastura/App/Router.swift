@@ -38,7 +38,23 @@ enum Route: Hashable {
     initialName: RouteHint<String> = .init()
   )
 
-  /// Past simulation results list for a scenario.
+  /// Past simulation results list.
+  ///
+  /// Two semantics based on `scenarioId`:
+  ///
+  /// - **Empty (`""`)** — Home entry-point. ``ResultsViewModel``
+  ///   aggregates simulations across language-variant siblings
+  ///   sharing a canonical `ScenarioRecord.sourceId` (ADR-010 D4 /
+  ///   #392). Each section's header uses the device-locale variant's
+  ///   `name`; rows preserve the simulation-time variant's own name.
+  /// - **Non-empty** — Detail entry-point (e.g. tapping "Past
+  ///   Results" inside a ``ScenarioDetailView``). Per-variant only:
+  ///   surfaces simulations for *exactly* this scenario id even when
+  ///   a cross-language sibling exists with its own runs. This UX
+  ///   seam — a JA Detail's Past Results does NOT show EN sibling
+  ///   runs — is intentional, so a user reading a single-language
+  ///   scenario doesn't see semantically un-comparable sibling runs
+  ///   commingled. Cross-variant browsing is reserved for Home.
   case results(scenarioId: String)
 
   /// Detail view for a specific past simulation run.
