@@ -81,7 +81,8 @@ class TurnOutputSerializationTests {
         val output = TurnOutput(fields = emptyMap())
         val ex = runCatching { output.require("vote") }.exceptionOrNull()
         assertIs<TurnOutputError.MissingField>(ex)
-        assertEquals("vote", (ex as TurnOutputError.MissingField).key)
+        // assertIs smart-casts `ex` to MissingField — no cast needed.
+        assertEquals("vote", ex.key)
     }
 
     @Test

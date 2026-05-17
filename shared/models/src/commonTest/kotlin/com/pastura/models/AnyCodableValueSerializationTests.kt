@@ -80,6 +80,7 @@ class AnyCodableValueSerializationTests {
     fun emptyArrayDecodesAsArrayValue() {
         val decoded = Json.decodeFromString<AnyCodableValue>("[]")
         assertIs<AnyCodableValue.ArrayValue>(decoded)
-        assertEquals(emptyList<String>(), (decoded as AnyCodableValue.ArrayValue).value)
+        // assertIs smart-casts `decoded` to ArrayValue — no cast needed.
+        assertEquals(emptyList<String>(), decoded.value)
     }
 }
