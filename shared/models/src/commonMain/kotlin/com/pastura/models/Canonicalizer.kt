@@ -11,13 +11,17 @@ import kotlinx.serialization.json.JsonObject
  *
  * Lands in stages over the PR-B commit sequence:
  *
- * - **Stage 1 (this commit) — structural**: recursive [JsonObject] key sort
+ * - **Stage 1 — structural**: recursive [JsonObject] key sort
  *   (alphabetical), null-omit at object keys (`key: JsonNull` dropped), and
  *   array order preservation (inner objects still get key-sorted; nulls
  *   inside arrays are preserved because position is meaningful there).
- * - **Stage 2 — numeric** (later commit): Kotlin-construction-layer
- *   Long/Int → Long canonical and Double IEEE-754 bit-equality after JSON
- *   round-trip.
+ * - **Stage 2 — numeric (no-op transform at this layer)**: the Int/Long
+ *   contract applies at the Kotlin construction layer (fixtures pin to
+ *   `Long` for portability). At the JSON-text layer produced by
+ *   `kotlinx.serialization`, [kotlinx.serialization.json.JsonPrimitive]
+ *   of `Int` and `Long` serialize identically because the value is stored
+ *   as a content string — no transform is needed. See
+ *   `CanonicalizerStage2Tests` for the drift-guard sanity checks.
  * - **Stage 3 — tag-form** (later commit): single-direction normalization of
  *   Kotlin polymorphic-discriminator shape (`{"type":"<name>",<payload>}`)
  *   into Swift's auto-synthesized Codable outer-wrap shape
