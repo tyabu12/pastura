@@ -1,5 +1,4 @@
 import Foundation
-import Yams
 
 /// ViewModel for the home screen scenario list.
 ///
@@ -59,12 +58,13 @@ final class HomeViewModel {
   /// shipped (D6 line 217 "falls back to any available variant if the
   /// device-default's variant is absent").
   ///
-  /// Light parse only — Yams reads the top-level `language` field
-  /// without invoking ``ScenarioLoader``'s full schema gate. For the
-  /// 4-8 preset row range the cost is negligible. A parse failure
-  /// (malformed `yamlDefinition`) is treated as `"ja"` (Phase 1
-  /// convention) so the row stays visible rather than silently
-  /// disappearing from the picker.
+  /// Per-variant language read goes through ``ScenarioYAMLLanguage/parse(_:)``
+  /// (light top-level Yams parse, `"ja"` fallback on malformed YAML —
+  /// see that type's doc-comment for the failure-mode contract). The
+  /// same helper is reused by ``ResultsViewModel`` for cross-language
+  /// section-header selection (#392), so when ADR-010 D6's eventual
+  /// `ScenarioRepository.variants(of:)` lands, both consumers can
+  /// migrate together.
   internal static func presetsResolvedForLanguage(
     _ presets: [ScenarioRecord],
     deviceLanguage: String
@@ -74,7 +74,7 @@ final class HomeViewModel {
     var resolved: [ScenarioRecord] = []
     for (_, variants) in grouped {
       let withLang = variants.map {
-        (record: $0, lang: parseLanguage(from: $0.yamlDefinition))
+        (record: $0, lang: ScenarioYAMLLanguage.parse($0.yamlDefinition))
       }
       let picked =
         withLang.first(where: { $0.lang == deviceLanguage })?.record
@@ -84,16 +84,6 @@ final class HomeViewModel {
 
     // Stable order — sort by canonical key so reloads don't flicker.
     return resolved.sorted { ($0.sourceId ?? $0.id) < ($1.sourceId ?? $1.id) }
-  }
-
-  private static func parseLanguage(from yaml: String) -> String {
-    guard
-      let root = try? Yams.load(yaml: yaml) as? [String: Any],
-      let language = root["language"] as? String
-    else {
-      return "ja"
-    }
-    return language
   }
 
   func deleteScenario(_ id: String) async {

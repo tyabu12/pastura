@@ -47,10 +47,10 @@ struct ResultsView: View {
   private func resultsList(viewModel: ResultsViewModel) -> some View {
     List {
       ForEach(viewModel.groups) { group in
-        Section(group.scenarioName) {
-          ForEach(group.simulations, id: \.id) { simulation in
-            NavigationLink(value: Route.resultDetail(simulationId: simulation.id)) {
-              simulationRow(simulation, viewModel: viewModel)
+        Section(group.sectionName) {
+          ForEach(group.rows) { row in
+            NavigationLink(value: Route.resultDetail(simulationId: row.record.id)) {
+              simulationRow(row, viewModel: viewModel)
             }
           }
         }
@@ -58,20 +58,28 @@ struct ResultsView: View {
     }
   }
 
+  // Each row repeats the simulation-time `variantName` (`.headline` font,
+  // matching HomeView preset list role-weight) so the row's identity is
+  // the variant's un-translated name even when Home aggregation surfaces
+  // a sibling-language section header. Detail rows show the same name as
+  // their section by design — keeping the row shape identical across
+  // entry-points (#392).
   private func simulationRow(
-    _ simulation: SimulationRecord,
+    _ row: ResultsViewModel.SimulationRow,
     viewModel: ResultsViewModel
   ) -> some View {
     VStack(alignment: .leading, spacing: 4) {
+      Text(row.variantName)
+        .font(.headline)
       HStack {
-        Text(simulation.createdAt, style: .date)
-        Text(simulation.createdAt, style: .time)
+        Text(row.record.createdAt, style: .date)
+        Text(row.record.createdAt, style: .time)
         Spacer()
-        statusBadge(simulation.simulationStatus)
+        statusBadge(row.record.simulationStatus)
       }
       .font(.subheadline)
 
-      if let state = viewModel.decodeState(from: simulation) {
+      if let state = viewModel.decodeState(from: row.record) {
         let top3 = state.scores.sorted(by: { $0.value > $1.value }).prefix(3)
         HStack(spacing: 8) {
           ForEach(Array(top3), id: \.key) { name, score in
