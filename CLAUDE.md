@@ -231,6 +231,7 @@ pages/                           # Public HTML deployed via .github/workflows/de
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
 - `subagent-usage.md` — Subagent invocation discipline (32K output-token cap, scope budget heuristics, Sonnet override). Always-loaded because subagent calls can originate from `/orchestrate`, slash commands, or any direct `Agent` invocation.
 - `context-budget.md` — Always-loaded budget discipline: each addition must support the agent's next decision, not serve as human reference. Self-applying — additions to CLAUDE.md / agent docs / any no-`paths:` rules file route through this classifier first.
+- `knowledge-layering.md` — Where knowledge belongs (memory / `CLAUDE.md` / `.claude/rules/` / `docs/**`) and how to promote memory → rules. Pairs with `context-budget.md`.
 
 ## File Naming
 

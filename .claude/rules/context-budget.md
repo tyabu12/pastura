@@ -1,32 +1,7 @@
 # Context Budget — Always-Loaded Files
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
-loading-mode rationale. This rule applies to itself.
-
-## Where knowledge belongs
-
-Knowledge can live in 4 places. Choose by **who needs to read it** and **how stable it is**:
-
-| Location | Audience | Edit cycle |
-|---|---|---|
-| `~/.claude/projects/.../memory/` | This user, this machine | Per-session writable by Claude |
-| `CLAUDE.md` | All contributors, every session | PR-reviewed |
-| `.claude/rules/*.md` | All contributors, scoped sessions | PR-reviewed |
-| `docs/**` | All contributors, on-demand reading | PR-reviewed |
-
-Memory `feedback_*` / `project_*` / `reference_*` entries that apply to **every Pastura contributor** belong in `.claude/rules/` (path-scoped if domain-specific) or `CLAUDE.md` (project-wide), NOT in memory. Memory `user_*` always stays in memory.
-
-Quick test before saving a memory: *"Would a new contributor running into this same situation benefit from the same advice?"* If yes → rules (or `CLAUDE.md`). If no → memory.
-
-## Promotion: memory → rules
-
-Three triggers for considering promotion:
-
-1. **At memory-save time** — for new `feedback_*` saves, ask the quick test above. Yes → prefer creating a `.claude/rules/` PR instead of (or alongside) the memory entry. The memory is the rapid-capture form; the rule is the durable form.
-2. **During `/orchestrate`** — if the current session created new feedback memories and the active PR is already touching `.claude/rules/`, bundle the rule addition in. Cheaper than a separate cleanup PR.
-3. **Periodic triage** — when MEMORY.md size warning fires (>24.4KB index) or every several months, run a full memory triage. Top-N largest memories become promotion candidates.
-
-Procedure: file a rolling tracking issue collecting candidate sections, then `/orchestrate` a PR that lands the additions to `.claude/rules/` and deletes the source memory entries. Strip `Source memory: feedback_*` provenance lines from drafts before commit — repo-tracked files referring to per-user memory by name are dead links for other contributors.
+loading-mode rationale. This rule applies to itself. Pairs with `knowledge-layering.md` (location choice across memory / rules / `CLAUDE.md` / `docs/**`); this rule covers content discipline within always-loaded files.
 
 ## Scope
 
