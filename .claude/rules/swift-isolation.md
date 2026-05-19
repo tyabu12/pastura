@@ -92,6 +92,6 @@ Pattern 2 (which says "auto-synth doesn't need the annotation").
    the conformance for any future nonisolated caller. Use only with
    ≥2 unrelated nonisolated call sites.
 
-Reference: `Pastura/PasturaTests/Components/ModelRowAccessibilityTests.swift`
+Reference: `Pastura/PasturaTests/Views/ModelRowAccessibilityTests.swift`
 carries `@MainActor` on the suite; `SheepAvatar.Character` keeps its
 default-MainActor isolation.
