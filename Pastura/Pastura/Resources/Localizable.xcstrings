@@ -3718,6 +3718,16 @@
         }
       }
     },
+    "Sampler crash caught: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプラーのクラッシュを捕捉しました: %@"
+          }
+        }
+      }
+    },
     "Save" : {
       "localizations" : {
         "ja" : {

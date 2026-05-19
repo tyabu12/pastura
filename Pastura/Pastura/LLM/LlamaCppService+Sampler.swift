@@ -112,6 +112,50 @@ extension LlamaCppService {
     return chain
   }
 
+  /// Wrap a `llama_sampler_sample` call so any C++ exception thrown from the
+  /// nested grammar accept path (`llama_grammar_accept_token`) is caught at
+  /// the Obj-C++ bridge and surfaced as a Swift error instead of crashing
+  /// the process via `std::terminate`. See `LLM/SafeSampler.h` for the
+  /// catch scope (covers #334 + #366 + #371; not #253's SIGABRT).
+  ///
+  /// On the catch path:
+  ///   1. Truncate the captured `what()` to ~160 chars so the OSLog and
+  ///      `LLMError.description` carriers stay readable.
+  ///   2. Emit a `samplerCrashCaught` structured line on
+  ///      `category:StreamingDiag` (always-on; see `samplerCatchDiagLogger`)
+  ///      so the analyzer pipeline can aggregate occurrence rates across
+  ///      builds.
+  ///   3. Throw `LLMError.generationFailed`. Per
+  ///      `Pastura/Engine/LLMCaller.swift:88-94`, `.generationFailed`
+  ///      exits the retry loop immediately (no in-loop retry). The decision
+  ///      is documented in this PR — sampler crashes appear deterministic
+  ///      per (model, prompt, schema) so a 3× retry storm would just
+  ///      multiply latency without improving recovery odds.
+  ///
+  /// - Parameter mode: tag included in the diagnostic line — `non-stream` for
+  ///   `runGeneration`, `stream` for `runStreamGeneration`. Lets the
+  ///   analyzer attribute catches to the calling loop without inspecting the
+  ///   stack.
+  func safeSample(
+    sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
+    mode: String
+  ) throws -> Int32 {
+    let outcome = SafeSampler.sample(sampler: sampler, context: context, idx: -1)
+    if let errorMessage = outcome.errorMessage {
+      let truncated = String(errorMessage.prefix(160))
+      Self.samplerCatchDiagLogger.error(
+        """
+        samplerCrashCaught what="\(truncated, privacy: .public)" \
+        mode=\(mode, privacy: .public) \
+        model=\(self.modelIdentifier, privacy: .public)
+        """)
+      throw LLMError.generationFailed(
+        description: String(
+          format: String(localized: "Sampler crash caught: %@"), truncated))
+    }
+    return outcome.token
+  }
+
   /// Call `llama_sampler_init_grammar` with stderr redirected to a `Pipe`
   /// so the parser-internal error message is captured for diagnostics.
   ///

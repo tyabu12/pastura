@@ -70,6 +70,16 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     }
   #endif
 
+  // Always-on emitter for sampler-catch events (SafeSampler bridge). Joins
+  // the same `category:StreamingDiag` channel as `streamingDiagLogger` so a
+  // single Console.app / analyzer filter surfaces both. NOT DEBUG-gated:
+  // sampler crashes are rare (one per crash, not per token) and are the
+  // single most important signal for diagnosing the issue #334 / #366 /
+  // #371 crash class in TestFlight. The DEBUG-only gate on the checkpoint
+  // logger above is a volume-control measure that does not apply here.
+  static let samplerCatchDiagLogger = Logger(
+    subsystem: "com.tyabu12.Pastura", category: "StreamingDiag")
+
   // Sampling parameters (ADR-002 §6, matching OllamaService)
   static let temperature: Float = 0.8
   static let maxTokens: Int = 1_000
@@ -518,7 +528,8 @@ extension LlamaCppService {
         throw LLMError.suspended
       }
 
-      let newTokenId = llama_sampler_sample(sampler, context, -1)
+      let newTokenId = try safeSample(
+        sampler: sampler, context: context, mode: "non-stream")
 
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
@@ -692,7 +703,8 @@ extension LlamaCppService {
         throw LLMError.suspended
       }
 
-      let newTokenId = llama_sampler_sample(sampler, context, -1)
+      let newTokenId = try safeSample(
+        sampler: sampler, context: context, mode: "stream")
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
       generatedTokens += 1
