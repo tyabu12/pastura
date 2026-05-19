@@ -37,3 +37,25 @@ File a rolling tracking issue collecting candidate sections, then `/orchestrate`
 1. Lands additions to `.claude/rules/` (or `CLAUDE.md` for project-wide rules).
 2. Strips `Source memory: feedback_*` provenance lines from drafts before commit — repo-tracked files referring to per-user memory by name are dead links for other contributors.
 3. After PR merges, locally `command rm ~/.claude/projects/.../memory/<source>.md` — the PR can't enforce memory deletion (it's per-user / per-machine); track via the rolling issue checklist.
+
+## Anti-pattern: memory refs in repo-tracked files
+
+Auto-memory at `~/.claude/projects/<workspace>/memory/` is **per-user /
+per-machine**. Any reference of the form `` memory `foo.md` `` inside a
+repo-tracked file (CLAUDE.md, CONTRIBUTING.md, ADRs, source comments,
+script header docs) is a **dead link** for everyone except the
+maintainer who wrote the memory.
+
+**Apply** — for rationale in any repo-tracked file, prefer inline summary
++ PR / issue / ADR pointer (`#410`, `ADR-007`, etc.). Memory refs are
+acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,
+conversational scratch).
+
+**Detection** — should return 0 hits:
+
+```
+rg -n 'memory `[a-z_]+\.md`' --glob '!**/memory/**' --glob '!.git/**'
+```
+
+Documented carve-outs exist where inline rationale would be too dense —
+see PR #420 for the current carve-out list and the motivating incident.
