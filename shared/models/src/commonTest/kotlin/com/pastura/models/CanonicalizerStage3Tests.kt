@@ -171,10 +171,16 @@ class CanonicalizerStage3Tests {
     }
 
     @Test
-    fun nestedPolymorphicInsidePolymorphicLifts() {
-        // Hypothetical wrapper holding a list of payloads — exercises
-        // recursion: outer object has its own discriminator, inner array
-        // elements each have theirs.
+    fun liftedFormSortsKeysInPayloadObjects() {
+        // After Stage 3 lifts the outer discriminator, Stage 1 still walks
+        // the payload — every JsonObject within the payload (here the two
+        // Map<String, *> fields `votes` / `tallies`) gets its keys sorted.
+        // Pastura's CodePhaseEventPayload payloads never carry a nested
+        // discriminator-bearing object themselves, so true polymorphic
+        // recursion is not exercised in production fixtures; the
+        // canonicalizer's recursive `normalizeTagForm` would handle it
+        // correctly if such a shape arose (see Stage 3 implementation
+        // recursing into JsonObject children).
         val input = buildJsonObject {
             put("type", JsonPrimitive("voteResults"))
             put("votes", buildJsonObject { put("alice", JsonPrimitive("bob")) })

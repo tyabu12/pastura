@@ -16,17 +16,13 @@ import Foundation
 /// **Drift model**: baseline JSON files are committed under
 /// `shared/models/src/commonTest/resources/baselines/`. The companion
 /// `RoundtripBaselineTests` regenerate in-memory and diff against the
-/// committed bytes; any mismatch fails the test. Regeneration is gated
-/// behind `PASTURA_REGENERATE_BASELINES=1` (see
-/// `RoundtripBaselineTests.regenerateAllBaselines`) so a developer can
-/// pin a deliberate shape change in one motion.
-///
-/// **Nonisolated discipline**: this enum has only `static` methods with
-/// auto-synthesized closures — no custom `Equatable`/`Hashable` witnesses,
-/// no Pattern 2 trigger. Marked `nonisolated` at the type level
-/// nonetheless to match the surrounding Models-test convention; it costs
-/// nothing and surfaces if someone later adds a custom witness.
-nonisolated enum RoundtripHelper {
+/// committed bytes; any mismatch fails the test. To deliberately re-pin
+/// shapes, temporarily remove the `.disabled(...)` trait from
+/// `RoundtripBaselineTests.regenerateAllBaselines`, run that test once,
+/// review the diff, then re-add the trait. (Env-gating was tried and
+/// rejected — xcodebuild's xctest runner sanitises env, so the gate
+/// never enables.)
+enum RoundtripHelper {
 
   /// Worktree-relative baseline directory, computed from `#filePath`.
   ///
