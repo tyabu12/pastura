@@ -76,8 +76,8 @@ Utilities/ → depends on nothing
 
 ## Swift Coding Conventions
 
-- **Automated hooks** — split by gate type. Activate the git side once per clone with `./scripts/setup.sh`.
-  - **Git pre-commit** (`scripts/git-hooks/pre-commit`): on `git commit`, runs `swiftlint lint --strict`, `xcodebuild build`, `bash scripts/blocklist-precommit-gate.sh` (also surfaces `bash scripts/build-blocklist.sh --check` indirectly when the staged diff touches `docs/blocklist/source.json` or `Pastura/Pastura/Resources/ContentBlocklist.json` — requires `brew install jq`), and `bash scripts/gallery-precommit-gate.sh`. Fail-fast. CI mirrors the same checks.
+- **Automated hooks** — split by gate type. Activate the git side once per clone with `./scripts/setup.sh` (also assembles `PasturaShared.xcframework` for spike branch users; warns and continues if JDK 17+ is missing).
+  - **Git pre-commit** (`scripts/git-hooks/pre-commit`): on `git commit`, runs `scripts/kmp/assemble-xcframework.sh --if-missing` (KMP spike branch only; gradle UP-TO-DATE fast path ~1-2s on Swift-only commits — see Issue #220 W3 PR-A), `swiftlint lint --strict`, `xcodebuild build`, `bash scripts/blocklist-precommit-gate.sh` (also surfaces `bash scripts/build-blocklist.sh --check` indirectly when the staged diff touches `docs/blocklist/source.json` or `Pastura/Pastura/Resources/ContentBlocklist.json` — requires `brew install jq`), and `bash scripts/gallery-precommit-gate.sh`. Fail-fast. CI mirrors the same checks.
   - **Claude Code hooks** (`.claude/settings.json`): on file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `gh pr create` (`PreToolUse`), a reminder checks whether the branch has touched this file's "Phase 2 progress" — useful when migrating Phase 2 entries.
   - Why the split: Claude Code's hook `if` field fails-open on complex Bash, so commit-time gates living there would surface misleading errors on unrelated tool calls. Git's `pre-commit` fires only on `git commit` and is tight by construction.
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
