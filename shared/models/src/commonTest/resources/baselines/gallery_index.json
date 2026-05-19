@@ -1,0 +1,30 @@
+{
+  "scenarios" : [
+    {
+      "added_at" : "2026-05-01",
+      "author" : "Pastura Curators",
+      "category" : "social_psychology",
+      "description" : "Group pressure on individual judgment.",
+      "estimated_inferences" : 42,
+      "id" : "asch_conformity_v1",
+      "recommended_model" : "gemma_4_e2b",
+      "title" : "Asch Conformity Experiment",
+      "yaml_sha256" : "abc123def456",
+      "yaml_url" : "https://example.com/gallery/asch_conformity_v1.yaml"
+    },
+    {
+      "added_at" : "2026-05-15",
+      "author" : "Pastura Curators",
+      "category" : "game_theory",
+      "description" : "Multi-round cooperate/defect dynamics.",
+      "estimated_inferences" : 28,
+      "id" : "prisoners_dilemma_v2",
+      "recommended_model" : "qwen_3_4b",
+      "title" : "Iterated Prisoner's Dilemma",
+      "yaml_sha256" : "def789abc012",
+      "yaml_url" : "https://example.com/gallery/prisoners_dilemma_v2.yaml"
+    }
+  ],
+  "updated_at" : "2026-05-19T00:00:00Z",
+  "version" : 1
+}

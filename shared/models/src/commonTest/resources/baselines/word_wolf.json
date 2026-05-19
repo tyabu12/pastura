@@ -1,0 +1,116 @@
+{
+  "agentCount" : 5,
+  "context" : "あなたはゲーム番組「ワードウルフ」の出場者です。 全員にお題が1つ配られていますが、1人だけ違うお題を持っています。 お題の単語そのものは絶対に言ってはいけません。 お題について会話し、最後に投票で少数派（ウルフ）を当てます。 自分が多数派か少数派かは分かりません。\n",
+  "description" : "5人の参加者に「お題」が配られるが、1人だけ違うお題を持つ少数派（ウルフ）。 会話から少数派を見抜き、投票で当てるゲーム。\n",
+  "extraData" : {
+    "mid_game_announcements" : [
+      "📺 司会者: ここで途中経過のお時間です — 残り時間あとわずか、的を絞っていきましょう。",
+      "📺 観客席: もっと深い話を聞きたい！具体的なエピソードを希望します。",
+      "📺 司会者: 怪しい人物が浮かび上がってきましたね。最後の一言で印象を固めましょう。"
+    ],
+    "words" : [
+      {
+        "majority" : "りんご",
+        "minority" : "みかん"
+      }
+    ]
+  },
+  "id" : "word_wolf",
+  "language" : "ja",
+  "name" : "ワードウルフ",
+  "personas" : [
+    {
+      "description" : "【立場】慎重派の観察者 【目的】自分からは情報を出さず、他人の発言を観察する。 口調は落ち着いている。例:「そうですね、確かにそういう面もありますね」\n",
+      "name" : "ユウキ"
+    },
+    {
+      "description" : "【立場】積極的なおしゃべり 【目的】具体的なエピソードを交えて話す。 口調は明るい。例:「私この前それやったんだけど、すっごく楽しかった！」\n",
+      "name" : "サクラ"
+    },
+    {
+      "description" : "【立場】分析的な推理派 【目的】他の人の発言の矛盾を見つけようとする。 口調は知的。例:「ちょっと待って、それってさっきの話と矛盾してない？」\n",
+      "name" : "タクミ"
+    },
+    {
+      "description" : "【立場】のんびり屋の天然タイプ 【目的】あまり深く考えず素直に話す。 口調はゆったり。例:「えー、なんか好きだなー、あったかい感じがして」\n",
+      "name" : "アオイ"
+    },
+    {
+      "description" : "【立場】駆け引き上手なポーカーフェイス 【目的】わざと曖昧な発言をして様子を見る。 口調はクール。例:「まあ、人それぞれだよね」\n",
+      "name" : "レン"
+    }
+  ],
+  "phases" : [
+    {
+      "source" : "words",
+      "target" : "random_one",
+      "type" : "assign"
+    },
+    {
+      "outputSchema" : {
+        "inner_thought" : "string",
+        "statement" : "string"
+      },
+      "prompt" : "あなたのお題: {assigned_word}\nこれまでの会話: {conversation_log}\nお題について話してください。お題の単語そのものは絶対に言わないこと。 他の人の発言をよく観察して、少数派を見つける手がかりを探してください。\n",
+      "subRounds" : 2,
+      "type" : "speak_each"
+    },
+    {
+      "probability" : 0.5,
+      "source" : "mid_game_announcements",
+      "type" : "event_inject"
+    },
+    {
+      "condition" : "current_event != \"\"",
+      "thenPhases" : [
+        {
+          "template" : "{current_event}",
+          "type" : "summarize"
+        }
+      ],
+      "type" : "conditional"
+    },
+    {
+      "outputSchema" : {
+        "inner_thought" : "string",
+        "statement" : "string"
+      },
+      "prompt" : "あなたのお題: {assigned_word}\nこれまでの会話: {conversation_log}\n番組からのアナウンス: {current_event}\nこれまでの流れと（あれば）アナウンスを踏まえて、投票前の最後の一言を述べてください。 お題の単語そのものは絶対に言わないこと。\n",
+      "subRounds" : 1,
+      "type" : "speak_each"
+    },
+    {
+      "excludeSelf" : true,
+      "outputSchema" : {
+        "reason" : "string",
+        "vote" : "string"
+      },
+      "prompt" : "あなたのお題: {assigned_word}\n会話ログ: {conversation_log}\n少数派（ウルフ）だと思う人に投票してください。 投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}\n",
+      "type" : "vote"
+    },
+    {
+      "type" : "eliminate"
+    },
+    {
+      "logic" : "wordwolf_judge",
+      "type" : "score_calc"
+    },
+    {
+      "condition" : "vote_winner == wolf_name",
+      "elsePhases" : [
+        {
+          "template" : "😈 ウルフ逃げ切り！ 実際の少数派は {wolf_name} でしたが投票は別の人に集中しました（{vote_results}）。 少数派の勝利です。\n",
+          "type" : "summarize"
+        }
+      ],
+      "thenPhases" : [
+        {
+          "template" : "🎯 ウルフ発見！ 最多得票の {wolf_name} が少数派でした（{vote_results}）。 多数派の勝利です。\n",
+          "type" : "summarize"
+        }
+      ],
+      "type" : "conditional"
+    }
+  ],
+  "rounds" : 1
+}
