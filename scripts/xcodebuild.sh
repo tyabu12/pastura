@@ -74,9 +74,8 @@
 #
 # External `| grep` for pattern-filtering still works. Do NOT pipe
 # through external `| tail` — it defeats `pipefail`, so a failed
-# xcodebuild reports exit 0 to the harness (see memory
-# `feedback_xcodebuild_pipefail.md` for the original incident). Use
-# the built-in flag instead.
+# xcodebuild reports exit 0 to the harness. Use the built-in flag
+# instead.
 #
 #   scripts/xcodebuild.sh test  ... 2>&1 | grep -E 'error:|TEST|passed|failed'
 #   scripts/xcodebuild.sh build ... 2>&1 | grep -E 'error:|warning:|BUILD'
