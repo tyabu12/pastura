@@ -1,66 +1,71 @@
 import Foundation
+import GRDB
 import Testing
 
 @testable import Pastura
-
-// MARK: - Test Helpers
-
-/// Bundle returned by `makeResultsSUT` to avoid large-tuple lint violations.
-private struct ResultsSUT {
-  let sut: ResultsViewModel
-  let scenarioRepo: GRDBScenarioRepository
-  let simRepo: GRDBSimulationRepository
-  let turnRepo: GRDBTurnRepository
-}
-
-@MainActor
-private func makeResultsSUT() throws -> ResultsSUT {
-  let db = try DatabaseManager.inMemory()
-  let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
-  let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
-  let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
-
-  let sut = ResultsViewModel(
-    scenarioRepository: scenarioRepo,
-    simulationRepository: simRepo,
-    turnRepository: turnRepo
-  )
-  return ResultsSUT(
-    sut: sut, scenarioRepo: scenarioRepo, simRepo: simRepo, turnRepo: turnRepo)
-}
-
-/// Seeds a scenario and a completed simulation for it.
-private func seedScenarioWithSimulation(
-  scenarioRepo: GRDBScenarioRepository,
-  simRepo: GRDBSimulationRepository,
-  scenarioId: String,
-  scenarioName: String,
-  simulationId: String
-) throws {
-  try scenarioRepo.save(
-    ScenarioRecord(
-      id: scenarioId, name: scenarioName, yamlDefinition: "",
-      isPreset: false, createdAt: Date(), updatedAt: Date()
-    ))
-  try simRepo.save(
-    SimulationRecord(
-      id: simulationId, scenarioId: scenarioId,
-      status: SimulationStatus.completed.rawValue,
-      currentRound: 1, currentPhaseIndex: 0,
-      stateJSON: "{}", configJSON: nil,
-      createdAt: Date(), updatedAt: Date()
-    ))
-}
-
-// MARK: - Tests
 
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct ResultsViewModelTests {
 
-  // MARK: - Load All Scenarios
+  // MARK: - Test Helpers (internal — siblings in `+CrossLanguageAggregation` call these)
 
-  @Test func loadAllGroupsByScenarioName() async throws {
+  struct ResultsSUT {
+    let db: DatabaseManager
+    let sut: ResultsViewModel
+    let scenarioRepo: GRDBScenarioRepository
+    let simRepo: GRDBSimulationRepository
+    let turnRepo: GRDBTurnRepository
+  }
+
+  func makeResultsSUT() throws -> ResultsSUT {
+    let db = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+
+    let sut = ResultsViewModel(
+      scenarioRepository: scenarioRepo,
+      simulationRepository: simRepo,
+      turnRepository: turnRepo
+    )
+    return ResultsSUT(
+      db: db, sut: sut,
+      scenarioRepo: scenarioRepo, simRepo: simRepo, turnRepo: turnRepo)
+  }
+
+  /// Seeds a scenario and a completed simulation for it. YAML defaults
+  /// to a single-language `ja` definition so `ScenarioYAMLLanguage.parse`
+  /// returns `"ja"` for the variant.
+  func seedScenarioWithSimulation(
+    scenarioRepo: GRDBScenarioRepository,
+    simRepo: GRDBSimulationRepository,
+    scenarioId: String,
+    scenarioName: String,
+    simulationId: String,
+    language: String = "ja",
+    sourceId: String? = nil
+  ) throws {
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: scenarioId, name: scenarioName,
+        yamlDefinition: "id: \(scenarioId)\nlanguage: \(language)\nname: \(scenarioName)\n",
+        isPreset: false, createdAt: Date(), updatedAt: Date(),
+        sourceType: nil, sourceId: sourceId, sourceHash: nil
+      ))
+    try simRepo.save(
+      SimulationRecord(
+        id: simulationId, scenarioId: scenarioId,
+        status: SimulationStatus.completed.rawValue,
+        currentRound: 1, currentPhaseIndex: 0,
+        stateJSON: "{}", configJSON: nil,
+        createdAt: Date(), updatedAt: Date()
+      ))
+  }
+
+  // MARK: - Load All Scenarios (non-aggregated path)
+
+  @Test func loadAllSurfacesScenariosWithSimulationsAsSeparateGroups() async throws {
     let env = try makeResultsSUT()
 
     try seedScenarioWithSimulation(
@@ -72,13 +77,13 @@ struct ResultsViewModelTests {
       scenarioId: "s2", scenarioName: "Word Wolf", simulationId: "sim2"
     )
 
-    await env.sut.load(scenarioId: "")
+    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 2)
     #expect(env.sut.isLoading == false)
     #expect(env.sut.errorMessage == nil)
 
-    let names = Set(env.sut.groups.map(\.scenarioName))
+    let names = Set(env.sut.groups.map(\.sectionName))
     #expect(names == ["Prisoner's Dilemma", "Word Wolf"])
   }
 
@@ -92,7 +97,8 @@ struct ResultsViewModelTests {
     // Scenario with no simulations
     try env.scenarioRepo.save(
       ScenarioRecord(
-        id: "s2", name: "Empty", yamlDefinition: "",
+        id: "s2", name: "Empty",
+        yamlDefinition: "id: s2\nlanguage: ja\nname: Empty\n",
         isPreset: false, createdAt: Date(), updatedAt: Date()
       ))
     try seedScenarioWithSimulation(
@@ -100,14 +106,14 @@ struct ResultsViewModelTests {
       scenarioId: "s3", scenarioName: "Also Has Results", simulationId: "sim2"
     )
 
-    await env.sut.load(scenarioId: "")
+    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 2)
-    let names = Set(env.sut.groups.map(\.scenarioName))
+    let names = Set(env.sut.groups.map(\.sectionName))
     #expect(!names.contains("Empty"))
   }
 
-  // MARK: - Load Specific Scenario
+  // MARK: - Load Specific Scenario (Detail entry-point)
 
   @Test func loadSpecificScenarioFiltersCorrectly() async throws {
     let env = try makeResultsSUT()
@@ -124,8 +130,9 @@ struct ResultsViewModelTests {
     await env.sut.load(scenarioId: "s1")
 
     #expect(env.sut.groups.count == 1)
-    #expect(env.sut.groups.first?.scenarioName == "Target")
-    #expect(env.sut.groups.first?.simulations.count == 1)
+    #expect(env.sut.groups.first?.sectionName == "Target")
+    #expect(env.sut.groups.first?.rows.count == 1)
+    #expect(env.sut.groups.first?.rows.first?.variantName == "Target")
   }
 
   @Test func loadSpecificScenarioMissingReturnsEmpty() async throws {
