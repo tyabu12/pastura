@@ -1,0 +1,57 @@
+[
+  {
+    "elimination" : {
+      "agent" : "ada",
+      "voteCount" : 3
+    }
+  },
+  {
+    "scoreUpdate" : {
+      "scores" : {
+        "ada" : 10,
+        "bob" : 5
+      }
+    }
+  },
+  {
+    "summary" : {
+      "text" : "Round 1 complete"
+    }
+  },
+  {
+    "voteResults" : {
+      "tallies" : {
+        "ada" : 1,
+        "bob" : 1
+      },
+      "votes" : {
+        "ada" : "bob",
+        "bob" : "ada"
+      }
+    }
+  },
+  {
+    "pairingResult" : {
+      "action1" : "cooperate",
+      "action2" : "defect",
+      "agent1" : "ada",
+      "agent2" : "bob"
+    }
+  },
+  {
+    "assignment" : {
+      "agent" : "ada",
+      "value" : "wolf"
+    }
+  },
+  {
+    "eventInjected" : {
+
+    }
+  },
+  {
+    "eventInjected" : {
+      "event" : "earthquake"
+    }
+  }
+]
