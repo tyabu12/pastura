@@ -82,8 +82,7 @@ scheme; otherwise auto-skipped.
 `--tail N` is a wrapper-only flag. xcodebuild uses single-dash flags
 so `--`-prefixed names are unambiguous. Accepted at any position;
 last value wins on duplicates. Use this instead of external `| tail`
-— external tail defeats `pipefail`, masking failed builds as exit 0
-(memory `feedback_xcodebuild_pipefail.md`).
+— external tail defeats `pipefail`, masking failed builds as exit 0.
 
 External `| grep` is OK for filtering, but the pipe replaces the
 wrapper's exit code with grep's. Verify success by grepping output
@@ -159,3 +158,12 @@ run — see Recovery below.
   `FBSOpenApplicationServiceErrorDomain Code=1 — com.tyabu12.PasturaUITests.xctrunner`
   → `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
   are real bugs (signing / plist / app-state regression), not flakes.
+
+**Within-process clone cascade (flake recognition)**:
+
+If `xcodebuild test` reports 200-330 tests "failed (0.000 seconds)" all on
+the same simulator clone PID — that's a within-process clone crash, not a
+real failure. Real failures show assertion output + measurable wall-clock
++ are not single-PID-wide. **Re-run once before diagnosing**; the suite
+typically passes cleanly on retry. Do NOT "fix" the listed tests. Root
+cause investigation: [#189](https://github.com/tyabu12/pastura/issues/189).
