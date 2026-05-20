@@ -13,10 +13,14 @@ private enum LlamaCppConfig {
   }
 
   /// Absolute path to a GGUF model file.
-  /// Defaults to `~/Models/gemma-4-e2b-it-Q4_K_M.gguf`.
+  /// Defaults to `~/Models/gemma-4-E2B-it-Q4_K_M.gguf` — matches
+  /// `ModelRegistry.gemma4E2B.fileName` (canonical upstream casing).
+  /// iOS Simulator's `fopen` matches paths case-sensitively even on
+  /// case-insensitive macOS APFS volumes, so the casing here MUST track
+  /// the actual filename on disk after `curl` from HuggingFace.
   static var modelPath: String {
     ProcessInfo.processInfo.environment["LLAMACPP_MODEL_PATH"]
-      ?? "\(NSHomeDirectory())/Models/gemma-4-e2b-it-Q4_K_M.gguf"
+      ?? "\(NSHomeDirectory())/Models/gemma-4-E2B-it-Q4_K_M.gguf"
   }
 }
 
@@ -33,7 +37,9 @@ private enum LlamaCppConfig {
 ///    - Xcode → Edit Scheme → Run → Arguments → Environment Variables →
 ///      check `LLAMACPP_INTEGRATION`. Optionally check / edit
 ///      `LLAMACPP_MODEL_PATH` if your GGUF is not at the default location
-///      (`$(HOME)/Models/gemma-4-e2b-it-Q4_K_M.gguf`).
+///      (`$(HOME)/Models/gemma-4-E2B-it-Q4_K_M.gguf` — matches the
+///      canonical HuggingFace filename; iOS Simulator's `fopen` is
+///      case-sensitive even on case-insensitive APFS volumes).
 ///    - OR edit `Pastura.xcscheme` directly and flip `isEnabled="NO"` →
 ///      `isEnabled="YES"` on the `LLAMACPP_INTEGRATION` row.
 /// 2. Run from Xcode (Cmd+U on this suite) OR from the CLI wrapper:
