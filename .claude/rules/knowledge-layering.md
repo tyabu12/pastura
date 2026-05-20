@@ -51,11 +51,18 @@ maintainer who wrote the memory.
 acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,
 conversational scratch).
 
-**Detection** — should return 0 hits:
+**Detection** — new code must not add hits to this grep:
 
 ```
 rg -n 'memory `[a-z_]+\.md`' --glob '!**/memory/**' --glob '!.git/**'
 ```
 
-Documented carve-outs exist where inline rationale would be too dense —
-see PR #420 for the current carve-out list and the motivating incident.
+Known carve-outs (where inline rationale would be too dense to migrate):
+
+- `Pastura/Pastura/Views/Components/ThoughtVisibilityToggle.swift` —
+  ShapeStyle vs Color token trap rationale
+- `Pastura/PasturaTests/App/LaunchPhaseCoordinatorTests.swift` —
+  CI wallclock test bound rationale
+
+See PR #420 for the motivating incident. Long-term, both carve-outs
+should migrate to inline rationale or a public doc home.
