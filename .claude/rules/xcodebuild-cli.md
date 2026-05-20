@@ -159,11 +159,45 @@ run — see Recovery below.
   → `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
   are real bugs (signing / plist / app-state regression), not flakes.
 
-**Within-process clone cascade (flake recognition)**:
+## CI flake catalog (auto-retried by `ci-retry.yml`)
 
-If `xcodebuild test` reports 200-330 tests "failed (0.000 seconds)" all on
-the same simulator clone PID — that's a within-process clone crash, not a
-real failure. Real failures show assertion output + measurable wall-clock
-+ are not single-PID-wide. **Re-run once before diagnosing**; the suite
-typically passes cleanly on retry. Do NOT "fix" the listed tests. Root
-cause investigation: [#189](https://github.com/tyabu12/pastura/issues/189).
+`.github/workflows/ci-retry.yml` auto-retries failed UI test jobs
+(workflow_run-triggered; max 3 attempts on main / 2 on PR; gated on
+ui-test failure). For known flake classes below, first check
+`run_attempt` on the failed CI run before manual intervention. Auto-retry
+covers all three; manual `gh run rerun --failed <run_id>` is only needed
+if auto-retry exhausted.
+
+| Class | Failure message | Distinguishing signal | xcodebuild built-in retry recovers? |
+|---|---|---|---|
+| **Within-process clone cascade** | 200-330 tests "failed (0.000 seconds)" same simulator clone PID | Single-PID, no assertion output, no wall-clock | Yes (passes on retry) |
+| **App-launch timeout** | `Failed to launch ...: Timed out while launching application via Xcode` / `Timed out while requesting launch progress` | Other UI tests in same run launched the same `Pastura.app` and passed | **No** — retry exhausts at launch phase; xcresult shows "Failed after 2 retries" |
+| **Runner-init Accessibility** | `Test runner failed to initialize ... Timed out while loading Accessibility` | xcresult: 0 test cases executed (runner never booted); zero `Test case ... passed` lines | **No** — `-retry-tests-on-failure -test-iterations 2` presupposes runner booted |
+
+**All three are distinct from the `FBSOpenApplicationServiceErrorDomain
+Code=1` pattern documented in § "Agent session guardrails" → Recovery
+(`simctl erase <UDID>` + retry once on the FBSOpen marker).** That pattern
+is the runner already booted + app explicitly rejected, recoverable by
+erasing the simulator. The three flakes above are infra-pressure failures
+on the GHA macos-26 runner (suspected root cause: Accessibility framework
+load + within-process clone pressure under constrained VM).
+
+### When to escalate
+
+- **First failed CI run**: check `run_attempt` — if 1, let `ci-retry.yml`
+  fire automatically (no manual action).
+- **After auto-retry exhausted** (attempt 3 on main / 2 on PR): manually
+  `gh run rerun --failed <run_id>` once.
+- **If THAT also fails the same way**: escalate to real-bug investigation.
+  Real signing / Info.plist / app-init regressions fail across runs with
+  the SAME failure message at the SAME stage — they do NOT recover from
+  `gh run rerun` without a code change.
+
+If ALL UI tests in a run fail at launch (not just some), treat as a real
+bug rather than flake.
+
+Tracked indirectly by [#189](https://github.com/tyabu12/pastura/issues/189)
+(parallel-testing OOM cascade — related runner-pressure pattern, separate
+root cause). Auto-retry workflow: `.github/workflows/ci-retry.yml`. Local
+re-run prescription for within-process clone class: "Re-run once before
+diagnosing — do NOT 'fix' the listed tests."

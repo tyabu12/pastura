@@ -43,3 +43,37 @@ VM `init()` default arguments run **in tests too**. Fixture-driven tests that pr
 ### Detection rule
 
 If adding `Foo` to `VMInit` would cause `VMInit(repo: …)` (no `foo:` arg) to behave differently in tests, push the default down to the View. Pure-data services (config readers, immutable repositories) don't have this problem.
+
+## SwiftUI drag & drop inside List / Form
+
+`.dropDestination(for:action:isTargeted:)`'s **`isTargeted` closure never
+fires** inside `List` / `Form` rows on iOS 17–26 (FB12980427 / FB21980712,
+unfixed by Apple as of 2026-04). The drop action fires on release, but
+hover feedback is silent. macOS works correctly. `DropDelegate.dropEntered`
+/ `dropExited` are reported to work in `List` but empirically also failed
+in `Form` rows on iOS 26 simulator.
+
+Apple's `.onMove(perform:)` is **deliberately single-`ForEach` only** —
+moving items between two `ForEach` instances is not supported by design
+([Apple Dev Forums thread/674393](https://developer.apple.com/forums/thread/674393)).
+HIG has no cross-collection drag pattern; Apple's documented alternative
+is the **context-menu "Move to X" action**.
+
+### Apply
+
+Answer first, before designing:
+
+- Same-collection reorder? → `.onMove` works.
+- Cross-collection move? → **prefer context menu**. Drag will fight the platform.
+- Hover indicator on `List` / `Form`? → cannot be delivered natively on current
+  iOS. Switch to `ScrollView` + `LazyVStack` (loses List chrome) or drop the
+  indicator requirement.
+
+For the workflow lesson "research platform support BEFORE plan / critic,
+not after a full PR cycle" see #144.
+
+### Sources
+
+- [Apple Dev Forums thread/674393](https://developer.apple.com/forums/thread/674393) (cross-section drag)
+- [Apple Dev Forums thread/730367](https://developer.apple.com/forums/thread/730367) (dropDestination in List)
+- [HIG — Drag and drop](https://developer.apple.com/design/human-interface-guidelines/drag-and-drop)
