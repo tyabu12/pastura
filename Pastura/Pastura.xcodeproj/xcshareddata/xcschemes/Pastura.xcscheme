@@ -87,6 +87,16 @@
             value = "1"
             isEnabled = "NO">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "LLAMACPP_INTEGRATION"
+            value = "1"
+            isEnabled = "NO">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "LLAMACPP_MODEL_PATH"
+            value = "$(HOME)/Models/gemma-4-e2b-it-Q4_K_M.gguf"
+            isEnabled = "NO">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction

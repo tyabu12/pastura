@@ -24,16 +24,31 @@ private enum LlamaCppConfig {
 
 /// Integration tests that run against a real GGUF model via llama.cpp.
 ///
-/// Gated by `LLAMACPP_INTEGRATION=1` environment variable. These tests are skipped
-/// in normal CI runs and require a local GGUF model file.
+/// Gated by the `LLAMACPP_INTEGRATION` environment variable being `"1"`.
+/// These tests are skipped in normal CI runs and require a local GGUF
+/// model file.
 ///
 /// Run with:
-/// ```
-/// source scripts/sim-dest.sh
-/// LLAMACPP_INTEGRATION=1 LLAMACPP_MODEL_PATH=/path/to/model.gguf \
-///   xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-///   -destination "$DEST" -only-testing PasturaTests/LlamaCppIntegrationTests
-/// ```
+/// 1. Enable the scheme's env var. Either:
+///    - Xcode → Edit Scheme → Run → Arguments → Environment Variables →
+///      check `LLAMACPP_INTEGRATION`. Optionally check / edit
+///      `LLAMACPP_MODEL_PATH` if your GGUF is not at the default location
+///      (`$(HOME)/Models/gemma-4-e2b-it-Q4_K_M.gguf`).
+///    - OR edit `Pastura.xcscheme` directly and flip `isEnabled="NO"` →
+///      `isEnabled="YES"` on the `LLAMACPP_INTEGRATION` row.
+/// 2. Run from Xcode (Cmd+U on this suite) OR from the CLI wrapper:
+///    ```
+///    source scripts/sim-dest.sh
+///    scripts/xcodebuild.sh test \
+///      -only-testing PasturaTests/LlamaCppIntegrationTests
+///    ```
+///
+/// **Why scheme-toggle, not raw CLI env vars**: env vars set on the
+/// `xcodebuild` command line are NOT automatically forwarded to the test
+/// runner subprocess. The scheme env (with
+/// `shouldUseLaunchSchemeArgsEnv="YES"` on the TestAction) is the standard
+/// mechanism — same pattern as `OLLAMA_INTEGRATION` (see
+/// `.claude/rules/xcodebuild-cli.md`).
 @Suite(.serialized, .enabled(if: LlamaCppConfig.isEnabled))
 struct LlamaCppIntegrationTests {
 
