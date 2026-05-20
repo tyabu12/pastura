@@ -46,6 +46,18 @@ GRADLE_OUTPUT="${REPO_ROOT}/shared/models/build/XCFrameworks/release/PasturaShar
 TARGET_DIR="${REPO_ROOT}/Pastura/Frameworks"
 TARGET="${TARGET_DIR}/PasturaShared.xcframework"
 
+# Branch-switch guard (Issue #220 W3 PR-A code-reviewer Warning #1):
+# the KMP module is gated to `feature/kmp-spike-models` and its child
+# branches. If a contributor runs `setup.sh` while on a spike branch
+# (activating the pre-commit hook with KMP step 0), then switches to
+# `main` or a non-spike branch, `shared/models/` is absent from that
+# ref and gradle would fail with "task not found". Silent no-op
+# instead — consistent with `scripts/xcodebuild.sh` handling missing
+# xcstrings sync via sentinel + exit 0.
+if [ ! -f "${REPO_ROOT}/shared/models/build.gradle.kts" ]; then
+  exit 0
+fi
+
 # Parse args. Only --if-missing is meaningful at the moment (kept for
 # pre-commit / setup.sh callsites that pass it explicitly), but the
 # behaviour is currently identical to no-flag invocation.
