@@ -13,10 +13,14 @@ private enum LlamaCppConfig {
   }
 
   /// Absolute path to a GGUF model file.
-  /// Defaults to `~/Models/gemma-4-e2b-it-Q4_K_M.gguf`.
+  /// Defaults to `~/Models/gemma-4-E2B-it-Q4_K_M.gguf` — matches
+  /// `ModelRegistry.gemma4E2B.fileName` (canonical upstream casing).
+  /// iOS Simulator's `fopen` matches paths case-sensitively even on
+  /// case-insensitive macOS APFS volumes, so the casing here MUST track
+  /// the actual filename on disk after `curl` from HuggingFace.
   static var modelPath: String {
     ProcessInfo.processInfo.environment["LLAMACPP_MODEL_PATH"]
-      ?? "\(NSHomeDirectory())/Models/gemma-4-e2b-it-Q4_K_M.gguf"
+      ?? "\(NSHomeDirectory())/Models/gemma-4-E2B-it-Q4_K_M.gguf"
   }
 }
 
@@ -24,16 +28,33 @@ private enum LlamaCppConfig {
 
 /// Integration tests that run against a real GGUF model via llama.cpp.
 ///
-/// Gated by `LLAMACPP_INTEGRATION=1` environment variable. These tests are skipped
-/// in normal CI runs and require a local GGUF model file.
+/// Gated by the `LLAMACPP_INTEGRATION` environment variable being `"1"`.
+/// These tests are skipped in normal CI runs and require a local GGUF
+/// model file.
 ///
 /// Run with:
-/// ```
-/// source scripts/sim-dest.sh
-/// LLAMACPP_INTEGRATION=1 LLAMACPP_MODEL_PATH=/path/to/model.gguf \
-///   xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-///   -destination "$DEST" -only-testing PasturaTests/LlamaCppIntegrationTests
-/// ```
+/// 1. Enable the scheme's env var. Either:
+///    - Xcode → Edit Scheme → Run → Arguments → Environment Variables →
+///      check `LLAMACPP_INTEGRATION`. Optionally check / edit
+///      `LLAMACPP_MODEL_PATH` if your GGUF is not at the default location
+///      (`$(HOME)/Models/gemma-4-E2B-it-Q4_K_M.gguf` — matches the
+///      canonical HuggingFace filename; iOS Simulator's `fopen` is
+///      case-sensitive even on case-insensitive APFS volumes).
+///    - OR edit `Pastura.xcscheme` directly and flip `isEnabled="NO"` →
+///      `isEnabled="YES"` on the `LLAMACPP_INTEGRATION` row.
+/// 2. Run from Xcode (Cmd+U on this suite) OR from the CLI wrapper:
+///    ```
+///    source scripts/sim-dest.sh
+///    scripts/xcodebuild.sh test \
+///      -only-testing PasturaTests/LlamaCppIntegrationTests
+///    ```
+///
+/// **Why scheme-toggle, not raw CLI env vars**: env vars set on the
+/// `xcodebuild` command line are NOT automatically forwarded to the test
+/// runner subprocess. The scheme env (with
+/// `shouldUseLaunchSchemeArgsEnv="YES"` on the TestAction) is the standard
+/// mechanism — same pattern as `OLLAMA_INTEGRATION` (see
+/// `.claude/rules/xcodebuild-cli.md`).
 @Suite(.serialized, .enabled(if: LlamaCppConfig.isEnabled))
 struct LlamaCppIntegrationTests {
 
@@ -307,5 +328,66 @@ struct LlamaCppIntegrationTests {
         || (0xFF00...0xFFEF).contains(scalar.value)  // Fullwidth forms
     }
     #expect(hasJapanese, "expected Japanese content in inner_thought, got: \(thought)")
+  }
+
+  // MARK: - Test 8: Single-field grammar-constrained output (#334)
+
+  /// Issue #334 repro: minimal single-field `{statement: string}` schemas
+  /// historically triggered an uncaught `std::runtime_error` from
+  /// `llama_grammar_accept_token`. After the SafeSampler bridge this should
+  /// either (a) complete normally OR (b) surface as
+  /// `LLMError.generationFailed` — never crash the process.
+  ///
+  /// Note: this test exercises the **success path**. The repro from
+  /// issue #334 was on a specific (model, prompt, seed) combination; the
+  /// non-deterministic sampling means a single run may or may not hit the
+  /// crash trigger. The success-path assertions cover the case where the
+  /// new wrapper does not interfere with normal generation. If the crash
+  /// trigger fires on this run, the assertion that the call returns
+  /// **without aborting the process** is itself the regression guard — a
+  /// pre-fix build would `std::terminate` instead of throwing.
+  ///
+  /// User-run on device: `LLAMACPP_INTEGRATION=1` plus a Gemma 4 E2B GGUF
+  /// at the path described by `LLAMACPP_MODEL_PATH`. CI does not exercise
+  /// this; see `docs/decisions/ADR-002.md` §12.10 for the verification
+  /// procedure.
+  @Test(.timeLimit(.minutes(3)))
+  func singleFieldGrammarRecoverableUnderRealModel() async throws {
+    let service = makeService()
+    try await service.loadModel()
+    defer { Task { try? await service.unloadModel() } }
+
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .speakAll, prompt: "…",
+          outputSchema: ["statement": "string"])))
+
+    // The system prompt + user prompt mirror issue #334's repro YAML
+    // ("Say one word.") — short prompt + single-field schema is the exact
+    // shape that surfaced the crash.
+    do {
+      let result = try await service.generate(
+        system:
+          "You are a helpful assistant. Respond ONLY with JSON: {\"statement\": \"…\"}",
+        user: "Say one word.",
+        schema: schema)
+
+      // Success path: the call completed, so the SafeSampler bridge either
+      // never saw a crash on this run OR caught one and... we wouldn't be
+      // here. Verify the output at least parses — a partially-corrupted
+      // response would surface as a parse failure, not a crash.
+      let parsed = try JSONResponseParser().parse(
+        result, expectedKeys: Set(schema.fields.map(\.name)))
+      #expect(parsed.0.fields["statement"] != nil)
+    } catch LLMError.generationFailed(let description) {
+      // The SafeSampler bridge caught a C++ exception and surfaced it as
+      // `.generationFailed`. The test passes — process did NOT crash.
+      // Log the description so the developer running this on device can
+      // tell whether the catch fired vs. plain generation failure.
+      #expect(
+        description.contains("Sampler crash caught"),
+        "unexpected generation failure (not from SafeSampler): \(description)")
+    }
   }
 }

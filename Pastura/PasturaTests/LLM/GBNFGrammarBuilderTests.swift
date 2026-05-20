@@ -321,6 +321,22 @@ struct GBNFGrammarBuilderTests {
     #expect(grammar == Self.goldenVoteReason)
   }
 
+  // Regression guard for issue #334: minimal single-field `{statement: string}`
+  // schemas — the shape that historically triggered an uncaught C++ exception
+  // in `llama_grammar_accept_token` at runtime. Multi-field grammars above are
+  // already byte-for-byte locked; without an equivalent single-field golden, a
+  // future builder change could regress only the single-field path and remain
+  // undetected until on-device repro.
+  @Test("golden: minimal single-field statement (issue #334 repro shape)")
+  func goldenSingleFieldStatement() throws {
+    let phase = Phase(
+      type: .speakAll, prompt: "…",
+      outputSchema: ["statement": "string"])
+    let schema = try #require(OutputSchema.from(phase: phase))
+    let grammar = try builder.build(from: schema)
+    #expect(grammar == Self.goldenSingleStatement)
+  }
+
   // MARK: - Golden file constants
 
   private static let sharedTail = """
@@ -342,6 +358,11 @@ struct GBNFGrammarBuilderTests {
 
   private static let goldenVoteReason = """
     root ::= "{" ws "\\"vote\\"" ws ":" ws string ws "," ws "\\"reason\\"" ws ":" ws string ws "}" trailing
+    \(sharedTail)
+    """
+
+  private static let goldenSingleStatement = """
+    root ::= "{" ws "\\"statement\\"" ws ":" ws string ws "}" trailing
     \(sharedTail)
     """
 }
