@@ -143,9 +143,16 @@ extension LlamaCppService {
     let outcome = SafeSampler.sample(sampler: sampler, context: context, idx: -1)
     if let errorMessage = outcome.errorMessage {
       let truncated = String(errorMessage.prefix(160))
+      // `truncated` is the C++ `what()` text from llama.cpp's grammar
+      // accept; the canonical form includes the just-sampled piece
+      // (`"after accepting piece: <piece> (<id>)"`). The piece can be a
+      // mid-string fragment of model-generated content, so we keep it
+      // `<private>` in TestFlight / Release per CLAUDE.md "Logger
+      // privacy". The structured `mode` + `model` fields remain `.public`
+      // because they are postmortem pivot keys, not output content.
       Self.samplerCatchDiagLogger.error(
         """
-        samplerCrashCaught what="\(truncated, privacy: .public)" \
+        samplerCrashCaught what="\(truncated)" \
         mode=\(mode, privacy: .public) \
         model=\(self.modelIdentifier, privacy: .public)
         """)
