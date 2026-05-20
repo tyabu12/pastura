@@ -10,6 +10,8 @@ argument-hint: "<title>"
 
 Generate an Architecture Decision Record for: $ARGUMENTS
 
+See `.claude/rules/adr-writing.md` for the concepts that govern ADR drafting — fact-claim verification and mechanism contract over pinned thresholds. Apply both at draft time, not just at review time.
+
 ## Instructions
 
 1. Determine the next ADR number by listing `docs/decisions/` and finding the highest existing number + 1.
@@ -63,8 +65,8 @@ Notes:
 After writing the ADR:
 
 1. Launch 2 parallel subagents to review the document (read-only — subagents must not modify any files):
-   - Agent 1 (Accuracy): Verify the ADR's Context and Decision sections accurately reflect the actual codebase and relevant docs. Check that the Options table includes all discussed alternatives with clear reasons for rejection. Confirm filename follows `ADR-NNN.md`.
-   - Agent 2 (Clarity): Review as a future reader — is the rationale self-contained? Could someone unfamiliar with the discussion understand the "why"? Are Trade-offs complete (both benefits and costs)?
+   - Agent 1 (Accuracy): Apply `.claude/rules/adr-writing.md` § 1 — verify every cited `file:line` / rule section / SDK assertion before approving. Check that the Options table includes all discussed alternatives with clear reasons for rejection. Confirm filename follows `ADR-NNN.md`.
+   - Agent 2 (Clarity): Review as a future reader — is the rationale self-contained? Could someone unfamiliar with the discussion understand the "why"? Are Trade-offs complete (both benefits and costs)? If the Decision section contains a DoD criterion like `≥ N% on model X`, flag it for mechanism-contract vs. pinned-threshold reconsideration per `.claude/rules/adr-writing.md` § 2.
 2. If issues are found, revise the ADR and re-verify.
 3. Repeat until no new issues. Hard limit: 3 iterations. Stop after 3 even if issues remain and report them as unresolved.
 4. Report the final ADR with iteration count.
