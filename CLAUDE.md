@@ -217,8 +217,10 @@ pages/                           # Public HTML deployed via .github/workflows/de
 
 **Path-scoped** (loaded only when editing matching files):
 
+- `adr-writing.md` — ADR drafting concepts: fact-claim verification at write time, mechanism contract over pinned model thresholds (`docs/decisions/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
 - `i18n.md` — Localization workflow: `String(format: String(localized:))` format-string pattern, `xcstringstool` sync output (multi-arg en blocks, state=new + en-only), catalog editing traps (don't `json.dumps` round-trip) (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
+- `lp-content.md` — Public LP content concepts: AIgazing / AI観測 genre-word zoning (Hero + Bigger picture only), em-dash / prose-colon voice rule for new copy (`pages/**`)
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
 - `testing.md` — Test target (`Pastura/PasturaTests/**`)
