@@ -66,3 +66,24 @@ Known carve-outs (where inline rationale would be too dense to migrate):
 
 See PR #420 for the motivating incident. Long-term, both carve-outs
 should migrate to inline rationale or a public doc home.
+
+## Rule-writing self-check
+
+When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an **executable assertion** — a grep command with an asserted hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor — execute it against current main state **before commit**.
+
+Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
+
+### Apply
+
+For each load-bearing assertion in the draft:
+
+1. Paste the command (`rg`, `find`, `gh pr view`) into Bash from the current worktree.
+2. Compare observed output to what the rule asserts.
+3. Reconcile divergence one of three ways:
+   - **Sweep** — fix the violations in this PR if cheap.
+   - **Reframe** — change the assertion to match observed state. The "Anti-pattern: memory refs" section above is itself an example: "new code must not add hits" + an inline carve-out list, rather than "should return 0 hits".
+   - **Inline carve-out** — enumerate existing violations with `file:line`.
+
+This applies to **non-grep claims** too: cited file paths (`find` to confirm existence), `(PR #N)` claims about PR body content (`gh pr view N` to verify), heading anchors in cross-doc refs (`grep` for the exact heading).
+
+A 30-second self-check prevents 1–2 extra critic / code-reviewer rounds. Motivating incident: PR #462 round-3 critic.
