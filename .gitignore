@@ -52,3 +52,10 @@ __pycache__/
 # `shared/<module>/build/` for Gradle module outputs.
 .gradle/
 local.properties
+
+# KMP XCFramework drop (Issue #220 W3 PR-A). Built by
+# `scripts/kmp/assemble-xcframework.sh` from `shared/models/`. Gitignored
+# because the binary is reproducible from `shared/` source. The pattern
+# is xcframework-specific (NOT directory-level) so `Pastura/Frameworks/README.md`
+# remains checked in.
+Pastura/Frameworks/*.xcframework
