@@ -24,6 +24,19 @@ jobs:
   lint-and-test:
     runs-on: macos-26
     timeout-minutes: 15
+    # Path B (#220 W3 PR-A): cascade-gated dependency on kmp-build-test.
+    # When kmp-build-test runs (spike-branch events), wait for its
+    # xcframework artifact. When it SKIPS (main / non-spike events),
+    # proceed without — main's pbxproj does not reference the framework
+    # until W6 GO merge. `cancelled` is deliberately excluded from the
+    # `if:` to prevent false-greens (a cancelled kmp-build-test means
+    # no artifact, but cascade would otherwise pass through). See
+    # `.claude/rules/ci-workflows.md` "Long-lived branch gating".
+    needs: kmp-build-test
+    if: |
+      always()
+      && (needs.kmp-build-test.result == 'success'
+          || needs.kmp-build-test.result == 'skipped')
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
@@ -36,6 +49,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Step-level guard: download only when kmp-build-test actually
+      # ran and produced an artifact. On main/non-spike events the
+      # step skips silently and lint-and-test proceeds without the
+      # framework (pbxproj on main does not reference it yet).
+      - name: Download PasturaShared.xcframework (spike branch)
+        if: needs.kmp-build-test.result == 'success'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: pasturashared-xcframework
+          path: Pastura/Frameworks/PasturaShared.xcframework/
 
       - name: Select Xcode and Simulator
         run: |
@@ -269,12 +293,26 @@ jobs:
     name: Release build (iphoneos) + ADR-005 §8 guard
     runs-on: macos-26
     timeout-minutes: 15
+    # Path B cascade-gate (#220 W3 PR-A) — see lint-and-test for the
+    # same shape and rationale.
+    needs: kmp-build-test
+    if: |
+      always()
+      && (needs.kmp-build-test.result == 'success'
+          || needs.kmp-build-test.result == 'skipped')
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
 
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download PasturaShared.xcframework (spike branch)
+        if: needs.kmp-build-test.result == 'success'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: pasturashared-xcframework
+          path: Pastura/Frameworks/PasturaShared.xcframework/
 
       - name: Select Xcode
         run: xcodebuild -version
@@ -338,6 +376,33 @@ jobs:
             exit 1
           fi
           echo "OK: zero ollama symbols in Release-iphoneos binary"
+
+      # H6 capture (#220 Tier 1 — `.ipa` size delta ≤ 10 MB). Surfaces
+      # the K/N runtime + Models binary as it lands in
+      # `Pastura.app/Frameworks/PasturaShared.framework/`. Tier 2
+      # checkpoint readings feed off this. Step is conditional on the
+      # download having run — on main/non-spike events the embed is
+      # absent (pbxproj on main does not reference the framework yet).
+      - name: Capture PasturaShared.framework binary delta (H6)
+        if: needs.kmp-build-test.result == 'success'
+        run: |
+          # Portable while/read loop because `mapfile` is bash 4+ and
+          # GHA macos-* defaults to bash 3.2. See `.claude/rules/ci-workflows.md`.
+          BINS=()
+          while IFS= read -r -d '' f; do
+            BINS+=("$f")
+          done < <(find ~/Library/Developer/Xcode/DerivedData \
+            -type d \
+            -name 'PasturaShared.framework' \
+            -path '*/Build/Products/Release-iphoneos/Pastura.app/Frameworks/*' \
+            -print0)
+          if [ "${#BINS[@]}" -eq 1 ]; then
+            echo "PasturaShared.framework embedded size:"
+            du -sh "${BINS[0]}"
+          else
+            echo "::warning::Expected 1 PasturaShared.framework, found ${#BINS[@]}"
+            printf '%s\n' "${BINS[@]}"
+          fi
 
       - name: Upload Release build log (on failure)
         if: failure()
@@ -420,6 +485,21 @@ jobs:
 
       - name: Assemble PasturaShared XCFramework
         run: ./gradlew :shared:models:assemblePasturaSharedXCFramework --no-daemon --stacktrace
+
+      # Path B (#220 W3 PR-A): hand the assembled xcframework off to the
+      # downstream xcodebuild jobs (lint-and-test, release-build) via
+      # `actions/download-artifact`. Uploading the directory's CONTENTS;
+      # consumers extract into `Pastura/Frameworks/PasturaShared.xcframework/`
+      # to reconstruct the path pbxproj expects.
+      - name: Upload PasturaShared.xcframework artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pasturashared-xcframework
+          path: shared/models/build/XCFrameworks/release/PasturaShared.xcframework
+          if-no-files-found: error
+          # Short retention — this artifact only needs to flow to the
+          # same-workflow downstream jobs. Default 90d would accumulate.
+          retention-days: 1
 
       - name: Upload Gradle reports (on failure)
         if: failure()
