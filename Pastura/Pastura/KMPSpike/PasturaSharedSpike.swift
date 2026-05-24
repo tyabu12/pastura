@@ -6,7 +6,6 @@
 // Do NOT import this from production code. Reference from new spike-only
 // callsites only. NO-GO path deletes `Pastura/Pastura/KMPSpike/` whole.
 
-import Observation
 import PasturaShared
 
 /// Spike-scope sandbox demonstrating iOS-side consumption of the KMP
@@ -24,8 +23,10 @@ import PasturaShared
 /// 3. **Nested-collection optionality** — `Phase` with
 ///    `Map<String, String>?`, `List<String>?`, `List<Phase>?` fields.
 ///
-/// Companion type `PasturaSharedSpikeViewModel` exercises the H8
-/// hypothesis smoke (see below).
+/// H8 hypothesis verification (`@Observable` Swift class wrapping K/N
+/// value types triggers SwiftUI invalidation) lives in the test target
+/// as `PasturaTests/KMPSpike/H8BridgeTests.swift` (W3 PR-B). The earlier
+/// compile-time smoke (`H8Smoke.verifyBridgeFires`) was absorbed there.
 @MainActor
 enum PasturaSharedSpike {
   /// Construct a `Pairing` from Swift, verifying the K/N init bridge
@@ -71,92 +72,4 @@ enum PasturaSharedSpike {
       eventVariable: nil
     )
   }
-}
-
-/// Minimal smoke for the H8 hypothesis (Issue #220 Tier 1 hard
-/// blocker): an `@Observable` Swift class wrapping a K/N value type
-/// must trigger SwiftUI invalidation on mutation.
-///
-/// PR-B (next session) lands the full H8 test suite covering the
-/// `access(keyPath:)` / `withMutation(keyPath:)` bridge pattern
-/// (PR #216) and edge cases (collection mutation, nested-type
-/// invalidation, async actor read-back). This file's
-/// `H8Smoke.verifyBridgeFires` is a compile-time smoke that runs
-/// the simplest case: assignment-replaces-instance.
-///
-/// **CRITICAL — escalation rule on failure**: If this smoke fails
-/// (compile error, runtime assertion fires, or
-/// `verifyBridgeFires() == false`), the failure is load-bearing R8
-/// evidence affecting the entire spike GO decision. File an
-/// `r8-observable-bridge-failure` comment on #220 with reproduction
-/// details and pause W3 PR-A pending spike re-evaluation. **Do NOT
-/// silently rescope to PR-B** — the descope ladder in ROADMAP /
-/// Issue #220 explicitly forbids it for Tier 1 hard blockers.
-@Observable
-@MainActor
-final class PasturaSharedSpikeViewModel {
-  /// `Pairing`-backed state. Mutation here must trigger SwiftUI
-  /// invalidation for downstream `@Observable` consumers.
-  var pairing: Pairing
-
-  init(pairing: Pairing = PasturaSharedSpike.samplePairing()) {
-    self.pairing = pairing
-  }
-}
-
-/// Compile-time + runtime smoke for the H8 hypothesis. Callable from
-/// `#Preview` or PR-B's full H8 test for early signal.
-@MainActor
-enum H8Smoke {
-  /// Returns `true` iff mutating `PasturaSharedSpikeViewModel.pairing`
-  /// fires `withObservationTracking`'s `onChange` closure. Returns
-  /// `false` if the observation tracker did not fire — indicating
-  /// the @Observable bridge does NOT propagate through K/N value
-  /// types and the spike's H8 hypothesis fails.
-  ///
-  /// Synchronous — `withObservationTracking`'s `onChange` fires on
-  /// the next runloop turn after mutation, but the observation
-  /// registration itself is synchronous. We register, mutate, and
-  /// then read the flag immediately because `@Observable`'s
-  /// invalidation path runs synchronously on assignment under
-  /// MainActor isolation.
-  static func verifyBridgeFires() -> Bool {
-    let viewModel = PasturaSharedSpikeViewModel()
-    // Class box: `withObservationTracking`'s `onChange` closure is
-    // `@escaping`, so under Swift 6 strict concurrency it cannot
-    // mutate a captured `var` (compile error: "mutation of captured
-    // var ... in concurrently-executing code"). Box the flag in a
-    // reference type so the closure mutates *through* the captured
-    // `let` rather than mutating the captured variable itself.
-    let signal = ObservationFireSignal()
-    withObservationTracking {
-      _ = viewModel.pairing.agent1
-    } onChange: {
-      signal.fired = true
-    }
-    // Replace the pairing instance (no in-place mutation since
-    // K/N data classes expose immutable val properties).
-    viewModel.pairing = Pairing(
-      agent1: "Alice",
-      agent2: "Bob",
-      action1: "cooperate",
-      action2: nil
-    )
-    return signal.fired
-  }
-}
-
-/// Reference-type flag for `H8Smoke.verifyBridgeFires`. Must be
-/// `nonisolated` because (a) the enclosing file uses
-/// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` so the class would
-/// otherwise inherit MainActor isolation, and (b)
-/// `withObservationTracking`'s `onChange` is `@Sendable @escaping`,
-/// invoking from a non-MainActor context that cannot mutate a
-/// MainActor-isolated property. `@unchecked Sendable` is sound in
-/// this narrow usage because `verifyBridgeFires` itself is
-/// MainActor-isolated and the `onChange` callback is invoked
-/// synchronously on the same actor in practice — but the type
-/// system needs the explicit opt-out for the closure signature.
-nonisolated private final class ObservationFireSignal: @unchecked Sendable {
-  var fired = false
 }
