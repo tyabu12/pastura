@@ -89,7 +89,7 @@ struct H8AsyncBridgeTests {
       action1: nil,
       action2: nil
     )
-    await viewModel._testOnlyUpdateActor(updated)
+    await viewModel.testOnlyUpdateActor(updated)
     await viewModel.refresh()
 
     // assert A: snapshot-cache propagated the actor's new value
@@ -99,11 +99,7 @@ struct H8AsyncBridgeTests {
   }
 }
 
-/// Non-`@Observable` actor backing K/N value-typed state for H8-5.
-/// The `@Observable` VM bridges to this actor via a snapshot cache —
-/// see `H8AsyncBridgeViewModel` for the pattern.
-///
-// MARK: - Why `actor`, not `final class`?
+// MARK: - KNStateActor
 //
 // Intentionally an `actor`, not a `final class @unchecked Sendable`. The
 // `final class` shape would trip `swift-isolation.md` Pattern 4 if any
@@ -113,6 +109,10 @@ struct H8AsyncBridgeTests {
 // `nonisolated` callers that need to await it. Actors carry their own
 // explicit isolation; sync vs async methods don't shift the isolation
 // the way they do on classes.
+
+/// Non-`@Observable` actor backing K/N value-typed state for H8-5.
+/// The `@Observable` VM bridges to this actor via a snapshot cache —
+/// see `H8AsyncBridgeViewModel` for the pattern.
 private actor KNStateActor {
   private var state: Pairing
 
@@ -212,11 +212,12 @@ private final class H8AsyncBridgeViewModel {
   }
 
   /// Test-only helper: forwards to `stateActor.update(_:)` without
-  /// triggering `refresh()`. Production code MUST NOT use this
-  /// path — the snapshot-cache contract requires `refresh()` after
-  /// every actor mutation. The leading underscore + `_testOnly`
-  /// prefix signals "do not call from production".
-  func _testOnlyUpdateActor(_ newValue: Pairing) async {
+  /// triggering `refresh()`. Production code MUST NOT use this path —
+  /// the snapshot-cache contract requires `refresh()` after every
+  /// actor mutation. The `testOnly` prefix signals "do not call from
+  /// production" via naming convention (leading underscore would be
+  /// stronger but SwiftLint's `identifier_name` rule rejects it).
+  func testOnlyUpdateActor(_ newValue: Pairing) async {
     await stateActor.update(newValue)
   }
 }
