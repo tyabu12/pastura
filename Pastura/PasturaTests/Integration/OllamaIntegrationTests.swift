@@ -31,16 +31,38 @@ private enum OllamaConfig {
 
 /// Integration tests that run against a live Ollama instance.
 ///
-/// Gated by `OLLAMA_INTEGRATION=1` environment variable. These tests are skipped
-/// in normal CI runs and require a local Ollama server with the target model pulled.
+/// Gated by the `OLLAMA_INTEGRATION` environment variable being `"1"`.
+/// These tests are skipped in normal CI runs and require a live Ollama
+/// server with the target model already pulled.
+///
+/// Prerequisites:
+/// 1. `ollama serve` running on `OLLAMA_BASE_URL` (default
+///    `http://localhost:11434`).
+/// 2. Target model pulled — e.g., `ollama pull gemma4:e2b` (the default;
+///    override via `OLLAMA_MODEL`). `requireOllamaAvailable()` below
+///    throws a descriptive error if either is missing.
 ///
 /// Run with:
-/// ```
-/// OLLAMA_INTEGRATION=1 xcodebuild test -scheme Pastura \
-///   -project Pastura/Pastura.xcodeproj \
-///   -destination 'platform=iOS Simulator,name=iPhone 16' \
-///   -only-testing PasturaTests/OllamaIntegrationTests
-/// ```
+/// 1. Enable the scheme's env var. Either:
+///    - Xcode → Edit Scheme → Run → Arguments → Environment Variables →
+///      check `OLLAMA_INTEGRATION`. `OLLAMA_BASE_URL` and `OLLAMA_MODEL`
+///      are NOT pre-listed in `Pastura.xcscheme`; add rows for them only
+///      if overriding the defaults above.
+///    - OR edit `Pastura.xcscheme` directly and flip `isEnabled="NO"` →
+///      `isEnabled="YES"` on the `OLLAMA_INTEGRATION` row.
+/// 2. Run from Xcode (Cmd+U on this suite) OR from the CLI wrapper:
+///    ```
+///    source scripts/sim-dest.sh
+///    scripts/xcodebuild.sh test \
+///      -only-testing PasturaTests/OllamaIntegrationTests
+///    ```
+///
+/// **Why scheme-toggle, not raw CLI env vars**: env vars set on the
+/// `xcodebuild` command line are NOT automatically forwarded to the test
+/// runner subprocess. The scheme env (with
+/// `shouldUseLaunchSchemeArgsEnv="YES"` on the TestAction) is the standard
+/// mechanism — same pattern as `LLAMACPP_INTEGRATION` (see
+/// `.claude/rules/xcodebuild-cli.md`).
 @Suite(.serialized, .enabled(if: OllamaConfig.isEnabled))
 struct OllamaIntegrationTests {
 
