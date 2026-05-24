@@ -8,7 +8,7 @@ struct ModelRegistryTests {
   // Production catalog integrity
   @Test func catalog_hasExpectedModels() {
     let ids = ModelRegistry.catalog.map(\.id)
-    #expect(ids == ["gemma-4-e2b-q4-k-m", "qwen-3-4b-q4-k-m"])
+    #expect(ids == ["gemma-4-e2b-q4-k-m", "qwen-3-4b-q4-k-m", "gemma-3-1b-it-q4-k-m"])
   }
 
   @Test func catalog_passesValidateNoCollisions() {
@@ -44,6 +44,47 @@ struct ModelRegistryTests {
     #expect(!ModelRegistry.qwen34B.tagline.isEmpty)
     #expect(ModelRegistry.qwen34B.shortDisplayName != nil)
     #expect(ModelRegistry.qwen34B.shortDisplayName?.contains("Q4_K_M") == false)
+  }
+
+  @Test func gemma3_taglineAndShortDisplayName_areSet() {
+    #expect(!ModelRegistry.gemma31B.tagline.isEmpty)
+    #expect(ModelRegistry.gemma31B.shortDisplayName != nil)
+    #expect(ModelRegistry.gemma31B.shortDisplayName?.contains("Q4_K_M") == false)
+  }
+
+  /// Gemma 3 1B IT is a Phase 2 lower-tier addition (#477) for 6 GB RAM
+  /// devices. `minRAM` MUST be below the 6.5 GB shared floor used by the
+  /// heavier Gemma 4 / Qwen 3 entries — otherwise the per-descriptor gating
+  /// migration (Plan Item 4) would still leave 6 GB devices stuck on
+  /// `.unsupportedDevice`. The exact value (5.5 GB) leaves OS-overhead
+  /// headroom and is tunable from on-device PoC measurements.
+  @Test func gemma3_minRAM_belowSharedFloor() {
+    #expect(ModelRegistry.gemma31B.minRAM < 6_500_000_000)
+  }
+
+  /// Gemma 3 has no thinking-mode token (cf. Qwen 3's `<think>`-driven
+  /// crash #366), so it must NOT carry an `assistantPrefix`. A non-nil
+  /// prefix here would silently change Gemma 3's generation surface.
+  @Test func gemma3_hasNoAssistantPrefix() {
+    #expect(ModelRegistry.gemma31B.assistantPrefix == nil)
+  }
+
+  /// PoC draft sentinel canary (#477). The PoC flow downloads the real
+  /// GGUF on a 6 GB device, measures `fileSize` and `sha256`, and replaces
+  /// these placeholders before the PR is moved out of draft. Until then:
+  ///
+  /// - `fileSize == 0` trips `ModelManager.computeState`'s
+  ///   `descriptor.fileSize > 0` guard (no size-mismatch deletion).
+  /// - `sha256 == ""` trips `ModelManager.verifyDownloadIntegrity`'s
+  ///   `!descriptor.sha256.isEmpty` guard (integrity check skipped).
+  ///
+  /// `ModelRegistry.validateProductionReadiness()` (added in the next
+  /// commit) traps these sentinels in Release builds. When PoC values
+  /// land, REPLACE this test with `gemma3_integrityMetadataMatchesFetchedValues`
+  /// mirroring the Gemma 4 / Qwen 3 integrity assertions above.
+  @Test func gemma3_draftSentinelPlaceholders_pendingPoC() {
+    #expect(ModelRegistry.gemma31B.fileSize == 0)
+    #expect(ModelRegistry.gemma31B.sha256 == "")
   }
 
   // Gemma upgrade-compat contract: filename must match the legacy constant

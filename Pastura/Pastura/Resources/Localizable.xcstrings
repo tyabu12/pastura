@@ -2570,6 +2570,16 @@
         }
       }
     },
+    "Lightest of the lineup. Friendly to older devices." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラインナップ最軽量。古い端末でも気軽に試せる。"
+          }
+        }
+      }
+    },
     "Lightweight reasoning mode — faster responses, leaner footprint." : {
       "localizations" : {
         "ja" : {

@@ -71,8 +71,49 @@ enum ModelRegistry {
     tagline: String(localized: "Lightweight reasoning mode — faster responses, leaner footprint.")
   )
 
-  /// Full production catalog, ordered by display preference (Gemma first, Qwen second).
-  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B]
+  /// Lower-tier Gemma 3 1B IT — added for 6 GB RAM device support (#477).
+  /// 8 GB+ devices retain Gemma 4 E2B as the heavier default; the picker /
+  /// `ModelManager` gating use per-descriptor `minRAM` to route 6 GB tier
+  /// devices (iPhone 13/14/15 standard, SE 3rd) to this descriptor.
+  ///
+  /// Verified compatible with Gemma 4's `LlamaCppService` plumbing (same
+  /// unsloth GGUF → ChatML `<|im_end|>` stop token; no `<think>` prefill
+  /// required since Gemma 3 has no thinking mode).
+  nonisolated static let gemma31B: ModelDescriptor = ModelDescriptor(
+    id: "gemma-3-1b-it-q4-k-m",
+    displayName: "Gemma 3 1B IT (Q4_K_M)",
+    shortDisplayName: "Gemma 3 1B",
+    vendor: "Google",
+    vendorURL: unsafeURL("https://deepmind.google"),
+    downloadURL: unsafeURL(
+      "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/f7694be509de1c4ab9afc29f8353a315326c64f3/gemma-3-1b-it-Q4_K_M.gguf"
+    ),
+    fileName: "gemma-3-1b-it-Q4_K_M.gguf",
+    // Sentinel placeholders for the PoC draft (#477). `fileSize: 0` trips
+    // the "skip size-mismatch deletion" path in `ModelManager.computeState`,
+    // and `sha256: ""` trips the "skip integrity check" path in
+    // `ModelManager.verifyDownloadIntegrity`. Both are intentional for
+    // draft state — PoC measures real values on a 6 GB device and replaces
+    // them before the PR moves out of draft. `validateProductionReadiness()`
+    // (next commit) traps these sentinels in Release builds so they cannot
+    // ship to TestFlight.
+    fileSize: 0,
+    sha256: "",
+    stopSequence: "<|im_end|>",
+    // 5.5 GB — leaves OS-overhead headroom on iPhone 13/14/15 standard
+    // (6 GB physical). Concrete floor is tunable from PoC memory measurements.
+    minRAM: 5_500_000_000,
+    modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-3-1b-it-GGUF"),
+    systemPromptSuffix: nil,
+    // Gemma 3 has no thinking-mode token (cf. Qwen 3's `<think>`-driven
+    // crash #366), so no assistant-turn prefill is required.
+    assistantPrefix: nil,
+    tagline: String(localized: "Lightest of the lineup. Friendly to older devices.")
+  )
+
+  /// Full production catalog, ordered by display preference
+  /// (Gemma 4 E2B → Qwen 3 4B → Gemma 3 1B).
+  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B, gemma31B]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).
   ///
