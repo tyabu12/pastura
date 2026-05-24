@@ -471,34 +471,14 @@ extension LlamaCppService {
       throw LLMError.notLoaded
     }
 
-    let vocab = llama_model_get_vocab(model)
-
-    // Apply chat template to format system+user into model-native format
-    let formattedPrompt = try applyChatTemplate(system: system, user: user)
-
-    // Tokenize the formatted prompt
-    let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
-
-    let nCtx = Int(llama_n_ctx(context))
-    guard tokens.count <= nCtx else {
-      throw LLMError.generationFailed(
-        description: String(
-          format: String(localized: "Prompt (%lld tokens) exceeds context size (%lld)"),
-          tokens.count, nCtx)
-      )
-    }
-
-    // Clear KV cache for independent inference (each generate() call is self-contained)
-    llama_memory_clear(llama_get_memory(context), true)
-
-    // Prefill: process prompt tokens
-    try prefill(context: context, tokens: tokens)
-
-    // Set up sampler chain. Grammar (if any) is built once per call
-    // and fed to `createSampler`; it lives only for this generation.
-    let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
-    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
-    defer { llama_sampler_free(sampler) }
+    // Shared pre-decode pipeline (see `LlamaCppService+PrepareGeneration.swift`
+    // for the load-bearing precondition / sampler-ownership notes — issue #428).
+    let prepared = try prepareGeneration(
+      model: model, context: context,
+      system: system, user: user, schema: schema)
+    defer { llama_sampler_free(prepared.sampler) }
+    let vocab = prepared.vocab
+    let sampler = prepared.sampler
 
     // Auto-regressive generation loop with string-based stop detection.
     // Tokens are decoded incrementally so we can detect <|im_end|> even when
@@ -567,10 +547,7 @@ extension LlamaCppService {
       }
     }
 
-    guard !outputText.isEmpty else {
-      throw LLMError.generationFailed(
-        description: String(localized: "Model generated no output tokens"))
-    }
+    try assertNonEmptyOutput(outputText)
 
     #if DEBUG
       if let collector = traceCollector {
@@ -638,7 +615,7 @@ extension LlamaCppService {
   /// `schema` reaches here via `generateStream`; it is unused in Item 2
   /// but kept in the signature so Item 4 can wire `createSampler`
   /// without reshaping the call chain again.
-  fileprivate func runStreamGeneration(  // swiftlint:disable:this function_body_length cyclomatic_complexity
+  fileprivate func runStreamGeneration(  // swiftlint:disable:this function_body_length
     system: String, user: String, schema: OutputSchema?,
     continuation: AsyncThrowingStream<LLMStreamChunk, Error>.Continuation
   ) async throws {
@@ -658,29 +635,17 @@ extension LlamaCppService {
       throw LLMError.notLoaded
     }
 
-    let vocab = llama_model_get_vocab(model)
-    let formattedPrompt = try applyChatTemplate(system: system, user: user)
-    let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
-
-    let nCtx = Int(llama_n_ctx(context))
-    guard tokens.count <= nCtx else {
-      throw LLMError.generationFailed(
-        description: String(
-          format: String(localized: "Prompt (%lld tokens) exceeds context size (%lld)"),
-          tokens.count, nCtx)
-      )
-    }
-
-    llama_memory_clear(llama_get_memory(context), true)
-    try prefill(context: context, tokens: tokens)
-
-    // Grammar-constrained sampling: build once per stream invocation
-    // (matching the non-streaming path in `runGeneration`). Missing
-    // wire-up here would silently bypass grammar on the streaming
-    // path — the regression scenario Critic Axis 3 flagged.
-    let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
-    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
-    defer { llama_sampler_free(sampler) }
+    // Shared pre-decode pipeline (see `LlamaCppService+PrepareGeneration.swift`).
+    // Grammar wire-up: both `runGeneration` and `runStreamGeneration`
+    // build the sampler through this single helper, so a non-nil
+    // `schema` constrains both paths uniformly — the regression class
+    // a previous Critic Axis 3 flagged on the streaming path (issue #428).
+    let prepared = try prepareGeneration(
+      model: model, context: context,
+      system: system, user: user, schema: schema)
+    defer { llama_sampler_free(prepared.sampler) }
+    let vocab = prepared.vocab
+    let sampler = prepared.sampler
 
     // Byte-level accumulation so UTF-8 characters split across pieces
     // (common for CJK / emoji) never emit as partial replacement
@@ -769,10 +734,7 @@ extension LlamaCppService {
       emittedCharCount = decodedText.count
     }
 
-    guard !decodedText.isEmpty else {
-      throw LLMError.generationFailed(
-        description: String(localized: "Model generated no output tokens"))
-    }
+    try assertNonEmptyOutput(decodedText)
 
     #if DEBUG
       if let collector = traceCollector {
