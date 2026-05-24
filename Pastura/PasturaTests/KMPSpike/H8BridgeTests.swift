@@ -115,6 +115,12 @@ struct H8BridgeTests {
   /// COMPUTED property whose storage lives on a non-`@Observable` type. K/N
   /// state holders that an iOS feature wants to expose with SwiftUI binding
   /// will hit exactly this shape.
+  ///
+  /// **Scope note**: this test verifies the bridge is *sufficient* (mutation
+  /// via `bridgedPairing.set` fires observation). A negative control test
+  /// (bypass the bridge by mutating `bridgeHolder.pairing` directly and
+  /// assert `signal.fired == false`) would lock the contract as *necessary*
+  /// — deferred to W3 PR-C per code-reviewer suggestion.
   @Test
   func bridgeAccessWithMutationTriggersObservation() {
     let signal = ObservationFireSignal()
@@ -212,7 +218,7 @@ final class H8BridgeTestViewModel {
 /// is sound: the holder is reachable only from a `@MainActor`-isolated VM,
 /// and Observation's `withMutation` dispatch fires synchronously on the
 /// caller's actor.
-final class KNStateHolder: @unchecked Sendable {
+private final class KNStateHolder: @unchecked Sendable {
   var pairing: Pairing
   init(pairing: Pairing) { self.pairing = pairing }
 }
@@ -253,6 +259,6 @@ private func makeNoOpPhase(_ type: PhaseType) -> Phase {
 /// into this box, and Observation's dispatch fires `onChange`
 /// synchronously on the mutating call under `@MainActor` isolation
 /// (W3 PR-A `H8Smoke.verifyBridgeFires` documents this contract).
-final class ObservationFireSignal: @unchecked Sendable {
+private final class ObservationFireSignal: @unchecked Sendable {
   var fired = false
 }
