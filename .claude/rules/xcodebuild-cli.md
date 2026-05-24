@@ -73,9 +73,15 @@ consumed before xcodebuild is invoked).
 | CI full run | `.github/workflows/ci.yml` (bypasses wrapper) |
 
 Skip UI tests with `-skip-testing:PasturaUITests` when the change
-does not touch UI (UI tests are not required for MVP). Ollama
-integration tests require `OLLAMA_INTEGRATION` env var enabled in the
-scheme; otherwise auto-skipped.
+does not touch UI (UI tests are not required for MVP). Integration
+tests (Ollama / Llama) require their `*_INTEGRATION` env var enabled
+**in the scheme** (`LaunchAction > EnvironmentVariables` inherited by
+`TestAction` via `shouldUseLaunchSchemeArgsEnv="YES"`). CLI env vars
+passed to `scripts/xcodebuild.sh test` (or bare `xcodebuild test`) are
+NOT forwarded to the test runner subprocess — that path silently
+skips the suite while xcodebuild still prints `TEST SUCCEEDED`.
+Toggle in Xcode UI, or temporarily flip `isEnabled="YES"` in the XML
+before running — revert before commit.
 
 ## --tail (built-in, pipefail-safe)
 
