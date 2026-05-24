@@ -179,4 +179,47 @@ enum ModelRegistry {
       "ModelRegistry catalog collisions: \(reasons.joined(separator: ", "))"
     )
   }
+
+  /// Returns diagnostic reasons if `catalog` contains descriptors with PoC
+  /// sentinel placeholders (`fileSize == 0` or empty `sha256`). Empty result
+  /// means every descriptor carries integrity metadata suitable for Release
+  /// shipment. Exposed for testability; `validateProductionReadiness` wraps
+  /// this in a precondition.
+  ///
+  /// Background: PoC-draft descriptors (issue #477) intentionally carry
+  /// sentinel placeholders that trip `ModelManager.computeState`'s
+  /// `descriptor.fileSize > 0` size-check and `verifyDownloadIntegrity`'s
+  /// `!descriptor.sha256.isEmpty` SHA-check. These sentinels MUST be
+  /// replaced with measured values from on-device PoC before any catalog
+  /// descriptor ships to TestFlight — otherwise a corrupted GGUF download
+  /// would land as `.ready` without integrity verification.
+  nonisolated static func findSentinels(in catalog: [ModelDescriptor]) -> [String] {
+    var reasons: [String] = []
+    for descriptor in catalog {
+      if descriptor.fileSize <= 0 {
+        reasons.append(
+          "Descriptor '\(descriptor.id)' has sentinel fileSize \(descriptor.fileSize) "
+            + "— must be > 0 in Release builds (#477 PoC).")
+      }
+      if descriptor.sha256.isEmpty {
+        reasons.append(
+          "Descriptor '\(descriptor.id)' has empty sha256 "
+            + "— must be set to the on-device-measured SHA-256 in Release builds (#477 PoC).")
+      }
+    }
+    return reasons
+  }
+
+  /// Precondition-checks the production catalog for PoC sentinel placeholders.
+  /// Call from `PasturaApp.initialize` under `#if !DEBUG` so Release builds
+  /// crash fast at launch if sentinels haven't been replaced with measured
+  /// values from on-device PoC. Debug builds skip the check so PoC iteration
+  /// is unblocked — see `findSentinels(in:)` doc for the integrity rationale.
+  nonisolated static func validateProductionReadiness() {
+    let reasons = findSentinels(in: catalog)
+    precondition(
+      reasons.isEmpty,
+      "ModelRegistry catalog not production-ready: \(reasons.joined(separator: " "))"
+    )
+  }
 }

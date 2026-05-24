@@ -391,6 +391,13 @@ private struct RootView: View {
     // duplicate ids / fileNames crash in dev rather than corrupting
     // ModelManager.state lookups or filesystem paths silently at runtime.
     ModelRegistry.validateNoCollisions()
+    #if !DEBUG
+      // Release-only: trap PoC sentinel placeholders (#477) so a draft
+      // descriptor with `fileSize: 0` / `sha256: ""` cannot accidentally
+      // ship to TestFlight — those sentinels skip integrity verification.
+      // Debug builds skip the check to unblock PoC iteration.
+      ModelRegistry.validateProductionReadiness()
+    #endif
     #if targetEnvironment(simulator)
       // On simulator, use OllamaService directly — no model download needed.
       do {

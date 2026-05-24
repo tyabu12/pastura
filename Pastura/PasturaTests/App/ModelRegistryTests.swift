@@ -145,6 +145,73 @@ struct ModelRegistryTests {
     #expect(ModelRegistry.lookup(id: "no-such-model") == nil)
   }
 
+  // MARK: - validateProductionReadiness (#477)
+  //
+  // Sentinel detection for PoC-draft descriptors. The wrapper
+  // `validateProductionReadiness()` is `precondition`-based and only
+  // invoked from `PasturaApp.initialize` under `#if !DEBUG`, so it
+  // cannot be tested directly here without crashing the test process.
+  // We test `findSentinels` (the pure helper) instead, mirroring the
+  // `findCollisions` / `validateNoCollisions` split above.
+
+  @Test func findSentinels_detectsZeroFileSize() {
+    let sentinel = ModelDescriptor(
+      id: "test-sentinel-filesize",
+      displayName: "Test",
+      vendor: "Test",
+      vendorURL: ModelRegistry.gemma4E2B.vendorURL,
+      downloadURL: ModelRegistry.gemma4E2B.downloadURL,
+      fileName: "test-sentinel-filesize.gguf",
+      fileSize: 0,
+      sha256: "abc",
+      stopSequence: "<|im_end|>",
+      minRAM: 6_500_000_000,
+      modelInfoURL: ModelRegistry.gemma4E2B.modelInfoURL,
+      systemPromptSuffix: nil
+    )
+    let reasons = ModelRegistry.findSentinels(in: [sentinel])
+    #expect(!reasons.isEmpty)
+    #expect(reasons.contains(where: { $0.contains("fileSize") }))
+  }
+
+  @Test func findSentinels_detectsEmptySha256() {
+    let sentinel = ModelDescriptor(
+      id: "test-sentinel-sha",
+      displayName: "Test",
+      vendor: "Test",
+      vendorURL: ModelRegistry.gemma4E2B.vendorURL,
+      downloadURL: ModelRegistry.gemma4E2B.downloadURL,
+      fileName: "test-sentinel-sha.gguf",
+      fileSize: 100,
+      sha256: "",
+      stopSequence: "<|im_end|>",
+      minRAM: 6_500_000_000,
+      modelInfoURL: ModelRegistry.gemma4E2B.modelInfoURL,
+      systemPromptSuffix: nil
+    )
+    let reasons = ModelRegistry.findSentinels(in: [sentinel])
+    #expect(!reasons.isEmpty)
+    #expect(reasons.contains(where: { $0.contains("sha256") }))
+  }
+
+  @Test func findSentinels_emptyForConcreteDescriptors() {
+    // Gemma 4 + Qwen 3 both carry concrete fileSize / sha256.
+    let reasons = ModelRegistry.findSentinels(in: [
+      ModelRegistry.gemma4E2B, ModelRegistry.qwen34B
+    ])
+    #expect(reasons.isEmpty)
+  }
+
+  /// Canary for the PoC discipline: the production catalog currently
+  /// carries Gemma 3 1B's sentinel placeholders. When PoC fills in
+  /// real values, this test flips to assert `reasons.isEmpty` and
+  /// `validateProductionReadiness()` becomes safe to call against the
+  /// production catalog in all build configs.
+  @Test func findSentinels_currentCatalogHasGemma3PoCSentinels() {
+    let reasons = ModelRegistry.findSentinels(in: ModelRegistry.catalog)
+    #expect(reasons.contains(where: { $0.contains("gemma-3-1b-it-q4-k-m") }))
+  }
+
   @Test func findCollisions_detectsDuplicateFileNames() {
     // Fabricate two descriptors with same fileName but different ids
     let base = ModelRegistry.gemma4E2B
