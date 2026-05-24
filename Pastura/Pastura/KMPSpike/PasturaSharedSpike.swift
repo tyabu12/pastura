@@ -165,6 +165,10 @@ enum PasturaSharedSpike {
   /// in `commonMain` that return the parent type. Tracked as a W4
   /// scope item in the PR-C checkpoint.
   static func sampleTurnOutput() -> TurnOutput {
+    // TODO(#220 W4 PR-A): replace this pivot with the planned
+    // `sampleSimulationEvent()` once the Kotlin facade flattens
+    // sealed-class subtype construction (see doc-comment above for
+    // the swift_name dot-syntax limitation).
     TurnOutput(fields: ["statement": "Hello from spike", "action": "cooperate"])
   }
 }

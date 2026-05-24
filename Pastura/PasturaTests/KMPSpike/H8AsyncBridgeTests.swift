@@ -32,6 +32,12 @@ import Testing
 // The retroactive `@unchecked Sendable` here is sound (immutable
 // value-typed state) and scoped to the test target.
 //
+// **SOLE DECLARATION** of `Pairing: Sendable` in the test target —
+// adding a duplicate in another file will fail to link with
+// "redundant conformance" error. W4 PR-A (Kotlin facade work) is the
+// natural place to upstream this conformance to a `commonMain`-side
+// declaration, at which point this extension should be removed.
+//
 // **Spike insight**: production K/N integration (post-W6 GO) will need
 // the same bridge for any K/N value type crossed across actor
 // boundaries. Captured in W3 PR-C checkpoint as a W4 measurement
