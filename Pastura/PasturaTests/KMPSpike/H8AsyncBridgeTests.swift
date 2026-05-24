@@ -21,11 +21,82 @@ import Observation
 import PasturaShared
 import Testing
 
+// MARK: - Sendable conformance bridge for K/N exports
+//
+// `Pairing` is a Kotlin `data class` with all-`val` String/String?
+// fields — fully immutable and thread-safe by Kotlin idiom (see
+// `shared/models/src/commonMain/kotlin/com/pastura/models/Pairing.kt`).
+// K/N's Obj-C export does not surface the Swift `Sendable` protocol, so
+// the actor-cross hop in `KNStateActor.read()` / `update(_:)` fails
+// Swift 6 strict concurrency checks without an explicit conformance.
+// The retroactive `@unchecked Sendable` here is sound (immutable
+// value-typed state) and scoped to the test target.
+//
+// **Spike insight**: production K/N integration (post-W6 GO) will need
+// the same bridge for any K/N value type crossed across actor
+// boundaries. Captured in W3 PR-C checkpoint as a W4 measurement
+// candidate — Q9 type expansion may add similar conformances for
+// Persona / Scenario / SimulationEvent if they need actor crossing.
+extension PasturaShared.Pairing: @retroactive @unchecked Sendable {}
+
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct H8AsyncBridgeTests {
 
-  // H8-5 runtime test added in the next commit.
+  /// H8-5: state owned by a `KNStateActor` propagates to SwiftUI
+  /// observation via the snapshot-cache pattern.
+  ///
+  /// Sequence:
+  /// 1. Construct VM with an initial `Pairing` (cache + actor seeded
+  ///    identically by `init(initial:)`).
+  /// 2. Register `withObservationTracking` on `viewModel.pairing.agent1`
+  ///    (computed getter calls `access(keyPath: \.pairing)`, registering
+  ///    the observation channel).
+  /// 3. Mutate the canonical actor state via the test-only helper —
+  ///    cache is intentionally NOT updated by this call (snapshot-cache
+  ///    contract).
+  /// 4. Call `refresh()`. The direct `await` form (no inner `Task {}`)
+  ///    keeps the actor hop and the MainActor `withMutation` in the
+  ///    same continuation; `onChange` fires synchronously inside
+  ///    `withMutation` before `refresh()` returns.
+  /// 5. Assert observation fired AND that the cache now reflects the
+  ///    new value. The cache assertion guards against a future
+  ///    regression where `refresh()` fires invalidation but forgets
+  ///    to copy the snapshot — a contract that the macro auto-
+  ///    instrumentation (if `cache` were not `@ObservationIgnored`)
+  ///    would mask.
+  @Test
+  func asyncRefreshTriggersObservation() async {
+    let signal = ObservationFireSignal()
+    let viewModel = H8AsyncBridgeViewModel(
+      initial: Pairing(
+        agent1: "Alice",
+        agent2: "Bob",
+        action1: nil,
+        action2: nil
+      )
+    )
+
+    withObservationTracking {
+      _ = viewModel.pairing.agent1
+    } onChange: {
+      signal.fired = true
+    }
+
+    let updated = Pairing(
+      agent1: "Charlie",
+      agent2: "Dave",
+      action1: nil,
+      action2: nil
+    )
+    await viewModel._testOnlyUpdateActor(updated)
+    await viewModel.refresh()
+
+    // assert A: snapshot-cache propagated the actor's new value
+    #expect(viewModel.pairing.agent1 == updated.agent1)
+    // assert B: `withMutation` fired observation through the bridge
+    #expect(signal.fired == true)
+  }
 }
 
 /// Non-`@Observable` actor backing K/N value-typed state for H8-5.
