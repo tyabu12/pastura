@@ -288,6 +288,52 @@ struct ScenarioEditorViewModelTests {
     #expect(reloaded.extraData["topics"] == .array(["Photo A", "Photo B", "Photo C"]))
   }
 
+  /// Visual-mode equivalent of `yamlModeSavePreservesExtraData` above. Save in
+  /// `.visual` mode routes through `currentScenario()` → `buildScenario()`, which
+  /// reads `carriedExtraData` to pass through fields the visual editor has no UI
+  /// for. Reverting the funnel to bypass `buildScenario()` — or removing
+  /// `carriedExtraData` — would silently drop extraData on every visual-mode save.
+  /// Tripwire for the funnel invariant; see `.claude/rules/scenario-editor.md`.
+  @Test func visualModeSavePreservesExtraData() async throws {
+    let (sut, repo) = try makeSUTWithRepo()
+    let boketeYAML = """
+      id: bokete_visual_save_test
+      language: ja
+      name: Bokete Visual Save Test
+      description: Tests extraData survival on visual-mode save via carriedExtraData
+      agents: 2
+      rounds: 1
+      context: Context
+      topics:
+        - Photo A
+        - Photo B
+        - Photo C
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: assign
+          source: topics
+          target: all
+      """
+    sut.loadFromTemplate(yaml: boketeYAML)
+    // editorMode is .visual by default; populateFromScenario captures `topics`
+    // into carriedExtraData. No mode switch — save() must go through the
+    // .visual branch of currentScenario() → buildScenario().
+    #expect(sut.editorMode == .visual)
+
+    let success = await sut.save()
+
+    #expect(success)
+    // loadFromTemplate generates a new UUID-based id; resolve via savedScenarioId.
+    let savedId = try #require(sut.savedScenarioId)
+    let record = try repo.fetchById(savedId)
+    let reloaded = try ScenarioLoader().load(yaml: record?.yamlDefinition ?? "")
+    #expect(reloaded.extraData["topics"] == .array(["Photo A", "Photo B", "Photo C"]))
+  }
+
   @Test func saveSurfacesSourceNotFoundValidationMessage() async throws {
     let sut = try makeSUT()
     // YAML with an `assign` phase referencing a non-existent `topics` source.
