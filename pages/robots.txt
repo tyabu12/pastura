@@ -1,0 +1,8 @@
+# Allow all well-behaved crawlers. The actionable content here is
+# the Sitemap directive — Google/Bing read it as a discovery hint
+# alongside Search Console submission.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://pastura.app/sitemap.xml
