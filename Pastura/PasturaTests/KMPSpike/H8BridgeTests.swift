@@ -74,6 +74,32 @@ struct H8BridgeTests {
 
     #expect(signal.fired == true)
   }
+
+  /// H8-3: Reassigning a K/N enum-typed property triggers observation.
+  /// `PhaseType` (10 cases) exercises K/N's `UPPER_SNAKE_CASE` → Swift
+  /// `lowerCamelCase` export convention (Kotlin's `@SerialName` is the
+  /// JSON wire label, NOT the Swift identifier). Verifies that case
+  /// transition between two distinct values fires `@Observable` macro
+  /// invalidation just like scalar replacement.
+  ///
+  /// Originally planned with `PairingStrategy` but that K/N enum has
+  /// only one case (`.roundRobin`); switched to `PhaseType` for actual
+  /// case-transition coverage.
+  @Test
+  func enumMutationTriggersObservation() {
+    let signal = ObservationFireSignal()
+    let viewModel = H8BridgeTestViewModel()
+
+    withObservationTracking {
+      _ = viewModel.phaseType
+    } onChange: {
+      signal.fired = true
+    }
+
+    viewModel.phaseType = .vote
+
+    #expect(signal.fired == true)
+  }
 }
 
 /// `@Observable` test fixture wrapping K/N value types. Lives in the test
@@ -93,6 +119,11 @@ final class H8BridgeTestViewModel {
   /// observation on in-place mutation (`.append`, `.remove(at:)`).
   var phases: [Phase]
 
+  /// H8-3: K/N enum (10 cases via Kotlin's `UPPER_SNAKE_CASE` →
+  /// Swift `lowerCamelCase` export). Macro-instrumented setter fires
+  /// observation on case transition.
+  var phaseType: PhaseType
+
   init(
     pairing: Pairing = Pairing(
       agent1: "Alice",
@@ -100,10 +131,12 @@ final class H8BridgeTestViewModel {
       action1: nil,
       action2: nil
     ),
-    phases: [Phase] = []
+    phases: [Phase] = [],
+    phaseType: PhaseType = .speakAll
   ) {
     self.pairing = pairing
     self.phases = phases
+    self.phaseType = phaseType
   }
 }
 
