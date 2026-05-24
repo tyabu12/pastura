@@ -31,9 +31,12 @@ struct EditablePersona: Identifiable, Sendable {
 
 /// ViewModel for the dual-mode scenario editor (visual form + raw YAML).
 ///
-/// Manages editor state for both modes and handles mode switching,
-/// validation, template loading, and save flow. YAML is the source of truth:
-/// visual edits are serialized to YAML on mode switch and on save.
+/// State is intentionally a **dual buffer**: visual fields and `yamlText`
+/// are independent, each the source of truth for whichever mode the user
+/// last touched. `currentScenario()` is the single mode-dispatch funnel
+/// that materializes a `(Scenario, yaml)` pair — see PR #336 for the drift
+/// class it resolves. New save / export / preview / share callsites MUST
+/// route through `currentScenario()`; see `.claude/rules/scenario-editor.md`.
 @Observable
 final class ScenarioEditorViewModel {
 
@@ -77,11 +80,14 @@ final class ScenarioEditorViewModel {
   private let validator = ScenarioValidator()
   private let contentValidator = ScenarioContentValidator()
 
-  /// Stores top-level YAML keys that the visual editor has no UI for.
+  /// Top-level YAML keys without a Visual UI, captured by
+  /// `populateFromScenario` so `buildScenario` passes them through on
+  /// visual-mode save (bokete `topics`, word_wolf `words`, …).
   ///
-  /// Captured in `populateFromScenario` so `buildScenario` can pass them
-  /// through unchanged — preventing a silent data loss on every visual-mode save
-  /// for scenarios with custom fields (e.g. bokete `topics`, word_wolf `words`).
+  /// Load-bearing for engine correctness — `scenario.extraData` is read at
+  /// runtime by `AssignHandler.execute`, `EventInjectHandler.execute`, and
+  /// `ScenarioValidator.{validateAssignPhaseShape,validateEventInjectShape}`.
+  /// Removing the carry would silently drop these fields on visual-mode save.
   private var carriedExtraData: [String: AnyCodableValue] = [:]
 
   init(repository: any ScenarioRepository) {
