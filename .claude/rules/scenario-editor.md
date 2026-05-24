@@ -29,12 +29,13 @@ the mode dispatch and silently re-introduces the #336 drift class.
 rg 'buildScenario\(\)' Pastura/Pastura/App/ScenarioEditorViewModel.swift
 ```
 
-Should return ≤3 hits (callsites from `switchToYAMLMode()` and
+Should return **exactly 3 hits** (callsites from `switchToYAMLMode()` and
 `currentScenario()`, plus the `private func buildScenario()` declaration).
-Hit-count assertion — line numbers drift on any insertion. A 4th hit means
-a new consumer is reading visual state directly: either route through
+Hit-count assertion — line numbers drift on any insertion. **>3** means a
+new consumer is reading visual state directly: either route through
 `currentScenario()`, or treat it as a named re-evaluation trigger for #338
-(the source-of-truth shift was deliberately deferred).
+(the source-of-truth shift was deliberately deferred). **<3** means a
+sanctioned callsite was dropped — same re-evaluation gate applies.
 
 ## Related
 
