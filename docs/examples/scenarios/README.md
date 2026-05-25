@@ -7,9 +7,10 @@ experiments, and games can be expressed with the declarative scenario engine.
 
 ## How to Use
 
-Copy the YAML into the app via **Home → + → Import YAML**, or paste it into
-the Visual Editor in YAML mode. You can also adapt the YAML as a starting
-point for your own experiments.
+Copy the YAML into the app via **Home → + → New Scenario → YAML mode** and
+either paste the text directly or tap the file-picker icon to load it from
+disk. You can also adapt the YAML as a starting point for your own
+experiments.
 
 ## Adding New Examples
 
