@@ -29,17 +29,10 @@ struct HomeView: View {
         }
         .hidingPasturaSharedBackground()
         ToolbarItem(placement: .primaryAction) {
-          Menu {
-            NavigationLink(value: newScenarioRoute()) {
-              Label(String(localized: "New Scenario"), systemImage: "doc.badge.plus")
-            }
-            .accessibilityIdentifier("home.newScenarioButton")
-            NavigationLink(value: Route.importScenario()) {
-              Label(String(localized: "Import YAML"), systemImage: "doc.text")
-            }
-          } label: {
-            Label(String(localized: "Add"), systemImage: "plus")
+          NavigationLink(value: newScenarioRoute()) {
+            Label(String(localized: "New Scenario"), systemImage: "plus")
           }
+          .accessibilityIdentifier("home.newScenarioButton")
         }
         .hidingPasturaSharedBackground()
       }
@@ -186,8 +179,6 @@ struct HomeView: View {
     switch route {
     case .scenarioDetail(let scenarioId, let initialName):
       ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
-    case .importScenario(let editingId):
-      ImportView(editingId: editingId)
     case .editor(let editingId, let templateYAML):
       editorView(editingId: editingId, templateYAML: templateYAML)
     case .simulation(let scenarioId, let initialName):

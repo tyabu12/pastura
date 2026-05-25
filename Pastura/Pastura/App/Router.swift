@@ -20,11 +20,10 @@ enum Route: Hashable {
     initialName: RouteHint<String> = .init()
   )
 
-  /// YAML import screen. Pass an existing scenario ID to edit.
-  case importScenario(editingId: String? = nil)
-
-  /// Visual scenario editor. Pass a scenario ID to edit, or nil for new.
-  /// `templateYAML` pre-fills the editor from a preset (generates new ID).
+  /// Dual-mode (visual + YAML) scenario editor. Pass a scenario ID to
+  /// edit, or nil for new. `templateYAML` pre-fills the editor from a
+  /// preset (generates new ID). The YAML mode toolbar surfaces file
+  /// picker + generation-prompt copy for the new-scenario flow.
   case editor(editingId: String? = nil, templateYAML: String? = nil)
 
   /// Live simulation execution screen.
