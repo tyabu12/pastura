@@ -289,4 +289,54 @@ extension ModelManagerTests {
     )
     #expect(id == "light")
   }
+
+  // MARK: - downloadableCatalog (#477 Item 6)
+  //
+  // `ModelPickerView` uses this helper to surface only tier-appropriate
+  // descriptors in the first-launch picker. The check is `minRAM` based
+  // (not `state[id] != .unsupportedDevice`) so the picker filter is correct
+  // even when called before `checkModelStatus()` has populated `state`.
+
+  @Test("downloadableCatalog: 6 GB tier filters out heavy descriptors")
+  func downloadableCatalog_6GBTier_excludesHeavy() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 4 * 1024 * 1024 * 1024
+    )
+    let sut = makeSUT(physicalMemory: 6 * 1024 * 1024 * 1024, catalog: [heavy, light])
+    #expect(sut.downloadableCatalog.map(\.id) == ["light"])
+  }
+
+  @Test("downloadableCatalog: 8 GB+ tier returns the full catalog in order")
+  func downloadableCatalog_8GBTier_returnsAll() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 4 * 1024 * 1024 * 1024
+    )
+    let sut = makeSUT(physicalMemory: 8 * 1024 * 1024 * 1024, catalog: [heavy, light])
+    #expect(sut.downloadableCatalog.map(\.id) == ["heavy", "light"])
+  }
+
+  @Test("downloadableCatalog: sub-tier device returns empty (no descriptor fits)")
+  func downloadableCatalog_subTier_returnsEmpty() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 5 * 1024 * 1024 * 1024
+    )
+    // 4 GB device: neither descriptor fits.
+    let sut = makeSUT(physicalMemory: 4 * 1024 * 1024 * 1024, catalog: [heavy, light])
+    #expect(sut.downloadableCatalog.isEmpty)
+  }
 }

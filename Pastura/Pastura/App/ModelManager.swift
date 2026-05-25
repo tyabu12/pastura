@@ -267,6 +267,18 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     catalog.first(where: { $0.id == activeModelID })
   }
 
+  /// Catalog filtered to descriptors whose `minRAM` fits this device. Used by
+  /// `ModelPickerView` to surface only tier-appropriate options on the
+  /// first-launch picker (#477) — heavier descriptors are excluded outright
+  /// rather than rendered as disabled rows.
+  ///
+  /// `minRAM`-based check (not `state[id] != .unsupportedDevice`) so the
+  /// filter is correct even when called before `checkModelStatus()` has
+  /// populated `state` (e.g., at picker `init` time).
+  var downloadableCatalog: [ModelDescriptor] {
+    catalog.filter { $0.minRAM <= physicalMemory }
+  }
+
   /// State of the currently-active model. `.checking` if the active id is not in
   /// the state dict (should not happen post-`checkModelStatus`).
   var activeState: ModelState {

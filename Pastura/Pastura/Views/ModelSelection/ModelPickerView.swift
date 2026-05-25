@@ -49,7 +49,11 @@ struct ModelPickerView: View {
       initialValue: ModelSelectionState(
         selected: recommended,
         recommendedID: recommended,
-        availableModels: modelManager.catalog
+        // `downloadableCatalog` filters out descriptors whose `minRAM` doesn't
+        // fit this device (#477) — 6 GB tier picker shows only Gemma 3 1B,
+        // 8 GB+ tier shows all three. Heavier descriptors are excluded outright
+        // rather than rendered as disabled rows.
+        availableModels: modelManager.downloadableCatalog
       )
     )
   }
