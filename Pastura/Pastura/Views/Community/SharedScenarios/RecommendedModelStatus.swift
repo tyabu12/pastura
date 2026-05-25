@@ -35,8 +35,11 @@ nonisolated enum RecommendedModelStatus: Equatable {
   /// Settings → Models cover.
   case downloading
 
-  /// Device fails the 6.5 GB minimum-RAM floor. Phase 2 leaves these users
-  /// fully unsupported; gallery suppresses both banner and affordance.
+  /// The recommended descriptor's per-descriptor `minRAM` exceeds this
+  /// device's RAM (post-#477 per-descriptor gating). The device may still
+  /// run a lighter descriptor — this case only signals "the recommended
+  /// model in particular doesn't fit"; gallery suppresses both banner and
+  /// affordance for this scenario.
   case unsupportedDevice
 
   /// `ModelRegistry.lookup(id: recommendedID)` returned nil — forward-compat
