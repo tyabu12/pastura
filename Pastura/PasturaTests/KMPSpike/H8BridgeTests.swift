@@ -141,6 +141,45 @@ struct H8BridgeTests {
 
     #expect(signal.fired == true)
   }
+
+  /// H8-4 negative control: bypass `withMutation` and assert observation
+  /// does NOT fire. Closes the gap left by H8-4 (which proved the bridge
+  /// is *sufficient*) by also proving it is *necessary* — writing
+  /// `bridgeHolder.pairing` directly, without going through
+  /// `withMutation`, must produce no SwiftUI invalidation. Without this,
+  /// the H8-4 contract could be satisfied vacuously (e.g., if the macro
+  /// were instrumenting the bridge holder by some other route).
+  ///
+  /// Two assertions together close the gap:
+  /// - **assert A**: the bypass actually mutated holder state. Guards
+  ///   against a no-op `unsafeBypassMutation` false-positive — without
+  ///   this, a method body that did nothing would also "pass" assert B.
+  /// - **assert B**: the bypass did NOT fire observation. Locks the
+  ///   `access`/`withMutation` pair as the only legitimate channel.
+  @Test
+  func bridgeBypassDoesNotTriggerObservation() {
+    let signal = ObservationFireSignal()
+    let viewModel = H8BridgeTestViewModel()
+
+    withObservationTracking {
+      _ = viewModel.bridgedPairing.agent1
+    } onChange: {
+      signal.fired = true
+    }
+
+    let bypassed = Pairing(
+      agent1: "Mallory",
+      agent2: "Niaj",
+      action1: nil,
+      action2: nil
+    )
+    viewModel.unsafeBypassMutation(bypassed)
+
+    // assert A: bypass DID mutate holder state (rule out no-op false-positive)
+    #expect(viewModel.bridgedPairing.agent1 == bypassed.agent1)
+    // assert B: bypass DID NOT fire observation (bridge necessity proof)
+    #expect(signal.fired == false)
+  }
 }
 
 /// `@Observable` test fixture wrapping K/N value types. Lives in the test
@@ -208,6 +247,22 @@ final class H8BridgeTestViewModel {
     self.phases = phases
     self.phaseType = phaseType
     self.bridgeHolder = KNStateHolder(pairing: bridgedPairing)
+  }
+
+  /// H8-4 negative control helper: writes `bridgeHolder.pairing` directly,
+  /// bypassing the `access(keyPath:)` / `withMutation(keyPath:)` channel
+  /// that `bridgedPairing`'s setter invokes. Test-only — production code
+  /// MUST go through `bridgedPairing`'s setter to preserve SwiftUI
+  /// invalidation.
+  ///
+  /// Implementation note: this method writes ONLY `bridgeHolder.pairing`
+  /// and touches NOTHING else on `self`. Mutating any other macro-tracked
+  /// property (e.g., `pairing`, `phases`, `phaseType`) would fire
+  /// observation through that other channel and false-positive
+  /// `bridgeBypassDoesNotTriggerObservation`. The narrow body is
+  /// load-bearing for the negative control's validity.
+  func unsafeBypassMutation(_ newValue: Pairing) {
+    bridgeHolder.pairing = newValue
   }
 }
 
