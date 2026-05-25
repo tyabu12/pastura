@@ -920,17 +920,6 @@
         }
       }
     },
-    "Add" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "追加"
-          }
-        }
-      }
-    },
     "Add Persona" : {
       "localizations" : {
         "ja" : {
@@ -1824,17 +1813,6 @@
         }
       }
     },
-    "Edit Scenario" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオを編集"
-          }
-        }
-      }
-    },
     "Editor Mode" : {
       "localizations" : {
         "ja" : {
@@ -2403,39 +2381,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ID: %@"
-          }
-        }
-      }
-    },
-    "Import" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "インポート"
-          }
-        }
-      }
-    },
-    "Import Scenario" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオをインポート"
-          }
-        }
-      }
-    },
-    "Import YAML" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "YAML をインポート"
           }
         }
       }
@@ -4493,17 +4438,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このモデルを使う"
-          }
-        }
-      }
-    },
-    "Valid scenario" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有効なシナリオ"
           }
         }
       }
