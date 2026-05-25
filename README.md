@@ -73,12 +73,13 @@ dependency direction is preparation for a future SPM module split.
 
 Bundled in
 [`Pastura/Pastura/App/ModelRegistry.swift`](Pastura/Pastura/App/ModelRegistry.swift).
-Both are GGUF Q4_K_M quants, downloaded on first launch.
+All entries are GGUF Q4_K_M quants, downloaded on first launch.
 
-| Model                                                                | Vendor  | Size    | Notes                                                       |
-|----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
-| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Default. Conversational, plays well with most scenarios.    |
-| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | Reasoning-leaning. Good for scenarios that need deduction.  |
+| Model                                                                  | Vendor  | Size    | Notes                                                              |
+|------------------------------------------------------------------------|---------|---------|--------------------------------------------------------------------|
+| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)      | Google  | ~3.1 GB | 8 GB+ tier default. Conversational, plays well with most scenarios. |
+| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)                 | Alibaba | ~2.5 GB | 8 GB+ tier. Reasoning-leaning. Good for deduction-heavy scenarios.  |
+| [Gemma 3 1B IT](https://huggingface.co/unsloth/gemma-3-1b-it-GGUF)     | Google  | ~0.8 GB | 6 GB tier — fits iPhone 13/14/15 standard, SE 3rd.                  |
 
 Add more by appending a `ModelDescriptor` to `ModelRegistry.catalog`.
 The descriptor pins download URL, file size, and SHA-256 at compile
@@ -89,9 +90,10 @@ time. The trade-offs are documented in
 
 - Swift 6 (Xcode that supports it; CI runs on `macos-26`)
 - iOS 17.0 deployment target
-- iPhone with ~8 GB RAM for on-device LLM testing. `ModelRegistry.swift`
-  declares a 6.5 GB `minRAM` floor; in practice that's iPhone 15 Pro,
-  the iPhone 16 family (including 16e), or newer.
+- iPhone with sufficient RAM for on-device LLM testing. `ModelRegistry.swift`
+  declares per-descriptor `minRAM` floors: 5.5 GB for the lightest entry
+  (Gemma 3 1B IT; iPhone 13 and newer), 6.5 GB for the heavier entries
+  (Gemma 4 E2B / Qwen 3 4B; iPhone 15 Pro / iPhone 16 family or newer).
 - [Ollama](https://ollama.com) (optional) if you want non-mock LLM
   inference in Debug or on the Simulator
 
