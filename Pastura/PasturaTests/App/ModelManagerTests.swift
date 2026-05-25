@@ -57,13 +57,16 @@ struct ModelManagerTests {
 
   /// Convenience factory for a minimal `ModelDescriptor` suitable for most
   /// tests. `fileSize: 0` / `sha256: ""` skip size / SHA validation — pass
-  /// explicit values to exercise the validation paths.
+  /// explicit values to exercise the validation paths. `minRAM` default
+  /// preserves Phase 2 shared-floor behavior; pass an explicit value to
+  /// exercise the per-descriptor mixed-state regime (#477 Item 4).
   func makeTestDescriptor(
     id: ModelID = "test-gemma",
     fileName: String = testGemmaFileName,
     fileSize: Int64 = 0,
     sha256: String = "",
-    systemPromptSuffix: String? = nil
+    systemPromptSuffix: String? = nil,
+    minRAM: UInt64 = 6_500_000_000
   ) -> ModelDescriptor {
     ModelDescriptor(
       id: id,
@@ -75,7 +78,7 @@ struct ModelManagerTests {
       fileSize: fileSize,
       sha256: sha256,
       stopSequence: "<|im_end|>",
-      minRAM: 6_500_000_000,
+      minRAM: minRAM,
       modelInfoURL: URL(string: "https://example.com")!,
       systemPromptSuffix: systemPromptSuffix
     )

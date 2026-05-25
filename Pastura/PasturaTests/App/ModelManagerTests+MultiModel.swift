@@ -217,4 +217,76 @@ extension ModelManagerTests {
     )
     #expect(id == "")
   }
+
+  // MARK: - Per-descriptor minRAM gating (#477 Item 4)
+  //
+  // Phase 2 originally used a shared 6.5 GB floor across all descriptors.
+  // With Gemma 3 1B (`minRAM: 5.5 GB`), gating switches to per-descriptor so
+  // 6 GB tier devices land on `.notDownloaded` for the lighter descriptor and
+  // `.unsupportedDevice` for the heavier ones. Mixed-state regime is the new
+  // normal; tests below cover both the catalog-state divergence and the
+  // resolver's auto-migration on persisted-id-now-unsupported scenarios.
+
+  @Test("checkModelStatus: mixed-minRAM catalog produces per-descriptor state divergence")
+  func checkModelStatus_mixedMinRAM_partialUnsupported() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 4 * 1024 * 1024 * 1024
+    )
+    // 6 GB physical: heavy is unsupported, light is downloadable.
+    let sut = makeSUT(physicalMemory: 6 * 1024 * 1024 * 1024, catalog: [heavy, light])
+    sut.checkModelStatus()
+    #expect(sut.state["heavy"] == .unsupportedDevice)
+    #expect(sut.state["light"] == .notDownloaded)
+  }
+
+  @Test(
+    "resolveInitialActiveID: default-fallback skipped when its descriptor minRAM > physicalMemory")
+  func resolveInitialActiveID_defaultUnsupported_fallsBackToDownloadable() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 4 * 1024 * 1024 * 1024
+    )
+    // physicalMemory = 6 GB. defaultID = gemma31B.id (not in this synthetic
+    // catalog), so default-fallback `catalog.contains` check fails. Last-resort
+    // then prefers the first downloadable descriptor in catalog order = light.
+    let id = ModelManager.resolveInitialActiveID(
+      persistedID: nil,
+      catalog: [heavy, light],
+      physicalMemory: 6 * 1024 * 1024 * 1024
+    )
+    #expect(id == "light")
+  }
+
+  @Test(
+    "resolveInitialActiveID: persisted id whose descriptor minRAM > physicalMemory auto-migrates")
+  func resolveInitialActiveID_persistedUnsupported_fallsBackToDownloadable() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 4 * 1024 * 1024 * 1024
+    )
+    // Returning user with `heavy` persisted but `physicalMemory` is below
+    // `heavy.minRAM` — without the guard, the resolver would return `heavy`
+    // and `activeState` would lock on `.unsupportedDevice`, hiding the
+    // available `light` alternative. New guard skips the persisted-id branch
+    // and the last-resort fallback picks `light`.
+    let id = ModelManager.resolveInitialActiveID(
+      persistedID: "heavy",
+      catalog: [heavy, light],
+      physicalMemory: 6 * 1024 * 1024 * 1024
+    )
+    #expect(id == "light")
+  }
 }

@@ -86,13 +86,14 @@ public enum ModelState: Equatable, Sendable {
 final class ModelManager {  // swiftlint:disable:this type_body_length
   // MARK: - Constants
 
-  /// Minimum physical memory reported by ProcessInfo to allow any model download.
-  /// iOS reports ~7.4–7.6 GB on 8 GB devices (kernel reserves ~0.5 GB)
-  /// and ~5.4–5.6 GB on 6 GB devices. 6.5 GiB cleanly separates the two tiers.
-  ///
-  /// Phase 2 uses a shared floor across all catalog descriptors. `ModelDescriptor.minRAM`
-  /// is reserved for Phase 3 tier-auto (where a lighter model targets 6 GB devices).
-  static let minimumRAM: UInt64 = 6_500_000_000
+  // Phase 2 originally enforced a shared 6.5 GB minimum floor across every
+  // catalog descriptor (`static let minimumRAM = 6_500_000_000`). With the
+  // 6 GB tier addition (Gemma 3 1B IT, #477), gating moved to per-descriptor
+  // `ModelDescriptor.minRAM` so 6 GB devices can resolve the lighter
+  // descriptor as `.notDownloaded` while heavier descriptors stay
+  // `.unsupportedDevice`. iOS reference values for sizing the per-descriptor
+  // `minRAM` floors: ~7.4–7.6 GB reported on 8 GB devices (kernel reserves
+  // ~0.5 GB), ~5.4–5.6 GB on 6 GB devices.
 
   /// `.notice`-level logger for ModelManager-internal events. Filter in
   /// Console.app: `subsystem:com.tyabu12.Pastura category:ModelManager`.
@@ -322,17 +323,26 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
 
   /// Resolves which descriptor id should be active at init time.
   ///
-  /// Resolution order:
-  /// 1. Persisted UserDefaults value, if it's present in `catalog`
-  /// 2. `ModelRegistry.defaultInitialModelID(for: physicalMemory)`, if it's present in `catalog`
-  /// 3. First descriptor in `catalog` (covers test catalogs that exclude the default)
-  /// 4. Empty string (only reached with an empty catalog — not a production scenario)
+  /// Resolution order (each branch additionally guards `minRAM <= physicalMemory`
+  /// so an `.unsupportedDevice` descriptor cannot become active when a tier-
+  /// appropriate alternative exists — #477):
   ///
-  /// The `physicalMemory` parameter routes the default-fallback branch through
-  /// the tier table so 6 GB devices land on Gemma 3 1B by default and 8 GB+
-  /// devices retain Gemma 4 E2B (#477). The persisted-id branch is NOT
-  /// `minRAM`-guarded yet — that guard is added in Plan Item 4 alongside the
-  /// per-descriptor `minRAM` migration in `checkModelStatus`.
+  /// 1. Persisted UserDefaults value, if present in `catalog` AND its
+  ///    descriptor's `minRAM <= physicalMemory`. Returning users whose
+  ///    persisted descriptor is now `.unsupportedDevice` (device downgrade
+  ///    or app-upgrade catalog reshape) auto-migrate to a downloadable
+  ///    alternative.
+  /// 2. `ModelRegistry.defaultInitialModelID(for: physicalMemory)`, if
+  ///    present in `catalog` AND its descriptor's `minRAM <= physicalMemory`.
+  ///    The tier table normally returns a fitting descriptor, but the guard
+  ///    is defense-in-depth for synthetic test catalogs and future tier-table
+  ///    schemas.
+  /// 3. First descriptor in `catalog` whose `minRAM <= physicalMemory`
+  ///    (last-resort downloadable bias).
+  /// 4. `catalog.first` (any descriptor, even `.unsupportedDevice`) — only
+  ///    reached when no descriptor fits the device, which is not a production
+  ///    scenario since the catalog must always contain a tier-appropriate model.
+  /// 5. Empty string (only reached with an empty catalog).
   ///
   /// Exposed as `static` so it can be unit-tested in isolation.
   static func resolveInitialActiveID(
@@ -340,12 +350,18 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     catalog: [ModelDescriptor],
     physicalMemory: UInt64
   ) -> ModelID {
-    if let persistedID, catalog.contains(where: { $0.id == persistedID }) {
+    if let persistedID,
+      let descriptor = catalog.first(where: { $0.id == persistedID }),
+      descriptor.minRAM <= physicalMemory {
       return persistedID
     }
     let defaultID = ModelRegistry.defaultInitialModelID(for: physicalMemory)
-    if catalog.contains(where: { $0.id == defaultID }) {
+    if let defaultDescriptor = catalog.first(where: { $0.id == defaultID }),
+      defaultDescriptor.minRAM <= physicalMemory {
       return defaultID
+    }
+    if let firstDownloadable = catalog.first(where: { $0.minRAM <= physicalMemory }) {
+      return firstDownloadable.id
     }
     return catalog.first?.id ?? ""
   }
@@ -353,16 +369,21 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   // MARK: - Public Methods
 
   /// Resolves each catalog descriptor's state by inspecting the filesystem.
-  /// Sets every descriptor to `.unsupportedDevice` if `physicalMemory < minimumRAM`.
+  /// Sets a descriptor to `.unsupportedDevice` if `physicalMemory < descriptor.minRAM`;
+  /// otherwise delegates to `computeState` for the file-presence resolution.
+  ///
+  /// Per-descriptor gating (#477) replaced the shared 6.5 GB floor — heavy
+  /// descriptors (Gemma 4 / Qwen 3) still gate 6 GB devices, but lighter
+  /// additions (Gemma 3 1B) resolve as `.notDownloaded` on the same device.
+  /// Mixed-state regime is intentional; view callsites must not assume
+  /// app-wide `.unsupportedDevice` from any single descriptor's state.
   func checkModelStatus() {
-    guard physicalMemory >= Self.minimumRAM else {
-      for descriptor in catalog {
-        state[descriptor.id] = .unsupportedDevice
-      }
-      return
-    }
     for descriptor in catalog {
-      state[descriptor.id] = computeState(for: descriptor)
+      if physicalMemory < descriptor.minRAM {
+        state[descriptor.id] = .unsupportedDevice
+      } else {
+        state[descriptor.id] = computeState(for: descriptor)
+      }
     }
   }
 
