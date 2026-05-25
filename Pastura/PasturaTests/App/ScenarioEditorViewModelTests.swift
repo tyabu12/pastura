@@ -8,7 +8,9 @@ import Testing
 @MainActor
 // swiftlint:disable:next type_body_length
 struct ScenarioEditorViewModelTests {
-  private static let validYAML = """
+  // Internal (not `private`) so sibling-file extensions can reuse.
+  // See `.claude/rules/testing.md` § "Splitting a Suite Across Files".
+  static let validYAML = """
     id: editor_test
     language: ja
     name: Editor Test
@@ -622,13 +624,15 @@ struct ScenarioEditorViewModelTests {
 
   // MARK: - Helpers
 
-  private func makeSUT() throws -> ScenarioEditorViewModel {
+  // Internal (not `private`) so sibling-file extensions can reuse.
+  // See `.claude/rules/testing.md` § "Splitting a Suite Across Files".
+  func makeSUT() throws -> ScenarioEditorViewModel {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
     return ScenarioEditorViewModel(repository: repo)
   }
 
-  private func makeSUTWithRepo() throws -> (ScenarioEditorViewModel, GRDBScenarioRepository) {
+  func makeSUTWithRepo() throws -> (ScenarioEditorViewModel, GRDBScenarioRepository) {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
     return (ScenarioEditorViewModel(repository: repo), repo)

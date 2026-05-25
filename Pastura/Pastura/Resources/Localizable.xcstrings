@@ -2121,6 +2121,22 @@
         }
       }
     },
+    "Failed to read file: %arg" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to read file: %arg"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルの読み込みに失敗しました: %arg"
+          }
+        }
+      }
+    },
     "Failed to switch to CPU: %arg" : {
       "localizations" : {
         "ja" : {
