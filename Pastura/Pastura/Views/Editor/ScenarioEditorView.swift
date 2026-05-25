@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import UniformTypeIdentifiers
 
 /// The main dual-mode scenario editor view.
 ///
@@ -9,7 +11,7 @@ import SwiftUI
 ///
 /// YAML is the source of truth. Visual edits are serialized to YAML on mode
 /// switch and on save. Invalid YAML blocks the switch to visual mode.
-struct ScenarioEditorView: View {
+struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
   @Bindable var viewModel: ScenarioEditorViewModel
   @Environment(\.dismiss) private var dismiss
 
@@ -17,6 +19,8 @@ struct ScenarioEditorView: View {
   @State private var editingPhase: EditablePhase?
   @State private var showNewPersonaSheet = false
   @State private var showNewPhaseSheet = false
+  @State private var showFilePicker = false
+  @State private var showPromptCopied = false
 
   var body: some View {
     VStack(spacing: 0) {
@@ -80,6 +84,19 @@ struct ScenarioEditorView: View {
       }
       .deepLinkGated()
     }
+    .fileImporter(
+      isPresented: $showFilePicker,
+      allowedContentTypes: [.yaml, .plainText]
+    ) { result in
+      switch result {
+      case .success(let url):
+        Task { await viewModel.loadFromFile(url: url) }
+      case .failure(let error):
+        viewModel.surfaceFileImportError(error)
+      }
+    }
+    .overlay(alignment: .top) { promptCopiedToast }
+    .animation(.default, value: showPromptCopied)
   }
 
   // MARK: - Toolbar
@@ -88,6 +105,29 @@ struct ScenarioEditorView: View {
   private var toolbarContent: some ToolbarContent {
     ToolbarItem(placement: .topBarLeading) { PasturaBackButton() }
       .hidingPasturaSharedBackground()
+    if showsYAMLImportAffordances {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button {
+          showFilePicker = true
+        } label: {
+          Image(systemName: "doc")
+        }
+        .accessibilityLabel(String(localized: "File"))
+        .accessibilityIdentifier("editor.filePickerButton")
+      }
+      .hidingPasturaSharedBackground()
+      ToolbarItem(placement: .topBarTrailing) {
+        Button {
+          UIPasteboard.general.string = ScenarioGenerationPrompt.text
+          showPromptCopied = true
+        } label: {
+          Image(systemName: "doc.on.doc")
+        }
+        .accessibilityLabel(String(localized: "Copy Gen Prompt"))
+        .accessibilityIdentifier("editor.copyPromptButton")
+      }
+      .hidingPasturaSharedBackground()
+    }
     ToolbarItem(placement: .confirmationAction) {
       Button(String(localized: "Save")) {
         Task {
@@ -99,6 +139,32 @@ struct ScenarioEditorView: View {
       .accessibilityIdentifier("editor.saveButton")
     }
     .hidingPasturaSharedBackground()
+  }
+
+  /// Surfaces YAML-import affordances (file picker + generation-prompt copy)
+  /// only when the user is creating a NEW scenario AND working in YAML mode.
+  /// Hidden during editing of existing user-owned scenarios — those flows
+  /// don't need an external-LLM bootstrap.
+  private var showsYAMLImportAffordances: Bool {
+    viewModel.isNewScenario && viewModel.editorMode == .yaml
+  }
+
+  // MARK: - Prompt Copied Toast
+
+  @ViewBuilder
+  private var promptCopiedToast: some View {
+    if showPromptCopied {
+      Text(String(localized: "Prompt copied!"))
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .task {
+          try? await Task.sleep(for: .seconds(2))
+          showPromptCopied = false
+        }
+    }
   }
 
   // MARK: - Visual Editor

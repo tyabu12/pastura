@@ -188,6 +188,16 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
     }
   }
 
+  /// Surfaces a system file-picker `.failure` (rare — e.g. iCloud auth or
+  /// document-provider error before the picker yields a URL) to the
+  /// validation banner. Routed through the same key as `loadFromFile`
+  /// since both are file-I/O failures from the user's perspective.
+  func surfaceFileImportError(_ error: any Error) {
+    validationErrors = [
+      String(localized: "Failed to read file: \(error.localizedDescription)")
+    ]
+  }
+
   // MARK: - Mode Switching
 
   /// Switches from visual mode to YAML mode.
