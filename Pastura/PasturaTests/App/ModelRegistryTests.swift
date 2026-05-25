@@ -17,18 +17,63 @@ struct ModelRegistryTests {
     ModelRegistry.validateNoCollisions()
   }
 
-  @Test func defaultInitialModelID_isGemma() {
-    #expect(ModelRegistry.defaultInitialModelID == "gemma-4-e2b-q4-k-m")
+  // MARK: - Tier-aware recommendation / default-initial APIs (#477)
+  //
+  // The `(for: physicalMemory)` form replaces the previous `static let`
+  // properties so the picker / `ModelManager.resolveInitialActiveID` can
+  // route 6 GB tier devices to the lighter Gemma 3 1B descriptor.
+  //
+  // `recommendedModelID` and `defaultInitialModelID` are kept identity-
+  // distinct (separate functions) so future schemas — multi-recommended
+  // rollouts, A/B-tested defaults, conditional recommendation by device
+  // class — can diverge without reshaping the fallback. Tests assert each
+  // independently against the registered catalog rather than equality.
+
+  @Test func recommendedModelID_for6GBTier_returnsGemma31B() {
+    #expect(ModelRegistry.recommendedModelID(for: 5_500_000_000) == ModelRegistry.gemma31B.id)
   }
 
-  /// `recommendedModelID` is the picker-UI "推奨" badge source. Semantically
-  /// distinct from `defaultInitialModelID` (the resolve-order fallback), so
-  /// we only assert it resolves to a registered descriptor — NOT equality
-  /// with `defaultInitialModelID`. Asserting equality would create a brittle
-  /// "which one do I update?" test when the two diverge (e.g., a future
-  /// Qwen-recommended rollout).
-  @Test func recommendedModelID_resolvesToRegisteredDescriptor() {
-    #expect(ModelRegistry.lookup(id: ModelRegistry.recommendedModelID) != nil)
+  @Test func recommendedModelID_for8GBTier_returnsGemma4() {
+    #expect(
+      ModelRegistry.recommendedModelID(for: 8 * 1024 * 1024 * 1024)
+        == ModelRegistry.gemma4E2B.id)
+  }
+
+  /// The 6.5 GB shared floor that gates Gemma 4 / Qwen 3 is exclusive on
+  /// the lower bound (`..<6_500_000_000`): exactly 6.5 GB physical routes
+  /// to the 8 GB+ tier, anything strictly below routes to the 6 GB tier.
+  @Test func recommendedModelID_atBoundary_routesByExclusiveLowerBound() {
+    #expect(
+      ModelRegistry.recommendedModelID(for: 6_500_000_000) == ModelRegistry.gemma4E2B.id)
+    #expect(
+      ModelRegistry.recommendedModelID(for: 6_499_999_999) == ModelRegistry.gemma31B.id)
+  }
+
+  @Test func defaultInitialModelID_for6GBTier_returnsGemma31B() {
+    #expect(ModelRegistry.defaultInitialModelID(for: 5_500_000_000) == ModelRegistry.gemma31B.id)
+  }
+
+  @Test func defaultInitialModelID_for8GBTier_returnsGemma4() {
+    #expect(
+      ModelRegistry.defaultInitialModelID(for: 8 * 1024 * 1024 * 1024)
+        == ModelRegistry.gemma4E2B.id)
+  }
+
+  /// Contract test — whatever the API returns must be in the catalog,
+  /// regardless of device tier. Replaces the previous tier-agnostic
+  /// `recommendedModelID_resolvesToRegisteredDescriptor` (the API now
+  /// requires a tier hint, so a tier-spread cover is the natural form).
+  @Test func recommendedModelID_alwaysResolvesToRegisteredDescriptor() {
+    let coverage: [UInt64] = [
+      4 * 1024 * 1024 * 1024,  // 4 GB (sub-tier — still lands on a real descriptor)
+      6 * 1024 * 1024 * 1024,  // 6 GB tier
+      8 * 1024 * 1024 * 1024,  // 8 GB+ tier
+      12 * 1024 * 1024 * 1024  // 12 GB (iPhone 17 Pro / Air)
+    ]
+    for ram in coverage {
+      #expect(ModelRegistry.lookup(id: ModelRegistry.recommendedModelID(for: ram)) != nil)
+      #expect(ModelRegistry.lookup(id: ModelRegistry.defaultInitialModelID(for: ram)) != nil)
+    }
   }
 
   /// Gemma's UI metadata: tagline is set (non-empty) and shortDisplayName

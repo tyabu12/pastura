@@ -168,34 +168,53 @@ extension ModelManagerTests {
 
   // MARK: - resolveInitialActiveID (static)
 
+  // `physicalMemory` parameter (8 GB tier — matches `makeSUT` default) was
+  // added in #477's Item 3 so `defaultInitialModelID(for:)` can be tier-aware.
+  // The 8 GB tier preserves the legacy default (Gemma 4 E2B); Item 4 adds the
+  // 6 GB tier auto-migration + persisted-id `minRAM <= physicalMemory` guard.
+
   @Test("resolveInitialActiveID returns persisted id when present in catalog")
   func resolveInitialActiveID_prefersPersistedValid() {
     let first = makeTestDescriptor(id: "a", fileName: "a.gguf")
     let second = makeTestDescriptor(id: "b", fileName: "b.gguf")
-    let id = ModelManager.resolveInitialActiveID(persistedID: "b", catalog: [first, second])
+    let id = ModelManager.resolveInitialActiveID(
+      persistedID: "b",
+      catalog: [first, second],
+      physicalMemory: 8 * 1024 * 1024 * 1024
+    )
     #expect(id == "b")
   }
 
   @Test("resolveInitialActiveID falls back to defaultInitialModelID when persisted is unknown")
   func resolveInitialActiveID_fallsBackToDefault() {
+    let physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024
     let id = ModelManager.resolveInitialActiveID(
       persistedID: "unknown",
-      catalog: ModelRegistry.catalog
+      catalog: ModelRegistry.catalog,
+      physicalMemory: physicalMemory
     )
-    #expect(id == ModelRegistry.defaultInitialModelID)
+    #expect(id == ModelRegistry.defaultInitialModelID(for: physicalMemory))
   }
 
   @Test("resolveInitialActiveID falls back to catalog.first when default is not in catalog")
   func resolveInitialActiveID_fallsBackToFirstWhenDefaultAbsent() {
     let first = makeTestDescriptor(id: "test-x", fileName: "test-x.gguf")
     let second = makeTestDescriptor(id: "test-y", fileName: "test-y.gguf")
-    let id = ModelManager.resolveInitialActiveID(persistedID: nil, catalog: [first, second])
+    let id = ModelManager.resolveInitialActiveID(
+      persistedID: nil,
+      catalog: [first, second],
+      physicalMemory: 8 * 1024 * 1024 * 1024
+    )
     #expect(id == "test-x")
   }
 
   @Test("resolveInitialActiveID returns empty string for empty catalog")
   func resolveInitialActiveID_emptyCatalogReturnsEmpty() {
-    let id = ModelManager.resolveInitialActiveID(persistedID: "anything", catalog: [])
+    let id = ModelManager.resolveInitialActiveID(
+      persistedID: "anything",
+      catalog: [],
+      physicalMemory: 8 * 1024 * 1024 * 1024
+    )
     #expect(id == "")
   }
 }

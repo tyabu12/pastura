@@ -115,22 +115,39 @@ enum ModelRegistry {
   /// (Gemma 4 E2B → Qwen 3 4B → Gemma 3 1B).
   nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B, gemma31B]
 
-  /// ID of the model selected by default for new users (first-run onboarding fallback).
+  /// ID of the model selected by default for new users (first-run onboarding fallback),
+  /// resolved per the device's physical memory.
   ///
-  /// Distinct from `recommendedModelID`: this drives `ModelManager.resolveInitialActiveID`
-  /// as the resolve-order fallback when no persisted active id exists. It is NOT the
-  /// picker UI's "推奨" badge source — picker consults `recommendedModelID` instead.
-  nonisolated static let defaultInitialModelID: ModelID = gemma4E2B.id
+  /// Drives `ModelManager.resolveInitialActiveID` as the resolve-order fallback
+  /// when no persisted active id exists. Distinct from `recommendedModelID(for:)`
+  /// (the picker UI "推奨" badge source) so the two can diverge in future schemas
+  /// (multi-recommended rollouts, A/B-tested defaults) — kept literally parallel
+  /// here so a future divergence only touches one function.
+  ///
+  /// Tier table (lower bound exclusive — exactly `6.5 GB` routes to the 8 GB+ tier):
+  ///   - `< 6.5 GB` (6 GB tier — iPhone 13/14/15 standard, SE 3) → `gemma31B`
+  ///   - `≥ 6.5 GB` (8 GB+ tier — iPhone 15 Pro and newer)       → `gemma4E2B`
+  nonisolated static func defaultInitialModelID(for deviceRAM: UInt64) -> ModelID {
+    switch deviceRAM {
+    case ..<6_500_000_000: return gemma31B.id
+    default: return gemma4E2B.id
+    }
+  }
 
-  /// ID surfaced in the first-launch model picker as the "推奨" badge.
+  /// ID surfaced in the first-launch model picker as the "推奨" badge, resolved
+  /// per the device's physical memory.
   ///
-  /// Identity-distinct from `defaultInitialModelID` (the onboarding fallback) so
-  /// future schemas — multi-recommended models, conditional recommendation by
-  /// device class, A/B-tested rollouts — don't have to reshape the fallback field.
-  /// Currently aliases to the same value as `defaultInitialModelID`, but the two
-  /// must not be tested for equality; tests should assert each independently
-  /// against the registered catalog.
-  nonisolated static let recommendedModelID: ModelID = gemma4E2B.id
+  /// Identity-distinct from `defaultInitialModelID(for:)` (the onboarding
+  /// fallback) so future schemas — conditional recommendation by device class,
+  /// A/B-tested rollouts — don't have to reshape the fallback field. The two
+  /// currently share the same tier table; tests must not assert equality, only
+  /// per-function resolution to a registered descriptor.
+  nonisolated static func recommendedModelID(for deviceRAM: UInt64) -> ModelID {
+    switch deviceRAM {
+    case ..<6_500_000_000: return gemma31B.id
+    default: return gemma4E2B.id
+    }
+  }
 
   /// Returns the catalog descriptor matching `id`, or `nil` if no descriptor exists.
   ///

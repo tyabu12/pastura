@@ -18,7 +18,7 @@ struct ModelSelectionStateTests {
   ) -> ModelSelectionState {
     ModelSelectionState(
       selected: selected,
-      recommendedID: ModelRegistry.recommendedModelID,
+      recommendedID: ModelRegistry.recommendedModelID(for: 8 * 1024 * 1024 * 1024),
       availableModels: ModelRegistry.catalog,
       availableStorageBytes: availableStorageBytes
     )

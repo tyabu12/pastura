@@ -135,7 +135,10 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
 
   private let downloader: any ModelDownloader
   private let fileManager: FileManager
-  private let physicalMemory: UInt64
+  // Exposed at `internal` access so `ModelPickerView` and other App-layer
+  // consumers can call `ModelRegistry.recommendedModelID(for: modelManager.physicalMemory)`
+  // without re-deriving the tier hint. Test-injectable via the `init` parameter.
+  let physicalMemory: UInt64
   private let userDefaults: UserDefaults
   private let networkPathMonitor: any NetworkPathMonitoring
   private let consentStore: any CellularConsentStoring
@@ -304,7 +307,8 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     self.hadPersistedActiveIDAtInit = persisted != nil
     self.activeModelID = Self.resolveInitialActiveID(
       persistedID: persisted,
-      catalog: catalog
+      catalog: catalog,
+      physicalMemory: physicalMemory
     )
 
     // Seed all catalog descriptors with `.checking` so `activeState` is well-defined
@@ -320,20 +324,28 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   ///
   /// Resolution order:
   /// 1. Persisted UserDefaults value, if it's present in `catalog`
-  /// 2. `ModelRegistry.defaultInitialModelID`, if it's present in `catalog`
+  /// 2. `ModelRegistry.defaultInitialModelID(for: physicalMemory)`, if it's present in `catalog`
   /// 3. First descriptor in `catalog` (covers test catalogs that exclude the default)
   /// 4. Empty string (only reached with an empty catalog — not a production scenario)
+  ///
+  /// The `physicalMemory` parameter routes the default-fallback branch through
+  /// the tier table so 6 GB devices land on Gemma 3 1B by default and 8 GB+
+  /// devices retain Gemma 4 E2B (#477). The persisted-id branch is NOT
+  /// `minRAM`-guarded yet — that guard is added in Plan Item 4 alongside the
+  /// per-descriptor `minRAM` migration in `checkModelStatus`.
   ///
   /// Exposed as `static` so it can be unit-tested in isolation.
   static func resolveInitialActiveID(
     persistedID: String?,
-    catalog: [ModelDescriptor]
+    catalog: [ModelDescriptor],
+    physicalMemory: UInt64
   ) -> ModelID {
     if let persistedID, catalog.contains(where: { $0.id == persistedID }) {
       return persistedID
     }
-    if catalog.contains(where: { $0.id == ModelRegistry.defaultInitialModelID }) {
-      return ModelRegistry.defaultInitialModelID
+    let defaultID = ModelRegistry.defaultInitialModelID(for: physicalMemory)
+    if catalog.contains(where: { $0.id == defaultID }) {
+      return defaultID
     }
     return catalog.first?.id ?? ""
   }

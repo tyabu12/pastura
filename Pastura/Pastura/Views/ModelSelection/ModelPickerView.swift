@@ -44,7 +44,7 @@ struct ModelPickerView: View {
   init(modelManager: ModelManager, onSelect: @escaping (ModelID) -> Void) {
     self.modelManager = modelManager
     self.onSelect = onSelect
-    let recommended = ModelRegistry.recommendedModelID
+    let recommended = ModelRegistry.recommendedModelID(for: modelManager.physicalMemory)
     _state = State(
       initialValue: ModelSelectionState(
         selected: recommended,
