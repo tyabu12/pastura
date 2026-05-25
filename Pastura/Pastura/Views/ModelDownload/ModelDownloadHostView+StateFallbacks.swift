@@ -101,6 +101,13 @@ extension ModelDownloadHostView {
     }
   }
 
+  /// Terminal "no model fits this device" screen. After #477's per-descriptor
+  /// `minRAM` gating + `resolveInitialActiveID` downloadable-bias, the active
+  /// descriptor cannot resolve to `.unsupportedDevice` when ANY catalog entry
+  /// is downloadable on this device — so this view should only render on
+  /// genuinely-unsupported devices (no descriptor's `minRAM` fits).
+  /// Specific RAM / iPhone-version claims removed because the threshold is
+  /// now per-descriptor (smallest `minRAM` in the production catalog).
   @ViewBuilder
   var unsupportedDeviceFallback: some View {
     plainContainer {
@@ -113,15 +120,12 @@ extension ModelDownloadHostView {
         Text(
           String(
             localized:
-              "This device does not have enough memory to run the AI model. At least 8 GB of RAM is required."
+              "This device doesn't have enough memory to run any of the available AI models."
           )
         )
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
-        Text(String(localized: "Supported: iPhone 15 Pro and later"))
-          .font(.caption)
-          .foregroundStyle(.tertiary)
       }
     }
   }

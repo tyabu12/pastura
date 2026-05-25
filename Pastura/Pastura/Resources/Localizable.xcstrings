@@ -4138,17 +4138,7 @@
         }
       }
     },
-    "Supported: iPhone 15 Pro and later" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "対応機種: iPhone 15 Pro 以降"
-          }
-        }
-      }
-    },
-    "Switch to recommended model" : {
+"Switch to recommended model" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4268,12 +4258,12 @@
         }
       }
     },
-    "This device does not have enough memory to run the AI model. At least 8 GB of RAM is required." : {
+    "This device doesn't have enough memory to run any of the available AI models." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このデバイスのメモリでは AI モデルを実行できません。8 GB 以上の RAM が必要です。"
+            "value" : "この端末はどの AI モデルを動かすにもメモリが足りません。"
           }
         }
       }

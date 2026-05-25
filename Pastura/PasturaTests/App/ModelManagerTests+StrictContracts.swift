@@ -215,8 +215,8 @@ extension ModelManagerTests {
     #expect(sut.shouldShowInitialModelPicker == false)
   }
 
-  @Test("single-model catalog never shows picker")
-  func shouldShowInitialModelPicker_singleModelCatalog_false() {
+  @Test("single-model catalog shows picker for the tier-appropriate downloadable (#477)")
+  func shouldShowInitialModelPicker_singleModelCatalog_true() {
     let only = makeTestDescriptor(id: "only", fileName: "only.gguf")
     let defaults = Self.isolatedUserDefaults()
     let sut = makeSUT(
@@ -225,7 +225,38 @@ extension ModelManagerTests {
       userDefaults: defaults)
     sut.checkModelStatus()
 
-    #expect(sut.shouldShowInitialModelPicker == false)
+    // Pre-#477 returned false ("single-model catalog has nothing to pick from").
+    // Post-#477 the picker is the user's explicit "ready to download this model"
+    // confirmation surface on tier-restricted devices — see the issue body for
+    // the シンプル維持 UX direction. With per-descriptor `minRAM` gating the
+    // 6 GB tier can have only the lighter descriptor downloadable, and showing
+    // the picker with that single option preserves an opt-in step for the user.
+    #expect(sut.shouldShowInitialModelPicker == true)
+  }
+
+  @Test("6 GB tier device with downloadable lighter descriptor shows picker (#477)")
+  func shouldShowInitialModelPicker_6GBTier_downloadableLightOnly_true() {
+    let heavy = makeTestDescriptor(
+      id: "heavy", fileName: "heavy.gguf",
+      minRAM: 8 * 1024 * 1024 * 1024
+    )
+    let light = makeTestDescriptor(
+      id: "light", fileName: "light.gguf",
+      minRAM: 4 * 1024 * 1024 * 1024
+    )
+    let defaults = Self.isolatedUserDefaults()
+    let sut = makeSUT(
+      physicalMemory: 6 * 1024 * 1024 * 1024,
+      catalog: [heavy, light],
+      userDefaults: defaults)
+    sut.checkModelStatus()
+
+    #expect(sut.state["heavy"] == .unsupportedDevice)
+    #expect(sut.state["light"] == .notDownloaded)
+    #expect(
+      sut.shouldShowInitialModelPicker == true,
+      "6 GB tier device with 1 downloadable model must see picker to start the download flow — Critic v1 Axis 5 regression guard."
+    )
   }
 
   // MARK: - cancelDownload(descriptor:) — idempotency contract

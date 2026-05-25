@@ -239,19 +239,25 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   /// Holds iff all three conditions are met:
   /// 1. No persisted active id — a returning user with a stale id is
   ///    preserved via the `hadPersistedActiveIDAtInit` flag, not this path.
-  /// 2. Catalog offers a choice — a single-model catalog has nothing to
-  ///    pick from, so the picker would be dead weight.
-  /// 3. Every descriptor resolved to `.notDownloaded` — legacy Gemma
-  ///    users (one file on disk, auto-recognised as `.ready`) bypass the
-  ///    picker, and unsupported-device users (state `.unsupportedDevice`)
-  ///    fall through to the existing `.needsModelDownload` unsupported UI.
+  /// 2. At least one descriptor is downloadable on this device — predicate
+  ///    filters the catalog to entries whose `state` is not
+  ///    `.unsupportedDevice` (after #477's per-descriptor `minRAM` gating,
+  ///    a 6 GB tier device may have only the lighter descriptor
+  ///    downloadable). `count >= 1` covers the single-downloadable case so
+  ///    the picker still surfaces as the user's explicit "ready to download"
+  ///    confirmation surface (シンプル維持 — issue body).
+  /// 3. Every downloadable descriptor resolved to `.notDownloaded` —
+  ///    legacy Gemma users (one file on disk, auto-recognised as `.ready`)
+  ///    bypass the picker. Truly-unsupported devices (downloadable empty)
+  ///    fall through to `.needsModelDownload` → `unsupportedDeviceFallback`.
   ///
   /// Must be called *after* `checkModelStatus()` — before that, every
   /// descriptor is still `.checking` and this would spuriously return false.
   var shouldShowInitialModelPicker: Bool {
     guard !hadPersistedActiveIDAtInit else { return false }
-    guard catalog.count > 1 else { return false }
-    return catalog.allSatisfy { state[$0.id] == .notDownloaded }
+    let downloadable = catalog.filter { state[$0.id] != .unsupportedDevice }
+    guard downloadable.count >= 1 else { return false }
+    return downloadable.allSatisfy { state[$0.id] == .notDownloaded }
   }
 
   /// The `ModelDescriptor` matching `activeModelID`, or `nil` if the catalog is empty.
