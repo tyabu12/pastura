@@ -169,7 +169,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// The read happens off-MainActor so an iCloud-Drive lazy fetch does not
   /// block the UI. After a successful read, mode switches to `.yaml` and
   /// ``validate()`` runs so the user sees parse / structural errors right
-  /// away (matches the pre-consolidation `ImportView` UX).
+  /// away.
   func loadFromFile(url: URL) async {
     let scoped = url.startAccessingSecurityScopedResource()
     defer { if scoped { url.stopAccessingSecurityScopedResource() } }

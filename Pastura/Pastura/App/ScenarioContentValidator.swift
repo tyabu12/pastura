@@ -4,9 +4,9 @@ import Foundation
 /// patterns from the shared blocklist.
 ///
 /// Input-side counterpart to ``ContentFilter`` in ADR-005's
-/// defense-in-depth model. Invoked from MainActor ViewModels
-/// (`ImportViewModel`, `ScenarioEditorViewModel`) after structural
-/// validation succeeds. Unlike ``ContentFilter``, findings are surfaced
+/// defense-in-depth model. Invoked from `ScenarioEditorViewModel` after
+/// structural validation succeeds. Unlike ``ContentFilter``, findings are
+/// surfaced
 /// as user-facing messages the author can act on — the validator never
 /// rewrites its input, and no message echoes the matched term (ADR-005
 /// §4.7).

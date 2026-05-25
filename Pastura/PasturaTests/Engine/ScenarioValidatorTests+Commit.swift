@@ -3,9 +3,9 @@ import Testing
 @testable import Pastura
 
 /// Strict-validation checks that fire only at commit-to-persist time
-/// (`ImportViewModel.save()` / `ScenarioEditorViewModel.save()`), not on
-/// every keystroke and not at runtime. See `ScenarioConventions.swift`
-/// for the canonical-field convention these checks enforce.
+/// (`ScenarioEditorViewModel.save()`), not on every keystroke and not at
+/// runtime. See `ScenarioConventions.swift` for the canonical-field
+/// convention these checks enforce.
 extension ScenarioValidatorTests {
 
   // MARK: - Speak phases (canonical: statement)

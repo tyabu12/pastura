@@ -88,7 +88,7 @@ nonisolated struct ScenarioValidator: Sendable {
   }
 
   /// Strict validation gate for commit-to-persist callsites
-  /// (`ImportViewModel.save()` / `ScenarioEditorViewModel.save()`).
+  /// (`ScenarioEditorViewModel.save()`).
   ///
   /// Runs every check `validate(_:)` runs, then adds the canonical
   /// primary-field requirement: every LLM phase must declare its

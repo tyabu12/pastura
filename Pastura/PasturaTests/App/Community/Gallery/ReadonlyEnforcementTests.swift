@@ -73,11 +73,11 @@ import Testing
 
   // MARK: - ScenarioEditorViewModel — YAML mode save
 
-  /// YAML-mode equivalent of `editorVMSaveRefusesGalleryRow` (visual path
-  /// above). Migrated from the deleted `ImportViewModel` suite — the
-  /// consolidated editor must enforce gallery-overwrite refusal regardless
-  /// of which mode the user typed in, since `save()` routes through
-  /// `currentScenario()` and reads the same `checkNoOverwriteCollision`.
+  /// YAML-mode equivalent of `editorVMSaveRefusesGalleryRow` (visual
+  /// path above). The editor must enforce gallery-overwrite refusal
+  /// regardless of which mode the user typed in, since `save()` routes
+  /// through `currentScenario()` and reads the same
+  /// `checkNoOverwriteCollision`.
   @Test func editorVMYAMLModeSaveRefusesGalleryRow() async throws {
     let manager = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: manager.dbWriter)

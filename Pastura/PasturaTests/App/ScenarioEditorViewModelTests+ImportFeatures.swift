@@ -3,10 +3,10 @@ import Testing
 
 @testable import Pastura
 
-/// Tests for the YAML-import features folded into ScenarioEditorViewModel
-/// after `ImportView` consolidation: file-URL loading, generation-prompt
-/// constant, and the `isNewScenario` flag that gates the new-scenario-only
-/// affordances in the editor toolbar.
+/// Tests for the YAML-import features on ScenarioEditorViewModel:
+/// file-URL loading, the generation-prompt constant, and the
+/// `isNewScenario` flag that gates new-scenario-only affordances in
+/// the editor toolbar.
 extension ScenarioEditorViewModelTests {
 
   // MARK: - loadFromFile
