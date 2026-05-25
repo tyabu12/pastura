@@ -141,9 +141,10 @@ struct ModelManagerTests {
 
   // MARK: - Device Check
 
-  @Test("checkModelStatus sets unsupportedDevice when RAM < 6.5 GB threshold")
+  @Test("checkModelStatus sets unsupportedDevice when physicalMemory < descriptor.minRAM")
   func unsupportedDevice() {
-    // 5.5 GB simulates what iOS reports on a 6 GB device
+    // 5.5 GB simulates iOS-reported RAM on a 6 GB device; default test
+    // descriptor uses `minRAM: 6_500_000_000` so per-descriptor gate fires.
     let sut = makeSUT(physicalMemory: 5_500_000_000)
     sut.checkModelStatus()
     #expect(sut.activeState == .unsupportedDevice)

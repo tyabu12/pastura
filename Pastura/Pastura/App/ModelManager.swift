@@ -35,7 +35,8 @@ public enum ModelManagerError: Error, Equatable, Sendable {
 public enum ModelState: Equatable, Sendable {
   /// Checking device compatibility and model file status.
   case checking
-  /// Device does not meet minimum RAM requirement (shared 6.5 GB floor in Phase 2).
+  /// Device's physical RAM is below the descriptor's per-descriptor `minRAM`
+  /// floor (#477 — `ModelManager.checkModelStatus` per-descriptor gating).
   case unsupportedDevice
   /// Model is not downloaded. If a partial `.download` file exists, resume is possible.
   case notDownloaded

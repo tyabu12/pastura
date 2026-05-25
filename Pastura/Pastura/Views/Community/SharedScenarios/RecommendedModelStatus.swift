@@ -63,7 +63,8 @@ nonisolated enum RecommendedModelStatus: Equatable {
 
     let recommendedState = state[recommendedID] ?? .checking
 
-    // Rule 3: device-class mismatch — Phase 2 leaves 6 GB devices unsupported.
+    // Rule 3: device-class mismatch — the recommended descriptor's per-descriptor
+    // `minRAM` exceeds this device's RAM (post-#477 per-descriptor gating).
     if case .unsupportedDevice = recommendedState { return .unsupportedDevice }
 
     // Rule 4: short-circuit before .downloading so an active-model

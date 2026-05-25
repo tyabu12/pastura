@@ -19,7 +19,8 @@ extension ModelDownloadHostView {
   enum StateView: Equatable {
     /// Initial post-init state — `checkModelStatus()` has not run yet.
     case checking
-    /// Device is below the 6.5 GB RAM floor (Phase 2).
+    /// Active descriptor's per-descriptor `minRAM` exceeds physical RAM —
+    /// only reached when no catalog descriptor fits this device (#477).
     case unsupportedDevice
     /// Cellular network with no consent. Renders the Wi-Fi advisory
     /// with a Try Again button. ADR-007 §3.3 (c) decline path.
