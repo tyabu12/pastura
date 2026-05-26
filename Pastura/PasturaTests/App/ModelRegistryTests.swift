@@ -114,21 +114,25 @@ struct ModelRegistryTests {
     #expect(ModelRegistry.gemma31B.assistantPrefix == nil)
   }
 
-  /// PoC draft sentinel canary (#477). The PoC flow downloads the real
-  /// GGUF on a 6 GB device, measures `fileSize` and `sha256`, and replaces
-  /// these placeholders before the PR is moved out of draft. Until then:
+  /// `fileSize` sourced from HuggingFace CDN's deterministic `X-Linked-Size`
+  /// header for the pinned commit (see `gemma31B.downloadURL`). The hash
+  /// matches the byte count that every device receives via LFS, so
+  /// `computeState`'s size-match check is authoritative without a PoC step.
+  @Test func gemma3_fileSize_matchesHuggingFaceXLinkedSize() {
+    #expect(ModelRegistry.gemma31B.fileSize == 806_058_272)
+  }
+
+  /// PoC draft sha256 sentinel canary (#477). The PoC flow downloads the
+  /// GGUF on a 6 GB device, computes the file's SHA-256 locally, and fills
+  /// in this value before the PR is moved out of draft. `sha256 == ""`
+  /// trips `ModelManager.verifyDownloadIntegrity`'s `!descriptor.sha256.isEmpty`
+  /// guard (integrity check skipped).
   ///
-  /// - `fileSize == 0` trips `ModelManager.computeState`'s
-  ///   `descriptor.fileSize > 0` guard (no size-mismatch deletion).
-  /// - `sha256 == ""` trips `ModelManager.verifyDownloadIntegrity`'s
-  ///   `!descriptor.sha256.isEmpty` guard (integrity check skipped).
-  ///
-  /// `ModelRegistry.validateProductionReadiness()` (added in the next
-  /// commit) traps these sentinels in Release builds. When PoC values
-  /// land, REPLACE this test with `gemma3_integrityMetadataMatchesFetchedValues`
-  /// mirroring the Gemma 4 / Qwen 3 integrity assertions above.
-  @Test func gemma3_draftSentinelPlaceholders_pendingPoC() {
-    #expect(ModelRegistry.gemma31B.fileSize == 0)
+  /// `ModelRegistry.validateProductionReadiness()` traps the empty sha256 in
+  /// Release builds. When PoC fills in the real hash, REPLACE this test with
+  /// a `gemma3_integrityMetadataMatchesFetchedValues` style assertion
+  /// mirroring Gemma 4 / Qwen 3.
+  @Test func gemma3_draftSha256Sentinel_pendingPoC() {
     #expect(ModelRegistry.gemma31B.sha256 == "")
   }
 

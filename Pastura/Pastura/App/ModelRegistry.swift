@@ -89,15 +89,19 @@ enum ModelRegistry {
       "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/f7694be509de1c4ab9afc29f8353a315326c64f3/gemma-3-1b-it-Q4_K_M.gguf"
     ),
     fileName: "gemma-3-1b-it-Q4_K_M.gguf",
-    // Sentinel placeholders for the PoC draft (#477). `fileSize: 0` trips
-    // the "skip size-mismatch deletion" path in `ModelManager.computeState`,
-    // and `sha256: ""` trips the "skip integrity check" path in
-    // `ModelManager.verifyDownloadIntegrity`. Both are intentional for
-    // draft state — PoC measures real values on a 6 GB device and replaces
-    // them before the PR moves out of draft. `validateProductionReadiness()`
-    // (next commit) traps these sentinels in Release builds so they cannot
-    // ship to TestFlight.
-    fileSize: 0,
+    // `fileSize` value sourced from HuggingFace CDN's deterministic
+    // `X-Linked-Size` header for the pinned commit SHA — same byte count
+    // every device receives via LFS, so `computeState`'s size-match
+    // check is authoritative without a separate PoC measurement. UI
+    // (`Settings → Models` row, picker subtitle, storage-warning sheet)
+    // renders this as "806 MB" instead of the previous "0 KB" sentinel.
+    fileSize: 806_058_272,
+    // `sha256: ""` trips the "skip integrity check" path in
+    // `ModelManager.verifyDownloadIntegrity` — intentional for the PoC
+    // draft. PoC computes the downloaded file's hash on a 6 GB device
+    // and replaces this before the PR moves out of draft.
+    // `validateProductionReadiness()` traps the empty sha256 in Release
+    // builds so the sentinel cannot ship to TestFlight by accident.
     sha256: "",
     stopSequence: "<|im_end|>",
     // 5.5 GB — leaves OS-overhead headroom on iPhone 13/14/15 standard
