@@ -72,7 +72,13 @@ struct KNDotSyntaxAccessTests {
       Issue.record("`as?` cast rejected a SimulationEvent.PhaseStarted constructed via dot-syntax")
       return
     }
-    #expect(started.phaseType == PhaseType.speakAll)
+    // `===` expresses singleton identity directly — Kotlin enum entries
+    // export as class-readonly singletons, so reference identity is the
+    // load-bearing relation. `==` would also pass via `isEqual:` →
+    // Kotlin `equals`, but adds an unnecessary equality-conformance hop.
+    #expect(started.phaseType === PhaseType.speakAll)
+    // Array element compare goes through Foundation bridge (NSArray of
+    // boxed KotlinInt vs Swift `[Int]` literal); keep `==`.
     #expect(started.phasePath == [0])
   }
 

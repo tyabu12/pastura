@@ -203,7 +203,12 @@ struct H4PerformanceTests {
     }
 
     Self.reportStats(path: "canonicalize-stage-only", samples: samples)
-    #expect(samples.count == Self.sampleCount)
+    // `count == sampleCount` catches a future refactor that conditionally
+    // skips appends; `contains { $0 > 0 }` catches an all-zero outcome
+    // that would signal the measure closure was elided (functionally
+    // unreachable today but guards against compiler optimization
+    // surprises in tighter Release builds).
+    #expect(samples.count == Self.sampleCount && samples.contains { $0 > 0 })
   }
 
   // MARK: - Path 2 — K/N encode end-to-end
@@ -227,7 +232,7 @@ struct H4PerformanceTests {
     }
 
     Self.reportStats(path: "kn-encode-only", samples: samples)
-    #expect(samples.count == Self.sampleCount)
+    #expect(samples.count == Self.sampleCount && samples.contains { $0 > 0 })
   }
 
   // MARK: - Path 3 — Swift native Yams roundtrip
@@ -254,6 +259,6 @@ struct H4PerformanceTests {
     }
 
     Self.reportStats(path: "swift-yams-roundtrip", samples: samples)
-    #expect(samples.count == Self.sampleCount)
+    #expect(samples.count == Self.sampleCount && samples.contains { $0 > 0 })
   }
 }
