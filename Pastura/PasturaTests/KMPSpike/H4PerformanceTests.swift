@@ -155,15 +155,19 @@ struct H4PerformanceTests {
   }
 
   /// Population stats — mean, median, sample standard deviation.
-  private static func computeStats(
-    _ samples: [Double]
-  ) -> (mean: Double, median: Double, stddev: Double) {
+  private struct Stats {
+    let mean: Double
+    let median: Double
+    let stddev: Double
+  }
+
+  private static func computeStats(_ samples: [Double]) -> Stats {
     let count = Double(samples.count)
     let mean = samples.reduce(0, +) / count
     let sorted = samples.sorted()
     let median = sorted[sorted.count / 2]
     let variance = samples.reduce(0) { $0 + pow($1 - mean, 2) } / count
-    return (mean, median, sqrt(variance))
+    return Stats(mean: mean, median: median, stddev: sqrt(variance))
   }
 
   private static func reportStats(path: String, samples: [Double]) {
