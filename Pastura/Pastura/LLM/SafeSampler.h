@@ -65,31 +65,6 @@ typedef struct {
 pastura_sample_result_t pastura_llama_sampler_sample_safe(
     struct llama_sampler *sampler, struct llama_context *ctx, int32_t idx);
 
-/// Outcome of `pastura_llama_sampler_accept_safe`.
-///
-/// - `did_throw == false`: the accept call returned normally,
-///   `error_message[0] == '\0'`.
-/// - `did_throw == true`: a C++ exception was caught; `error_message` holds
-///   `what()` plus a NUL terminator.
-typedef struct {
-  bool did_throw;
-  char error_message[PASTURA_SAFE_SAMPLER_ERROR_BUFFER_SIZE];
-} pastura_accept_result_t;
-
-/// Calls `llama_sampler_accept` inside a `try { } catch (...) { }` and
-/// returns the outcome. Used to initialize the sampler / grammar state
-/// with prompt tokens before the generation loop runs (#477).
-///
-/// Why a separate wrapper from `pastura_llama_sampler_sample_safe`:
-/// llama.cpp's grammar accept path can throw `std::runtime_error` on a
-/// token that violates the grammar's current state (same exception class
-/// as the sample-path crash documented above). Prompt-token accept can
-/// trip this if the grammar isn't lazy-mode-tolerant of pre-generation
-/// inputs. Capturing here lets the Swift caller log + skip rather than
-/// `std::terminate` the process mid-prefill.
-pastura_accept_result_t pastura_llama_sampler_accept_safe(
-    struct llama_sampler *sampler, int32_t token);
-
 #ifdef DEBUG
 /// DEBUG-only entry point: intentionally throws and catches a
 /// `std::runtime_error` whose `what()` matches issue #334's reported payload.

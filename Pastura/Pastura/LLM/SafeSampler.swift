@@ -33,22 +33,6 @@ nonisolated enum SafeSampler {
     Outcome(raw: pastura_llama_sampler_sample_safe(sampler, context, idx))
   }
 
-  /// Calls `llama_sampler_accept` through the C++ exception-catching
-  /// bridge. Used to feed prompt tokens into the sampler chain before
-  /// the generation loop runs, so penalty / grammar samplers see the
-  /// prompt context as part of their state (#477 — Gemma 3 1B grammar-
-  /// crash investigation).
-  ///
-  /// Returns `nil` on success; the (possibly truncated) `what()` of the
-  /// caught C++ exception otherwise. Same truncation contract as
-  /// ``sample(sampler:context:idx:)``.
-  static func accept(
-    sampler: UnsafeMutablePointer<llama_sampler>, token: Int32
-  ) -> String? {
-    let raw = pastura_llama_sampler_accept_safe(sampler, token)
-    return raw.did_throw ? raw.errorMessageString : nil
-  }
-
   /// Result of a wrapped sample call.
   nonisolated struct Outcome: Equatable, Sendable {
     /// Sampled token id. Meaningful only when ``errorMessage`` is `nil`.
@@ -72,16 +56,6 @@ nonisolated enum SafeSampler {
 /// `String`. Internal because only `SafeSampler.Outcome.init` and the
 /// `SafeSamplerTests` truncation test consume it.
 nonisolated extension pastura_sample_result_t {
-  var errorMessageString: String {
-    withUnsafePointer(to: self.error_message) { tuplePtr in
-      let charPtr = UnsafeRawPointer(tuplePtr).assumingMemoryBound(to: CChar.self)
-      return String(cString: charPtr)
-    }
-  }
-}
-
-/// Same lift, mirrored for the accept-result struct.
-nonisolated extension pastura_accept_result_t {
   var errorMessageString: String {
     withUnsafePointer(to: self.error_message) { tuplePtr in
       let charPtr = UnsafeRawPointer(tuplePtr).assumingMemoryBound(to: CChar.self)
