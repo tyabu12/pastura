@@ -114,26 +114,24 @@ struct ModelRegistryTests {
     #expect(ModelRegistry.gemma31B.assistantPrefix == nil)
   }
 
-  /// `fileSize` sourced from HuggingFace CDN's deterministic `X-Linked-Size`
-  /// header for the pinned commit (see `gemma31B.downloadURL`). The hash
-  /// matches the byte count that every device receives via LFS, so
-  /// `computeState`'s size-match check is authoritative without a PoC step.
-  @Test func gemma3_fileSize_matchesHuggingFaceXLinkedSize() {
-    #expect(ModelRegistry.gemma31B.fileSize == 806_058_272)
-  }
-
-  /// PoC draft sha256 sentinel canary (#477). The PoC flow downloads the
-  /// GGUF on a 6 GB device, computes the file's SHA-256 locally, and fills
-  /// in this value before the PR is moved out of draft. `sha256 == ""`
-  /// trips `ModelManager.verifyDownloadIntegrity`'s `!descriptor.sha256.isEmpty`
-  /// guard (integrity check skipped).
+  /// Integrity metadata pinned against HuggingFace's CDN-deterministic
+  /// `X-Linked-Size` / `X-Linked-ETag` headers for the `ggml-org` GGUF
+  /// at the recorded commit. Mirrors the `gemma_integrityMetadataMatchesLegacyConstants`
+  /// / `qwen_integrityMetadataMatchesFetchedValues` shape — same byte
+  /// count + SHA-256 every device receives via LFS, so `computeState`'s
+  /// size check and `verifyDownloadIntegrity`'s SHA check both become
+  /// authoritative without a PoC step.
   ///
-  /// `ModelRegistry.validateProductionReadiness()` traps the empty sha256 in
-  /// Release builds. When PoC fills in the real hash, REPLACE this test with
-  /// a `gemma3_integrityMetadataMatchesFetchedValues` style assertion
-  /// mirroring Gemma 4 / Qwen 3.
-  @Test func gemma3_draftSha256Sentinel_pendingPoC() {
-    #expect(ModelRegistry.gemma31B.sha256 == "")
+  /// Stop sequence is native Gemma `<end_of_turn>` (vs Gemma 4 E2B's
+  /// unsloth-mediated ChatML `<|im_end|>`). Source switch — see issue
+  /// #477 comments for the unslothai/unsloth#5070 chat-template control-
+  /// token bug that motivated moving away from the unsloth variant.
+  @Test func gemma3_integrityMetadataMatchesFetchedValues() {
+    #expect(ModelRegistry.gemma31B.fileSize == 806_058_240)
+    #expect(
+      ModelRegistry.gemma31B.sha256
+        == "8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135")
+    #expect(ModelRegistry.gemma31B.stopSequence == "<end_of_turn>")
   }
 
   // Gemma upgrade-compat contract: filename must match the legacy constant
@@ -243,22 +241,31 @@ struct ModelRegistryTests {
     #expect(reasons.contains(where: { $0.contains("sha256") }))
   }
 
+  /// Production catalog contract: every shipped descriptor must carry
+  /// concrete `fileSize` + `sha256` so `ModelManager.computeState`'s
+  /// size check and `verifyDownloadIntegrity`'s SHA check are both
+  /// active. `validateProductionReadiness()` enforces this in Release
+  /// builds (`#if !DEBUG`); this test enforces it at every build.
+  ///
+  /// History: the pre-pivot Gemma 3 1B draft (unsloth source, #477)
+  /// shipped with `fileSize: 0` / `sha256: ""` sentinels intended to
+  /// be replaced post-PoC. The ggml-org pivot brought authoritative
+  /// values up front (HF X-Linked-{Size,ETag} headers), eliminating
+  /// the sentinel mechanism. The `findSentinels` API remains for
+  /// future PoC drafts that may want to opt back in.
+  @Test func findSentinels_emptyForProductionCatalog() {
+    let reasons = ModelRegistry.findSentinels(in: ModelRegistry.catalog)
+    #expect(reasons.isEmpty)
+  }
+
   @Test func findSentinels_emptyForConcreteDescriptors() {
-    // Gemma 4 + Qwen 3 both carry concrete fileSize / sha256.
+    // Subset of `findSentinels_emptyForProductionCatalog` — keeps the
+    // pre-pivot fabrication shape around as a hedge against future
+    // catalog-level regressions accidentally re-introducing a sentinel.
     let reasons = ModelRegistry.findSentinels(in: [
       ModelRegistry.gemma4E2B, ModelRegistry.qwen34B
     ])
     #expect(reasons.isEmpty)
-  }
-
-  /// Canary for the PoC discipline: the production catalog currently
-  /// carries Gemma 3 1B's sentinel placeholders. When PoC fills in
-  /// real values, this test flips to assert `reasons.isEmpty` and
-  /// `validateProductionReadiness()` becomes safe to call against the
-  /// production catalog in all build configs.
-  @Test func findSentinels_currentCatalogHasGemma3PoCSentinels() {
-    let reasons = ModelRegistry.findSentinels(in: ModelRegistry.catalog)
-    #expect(reasons.contains(where: { $0.contains("gemma-3-1b-it-q4-k-m") }))
   }
 
   @Test func findCollisions_detectsDuplicateFileNames() {

@@ -76,9 +76,20 @@ enum ModelRegistry {
   /// `ModelManager` gating use per-descriptor `minRAM` to route 6 GB tier
   /// devices (iPhone 13/14/15 standard, SE 3rd) to this descriptor.
   ///
-  /// Verified compatible with Gemma 4's `LlamaCppService` plumbing (same
-  /// unsloth GGUF → ChatML `<|im_end|>` stop token; no `<think>` prefill
-  /// required since Gemma 3 has no thinking mode).
+  /// **Source**: `ggml-org/gemma-3-1b-it-GGUF` (llama.cpp team's own
+  /// conversion). The unsloth variant of this GGUF carries a known bug
+  /// (unslothai/unsloth#5070) where `<start_of_turn>` / `<end_of_turn>`
+  /// markers are written with `token_type = NORMAL` instead of `CONTROL`,
+  /// causing llama.cpp to BPE-split the chat-template markers in the
+  /// prompt — the model then emits a garbage first token (e.g. `>`)
+  /// and the GBNF grammar's `root` rule throws
+  /// `Unexpected empty grammar stack`. ggml-org maintains the GGUF
+  /// engine itself, so their conversion uses the correct control-token
+  /// flags out of the box.
+  ///
+  /// **Stop sequence**: native Gemma `<end_of_turn>` (vs Gemma 4 E2B's
+  /// unsloth-mediated `<|im_end|>` ChatML conversion). No `<think>`
+  /// prefill needed — Gemma 3 has no thinking mode.
   nonisolated static let gemma31B: ModelDescriptor = ModelDescriptor(
     id: "gemma-3-1b-it-q4-k-m",
     displayName: "Gemma 3 1B IT (Q4_K_M)",
@@ -86,28 +97,24 @@ enum ModelRegistry {
     vendor: "Google",
     vendorURL: unsafeURL("https://deepmind.google"),
     downloadURL: unsafeURL(
-      "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/f7694be509de1c4ab9afc29f8353a315326c64f3/gemma-3-1b-it-Q4_K_M.gguf"
+      "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/f9c28bcd85737ffc5aef028638d3341d49869c27/gemma-3-1b-it-Q4_K_M.gguf"
     ),
     fileName: "gemma-3-1b-it-Q4_K_M.gguf",
-    // `fileSize` value sourced from HuggingFace CDN's deterministic
-    // `X-Linked-Size` header for the pinned commit SHA — same byte count
-    // every device receives via LFS, so `computeState`'s size-match
-    // check is authoritative without a separate PoC measurement. UI
-    // (`Settings → Models` row, picker subtitle, storage-warning sheet)
-    // renders this as "806 MB" instead of the previous "0 KB" sentinel.
-    fileSize: 806_058_272,
-    // `sha256: ""` trips the "skip integrity check" path in
-    // `ModelManager.verifyDownloadIntegrity` — intentional for the PoC
-    // draft. PoC computes the downloaded file's hash on a 6 GB device
-    // and replaces this before the PR moves out of draft.
-    // `validateProductionReadiness()` traps the empty sha256 in Release
-    // builds so the sentinel cannot ship to TestFlight by accident.
-    sha256: "",
-    stopSequence: "<|im_end|>",
+    // `fileSize` sourced from HuggingFace CDN's deterministic
+    // `X-Linked-Size` for the pinned commit (note: ggml-org's Q4_K_M
+    // differs from unsloth's by ~32 bytes due to chat-template metadata
+    // differences — same weights, same quantization scheme).
+    fileSize: 806_058_240,
+    // `sha256` sourced from HF's `X-Linked-ETag` (the git-lfs object id
+    // = SHA-256 of the file content). Every byte the device receives
+    // via the CDN matches this hash, so `verifyDownloadIntegrity` is
+    // active for this descriptor — no PoC sentinel needed.
+    sha256: "8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135",
+    stopSequence: "<end_of_turn>",
     // 5.5 GB — leaves OS-overhead headroom on iPhone 13/14/15 standard
     // (6 GB physical). Concrete floor is tunable from PoC memory measurements.
     minRAM: 5_500_000_000,
-    modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-3-1b-it-GGUF"),
+    modelInfoURL: unsafeURL("https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF"),
     systemPromptSuffix: nil,
     // Gemma 3 has no thinking-mode token (cf. Qwen 3's `<think>`-driven
     // crash #366), so no assistant-turn prefill is required.
