@@ -110,7 +110,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         Button {
           showFilePicker = true
         } label: {
-          Image(systemName: "doc")
+          Image(systemName: "arrow.down.document")
         }
         .accessibilityLabel(String(localized: "File"))
         .accessibilityIdentifier("editor.filePickerButton")
@@ -121,7 +121,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
           UIPasteboard.general.string = ScenarioGenerationPrompt.text
           showPromptCopied = true
         } label: {
-          Image(systemName: "doc.on.doc")
+          Image(systemName: "sparkle.text.clipboard")
         }
         .accessibilityLabel(String(localized: "Copy Gen Prompt"))
         .accessibilityIdentifier("editor.copyPromptButton")
