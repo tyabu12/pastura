@@ -36,6 +36,10 @@
 extern "C" int32_t llama_sampler_sample(
     struct llama_sampler *smpl, struct llama_context *ctx, int32_t idx);
 
+// Same insulation rationale as `llama_sampler_sample` above — keep the
+// C++ umbrella header out of `.swift` consumers via a manual extern decl.
+extern "C" void llama_sampler_accept(struct llama_sampler *smpl, int32_t token);
+
 namespace {
 
 void fill_error_message(
@@ -50,6 +54,11 @@ void fill_error_message(
 
 void reset_result(pastura_sample_result_t &result) {
   result.token = 0;
+  result.did_throw = false;
+  result.error_message[0] = '\0';
+}
+
+void reset_accept_result(pastura_accept_result_t &result) {
   result.did_throw = false;
   result.error_message[0] = '\0';
 }
@@ -73,6 +82,25 @@ pastura_sample_result_t pastura_llama_sampler_sample_safe(
     fill_error_message(
         result.error_message,
         "Unknown non-std exception caught in SafeSampler wrapper");
+  }
+  return result;
+}
+
+pastura_accept_result_t pastura_llama_sampler_accept_safe(
+    struct llama_sampler *sampler, int32_t token) {
+  pastura_accept_result_t result;
+  reset_accept_result(result);
+
+  try {
+    llama_sampler_accept(sampler, token);
+  } catch (const std::exception &e) {
+    result.did_throw = true;
+    fill_error_message(result.error_message, e.what());
+  } catch (...) {
+    result.did_throw = true;
+    fill_error_message(
+        result.error_message,
+        "Unknown non-std exception caught in SafeSampler accept wrapper");
   }
   return result;
 }

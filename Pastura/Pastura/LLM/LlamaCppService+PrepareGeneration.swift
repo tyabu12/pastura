@@ -1,5 +1,6 @@
 import Foundation
 import LlamaSwift
+import os
 
 // MARK: - Pre-decode preparation
 
@@ -82,11 +83,47 @@ extension LlamaCppService {
     // Build grammar once per call when a schema is requested.
     let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
 
-    // Keep `createSampler` as the LAST step in this helper. The sampler
-    // is freed by the caller's `defer { llama_sampler_free(...) }`; any
-    // step added after this and before the return would leak the sampler
-    // if it throws.
+    // `createSampler` MUST come before the prompt-token accept loop
+    // below — accept needs a live sampler. Sampler ownership transfers
+    // to the caller (which `defer`s `llama_sampler_free`); the loop
+    // below is exception-safe via `SafeSampler.accept` so it cannot
+    // throw past the return.
     let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
+
+    // Feed prompt tokens into the sampler chain so penalty / grammar
+    // samplers see the prompt context as part of their state. llama.cpp
+    // canonical examples (main.cpp, common/sampling.cpp) accept prompt
+    // tokens after prefill and before the generation loop; Pastura was
+    // skipping this step, which appeared harmless for Gemma 4 / Qwen 3
+    // but consistently surfaced as a "Unexpected empty grammar stack"
+    // crash on the first generated token for Gemma 3 1B + GBNF (#477
+    // PoC re-test against ggml-org GGUF). Calling `SafeSampler.accept`
+    // (vs raw `llama_sampler_accept`) wraps the C++ exception path —
+    // if the grammar component rejects a prompt token, we log and
+    // skip the rest rather than `std::terminate` the process.
+    var acceptThrowCount = 0
+    for token in tokens {
+      if let errorMessage = SafeSampler.accept(sampler: sampler, token: token) {
+        acceptThrowCount += 1
+        // First throw is interesting; subsequent ones are noise. Log
+        // once + count silently so a malformed prompt doesn't flood
+        // the device log.
+        if acceptThrowCount == 1 {
+          logger.error(
+            """
+            SafeSampler.accept threw on prompt token \(token, privacy: .public) — \
+            sampler state may be partially initialized. Generation continues, \
+            but grammar / penalty samplers may behave inconsistently. Message: \
+            \(errorMessage, privacy: .public)
+            """)
+        }
+      }
+    }
+    if acceptThrowCount > 0 {
+      logger.warning(
+        "SafeSampler.accept threw on \(acceptThrowCount, privacy: .public) / \(tokens.count, privacy: .public) prompt tokens — see first-throw error log above for the exception text."
+      )
+    }
 
     return PreparedGeneration(vocab: vocab, sampler: sampler)
   }
