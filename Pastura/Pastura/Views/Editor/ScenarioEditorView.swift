@@ -110,7 +110,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         Button {
           showFilePicker = true
         } label: {
-          Image(systemName: "arrow.down.document")
+          Image(systemName: "square.and.arrow.down")
         }
         .accessibilityLabel(String(localized: "File"))
         .accessibilityIdentifier("editor.filePickerButton")
