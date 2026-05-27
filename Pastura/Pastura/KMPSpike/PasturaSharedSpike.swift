@@ -23,6 +23,21 @@ import PasturaShared
 /// 3. **Nested-collection optionality** — `Phase` with
 ///    `Map<String, String>?`, `List<String>?`, `List<Phase>?` fields.
 ///
+/// **All types are spelled with the explicit `PasturaShared.` module
+/// qualifier.** Pastura's own `Models/` layer defines Swift native
+/// `Pairing`, `PairingStrategy`, `Phase`, `PhaseType`, `Persona`,
+/// `Scenario`, `TurnOutput`, and `SimulationEvent` — without
+/// qualification, the unqualified names resolve to the same-module
+/// Swift types, NOT the K/N exports. W3 PR-A/B/C originally left
+/// these unqualified; W4 PR-A Item 1 verification discovered they
+/// were silently exercising Pastura's native Swift types, so the
+/// spike's "validates K/N integration" evidence was hollow. Each
+/// callsite is now explicitly qualified to ensure K/N code paths
+/// actually run; this also makes the swift_name dot-syntax barrier
+/// (which IS real on flat mangled names — `swift_name` hides them)
+/// invisible to the spike, leaving sealed-class subtype access as
+/// the only K/N-specific concern.
+///
 /// H8 hypothesis verification (`@Observable` Swift class wrapping K/N
 /// value types triggers SwiftUI invalidation) lives in the test target
 /// as `PasturaTests/KMPSpike/H8BridgeTests.swift` (W3 PR-B). The earlier
@@ -32,8 +47,8 @@ enum PasturaSharedSpike {
   /// Construct a `Pairing` from Swift, verifying the K/N init bridge
   /// preserves Kotlin's argument order (`agent1`, `agent2`, then the
   /// two `String?` action fields with null-default semantics).
-  static func samplePairing() -> Pairing {
-    Pairing(
+  static func samplePairing() -> PasturaShared.Pairing {
+    PasturaShared.Pairing(
       agent1: "Alice",
       agent2: "Bob",
       action1: nil,
@@ -45,15 +60,16 @@ enum PasturaSharedSpike {
   /// camelCase mapping. K/N exposes enum entries as class-readonly
   /// properties on the enum class itself (visible via the framework
   /// header as `@property (class, readonly) PairingStrategy *roundRobin`).
-  static let pairingStrategy: PairingStrategy = .roundRobin
+  static let pairingStrategy: PasturaShared.PairingStrategy =
+    PasturaShared.PairingStrategy.roundRobin
 
   /// Construct a no-op `Phase` to exercise the nested-collection
   /// optionality (Q9 shim-LOC measurement). Phase's init exposes
   /// every field as an explicit parameter — including all optionals
   /// — so the spike's call site doubles as a smoke for that
   /// surface area.
-  static func makeNoOpPhase(of type: PhaseType) -> Phase {
-    Phase(
+  static func makeNoOpPhase(of type: PasturaShared.PhaseType) -> PasturaShared.Phase {
+    PasturaShared.Phase(
       type: type,
       prompt: nil,
       outputSchema: nil,
@@ -73,13 +89,13 @@ enum PasturaSharedSpike {
     )
   }
 
-  // MARK: - Q9 expansion (W3 PR-C)
+  // MARK: - Q9 expansion (W3 PR-C, extended W4 PR-A)
   //
-  // Adds 3 K/N types to the production grep surface for Q9 measurement
+  // Adds K/N types to the production grep surface for Q9 measurement
   // (`grep -r 'import PasturaShared' Pastura/Pastura/`): Persona,
-  // Scenario, SimulationEvent. Picked to maximize shape variety —
-  // small required-only data class / top-level data class with nested
-  // List / sealed sum-type with nested-class case — so post-W6 GO
+  // Scenario, TurnOutput, SimulationEvent. Picked to maximize shape
+  // variety — small required-only data class / top-level data class with
+  // nested List / sealed sum-type with nested-class case — so post-W6 GO
   // production integration has reference patterns spanning the K/N
   // export quirks the spike has surfaced.
   //
@@ -95,8 +111,8 @@ enum PasturaSharedSpike {
   ///
   /// Persona name "Alice" is the cross-fixture convention for
   /// spike scaffolding (see also `sampleScenario`'s persona array).
-  static func samplePersona() -> Persona {
-    Persona(name: "Alice", description: "Test persona")
+  static func samplePersona() -> PasturaShared.Persona {
+    PasturaShared.Persona(name: "Alice", description: "Test persona")
   }
 
   /// Scenario's 11-arg init exercises the **deep nested data class**
@@ -118,8 +134,8 @@ enum PasturaSharedSpike {
   /// Adding more personas / phases would cascade additional
   /// fixture-construction LOC without changing the K/N bridge
   /// surface exercised.
-  static func sampleScenario() -> Scenario {
-    Scenario(
+  static func sampleScenario() -> PasturaShared.Scenario {
+    PasturaShared.Scenario(
       id: "spike-scenario",
       name: "Spike Scenario",
       description: "Q9 production-scaffolding fixture",
@@ -129,7 +145,7 @@ enum PasturaSharedSpike {
       rounds: 1,
       context: "Test context",
       personas: [samplePersona()],
-      phases: [makeNoOpPhase(of: .speakAll)],
+      phases: [makeNoOpPhase(of: PasturaShared.PhaseType.speakAll)],
       extraData: [:]
     )
   }
@@ -141,34 +157,54 @@ enum PasturaSharedSpike {
   /// unlike `Map<String, primitive>` which requires `KotlinInt` /
   /// `KotlinBool` boxing — see `SimulationState.scores` for an
   /// example of that boxed-primitive case).
+  static func sampleTurnOutput() -> PasturaShared.TurnOutput {
+    PasturaShared.TurnOutput(fields: ["statement": "Hello from spike", "action": "cooperate"])
+  }
+
+  /// SimulationEvent is the canonical sealed-class spike fixture —
+  /// constructed via direct dot-syntax against the swift_name-named
+  /// subtype, with explicit `PasturaShared.` module qualification.
   ///
-  /// **Originally planned as `SimulationEvent.PhaseStarted`**, pivoted
-  /// to TurnOutput after discovering a load-bearing K/N export
-  /// limitation:
+  /// **The fix is qualification, NOT a Kotlin facade.** W4 PR-A Item 1
+  /// re-diagnosed PR-C's documented "swift_name dot-syntax barrier"
+  /// finding — the actual root cause is **Swift module shadowing**:
   ///
-  /// **Spike finding — `swift_name("Foo.Bar")` dot-syntax does NOT
-  /// reach Swift compiler's nested-type / nested-init lookup**.
-  /// The header declares `__attribute__((swift_name("SimulationEvent.PhaseStarted")))`
-  /// on `@interface PasturaSharedSimulationEventPhaseStarted`,
-  /// but EVERY tried callsite fails with `type 'SimulationEvent'
-  /// has no member 'PhaseStarted'`:
-  /// - `SimulationEvent.PhaseStarted(phaseType:, phasePath:)` — fails
-  /// - `SimulationEventPhaseStarted(...)` (flat name) — fails
-  ///   (`cannot find ... in scope`; the swift_name rename hides it)
-  /// - `SimulationEvent.SimulationCompleted.shared` (singleton via
-  ///   static property) — also fails (same dot-syntax barrier)
+  /// `Pastura/Pastura/Models/SimulationEvent.swift` defines a Swift
+  /// `enum SimulationEvent` with associated-value cases. Within the
+  /// Pastura/ target the unqualified name resolves to that enum, not
+  /// to PasturaShared's K/N-exported `@interface SimulationEvent`. The
+  /// Swift enum has no `PhaseStarted` nested type — hence the error
+  /// `type 'SimulationEvent' has no member 'PhaseStarted'`. PR-C had
+  /// inferred this was a K/N export barrier and pivoted to TurnOutput
+  /// rather than discovering the qualification fix.
   ///
-  /// This is a production K/N integration blocker for any code that
-  /// needs to construct OR pattern-match sealed-class subtypes from
-  /// Swift. W4 PR-A (Kotlin facade) MUST address this — likely by
-  /// flattening sealed-class subtypes through `object` factories
-  /// in `commonMain` that return the parent type. Tracked as a W4
-  /// scope item in the PR-C checkpoint.
-  static func sampleTurnOutput() -> TurnOutput {
-    // TODO(#220 W4 PR-A): replace this pivot with the planned
-    // `sampleSimulationEvent()` once the Kotlin facade flattens
-    // sealed-class subtype construction (see doc-comment above for
-    // the swift_name dot-syntax limitation).
-    TurnOutput(fields: ["statement": "Hello from spike", "action": "cooperate"])
+  /// Verified-working access surface (locked into
+  /// `Pastura/PasturaTests/KMPSpike/KNDotSyntaxAccessTests.swift` as a
+  /// regression guard for the K/N export shape):
+  ///
+  /// - `PasturaShared.SimulationEvent.SimulationCompleted.shared` —
+  ///   sealed-class `object` singleton via swift_name dot-syntax.
+  /// - `PasturaShared.SimulationEvent.PhaseStarted(phaseType:, phasePath:)`
+  ///   — sealed-class data-class subtype constructor.
+  /// - `event as? PasturaShared.SimulationEvent.PhaseStarted` —
+  ///   subtype-cast pattern match for production consumers.
+  ///
+  /// The genuine K/N export limitation is the flat-mangled-name path
+  /// (`PasturaSharedSimulationEventPhaseStarted(...)`) which `swift_name`
+  /// correctly hides — intentional, not a regression. Production K/N
+  /// integration in the Pastura/ target therefore does NOT need
+  /// `commonMain` facade objects for sealed-class subtypes; consumers
+  /// disambiguate locally via `PasturaShared.` qualification.
+  static func sampleSimulationEvent() -> PasturaShared.SimulationEvent {
+    // Note the explicit `PasturaShared.` module qualifier on BOTH the return
+    // type and the constructor — Pastura's own `Models/SimulationEvent.swift`
+    // (a Swift `enum`) shadows the K/N-exported class of the same name when
+    // unqualified, and Swift's `Pastura.SimulationEvent` enum has no nested
+    // `PhaseStarted` type. The qualifier picks the K/N class explicitly so
+    // its swift_name dot-syntax nested types are visible.
+    PasturaShared.SimulationEvent.PhaseStarted(
+      phaseType: PasturaShared.PhaseType.speakAll,
+      phasePath: [0]
+    )
   }
 }
