@@ -399,9 +399,11 @@ jobs:
           # Portable while/read loops because `mapfile` is bash 4+ and
           # GHA macos-* defaults to bash 3.2. See `.claude/rules/ci-workflows.md`.
 
-          # H5 — Pastura.app total. `-prune` halts find's descent so a
-          # future child .app bundle (extension / widget / Watch app)
-          # cannot produce a duplicate match.
+          # H5 — Pastura.app total. `-prune` halts find's descent once the
+          # outer Pastura.app matches, so a future embedded Watch companion
+          # (`*.app` nested under Frameworks/) cannot produce a duplicate
+          # match. Extensions / widgets are `*.appex`, not `*.app`, so they
+          # would not collide here regardless.
           APPS=()
           while IFS= read -r -d '' f; do
             APPS+=("$f")
@@ -411,10 +413,14 @@ jobs:
             -path '*/Build/Products/Release-iphoneos/*' \
             -prune \
             -print0)
+          # `|| echo "—"` makes the measurement best-effort under GHA's
+          # default `set -eo pipefail`: a transient `du` stderr (e.g. an
+          # Xcode `.lock` mid-rotation, rare on Release build-products
+          # but theoretically possible) must not fail the whole job.
           if [ "${#APPS[@]}" -eq 1 ]; then
             APP_PATH="${APPS[0]}"
-            APP_HUMAN=$(du -sh "$APP_PATH" | cut -f1)
-            APP_BYTES=$(du -sk "$APP_PATH" | awk '{print $1 * 1024}')
+            APP_HUMAN=$(du -sh "$APP_PATH" 2>/dev/null | cut -f1 || echo "—")
+            APP_BYTES=$(du -sk "$APP_PATH" 2>/dev/null | awk '{print $1 * 1024}' || echo "—")
             echo "Pastura.app size: $APP_HUMAN ($APP_BYTES bytes)"
           else
             APP_HUMAN="not found"
@@ -432,10 +438,11 @@ jobs:
             -name 'PasturaShared.framework' \
             -path '*/Build/Products/Release-iphoneos/Pastura.app/Frameworks/*' \
             -print0)
+          # Same best-effort `du` form as the H5 block above.
           if [ "${#FRAMEWORKS[@]}" -eq 1 ]; then
             FW_PATH="${FRAMEWORKS[0]}"
-            FW_HUMAN=$(du -sh "$FW_PATH" | cut -f1)
-            FW_BYTES=$(du -sk "$FW_PATH" | awk '{print $1 * 1024}')
+            FW_HUMAN=$(du -sh "$FW_PATH" 2>/dev/null | cut -f1 || echo "—")
+            FW_BYTES=$(du -sk "$FW_PATH" 2>/dev/null | awk '{print $1 * 1024}' || echo "—")
             echo "PasturaShared.framework embedded size: $FW_HUMAN ($FW_BYTES bytes)"
           else
             FW_HUMAN="not found"
