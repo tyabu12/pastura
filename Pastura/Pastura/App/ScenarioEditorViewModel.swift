@@ -1,3 +1,12 @@
+// swiftlint:disable file_length
+//
+// ScenarioEditorViewModel cohesively manages the dual-mode (visual + YAML)
+// editor's parallel state buffers and the `currentScenario()` funnel that
+// reconciles them. Splitting state mutators across sibling files would force
+// loosening `private(set)` boundaries that intentionally encapsulate write
+// access — a worse trade than the size budget. Precedent: SimulationViewModel,
+// ModelDownloader, YAMLReplayExporter use the same cohesion-vs-length disable.
+
 import Foundation
 
 /// Editor mode for the dual-mode scenario editor.
@@ -38,7 +47,7 @@ struct EditablePersona: Identifiable, Sendable {
 /// class it resolves. New save / export / preview / share callsites MUST
 /// route through `currentScenario()`; see `.claude/rules/scenario-editor.md`.
 @Observable
-final class ScenarioEditorViewModel {
+final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Visual Mode State
 
@@ -71,6 +80,17 @@ final class ScenarioEditorViewModel {
   private(set) var isValid = false
   private(set) var isSaving = false
   private(set) var savedScenarioId: String?
+
+  /// Set by ``loadForEditing(scenarioId:)`` to mark the editor as bound to
+  /// an existing user-owned scenario. Stays `nil` for fresh editors and for
+  /// template-seeded "Try this" flows (which generate a new id). Drives
+  /// ``isNewScenario`` so the YAML-mode toolbar can hide new-creation-only
+  /// affordances (file picker, copy-generation-prompt) while editing.
+  private(set) var editingScenarioId: String?
+
+  /// `true` when the editor is composing a new scenario (fresh open OR
+  /// template-seeded) rather than editing an existing user-owned scenario.
+  var isNewScenario: Bool { editingScenarioId == nil }
 
   // MARK: - Dependencies
 
@@ -129,6 +149,7 @@ final class ScenarioEditorViewModel {
         let scenario = try loader.load(yaml: record.yamlDefinition)
         populateFromScenario(scenario)
         yamlText = record.yamlDefinition
+        editingScenarioId = scenarioId
         validationErrors = []
       }
     } catch {
@@ -136,6 +157,45 @@ final class ScenarioEditorViewModel {
         String(localized: "Failed to load: \(error.localizedDescription)")
       ]
     }
+  }
+
+  // MARK: - File Import (new-scenario flow)
+
+  /// Loads YAML from a file URL into ``yamlText`` and switches to YAML mode.
+  /// Surfaces I/O failures (security-scope denial, non-UTF8 content, iCloud
+  /// lazy-fetch errors) into ``validationErrors`` rather than silently
+  /// dropping them.
+  ///
+  /// The read happens off-MainActor so an iCloud-Drive lazy fetch does not
+  /// block the UI. After a successful read, mode switches to `.yaml` and
+  /// ``validate()`` runs so the user sees parse / structural errors right
+  /// away.
+  func loadFromFile(url: URL) async {
+    let scoped = url.startAccessingSecurityScopedResource()
+    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+    do {
+      let content = try await offMain {
+        try String(contentsOf: url, encoding: .utf8)
+      }
+      yamlText = content
+      editorMode = .yaml
+      validate()
+    } catch {
+      validationErrors = [
+        String(localized: "Failed to read file: \(error.localizedDescription)")
+      ]
+    }
+  }
+
+  /// Surfaces a system file-picker `.failure` (rare — e.g. iCloud auth or
+  /// document-provider error before the picker yields a URL) to the
+  /// validation banner. Routed through the same key as `loadFromFile`
+  /// since both are file-I/O failures from the user's perspective.
+  func surfaceFileImportError(_ error: any Error) {
+    validationErrors = [
+      String(localized: "Failed to read file: \(error.localizedDescription)")
+    ]
   }
 
   // MARK: - Mode Switching

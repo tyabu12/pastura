@@ -159,7 +159,7 @@ The Step A row above is summarized; the full scope is:
 - **xcstrings setup**: new `Localizable.xcstrings`, `knownRegions += ja`, `CFBundleDevelopmentRegion = en` retained.
 - **UI string conversion**: ~70 hardcoded user-facing `Text("...")` literals (rg-measured 68 non-interpolated English-letter literals across `Pastura/Pastura/Views/` + `Pastura/Pastura/App/`; final count subject to A's audit, which will exclude `Text(verbatim:)` and accessibility-only labels) wrapped in `String(localized:)`.
 - **Error messages**: wrap existing English `errorDescription` literals on `SimulationError` / `LLMError` / `DataError` without text changes; add `ja` translations to the catalog.
-- **Audit list**: `.claude/rules/navigation.md` scenarios 7 / 11–17 confirmed strings, `BackgroundSimulationManager` notifications, `ResultMarkdownExporter` headers, `ImportViewModel.scenarioGenerationPrompt` policy, `PromoCard` / `DLCompleteOverlay` deliberate-Japanese marketing copy.
+- **Audit list**: `.claude/rules/navigation.md` scenarios 7 / 11–17 confirmed strings, `BackgroundSimulationManager` notifications, `ResultMarkdownExporter` headers, `ScenarioGenerationPrompt.text` policy, `PromoCard` / `DLCompleteOverlay` deliberate-Japanese marketing copy.
 - **Audit decision frame**: each audit item logs a (keep / translate / replace-on-en) decision in the PR description; deferrals not allowed.
 - **Audit two-phase work**: (a) wrap existing English in `String(localized:)`, then (b) author the `ja` translations.
 - **Absorbed B-2 scope**: ContentBlocklist `lang` field documented in `docs/blocklist/README.md` — `ContentFilter` applies all entries regardless of UI locale.

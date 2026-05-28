@@ -5,7 +5,8 @@ import XCTest
 /// Flow under test:
 ///   1. Launch with `--ui-test` (seeds Home list) and `--ui-test-editor-seed-yaml`
 ///      (makes "New Scenario" open the editor pre-filled with the seed YAML).
-///   2. Tap the "+" toolbar button to open the Add menu, then tap "New Scenario".
+///   2. Tap the "+" New Scenario toolbar button (direct NavigationLink — the
+///      former Add menu was flattened to a single button in #479).
 ///   3. The editor opens pre-filled via `Route.editor(templateYAML:)`. Tap Save.
 ///   4. On successful save, the editor's `dismiss()` pops the root stack.
 ///   5. `HomeView.onChange(of: router.path.count)` fires and reloads user scenarios.
@@ -49,27 +50,13 @@ final class EditorReloadTests: XCTestCase {
       app.staticTexts[editorSeedName].exists,
       "Editor seed scenario should not be on Home before editor save.")
 
-    // Open the Add menu via the "+" toolbar button.
-    let addButton = app.buttons["Add"]
-    XCTAssertTrue(addButton.waitForExistence(timeout: 5), "Add toolbar button missing.")
-    addButton.tap()
-
-    // Tap "New Scenario" from the menu.
-    // Use .firstMatch in case accessibility surfaces the NavigationLink label
-    // as both a button and a label element simultaneously.
-    let newScenarioItem = app.buttons["home.newScenarioButton"]
-    var menuTapAttempts = 0
-    while !newScenarioItem.exists && menuTapAttempts < 2 {
-      // Menu may not have fully expanded — re-tap the Add button and retry.
-      if menuTapAttempts > 0 {
-        addButton.tap()
-      }
-      menuTapAttempts += 1
-    }
+    // Tap the "+" New Scenario toolbar button. Since #479 it's a direct
+    // NavigationLink (no Menu wrapping), so one tap pushes the editor.
+    let newScenarioButton = app.buttons["home.newScenarioButton"]
     XCTAssertTrue(
-      newScenarioItem.waitForExistence(timeout: 5),
-      "New Scenario menu item missing — menu may not have opened.")
-    newScenarioItem.tap()
+      newScenarioButton.waitForExistence(timeout: 5),
+      "home.newScenarioButton missing on Home toolbar.")
+    newScenarioButton.tap()
 
     // Wait for the editor to appear. The editor Form renders as a collectionView
     // in XCUI. If the template YAML was pre-filled, the editor nav title matches

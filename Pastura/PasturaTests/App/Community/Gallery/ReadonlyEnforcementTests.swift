@@ -3,9 +3,10 @@ import Testing
 
 @testable import Pastura
 
-/// Readonly enforcement matrix for gallery-sourced scenarios across the
-/// three editor entry points. Each test seeds a gallery row, then drives
-/// the relevant VM and asserts the gate fires with a user-visible error.
+/// Readonly enforcement matrix for gallery-sourced scenarios. Each test
+/// seeds a gallery row, then drives `ScenarioEditorViewModel` through both
+/// editor modes (visual + YAML) plus the load-for-editing path, asserting
+/// the gate fires with a user-visible error.
 @MainActor
 @Suite(.timeLimit(.minutes(1))) struct ReadonlyEnforcementTests {
 
@@ -38,37 +39,7 @@ import Testing
         sourceId: "gallery_test", sourceHash: "h1"))
   }
 
-  // MARK: - ImportViewModel
-
-  @Test func importVMSaveRefusesGalleryRow() async throws {
-    let manager = try DatabaseManager.inMemory()
-    let repo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
-    try seedGalleryRecord(in: repo)
-
-    let viewModel = ImportViewModel(repository: repo)
-    viewModel.yamlText = Self.validYAML  // same id as seeded gallery row
-    viewModel.validate()
-    let didSave = await viewModel.save()
-
-    #expect(didSave == false)
-    #expect(
-      viewModel.validationErrors.contains { $0.contains("gallery scenario") })
-  }
-
-  @Test func importVMLoadForEditingRefusesGalleryRow() async throws {
-    let manager = try DatabaseManager.inMemory()
-    let repo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
-    try seedGalleryRecord(in: repo)
-
-    let viewModel = ImportViewModel(repository: repo)
-    await viewModel.loadForEditing(scenarioId: "gallery_test")
-
-    #expect(viewModel.yamlText.isEmpty)
-    #expect(
-      viewModel.validationErrors.contains { $0.contains("read-only") })
-  }
-
-  // MARK: - ScenarioEditorViewModel
+  // MARK: - ScenarioEditorViewModel — Visual mode save
 
   @Test func editorVMSaveRefusesGalleryRow() async throws {
     let manager = try DatabaseManager.inMemory()
@@ -98,5 +69,27 @@ import Testing
 
     #expect(
       viewModel.validationErrors.contains { $0.contains("read-only") })
+  }
+
+  // MARK: - ScenarioEditorViewModel — YAML mode save
+
+  /// YAML-mode equivalent of `editorVMSaveRefusesGalleryRow` (visual
+  /// path above). The editor must enforce gallery-overwrite refusal
+  /// regardless of which mode the user typed in, since `save()` routes
+  /// through `currentScenario()` and reads the same
+  /// `checkNoOverwriteCollision`.
+  @Test func editorVMYAMLModeSaveRefusesGalleryRow() async throws {
+    let manager = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
+    try seedGalleryRecord(in: repo)
+
+    let viewModel = ScenarioEditorViewModel(repository: repo)
+    viewModel.yamlText = Self.validYAML  // same id as seeded gallery row
+    viewModel.editorMode = .yaml
+
+    let didSave = await viewModel.save()
+    #expect(didSave == false)
+    #expect(
+      viewModel.validationErrors.contains { $0.contains("gallery scenario") })
   }
 }

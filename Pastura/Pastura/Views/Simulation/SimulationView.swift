@@ -309,8 +309,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// Auto-dismiss after 4 seconds — long enough for a glance, short
   /// enough that a burst doesn't keep the toast pinned. Tone matches
   /// the informational `ultraThinMaterial` capsule used by
-  /// `ImportView.promptCopiedToast`; ContentFilter has its own danger
-  /// surface (ADR-005) which we deliberately do not borrow.
+  /// `ScenarioEditorView.promptCopiedToast`; ContentFilter has its own
+  /// danger surface (ADR-005) which we deliberately do not borrow.
   @ViewBuilder
   private func languageDriftToast(
     viewModel: SimulationViewModel

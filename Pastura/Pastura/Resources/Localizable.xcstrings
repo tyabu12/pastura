@@ -920,16 +920,6 @@
         }
       }
     },
-    "Add" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "追加"
-          }
-        }
-      }
-    },
     "Add Persona" : {
       "localizations" : {
         "ja" : {
@@ -1823,16 +1813,6 @@
         }
       }
     },
-    "Edit Scenario" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオを編集"
-          }
-        }
-      }
-    },
     "Editor Mode" : {
       "localizations" : {
         "ja" : {
@@ -2121,6 +2101,22 @@
         }
       }
     },
+    "Failed to read file: %arg" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to read file: %arg"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルの読み込みに失敗しました: %arg"
+          }
+        }
+      }
+    },
     "Failed to switch to CPU: %arg" : {
       "localizations" : {
         "ja" : {
@@ -2385,36 +2381,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ID: %@"
-          }
-        }
-      }
-    },
-    "Import" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "インポート"
-          }
-        }
-      }
-    },
-    "Import Scenario" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオをインポート"
-          }
-        }
-      }
-    },
-    "Import YAML" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "YAML をインポート"
           }
         }
       }
@@ -4472,16 +4438,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このモデルを使う"
-          }
-        }
-      }
-    },
-    "Valid scenario" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有効なシナリオ"
           }
         }
       }
