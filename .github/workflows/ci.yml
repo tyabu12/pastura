@@ -377,32 +377,95 @@ jobs:
           fi
           echo "OK: zero ollama symbols in Release-iphoneos binary"
 
-      # H6 capture (#220 Tier 1 — `.ipa` size delta ≤ 10 MB). Surfaces
-      # the K/N runtime + Models binary as it lands in
-      # `Pastura.app/Frameworks/PasturaShared.framework/`. Tier 2
-      # checkpoint readings feed off this. Step is conditional on the
-      # download having run — on main/non-spike events the embed is
-      # absent (pbxproj on main does not reference the framework yet).
-      - name: Capture PasturaShared.framework binary delta (H6)
+      # H5/H6 binary footprint capture (#220, W4 PR-B). Two independent
+      # sub-blocks each emit a `$GITHUB_STEP_SUMMARY` table row:
+      #
+      #   H5 — `Pastura.app` total size (build-products iphoneos bundle).
+      #        Upper bound for ASC submission size; App Store delivers
+      #        smaller after App Thinning + asset slicing.
+      #   H6 — `PasturaShared.framework` embedded size (K/N runtime +
+      #        Models binary). The framework lives inside Pastura.app,
+      #        so H5 ⊃ H6 — readings are NESTED, NOT additive.
+      #
+      # Cascade-gate inherits via `needs.kmp-build-test.result == 'success'`:
+      # main pushes skip both sub-blocks (no Swift-only baseline captured
+      # here). Baseline-delta tracking deferred to W5/W6.
+      #
+      # Bytes computation: macOS BSD `du` lacks `-b`, so we go through
+      # `-sk` (kilobytes) + `awk` scaling. See `.claude/rules/ci-workflows.md`.
+      - name: Capture binary footprint (H5/H6)
         if: needs.kmp-build-test.result == 'success'
         run: |
-          # Portable while/read loop because `mapfile` is bash 4+ and
+          # Portable while/read loops because `mapfile` is bash 4+ and
           # GHA macos-* defaults to bash 3.2. See `.claude/rules/ci-workflows.md`.
-          BINS=()
+
+          # H5 — Pastura.app total. `-prune` halts find's descent once the
+          # outer Pastura.app matches, so a future embedded Watch companion
+          # (`*.app` nested under Frameworks/) cannot produce a duplicate
+          # match. Extensions / widgets are `*.appex`, not `*.app`, so they
+          # would not collide here regardless.
+          APPS=()
           while IFS= read -r -d '' f; do
-            BINS+=("$f")
+            APPS+=("$f")
+          done < <(find ~/Library/Developer/Xcode/DerivedData \
+            -type d \
+            -name 'Pastura.app' \
+            -path '*/Build/Products/Release-iphoneos/*' \
+            -prune \
+            -print0)
+          # `|| echo "—"` makes the measurement best-effort under GHA's
+          # default `set -eo pipefail`: a transient `du` stderr (e.g. an
+          # Xcode `.lock` mid-rotation, rare on Release build-products
+          # but theoretically possible) must not fail the whole job.
+          if [ "${#APPS[@]}" -eq 1 ]; then
+            APP_PATH="${APPS[0]}"
+            APP_HUMAN=$(du -sh "$APP_PATH" 2>/dev/null | cut -f1 || echo "—")
+            APP_BYTES=$(du -sk "$APP_PATH" 2>/dev/null | awk '{print $1 * 1024}' || echo "—")
+            echo "Pastura.app size: $APP_HUMAN ($APP_BYTES bytes)"
+          else
+            APP_HUMAN="not found"
+            APP_BYTES="—"
+            echo "::warning::Expected 1 Pastura.app, found ${#APPS[@]}"
+            printf '%s\n' "${APPS[@]}"
+          fi
+
+          # H6 — PasturaShared.framework (K/N) embedded inside Pastura.app.
+          FRAMEWORKS=()
+          while IFS= read -r -d '' f; do
+            FRAMEWORKS+=("$f")
           done < <(find ~/Library/Developer/Xcode/DerivedData \
             -type d \
             -name 'PasturaShared.framework' \
             -path '*/Build/Products/Release-iphoneos/Pastura.app/Frameworks/*' \
             -print0)
-          if [ "${#BINS[@]}" -eq 1 ]; then
-            echo "PasturaShared.framework embedded size:"
-            du -sh "${BINS[0]}"
+          # Same best-effort `du` form as the H5 block above.
+          if [ "${#FRAMEWORKS[@]}" -eq 1 ]; then
+            FW_PATH="${FRAMEWORKS[0]}"
+            FW_HUMAN=$(du -sh "$FW_PATH" 2>/dev/null | cut -f1 || echo "—")
+            FW_BYTES=$(du -sk "$FW_PATH" 2>/dev/null | awk '{print $1 * 1024}' || echo "—")
+            echo "PasturaShared.framework embedded size: $FW_HUMAN ($FW_BYTES bytes)"
           else
-            echo "::warning::Expected 1 PasturaShared.framework, found ${#BINS[@]}"
-            printf '%s\n' "${BINS[@]}"
+            FW_HUMAN="not found"
+            FW_BYTES="—"
+            echo "::warning::Expected 1 PasturaShared.framework, found ${#FRAMEWORKS[@]}"
+            printf '%s\n' "${FRAMEWORKS[@]}"
           fi
+
+          # Markdown table → GHA Actions job summary (#220 H5/H6).
+          {
+            echo "## Binary footprint (#220 H5/H6)"
+            echo ""
+            echo "Release-iphoneos build-products size. ASC delivers smaller after"
+            echo "App Thinning + asset slicing — treat this as an upper bound."
+            echo "Skipped on main pushes (cascade-gated on K/N framework presence)."
+            echo ""
+            echo "| Component | Size | Bytes |"
+            echo "|---|---:|---:|"
+            echo "| Pastura.app | ${APP_HUMAN} | ${APP_BYTES} |"
+            echo "| └ PasturaShared.framework (K/N) | ${FW_HUMAN} | ${FW_BYTES} |"
+            echo ""
+            echo "_The framework is embedded inside the app — H5 ⊃ H6, NOT additive._"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Release build log (on failure)
         if: failure()
