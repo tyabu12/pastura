@@ -631,7 +631,7 @@
 			repositoryURL = "https://github.com/jpsim/Yams.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 6.2.1;
+				minimumVersion = 6.2.2;
 			};
 		};
 		E0BCA52C2F83EA4C0025BAE6 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
