@@ -97,7 +97,7 @@ summarise() {
     echo "  first 5 occurrences:"
     grep -E 'streamReset agent=' "$log" |
       head -5 |
-      sed -E 's/^.*\[com\.tyabu12\.Pastura:StreamingDiag\] //' |
+      sed -E 's/^.*\[app\.pastura\.Pastura:StreamingDiag\] //' |
       sed 's/^/    /'
     echo ""
     echo "  → Hyp A': REPRODUCED — LLMCaller's consumeStreamWithSuspendRetry"
@@ -133,7 +133,7 @@ summarise() {
     echo "$recycles" | awk '{ print $2 }' | while read -r row; do
       echo "    ── $row ──"
       grep "rowID=$row " "$log" |
-        sed -E 's/^.*\[com\.tyabu12\.Pastura:StreamingDiag\] //' |
+        sed -E 's/^.*\[app\.pastura\.Pastura:StreamingDiag\] //' |
         grep -E '^(onAppear|onDisappear|streamTargetChange)' |
         sed 's/^/      /'
     done
@@ -199,7 +199,7 @@ summarise() {
         if (vc < nt) print
       }
     ' "$log" | head -5 |
-      sed -E 's/^.*\[com\.tyabu12\.Pastura:StreamingDiag\] //' |
+      sed -E 's/^.*\[app\.pastura\.Pastura:StreamingDiag\] //' |
       sed 's/^/    /'
     echo "  → B5 residual: REPRODUCED (cancel-race surface still exercised)"
   else
