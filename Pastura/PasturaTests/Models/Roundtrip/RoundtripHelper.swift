@@ -14,6 +14,15 @@ import Yams
 /// using the production path where one exists (`ScenarioLoader` for YAML
 /// preset → `Scenario`).
 ///
+/// **Two distinct baseline shapes** (do not conflate):
+/// - `baselines/<preset>.json` — the **lossy** `ScenarioLoader` output
+///   (`agentCount` / `outputSchema`), consumed by `CanonicalEquivalenceTests`.
+/// - `yaml-baselines/<preset>.yaml.json` — the **lossless** raw `Yams.load`
+///   parse (W4 PR-C; `agents` / `output` / `words` / `probability` /
+///   `conditional` preserved), consumed by the Kotlin cross-language
+///   `YamlFidelityEquivalenceTests`. See ``yamlBaselineDir`` /
+///   ``yamlValueToJSONObject``.
+///
 /// **Drift model**: baseline JSON files are committed under
 /// `shared/models/src/commonTest/resources/baselines/`. The companion
 /// `RoundtripBaselineTests` regenerate in-memory and diff against the
