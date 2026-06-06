@@ -204,7 +204,7 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// construction raises `NSGenericException`. The singleton `.shared`
   /// owns this identifier; tests use `.default` / `.ephemeral` configs
   /// via `init(sessionConfiguration:)` and never touch this constant.
-  static let backgroundSessionIdentifier = "com.tyabu12.Pastura.modelDownload"
+  static let backgroundSessionIdentifier = "app.pastura.Pastura.modelDownload"
 
   /// Production singleton bound to the background `URLSession`. Lazily
   /// constructed on first access (Swift `static let` semantics — thread-safe).
@@ -264,9 +264,9 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// All interpolations are diagnostic primitives (URL, byte count,
   /// integer code) — no user content per `CLAUDE.md` Logger-privacy rule.
   /// Filter in Console.app:
-  /// `subsystem:com.tyabu12.Pastura category:ModelDownloader`.
+  /// `subsystem:app.pastura.Pastura category:ModelDownloader`.
   private static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "ModelDownloader")
+    subsystem: "app.pastura.Pastura", category: "ModelDownloader")
 
   /// Constructs a downloader bound to a fresh `URLSession` built from
   /// `sessionConfiguration`. Production code must use `.shared` instead —
