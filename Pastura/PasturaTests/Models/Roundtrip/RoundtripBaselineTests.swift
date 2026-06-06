@@ -44,6 +44,60 @@ struct RoundtripBaselineTests {
       """)
   }
 
+  // MARK: - YAML-shape baselines (lossless raw-parse; W4 PR-C)
+
+  /// Drift guard for the lossless YAML-shape baselines consumed by the Kotlin
+  /// cross-language fidelity harness. If a curator edits a preset's YAML, the
+  /// committed `yaml-baselines/<preset>.yaml.json` goes stale and the Kotlin
+  /// snakeyaml-vs-Yams comparison silently tests an old shape — this fires
+  /// first. Regenerate via the same `.disabled`-trait toggle as the other
+  /// baselines (see `regenerateAllBaselines`).
+  @Test(
+    "YAML-shape baseline matches committed file", arguments: RoundtripHelper.basePresetNames)
+  func yamlShapeBaselineMatchesCommitted(presetName: String) throws {
+    let regenerated = try RoundtripHelper.encodedYamlShapeBaseline(presetName: presetName)
+    let committed = try RoundtripHelper.readYamlShapeBaseline(name: presetName)
+    #expect(
+      regenerated == committed,
+      """
+      YAML-shape baseline drift for \(presetName). The live preset YAML no \
+      longer matches the committed lossless parse. Temporarily remove the \
+      `.disabled(...)` trait on `regenerateAllBaselines`, run the suite once, \
+      review the diff under shared/models/src/commonTest/resources/yaml-baselines/, \
+      re-add the trait, then commit.
+      """)
+  }
+
+  /// Pins the Yams `Any` → JSON scalar mapping the Kotlin equivalence claim
+  /// rests on. The load-bearing assertion is `aBool: true` → JSON `true` (NOT
+  /// `1`): Yams bridges scalars through `NSNumber`, so without the `is Bool`
+  /// guard in `RoundtripHelper.yamlValueToJSONObject` a real boolean
+  /// (`exclude_self: true` in word_wolf) would launder into an integer and the
+  /// cross-language fidelity test would pass against a wrong baseline. Also
+  /// pins int / float / string / null so a regression in any branch fails here
+  /// rather than as an opaque Kotlin byte-diff.
+  @Test("YAML dumper preserves scalar types (bool ≠ int)")
+  func yamlDumperPreservesScalarTypes() throws {
+    let yaml = """
+      aBool: true
+      anInt: 5
+      aFloat: 0.5
+      aString: hello
+      aNull: null
+      nested:
+        inner: 1
+      """
+    let data = try RoundtripHelper.canonicalYAMLShapeJSON(yaml: yaml)
+    let text = try #require(String(bytes: data, encoding: .utf8))
+    // `.sortedKeys` + `.prettyPrinted` emit `"key" : value`.
+    #expect(text.contains("\"aBool\" : true"), "bool must stay bool, not 1. Got:\n\(text)")
+    #expect(text.contains("\"anInt\" : 5"))
+    #expect(text.contains("\"aFloat\" : 0.5"))
+    #expect(text.contains("\"aString\" : \"hello\""))
+    #expect(text.contains("\"aNull\" : null"))
+    #expect(text.contains("\"inner\" : 1"))
+  }
+
   // MARK: - Synthetic fixtures
 
   @Test("gallery_index baseline matches committed file")
@@ -129,5 +183,12 @@ struct RoundtripBaselineTests {
     try RoundtripHelper.writeBaseline(
       try RoundtripHelper.encodedCodePhaseEventPayloadsBaseline(),
       name: "code_phase_event_payload")
+    // Lossless YAML-shape baselines (W4 PR-C) — raw Yams parse, distinct from
+    // the lossy ScenarioLoader baselines written above.
+    for name in RoundtripHelper.basePresetNames {
+      try RoundtripHelper.writeYamlShapeBaseline(
+        try RoundtripHelper.encodedYamlShapeBaseline(presetName: name),
+        name: name)
+    }
   }
 }
