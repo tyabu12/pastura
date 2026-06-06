@@ -4,13 +4,13 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.tyabu12.Pastura.simulation-continuation</string>
+		<string>app.pastura.Pastura.simulation-continuation</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.tyabu12.pastura.scenario</string>
+			<string>app.pastura.Pastura.scenario</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>pastura</string>
