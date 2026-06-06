@@ -95,10 +95,10 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   static let minimumRAM: UInt64 = 6_500_000_000
 
   /// `.notice`-level logger for ModelManager-internal events. Filter in
-  /// Console.app: `subsystem:com.tyabu12.Pastura category:ModelManager`.
+  /// Console.app: `subsystem:app.pastura.Pastura category:ModelManager`.
   /// Used by `attachToInFlightDownloads` for routine reattach telemetry.
   private static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "ModelManager")
+    subsystem: "app.pastura.Pastura", category: "ModelManager")
 
   /// UserDefaults key for the persisted active model id.
   static let activeModelIDKey = "com.pastura.activeModelID"

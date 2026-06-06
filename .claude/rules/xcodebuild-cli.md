@@ -161,7 +161,7 @@ run — see Recovery below.
   `pkill -f "xcodebuild test"`, then
   `xcrun simctl shutdown "$(echo "$DEST" | sed -n 's/.*id=//p')"`.
 - UI test
-  `FBSOpenApplicationServiceErrorDomain Code=1 — com.tyabu12.PasturaUITests.xctrunner`
+  `FBSOpenApplicationServiceErrorDomain Code=1 — app.pastura.PasturaUITests.xctrunner`
   → `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
   are real bugs (signing / plist / app-state regression), not flakes.
 
