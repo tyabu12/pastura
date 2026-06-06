@@ -79,3 +79,19 @@ kotlin {
         }
     }
 }
+
+// W4 PR-C: the cross-language YAML-fidelity harness (`YamlFidelityEquivalenceTests`,
+// jvmTest) reads the LIVE bundled preset YAML — the single source of truth that
+// Swift's Yams dump (`yaml-baselines/*.yaml.json`) was generated from. Inject the
+// absolute presets path so the read is independent of Gradle's test working
+// directory (which differs between local and CI invocations). No raw-YAML copy is
+// kept in the module; only the Swift-Yams JSON baseline lives under
+// `commonTest/resources/yaml-baselines/`.
+tasks.named<Test>("jvmTest") {
+    systemProperty(
+        "pastura.presetsDir",
+        rootProject.layout.projectDirectory
+            .dir("Pastura/Pastura/Resources/Presets")
+            .asFile.absolutePath,
+    )
+}

@@ -1,4 +1,5 @@
 import Foundation
+import Yams
 
 @testable import Pastura
 
@@ -12,6 +13,15 @@ import Foundation
 /// instance?" — running on Apple Foundation, on actual Pastura types,
 /// using the production path where one exists (`ScenarioLoader` for YAML
 /// preset → `Scenario`).
+///
+/// **Two distinct baseline shapes** (do not conflate):
+/// - `baselines/<preset>.json` — the **lossy** `ScenarioLoader` output
+///   (`agentCount` / `outputSchema`), consumed by `CanonicalEquivalenceTests`.
+/// - `yaml-baselines/<preset>.yaml.json` — the **lossless** raw `Yams.load`
+///   parse (W4 PR-C; `agents` / `output` / `words` / `probability` /
+///   `conditional` preserved), consumed by the Kotlin cross-language
+///   `YamlFidelityEquivalenceTests`. See ``yamlBaselineDir`` /
+///   ``yamlValueToJSONObject``.
 ///
 /// **Drift model**: baseline JSON files are committed under
 /// `shared/models/src/commonTest/resources/baselines/`. The companion
@@ -163,6 +173,84 @@ enum RoundtripHelper {
     try canonicalEncoder.encode(syntheticCodePhaseEventPayloads())
   }
 
+  // MARK: - YAML-shape baselines (lossless raw-parse; Issue #220 W4 PR-C)
+
+  /// Worktree-relative directory of the lossless **YAML-shape** baselines.
+  ///
+  /// These files are the raw `Yams.load(yaml:)` parse tree of each preset
+  /// serialized to canonical JSON — structurally **distinct** from
+  /// ``baselineDir``'s files. `baselineDir` holds the *lossy* `ScenarioLoader`
+  /// output (`agentCount`, `outputSchema`, dropping `agents` / `output` /
+  /// `words` / `mid_game_announcements` / `probability` / `conditional`).
+  /// This directory holds the *lossless* parse that preserves every authoring
+  /// key exactly as the curator wrote it.
+  ///
+  /// **Consumer**: the Kotlin cross-language harness
+  /// (`shared/models/src/jvmTest/.../YamlFidelityEquivalenceTests.kt`) reads
+  /// the SAME live preset YAML through `YamlCodec.decode` (snakeyaml-engine-kmp)
+  /// and compares the canonicalized tree against these Swift/Yams baselines —
+  /// discharging the spike's Tier-4 "snakeyaml-engine-kmp vs current Yams"
+  /// YAML-roundtrip-fidelity question (#220).
+  static var yamlBaselineDir: URL {
+    baselineDir
+      .deletingLastPathComponent()  // …/commonTest/resources/
+      .appendingPathComponent("yaml-baselines", isDirectory: true)
+  }
+
+  /// Convert a `Yams.load`-decoded value (`Any?`) into a Foundation JSON
+  /// object tree — the lossless raw-parse shape. Mirrors the Kotlin
+  /// `yamlValueToJson` mapping (`shared/models/.../YamlCodec.kt`) so the two
+  /// independent YAML parsers can be compared at the JSON layer.
+  ///
+  /// **Bool-before-number discrimination is load-bearing.** Yams bridges
+  /// scalars through `NSNumber`, so `5 as? Bool` / `true as? Int` silently
+  /// coerce — the type-laundering bug class already guarded in
+  /// `ScenarioLoader.parseOptionalDoubleAcceptingInt`. The `is Bool` check is
+  /// the reliable discriminator; without it `exclude_self: true` (word_wolf)
+  /// would serialize as `1` and the cross-language equivalence claim would be
+  /// silently wrong.
+  ///
+  /// **Float-text caveat**: `JSONSerialization` renders `Double(2.0)` as
+  /// `"2"`, whereas Kotlin `JsonPrimitive(2.0).content` is `"2.0"`. No current
+  /// preset has an `X.0` float (only `probability: 0.5`, which both render as
+  /// `"0.5"`), so the parsers agree today. A future `X.0` float would surface
+  /// as a *legitimate* Tier-4 divergence finding (a RED test), not a flake.
+  static func yamlValueToJSONObject(_ value: Any?) throws -> Any {
+    guard let value, !(value is NSNull) else { return NSNull() }
+    if value is Bool, let bool = value as? Bool { return bool }
+    if let int = value as? Int { return int }
+    if let double = value as? Double { return double }
+    if let string = value as? String { return string }
+    if let array = value as? [Any] {
+      return try array.map { try yamlValueToJSONObject($0) }
+    }
+    if let dict = value as? [String: Any] {
+      var out: [String: Any] = [:]
+      for (key, element) in dict { out[key] = try yamlValueToJSONObject(element) }
+      return out
+    }
+    throw SimulationError.scenarioValidationFailed(
+      "Unsupported YAML value type for baseline dump: \(type(of: value))")
+  }
+
+  /// Canonical JSON `Data` for an arbitrary YAML string (lossless raw-parse
+  /// shape). Visible for the dumper's scalar-fidelity unit test.
+  static func canonicalYAMLShapeJSON(yaml: String) throws -> Data {
+    let raw = try Yams.load(yaml: yaml)
+    let jsonObject = try yamlValueToJSONObject(raw)
+    return try JSONSerialization.data(
+      withJSONObject: jsonObject,
+      options: [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes])
+  }
+
+  /// Load `<name>.yaml` from the live bundled presets directory and emit its
+  /// lossless YAML-shape canonical JSON.
+  static func encodedYamlShapeBaseline(presetName: String) throws -> Data {
+    let yamlURL = presetsDir.appendingPathComponent("\(presetName).yaml")
+    let yaml = try String(contentsOf: yamlURL, encoding: .utf8)
+    return try canonicalYAMLShapeJSON(yaml: yaml)
+  }
+
   // MARK: - I/O
 
   static func baselineURL(name: String) -> URL {
@@ -179,5 +267,21 @@ enum RoundtripHelper {
 
   static func readBaseline(name: String) throws -> Data {
     try Data(contentsOf: baselineURL(name: name))
+  }
+
+  /// `.yaml.json` suffix marks the file as the JSON of the YAML parse —
+  /// distinct from `baselines/<name>.json` (the lossy ScenarioLoader shape).
+  static func yamlBaselineURL(name: String) -> URL {
+    yamlBaselineDir.appendingPathComponent("\(name).yaml.json", isDirectory: false)
+  }
+
+  static func writeYamlShapeBaseline(_ data: Data, name: String) throws {
+    try FileManager.default.createDirectory(
+      at: yamlBaselineDir, withIntermediateDirectories: true)
+    try data.write(to: yamlBaselineURL(name: name))
+  }
+
+  static func readYamlShapeBaseline(name: String) throws -> Data {
+    try Data(contentsOf: yamlBaselineURL(name: name))
   }
 }
