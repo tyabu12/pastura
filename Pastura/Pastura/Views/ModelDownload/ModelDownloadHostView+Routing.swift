@@ -52,7 +52,7 @@ extension ModelDownloadHostView {
 
   /// Shared `os.Logger` for the host view. Used by `initialLoad` to
   /// surface diagnostic data through Console.app — filter by subsystem
-  /// `com.tyabu12.Pastura` category `ModelDownloadHostView`.
+  /// `app.pastura.Pastura` category `ModelDownloadHostView`.
   static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "ModelDownloadHostView")
+    subsystem: "app.pastura.Pastura", category: "ModelDownloadHostView")
 }

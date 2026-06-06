@@ -8,7 +8,7 @@ import os
 /// Data/ can only depend on Models, so this bridging logic belongs in App/.
 nonisolated enum PresetLoader {
   private static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "PresetLoader")
+    subsystem: "app.pastura.Pastura", category: "PresetLoader")
 
   /// File names (without extension) of bundled preset YAML files.
   ///

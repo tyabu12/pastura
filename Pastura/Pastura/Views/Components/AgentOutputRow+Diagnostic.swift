@@ -7,9 +7,9 @@
   /// redesign). Isolated so the surface is easy to remove / revisit once
   /// PR#5 ADR chooses a pivot path.
   ///
-  /// Emissions feed the `StreamingDiag` category under `com.tyabu12.Pastura` —
+  /// Emissions feed the `StreamingDiag` category under `app.pastura.Pastura` —
   /// see `SimulationViewModel.streamingDiagLogger`. Filter Console.app with
-  /// `subsystem:com.tyabu12.Pastura category:StreamingDiag` during device-run
+  /// `subsystem:app.pastura.Pastura category:StreamingDiag` during device-run
   /// sessions.
   extension AgentOutputRow {
     /// Emit a lifecycle breadcrumb for Hyp B (LazyVStack `@State` recycle).

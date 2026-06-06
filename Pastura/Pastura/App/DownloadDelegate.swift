@@ -85,7 +85,7 @@ nonisolated final class DownloadDelegate: NSObject, URLSessionDownloadDelegate,
   /// `.debug`-level logger for delegate-internal trace. The notice-level
   /// telemetry lives on `URLSessionModelDownloader`.
   private static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "DownloadDelegate")
+    subsystem: "app.pastura.Pastura", category: "DownloadDelegate")
 
   // MARK: - Registration
 

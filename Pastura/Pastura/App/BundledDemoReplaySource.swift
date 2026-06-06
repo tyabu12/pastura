@@ -42,7 +42,7 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
   // MARK: - Logging
 
   private static let logger = Logger(
-    subsystem: "com.tyabu12.Pastura", category: "BundledDemoReplaySource")
+    subsystem: "app.pastura.Pastura", category: "BundledDemoReplaySource")
 
   // MARK: - Bundle loading
 
