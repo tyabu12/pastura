@@ -260,4 +260,60 @@ struct ContentBlocklistFalsePositiveTests {
       "Bundled presets contain input-blocked terms: \(failedPresets.map { "\($0.name) matched '\($0.matchedPattern)'" }.joined(separator: ", "))"
     )
   }
+
+  // MARK: - 6. Bundled demo replays survive the OUTPUT filter
+
+  /// `Resources/DemoReplays/*_demo.yaml` are canned playback content shown
+  /// during model download. They flow through the output path, so the
+  /// output filter would mask any blocked term to `***` and corrupt the
+  /// curated demo. They must therefore be clean against the FULL pattern
+  /// set (``ContentBlocklist/outputPatterns`` — all 90, incl. `violence`).
+  ///
+  /// This pins README "Screening pipeline" step 4's "all patterns vs
+  /// replays" clause, which nothing else covered: ``BundledDemoReplaySource``
+  /// validates SHA / schema / preset-ref drift, not blocklist content.
+  ///
+  /// Authored content (presets, `docs/gallery/*.yaml`) deliberately uses a
+  /// DIFFERENT screen — the INPUT partition (violence-excluded) — because it
+  /// is editable / re-savable and the curated ethics scenarios legitimately
+  /// contain violence topic words (`殺人事件`, `人を殺す選択`). That contract is
+  /// pinned by ``bundledPresetsPassInputValidation`` (above) and
+  /// `GallerySeedYAMLTests.allSeedScenariosPassInputValidator`. Scanning
+  /// those files against `outputPatterns` would (correctly) flag the
+  /// violence vocabulary, so it is NOT done here.
+  @Test func bundledDemoReplaysPassOutputFilter() throws {
+    let bundle = Bundle(for: DatabaseManager.self)
+    let outputPatterns = ContentBlocklist.outputPatterns
+
+    // Mirror BundledDemoReplaySource.enumerateDemoYAMLs: the bundle root is
+    // flat, so enumerate every *.yaml and keep `_demo`-suffixed stems.
+    let demoURLs = (bundle.urls(forResourcesWithExtension: "yaml", subdirectory: nil) ?? [])
+      .filter {
+        $0.deletingPathExtension().lastPathComponent
+          .hasSuffix(BundledDemoReplaySource.demoFilenameSuffix)
+      }
+
+    // Canary: a broken enumeration must not let this test vacuously pass.
+    #expect(
+      !demoURLs.isEmpty,
+      "No *_demo.yaml found in the test bundle — enumeration likely broke")
+
+    var failures: [(name: String, matchedPattern: String)] = []
+    for url in demoURLs {
+      // Deliberate divergence from production's silent `try?` skip: an
+      // unreadable bundled demo is a real problem for a safety guard, so
+      // throw here rather than letting it slip past unscanned.
+      let rawText = try String(contentsOf: url, encoding: .utf8)
+      if let matched = outputPatterns.first(where: { pattern in
+        rawText.range(of: pattern, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+      }) {
+        failures.append((name: url.lastPathComponent, matchedPattern: matched))
+      }
+    }
+
+    #expect(
+      failures.isEmpty,
+      "Bundled demo replays contain output-blocked terms (would be masked to *** during playback): \(failures.map { "\($0.name) matched '\($0.matchedPattern)'" }.joined(separator: ", "))"
+    )
+  }
 }
