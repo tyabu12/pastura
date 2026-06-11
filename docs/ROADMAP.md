@@ -209,7 +209,7 @@ Phase 2 is complete when:
 | Scenario rankings / popular templates| Trending, most-run, highest-rated          |
 | Simulation result auto-summary       | LLM-generated summary of what happened     |
 | Relationship graph visualization     | Agent interaction network diagram          |
-| Android support                      | Direction under evaluation — see [ADR-004 (Draft)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + **llama.cpp via a KMP binding, unified with iOS during Phase 3.0** (ADR-004 §3.6). Synchronised LiteRT-LM migration once iOS Swift SDK + GPU ships. |
+| Android support                      | Direction under evaluation — see [ADR-004 — Accepted (Conditional GO)](decisions/ADR-004.md). Current lean: KMP-shared Engine + native Jetpack Compose UI + **llama.cpp via a KMP binding, unified with iOS during Phase 3.0** (ADR-004 §3.6). Synchronised LiteRT-LM migration once iOS Swift SDK + GPU ships. |
 | PC companion app                     | Form factor decided at Phase 3.2 — KMP-shared Engine + Compose Desktop is the current lean (see ADR-004). LLM backend unified with iOS / Android during Phase 3.0 (llama.cpp via a KMP binding; ADR-004 §3.6). |
 | Localization (English)               | **Promoted to Phase 2 on 2026-04-29** — see Phase 2 § Localization Plan. Reason: App Store release readiness for English-speaking users. Tracking issue #276. |
 | Early-termination phase type         | `conditional` branches but does not stop a simulation early — `rounds` still governs the loop. A new phase type (working name `terminate` / `break`) would let a branch signal "end the simulation now, run the remaining phases, then skip unrun rounds." Keeps `conditional` purely about evaluation + branching; termination is orthogonal. See PR #141 discussion. |
@@ -222,7 +222,7 @@ Phase 2 is complete when:
 Phase 1: iOS only (Swift + SwiftUI)
 Phase 2: iOS + background execution (iOS 26)
 Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluation)
-         See ADR-004 (Draft) — platform-specific UI (SwiftUI / Compose / Compose Desktop)
+         See ADR-004 (Accepted, Conditional GO) — platform-specific UI (SwiftUI / Compose / Compose Desktop)
          and unified llama.cpp LLM backend across all platforms
          during Phase 3.0 (via a llama.cpp KMP binding on Android / Desktop;
          ADR-004 §3.6). Migration to LiteRT-LM deferred until Google's
