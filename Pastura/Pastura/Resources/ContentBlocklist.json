@@ -36,6 +36,330 @@
     {
       "term": "asshole",
       "contentCategory": "profanity"
+    },
+    {
+      "term": "セックス",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "オナニー",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "まんこ",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "ちんぽ",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "フェラチオ",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "クンニ",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "パイズリ",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "クリトリス",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "強姦",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "輪姦",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "売春",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "痴漢",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "ザーメン",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "巨乳",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "アヘ顔",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "きちがい",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "白痴",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "つんぼ",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "ジャップ",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "クロンボ",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "統失",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "ナマポ",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "部落民",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "殺すぞ",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "自殺しろ",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "首吊れ",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "消えろ",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "死んでしまえ",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "ぶっ殺す",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "クソッタレ",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "クソアマ",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "豚野郎",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "惨殺",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "虐殺",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "拷問",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "斬首",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "リンチ",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "皆殺し",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "blowjob",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "handjob",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "gangbang",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "bukkake",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "deepthroat",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "cumshot",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "dildo",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "hentai",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "bestiality",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "rimjob",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "strapon",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "milf",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "jizz",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "creampie",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "fellatio",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "cunnilingus",
+      "contentCategory": "sexual"
+    },
+    {
+      "term": "nigger",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "faggot",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "kike",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "wetback",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "towelhead",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "raghead",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "darkie",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "jigaboo",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "slanteye",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "zipperhead",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "tranny",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "bulldyke",
+      "contentCategory": "hate"
+    },
+    {
+      "term": "kill yourself",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "neck yourself",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "slit your wrists",
+      "contentCategory": "harassment"
+    },
+    {
+      "term": "cunt",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "bitch",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "bastard",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "whore",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "motherfucker",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "shithead",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "arsehole",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "wanker",
+      "contentCategory": "profanity"
+    },
+    {
+      "term": "beheading",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "dismemberment",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "mutilation",
+      "contentCategory": "violence"
+    },
+    {
+      "term": "lynching",
+      "contentCategory": "violence"
     }
   ]
 }
