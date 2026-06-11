@@ -900,6 +900,16 @@
         }
       }
     },
+    "AI Models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI モデル"
+          }
+        }
+      }
+    },
     "About %lld min left" : {
       "localizations" : {
         "ja" : {
@@ -2532,6 +2542,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "法的事項"
+          }
+        }
+      }
+    },
+    "Libraries" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブラリ"
+          }
+        }
+      }
+    },
+    "Licenses & Acknowledgements" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライセンスと謝辞"
           }
         }
       }
@@ -4498,6 +4528,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日本語版で見る"
+          }
+        }
+      }
+    },
+    "View project page" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクトページを見る"
           }
         }
       }
