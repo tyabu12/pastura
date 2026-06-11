@@ -32,7 +32,8 @@ alias, but its subagent cap is undocumented (2026-06-11) — treat a
 **budget** escape valve (§3). `code-reviewer.md` / `critic.md` keep
 `model: opus` deliberately (§2 / §4 are 32K-calibrated); skills omit
 `model:` and inherit the session model (a pin would downgrade the main
-loop). Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
+loop; re-pin only if the session model ever drops below Opus-class).
+Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
 [model-config](https://code.claude.com/docs/en/model-config.md).
 
 ## 2. Caller-side scope discipline
