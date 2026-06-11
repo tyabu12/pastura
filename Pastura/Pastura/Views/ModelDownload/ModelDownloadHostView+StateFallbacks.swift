@@ -119,9 +119,18 @@ extension ModelDownloadHostView {
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
-        Text(String(localized: "Supported: iPhone 15 Pro and later"))
-          .font(.caption)
-          .foregroundStyle(.tertiary)
+        // Device names live on the support page, not in app copy — the
+        // authoritative matrix is the ASC compatibility list and model
+        // names drift with every hardware generation, while the web
+        // page can be corrected without an app update (#499).
+        if let supportURL = LocalizedPublicPages.support() {
+          Link(destination: supportURL) {
+            Label(
+              String(localized: "See supported devices"),
+              systemImage: "arrow.up.right.square")
+          }
+          .font(.subheadline)
+        }
       }
     }
   }
