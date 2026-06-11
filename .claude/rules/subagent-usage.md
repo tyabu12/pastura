@@ -22,8 +22,19 @@ Per-model output cap:
 | Opus 4.x | **32,000** |
 | Sonnet 4.x | **64,000** |
 | Haiku 4.x | 8,192 |
+| Fable 5 | **undocumented** — see note below |
 
 Raising frontmatter `maxTurns` does not help — the cap is on output tokens, not turns.
+
+**Fable 5 note**: `fable` is a valid `Agent(model:)` / frontmatter
+alias, but its subagent cap is undocumented (2026-06-11) — treat a
+`fable` override as a quality lever; Sonnet 64K stays the only known
+**budget** escape valve (§3). `code-reviewer.md` / `critic.md` keep
+`model: opus` deliberately (§2 / §4 are 32K-calibrated); skills omit
+`model:` and inherit the session model (a pin would downgrade the main
+loop; re-pin only if the session model ever drops below Opus-class).
+Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
+[model-config](https://code.claude.com/docs/en/model-config.md).
 
 ## 2. Caller-side scope discipline
 

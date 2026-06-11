@@ -1,7 +1,6 @@
 ---
 name: write-adr
 description: Generate an Architecture Decision Record and save it to docs/decisions/.
-model: opus
 allowed-tools: Read, Grep, Glob, Write, Edit, Agent
 argument-hint: "<title>"
 ---
