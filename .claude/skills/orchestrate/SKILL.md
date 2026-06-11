@@ -39,7 +39,7 @@ After fetching the issue, check for an existing plan comment:
    - Parse checkboxes: count `- [x]` (done) vs `- [ ]` (remaining). Identify `NEXT_ITEM` (first unchecked item number).
    - Extract `TASK_TYPE`, branch name, and `REVIEWER_MODEL` from the `## Metadata` section in the comment. **Normalize `REVIEWER_MODEL` to lowercase** (`opus` / `sonnet`) when binding — Metadata records it title-case (`Opus` / `Sonnet`) for readability, but downstream Agent calls use lowercase. If `Reviewer` is absent from Metadata (e.g., older plan comment pre-dating this field), default `REVIEWER_MODEL=opus`.
    - Derive `SLUG` from the branch name.
-   - **Coupling re-check**: if the resumed plan contains any `🔴` item but `REVIEWER_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: Opus-implemented items should never be Sonnet-reviewed.
+   - **Coupling re-check**: if the resumed plan contains any `🔴` item but `REVIEWER_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: orchestrator-implemented items should never be Sonnet-reviewed.
    - If **all items are already checked**: ensure you are on the feature branch or in the correct worktree, then report "All {TOTAL} items already complete. Proceeding to review." and **skip to Step 4** directly.
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
@@ -61,8 +61,8 @@ After fetching the issue, check for an existing plan comment:
 3. Format the plan as a numbered checkbox list (each item = one planned commit).
    Assign a **complexity label** to each item:
    - 🟢 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
-   - 🔴 **complex** — Implemented by the orchestrator (Opus) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
-   - **When in doubt, classify as 🔴.** Misclassifying a complex item as simple wastes a Sonnet attempt + Opus fallback; the reverse just costs extra Opus tokens.
+   - 🔴 **complex** — Implemented by the orchestrator (session model) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
+   - **When in doubt, classify as 🔴.** Misclassifying a complex item as simple wastes a Sonnet attempt + orchestrator fallback; the reverse just costs extra orchestrator tokens.
    - **Skip delegation when overhead exceeds the work.** Promote a 🟢 item to 🔴 when subagent prompt + verify overhead likely exceeds the implementation itself — e.g. single-line edits, short doc tweaks. This forces Opus reviewer via the Coupling Rule below — intended, since the orchestrator is implementing the item directly.
 
    ```
@@ -93,7 +93,7 @@ After fetching the issue, check for an existing plan comment:
    - Design token **application** (existing token to existing View only — new token additions are Opus-required)
    - Fix-only PRs where the cause is already diagnosed and localized
 
-   **Coupling rule:** If **any** plan item is labeled 🔴, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🟢-plus-Sonnet-reviewer" configuration from putting Opus-implemented work through a Sonnet review.
+   **Coupling rule:** If **any** plan item is labeled 🔴, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🟢-plus-Sonnet-reviewer" configuration from putting orchestrator-implemented work through a Sonnet review.
 
    **When in doubt, pick Opus.** Subtle convention violations (ShapeStyle+Color token trap, `nonisolated` gaps, i18n `String(localized:)` omissions, missing `@Suite(.timeLimit(.minutes(1)))` on new test suites) cost more than an over-zealous Opus review.
 
@@ -269,7 +269,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 4. Commit (Conventional Commits + emoji per CLAUDE.md). The commit triggers the user approval gate.
 5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above).
 
-**Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **Opus takes over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted. Then handle partial changes:
+**Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **the orchestrator takes over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted. Then handle partial changes:
 - Run `git stash -u` to save all of Sonnet's work including untracked new files (recoverable via `git stash pop` if needed later).
 - Complete the item directly using the 🔴 complex-item flow.
 
@@ -293,7 +293,7 @@ After all implementation, run full verification directly from the main session:
 
 ## Step 4: Review — Gate G3
 
-Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist was enriched with a Pastura-specific trap cheat sheet in this same PR to keep the Sonnet-reviewer path safe.
+Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist carries a Pastura-specific trap cheat sheet to keep the Sonnet-reviewer path safe.
 
 ```
 Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "...", prompt: "...")
