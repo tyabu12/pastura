@@ -38,6 +38,18 @@ nonisolated enum LocalizedPublicPages {
     url(path: "support/", preferredLocalizations: preferredLocalizations)
   }
 
+  /// Deep link to the "Supported devices" section of the support page.
+  /// The fragment matches the `id="supported-devices"` anchor in
+  /// `pages/support/index.html` and its `ja` mirror — update both if
+  /// the anchor is ever renamed.
+  static func supportedDevices(
+    preferredLocalizations: [String] = Bundle.main.preferredLocalizations
+  ) -> URL? {
+    url(
+      path: "support/#supported-devices",
+      preferredLocalizations: preferredLocalizations)
+  }
+
   private static func url(
     path: String, preferredLocalizations: [String]
   ) -> URL? {

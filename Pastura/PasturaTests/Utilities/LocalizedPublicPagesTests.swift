@@ -52,4 +52,16 @@ struct LocalizedPublicPagesTests {
     let url = LocalizedPublicPages.support(preferredLocalizations: ["de"])
     #expect(url?.absoluteString == "https://pastura.app/support/")
   }
+
+  // MARK: - Supported devices anchor
+
+  @Test func jaLocaleResolvesToJapaneseSupportedDevicesAnchor() {
+    let url = LocalizedPublicPages.supportedDevices(preferredLocalizations: ["ja"])
+    #expect(url?.absoluteString == "https://pastura.app/ja/support/#supported-devices")
+  }
+
+  @Test func enLocaleResolvesToEnglishSupportedDevicesAnchor() {
+    let url = LocalizedPublicPages.supportedDevices(preferredLocalizations: ["en"])
+    #expect(url?.absoluteString == "https://pastura.app/support/#supported-devices")
+  }
 }

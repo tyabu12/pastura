@@ -123,7 +123,7 @@ extension ModelDownloadHostView {
         // authoritative matrix is the ASC compatibility list and model
         // names drift with every hardware generation, while the web
         // page can be corrected without an app update (#499).
-        if let supportURL = LocalizedPublicPages.support() {
+        if let supportURL = LocalizedPublicPages.supportedDevices() {
           Link(destination: supportURL) {
             Label(
               String(localized: "See supported devices"),
