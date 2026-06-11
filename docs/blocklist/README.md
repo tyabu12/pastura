@@ -147,6 +147,8 @@ core simulation use case rather than defend the 13+ rating.
 | `wanker` | swanker, twanker | archaic/rare British words |
 | `bastard`, `whore`, `nigger`, `fellatio` | same-domain derivatives only | acceptable by construction |
 | `巨乳` | non-explicit body-descriptor usage | aggressive-side call for the 13+ defense posture; revisit if authoring complaints surface |
+| `kike` | "Kike" (Spanish nickname for Enrique) | hate slur (`hate` → input-blocking). Given-name substring collision is rare in this app's scenario domain; slur value dominates |
+| `統失` | 伝統失墜 / 系統失調 等の複合語 (rare) | hate slur for schizophrenia (`hate` → input-blocking). Low-frequency substring collisions accepted under the 13+ posture — same disposition as `巨乳` |
 
 These are pinned (by omission, with comments) in
 `ContentBlocklistFalsePositiveTests` — do not add them to the benign
