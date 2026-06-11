@@ -271,7 +271,7 @@ same change:
 | `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
 | `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
 | `docs/decisions/ADR-003.md`           | BG execution (iOS 26 BGContinuedProcessingTask) |
-| `docs/decisions/ADR-004.md`           | Multi-platform strategy (Draft)             |
+| `docs/decisions/ADR-004.md`           | Multi-platform strategy — Accepted (Conditional GO) on #220 KMP spike; §9 GO/NO-GO synthesis (H5/H7 distribution-verification deferred) |
 | `docs/decisions/ADR-005.md`           | Content safety architecture (App Store review) |
 | `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3; reserved — not yet written; see ADR-005 §7.5) |
 | `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
@@ -279,6 +279,7 @@ same change:
 | `docs/decisions/ADR-009.md`           | View testing strategy (no ViewInspector / snapshot; #269) |
 | `docs/decisions/ADR-010.md`           | Localization (i18n: ja/en) — ADR body for Step C-1 design (Status: Proposed; stub #279, body #367) |
 | `docs/decisions/ADR-011.md`           | 6 GB RAM tier — selection criteria + Phase 2 deferral (no-go for Gemma 3 1B IT; mechanism-contract prerequisites for future candidates; #477 / PR #480 / #483) |
+| `docs/decisions/ADR-012.md`           | YAML strategy post-kaml — snakeyaml-engine-kmp adoption for the shared Models layer (kaml archived; #220 D3 / T9; ADR-008 number drift) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
 | `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
