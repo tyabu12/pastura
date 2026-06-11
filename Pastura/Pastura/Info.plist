@@ -26,5 +26,14 @@
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>
+	<!-- Sole entry by design: pairing with ipad-minimum-performance-m1
+	     blocks iPhone installs entirely (Apple Dev Forums thread 773898).
+	     This key alone limits installs to iPhone 15 Pro-equivalent+ and
+	     iPad M1+, matching ModelRegistry.minRAM (6.5 GB). One-way door:
+	     updates may only maintain or relax capability requirements. -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>iphone-performance-gaming-tier</string>
+	</array>
 </dict>
 </plist>
