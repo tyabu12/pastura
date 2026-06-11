@@ -58,11 +58,11 @@ struct ContentBlocklistFalsePositiveTests {
       "niggardly",
       "cutwater",
       "a chink in the armor",
-      // Note: "Scunthorpe United" is intentionally OMITTED here.
-      // "cunt" is a retained profanity pattern whose substring "scunt" is a
-      // known false positive (the "Scunthorpe problem"). The current curation
-      // decision is to keep "cunt" and accept that false positive rather than
-      // weaken the profanity list. If "cunt" is ever removed, add this phrase back.
+      // Accepted collisions, intentionally OMITTED from this corpus
+      // (see docs/blocklist/README.md § Accepted collisions): "Scunthorpe
+      // United" (⊃ cunt), "milfoil" (⊃ milf), "swanker" (⊃ wanker). The
+      // curation decision keeps those terms and accepts the rare false
+      // positive. If a term is ever removed, re-add its phrase here.
       "analysis",
       "therapist"
     ]
@@ -86,7 +86,7 @@ struct ContentBlocklistFalsePositiveTests {
       "niggardly",
       "cutwater",
       "a chink in the armor",
-      // "Scunthorpe United" omitted — see benignEnglishPhrasesPassOutputFilter
+      // Accepted collisions omitted — see benignEnglishPhrasesPassOutputFilter
       "analysis",
       "therapist"
     ]
@@ -185,6 +185,8 @@ struct ContentBlocklistFalsePositiveTests {
     let filter = ContentFilter()
     let result = filter.filter("The art technique is bukkake ink wash")
     #expect(result.contains("***"), "Output filter must catch 'bukkake'")
+    // Only the matched term is replaced — surrounding benign text survives.
+    #expect(result.contains("ink wash"), "Filter must not over-mask beyond the term")
   }
 
   @Test func inputCheckFlagsKoukanJa() {
