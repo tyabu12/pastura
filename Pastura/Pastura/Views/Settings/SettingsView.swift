@@ -43,7 +43,7 @@ struct SettingsView: View {
   /// specific scenario context) — see ADR-005 §6.7 dual-use precedent.
   @State private var isReportSheetPresented: Bool = false
 
-  /// Bound to `.sheet(isPresented:)` for the "Licenses & Acknowledgements"
+  /// Bound to `.sheet(isPresented:)` for the "Licenses"
   /// row inside the Legal section.
   @State private var isLicensesSheetPresented: Bool = false
 
@@ -105,7 +105,7 @@ struct SettingsView: View {
           isLicensesSheetPresented = true
         } label: {
           HStack {
-            Text(String(localized: "Licenses & Acknowledgements"))
+            Text(String(localized: "Licenses"))
               .foregroundStyle(.primary)
             Spacer()
           }

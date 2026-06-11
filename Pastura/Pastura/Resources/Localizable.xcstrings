@@ -2556,12 +2556,12 @@
         }
       }
     },
-    "Licenses & Acknowledgements" : {
+    "Licenses" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ライセンスと謝辞"
+            "value" : "ライセンス"
           }
         }
       }

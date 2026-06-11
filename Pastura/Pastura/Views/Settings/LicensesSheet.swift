@@ -37,7 +37,7 @@ struct LicensesSheet: View {
           Text(String(localized: "AI Models"))
         }
       }
-      .navigationTitle(String(localized: "Licenses & Acknowledgements"))
+      .navigationTitle(String(localized: "Licenses"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {

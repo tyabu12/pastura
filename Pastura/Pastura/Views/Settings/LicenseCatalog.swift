@@ -1,6 +1,6 @@
 import Foundation
 
-/// One row in the Licenses & Acknowledgements screen (#506).
+/// One row in the Licenses screen (#506).
 ///
 /// `name` and `licenseName` are proper nouns and deliberately NOT wrapped
 /// in `String(localized:)`. `text` carries verbatim license text (or the

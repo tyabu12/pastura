@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-/// Completeness guards for the Licenses & Acknowledgements catalog (#506).
+/// Completeness guards for the Licenses catalog (#506).
 ///
 /// The model section cross-references `ModelRegistry` by exact id-set
 /// equality, so adding a model descriptor without a license entry (or
