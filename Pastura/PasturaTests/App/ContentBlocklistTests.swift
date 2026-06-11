@@ -10,7 +10,7 @@ struct ContentBlocklistTests {
 
   @Test func entriesFromBundleReturnsAllPatterns() {
     let entries = ContentBlocklist.entries(from: Bundle(for: DatabaseManager.self))
-    #expect(entries.count == 90)
+    #expect(entries.count == 89)
   }
 
   @Test func bundleResourceIsJSONNotLegacyText() {
@@ -28,14 +28,14 @@ struct ContentBlocklistTests {
   @Test func outputPatternsContainsAllPatterns() {
     // Pins the shipped list size as a canary: changing it requires a
     // deliberate blocklist edit AND updating this assertion (#504).
-    #expect(ContentBlocklist.outputPatterns.count == 90)
+    #expect(ContentBlocklist.outputPatterns.count == 89)
   }
 
   @Test func inputPatternsExcludesViolence() {
-    // Current source.json: 13 violence terms → 90 - 13 = 77 input.
+    // Current source.json: 13 violence terms → 89 - 13 = 76 input.
     // Cardinality is brittle as the blocklist grows — kept here as a
     // canary alongside the invariant test below.
-    #expect(ContentBlocklist.inputPatterns.count == 77)
+    #expect(ContentBlocklist.inputPatterns.count == 76)
   }
 
   @Test func outputPatternsIsSupersetOfInputPatterns() {

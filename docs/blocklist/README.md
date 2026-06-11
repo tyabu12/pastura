@@ -81,7 +81,7 @@ candidate term must be screened as a substring against ordinary text.
 Remember the partition above: non-`violence` terms also block scenario
 **authoring**, which raises the false-positive cost.
 
-### Screening pipeline (#504 expansion, 9 → 90 patterns)
+### Screening pipeline (#504 expansion, 9 → 89 patterns)
 
 1. **Upstream candidates** per ADR-005 §4.4: ja from
    [MosasoM/inappropriate-words-ja](https://github.com/MosasoM/inappropriate-words-ja)
@@ -132,6 +132,7 @@ Remember the partition above: non-`violence` terms also block scenario
 | `唖` | 唖然 | |
 | `在日` | 在日米軍 | legit term |
 | `支那` | 東支那海 | 支那人 retained instead |
+| `巨乳` | non-explicit body descriptor (anime / character authoring) | initially accepted as a 13+ defensive call, then removed (PR #505 follow-up): a body descriptor alone doesn't breach 13+ and it was the top authoring false-positive in the `sexual` set |
 
 Mild insults (バカ, アホ, ボケ, クソ alone, バカヤロウ, デブ, ハゲ …)
 are deliberately excluded: the bundled comedy presets (ボケて and its
@@ -146,9 +147,8 @@ core simulation use case rather than defend the 13+ rating.
 | `milf` | milfoil (aquatic plant) | plant name unlikely in scenarios; term is high-signal |
 | `wanker` | swanker, twanker | archaic/rare British words |
 | `bastard`, `whore`, `nigger`, `fellatio` | same-domain derivatives only | acceptable by construction |
-| `巨乳` | non-explicit body-descriptor usage | aggressive-side call for the 13+ defense posture; revisit if authoring complaints surface |
 | `kike` | "Kike" (Spanish nickname for Enrique) | hate slur (`hate` → input-blocking). Given-name substring collision is rare in this app's scenario domain; slur value dominates |
-| `統失` | 伝統失墜 / 系統失調 等の複合語 (rare) | hate slur for schizophrenia (`hate` → input-blocking). Low-frequency substring collisions accepted under the 13+ posture — same disposition as `巨乳` |
+| `統失` | 伝統失墜 / 系統失調 等の複合語 (rare) | hate slur for schizophrenia (`hate` → input-blocking). Low-frequency substring collisions accepted under the 13+ posture |
 
 These are pinned (by omission, with comments) in
 `ContentBlocklistFalsePositiveTests` — do not add them to the benign
@@ -156,6 +156,6 @@ corpus without removing the term.
 
 ### Capacity note
 
-90 / 100 patterns. ADR-005 §4.4's rough trigger for moving to dynamic
+89 / 100 patterns. ADR-005 §4.4's rough trigger for moving to dynamic
 HTTPS delivery is **>100 patterns** — the next expansion PR will likely
 cross it and must address that design first.

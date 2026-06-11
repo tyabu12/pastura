@@ -3,7 +3,7 @@ import Testing
 
 @testable import Pastura
 
-/// Data-driven guard suite for the expanded ContentBlocklist (90 patterns, commit 6a352a4).
+/// Data-driven guard suite for the expanded ContentBlocklist (89 patterns, commit 6a352a4).
 ///
 /// Pins the curation invariants that were validated during the blocklist-expansion
 /// review: min-length for ASCII terms, benign-corpus cleanliness, positive
@@ -11,7 +11,7 @@ import Testing
 /// ``ContentBlocklistTests``, and bundled-preset safety.
 ///
 /// Does NOT duplicate assertions from ``ContentBlocklistTests``, which owns
-/// the cardinality canaries (entries/output 90, input 77), bundle-shape
+/// the cardinality canaries (entries/output 89, input 76), bundle-shape
 /// checks, decode failure modes, and the output-superset invariant.
 @Suite(.timeLimit(.minutes(1)))
 struct ContentBlocklistFalsePositiveTests {
@@ -125,6 +125,10 @@ struct ContentBlocklistFalsePositiveTests {
       "エッチング",
       "鎮魂歌",
       "東シナ海",
+      // Removed term (PR #505 follow-up): 巨乳 was dropped from the blocklist
+      // as over-aggressive for a 13+ body descriptor; pin that it now passes
+      // the output filter so a future re-add is caught here.
+      "巨乳キャラの設定",
       // Comedy-preset mild insults — deliberately NOT added to blocklist
       "クソゲー",
       "ボケて",
@@ -162,6 +166,10 @@ struct ContentBlocklistFalsePositiveTests {
       "エッチング",
       "鎮魂歌",
       "東シナ海",
+      // Removed term (PR #505 follow-up): 巨乳 was dropped from the blocklist
+      // as over-aggressive for a 13+ body descriptor; pin that the input check
+      // no longer flags it so a future re-add is caught here.
+      "巨乳キャラの設定",
       // Comedy-preset mild insults — deliberately NOT added to blocklist
       "クソゲー",
       "ボケて",
@@ -229,7 +237,7 @@ struct ContentBlocklistFalsePositiveTests {
     }
   }
 
-  // Cardinality canaries (entries/output == 90, input == 77) live in
+  // Cardinality canaries (entries/output == 89, input == 76) live in
   // ContentBlocklistTests — not duplicated here.
 
   // MARK: - 5. Bundled presets survive input validation
@@ -267,7 +275,7 @@ struct ContentBlocklistFalsePositiveTests {
   /// during model download. They flow through the output path, so the
   /// output filter would mask any blocked term to `***` and corrupt the
   /// curated demo. They must therefore be clean against the FULL pattern
-  /// set (``ContentBlocklist/outputPatterns`` — all 90, incl. `violence`).
+  /// set (``ContentBlocklist/outputPatterns`` — all 89, incl. `violence`).
   ///
   /// This pins README "Screening pipeline" step 4's "all patterns vs
   /// replays" clause, which nothing else covered: ``BundledDemoReplaySource``
