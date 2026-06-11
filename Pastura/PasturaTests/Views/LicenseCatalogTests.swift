@@ -18,6 +18,20 @@ struct LicenseCatalogTests {
       #expect(!entry.text.isEmpty, "Empty license text for \(entry.name)")
       #expect(entry.url != nil, "Missing upstream URL for \(entry.name)")
       #expect(!entry.licenseName.isEmpty, "Missing license name for \(entry.name)")
+      for link in entry.links {
+        #expect(!link.label.isEmpty, "Empty link label on \(entry.name)")
+        #expect(link.url != nil, "Broken link URL '\(link.label)' on \(entry.name)")
+      }
+    }
+  }
+
+  @Test func modelEntriesLinkTheirGoverningLicense() {
+    // Model texts carry a notice, not the full license — every model
+    // entry must therefore link the canonical license document.
+    for entry in LicenseCatalog.models {
+      #expect(
+        entry.links.contains { $0.label == entry.licenseName },
+        "\(entry.name) must link its governing license (\(entry.licenseName))")
     }
   }
 
@@ -47,6 +61,11 @@ struct LicenseCatalogTests {
       #expect(
         entry.text.contains("Permission is hereby granted"),
         "\(name) must embed the verbatim MIT permission text")
+      // Second mandatory MIT clause — a truncated paste that drops the
+      // warranty disclaimer would otherwise pass.
+      #expect(
+        entry.text.contains("WITHOUT WARRANTY OF ANY KIND"),
+        "\(name) must embed the verbatim MIT warranty disclaimer")
     }
   }
 }

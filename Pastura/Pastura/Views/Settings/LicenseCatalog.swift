@@ -16,6 +16,9 @@ struct LicenseEntry: Identifiable {
   let url: URL?
   /// Verbatim license text (libraries) or license notice (models).
   let text: String
+  /// Supplemental tappable links (license texts, policy documents).
+  /// Labels are formal document titles — untranslated like `licenseName`.
+  let links: [LicenseLink]
   /// Set on model entries; `LicenseCatalogTests` cross-checks the set of
   /// ids against `ModelRegistry.catalog` so a future model cannot ship
   /// without a license entry.
@@ -27,6 +30,7 @@ struct LicenseEntry: Identifiable {
     licenseName: String,
     url: URL?,
     text: String,
+    links: [LicenseLink] = [],
     modelID: ModelID? = nil
   ) {
     self.id = id
@@ -34,8 +38,19 @@ struct LicenseEntry: Identifiable {
     self.licenseName = licenseName
     self.url = url
     self.text = text
+    self.links = links
     self.modelID = modelID
   }
+}
+
+/// A named supplemental link rendered as a tappable `Link` on the license
+/// detail screen — used for legally meaningful documents (the Gemma
+/// policies, canonical Apache 2.0 text) that would otherwise be
+/// untappable plain text.
+struct LicenseLink: Identifiable {
+  let label: String
+  let url: URL?
+  var id: String { label }
 }
 
 /// Static acknowledgements data backing `LicensesSheet`.
@@ -186,16 +201,18 @@ enum LicenseCatalog {
         The model file is downloaded from Hugging Face \
         (unsloth/gemma-4-E2B-it-GGUF) at your request; Pastura does not \
         redistribute it.
-
-        Apache License 2.0:
-        https://www.apache.org/licenses/LICENSE-2.0
-
-        Gemma 4 license:
-        https://ai.google.dev/gemma/docs/gemma_4_license
-
-        Gemma Prohibited Use Policy:
-        https://ai.google.dev/gemma/prohibited_use_policy
         """,
+      links: [
+        LicenseLink(
+          label: "Apache License 2.0",
+          url: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")),
+        LicenseLink(
+          label: "Gemma 4 license",
+          url: URL(string: "https://ai.google.dev/gemma/docs/gemma_4_license")),
+        LicenseLink(
+          label: "Gemma Prohibited Use Policy",
+          url: URL(string: "https://ai.google.dev/gemma/prohibited_use_policy"))
+      ],
       modelID: ModelRegistry.gemma4E2B.id),
     LicenseEntry(
       id: "model-qwen-3-4b",
@@ -207,10 +224,12 @@ enum LicenseCatalog {
 
         The model file is downloaded from Hugging Face (Qwen/Qwen3-4B-GGUF) \
         at your request; Pastura does not redistribute it.
-
-        Apache License 2.0:
-        https://www.apache.org/licenses/LICENSE-2.0
         """,
+      links: [
+        LicenseLink(
+          label: "Apache License 2.0",
+          url: URL(string: "https://www.apache.org/licenses/LICENSE-2.0"))
+      ],
       modelID: ModelRegistry.qwen34B.id)
   ]
 }

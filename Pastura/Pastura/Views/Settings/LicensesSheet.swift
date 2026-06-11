@@ -81,6 +81,15 @@ private struct LicenseDetailView: View {
           Link(String(localized: "View project page"), destination: url)
             .font(.callout)
         }
+        // Supplemental policy/license documents (e.g. the Gemma
+        // Prohibited Use Policy) — legally meaningful, so they get
+        // tappable affordances instead of plain-text URLs in `text`.
+        ForEach(entry.links) { link in
+          if let url = link.url {
+            Link(link.label, destination: url)
+              .font(.callout)
+          }
+        }
         Text(entry.text)
           .font(.footnote)
           .monospaced()
