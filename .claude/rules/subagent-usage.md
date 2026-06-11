@@ -26,20 +26,14 @@ Per-model output cap:
 
 Raising frontmatter `maxTurns` does not help — the cap is on output tokens, not turns.
 
-**Fable 5's subagent cap is undocumented** (as of 2026-06-11; revalidate
-via the #24055 tracker above). `fable` is a valid `Agent(model:)` /
-frontmatter alias ([sub-agents docs](https://code.claude.com/docs/en/sub-agents.md)),
-but until its cap is verified, treat a `fable` override as a quality
-lever only — Sonnet's 64K remains the only known **budget** escape
-valve (§3).
-
-`code-reviewer.md` / `critic.md` keep explicit `model: opus` frontmatter
-deliberately — the `SCOPE_TOO_LARGE` bail-outs (§4) and the §2 budgets
-are calibrated to Opus's 32K cap. Skills (`/orchestrate`, `/write-adr`)
-instead omit `model:` and inherit the session model
-([model-config docs](https://code.claude.com/docs/en/model-config.md)) —
-a skill-level pin would downgrade the main loop whenever the session
-runs a stronger model.
+**Fable 5 note**: `fable` is a valid `Agent(model:)` / frontmatter
+alias, but its subagent cap is undocumented (2026-06-11) — treat a
+`fable` override as a quality lever; Sonnet 64K stays the only known
+**budget** escape valve (§3). `code-reviewer.md` / `critic.md` keep
+`model: opus` deliberately (§2 / §4 are 32K-calibrated); skills omit
+`model:` and inherit the session model (a pin would downgrade the main
+loop). Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
+[model-config](https://code.claude.com/docs/en/model-config.md).
 
 ## 2. Caller-side scope discipline
 
