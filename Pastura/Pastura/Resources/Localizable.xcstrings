@@ -3886,6 +3886,16 @@
         }
       }
     },
+    "See supported devices" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対応機種を確認する"
+          }
+        }
+      }
+    },
     "Send a content report" : {
       "comment" : "Settings → Legal section row that opens ReportScenarioSheet with no specific scenario context.",
       "localizations" : {
@@ -4120,16 +4130,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要約"
-          }
-        }
-      }
-    },
-    "Supported: iPhone 15 Pro and later" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "対応機種: iPhone 15 Pro 以降"
           }
         }
       }

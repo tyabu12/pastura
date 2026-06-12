@@ -62,3 +62,100 @@ When adding a new term:
   strip.
 - Set `source` to the upstream attribution (e.g., `"pastura-original"` for
   in-house additions, the curated-list ID for external imports).
+
+## Curation log — maintainer-review attestation (ADR-005 §4.4)
+
+ADR-005 §4.4 requires maintainer review before bundling third-party-sourced
+terms ("wrapper of a third-party list without audit is rejected"). The
+review unit is the PR diff against `source.json`: merging a blocklist PR
+is the maintainer audit. This section records the screening methodology
+and judgement calls so a future curator does not have to re-derive them
+from PR archaeology.
+
+### Matching semantics that drive curation
+
+Both filter layers match by **boundary-less substring** with
+`[.caseInsensitive, .diacriticInsensitive]` (`ContentFilter.filter`,
+`ScenarioContentValidator`). There is no word-boundary logic, so every
+candidate term must be screened as a substring against ordinary text.
+Remember the partition above: non-`violence` terms also block scenario
+**authoring**, which raises the false-positive cost.
+
+### Screening pipeline (#504 expansion, 9 → 89 patterns)
+
+1. **Upstream candidates** per ADR-005 §4.4: ja from
+   [MosasoM/inappropriate-words-ja](https://github.com/MosasoM/inappropriate-words-ja)
+   (MIT), en from
+   [dsojevic/profanity-list](https://github.com/dsojevic/profanity-list)
+   (MIT); provenance in the `source` field.
+2. **Dictionary substring screen (en)**: each candidate checked as a
+   substring of every entry in `/usr/share/dict/words`.
+3. **Manual kana/kanji substring screen (ja)**: no canonical ja
+   dictionary screen exists; candidates reviewed by hand against common
+   compounds and casual orthography.
+4. **Bundled-content screen**: zero matches required against
+   `Resources/Presets/*.yaml`, `Resources/DemoReplays/*.yaml`, and
+   `docs/gallery/*.yaml` (input partition vs presets; all patterns vs
+   replays).
+5. **Regression pin**: `ContentBlocklistFalsePositiveTests` carries the
+   benign corpus, partition invariants, and a raw-text preset scan.
+
+### Rejected candidates (false-positive collisions)
+
+| Candidate | Collision | Note |
+|---|---|---|
+| `twat` | cutwater, outwatch | benign nautical/archaic words |
+| `nigga` | niggardly | unrelated archaic word; `nigger` retained covers the slur |
+| `chink` | "chink in the armor", chinking | common idiom |
+| `kys` | s**kys**craper | also fails the ASCII ≥4 rule |
+| `spic` | conspicuous, spice | |
+| `coon` | raccoon, cocoon, tycoon | |
+| `paki` | Pakistan(i) | legit demonym root |
+| `gook` | gobbledygook | |
+| `レイプ` | プ**レイプ**ラン | game scenarios say プレイプラン; kanji 強姦 / 輪姦 retained instead |
+| `しね` (hiragana) | 指値(さしね), 楽しいね | kanji 死ね retained |
+| `かたわ` | 傍ら(かたわら) | |
+| `びっこ` | ちびっこ | |
+| `めくら` | だめくらい | |
+| `エッチ` / `えっち` | エッチング, えっちゃん | |
+| `ちんこ` | ぱちんこ | ちんぽ retained instead |
+| `中出し` | 鞄の中出して | |
+| `手マン` | 選手マンション | |
+| `援交` | 応援交流 | |
+| `チョン` | チョンマゲ | samurai-scenario vocabulary |
+| `土人` | 粘土人形 | |
+| `池沼` | 池沼地帯 (geographic term) | |
+| `非人` | 非人道的 | |
+| `エタ` | エタノール | |
+| `アスペ` | アスペクト | |
+| `糖質` | carbohydrate (legit word) | 統失 retained instead |
+| `唖` | 唖然 | |
+| `在日` | 在日米軍 | legit term |
+| `支那` | 東支那海 | 支那人 retained instead |
+| `巨乳` | non-explicit body descriptor (anime / character authoring) | initially accepted as a 13+ defensive call, then removed (PR #505 follow-up): a body descriptor alone doesn't breach 13+ and it was the top authoring false-positive in the `sexual` set |
+
+Mild insults (バカ, アホ, ボケ, クソ alone, バカヤロウ, デブ, ハゲ …)
+are deliberately excluded: the bundled comedy presets (ボケて and its
+personas) use them legitimately, and blocking them would degrade the
+core simulation use case rather than defend the 13+ rating.
+
+### Accepted collisions (known, judged tolerable)
+
+| Term | Collides with | Rationale |
+|---|---|---|
+| `cunt` | Scunthorpe, placuntoma | proper noun / obscure medical; slur value dominates |
+| `milf` | milfoil (aquatic plant) | plant name unlikely in scenarios; term is high-signal |
+| `wanker` | swanker, twanker | archaic/rare British words |
+| `bastard`, `whore`, `nigger`, `fellatio` | same-domain derivatives only | acceptable by construction |
+| `kike` | "Kike" (Spanish nickname for Enrique) | hate slur (`hate` → input-blocking). Given-name substring collision is rare in this app's scenario domain; slur value dominates |
+| `統失` | 伝統失墜 / 系統失調 等の複合語 (rare) | hate slur for schizophrenia (`hate` → input-blocking). Low-frequency substring collisions accepted under the 13+ posture |
+
+These are pinned (by omission, with comments) in
+`ContentBlocklistFalsePositiveTests` — do not add them to the benign
+corpus without removing the term.
+
+### Capacity note
+
+89 / 100 patterns. ADR-005 §4.4's rough trigger for moving to dynamic
+HTTPS delivery is **>100 patterns** — the next expansion PR will likely
+cross it and must address that design first.
