@@ -50,7 +50,13 @@ let package = Package(
         .product(name: "LlamaSwift", package: "llama.swift")
       ],
       path: "Pastura/Pastura",
-      exclude: ["LLM/SafeSampler"],
+      // App-target-only entries are excluded explicitly — `sources:` alone
+      // still makes SwiftPM warn about every unhandled sibling file.
+      exclude: [
+        "LLM/SafeSampler", "App", "Assets.xcassets", "Data", "Info.plist",
+        "Pastura-Bridging-Header.h", "PasturaApp.swift", "PrivacyInfo.xcprivacy",
+        "Resources", "Utilities", "Views"
+      ],
       sources: ["Models", "LLM", "Engine"],
       swiftSettings: [
         // Mirrors the app target's SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
@@ -71,6 +77,14 @@ let package = Package(
       name: "PasturaHarnessKit",
       dependencies: ["PasturaCore"],
       path: "tools/harness/Sources/PasturaHarnessKit",
+      swiftSettings: [
+        .swiftLanguageMode(.v6)
+      ]
+    ),
+    .executableTarget(
+      name: "pastura-harness",
+      dependencies: ["PasturaHarnessKit", "PasturaCore"],
+      path: "tools/harness/Sources/pastura-harness",
       swiftSettings: [
         .swiftLanguageMode(.v6)
       ]
