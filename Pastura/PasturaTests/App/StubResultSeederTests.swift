@@ -31,6 +31,8 @@
         simulationRepository: simRepo,
         turnRepository: turnRepo
       )
+      // "" is the Home entry-point sentinel: aggregate across all
+      // scenarios (see Route.results doc) — not an accidental placeholder.
       await viewModel.load(scenarioId: "")
 
       #expect(viewModel.errorMessage == nil)

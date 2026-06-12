@@ -66,6 +66,23 @@ rm -f "$OUT_DIR"/*.png
 # keeps auto-generated failure screenshots and diagnostics out.
 count=0
 while IFS=$'\t' read -r exported base; do
+  # Fail fast if a capture name breaks the NN-kebab-case/no-underscore
+  # convention — silently truncating at the first "_" would otherwise
+  # produce a wrong filename.
+  case "$base" in
+    [0-9][0-9]-*) ;;
+    *)
+      echo "ERROR: capture name '$base' violates NN-kebab-case convention" >&2
+      exit 1
+      ;;
+  esac
+  # An underscore-containing capture name truncates to a plausible-looking
+  # base, so also catch the resulting collision (OUT_DIR was wiped above —
+  # any pre-existing target this run is a duplicate).
+  if [ -e "$OUT_DIR/$base.png" ]; then
+    echo "ERROR: duplicate screenshot name '$base.png' — capture names must be unique and underscore-free" >&2
+    exit 1
+  fi
   cp "$EXPORT_DIR/$exported" "$OUT_DIR/$base.png"
   echo "  $base.png"
   count=$((count + 1))
