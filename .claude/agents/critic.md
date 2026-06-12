@@ -79,7 +79,7 @@ For each axis generated in Stage 1:
 This is the Pastura project (iOS app for AI multi-agent simulations). Key references:
 - `CLAUDE.md` — project conventions, dependency rules, phase definitions
 - `docs/ROADMAP.md` — phase scope and Go/No-Go criteria
-- `.claude/rules/` — context-specific rules for Engine, Models/Data, and Presets
+- `.claude/rules/` — context-specific rules; see CLAUDE.md § "Context-Specific Rules" for the full index and loading modes
 
 ## Output Format
 
