@@ -25,6 +25,8 @@ rule below.
    `Pastura/PasturaUITests/` only when the regression target cannot be
    reached from pure logic. The existing 3 model the bar:
    `NavigationRegressionTests`, `BackGestureTests`, `EditorReloadTests`.
+   (`ScreenshotTourTests` is a review-only capture tour — ADR-009
+   decision 5, CI-skipped — and does not count against this bar.)
 
 3. **Do NOT introduce ViewInspector or swift-snapshot-testing.** Both
    add third-party-library risk (Xcode-major refresh cadence) and CI
