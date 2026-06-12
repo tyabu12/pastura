@@ -330,6 +330,40 @@ jobs:
           path: /tmp/release-build.log
           retention-days: 7
 
+  # ADR-013: the harness SwiftPM package compiles the same Engine/LLM/Models
+  # sources as the app but is invisible to the pre-commit hook (xcodebuild
+  # only) — without this job an iOS-only PR can silently break `swift build`.
+  # Runs in parallel with the xcodebuild jobs, so it does not extend the
+  # critical path (ui-test remains the slowest job).
+  harness-build:
+    name: Harness package build + tests (ADR-013)
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # Separate cache family from the xcodebuild jobs: SwiftPM CLI builds
+      # into ./.build (checkouts + the ~555 MB unpacked llama.cpp
+      # xcframework artifact), not ~/Library DerivedData. Keyed on the
+      # ROOT Package.resolved only — '**/Package.resolved' would also hash
+      # the xcodeproj's copy and churn this key on app-only pin changes.
+      - name: Cache SwiftPM build directory
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .build
+          key: harness-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: harness-spm-${{ runner.os }}-
+
+      - name: Build harness package
+        run: swift build
+
+      - name: Run harness package tests
+        run: swift test
+
   # Drift guard for bundled DL-time demo replays (#170, spec §3.3 / §5.2).
   # Re-hashes shipped preset YAMLs and validates each bundled demo's
   # `preset_ref.yaml_sha256` + curation-quality floors (turns, language,
