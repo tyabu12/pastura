@@ -287,4 +287,5 @@ same change:
 | `docs/design/design-system.md`        | Cross-screen design system (tokens, philosophy, components) |
 | `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML)             |
 | `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
+| `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (scenarios 1–17; extracted from `.claude/rules/navigation.md`) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
