@@ -10,7 +10,15 @@ import Yams
 ///
 /// Uses `Yams.load(yaml:)` → `[String: Any]` with manual mapping per ADR-001.
 /// Strips code fences from LLM-generated YAML before parsing.
-nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_body_length
+///
+/// Public for out-of-app consumers (the `pastura-harness` SwiftPM package,
+/// ADR-013 C4) — the SPM-extraction access prep CLAUDE.md anticipates.
+nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_body_length
+
+  /// Creates a loader. Stateless — declared explicitly because the
+  /// synthesized initializer would be `internal`, invisible to the
+  /// harness package (ADR-013 C4).
+  public init() {}
 
   /// Standard fields that are mapped to `Scenario` properties (not collected as extraData).
   private static let standardKeys: Set<String> = [
@@ -25,7 +33,7 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
   /// - Parameter yaml: Raw YAML text, possibly wrapped in code fences.
   /// - Returns: A validated ``Scenario`` instance.
   /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` on parse or validation failure.
-  func load(yaml: String) throws -> Scenario {
+  public func load(yaml: String) throws -> Scenario {
     let stripped = stripCodeFences(yaml)
 
     guard let raw = try? Yams.load(yaml: stripped),
@@ -51,7 +59,7 @@ nonisolated struct ScenarioLoader: Sendable {  // swiftlint:disable:this type_bo
   ///   would artificially block scenarios designed with asymmetric branches
   ///   (e.g. an expensive reflect phase gated behind a rare condition).
   /// - Code phases: 0
-  static func estimateInferenceCount(_ scenario: Scenario) -> Int {
+  public static func estimateInferenceCount(_ scenario: Scenario) -> Int {
     let agents = scenario.agentCount
     let perRound = scenario.phases.reduce(0) { $0 + estimatePhase($1, agents: agents) }
     return perRound * scenario.rounds
