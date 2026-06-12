@@ -22,7 +22,7 @@ Model: gemma-4-E2B-it-Q4_K_M | Scenarios: 3 (ok 3 / failed 0 / config_error 0)
 | factory_20260613_iiwake_battle | 言い訳エスカレーション | 順番制エスカレーション大喜利（speak_each） | ok | 4 | 5 | 3 | 4 | speak_each の前話者参照が明確に機能（差別化発言）。ただし R1 で開き直りマコが自票で 4 点獲得、R2 でお題取り違え（「遅刻ではなく」）。昇格第一候補 |
 | factory_20260613_shinya_tsuhan | 深夜の通販バトル | なりきりプレゼン大喜利（深夜通販） | ok | 2 | 3 | 2 | 3 | ペルソナ溶解が顕著（節約担当ヨシ江まで宇宙波動を語り全員霊感堂化）。R2 自票 2 件。「1〜2文」指示も無視され冗長。5 人ペルソナは芸風の言語的差別化が要強化 |
 
-Notes: First factory cycle (E2E verification for #521). 3/3 runs ok, no #253 crash tonight. Engine finding: self-votes despite exclude_self were tallied 3 times across 2 scenarios (iiwake R1, tsuhan R2 ×2) — VoteHandler seems not to reject votes outside the candidates list; follow-up issue not yet filed (issue TBD). One JSON-parse retry in tsuhan (auto-recovered).
+Notes: First factory cycle (E2E verification for #521). 3/3 runs ok, no #253 crash tonight. Engine finding: self-votes despite exclude_self were tallied 3 times across 2 scenarios (iiwake R1, tsuhan R2 ×2) — VoteHandler seems not to reject votes outside the candidates list; tracked in #524. One JSON-parse retry in tsuhan (auto-recovered).
 
 
 <!-- factory-digest:promotion -->
