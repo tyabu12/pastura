@@ -1,0 +1,33 @@
+{
+  "date": "2026-06-13",
+  "model": "gemma-4-E2B-it-Q4_K_M",
+  "notes": "fixture cycle for append_digest tests",
+  "scenarios": [
+    {
+      "id": "factory_20260613_test_ok",
+      "name": "テスト大喜利",
+      "theme": "大喜利",
+      "yaml": "data/factory/scenarios/2026-06-13/factory_20260613_test_ok.yaml",
+      "run_log": "data/factory/runs/2026-06-13/factory_20260613_test_ok.jsonl",
+      "status": "ok",
+      "attempts": 1,
+      "duration_sec": 9.4,
+      "scores": {"coherence": 4, "interaction": 3, "breakdown_free": 5, "humor": 2},
+      "comment": "設定は一貫、ボケの幅 | は狭め",
+      "error": null
+    },
+    {
+      "id": "factory_20260613_test_crash",
+      "name": "クラッシュ再現",
+      "theme": "大喜利",
+      "yaml": "data/factory/scenarios/2026-06-13/factory_20260613_test_crash.yaml",
+      "run_log": "data/factory/runs/2026-06-13/factory_20260613_test_crash.jsonl",
+      "status": "failed",
+      "attempts": null,
+      "duration_sec": null,
+      "scores": null,
+      "comment": "",
+      "error": "run_end line missing — process died mid-run (#253)"
+    }
+  ]
+}
