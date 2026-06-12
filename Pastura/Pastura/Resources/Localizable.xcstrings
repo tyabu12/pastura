@@ -1341,6 +1341,16 @@
         }
       }
     },
+    "Close" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
     "Close this sheet to open the shared scenario" : {
       "localizations" : {
         "ja" : {
@@ -1614,16 +1624,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "エージェントへ情報を配布（コード）"
-          }
-        }
-      }
-    },
-    "Done" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完了"
           }
         }
       }

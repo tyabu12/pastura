@@ -41,7 +41,7 @@ struct LicensesSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button(String(localized: "Done")) {
+          Button(String(localized: "Close")) {
             dismiss()
           }
         }
