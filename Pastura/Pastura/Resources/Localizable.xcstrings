@@ -900,6 +900,16 @@
         }
       }
     },
+    "AI Models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI モデル"
+          }
+        }
+      }
+    },
     "About %lld min left" : {
       "localizations" : {
         "ja" : {
@@ -1331,6 +1341,16 @@
         }
       }
     },
+    "Close" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
     "Close this sheet to open the shared scenario" : {
       "localizations" : {
         "ja" : {
@@ -1604,16 +1624,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "エージェントへ情報を配布（コード）"
-          }
-        }
-      }
-    },
-    "Done" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完了"
           }
         }
       }
@@ -2532,6 +2542,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "法的事項"
+          }
+        }
+      }
+    },
+    "Libraries" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブラリ"
+          }
+        }
+      }
+    },
+    "Licenses" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライセンス"
           }
         }
       }
@@ -4498,6 +4528,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日本語版で見る"
+          }
+        }
+      }
+    },
+    "View project page" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクトページを見る"
           }
         }
       }

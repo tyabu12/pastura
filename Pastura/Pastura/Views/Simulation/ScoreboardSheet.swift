@@ -46,7 +46,7 @@ struct ScoreboardSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button(String(localized: "Done")) { dismiss() }
+          Button(String(localized: "Close")) { dismiss() }
         }
       }
     }
