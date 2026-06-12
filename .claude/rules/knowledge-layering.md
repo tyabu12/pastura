@@ -36,7 +36,8 @@ File a rolling tracking issue collecting candidate sections, then `/orchestrate`
 
 1. Lands additions to `.claude/rules/` (or `CLAUDE.md` for project-wide rules).
 2. Strips `Source memory: feedback_*` provenance lines from drafts before commit — repo-tracked files referring to per-user memory by name are dead links for other contributors.
-3. After PR merges, locally `command rm ~/.claude/projects/.../memory/<source>.md` — the PR can't enforce memory deletion (it's per-user / per-machine); track via the rolling issue checklist.
+3. If the promoted content is mirrored elsewhere — the code-reviewer trap cheat sheet (`.claude/agents/code-reviewer.md`), a CLAUDE.md summary parenthetical — update every mirror in the same PR. Mirrors drift silently otherwise (e.g., swift-isolation gained Pattern 5 while two "4 traps" enumerations stayed behind).
+4. After PR merges, locally `command rm ~/.claude/projects/.../memory/<source>.md` — the PR can't enforce memory deletion (it's per-user / per-machine); track via the rolling issue checklist.
 
 ## Anti-pattern: memory refs in repo-tracked files
 
