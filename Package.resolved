@@ -1,0 +1,24 @@
+{
+  "originHash" : "14ff82ef190d9a53e7e6def343329d7f70379cf4c8f777a45c079641215a3e82",
+  "pins" : [
+    {
+      "identity" : "llama.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattt/llama.swift.git",
+      "state" : {
+        "revision" : "c22686cdb7da243756871fd266f5c0d10f84d6c2",
+        "version" : "2.8694.0"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "a27b21e0c81c5bf42049b897a62aaf387e80f279",
+        "version" : "6.2.2"
+      }
+    }
+  ],
+  "version" : 3
+}

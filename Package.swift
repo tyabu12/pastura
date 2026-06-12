@@ -1,0 +1,68 @@
+// swift-tools-version: 6.2
+//
+// SwiftPM manifest for the headless macOS simulation harness (ADR-013).
+//
+// Compiles the iOS app's Engine/LLM/Models sources IN PLACE for macOS —
+// nothing is duplicated or extracted. The Xcode project remains the build
+// path for the iOS app; this manifest exists solely for `pastura-harness`
+// and is the only consumer of the PASTURA_HARNESS_BUILD define.
+//
+// The pre-commit hook builds the Xcode project but NOT this package — run
+// `swift build` after touching core sources or this manifest (guarded in CI
+// by the harness-build job).
+import PackageDescription
+
+let package = Package(
+  name: "pastura-harness",
+  platforms: [
+    .macOS(.v15)
+  ],
+  dependencies: [
+    // Same packages, same pins as the app project
+    // (Pastura/Pastura.xcodeproj — see Package.resolved there).
+    .package(url: "https://github.com/jpsim/Yams.git", exact: "6.2.2"),
+    .package(url: "https://github.com/mattt/llama.swift.git", exact: "2.8694.0")
+  ],
+  targets: [
+    // Obj-C++ exception-catching bridge for llama_sampler_sample.
+    // SwiftPM rejects mixed-language targets, so these two files live in
+    // their own target (ADR-013 §4 C1). The .mm declares the llama symbol
+    // via a manual extern "C" prototype — no llama.cpp header dependency;
+    // the symbol resolves when the executable links LlamaSwift.
+    .target(
+      name: "PasturaSafeSampler",
+      path: "Pastura/Pastura/LLM/SafeSampler",
+      publicHeadersPath: ".",
+      cxxSettings: [
+        // SafeSampler.h gates its DEBUG-only test entry points on this
+        // define; Xcode supplies it for app debug builds, SwiftPM does not.
+        .define("DEBUG", to: "1", .when(configuration: .debug))
+      ]
+    ),
+    // The app's core layers compiled as ONE module, mirroring the app
+    // target. This exercises the layering's iOS-independence but does NOT
+    // split per-layer modules — see ADR-013 §3 / §6 Q3.
+    .target(
+      name: "PasturaCore",
+      dependencies: [
+        "PasturaSafeSampler",
+        .product(name: "Yams", package: "Yams"),
+        .product(name: "LlamaSwift", package: "llama.swift")
+      ],
+      path: "Pastura/Pastura",
+      exclude: ["LLM/SafeSampler"],
+      sources: ["Models", "LLM", "Engine"],
+      swiftSettings: [
+        // Mirrors the app target's SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
+        // so the nonisolated annotations in core sources keep identical
+        // semantics under both build paths.
+        .defaultIsolation(MainActor.self),
+        .swiftLanguageMode(.v6),
+        // Consumed by LLM/SafeSampler.swift to drop the bridging-header-era
+        // DEBUG test hooks, whose C declarations the SwiftPM build cannot
+        // see (cxxSettings defines do not reach the Swift clang importer).
+        .define("PASTURA_HARNESS_BUILD")
+      ]
+    )
+  ]
+)

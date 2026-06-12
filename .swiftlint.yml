@@ -1,6 +1,8 @@
 # .swiftlint.yml
 included:
   - Pastura
+  # Headless harness package sources (ADR-013) — same lint discipline as app code.
+  - tools/harness
 
 excluded:
   - Pastura/Resources
