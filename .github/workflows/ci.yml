@@ -208,11 +208,15 @@ jobs:
           # assertion" without masking real test failures (those fail on
           # every retry).
           # See unit-test step for rationale on tee / PIPESTATUS / || true.
+          # ScreenshotTourTests is a review-only capture tour (scripts/
+          # ui-tour.sh), not a gate — skipped here so it never burns CI
+          # minutes or inherits UI-test infra flakes.
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
             -destination "$DEST" \
             -only-testing PasturaUITests \
+            -skip-testing PasturaUITests/ScreenshotTourTests \
             -retry-tests-on-failure \
             -test-iterations 2 \
             -resultBundlePath UITestResults.xcresult \
