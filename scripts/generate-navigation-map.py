@@ -104,9 +104,11 @@ ROUTE_CASE_RE = re.compile(r"^\s*case\s+(\w+)", re.M)
 LINK_ROUTE_RE = re.compile(r"NavigationLink\(\s*value:\s*Route\.(\w+)")
 LINK_HELPER_RE = re.compile(r"NavigationLink\(\s*value:\s*(?!Route\.)(\w+)\(")
 PUSH_RE = re.compile(r"router\.push\(\s*(?:Route)?\.(\w+)")
-# Non-greedy across the expected: argument (which contains nested parens);
-# assumes next: appears within the same call — true for the AppRouter API.
-PUSH_IF_ON_TOP_RE = re.compile(r"pushIfOnTop\(.*?next:\s*\.(\w+)", re.S)
+# Non-greedy across the expected: argument (which contains nested parens).
+# The tempered span refuses to cross into a following pushIfOnTop( call, so
+# a hypothetical future next:-less overload can't bridge two calls and
+# mis-attribute the second call's target.
+PUSH_IF_ON_TOP_RE = re.compile(r"pushIfOnTop\((?:(?!pushIfOnTop\().)*?next:\s*\.(\w+)", re.S)
 
 
 def strip_comments(swift: str) -> str:
