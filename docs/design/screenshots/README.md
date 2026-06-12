@@ -33,6 +33,10 @@ Content is fixture-driven (`StubScenarioSeeder` / `StubResultSeeder` /
 data — review structure, spacing, and tokens here; review real copy in
 the app.
 
+Where each screen sits in the navigation graph:
+[`../navigation-map.md`](../navigation-map.md) (generated; maps nodes
+to these screenshot names and tour anchors).
+
 ## Adding a screen
 
 Add a tour stop in
