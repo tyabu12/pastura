@@ -50,7 +50,7 @@ After fetching the issue, check for an existing plan comment:
 2. `git status` — warn if uncommitted changes exist.
 3. Verify on default branch (skip if `RESUMING=true`):
    - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')`
-   - If current branch != `DEFAULT_BRANCH`, warn and offer `git checkout "$DEFAULT_BRANCH"`.
+   - If current branch != `DEFAULT_BRANCH`, warn and offer `git switch "$DEFAULT_BRANCH"`.
 4. `git pull --ff-only origin "$DEFAULT_BRANCH"` — warn on failure, don't block. Skip if `RESUMING=true`.
 5. If already in a worktree, warn and suggest `ExitWorktree` first (unless `RESUMING=true` and the worktree matches the expected branch).
 
@@ -207,11 +207,9 @@ For each unit of work (let `K` = the current plan item number), check the item's
 1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🟢 branch's escape at the Sonnet prompt below).
 2. Run targeted tests — confirm failure:
    ```bash
-   source scripts/sim-dest.sh
-   xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-     -destination "$DEST" -only-testing PasturaTests/<CurrentTestClass>
+   scripts/xcodebuild.sh test -only-testing PasturaTests/<CurrentTestClass>
    ```
-   Use `-only-testing` for the specific test class being developed — full suite per red/green cycle is too slow.
+   Run from the repo root — the wrapper supplies `-scheme` / `-project` / `-destination` / `-derivedDataPath` and the simulator gate internally (see `.claude/rules/xcodebuild-cli.md`). Use `-only-testing` for the specific test class being developed — full suite per red/green cycle is too slow.
 3. Write implementation.
 4. Run targeted tests — confirm pass (same command as step 2).
 5. Commit (Conventional Commits + emoji per CLAUDE.md).
@@ -249,11 +247,9 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 > **Procedure:**
 > - If the task involves implementation changes, follow TDD:
 >   1. Write the test first in `PasturaTests/`
->   2. Run the test — confirm it fails:
+>   2. Run the test — confirm it fails (from the repo root; the wrapper supplies scheme / destination / DerivedData internally):
 >      ```bash
->      source scripts/sim-dest.sh
->      xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
->        -destination "$DEST" -only-testing PasturaTests/{TestClass}
+>      scripts/xcodebuild.sh test -only-testing PasturaTests/{TestClass}
 >      ```
 >   3. Write the implementation
 >   4. Run the test again — confirm it passes (same command)
@@ -279,12 +275,11 @@ After all implementation, run full verification directly from the main session:
 
 1. Run the full test suite:
    ```bash
-   source scripts/sim-dest.sh
-   xcodebuild test -scheme Pastura -project Pastura/Pastura.xcodeproj \
-     -destination "$DEST" 2>&1 | tail -80
+   scripts/xcodebuild.sh test --tail 80
    ```
-   Pipe through `tail -80` to limit context window consumption. If failures need more detail,
-   re-run with `-only-testing PasturaTests/<FailingTestClass>` for the specific class (no tail).
+   `--tail 80` is the wrapper's pipefail-safe output cap — do NOT use external `| tail`, which
+   masks failed builds as exit 0 (see `.claude/rules/xcodebuild-cli.md`). If failures need more
+   detail, re-run with `-only-testing PasturaTests/<FailingTestClass>` for the specific class (no `--tail`).
 
 2. Handle the result:
    - **PASS** (`** TEST SUCCEEDED **`) → run `swiftlint lint --quiet --strict` directly. Fix any lint issues before proceeding.
@@ -374,4 +369,4 @@ After creation:
 
 **After merge** (guidance only — do NOT auto-execute):
 1. `ExitWorktree` with action `"remove"`
-2. `git checkout <default-branch> && git pull`
+2. `git switch <default-branch> && git pull`
