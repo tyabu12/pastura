@@ -46,3 +46,7 @@ fastlane/test_output
 # Python bytecode cache (e.g. from scripts/*.py via `python3 -m py_compile`).
 __pycache__/
 *.pyc
+
+# Design-review screenshots — generated on demand by scripts/ui-tour.sh
+# (see docs/design/screenshots/README.md). Only the README is tracked.
+docs/design/screenshots/*.png
