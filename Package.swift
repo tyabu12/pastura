@@ -63,6 +63,25 @@ let package = Package(
         // see (cxxSettings defines do not reach the Swift clang importer).
         .define("PASTURA_HARNESS_BUILD")
       ]
+    ),
+    // Harness logic (run-log model, event mapping, arg parsing, run loop).
+    // New code — default (nonisolated) isolation; cross-target surface uses
+    // `package` visibility, not `public`.
+    .target(
+      name: "PasturaHarnessKit",
+      dependencies: ["PasturaCore"],
+      path: "tools/harness/Sources/PasturaHarnessKit",
+      swiftSettings: [
+        .swiftLanguageMode(.v6)
+      ]
+    ),
+    .testTarget(
+      name: "PasturaHarnessKitTests",
+      dependencies: ["PasturaHarnessKit"],
+      path: "tools/harness/Tests/PasturaHarnessKitTests",
+      swiftSettings: [
+        .swiftLanguageMode(.v6)
+      ]
     )
   ]
 )
