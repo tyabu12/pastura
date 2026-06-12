@@ -52,10 +52,14 @@ struct ResultsView: View {
             NavigationLink(value: Route.resultDetail(simulationId: row.record.id)) {
               simulationRow(row, viewModel: viewModel)
             }
+            .accessibilityIdentifier("results.row.\(row.record.id)")
           }
         }
       }
     }
+    // Post-load anchor: only rendered once groups resolve non-empty, so
+    // ScreenshotTourTests can wait on it instead of sleeping.
+    .accessibilityIdentifier("results.list")
   }
 
   // Each row repeats the simulation-time `variantName` (`.headline` font,

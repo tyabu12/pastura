@@ -49,3 +49,8 @@ __pycache__/
 
 # Scenario-factory raw run logs (ADR-013 / #515) — digest is committed, raw is not.
 data/factory/runs/
+
+# Design-review screenshots — generated on demand by scripts/ui-tour.sh
+# (see docs/design/screenshots/README.md). Only the README is tracked.
+docs/design/screenshots/*.png
+
