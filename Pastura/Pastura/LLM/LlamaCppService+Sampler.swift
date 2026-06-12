@@ -115,7 +115,7 @@ extension LlamaCppService {
   /// Wrap a `llama_sampler_sample` call so any C++ exception thrown from the
   /// nested grammar accept path (`llama_grammar_accept_token`) is caught at
   /// the Obj-C++ bridge and surfaced as a Swift error instead of crashing
-  /// the process via `std::terminate`. See `LLM/SafeSampler.h` for the
+  /// the process via `std::terminate`. See `LLM/SafeSampler/SafeSampler.h` for the
   /// catch scope (covers #334 + #366 + #371; not #253's SIGABRT).
   ///
   /// On the catch path:

@@ -46,3 +46,6 @@ fastlane/test_output
 # Python bytecode cache (e.g. from scripts/*.py via `python3 -m py_compile`).
 __pycache__/
 *.pyc
+
+# Scenario-factory raw run logs (ADR-013 / #515) — digest is committed, raw is not.
+data/factory/runs/
