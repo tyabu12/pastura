@@ -20,6 +20,14 @@
     /// `results.row.ui_test_result_seed` by identifier.
     public static let simulationId = "ui_test_result_seed"
 
+    /// One fixture utterance for the seeded timeline (struct rather than a
+    /// labeled tuple — SwiftLint `large_tuple` caps tuples at 2 members).
+    private struct SeedStatement {
+      let round: Int
+      let agent: String
+      let text: String
+    }
+
     /// Inserts the completed simulation and its turns.
     ///
     /// Idempotent per repository upsert semantics. Called from
@@ -46,28 +54,40 @@
         llmBackend: "llamacpp"
       )
 
-      // 2 rounds x 2 agents. Statements are display-only fixture copy —
-      // long enough that chat bubbles wrap and the timeline's spacing /
-      // round-separator rhythm is reviewable in screenshots.
-      let statements: [(round: Int, agent: String, text: String)] = [
-        (
-          1, "Alice",
-          "Hello! I think we should start by sharing what each of us observed this morning."
+      let turns = makeTurns(base: base)
+
+      try await offMain {
+        try simulationRepository.save(record)
+        try turnRepository.saveBatch(turns)
+      }
+    }
+
+    /// Builds the fixture timeline: 2 rounds x 2 agents. Statements are
+    /// display-only copy — long enough that chat bubbles wrap and the
+    /// timeline's spacing / round-separator rhythm is reviewable in
+    /// screenshots.
+    private static func makeTurns(base: Date) -> [TurnRecord] {
+      let statements: [SeedStatement] = [
+        SeedStatement(
+          round: 1, agent: "Alice",
+          text: "Hello! I think we should start by sharing what each of us observed this morning."
         ),
-        (
-          1, "Bob",
-          "Agreed. The pasture by the north fence looked unusually quiet, which worries me a little."
+        SeedStatement(
+          round: 1, agent: "Bob",
+          text:
+            "Agreed. The pasture by the north fence looked unusually quiet, which worries me a little."
         ),
-        (
-          2, "Alice",
-          "Building on that — if the north side stays quiet tomorrow, I suggest we move the flock east."
+        SeedStatement(
+          round: 2, agent: "Alice",
+          text:
+            "Building on that — if the north side stays quiet tomorrow, I suggest we move the flock east."
         ),
-        (
-          2, "Bob",
-          "That sounds reasonable. Let's agree on the east plan and check again at sunrise."
+        SeedStatement(
+          round: 2, agent: "Bob",
+          text: "That sounds reasonable. Let's agree on the east plan and check again at sunrise."
         )
       ]
-      let turns = statements.enumerated().map { index, entry in
+      return statements.enumerated().map { index, entry in
         TurnRecord(
           id: "\(simulationId)_t\(index)",
           simulationId: simulationId,
@@ -81,11 +101,6 @@
           sequenceNumber: index,
           createdAt: base.addingTimeInterval(TimeInterval(index))
         )
-      }
-
-      try await offMain {
-        try simulationRepository.save(record)
-        try turnRepository.saveBatch(turns)
       }
     }
   }
