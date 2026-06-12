@@ -128,6 +128,11 @@ package final class HarnessRunner: Sendable {
         return first
       }
     } catch is HarnessTimeoutError {
+      // Ordering invariant: withThrowingTaskGroup awaits its (cancelled)
+      // children before rethrowing out of the closure, so by the time this
+      // catch runs the consumer has fully drained — unloadModel() below
+      // cannot race an in-flight stream. Don't restructure in a way that
+      // unloads before group exit.
       outcome = .failed("timeout after \(timeoutSeconds)s")
     } catch {
       outcome = .failed(String(describing: error))

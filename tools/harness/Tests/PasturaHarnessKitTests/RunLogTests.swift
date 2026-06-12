@@ -83,6 +83,10 @@ struct RunLogTests {
     // switch breaks compilation; this test documents the one deliberate nil.
     let mapped: [SimulationEvent] = [
       .roundStarted(round: 1, totalRounds: 1),
+      .roundCompleted(round: 1, scores: ["A": 1]),
+      .agentOutput(agent: "A", output: TurnOutput(fields: [:]), phaseType: .vote),
+      .voteResults(votes: ["A": "B"], tallies: ["B": 1]),
+      .error(.cancelled),
       .phaseStarted(phaseType: .vote, phasePath: [0]),
       .phaseCompleted(phaseType: .vote, phasePath: [0]),
       .scoreUpdate(scores: [:]),

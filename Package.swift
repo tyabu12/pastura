@@ -36,6 +36,10 @@ let package = Package(
       cxxSettings: [
         // SafeSampler.h gates its DEBUG-only test entry points on this
         // define; Xcode supplies it for app debug builds, SwiftPM does not.
+        // Debug harness builds thus compile those C entry points with no
+        // Swift caller (SafeSamplerTestHooks is !PASTURA_HARNESS_BUILD) —
+        // intentionally dead symbols, kept so the .h contract stays uniform
+        // across build paths.
         .define("DEBUG", to: "1", .when(configuration: .debug))
       ]
     ),

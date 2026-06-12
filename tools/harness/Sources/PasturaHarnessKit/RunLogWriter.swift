@@ -23,7 +23,8 @@ package final class FileRunLogWriter: RunLogWriting {
   }
 
   package func append(_ line: String) throws {
-    guard let data = (line + "\n").data(using: .utf8) else { return }
+    // Data(_.utf8) cannot fail — no silent-drop branch for the JSONL stream.
+    let data = Data((line + "\n").utf8)
     try handle.withLock { try $0.write(contentsOf: data) }
   }
 
