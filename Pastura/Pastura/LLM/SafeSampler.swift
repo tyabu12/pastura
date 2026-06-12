@@ -1,6 +1,13 @@
 import Foundation
 import LlamaSwift
 
+// In the SwiftPM harness package (root Package.swift) the Obj-C++ bridge
+// lives in its own `PasturaSafeSampler` target; in the app target the
+// bridging header supplies the same symbols and this module doesn't exist.
+#if canImport(PasturaSafeSampler)
+  import PasturaSafeSampler
+#endif
+
 /// Swift facade over the SafeSampler Obj-C++ bridge.
 ///
 /// Two roles:
@@ -13,7 +20,7 @@ import LlamaSwift
 ///      `@testable import Pastura`, without setting up a separate bridging
 ///      header on the test target.
 ///
-/// The catch scope is documented in `LLM/SafeSampler.h`. The wrapper does
+/// The catch scope is documented in `LLM/SafeSampler/SafeSampler.h`. The wrapper does
 /// not cover SIGABRT-class crashes (issue #253); it covers C++ exceptions
 /// from the sample / chain-accept path (issue #334 single-field grammar,
 /// issue #366 Qwen 3 `<think>` token, issue #371 special-token mask gap).
@@ -42,7 +49,7 @@ nonisolated enum SafeSampler {
     /// the (possibly truncated) `what()` of the caught C++ exception.
     /// Truncation contract: payloads longer than
     /// `PASTURA_SAFE_SAMPLER_ERROR_BUFFER_SIZE - 1` are cut to that length
-    /// and NUL-terminated; see `LLM/SafeSampler.h`.
+    /// and NUL-terminated; see `LLM/SafeSampler/SafeSampler.h`.
     let errorMessage: String?
 
     init(raw: pastura_sample_result_t) {
@@ -64,7 +71,7 @@ nonisolated extension pastura_sample_result_t {
   }
 }
 
-#if DEBUG
+#if DEBUG && !PASTURA_HARNESS_BUILD
   /// Test hooks: forward to the DEBUG-only C entry points that intentionally
   /// throw + catch. Exposed at `internal` access so tests can call through
   /// `@testable import Pastura`. Not callable from Release builds (the
