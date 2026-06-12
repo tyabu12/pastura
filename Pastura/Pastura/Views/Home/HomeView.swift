@@ -86,6 +86,7 @@ struct HomeView: View {
         NavigationLink(value: Route.results(scenarioId: "")) {
           Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
         }
+        .accessibilityIdentifier("home.pastResultsButton")
       }
     }
     .refreshable {

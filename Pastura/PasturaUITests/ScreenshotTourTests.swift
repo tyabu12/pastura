@@ -32,7 +32,9 @@ final class ScreenshotTourTests: XCTestCase {
 
   func testCaptureScreenshotTour() throws {
     let app = XCUIApplication()
-    app.launchArguments = ["--ui-test"]
+    // --ui-test-seed-results adds a completed simulation fixture so the
+    // Past Results stops render content instead of the empty state.
+    app.launchArguments = ["--ui-test", "--ui-test-seed-results"]
     app.launch()
 
     // Home — the seeded row only appears once HomeViewModel finishes loading.
@@ -66,6 +68,16 @@ final class ScreenshotTourTests: XCTestCase {
     // Settings.
     app.buttons["home.settingsButton"].tap()
     capture(app, name: "06-settings", anchorId: "settings.licensesLink")
+    goBack(app)
+
+    // Past Results (seeded fixture — see StubResultSeeder).
+    app.buttons["home.pastResultsButton"].tap()
+    capture(app, name: "07-results", anchorId: "results.list")
+
+    // Result detail timeline.
+    app.buttons["results.row.ui_test_result_seed"].tap()
+    capture(app, name: "08-result-detail", anchorId: "resultDetail.timeline")
+    goBack(app)
     goBack(app)
   }
 
