@@ -284,6 +284,7 @@ same change:
 | `docs/decisions/ADR-010.md`           | Localization (i18n: ja/en) — ADR body for Step C-1 design (Status: Proposed; stub #279, body #367) |
 | `docs/decisions/ADR-011.md`           | 6 GB RAM tier — selection criteria + Phase 2 deferral (no-go for Gemma 3 1B IT; mechanism-contract prerequisites for future candidates; #477 / PR #480 / #483) |
 | `docs/decisions/ADR-012.md`           | YAML strategy post-kaml — snakeyaml-engine-kmp adoption for the shared Models layer (kaml archived; #220 D3 / T9; ADR-008 number drift) |
+| `docs/decisions/ADR-013.md`           | Headless macOS simulation harness — SwiftPM source reuse for the scenario factory (Status: Proposed; #515) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
 | `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
