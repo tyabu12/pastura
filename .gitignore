@@ -47,5 +47,7 @@ fastlane/test_output
 __pycache__/
 *.pyc
 
-# Scenario-factory raw run logs (ADR-013 / #515) — digest is committed, raw is not.
+# Scenario-factory raw run logs and generated candidate YAMLs (ADR-013 /
+# #515 / #521) — digest is committed, raw artifacts are local-only.
 data/factory/runs/
+data/factory/scenarios/
