@@ -126,6 +126,13 @@ if ! BUILD_OUT=$(swift build 2>&1); then
   exit 0
 fi
 BIN="$(swift build --show-bin-path)/pastura-harness"
+if [ ! -x "$BIN" ]; then
+  # Guard against bin-path/config drift — a missing binary must read as an
+  # environment problem, not get misattributed to a #253 crash.
+  emit "config_error" 1 "$SCENARIO" "$OUT" null null \
+    "harness binary not found at $BIN (build/config drift?)"
+  exit 0
+fi
 
 "$BIN" --scenario "$SCENARIO" --model "$MODEL" --out "$OUT" \
   --timeout "$TIMEOUT" --quiet 2>"$STDERR_LOG" &
@@ -151,6 +158,9 @@ done
 wait "$PID"
 EXIT_CODE=$?
 
+# Ordering invariant: this OVERSIZE branch MUST precede classify — it
+# overrides the SIGTERM exit code (143) from our own fast-abort kill,
+# which classify would otherwise mislabel as a failed run.
 if [ -n "$OVERSIZE" ]; then
   EST=$(run_start_estimate "$OUT")
   emit "config_error" "$EXIT_CODE" "$SCENARIO" "$OUT" null "${EST:-null}" \

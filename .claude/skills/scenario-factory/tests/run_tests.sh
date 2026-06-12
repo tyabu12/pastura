@@ -30,6 +30,7 @@ check_status "exit 0 without run_end" fixtures/run_crash_truncated.jsonl 0 faile
 check_status "config error" "$TMP/never_written.jsonl" 2 config_error
 # oversized estimate in run_start → config_error regardless of exit code
 check_status "oversize estimate" fixtures/run_oversize.jsonl 143 config_error
+check_status "oversize estimate (clean exit)" fixtures/run_oversize.jsonl 0 config_error
 
 ERR=$(bash "$SCRIPTS/run_scenario.sh" --classify fixtures/run_crash_truncated.jsonl 134 | jq -r '.error')
 echo "$ERR" | grep -q "#253" || fail "crash error should reference #253, got: $ERR"
