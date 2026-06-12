@@ -518,6 +518,13 @@ private struct RootView: View {
           uiTestEditorSeedYAML: editorSeedYAML
         )
         try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
+        // Past Results fixtures are opt-in so plain --ui-test runs keep
+        // exercising the empty state (ScreenshotTourTests opts in).
+        if CommandLine.arguments.contains("--ui-test-seed-results") {
+          try await StubResultSeeder.seed(
+            simulationRepository: deps.simulationRepository,
+            turnRepository: deps.turnRepository)
+        }
         appState = .ready(deps)
       } catch {
         appState = .error("UI test setup failed: \(error.localizedDescription)")

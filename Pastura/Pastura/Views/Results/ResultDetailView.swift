@@ -174,6 +174,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       .padding(.horizontal, 20)
       .padding(.vertical, 8)
     }
+    // Post-load anchor: only rendered once timeline items resolve, so
+    // ScreenshotTourTests can wait on it instead of sleeping.
+    .accessibilityIdentifier("resultDetail.timeline")
   }
 
   /// Wraps a row with a leading indent and "↳ sub-phase" caption when the

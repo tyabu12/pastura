@@ -14,3 +14,6 @@ design briefs or prompts that inform but do not bind engineering.
 Each file carries a `Status` header indicating its binding level (draft,
 exploration, ship-aligned). A design artefact that describes behaviour or
 state must defer to the relevant spec or ADR.
+
+`screenshots/` holds generated (gitignored) captures of the current UI —
+see `screenshots/README.md` for regeneration via `scripts/ui-tour.sh`.

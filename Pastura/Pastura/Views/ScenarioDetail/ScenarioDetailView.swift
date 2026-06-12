@@ -105,6 +105,9 @@ struct ScenarioDetailView: View {
       validationSection(viewModel: viewModel)
       actionsSection(scenario: scenario, viewModel: viewModel)
     }
+    // Post-load anchor: this List only exists once the scenario content has
+    // resolved, so ScreenshotTourTests can wait on it instead of sleeping.
+    .accessibilityIdentifier("scenarioDetail.list")
   }
 
   @ViewBuilder
