@@ -91,9 +91,10 @@ Utilities/ → depends on nothing
   All types in `Models/`, `LLM/`, `Engine/`, and `Data/` **MUST** be marked `nonisolated` at the
   type level to avoid unnecessary MainActor binding.
   `Views/` and `App/` use the default (MainActor).
-  Specific traps requiring explicit `nonisolated` (protocol-ext default impls building
-  escaping closures, custom-witness value types, sibling-file extensions, reference-type
-  sync methods) — see `.claude/rules/swift-isolation.md`.
+  Specific isolation traps (protocol-ext default impls building escaping closures,
+  custom-witness value types, sibling-file extensions, reference-type sync methods,
+  auto-synth Equatable/Hashable conformance lookup from nonisolated callers) —
+  see `.claude/rules/swift-isolation.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
 - **Observable bridge for non-`@Observable` state:** When an `@Observable` class exposes
   a computed property that reads mutable state from a `nonisolated` class / actor,
@@ -218,17 +219,20 @@ pages/                           # Public HTML deployed via .github/workflows/de
 **Path-scoped** (loaded only when editing matching files):
 
 - `adr-writing.md` — ADR drafting concepts: fact-claim verification at write time, mechanism contract over pinned model thresholds (`docs/decisions/**`)
+- `ci-workflows.md` — CI workflow / script editing: bash 3.2 gotchas on macOS GHA runners (no `mapfile` etc.), long-lived integration-branch gating shape (`.github/workflows/**`, `scripts/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
 - `i18n.md` — Localization workflow: `String(format: String(localized:))` format-string pattern, `xcstringstool` sync output (multi-arg en blocks, state=new + en-only), catalog editing traps (don't `json.dumps` round-trip) (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
 - `lp-content.md` — Public LP content concepts: AIgazing / AI観測 genre-word zoning (Hero + Bigger picture only), em-dash / prose-colon voice rule for new copy (`pages/**`)
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
+- `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via the `currentScenario()` funnel (`Pastura/Pastura/App/ScenarioEditor*`, `Pastura/Pastura/Views/Editor/**`, `Pastura/PasturaTests/App/ScenarioEditorViewModel*`)
+- `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog: toolbar-hide API matrix (iOS 17→26), footguns surfaced during app development; cross-references `navigation.md` for AppRouter mechanics (`Pastura/Pastura/**/*.swift`)
 - `testing.md` — Test target (`Pastura/PasturaTests/**`)
 - `view-testing.md` — View test strategy: extract logic to unit-tests, narrow UI integration tests, no ViewInspector / snapshot (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**ViewModel.swift`). Decision record: [ADR-009](docs/decisions/ADR-009.md).
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
-- `swift-isolation.md` — `nonisolated` annotation traps (protocol-ext default impls, custom witnesses, sibling-file extensions, reference-type sync methods) under default-MainActor isolation. Diagnostic fires at use site, not declaration — always-loaded so it's visible regardless of which file is being edited.
+- `swift-isolation.md` — `nonisolated` annotation traps (protocol-ext default impls, custom witnesses, sibling-file extensions, reference-type sync methods, auto-synth conformance lookup) under default-MainActor isolation. Diagnostic fires at use site, not declaration — always-loaded so it's visible regardless of which file is being edited.
 - `navigation.md` — `AppRouter` pattern: programmatic root-stack navigation goes through `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto the root stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
 - `subagent-usage.md` — Subagent invocation discipline (32K output-token cap, scope budget heuristics, Sonnet override). Always-loaded because subagent calls can originate from `/orchestrate`, slash commands, or any direct `Agent` invocation.
