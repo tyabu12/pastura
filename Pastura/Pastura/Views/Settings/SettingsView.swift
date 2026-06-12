@@ -43,6 +43,10 @@ struct SettingsView: View {
   /// specific scenario context) — see ADR-005 §6.7 dual-use precedent.
   @State private var isReportSheetPresented: Bool = false
 
+  /// Bound to `.sheet(isPresented:)` for the "Licenses"
+  /// row inside the Legal section.
+  @State private var isLicensesSheetPresented: Bool = false
+
   #if !targetEnvironment(simulator)
     @Environment(ModelManager.self) private var modelManager
     @Environment(AppDependencies.self) private var dependencies
@@ -96,6 +100,17 @@ struct SettingsView: View {
           }
         }
         .accessibilityIdentifier("settings.sendContentReportButton")
+
+        Button {
+          isLicensesSheetPresented = true
+        } label: {
+          HStack {
+            Text(String(localized: "Licenses"))
+              .foregroundStyle(.primary)
+            Spacer()
+          }
+        }
+        .accessibilityIdentifier("settings.licensesLink")
       } header: {
         Text(String(localized: "Legal"))
       }
@@ -117,6 +132,10 @@ struct SettingsView: View {
     // navigation.md QA scenario 9).
     .sheet(isPresented: $isReportSheetPresented) {
       ReportScenarioSheet(scenario: nil)
+        .deepLinkGated()
+    }
+    .sheet(isPresented: $isLicensesSheetPresented) {
+      LicensesSheet()
         .deepLinkGated()
     }
     #if !targetEnvironment(simulator)
