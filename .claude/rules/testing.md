@@ -126,6 +126,36 @@ targeting works correctly for.
 
 **Verify:** Always check the test count in the output to confirm tests actually ran.
 
+## Duplicate Suite Names Silently Halve `-only-testing`
+
+Two `struct XxxTests` declarations across files in the same target make
+`-only-testing PasturaTests/XxxTests` resolve to **only one** of them —
+the other suite silently doesn't run, and xcodebuild still prints
+`** TEST SUCCEEDED **`. Distinct from the individual-`@Test` trap above:
+suite-level targeting is the mitigation there, but doesn't help when the
+suite *name itself* is duplicated.
+
+**Diagnostic:** if `Test run with N tests` reports fewer tests than the
+file you're looking at contains, locate the twin with
+`rg -l 'struct XxxTests\b' Pastura/PasturaTests` and merge into one suite
+(preferred — readers assume "DataError tests live in DataErrorTests.swift")
+or rename one (PR #448).
+
+## Test-Target `FRAMEWORK_SEARCH_PATHS` for Framework Imports
+
+When a test file `import`s a framework from `Pastura/Frameworks/`, the
+PasturaTests target needs its **own** `FRAMEWORK_SEARCH_PATHS` build
+setting (Debug + Release blocks in the pbxproj) — compile-time
+swiftmodule discovery does not inherit from the app target's settings,
+even though `TEST_HOST` already covers *runtime* symbol resolution via
+the host app. Do NOT also link the framework into the test target's
+Frameworks build phase — redundant, and it complicates Embed & Sign
+reasoning.
+
+No framework consumer exists on main today; the first arrives with the
+KMP integration (#501). The spike-branch wiring that surfaced this is
+PR #474 (#220 W3 PR-B).
+
 ## MockLLMService Usage
 
 - Always call `try await mock.loadModel()` before running any code that calls

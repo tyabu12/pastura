@@ -265,3 +265,77 @@ nonisolated public enum SimulationError: Error, Sendable, Equatable {
     }
 }
 ```
+
+## llama.cpp Backend Traps
+
+llama.cpp is the active TestFlight backend; the LiteRT-LM migration
+trigger has fired and evaluation is in progress (ADR-002 §8, #496) —
+revisit this section if/when `LlamaCppService` is replaced.
+
+Four trap classes from prior incidents. The first three share a crash
+signature (`Unexpected empty grammar stack` → SIGABRT) but have
+**different root causes and different fixes** — diagnose before fixing.
+
+### Grammar sampler does not mask special tokens
+
+`llama_sampler_init_grammar` does not exclude special tokens from its
+mask. A thinking-mode model (Qwen 3, future R1-style ports) emitting a
+leading `<think>` crashes `llama_grammar_accept_token`
+(`std::runtime_error: Unexpected empty grammar stack`), uncaught at the
+Swift boundary. Fix: prefill the assistant turn via
+`ModelDescriptor.assistantPrefix` (e.g. `<think>\n\n</think>\n\n`) — the
+simplified C-API `llama_chat_apply_template` does not auto-emit what the
+Jinja template would under `enable_thinking=false` (PR #368).
+
+**Wrong fixes** (tried and rejected): a GBNF `(think-block)?` rule
+(wastes inference tokens on thinking output), `/no_think` system-prompt
+hint (soft training hint only — Qwen 3 emitted `<think>` anyway),
+sampler-chain token filtering (fights llama.cpp's design).
+
+When adding a model to `ModelRegistry`, check whether its chat template
+emits any special token before the response under default settings; if
+yes, it needs a closed-form `assistantPrefix` or no grammar.
+Defense-in-depth (post-sample `llama_vocab_is_special` check) is tracked
+in #371 — consult it before adding any thinking-mode model.
+
+### GGUF source matters — control-token type flags
+
+unsloth's Gemma 3 GGUF exports flag `<start_of_turn>` / `<end_of_turn>`
+as NORMAL instead of CONTROL (unslothai/unsloth#5070), so llama.cpp
+BPE-splits the chat markers; the model receives a garbled prompt and
+emits a garbage first token, which then trips the grammar. **Same crash
+signature as the special-token trap above, different root cause,
+different fix**: switch GGUF source — `assistantPrefix` does not help.
+Prefer `ggml-org/*-GGUF` (or bartowski) for the Gemma 3 family; Gemma 4
+unsloth exports are unaffected and the existing Gemma 4 E2B descriptor
+stays on unsloth. (PR #480, closed — Gemma 3 1B no-go; durable record in
+ADR-011.)
+
+When pinning a new descriptor, the HF resolve-URL headers
+`X-Linked-Size` / `X-Linked-ETag` give authoritative `fileSize` /
+`sha256` without an on-device PoC (`curl -sI <resolve-URL>`).
+
+### Raw `llama_sampler_accept` with prompt tokens corrupts grammar state
+
+`llama_sampler_accept` propagates to every chain component including the
+grammar. Prompt tokens (`<bos>`, chat markers, plain text) do not match
+the GBNF `root` rule, so every accept throws, the grammar stack empties,
+and the next `llama_sampler_sample` hits `GGML_ASSERT(!stacks.empty())`
+→ SIGABRT mid-generation. **A C++ exception catcher does NOT save you**
+— the catches succeed during prefill but the assertion fires later in
+`apply_impl`, and POSIX signals do not propagate through try/catch
+(#253). If prompt-token-aware penalty samplers are ever needed, use lazy
+grammar mode, split the chain into two samplers, or build a
+`common_sampler_accept`-style per-component wrapper that excludes the
+grammar. (PR #480 commit eb26153, reverted in 4ffaf6f; ADR-011.)
+
+### iOS Simulator cannot run quantized inference
+
+Simulator Metal reports `MTL0 ... 0 MiB free`; weight tensors fail to
+buffer (`ggml_metal_buffer_get_id ... buffer is nil`) and the CPU
+fallback hits `GGML_ASSERT` in `ggml_compute_forward_get_rows` → SIGABRT.
+This is a GGML-level compute abort — **a distinct crash class from the
+grammar paths above**; SafeSampler cannot catch it. Load-only
+integration tests pass; anything calling `generate` / `generateStream`
+dies. Verify inference on a real device, or accept unit-test-level
+coverage for sampler code (PR #463 verification).
