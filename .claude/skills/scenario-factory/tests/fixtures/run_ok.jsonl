@@ -1,0 +1,12 @@
+{"date":"2026-06-13T00:00:00Z","estimated_inferences":20,"language":"ja","model":"gemma-4-E2B-it-Q4_K_M","run_id":"20260613-000000-aaaa","scenario_id":"factory_test_ok","scenario_name":"テスト大喜利","timeout_sec":600,"type":"run_start"}
+{"attempt":1,"event":"round_started","round":1,"t":0.5,"total_rounds":1,"type":"event"}
+{"agent":"ツッコミ太郎","attempt":1,"event":"assignment","t":0.6,"type":"event","value":"スーツを着た猫の写真"}
+{"agent":"ツッコミ太郎","attempt":1,"event":"inference_started","t":0.7,"type":"event"}
+{"agent":"ツッコミ太郎","attempt":1,"duration_seconds":4.2,"event":"inference_completed","t":4.9,"token_count":31,"type":"event"}
+{"agent":"ツッコミ太郎","attempt":1,"event":"agent_output","fields":{"inner_thought":"短く切るのが俺の流儀","statement":"お前が議事録だろ"},"phase_type":"speak_all","t":5.0,"type":"event"}
+{"attempt":1,"event":"vote_results","t":9.0,"tallies":{"ツッコミ太郎":2},"type":"event","votes":{"シュール子":"ツッコミ太郎","あるある先生":"ツッコミ太郎"}}
+{"attempt":1,"event":"score_update","scores":{"ツッコミ太郎":2},"t":9.1,"type":"event"}
+{"attempt":1,"event":"summary","t":9.15,"type":"event","value":"ラウンド1結果: ツッコミ太郎 2点"}
+{"attempt":1,"event":"round_completed","round":1,"scores":{"ツッコミ太郎":2},"t":9.2,"type":"event"}
+{"attempt":1,"event":"simulation_completed","t":9.3,"type":"event"}
+{"attempts":1,"duration_sec":9.4,"error":null,"run_id":"20260613-000000-aaaa","status":"ok","type":"run_end"}

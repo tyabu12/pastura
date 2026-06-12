@@ -1,0 +1,4 @@
+{"date":"2026-06-13T01:00:00Z","estimated_inferences":20,"language":"ja","model":"gemma-4-E2B-it-Q4_K_M","run_id":"20260613-010000-bbbb","scenario_id":"factory_test_crash","scenario_name":"クラッシュ再現","timeout_sec":600,"type":"run_start"}
+{"attempt":1,"event":"round_started","round":1,"t":0.5,"total_rounds":2,"type":"event"}
+{"agent":"シュール子","attempt":1,"event":"agent_output","fields":{"statement":"宇宙の裏側ではこれが普通"},"phase_type":"speak_all","t":6.1,"type":"event"}
+{"agent":"あるある先生","attempt":1,"event":"agent_out
