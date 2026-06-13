@@ -1,18 +1,39 @@
 import SwiftUI
 
-/// Dual-use presentation surface for content reports.
+/// The reporting context the sheet was opened with.
 ///
-/// - **Scenario-scoped** (`scenario != nil`): pushed from a Shared
-///   Scenarios detail's More menu. Shows scenario metadata, pre-fills
-///   the form / GitHub URLs with scenarioId.
-/// - **General** (`scenario == nil`): pushed from Settings → Legal →
-///   "Send a content report". Hides scenarioMetadata; routes the
-///   form and GitHub URLs to the no-scenarioId variants in
-///   `ReportURLBuilder`. The Google Forms scenario id field and the
-///   GitHub issue template's `scenario_id` are both configured as
-///   optional with "leave blank for general feedback" hints — same
-///   shape as the App Store Connect §1.5 Support URL co-tenancy
-///   precedent in ADR-005 §6.7.
+/// An explicit three-way replacing the prior `scenario: GalleryScenario?`
+/// two-state, so the illegal "scenario AND migration error" combination
+/// is unrepresentable by construction.
+///
+/// - ``scenario(_:)``: pushed from a Shared Scenarios detail's More menu.
+/// - ``migrationFailure(error:)``: presented from the DB recovery screen
+///   (`PasturaApp` `.databaseRecovery`, #580) with the SQLite migration
+///   error auto-attached.
+/// - ``general``: pushed from Settings → Legal → "Send a content report".
+enum ReportContext {
+  case scenario(GalleryScenario)
+  case migrationFailure(error: String)
+  case general
+}
+
+/// Multi-use presentation surface for reports.
+///
+/// Routes each ``ReportContext`` to the matching `ReportURLBuilder`
+/// variant:
+///
+/// - **Scenario-scoped**: shows scenario metadata, pre-fills the
+///   form / GitHub URLs with scenarioId.
+/// - **Migration failure**: shows the attached error, pre-fills the
+///   Google Form Reason field and a dedicated GitHub issue template
+///   (`db-migration-failure.yml`) with the SQLite error. Framed as a
+///   technical bug report (GitHub `bug` label / §1.5 general-contact
+///   co-tenancy on the form), NOT a §1.2 UGC content report.
+/// - **General**: hides scenario metadata; routes to the no-scenarioId
+///   variants. The Google Forms scenario id field and the GitHub issue
+///   template's `scenario_id` are both configured as optional with
+///   "leave blank for general feedback" hints — same shape as the App
+///   Store Connect §1.5 Support URL co-tenancy precedent in ADR-005 §6.7.
 ///
 /// Progressive disclosure: the primary action opens a Google Forms
 /// report in Safari (no account required); the secondary opens a
@@ -29,10 +50,11 @@ import SwiftUI
 /// for operational details.
 ///
 /// The type/file name still encodes scenario-specificity. Renaming
-/// to `ReportSheet` is deferred to a follow-up to keep this PR
-/// focused on the UX additions.
+/// to `ReportSheet` is deferred to a follow-up — now reinforced by the
+/// migration-failure consumer (#580), which is not a "shared scenario"
+/// concern — to keep this PR focused on the recovery-screen affordance.
 struct ReportScenarioSheet: View {
-  let scenario: GalleryScenario?
+  let context: ReportContext
 
   @Environment(\.openURL) private var openURL
   @Environment(\.dismiss) private var dismiss
@@ -41,8 +63,13 @@ struct ReportScenarioSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 20) {
-          if let scenario {
+          switch context {
+          case .scenario(let scenario):
             scenarioMetadata(for: scenario)
+          case .migrationFailure(let error):
+            migrationErrorDetail(error)
+          case .general:
+            EmptyView()
           }
           introCopy
           primarySection
@@ -58,9 +85,14 @@ struct ReportScenarioSheet: View {
   }
 
   private var navigationTitleText: String {
-    scenario == nil
-      ? String(localized: "Send report")
-      : String(localized: "Report scenario")
+    switch context {
+    case .scenario:
+      return String(localized: "Report scenario")
+    case .migrationFailure:
+      return String(localized: "Report a problem")
+    case .general:
+      return String(localized: "Send report")
+    }
   }
 
   // MARK: - Sections
@@ -72,6 +104,20 @@ struct ReportScenarioSheet: View {
       Text(String(format: String(localized: "ID: %@"), scenario.id))
         .font(.caption)
         .foregroundStyle(.secondary)
+        .textSelection(.enabled)
+    }
+    .padding(12)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+  }
+
+  private func migrationErrorDetail(_ error: String) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(String(localized: "This error detail is attached to your report:"))
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      Text(error)
+        .font(.caption.monospaced())
         .textSelection(.enabled)
     }
     .padding(12)
@@ -141,28 +187,36 @@ struct ReportScenarioSheet: View {
 
   private func openReportForm() {
     let urlOrNil: URL? = {
-      if let scenario {
+      switch context {
+      case .scenario(let scenario):
         return ReportURLBuilder.buildGoogleFormURL(
           scenarioId: scenario.id, appVersion: appVersion)
+      case .migrationFailure(let error):
+        return ReportURLBuilder.buildGoogleFormURL(appVersion: appVersion, dbError: error)
+      case .general:
+        return ReportURLBuilder.buildGoogleFormURL(appVersion: appVersion)
       }
-      return ReportURLBuilder.buildGoogleFormURL(appVersion: appVersion)
     }()
     guard let url = urlOrNil else { return }
     openURL(url)
     dismiss()
   }
 
-  /// Dispatches by nil-ness, mirroring `openReportForm`. The general
-  /// path (`scenario == nil`) produces a bare `[Shared Scenario
-  /// Report]` title; the reporter fills in details on GitHub. The
-  /// issue template's `scenario_id` field is optional, so general
-  /// reports can submit without a value.
+  /// Mirrors `openReportForm`'s dispatch. The general path produces a
+  /// bare `[Shared Scenario Report]` title (the template's `scenario_id`
+  /// is optional, so general reports submit without a value); the
+  /// migration path selects the dedicated `db-migration-failure.yml`
+  /// template with the SQLite error pre-filled.
   private func openGitHubIssue() {
     let urlOrNil: URL? = {
-      if let scenario {
+      switch context {
+      case .scenario(let scenario):
         return ReportURLBuilder.buildGitHubIssueURL(scenarioId: scenario.id)
+      case .migrationFailure(let error):
+        return ReportURLBuilder.buildGitHubIssueURL(migrationError: error)
+      case .general:
+        return ReportURLBuilder.buildGitHubIssueURL()
       }
-      return ReportURLBuilder.buildGitHubIssueURL()
     }()
     guard let url = urlOrNil else { return }
     openURL(url)

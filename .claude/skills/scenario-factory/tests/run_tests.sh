@@ -70,4 +70,8 @@ if python3 "$SCRIPTS/append_digest.py" \
   fail "digest: missing markers should be a hard error"
 fi
 
+# --- sync_digest_pr.py (rolling digest PR helper) ---------------------------
+# run_tests.sh has already cd'd into this tests/ dir (line 9).
+bash ./sync_digest_pr_test.sh
+
 echo "ALL TESTS PASSED"

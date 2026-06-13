@@ -128,6 +128,10 @@ private struct RootView: View {
   /// `databaseRecovery` AppState (#546).
   @State private var pendingRecoveryModelPath: String?
 
+  /// Drives the `.databaseRecovery` "Report this problem" sheet (#580),
+  /// which pre-fills the migration error into the report surfaces.
+  @State private var isRecoveryReportSheetPresented: Bool = false
+
   private static let logger = Logger(subsystem: "app.pastura.Pastura", category: "AppInit")
 
   // Launch animation state — see `Pastura/Pastura/Views/Splash/`.
@@ -273,8 +277,29 @@ private struct RootView: View {
             appState = .initializing
           }
           .buttonStyle(.bordered)
+          // Tertiary affordance: capture a bug report with the migration
+          // error auto-attached, BEFORE the user resets and the failing DB
+          // is moved aside (#580). Quieter than Reset/Retry so it doesn't
+          // compete with recovery.
+          Button(String(localized: "Report this problem")) {
+            // Gate on splash dismissal: the recovery screen is occluded by
+            // the splash overlay until `splashKind == nil` (see the
+            // `deepLinkToast` render guard), so presenting the sheet mid
+            // cold-splash-exit could race the transition. The button is
+            // already unreachable under the opaque splash; this is the
+            // belt-and-suspenders for the exit-animation frame.
+            guard splashKind == nil else { return }
+            isRecoveryReportSheetPresented = true
+          }
+          .font(.footnote)
+          .padding(.top, 4)
+          .accessibilityIdentifier("recovery.reportButton")
         }
         .padding()
+        .sheet(isPresented: $isRecoveryReportSheetPresented) {
+          ReportScenarioSheet(context: .migrationFailure(error: message))
+            .deepLinkGated()
+        }
 
       case .error(let message):
         VStack(spacing: 16) {
