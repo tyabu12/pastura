@@ -44,6 +44,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         yamlEditor
       }
     }
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(
       viewModel.scenarioName.isEmpty ? String(localized: "New Scenario") : viewModel.scenarioName
     )
@@ -176,6 +177,12 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       personasSection
       phasesSection
     }
+    // Carve-out (deferred full PasturaCard-ization): the Form stays — its
+    // .onDelete / .onMove on personas & phases are List/Form-native and
+    // costly to rebuild in ScrollView. Hiding the Form's default grouped
+    // background lets the warm screenBackground show through, matching the
+    // other browse screens' tone without touching the editing affordances.
+    .scrollContentBackground(.hidden)
   }
 
   private var basicInfoSection: some View {
