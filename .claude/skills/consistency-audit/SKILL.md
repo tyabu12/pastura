@@ -11,7 +11,7 @@ One consistency pass: **detect → triage → act**. The detector
 that JSON and decides what to do with each finding class. Run from the
 repository root of the current checkout — a **manual** run from the main
 checkout, or a **scheduled** run from a routine-provided worktree (see
-"Scheduling" below); the digest always resolves to the main checkout.
+"Scheduling" below).
 
 This is the first generator of the "nightly brush-up automation" family. Its
 **Output Contract** (below) is the reusable part — later generators (i18n
@@ -73,7 +73,6 @@ relaxed, restore the `code-reviewer` pass.
 ## Constants
 
 - Detector: `.claude/skills/consistency-audit/scripts/audit_docs.py`
-- Digest helper: `.claude/skills/consistency-audit/scripts/append_digest.py`
 - Auto-fix PR branch: `audit/docs-<YYYYMMDD>` (collision fallback `-2`, `-3`, …)
 - Auto-fix dedup: **at most one open `audit/*` Draft PR at a time.** A run that
   finds one open skips the auto-fix PR step and reports it pending — all fixes
@@ -97,12 +96,11 @@ relaxed, restore the `code-reviewer` pass.
 2. `python3` and `jq` are available.
 3. Label exists: `gh label list` contains `documentation`.
 4. `git fetch origin main` (any auto-fix branch is cut from `origin/main`).
-5. Working tree clean **except the digest** —
-   `git status --porcelain -- . ':(exclude)data/audit/digest.md'` must be empty.
-   A prior run leaves `data/audit/digest.md` modified by design (committed later
-   via `/orchestrate`), so excluding it lets two consecutive unattended runs
-   proceed without an intervening commit; any *other* dirty path means a prior
-   run died mid-way — abort and report rather than mixing changes.
+5. Working tree clean (`git status --porcelain` empty) — the skill leaves
+   nothing in the working tree (its auto-fix commits land on a separate
+   `audit/*` branch), so any dirty path means a prior run died mid-way, or a
+   sibling skill (e.g. queue-consumer's uncommitted `data/queue/digest.md`) is
+   in flight; abort and report rather than mixing changes.
 
 ## Step 1 — Detect (dry-run)
 
@@ -124,10 +122,10 @@ OPEN_AUDIT=$(gh pr list --state open --json number,url,isDraft,headRefName \
 
 If any open `audit/*` Draft PR exists, **skip Step 3** — all auto-fixes batch
 into one PR, so opening another would duplicate the pending one. Record the
-blocking PR's url in the report and digest ("auto-fix paused until #N is merged
-or closed"). A stale unmerged audit PR therefore pauses *all* auto-fixes until a
-human acts on it — intentional backpressure, made observable via the digest so
-it does not silently disable the skill. Step 4 (issues) still runs.
+blocking PR's url in the report ("auto-fix paused until #N is merged or
+closed"). A stale unmerged audit PR therefore pauses *all* auto-fixes until a
+human acts on it — intentional backpressure, made observable in the run report
+so it does not silently disable the skill. Step 4 (issues) still runs.
 
 ## Step 3 — Auto-fixable → one Draft PR
 
@@ -177,43 +175,26 @@ For each `needs_judgment` finding (already deduped by target):
 
 Never auto-fix these — the whole point is the fix needs judgment.
 
-## Step 5 — Report + digest
+## Step 5 — Report
 
 Summarize to the user / transcript: auto-fix PR url (or "skipped — open audit
 PR #N pending" / "none"), issues filed (or skipped-as-duplicate), and the
-dry-run counts. Point at `/tmp/audit.json` for the raw findings.
-
-Then append one section to the run digest so scheduled runs leave a trail.
-Compose a results file and run the helper:
-
-```bash
-cat > /tmp/audit_results.json <<JSON
-{ "run_id": "<YYYY-MM-DD HH:MM>",
-  "auto_fixable": <n>, "needs_judgment": <m>,
-  "auto_fix_status": "opened|skipped-open-audit-pr|none",
-  "auto_fix_pr": "<new-or-blocking PR url, or null>",
-  "issues": [<filed issue urls>], "notes": "<optional>" }
-JSON
-python3 .claude/skills/consistency-audit/scripts/append_digest.py --results /tmp/audit_results.json
-```
-
-The helper resolves `data/audit/digest.md` in the **main checkout** (so a
-worktree-based scheduled run still persists the record) and leaves it modified
-there; committing it goes through the normal `/orchestrate` flow (mirrors
-`data/queue/digest.md`).
+dry-run counts. Point at `/tmp/audit.json` for the raw findings. That summary is
+the whole record — for a scheduled run it is the run history entry, and any
+actual change is durably captured by the Draft PR; the skill leaves nothing
+behind in the working tree.
 
 ## Scheduling (how unattended runs work)
 
 - **Manual run** executes from the main checkout; a **scheduled run** executes
   inside a routine-provided worktree (the queue-consumer model) — fresh off
-  `origin/main` each fire, so the clean-tree preflight passes and no branch or
-  digest state accumulates in the run's checkout. The digest is written to the
-  main checkout either way (`append_digest.py` resolves it via
-  `--git-common-dir`).
-- **Do not overlap the queue-consumer window.** Both skills require a
-  (near-)clean tree and both leave a digest modified in the main checkout;
-  whatever commits one digest must run before the other skill's preflight.
-  Schedule the audit run in a separate window.
+  `origin/main` each fire, so the clean-tree preflight passes and no branch
+  state accumulates in the run's checkout.
+- **Do not overlap the queue-consumer window.** The audit skill leaves nothing
+  in the working tree, but its plain clean-tree preflight will **abort** if it
+  runs in the main checkout while a sibling skill's artifact is uncommitted
+  (e.g. queue-consumer's `data/queue/digest.md`). Schedule the audit run in a
+  separate window.
 - The skill still never registers itself — scheduling is a `/schedule` action a
   human takes after this lands.
 
