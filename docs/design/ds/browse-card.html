@@ -1,0 +1,56 @@
+<!-- @dsCard group="Components" name="Browse card (PasturaCard)" subtitle="white + 1px rule + 14pt, no shadow — browse-screen card form, distinct from the bubble (§5.9)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Browse card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  /* The field the cards sit on. */
+  .field { background: var(--screen-bg); padding: var(--sp-l) var(--sp-m); border-radius: var(--sp-m); }
+  .sec-label { color: var(--muted); font-size: 13px; font-weight: 500; padding: 0 0 7px 6px; }
+  /* PasturaCard surface — inline (NOT the shared .section chrome, which
+     carries a shadow). white + 1px rule + 14pt, no shadow. */
+  .pcard {
+    background: var(--bubble-bg);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .prow { display: flex; align-items: center; padding: 15px 17px; color: var(--ink); font-size: 15px; }
+  .prow + .prow { border-top: 1px solid var(--rule); }
+  .prow .val { margin-left: auto; color: var(--muted); }
+  .prow .chev { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .prow .icn { color: var(--moss); margin-right: 12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Browse card (§5.9)</p>
+
+  <div class="section">
+    <p class="section-label">ブラウズ系（一覧・詳細・設定）のカード。チャット/プロモのバブル（左3pt moss + 苔シャドウ）とは別形式で、<strong>影でなく 1px rule 罫線で面を定義</strong>する（§1「観察＝持ち上げない」voice）。地は screenBackground。</p>
+    <div class="field">
+      <p class="sec-label">Overview</p>
+      <div class="pcard">
+        <div class="prow">Agents<span class="val">2</span></div>
+        <div class="prow">Rounds<span class="val">1</span></div>
+        <div class="prow">Est. Inferences<span class="val">2</span></div>
+      </div>
+      <p class="sec-label">Actions</p>
+      <div class="pcard">
+        <div class="prow"><span class="icn">▶</span>Run Simulation<span class="chev">›</span></div>
+        <div class="prow"><span class="icn">↺</span>Past Results<span class="chev">›</span></div>
+      </div>
+    </div>
+    <p class="section-note">複数行グループは1枚のカード内を <code>PasturaRowDivider</code>（rule 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。タップ行は <code>PasturaRowLabel</code>（moss アイコン＋ink タイトル＋chevron）を NavigationLink + .buttonStyle(.plain) で包む。<code>PasturaCardMetrics</code> が角丸 14 / 罫線 1 / 外マージン 16 / カード間 18 を一元管理し、ScrollView コンテナと List 行背景（PasturaCardSurface）で共有。</p>
+  </div>
+</div>
+</body>
+</html>

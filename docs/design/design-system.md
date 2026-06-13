@@ -388,6 +388,35 @@ ToolbarItem(placement: .primaryAction) {
 
 > **Note**: sheet 内 NavigationStack toolbar item の Liquid Glass 適用が visual problem になった場合、本サブセクションを更新して例外条件を明記すること。現時点では sheet 経路は scope 外。
 
+### 5.9 Browse Card（`PasturaCard`）
+
+ブラウズ系画面（Home / ScenarioDetail / Results / Shared Scenarios / Gallery / Settings）のカード。チャット/プロモのバブル（§5.2 / §5.4）とは別形式で、**影でなく罫線で面を定義**する。Source: `Pastura/Pastura/Views/Components/PasturaCard.swift`。
+
+| 仕様項目 | 値 |
+|---------|-----|
+| 背景 | `bubbleBackground`（#FFFFFF） |
+| 罫線 | `rule`（#E0DBCE）1px 全周（`strokeBorder`） |
+| 角丸 | 14pt（continuous） |
+| シャドウ | **なし**（§1「観察＝持ち上げない」。§4.3 の苔シャドウは Sim 画面で単一要素が浮く用途に限定） |
+| 地（field） | `screenBackground`（#FCFAF4） |
+
+`PasturaCardMetrics` がレイアウト定数（角丸 14 / 罫線 1 / 外側水平マージン 16 / カード間 18）を一元管理し、`ScrollView` コンテナ（`PasturaCard`）と `List` 行背景（`PasturaCardSurface` を `.listRowBackground` に）で同一の見た目を共有する。複数行グループは1枚のカード内を `PasturaRowDivider`（`rule` 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。`ScrollView` 化したカードに「タップで push する行」を置く場合は `PasturaRowLabel`（moss アイコン＋ink タイトル＋chevron＋全幅タップ）を `NavigationLink { } .buttonStyle(.plain)` で包む。
+
+**ホスト選択**: `.onDelete` スワイプ削除を持つ画面（Home）や `.onMove` ドラッグ並べ替えを持つ画面（Editor）は `List` / `Form` を維持し、地を暖色化（`.scrollContentBackground(.hidden)` + `screenBackground`）して `PasturaCardSurface` を行背景に当てる。それ以外のブラウズ系は `ScrollView` + `PasturaCard` でグループカード化する。
+
+### 5.10 Primary Button（`PasturaPrimaryButtonStyle`）
+
+ブラウズ系の主要 CTA（Gallery「Try this scenario」、Shared Scenarios の Retry 空/エラー状態）。Source: `Pastura/Pastura/Views/Components/PasturaPrimaryButtonStyle.swift`。
+
+| 仕様項目 | 値 / 理由 |
+|---------|----------|
+| 塗り | `mossDark`（#6B7852）。白文字とのコントラスト ≈ 4.76:1（WCAG AA 達成）。base `moss`（#8A9A6C）の `.borderedProminent` は ≈ 3.0:1 で AA 未達のため不可 |
+| 文字色 | 白（text-on-accent。§1「純白を避ける」は背景の話で、アクセント上の文字は対象外） |
+| 角丸 | 12pt（14pt カードの内側で角が競合しないよう一段小さく） |
+| 押下 | `pressedOpacity` 0.7 で減光。capsule 展開・scale アニメーションなし（§1 静的 voice） |
+
+raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は使わない。§5.8 の toolbar opt-out と同じ方針。variant↔token は `PasturaPrimaryButtonStyleTests` で pin。
+
 ---
 
 ## 6. モーション / アニメーション
@@ -453,9 +482,9 @@ ToolbarItem(placement: .primaryAction) {
 
 このシステムを他画面に使う際のチェックリスト：
 
-- [ ] 背景は必ず `--screen-bg`（#FCFAF4）から始める
+- [ ] 背景は必ず `--screen-bg`（#FCFAF4）から始める。ブラウズ系（一覧・詳細・設定）では `screenBackground` を地（field）として敷き、その上にカードを置く（§5.9）。全面コンテンツ画面（Sim / DL）は `screenBackground` をそのまま本体背景に使う
 - [ ] アクセント色は `--moss` の1色のみ。2色目が欲しくなったら「構成を減らす」方を検討
-- [ ] バブル・カード系は**角丸 14pt + 白背景 + 左ボーダー3pt moss** を基本形とする
+- [ ] **カード形式は2種を使い分ける**：チャット/プロモのバブルは**角丸 14pt + 白背景 + 左ボーダー3pt moss + 苔シャドウ**（§5.2 / §5.4）。ブラウズ系のカードは**角丸 14pt + 白背景 + 1px `rule` 全周罫線・影なし**（`PasturaCard`、§5.9）。後者は「観察＝持ち上げない」voice に沿って影でなく罫線で面を定義する
 - [ ] モノスペースはメタ情報・ラベル・数値のみ。本文には使わない
 - [ ] アニメーションは 600ms 以上、ease-out を基準に
 - [ ] 犬マーク（コリー）は「アシスタント」の記号、羊はユーザー側エージェントの記号として使い分ける
