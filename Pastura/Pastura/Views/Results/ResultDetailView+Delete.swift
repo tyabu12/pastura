@@ -44,7 +44,9 @@ extension ResultDetailView {
   /// `offMain` delete (the gesture stays active via
   /// `preservesPasturaSwipeBackGesture`), and an unguarded pop would
   /// then remove a second, unrelated screen. On delete failure the view
-  /// stays put and surfaces an alert.
+  /// stays put and surfaces an alert. The guard matches on `simulationId`
+  /// only; re-entry to the *same* run mid-delete (vanishingly unlikely
+  /// given the single entry point) would still pop.
   func deleteThisRun() async {
     let simRepo = dependencies.simulationRepository
     let id = simulationId
