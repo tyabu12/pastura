@@ -17,11 +17,27 @@ nonisolated enum ReportURLBuilder {
     "1FAIpQLSfsZkY9-R3QxqVfdXSzsUnx3SXR-g9O7DxjdN-1-VtMjMXSAw"
   private static let scenarioIdFieldID = "entry.149667905"
   private static let appVersionFieldID = "entry.1904779030"
+  // The existing "Reason" paragraph field (form field #3, docs/gallery/
+  // shared-scenario-reports.md §1.1). The DB-migration report path
+  // pre-fills it with the SQLite error so no new form field is needed.
+  private static let reasonFieldID = "entry.532267701"
 
   // GitHub issue identifiers.
   private static let githubRepoPath = "tyabu12/pastura"
   private static let githubTemplateSlug = "shared-scenario-report.yml"
   private static let githubLabel = "shared-scenario-report"
+
+  // GitHub issue identifiers for the DB-migration-failure report path.
+  // `dbMigrationErrorFieldID` MUST equal the `id:` of the `db_error`
+  // field in `.github/ISSUE_TEMPLATE/db-migration-failure.yml` — GitHub
+  // prefills issue-form fields by exact id match, so the underscore form
+  // is load-bearing (a hyphen would silently no-op the auto-attach).
+  private static let dbMigrationTemplateSlug = "db-migration-failure.yml"
+  private static let dbMigrationErrorFieldID = "db_error"
+  // Must exist in the repo's label set — GitHub silently drops an
+  // unknown `labels` value from the pre-seeded issue (same silent-skip
+  // failure mode as a mismatched field id above).
+  private static let dbMigrationLabel = "bug"
 
   /// Build the pre-filled Google Forms URL for a Shared Scenario report.
   ///
@@ -89,6 +105,41 @@ nonisolated enum ReportURLBuilder {
     return components.url
   }
 
+  /// Build the pre-filled Google Forms URL for a database
+  /// migration-failure report (private path of the recovery screen).
+  ///
+  /// Pre-fills the existing **Reason** paragraph field with the exact
+  /// migration error so the reporter doesn't have to hand-type a SQLite
+  /// string; App Version is pre-filled as usual. No new form field is
+  /// added — the migration error rides the same Reason field general
+  /// feedback uses, framed as an extension of the §1.5 general-contact
+  /// co-tenancy (ADR-005 §6.7), not a §1.2 UGC report. The Scenario ID
+  /// field is omitted (there is no scenario context on a boot failure).
+  ///
+  /// - Parameters:
+  ///   - appVersion: Running app version (e.g. "1.0.0"). Empty strings
+  ///     are permitted and leave the App Version field blank.
+  ///   - dbError: The migration error detail (e.g.
+  ///     `SQLite error 1: no such column …`). Expected non-empty in
+  ///     practice (the sole caller passes `localizedDescription`); an
+  ///     empty value leaves the form's required Reason field blank.
+  /// - Returns: The pre-filled form URL, or `nil` if URL construction
+  ///   fails.
+  static func buildGoogleFormURL(appVersion: String, dbError: String) -> URL? {
+    guard
+      var components = URLComponents(
+        string: "https://docs.google.com/forms/d/e/\(googleFormID)/viewform")
+    else {
+      return nil
+    }
+    components.queryItems = [
+      URLQueryItem(name: "usp", value: "pp_url"),
+      URLQueryItem(name: appVersionFieldID, value: appVersion),
+      URLQueryItem(name: reasonFieldID, value: dbError)
+    ]
+    return components.url
+  }
+
   /// Build the pre-seeded GitHub issue URL for a Shared Scenario report.
   ///
   /// Opens github.com's new-issue page with the Shared Scenario template
@@ -138,6 +189,40 @@ nonisolated enum ReportURLBuilder {
       URLQueryItem(name: "template", value: githubTemplateSlug),
       URLQueryItem(name: "title", value: "[Shared Scenario Report]"),
       URLQueryItem(name: "labels", value: githubLabel)
+    ]
+    return components.url
+  }
+
+  /// Build the pre-seeded GitHub issue URL for a database
+  /// migration-failure report (public path of the recovery screen).
+  ///
+  /// Selects the dedicated `db-migration-failure.yml` issue-form
+  /// template and pre-fills its `db_error` field with the migration
+  /// error. The query-parameter name MUST match the template field's
+  /// `id` exactly (`db_error`, underscore) — GitHub prefills issue-form
+  /// fields by exact id match, so a hyphen would silently no-op. This
+  /// is the public-tracker (account-required) path; the SQLite error
+  /// may, in rare data-migrating failures, embed scenario fragments, so
+  /// the template carries a review-before-submit caveat (ADR-005 §6 PII
+  /// hygiene). Framed as technical bug intake (`bug` label), outside the
+  /// §6 Shared Scenario UGC report tracker.
+  ///
+  /// - Parameter migrationError: The migration error detail rendered
+  ///   into the pre-filled `db_error` field.
+  /// - Returns: The pre-seeded issue-creation URL, or `nil` if URL
+  ///   construction fails.
+  static func buildGitHubIssueURL(migrationError: String) -> URL? {
+    guard
+      var components = URLComponents(
+        string: "https://github.com/\(githubRepoPath)/issues/new")
+    else {
+      return nil
+    }
+    components.queryItems = [
+      URLQueryItem(name: "template", value: dbMigrationTemplateSlug),
+      URLQueryItem(name: "title", value: "[DB migration failure]"),
+      URLQueryItem(name: "labels", value: dbMigrationLabel),
+      URLQueryItem(name: dbMigrationErrorFieldID, value: migrationError)
     ]
     return components.url
   }
