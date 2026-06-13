@@ -210,7 +210,10 @@ promotion footer for the two channels) goes through the normal
 
     ```bash
     /scenario-factory
-    # then, the scheduling wrapper commits the cycle's only artifact:
+    # then, the scheduling wrapper commits the cycle's only artifact.
+    # No `set -e` on purpose: the `||` skip relies on continue-on-false,
+    # and a detached HEAD makes symbolic-ref return "" (≠ main) so it
+    # fails safe — leaving the digest uncommitted rather than mis-committing.
     [ "$(git symbolic-ref --quiet --short HEAD)" = "main" ] || {
       echo "not on main — leaving digest uncommitted"; exit 0; }
     git add data/factory/digest.md
