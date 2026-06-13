@@ -48,13 +48,15 @@ struct SettingsView: View {
   @State private var isLicensesSheetPresented: Bool = false
 
   #if !targetEnvironment(simulator)
-    @Environment(ModelManager.self) private var modelManager
-    @Environment(AppDependencies.self) private var dependencies
-    @State private var pendingDelete: ModelDescriptor?
+    // `internal` (not `private`): the device-only helpers in the sibling
+    // `SettingsView+Models.swift` extension read these.
+    @Environment(ModelManager.self) var modelManager
+    @Environment(AppDependencies.self) var dependencies
+    @State var pendingDelete: ModelDescriptor?
     /// Descriptor whose Download action should present the DL demo cover.
     /// Bound to `.fullScreenCover(item:)` — `Identifiable` is supplied by
     /// the conformance on `ModelDescriptor`.
-    @State private var coverDescriptor: ModelDescriptor?
+    @State var coverDescriptor: ModelDescriptor?
     /// Descriptor that the user tapped Download on while the cellular
     /// gate was about to fire (#191). Holds the descriptor across the
     /// scene-level consent dialog: on accept, the state observer below
@@ -62,7 +64,17 @@ struct SettingsView: View {
     /// transitioned to `.downloading`. On decline, `pendingCellularConsent`
     /// reverts to nil and the matching observer clears this so the
     /// cover never opens.
-    @State private var pendingCoverDescriptor: ModelDescriptor?
+    @State var pendingCoverDescriptor: ModelDescriptor?
+    /// Orphaned `.gguf` files on disk that match no catalog entry
+    /// (superseded-model leftovers). Held in local `@State` rather than
+    /// read live from `modelManager` because `orphanedModelFiles()` is a
+    /// filesystem read, not `@Observable` — deleting an orphan would not
+    /// otherwise invalidate the view. Refreshed on appear and after each
+    /// orphan delete.
+    @State var orphanedFiles: [OrphanedModelFile] = []
+    /// Orphaned file pending the destructive-confirmation dialog. Mirrors
+    /// `pendingDelete`'s pattern for catalog models.
+    @State var pendingOrphanDelete: OrphanedModelFile?
     // Surfaces `.cannotDeleteActive` / `.notReadyForDelete` / `.unknownModel`
     // that slip past the UI guard — a genuine UI-state-vs-ModelManager race.
     // User flow stays silent (row stays `.ready`), but Console.app shows the
@@ -188,6 +200,31 @@ struct SettingsView: View {
               "Re-downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) takes a few minutes."
           ))
       }
+      // Orphaned-file delete — mirrors the per-model confirmation above.
+      // Orphans have no catalog entry, so deletion is unconditional (the
+      // `deleteOrphanedFile` catalog-membership guard is defense-in-depth).
+      .confirmationDialog(
+        Text(String(localized: "Delete this file?")),
+        isPresented: Binding(
+          get: { pendingOrphanDelete != nil },
+          set: { if !$0 { pendingOrphanDelete = nil } }),
+        titleVisibility: .visible,
+        presenting: pendingOrphanDelete
+      ) { file in
+        Button(String(localized: "Delete"), role: .destructive) {
+          modelManager.deleteOrphanedFile(fileName: file.fileName)
+          orphanedFiles = modelManager.orphanedModelFiles()
+          pendingOrphanDelete = nil
+        }
+        Button(String(localized: "Cancel"), role: .cancel) {
+          pendingOrphanDelete = nil
+        }
+      } message: { file in
+        Text(
+          String(
+            format: String(localized: "Frees up %@."),
+            ModelSettingsRow.formattedFileSize(file.sizeBytes)))
+      }
       .fullScreenCover(item: $coverDescriptor) { descriptor in
         // `.deepLinkGated()` makes the cover behave like a sheet for
         // deep-link queueing — a `pastura://` URL arriving while a
@@ -226,137 +263,4 @@ struct SettingsView: View {
       }
     #endif
   }
-
-  #if !targetEnvironment(simulator)
-    // NOTE: device-only (omitted on the simulator), so the simulator
-    // ui-tour cannot validate this card's layout — needs real-device QA.
-    // ModelSettingsRow has no List-native behavior (delete is via its Menu
-    // → confirmationDialog, not swipe), so the ScrollView move is layout-
-    // only; it gets the horizontal inset the List cell used to provide.
-    @ViewBuilder
-    private var modelsSection: some View {
-      VStack(alignment: .leading, spacing: 7) {
-        let catalog = modelManager.catalog
-        PasturaSection(String(localized: "Models")) {
-          VStack(spacing: 0) {
-            ForEach(Array(catalog.enumerated()), id: \.element.id) { index, descriptor in
-              if index > 0 { PasturaRowDivider() }
-              ModelSettingsRow(
-                descriptor: descriptor,
-                state: modelManager.state[descriptor.id] ?? .checking,
-                isActive: descriptor.id == modelManager.activeModelID,
-                otherDownloadInProgress: isOtherDownloading(excluding: descriptor.id),
-                isSwitchLocked: dependencies.simulationActivityRegistry.isActive,
-                onDownload: { presentDownloadCover(for: descriptor) },
-                onCancel: { modelManager.cancelDownload(descriptor: descriptor) },
-                onSwitchActive: { switchActive(to: descriptor) },
-                onRequestDelete: { pendingDelete = descriptor }
-              )
-              // ModelSettingsRow only carries its own 4pt (Spacing.xxs)
-              // vertical padding — fine inside a List cell (which added
-              // its own insets) but cramped inside a PasturaCard. Add
-              // ~10pt so the row breathes at ~14pt top/bottom, matching
-              // the other card rows (infoRow / detailRow).
-              .padding(.horizontal, 17)
-              .padding(.vertical, 10)
-            }
-          }
-        }
-        modelsFooter
-          .font(.caption)
-          .foregroundStyle(Color.muted)
-          .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
-      }
-    }
-
-    @ViewBuilder
-    private var modelsFooter: some View {
-      if dependencies.simulationActivityRegistry.isActive {
-        Text(
-          String(
-            localized:
-              "Finish the current simulation before switching models. Downloads and deletes of other models remain available."
-          ))
-      } else {
-        Text(
-          String(
-            localized:
-              "You can keep multiple models on this device. Only the active one is loaded in memory."
-          ))
-      }
-    }
-
-    /// Whether any descriptor other than `id` is mid-download or has a
-    /// pending cellular consent dialog. Used to disable competing
-    /// Download menu items so a second tap during the dialog cannot
-    /// overwrite `pendingCellularConsent` (#191 multi-row guard).
-    private func isOtherDownloading(excluding id: ModelID) -> Bool {
-      if let pending = modelManager.pendingCellularConsent, pending.id != id {
-        return true
-      }
-      return modelManager.state.contains { entryID, entryState in
-        guard entryID != id else { return false }
-        if case .downloading = entryState { return true }
-        return false
-      }
-    }
-
-    /// Starts the download and decides whether to open the cover now or
-    /// defer to the cellular consent flow.
-    ///
-    /// - **Wi-Fi / pre-consented**: `startDownload` flips state to
-    ///   `.downloading` synchronously; the same-frame check opens the
-    ///   cover immediately.
-    /// - **Cellular without consent**: `startDownload` returns with
-    ///   state still `.notDownloaded` and `pendingCellularConsent` set.
-    ///   The cover is NOT opened here — the scene-level dialog and the
-    ///   `.onChange(of: modelManager.state)` observer above coordinate
-    ///   to open it after accept (or never, on decline).
-    /// - **Sequential rejection**: `startDownload` is a no-op; neither
-    ///   branch fires. The Download menu item is already disabled by
-    ///   `otherDownloadInProgress`, so this is defense-in-depth.
-    private func presentDownloadCover(for descriptor: ModelDescriptor) {
-      modelManager.startDownload(descriptor: descriptor)
-      if case .downloading = modelManager.state[descriptor.id] {
-        coverDescriptor = descriptor
-      } else if modelManager.pendingCellularConsent?.id == descriptor.id {
-        pendingCoverDescriptor = descriptor
-      }
-    }
-
-    /// Dismisses the cover immediately, then runs the destructive cancel
-    /// in a detached task. Awaiting before dismissal would freeze the
-    /// cover while files are removed; the user has already confirmed,
-    /// so the destructive flow can finish in the background. Subsequent
-    /// state observations rebuild the row as `.notDownloaded` once the
-    /// task lands.
-    ///
-    /// Re-tap-during-cleanup race is benign: while the in-flight
-    /// download Task is still alive the row's Menu shows Cancel (not
-    /// Download), so the user cannot start a second download until
-    /// `performDownload`'s catch handler has set state to
-    /// `.notDownloaded`. By the time the row's menu flips to Download,
-    /// the only remaining work in `cancelDownloadAndDelete` is the two
-    /// `removeItem` calls — a microsecond window not worth guarding.
-    private func handleCoverCancel(descriptor: ModelDescriptor) {
-      coverDescriptor = nil
-      Task { await modelManager.cancelDownloadAndDelete(descriptor: descriptor) }
-    }
-
-    /// Persists the new active id and rebuilds the `LlamaCppService`.
-    /// Only called from a `.ready` row (Menu action is hidden otherwise),
-    /// so `modelFileURL` is guaranteed to point at an on-disk file.
-    private func switchActive(to descriptor: ModelDescriptor) {
-      modelManager.setActiveModel(descriptor.id)
-      let modelPath = modelManager.modelFileURL(for: descriptor).path
-      let newService = LlamaCppService(
-        modelPath: modelPath,
-        stopSequence: descriptor.stopSequence,
-        modelIdentifier: descriptor.displayName,
-        systemPromptSuffix: descriptor.systemPromptSuffix,
-        assistantPrefix: descriptor.assistantPrefix
-      )
-      dependencies.regenerateLLMService(newService)
-    }
-  #endif
 }
