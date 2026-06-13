@@ -286,6 +286,39 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
     try? fileManager.removeItem(at: modelDirectoryURL.appendingPathComponent(fileName))
   }
 
+  // MARK: - Aggregate footprint
+
+  /// Pure summation helper for `totalModelStorageBytes()`. Sums the declared
+  /// sizes of `.ready` catalog models and the actual sizes of orphaned
+  /// files. Split out (mirroring `isLowStorage`) so the arithmetic is
+  /// unit-testable without touching the filesystem.
+  ///
+  /// In-flight partial downloads (in `cachesDirectoryURL`) and `.error`-state
+  /// leftovers are intentionally excluded — the figure represents completed,
+  /// on-device models, matching the Settings "Downloaded models" label.
+  nonisolated static func totalModelStorageBytes(
+    readyDescriptorSizes: [Int64],
+    orphanSizes: [Int64]
+  ) -> Int64 {
+    (readyDescriptorSizes + orphanSizes).reduce(0, +)
+  }
+
+  /// Total on-disk bytes for completed models on this device: every `.ready`
+  /// catalog descriptor's declared `fileSize` (valid because `computeState`
+  /// deletes any file whose on-disk size ≠ declared size, so a `.ready`
+  /// file's actual size always equals its declared size) plus all orphaned
+  /// files' actual sizes. Drives the Settings → Models "Downloaded models"
+  /// aggregate line.
+  func totalModelStorageBytes() -> Int64 {
+    let readySizes: [Int64] = catalog.compactMap { descriptor in
+      if case .ready = state[descriptor.id] { return descriptor.fileSize }
+      return nil
+    }
+    let orphanSizes = orphanedModelFiles().map(\.sizeBytes)
+    return Self.totalModelStorageBytes(
+      readyDescriptorSizes: readySizes, orphanSizes: orphanSizes)
+  }
+
   // MARK: - Convenience (active model)
 
   /// `true` iff `PasturaApp.initialize` should route first-launch through the

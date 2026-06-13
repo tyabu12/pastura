@@ -59,4 +59,48 @@ extension ModelManagerTests {
       #expect(available >= 0)
     }
   }
+
+  // MARK: - totalModelStorageBytes (pure-input)
+
+  /// Empty inputs sum to zero — the "no models downloaded, no orphans"
+  /// baseline the Settings aggregate line renders as "0 GB".
+  @Test func totalModelStorageBytes_emptyInputsSumToZero() {
+    #expect(ModelManager.totalModelStorageBytes(readyDescriptorSizes: [], orphanSizes: []) == 0)
+  }
+
+  /// Ready-descriptor (declared) sizes and orphan (actual) sizes are summed
+  /// together — the aggregate counts both completed catalog models and
+  /// superseded leftovers.
+  @Test func totalModelStorageBytes_sumsReadyAndOrphanSizes() {
+    let total = ModelManager.totalModelStorageBytes(
+      readyDescriptorSizes: [100, 200], orphanSizes: [50])
+    #expect(total == 350)
+  }
+
+  // MARK: - totalModelStorageBytes (instance)
+
+  /// Instance wrapper counts a `.ready` catalog model's declared `fileSize`
+  /// plus an orphan's actual size. The catalog file is planted at exactly
+  /// `descriptor.fileSize` bytes so `checkModelStatus` resolves it `.ready`
+  /// (a size mismatch would delete it). An unrelated `.gguf` is planted as
+  /// an orphan.
+  @Test func totalModelStorageBytes_instanceCountsReadyPlusOrphan() throws {
+    let descriptor = makeTestDescriptor(fileSize: 4)
+    let sut = makeSUT(catalog: [descriptor])
+
+    let modelURL = sut.modelFileURL(for: descriptor)
+    try FileManager.default.createDirectory(
+      at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data(repeating: 0x42, count: 4).write(to: modelURL)
+    defer { try? FileManager.default.removeItem(at: modelURL) }
+
+    let orphanName = "superseded-\(UUID().uuidString).gguf"
+    let orphanURL = sut.modelDirectoryURL.appendingPathComponent(orphanName)
+    try Data(repeating: 0x42, count: 10).write(to: orphanURL)
+    defer { try? FileManager.default.removeItem(at: orphanURL) }
+
+    sut.checkModelStatus()
+    #expect(sut.activeState == .ready(modelPath: modelURL.path))
+    #expect(sut.totalModelStorageBytes() == 14)
+  }
 }
