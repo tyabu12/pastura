@@ -30,6 +30,9 @@ nonisolated enum ScenarioSnapshotResolver {
     liveLookup: (String) throws -> ScenarioRecord?
   ) rethrows -> ScenarioRecord? {
     if let snapshotYaml = simulation.scenarioYamlSnapshot {
+      // For an orphaned run (`scenarioId` nil) the synthesized record's `id`
+      // is the simulation id — a placeholder so callers have a stable id, NOT
+      // a live scenario id. Never feed it back into `ScenarioRepository`.
       return ScenarioRecord(
         id: simulation.scenarioId ?? simulation.id,
         name: simulation.scenarioNameSnapshot ?? "",

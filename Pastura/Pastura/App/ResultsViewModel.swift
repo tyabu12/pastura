@@ -175,17 +175,20 @@ final class ResultsViewModel {
     }
     guard !orphans.isEmpty else { return [] }
 
-    let byName = Dictionary(grouping: orphans) {
-      $0.scenarioNameSnapshot ?? String(localized: "Deleted scenario")
-    }
-    return byName.map { name, sims in
+    let byName = Dictionary(grouping: orphans) { $0.scenarioNameSnapshot }
+    return byName.map { snapshotName, sims in
+      let sectionName = snapshotName ?? String(localized: "Deleted scenario")
+      // Key on the locale-invariant snapshot name (or a fixed sentinel for
+      // the nameless case) so the group's identity / sort order never depends
+      // on the display locale — only `sectionName` carries localized text.
+      let keySuffix = snapshotName ?? "\u{0}unnamed"
       let rows =
         sims
-        .map { SimulationRow(record: $0, variantName: name) }
+        .map { SimulationRow(record: $0, variantName: sectionName) }
         .sorted { $0.record.createdAt > $1.record.createdAt }
       return ScenarioGroup(
-        sectionName: name,
-        canonicalKey: Self.orphanCanonicalKeyPrefix + name,
+        sectionName: sectionName,
+        canonicalKey: Self.orphanCanonicalKeyPrefix + keySuffix,
         rows: rows)
     }
   }

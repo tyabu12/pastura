@@ -153,6 +153,8 @@ struct HomeView: View {
           // Confirm before deleting — destructive and not obviously
           // recoverable from the user's point of view. Past results survive
           // (orphaned), but the scenario itself is gone.
+          // My Scenarios has no EditButton/multi-select, so a swipe deletes a
+          // single row — naming the first scenario in the copy is accurate.
           let scenarios = offsets.map { viewModel.userScenarios[$0] }
           pendingDeletion = PendingScenarioDeletion(
             ids: scenarios.map(\.id),
