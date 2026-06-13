@@ -4342,12 +4342,32 @@
         }
       }
     },
+    "Storage is getting large. Consider clearing old runs to free space." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ストレージ使用量が大きくなっています。空き容量を確保するには古い結果を削除しましょう。"
+          }
+        }
+      }
+    },
     "Storage is running low" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "空き容量が少なめです"
+          }
+        }
+      }
+    },
+    "Storage used: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用容量: %@"
           }
         }
       }

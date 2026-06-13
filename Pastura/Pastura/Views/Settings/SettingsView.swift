@@ -61,6 +61,11 @@ struct SettingsView: View {
   /// Set when `deleteAll()` throws; surfaced via an alert. Not `private`
   /// — written by the `+PastResults.swift` sibling extension.
   @State var clearAllError: String?
+  /// Logical size of the execution-log database in bytes, for the Past
+  /// Results storage caption + advisory growth-cap warning (#565). `nil`
+  /// until loaded (and left `nil` on read failure → caption hidden). Not
+  /// `private` — read / written by the `+PastResults.swift` extension.
+  @State var databaseByteCount: Int64?
 
   #if !targetEnvironment(simulator)
     // `internal` (not `private`): the device-only helpers in the sibling
@@ -156,6 +161,11 @@ struct SettingsView: View {
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
     .background(Color.screenBackground.ignoresSafeArea())
+    // Load the DB size for the Past Results storage caption + advisory
+    // cap (#565). `.task` (not `.onAppear`) gives a cancellation-aware
+    // async context for the off-main read; it re-fires when the view is
+    // recreated, and `clearAllResults()` re-loads explicitly after a purge.
+    .task { await loadStorageUsage() }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
