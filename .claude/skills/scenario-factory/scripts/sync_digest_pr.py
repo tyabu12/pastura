@@ -54,9 +54,11 @@ def _run(args, *, capture=False):
     """Run a checked git/gh command, raising SystemExit on nonzero.
 
     Never use for `git push` — pushes must go through `_git_push()`, which
-    validates the target. (Asserted so a future edit can't sneak one in.)
+    validates the target. Enforced with an explicit raise (not `assert`, so
+    it survives `python3 -O`) since this is a containment guard.
     """
-    assert args[:2] != ["git", "push"], "use _git_push() for pushes"
+    if args[:2] == ["git", "push"]:
+        raise SystemExit("internal error: pushes must go through _git_push()")
     proc = subprocess.run(args, capture_output=True, text=True)
     if proc.returncode != 0:
         raise SystemExit(
@@ -168,6 +170,9 @@ def cmd_publish():
         )
     if _run(["git", "status", "--porcelain", "--", DIGEST_PATH], capture=True):
         _run(["git", "add", DIGEST_PATH])  # only the digest — never -A
+        # Date from the branch (cycle-start), not today: a recovered orphan
+        # publishes under its original cycle date. The digest section itself
+        # is dated independently by append_digest.py.
         date = branch.rsplit("-", 1)[-1]
         _run(["git", "commit", "-m",
               f"📝 chore: scenario-factory nightly digest ({date})"])

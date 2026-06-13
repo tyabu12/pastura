@@ -52,13 +52,15 @@ echo "$CUR" | grep -Eq '^factory/digest-[0-9]{8}$' || fail "not on a factory bra
 # --- prepare: dirty tree → abort ---------------------------------------------
 CASE="prepare/dirty"
 R=$(new_repo); dirty_digest "$R"
-if FAKE_GH_PR_LIST='[]' run "$R" prepare 2>/dev/null; then fail "dirty tree should abort"; fi
+if ERR=$(FAKE_GH_PR_LIST='[]' run "$R" prepare 2>&1 >/dev/null); then fail "dirty tree should abort"; fi
+echo "$ERR" | grep -q "not clean" || fail "wrong abort reason: $ERR"
 
 # --- prepare: >1 factory PR → single-writer abort ----------------------------
 CASE="prepare/multi-pr"
 R=$(new_repo)
 LIST='[{"number":1,"headRefName":"factory/digest-20260101","isDraft":true},{"number":2,"headRefName":"factory/digest-20260102","isDraft":true}]'
-if FAKE_GH_PR_LIST="$LIST" run "$R" prepare 2>/dev/null; then fail ">1 factory PR should abort"; fi
+if ERR=$(FAKE_GH_PR_LIST="$LIST" run "$R" prepare 2>&1 >/dev/null); then fail ">1 factory PR should abort"; fi
+echo "$ERR" | grep -q "single-writer" || fail "wrong abort reason: $ERR"
 
 # --- prepare: one open PR → switch + fast-forward to remote tip ---------------
 CASE="prepare/one-pr-ff"
@@ -101,7 +103,8 @@ OUT=$(FAKE_GH_PR_LIST='[]' run "$R" prepare)
 # --- publish: branch guard rejects main --------------------------------------
 CASE="publish/guard-main"
 R=$(new_repo)
-if run "$R" publish 2>/dev/null; then fail "publish on main must be refused"; fi
+if ERR=$(run "$R" publish 2>&1 >/dev/null); then fail "publish on main must be refused"; fi
+echo "$ERR" | grep -q "refusing to publish" || fail "wrong abort reason: $ERR"
 
 # --- publish: no digest change → no-op, no PR --------------------------------
 CASE="publish/noop"
