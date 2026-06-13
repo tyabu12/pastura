@@ -145,7 +145,10 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
 
   public func databaseByteCount() throws -> Int64 {
     try dbWriter.read { db in
-      // `PRAGMA` results come back as rows; read each as a scalar.
+      // `PRAGMA` results come back as rows; read each as a scalar. `?? 0`
+      // is a safe floor: these PRAGMAs always return a row, but if one ever
+      // didn't, reporting 0 fails soft (suppresses the advisory) rather than
+      // throwing — matching the informational, never-deleting posture.
       let pageCount = try Int64.fetchOne(db, sql: "PRAGMA page_count") ?? 0
       let pageSize = try Int64.fetchOne(db, sql: "PRAGMA page_size") ?? 0
       return pageCount * pageSize
