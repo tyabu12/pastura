@@ -43,7 +43,9 @@ CARDS_DIR = REPO_ROOT / "docs/design/ds"
 # reason inline when adding one.
 EXCEPTIONS: set[str] = set()
 
-HEX_RE = re.compile(r"PasturaColorValue\(\s*hex:\s*0x([0-9A-Fa-f]{6})")
+HEX_RE = re.compile(
+    r"PasturaColorValue\(\s*hex:\s*0x([0-9A-Fa-f]{6})(?:,\s*opacity:\s*([\d.]+))?"
+)
 # Multi-line tolerant: swift-format breaks the constructor across lines.
 RGBA_RE = re.compile(
     r"red:\s*([\d.]+)\s*/\s*255\.0,\s*green:\s*([\d.]+)\s*/\s*255\.0,"
@@ -54,9 +56,23 @@ DSCARD_RE = re.compile(r'^<!-- @dsCard group="[^"]+".*-->\s*$')
 
 
 def extract_swift_tokens(source: str) -> tuple[set[str], set[str]]:
-    """Return (hex tokens like '#RRGGBB' uppercased, rgba strings)."""
-    hexes = {f"#{h.upper()}" for h in HEX_RE.findall(source)}
+    """Return (hex tokens like '#RRGGBB' uppercased, rgba strings).
+
+    A ``hex:`` constructor carrying an ``opacity:`` argument is asserted as
+    its rgba() form instead — opacity is part of the token value, so a
+    bare-hex match (which any same-color token would satisfy) would let
+    the opacity drift silently.
+    """
+    hexes = set()
     rgbas = set()
+    for hex_value, opacity in HEX_RE.findall(source):
+        if opacity:
+            channels = ", ".join(
+                str(int(hex_value[i : i + 2], 16)) for i in (0, 2, 4)
+            )
+            rgbas.add(f"rgba({channels}, {format(float(opacity), 'g')})")
+        else:
+            hexes.add(f"#{hex_value.upper()}")
     for red, green, blue, opacity in RGBA_RE.findall(source):
         channels = ", ".join(str(int(float(c))) for c in (red, green, blue))
         rgbas.add(f"rgba({channels}, {format(float(opacity), 'g')})")
@@ -100,9 +116,12 @@ def self_test() -> int:
 
     hexes, rgbas = extract_swift_tokens(
         "static let moss = PasturaColorValue(hex: 0x8A9A6C)\n"
-        "static let x = PasturaColorValue(\n  hex: 0xF3EFE7, opacity: 0.6)\n"
+        "static let x = PasturaColorValue(\n  hex: 0xFFFFFF, opacity: 0.6)\n"
     )
-    check("hex: simple + multiline + opacity-arg", hexes == {"#8A9A6C", "#F3EFE7"} and not rgbas)
+    check(
+        "hex: simple stays hex; opacity-bearing becomes rgba",
+        hexes == {"#8A9A6C"} and rgbas == {"rgba(255, 255, 255, 0.6)"},
+    )
 
     # Exact production shape from DesignTokens+ExtendedPalette.swift,
     # including the swift-format line break after the open paren.
