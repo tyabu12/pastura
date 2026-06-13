@@ -59,4 +59,22 @@ extension ModelManagerTests {
       #expect(available >= 0)
     }
   }
+
+  // MARK: - totalModelStorageBytes (pure-input)
+
+  /// Empty inputs sum to zero — the "no models downloaded, no orphans"
+  /// baseline the Settings aggregate line renders as "0 GB".
+  @Test func totalModelStorageBytes_emptyInputsSumToZero() {
+    #expect(ModelManager.totalModelStorageBytes(readyDescriptorSizes: [], orphanSizes: []) == 0)
+  }
+
+  /// Ready-descriptor (declared) sizes and orphan (actual) sizes are summed
+  /// together — the aggregate counts both completed catalog models and
+  /// superseded leftovers.
+  @Test func totalModelStorageBytes_sumsReadyAndOrphanSizes() {
+    let total = ModelManager.totalModelStorageBytes(
+      readyDescriptorSizes: [100, 200], orphanSizes: [50])
+    #expect(total == 350)
+  }
+
 }

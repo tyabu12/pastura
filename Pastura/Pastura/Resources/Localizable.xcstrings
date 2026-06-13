@@ -1638,12 +1638,44 @@
         }
       }
     },
+    "Delete this file?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this file?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルを削除しますか？"
+          }
+        }
+      }
+    },
     "Delete this run?" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "この結果を削除しますか?"
+          }
+        }
+      }
+    },
+    "Delete unused model file, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete unused model file, %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用のモデルファイルを削除（%@）"
           }
         }
       }
@@ -1850,6 +1882,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロードしたファイルサイズが一致しません (期待: %1$lld, 実際: %2$lld)"
+          }
+        }
+      }
+    },
+    "Downloaded models · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloaded models · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード済みモデル · %@"
           }
         }
       }
@@ -2341,6 +2389,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ラウンドサマリを整形（コード）"
+          }
+        }
+      }
+    },
+    "Frees up %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frees up %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の空き容量を確保します。"
           }
         }
       }
@@ -4522,6 +4586,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サポートされていないリンク"
+          }
+        }
+      }
+    },
+    "Unused model file" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unused model file"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用のモデルファイル"
           }
         }
       }
