@@ -109,6 +109,12 @@ action buttons to opt out of the Liquid Glass capsule that iOS 26
 auto-applies based on `ToolbarItemPlacement`. See
 `docs/design/design-system.md` § 5.8 for variant → token mapping.
 
+**Title display mode (`.large` / `.inline`)**: which pushed screen uses
+a large vs inline navigation title is a design-system convention, not a
+routing concern — see `docs/design/design-system.md`
+§ "Navigation title display mode". This rule governs only the back
+button / toolbar chrome.
+
 ## Sheets, popovers, fullScreenCover — out of scope
 
 `AppRouter` manages the **root NavigationStack only**. Sheet / popover /

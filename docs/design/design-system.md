@@ -417,6 +417,18 @@ ToolbarItem(placement: .primaryAction) {
 
 raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は使わない。§5.8 の toolbar opt-out と同じ方針。fill↔token（`mossDark` / 白）は `PasturaPrimaryButtonStyleTests` で pin。
 
+### 5.11 Navigation title display mode（large / inline）
+
+root `NavigationStack` に push される画面の `.navigationBarTitleDisplayMode` 規約。判断軸は **タイトルが「主題の固有名」か「汎用ラベル」か** — 固有名は見出しとして読ませる価値があるので `.large`、汎用ラベルは画面の chrome なので縦スペースを割かない `.inline`。
+
+| バケット | モード | 画面 |
+|---------|-------|------|
+| ブラウズ / 一覧の根 | `.large` | Home / Shared Scenarios / Results |
+| 主題の固有名がタイトルの詳細 | `.large` | ScenarioDetail / GalleryScenarioDetail（シナリオ名） |
+| エディタ / フォーム / 汎用ラベルの詳細 | `.inline` | ScenarioEditor / Settings / ResultDetail |
+
+`.large` の多くは modifier 未指定（iOS デフォルトが large）に依存し、明示しているのは `ScenarioDetailView` のみ。新規詳細画面はこの「固有名 → large / 汎用ラベル → inline」基準で判断する。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
+
 ---
 
 ## 6. モーション / アニメーション
