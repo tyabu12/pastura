@@ -259,7 +259,13 @@ struct SettingsView: View {
                 onSwitchActive: { switchActive(to: descriptor) },
                 onRequestDelete: { pendingDelete = descriptor }
               )
+              // ModelSettingsRow only carries its own 4pt (Spacing.xxs)
+              // vertical padding — fine inside a List cell (which added
+              // its own insets) but cramped inside a PasturaCard. Add
+              // ~10pt so the row breathes at ~14pt top/bottom, matching
+              // the other card rows (infoRow / detailRow).
               .padding(.horizontal, 17)
+              .padding(.vertical, 10)
             }
           }
         }
