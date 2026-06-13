@@ -25,7 +25,7 @@ You write a YAML scenario (or build it in the visual editor), pick a
 local LLM, and watch the agents talk, vote, and score themselves.
 Nothing leaves the device.
 
-For the product story, design philosophy, and faq, head to
+For the product story, design philosophy, and FAQ, head to
 [pastura.app](https://pastura.app) instead.
 
 ## Architecture
