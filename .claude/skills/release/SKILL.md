@@ -28,14 +28,17 @@ Run from the repository root.
 
 ## One-time bootstrap (must be done before the first release)
 
-These are human-only, performed once (ADR-014 § bootstrap). If any is
-missing the release cannot proceed — check before starting:
+These are human-only, performed once (ADR-014 § bootstrap). The full
+step-by-step walkthrough is [`docs/release-setup.md`](../../../docs/release-setup.md);
+verify the checklist below holds before starting:
 
 - App Store Connect **app record** exists for `app.pastura.Pastura`.
 - An ASC **API key** (`.p8`) is generated and stored outside the repo
   (fastlane reads `~/.appstoreconnect/private_keys/`). Its identifiers
-  are exported in the environment:
-  `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH`.
+  live in **`fastlane/.env`** (gitignored, project-scoped — fastlane
+  auto-loads it via dotenv; do NOT export them in `~/.zshrc`):
+  `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH`. Copy from
+  `fastlane/.env.example`.
 - A **distribution certificate / provisioning** exists (automatic
   signing, team `52G26234A3`; the first archive needs an Apple ID
   signed into Xcode).
