@@ -1528,22 +1528,22 @@
         }
       }
     },
-    "Database migration failed: %@" : {
+    "Database migration failed:\n%@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "データベースのマイグレーションに失敗しました: %@"
+            "value" : "データベースのマイグレーションに失敗しました:\n%@"
           }
         }
       }
     },
-    "Database open failed: %@" : {
+    "Database open failed:\n%@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "データベースのオープンに失敗しました: %@"
+            "value" : "データベースのオープンに失敗しました:\n%@"
           }
         }
       }
@@ -3220,12 +3220,12 @@
         }
       }
     },
-    "Pastura couldn't upgrade its database. You can reset it to continue — your previous data is kept in a backup on this device." : {
+    "Pastura couldn't upgrade its database.\nYou can reset it to continue — your previous data is kept in a backup on this device." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pastura はデータベースを更新できませんでした。リセットすれば続行できます。以前のデータはこの端末のバックアップに保持されます。"
+            "value" : "Pastura はデータベースを更新できませんでした。\nリセットすれば続行できます。\n以前のデータはこの端末のバックアップに保持されます。"
           }
         }
       }

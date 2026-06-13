@@ -57,9 +57,11 @@ extension DataError: LocalizedError {
   public var errorDescription: String? {
     switch self {
     case .databaseOpenFailed(let description):
-      return String(format: String(localized: "Database open failed: %@"), description)
+      // Newline before the detail: the underlying SQLite/IO error is often
+      // long and hard to read inline after the colon.
+      return String(format: String(localized: "Database open failed:\n%@"), description)
     case .migrationFailed(let description):
-      return String(format: String(localized: "Database migration failed: %@"), description)
+      return String(format: String(localized: "Database migration failed:\n%@"), description)
     case .recordNotFound(let type, let id):
       return String(format: String(localized: "Record not found: %@ id=%@"), type, id)
     case .encodingFailed(let description):

@@ -250,7 +250,7 @@ private struct RootView: View {
           Text(
             String(
               localized:
-                "Pastura couldn't upgrade its database. You can reset it to continue — your previous data is kept in a backup on this device."
+                "Pastura couldn't upgrade its database.\nYou can reset it to continue — your previous data is kept in a backup on this device."
             )
           )
           .font(.subheadline)
