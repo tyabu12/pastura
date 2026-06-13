@@ -100,22 +100,7 @@ struct HomeView: View {
 
       userScenariosSection(viewModel: viewModel)
 
-      Section {
-        NavigationLink(value: Route.sharedScenarios) {
-          navRowLabel(
-            title: String(localized: "Shared Scenarios"),
-            systemImage: "square.grid.2x2.fill")
-        }
-        .accessibilityIdentifier("home.sharedScenariosButton")
-        .pasturaCardRow()
-        NavigationLink(value: Route.results(scenarioId: "")) {
-          navRowLabel(
-            title: String(localized: "Past Results"),
-            systemImage: "clock.arrow.circlepath")
-        }
-        .accessibilityIdentifier("home.pastResultsButton")
-        .pasturaCardRow()
-      }
+      browseSection()
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
@@ -142,6 +127,28 @@ struct HomeView: View {
           description: Text(error)
         )
       }
+    }
+  }
+
+  /// Entry rows for the curated gallery and past results — navigation
+  /// destinations that aren't tied to a single scenario row.
+  @ViewBuilder
+  private func browseSection() -> some View {
+    Section {
+      NavigationLink(value: Route.sharedScenarios) {
+        navRowLabel(
+          title: String(localized: "Shared Scenarios"),
+          systemImage: "square.grid.2x2.fill")
+      }
+      .accessibilityIdentifier("home.sharedScenariosButton")
+      .pasturaCardRow()
+      NavigationLink(value: Route.results(scenarioId: "")) {
+        navRowLabel(
+          title: String(localized: "Past Results"),
+          systemImage: "clock.arrow.circlepath")
+      }
+      .accessibilityIdentifier("home.pastResultsButton")
+      .pasturaCardRow()
     }
   }
 
@@ -255,8 +262,13 @@ struct HomeView: View {
     }
   }
 
+}
+
+// Root-stack route resolution, split into an extension to keep the main
+// `HomeView` body under SwiftLint's `type_body_length`.
+extension HomeView {
   @ViewBuilder
-  private func routeDestination(_ route: Route) -> some View {
+  func routeDestination(_ route: Route) -> some View {
     switch route {
     case .scenarioDetail(let scenarioId, let initialName):
       ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
@@ -291,7 +303,7 @@ struct HomeView: View {
   /// carries a pre-verified template so `EditorReloadTests` can exercise
   /// the editor → save → Home reload path without typing YAML through
   /// XCUITest. Production always returns the empty editor.
-  private func newScenarioRoute() -> Route {
+  func newScenarioRoute() -> Route {
     #if DEBUG
       if let seed = dependencies.uiTestEditorSeedYAML {
         return .editor(templateYAML: seed)
