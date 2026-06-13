@@ -41,3 +41,6 @@ bash ./scripts/blocklist-precommit-gate.sh
 
 # 4. Gallery gate (curated scenario YAML schema) — fails-fast inside.
 bash ./scripts/gallery-precommit-gate.sh
+
+# 5. Secret gate (ADR-014) — block *.p8 ASC / APNs keys. Fails-fast inside.
+bash ./scripts/p8-precommit-gate.sh
