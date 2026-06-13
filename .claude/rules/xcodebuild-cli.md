@@ -137,6 +137,17 @@ another test run, the busy PID is likely a stale
 `xcodebuild`/`testmanagerd`/`XCTRunner` from a prior timeout-killed
 run — see Recovery below.
 
+### Sourcing it in a script clears your `set -e`
+
+`sim-dest.sh` saves the caller's shell options on entry and restores that
+saved snapshot on every exit path. In practice this leaves errexit **off**
+after the `source` even if you ran `set -e` before it, so later failures
+keep running instead of aborting. **Re-assert `set -euo pipefail`
+immediately after sourcing.** Only scripts that source `sim-dest.sh`
+directly are at risk — child-process invokers (`ui-tour.sh` →
+`xcodebuild.sh`) are unaffected. Reference re-assert:
+`scripts/motion-capture.sh`.
+
 ## Agent session guardrails
 
 **Prevention**:
