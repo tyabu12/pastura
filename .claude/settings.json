@@ -24,6 +24,9 @@
       "Bash(git switch -c feature/*)",
       "Bash(git switch -c fix/*)",
       "Bash(git switch -c docs/*)",
+      "Bash(git switch -c agent/*)",
+      "Bash(git switch agent/*)",
+      "Bash(git push -u origin agent/*)",
       "Bash(scripts/xcodebuild.sh*)",
       "Bash(xcodebuild -list*)",
       "Bash(xcodebuild -showBuildSettings*)",
@@ -40,6 +43,13 @@
       "Bash(gh pr checks*)",
       "Bash(gh issue view*)",
       "Bash(gh issue list*)",
+      "Bash(gh issue edit*)",
+      "Bash(gh issue comment*)",
+      "Bash(gh pr create --draft*)",
+      "Bash(gh label list*)",
+      "Bash(git cat-file -e origin/main:.github/ISSUE_TEMPLATE/agent-task.yml)",
+      "Bash(python3 .claude/skills/queue-consumer/scripts/*)",
+      "Bash(bash .claude/skills/queue-consumer/tests/run_tests.sh)",
       "Bash(gh run view*)",
       "Bash(gh run list*)",
       "Bash(gh run watch*)",
@@ -57,6 +67,10 @@
           {
             "type": "command",
             "command": "cd $(git rev-parse --show-toplevel) && bash scripts/hooks/gated-runner.sh 'gh pr create' -- bash scripts/hooks/check-claude-md-modified.sh"
+          },
+          {
+            "type": "command",
+            "command": "cd $(git rev-parse --show-toplevel) && bash scripts/hooks/block-force-push-and-pr-ready.sh"
           }
         ]
       }

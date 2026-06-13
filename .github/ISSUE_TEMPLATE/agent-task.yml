@@ -1,0 +1,53 @@
+# Issue form for the Overnight Issue Queue. The `Acceptance criteria`
+# label below is a frozen interface string: the queue-consumer skill
+# greps the rendered `### Acceptance criteria` heading in the issue body
+# to decide whether the task is actionable. Renaming the label silently
+# breaks that check — treat it as API, not copy.
+#
+# No `labels:` key on purpose: `agent-ready` is assigned by a maintainer
+# after review, never auto-applied at filing time. Do not add it here.
+name: Agent task
+description: Queue an implementation task for the overnight agent (maintainer use).
+title: "[Agent Task] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tasks for the overnight agent queue. A maintainer assigns the
+        `agent-ready` label after reviewing the issue — do not self-apply.
+        The agent declines issues whose acceptance criteria are missing or
+        vague (it relabels them `needs-detail` with a comment), so spell
+        out concrete, checkable conditions.
+
+  - type: textarea
+    id: background
+    attributes:
+      label: Background / Purpose
+      description: Why this task exists and what it should achieve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        Checklist of concrete, verifiable conditions. The agent implements
+        the minimum change that satisfies these and nothing more.
+      placeholder: |
+        - [ ] `FooView` shows the new badge when ...
+        - [ ] Existing `FooViewModelTests` still pass
+        - [ ] New test covers the empty-input case
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What the agent must NOT do, even if it looks related.
+      placeholder: |
+        - No refactoring of neighboring views
+        - No new dependencies
+    validations:
+      required: true
