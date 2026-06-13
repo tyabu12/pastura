@@ -164,12 +164,15 @@ struct SettingsView: View {
     }
     #if !targetEnvironment(simulator)
       .confirmationDialog(
-        // Inline-interpolated title so VoiceOver reads the specific model name
-        // rather than a generic "Delete this model?" for every row.
+        // Title carries the specific model name so VoiceOver reads it rather
+        // than a generic "Delete this model?" for every row. Uses the
+        // Form-B `String(format:)` path (not `String(localized: "...\(x)...")`)
+        // because the interpolated form's runtime lookup key becomes the
+        // substituted string, missing the catalog → English on ja (#578).
         Text(
           String(
-            localized: "Delete \(pendingDelete?.displayName ?? "this model")?"
-          )),
+            format: String(localized: "Delete %@?"),
+            pendingDelete?.displayName ?? String(localized: "this model"))),
         isPresented: Binding(
           get: { pendingDelete != nil },
           set: { if !$0 { pendingDelete = nil } }),
@@ -196,9 +199,8 @@ struct SettingsView: View {
       } message: { descriptor in
         Text(
           String(
-            localized:
-              "Re-downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) takes a few minutes."
-          ))
+            format: String(localized: "Re-downloading %@ takes a few minutes."),
+            ModelSettingsRow.formattedFileSize(descriptor.fileSize)))
       }
       // Orphaned-file delete — mirrors the per-model confirmation above.
       // Orphans have no catalog entry, so deletion is unconditional (the

@@ -1558,12 +1558,18 @@
         }
       }
     },
-    "Delete %arg?" : {
+    "Delete %@?" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete %@?"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%arg を削除しますか？"
+            "value" : "%@ を削除しますか？"
           }
         }
       }
@@ -3468,12 +3474,18 @@
         }
       }
     },
-    "Re-downloading %arg takes a few minutes." : {
+    "Re-downloading %@ takes a few minutes." : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-downloading %@ takes a few minutes."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%arg の再ダウンロードには数分かかります。"
+            "value" : "%@ の再ダウンロードには数分かかります。"
           }
         }
       }
@@ -4948,6 +4960,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "llama_decode に失敗しました（エラー %lld）"
+          }
+        }
+      }
+    },
+    "this model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このモデル"
           }
         }
       }
