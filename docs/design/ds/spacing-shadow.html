@@ -1,0 +1,56 @@
+<!-- @dsCard group="Spacing" name="Spacing, radius & shadow" subtitle="4pt-base scale with soft mid-values + moss-tinted 2-layer shadow (§4)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Spacing, radius &amp; shadow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .sp-row { display: flex; align-items: center; gap: var(--sp-s); padding: 4px 0; }
+  .sp-row .name { font-family: var(--font-mono); font-size: 10px; color: var(--ink-2); min-width: 9em; }
+  .sp-row .bar { height: 14px; background: var(--moss-soft); border-radius: 3px; }
+  .sp-row .use { font-size: 10.5px; color: var(--ink-2); }
+  .r-demos { display: flex; gap: var(--sp-m); flex-wrap: wrap; align-items: flex-end; }
+  .r-demo { background: var(--bubble-bg); border: 1px solid var(--rule); width: 96px; height: 64px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 9px; color: var(--muted); text-align: center; }
+  .shadow-demo { background: var(--bubble-bg); border-radius: var(--radius-promo); padding: var(--sp-l); box-shadow: var(--shadow-card); max-width: 330px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Spacing — Scale, radius &amp; shadow (§4)</p>
+
+  <div class="section">
+    <p class="section-label">§4.1 スペーシング — 4pt 基準。14・20 の中間値で「柔らかい」密度を出す</p>
+    <div class="sp-row"><span class="name">--sp-xxs 4px</span><span class="bar" style="width:4px"></span></div>
+    <div class="sp-row"><span class="name">--sp-xs 8px</span><span class="bar" style="width:8px"></span></div>
+    <div class="sp-row"><span class="name">--sp-s 12px</span><span class="bar" style="width:12px"></span><span class="use">プロモ内リズム</span></div>
+    <div class="sp-row"><span class="name">--sp-m 14px</span><span class="bar" style="width:14px"></span><span class="use">バブル / カードのリズム（soft な中間値）</span></div>
+    <div class="sp-row"><span class="name">--sp-l 20px</span><span class="bar" style="width:20px"></span><span class="use">ブロック分離</span></div>
+    <div class="sp-row"><span class="name">--sp-xl 32px</span><span class="bar" style="width:32px"></span><span class="use">セクション分離</span></div>
+    <div class="sp-row"><span class="name">--sp-xxl 48px</span><span class="bar" style="width:48px"></span><span class="use">画面レベルの呼吸</span></div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§4.2 角丸</p>
+    <div class="r-demos">
+      <div class="r-demo" style="border-radius:var(--radius-bubble-tail) var(--radius-bubble) var(--radius-bubble) var(--radius-bubble)">bubble<br>上左 4 / 他 14</div>
+      <div class="r-demo" style="border-radius:var(--radius-promo)">promo 14</div>
+      <div class="r-demo" style="border-radius:var(--radius-button)">button 8</div>
+      <div class="r-demo" style="width:64px;height:64px;border-radius:var(--radius-dot)">dot 50%</div>
+    </div>
+    <p class="section-note">iPhone 本体内側は 31pt（デバイス追従）。発言バブルの「しっぽ」は上左角のみ 4pt。</p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§4.3 シャドウ — 1要素あたり最大2レイヤー、彩度は苔系</p>
+    <div class="shadow-demo t-body-promo">box-shadow:<br><code class="t-meta-value">0 1px 2px rgba(90, 100, 60, 0.04),<br>0 12px 26px -12px rgba(90, 100, 60, 0.2)</code></div>
+    <p class="section-note">濃い浮遊感（例: 0 20px 60px rgba(0,0,0,.5)）は禁じ手（§1）。</p>
+  </div>
+</div>
+</body>
+</html>

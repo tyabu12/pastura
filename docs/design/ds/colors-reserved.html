@@ -1,0 +1,72 @@
+<!-- @dsCard group="Colors" name="Extended & reserved palettes" subtitle="Dark mode / Time-of-Day / Chart / Header slots (§2.9–2.12)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Extended &amp; reserved palettes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .night-section {
+    background: var(--night-bg);
+    border-color: var(--night-rule);
+  }
+  .night-section .section-label { color: var(--night-ink-2); }
+  .night-section .sw .name { color: var(--night-ink); }
+  .night-section .sw .val { color: var(--night-muted); }
+  .night-section .sw .use { color: var(--night-ink-2); }
+  .night-section .sw .chip { border-color: rgba(232, 229, 216, 0.18); }
+  .tod-band { display: flex; border-radius: var(--radius-button); overflow: hidden; border: 1px solid var(--rule); }
+  .tod-band span { flex: 1; height: 44px; display: flex; align-items: flex-end; padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Extended &amp; reserved palettes</p>
+
+  <div class="section night-section">
+    <p class="section-label">§2.9 Dark Mode（夜の牧場 — 未使用予約）</p>
+    <div class="sw"><span class="chip" style="background:var(--night-bg)"></span><span class="name">--night-bg</span><span class="val">#1B1D17</span><span class="use">screenBackground 対応</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-surface)"></span><span class="name">--night-surface</span><span class="val">#232620</span><span class="use">サーフェス</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-bubble)"></span><span class="name">--night-bubble</span><span class="val">#2C2F28</span><span class="use">発言バブル</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-ink)"></span><span class="name">--night-ink</span><span class="val">#E8E5D8</span><span class="use">本文</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-ink-2)"></span><span class="name">--night-ink-2</span><span class="val">#B0AC9C</span><span class="use">サブテキスト</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-muted)"></span><span class="name">--night-muted</span><span class="val">#7A7768</span><span class="use">メタ情報</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-rule)"></span><span class="name">--night-rule</span><span class="val">#353830</span><span class="use">罫線</span></div>
+    <div class="sw"><span class="chip" style="background:var(--night-moss)"></span><span class="name">--night-moss</span><span class="val">#A8B888</span><span class="use">ブランドアクセント（夜は明るく）</span></div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.10 Time-of-Day（牧場の時間帯 — 未使用予約・アンビエント用）</p>
+    <div class="tod-band">
+      <span style="background:var(--dawn)">dawn #F4E5CD</span>
+      <span style="background:var(--noon)">noon #FCFAF4</span>
+      <span style="background:var(--dusk)">dusk #E5D4C2</span>
+      <span style="background:var(--night);color:var(--night-ink-2)">night #1B1D17</span>
+    </div>
+    <p class="section-note">noon / night は構造的トークン（--screen-bg / --night-bg）と同 hex だが用途意味が違うため独立定義（§2.10）。</p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.11 Chart（最小4色 — 未使用予約・既存トークンの再利用）</p>
+    <div class="sw"><span class="chip" style="background:var(--chart-1)"></span><span class="name">--chart-1</span><span class="val">#8A9A6C</span><span class="use">== moss</span></div>
+    <div class="sw"><span class="chip" style="background:var(--chart-2)"></span><span class="name">--chart-2</span><span class="val">#C7A566</span><span class="use">== warning</span></div>
+    <div class="sw"><span class="chip" style="background:var(--chart-3)"></span><span class="name">--chart-3</span><span class="val">#7B8FA8</span><span class="use">== info</span></div>
+    <div class="sw"><span class="chip" style="background:var(--chart-4)"></span><span class="name">--chart-4</span><span class="val">#B57870</span><span class="use">== danger</span></div>
+    <p class="section-note">4 カテゴリを超える場合は palette を増やさず可視化方式そのものを再考する（§2.11）。</p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.12 Header Slots（GameHeader 専用 — 使用中）</p>
+    <div class="sw"><span class="chip" style="background:var(--header-rule)"></span><span class="name">--header-rule</span><span class="val">#C2C0AE</span><span class="use">Meta 行の中黒セパレータ「·」</span></div>
+    <div class="sw"><span class="chip" style="background:var(--header-meta-ink)"></span><span class="name">--header-meta-ink</span><span class="val">#4A4E3D</span><span class="use">Meta 行のフェーズ名前景色（role-anchored）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--header-meta-subdued)"></span><span class="name">--header-meta-subdued</span><span class="val">#7B7D68</span><span class="use">Meta 行右寄せの tok/s 値前景色</span></div>
+    <p class="section-note">§2.4 の depth-tone preset とは hex が偶然重なっても統合しない — 役割で命名し独立して進化させる（§2.12）。</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!-- @dsCard group="Brand" name="Voice & copy norms" subtitle="5 principles, forbidden moves, copy register (§1 / §7)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Voice &amp; copy norms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  table.v { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+  table.v th, table.v td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; line-height: 1.6; }
+  table.v th { font-family: var(--font-mono); font-size: 9px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  table.v td.p { font-weight: 600; white-space: nowrap; }
+  ul.ban { margin: 0; padding-left: 1.4em; font-size: 11.5px; line-height: 1.9; color: var(--ink-2); }
+  .pair { display: flex; gap: var(--sp-m); font-size: 11.5px; line-height: 1.7; padding: 4px 0; }
+  .pair .no { color: var(--danger-ink); text-decoration: line-through; }
+  .pair .yes { color: var(--success-ink); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Brand — Voice &amp; copy norms (§1 / §7)</p>
+
+  <div class="section">
+    <p class="section-label">§1 デザイン哲学 — 画面を作る前に必ず自問する5原則</p>
+    <table class="v">
+      <tr><td class="p">静謐</td><td>鳴らない。光らない。強くない。飽和色・ネオン・強いシャドウ禁止。アニメは長く緩く（&gt;600ms, ease-out）</td></tr>
+      <tr><td class="p">観察</td><td>ユーザーは「操作」ではなく「眺める」存在。CTA は小さく、ボタンは控えめ。余白で「間」を作る</td></tr>
+      <tr><td class="p">牧草地</td><td>苔・麻・古紙・羊毛・犬の毛。彩度の低い自然色。純白・純黒は避ける</td></tr>
+      <tr><td class="p">技術の誠実さ</td><td>LLM ダウンロードという技術的現実を隠さず詩に変える。3.0 GB・残り約4分を恥じず主役として美しく見せる</td></tr>
+      <tr><td class="p">日本語優先</td><td>13pt 本文で漢字・ひらがな・カタカナが混ざっても読める密度。行間 1.65 以上</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <p class="section-label">禁じ手（§1）</p>
+    <ul class="ban">
+      <li>蛍光色・彩度 80% 超のアクセント / グラデーション背景（光漏れ1箇所のみ許容）</li>
+      <li>濃い浮遊感のシャドウ（0 20px 60px rgba(0,0,0,.5) など）</li>
+      <li>絵文字（ブランド内で使わない。SF Symbols も抑制的に）</li>
+      <li>「完了！🎉」「素晴らしい！✨」のような祝祭的コピー</li>
+      <li>スケルトンローダー（代わりにコンテンツ自体をゆっくり fade-in）</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§7 コピーライティング — 観察しているトーン</p>
+    <div class="pair"><span class="no">完了！</span><span class="yes">準備ができました</span></div>
+    <div class="pair"><span class="no">少し時間がかかります</span><span class="yes">残り約4分</span></div>
+    <div class="pair"><span class="no">ローディング</span><span class="yes">読み込み中</span></div>
+    <p class="section-note">断定しない —「〜します」より「〜しています」「〜そうです」。カタカナを多用しない（「ダウンロード」は許容）。数字は隠さず美しく見せる。</p>
+  </div>
+</div>
+</body>
+</html>

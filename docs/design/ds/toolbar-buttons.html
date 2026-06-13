@@ -1,0 +1,66 @@
+<!-- @dsCard group="Components" name="Toolbar buttons" subtitle="PasturaBackButton + PasturaToolbarButtonStyle 3 variants — iOS 26 Liquid Glass opt-out (§5.8)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Toolbar buttons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .navbar {
+    width: 390px; margin: 0 auto;
+    display: flex; align-items: center;
+    background: var(--screen-bg);
+    border: 1px solid var(--rule);
+    border-radius: var(--sp-m);
+    padding: 12px var(--sp-m);
+    gap: var(--sp-m);
+  }
+  .back { font-size: 17px; color: var(--ink); line-height: 1; }
+  .nav-title { color: var(--ink); }
+  .actions { margin-left: auto; display: flex; gap: var(--sp-l); font-size: 14px; font-weight: 500; }
+  .v-primary { color: var(--moss-dark); }
+  .v-destructive { color: var(--danger-ink); }
+  .v-secondary { color: var(--ink); }
+  .v-pressed { opacity: 0.6; }
+  table.map { border-collapse: collapse; width: 100%; font-size: 11px; }
+  table.map th, table.map td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--rule); }
+  table.map th { font-family: var(--font-mono); font-size: 9px; font-weight: 600; color: var(--ink-2); }
+  table.map td code { font-family: var(--font-mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Toolbar buttons (§5.8)</p>
+
+  <div class="section">
+    <p class="section-label">iOS 26 の Liquid Glass capsule を opt-out するフラット toolbar。chevron-only back + 色で意図を encode した action items</p>
+    <div class="navbar">
+      <span class="back">‹</span>
+      <span class="nav-title t-title-scenario">シナリオ編集</span>
+      <span class="actions">
+        <span class="v-secondary">共有</span>
+        <span class="v-destructive">削除</span>
+        <span class="v-primary">保存</span>
+      </span>
+    </div>
+    <p class="section-note">押下時は前景色を opacity 0.6 に減光のみ — capsule 背景・scale アニメは付けない（§1「静的・観察される」voice）。<span class="v-primary v-pressed">保存（押下中の見え方）</span></p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§5.8.2 PasturaToolbarButtonStyle — variant ↔ token mapping（PasturaToolbarButtonStyleVariantTests で pin）</p>
+    <table class="map">
+      <tr><th>Variant</th><th>前景色</th><th>用途</th><th>例</th></tr>
+      <tr><td><code>.primary</code></td><td><span class="v-primary">■</span> <code>--moss-dark #6B7852</code></td><td>確定・保存</td><td>ScenarioEditorView の Save</td></tr>
+      <tr><td><code>.destructive</code></td><td><span class="v-destructive">■</span> <code>--danger-ink #6F4540</code></td><td>削除・破棄</td><td>ScenarioDetailView の Delete</td></tr>
+      <tr><td><code>.secondary</code></td><td><span class="v-secondary">■</span> <code>--ink #2D2E26</code></td><td>補助アクション</td><td>ResultDetailView の Share / Film</td></tr>
+    </table>
+    <p class="section-note">§5.8.1 PasturaBackButton: SF Symbol chevron.backward・前景 --ink・.buttonStyle(.plain)。root NavigationStack 専用 — sheet / fullScreenCover 内は @Environment(\.dismiss) を直接使う。callsite では .navigationBarBackButtonHidden(true) + .preservesPasturaSwipeBackGesture() が必須ペア（iOS 26 が swipe-back gesture まで無効化するため）。</p>
+  </div>
+</div>
+</body>
+</html>

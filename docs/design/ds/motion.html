@@ -1,0 +1,39 @@
+<!-- @dsCard group="Motion" name="Motion principles" subtitle="Duration/easing table — slow, quiet, non-repeating (§6)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Motion principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  table.mo { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+  table.mo th, table.mo td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  table.mo th { font-family: var(--font-mono); font-size: 9px; font-weight: 600; color: var(--ink-2); }
+  table.mo td.num { font-family: var(--font-mono); font-size: 10.5px; color: var(--moss-dark); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Motion — Principles (§6)</p>
+
+  <div class="section">
+    <p class="section-label">原則: 速くしない、派手にしない、繰り返さない（パルスは例外）。アニメーションは 600ms 以上・ease-out 基準（§9）</p>
+    <table class="mo">
+      <tr><th>ケース</th><th>Duration</th><th>Easing</th></tr>
+      <tr><td>バブル登場</td><td class="num">700ms</td><td class="num">ease-out, stagger 180ms</td></tr>
+      <tr><td>DL ドット点灯</td><td class="num">600ms</td><td class="num">cubic-bezier(.4,0,.2,1)</td></tr>
+      <tr><td>ストリーム退場</td><td class="num">1600ms</td><td class="num">ease-out</td></tr>
+      <tr><td>完了オーバーレイ登場</td><td class="num">2400ms</td><td class="num">ease-out, delay 200ms</td></tr>
+      <tr><td>マークパルス</td><td class="num">2400ms loop</td><td class="num">ease-in-out, scale 1.0↔1.06</td></tr>
+      <tr><td>タイトル fade-up</td><td class="num">1400ms</td><td class="num">ease-out, delay 700ms</td></tr>
+    </table>
+    <p class="section-note">ハプティクスは「完了時 1回、UIImpactFeedbackGenerator.light」のみ。スケルトンローダーは禁じ手 — コンテンツ自体をゆっくり fade-in（§1）。本カードは静的リファレンス — 動きの実機検証はフェーズ4（録画基盤）の領分。起動アニメーションの実装は LaunchPhaseCoordinator（#412/#415）参照。</p>
+  </div>
+</div>
+</body>
+</html>
