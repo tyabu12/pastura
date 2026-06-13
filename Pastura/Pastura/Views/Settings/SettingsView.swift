@@ -191,9 +191,14 @@ struct SettingsView: View {
       // triggered confirmationDialog as a popover whose arrow anchors to
       // the body centre. A centred alert presents correctly.
       .alert(
-        // Inline-interpolated title so VoiceOver reads the specific model name
-        // rather than a generic "Delete this model?" for every row.
-        String(localized: "Delete \(pendingDelete?.displayName ?? "this model")?"),
+        // Title carries the specific model name so VoiceOver reads it rather
+        // than a generic "Delete this model?" for every row. Uses the
+        // Form-B `String(format:)` path (not `String(localized: "...\(x)...")`)
+        // because the interpolated form's runtime lookup key becomes the
+        // substituted string, missing the catalog → English on ja (#578).
+        String(
+          format: String(localized: "Delete %@?"),
+          pendingDelete?.displayName ?? String(localized: "this model")),
         isPresented: Binding(
           get: { pendingDelete != nil },
           set: { if !$0 { pendingDelete = nil } }),
@@ -219,9 +224,8 @@ struct SettingsView: View {
       } message: { descriptor in
         Text(
           String(
-            localized:
-              "Re-downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) takes a few minutes."
-          ))
+            format: String(localized: "Re-downloading %@ takes a few minutes."),
+            ModelSettingsRow.formattedFileSize(descriptor.fileSize)))
       }
       // Orphaned-file delete — mirrors the per-model confirmation above
       // (also `.alert` for the iOS 26 popover-anchor reason). Orphans have
