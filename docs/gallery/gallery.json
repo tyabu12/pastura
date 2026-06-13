@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-09T00:00:00Z",
+  "updated_at": "2026-06-13T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -49,6 +49,42 @@
       "yaml_url": "kinoko_takenoko_v1.yaml",
       "yaml_sha256": "d382514728e1bb484868c0f5a02fdc9a2ba6b463f208d76a4f691172df096024",
       "added_at": "2026-04-29"
+    },
+    {
+      "id": "iiwake_battle_v1",
+      "title": "言い訳エスカレーション",
+      "category": "creative",
+      "description": "やらかしたシチュエーションに対して順番に言い訳をしていくバトル。 前の人の言い訳より大胆でスケールの大きい言い訳を重ねないと埋もれる、 後攻有利と自爆リスクが同居した順番制の大喜利。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "yaml_url": "iiwake_battle_v1.yaml",
+      "yaml_sha256": "6b35dbf5ac872170d480ca73f5c088dd34f5c727f21015a7d39eb7032d22ec9d",
+      "added_at": "2026-06-13"
+    },
+    {
+      "id": "kinku_bokete_v1",
+      "title": "禁句大喜利",
+      "category": "creative",
+      "description": "一番言いたい単語が「禁句」に指定された写真お題で戦う大喜利。 ド直球の答えを封じられた芸人たちが、どう搦め手で笑いを取るかを競う。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "yaml_url": "kinku_bokete_v1.yaml",
+      "yaml_sha256": "6c880ebdad761f953251b4f2c623fa8139e3dd0b011825dff08378e2418215a7",
+      "added_at": "2026-06-13"
+    },
+    {
+      "id": "shachiku_senryu_v1",
+      "title": "社畜川柳バトル",
+      "category": "creative",
+      "description": "お題に対して五・七・五の川柳で一句詠む音数制約つき大喜利。 内容の面白さだけでなく、五七五のリズムに収める職人芸を競う。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "yaml_url": "shachiku_senryu_v1.yaml",
+      "yaml_sha256": "8dabdec1f554e471c02c42fbab69101dce7f34097c103f8494b17c5d133fe3ea",
+      "added_at": "2026-06-13"
     }
   ]
 }
