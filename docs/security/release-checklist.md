@@ -1,7 +1,7 @@
 # Security Release Checklist
 
 A consolidated checklist for the security-sensitive work that lives
-outside the codebase. Three sections:
+outside the codebase. Four sections:
 
 1. [GitHub repository settings](#1-github-repository-settings).
    One-time configuration kept current; commands are idempotent.
@@ -9,6 +9,9 @@ outside the codebase. Three sections:
    Runs on the eve of an App Store submission (Phase 3, requires Apple
    Developer Program registration).
 3. [Recurring review](#3-recurring-review). Periodic operator tasks.
+4. [Release execution](#4-release-execution-testflight). How a build
+   actually reaches TestFlight (the automated pipeline + its one-time
+   prerequisites).
 
 The aim is to leave a paper trail of *what* should be true, *how* to
 verify, and *how* to remediate. Re-run the verifier on each release.
@@ -195,3 +198,42 @@ gh api repos/tyabu12/pastura/secret-scanning/alerts \
 
 Should return an empty array. Investigate any non-empty result the same
 day.
+
+---
+
+## 4. Release execution (TestFlight)
+
+The mechanics of getting a build to TestFlight are owned by
+[ADR-014](../decisions/ADR-014.md) and implemented as
+`scripts/release.sh` (the deterministic pipeline) + the `/release` skill
+(the interactive wrapper). This section is the security-relevant index;
+the procedure itself is not duplicated here.
+
+### 4.1 One-time bootstrap (human, not scriptable)
+
+Before the **first** release these must exist (full detail in ADR-014
+§ bootstrap and the `/release` skill's "One-time bootstrap" section):
+
+- ASC app record for `app.pastura.Pastura`.
+- An ASC **API key** (`.p8`) stored **outside the repo** at
+  `~/.appstoreconnect/private_keys/`, with `ASC_KEY_ID` /
+  `ASC_ISSUER_ID` / `ASC_KEY_PATH` exported. The `.p8` must never be
+  committed — `scripts/p8-precommit-gate.sh` and the `*.p8` gitignore
+  enforce this (ADR-014 § Secrets).
+- A distribution certificate / provisioning (automatic signing, team
+  `52G26234A3`).
+
+### 4.2 Per-release gate
+
+`scripts/release.sh` only releases from a checkout that equals
+`origin/main` **and** is green on every required CI check (the list is
+derived from the branch ruleset, not hardcoded). It re-runs the
+ADR-005 §8.5 Ollama-symbol guard on the signed archive and tags only
+after a successful upload. Cut releases exclusively from a CI-green
+`main` SHA — never from a local-only or unsynced checkout.
+
+### 4.3 Key-leak response
+
+If the `.p8` key is exposed, revoke it immediately (App Store Connect →
+Users and Access → Integrations → revoke) and rotate the identifiers.
+The `/release` skill carries the step-by-step runbook.
