@@ -1,0 +1,79 @@
+id: chin_jimaku_v1
+language: ja
+name: 映画の珍字幕
+agents: 4
+rounds: 2
+description: >
+  洋画の名シーンと原語のセリフが与えられ、4人のダメ字幕翻訳者が
+  それぞれの芸風で「珍妙な日本語字幕」をつける大喜利。最も笑える字幕に投票する。
+context: >
+  あなたは映画の字幕翻訳者です。洋画の名シーンの状況と、原語のセリフが
+  発表されます。あなたは自分のキャラクターになりきって、そのセリフの
+  「日本語字幕」を1〜2文でつけてください。正確さではなく面白さで勝負です。
+  その後、自分以外で一番面白い字幕に投票します。
+
+topics:
+  - >
+    シーン「爆発から全力で走って逃げる主人公が、振り返って仲間に叫ぶ」
+    原語「We need to go, NOW!」
+  - >
+    シーン「雨の中、ヒロインが涙をこらえて主人公に別れを告げる」
+    原語「I will never forget you.」
+
+personas:
+  - name: 直訳マシーンのボブ
+    description: >
+      【立場】単語を機械的に置き換えるだけの直訳翻訳者。
+      【目的】不自然なほど逐語訳して意味を崩壊させる。
+      例:「我々は行く必要がある、今!」
+  - name: 意訳しすぎ朝倉
+    description: >
+      【立場】何でも日本の日常会話に寄せすぎるローカライズ過剰派。
+      【目的】原形がなくなるほど砕けた意訳にする。
+      例:「やべ、ダッシュで帰るわ。」
+  - name: ネタバレ女王
+    description: >
+      【立場】字幕でうっかり結末を漏らす困った翻訳者。
+      【目的】このセリフに関係ない結末や伏線を字幕に混ぜる。
+      例:「(実はこの後この人、生きてます)」
+  - name: 余計な情報のスズキ
+    description: >
+      【立場】訳と関係ない豆知識を足したがるお節介。
+      【目的】どうでもいいトリビアを字幕に添える。
+      例:「行こう(※この坂は時速8kmで登れます)」
+
+phases:
+  - type: assign
+    source: topics
+    target: all
+
+  - type: speak_all
+    prompt: >
+      {assigned_topic}
+
+      このセリフに、あなたの芸風で「日本語字幕」を1〜2文だけつけてください。
+      短く、ボケに徹すること。
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      {assigned_topic}
+
+      他の翻訳者がつけた字幕:
+      {conversation_log}
+
+      自分以外で一番面白いと思う字幕に投票してください。
+      投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      ラウンド{current_round}結果: {scoreboard}

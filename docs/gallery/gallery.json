@@ -85,6 +85,42 @@
       "yaml_url": "shachiku_senryu_v1.yaml",
       "yaml_sha256": "8dabdec1f554e471c02c42fbab69101dce7f34097c103f8494b17c5d133fe3ea",
       "added_at": "2026-06-13"
+    },
+    {
+      "id": "oogiri_knockout_v1",
+      "title": "大喜利ノックアウト",
+      "category": "creative",
+      "description": "毎ラウンド1つのお題に全員が一言で答え、最も面白くなかった者が投票で 脱落していく勝ち抜き大喜利。最後の一人になるまで、短い一撃で笑いを競う。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 24,
+      "yaml_url": "oogiri_knockout_v1.yaml",
+      "yaml_sha256": "9675bfa9cda85c848cfed97dbdc568280ddeebc06c466f4cbd24cbb8393cd5b3",
+      "added_at": "2026-06-13"
+    },
+    {
+      "id": "chin_jimaku_v1",
+      "title": "映画の珍字幕",
+      "category": "creative",
+      "description": "洋画の名シーンと原語のセリフが与えられ、4人のダメ字幕翻訳者が それぞれの芸風で「珍妙な日本語字幕」をつける大喜利。最も笑える字幕に投票する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "yaml_url": "chin_jimaku_v1.yaml",
+      "yaml_sha256": "6417957f7ce11f461a8be2adedd537e366bf98a00a5d0ab1c20531ad77b078e5",
+      "added_at": "2026-06-13"
+    },
+    {
+      "id": "chinkaitou_soudan_v1",
+      "title": "お悩み相談・珍回答室",
+      "category": "creative",
+      "description": "4人の自称専門家が、しょうもない悩み相談に対してそれぞれの芸風で全力の 珍回答(ひどいアドバイス)をぶつける大喜利。最も笑える回答に投票する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "yaml_url": "chinkaitou_soudan_v1.yaml",
+      "yaml_sha256": "c7e1a4a4ec7e5e1e8b4c8a7fc677773b35713fc12ac244609277b06d1863cee7",
+      "added_at": "2026-06-13"
     }
   ]
 }
