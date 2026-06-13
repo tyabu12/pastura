@@ -3636,6 +3636,16 @@
         }
       }
     },
+    "Report a problem" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "問題を報告"
+          }
+        }
+      }
+    },
     "Report scenario" : {
       "localizations" : {
         "ja" : {
@@ -4406,6 +4416,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このダウンロードは Wi-Fi 接続のみに設定されています。再試行ボタンで変更してください。"
+          }
+        }
+      }
+    },
+    "This error detail is attached to your report:" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエラー詳細が報告に添付されます:"
           }
         }
       }
