@@ -264,6 +264,11 @@ private struct RootView: View {
             Task { await recoverDatabase() }
           }
           .buttonStyle(.borderedProminent)
+          // Retry is meaningful here even though only `.migrationFailed` reaches
+          // this screen: a migration can fail transiently (disk full / lock at
+          // migrate time), and a plain retry then succeeds without the
+          // data-destroying reset. For a deterministic failure it re-routes back
+          // here, and the user picks Reset.
           Button(String(localized: "Retry")) {
             appState = .initializing
           }
@@ -611,6 +616,11 @@ private struct RootView: View {
     if let modelPath = pendingRecoveryModelPath {
       // Device: rebuild the LLM service from the still-active descriptor.
       guard let descriptor = modelManager.activeDescriptor else {
+        // App-layer invariant violation, not a real migration failure: the
+        // active descriptor is guaranteed non-nil upstream (see finalizeInit).
+        // `.migrationFailed` is reused only to satisfy the `throws` contract;
+        // recoverDatabase() maps any throw here to `.error` with this message,
+        // and never pattern-matches the case.
         throw DataError.migrationFailed(
           description: String(localized: "No active model descriptor resolvable from catalog"))
       }
@@ -622,7 +632,9 @@ private struct RootView: View {
       return try AppDependencies.recoverByBackingUpDatabase()
     #else
       // Unreachable on production device — `finalizeInit` always sets
-      // `pendingRecoveryModelPath` before routing to recovery.
+      // `pendingRecoveryModelPath` before routing to recovery. `.migrationFailed`
+      // is a throws-contract filler (mapped to `.error` by recoverDatabase), not
+      // a real migration signal.
       throw DataError.migrationFailed(
         description: String(localized: "Recovery requires an active model"))
     #endif

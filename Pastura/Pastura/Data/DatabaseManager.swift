@@ -110,9 +110,19 @@ nonisolated public final class DatabaseManager: Sendable {
       // user's (corrupt-but-present) DB in place rather than nothing.
       if let movedBackup {
         try? fileManager.removeItem(atPath: path)  // discard any partial fresh file
-        try? fileManager.moveItem(atPath: movedBackup, toPath: path)
+        do {
+          try fileManager.moveItem(atPath: movedBackup, toPath: path)
+          logger.error("DB recovery failed; restored the original database file")
+        } catch {
+          // Worst case — the original could neither be recreated nor restored.
+          // Surface the backup location so it stays manually recoverable, and
+          // distinguish this from the expected (recreate-only) failure above.
+          logger.fault(
+            "DB recovery failed AND restore failed; backup at \(movedBackup, privacy: .public)")
+        }
+      } else {
+        logger.error("DB recovery failed (no existing database to restore)")
       }
-      logger.error("DB recovery failed; restored the original database file")
       throw error
     }
   }
@@ -151,6 +161,8 @@ nonisolated public final class DatabaseManager: Sendable {
   /// astronomically unlikely real-world event.
   private static func backupPath(for path: String, timestamp: Date) -> String {
     let formatter = DateFormatter()
+    // POSIX locale + UTC: locale-independent, lexically-sortable backup names
+    // regardless of the device's region / calendar / time zone.
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = TimeZone(identifier: "UTC")
     formatter.dateFormat = "yyyyMMdd-HHmmss"
