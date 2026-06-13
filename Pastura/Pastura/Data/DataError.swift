@@ -28,15 +28,40 @@ nonisolated public enum DataError: Error, Sendable, Equatable {
   case readonly(id: String)
 }
 
+extension DataError {
+  /// Whether the failure can be cleared by backing up the existing database
+  /// file and recreating a fresh one (issue #546).
+  ///
+  /// Only `.migrationFailed` qualifies: a schema migration that fails on an
+  /// existing valid DB is deterministic, so a plain retry re-runs the same
+  /// migration and re-fails forever — backup-and-recreate is the only escape
+  /// short of deleting the app. `.databaseOpenFailed` is deliberately
+  /// excluded: an un-openable file is as often a transient environmental
+  /// condition (disk full, sandbox permission, file held open) as a corrupt
+  /// file, and recreating-from-scratch would be the wrong, possibly
+  /// destructive response — those keep the plain retry path.
+  public var isRecoverable: Bool {
+    switch self {
+    case .migrationFailed:
+      return true
+    case .databaseOpenFailed, .recordNotFound, .encodingFailed,
+      .decodingFailed, .readonly:
+      return false
+    }
+  }
+}
+
 /// Provides human-readable descriptions so UI alert handlers can show
 /// `error.localizedDescription` without mapping each case manually.
 extension DataError: LocalizedError {
   public var errorDescription: String? {
     switch self {
     case .databaseOpenFailed(let description):
-      return String(format: String(localized: "Database open failed: %@"), description)
+      // Newline before the detail: the underlying SQLite/IO error is often
+      // long and hard to read inline after the colon.
+      return String(format: String(localized: "Database open failed:\n%@"), description)
     case .migrationFailed(let description):
-      return String(format: String(localized: "Database migration failed: %@"), description)
+      return String(format: String(localized: "Database migration failed:\n%@"), description)
     case .recordNotFound(let type, let id):
       return String(format: String(localized: "Record not found: %@ id=%@"), type, id)
     case .encodingFailed(let description):

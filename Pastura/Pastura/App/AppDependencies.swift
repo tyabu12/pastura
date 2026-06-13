@@ -118,6 +118,23 @@ final class AppDependencies: @unchecked Sendable {
     return AppDependencies(databaseManager: manager, llmService: llmService)
   }
 
+  #if DEBUG || targetEnvironment(simulator)
+    /// Migration-recovery counterpart of `production()` (issue #546): backs
+    /// up the existing DB and recreates a fresh one before constructing the
+    /// container. The path is sourced from `databasePath()` (never
+    /// re-derived) so it cannot drift from the `production` factories.
+    static func recoverByBackingUpDatabase() throws -> AppDependencies {
+      let manager = try DatabaseManager.recreateByBackingUp(at: Self.databasePath())
+      return AppDependencies(databaseManager: manager)
+    }
+  #endif
+
+  /// Migration-recovery counterpart of `production(llmService:)` (issue #546).
+  static func recoverByBackingUpDatabase(llmService: any LLMService) throws -> AppDependencies {
+    let manager = try DatabaseManager.recreateByBackingUp(at: Self.databasePath())
+    return AppDependencies(databaseManager: manager, llmService: llmService)
+  }
+
   /// Creates a test/preview instance with in-memory storage.
   static func inMemory(
     llmService: (any LLMService)? = nil,
