@@ -160,7 +160,11 @@ fi
 log "Checking latest TestFlight build for $VERSION"
 TF_OUT="$WORK/tf_build"
 TF_BUILD_OUT="$TF_OUT" bundle exec fastlane ios latest_tf_build version:"$VERSION"
-LATEST_TF="$(cat "$TF_OUT" 2>/dev/null || echo 0)"
+# Hard error if the lane ran but reported nothing — do NOT fall back to 0,
+# which would pass the strict-exceeds guard trivially and defeat the
+# duplicate-build protection.
+[ -s "$TF_OUT" ] || die "fastlane latest_tf_build reported no build number (TF_BUILD_OUT empty)."
+LATEST_TF="$(cat "$TF_OUT")"
 [ "$BUILD" -gt "$LATEST_TF" ] \
   || die "build $BUILD does not exceed the latest TestFlight build $LATEST_TF for $VERSION. Add a commit or bump the version."
 

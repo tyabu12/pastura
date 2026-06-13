@@ -56,12 +56,17 @@ platform :ios do
   # Upload an already-exported .ipa to TestFlight. release.sh owns archive
   # + export and passes the .ipa path (and optional changelog text).
   lane :upload do |options|
+    # Wait for ASC processing to finish (do NOT skip): release.sh creates
+    # the release tag only after this lane returns success, so the lane
+    # must not return until the build is actually processed on TestFlight.
+    # Skipping the wait would let an ASC processing-time rejection leave a
+    # dangling tag — the exact failure ADR-014 § "Why tag last" prevents.
     upload_to_testflight(
       api_key: asc_api_key,
       app_identifier: APP_IDENTIFIER,
       ipa: options.fetch(:ipa),
       changelog: options[:changelog],
-      skip_waiting_for_build_processing: true
+      skip_waiting_for_build_processing: false
     )
   end
 end
