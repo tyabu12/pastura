@@ -4892,6 +4892,16 @@
         }
       }
     },
+    "“%@” will be deleted. Past simulation results are kept and stay viewable." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」を削除します。過去のシミュレーション結果は残り、引き続き閲覧できます。"
+          }
+        }
+      }
+    },
     "↳ sub-phase" : {
       "localizations" : {
         "ja" : {
