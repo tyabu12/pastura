@@ -3656,6 +3656,16 @@
         }
       }
     },
+    "Report this problem" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この問題を報告"
+          }
+        }
+      }
+    },
     "Report this scenario" : {
       "localizations" : {
         "ja" : {
