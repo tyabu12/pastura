@@ -8,7 +8,11 @@
 # requires: python3, jq
 set -eu
 cd "$(dirname "$0")"
+HERE=$(pwd)
 AUDIT=../scripts/audit_docs.py
+DIGEST=../scripts/append_digest.py
+DIGEST_ABS="$HERE/../scripts/append_digest.py"
+RESULTS_ABS="$HERE/fixtures/results_sample.json"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -80,5 +84,64 @@ OUT=$(python3 "$AUDIT" --repo-root fixtures/judgment)
   || fail "judgment: both findings should be dead_link"
 echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="docs/missing-a.md")' >/dev/null \
   || fail "judgment: missing-a.md dead link not found"
+
+# --- append_digest.py: append / counts / status rendering -----------------
+cp fixtures/digest_seed.md "$TMP/digest.md"
+python3 "$DIGEST" --results fixtures/results_sample.json --digest "$TMP/digest.md" >/dev/null
+grep -qF "## 2026-06-13 14:00" "$TMP/digest.md" || fail "digest: section heading missing"
+grep -qF "Dry-run: auto_fixable 1, needs_judgment 0" "$TMP/digest.md" || fail "digest: counts line missing"
+grep -qF "Auto-fix PR: https://github.com/tyabu12/pastura/pull/553" "$TMP/digest.md" || fail "digest: opened-PR line missing"
+grep -qF "Issues filed: none" "$TMP/digest.md" || fail "digest: issues line missing"
+
+# append-only: re-applying the same run_id is rejected, never duplicated
+if python3 "$DIGEST" --results fixtures/results_sample.json --digest "$TMP/digest.md" 2>/dev/null; then
+  fail "digest: duplicate run_id should be rejected"
+fi
+[ "$(grep -c '## 2026-06-13 14:00' "$TMP/digest.md")" -eq 1 ] || fail "digest: duplicate run_id leaked a second section"
+
+# corrupted digest (no marker) hard-errors instead of blind-appending
+printf '# broken, no marker\n' > "$TMP/broken.md"
+if python3 "$DIGEST" --results fixtures/results_sample.json --digest "$TMP/broken.md" 2>/dev/null; then
+  fail "digest: missing marker should hard-error"
+fi
+
+# skipped-open-audit-pr status names the blocking PR; sections stay newest-first
+cat > "$TMP/skip.json" <<'JSON'
+{ "run_id": "2026-06-13 15:00", "auto_fixable": 1, "needs_judgment": 0,
+  "auto_fix_status": "skipped-open-audit-pr",
+  "auto_fix_pr": "https://github.com/tyabu12/pastura/pull/553", "issues": [] }
+JSON
+python3 "$DIGEST" --results "$TMP/skip.json" --digest "$TMP/digest.md" >/dev/null
+grep -qF "skipped — open audit PR https://github.com/tyabu12/pastura/pull/553 still pending" "$TMP/digest.md" \
+  || fail "digest: skipped-open-audit-pr status not rendered"
+awk '/## 2026-06-13 15:00/{a=NR} /## 2026-06-13 14:00/{b=NR} END{exit !(a && b && a<b)}' "$TMP/digest.md" \
+  || fail "digest: sections not newest-first"
+
+# --- resolver refuses an untracked target (safety guard, no --digest) ------
+# Exercises resolve_main_digest()'s "must be git-tracked" guard — the
+# production-relevant branch for worktree-based scheduled runs.
+RR="$TMP/resolver"; mkdir -p "$RR/data/audit"
+git -C "$RR" init -q
+git -C "$RR" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+printf 'x\n' > "$RR/data/audit/digest.md"   # exists but UNTRACKED
+if ( cd "$RR" && python3 "$DIGEST_ABS" --results "$RESULTS_ABS" ) 2>/dev/null; then
+  fail "resolver: must refuse to write an untracked digest target"
+fi
+
+# --- preflight clean-tree pathspec excludes the digest (critic Axis 5) ------
+# Pins the exact `git status` pathspec SKILL.md Step 0.5 uses, so a digest left
+# modified by a prior unattended run does not self-block the next run, while a
+# real change still aborts. Proves two consecutive runs need no intervening commit.
+TR="$TMP/repo"; mkdir -p "$TR/data/audit"
+git -C "$TR" init -q
+printf 'seed\n' > "$TR/data/audit/digest.md"; printf 'x\n' > "$TR/other.txt"
+git -C "$TR" add -A
+git -C "$TR" -c user.email=t@example.com -c user.name=t commit -qm init
+printf 'appended by prior run\n' >> "$TR/data/audit/digest.md"   # digest-only change
+OUT=$(git -C "$TR" status --porcelain -- . ':(exclude)data/audit/digest.md')
+[ -z "$OUT" ] || fail "preflight: a digest-only modification must read as clean (got: $OUT)"
+printf 'real edit\n' >> "$TR/other.txt"                          # a non-digest change too
+OUT=$(git -C "$TR" status --porcelain -- . ':(exclude)data/audit/digest.md')
+[ -n "$OUT" ] || fail "preflight: a non-digest modification must still read as dirty"
 
 echo "ALL TESTS PASSED"
