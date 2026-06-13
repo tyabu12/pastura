@@ -76,10 +76,15 @@ struct SettingsView: View {
         #if !targetEnvironment(simulator)
           modelsSection
         #endif
-        // Theme D (tappable-row green language) is intentionally left as-is:
-        // these stay `Button`s with `.foregroundStyle(.primary)`, which the
-        // Button context resolves to the moss accent. Only the container
-        // (card) and field tone change here.
+        // Theme D — tappable-row language split by destination:
+        // Privacy Policy is the lone external link (opens Safari), so it
+        // keeps the green `Color.link` dialect + the external-link arrow
+        // (no chevron). The report / licenses rows open in-app sheets, so
+        // they adopt the standard in-app row vocabulary (`PasturaRowLabel`:
+        // ink text + trailing chevron) shared with Home / ScenarioDetail /
+        // Results. `Color.link` (design-system §2.8) lands its first real
+        // consumer here; the explicit `Color.link` form (not `.link`)
+        // sidesteps the ShapeStyle-vs-Color token trap.
         PasturaSection(String(localized: "Legal")) {
           VStack(spacing: 0) {
             Button {
@@ -88,10 +93,10 @@ struct SettingsView: View {
             } label: {
               HStack {
                 Text(String(localized: "Privacy Policy"))
-                  .foregroundStyle(.primary)
+                  .foregroundStyle(Color.link)
                 Spacer()
                 Image(systemName: "arrow.up.right.square")
-                  .foregroundStyle(.secondary)
+                  .foregroundStyle(Color.link)
               }
               .padding(.horizontal, 17)
               .padding(.vertical, 15)
@@ -103,30 +108,18 @@ struct SettingsView: View {
             Button {
               isReportSheetPresented = true
             } label: {
-              HStack {
-                Text(String(localized: "Send a content report"))
-                  .foregroundStyle(.primary)
-                Spacer()
-              }
-              .padding(.horizontal, 17)
-              .padding(.vertical, 15)
-              .contentShape(Rectangle())
+              PasturaRowLabel(title: String(localized: "Send a content report"))
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("settings.sendContentReportButton")
 
             PasturaRowDivider()
             Button {
               isLicensesSheetPresented = true
             } label: {
-              HStack {
-                Text(String(localized: "Licenses"))
-                  .foregroundStyle(.primary)
-                Spacer()
-              }
-              .padding(.horizontal, 17)
-              .padding(.vertical, 15)
-              .contentShape(Rectangle())
+              PasturaRowLabel(title: String(localized: "Licenses"))
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("settings.licensesLink")
           }
         }
