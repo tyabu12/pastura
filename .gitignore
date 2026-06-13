@@ -33,6 +33,14 @@ fastlane/Preview.html
 fastlane/screenshots
 fastlane/test_output
 
+# Fastlane dotenv — ASC credential identifiers (ADR-014, docs/release-setup.md).
+# Bare-name line is mandatory: `fastlane/.env.*` alone would NOT match the
+# suffix-less `fastlane/.env`, leaving the live credential file tracked. The
+# negation (kept last so it wins) keeps the committed template tracked.
+fastlane/.env
+fastlane/.env.*
+!fastlane/.env.example
+
 # App Store Connect / APNs private keys (ADR-014 § Secrets). Global, not
 # scoped to fastlane/ — a key must never enter the tree at any path. The
 # p8-precommit-gate.sh gate is the defense-in-depth backstop for `git add -f`.
