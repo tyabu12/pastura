@@ -1279,9 +1279,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     let codePhaseEventRepository = self.codePhaseEventRepository
 
     let records: ExportRecords? = try await offMain {
+      // `scenarioId` is optional since v7 (SET NULL on scenario delete).
+      // This live-scenario lookup is replaced by the snapshot resolver in a
+      // later step; for now it preserves the pre-v7 behavior for runs whose
+      // scenario still exists.
       guard
         let sim = try simulationRepository.fetchById(simId),
-        let scenario = try scenarioRepository.fetchById(sim.scenarioId)
+        let scenarioId = sim.scenarioId,
+        let scenario = try scenarioRepository.fetchById(scenarioId)
       else {
         return nil
       }
