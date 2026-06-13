@@ -116,6 +116,115 @@ import Testing
     }
   }
 
+  // MARK: - recreateByBackingUp recovery (issue #546)
+
+  /// Fixed timestamp → backup name `…backup-20231114-221320` (UTC).
+  private static let backupTS1 = Date(timeIntervalSince1970: 1_700_000_000)
+  private static let backupName1 = "backup-20231114-221320"
+  /// `backupTS1 + 1 day` → `…backup-20231115-221320` (UTC).
+  private static let backupTS2 = Date(timeIntervalSince1970: 1_700_086_400)
+  private static let backupName2 = "backup-20231115-221320"
+
+  private func seedScenarioRow(at path: String, id: String) throws {
+    let manager = try DatabaseManager.persistent(at: path)
+    try manager.dbWriter.write { db in
+      try db.execute(
+        sql: """
+          INSERT INTO scenarios (id, name, yamlDefinition, isPreset, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+          """,
+        arguments: [id, "Seed", "yaml: x", false, Date(), Date()])
+    }
+  }
+
+  private func scenarioCount(at path: String) throws -> Int {
+    let queue = try DatabaseQueue(path: path)
+    return try queue.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM scenarios") ?? -1 }
+  }
+
+  private func backupFiles(for path: String) -> [String] {
+    let url = URL(fileURLWithPath: path)
+    let prefix = url.lastPathComponent + ".backup-"
+    let dir = url.deletingLastPathComponent().path
+    let entries = (try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []
+    return entries.filter { $0.hasPrefix(prefix) }
+  }
+
+  private func cleanup(_ path: String) {
+    let fileManager = FileManager.default
+    try? fileManager.removeItem(atPath: path)
+    let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
+    for name in backupFiles(for: path) {
+      try? fileManager.removeItem(atPath: dir.appendingPathComponent(name).path)
+    }
+  }
+
+  @Test func recreateByBackingUpMovesOldFileAsideAndCreatesFresh() throws {
+    let path = makeTempDBPath()
+    defer { cleanup(path) }
+    try seedScenarioRow(at: path, id: "old-row")
+
+    let manager = try DatabaseManager.recreateByBackingUp(at: path, timestamp: Self.backupTS1)
+
+    // Fresh DB at the live path is empty and usable.
+    let freshCount = try manager.dbWriter.read {
+      try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM scenarios") ?? -1
+    }
+    #expect(freshCount == 0)
+
+    // The old file moved aside under the timestamped name, row preserved.
+    let backup = "\(path).\(Self.backupName1)"
+    #expect(FileManager.default.fileExists(atPath: backup))
+    #expect(try scenarioCount(at: backup) == 1)
+  }
+
+  @Test func recreateByBackingUpExcludesBackupFromiCloud() throws {
+    let path = makeTempDBPath()
+    defer { cleanup(path) }
+    try seedScenarioRow(at: path, id: "x")
+
+    _ = try DatabaseManager.recreateByBackingUp(at: path, timestamp: Self.backupTS1)
+
+    let backup = "\(path).\(Self.backupName1)"
+    let values = try URL(fileURLWithPath: backup)
+      .resourceValues(forKeys: [.isExcludedFromBackupKey])
+    #expect(values.isExcludedFromBackup == true)
+  }
+
+  @Test func recreateByBackingUpPrunesOlderBackups() throws {
+    let path = makeTempDBPath()
+    defer { cleanup(path) }
+    try seedScenarioRow(at: path, id: "gen0")
+
+    _ = try DatabaseManager.recreateByBackingUp(at: path, timestamp: Self.backupTS1)
+    _ = try DatabaseManager.recreateByBackingUp(at: path, timestamp: Self.backupTS2)
+
+    // Only the most recent backup is retained.
+    let backups = backupFiles(for: path)
+    #expect(backups.count == 1)
+    let expected = "\(URL(fileURLWithPath: path).lastPathComponent).\(Self.backupName2)"
+    #expect(backups.first == expected)
+  }
+
+  @Test func recreateByBackingUpRestoresOriginalOnFailure() throws {
+    let path = makeTempDBPath()
+    defer { cleanup(path) }
+    try seedScenarioRow(at: path, id: "precious")
+
+    do {
+      _ = try DatabaseManager.recreateByBackingUp(at: path, timestamp: Self.backupTS1) { _ in
+        throw DataError.migrationFailed(description: "simulated recreate failure")
+      }
+      Issue.record("expected recreateByBackingUp to rethrow the recreate failure")
+    } catch {
+      // Non-destructive: the original DB is restored, openable, row intact,
+      // and no orphaned backup is left behind.
+      #expect(FileManager.default.fileExists(atPath: path))
+      #expect(try scenarioCount(at: path) == 1)
+      #expect(backupFiles(for: path).isEmpty)
+    }
+  }
+
   @Test func deletingScenarioOrphansSimulationsViaSetNull() throws {
     let manager = try DatabaseManager.inMemory()
     try manager.dbWriter.write { db in
