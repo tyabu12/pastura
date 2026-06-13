@@ -1698,6 +1698,17 @@
         }
       }
     },
+    "Developer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開発者向け"
+          }
+        }
+      }
+    },
     "Distribute info to agents (code)" : {
       "localizations" : {
         "ja" : {

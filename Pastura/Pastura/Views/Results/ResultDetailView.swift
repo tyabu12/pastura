@@ -106,13 +106,17 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
           // output can only be replayed by bundling it into
           // `Resources/DemoReplays/` (there's no user-facing replay path),
           // so it's gated to DEBUG builds and hidden from TestFlight users.
+          // The "Developer" section header marks it as a dev-only action
+          // without a verbose per-item label prefix.
           #if DEBUG
-            Button {
-              Task { await triggerYAMLExport() }
-            } label: {
-              Label(String(localized: "Export for demo replay"), systemImage: "film")
+            Section(String(localized: "Developer")) {
+              Button {
+                Task { await triggerYAMLExport() }
+              } label: {
+                Label(String(localized: "Export for demo replay"), systemImage: "film")
+              }
+              .disabled(!canExportYAML)
             }
-            .disabled(!canExportYAML)
           #endif
           Divider()
           Button(role: .destructive) {
