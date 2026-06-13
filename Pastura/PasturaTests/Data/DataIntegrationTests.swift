@@ -105,12 +105,18 @@ import Testing
     let round1Turns = try repos.turn.fetchBySimulationAndRound("sim1", round: 1)
     #expect(round1Turns.count == 2)
 
-    // 8. Delete scenario — cascade removes simulation and turns
+    // 8. Deleting the scenario orphans the run (v7 FK is ON DELETE SET NULL)
+    //    — the simulation and its turns are preserved, not cascade-deleted.
     try repos.scenario.delete("s1")
-    let deletedSim = try repos.simulation.fetchById("sim1")
-    #expect(deletedSim == nil)
-    let remainingTurns = try repos.turn.fetchBySimulationId("sim1")
-    #expect(remainingTurns.isEmpty)
+    let orphanedSim = try repos.simulation.fetchById("sim1")
+    #expect(orphanedSim != nil)
+    #expect(orphanedSim?.scenarioId == nil)
+    #expect(!(try repos.turn.fetchBySimulationId("sim1").isEmpty))
+
+    // 9. Deleting the simulation itself still cascade-removes its turns
+    //    (the turns→simulations cascade is unchanged).
+    try repos.simulation.delete("sim1")
+    #expect(try repos.turn.fetchBySimulationId("sim1").isEmpty)
   }
 
   @Test func simulationStateJsonRoundTrip() throws {

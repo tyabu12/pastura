@@ -63,7 +63,7 @@ import Testing
     }
   }
 
-  @Test func cascadeDeleteScenarioRemovesSimulations() throws {
+  @Test func deletingScenarioOrphansSimulationsViaSetNull() throws {
     let manager = try DatabaseManager.inMemory()
     try manager.dbWriter.write { db in
       try db.execute(
@@ -80,12 +80,17 @@ import Testing
           """,
         arguments: ["sim1", "s1", "running", 0, 0, "{}", Date(), Date()])
 
-      // Delete scenario
+      // Delete the scenario.
       try db.execute(sql: "DELETE FROM scenarios WHERE id = ?", arguments: ["s1"])
 
-      // Simulation should be gone
+      // Since v7 the FK is ON DELETE SET NULL: the simulation survives
+      // (history preserved) with its scenarioId cleared — it is NOT
+      // cascade-deleted.
       let count = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM simulations")
-      #expect(count == 0)
+      #expect(count == 1)
+      let scenarioId = try String.fetchOne(
+        db, sql: "SELECT scenarioId FROM simulations WHERE id = 'sim1'")
+      #expect(scenarioId == nil)
     }
   }
 }
