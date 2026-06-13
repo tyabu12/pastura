@@ -6,28 +6,8 @@ import SwiftUI
 // `nonisolated` annotation (that rule is for Models/LLM/Engine/Data types).
 
 extension ResultDetailView {
-  /// The trash toolbar button. `.primaryAction` (not `.secondaryAction`):
-  /// a 2nd secondary item would push the thoughts toggle into an overflow
-  /// Menu and flatten its moss tint. Destructive style + the confirmation
-  /// dialog guard accidental taps. NOTE: 3 trailing primary icons now —
-  /// verify the cluster doesn't crowd on small iPhones in device QA.
-  @ToolbarContentBuilder
-  var deleteToolbarItem: some ToolbarContent {
-    ToolbarItem(placement: .primaryAction) {
-      Button {
-        isShowingDeleteConfirm = true
-      } label: {
-        Image(systemName: "trash")
-      }
-      .buttonStyle(PasturaToolbarButtonStyle(variant: .destructive))
-      .disabled(!canDelete)
-      .accessibilityIdentifier("resultDetail.deleteButton")
-    }
-    .hidingPasturaSharedBackground()
-  }
-
-  /// Gate for the per-run delete (trash) toolbar button. Disabled until
-  /// the record is loaded, and blocked while the run is still `.running`
+  /// Gate for the per-run delete menu item. Disabled until the record is
+  /// loaded, and blocked while the run is still `.running`
   /// — deleting a row the engine may still be persisting to risks a
   /// write-vs-delete race. Paused / completed / failed / cancelled runs
   /// carry no live writer and are safe to remove.

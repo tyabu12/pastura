@@ -1638,6 +1638,16 @@
         }
       }
     },
+    "Delete this run" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果を削除"
+          }
+        }
+      }
+    },
     "Delete this run?" : {
       "localizations" : {
         "ja" : {
@@ -2059,12 +2069,32 @@
         }
       }
     },
+    "Export as Markdown" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Markdownでエクスポート"
+          }
+        }
+      }
+    },
     "Export failed" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "エクスポートに失敗しました"
+          }
+        }
+      }
+    },
+    "Export for demo replay" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デモ再生用にエクスポート"
           }
         }
       }
