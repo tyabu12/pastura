@@ -442,6 +442,23 @@ jobs:
       - name: Run navigation map drift guard
         run: python3 scripts/generate-navigation-map.py --check
 
+  # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
+  # CSS mirror consumed by the claude.ai Design System project) faithful to
+  # DesignTokens*.swift, and validates @dsCard markers. Pure stdlib.
+  design-tokens-drift:
+    name: Design tokens drift guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Run checker self-test
+        run: python3 scripts/check_design_tokens_css.py --self-test
+
+      - name: Run design tokens drift guard
+        run: python3 scripts/check_design_tokens_css.py --check
+
   localization-coverage:
     name: Localization coverage (ja 100%)
     runs-on: ubuntu-latest
