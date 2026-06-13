@@ -1508,6 +1508,16 @@
         }
       }
     },
+    "Database Needs Recovery" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースの復旧が必要です"
+          }
+        }
+      }
+    },
     "Database error: %@" : {
       "localizations" : {
         "ja" : {
@@ -1534,6 +1544,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "データベースのオープンに失敗しました: %@"
+          }
+        }
+      }
+    },
+    "Database recovery failed: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースの復旧に失敗しました: %@"
           }
         }
       }
@@ -3136,6 +3156,16 @@
         }
       }
     },
+    "Pastura couldn't upgrade its database. You can reset it to continue — your previous data is kept in a backup on this device." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastura はデータベースを更新できませんでした。リセットすれば続行できます。以前のデータはこの端末のバックアップに保持されます。"
+          }
+        }
+      }
+    },
     "Pastura simulation" : {
       "localizations" : {
         "ja" : {
@@ -3470,6 +3500,16 @@
         }
       }
     },
+    "Recovery requires an active model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "復旧には有効なモデルが必要です"
+          }
+        }
+      }
+    },
     "References a top-level field in the scenario YAML — must be a list of strings (e.g., random_events: [...])" : {
       "localizations" : {
         "ja" : {
@@ -3556,6 +3596,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub アカウントが必要です。作成される issue は公開されます。"
+          }
+        }
+      }
+    },
+    "Reset Database" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースをリセット"
           }
         }
       }
@@ -4630,6 +4680,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi-Fi 推奨"
+          }
+        }
+      }
+    },
+    "Will open after database recovery" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースの復旧後に開きます"
           }
         }
       }
