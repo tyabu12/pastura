@@ -224,4 +224,50 @@ struct ResultsViewModelTests {
 
     #expect(decoded == nil)
   }
+
+  // MARK: - Orphaned runs (deleted scenario) — v7 history preservation
+
+  @Test func homeAggregationSurfacesOrphanedRunWithoutMergingLiveGroups() async throws {
+    let env = try makeResultsSUT()
+
+    // A live scenario + run that stays.
+    try seedScenarioWithSimulation(
+      scenarioRepo: env.scenarioRepo, simRepo: env.simRepo,
+      scenarioId: "s2", scenarioName: "Word Wolf", simulationId: "sim2")
+
+    // A scenario + run carrying a snapshot, which we then delete to orphan
+    // the run (regression: deleting a scenario must NOT erase its history).
+    try env.scenarioRepo.save(
+      ScenarioRecord(
+        id: "s1", name: "Prisoner's Dilemma",
+        yamlDefinition: "id: s1\nlanguage: ja\nname: Prisoner's Dilemma\n",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try env.simRepo.save(
+      SimulationRecord(
+        id: "sim1", scenarioId: "s1",
+        status: SimulationStatus.completed.rawValue,
+        currentRound: 1, currentPhaseIndex: 0, stateJSON: "{}", configJSON: nil,
+        createdAt: Date(), updatedAt: Date(),
+        scenarioYamlSnapshot: "id: s1\nlanguage: ja\nname: Prisoner's Dilemma\n",
+        scenarioNameSnapshot: "Prisoner's Dilemma"))
+
+    try env.scenarioRepo.delete("s1")  // orphan sim1 (SET NULL)
+
+    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+
+    // Both the live group and the orphaned group are present — the deleted
+    // scenario's run survives and remains browsable.
+    let names = env.sut.groups.map(\.sectionName)
+    #expect(env.sut.groups.count == 2)
+    #expect(names.contains("Word Wolf"))
+    #expect(names.contains("Prisoner's Dilemma"))
+
+    // The orphaned group did not merge into a live group: its canonical key
+    // is reserved (≠ the former scenario id), and it sorts last.
+    let orphanGroup = try #require(
+      env.sut.groups.first { $0.sectionName == "Prisoner's Dilemma" })
+    #expect(orphanGroup.rows.map(\.id) == ["sim1"])
+    #expect(orphanGroup.canonicalKey != "s1")
+    #expect(env.sut.groups.last?.canonicalKey == orphanGroup.canonicalKey)
+  }
 }

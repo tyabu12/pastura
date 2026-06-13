@@ -150,9 +150,44 @@ final class ResultsViewModel {
         ))
     }
 
+    // Surface orphaned runs (scenarioId == nil) whose source scenario was
+    // deleted. The scenario-driven loop above can't reach them, and they
+    // carry no live `sourceId`/`id`, so they group under a reserved canonical
+    // key (NUL-prefixed) that cannot collide with a live group, and are
+    // appended after the live groups regardless of name ordering.
+    let orphanGroups = try await orphanedGroups()
+
     // Stable cross-group order keyed by canonical id so reloads
-    // don't flicker.
+    // don't flicker. Orphaned (deleted-scenario) groups always sort last.
     return result.sorted { $0.canonicalKey < $1.canonicalKey }
+      + orphanGroups.sorted { $0.sectionName < $1.sectionName }
+  }
+
+  /// Reserved canonical-key prefix for orphaned-run groups. The leading NUL
+  /// guarantees no collision with a live scenario's `sourceId ?? id`.
+  private static let orphanCanonicalKeyPrefix = "\u{0}orphan:"
+
+  /// Builds groups for orphaned runs (`scenarioId IS NULL`), bucketed by the
+  /// scenario name captured in each run's snapshot.
+  private func orphanedGroups() async throws -> [ScenarioGroup] {
+    let orphans = try await offMain { [simulationRepository] in
+      try simulationRepository.fetchOrphaned()
+    }
+    guard !orphans.isEmpty else { return [] }
+
+    let byName = Dictionary(grouping: orphans) {
+      $0.scenarioNameSnapshot ?? String(localized: "Deleted scenario")
+    }
+    return byName.map { name, sims in
+      let rows =
+        sims
+        .map { SimulationRow(record: $0, variantName: name) }
+        .sorted { $0.record.createdAt > $1.record.createdAt }
+      return ScenarioGroup(
+        sectionName: name,
+        canonicalKey: Self.orphanCanonicalKeyPrefix + name,
+        rows: rows)
+    }
   }
 
   /// Detail path: shows only this scenario's simulations. No cross-

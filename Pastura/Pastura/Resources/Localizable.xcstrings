@@ -1578,6 +1578,16 @@
         }
       }
     },
+    "Deleted scenario" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除されたシナリオ"
+          }
+        }
+      }
+    },
     "Demoing" : {
       "localizations" : {
         "ja" : {
