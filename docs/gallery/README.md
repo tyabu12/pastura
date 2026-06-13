@@ -134,6 +134,28 @@ Gallery scenarios are public and curator-endorsed. Keep content:
 
 ## Adding a scenario
 
+### Promoting from the scenario factory
+
+If the YAML came from a `/scenario-factory` cycle
+(`data/factory/scenarios/<date>/`), it is already schema-valid and
+field-tested — skip the from-scratch drafting and bridge it to a gallery
+entry:
+
+1. Copy it to `docs/gallery/<slug>_v1.yaml` and rename the YAML's `id:`
+   from `factory_<date>_<slug>` to `<slug>_v1` (the file stem **must**
+   equal `id:` — see *Globally unique scenario ids* above).
+2. `estimated_inferences` = the run log's `run_start.estimated_inferences`
+   (`data/factory/runs/<date>/<id>.jsonl`).
+3. `category` is usually `creative` for the oogiri / comedy family.
+4. Curate by the digest's judge scores — promote high scorers, hold back
+   low-coherence or low-humor runs. The factory judge is a **quality**
+   filter, NOT a content-safety screen, and gallery YAMLs do **not** pass
+   through the blocklist gate (that gate is Presets-only). Apply the
+   *Content guidelines* above yourself.
+
+Then continue with step 2 (`add-gallery-entry.sh`) below — step 1's
+drafting is already done.
+
 ### 1. Draft the YAML
 
 Write `docs/gallery/<id>.yaml` following the existing examples. Keep

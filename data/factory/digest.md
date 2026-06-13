@@ -29,4 +29,7 @@ Notes: Two cycles ran on 2026-06-13 (rows merged — append_digest.py replaces s
 
 
 <!-- factory-digest:promotion -->
-Promotion: copy the winning YAML from `data/factory/scenarios/<date>/` to `Pastura/Pastura/Resources/Presets/` via an `/orchestrate` PR — landing under `Resources/` routes it through the blocklist pre-commit gate.
+Promotion has two distribution channels — pick by reach, commit via an `/orchestrate` PR either way:
+
+- **Bundled preset** (ships in the app binary): copy the winning YAML from `data/factory/scenarios/<date>/` to `Pastura/Pastura/Resources/Presets/`. Landing under `Resources/` routes it through the blocklist pre-commit gate; reaches users only on the next TestFlight / App Store build.
+- **Shared-scenario gallery** (remote — served from `main` via `raw.githubusercontent.com`, so **merge is the deploy**): copy to `docs/gallery/<slug>_v1.yaml` (rename the YAML's `id:` from `factory_<date>_<slug>` to `<slug>_v1`), then run `scripts/add-gallery-entry.sh`. The gallery does **not** pass through the blocklist gate — curate by the judge scores yourself (hold back low-coherence / low-humor runs). Full bridge: `docs/gallery/README.md` § "Promoting from the scenario factory".

@@ -16,7 +16,10 @@ Non-goals:
   calls it.
 - **No content-safety screening.** The judge scores quality only; safety
   is enforced by the blocklist pre-commit gate when a scenario is later
-  promoted under `Resources/Presets/` (see the digest's promotion footer).
+  promoted to a **bundled preset** under `Resources/Presets/`. The
+  **shared-scenario gallery** channel (`docs/gallery/`) does NOT pass
+  through that gate — curate gallery content by hand. Both channels: see
+  the digest's promotion footer.
 - **No external LLM APIs.** Generation and judging are done by THIS
   session. Only the local harness (llama.cpp + bundled GGUF) burns
   inference.
@@ -162,5 +165,6 @@ Summarize for the user: per-scenario status + scores + best line of the
 night, failures with one-line causes, and where the artifacts live
 (`scenarios/<DATE>/`, `runs/<DATE>/`, digest diff). `data/factory/digest.md`
 is left modified in the working tree — committing it (and any promotion
-PR) goes through the normal `/orchestrate` flow; this skill does not
-commit or push.
+PR — bundled preset or shared-scenario gallery; see the digest's
+promotion footer for the two channels) goes through the normal
+`/orchestrate` flow; this skill does not commit or push.
