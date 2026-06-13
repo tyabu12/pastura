@@ -25,9 +25,11 @@ safe to run unattended.
   `/consistency-audit` (see "Scheduling" below). The unattended command set
   (`git switch -c audit/*`, the skill's `python3` scripts, `git push`,
   `gh pr create --draft`) is now allowlisted so a routine run does not block on
-  a permission prompt. (`gh issue create` is intentionally NOT allowlisted —
-  Step 4 is unreachable while all needs_judgment detectors are deferred; a
-  future detector author re-allowlists it deliberately.)
+  those prompts. `git commit` is the exception — gated project-wide and
+  deliberately not allowlisted, so a fully non-interactive run also relies on
+  the eventual `/schedule` runner handling it. (`gh issue create` is likewise
+  NOT allowlisted — Step 4 is unreachable while all needs_judgment detectors
+  are deferred; a future detector author re-allowlists it deliberately.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
