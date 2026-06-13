@@ -1578,6 +1578,16 @@
         }
       }
     },
+    "Deleted scenario" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除されたシナリオ"
+          }
+        }
+      }
+    },
     "Demoing" : {
       "localizations" : {
         "ja" : {
@@ -4878,6 +4888,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "~%lld 回の推論"
+          }
+        }
+      }
+    },
+    "“%@” will be deleted. Past simulation results are kept and stay viewable." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」を削除します。過去のシミュレーション結果は残り、引き続き閲覧できます。"
           }
         }
       }
