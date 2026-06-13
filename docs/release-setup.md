@@ -39,9 +39,13 @@ Copy the `.p8` you saved in Part B to this Mac and lock it down (keep it
 
 ```bash
 mkdir -p ~/.appstoreconnect/private_keys
+chmod 700 ~/.appstoreconnect/private_keys          # dir: owner-only (needs the x bit)
 cp /path/to/your/AuthKey_XXXXXXXXXX.p8 ~/.appstoreconnect/private_keys/
-chmod 600 ~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8
+chmod 600 ~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # file: rw, owner-only
 ```
+
+(`600` is for the **file**; a directory needs its execute bit to be
+traversable, so lock the directory with `700`, not `600`.)
 
 The same `.p8` is reused across machines — you do **not** generate a new key
 per machine (only on leak/loss; see Part B).
