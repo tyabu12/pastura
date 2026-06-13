@@ -44,7 +44,7 @@ editing.
 | auto | Email | Email | yes (enforced) | Auto-added by Responder input. Not pre-fillable by URL parameter (Google design). |
 | 1 | Short answer | Scenario ID | **no** | Pre-filled by the app via URL parameter when reporting from Shared Scenarios. Left blank on the §1.5 general-contact path. Helper text: "Auto-filled when reporting from the app. Leave blank for general feedback." |
 | 2 | Short answer | App Version | no | Pre-filled by the app. Blank on the §1.5 path. |
-| 3 | Paragraph | Reason | yes | User writes the report body or feedback text. |
+| 3 | Paragraph | Reason | yes | User writes the report body or feedback text. The DB migration-failure path (§1.3) pre-fills this field with the SQLite error (`entry.532267701`). |
 
 **Settings → Presentation → Confirmation message:** see §2.1.
 
@@ -62,6 +62,43 @@ filed via this template carry the `shared-scenario-report` label.
 Reporter contact is **not collected** — reply via @-mention on the
 issue (the GitHub author is visible in the issue header). This keeps
 the public tracker free of PII.
+
+### 1.3 Database migration-failure report path
+
+The in-app "Database Needs Recovery" screen (`PasturaApp`
+`.databaseRecovery`, #580) reuses `ReportScenarioSheet` in
+`migrationFailure` mode to capture a bug report **before** the user
+resets and the failing DB is moved aside. The exact SQLite migration
+error is auto-attached to both surfaces.
+
+This is **technical bug intake, not a §1.2 UGC content report** — there
+is no gallery entry to hide and no abusive user to block, so the §6.3
+content-moderation SLAs (7-day triage, 72-hour content hide-out) do not
+apply. It is framed instead as an extension of the §1.5 general-contact
+co-tenancy (ADR-005 §6.7):
+
+- **Google Form (private).** Pre-fills the existing **Reason** field
+  (`entry.532267701`) with the error — no new form field was added, so
+  no live-form edit is required. App Version is pre-filled as usual;
+  Scenario ID is omitted (a boot failure has no scenario context). The
+  neutral §2.1 confirmation copy ("Thanks for your message…") already
+  fits this case.
+- **GitHub issue (public).** Uses a **dedicated** template,
+  `.github/ISSUE_TEMPLATE/db-migration-failure.yml`, labelled `bug`
+  (kept out of the §6 `shared-scenario-report` tracker). The migration
+  error pre-fills the template's `db_error` field via
+  `?template=db-migration-failure.yml&db_error=<error>` — the query-param
+  key **must** equal the field `id` exactly (`db_error`, underscore), or
+  GitHub silently skips the prefill.
+
+**PII note.** The prefilled value is the SQLite `localizedDescription`,
+which can in rare data-migrating failures embed scenario-data fragments.
+The Google Form path is private; the GitHub path is public, so the
+`db_error` field description carries a review-before-submit caveat and
+the in-app sheet shows the attached error so the user sees exactly what
+is sent. The `entry.532267701` (Reason), `db_error` field id, and
+template slug are mirrored as constants in `ReportURLBuilder.swift` —
+keep them in sync with this doc and the form/template.
 
 ## 2. Response templates
 
