@@ -1,0 +1,30 @@
+{
+  "run_id": "2026-06-14 01:30",
+  "notes": "fixture run — first night",
+  "issues": [
+    {
+      "number": 530,
+      "title": "Fix README | typo",
+      "outcome": "completed",
+      "branch": "agent/issue-530",
+      "pr_url": "https://github.com/tyabu12/pastura/pull/999",
+      "note": "criteria 2/2 satisfied"
+    },
+    {
+      "number": 532,
+      "title": "Vague enhancement",
+      "outcome": "skipped-needs-detail",
+      "branch": null,
+      "pr_url": null,
+      "note": "no checklist under Acceptance criteria"
+    },
+    {
+      "number": 533,
+      "title": "Touch AppRouter",
+      "outcome": "blocked-policy",
+      "branch": null,
+      "pr_url": null,
+      "note": "navigation surface — human-in-the-loop required"
+    }
+  ]
+}
