@@ -211,13 +211,15 @@ the procedure itself is not duplicated here.
 
 ### 4.1 One-time bootstrap (human, not scriptable)
 
-Before the **first** release these must exist (full detail in ADR-014
-§ bootstrap and the `/release` skill's "One-time bootstrap" section):
+Before the **first** release these must exist (full step-by-step in
+[`docs/release-setup.md`](../release-setup.md); see also ADR-014
+§ bootstrap and the `/release` skill):
 
 - ASC app record for `app.pastura.Pastura`.
 - An ASC **API key** (`.p8`) stored **outside the repo** at
   `~/.appstoreconnect/private_keys/`, with `ASC_KEY_ID` /
-  `ASC_ISSUER_ID` / `ASC_KEY_PATH` exported. The `.p8` must never be
+  `ASC_ISSUER_ID` / `ASC_KEY_PATH` set in **`fastlane/.env`**
+  (gitignored, project-scoped — not `~/.zshrc`). The `.p8` must never be
   committed — `scripts/p8-precommit-gate.sh` and the `*.p8` gitignore
   enforce this (ADR-014 § Secrets).
 - A distribution certificate / provisioning (automatic signing, team

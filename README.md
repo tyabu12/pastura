@@ -164,6 +164,8 @@ pastura/
 - [`CLAUDE.md`](CLAUDE.md) for hard rules, Swift conventions, and the
   context AI agents use. Humans can read it too.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) for sending a PR.
+- **Maintainers** — [`docs/release-setup.md`](docs/release-setup.md) for the
+  one-time TestFlight release bootstrap.
 
 ## License
 
