@@ -43,6 +43,20 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// the freed pages (ADR-015 §4.1 — opt-in, post-purge only; the
   /// per-run ``delete(_:)`` deliberately skips `VACUUM`).
   func deleteAll() throws
+
+  /// Returns the logical size of the database in bytes, computed as
+  /// `page_count * page_size` (SQLite `PRAGMA`s).
+  ///
+  /// This is the SQLite-allocated size: it counts every page the file
+  /// still holds (deletes free pages but only `VACUUM` shrinks the file)
+  /// and excludes the transient rollback journal. It reads off a single
+  /// connection, so it works for in-memory databases (tests) as well as
+  /// the on-disk store — no file-path dependency, keeping the measure
+  /// inside the Data layer.
+  ///
+  /// Powers the App layer's advisory growth cap (ADR-015 D1 / §3) — a
+  /// non-deleting safety stop surfaced when the store grows large.
+  func databaseByteCount() throws -> Int64
 }
 
 /// GRDB-backed implementation of `SimulationRepository`.
@@ -126,6 +140,15 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
     try dbWriter.writeWithoutTransaction { db in
       _ = try SimulationRecord.deleteAll(db)
       try db.execute(sql: "VACUUM")
+    }
+  }
+
+  public func databaseByteCount() throws -> Int64 {
+    try dbWriter.read { db in
+      // `PRAGMA` results come back as rows; read each as a scalar.
+      let pageCount = try Int64.fetchOne(db, sql: "PRAGMA page_count") ?? 0
+      let pageSize = try Int64.fetchOne(db, sql: "PRAGMA page_size") ?? 0
+      return pageCount * pageSize
     }
   }
 }
