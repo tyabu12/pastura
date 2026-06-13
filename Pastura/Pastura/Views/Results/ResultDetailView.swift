@@ -280,7 +280,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     do {
       let fetched: LoadedData = try await offMain {
         let sim = try simRepo.fetchById(simId)
-        let scenario = try sim.flatMap { try scenarioRepo.fetchById($0.scenarioId) }
+        // Resolve via the run's snapshot (faithful to what ran; survives
+        // scenario edit/delete), falling back to the live scenario only for
+        // pre-v7 runs. Feeds both this detail view's agent ordering and the
+        // export path (which reads `self.scenario`).
+        let scenario = try sim.flatMap {
+          try ScenarioSnapshotResolver.resolve(for: $0, liveLookup: scenarioRepo.fetchById)
+        }
         let turns = try turnRepo.fetchBySimulationId(simId)
         let events = try eventRepo.fetchBySimulationId(simId)
         let items = ResultDetailTimelineBuilder.build(turns: turns, events: events)

@@ -71,6 +71,28 @@ import Testing
     #expect(results.isEmpty)
   }
 
+  @Test func fetchOrphanedReturnsOnlyRunsWhoseScenarioWasDeleted() throws {
+    let (scenarioRepo, simRepo) = try makeRepos()
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "s2", name: "Other", yamlDefinition: "yaml",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try simRepo.save(makeSimRecord(id: "sim1"))  // references s1
+    var sim2 = makeSimRecord(id: "sim2")
+    sim2.scenarioId = "s2"
+    try simRepo.save(sim2)
+
+    // No orphans while both scenarios exist.
+    #expect(try simRepo.fetchOrphaned().isEmpty)
+
+    // Deleting s1 orphans sim1 (SET NULL); sim2 keeps its FK.
+    try scenarioRepo.delete("s1")
+    let orphans = try simRepo.fetchOrphaned()
+    #expect(orphans.map(\.id) == ["sim1"])
+    #expect(orphans.first?.scenarioId == nil)
+    #expect(try simRepo.fetchById("sim2")?.scenarioId == "s2")
+  }
+
   @Test func updateStateModifiesTargetFields() throws {
     let (_, simRepo) = try makeRepos()
     try simRepo.save(makeSimRecord())
