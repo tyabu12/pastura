@@ -42,9 +42,24 @@ case "$COMMAND" in
   *"git push"*)
     case "$COMMAND" in
       *--force*) block "force push (--force*) is forbidden for Claude sessions." ;;
-      *" -f"|*" -f "*|*" -f"$'\t'*|*" -f"$'\n'*)
-        block "force push (-f) is forbidden for Claude sessions." ;;
     esac
+    # Substring globs cannot catch -f bundled into a short-flag cluster
+    # (-fu / -uf / -fv) without also matching branch names containing
+    # an "f" — tokenize instead and inspect each dash-cluster word.
+    # `set -f` stops the unquoted expansion from globbing against cwd.
+    set -f
+    for word in $COMMAND; do
+      case "$word" in
+        --*) : ;;  # long options handled by the substring arm above
+        -[A-Za-z]*)
+          case "$word" in
+            *f*) block "force push (-f, possibly bundled as $word) is forbidden for Claude sessions." ;;
+          esac
+          ;;
+        +*) block "force push via +refspec ($word) is forbidden for Claude sessions." ;;
+      esac
+    done
+    set +f
     ;;
 esac
 

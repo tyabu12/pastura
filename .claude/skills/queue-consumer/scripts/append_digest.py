@@ -145,10 +145,16 @@ def main():
                  "applied twice? Append-only log, refusing to duplicate.")
 
     head, marker, tail = digest.partition(SECTIONS_MARKER)
-    section = render_section(results)
+    section = render_section(results)  # ends with exactly one "\n"
+    # A blank line must separate the new section from a pre-existing one,
+    # or the old "## <run_id>" heading glues onto the new section's last
+    # paragraph and stops rendering as a heading.
+    tail_body = tail.lstrip("\n")
+    out = head + marker + "\n\n" + section
+    if tail_body:
+        out += "\n" + tail_body
     with open(digest_path, "w", encoding="utf-8") as f:
-        f.write(head + marker + "\n\n" + section + tail.lstrip("\n")
-                + ("" if tail.endswith("\n") or not tail.strip() else "\n"))
+        f.write(out)
 
     print(f"appended section {run_id} "
           f"({len(results.get('issues', []))} issue(s)) to {digest_path}")

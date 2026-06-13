@@ -38,13 +38,17 @@ fi
 COUNT=$(grep -c "^## 2026-06-14 01:30$" "$TMP/digest.md")
 [ "$COUNT" -eq 1 ] || fail "duplicate run_id duplicated the section ($COUNT)"
 
-# a second distinct run lands ABOVE the first (newest first)
+# a second distinct run lands ABOVE the first (newest first), with a
+# blank line separating it from the older section's heading
 sed 's/2026-06-14 01:30/2026-06-15 01:30/' \
   "$FIXTURES/results_sample.json" > "$TMP/results2.json"
 python3 "$SCRIPTS/append_digest.py" \
   --results "$TMP/results2.json" --digest "$TMP/digest.md" >/dev/null
 FIRST=$(grep -n "^## " "$TMP/digest.md" | head -1)
 echo "$FIRST" | grep -q "2026-06-15" || fail "newest section not first: $FIRST"
+OLD_LINE=$(grep -n "^## 2026-06-14 01:30$" "$TMP/digest.md" | cut -d: -f1)
+PREV=$(sed -n "$((OLD_LINE - 1))p" "$TMP/digest.md")
+[ -z "$PREV" ] || fail "no blank line before older section heading (got: $PREV)"
 
 # missing marker must hard-error, never blind-append
 echo "# broken" > "$TMP/broken.md"
