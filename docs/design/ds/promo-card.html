@@ -1,0 +1,81 @@
+<!-- @dsCard group="Components" name="Promo card & DL progress dots" subtitle="DL meta 2-row + dog mark + 3pt moss left border (§5.4–5.5)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Promo card &amp; DL progress dots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .screen { width: 390px; background: var(--screen-bg); border: 1px solid var(--rule); border-radius: var(--sp-m); padding: var(--sp-l) 14px 22px; margin: 0 auto; }
+  .promo {
+    background: var(--promo-bg);
+    border: 1px solid var(--promo-border);
+    border-left: 3px solid var(--moss);
+    border-radius: var(--radius-promo);
+    padding: var(--sp-s) var(--sp-m);
+    box-shadow: var(--shadow-card);
+  }
+  .meta1 { display: flex; align-items: center; gap: 6px; color: var(--meta-base); }
+  .meta1 .dl { color: var(--meta-base); }
+  .dots { display: flex; gap: 3px; }
+  .dots i { width: 4px; height: 4px; border-radius: var(--radius-dot); background: rgba(90, 100, 60, 0.38); }
+  .dots i.on { background: var(--moss-dark); }
+  .meta1 .pct { color: var(--meta-strong); font-weight: 600; }
+  .eta { color: var(--meta-base); margin-top: 3px; }
+  .body-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .body-row .mark { width: 26px; height: 26px; flex: none; }
+  .body-row .mark svg { width: 100%; height: 100%; display: block; }
+  .body-row .txt { color: var(--ink); }
+  .dotscale { display: flex; align-items: center; gap: var(--sp-m); margin-top: var(--sp-xs); }
+  .dotscale .dots i { width: 4px; height: 4px; }
+  .dotscale .lbl { font-family: var(--font-mono); font-size: 9px; color: var(--muted); width: 3.5em; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Promo card &amp; DL progress dots (§5.4–5.5)</p>
+
+  <div class="section">
+    <p class="section-label">§5.4 Promo Card — 左ボーダー 3pt moss・meta 2行（DL/ドット/pct/サイズ + ETA）・body row は犬マーク 26pt + テキスト</p>
+    <div class="screen">
+      <div class="promo" data-contrast="L3">
+        <div class="meta1 t-meta-value">
+          <span class="dl t-meta-label">DL</span>
+          <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="pct">35%</span>
+          <span>· 1.0 GB / 3.0 GB</span>
+        </div>
+        <div class="eta t-meta-eta">残り約4分</div>
+        <div class="body-row">
+          <span class="mark">
+            <svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+              <path d="M5 14 Q 5 9, 9 7.5 L11 5 L12.5 8 Q 17 8.5, 19.5 11 Q 21 12.5, 21 14.5 L22 16 L20 16.5 Q 18.5 19, 15 19 L10.5 19 Q 7 18.5, 5.5 16 Z" fill="#FFFFFF" stroke="var(--moss)" stroke-width="1.3"/>
+              <circle cx="20" cy="14.8" r="1.1" fill="var(--moss-ink)"/>
+              <circle cx="14" cy="12" r=".9" fill="var(--moss-ink)"/>
+              <path d="M9 7.5 Q 8 10, 8.8 12" stroke="var(--moss)" stroke-width=".9" fill="none"/>
+              <path d="M15 16 Q 17 16.5, 19 16.2" stroke="var(--moss)" stroke-width=".8" fill="none"/>
+            </svg>
+          </span>
+          <span class="txt t-body-promo">少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ</span>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">16:9 iPhone 画面で bottom 22pt・left/right 14pt に置く。技術的現実（3.0 GB・残り約4分）を隠さず主役として美しく見せる（§1「技術の誠実さ」）。</p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§5.5 DL Progress Dots — 4pt 丸 ×8。点灯数 = round(pct/100 × 8)・点灯 --moss-dark・未点灯 rgba(90,100,60,0.38)</p>
+    <div class="dotscale"><span class="lbl">0%</span><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+    <div class="dotscale"><span class="lbl">35%</span><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span></div>
+    <div class="dotscale"><span class="lbl">75%</span><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></div>
+    <div class="dotscale"><span class="lbl">100%</span><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></div>
+    <p class="section-note">点灯アニメーションは 600ms cubic-bezier(.4,0,.2,1)（§6 — 本カードは静的見本）。</p>
+  </div>
+</div>
+</body>
+</html>
