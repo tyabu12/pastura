@@ -101,7 +101,7 @@ Each references where in the spec the detailed treatment lives.
 
 | # | Decision | Detailed in |
 |---|----------|-------------|
-| 1 | Recording format: **YAML** (reuses Yams 6.2.1; curator-editable; JSON export deferred) | §3 |
+| 1 | Recording format: **YAML** (reuses Yams 6.2.2; curator-editable; JSON export deferred) | §3 |
 | 2 | Recording content model: `preset_ref` (id + version + `yaml_sha256`) + recorded turns + metadata; scenario definition is **referenced**, not inlined | §3 |
 | 3 | Filter timing: **filter-at-record** (curator-side) **AND filter-at-render** (ADR-005 §5.1 compliance, defense-in-depth) | §3, §4 |
 | 4 | Bundle location: `Pastura/Pastura/Resources/DemoReplays/*.yaml`, total ≤ 3 MB | §5 |
