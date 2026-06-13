@@ -1,0 +1,74 @@
+<!-- @dsCard group="Components" name="Chat bubble" subtitle="Tailed bubble + THINKING expansion, 48pt avatar (§5.2)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Chat bubble</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .screen { width: 390px; background: var(--screen-bg); border: 1px solid var(--rule); border-radius: var(--sp-m); padding: var(--sp-l); margin: 0 auto; }
+  .row { display: flex; gap: 10px; margin-bottom: var(--sp-m); }
+  .row .ava { width: 48px; height: 48px; flex: none; }
+  .row .ava svg { width: 100%; height: 100%; display: block; }
+  .col { min-width: 0; }
+  .who { color: var(--ink-2); margin: 2px 0 4px; }
+  .bubble {
+    background: var(--bubble-bg);
+    border-radius: var(--radius-bubble-tail) var(--radius-bubble) var(--radius-bubble) var(--radius-bubble);
+    padding: 10px var(--sp-m);
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+  }
+  .thinking {
+    border-left: 2px solid var(--moss-soft);
+    padding-left: 10px;
+    margin-top: var(--sp-xs);
+  }
+  .thinking .tag { color: var(--muted); display: block; margin-bottom: 2px; }
+  .thinking .body { color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Chat bubble (§5.2)</p>
+
+  <div class="section">
+    <p class="section-label">アバター 48pt・アバター間隔 10pt・バブル間 spacing 14pt・しっぽは上左角 4pt（他 14pt）</p>
+    <div class="screen">
+      <div class="row">
+        <div class="ava">
+          <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="14" cy="15" r="8" fill="var(--avatar-body-alice)"/><circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-alice)"/><circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-alice)"/><circle cx="11" cy="18" r="3" fill="var(--avatar-body-alice)"/><circle cx="17" cy="18" r="3" fill="var(--avatar-body-alice)"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-alice)"/><circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/><circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-alice)" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-alice)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="col">
+          <div class="who t-caption-name">Alice</div>
+          <div class="bubble t-body-bubble">おはよう。今日は北の柵のあたりが、いつもより静かみたいだね。</div>
+          <div class="thinking">
+            <span class="tag t-thinking-tag">thinking</span>
+            <span class="body t-thinking-body">みんなの様子を先に聞いてから、自分の見たことを話そう。</span>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="ava">
+          <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="14" cy="15" r="8" fill="var(--avatar-body-bob)"/><circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-bob)"/><circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-bob)"/><circle cx="11" cy="18" r="3" fill="var(--avatar-body-bob)"/><circle cx="17" cy="18" r="3" fill="var(--avatar-body-bob)"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-bob)"/><circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/><circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-bob)" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-bob)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="col">
+          <div class="who t-caption-name">Bob</div>
+          <div class="bubble t-body-bubble">たしかに。羊たちも東の方に集まっている気がする。</div>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">フェードイン: 700ms ease-out・180ms ずつディレイ（§5.2 / §6 — 本カードは静的見本）。THINKING は --moss-soft の左線 + thinking/tag + thinking/body のセット。バブル背景は --bubble-bg、シャドウは §4.3 の2レイヤー。</p>
+  </div>
+</div>
+</body>
+</html>

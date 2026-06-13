@@ -1,0 +1,106 @@
+<!-- @dsCard group="Components" name="Avatar — sheep characters" subtitle="4 characters at 48pt + part palette (§2.5 / §5.6)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Avatar (sheep characters)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .flock { display: flex; gap: var(--sp-xl); padding: var(--sp-s) 0 var(--sp-m); }
+  .sheep { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .sheep svg { width: 48px; height: 48px; display: block; }
+  .sheep .who { color: var(--ink-2); }
+  .sheep .role { font-size: 9.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Avatar (sheep characters)</p>
+
+  <div class="section">
+    <p class="section-label">§5.6 — 48pt 丸・4色バリエーション。SVG は demo-replay-reference.html の sheepAvatar() を移植（色は tokens.css の var() 参照）</p>
+    <div class="flock">
+      <!-- Geometry ported from demo-replay-reference.html sheepAvatar();
+           fills swapped from literal hex to the matching tokens.css vars. -->
+      <div class="sheep">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="14" cy="15" r="8" fill="var(--avatar-body-alice)"/>
+          <circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-alice)"/>
+          <circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-alice)"/>
+          <circle cx="11" cy="18" r="3" fill="var(--avatar-body-alice)"/>
+          <circle cx="17" cy="18" r="3" fill="var(--avatar-body-alice)"/>
+          <ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-alice)"/>
+          <circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-alice)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          <path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-alice)" stroke-width="1" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="who t-caption-name">Alice</span><span class="role">やさしい第一声</span>
+      </div>
+      <div class="sheep">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="14" cy="15" r="8" fill="var(--avatar-body-bob)"/>
+          <circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-bob)"/>
+          <circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-bob)"/>
+          <circle cx="11" cy="18" r="3" fill="var(--avatar-body-bob)"/>
+          <circle cx="17" cy="18" r="3" fill="var(--avatar-body-bob)"/>
+          <ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-bob)"/>
+          <circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-bob)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          <path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-bob)" stroke-width="1" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="who t-caption-name">Bob</span><span class="role">同意的・穏やか</span>
+      </div>
+      <div class="sheep">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="14" cy="15" r="8" fill="var(--avatar-body-carol)"/>
+          <circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-carol)"/>
+          <circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-carol)"/>
+          <circle cx="11" cy="18" r="3" fill="var(--avatar-body-carol)"/>
+          <circle cx="17" cy="18" r="3" fill="var(--avatar-body-carol)"/>
+          <ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-carol)"/>
+          <circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-carol)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          <path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-carol)" stroke-width="1" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="who t-caption-name">Carol</span><span class="role">観察者</span>
+      </div>
+      <div class="sheep">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="14" cy="15" r="8" fill="var(--avatar-body-dave)"/>
+          <circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-dave)"/>
+          <circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-dave)"/>
+          <circle cx="11" cy="18" r="3" fill="var(--avatar-body-dave)"/>
+          <circle cx="17" cy="18" r="3" fill="var(--avatar-body-dave)"/>
+          <ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-dave)"/>
+          <circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/>
+          <path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-dave)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          <path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-dave)" stroke-width="1" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="who t-caption-name">Dave</span><span class="role">Wolf（狼）/ 中心人物</span>
+      </div>
+    </div>
+    <p class="section-note">Source of Truth: demo-replay-reference.html の sheepAvatar() 関数（enforcement: DesignTokensTests）。アバターは飾り — VoiceOver では .accessibilityHidden(true)、隣接する Text(agent) が identity を担う（§8）。</p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.5 パートパレット — キャラ別 body / face / horn + 共通部位（Swift 実装 SheepAvatar.swift が参照）</p>
+    <div class="sw"><span class="chip" style="background:var(--avatar-body-alice)"></span><span class="name">--avatar-body-alice</span><span class="val">#F2E3C8</span><span class="use">face #C9A979 · horn #B29364</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-body-bob)"></span><span class="name">--avatar-body-bob</span><span class="val">#DDE4CC</span><span class="use">face #8A9A6C · horn #6F7F54</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-body-carol)"></span><span class="name">--avatar-body-carol</span><span class="val">#EAD6D1</span><span class="use">face #B8877C · horn #9C6E64</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-body-dave)"></span><span class="name">--avatar-body-dave</span><span class="val">#D9D7C9</span><span class="use">face #6B6858 · horn #4F4C3F</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-ear)"></span><span class="name">--avatar-ear</span><span class="val">#E8D9BC</span><span class="use">共通・耳（内側 #D4C19E）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-nose)"></span><span class="name">--avatar-nose</span><span class="val">#3D4030</span><span class="use">共通・鼻</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-eye)"></span><span class="name">--avatar-eye</span><span class="val">#2D2E26</span><span class="use">共通・目（ハイライト rgba(255,255,255,0.6)）</span></div>
+  </div>
+</div>
+</body>
+</html>
