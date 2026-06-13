@@ -19,6 +19,8 @@ struct OrphanedModelFileRow: View {
         Text(String(localized: "Unused model file"))
           .font(.system(size: 15, weight: .semibold))
           .foregroundStyle(Color.ink)
+        // Non-localized on purpose: an on-disk filename is a data value,
+        // not UI copy (data passthrough — exempt from the i18n audit).
         Text(file.fileName)
           .font(.system(size: 12, design: .monospaced))
           .foregroundStyle(Color.muted)

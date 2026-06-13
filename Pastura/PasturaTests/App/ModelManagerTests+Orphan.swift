@@ -35,7 +35,11 @@ extension ModelManagerTests {
 
   /// A file whose name matches a catalog `fileName` is NOT an orphan — it
   /// is a (possibly active) catalog model, surfaced through the normal
-  /// per-model row instead.
+  /// per-model row instead. Exclusion is keyed purely off catalog
+  /// membership, NOT `ModelState`: `checkModelStatus()` is deliberately not
+  /// called, so the descriptor sits in its initial `.checking` (non-`.ready`)
+  /// state — proving an in-flight finalize (catalog file on disk while the
+  /// descriptor is still downloading) cannot be mislabeled an orphan.
   @Test func orphanedModelFiles_excludesCatalogFileName() throws {
     let descriptor = makeTestDescriptor()
     let sut = makeSUT(catalog: [descriptor])
@@ -45,6 +49,7 @@ extension ModelManagerTests {
     try Data(repeating: 0x42, count: 64).write(to: modelURL)
     defer { try? FileManager.default.removeItem(at: modelURL) }
 
+    #expect(sut.activeState == .checking)  // non-`.ready`: exclusion is state-independent
     let orphans = sut.orphanedModelFiles()
     #expect(!orphans.contains { $0.fileName == descriptor.fileName })
   }
