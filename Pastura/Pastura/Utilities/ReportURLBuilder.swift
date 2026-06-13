@@ -34,6 +34,9 @@ nonisolated enum ReportURLBuilder {
   // is load-bearing (a hyphen would silently no-op the auto-attach).
   private static let dbMigrationTemplateSlug = "db-migration-failure.yml"
   private static let dbMigrationErrorFieldID = "db_error"
+  // Must exist in the repo's label set — GitHub silently drops an
+  // unknown `labels` value from the pre-seeded issue (same silent-skip
+  // failure mode as a mismatched field id above).
   private static let dbMigrationLabel = "bug"
 
   /// Build the pre-filled Google Forms URL for a Shared Scenario report.
@@ -117,7 +120,9 @@ nonisolated enum ReportURLBuilder {
   ///   - appVersion: Running app version (e.g. "1.0.0"). Empty strings
   ///     are permitted and leave the App Version field blank.
   ///   - dbError: The migration error detail (e.g.
-  ///     `SQLite error 1: no such column …`).
+  ///     `SQLite error 1: no such column …`). Expected non-empty in
+  ///     practice (the sole caller passes `localizedDescription`); an
+  ///     empty value leaves the form's required Reason field blank.
   /// - Returns: The pre-filled form URL, or `nil` if URL construction
   ///   fails.
   static func buildGoogleFormURL(appVersion: String, dbError: String) -> URL? {
