@@ -45,21 +45,47 @@ struct ResultsView: View {
   }
 
   private func resultsList(viewModel: ResultsViewModel) -> some View {
-    List {
-      ForEach(viewModel.groups) { group in
-        Section(group.sectionName) {
-          ForEach(group.rows) { row in
-            NavigationLink(value: Route.resultDetail(simulationId: row.record.id)) {
-              simulationRow(row, viewModel: viewModel)
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        ForEach(viewModel.groups) { group in
+          PasturaSection(group.sectionName) {
+            VStack(spacing: 0) {
+              ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0 { PasturaRowDivider() }
+                NavigationLink(value: Route.resultDetail(simulationId: row.record.id)) {
+                  resultRow(row, viewModel: viewModel)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("results.row.\(row.record.id)")
+              }
             }
-            .accessibilityIdentifier("results.row.\(row.record.id)")
           }
         }
       }
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
+    .background(Color.screenBackground.ignoresSafeArea())
     // Post-load anchor: only rendered once groups resolve non-empty, so
     // ScreenshotTourTests can wait on it instead of sleeping.
     .accessibilityIdentifier("results.list")
+  }
+
+  /// Wraps ``simulationRow`` with a trailing chevron + full-row hit target,
+  /// restoring the disclosure affordance the `List` `NavigationLink` row
+  /// supplied before the ScrollView conversion.
+  private func resultRow(
+    _ row: ResultsViewModel.SimulationRow,
+    viewModel: ResultsViewModel
+  ) -> some View {
+    HStack(spacing: 10) {
+      simulationRow(row, viewModel: viewModel)
+      Image(systemName: "chevron.forward")
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(Color.muted)
+    }
+    .padding(.horizontal, 17)
+    .padding(.vertical, 12)
+    .contentShape(Rectangle())
   }
 
   // Each row repeats the simulation-time `variantName` (`.headline` font,
@@ -75,6 +101,7 @@ struct ResultsView: View {
     VStack(alignment: .leading, spacing: 4) {
       Text(row.variantName)
         .font(.headline)
+        .foregroundStyle(Color.ink)
       HStack {
         Text(row.record.createdAt, style: .date)
         Text(row.record.createdAt, style: .time)
@@ -82,6 +109,7 @@ struct ResultsView: View {
         statusBadge(row.record.simulationStatus)
       }
       .font(.subheadline)
+      .foregroundStyle(Color.inkSecondary)
 
       if let state = viewModel.decodeState(from: row.record) {
         let top3 = state.scores.sorted(by: { $0.value > $1.value }).prefix(3)
@@ -94,7 +122,6 @@ struct ResultsView: View {
         }
       }
     }
-    .padding(.vertical, 2)
   }
 
   @ViewBuilder

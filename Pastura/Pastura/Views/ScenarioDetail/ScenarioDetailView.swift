@@ -96,184 +96,22 @@ struct ScenarioDetailView: View {
     scenario: Scenario,
     viewModel: ScenarioDetailViewModel
   ) -> some View {
-    List {
-      galleryBannerSection(viewModel: viewModel)
-      overviewSection(scenario: scenario, viewModel: viewModel)
-      contextSection(scenario: scenario)
-      personasSection(scenario: scenario)
-      phasesSection(scenario: scenario)
-      validationSection(viewModel: viewModel)
-      actionsSection(scenario: scenario, viewModel: viewModel)
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        galleryBannerSection(viewModel: viewModel)
+        overviewSection(scenario: scenario, viewModel: viewModel)
+        contextSection(scenario: scenario)
+        personasSection(scenario: scenario)
+        phasesSection(scenario: scenario)
+        validationSection(viewModel: viewModel)
+        actionsSection(scenario: scenario, viewModel: viewModel)
+      }
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    // Post-load anchor: this List only exists once the scenario content has
-    // resolved, so ScreenshotTourTests can wait on it instead of sleeping.
+    .background(Color.screenBackground.ignoresSafeArea())
+    // Post-load anchor: this ScrollView only exists once the scenario
+    // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
+    // can wait on it instead of sleeping.
     .accessibilityIdentifier("scenarioDetail.list")
-  }
-
-  @ViewBuilder
-  private func galleryBannerSection(viewModel: ScenarioDetailViewModel) -> some View {
-    if viewModel.hasGalleryUpdate, let entry = viewModel.galleryScenario {
-      Section {
-        NavigationLink(value: Route.galleryScenarioDetail(scenario: entry)) {
-          Label(
-            String(localized: "Update available from Shared Scenarios"),
-            systemImage: "arrow.down.circle.fill"
-          )
-          .foregroundStyle(.tint)
-        }
-      }
-    } else if viewModel.isGallerySourced {
-      Section {
-        Label(
-          String(localized: "From Shared Scenarios (read-only)"),
-          systemImage: "square.and.arrow.down.fill"
-        )
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      }
-    }
-  }
-
-  private func overviewSection(
-    scenario: Scenario, viewModel: ScenarioDetailViewModel
-  ) -> some View {
-    Section(String(localized: "Overview")) {
-      LabeledContent(String(localized: "Agents"), value: "\(scenario.agentCount)")
-      LabeledContent(String(localized: "Rounds"), value: "\(scenario.rounds)")
-      LabeledContent(
-        String(localized: "Est. Inferences"),
-        value: "\(viewModel.estimatedInferences)"
-      )
-      if !scenario.description.isEmpty {
-        Text(scenario.description)
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-      }
-    }
-  }
-
-  private func contextSection(scenario: Scenario) -> some View {
-    Section(String(localized: "Context")) {
-      Text(scenario.context)
-        .font(.subheadline)
-    }
-  }
-
-  private func personasSection(scenario: Scenario) -> some View {
-    Section(String(localized: "Personas (\(scenario.personas.count))")) {
-      ForEach(scenario.personas, id: \.name) { persona in
-        VStack(alignment: .leading, spacing: 4) {
-          Text(persona.name)
-            .font(.headline)
-          Text(persona.description)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 2)
-      }
-    }
-  }
-
-  private func phasesSection(scenario: Scenario) -> some View {
-    Section(String(localized: "Phases (\(scenario.phases.count))")) {
-      ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
-        HStack {
-          Text("\(index + 1).")
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-          Text(phase.type.rawValue)
-            .font(.subheadline.monospaced())
-          if phase.type.requiresLLM {
-            // `info` here is a quiet category badge for LLM-required phases, not a
-            // notification — see design-system §2.6 for the alert-family scope.
-            Image(systemName: "brain")
-              .font(.caption)
-              .foregroundStyle(Color.info)
-          }
-        }
-      }
-    }
-  }
-
-  @ViewBuilder
-  private func validationSection(viewModel: ScenarioDetailViewModel) -> some View {
-    if let error = viewModel.validationError {
-      Section {
-        Label(error, systemImage: "xmark.circle.fill")
-          .foregroundStyle(Color.dangerInk)
-      }
-    }
-  }
-
-  /// Cross-language affordance per ADR-010 D6 — surfaces the sibling
-  /// variant when one exists (Step D ships sibling pairs for the 4
-  /// bundled presets). Hidden when no sibling is loaded.
-  ///
-  /// Label is the *destination* language name, resolved in the UI
-  /// locale: "View in English" / "View in Japanese". Step D only
-  /// ships ja↔en pairs — when a future language ships, the
-  /// `default` arm becomes a generic fallback.
-  @ViewBuilder
-  private func siblingLanguageLink(
-    scenario: Scenario, viewModel: ScenarioDetailViewModel
-  ) -> some View {
-    if let sibling = viewModel.siblingVariant {
-      let label: String =
-        scenario.language == "ja"
-        ? String(localized: "View in English")
-        : String(localized: "View in Japanese")
-      NavigationLink(
-        value: Route.scenarioDetail(
-          scenarioId: sibling.id,
-          initialName: .init(sibling.name)
-        )
-      ) {
-        Label(label, systemImage: "globe")
-      }
-    }
-  }
-
-  private func actionsSection(
-    scenario: Scenario, viewModel: ScenarioDetailViewModel
-  ) -> some View {
-    Section {
-      // initialName supplies the scenario name to SimulationView's
-      // navigationTitle from the first frame, before loadAndRun()
-      // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
-      NavigationLink(
-        value: Route.simulation(
-          scenarioId: scenarioId,
-          initialName: .init(scenario.name)
-        )
-      ) {
-        Label(String(localized: "Run Simulation"), systemImage: "play.fill")
-      }
-      .disabled(!viewModel.canRun)
-      .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-
-      NavigationLink(value: Route.results(scenarioId: scenarioId)) {
-        Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
-      }
-
-      siblingLanguageLink(scenario: scenario, viewModel: viewModel)
-
-      if let record = viewModel.record {
-        if record.isPreset || viewModel.isGallerySourced {
-          // Preset and gallery rows are read-only; offer a clone-as-template
-          // action instead of direct edit so users can customize safely.
-          NavigationLink(
-            value: Route.editor(templateYAML: record.yamlDefinition)
-          ) {
-            Label(String(localized: "Use as Template"), systemImage: "doc.on.doc")
-          }
-        } else {
-          NavigationLink(
-            value: Route.editor(editingId: scenarioId)
-          ) {
-            Label(String(localized: "Edit"), systemImage: "pencil")
-          }
-        }
-      }
-    }
   }
 }

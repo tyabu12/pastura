@@ -37,8 +37,9 @@ final class BackGestureTests: XCTestCase {
       "Seed scenario cell missing — StubScenarioSeeder fixture may be wrong.")
     scenarioCell.tap()
 
-    // ScenarioDetailView uses List (renders as a collectionView in XCUI).
-    let detailList = app.collectionViews.firstMatch
+    // ScenarioDetailView is a ScrollView (PasturaCard layout); anchor on its
+    // named accessibility identifier rather than the element class.
+    let detailList = app.scrollViews["scenarioDetail.list"]
     XCTAssertTrue(
       detailList.waitForExistence(timeout: 10),
       "ScenarioDetailView did not appear after tapping the scenario cell.")
