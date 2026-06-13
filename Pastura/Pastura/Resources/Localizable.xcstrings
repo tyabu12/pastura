@@ -1477,6 +1477,16 @@
         }
       }
     },
+    "Couldn't delete this run: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果を削除できませんでした: %@"
+          }
+        }
+      }
+    },
     "Couldn't start the download. Please try again." : {
       "localizations" : {
         "ja" : {
@@ -1574,6 +1584,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオを削除しますか？"
+          }
+        }
+      }
+    },
+    "Delete failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除に失敗しました"
+          }
+        }
+      }
+    },
+    "Delete this run?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果を削除しますか?"
           }
         }
       }
@@ -4290,6 +4320,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このリンクは Pastura の想定する形式と一致しません。"
+          }
+        }
+      }
+    },
+    "This permanently removes this run and its conversation log. This can't be undone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果と会話ログを完全に削除します。この操作は取り消せません。"
           }
         }
       }

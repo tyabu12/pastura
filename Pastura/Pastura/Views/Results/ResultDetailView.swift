@@ -11,11 +11,15 @@ import UIKit
 struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   let simulationId: String
 
-  @Environment(AppDependencies.self) private var dependencies
+  // Not `private`: read by the `+Delete.swift` sibling extension, which
+  // can't see `private` members (visible only to same-file extensions).
+  @Environment(AppDependencies.self) var dependencies
+  // Used to pop back to the results list after this run is deleted.
+  @Environment(AppRouter.self) var router
   @State private var turns: [TurnRecord] = []
   @State private var events: [CodePhaseEventRecord] = []
   @State private var items: [ResultDetailTimelineBuilder.Item] = []
-  @State private var simulation: SimulationRecord?
+  @State var simulation: SimulationRecord?  // not private — see note above
   @State private var scenario: ScenarioRecord?
   /// Agent names in scenario-declared order, used to drive position-
   /// based avatar color assignment on turn rows. Empty when the
@@ -31,6 +35,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   @State private var yamlExportPayload: YAMLReplayExporter.ExportedResult?
   @State private var isExportingYAML = false
   @State private var yamlExportError: String?
+  @State var isShowingDeleteConfirm = false  // not private — see note above
+  @State var deleteError: String?  // not private — see note above
 
   // Per-view filter for code-phase row rendering. Mirrors the exporter's
   // whole-string Markdown sweep (`ResultMarkdownExporter.export` filters the
@@ -110,6 +116,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         .disabled(!canExportYAML)
       }
       .hidingPasturaSharedBackground()
+      // Per-run delete (trash) — defined in `ResultDetailView+Delete.swift`.
+      deleteToolbarItem
       ToolbarItem(placement: .secondaryAction) {
         // Currently the only `.secondaryAction` — renders inline. If a future
         // toolbar change adds a second `.secondaryAction`, SwiftUI promotes
@@ -148,6 +156,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     } message: {
       Text(yamlExportError ?? "")
     }
+    .modifier(
+      ResultDeleteConfirmationModifier(
+        isPresented: $isShowingDeleteConfirm,
+        deleteError: $deleteError,
+        onConfirm: { await deleteThisRun() }
+      )
+    )
     .task {
       await loadData()
     }
