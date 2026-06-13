@@ -144,26 +144,34 @@ def scan_doc(path: Path, root: Path, resolved: dict[str, str],
                 continue
             if not re.search(r"\b" + re.escape(display) + r"\b", line):
                 continue
-            semvers = SEMVER.findall(line)
-            if len(semvers) != 1:  # 0 = no claim, >1 = ambiguous -> skip
+            # finditer (not findall) so we keep the matched token's column —
+            # the fixer splices by offset, never by boundary-unaware
+            # str.replace, so a stale value embedded in a non-word-bounded
+            # token elsewhere on the line can never be rewritten by mistake.
+            ms = list(SEMVER.finditer(line))
+            if len(ms) != 1:  # 0 = no claim, >1 = ambiguous -> skip
                 continue
-            if semvers[0] != resolved[ident]:
+            m = ms[0]
+            if m.group(0) != resolved[ident]:
                 auto.append({
                     "type": "dependency_version",
                     "file": rel, "line": lineno,
                     "dependency": display,
-                    "current": semvers[0], "expected": resolved[ident],
+                    "current": m.group(0), "expected": resolved[ident],
+                    "col": m.start(), "end": m.end(),
                     "authoritative_source": "Package.resolved",
                 })
 
         # --- auto_fixable: minimum-iOS drift ---
         if min_ios and MINIOS_LABEL.search(line):
-            vers = IOS_VER.findall(line)
-            if len(vers) == 1 and vers[0] != min_ios:
+            ms = list(IOS_VER.finditer(line))
+            if len(ms) == 1 and ms[0].group(0) != min_ios:
+                m = ms[0]
                 auto.append({
                     "type": "min_ios",
                     "file": rel, "line": lineno,
-                    "current": vers[0], "expected": min_ios,
+                    "current": m.group(0), "expected": min_ios,
+                    "col": m.start(), "end": m.end(),
                     "authoritative_source": "project.pbxproj",
                 })
 
@@ -207,17 +215,28 @@ def dedup_judgment(items: list[dict]) -> list[dict]:
 
 
 def apply_fixes(root: Path, fixes: list[dict]) -> None:
+    """Splice each fix at its recorded [col, end) offset — never str.replace,
+    which is boundary-unaware and could rewrite a stale value embedded in an
+    unrelated token. Apply right-to-left within a file so that an earlier
+    fix's length change cannot shift a later fix's offsets."""
     by_file: dict[str, list[dict]] = {}
     for f in fixes:
         by_file.setdefault(f["file"], []).append(f)
     for rel, items in by_file.items():
         p = root / rel
         lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
-        for it in items:
+        for it in sorted(items, key=lambda x: (x["line"], x.get("col", 0)),
+                         reverse=True):
             idx = it["line"] - 1
-            if 0 <= idx < len(lines):
-                lines[idx] = lines[idx].replace(
-                    it["current"], it["expected"], 1)
+            col, end = it.get("col"), it.get("end")
+            if not (0 <= idx < len(lines)) or col is None or end is None:
+                continue
+            line = lines[idx]
+            # Defensive: only splice if the bytes at the offset still match the
+            # detected value. A mismatch (drifted offsets) is skipped, and the
+            # SKILL's post-fix re-audit will catch the un-applied fix.
+            if line[col:end] == it["current"]:
+                lines[idx] = line[:col] + it["expected"] + line[end:]
         p.write_text("".join(lines), encoding="utf-8")
 
 

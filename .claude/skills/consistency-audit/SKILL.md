@@ -39,9 +39,10 @@ safe to run unattended.
    auto-fix PR. The issue body MUST carry a **confidence score** and a
    **counter-evidence / "why this might be wrong"** section.
 3. **The auto-fix path edits authoritative-source-computed values only — never
-   free-form prose.** This is the bound that makes the omitted code-review
-   (below) safe. Any future detector that wants to auto-fix something
-   non-mechanical re-introduces a mandatory `code-reviewer` pass.
+   free-form prose — and the edit is spliced at the detected token's exact
+   offset, not by a free-text replace.** This is the bound that makes the
+   omitted code-review (below) safe. Any future detector that wants to auto-fix
+   something non-mechanical re-introduces a mandatory `code-reviewer` pass.
 4. **Backpressure.** Generators must cap their own work-in-progress so the
    review queue never floods (see WIP cap below).
 5. **Manual-first.** The detector is dry-run by default; only act after a human

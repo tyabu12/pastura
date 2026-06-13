@@ -29,12 +29,15 @@ OUT=$(python3 "$AUDIT" --repo-root fixtures/drift \
   --pbxproj fixtures/drift/pbxproj.txt)
 [ "$(af_len "$OUT")" -eq 3 ] || fail "drift: expected 3 auto_fixable, got $(af_len "$OUT")"
 [ "$(nj_len "$OUT")" -eq 0 ] || fail "drift: needs_judgment not empty: $(echo "$OUT" | jq -c .needs_judgment)"
-# the GRDB fix must come from the resolved "version" (7.11.0)...
+# the fixes must come from the resolved "version" (GRDB 7.11.0 / Yams 6.2.2)...
 echo "$OUT" | jq -e '.auto_fixable[] | select(.dependency=="GRDB" and .expected=="7.11.0")' >/dev/null \
   || fail "drift: GRDB expected value is not 7.11.0"
-# ...never from a git "revision" SHA (the version-vs-revision trap).
-if echo "$OUT" | jq -e '.auto_fixable[] | select(.expected|test("^[0-9a-f]{12,}$"))' >/dev/null; then
-  fail "drift: a fix used a git revision SHA instead of the version"
+echo "$OUT" | jq -e '.auto_fixable[] | select(.dependency=="Yams" and .expected=="6.2.2")' >/dev/null \
+  || fail "drift: Yams expected value is not 6.2.2"
+# ...never a git "revision": every dependency expected must be a clean semver
+# (positive allowlist, so a SHA of any length — not just 12+ hex — fails).
+if echo "$OUT" | jq -e '.auto_fixable[] | select(.type=="dependency_version") | select((.expected|test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))|not)' >/dev/null; then
+  fail "drift: a dependency expected value is not a clean semver (revision leak?)"
 fi
 
 # --- --fix applies the version edits in place, leaving zero drift ----------
@@ -49,6 +52,23 @@ OUT=$(python3 "$AUDIT" --repo-root "$TMP/drift" \
   --package-resolved "$TMP/drift/Package.resolved" \
   --pbxproj "$TMP/drift/pbxproj.txt")
 [ "$(af_len "$OUT")" -eq 0 ] || fail "--fix: drift remains after fix: $(echo "$OUT" | jq -c .auto_fixable)"
+
+# --- boundary: --fix splices at the offset, never str.replace -------------
+# The stale value also appears inside the non-bounded token `v7.10.0x`, which
+# a boundary-unaware replace would corrupt while leaving the real drift.
+cp -R fixtures/boundary "$TMP/boundary"
+OUT=$(python3 "$AUDIT" --repo-root "$TMP/boundary" \
+  --package-resolved "$TMP/boundary/Package.resolved")
+[ "$(af_len "$OUT")" -eq 1 ] || fail "boundary: expected 1 auto_fixable, got $(af_len "$OUT")"
+python3 "$AUDIT" --repo-root "$TMP/boundary" \
+  --package-resolved "$TMP/boundary/Package.resolved" --fix >/dev/null
+grep -qF "v7.10.0x" "$TMP/boundary/CLAUDE.md" \
+  || fail "boundary: --fix corrupted the non-bounded token v7.10.0x"
+grep -qF "version 7.11.0" "$TMP/boundary/CLAUDE.md" \
+  || fail "boundary: --fix did not correct the bounded version token"
+OUT=$(python3 "$AUDIT" --repo-root "$TMP/boundary" \
+  --package-resolved "$TMP/boundary/Package.resolved")
+[ "$(af_len "$OUT")" -eq 0 ] || fail "boundary: drift remains after offset fix"
 
 # --- judgment fixture: two dead_link findings, missing sources tolerated ----
 # Also the must-NOT-fire negatives: working link, external link, reserved-line
