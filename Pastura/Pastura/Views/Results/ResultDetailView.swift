@@ -11,11 +11,15 @@ import UIKit
 struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   let simulationId: String
 
-  @Environment(AppDependencies.self) private var dependencies
+  // Not `private`: read by the `+Delete.swift` sibling extension, which
+  // can't see `private` members (visible only to same-file extensions).
+  @Environment(AppDependencies.self) var dependencies
+  // Used to pop back to the results list after this run is deleted.
+  @Environment(AppRouter.self) var router
   @State private var turns: [TurnRecord] = []
   @State private var events: [CodePhaseEventRecord] = []
   @State private var items: [ResultDetailTimelineBuilder.Item] = []
-  @State private var simulation: SimulationRecord?
+  @State var simulation: SimulationRecord?  // not private — see note above
   @State private var scenario: ScenarioRecord?
   /// Agent names in scenario-declared order, used to drive position-
   /// based avatar color assignment on turn rows. Empty when the
@@ -31,6 +35,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   @State private var yamlExportPayload: YAMLReplayExporter.ExportedResult?
   @State private var isExportingYAML = false
   @State private var yamlExportError: String?
+  @State var isShowingDeleteConfirm = false  // not private — see note above
+  @State var deleteError: String?  // not private — see note above
 
   // Per-view filter for code-phase row rendering. Mirrors the exporter's
   // whole-string Markdown sweep (`ResultMarkdownExporter.export` filters the
@@ -76,49 +82,62 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
+      // The eye toggle stays a direct icon so its ON/OFF state reads at a
+      // glance (a menu row can't show that). Moved from `.secondaryAction`
+      // to `.primaryAction` so it no longer collapses into an automatic
+      // overflow that fought with the action menu below.
       ToolbarItem(placement: .primaryAction) {
-        Button {
-          Task { await triggerExport() }
-        } label: {
-          if isExporting {
-            ProgressView()
-          } else {
-            Image(systemName: "square.and.arrow.up")
-          }
-        }
-        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
-        .disabled(!canExport)
-      }
-      .hidingPasturaSharedBackground()
-      ToolbarItem(placement: .primaryAction) {
-        // Sits next to the Markdown share button so the two export
-        // paths are equally discoverable. Keeping it in
-        // `.secondaryAction` would bury it in the overflow menu and
-        // would simultaneously push the thoughts toggle into the
-        // overflow too (SwiftUI promotes secondary items to an
-        // overflow button once more than one is present).
-        Button {
-          Task { await triggerYAMLExport() }
-        } label: {
-          if isExportingYAML {
-            ProgressView()
-          } else {
-            Image(systemName: "film")
-          }
-        }
-        .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
-        .disabled(!canExportYAML)
-      }
-      .hidingPasturaSharedBackground()
-      ToolbarItem(placement: .secondaryAction) {
-        // Currently the only `.secondaryAction` — renders inline. If a future
-        // toolbar change adds a second `.secondaryAction`, SwiftUI promotes
-        // both items to an overflow Menu where the moss tint inside
-        // `ThoughtVisibilityToggle` (`.foregroundStyle(Color.moss)`) may flatten
-        // to the system menu accent and stop communicating ON/OFF state.
-        // Revisit placement (e.g., move to `.primaryAction`) before that lands.
         ThoughtVisibilityToggle(isOn: $showAllThoughts)
       }
+      .hidingPasturaSharedBackground()
+      // Export (Markdown / demo replay) + delete consolidated into one
+      // overflow Menu: the two icon-only export buttons were
+      // indistinguishable at a glance, and the crowded trailing cluster
+      // truncated the inline title (e.g. ja "結果の詳細" → "結果の…").
+      ToolbarItem(placement: .primaryAction) {
+        Menu {
+          Button {
+            Task { await triggerExport() }
+          } label: {
+            Label(String(localized: "Export as Markdown"), systemImage: "doc.text")
+          }
+          .disabled(!canExport)
+          // Demo-replay YAML export is a curator/authoring tool — the
+          // output can only be replayed by bundling it into
+          // `Resources/DemoReplays/` (there's no user-facing replay path),
+          // so it's gated to DEBUG builds and hidden from TestFlight users.
+          // The "Developer" section header marks it as a dev-only action
+          // without a verbose per-item label prefix.
+          #if DEBUG
+            Section(String(localized: "Developer")) {
+              Button {
+                Task { await triggerYAMLExport() }
+              } label: {
+                Label(String(localized: "Export for demo replay"), systemImage: "film")
+              }
+              .disabled(!canExportYAML)
+            }
+          #endif
+          Divider()
+          Button(role: .destructive) {
+            isShowingDeleteConfirm = true
+          } label: {
+            Label(String(localized: "Delete"), systemImage: "trash")
+          }
+          .disabled(!canDelete)
+          .accessibilityIdentifier("resultDetail.deleteButton")
+        } label: {
+          // Spinner while an export is preparing — the menu has closed
+          // by then, so this is the only in-flight affordance.
+          if isExporting || isExportingYAML {
+            ProgressView()
+          } else {
+            Image(systemName: "ellipsis.circle")
+          }
+        }
+        .accessibilityIdentifier("resultDetail.actionsMenu")
+      }
+      .hidingPasturaSharedBackground()
     }
     .sheet(item: $exportPayload) { payload in
       ShareSheet(activityItems: [payload.text, payload.fileURL])
@@ -148,6 +167,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     } message: {
       Text(yamlExportError ?? "")
     }
+    .modifier(
+      ResultDeleteConfirmationModifier(
+        isPresented: $isShowingDeleteConfirm,
+        deleteError: $deleteError,
+        onConfirm: { await deleteThisRun() }
+      )
+    )
     .task {
       await loadData()
     }

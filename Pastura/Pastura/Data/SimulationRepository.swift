@@ -35,6 +35,14 @@ nonisolated public protocol SimulationRepository: Sendable {
 
   /// Deletes a simulation by ID. No-op if the record does not exist.
   func delete(_ id: String) throws
+
+  /// Deletes **all** simulation runs and reclaims freed disk pages.
+  ///
+  /// Child `turns` / `code_phase_events` rows cascade away via their
+  /// `ON DELETE CASCADE` foreign keys. A post-purge `VACUUM` reclaims
+  /// the freed pages (ADR-015 §4.1 — opt-in, post-purge only; the
+  /// per-run ``delete(_:)`` deliberately skips `VACUUM`).
+  func deleteAll() throws
 }
 
 /// GRDB-backed implementation of `SimulationRepository`.
@@ -107,6 +115,17 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
   public func delete(_ id: String) throws {
     try dbWriter.write { db in
       _ = try SimulationRecord.deleteOne(db, key: id)
+    }
+  }
+
+  public func deleteAll() throws {
+    // `VACUUM` cannot run inside a transaction (SQLite), so use
+    // `writeWithoutTransaction`. The `ON DELETE CASCADE` FKs on
+    // `turns` / `code_phase_events` still fire under the enabled
+    // `foreignKeysEnabled` config, so the bulk delete cascades.
+    try dbWriter.writeWithoutTransaction { db in
+      _ = try SimulationRecord.deleteAll(db)
+      try db.execute(sql: "VACUUM")
     }
   }
 }
