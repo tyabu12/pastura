@@ -24,6 +24,11 @@ struct PasturaAppDelegateTests {
     let scrollEdgeLarge =
       proxy.scrollEdgeAppearance?.largeTitleTextAttributes[.foregroundColor] as? UIColor
 
+    // `UIColor` `==` on SwiftUI-derived colors compares representation,
+    // not resolved RGBA — the equality holds here because both sides go
+    // through the identical `UIColor(Color.ink)` conversion. If the
+    // production code ever builds the color a different way, revisit this
+    // pin (compare resolved cgColor components instead).
     #expect(standardTitle == UIColor(Color.ink))
     #expect(standardLarge == UIColor(Color.ink))
     #expect(scrollEdgeLarge == UIColor(Color.ink))

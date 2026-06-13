@@ -415,7 +415,7 @@ ToolbarItem(placement: .primaryAction) {
 | 角丸 | 12pt（14pt カードの内側で角が競合しないよう一段小さく） |
 | 押下 | `pressedOpacity` 0.7 で減光。capsule 展開・scale アニメーションなし（§1 静的 voice） |
 
-raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は使わない。§5.8 の toolbar opt-out と同じ方針。variant↔token は `PasturaPrimaryButtonStyleTests` で pin。
+raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は使わない。§5.8 の toolbar opt-out と同じ方針。fill↔token（`mossDark` / 白）は `PasturaPrimaryButtonStyleTests` で pin。
 
 ---
 
