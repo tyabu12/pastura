@@ -6,6 +6,10 @@ injected via `@Environment(AppRouter.self)`. All deep navigation off the root
 goes through `Route` cases resolved by HomeView's
 `navigationDestination(for: Route.self)`.
 
+Generated screen-graph overview:
+[`docs/design/navigation-map.md`](../../docs/design/navigation-map.md)
+(CI drift-guarded — regenerate via the script, never edit by hand).
+
 ## When to use what
 
 | Pattern | Use for |
