@@ -126,7 +126,9 @@ against real PRs at write time):
   gh pr checks <N> --json bucket --jq '[.[].bucket] | group_by(.) | map({(.[0]): length}) | add'
   ```
   Read as: all `pass`/`skipping` ⇒ green; any `fail`/`cancel` ⇒ red; any
-  `pending` ⇒ still running.
+  `pending` ⇒ still running. A PR with **zero** checks yields `null` (the `add`
+  over an empty array) — that is *unknown*, not green, so route it to "Needs
+  your judgment", never to "Ready".
 - **Mergeability** — `gh pr view <N> --json mergeable,mergeStateStatus`.
   **`UNKNOWN` is the common case for an untouched Draft** (GitHub computes merge
   state lazily, only when a merge is contemplated) — it is *not* an error. Treat
@@ -147,7 +149,11 @@ against real PRs at write time):
   has been superseded (merged via another path, or hand-fixed) — strong evidence
   for "Discard candidate", phrased as supersession ("the drift this PR fixes is
   already absent on main"), **not** "the PR is wrong" (the detector runs against
-  main, not the PR's branch).
+  main, not the PR's branch). The Output Contract batches *all* of a run's fixes
+  into one `audit/<date>` PR, so supersession is **per-finding**: only treat the
+  PR as a Discard candidate when **every** finding it targets is absent from
+  `auto_fixable`. If some are gone but others remain, route to "Needs your
+  judgment" — a partial supersession is the human's call.
 
 `agent/*` PRs get no freshness re-run and no diff read — they are substantive
 code and route to "Needs your judgment" by rule (Non-goals).
