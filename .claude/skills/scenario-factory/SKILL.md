@@ -169,7 +169,7 @@ PR — bundled preset or shared-scenario gallery; see the digest's
 promotion footer for the two channels) goes through the normal
 `/orchestrate` flow; this skill does not commit or push.
 
-## Scheduling (how the unattended nightly run works)
+## Scheduling (how the unattended run works)
 
 - **The skill never self-registers** (see Non-goals "No scheduled
   execution"). Scheduling is an operator action: a **Claude Desktop
@@ -205,8 +205,12 @@ promotion footer for the two channels) goes through the normal
   - **Working folder**: `/Users/tyabu12/Work/pastura-factory` (the
     dedicated worktree above — NOT the user's main checkout)
   - **worktree toggle**: **OFF** (the helper owns a persistent worktree)
-  - **Schedule**: Daily, **4:07 AM** — clear of the queue-consumer 1:30
-    window; family routines must not overlap (local inference contention).
+  - **Schedule**: **4:07 AM is only an example** — not a nightly requirement.
+    Any slot works as long as the machine is awake + idle + on AC and it does
+    not overlap another family routine (queue-consumer is 1:30). Weekday
+    daytime is fine, and you may register more than one slot: the helper is
+    time-agnostic — the rolling branch is keyed by date, and same-day runs
+    append to the same PR.
   - **Permission mode**: **`acceptEdits`** (not `bypassPermissions`) —
     auto-accepts in-session file writes (generated YAMLs); least-privilege.
   - **Instructions** (three steps, in order):
