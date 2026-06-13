@@ -58,7 +58,7 @@ dependency direction is preparation for a future SPM module split.
 ### Libraries
 
 - [Yams](https://github.com/jpsim/Yams) 6.2.2 for YAML parsing
-- [GRDB](https://github.com/groue/GRDB.swift) 7.11 for SQLite
+- [GRDB](https://github.com/groue/GRDB.swift) 7.11.0 for SQLite
 
 ### LLM backends
 
