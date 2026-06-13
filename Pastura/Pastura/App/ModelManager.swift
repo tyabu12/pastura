@@ -47,6 +47,24 @@ public enum ModelState: Equatable, Sendable {
   case error(String)
 }
 
+/// A model `.gguf` file present in `ModelManager.modelDirectoryURL` that
+/// matches no current catalog `fileName`.
+///
+/// Typically a leftover from a *superseded* model: the catalog entry was
+/// replaced with a new `id` + `fileName` across an app update (see
+/// `ModelRegistry` for the model-update convention), and `checkModelStatus`
+/// — which iterates only the catalog — can no longer see the old file.
+/// Surfaced in Settings → Models so the user can reclaim the space
+/// manually; never auto-deleted (ADR-015 no-silent-auto-delete posture).
+struct OrphanedModelFile: Identifiable, Equatable {
+  /// On-disk filename (e.g. `gemma-3-E2B-it-Q4_K_M.gguf`). Doubles as the
+  /// `Identifiable` id — filenames are unique within a single directory.
+  let fileName: String
+  /// Actual on-disk size in bytes, read at enumeration time.
+  let sizeBytes: Int64
+  var id: String { fileName }
+}
+
 /// Manages on-device LLM model lifecycle: device check, download, storage, deletion.
 ///
 /// Multi-model aware. State is tracked per-descriptor so multiple models can coexist
@@ -224,6 +242,48 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
       return nil
     }
     return values.volumeAvailableCapacityForImportantUsage
+  }
+
+  // MARK: - Orphaned model files
+
+  /// Enumerates `.gguf` files in `modelDirectoryURL` whose name matches no
+  /// current catalog `fileName`. These are superseded-model leftovers (see
+  /// `ModelRegistry` model-update convention and `OrphanedModelFile`). Pure
+  /// filesystem read — does not delete. Returns `[]` if the directory cannot
+  /// be enumerated (e.g. it does not exist yet on a fresh install).
+  ///
+  /// Partial downloads (`<fileName>.download` in `cachesDirectoryURL`) are
+  /// never reported — they live in a different directory and carry a
+  /// non-`.gguf` extension. Catalog files are excluded regardless of their
+  /// `ModelState`, so an in-flight finalize (a catalog file on disk while
+  /// the descriptor is still `.downloading`) cannot be mislabeled an orphan.
+  func orphanedModelFiles() -> [OrphanedModelFile] {
+    let catalogFileNames = Set(catalog.map(\.fileName))
+    guard
+      let entries = try? fileManager.contentsOfDirectory(
+        at: modelDirectoryURL,
+        includingPropertiesForKeys: [.fileSizeKey],
+        options: [.skipsHiddenFiles])
+    else {
+      return []
+    }
+    return entries.compactMap { url -> OrphanedModelFile? in
+      guard url.pathExtension == "gguf" else { return nil }
+      let fileName = url.lastPathComponent
+      guard !catalogFileNames.contains(fileName) else { return nil }
+      let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+      return OrphanedModelFile(fileName: fileName, sizeBytes: Int64(size))
+    }
+  }
+
+  /// Removes an orphaned model file by name. No-op if `fileName` matches a
+  /// current catalog entry — that guard transitively protects the active
+  /// model, since the active model is always a catalog member
+  /// (`setActiveModel` validates catalog membership). Best-effort removal,
+  /// mirroring `deleteModel`'s `try?` semantics.
+  func deleteOrphanedFile(fileName: String) {
+    guard !catalog.contains(where: { $0.fileName == fileName }) else { return }
+    try? fileManager.removeItem(at: modelDirectoryURL.appendingPathComponent(fileName))
   }
 
   // MARK: - Convenience (active model)
