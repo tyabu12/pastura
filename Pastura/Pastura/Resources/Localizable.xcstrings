@@ -1341,6 +1341,36 @@
         }
       }
     },
+    "Clear all results" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての結果を削除"
+          }
+        }
+      }
+    },
+    "Clear all results?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての結果を削除しますか?"
+          }
+        }
+      }
+    },
+    "Clear failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除に失敗しました"
+          }
+        }
+      }
+    },
     "Close" : {
       "localizations" : {
         "ja" : {
@@ -1473,6 +1503,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共有シナリオに接続できず、キャッシュされたコンテンツもありません。"
+          }
+        }
+      }
+    },
+    "Couldn't clear results: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果を削除できませんでした: %@"
           }
         }
       }
@@ -2229,6 +2269,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ファイル"
+          }
+        }
+      }
+    },
+    "Finish the current simulation before clearing results." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果を削除する前に、実行中のシミュレーションを終了してください。"
           }
         }
       }
@@ -4320,6 +4370,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このリンクは Pastura の想定する形式と一致しません。"
+          }
+        }
+      }
+    },
+    "This permanently removes every past run and its conversation log. This can't be undone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての過去の結果と会話ログを完全に削除します。この操作は取り消せません。"
           }
         }
       }

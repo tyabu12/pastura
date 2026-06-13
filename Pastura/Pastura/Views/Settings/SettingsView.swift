@@ -47,9 +47,21 @@ struct SettingsView: View {
   /// row inside the Legal section.
   @State private var isLicensesSheetPresented: Bool = false
 
+  // Lifted out of the `#if !simulator` block (where the Models section
+  // also reads it): the Past Results section's clear-all needs the
+  // simulation repository + activity registry on the simulator too.
+  // Not `private` — read by the `+PastResults.swift` sibling extension.
+  @Environment(AppDependencies.self) var dependencies
+
+  /// Bound to `.confirmationDialog` for the "Clear all results" row.
+  /// Not `private` — read by the `+PastResults.swift` sibling extension.
+  @State var isShowingClearAllConfirm = false
+  /// Set when `deleteAll()` throws; surfaced via an alert. Not `private`
+  /// — written by the `+PastResults.swift` sibling extension.
+  @State var clearAllError: String?
+
   #if !targetEnvironment(simulator)
     @Environment(ModelManager.self) private var modelManager
-    @Environment(AppDependencies.self) private var dependencies
     @State private var pendingDelete: ModelDescriptor?
     /// Descriptor whose Download action should present the DL demo cover.
     /// Bound to `.fullScreenCover(item:)` — `Identifiable` is supplied by
@@ -130,6 +142,8 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.licensesLink")
           }
         }
+
+        pastResultsSection
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
@@ -157,6 +171,13 @@ struct SettingsView: View {
       LicensesSheet()
         .deepLinkGated()
     }
+    .modifier(
+      ClearAllConfirmationModifier(
+        isPresented: $isShowingClearAllConfirm,
+        error: $clearAllError,
+        onConfirm: { await clearAllResults() }
+      )
+    )
     #if !targetEnvironment(simulator)
       .confirmationDialog(
         // Inline-interpolated title so VoiceOver reads the specific model name
@@ -233,6 +254,9 @@ struct SettingsView: View {
       }
     #endif
   }
+
+  // `pastResultsSection` / `clearAllResults()` / `isClearAllBlocked`:
+  // see `SettingsView+PastResults.swift`.
 
   #if !targetEnvironment(simulator)
     // NOTE: device-only (omitted on the simulator), so the simulator
