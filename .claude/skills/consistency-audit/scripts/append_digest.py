@@ -116,11 +116,20 @@ def validate(results):
     for key in ("auto_fixable", "needs_judgment"):
         if not isinstance(results.get(key), int):
             sys.exit(f"results.{key} must be an integer")
-    if results.get("auto_fix_status") not in AUTO_FIX_STATUSES:
+    status = results.get("auto_fix_status")
+    if status not in AUTO_FIX_STATUSES:
         sys.exit(f"results.auto_fix_status must be one of {AUTO_FIX_STATUSES}, "
-                 f"got: {results.get('auto_fix_status')!r}")
-    if not isinstance(results.get("issues", []), list):
-        sys.exit("results.issues must be a list")
+                 f"got: {status!r}")
+    # A status that implies a PR must carry its url, or the section renders a
+    # bare "None" — assert it rather than emit a broken record.
+    if status in ("opened", "skipped-open-audit-pr") and not results.get(
+            "auto_fix_pr"):
+        sys.exit(f"results.auto_fix_pr is required when auto_fix_status is "
+                 f"{status!r}")
+    issues = results.get("issues", [])
+    if not isinstance(issues, list) or not all(
+            isinstance(x, str) for x in issues):
+        sys.exit("results.issues must be a list of strings")
 
 
 def main():

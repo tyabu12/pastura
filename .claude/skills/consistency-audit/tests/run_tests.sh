@@ -105,6 +105,15 @@ if python3 "$DIGEST" --results fixtures/results_sample.json --digest "$TMP/broke
   fail "digest: missing marker should hard-error"
 fi
 
+# a status that implies a PR must carry its url (no bare "None" sections)
+cat > "$TMP/nopr.json" <<'JSON'
+{ "run_id": "2026-06-13 16:00", "auto_fixable": 1, "needs_judgment": 0,
+  "auto_fix_status": "opened", "auto_fix_pr": null, "issues": [] }
+JSON
+if python3 "$DIGEST" --results "$TMP/nopr.json" --digest "$TMP/digest.md" 2>/dev/null; then
+  fail "digest: opened status without auto_fix_pr should be rejected"
+fi
+
 # skipped-open-audit-pr status names the blocking PR; sections stay newest-first
 cat > "$TMP/skip.json" <<'JSON'
 { "run_id": "2026-06-13 15:00", "auto_fixable": 1, "needs_judgment": 0,
@@ -124,9 +133,10 @@ RR="$TMP/resolver"; mkdir -p "$RR/data/audit"
 git -C "$RR" init -q
 git -C "$RR" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
 printf 'x\n' > "$RR/data/audit/digest.md"   # exists but UNTRACKED
-if ( cd "$RR" && python3 "$DIGEST_ABS" --results "$RESULTS_ABS" ) 2>/dev/null; then
+if ERR=$( cd "$RR" && python3 "$DIGEST_ABS" --results "$RESULTS_ABS" 2>&1 >/dev/null ); then
   fail "resolver: must refuse to write an untracked digest target"
 fi
+echo "$ERR" | grep -q "not tracked" || fail "resolver: expected the 'not tracked' guard, got: $ERR"
 
 # --- preflight clean-tree pathspec excludes the digest (critic Axis 5) ------
 # Pins the exact `git status` pathspec SKILL.md Step 0.5 uses, so a digest left
