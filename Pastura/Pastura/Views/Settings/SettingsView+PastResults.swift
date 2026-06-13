@@ -72,10 +72,13 @@ struct ClearAllConfirmationModifier: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .confirmationDialog(
-        Text(String(localized: "Clear all results?")),
-        isPresented: $isPresented,
-        titleVisibility: .visible
+      // `.alert` (not `.confirmationDialog`) for the same reason as the
+      // per-run delete — see `ResultDeleteConfirmationModifier`: iOS 26
+      // renders confirmationDialogs as mis-anchored popovers. A centred
+      // alert presents correctly.
+      .alert(
+        String(localized: "Clear all results?"),
+        isPresented: $isPresented
       ) {
         Button(String(localized: "Clear all results"), role: .destructive) {
           Task { await onConfirm() }

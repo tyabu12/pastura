@@ -55,10 +55,14 @@ struct ResultDeleteConfirmationModifier: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .confirmationDialog(
-        Text(String(localized: "Delete this run?")),
-        isPresented: $isPresented,
-        titleVisibility: .visible
+      // `.alert` (not `.confirmationDialog`): under iOS 26 a
+      // confirmationDialog triggered from a Menu item renders as a
+      // popover whose arrow anchors to the body centre — pointing at
+      // empty space, not the ⋯ button. An alert is a centred modal with
+      // no anchor, so it presents correctly regardless of the trigger.
+      .alert(
+        String(localized: "Delete this run?"),
+        isPresented: $isPresented
       ) {
         Button(String(localized: "Delete"), role: .destructive) {
           Task { await onConfirm() }
