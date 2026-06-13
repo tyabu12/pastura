@@ -6,6 +6,7 @@
 // `DeepLinkBlockReason`). Splitting would require exporting these
 // file-private enums across multiple files and widens an
 // intentionally-small testable surface.
+import OSLog
 import SwiftUI
 
 @main
@@ -45,6 +46,12 @@ private enum AppState {
   case needsModelDownload
   /// App is ready — dependencies are initialized.
   case ready(AppDependencies)
+  /// A recoverable database failure (deterministic migration failure, #546).
+  /// Carries the underlying error description. A plain retry would re-fail,
+  /// so the UI offers a consent-gated reset that backs up and recreates the
+  /// DB — distinct from `.error`, whose Retry is the right affordance for
+  /// transient failures.
+  case databaseRecovery(String)
   /// A fatal initialization error occurred.
   case error(String)
 }
@@ -57,6 +64,7 @@ private enum AppStateKind: Equatable {
   case needsModelSelection
   case needsModelDownload
   case ready
+  case databaseRecovery
   case error
 }
 
@@ -66,6 +74,7 @@ private enum DeepLinkBlockReason: Equatable {
   case initializing
   case modelSelection
   case modelDownload
+  case databaseRecovery
   case error
   case sheetPresented
   case simulationActive
@@ -78,6 +87,8 @@ private enum DeepLinkBlockReason: Equatable {
       return String(localized: "Will open after you choose a model")
     case .modelDownload:
       return String(localized: "Will open once the model finishes downloading")
+    case .databaseRecovery:
+      return String(localized: "Will open after database recovery")
     case .error:
       return String(localized: "Will open after retrying setup")
     case .sheetPresented:
@@ -110,6 +121,14 @@ private struct RootView: View {
   @State private var gate = DeepLinkGate()
   @State private var lastDeepLinkedScenarioId: String?
   @State private var deepLinkError: DeepLinkErrorAlert?
+
+  /// Captures the active model path when a recoverable DB failure is hit on
+  /// device, so `recoverDatabase()` can rebuild the `LlamaCppService` after
+  /// the reset. `nil` signals the simulator path (no on-device LLM). See
+  /// `databaseRecovery` AppState (#546).
+  @State private var pendingRecoveryModelPath: String?
+
+  private static let logger = Logger(subsystem: "app.pastura.Pastura", category: "AppInit")
 
   // Launch animation state — see `Pastura/Pastura/Views/Splash/`.
   // `splashKind` defaults to `.cold` (process-fresh = cold launch) except
@@ -218,6 +237,45 @@ private struct RootView: View {
           .environment(modelManager)
           .environment(\.lastDeepLinkedScenarioId, lastDeepLinkedScenarioId)
 
+      case .databaseRecovery(let message):
+        // Reached only for a recoverable `DataError` (deterministic migration
+        // failure). Splash z-orders above this (like `.error`); recovery shows
+        // once the cold splash dismisses.
+        VStack(spacing: 16) {
+          Image(systemName: "externaldrive.badge.exclamationmark")
+            .font(.largeTitle)
+            .foregroundStyle(Color.danger)
+          Text(String(localized: "Database Needs Recovery"))
+            .font(.headline)
+          Text(
+            String(
+              localized:
+                "Pastura couldn't upgrade its database.\nYou can reset it to continue — your previous data is kept in a backup on this device."
+            )
+          )
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          Text(message)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+          Button(String(localized: "Reset Database"), role: .destructive) {
+            Task { await recoverDatabase() }
+          }
+          .buttonStyle(.borderedProminent)
+          // Retry is meaningful here even though only `.migrationFailed` reaches
+          // this screen: a migration can fail transiently (disk full / lock at
+          // migrate time), and a plain retry then succeeds without the
+          // data-destroying reset. For a deterministic failure it re-routes back
+          // here, and the user picks Reset.
+          Button(String(localized: "Retry")) {
+            appState = .initializing
+          }
+          .buttonStyle(.bordered)
+        }
+        .padding()
+
       case .error(let message):
         VStack(spacing: 16) {
           Image(systemName: "exclamationmark.triangle")
@@ -299,6 +357,7 @@ private struct RootView: View {
     case .needsModelSelection: return .needsModelSelection
     case .needsModelDownload: return .needsModelDownload
     case .ready: return .ready
+    case .databaseRecovery: return .databaseRecovery
     case .error: return .error
     }
   }
@@ -308,6 +367,7 @@ private struct RootView: View {
     case .initializing: return .initializing
     case .needsModelSelection: return .modelSelection
     case .needsModelDownload: return .modelDownload
+    case .databaseRecovery: return .databaseRecovery
     case .error: return .error
     case .ready:
       if gate.isSheetActive { return .sheetPresented }
@@ -408,6 +468,10 @@ private struct RootView: View {
         deps.backgroundManager.register()
         PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
         appState = .ready(deps)
+      } catch let dbError as DataError where dbError.isRecoverable {
+        // Simulator: recovery rebuilds via OllamaService (no model path).
+        pendingRecoveryModelPath = nil
+        routeToRecovery(dbError)
       } catch {
         appState = .error(
           String(
@@ -488,23 +552,92 @@ private struct RootView: View {
       return
     }
     do {
-      let llm = LlamaCppService(
-        modelPath: modelPath,
-        stopSequence: descriptor.stopSequence,
-        modelIdentifier: descriptor.displayName,
-        systemPromptSuffix: descriptor.systemPromptSuffix,
-        assistantPrefix: descriptor.assistantPrefix
-      )
+      let llm = makeLlamaCppService(modelPath: modelPath, descriptor: descriptor)
       let deps = try AppDependencies.production(llmService: llm)
       // Register BG task handler early so iOS 26+ can launch us in background.
       deps.backgroundManager.register()
       PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
       appState = .ready(deps)
+    } catch let dbError as DataError where dbError.isRecoverable {
+      // Device: capture the model path so recovery can rebuild the LLM
+      // service from the (still-active) descriptor after the reset.
+      pendingRecoveryModelPath = modelPath
+      routeToRecovery(dbError)
     } catch {
       appState = .error(
         String(
           format: String(localized: "Database error: %@"), error.localizedDescription))
     }
+  }
+
+  /// Builds the on-device `LlamaCppService` from a model path + descriptor.
+  /// Extracted so the migration-recovery path (#546) rebuilds it from the
+  /// same five descriptor fields as `finalizeInit`, with no drift.
+  private func makeLlamaCppService(
+    modelPath: String, descriptor: ModelDescriptor
+  ) -> LlamaCppService {
+    LlamaCppService(
+      modelPath: modelPath,
+      stopSequence: descriptor.stopSequence,
+      modelIdentifier: descriptor.displayName,
+      systemPromptSuffix: descriptor.systemPromptSuffix,
+      assistantPrefix: descriptor.assistantPrefix
+    )
+  }
+
+  /// Logs and transitions to the consent-gated DB recovery screen (#546).
+  private func routeToRecovery(_ dbError: DataError) {
+    Self.logger.error(
+      "DB init failed (recoverable); offering reset: \(dbError.localizedDescription, privacy: .public)"
+    )
+    appState = .databaseRecovery(dbError.localizedDescription)
+  }
+
+  /// Backs up the existing database, recreates a fresh one, and continues to
+  /// `.ready`. Invoked from the recovery screen's "Reset Database" button
+  /// after explicit user consent (#546).
+  private func recoverDatabase() async {
+    Self.logger.notice("DB recovery: user consented to reset")
+    do {
+      let deps = try makeRecoveredDependencies()
+      deps.backgroundManager.register()
+      PresetLoader.loadPresetsIfNeeded(repository: deps.scenarioRepository)
+      pendingRecoveryModelPath = nil
+      appState = .ready(deps)
+    } catch {
+      appState = .error(
+        String(
+          format: String(localized: "Database recovery failed: %@"),
+          error.localizedDescription))
+    }
+  }
+
+  private func makeRecoveredDependencies() throws -> AppDependencies {
+    if let modelPath = pendingRecoveryModelPath {
+      // Device: rebuild the LLM service from the still-active descriptor.
+      guard let descriptor = modelManager.activeDescriptor else {
+        // App-layer invariant violation, not a real migration failure: the
+        // active descriptor is guaranteed non-nil upstream (see finalizeInit).
+        // `.migrationFailed` is reused only to satisfy the `throws` contract;
+        // recoverDatabase() maps any throw here to `.error` with this message,
+        // and never pattern-matches the case.
+        throw DataError.migrationFailed(
+          description: String(localized: "No active model descriptor resolvable from catalog"))
+      }
+      let llm = makeLlamaCppService(modelPath: modelPath, descriptor: descriptor)
+      return try AppDependencies.recoverByBackingUpDatabase(llmService: llm)
+    }
+    #if DEBUG || targetEnvironment(simulator)
+      // Simulator: OllamaService backend, no model path.
+      return try AppDependencies.recoverByBackingUpDatabase()
+    #else
+      // Unreachable on production device — `finalizeInit` always sets
+      // `pendingRecoveryModelPath` before routing to recovery. `.migrationFailed`
+      // is a throws-contract filler (mapped to `.error` by recoverDatabase), not
+      // a real migration signal.
+      throw DataError.migrationFailed(
+        description: String(localized: "Recovery requires an active model"))
+    #endif
   }
 
   #if DEBUG
