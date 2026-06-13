@@ -102,6 +102,28 @@ relaxed, restore the `code-reviewer` pass.
    sibling skill (e.g. queue-consumer's uncommitted `data/queue/digest.md`) is
    in flight; abort and report rather than mixing changes.
 
+## Step 0.5 — WIP backpressure (skip when the review queue is saturated)
+
+The family's aggregate ceiling, on top of this skill's own cap-1 dedup
+(Step 2): cap-1 bounds *this* skill's lane, the ceiling bounds the *sum* of
+unreviewed Drafts across all generators.
+
+```bash
+# canonical: triage-guardian/SKILL.md § Backpressure — keep predicate + ceiling in sync
+WIP=$(gh pr list --state open --draft --json headRefName \
+  --jq '[.[] | select(.headRefName | test("^(audit|agent)/"))] | length')
+```
+
+If `WIP >= 5` (`AUTOMATION_WIP_CEILING`), **skip this run** — report
+`throttled by WIP backpressure: <WIP>/5` and stop before Step 1. **Inert
+today**: the aggregate max is 1 (audit) + 2 (agent) = 3 < 5, so this never fires
+under the current roster; it is wired now so the next generator inherits
+backpressure for free (same move as the Output Contract). **Advisory**: the
+per-generator hard caps are the real guard, so the preflight-count race is
+benign. The constant + predicate are defined canonically in
+`.claude/skills/triage-guardian/SKILL.md` § Backpressure — change all three
+referencing files together.
+
 ## Step 1 — Detect (dry-run)
 
 ```bash
