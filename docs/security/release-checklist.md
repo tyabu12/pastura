@@ -1,7 +1,7 @@
 # Security Release Checklist
 
 A consolidated checklist for the security-sensitive work that lives
-outside the codebase. Three sections:
+outside the codebase. Four sections:
 
 1. [GitHub repository settings](#1-github-repository-settings).
    One-time configuration kept current; commands are idempotent.
