@@ -66,6 +66,10 @@
           {
             "type": "command",
             "command": "cd $(git rev-parse --show-toplevel) && bash scripts/hooks/gated-runner.sh 'gh pr create' -- bash scripts/hooks/check-claude-md-modified.sh"
+          },
+          {
+            "type": "command",
+            "command": "cd $(git rev-parse --show-toplevel) && bash scripts/hooks/block-force-push-and-pr-ready.sh"
           }
         ]
       }
