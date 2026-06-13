@@ -403,6 +403,27 @@ jobs:
       - name: Run blocklist drift guard
         run: bash scripts/build-blocklist.sh --check
 
+  shell-tests:
+    name: Shell gate tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # Regression tests for the repo's shell gates (currently the p8
+      # secret-gate test). Pure git + bash, so ubuntu — no Xcode needed.
+      # The `*-test.sh` naming convention is the contract: any matching
+      # file becomes a CI gate. GHA's default shell runs `set -eo pipefail`,
+      # so a non-zero test exit fails the job (no `|| true` wrapper).
+      - name: Run scripts/tests/*-test.sh
+        run: |
+          for f in scripts/tests/*-test.sh; do
+            [ -e "$f" ] || continue
+            echo "== $f =="
+            bash "$f"
+          done
+
   gallery-drift:
     name: Gallery drift guard
     runs-on: ubuntu-latest
