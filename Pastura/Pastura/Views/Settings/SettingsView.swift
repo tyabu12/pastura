@@ -71,50 +71,69 @@ struct SettingsView: View {
   #endif
 
   var body: some View {
-    List {
-      #if !targetEnvironment(simulator)
-        modelsSection
-      #endif
-      Section {
-        Button {
-          guard let url = LocalizedPublicPages.privacyPolicy() else { return }
-          openURL(url)
-        } label: {
-          HStack {
-            Text(String(localized: "Privacy Policy"))
-              .foregroundStyle(.primary)
-            Spacer()
-            Image(systemName: "arrow.up.right.square")
-              .foregroundStyle(.secondary)
-          }
-        }
-        .accessibilityIdentifier("settings.privacyPolicyLink")
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        #if !targetEnvironment(simulator)
+          modelsSection
+        #endif
+        // Theme D (tappable-row green language) is intentionally left as-is:
+        // these stay `Button`s with `.foregroundStyle(.primary)`, which the
+        // Button context resolves to the moss accent. Only the container
+        // (card) and field tone change here.
+        PasturaSection(String(localized: "Legal")) {
+          VStack(spacing: 0) {
+            Button {
+              guard let url = LocalizedPublicPages.privacyPolicy() else { return }
+              openURL(url)
+            } label: {
+              HStack {
+                Text(String(localized: "Privacy Policy"))
+                  .foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+                  .foregroundStyle(.secondary)
+              }
+              .padding(.horizontal, 17)
+              .padding(.vertical, 15)
+              .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("settings.privacyPolicyLink")
 
-        Button {
-          isReportSheetPresented = true
-        } label: {
-          HStack {
-            Text(String(localized: "Send a content report"))
-              .foregroundStyle(.primary)
-            Spacer()
-          }
-        }
-        .accessibilityIdentifier("settings.sendContentReportButton")
+            PasturaRowDivider()
+            Button {
+              isReportSheetPresented = true
+            } label: {
+              HStack {
+                Text(String(localized: "Send a content report"))
+                  .foregroundStyle(.primary)
+                Spacer()
+              }
+              .padding(.horizontal, 17)
+              .padding(.vertical, 15)
+              .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("settings.sendContentReportButton")
 
-        Button {
-          isLicensesSheetPresented = true
-        } label: {
-          HStack {
-            Text(String(localized: "Licenses"))
-              .foregroundStyle(.primary)
-            Spacer()
+            PasturaRowDivider()
+            Button {
+              isLicensesSheetPresented = true
+            } label: {
+              HStack {
+                Text(String(localized: "Licenses"))
+                  .foregroundStyle(.primary)
+                Spacer()
+              }
+              .padding(.horizontal, 17)
+              .padding(.vertical, 15)
+              .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("settings.licensesLink")
           }
         }
-        .accessibilityIdentifier("settings.licensesLink")
-      } header: {
-        Text(String(localized: "Legal"))
       }
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
@@ -216,38 +235,55 @@ struct SettingsView: View {
   }
 
   #if !targetEnvironment(simulator)
+    // NOTE: device-only (omitted on the simulator), so the simulator
+    // ui-tour cannot validate this card's layout — needs real-device QA.
+    // ModelSettingsRow has no List-native behavior (delete is via its Menu
+    // → confirmationDialog, not swipe), so the ScrollView move is layout-
+    // only; it gets the horizontal inset the List cell used to provide.
     @ViewBuilder
     private var modelsSection: some View {
-      Section {
-        ForEach(modelManager.catalog, id: \.id) { descriptor in
-          ModelSettingsRow(
-            descriptor: descriptor,
-            state: modelManager.state[descriptor.id] ?? .checking,
-            isActive: descriptor.id == modelManager.activeModelID,
-            otherDownloadInProgress: isOtherDownloading(excluding: descriptor.id),
-            isSwitchLocked: dependencies.simulationActivityRegistry.isActive,
-            onDownload: { presentDownloadCover(for: descriptor) },
-            onCancel: { modelManager.cancelDownload(descriptor: descriptor) },
-            onSwitchActive: { switchActive(to: descriptor) },
-            onRequestDelete: { pendingDelete = descriptor }
-          )
+      VStack(alignment: .leading, spacing: 7) {
+        PasturaSection(String(localized: "Models")) {
+          VStack(spacing: 0) {
+            ForEach(Array(modelManager.catalog.enumerated()), id: \.element.id) {
+              index, descriptor in
+              if index > 0 { PasturaRowDivider() }
+              ModelSettingsRow(
+                descriptor: descriptor,
+                state: modelManager.state[descriptor.id] ?? .checking,
+                isActive: descriptor.id == modelManager.activeModelID,
+                otherDownloadInProgress: isOtherDownloading(excluding: descriptor.id),
+                isSwitchLocked: dependencies.simulationActivityRegistry.isActive,
+                onDownload: { presentDownloadCover(for: descriptor) },
+                onCancel: { modelManager.cancelDownload(descriptor: descriptor) },
+                onSwitchActive: { switchActive(to: descriptor) },
+                onRequestDelete: { pendingDelete = descriptor }
+              )
+              .padding(.horizontal, 17)
+            }
+          }
         }
-      } header: {
-        Text(String(localized: "Models"))
-      } footer: {
-        if dependencies.simulationActivityRegistry.isActive {
-          Text(
-            String(
-              localized:
-                "Finish the current simulation before switching models. Downloads and deletes of other models remain available."
-            ))
-        } else {
-          Text(
-            String(
-              localized:
-                "You can keep multiple models on this device. Only the active one is loaded in memory."
-            ))
-        }
+        modelsFooter
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+          .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
+      }
+    }
+
+    @ViewBuilder
+    private var modelsFooter: some View {
+      if dependencies.simulationActivityRegistry.isActive {
+        Text(
+          String(
+            localized:
+              "Finish the current simulation before switching models. Downloads and deletes of other models remain available."
+          ))
+      } else {
+        Text(
+          String(
+            localized:
+              "You can keep multiple models on this device. Only the active one is loaded in memory."
+          ))
       }
     }
 
