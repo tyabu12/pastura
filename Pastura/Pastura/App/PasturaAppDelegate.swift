@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 
 /// `UIApplicationDelegate` adaptor for the SwiftUI app. PR2 adds this solely
@@ -20,6 +21,56 @@ import UIKit
 /// no-op.
 @MainActor
 final class PasturaAppDelegate: NSObject, UIApplicationDelegate {
+  func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+  ) -> Bool {
+    Self.configureNavigationBarTitleColor()
+    return true
+  }
+
+  /// Tints navigation-bar titles (large + inline) with `Color.ink`
+  /// (#2D2E26) process-wide via the `UINavigationBar` appearance proxy.
+  ///
+  /// ## Why global, why here
+  ///
+  /// SwiftUI exposes no per-`NavigationStack` title-color modifier that
+  /// preserves the system large→inline scroll-collapse, so the title
+  /// color is set once through the UIKit appearance proxy. The browse
+  /// screens otherwise render system-default near-black (`label`) titles
+  /// that read cold on the warm `screenBackground` field (design-system
+  /// §1 / §2.2). This is the title half of the ink migration; body text
+  /// is tinted at each View.
+  ///
+  /// Backgrounds mirror the iOS default so the visual bar behavior is
+  /// unchanged: transparent at the scroll edge (large-title resting
+  /// state), system blur when scrolled (`standard` / `compact`). Only the
+  /// title foreground color is overridden.
+  ///
+  /// The proxy is global, so sheet-owned `NavigationStack`s inherit the
+  /// ink title too — intended (ink titles are wanted app-wide); verified
+  /// by manual QA on PhaseEditorSheet / PersonaEditorSheet / ScoreboardSheet
+  /// / ModelDownloadView.
+  static func configureNavigationBarTitleColor() {
+    let ink = UIColor(Color.ink)
+    let titleAttributes: [NSAttributedString.Key: Any] = [.foregroundColor: ink]
+
+    let opaque = UINavigationBarAppearance()
+    opaque.configureWithDefaultBackground()
+    opaque.titleTextAttributes = titleAttributes
+    opaque.largeTitleTextAttributes = titleAttributes
+
+    let transparent = UINavigationBarAppearance()
+    transparent.configureWithTransparentBackground()
+    transparent.titleTextAttributes = titleAttributes
+    transparent.largeTitleTextAttributes = titleAttributes
+
+    let proxy = UINavigationBar.appearance()
+    proxy.standardAppearance = opaque
+    proxy.compactAppearance = opaque
+    proxy.scrollEdgeAppearance = transparent
+  }
+
   func application(
     _ application: UIApplication,
     handleEventsForBackgroundURLSession identifier: String,
