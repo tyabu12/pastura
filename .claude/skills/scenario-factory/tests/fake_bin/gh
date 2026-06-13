@@ -1,0 +1,27 @@
+#!/bin/bash
+# Fake `gh` for sync_digest_pr.py tests. Implements only the `pr list` /
+# `pr create` shapes the script uses; behaviour is driven by env vars so each
+# scenario can stage a different GitHub state without a network.
+#
+#   FAKE_GH_PR_LIST      JSON for `gh pr list --state open ... (no --head)`
+#   FAKE_GH_PR_FOR_HEAD  JSON for `gh pr list --head <b> --state open`
+#   FAKE_GH_LOG          file; `gh pr create` invocations are appended here
+set -eu
+
+if [ "${1:-}" = "pr" ] && [ "${2:-}" = "list" ]; then
+  if printf '%s\n' "$@" | grep -q -- '--head'; then
+    printf '%s' "${FAKE_GH_PR_FOR_HEAD:-[]}"
+  else
+    printf '%s' "${FAKE_GH_PR_LIST:-[]}"
+  fi
+  exit 0
+fi
+
+if [ "${1:-}" = "pr" ] && [ "${2:-}" = "create" ]; then
+  echo "gh pr create $*" >> "${FAKE_GH_LOG:-/dev/null}"
+  echo "https://example.test/pr/999"
+  exit 0
+fi
+
+echo "fake gh: unhandled invocation: $*" >&2
+exit 99
