@@ -102,17 +102,23 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
             Label(String(localized: "Export as Markdown"), systemImage: "doc.text")
           }
           .disabled(!canExport)
-          Button {
-            Task { await triggerYAMLExport() }
-          } label: {
-            Label(String(localized: "Export for demo replay"), systemImage: "film")
-          }
-          .disabled(!canExportYAML)
+          // Demo-replay YAML export is a curator/authoring tool — the
+          // output can only be replayed by bundling it into
+          // `Resources/DemoReplays/` (there's no user-facing replay path),
+          // so it's gated to DEBUG builds and hidden from TestFlight users.
+          #if DEBUG
+            Button {
+              Task { await triggerYAMLExport() }
+            } label: {
+              Label(String(localized: "Export for demo replay"), systemImage: "film")
+            }
+            .disabled(!canExportYAML)
+          #endif
           Divider()
           Button(role: .destructive) {
             isShowingDeleteConfirm = true
           } label: {
-            Label(String(localized: "Delete this run"), systemImage: "trash")
+            Label(String(localized: "Delete"), systemImage: "trash")
           }
           .disabled(!canDelete)
           .accessibilityIdentifier("resultDetail.deleteButton")
