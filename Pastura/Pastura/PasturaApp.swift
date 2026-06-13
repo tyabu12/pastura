@@ -118,6 +118,14 @@ private struct RootView: View {
   @State private var coordinator = LaunchPhaseCoordinator()
   @State private var splashKind: LaunchKind? = {
     #if DEBUG
+      // Capture-tooling overrides (scripts/motion-capture.sh): force a
+      // specific splash to play for animation recording even under
+      // `--ui-test`, which otherwise suppresses it. DEBUG-only and
+      // checked before `--ui-test` so the recorder can seed Home fixtures
+      // (via `--ui-test`) while still playing the splash over them. Absent
+      // these args, control falls through unchanged.
+      if CommandLine.arguments.contains("--capture-launch-warm") { return .warm }
+      if CommandLine.arguments.contains("--capture-launch") { return .cold }
       if CommandLine.arguments.contains("--ui-test") { return nil }
     #endif
     return .cold

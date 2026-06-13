@@ -94,6 +94,10 @@ time. The trade-offs are documented in
   the iPhone 16 family (including 16e), or newer.
 - [Ollama](https://ollama.com) (optional) if you want non-mock LLM
   inference in Debug or on the Simulator
+- [ffmpeg](https://ffmpeg.org) and `jq` (optional) for the local
+  design-review tooling: `scripts/motion-capture.sh` (animation filmstrips)
+  needs ffmpeg, `scripts/ui-tour.sh` (screenshot tour) needs jq —
+  `brew install ffmpeg jq`
 
 ## Build and run
 

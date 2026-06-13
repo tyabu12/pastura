@@ -56,3 +56,11 @@ exists once the screen has loaded), then add a row to the table above.
 - **Dark mode / Dynamic Type / ja locale variants** — single
   configuration only for now; variants multiply runtime and can be
   added per-screen when a review needs them.
+
+## Animations
+
+These are still screens. For *motion* review — the launch splash, and the
+bubble-entrance / DL-dot animations that share the reachability blockers
+noted above — see [`../motion/README.md`](../motion/README.md)
+(`scripts/motion-capture.sh`): filmstrips + frame sequences captured the
+same gitignored, local-only way.

@@ -56,3 +56,9 @@ data/factory/scenarios/
 # (see docs/design/screenshots/README.md). Only the README is tracked.
 docs/design/screenshots/*.png
 
+# Design-review motion captures — generated on demand by
+# scripts/motion-capture.sh (see docs/design/motion/README.md). Only the
+# README is tracked.
+docs/design/motion/*
+!docs/design/motion/README.md
+
