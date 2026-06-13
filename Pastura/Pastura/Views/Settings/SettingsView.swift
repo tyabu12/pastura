@@ -243,10 +243,10 @@ struct SettingsView: View {
     @ViewBuilder
     private var modelsSection: some View {
       VStack(alignment: .leading, spacing: 7) {
+        let catalog = modelManager.catalog
         PasturaSection(String(localized: "Models")) {
           VStack(spacing: 0) {
-            ForEach(Array(modelManager.catalog.enumerated()), id: \.element.id) {
-              index, descriptor in
+            ForEach(Array(catalog.enumerated()), id: \.element.id) { index, descriptor in
               if index > 0 { PasturaRowDivider() }
               ModelSettingsRow(
                 descriptor: descriptor,

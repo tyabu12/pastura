@@ -97,29 +97,7 @@ struct SharedScenariosListView: View {
           .padding(.horizontal, 17)
           .padding(.vertical, 8)
         }
-        if viewModel.visibleScenarios.isEmpty {
-          PasturaSection {
-            Text(String(localized: "No scenarios in this category."))
-              .foregroundStyle(Color.inkSecondary)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.horizontal, 17)
-              .padding(.vertical, 14)
-          }
-        } else {
-          PasturaSection {
-            VStack(spacing: 0) {
-              ForEach(Array(viewModel.visibleScenarios.enumerated()), id: \.element.id) {
-                index, scenario in
-                if index > 0 { PasturaRowDivider() }
-                NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
-                  galleryRow(scenario: scenario, viewModel: viewModel)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
-              }
-            }
-          }
-        }
+        scenariosCard(viewModel: viewModel)
         if let updated = viewModel.updatedAt {
           Text(String(format: String(localized: "Last updated: %@"), updated))
             .font(.caption)
@@ -132,6 +110,33 @@ struct SharedScenariosListView: View {
     .background(Color.screenBackground.ignoresSafeArea())
     .refreshable {
       await viewModel.refresh()
+    }
+  }
+
+  @ViewBuilder
+  private func scenariosCard(viewModel: SharedScenariosViewModel) -> some View {
+    if viewModel.visibleScenarios.isEmpty {
+      PasturaSection {
+        Text(String(localized: "No scenarios in this category."))
+          .foregroundStyle(Color.inkSecondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 17)
+          .padding(.vertical, 14)
+      }
+    } else {
+      let scenarios = viewModel.visibleScenarios
+      PasturaSection {
+        VStack(spacing: 0) {
+          ForEach(Array(scenarios.enumerated()), id: \.element.id) { index, scenario in
+            if index > 0 { PasturaRowDivider() }
+            NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
+              galleryRow(scenario: scenario, viewModel: viewModel)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+          }
+        }
+      }
     }
   }
 
