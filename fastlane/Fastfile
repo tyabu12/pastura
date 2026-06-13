@@ -1,0 +1,72 @@
+# Fastfile — Pastura TestFlight upload (ADR-014).
+#
+# fastlane is the UPLOADER ONLY. scripts/release.sh owns preflight, the
+# `xcodebuild archive`, the ADR-005 §8.5 Ollama-symbol re-check, and
+# `-exportArchive`; it then invokes these lanes with the produced .ipa.
+# There is intentionally no build/sign logic here. See ADR-014
+# "Release flow (ordered)".
+#
+# Authentication is via an App Store Connect API Key (.p8) that lives
+# outside the repo (~/.appstoreconnect/private_keys/, ADR-014 § Secrets).
+# Its identifiers are read from the environment so nothing secret is
+# committed:
+#   ASC_KEY_ID     — the API key's Key ID
+#   ASC_ISSUER_ID  — the issuer ID for the key
+#   ASC_KEY_PATH   — absolute path to the AuthKey_*.p8 file
+#
+# Run via `bundle exec fastlane ios <lane>` so the Gemfile.lock-pinned
+# fastlane version is used.
+
+APP_IDENTIFIER = "app.pastura.Pastura".freeze
+
+default_platform(:ios)
+
+# Build an App Store Connect API Key token from the environment. Fails
+# loudly (KeyError) if any identifier is unset, rather than silently
+# falling back to interactive Apple-ID auth.
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("ASC_KEY_ID"),
+    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    key_filepath: ENV.fetch("ASC_KEY_PATH"),
+    in_house: false
+  )
+end
+
+platform :ios do
+  # Write the latest build number already uploaded to TestFlight for a
+  # given marketing version to the file named by TF_BUILD_OUT, so
+  # release.sh can assert its computed build number strictly exceeds it
+  # (ADR-014 § Build number). On a first-ever upload (no builds for the
+  # version) latest_testflight_build_number returns initial_build_number
+  # (0), so the strict-exceeds assertion always holds.
+  lane :latest_tf_build do |options|
+    version = options.fetch(:version)
+    build = latest_testflight_build_number(
+      api_key: asc_api_key,
+      app_identifier: APP_IDENTIFIER,
+      version: version,
+      initial_build_number: 0
+    )
+    out = ENV["TF_BUILD_OUT"]
+    File.write(out, build.to_s) unless out.nil? || out.empty?
+    UI.message("latest TestFlight build for #{version}: #{build}")
+  end
+
+  # Upload an already-exported .ipa to TestFlight. release.sh owns archive
+  # + export and passes the .ipa path (and optional changelog text).
+  lane :upload do |options|
+    # Wait for ASC processing to finish (do NOT skip): release.sh creates
+    # the release tag only after this lane returns success, so the lane
+    # must not return until the build is actually processed on TestFlight.
+    # Skipping the wait would let an ASC processing-time rejection leave a
+    # dangling tag — the exact failure ADR-014 § "Why tag last" prevents.
+    upload_to_testflight(
+      api_key: asc_api_key,
+      app_identifier: APP_IDENTIFIER,
+      ipa: options.fetch(:ipa),
+      changelog: options[:changelog],
+      skip_waiting_for_build_processing: false
+    )
+  end
+end

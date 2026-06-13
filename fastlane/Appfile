@@ -1,0 +1,8 @@
+# Appfile — Pastura (ADR-014).
+#
+# Only the app identifier is pinned here. The Apple ID, ASC team, and
+# signing identity are resolved at runtime from the App Store Connect API
+# Key (.p8) supplied via the environment (see fastlane/Fastfile and
+# ADR-014 § Secrets), so no account-specific secrets live in the repo.
+
+app_identifier("app.pastura.Pastura")

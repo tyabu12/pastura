@@ -33,6 +33,12 @@ fastlane/Preview.html
 fastlane/screenshots
 fastlane/test_output
 
+# App Store Connect / APNs private keys (ADR-014 § Secrets). Global, not
+# scoped to fastlane/ — a key must never enter the tree at any path. The
+# p8-precommit-gate.sh gate is the defense-in-depth backstop for `git add -f`.
+*.p8
+AuthKey_*.p8
+
 # IDE
 *.swp
 *~
