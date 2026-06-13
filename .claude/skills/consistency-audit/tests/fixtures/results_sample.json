@@ -1,9 +1,0 @@
-{
-  "run_id": "2026-06-13 14:00",
-  "auto_fixable": 1,
-  "needs_judgment": 0,
-  "auto_fix_status": "opened",
-  "auto_fix_pr": "https://github.com/tyabu12/pastura/pull/553",
-  "issues": [],
-  "notes": "Sample run; one Yams drift fixed."
-}
