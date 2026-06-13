@@ -96,40 +96,85 @@ struct ScenarioDetailView: View {
     scenario: Scenario,
     viewModel: ScenarioDetailViewModel
   ) -> some View {
-    List {
-      galleryBannerSection(viewModel: viewModel)
-      overviewSection(scenario: scenario, viewModel: viewModel)
-      contextSection(scenario: scenario)
-      personasSection(scenario: scenario)
-      phasesSection(scenario: scenario)
-      validationSection(viewModel: viewModel)
-      actionsSection(scenario: scenario, viewModel: viewModel)
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        galleryBannerSection(viewModel: viewModel)
+        overviewSection(scenario: scenario, viewModel: viewModel)
+        contextSection(scenario: scenario)
+        personasSection(scenario: scenario)
+        phasesSection(scenario: scenario)
+        validationSection(viewModel: viewModel)
+        actionsSection(scenario: scenario, viewModel: viewModel)
+      }
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    // Post-load anchor: this List only exists once the scenario content has
-    // resolved, so ScreenshotTourTests can wait on it instead of sleeping.
+    .background(Color.screenBackground.ignoresSafeArea())
+    // Post-load anchor: this ScrollView only exists once the scenario
+    // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
+    // can wait on it instead of sleeping.
     .accessibilityIdentifier("scenarioDetail.list")
   }
+
+  // MARK: - Section scaffolding
+
+  /// A muted section header laid above a ``PasturaCard``, mirroring the
+  /// inset-grouped section structure the `List` used to provide. Pass a
+  /// `nil` title for an unheadered card (banner / actions).
+  @ViewBuilder
+  private func cardSection<Content: View>(
+    _ title: String?, @ViewBuilder content: () -> Content
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 7) {
+      if let title {
+        Text(title)
+          .font(.subheadline)
+          .foregroundStyle(Color.muted)
+          .padding(.leading, 6)
+      }
+      PasturaCard { content() }
+    }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
+  }
+
+  private var rowDivider: some View {
+    Divider().overlay(Color.rule)
+  }
+
+  private func infoRow(_ label: String, value: String) -> some View {
+    HStack {
+      Text(label).foregroundStyle(Color.ink)
+      Spacer(minLength: 8)
+      Text(value).foregroundStyle(Color.muted)
+    }
+    .padding(.horizontal, 17)
+    .padding(.vertical, 14)
+  }
+
+  // MARK: - Sections
 
   @ViewBuilder
   private func galleryBannerSection(viewModel: ScenarioDetailViewModel) -> some View {
     if viewModel.hasGalleryUpdate, let entry = viewModel.galleryScenario {
-      Section {
+      cardSection(nil) {
         NavigationLink(value: Route.galleryScenarioDetail(scenario: entry)) {
-          Label(
-            String(localized: "Update available from Shared Scenarios"),
-            systemImage: "arrow.down.circle.fill"
-          )
-          .foregroundStyle(.tint)
+          PasturaRowLabel(
+            title: String(localized: "Update available from Shared Scenarios"),
+            systemImage: "arrow.down.circle.fill")
         }
+        .buttonStyle(.plain)
       }
     } else if viewModel.isGallerySourced {
-      Section {
-        Label(
-          String(localized: "From Shared Scenarios (read-only)"),
-          systemImage: "square.and.arrow.down.fill"
-        )
-        .font(.caption)
-        .foregroundStyle(.secondary)
+      cardSection(nil) {
+        HStack(spacing: 10) {
+          Image(systemName: "square.and.arrow.down.fill")
+            .foregroundStyle(Color.moss)
+          Text(String(localized: "From Shared Scenarios (read-only)"))
+            .font(.caption)
+            .foregroundStyle(Color.inkSecondary)
+          Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 17)
+        .padding(.vertical, 12)
       }
     }
   }
@@ -137,59 +182,83 @@ struct ScenarioDetailView: View {
   private func overviewSection(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
-    Section(String(localized: "Overview")) {
-      LabeledContent(String(localized: "Agents"), value: "\(scenario.agentCount)")
-      LabeledContent(String(localized: "Rounds"), value: "\(scenario.rounds)")
-      LabeledContent(
-        String(localized: "Est. Inferences"),
-        value: "\(viewModel.estimatedInferences)"
-      )
-      if !scenario.description.isEmpty {
-        Text(scenario.description)
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
+    cardSection(String(localized: "Overview")) {
+      VStack(spacing: 0) {
+        infoRow(String(localized: "Agents"), value: "\(scenario.agentCount)")
+        rowDivider
+        infoRow(String(localized: "Rounds"), value: "\(scenario.rounds)")
+        rowDivider
+        infoRow(
+          String(localized: "Est. Inferences"),
+          value: "\(viewModel.estimatedInferences)")
+        if !scenario.description.isEmpty {
+          rowDivider
+          Text(scenario.description)
+            .font(.subheadline)
+            .foregroundStyle(Color.inkSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 17)
+            .padding(.vertical, 14)
+        }
       }
     }
   }
 
   private func contextSection(scenario: Scenario) -> some View {
-    Section(String(localized: "Context")) {
+    cardSection(String(localized: "Context")) {
       Text(scenario.context)
         .font(.subheadline)
+        .foregroundStyle(Color.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 17)
+        .padding(.vertical, 14)
     }
   }
 
   private func personasSection(scenario: Scenario) -> some View {
-    Section(String(localized: "Personas (\(scenario.personas.count))")) {
-      ForEach(scenario.personas, id: \.name) { persona in
-        VStack(alignment: .leading, spacing: 4) {
-          Text(persona.name)
-            .font(.headline)
-          Text(persona.description)
-            .font(.caption)
-            .foregroundStyle(.secondary)
+    cardSection(String(localized: "Personas (\(scenario.personas.count))")) {
+      VStack(spacing: 0) {
+        ForEach(Array(scenario.personas.enumerated()), id: \.element.name) { index, persona in
+          if index > 0 { rowDivider }
+          VStack(alignment: .leading, spacing: 4) {
+            Text(persona.name)
+              .font(.headline)
+              .foregroundStyle(Color.ink)
+            Text(persona.description)
+              .font(.caption)
+              .foregroundStyle(Color.inkSecondary)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 17)
+          .padding(.vertical, 12)
         }
-        .padding(.vertical, 2)
       }
     }
   }
 
   private func phasesSection(scenario: Scenario) -> some View {
-    Section(String(localized: "Phases (\(scenario.phases.count))")) {
-      ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
-        HStack {
-          Text("\(index + 1).")
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-          Text(phase.type.rawValue)
-            .font(.subheadline.monospaced())
-          if phase.type.requiresLLM {
-            // `info` here is a quiet category badge for LLM-required phases, not a
-            // notification — see design-system §2.6 for the alert-family scope.
-            Image(systemName: "brain")
-              .font(.caption)
-              .foregroundStyle(Color.info)
+    cardSection(String(localized: "Phases (\(scenario.phases.count))")) {
+      VStack(spacing: 0) {
+        ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
+          if index > 0 { rowDivider }
+          HStack {
+            Text("\(index + 1).")
+              .foregroundStyle(Color.muted)
+              .monospacedDigit()
+            Text(phase.type.rawValue)
+              .font(.subheadline.monospaced())
+              .foregroundStyle(Color.ink)
+            if phase.type.requiresLLM {
+              // `info` here is a quiet category badge for LLM-required phases, not a
+              // notification — see design-system §2.6 for the alert-family scope.
+              Image(systemName: "brain")
+                .font(.caption)
+                .foregroundStyle(Color.info)
+            }
+            Spacer(minLength: 0)
           }
+          .padding(.horizontal, 17)
+          .padding(.vertical, 13)
         }
       }
     }
@@ -198,9 +267,68 @@ struct ScenarioDetailView: View {
   @ViewBuilder
   private func validationSection(viewModel: ScenarioDetailViewModel) -> some View {
     if let error = viewModel.validationError {
-      Section {
-        Label(error, systemImage: "xmark.circle.fill")
-          .foregroundStyle(Color.dangerInk)
+      cardSection(nil) {
+        HStack(spacing: 8) {
+          Image(systemName: "xmark.circle.fill")
+          Text(error)
+          Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.dangerInk)
+        .padding(.horizontal, 17)
+        .padding(.vertical, 14)
+      }
+    }
+  }
+
+  private func actionsSection(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
+    cardSection(nil) {
+      VStack(spacing: 0) {
+        // initialName supplies the scenario name to SimulationView's
+        // navigationTitle from the first frame, before loadAndRun()
+        // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
+        NavigationLink(
+          value: Route.simulation(
+            scenarioId: scenarioId,
+            initialName: .init(scenario.name)
+          )
+        ) {
+          PasturaRowLabel(
+            title: String(localized: "Run Simulation"), systemImage: "play.fill")
+        }
+        .buttonStyle(.plain)
+        .disabled(!viewModel.canRun)
+        .opacity(viewModel.canRun ? 1 : 0.4)
+        .accessibilityIdentifier("scenarioDetail.runSimulationButton")
+
+        rowDivider
+        NavigationLink(value: Route.results(scenarioId: scenarioId)) {
+          PasturaRowLabel(
+            title: String(localized: "Past Results"),
+            systemImage: "clock.arrow.circlepath")
+        }
+        .buttonStyle(.plain)
+
+        siblingLanguageLink(scenario: scenario, viewModel: viewModel)
+
+        if let record = viewModel.record {
+          rowDivider
+          if record.isPreset || viewModel.isGallerySourced {
+            // Preset and gallery rows are read-only; offer a clone-as-template
+            // action instead of direct edit so users can customize safely.
+            NavigationLink(value: Route.editor(templateYAML: record.yamlDefinition)) {
+              PasturaRowLabel(
+                title: String(localized: "Use as Template"), systemImage: "doc.on.doc")
+            }
+            .buttonStyle(.plain)
+          } else {
+            NavigationLink(value: Route.editor(editingId: scenarioId)) {
+              PasturaRowLabel(title: String(localized: "Edit"), systemImage: "pencil")
+            }
+            .buttonStyle(.plain)
+          }
+        }
       }
     }
   }
@@ -222,58 +350,16 @@ struct ScenarioDetailView: View {
         scenario.language == "ja"
         ? String(localized: "View in English")
         : String(localized: "View in Japanese")
+      rowDivider
       NavigationLink(
         value: Route.scenarioDetail(
           scenarioId: sibling.id,
           initialName: .init(sibling.name)
         )
       ) {
-        Label(label, systemImage: "globe")
+        PasturaRowLabel(title: label, systemImage: "globe")
       }
-    }
-  }
-
-  private func actionsSection(
-    scenario: Scenario, viewModel: ScenarioDetailViewModel
-  ) -> some View {
-    Section {
-      // initialName supplies the scenario name to SimulationView's
-      // navigationTitle from the first frame, before loadAndRun()
-      // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
-      NavigationLink(
-        value: Route.simulation(
-          scenarioId: scenarioId,
-          initialName: .init(scenario.name)
-        )
-      ) {
-        Label(String(localized: "Run Simulation"), systemImage: "play.fill")
-      }
-      .disabled(!viewModel.canRun)
-      .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-
-      NavigationLink(value: Route.results(scenarioId: scenarioId)) {
-        Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
-      }
-
-      siblingLanguageLink(scenario: scenario, viewModel: viewModel)
-
-      if let record = viewModel.record {
-        if record.isPreset || viewModel.isGallerySourced {
-          // Preset and gallery rows are read-only; offer a clone-as-template
-          // action instead of direct edit so users can customize safely.
-          NavigationLink(
-            value: Route.editor(templateYAML: record.yamlDefinition)
-          ) {
-            Label(String(localized: "Use as Template"), systemImage: "doc.on.doc")
-          }
-        } else {
-          NavigationLink(
-            value: Route.editor(editingId: scenarioId)
-          ) {
-            Label(String(localized: "Edit"), systemImage: "pencil")
-          }
-        }
-      }
+      .buttonStyle(.plain)
     }
   }
 }
