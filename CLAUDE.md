@@ -156,6 +156,11 @@ doubt, default to `/orchestrate`.
 The rule does not re-trigger for actions taken from inside `/orchestrate`
 itself or from any sub-agent it dispatches.
 
+The `/release` skill's release **tag** push (via `scripts/release.sh`, ADR-014)
+is also exempt: a tag ref is not branch-protected, edits no tracked files, and
+is gated behind the skill's mandatory confirmation. Any *code* change a release
+needs (a `MARKETING_VERSION` bump) still goes through `/orchestrate`.
+
 ### TDD Approach
 
 Engine and LLM layer: test-first (write failing test → minimal implementation → refactor).
