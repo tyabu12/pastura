@@ -1,0 +1,74 @@
+<!-- @dsCard group="Colors" name="Meta contrast presets" subtitle="DL-progress L1–L4, default L3 (§2.4)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Meta contrast presets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 10px var(--sp-m);
+    background: var(--promo-bg);
+    border: 1px solid var(--promo-border);
+    border-left: 3px solid var(--moss);
+    border-radius: var(--radius-promo);
+    margin: 8px 0;
+  }
+  .meta-row .lvl { font-family: var(--font-mono); font-size: 9px; font-weight: 600; width: 7em; color: var(--ink-2); }
+  .meta-row .dl { color: var(--meta-base); }
+  .meta-row .dots { display: flex; gap: 3px; }
+  .meta-row .dots i { width: 4px; height: 4px; border-radius: var(--radius-dot); background: rgba(90, 100, 60, 0.38); }
+  .meta-row .dots i.on { background: var(--meta-dot-on); }
+  .meta-row .pct { color: var(--meta-strong); font-weight: 600; }
+  .meta-row .size { color: var(--meta-base); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Meta contrast presets (§2.4)</p>
+
+  <div class="section">
+    <p class="section-label">日光下などコントラスト要件が変わる環境向けの4段プリセット。デフォルトは L3</p>
+
+    <div class="meta-row t-meta-value" data-contrast="L1">
+      <span class="lvl">L1</span>
+      <span class="dl t-meta-label">DL</span>
+      <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="pct">35%</span>
+      <span class="size">· 1.0 GB / 3.0 GB</span>
+    </div>
+    <div class="meta-row t-meta-value" data-contrast="L2">
+      <span class="lvl">L2</span>
+      <span class="dl t-meta-label">DL</span>
+      <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="pct">35%</span>
+      <span class="size">· 1.0 GB / 3.0 GB</span>
+    </div>
+    <div class="meta-row t-meta-value" data-contrast="L3">
+      <span class="lvl">L3 (default)</span>
+      <span class="dl t-meta-label">DL</span>
+      <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="pct">35%</span>
+      <span class="size">· 1.0 GB / 3.0 GB</span>
+    </div>
+    <div class="meta-row t-meta-value" data-contrast="L4">
+      <span class="lvl">L4</span>
+      <span class="dl t-meta-label">DL</span>
+      <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="pct">35%</span>
+      <span class="size">· 1.0 GB / 3.0 GB</span>
+    </div>
+
+    <p class="section-note">トークン: --meta-base（DL ラベル・サイズ表記）/ --meta-strong（% 強調）/ --meta-dot-on（点灯ドット）。L1 #8A8B76·#5D6848·#8A9A6C / L2 #6A6D5A·#3D4530·#7A8A5C / L3 #4A4E3D·#2D2E26·#6B7852 / L4 #2D2E26·#1A1B15·#556340。メタ情報は L3 で 4.5:1 以上のコントラストを確保（§8）。</p>
+  </div>
+</div>
+</body>
+</html>

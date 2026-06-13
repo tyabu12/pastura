@@ -1,0 +1,90 @@
+/* Shared presentation primitives for docs/design/ds/ preview cards.
+ * NOT design tokens — tokens live in tokens.css. This file only carries
+ * the card chrome (page frame, section headers, swatch rows) so each
+ * card's inline <style> stays focused on its component. */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--sp-l) var(--sp-l) var(--sp-xl);
+}
+
+.card-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: var(--sp-s) 0 var(--sp-l);
+}
+
+.section {
+  background: var(--screen-bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-promo);
+  padding: var(--sp-l);
+  margin-bottom: var(--sp-l);
+  box-shadow: var(--shadow-card);
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  margin: 0 0 var(--sp-m);
+}
+
+.section-note {
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: var(--sp-m) 0 0;
+}
+
+/* Swatch rows */
+.sw {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-s);
+  padding: 5px 0;
+}
+
+.sw .chip {
+  width: 34px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(45, 46, 38, 0.12);
+  flex: none;
+}
+
+.sw .name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink);
+  min-width: 12em;
+}
+
+.sw .val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  min-width: 7em;
+}
+
+.sw .use {
+  font-size: 10.5px;
+  color: var(--ink-2);
+  line-height: 1.4;
+}

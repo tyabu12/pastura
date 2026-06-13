@@ -1,0 +1,45 @@
+<!-- @dsCard group="Colors" name="Core palette" subtitle="Surfaces / Ink / Moss accent (§2.1–2.3)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Core palette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Core palette</p>
+
+  <div class="section">
+    <p class="section-label">§2.1 Surfaces</p>
+    <div class="sw"><span class="chip" style="background:var(--page)"></span><span class="name">--page</span><span class="val">#F3EFE7</span><span class="use">外側（ワークベンチ・Safe Area 外）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--screen-bg)"></span><span class="name">--screen-bg</span><span class="val">#FCFAF4</span><span class="use">アプリ本体の背景（crisp な羊毛色）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--bubble-bg)"></span><span class="name">--bubble-bg</span><span class="val">#FFFFFF</span><span class="use">発言バブル</span></div>
+    <div class="sw"><span class="chip" style="background:var(--promo-bg)"></span><span class="name">--promo-bg</span><span class="val">#FBFAF2</span><span class="use">プロモ / バナー</span></div>
+    <div class="sw"><span class="chip" style="background:var(--promo-border)"></span><span class="name">--promo-border</span><span class="val">#E4E7D2</span><span class="use">同上のボーダー</span></div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.2 Ink</p>
+    <div class="sw"><span class="chip" style="background:var(--ink)"></span><span class="name">--ink</span><span class="val">#2D2E26</span><span class="use">本文（最濃。純黒ではない）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--ink-2)"></span><span class="name">--ink-2</span><span class="val">#5A5A55</span><span class="use">サブテキスト・セクションラベル</span></div>
+    <div class="sw"><span class="chip" style="background:var(--muted)"></span><span class="name">--muted</span><span class="val">#8A8A83</span><span class="use">メタ情報・脚注</span></div>
+    <div class="sw"><span class="chip" style="background:var(--rule)"></span><span class="name">--rule</span><span class="val">#E0DBCE</span><span class="use">罫線</span></div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.3 Moss Accent — Pastura 唯一のブランド色、4段階</p>
+    <div class="sw"><span class="chip" style="background:var(--moss)"></span><span class="name">--moss</span><span class="val">#8A9A6C</span><span class="use">リーフアイコン・プロモ左ボーダー（3pt）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--moss-dark)"></span><span class="name">--moss-dark</span><span class="val">#6B7852</span><span class="use">DL進捗ドット点灯・アクセントリンク・ステータスラベル</span></div>
+    <div class="sw"><span class="chip" style="background:var(--moss-ink)"></span><span class="name">--moss-ink</span><span class="val">#3D4030</span><span class="use">犬の輪郭・完了タイトル</span></div>
+    <div class="sw"><span class="chip" style="background:var(--moss-soft)"></span><span class="name">--moss-soft</span><span class="val">#D4CBA8</span><span class="use">THINKING 左線・やさしい区切り</span></div>
+    <p class="section-note">アクセント色はこの moss 系1色のみ。2色目が欲しくなったら「構成を減らす」方を検討する（§9）。飽和色・ネオン・純白・純黒は禁じ手（§1）。</p>
+  </div>
+</div>
+</body>
+</html>
