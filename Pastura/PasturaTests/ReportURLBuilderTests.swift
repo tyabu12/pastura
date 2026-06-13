@@ -170,4 +170,83 @@ struct ReportURLBuilderTests {
     // Title is exactly the bare prefix — no trailing space, no scenario id.
     #expect(items.contains { $0.name == "title" && $0.value == "[Shared Scenario Report]" })
   }
+
+  // MARK: - GitHub issue URL (DB migration failure)
+
+  @Test
+  func gitHubIssueURLMigrationBuildsWithExpectedHostAndPath() throws {
+    let url = try #require(ReportURLBuilder.buildGitHubIssueURL(migrationError: "boom"))
+    #expect(url.scheme == "https")
+    #expect(url.host == "github.com")
+    #expect(url.path == "/tyabu12/pastura/issues/new")
+  }
+
+  @Test
+  func gitHubIssueURLMigrationCarriesTemplateLabelTitleAndDbError() throws {
+    let error = "SQLite error 1: no such column: foo"
+    let url = try #require(ReportURLBuilder.buildGitHubIssueURL(migrationError: error))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let items = components.queryItems ?? []
+    #expect(items.contains { $0.name == "template" && $0.value == "db-migration-failure.yml" })
+    #expect(items.contains { $0.name == "labels" && $0.value == "bug" })
+    #expect(items.contains { $0.name == "title" && $0.value == "[DB migration failure]" })
+    // C1 regression guard: the prefill query param key MUST be the underscore
+    // form `db_error` (matching the yml field id), not the hyphen form
+    // `db-error` — GitHub prefills issue-form fields by exact id match, so a
+    // hyphen would silently no-op the auto-attach.
+    #expect(items.contains { $0.name == "db_error" && $0.value == error })
+    #expect(!items.contains { $0.name == "db-error" })
+  }
+
+  @Test
+  func gitHubIssueURLMigrationRoundTripsErrorDetail() throws {
+    // Real SQLite errors carry colons, spaces, and (rarely) multi-byte
+    // scenario fragments. Confirm the value survives percent-encoding intact.
+    let error = "table シナリオ has 3 columns but 4 values supplied: a/b&c"
+    let url = try #require(ReportURLBuilder.buildGitHubIssueURL(migrationError: error))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let match = components.queryItems?.first { $0.name == "db_error" && $0.value == error }
+    #expect(match != nil)
+  }
+
+  // MARK: - Google Forms URL (DB migration failure)
+
+  @Test
+  func googleFormURLMigrationBuildsWithExpectedHostAndPath() throws {
+    let url = try #require(
+      ReportURLBuilder.buildGoogleFormURL(appVersion: "1.0.0", dbError: "boom"))
+    #expect(url.scheme == "https")
+    #expect(url.host == "docs.google.com")
+    #expect(url.path.hasPrefix("/forms/d/e/"))
+    #expect(url.path.hasSuffix("/viewform"))
+  }
+
+  @Test
+  func googleFormURLMigrationEmbedsAppVersionAndReasonError() throws {
+    let error = "SQLite error 1: no such column: foo"
+    let url = try #require(
+      ReportURLBuilder.buildGoogleFormURL(appVersion: "1.2.3", dbError: error))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let items = components.queryItems ?? []
+    #expect(items.contains { $0.name == "usp" && $0.value == "pp_url" })
+    // The migration error pre-fills the existing Reason paragraph field
+    // (entry.532267701) — no new form field was added.
+    #expect(items.contains { $0.name == "entry.532267701" && $0.value == error })
+    let values = items.compactMap { $0.value }
+    #expect(values.contains("1.2.3"))
+    // No scenario-id field on this path (matches the no-scenario variant).
+    #expect(!items.contains { $0.name == "entry.149667905" })
+  }
+
+  @Test
+  func googleFormURLMigrationRoundTripsErrorDetail() throws {
+    let error = "table シナリオ has 3 columns but 4 values supplied: a/b&c"
+    let url = try #require(
+      ReportURLBuilder.buildGoogleFormURL(appVersion: "", dbError: error))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let match = components.queryItems?.first {
+      $0.name == "entry.532267701" && $0.value == error
+    }
+    #expect(match != nil)
+  }
 }

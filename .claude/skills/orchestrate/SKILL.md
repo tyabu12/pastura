@@ -262,14 +262,14 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 1. Verify `git status` shows expected changes (no unexpected files).
 2. Read the full diff (`git diff`) to understand the changes before composing the commit message.
 3. Spot-check for obvious convention violations (nonisolated, access modifiers, dependency imports).
-4. Commit (Conventional Commits + emoji per CLAUDE.md). The commit triggers the user approval gate.
+4. Commit (Conventional Commits + emoji per CLAUDE.md). `git commit` is allowlisted; the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build), not a per-commit approval prompt.
 5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above).
 
 **Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **the orchestrator takes over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted. Then handle partial changes:
 - Run `git stash -u` to save all of Sonnet's work including untracked new files (recoverable via `git stash pop` if needed later).
 - Complete the item directly using the 🔴 complex-item flow.
 
-Note: `git commit` is NOT in the permissions allowlist — each commit triggers user approval (intentional security gate).
+Note: `git commit` is allowlisted (since #411); the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build + blocklist/gallery gates per CLAUDE.md), which runs on every commit — not a per-commit approval prompt.
 
 After all implementation, run full verification directly from the main session:
 

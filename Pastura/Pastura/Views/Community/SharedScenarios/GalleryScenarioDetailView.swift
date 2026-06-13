@@ -76,7 +76,7 @@ struct GalleryScenarioDetailView: View {
       .hidingPasturaSharedBackground()
     }
     .sheet(isPresented: $isReportSheetPresented) {
-      ReportScenarioSheet(scenario: scenario)
+      ReportScenarioSheet(context: .scenario(scenario))
         .deepLinkGated()
     }
   }

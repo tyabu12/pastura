@@ -1,0 +1,58 @@
+name: Database migration failure
+description: Report a database upgrade (migration) failure surfaced by the in-app recovery screen.
+title: "[DB migration failure] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a database recovery problem. Issues here are
+        **public** — anyone on the internet can read what you submit.
+
+        If you reached this from the app's "Database Needs Recovery"
+        screen, the error detail below is filled in for you. Please skim
+        it before submitting (see the note on that field).
+
+  - type: textarea
+    id: db_error
+    attributes:
+      label: Database error detail
+      description: |
+        The exact migration error from the recovery screen. This is a
+        technical SQLite message and may, in rare cases, include
+        fragments of your own scenario data. **Review it before
+        submitting** — this issue is public. Auto-filled when you arrive
+        from the app.
+      placeholder: "e.g. SQLite error 1: no such column: foo"
+    validations:
+      required: true
+
+  - type: input
+    id: ios_version
+    attributes:
+      label: iOS version (optional)
+      description: "Found in Settings → General → About → Software Version. Leave blank if unknown."
+      placeholder: "e.g. 18.2"
+    validations:
+      required: false
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version (optional)
+      description: "Auto-filled when you arrive from the app. Found in the Pastura Settings screen otherwise."
+      placeholder: "e.g. 1.0.0 (TestFlight build 42)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context (optional)
+      description: |
+        What you were doing when the failure appeared, the device model,
+        or any other detail. Do not include personal information — this
+        issue is public.
+    validations:
+      required: false
