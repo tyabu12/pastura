@@ -54,8 +54,9 @@ struct SettingsView: View {
   // sibling extensions.
   @Environment(AppDependencies.self) var dependencies
 
-  /// Bound to `.confirmationDialog` for the "Clear all results" row.
-  /// Not `private` — read by the `+PastResults.swift` sibling extension.
+  /// Bound to the clear-all confirmation `.alert` for the "Clear all
+  /// results" row. Not `private` — read by the `+PastResults.swift`
+  /// sibling extension.
   @State var isShowingClearAllConfirm = false
   /// Set when `deleteAll()` throws; surfaced via an alert. Not `private`
   /// — written by the `+PastResults.swift` sibling extension.
@@ -186,17 +187,16 @@ struct SettingsView: View {
       )
     )
     #if !targetEnvironment(simulator)
-      .confirmationDialog(
+      // `.alert` (not `.confirmationDialog`): iOS 26 renders a Menu-
+      // triggered confirmationDialog as a popover whose arrow anchors to
+      // the body centre. A centred alert presents correctly.
+      .alert(
         // Inline-interpolated title so VoiceOver reads the specific model name
         // rather than a generic "Delete this model?" for every row.
-        Text(
-          String(
-            localized: "Delete \(pendingDelete?.displayName ?? "this model")?"
-          )),
+        String(localized: "Delete \(pendingDelete?.displayName ?? "this model")?"),
         isPresented: Binding(
           get: { pendingDelete != nil },
           set: { if !$0 { pendingDelete = nil } }),
-        titleVisibility: .visible,
         presenting: pendingDelete
       ) { descriptor in
         Button(String(localized: "Delete"), role: .destructive) {
@@ -223,15 +223,15 @@ struct SettingsView: View {
               "Re-downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) takes a few minutes."
           ))
       }
-      // Orphaned-file delete — mirrors the per-model confirmation above.
-      // Orphans have no catalog entry, so deletion is unconditional (the
+      // Orphaned-file delete — mirrors the per-model confirmation above
+      // (also `.alert` for the iOS 26 popover-anchor reason). Orphans have
+      // no catalog entry, so deletion is unconditional (the
       // `deleteOrphanedFile` catalog-membership guard is defense-in-depth).
-      .confirmationDialog(
-        Text(String(localized: "Delete this file?")),
+      .alert(
+        String(localized: "Delete this file?"),
         isPresented: Binding(
           get: { pendingOrphanDelete != nil },
           set: { if !$0 { pendingOrphanDelete = nil } }),
-        titleVisibility: .visible,
         presenting: pendingOrphanDelete
       ) { file in
         Button(String(localized: "Delete"), role: .destructive) {
