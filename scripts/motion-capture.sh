@@ -193,12 +193,17 @@ capture_one() {
     > "$rec_log" 2>&1 &
   REC_PID=$!
   local waited=0
-  while ! grep -q "Recording started" "$rec_log" 2> /dev/null && [ "$waited" -lt 50 ]; do
+  while ! grep -q "Recording started" "$rec_log" 2> /dev/null; do
+    # Bail immediately if the recorder process already died (bad codec,
+    # device not booted, disk full) instead of spinning the full timeout.
+    kill -0 "$REC_PID" 2> /dev/null || break
+    [ "$waited" -ge 50 ] && break
     sleep 0.1
     waited=$((waited + 1))
   done
   if ! grep -q "Recording started" "$rec_log" 2> /dev/null; then
-    echo "ERROR: [$variant] recorder did not report 'Recording started'" >&2
+    echo "ERROR: [$variant] recorder never reported 'Recording started':" >&2
+    sed 's/^/  /' "$rec_log" >&2 2> /dev/null || true
     return 1
   fi
   sleep 0.3  # small safety margin so frame 0 is the static LaunchScreen
@@ -221,8 +226,12 @@ capture_one() {
   fi
 
   echo "[$variant] extracting frames @ ${FPS}fps..."
+  # Explicit guard (not bare set -e): when capture_one is called via `||` in
+  # the `all` loop, set -e is suppressed inside it, so each fallible step
+  # must check itself.
   ffmpeg -hide_banner -loglevel error -y -i "$mov" \
-    -vf "fps=$FPS" "$frame_dir/frame_%03d.png"
+    -vf "fps=$FPS" "$frame_dir/frame_%03d.png" \
+    || { echo "ERROR: [$variant] ffmpeg frame extraction failed" >&2; return 1; }
 
   local frame_count
   frame_count="$(find "$frame_dir" -name 'frame_*.png' | wc -l | tr -d ' ')"
@@ -238,18 +247,29 @@ capture_one() {
   ffmpeg -hide_banner -loglevel error -y \
     -framerate "$FPS" -pattern_type glob -i "$frame_dir/frame_*.png" \
     -vf "scale=${THUMB_W}:-1,tile=${frame_count}x1" -frames:v 1 \
-    "$variant_dir/filmstrip.png"
+    "$variant_dir/filmstrip.png" \
+    || { echo "ERROR: [$variant] ffmpeg filmstrip build failed" >&2; return 1; }
 
   rm -f "$rec_log"
   echo "[$variant] done → docs/design/motion/$variant/ (filmstrip.png + $frame_count frames)"
 }
 
+# Continue past a transient per-variant failure so one flake doesn't deny
+# the other artifacts. capture_one self-guards each fallible step, so the
+# `||` (which suppresses set -e inside the call) is safe. A plain string
+# accumulator avoids the bash 3.2 empty-array-under-`set -u` pitfall.
+FAILED=""
 if [ "$VARIANT" = "all" ]; then
   for v in cold warm reduce-motion; do
-    capture_one "$v"
+    capture_one "$v" || FAILED="$FAILED $v"
   done
 else
-  capture_one "$VARIANT"
+  capture_one "$VARIANT" || FAILED="$FAILED $VARIANT"
+fi
+
+if [ -n "$FAILED" ]; then
+  echo "Motion capture finished with failures:$FAILED" >&2
+  exit 1
 fi
 
 echo "Motion capture complete. Artifacts under docs/design/motion/ (gitignored)."

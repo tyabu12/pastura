@@ -43,7 +43,11 @@ launch transition are expected, not capture noise. Where each screen sits
 in the navigation graph: [`../navigation-map.md`](../navigation-map.md).
 
 Frame rate and per-frame width are tunable via env vars: `MOTION_FPS`
-(default 12), `MOTION_THUMB_W` (default 160 px).
+(default 12), `MOTION_THUMB_W` (default 160 px). The filmstrip width is
+`frame_count × MOTION_THUMB_W`, so a high `MOTION_FPS` makes it very wide —
+use the `frames/` sequence for fine inspection in that case. The internal
+launch-cache warm-up and settle delays are tuned for a typical Apple-silicon
+host; bump them if captures clip the splash on a slower machine.
 
 ## How the splash is forced
 
