@@ -64,7 +64,11 @@ struct ScenarioDetailView: View {
         .hidingPasturaSharedBackground()
       }
     }
-    .confirmationDialog(
+    // `.alert` (not `.confirmationDialog`): iOS 26 renders a body-attached
+    // confirmationDialog as a popover whose arrow anchors to the body
+    // centre, not the triggering control. A centred alert avoids that.
+    // Alerts don't auto-add a Cancel button, so it's added explicitly.
+    .alert(
       String(localized: "Delete Scenario?"),
       isPresented: $showDeleteConfirm
     ) {
@@ -75,6 +79,7 @@ struct ScenarioDetailView: View {
           }
         }
       }
+      Button(String(localized: "Cancel"), role: .cancel) {}
     }
     .task {
       // Defer assignment until `load()`, `refreshGalleryStatus()`, and

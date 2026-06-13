@@ -69,13 +69,21 @@ final class ResultsViewModel {
   /// Loads results into ``groups``. `scenarioId == ""` triggers Home
   /// aggregation; any non-empty id triggers Detail per-variant.
   ///
-  /// - Parameter deviceLanguage: Overridable for tests. Production
-  ///   call-sites use the default (``LocaleResolver/deviceDefault(preferredLocalizations:)``).
+  /// - Parameters:
+  ///   - deviceLanguage: Overridable for tests. Production
+  ///     call-sites use the default (``LocaleResolver/deviceDefault(preferredLocalizations:)``).
+  ///   - showLoading: When `false`, the `isLoading` spinner state is
+  ///     left untouched so the call refreshes ``groups`` in place
+  ///     without flashing the full-screen `ProgressView`. Used for the
+  ///     reappear-refresh after a per-run delete (`ResultsView`), where
+  ///     a spinner flash on every back-navigation would be a regression.
+  ///     The default (`true`) preserves the first-load behavior.
   func load(
     scenarioId: String,
-    deviceLanguage: String = LocaleResolver.deviceDefault()
+    deviceLanguage: String = LocaleResolver.deviceDefault(),
+    showLoading: Bool = true
   ) async {
-    isLoading = true
+    if showLoading { isLoading = true }
     errorMessage = nil
 
     do {
@@ -88,7 +96,7 @@ final class ResultsViewModel {
       errorMessage = String(localized: "Failed to load results: \(error.localizedDescription)")
     }
 
-    isLoading = false
+    if showLoading { isLoading = false }
   }
 
   /// Home aggregation. Buckets `fetchAll()` by canonical key

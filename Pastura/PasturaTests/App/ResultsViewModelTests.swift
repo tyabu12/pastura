@@ -144,6 +144,39 @@ struct ResultsViewModelTests {
     #expect(env.sut.errorMessage == nil)
   }
 
+  // MARK: - Silent refresh (reappear-after-delete contract)
+
+  @Test func silentRefreshUpdatesGroupsWithoutLoadingFlash() async throws {
+    let env = try makeResultsSUT()
+
+    try seedScenarioWithSimulation(
+      scenarioRepo: env.scenarioRepo, simRepo: env.simRepo,
+      scenarioId: "s1", scenarioName: "Target", simulationId: "sim1"
+    )
+
+    // First load establishes the group and settles isLoading to false.
+    await env.sut.load(scenarioId: "s1")
+    #expect(env.sut.groups.first?.rows.count == 1)
+    #expect(env.sut.isLoading == false)
+
+    // A second run is recorded for the same scenario, then a silent refresh.
+    try env.simRepo.save(
+      SimulationRecord(
+        id: "sim2", scenarioId: "s1",
+        status: SimulationStatus.completed.rawValue,
+        currentRound: 1, currentPhaseIndex: 0,
+        stateJSON: "{}", configJSON: nil,
+        createdAt: Date(), updatedAt: Date()
+      ))
+
+    await env.sut.load(scenarioId: "s1", showLoading: false)
+
+    // The silent refresh picked up the new run (it actually ran)...
+    #expect(env.sut.groups.first?.rows.count == 2)
+    // ...without flipping the spinner on (the no-flash contract).
+    #expect(env.sut.isLoading == false)
+  }
+
   // MARK: - Load Turns
 
   @Test func loadTurnsReturnsTurnRecords() async throws {

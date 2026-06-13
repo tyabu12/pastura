@@ -47,11 +47,26 @@ struct SettingsView: View {
   /// row inside the Legal section.
   @State private var isLicensesSheetPresented: Bool = false
 
+  // Lifted out of the `#if !simulator` block (where the Models section
+  // also reads it): the Past Results section's clear-all needs the
+  // simulation repository + activity registry on the simulator too.
+  // Not `private` — read by the `+PastResults.swift` and `+Models.swift`
+  // sibling extensions.
+  @Environment(AppDependencies.self) var dependencies
+
+  /// Bound to the clear-all confirmation `.alert` for the "Clear all
+  /// results" row. Not `private` — read by the `+PastResults.swift`
+  /// sibling extension.
+  @State var isShowingClearAllConfirm = false
+  /// Set when `deleteAll()` throws; surfaced via an alert. Not `private`
+  /// — written by the `+PastResults.swift` sibling extension.
+  @State var clearAllError: String?
+
   #if !targetEnvironment(simulator)
     // `internal` (not `private`): the device-only helpers in the sibling
-    // `SettingsView+Models.swift` extension read these.
+    // `SettingsView+Models.swift` extension read these. `dependencies` is
+    // shared with `+PastResults.swift`, so it lives at the top level above.
     @Environment(ModelManager.self) var modelManager
-    @Environment(AppDependencies.self) var dependencies
     @State var pendingDelete: ModelDescriptor?
     /// Descriptor whose Download action should present the DL demo cover.
     /// Bound to `.fullScreenCover(item:)` — `Identifiable` is supplied by
@@ -135,6 +150,8 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.licensesLink")
           }
         }
+
+        pastResultsSection
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
@@ -162,21 +179,29 @@ struct SettingsView: View {
       LicensesSheet()
         .deepLinkGated()
     }
+    .modifier(
+      ClearAllConfirmationModifier(
+        isPresented: $isShowingClearAllConfirm,
+        error: $clearAllError,
+        onConfirm: { await clearAllResults() }
+      )
+    )
     #if !targetEnvironment(simulator)
-      .confirmationDialog(
+      // `.alert` (not `.confirmationDialog`): iOS 26 renders a Menu-
+      // triggered confirmationDialog as a popover whose arrow anchors to
+      // the body centre. A centred alert presents correctly.
+      .alert(
         // Title carries the specific model name so VoiceOver reads it rather
         // than a generic "Delete this model?" for every row. Uses the
         // Form-B `String(format:)` path (not `String(localized: "...\(x)...")`)
         // because the interpolated form's runtime lookup key becomes the
         // substituted string, missing the catalog → English on ja (#578).
-        Text(
-          String(
-            format: String(localized: "Delete %@?"),
-            pendingDelete?.displayName ?? String(localized: "this model"))),
+        String(
+          format: String(localized: "Delete %@?"),
+          pendingDelete?.displayName ?? String(localized: "this model")),
         isPresented: Binding(
           get: { pendingDelete != nil },
           set: { if !$0 { pendingDelete = nil } }),
-        titleVisibility: .visible,
         presenting: pendingDelete
       ) { descriptor in
         Button(String(localized: "Delete"), role: .destructive) {
@@ -202,15 +227,15 @@ struct SettingsView: View {
             format: String(localized: "Re-downloading %@ takes a few minutes."),
             ModelSettingsRow.formattedFileSize(descriptor.fileSize)))
       }
-      // Orphaned-file delete — mirrors the per-model confirmation above.
-      // Orphans have no catalog entry, so deletion is unconditional (the
+      // Orphaned-file delete — mirrors the per-model confirmation above
+      // (also `.alert` for the iOS 26 popover-anchor reason). Orphans have
+      // no catalog entry, so deletion is unconditional (the
       // `deleteOrphanedFile` catalog-membership guard is defense-in-depth).
-      .confirmationDialog(
-        Text(String(localized: "Delete this file?")),
+      .alert(
+        String(localized: "Delete this file?"),
         isPresented: Binding(
           get: { pendingOrphanDelete != nil },
           set: { if !$0 { pendingOrphanDelete = nil } }),
-        titleVisibility: .visible,
         presenting: pendingOrphanDelete
       ) { file in
         Button(String(localized: "Delete"), role: .destructive) {
