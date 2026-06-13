@@ -117,29 +117,6 @@ struct ScenarioDetailView: View {
 
   // MARK: - Section scaffolding
 
-  /// A muted section header laid above a ``PasturaCard``, mirroring the
-  /// inset-grouped section structure the `List` used to provide. Pass a
-  /// `nil` title for an unheadered card (banner / actions).
-  @ViewBuilder
-  private func cardSection<Content: View>(
-    _ title: String?, @ViewBuilder content: () -> Content
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 7) {
-      if let title {
-        Text(title)
-          .font(.subheadline)
-          .foregroundStyle(Color.muted)
-          .padding(.leading, 6)
-      }
-      PasturaCard { content() }
-    }
-    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
-  }
-
-  private var rowDivider: some View {
-    Divider().overlay(Color.rule)
-  }
-
   private func infoRow(_ label: String, value: String) -> some View {
     HStack {
       Text(label).foregroundStyle(Color.ink)
@@ -155,7 +132,7 @@ struct ScenarioDetailView: View {
   @ViewBuilder
   private func galleryBannerSection(viewModel: ScenarioDetailViewModel) -> some View {
     if viewModel.hasGalleryUpdate, let entry = viewModel.galleryScenario {
-      cardSection(nil) {
+      PasturaSection {
         NavigationLink(value: Route.galleryScenarioDetail(scenario: entry)) {
           PasturaRowLabel(
             title: String(localized: "Update available from Shared Scenarios"),
@@ -164,7 +141,7 @@ struct ScenarioDetailView: View {
         .buttonStyle(.plain)
       }
     } else if viewModel.isGallerySourced {
-      cardSection(nil) {
+      PasturaSection {
         HStack(spacing: 10) {
           Image(systemName: "square.and.arrow.down.fill")
             .foregroundStyle(Color.moss)
@@ -182,17 +159,17 @@ struct ScenarioDetailView: View {
   private func overviewSection(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
-    cardSection(String(localized: "Overview")) {
+    PasturaSection(String(localized: "Overview")) {
       VStack(spacing: 0) {
         infoRow(String(localized: "Agents"), value: "\(scenario.agentCount)")
-        rowDivider
+        PasturaRowDivider()
         infoRow(String(localized: "Rounds"), value: "\(scenario.rounds)")
-        rowDivider
+        PasturaRowDivider()
         infoRow(
           String(localized: "Est. Inferences"),
           value: "\(viewModel.estimatedInferences)")
         if !scenario.description.isEmpty {
-          rowDivider
+          PasturaRowDivider()
           Text(scenario.description)
             .font(.subheadline)
             .foregroundStyle(Color.inkSecondary)
@@ -205,7 +182,7 @@ struct ScenarioDetailView: View {
   }
 
   private func contextSection(scenario: Scenario) -> some View {
-    cardSection(String(localized: "Context")) {
+    PasturaSection(String(localized: "Context")) {
       Text(scenario.context)
         .font(.subheadline)
         .foregroundStyle(Color.ink)
@@ -216,10 +193,10 @@ struct ScenarioDetailView: View {
   }
 
   private func personasSection(scenario: Scenario) -> some View {
-    cardSection(String(localized: "Personas (\(scenario.personas.count))")) {
+    PasturaSection(String(localized: "Personas (\(scenario.personas.count))")) {
       VStack(spacing: 0) {
         ForEach(Array(scenario.personas.enumerated()), id: \.element.name) { index, persona in
-          if index > 0 { rowDivider }
+          if index > 0 { PasturaRowDivider() }
           VStack(alignment: .leading, spacing: 4) {
             Text(persona.name)
               .font(.headline)
@@ -237,10 +214,10 @@ struct ScenarioDetailView: View {
   }
 
   private func phasesSection(scenario: Scenario) -> some View {
-    cardSection(String(localized: "Phases (\(scenario.phases.count))")) {
+    PasturaSection(String(localized: "Phases (\(scenario.phases.count))")) {
       VStack(spacing: 0) {
         ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
-          if index > 0 { rowDivider }
+          if index > 0 { PasturaRowDivider() }
           HStack {
             Text("\(index + 1).")
               .foregroundStyle(Color.muted)
@@ -267,7 +244,7 @@ struct ScenarioDetailView: View {
   @ViewBuilder
   private func validationSection(viewModel: ScenarioDetailViewModel) -> some View {
     if let error = viewModel.validationError {
-      cardSection(nil) {
+      PasturaSection {
         HStack(spacing: 8) {
           Image(systemName: "xmark.circle.fill")
           Text(error)
@@ -283,7 +260,7 @@ struct ScenarioDetailView: View {
   private func actionsSection(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
-    cardSection(nil) {
+    PasturaSection {
       VStack(spacing: 0) {
         // initialName supplies the scenario name to SimulationView's
         // navigationTitle from the first frame, before loadAndRun()
@@ -302,7 +279,7 @@ struct ScenarioDetailView: View {
         .opacity(viewModel.canRun ? 1 : 0.4)
         .accessibilityIdentifier("scenarioDetail.runSimulationButton")
 
-        rowDivider
+        PasturaRowDivider()
         NavigationLink(value: Route.results(scenarioId: scenarioId)) {
           PasturaRowLabel(
             title: String(localized: "Past Results"),
@@ -313,7 +290,7 @@ struct ScenarioDetailView: View {
         siblingLanguageLink(scenario: scenario, viewModel: viewModel)
 
         if let record = viewModel.record {
-          rowDivider
+          PasturaRowDivider()
           if record.isPreset || viewModel.isGallerySourced {
             // Preset and gallery rows are read-only; offer a clone-as-template
             // action instead of direct edit so users can customize safely.
@@ -350,7 +327,7 @@ struct ScenarioDetailView: View {
         scenario.language == "ja"
         ? String(localized: "View in English")
         : String(localized: "View in Japanese")
-      rowDivider
+      PasturaRowDivider()
       NavigationLink(
         value: Route.scenarioDetail(
           scenarioId: sibling.id,
