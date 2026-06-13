@@ -1,0 +1,24 @@
+{
+  "originHash" : "fixturedrift000000000000000000000000000000000000000000000000000",
+  "pins" : [
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "a27b21e0c81c0d4c6f99af3d31bcc4b85ea38c8e",
+        "version" : "6.2.2"
+      }
+    },
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift.git",
+      "state" : {
+        "revision" : "9ed8c8457e00aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version" : "7.11.0"
+      }
+    }
+  ],
+  "version" : 3
+}
