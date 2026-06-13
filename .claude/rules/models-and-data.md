@@ -77,14 +77,18 @@ scenarios (
 
 simulations (
     id TEXT PRIMARY KEY,
-    scenarioId TEXT NOT NULL REFERENCES scenarios ON DELETE CASCADE,
+    scenarioId TEXT REFERENCES scenarios ON DELETE SET NULL,  -- nullable since v7: orphan (not cascade-delete) runs on scenario delete
     status TEXT NOT NULL DEFAULT 'running',  -- running | paused | completed
     currentRound INTEGER NOT NULL DEFAULT 0,
     currentPhaseIndex INTEGER NOT NULL DEFAULT 0,
     stateJSON TEXT NOT NULL,  -- Codable SimulationState
     configJSON TEXT,
     createdAt DATETIME NOT NULL,
-    updatedAt DATETIME NOT NULL
+    updatedAt DATETIME NOT NULL,
+    modelIdentifier TEXT,         -- LLM model label (v3); NULL for pre-v3 rows
+    llmBackend TEXT,              -- LLM backend label (v3); NULL for pre-v3 rows
+    scenarioYamlSnapshot TEXT,    -- v7: source scenario YAML captured at run-creation; NULL pre-v7
+    scenarioNameSnapshot TEXT     -- v7: source scenario name captured at run-creation; NULL pre-v7
 )
 
 turns (
@@ -128,7 +132,7 @@ All records use `var` properties (GRDB convention for mutable persistence).
 | Protocol | Implementation | Key Operations |
 |----------|---------------|----------------|
 | `ScenarioRepository` | `GRDBScenarioRepository` | save (upsert), fetchById, fetchAll, fetchPresets, delete |
-| `SimulationRepository` | `GRDBSimulationRepository` | save, fetchById, fetchByScenarioId, updateState, updateStatus, delete |
+| `SimulationRepository` | `GRDBSimulationRepository` | save, fetchById, fetchByScenarioId, fetchOrphaned, updateState, updateStatus, delete |
 | `TurnRepository` | `GRDBTurnRepository` | save, saveBatch, fetchBySimulationId, fetchBySimulationAndRound, deleteBySimulationId |
 
 Repositories take `any DatabaseWriter` in their initializer. All methods are synchronous (`throws`).

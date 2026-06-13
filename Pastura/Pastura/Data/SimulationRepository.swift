@@ -13,6 +13,12 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// Fetches all simulations for a given scenario.
   func fetchByScenarioId(_ scenarioId: String) throws -> [SimulationRecord]
 
+  /// Fetches all "orphaned" simulations — runs whose source scenario was
+  /// deleted, leaving `scenarioId` NULL (the FK is `ON DELETE SET NULL`
+  /// since v7). Their display data lives in the `scenario*Snapshot` columns.
+  /// Ordered newest-first.
+  func fetchOrphaned() throws -> [SimulationRecord]
+
   /// Updates state-related fields (stateJSON, currentRound, currentPhaseIndex)
   /// without touching other columns. Used for pause/resume.
   ///
@@ -56,6 +62,16 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
     try dbWriter.read { db in
       try SimulationRecord
         .filter(Column("scenarioId") == scenarioId)
+        .order(Column("createdAt").desc)
+        .fetchAll(db)
+    }
+  }
+
+  public func fetchOrphaned() throws -> [SimulationRecord] {
+    try dbWriter.read { db in
+      // `== nil` compiles to `IS NULL` in GRDB.
+      try SimulationRecord
+        .filter(Column("scenarioId") == nil)
         .order(Column("createdAt").desc)
         .fetchAll(db)
     }

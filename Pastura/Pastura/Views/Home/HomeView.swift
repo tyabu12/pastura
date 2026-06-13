@@ -5,6 +5,26 @@ struct HomeView: View {
   @Environment(AppDependencies.self) private var dependencies
   @Environment(AppRouter.self) private var router
   @State private var viewModel: HomeViewModel?
+  @State private var pendingDeletion: PendingScenarioDeletion?
+
+  /// A user-scenario deletion awaiting confirmation. Carries the target ids
+  /// (an `.onDelete` swipe is normally one, but multi-select can batch) and
+  /// the first scenario's name for the confirmation copy.
+  private struct PendingScenarioDeletion: Identifiable {
+    let ids: [String]
+    let name: String
+    var id: String { ids.joined(separator: ",") }
+  }
+
+  /// Confirmation copy for deleting a user scenario. Since v7 the scenario
+  /// FK is `ON DELETE SET NULL`, so past runs are orphaned (kept), not
+  /// cascade-deleted — the copy reassures the user their history survives.
+  nonisolated static func scenarioDeletionMessage(name: String) -> String {
+    String(
+      format: String(
+        localized: "“%@” will be deleted. Past simulation results are kept and stay viewable."),
+      name)
+  }
 
   var body: some View {
     // `@Bindable` shadow: an `@Observable` injected via `@Environment` is
@@ -99,6 +119,17 @@ struct HomeView: View {
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
+    .confirmationDialog(
+      String(localized: "Delete Scenario?"),
+      isPresented: Binding(
+        get: { pendingDeletion != nil },
+        set: { presented in if !presented { pendingDeletion = nil } }),
+      presenting: pendingDeletion
+    ) { pending in
+      deleteConfirmationActions(pending, viewModel: viewModel)
+    } message: { pending in
+      Text(Self.scenarioDeletionMessage(name: pending.name))
+    }
     .refreshable {
       await viewModel.loadScenarios()
       await viewModel.refreshGalleryUpdateBadges(using: dependencies.galleryService)
@@ -131,14 +162,38 @@ struct HomeView: View {
           .pasturaCardRow()
         }
         .onDelete { offsets in
-          let ids = offsets.map { viewModel.userScenarios[$0].id }
-          Task {
-            for id in ids {
-              await viewModel.deleteScenario(id)
-            }
-          }
+          // Confirm before deleting — destructive and not obviously
+          // recoverable from the user's point of view. Past results survive
+          // (orphaned), but the scenario itself is gone.
+          // My Scenarios has no EditButton/multi-select, so a swipe deletes a
+          // single row — naming the first scenario in the copy is accurate.
+          let scenarios = offsets.map { viewModel.userScenarios[$0] }
+          pendingDeletion = PendingScenarioDeletion(
+            ids: scenarios.map(\.id),
+            name: scenarios.first?.name ?? "")
         }
       }
+    }
+  }
+
+  @ViewBuilder
+  private func deleteConfirmationActions(
+    _ pending: PendingScenarioDeletion, viewModel: HomeViewModel
+  ) -> some View {
+    Button(role: .destructive) {
+      Task {
+        for id in pending.ids {
+          await viewModel.deleteScenario(id)
+        }
+        pendingDeletion = nil
+      }
+    } label: {
+      Text(String(localized: "Delete"))
+    }
+    Button(role: .cancel) {
+      pendingDeletion = nil
+    } label: {
+      Text(String(localized: "Cancel"))
     }
   }
 
