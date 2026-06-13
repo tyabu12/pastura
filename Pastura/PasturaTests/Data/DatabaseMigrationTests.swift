@@ -73,6 +73,118 @@ import Testing
     #expect(gallery?.sourceType == ScenarioSourceType.gallery)
   }
 
+  @Test func v7PreservesChildRowsAndAddsNullableSnapshotColumns() throws {
+    let queue = try makeQueue()
+    let migrator = DatabaseManager.makeMigrator()
+
+    // Migrate only up to v6 — mimics an on-device DB before the
+    // scenario-snapshot rebuild (v7) shipped.
+    try migrator.migrate(queue, upTo: "v6_addPhasePathToTurnsAndCodePhaseEvents")
+
+    // Seed a scenario, a completed run referencing it, and child rows in
+    // both `turns` and `code_phase_events`. Raw SQL: the struct now knows
+    // about v7 columns the v6 schema lacks.
+    let now = Date()
+    try queue.write { db in
+      try db.execute(
+        sql: """
+          INSERT INTO scenarios (id, name, yamlDefinition, isPreset, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["sc1", "Scenario One", "yaml: one", false, now, now])
+      try db.execute(
+        sql: """
+          INSERT INTO simulations
+            (id, scenarioId, status, currentRound, currentPhaseIndex,
+             stateJSON, configJSON, createdAt, updatedAt, modelIdentifier, llmBackend)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["sim1", "sc1", "completed", 2, 0, "{}", nil, now, now, "Gemma", "llama.cpp"])
+      try db.execute(
+        sql: """
+          INSERT INTO turns
+            (id, simulationId, roundNumber, phaseType, agentName,
+             rawOutput, parsedOutputJSON, sequenceNumber, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["t1", "sim1", 1, "speak", "Alice", "raw", "{}", 0, now])
+      try db.execute(
+        sql: """
+          INSERT INTO code_phase_events
+            (id, simulationId, roundNumber, phaseType, sequenceNumber, payloadJSON, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["e1", "sim1", 1, "score_calc", 0, "{}", now])
+    }
+
+    // Apply v7 — rebuilds the `simulations` table. The deferred-FK
+    // migration must NOT cascade-delete the child rows during the rebuild.
+    try migrator.migrate(queue)
+
+    let counts = try queue.read { db in
+      (
+        turns: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM turns") ?? -1,
+        events: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM code_phase_events") ?? -1
+      )
+    }
+    #expect(counts.turns == 1)
+    #expect(counts.events == 1)
+
+    // The simulation row survives with its existing data intact and the
+    // new snapshot columns defaulting to nil for migrated rows.
+    let sim = try queue.read { db in try SimulationRecord.fetchOne(db, key: "sim1") }
+    #expect(sim?.scenarioId == "sc1")
+    #expect(sim?.modelIdentifier == "Gemma")
+    #expect(sim?.llmBackend == "llama.cpp")
+    #expect(sim?.scenarioYamlSnapshot == nil)
+    #expect(sim?.scenarioNameSnapshot == nil)
+  }
+
+  @Test func v7ChangesScenarioFKToSetNullSoScenarioDeletePreservesHistory() throws {
+    let queue = try makeQueue()
+    try DatabaseManager.makeMigrator().migrate(queue)  // full schema incl. v7
+
+    let now = Date()
+    try queue.write { db in
+      try db.execute(
+        sql: """
+          INSERT INTO scenarios (id, name, yamlDefinition, isPreset, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["sc1", "Scenario One", "yaml: one", false, now, now])
+      var sim = SimulationRecord(
+        id: "sim1", scenarioId: "sc1", status: "completed",
+        currentRound: 1, currentPhaseIndex: 0, stateJSON: "{}", configJSON: nil,
+        createdAt: now, updatedAt: now,
+        scenarioYamlSnapshot: "yaml: one", scenarioNameSnapshot: "Scenario One")
+      try sim.insert(db)
+      try db.execute(
+        sql: """
+          INSERT INTO turns
+            (id, simulationId, roundNumber, phaseType, agentName,
+             rawOutput, parsedOutputJSON, sequenceNumber, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["t1", "sim1", 1, "speak", "Alice", "raw", "{}", 0, now])
+    }
+
+    // Deleting the scenario must NOT cascade-delete the run; the FK is now
+    // ON DELETE SET NULL, so the run is orphaned but history is preserved.
+    try queue.write { db in
+      _ = try ScenarioRecord.deleteOne(db, key: "sc1")
+    }
+
+    let sim = try queue.read { db in try SimulationRecord.fetchOne(db, key: "sim1") }
+    #expect(sim != nil)
+    #expect(sim?.scenarioId == nil)
+    #expect(sim?.scenarioNameSnapshot == "Scenario One")
+    #expect(sim?.scenarioYamlSnapshot == "yaml: one")
+    let turnCount = try queue.read { db in
+      try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM turns WHERE simulationId = 'sim1'") ?? -1
+    }
+    #expect(turnCount == 1)
+  }
+
   @Test func allMigrationsApplyIdempotently() throws {
     // Applying the full migrator twice must not fail and must not duplicate work.
     let queue = try makeQueue()

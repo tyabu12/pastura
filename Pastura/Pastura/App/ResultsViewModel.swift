@@ -150,9 +150,47 @@ final class ResultsViewModel {
         ))
     }
 
+    // Surface orphaned runs (scenarioId == nil) whose source scenario was
+    // deleted. The scenario-driven loop above can't reach them, and they
+    // carry no live `sourceId`/`id`, so they group under a reserved canonical
+    // key (NUL-prefixed) that cannot collide with a live group, and are
+    // appended after the live groups regardless of name ordering.
+    let orphanGroups = try await orphanedGroups()
+
     // Stable cross-group order keyed by canonical id so reloads
-    // don't flicker.
+    // don't flicker. Orphaned (deleted-scenario) groups always sort last.
     return result.sorted { $0.canonicalKey < $1.canonicalKey }
+      + orphanGroups.sorted { $0.sectionName < $1.sectionName }
+  }
+
+  /// Reserved canonical-key prefix for orphaned-run groups. The leading NUL
+  /// guarantees no collision with a live scenario's `sourceId ?? id`.
+  private static let orphanCanonicalKeyPrefix = "\u{0}orphan:"
+
+  /// Builds groups for orphaned runs (`scenarioId IS NULL`), bucketed by the
+  /// scenario name captured in each run's snapshot.
+  private func orphanedGroups() async throws -> [ScenarioGroup] {
+    let orphans = try await offMain { [simulationRepository] in
+      try simulationRepository.fetchOrphaned()
+    }
+    guard !orphans.isEmpty else { return [] }
+
+    let byName = Dictionary(grouping: orphans) { $0.scenarioNameSnapshot }
+    return byName.map { snapshotName, sims in
+      let sectionName = snapshotName ?? String(localized: "Deleted scenario")
+      // Key on the locale-invariant snapshot name (or a fixed sentinel for
+      // the nameless case) so the group's identity / sort order never depends
+      // on the display locale — only `sectionName` carries localized text.
+      let keySuffix = snapshotName ?? "\u{0}unnamed"
+      let rows =
+        sims
+        .map { SimulationRow(record: $0, variantName: sectionName) }
+        .sorted { $0.record.createdAt > $1.record.createdAt }
+      return ScenarioGroup(
+        sectionName: sectionName,
+        canonicalKey: Self.orphanCanonicalKeyPrefix + keySuffix,
+        rows: rows)
+    }
   }
 
   /// Detail path: shows only this scenario's simulations. No cross-

@@ -113,6 +113,56 @@ nonisolated public final class DatabaseManager: Sendable {
         t.add(column: "phasePathJSON", .text)
       }
     }
+
+    registerV7(&migrator)
+  }
+
+  private static func registerV7(_ migrator: inout DatabaseMigrator) {
+    // Snapshot the source scenario into each run + relax the scenario FK so
+    // deleting/editing a scenario no longer destroys or drifts past results.
+    //
+    // SQLite cannot ALTER a column's FK action or nullability in place, so
+    // the `simulations` table is rebuilt. The default `.deferred` foreign-key
+    // policy runs this body with `PRAGMA foreign_keys = OFF` (GRDB follows the
+    // SQLite "other kinds of table schema changes" recipe), so dropping the
+    // old table does NOT cascade-delete the child `turns` /
+    // `code_phase_events` rows; integrity is re-verified at commit.
+    migrator.registerMigration("v7_snapshotScenarioAndRelaxScenarioFK") { db in
+      try db.create(table: "new_simulations") { t in
+        t.primaryKey("id", .text)
+        // Nullable + SET NULL (was NOT NULL + CASCADE): orphan runs on
+        // scenario deletion instead of cascade-deleting their history.
+        t.column("scenarioId", .text)
+          .references("scenarios", onDelete: .setNull)
+        t.column("status", .text).notNull().defaults(to: "running")
+        t.column("currentRound", .integer).notNull().defaults(to: 0)
+        t.column("currentPhaseIndex", .integer).notNull().defaults(to: 0)
+        t.column("stateJSON", .text).notNull()
+        t.column("configJSON", .text)
+        t.column("createdAt", .datetime).notNull()
+        t.column("updatedAt", .datetime).notNull()
+        t.column("modelIdentifier", .text)
+        t.column("llmBackend", .text)
+        t.column("scenarioYamlSnapshot", .text)
+        t.column("scenarioNameSnapshot", .text)
+      }
+
+      // Copy existing rows. Snapshot columns stay NULL for migrated runs —
+      // they fall back to the live scenario via `scenarioId` while it exists.
+      try db.execute(
+        sql: """
+          INSERT INTO new_simulations
+            (id, scenarioId, status, currentRound, currentPhaseIndex,
+             stateJSON, configJSON, createdAt, updatedAt, modelIdentifier, llmBackend)
+          SELECT
+            id, scenarioId, status, currentRound, currentPhaseIndex,
+            stateJSON, configJSON, createdAt, updatedAt, modelIdentifier, llmBackend
+          FROM simulations
+          """)
+
+      try db.drop(table: "simulations")
+      try db.rename(table: "new_simulations", to: "simulations")
+    }
   }
 
   private static func registerV1(_ migrator: inout DatabaseMigrator) {

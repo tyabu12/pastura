@@ -118,7 +118,7 @@ import Testing
     #expect(fetched?.llmBackend == nil)
   }
 
-  @Test func cascadeDeleteFromScenario() throws {
+  @Test func deletingScenarioSetsSimulationScenarioIdNull() throws {
     let manager = try makeManagerWithScenario()
     let now = Date()
 
@@ -132,8 +132,11 @@ import Testing
 
       try db.execute(sql: "DELETE FROM scenarios WHERE id = ?", arguments: ["s1"])
 
-      let count = try SimulationRecord.fetchCount(db)
-      #expect(count == 0)
+      // v7 FK is ON DELETE SET NULL: the run survives (history preserved)
+      // with a nil scenarioId instead of being cascade-deleted.
+      let fetched = try SimulationRecord.fetchOne(db, key: "sim1")
+      #expect(fetched != nil)
+      #expect(fetched?.scenarioId == nil)
     }
   }
 

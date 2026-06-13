@@ -130,7 +130,9 @@ enum ModelRegistry {
   }
 
   /// Precondition-checks the production catalog for duplicate `id` / `fileName` values.
-  /// Call once at app launch (future Item — this PR only provides the API).
+  /// Called once at app launch from `PasturaApp.initialize()` to fail fast on
+  /// catalog collisions before they can corrupt `ModelManager.state` lookups
+  /// or filesystem paths.
   nonisolated static func validateNoCollisions() {
     let reasons = findCollisions(in: catalog)
     precondition(
