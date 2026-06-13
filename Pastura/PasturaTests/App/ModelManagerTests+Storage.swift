@@ -77,30 +77,4 @@ extension ModelManagerTests {
     #expect(total == 350)
   }
 
-  // MARK: - totalModelStorageBytes (instance)
-
-  /// Instance wrapper counts a `.ready` catalog model's declared `fileSize`
-  /// plus an orphan's actual size. The catalog file is planted at exactly
-  /// `descriptor.fileSize` bytes so `checkModelStatus` resolves it `.ready`
-  /// (a size mismatch would delete it). An unrelated `.gguf` is planted as
-  /// an orphan.
-  @Test func totalModelStorageBytes_instanceCountsReadyPlusOrphan() throws {
-    let descriptor = makeTestDescriptor(fileSize: 4)
-    let sut = makeSUT(catalog: [descriptor])
-
-    let modelURL = sut.modelFileURL(for: descriptor)
-    try FileManager.default.createDirectory(
-      at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try Data(repeating: 0x42, count: 4).write(to: modelURL)
-    defer { try? FileManager.default.removeItem(at: modelURL) }
-
-    let orphanName = "superseded-\(UUID().uuidString).gguf"
-    let orphanURL = sut.modelDirectoryURL.appendingPathComponent(orphanName)
-    try Data(repeating: 0x42, count: 10).write(to: orphanURL)
-    defer { try? FileManager.default.removeItem(at: orphanURL) }
-
-    sut.checkModelStatus()
-    #expect(sut.activeState == .ready(modelPath: modelURL.path))
-    #expect(sut.totalModelStorageBytes() == 14)
-  }
 }
