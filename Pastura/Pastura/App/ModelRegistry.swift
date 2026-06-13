@@ -20,6 +20,21 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 /// `ModelManager` consumes this catalog to resolve per-model file paths,
 /// download URLs, and integrity checks. `LlamaCppService` consumes individual
 /// descriptors for prompt-format hints (`stopSequence`, `systemPromptSuffix`).
+///
+/// ### Model-update (supersede) convention
+///
+/// A `ModelDescriptor` is immutable and there is no `version` field, so
+/// *updating* a model means shipping a new entry here with a new `id` AND a
+/// new `fileName`, and removing the old entry. (In-place updates without an
+/// app release are the job of the deferred "Remote model manifest" — see
+/// ROADMAP "Technical Debt to Address".)
+///
+/// The superseded GGUF stays on disk. Because `ModelManager.checkModelStatus`
+/// only iterates the *live* catalog, that file becomes an orphan with no
+/// per-model row. `ModelManager.orphanedModelFiles()` detects it and Settings
+/// → Models surfaces it as an "Unused model file" row for manual deletion —
+/// it is never silent-auto-deleted (consistent with ADR-015's
+/// no-silent-auto-delete posture). See #548.
 enum ModelRegistry {
   nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
     id: "gemma-4-e2b-q4-k-m",
