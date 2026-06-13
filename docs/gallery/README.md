@@ -156,6 +156,11 @@ entry:
 Then continue with step 2 (`add-gallery-entry.sh`) below — step 1's
 drafting is already done.
 
+> **Automation trigger:** if you have hand-run this bridge ≥3 times, or
+> the factory becomes a scheduled Routine, graduate steps 1–3 to
+> `scripts/promote-factory-to-gallery.sh` (curation stays manual — the
+> script takes an explicit slug). Tracked in #542.
+
 ### 1. Draft the YAML
 
 Write `docs/gallery/<id>.yaml` following the existing examples. Keep
