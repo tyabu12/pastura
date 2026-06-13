@@ -1080,6 +1080,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   ) async {
     do {
       let stateJSON = try JSONEncoder().encode(state)
+      // Snapshot the scenario that actually ran by re-serializing the live
+      // domain object — NOT by re-fetching the persisted record by id. The
+      // domain object is always in hand here, so the snapshot is faithful to
+      // this run and independent of whether/when the scenario row is later
+      // edited or deleted. Read paths reconstruct from this when `scenarioId`
+      // is nil (scenario deleted) or to avoid edit-drift while it still exists.
+      let scenarioYamlSnapshot = ScenarioSerializer().serialize(scenario)
       let record = SimulationRecord(
         id: simId,
         scenarioId: scenario.id,
@@ -1091,7 +1098,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         createdAt: Date(),
         updatedAt: Date(),
         modelIdentifier: llm.modelIdentifier,
-        llmBackend: llm.backendIdentifier
+        llmBackend: llm.backendIdentifier,
+        scenarioYamlSnapshot: scenarioYamlSnapshot,
+        scenarioNameSnapshot: scenario.name
       )
       try await offMain { [simulationRepository] in
         try simulationRepository.save(record)
