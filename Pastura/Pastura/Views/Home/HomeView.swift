@@ -19,6 +19,7 @@ struct HomeView: View {
           ProgressView()
         }
       }
+      .background(Color.screenBackground.ignoresSafeArea())
       .navigationTitle("Pastura")
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -72,6 +73,7 @@ struct HomeView: View {
         Section(String(localized: "Presets")) {
           ForEach(viewModel.presets, id: \.id) { scenario in
             scenarioRow(scenario)
+              .pasturaCardRow()
           }
         }
       }
@@ -80,15 +82,23 @@ struct HomeView: View {
 
       Section {
         NavigationLink(value: Route.sharedScenarios) {
-          Label(String(localized: "Shared Scenarios"), systemImage: "square.grid.2x2.fill")
+          navRowLabel(
+            title: String(localized: "Shared Scenarios"),
+            systemImage: "square.grid.2x2.fill")
         }
         .accessibilityIdentifier("home.sharedScenariosButton")
+        .pasturaCardRow()
         NavigationLink(value: Route.results(scenarioId: "")) {
-          Label(String(localized: "Past Results"), systemImage: "clock.arrow.circlepath")
+          navRowLabel(
+            title: String(localized: "Past Results"),
+            systemImage: "clock.arrow.circlepath")
         }
         .accessibilityIdentifier("home.pastResultsButton")
+        .pasturaCardRow()
       }
     }
+    .listStyle(.insetGrouped)
+    .scrollContentBackground(.hidden)
     .refreshable {
       await viewModel.loadScenarios()
       await viewModel.refreshGalleryUpdateBadges(using: dependencies.galleryService)
@@ -116,7 +126,9 @@ struct HomeView: View {
       } else {
         ForEach(viewModel.userScenarios, id: \.id) { scenario in
           scenarioRow(
-            scenario, hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id))
+            scenario, hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
+          )
+          .pasturaCardRow()
         }
         .onDelete { offsets in
           let ids = offsets.map { viewModel.userScenarios[$0].id }
@@ -154,6 +166,7 @@ struct HomeView: View {
       HStack(spacing: 6) {
         Text(scenario.name)
           .font(.headline)
+          .foregroundStyle(Color.ink)
         if hasGalleryUpdate {
           Text(String(localized: "Update"))
             .font(.caption2.bold())
@@ -173,6 +186,18 @@ struct HomeView: View {
       }
     }
     .padding(.vertical, 2)
+  }
+
+  /// Navigation-row label that keeps the moss-tinted icon (brand accent)
+  /// while inking the title — `Label`'s single `foregroundStyle` can't
+  /// split the two, so the icon + text are composed by hand.
+  private func navRowLabel(title: String, systemImage: String) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: systemImage)
+        .foregroundStyle(Color.moss)
+      Text(title)
+        .foregroundStyle(Color.ink)
+    }
   }
 
   @ViewBuilder
@@ -218,6 +243,26 @@ struct HomeView: View {
       }
     #endif
     return .editor()
+  }
+}
+
+extension View {
+  /// Renders a `List` row as a flat ``PasturaCard``: white
+  /// ``PasturaCardSurface`` (1pt `rule` border, 14pt radius, no shadow),
+  /// inset vertically by half ``PasturaCardMetrics/interCardSpacing`` so
+  /// adjacent rows read as separate cards, separators hidden.
+  ///
+  /// Home stays on `List` (for swipe-`.onDelete`); this is the List-host
+  /// counterpart to the `ScrollView` ``PasturaCard`` container used on the
+  /// other browse screens, sharing the same metrics so the card form
+  /// matches across hosts.
+  fileprivate func pasturaCardRow() -> some View {
+    self
+      .listRowSeparator(.hidden)
+      .listRowBackground(
+        PasturaCardSurface()
+          .padding(.vertical, PasturaCardMetrics.interCardSpacing / 2)
+      )
   }
 }
 
