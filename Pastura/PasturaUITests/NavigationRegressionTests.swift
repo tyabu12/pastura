@@ -55,11 +55,11 @@ final class NavigationRegressionTests: XCTestCase {
       tryButton.waitForExistence(timeout: 5), "Try button missing on gallery detail.")
     tryButton.tap()
 
-    // After install, `pushIfOnTop` advances to the installed ScenarioDetailView.
-    // Scroll the List so the actionsSection (below the fold after overview,
-    // context, personas, phases, validation) enters the accessibility tree —
-    // SwiftUI Lists lazy-render offscreen rows.
-    let detailList = app.collectionViews.firstMatch
+    // After install, `pushIfOnTop` advances to the installed ScenarioDetailView
+    // (now a ScrollView of PasturaCards). Scroll so the actions card (below the
+    // overview / context / personas / phases cards) enters the accessibility
+    // tree before asserting on the Run Simulation row.
+    let detailList = app.scrollViews["scenarioDetail.list"]
     XCTAssertTrue(
       detailList.waitForExistence(timeout: 10),
       "ScenarioDetailView did not appear after install.")
