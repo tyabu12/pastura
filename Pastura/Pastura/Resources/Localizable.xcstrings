@@ -1341,6 +1341,36 @@
         }
       }
     },
+    "Clear all results" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての結果を削除"
+          }
+        }
+      }
+    },
+    "Clear all results?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての結果を削除しますか?"
+          }
+        }
+      }
+    },
+    "Clear failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除に失敗しました"
+          }
+        }
+      }
+    },
     "Close" : {
       "localizations" : {
         "ja" : {
@@ -1477,6 +1507,26 @@
         }
       }
     },
+    "Couldn't clear results: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果を削除できませんでした: %@"
+          }
+        }
+      }
+    },
+    "Couldn't delete this run: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果を削除できませんでした: %@"
+          }
+        }
+      }
+    },
     "Couldn't start the download. Please try again." : {
       "localizations" : {
         "ja" : {
@@ -1604,6 +1654,16 @@
         }
       }
     },
+    "Delete failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除に失敗しました"
+          }
+        }
+      }
+    },
     "Delete this file?" : {
       "localizations" : {
         "en" : {
@@ -1616,6 +1676,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このファイルを削除しますか？"
+          }
+        }
+      }
+    },
+    "Delete this run?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果を削除しますか?"
           }
         }
       }
@@ -1682,6 +1752,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "詳細"
+          }
+        }
+      }
+    },
+    "Developer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開発者向け"
           }
         }
       }
@@ -2063,12 +2144,33 @@
         }
       }
     },
+    "Export as Markdown" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Markdownでエクスポート"
+          }
+        }
+      }
+    },
     "Export failed" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "エクスポートに失敗しました"
+          }
+        }
+      }
+    },
+    "Export for demo replay" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デモ再生用にエクスポート"
           }
         }
       }
@@ -2273,6 +2375,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ファイル"
+          }
+        }
+      }
+    },
+    "Finish the current simulation before clearing results." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果を削除する前に、実行中のシミュレーションを終了してください。"
           }
         }
       }
@@ -4416,6 +4528,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このリンクは Pastura の想定する形式と一致しません。"
+          }
+        }
+      }
+    },
+    "This permanently removes every past run and its conversation log. This can't be undone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての過去の結果と会話ログを完全に削除します。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "This permanently removes this run and its conversation log. This can't be undone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この結果と会話ログを完全に削除します。この操作は取り消せません。"
           }
         }
       }

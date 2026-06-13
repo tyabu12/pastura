@@ -6,6 +6,11 @@ struct ResultsView: View {
 
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: ResultsViewModel?
+  /// Gates the reappear refresh so it doesn't double-load on first
+  /// appearance: `.onAppear` fires before `.task`, so until `.task` has
+  /// created the view model and finished the first load this stays
+  /// `false` and `onAppear` is a no-op.
+  @State private var didInitialLoad = false
 
   var body: some View {
     Group {
@@ -41,6 +46,17 @@ struct ResultsView: View {
         turnRepository: dependencies.turnRepository
       )
       await viewModel?.load(scenarioId: scenarioId)
+      didInitialLoad = true
+    }
+    // Re-fetch when the list reappears (e.g. after a per-run delete in
+    // ResultDetailView pops back) so the deleted run drops out. Silent
+    // (`showLoading: false`) to avoid a spinner flash on every back-nav.
+    // NOTE: the Home path (`scenarioId == ""`) re-runs the unpaginated
+    // N+1 aggregation each time — acceptable at current scale; pagination
+    // is deferred (#545 stretch item / ADR-015 §4).
+    .onAppear {
+      guard didInitialLoad, let viewModel else { return }
+      Task { await viewModel.load(scenarioId: scenarioId, showLoading: false) }
     }
   }
 

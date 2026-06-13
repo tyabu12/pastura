@@ -147,4 +147,35 @@ import Testing
     let fetched = try simRepo.fetchById("sim1")
     #expect(fetched == nil)
   }
+
+  @Test func deleteAllRemovesEveryRunAndCascades() throws {
+    // Inline setup so we can share the same DatabaseManager across repos
+    // without touching makeRepos() and its existing call sites.
+    let manager = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: manager.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: manager.dbWriter)
+
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "s1", name: "Test", yamlDefinition: "yaml",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    try simRepo.save(makeSimRecord(id: "sim1"))
+    try simRepo.save(makeSimRecord(id: "sim2"))
+
+    try turnRepo.save(
+      TurnRecord(
+        id: "t1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "raw",
+        parsedOutputJSON: #"{"statement":"hello"}"#,
+        createdAt: Date()))
+
+    try simRepo.deleteAll()
+
+    #expect(try simRepo.fetchById("sim1") == nil)
+    #expect(try simRepo.fetchById("sim2") == nil)
+    #expect(try turnRepo.fetchBySimulationId("sim1").isEmpty)
+  }
 }
