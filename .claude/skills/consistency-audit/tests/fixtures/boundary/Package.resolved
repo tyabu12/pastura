@@ -1,0 +1,15 @@
+{
+  "originHash" : "fixtureboundary00000000000000000000000000000000000000000000000",
+  "pins" : [
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift.git",
+      "state" : {
+        "revision" : "9ed8c8457e00aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version" : "7.11.0"
+      }
+    }
+  ],
+  "version" : 3
+}
