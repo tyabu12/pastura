@@ -65,4 +65,26 @@ struct DataErrorTests {
     #expect(error.errorDescription?.contains("read-only") ?? false)
     #expect(error.errorDescription?.contains("scenario-42") ?? false)
   }
+
+  // MARK: - isRecoverable (issue #546)
+
+  @Test func migrationFailureIsRecoverable() {
+    // A deterministic migration failure on an existing valid DB re-fails on
+    // every plain retry, so backup-and-recreate is the only escape.
+    #expect(DataError.migrationFailed(description: "v7 conflict").isRecoverable)
+  }
+
+  @Test func databaseOpenFailureIsNotRecoverable() {
+    // An un-openable file is as often a transient environmental condition
+    // (disk full, permission, file held open) as a corrupt file, so reset is
+    // the wrong default — it keeps the plain retry path.
+    #expect(!DataError.databaseOpenFailed(description: "no space").isRecoverable)
+  }
+
+  @Test func nonInitErrorsAreNotRecoverable() {
+    #expect(!DataError.recordNotFound(type: "X", id: "1").isRecoverable)
+    #expect(!DataError.encodingFailed(description: "e").isRecoverable)
+    #expect(!DataError.decodingFailed(description: "d").isRecoverable)
+    #expect(!DataError.readonly(id: "r").isRecoverable)
+  }
 }

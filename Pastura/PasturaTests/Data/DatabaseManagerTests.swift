@@ -63,6 +63,59 @@ import Testing
     }
   }
 
+  // MARK: - persistent(at:) failure mapping (issue #546)
+
+  private func makeTempDBPath() -> String {
+    FileManager.default.temporaryDirectory
+      .appendingPathComponent("dbmgr-\(UUID().uuidString).sqlite").path
+  }
+
+  /// Seeds a file that opens fine as SQLite but whose pre-existing
+  /// `scenarios` table collides with v1's `CREATE TABLE scenarios`, so the
+  /// next `applyMigrations` fails from inside `migrate()`. The queue is
+  /// scoped to this call so it deallocs (releasing the file) before reopen.
+  private func seedConflictingScenariosTable(at path: String) throws {
+    let seed = try DatabaseQueue(path: path)
+    try seed.write { db in
+      try db.execute(sql: "CREATE TABLE scenarios (foo TEXT)")
+    }
+  }
+
+  @Test func persistentMigrationFailureSurfacesAsMigrationFailed() throws {
+    let path = makeTempDBPath()
+    defer { try? FileManager.default.removeItem(atPath: path) }
+    try seedConflictingScenariosTable(at: path)
+
+    do {
+      _ = try DatabaseManager.persistent(at: path)
+      Issue.record("expected persistent(at:) to throw on migration conflict")
+    } catch let error as DataError {
+      guard case .migrationFailed = error else {
+        Issue.record("expected .migrationFailed, got \(error)")
+        return
+      }
+    }
+  }
+
+  @Test func persistentOpenFailureSurfacesAsDatabaseOpenFailed() {
+    // A path whose parent directory does not exist cannot be opened/created
+    // by SQLite — the failure originates at the open `try` site.
+    let path = FileManager.default.temporaryDirectory
+      .appendingPathComponent("no-such-dir-\(UUID().uuidString)/db.sqlite").path
+
+    do {
+      _ = try DatabaseManager.persistent(at: path)
+      Issue.record("expected persistent(at:) to throw on un-openable path")
+    } catch let error as DataError {
+      guard case .databaseOpenFailed = error else {
+        Issue.record("expected .databaseOpenFailed, got \(error)")
+        return
+      }
+    } catch {
+      Issue.record("expected DataError, got \(error)")
+    }
+  }
+
   @Test func deletingScenarioOrphansSimulationsViaSetNull() throws {
     let manager = try DatabaseManager.inMemory()
     try manager.dbWriter.write { db in

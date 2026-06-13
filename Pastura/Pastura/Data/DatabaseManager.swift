@@ -25,9 +25,25 @@ nonisolated public final class DatabaseManager: Sendable {
   }
 
   /// Creates a persistent database at the given file path.
+  ///
+  /// Failures are mapped to typed `DataError` cases so the App layer can tell
+  /// a recoverable migration failure (issue #546) from an open failure:
+  /// the open `try` maps to `.databaseOpenFailed`, the migration `try` (via
+  /// `init` → `applyMigrations`) to `.migrationFailed`. `init` only throws
+  /// from `applyMigrations` today; if future init work adds other throw
+  /// sites, revisit this blanket relabel.
   public static func persistent(at path: String) throws -> DatabaseManager {
-    let dbQueue = try DatabaseQueue(path: path, configuration: Self.makeConfiguration())
-    return try DatabaseManager(dbWriter: dbQueue)
+    let dbQueue: DatabaseQueue
+    do {
+      dbQueue = try DatabaseQueue(path: path, configuration: Self.makeConfiguration())
+    } catch {
+      throw DataError.databaseOpenFailed(description: error.localizedDescription)
+    }
+    do {
+      return try DatabaseManager(dbWriter: dbQueue)
+    } catch {
+      throw DataError.migrationFailed(description: error.localizedDescription)
+    }
   }
 
   /// Applies all registered migrations to the given database writer.
