@@ -168,3 +168,65 @@ is left modified in the working tree — committing it (and any promotion
 PR — bundled preset or shared-scenario gallery; see the digest's
 promotion footer for the two channels) goes through the normal
 `/orchestrate` flow; this skill does not commit or push.
+
+## Scheduling (how the unattended nightly run works)
+
+- **The skill never self-registers** (see Non-goals "No scheduled
+  execution"). Scheduling is an operator action: a **Claude Desktop
+  *local* Routine** invokes `/scenario-factory`. Cloud routines are
+  unusable here — generation + judging burn the on-device llama.cpp +
+  GGUF harness, which a cloud clone can't reach. (The prior 04:07
+  CronCreate registration is abandoned: CronCreate's durable flag does
+  not hold, so it expires within ~7 days.)
+- **worktree toggle OFF — mandatory.** Unlike queue-consumer /
+  consistency-audit (whose scheduled runs use a routine-provided
+  worktree because they leave *nothing* in the working tree), the factory
+  leaves `data/factory/digest.md` modified. Its `append_digest.py` takes
+  a **required `--digest`** path and writes it verbatim — it does **not**
+  resolve the main checkout via `git rev-parse --git-common-dir` the way
+  queue-consumer's does. So under a worktree the append lands in the
+  worktree copy and is **lost when the worktree is torn down**. Run OFF,
+  in the main checkout. (This is the one bullet that *inverts* the
+  consistency-audit § Scheduling shape — there worktree is ON, here it
+  must be OFF, for that reason.)
+- **Routine recipe** (Desktop → Routines → New routine):
+  - **Type**: Local
+  - **Name**: `scenario-factory-nightly`
+  - **Working folder**: `/Users/tyabu12/Work/pastura`
+  - **worktree toggle**: **OFF** (above)
+  - **Schedule**: Daily, **4:07 AM** — clear of the queue-consumer 1:30
+    window (factory's ~30 min run ends well before, and well after 1:30
+    finishes). A shared checkout + local inference/sim contention means
+    family routines must not overlap; future routines avoid this ±30 min
+    window too.
+  - **Permission mode**: set to **`acceptEdits`** (do not use
+    `bypassPermissions`). `acceptEdits` auto-accepts the in-session file
+    writes (generated YAMLs); least-privilege, matching the rest of the
+    family.
+  - **Instructions**: run the skill, then commit the digest **only when on
+    `main`** (worktree-OFF means the run inherits whatever branch the main
+    checkout sits on — without this guard a stray feature-branch checkout
+    would receive the digest commit):
+
+    ```bash
+    /scenario-factory
+    # then, the scheduling wrapper commits the cycle's only artifact:
+    [ "$(git symbolic-ref --quiet --short HEAD)" = "main" ] || {
+      echo "not on main — leaving digest uncommitted"; exit 0; }
+    git add data/factory/digest.md
+    git commit -m "📝 chore: scenario-factory nightly digest"
+    ```
+
+    The commit lives in the **wrapper, not the skill body** — the skill's
+    "does not commit or push" invariant stays intact, so a *manual*
+    `/scenario-factory` still leaves the digest for a human to commit via
+    `/orchestrate`. The scheduled run committing its own digest is the
+    factory analogue of queue-consumer auto-creating its Draft PR (the
+    digest is the cycle's only repo-visible artifact).
+- **No settings.json change at schedule time.** `git add` / `git commit` /
+  `swift build` are already allowlisted, and the factory helper scripts
+  (`run_scenario.sh`, `append_digest.py`, `format_transcript.py`) are
+  allowlisted too — so an unattended run needs no first-run "always
+  allow" warming. Purely local: no `gh`, no network, no push.
+- **Environment prerequisites**: AC power, the machine awake (non-sleep),
+  and idle at fire time — the cycle burns local GGUF inference.
