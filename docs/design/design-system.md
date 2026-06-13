@@ -78,7 +78,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.5 キャラクターパレット（羊アバター）
 
-> **Source of Truth**: `docs/design/demo-replay-reference.html` の `sheepAvatar()` (lines 309-312) が原点。本テーブルはその mirror で、Swift `Pastura/Views/DesignTokens.swift` の `PasturaPalette.avatar*` トークンが本テーブルを参照する。HTML 内の letters mode `.ava.<who>` 背景色 (lines 94-98) は HTML-only ornament で iOS では未レンダー、scope 外。命名規約: 共有部位は `avatarPart`（例: `avatarEar`）、キャラ別部位は `avatarPartCharacter`（例: `avatarBodyAlice`）。enforcement 層: `Pastura/PasturaTests/Views/DesignTokensTests.swift`。
+> **Source of Truth**: `docs/design/demo-replay-reference.html` の `sheepAvatar()` 関数が原点。本テーブルはその mirror で、Swift `Pastura/Views/DesignTokens.swift` の `PasturaPalette.avatar*` トークンが本テーブルを参照する。HTML 内の letters mode `.ava.<who>` セレクタの背景色は HTML-only ornament で iOS では未レンダー、scope 外。命名規約: 共有部位は `avatarPart`（例: `avatarEar`）、キャラ別部位は `avatarPartCharacter`（例: `avatarBodyAlice`）。enforcement 層: `Pastura/PasturaTests/Views/DesignTokensTests.swift`。
 
 | キャラ | body | face | horn | 役割 |
 |-------|------|------|------|------|

@@ -1,0 +1,61 @@
+<!-- @dsCard group="Components" name="Vote bubble" subtitle="Vote target outline button + REASON set (§5.3)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Vote bubble</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .screen { width: 390px; background: var(--screen-bg); border: 1px solid var(--rule); border-radius: var(--sp-m); padding: var(--sp-l); margin: 0 auto; }
+  .row { display: flex; gap: 10px; }
+  .row .ava { width: 48px; height: 48px; flex: none; }
+  .row .ava svg { width: 100%; height: 100%; display: block; }
+  .who { color: var(--ink-2); margin: 2px 0 6px; }
+  .vote-btn {
+    display: inline-block;
+    border: 1px solid var(--moss);
+    color: var(--moss-dark);
+    background: var(--bubble-bg);
+    border-radius: var(--radius-button);
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .reason { margin-top: var(--sp-xs); border-left: 2px solid var(--moss-soft); padding-left: 10px; }
+  .reason .tag { color: var(--muted); display: block; margin-bottom: 2px; }
+  .reason .body { color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Vote bubble (§5.3)</p>
+
+  <div class="section">
+    <p class="section-label">投票先は --moss 1pt outline・文字 --moss-dark のボタン風。REASON は thinking/tag + thinking/body のセット</p>
+    <div class="screen">
+      <div class="row">
+        <div class="ava">
+          <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="14" cy="15" r="8" fill="var(--avatar-body-alice)"/><circle cx="9" cy="13" r="3.2" fill="var(--avatar-body-alice)"/><circle cx="19" cy="13" r="3.2" fill="var(--avatar-body-alice)"/><circle cx="11" cy="18" r="3" fill="var(--avatar-body-alice)"/><circle cx="17" cy="18" r="3" fill="var(--avatar-body-alice)"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--avatar-face-alice)"/><circle cx="12.6" cy="14.8" r=".7" fill="var(--avatar-eye)"/><circle cx="15.4" cy="14.8" r=".7" fill="var(--avatar-eye)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="var(--avatar-horn-alice)" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="var(--avatar-horn-alice)" stroke-width="1" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="col">
+          <div class="who t-caption-name">Alice の投票</div>
+          <span class="vote-btn">→ Dave</span>
+          <div class="reason">
+            <span class="tag t-thinking-tag">reason</span>
+            <span class="body t-thinking-body">「散歩」って言葉、他の人も使ってない。お題が違うのかも。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">投票ボタンの角丸は 8pt（§4.2）。祝祭的な強調はしない — 結果発表も「観察」のトーンを保つ（§1 / §7）。</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!-- @dsCard group="Colors" name="Alert family & interactive states" subtitle="info/success/warning/danger + hover/pressed/selected + link (§2.6–2.8)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Alert family &amp; interactive states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .toast {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-s);
+    border-radius: var(--radius-promo);
+    padding: 10px var(--sp-m);
+    margin: 6px 0;
+    border-left: 3px solid;
+    font-size: 12px;
+    line-height: 1.65;
+  }
+  .state-demo {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: var(--radius-button);
+    border: 1px solid var(--rule);
+    background: var(--bubble-bg);
+    font-size: 11px;
+    margin: 4px 6px 4px 0;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Alert family &amp; interactive states</p>
+
+  <div class="section">
+    <p class="section-label">§2.6 Alert Family — base / Soft（背景）/ Ink（文字）の温度4段階</p>
+    <div class="toast" style="background:var(--info-soft);border-color:var(--info);color:var(--info-ink)">info — 新しいデモが届きました <span class="val" style="margin-left:auto">#7B8FA8 / #E8EDF2 / #4A5A6F</span></div>
+    <div class="toast" style="background:var(--success-soft);border-color:var(--success);color:var(--success-ink)">success — ダウンロードが終わりました <span class="val" style="margin-left:auto">#7A9270 / #E5ECDF / #4D5F44</span></div>
+    <div class="toast" style="background:var(--warning-soft);border-color:var(--warning);color:var(--warning-ink)">warning — ダウンロードが一時停止されました <span class="val" style="margin-left:auto">#C7A566 / #F2EAD3 / #6F5C2D</span></div>
+    <div class="toast" style="background:var(--danger-soft);border-color:var(--danger);color:var(--danger-ink)">danger — 会話を削除しますか？ <span class="val" style="margin-left:auto">#B57870 / #EDD9D4 / #6F4540</span></div>
+    <p class="section-note">運用ルール: Cancel ボタンは赤くしない（文字 <code>--ink-2</code>・背景透明・必要時のみ枠 <code>--rule</code>）。danger は破壊確認ダイアログのプライマリボタンと実破壊状態のみ。トーストは 1pt アクセント左ボーダー + Soft 背景 + 14pt 角丸（ここでは見本として 3pt 左ボーダーで誇張表示）。</p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.7 Interactive States — moss を 6/12/18% alpha で重ねる</p>
+    <div>
+      <span class="state-demo">resting</span>
+      <span class="state-demo" style="background:var(--state-hover)">hover rgba(138,154,108,.06)</span>
+      <span class="state-demo" style="background:var(--state-pressed)">pressed rgba(138,154,108,.12)</span>
+      <span class="state-demo" style="background:var(--state-selected)">selected rgba(138,154,108,.18)</span>
+    </div>
+    <div style="margin-top:10px">
+      <span class="state-demo" style="outline:2px solid var(--focus-ring);outline-offset:2px">focus ring #8A9A6C（2pt / 2pt offset）</span>
+      <span class="state-demo" style="background:var(--disabled-bg);border-color:var(--disabled-bg);color:var(--disabled-text)">disabled #B5B0A2 / #ECE7DA</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">§2.8 Link / Action（未使用予約 — "system blue" を発生させないため）</p>
+    <div class="sw"><span class="chip" style="background:var(--link)"></span><span class="name">--link</span><span class="val">#5D7A4D</span><span class="use">デフォルトリンク（moss 寄りの深緑）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--link-visited)"></span><span class="name">--link-visited</span><span class="val">#6F6753</span><span class="use">訪問後（苔→土へ）</span></div>
+    <div class="sw"><span class="chip" style="background:var(--link-hover)"></span><span class="name">--link-hover</span><span class="val">#4A6438</span><span class="use">hover 時</span></div>
+  </div>
+</div>
+</body>
+</html>

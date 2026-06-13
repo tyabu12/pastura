@@ -9,7 +9,7 @@ import SwiftUI
 // the doc wins — fix this file, not the doc.
 //
 // For §2.5 avatar colors specifically, the doc itself mirrors
-// `docs/design/demo-replay-reference.html` `sheepAvatar()` (lines 309-312); see
+// `docs/design/demo-replay-reference.html`'s `sheepAvatar()` function; see
 // that file for the original prototype values.
 //
 // Organized in layered namespaces (see individual doc comments below):
