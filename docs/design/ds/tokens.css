@@ -1,0 +1,170 @@
+/* Pastura design tokens — visual mirror of docs/design/design-system.md §2–§4.
+ *
+ * Source of truth: design-system.md (authoritative) → this file (visual
+ * mirror) → Pastura/Pastura/Views/DesignTokens*.swift (implementation).
+ * Exception: the §2.5 avatar palette originates in
+ * demo-replay-reference.html `sheepAvatar()` (see ds/README.md).
+ *
+ * Drift guard: scripts/check_design_tokens_css.py asserts every color
+ * literal in DesignTokens*.swift (hex AND rgba constructor forms) appears
+ * here. CI job: design-tokens-drift.
+ *
+ * Cards under docs/design/ds/ link this stylesheet; per-card layout CSS
+ * stays inline in each card.
+ */
+
+:root {
+  /* Font stacks (§3.1). Cards load Noto Sans JP + JetBrains Mono via
+   * Google Fonts; these stacks provide the fallbacks. */
+  --font-sans: "Noto Sans JP", system-ui, "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+
+  /* §2.1 Backgrounds / Surfaces */
+  --page: #F3EFE7;
+  --screen-bg: #FCFAF4;
+  --bubble-bg: #FFFFFF;
+  --promo-bg: #FBFAF2;
+  --promo-border: #E4E7D2;
+
+  /* §2.2 Ink */
+  --ink: #2D2E26;
+  --ink-2: #5A5A55;
+  --muted: #8A8A83;
+  --rule: #E0DBCE;
+
+  /* §2.3 Moss Accent — Pastura's only brand color, 4 steps */
+  --moss: #8A9A6C;
+  --moss-dark: #6B7852;
+  --moss-ink: #3D4030;
+  --moss-soft: #D4CBA8;
+
+  /* §2.4 Meta Contrast Presets — defaults mirror L3; see [data-contrast]
+   * blocks below for the full preset family. */
+  --meta-base: #4A4E3D;
+  --meta-strong: #2D2E26;
+  --meta-dot-on: #6B7852;
+
+  /* §2.5 Character palette (sheep avatars). Origin:
+   * demo-replay-reference.html sheepAvatar(). */
+  --avatar-body-alice: #F2E3C8;
+  --avatar-body-bob: #DDE4CC;
+  --avatar-body-carol: #EAD6D1;
+  --avatar-body-dave: #D9D7C9;
+  --avatar-face-alice: #C9A979;
+  --avatar-face-bob: #8A9A6C;
+  --avatar-face-carol: #B8877C;
+  --avatar-face-dave: #6B6858;
+  --avatar-horn-alice: #B29364;
+  --avatar-horn-bob: #6F7F54;
+  --avatar-horn-carol: #9C6E64;
+  --avatar-horn-dave: #4F4C3F;
+  --avatar-ear: #E8D9BC;
+  --avatar-ear-inner: #D4C19E;
+  --avatar-nose: #3D4030;
+  --avatar-eye: #2D2E26;
+  --avatar-highlight: rgba(255, 255, 255, 0.6);
+
+  /* §2.6 Alert Family — base / Soft (background) / Ink (text) */
+  --info: #7B8FA8;
+  --info-soft: #E8EDF2;
+  --info-ink: #4A5A6F;
+  --success: #7A9270;
+  --success-soft: #E5ECDF;
+  --success-ink: #4D5F44;
+  --warning: #C7A566;
+  --warning-soft: #F2EAD3;
+  --warning-ink: #6F5C2D;
+  --danger: #B57870;
+  --danger-soft: #EDD9D4;
+  --danger-ink: #6F4540;
+
+  /* §2.7 Interactive States — moss tints carrying their own alpha */
+  --state-hover: rgba(138, 154, 108, 0.06);
+  --state-pressed: rgba(138, 154, 108, 0.12);
+  --state-selected: rgba(138, 154, 108, 0.18);
+  --focus-ring: #8A9A6C;
+  --disabled-text: #B5B0A2;
+  --disabled-bg: #ECE7DA;
+
+  /* §2.8 Link / Action (reserved) */
+  --link: #5D7A4D;
+  --link-visited: #6F6753;
+  --link-hover: #4A6438;
+
+  /* §2.9 Dark Mode — night pasture (reserved) */
+  --night-bg: #1B1D17;
+  --night-surface: #232620;
+  --night-bubble: #2C2F28;
+  --night-ink: #E8E5D8;
+  --night-ink-2: #B0AC9C;
+  --night-muted: #7A7768;
+  --night-rule: #353830;
+  --night-moss: #A8B888;
+
+  /* §2.10 Time-of-Day (reserved, ambient) */
+  --dawn: #F4E5CD;
+  --noon: #FCFAF4;
+  --dusk: #E5D4C2;
+  --night: #1B1D17;
+
+  /* §2.11 Chart (reserved; aliases of existing tokens) */
+  --chart-1: #8A9A6C;
+  --chart-2: #C7A566;
+  --chart-3: #7B8FA8;
+  --chart-4: #B57870;
+
+  /* §2.12 Header Slots (GameHeader) */
+  --header-rule: #C2C0AE;
+  --header-meta-ink: #4A4E3D;
+  --header-meta-subdued: #7B7D68;
+
+  /* §4.1 Spacing — 4pt base with deliberate soft mid-values */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-s: 12px;
+  --sp-m: 14px;
+  --sp-l: 20px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+
+  /* §4.2 Radius */
+  --radius-device: 31px;
+  --radius-bubble-tail: 4px;
+  --radius-bubble: 14px;
+  --radius-promo: 14px;
+  --radius-button: 8px;
+  --radius-dot: 50%;
+
+  /* §4.3 Shadow — max 2 layers per element, moss-tinted */
+  --shadow-tint-tight: rgba(90, 100, 60, 0.04);
+  --shadow-tint-soft: rgba(90, 100, 60, 0.2);
+  --shadow-card:
+    0 1px 2px rgba(90, 100, 60, 0.04),
+    0 12px 26px -12px rgba(90, 100, 60, 0.2);
+}
+
+/* §2.4 Meta Contrast Presets — L3 is the documented default. */
+[data-contrast="L1"] { --meta-base: #8A8B76; --meta-strong: #5D6848; --meta-dot-on: #8A9A6C; }
+[data-contrast="L2"] { --meta-base: #6A6D5A; --meta-strong: #3D4530; --meta-dot-on: #7A8A5C; }
+[data-contrast="L3"] { --meta-base: #4A4E3D; --meta-strong: #2D2E26; --meta-dot-on: #6B7852; }
+[data-contrast="L4"] { --meta-base: #2D2E26; --meta-strong: #1A1B15; --meta-dot-on: #556340; }
+
+/* §3.2 Typography scale — one utility class per scale entry.
+ * pt values from the doc are authored as px (1:1 at the 390pt reference
+ * width these cards mirror). */
+.t-title-phase { font-family: var(--font-sans); font-size: 13px; font-weight: 600; line-height: 1.3; letter-spacing: 0.02em; }
+.t-tag-phase { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; line-height: 1.2; letter-spacing: 0.22em; text-transform: uppercase; }
+.t-body-bubble { font-family: var(--font-sans); font-size: 13px; font-weight: 400; line-height: 1.65; letter-spacing: 0; }
+.t-body-promo { font-family: var(--font-sans); font-size: 12px; font-weight: 400; line-height: 1.65; letter-spacing: 0; }
+.t-caption-name { font-family: var(--font-sans); font-size: 10.5px; font-weight: 400; line-height: 1.3; letter-spacing: 0.04em; }
+.t-thinking-body { font-family: var(--font-sans); font-size: 10.5px; font-weight: 400; font-style: italic; line-height: 1.7; letter-spacing: 0.02em; }
+.t-thinking-tag { font-family: var(--font-mono); font-size: 8.5px; font-weight: 400; line-height: 1.2; letter-spacing: 0.22em; text-transform: uppercase; }
+.t-meta-label { font-family: var(--font-mono); font-size: 9px; font-weight: 600; line-height: 1.2; letter-spacing: 0.06em; }
+.t-meta-value { font-family: var(--font-mono); font-size: 9px; font-weight: 400; line-height: 1.2; letter-spacing: 0; }
+.t-meta-eta { font-family: var(--font-mono); font-size: 10px; font-weight: 500; line-height: 1.3; letter-spacing: 0; }
+.t-status-complete { font-family: var(--font-sans); font-size: 16px; font-weight: 500; line-height: 1.4; letter-spacing: 0.22em; }
+.t-status-hint { font-family: var(--font-mono); font-size: 11px; font-weight: 400; line-height: 1.2; letter-spacing: 0.1em; }
+.t-title-scenario { font-family: var(--font-sans); font-size: 16px; font-weight: 600; line-height: 1.2; letter-spacing: 0.02em; }
+.t-meta-round { font-family: var(--font-mono); font-size: 10px; font-weight: 600; line-height: 1.2; letter-spacing: 0.06em; text-transform: uppercase; }
+.t-meta-inline { font-family: var(--font-mono); font-size: 10px; font-weight: 400; line-height: 1.2; letter-spacing: 0.04em; }
+.t-pill-status { font-family: var(--font-mono); font-size: 9px; font-weight: 600; line-height: 1.2; letter-spacing: 0.18em; }
