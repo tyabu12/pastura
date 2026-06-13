@@ -63,7 +63,7 @@ struct SharedScenariosListView: View {
       Button(String(localized: "Retry")) {
         Task { await viewModel.refresh() }
       }
-      .buttonStyle(.borderedProminent)
+      .buttonStyle(PasturaPrimaryButtonStyle())
     }
   }
 
@@ -74,6 +74,7 @@ struct SharedScenariosListView: View {
       Text(message)
     } actions: {
       Button(String(localized: "Retry")) { Task { await viewModel.refresh() } }
+        .buttonStyle(PasturaPrimaryButtonStyle())
     }
   }
 
@@ -82,44 +83,89 @@ struct SharedScenariosListView: View {
   @ViewBuilder
   private func scenarioList(viewModel: SharedScenariosViewModel) -> some View {
     @Bindable var bindable = viewModel
-    List {
-      if case .offlineWithCache = viewModel.state {
-        offlineBanner
-      }
-      Section {
-        categoryPicker(selection: $bindable.selectedCategory)
-      }
-      Section {
-        if viewModel.visibleScenarios.isEmpty {
-          Text(String(localized: "No scenarios in this category."))
-            .foregroundStyle(.secondary)
-        } else {
-          ForEach(viewModel.visibleScenarios, id: \.id) { scenario in
-            NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
-              scenarioRow(scenario: scenario, viewModel: viewModel)
-            }
-            .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
-          }
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        if case .offlineWithCache = viewModel.state {
+          offlineBanner
         }
-      } footer: {
+        PasturaSection {
+          HStack {
+            Text(String(localized: "Category")).foregroundStyle(Color.ink)
+            Spacer(minLength: 8)
+            categoryPicker(selection: $bindable.selectedCategory)
+          }
+          .padding(.horizontal, 17)
+          .padding(.vertical, 8)
+        }
+        scenariosCard(viewModel: viewModel)
         if let updated = viewModel.updatedAt {
           Text(String(format: String(localized: "Last updated: %@"), updated))
+            .font(.caption)
+            .foregroundStyle(Color.muted)
+            .padding(.leading, PasturaCardMetrics.horizontalMargin + 6)
         }
       }
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
+    .background(Color.screenBackground.ignoresSafeArea())
     .refreshable {
       await viewModel.refresh()
     }
   }
 
+  @ViewBuilder
+  private func scenariosCard(viewModel: SharedScenariosViewModel) -> some View {
+    if viewModel.visibleScenarios.isEmpty {
+      PasturaSection {
+        Text(String(localized: "No scenarios in this category."))
+          .foregroundStyle(Color.inkSecondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 17)
+          .padding(.vertical, 14)
+      }
+    } else {
+      let scenarios = viewModel.visibleScenarios
+      PasturaSection {
+        VStack(spacing: 0) {
+          ForEach(Array(scenarios.enumerated()), id: \.element.id) { index, scenario in
+            if index > 0 { PasturaRowDivider() }
+            NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
+              galleryRow(scenario: scenario, viewModel: viewModel)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+          }
+        }
+      }
+    }
+  }
+
   private var offlineBanner: some View {
-    Label(
-      String(localized: "Offline — showing cached content"),
-      systemImage: "wifi.exclamationmark"
-    )
-    .foregroundStyle(.secondary)
-    .font(.footnote)
-    .listRowBackground(Color.clear)
+    HStack(spacing: 8) {
+      Image(systemName: "wifi.exclamationmark")
+        .foregroundStyle(Color.warning)
+      Text(String(localized: "Offline — showing cached content"))
+        .font(.footnote)
+        .foregroundStyle(Color.inkSecondary)
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
+  }
+
+  /// Wraps ``scenarioRow`` with a trailing chevron + full-row hit target,
+  /// restoring the List disclosure affordance after the ScrollView move.
+  private func galleryRow(
+    scenario: GalleryScenario, viewModel: SharedScenariosViewModel
+  ) -> some View {
+    HStack(spacing: 10) {
+      scenarioRow(scenario: scenario, viewModel: viewModel)
+      Image(systemName: "chevron.forward")
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(Color.muted)
+    }
+    .padding(.horizontal, 17)
+    .padding(.vertical, 12)
+    .contentShape(Rectangle())
   }
 
   private func categoryPicker(selection: Binding<GalleryCategory?>) -> some View {
@@ -137,7 +183,7 @@ struct SharedScenariosListView: View {
   ) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {
-        Text(scenario.title).font(.headline)
+        Text(scenario.title).font(.headline).foregroundStyle(Color.ink)
         Spacer()
         if viewModel.hasUpdate(for: scenario) {
           badge(text: String(localized: "Update"), style: .tint)
@@ -147,7 +193,7 @@ struct SharedScenariosListView: View {
       }
       Text(scenario.description)
         .font(.subheadline)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
         .lineLimit(2)
       HStack(spacing: 8) {
         Text(scenario.category.displayName)
@@ -156,9 +202,8 @@ struct SharedScenariosListView: View {
           String(format: String(localized: "~%lld inferences"), scenario.estimatedInferences))
       }
       .font(.caption)
-      .foregroundStyle(.tertiary)
+      .foregroundStyle(Color.muted)
     }
-    .padding(.vertical, 2)
   }
 
   private enum BadgeStyle { case tint, secondary }

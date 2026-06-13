@@ -14,33 +14,42 @@ extension GalleryScenarioDetailView {
     let status = recommendedModelStatus
     switch status {
     case .matched, .unknownModel, .unsupportedDevice:
-      // `EmptyView()` in a `List` collapses to nothing — no Section is
-      // emitted, no divider, no row spacing. The consuming site at
+      // `EmptyView()` collapses to nothing in the enclosing VStack — no
+      // card, no spacing. The consuming site at
       // `GalleryScenarioDetailView.content(viewModel:)` always calls this
       // computed property, so the suppression must be at this layer.
       EmptyView()
     case .switchAvailable(let isLocked):
-      Section {
-        mismatchBanner
-        switchButton(isLocked: isLocked)
-      } footer: {
-        if isLocked {
-          // Gallery-specific single-sentence variant of the Settings copy.
-          // The Settings version's second sentence ("Downloads and deletes
-          // of other models remain available.") is contextual to the
-          // Settings → Models section UX and dangles in gallery context.
-          Text(
-            String(localized: "Finish the current simulation before switching models."))
+      PasturaSection {
+        VStack(alignment: .leading, spacing: 12) {
+          mismatchBanner
+          switchButton(isLocked: isLocked)
+          if isLocked {
+            // Gallery-specific single-sentence variant of the Settings copy.
+            // The Settings version's second sentence ("Downloads and deletes
+            // of other models remain available.") is contextual to the
+            // Settings → Models section UX and dangles in gallery context.
+            Text(
+              String(localized: "Finish the current simulation before switching models.")
+            )
+            .font(.footnote)
+            .foregroundStyle(Color.muted)
+          }
         }
+        .padding(17)
       }
     case .downloadAvailable(let otherDownloadInFlight):
-      Section {
-        mismatchBanner
-        downloadButton(disabled: otherDownloadInFlight)
+      PasturaSection {
+        VStack(alignment: .leading, spacing: 12) {
+          mismatchBanner
+          downloadButton(disabled: otherDownloadInFlight)
+        }
+        .padding(17)
       }
     case .downloading:
-      Section {
+      PasturaSection {
         mismatchBanner
+          .padding(17)
       }
     }
   }

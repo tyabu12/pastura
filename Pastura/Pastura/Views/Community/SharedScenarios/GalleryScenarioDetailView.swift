@@ -89,53 +89,93 @@ struct GalleryScenarioDetailView: View {
 
   @ViewBuilder
   private func content(viewModel: SharedScenariosViewModel) -> some View {
-    List {
-      if wasOpenedFromDeepLink {
-        Section {
-          Label {
-            Text(String(localized: "Opened from an external link"))
-              .font(.footnote)
-              .foregroundStyle(.secondary)
-          } icon: {
-            Image(systemName: "link")
-              .foregroundStyle(.secondary)
-          }
-        }
-        .listRowBackground(Color.clear)
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        if wasOpenedFromDeepLink { deepLinkBanner }
+        headerCard
+        detailsCard
+        recommendedModelSection
+        actionFooter(viewModel: viewModel)
       }
-      Section {
-        VStack(alignment: .leading, spacing: 8) {
-          Text(scenario.title).font(.title2.bold())
-          Text(scenario.description)
-            .font(.body)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 4)
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
+    }
+    .background(Color.screenBackground.ignoresSafeArea())
+  }
+
+  private var deepLinkBanner: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "link")
+        .foregroundStyle(Color.muted)
+      Text(String(localized: "Opened from an external link"))
+        .font(.footnote)
+        .foregroundStyle(Color.inkSecondary)
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
+  }
+
+  private var headerCard: some View {
+    PasturaSection {
+      VStack(alignment: .leading, spacing: 8) {
+        Text(scenario.title)
+          .font(.title2.bold())
+          .foregroundStyle(Color.ink)
+        Text(scenario.description)
+          .font(.body)
+          .foregroundStyle(Color.inkSecondary)
       }
-      Section(String(localized: "Details")) {
-        LabeledContent(String(localized: "Category"), value: scenario.category.displayName)
-        LabeledContent(String(localized: "Author"), value: scenario.author)
-        LabeledContent(
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(17)
+    }
+  }
+
+  private var detailsCard: some View {
+    PasturaSection(String(localized: "Details")) {
+      VStack(spacing: 0) {
+        detailRow(String(localized: "Category"), value: scenario.category.displayName)
+        PasturaRowDivider()
+        detailRow(String(localized: "Author"), value: scenario.author)
+        PasturaRowDivider()
+        detailRow(
           String(localized: "Recommended model"),
           value: ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
             ?? String(
-              format: String(localized: "Unknown model (%@)"), scenario.recommendedModel)
-        )
-        LabeledContent(
+              format: String(localized: "Unknown model (%@)"), scenario.recommendedModel))
+        PasturaRowDivider()
+        detailRow(
           String(localized: "Est. inferences"), value: "\(scenario.estimatedInferences)")
-        LabeledContent(String(localized: "Added"), value: scenario.addedAt)
-      }
-      recommendedModelSection
-      Section {
-        actionButton(viewModel: viewModel)
-      } footer: {
-        Text(
-          String(
-            localized:
-              "Gallery scenarios are read-only — local edits are not permitted. Updates replace the stored YAML."
-          ))
+        PasturaRowDivider()
+        detailRow(String(localized: "Added"), value: scenario.addedAt)
       }
     }
+  }
+
+  private func actionFooter(viewModel: SharedScenariosViewModel) -> some View {
+    VStack(spacing: 10) {
+      actionButton(viewModel: viewModel)
+      Text(
+        String(
+          localized:
+            "Gallery scenarios are read-only — local edits are not permitted. Updates replace the stored YAML."
+        )
+      )
+      .font(.caption)
+      .foregroundStyle(Color.muted)
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
+  }
+
+  private func detailRow(_ label: String, value: String) -> some View {
+    HStack(alignment: .firstTextBaseline) {
+      Text(label).foregroundStyle(Color.ink)
+      Spacer(minLength: 12)
+      Text(value)
+        .foregroundStyle(Color.muted)
+        .multilineTextAlignment(.trailing)
+    }
+    .padding(.horizontal, 17)
+    .padding(.vertical, 14)
   }
 
   private func actionButton(viewModel: SharedScenariosViewModel) -> some View {
@@ -159,7 +199,7 @@ struct GalleryScenarioDetailView: View {
       }
       .frame(maxWidth: .infinity)
     }
-    .buttonStyle(.borderedProminent)
+    .buttonStyle(PasturaPrimaryButtonStyle())
     .disabled(isWorking)
     .accessibilityIdentifier("galleryDetail.tryButton")
   }

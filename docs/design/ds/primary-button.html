@@ -1,0 +1,59 @@
+<!-- @dsCard group="Components" name="Primary button (PasturaPrimaryButtonStyle)" subtitle="mossDark fill + white, AA-passing — browse CTA, replaces .borderedProminent (§5.10)" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Primary button</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  .field { background: var(--screen-bg); padding: var(--sp-l) var(--sp-m); border-radius: var(--sp-m); }
+  .pbtn {
+    display: block; width: 100%; text-align: center;
+    background: var(--moss-dark); color: #fff;
+    font-size: 16px; font-weight: 600;
+    padding: 15px 20px; border-radius: 12px;
+  }
+  .pbtn.pressed { opacity: 0.7; }
+  /* Contrast comparison swatches. */
+  .swatch { display: inline-block; width: 100%; text-align: center; color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; }
+  .s-moss { background: var(--moss); }
+  .s-mossdark { background: var(--moss-dark); }
+  table.map { border-collapse: collapse; width: 100%; font-size: 11px; }
+  table.map th, table.map td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--rule); }
+  table.map th { font-family: var(--font-mono); font-size: 9px; font-weight: 600; color: var(--ink-2); }
+  table.map td code { font-family: var(--font-mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Components — Primary button (§5.10)</p>
+
+  <div class="section">
+    <p class="section-label">ブラウズ系の主要 CTA（Gallery「Try this scenario」、Shared Scenarios の Retry）。mossDark 塗り + 白文字。raw .borderedProminent（iOS 26 Liquid Glass capsule に opt-in）は使わない。</p>
+    <div class="field">
+      <span class="pbtn">Try this scenario</span>
+    </div>
+    <p class="section-note">押下時は opacity 0.7 に減光のみ — capsule 展開・scale なし（§1 静的 voice）。<span class="pbtn pressed" style="display:inline-block;width:auto;padding:8px 16px;">押下中</span></p>
+  </div>
+
+  <div class="section">
+    <p class="section-label">なぜ mossDark — 白文字とのコントラスト</p>
+    <table class="map">
+      <tr><th>塗り</th><th>白文字コントラスト</th><th>判定</th></tr>
+      <tr><td><code>--moss #8A9A6C</code>（.borderedProminent の accent）</td><td>≈ 3.0:1</td><td>WCAG AA 未達 ✗</td></tr>
+      <tr><td><code>--moss-dark #6B7852</code>（採用）</td><td>≈ 4.76:1</td><td>AA 達成 ✓</td></tr>
+    </table>
+    <div class="field" style="margin-top:10px; display:flex; gap:10px;">
+      <span class="swatch s-moss">moss 3.0:1</span>
+      <span class="swatch s-mossdark">mossDark 4.76:1</span>
+    </div>
+    <p class="section-note">角丸 12pt（14pt カードの内側で角が競合しないよう一段小さく）。fill↔token（mossDark / 白）は PasturaPrimaryButtonStyleTests で pin。</p>
+  </div>
+</div>
+</body>
+</html>
