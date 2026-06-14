@@ -9,7 +9,7 @@ does not state any specific response-time number — this is intentional
 
 ## 1. Reporting channel configuration
 
-Two surfaces are exposed to users from `ReportScenarioSheet`:
+Two surfaces are exposed to users from `ReportSheet`:
 
 1. **Primary — Google Forms.** Private report destination.
 2. **Secondary — GitHub issue.** Public discussion path (opt-in).
@@ -66,7 +66,7 @@ the public tracker free of PII.
 ### 1.3 Database migration-failure report path
 
 The in-app "Database Needs Recovery" screen (`PasturaApp`
-`.databaseRecovery`, #580) reuses `ReportScenarioSheet` in
+`.databaseRecovery`, #580) reuses `ReportSheet` in
 `migrationFailure` mode to capture a bug report **before** the user
 resets and the failing DB is moved aside. The exact SQLite migration
 error is auto-attached to both surfaces.
@@ -224,4 +224,4 @@ bound.
 - [`docs/gallery/README.md`](README.md) — Gallery curation + trust model
 - [`.github/ISSUE_TEMPLATE/shared-scenario-report.yml`](../../.github/ISSUE_TEMPLATE/shared-scenario-report.yml)
 - [`Pastura/Pastura/Utilities/ReportURLBuilder.swift`](../../Pastura/Pastura/Utilities/ReportURLBuilder.swift)
-- [`Pastura/Pastura/Views/Community/SharedScenarios/ReportScenarioSheet.swift`](../../Pastura/Pastura/Views/Community/SharedScenarios/ReportScenarioSheet.swift)
+- [`Pastura/Pastura/Views/Report/ReportSheet.swift`](../../Pastura/Pastura/Views/Report/ReportSheet.swift)
