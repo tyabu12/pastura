@@ -19,6 +19,13 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// Ordered newest-first.
   func fetchOrphaned() throws -> [SimulationRecord]
 
+  /// Fetches all simulations with the given status, ordered newest-first.
+  ///
+  /// Used by the Home redesign's resume-from-paused surface (ADR-016 P3),
+  /// which queries `.paused` runs; the P3 resume logic itself is not wired
+  /// here.
+  func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord]
+
   /// Updates state-related fields (stateJSON, currentRound, currentPhaseIndex)
   /// without touching other columns. Used for pause/resume.
   ///
@@ -94,6 +101,15 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
       // `== nil` compiles to `IS NULL` in GRDB.
       try SimulationRecord
         .filter(Column("scenarioId") == nil)
+        .order(Column("createdAt").desc)
+        .fetchAll(db)
+    }
+  }
+
+  public func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord] {
+    try dbWriter.read { db in
+      try SimulationRecord
+        .filter(Column("status") == status.rawValue)
         .order(Column("createdAt").desc)
         .fetchAll(db)
     }

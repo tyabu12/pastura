@@ -71,6 +71,34 @@ import Testing
     #expect(results.isEmpty)
   }
 
+  @Test func fetchByStatusReturnsOnlyMatchingStatus() throws {
+    let (_, simRepo) = try makeRepos()
+    try simRepo.save(makeSimRecord(id: "run1", status: .running))
+    try simRepo.save(makeSimRecord(id: "paused1", status: .paused))
+    try simRepo.save(makeSimRecord(id: "done1", status: .completed))
+
+    let paused = try simRepo.fetchByStatus(.paused)
+    #expect(paused.map(\.id) == ["paused1"])
+    #expect(paused.first?.simulationStatus == .paused)
+  }
+
+  @Test func fetchByStatusReturnsEmptyWhenNoneMatch() throws {
+    let (_, simRepo) = try makeRepos()
+    try simRepo.save(makeSimRecord(id: "run1", status: .running))
+    #expect(try simRepo.fetchByStatus(.paused).isEmpty)
+  }
+
+  @Test func fetchByStatusOrdersNewestFirst() throws {
+    let (_, simRepo) = try makeRepos()
+    // Distinct createdAt so the desc ordering is observable.
+    for (id, offset) in [("old", 0.0), ("mid", 100.0), ("new", 200.0)] {
+      var record = makeSimRecord(id: id, status: .paused)
+      record.createdAt = Date(timeIntervalSince1970: offset)
+      try simRepo.save(record)
+    }
+    #expect(try simRepo.fetchByStatus(.paused).map(\.id) == ["new", "mid", "old"])
+  }
+
   @Test func fetchOrphanedReturnsOnlyRunsWhoseScenarioWasDeleted() throws {
     let (scenarioRepo, simRepo) = try makeRepos()
     try scenarioRepo.save(
