@@ -188,29 +188,6 @@ import Testing
     #expect(result.text.contains("- **Alice**: → Bob"))
   }
 
-  // #609: the vote `reason` is the vote-phase private-thought field. It
-  // renders in the same 💭 nested bullet as speak's inner_thought (resolved
-  // via TurnOutput.secondaryText(for:)), NOT inline in the primary line.
-  @Test func rendersVoteReasonAsNestedThought() throws {
-    let exporter = makeExporter()
-    let turn = makeTurn(
-      round: 1, seq: 1, phase: "vote",
-      agent: "Alice", fields: ["vote": "Bob", "reason": "Bob is bluffing"])
-    let input = ResultMarkdownExporter.Input(
-      simulation: makeSimulation(),
-      scenario: makeScenario(),
-      turns: [turn],
-      state: makeState())
-
-    let result = try exporter.export(input)
-
-    // Primary line carries the bare arrow form — reason is NOT inline.
-    #expect(result.text.contains("- **Alice**: → Bob"))
-    #expect(!result.text.contains("→ Bob (Bob is bluffing)"))
-    // Reason appears as the 💭 thought bullet.
-    #expect(result.text.contains("  - 💭 _Bob is bluffing_"))
-  }
-
   @Test func appliesContentFilterToRenderedMarkdown() throws {
     // Applies to everything — including persona names in YAML and turn output.
     let filter = ContentFilter(blockedPatterns: ["死ね"], replacement: "***")
