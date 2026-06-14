@@ -48,4 +48,31 @@ nonisolated public enum ScenarioConventions {
       return nil
     }
   }
+
+  /// Returns the private-thought (secondary) output field name expected on
+  /// `output:` for the given LLM phase, or `nil` for code phases.
+  ///
+  /// Vote returns `"reason"`; every other LLM phase returns `"inner_thought"`.
+  /// Both fields are display-only private reasoning (never routed into the
+  /// conversation log, so invisible to other agents) — `reason` is simply the
+  /// vote-phase spelling of the same concept (vote schemas author
+  /// `{ vote, reason }`, speak schemas `{ statement, inner_thought }`). This is
+  /// the single source of truth that keeps the THINKING section's content
+  /// source consistent across the committed-display path
+  /// (``TurnOutput/secondaryText(for:)``) and the live streaming path
+  /// (``PartialOutputExtractor`` driven by ``LLMCaller``).
+  ///
+  /// Phase-aware (not a blind `inner_thought` fallback) so a stray `reason` on
+  /// a speak/choose output never leaks into THINKING, and a vote's `reason` is
+  /// never dropped in favour of an `inner_thought` vote schemas don't author.
+  public static func thoughtField(for phaseType: PhaseType) -> String? {
+    switch phaseType {
+    case .vote:
+      return "reason"
+    case .speakAll, .speakEach, .choose:
+      return "inner_thought"
+    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+      return nil
+    }
+  }
 }

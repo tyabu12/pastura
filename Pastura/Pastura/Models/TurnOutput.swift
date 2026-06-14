@@ -90,17 +90,30 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   ///
   /// Speak / choose phases return the value at
   /// ``ScenarioConventions/primaryField(for:)`` (canonical-field lookup).
-  /// `.vote` returns a composite `→ <voted> (<reason>)` string so the
-  /// markdown export and live UI surface the reason inline. Code phases
-  /// have no LLM output and return `nil`.
+  /// `.vote` returns the arrow form `→ <voted>`. The vote `reason` is the
+  /// vote-phase private-thought field and is surfaced via
+  /// ``secondaryText(for:)`` / the THINKING section — NOT appended inline
+  /// here (see #609). Code phases have no LLM output and return `nil`.
   public func primaryText(for phaseType: PhaseType) -> String? {
     if phaseType == .vote {
-      return vote.map { voted in
-        let reasonPart = reason.map { " (\($0))" } ?? ""
-        return "→ \(voted)\(reasonPart)"
-      }
+      return vote.map { "→ \($0)" }
     }
     guard let key = ScenarioConventions.primaryField(for: phaseType) else {
+      return nil
+    }
+    return fields[key]
+  }
+
+  /// Phase-aware extraction of the private-thought (secondary) display text —
+  /// the agent's reasoning shown in the collapsible THINKING section.
+  ///
+  /// Resolves the field name via ``ScenarioConventions/thoughtField(for:)``
+  /// (`reason` for `.vote`, `inner_thought` otherwise), so the vote `reason`
+  /// and the speak/choose `inner_thought` share one display treatment. Both
+  /// are display-only private reasoning, never routed into the conversation
+  /// log (invisible to other agents). Code phases return `nil`.
+  public func secondaryText(for phaseType: PhaseType) -> String? {
+    guard let key = ScenarioConventions.thoughtField(for: phaseType) else {
       return nil
     }
     return fields[key]
