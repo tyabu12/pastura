@@ -32,8 +32,8 @@ nonisolated public enum LLMError: Error, Sendable, Equatable {
 
   /// The ``GBNFGrammarBuilder`` produced a grammar string that the
   /// backend's grammar parser rejected, or the builder itself threw a
-  /// validation error (empty enumeration / duplicate field / invalid
-  /// rule name). This is a caller-side / engineering bug, not a runtime
+  /// validation error (duplicate field / invalid field name). This is a
+  /// caller-side / engineering bug, not a runtime
   /// LLM failure — `LLMCaller` treats it as fail-fast and **does not
   /// consume retry budget**, so a deterministic builder defect surfaces
   /// as a single clear error instead of 3× flaky-inference retries

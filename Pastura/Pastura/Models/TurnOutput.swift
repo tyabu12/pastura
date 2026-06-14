@@ -57,8 +57,10 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   public var vote: String? { fields["vote"] }
 
   /// Agent's chosen action (canonical primary field for `.choose` phases —
-  /// e.g., "cooperate" or "betray"). `OutputSchema.from(phase:)` binds this
-  /// field to a GBNF enum constraint when the phase has non-empty `options`.
+  /// e.g., "cooperate" or "betray"). `OutputSchema.from(phase:)` marks this
+  /// field `.choice` when the phase has non-empty `options`; the value is
+  /// validated at runtime by `ChooseHandler` (invalid → `options[0]`), not
+  /// grammar-constrained (#599).
   public var action: String? { fields["action"] }
 
   /// Agent's private inner thought (hidden by default in UI, revealed on tap).

@@ -4738,18 +4738,18 @@
         }
       }
     },
-    "Use `action` for the chosen value. The options enum constraint binds to this field." : {
+    "Use `action` for the chosen value. It is restricted to the phase options." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use `action` for the chosen value. The options enum constraint binds to this field."
+            "value" : "Use `action` for the chosen value. It is restricted to the phase options."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "選択結果は `action` フィールドで追加してください。options の列挙制約はこのフィールドに紐づきます。"
+            "value" : "選択結果は `action` フィールドで追加してください。値はこの phase の options に制限されます。"
           }
         }
       }

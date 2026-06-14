@@ -13,9 +13,11 @@ import Foundation
 ///
 /// Speak phases route the canonical field's value into the conversation log
 /// (read by ``PromptBuilder``) and into the agent's primary display text
-/// (rendered by ``AgentOutputRow``). Choose binds the canonical field to a
-/// GBNF enum constraint (see ``OutputSchema/from(phase:)``) and reads it back
-/// directly in ``ChooseHandler``. Vote is similarly read directly by
+/// (rendered by ``AgentOutputRow``). Choose reads the canonical field back
+/// directly in ``ChooseHandler``, which validates it against the phase
+/// options at runtime (the value is not grammar-constrained — see
+/// ``OutputSchema/from(phase:)`` and ADR-002 §Amendment 2026-06-14). Vote
+/// is similarly read directly by
 /// ``VoteHandler`` and surfaces composite formatting via
 /// ``TurnOutput/primaryText(for:)``.
 ///

@@ -37,12 +37,13 @@ hard-JSON choice.
   physical-device delta is the merge gate, the simulator pair is a
   sanity check.
 - **Two presets: `prisoners_dilemma` AND `word_wolf`** — `prisoners_dilemma`
-  exercises the `choose` enumeration path; `word_wolf` exercises the
-  `vote` phase whose schema shape (`vote, reason`) and round-robin
-  elimination logic neither of the other presets covers. The vote
-  phase is the only place the enumeration-on-`action` pattern does
-  NOT apply — so it catches "grammar works for choose but regresses
-  for plain strings" by construction.
+  exercises the `choose` phase (`action` is a `.choice` field, validated
+  at runtime — value enumeration was removed in #599, see ADR-002
+  §Amendment 2026-06-14); `word_wolf` exercises the `vote` phase whose
+  schema shape (`vote, reason`) and round-robin elimination logic neither
+  of the other presets covers. Both phases now use the shared `string`
+  value production, so this pair simply spans the round-robin (`choose`)
+  and tally/elimination (`vote`) code paths.
 - **Speed: `.normal`** — the project default; `.slow` adds stream-jitter
   noise that obscures the grammar effect, `.instant` bypasses the
   event-layer gate.
