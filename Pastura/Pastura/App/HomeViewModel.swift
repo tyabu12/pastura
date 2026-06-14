@@ -29,6 +29,14 @@ final class HomeViewModel {
   /// The consuming View (row secondary line, ADR-016 D3) lands in P2.
   private(set) var rowMetadata: [String: ScenarioRowMetadata] = [:]
 
+  /// Completed-run count per displayed row, keyed by ``ScenarioRecord/id``.
+  /// Aggregated across ADR-010 D6 language variants by `sourceId`, so a row
+  /// shows the total "観察回数" across every variant of its canonical
+  /// scenario (a run of the EN variant still counts on the displayed JA row).
+  /// Empty when no ``SimulationRepository`` is injected (fixture tests that
+  /// don't exercise counts). Recomputed on every ``loadScenarios()``.
+  private(set) var observationCounts: [String: Int] = [:]
+
   /// `ScenarioRecord.id`s for rows whose `sourceHash` differs from the
   /// cached gallery's `yaml_sha256`. Empty when no cache exists. The view
   /// reads this as an inline badge on each row.
@@ -36,12 +44,23 @@ final class HomeViewModel {
 
   private let repository: any ScenarioRepository
 
+  /// Optional — supplies completed-run counts for ``observationCounts``.
+  /// Defaults to `nil` so existing fixture tests keep their two-arg-free
+  /// construction; a pure-data repository has no test-isolation hazard
+  /// (cf. `.claude/rules/swiftui-traps.md` § "inject at View boundary",
+  /// which targets *side-effecting* services, not immutable repositories).
+  private let simulationRepository: (any SimulationRepository)?
+
   /// In-process parse memo keyed by `id` + `updatedAt`. See
   /// ``ScenarioRowMetadataCache`` for the keying / invalidation contract.
   private var metadataCache = ScenarioRowMetadataCache()
 
-  init(repository: any ScenarioRepository) {
+  init(
+    repository: any ScenarioRepository,
+    simulationRepository: (any SimulationRepository)? = nil
+  ) {
     self.repository = repository
+    self.simulationRepository = simulationRepository
   }
 
   func loadScenarios() async {
@@ -63,6 +82,18 @@ final class HomeViewModel {
       let loader = ScenarioLoader()
       rowMetadata = metadataCache.resolve(presets + userScenarios) { record in
         Self.parseRowMetadata(record, loader: loader)
+      }
+      // Observation counts are display garnish — a failed count read must not
+      // blank the list (try?), so it's kept out of the batch error path.
+      if let simulationRepository {
+        let completed =
+          (try? await offMain { [simulationRepository] in
+            try simulationRepository.completedRunCountsByScenarioId()
+          }) ?? [:]
+        observationCounts = Self.aggregateObservationCounts(
+          completedByScenarioId: completed,
+          scenarios: all,
+          displayedRows: presets + userScenarios)
       }
     } catch {
       errorMessage = String(localized: "Failed to load scenarios: \(error.localizedDescription)")
@@ -125,6 +156,37 @@ final class HomeViewModel {
       rounds: scenario.rounds,
       description: scenario.description
     )
+  }
+
+  /// Projects per-variant completed-run counts onto the displayed (collapsed)
+  /// rows, summing across ADR-010 D6 language variants by canonical key
+  /// (`sourceId ?? id`). A run recorded against the EN variant therefore
+  /// counts on the displayed JA row, matching ADR-010 D4's cross-variant
+  /// aggregation intent. Every displayed row gets an entry (0 when it has no
+  /// completed runs).
+  internal static func aggregateObservationCounts(
+    completedByScenarioId: [String: Int],
+    scenarios: [ScenarioRecord],
+    displayedRows: [ScenarioRecord]
+  ) -> [String: Int] {
+    // Each concrete scenario id → its canonical D6 key.
+    let canonicalKey = Dictionary(
+      scenarios.map { ($0.id, $0.sourceId ?? $0.id) },
+      uniquingKeysWith: { first, _ in first })
+
+    // Roll per-variant counts up to the canonical key.
+    var byCanonical: [String: Int] = [:]
+    for (scenarioId, count) in completedByScenarioId {
+      guard let key = canonicalKey[scenarioId] else { continue }
+      byCanonical[key, default: 0] += count
+    }
+
+    // Project onto the displayed rows by their own canonical key.
+    var result: [String: Int] = [:]
+    for row in displayedRows {
+      result[row.id] = byCanonical[row.sourceId ?? row.id] ?? 0
+    }
+    return result
   }
 
   func deleteScenario(_ id: String) async {

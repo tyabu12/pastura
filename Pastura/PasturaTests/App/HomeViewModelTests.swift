@@ -255,4 +255,101 @@ struct HomeViewModelTests {
     #expect(Set(viewModel.rowMetadata.keys).isSubset(of: displayedIds))
     #expect(viewModel.presets.count == 1)
   }
+
+  // MARK: - Observation count (completed runs, cross-variant aggregated)
+
+  private func completedRun(id: String, scenarioId: String) -> SimulationRecord {
+    SimulationRecord(
+      id: id, scenarioId: scenarioId,
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 0, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: Date(), updatedAt: Date())
+  }
+
+  /// Completed runs against *different* language variants of one canonical
+  /// scenario aggregate onto the single displayed row (ADR-010 D4 intent):
+  /// 2 runs on the JA variant + 1 on the EN variant → 3 on the displayed row.
+  /// A `.paused` run does not count.
+  @Test func observationCountsAggregateCompletedRunsAcrossVariants() async throws {
+    let db = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
+    try scenarioRepo.save(makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
+
+    try simRepo.save(completedRun(id: "r1", scenarioId: "word_wolf"))
+    try simRepo.save(completedRun(id: "r2", scenarioId: "word_wolf"))
+    try simRepo.save(completedRun(id: "r3", scenarioId: "word_wolf_en"))
+    // A paused run on the same scenario must be excluded.
+    try simRepo.save(
+      SimulationRecord(
+        id: "p1", scenarioId: "word_wolf",
+        status: SimulationStatus.paused.rawValue,
+        currentRound: 0, currentPhaseIndex: 0,
+        stateJSON: "{}", configJSON: nil,
+        createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: scenarioRepo, simulationRepository: simRepo)
+    await viewModel.loadScenarios()
+
+    let displayed = try #require(viewModel.presets.first)
+    #expect(viewModel.presets.count == 1)
+    #expect(viewModel.observationCounts[displayed.id] == 3)
+  }
+
+  /// A displayed row with no completed runs reports an explicit 0 (so the
+  /// View can read the dictionary uniformly).
+  @Test func observationCountsReportZeroForRowWithNoRuns() async throws {
+    let db = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "lonely", name: "Lonely", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: scenarioRepo, simulationRepository: simRepo)
+    await viewModel.loadScenarios()
+
+    #expect(viewModel.observationCounts["lonely"] == 0)
+  }
+
+  /// Without an injected `SimulationRepository`, observation counts stay empty
+  /// rather than failing the load (back-compat for fixture tests).
+  @Test func observationCountsEmptyWithoutSimulationRepository() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "u1", name: "U1", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    #expect(viewModel.observationCounts.isEmpty)
+    #expect(viewModel.errorMessage == nil)
+  }
+
+  /// Pure-function check of the aggregation: per-variant counts roll up to the
+  /// canonical key and project onto the displayed row.
+  @Test func aggregateObservationCountsSumsByCanonicalKey() {
+    let ja = makePreset(id: "ww_ja", language: "ja", sourceId: "ww")
+    let en = makePreset(id: "ww_en", language: "en", sourceId: "ww")
+    let solo = ScenarioRecord(
+      id: "solo", name: "Solo", yamlDefinition: "",
+      isPreset: false, createdAt: Date(), updatedAt: Date())
+
+    let result = HomeViewModel.aggregateObservationCounts(
+      completedByScenarioId: ["ww_ja": 2, "ww_en": 1, "solo": 4, "ghost": 9],
+      scenarios: [ja, en, solo],
+      displayedRows: [ja, solo])
+
+    // `ja` is the displayed variant; its count includes the EN sibling's run.
+    #expect(result["ww_ja"] == 3)
+    #expect(result["solo"] == 4)
+    // `ghost` has no scenario record → contributes to nothing.
+    #expect(result.count == 2)
+  }
 }
