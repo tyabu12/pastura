@@ -43,8 +43,8 @@ struct ScenarioRowMetadataCacheTests {
 
   @Test func bumpedUpdatedAtForcesReparse() {
     var cache = ScenarioRowMetadataCache()
-    let t1 = Date(timeIntervalSince1970: 1000)
-    let t2 = Date(timeIntervalSince1970: 2000)
+    let earlier = Date(timeIntervalSince1970: 1000)
+    let later = Date(timeIntervalSince1970: 2000)
     var parseCount = 0
     let parse: (ScenarioRecord) -> ScenarioRowMetadata = {
       parseCount += 1
@@ -53,13 +53,13 @@ struct ScenarioRowMetadataCacheTests {
       return ScenarioRowMetadata(name: $0.name, rounds: Int($0.updatedAt.timeIntervalSince1970))
     }
 
-    let first = cache.resolve([record(id: "a", name: "A", updatedAt: t1)], parse: parse)
+    let first = cache.resolve([record(id: "a", name: "A", updatedAt: earlier)], parse: parse)
     #expect(first["a"]?.rounds == 1000)
     #expect(parseCount == 1)
 
     // updatedAt bump (e.g. a gallery update) invalidates the entry → re-parse,
     // and the result reflects the NEW value rather than the stale one.
-    let second = cache.resolve([record(id: "a", name: "A", updatedAt: t2)], parse: parse)
+    let second = cache.resolve([record(id: "a", name: "A", updatedAt: later)], parse: parse)
     #expect(second["a"]?.rounds == 2000)
     #expect(parseCount == 2)
   }
