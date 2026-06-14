@@ -52,7 +52,7 @@ struct RootTabView: View {
       }
       .tag(AppTab.home)
       .tabItem {
-        Image(systemName: "house")
+        Image(systemName: Self.symbolName(for: .home, isActive: coordinator.selectedTab == .home))
           .accessibilityLabel(Text(String(localized: "Home")))
       }
 
@@ -61,8 +61,10 @@ struct RootTabView: View {
       }
       .tag(AppTab.search)
       .tabItem {
-        Image(systemName: "magnifyingglass")
-          .accessibilityLabel(Text(String(localized: "Browse")))
+        Image(
+          systemName: Self.symbolName(for: .search, isActive: coordinator.selectedTab == .search)
+        )
+        .accessibilityLabel(Text(String(localized: "Browse")))
       }
 
       TabNavigationStack(router: coordinator.historyRouter) {
@@ -73,8 +75,10 @@ struct RootTabView: View {
       }
       .tag(AppTab.history)
       .tabItem {
-        Image(systemName: "clock")
-          .accessibilityLabel(Text(String(localized: "History")))
+        Image(
+          systemName: Self.symbolName(for: .history, isActive: coordinator.selectedTab == .history)
+        )
+        .accessibilityLabel(Text(String(localized: "History")))
       }
 
       TabNavigationStack(router: coordinator.settingsRouter) {
@@ -82,11 +86,32 @@ struct RootTabView: View {
       }
       .tag(AppTab.settings)
       .tabItem {
-        Image(systemName: "gearshape")
-          .accessibilityLabel(Text(String(localized: "Settings")))
+        Image(
+          systemName: Self.symbolName(
+            for: .settings, isActive: coordinator.selectedTab == .settings)
+        )
+        .accessibilityLabel(Text(String(localized: "Settings")))
       }
     }
     .tint(Color.moss)
+  }
+}
+
+extension RootTabView {
+  /// SF Symbol for `tab`, swapping to the `.fill` variant when active so
+  /// the selected tab reads as filled and the others as outlined.
+  ///
+  /// `magnifyingglass` has **no** `.fill` variant (`magnifyingglass.fill`
+  /// does not exist and would render blank), so the さがす tab keeps the
+  /// outline in both states and relies on the moss `.tint` alone to mark
+  /// active. Pure + `internal` so the mapping is unit-tested.
+  static func symbolName(for tab: AppTab, isActive: Bool) -> String {
+    switch tab {
+    case .home: return isActive ? "house.fill" : "house"
+    case .search: return "magnifyingglass"
+    case .history: return isActive ? "clock.fill" : "clock"
+    case .settings: return isActive ? "gearshape.fill" : "gearshape"
+    }
   }
 }
 
