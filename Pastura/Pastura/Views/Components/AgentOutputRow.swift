@@ -697,7 +697,12 @@ struct AgentOutputRow: View {
   /// to ``TurnOutput/primaryText(for:)`` — the canonical per-phase
   /// extraction, keyed by ``ScenarioConventions``.
   private var primaryText: String? {
-    if let streamingPrimary { return streamingPrimary }
+    // Decorate the streamed value with the same phase affordance the
+    // committed path applies (vote → `→ <voted>`), so the arrow is present
+    // from the first reveal tick instead of popping in at commit (#609).
+    if let streamingPrimary {
+      return ScenarioConventions.decoratePrimary(streamingPrimary, for: phaseType)
+    }
     return output.primaryText(for: phaseType)
   }
 

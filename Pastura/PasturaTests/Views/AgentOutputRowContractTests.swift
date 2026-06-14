@@ -185,6 +185,22 @@ struct AgentOutputRowContractTests {
     #expect(row.targetLength == "→ Dave".count)
   }
 
+  @Test func targetLengthForVotePhaseDecoratesStreamingPrimaryWithArrow() {
+    // #609 device-QA fix: during streaming the row receives the BARE vote
+    // value (no arrow) from the extractor. The arrow must be applied to the
+    // streaming primary too — otherwise it pops in only when the row commits.
+    // targetLength tracking "→ Dave" (not bare "Dave") proves the decoration
+    // is present while streaming.
+    let row = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: [:]),
+      phaseType: .vote,
+      showAllThoughts: false,
+      streamingPrimary: "Dave"  // bare extractor value, no arrow
+    )
+    #expect(row.targetLength == "→ Dave".count)
+  }
+
   @Test func targetLengthForVotePhaseCountsReasonAsThoughtWhenShown() {
     // #609: the vote `reason` flows into the THINKING section via
     // `TurnOutput.secondaryText(for:)`, so when thoughts are shown the

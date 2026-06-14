@@ -80,4 +80,19 @@ struct ScenarioConventionsTests {
         "expected nil for code phase \(phase.rawValue)")
     }
   }
+
+  // MARK: - decoratePrimary (#609)
+
+  /// Vote prefixes the `→ ` arrow; other phases pass the value through. The
+  /// shared decorator keeps the live-streaming path (bare snapshot value) and
+  /// the committed/export path rendering the same string — so the arrow no
+  /// longer pops in only at commit time.
+  @Test func decoratePrimaryPrefixesArrowForVote() {
+    #expect(ScenarioConventions.decoratePrimary("ハルト", for: .vote) == "→ ハルト")
+  }
+
+  @Test func decoratePrimaryPassesThroughForNonVote() {
+    #expect(ScenarioConventions.decoratePrimary("Hello", for: .speakAll) == "Hello")
+    #expect(ScenarioConventions.decoratePrimary("cooperate", for: .choose) == "cooperate")
+  }
 }

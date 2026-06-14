@@ -96,7 +96,7 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
   /// here (see #609). Code phases have no LLM output and return `nil`.
   public func primaryText(for phaseType: PhaseType) -> String? {
     if phaseType == .vote {
-      return vote.map { "→ \($0)" }
+      return vote.map { ScenarioConventions.decoratePrimary($0, for: .vote) }
     }
     guard let key = ScenarioConventions.primaryField(for: phaseType) else {
       return nil

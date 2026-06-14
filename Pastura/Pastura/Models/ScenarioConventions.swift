@@ -75,4 +75,16 @@ nonisolated public enum ScenarioConventions {
       return nil
     }
   }
+
+  /// Decorates a raw primary value for display. Vote prefixes the `→ ` arrow
+  /// affordance (`→ <voted>`); all other phases return the value unchanged.
+  ///
+  /// Single source of truth for the vote arrow so the live-streaming path
+  /// (``AgentOutputRow`` over a bare ``PartialSnapshot/primary``) and the
+  /// committed / export path (``TurnOutput/primaryText(for:)``) render
+  /// identically. Without this, the arrow was only added at commit time and
+  /// "popped in" after the streamed bare value (#609 device QA).
+  public static func decoratePrimary(_ value: String, for phaseType: PhaseType) -> String {
+    phaseType == .vote ? "→ \(value)" : value
+  }
 }
