@@ -27,11 +27,13 @@ The frame is a 390×844 pt iPhone viewport.
 
 The rendered PNGs are intentionally **not** committed — they are derived
 artifacts. Regenerate any of them from the HTML when you need a raster
-preview:
+preview (run from the repo root — input and output are both
+repo-root-relative):
 
 ```sh
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --headless --screenshot=d3-with.png \
+  --headless \
+  --screenshot=docs/design/home-redesign/d3-with.png \
   --window-size=390,844 --force-device-scale-factor=2 \
   docs/design/home-redesign/d3-with.html
 ```
