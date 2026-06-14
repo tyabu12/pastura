@@ -48,12 +48,7 @@ enum ReportContext {
 /// See ADR-005 §6 (and §6.7 for the dual-use precedent) for the
 /// policy rationale, and `docs/gallery/shared-scenario-reports.md`
 /// for operational details.
-///
-/// The type/file name still encodes scenario-specificity. Renaming
-/// to `ReportSheet` is deferred to a follow-up — now reinforced by the
-/// migration-failure consumer (#580), which is not a "shared scenario"
-/// concern — to keep this PR focused on the recovery-screen affordance.
-struct ReportScenarioSheet: View {
+struct ReportSheet: View {
   let context: ReportContext
 
   @Environment(\.openURL) private var openURL

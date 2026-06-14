@@ -297,7 +297,7 @@ private struct RootView: View {
         }
         .padding()
         .sheet(isPresented: $isRecoveryReportSheetPresented) {
-          ReportScenarioSheet(context: .migrationFailure(error: message))
+          ReportSheet(context: .migrationFailure(error: message))
             .deepLinkGated()
         }
 

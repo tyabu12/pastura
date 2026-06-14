@@ -172,7 +172,7 @@ struct SettingsView: View {
     // dismisses, rather than pushing a gallery detail under it (see
     // navigation.md QA scenario 9).
     .sheet(isPresented: $isReportSheetPresented) {
-      ReportScenarioSheet(context: .general)
+      ReportSheet(context: .general)
         .deepLinkGated()
     }
     .sheet(isPresented: $isLicensesSheetPresented) {
