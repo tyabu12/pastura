@@ -140,6 +140,39 @@ struct GBNFGrammarBuilderTests {
     #expect(!grammar.contains("action-value"))
   }
 
+  @Test("regression #599: CJK / GBNF-hostile choose options never reach the grammar as literals")
+  func chooseOptionsNeverEnumeratedIntoGrammar() throws {
+    // Replaces the former `enumerationOptionWithUnicodeAccepted` test,
+    // which asserted CJK options were "fine" to enumerate. They were NOT:
+    // CJK option literals crashed llama.cpp's sampler on-device
+    // (token-dependent, uncatchable), and GBNF-hostile chars aborted the
+    // run at sampler init. Both are now structurally impossible — choose
+    // options become a payload-free `.choice` marker (no value
+    // enumeration). This exercises the real `OutputSchema.from(phase:)` →
+    // `build` path with dangerous options and asserts none leak into the
+    // grammar and nothing throws. Reverting the `.choice` pivot fails this:
+    // the literals would reappear (CJK) or `build` would throw (hostile).
+    let dangerousOptions = ["協力", "裏切り", #"a"b"#, #"x\y"#, "with\nnewline"]
+    let phase = Phase(
+      type: .choose, prompt: "…",
+      outputSchema: ["action": "string"],
+      options: dangerousOptions)
+    let schema = try #require(OutputSchema.from(phase: phase))
+    #expect(schema.fields.first { $0.name == "action" }?.kind == .choice)
+    // Must not throw — the dangerous options never reach a literal emitter.
+    let grammar = try builder.build(from: schema)
+    // The action value position references the shared `string` production.
+    #expect(
+      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws string ws "}" trailing"#))
+    #expect(!grammar.contains("action-value"))
+    // None of the option strings leaked into the grammar as literals.
+    for option in dangerousOptions {
+      #expect(
+        !grammar.contains(option),
+        "option \(option.debugDescription) must not appear in the grammar")
+    }
+  }
+
   // MARK: - Validation errors
 
   @Test("duplicate field name throws")

@@ -93,6 +93,22 @@ struct OutputSchemaTests {
     #expect(thoughtField.kind == .string)
   }
 
+  @Test("regression #599: choose with CJK / hostile options yields .choice, never enumeration")
+  func chooseDangerousOptionsBecomeChoice() throws {
+    // `from(phase:)` must not carry option strings anywhere. Choose
+    // options with CJK or GBNF-hostile chars (which previously enumerated
+    // into the grammar and crashed/aborted) produce a payload-free
+    // `.choice` marker with no validation/throw at the Models layer.
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .choose, prompt: "…",
+          outputSchema: ["action": "string"],
+          options: ["協力", "裏切り", #"a"b"#])))
+    let actionField = try #require(schema.fields.first { $0.name == "action" })
+    #expect(actionField.kind == .choice)
+  }
+
   @Test("choose without options keeps action as plain string")
   func chooseWithoutOptionsIsString() throws {
     let schema = try #require(
