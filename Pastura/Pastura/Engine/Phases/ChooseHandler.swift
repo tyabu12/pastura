@@ -4,7 +4,14 @@ import Foundation
 ///
 /// Supports two modes: round-robin pairing (adjacent pairs, each agent calls LLM
 /// with opponent context) or individual choice (each agent chooses independently).
-/// Invalid actions fall back to `options[0]`.
+/// Invalid actions fall back to `options[0]` via `validateAction`.
+///
+/// `validateAction` is the **sole** value constraint: the `action` field is a
+/// `.choice` in the grammar (structure-only — no value enumeration; see
+/// ``OutputSchema/Kind/choice`` and ADR-002 §Amendment 2026-06-14, #599), so
+/// the runtime check is what keeps the result within the option set. The model
+/// is steered toward valid options by ``PromptBuilder``, which lists them in
+/// the prompt, so the fallback is rare in practice.
 nonisolated struct ChooseHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
   private let llmCaller = LLMCaller()

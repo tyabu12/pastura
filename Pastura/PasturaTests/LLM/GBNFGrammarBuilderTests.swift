@@ -117,52 +117,63 @@ struct GBNFGrammarBuilderTests {
     #expect(iIdx < eIdx)
   }
 
-  // MARK: - Enumeration (choose.options)
+  // MARK: - Choice fields use the shared string production
 
-  @Test("enumeration generates a per-field alternation rule")
-  func enumerationAloneProducesPerFieldRule() throws {
+  @Test("choice field is grammar-equivalent to string (no value enumeration)")
+  func choiceFieldUsesStringProduction() throws {
+    // `.choice` carries no option payload — the grammar must NOT enumerate
+    // values (model-agnostic crash safety, #599). The action value position
+    // references the shared `string` production, exactly like a `.string`
+    // field, and no `action-value` alternation rule is emitted.
     let schema = OutputSchema(fields: [
-      .init(name: "action", kind: .enumeration(["cooperate", "betray"]))
-    ])
-    let grammar = try builder.build(from: schema)
-    #expect(
-      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws action-value ws "}" trailing"#))
-    #expect(
-      grammar.contains(#"action-value ::= "\"cooperate\"" | "\"betray\"""#))
-    // Enumeration-only grammars still include `string` + `ws` because
-    // shared productions are emitted unconditionally (cheap; avoids
-    // future regression if an enumeration grammar later references them).
-    #expect(grammar.contains("string ::="))
-    #expect(grammar.contains("ws ::="))
-  }
-
-  @Test("enumeration + string mix: enumeration rule AND string production")
-  func enumerationMixedWithString() throws {
-    // prisoners_dilemma choose-phase shape — covered in golden-file test
-    // below too, but kept here as a focused per-field assertion.
-    let schema = OutputSchema(fields: [
-      .init(name: "action", kind: .enumeration(["cooperate", "betray"])),
+      .init(name: "action", kind: .choice),
       .init(name: "inner_thought", kind: .string)
     ])
     let grammar = try builder.build(from: schema)
-    #expect(grammar.contains(#"action-value ::= "\"cooperate\"" | "\"betray\"""#))
     #expect(
       grammar.contains(
-        #"root ::= "{" ws "\"action\"" ws ":" ws action-value ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" trailing"#
+        #"root ::= "{" ws "\"action\"" ws ":" ws string ws "," ws "\"inner_thought\"" ws ":" ws string ws "}" trailing"#
       ))
+    // No per-field enumeration rule is emitted for the choice field.
+    // (The shared `string` production legitimately contains ` | ` for the
+    // JSON escape alternation, so we assert on the rule name, not ` | `.)
+    #expect(!grammar.contains("action-value"))
+  }
+
+  @Test("regression #599: CJK / GBNF-hostile choose options never reach the grammar as literals")
+  func chooseOptionsNeverEnumeratedIntoGrammar() throws {
+    // Replaces the former `enumerationOptionWithUnicodeAccepted` test,
+    // which asserted CJK options were "fine" to enumerate. They were NOT:
+    // CJK option literals crashed llama.cpp's sampler on-device
+    // (token-dependent, uncatchable), and GBNF-hostile chars aborted the
+    // run at sampler init. Both are now structurally impossible — choose
+    // options become a payload-free `.choice` marker (no value
+    // enumeration). This exercises the real `OutputSchema.from(phase:)` →
+    // `build` path with dangerous options and asserts none leak into the
+    // grammar and nothing throws. Reverting the `.choice` pivot fails this:
+    // the literals would reappear (CJK) or `build` would throw (hostile).
+    let dangerousOptions = ["協力", "裏切り", #"a"b"#, #"x\y"#, "with\nnewline"]
+    let phase = Phase(
+      type: .choose, prompt: "…",
+      outputSchema: ["action": "string"],
+      options: dangerousOptions)
+    let schema = try #require(OutputSchema.from(phase: phase))
+    #expect(schema.fields.first { $0.name == "action" }?.kind == .choice)
+    // Must not throw — the dangerous options never reach a literal emitter.
+    let grammar = try builder.build(from: schema)
+    // The action value position references the shared `string` production.
+    #expect(
+      grammar.contains(#"root ::= "{" ws "\"action\"" ws ":" ws string ws "}" trailing"#))
+    #expect(!grammar.contains("action-value"))
+    // None of the option strings leaked into the grammar as literals.
+    for option in dangerousOptions {
+      #expect(
+        !grammar.contains(option),
+        "option \(option.debugDescription) must not appear in the grammar")
+    }
   }
 
   // MARK: - Validation errors
-
-  @Test("empty enumeration throws")
-  func emptyEnumerationThrows() {
-    let schema = OutputSchema(fields: [
-      .init(name: "action", kind: .enumeration([]))
-    ])
-    #expect(throws: GBNFGrammarBuilder.BuilderError.self) {
-      try builder.build(from: schema)
-    }
-  }
 
   @Test("duplicate field name throws")
   func duplicateFieldNameThrows() {
@@ -177,17 +188,14 @@ struct GBNFGrammarBuilderTests {
     }
   }
 
-  @Test("invalid rule-name field throws")
+  @Test("invalid field name throws")
   func invalidFieldNameThrows() {
-    // Pastura preset field-name input requires a leading letter
-    // followed by letter / digit / `_`. The actual GBNF rule shape
-    // (no `_`) is enforced separately by `sanitizeRuleName` at emit
-    // time, so `dash-only` is rejected here as Pastura input
-    // convention. Leading `_` is now also rejected — sanitization
-    // would produce a leading-`-` rule identifier (`-thing-value`)
-    // which is unconventional and a future llama.cpp tightening
-    // could reject (ADR-002 §12.8). Leading digit / literal `.` /
-    // spaces fail in any case.
+    // Field names are emitted as JSON-key literals (`"\"name\""`) in the
+    // grammar. Pastura input requires a leading letter followed by
+    // letter / digit / `_`. Leading `_` / `-` stay rejected as a
+    // conservative hygiene rule (originally also guarded the now-removed
+    // `<name>-value` rule identifier — ADR-002 §12.8, historical).
+    // Leading digit / literal `.` / spaces fail in any case.
     let badNames = [
       "1badName", "with space", "dash-only", "dot.name",
       "_leading", "-leading",
@@ -211,12 +219,13 @@ struct GBNFGrammarBuilderTests {
   func validFieldNamesAccepted() throws {
     // `validateFieldName` is Unicode-aware via `Character.isLetter`:
     // ASCII snake_case (`_` only in body, never leading) AND non-ASCII
-    // letters like Japanese both pass. The Unicode case would surface
-    // as an `is_word_char` mismatch at llama.cpp's emit time (deferred
-    // per ADR-002 §12.8); the stderr-capture diagnostic in
-    // `+Sampler.swift` would catch it within one device run. This
-    // test locks in the builder-level Unicode acceptance so a future
-    // contributor tightening to ASCII-only must break it explicitly.
+    // letters like Japanese both pass at the builder level. This test
+    // locks in builder-level Unicode acceptance so a future contributor
+    // tightening to ASCII-only must break it explicitly. (Non-ASCII
+    // field NAMES become JSON-key literals; a CJK-key on-device crash is
+    // the same mechanism as the removed CJK-option crash and is tracked
+    // as a separate follow-up — out of scope for #599, which covers
+    // choose OPTION values.)
     let okNames = [
       "statement", "inner_thought", "action", "a1b2", "内なる思考"
     ]
@@ -224,61 +233,6 @@ struct GBNFGrammarBuilderTests {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
       _ = try builder.build(from: schema)
     }
-  }
-
-  @Test("enum field name with `_` emits sanitized `-` rule reference")
-  func enumFieldNameUnderscoreSanitizedToHyphenInRuleName() throws {
-    // `is_word_char` (llama-grammar.cpp:98 of b8694) rejects `_` in rule
-    // identifiers, so Pastura snake_case input gets mapped to hyphenated
-    // form at emit time. JSON keys (which appear inside string literals)
-    // are unaffected and retain the original `_`.
-    let schema = OutputSchema(fields: [
-      .init(name: "inner_secret", kind: .enumeration(["alpha", "beta"]))
-    ])
-    let grammar = try builder.build(from: schema)
-    // Rule reference and definition both use the sanitized form.
-    #expect(grammar.contains("inner-secret-value"))
-    #expect(!grammar.contains("inner_secret-value"))
-    #expect(!grammar.contains("inner_secret_value"))
-    // JSON key inside the string literal keeps the original `_`.
-    #expect(grammar.contains(#""\"inner_secret\"""#))
-  }
-
-  @Test("enumeration options with GBNF-hostile chars throw")
-  func enumerationOptionWithHostileCharsThrows() {
-    // Shared Scenarios entries can inject arbitrary option strings; the
-    // builder validates upfront so failures surface as a clear
-    // BuilderError rather than a NULL-return from llama.cpp's grammar
-    // parser (which would hit `LLMError.invalidGrammar` at sampler init).
-    let badOptions: [String] = [
-      "has\"quote",  // raw `"` would break the GBNF literal
-      "has\\backslash",  // `\` would need escaping
-      "has\nnewline",  // control byte
-      "has\ttab"  // control byte
-    ]
-    for option in badOptions {
-      let schema = OutputSchema(fields: [
-        .init(name: "action", kind: .enumeration([option]))
-      ])
-      #expect(
-        throws: GBNFGrammarBuilder.BuilderError.self,
-        "option \(option.debugDescription) should be rejected"
-      ) {
-        try builder.build(from: schema)
-      }
-    }
-  }
-
-  @Test("enumeration options with CJK / unicode accepted")
-  func enumerationOptionWithUnicodeAccepted() throws {
-    // Non-ASCII printable characters are fine — GBNF's `[^"\\]` byte
-    // class accepts them transparently and they don't collide with
-    // literal delimiters.
-    let schema = OutputSchema(fields: [
-      .init(name: "action", kind: .enumeration(["協力", "裏切り"]))
-    ])
-    let grammar = try builder.build(from: schema)
-    #expect(grammar.contains(#"action-value ::= "\"協力\"" | "\"裏切り\"""#))
   }
 
   // MARK: - Golden files (each preset LLM phase)
@@ -298,7 +252,7 @@ struct GBNFGrammarBuilderTests {
       options: ["cooperate", "betray"])
     let schema = try #require(OutputSchema.from(phase: phase))
     let grammar = try builder.build(from: schema)
-    #expect(grammar == Self.goldenChooseActionBetray)
+    #expect(grammar == Self.goldenChooseAction)
   }
 
   @Test("golden: word_wolf speak_all phase")
@@ -345,9 +299,11 @@ struct GBNFGrammarBuilderTests {
     trailing ::= ([\\t\\n\\r -~] trailing)?
     """
 
-  private static let goldenChooseActionBetray = """
-    root ::= "{" ws "\\"action\\"" ws ":" ws action-value ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
-    action-value ::= "\\"cooperate\\"" | "\\"betray\\""
+  // Choose phase: `action` is a `.choice` field, grammar-equivalent to
+  // `.string` (no value enumeration — #599). Shape matches a two-string
+  // schema with `action` + `inner_thought` keys.
+  private static let goldenChooseAction = """
+    root ::= "{" ws "\\"action\\"" ws ":" ws string ws "," ws "\\"inner_thought\\"" ws ":" ws string ws "}" trailing
     \(sharedTail)
     """
 

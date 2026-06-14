@@ -57,7 +57,7 @@ extension PhaseEditorSheet {
     case .choose:
       return String(
         localized:
-          "Use `action` for the chosen value. The options enum constraint binds to this field."
+          "Use `action` for the chosen value. It is restricted to the phase options."
       )
     case .vote:
       return String(localized: "Use `vote` for the target name.")

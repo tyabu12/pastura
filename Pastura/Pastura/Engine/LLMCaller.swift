@@ -290,11 +290,13 @@ nonisolated struct LLMCaller: Sendable {
     return detected == expected ? nil : detected
   }
 
-  /// Collect natural-language values from `output`, filtering out
-  /// schema fields whose `kind == .enumeration(...)` (author-supplied
-  /// tokens like `cooperate` / `betray` in a `choose` phase — their
-  /// language is fixed by the scenario author, not by the LLM, so they
-  /// would skew the detector's verdict).
+  /// Collect natural-language values from `output`, keeping only fields
+  /// whose `kind == .string`. Author-defined choice tokens
+  /// (`kind == .choice`, e.g. `cooperate` / `betray` in a `choose`
+  /// phase) are excluded — their language is fixed by the scenario
+  /// author, not the LLM, so they would skew the detector's verdict
+  /// (ADR-010 Step E, #405). The `.string`-only whitelist excludes
+  /// `.choice` by construction.
   ///
   /// When `schema` is nil the caller hasn't opted into constrained
   /// decoding; we treat every field as natural language (conservative
