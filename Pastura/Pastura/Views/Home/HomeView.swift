@@ -58,7 +58,7 @@ struct HomeView: View {
         .hidingPasturaSharedBackground()
       }
       .navigationDestination(for: Route.self) { route in
-        routeDestination(route)
+        RouteResolver(route: route)
       }
     }
     .task {
@@ -266,39 +266,11 @@ struct HomeView: View {
 
 }
 
-// Root-stack route resolution, split into an extension to keep the main
-// `HomeView` body under SwiftLint's `type_body_length`.
+// Toolbar route helper, split into an extension to keep the main
+// `HomeView` body under SwiftLint's `type_body_length`. Root-stack route
+// resolution itself was hoisted to ``RouteResolver`` (ADR-016 D3) so all
+// four tab stacks share one Route universe.
 extension HomeView {
-  @ViewBuilder
-  func routeDestination(_ route: Route) -> some View {
-    switch route {
-    case .scenarioDetail(let scenarioId, let initialName):
-      ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
-    case .editor(let editingId, let templateYAML):
-      editorView(editingId: editingId, templateYAML: templateYAML)
-    case .simulation(let scenarioId, let initialName):
-      SimulationView(scenarioId: scenarioId, initialName: initialName.value)
-    case .results(let scenarioId):
-      ResultsView(scenarioId: scenarioId)
-    case .resultDetail(let simulationId):
-      ResultDetailView(simulationId: simulationId)
-    case .sharedScenarios:
-      SharedScenariosListView()
-    case .galleryScenarioDetail(let scenario):
-      GalleryScenarioDetailView(scenario: scenario)
-    case .settings:
-      SettingsView()
-    }
-  }
-
-  private func editorView(editingId: String?, templateYAML: String?) -> some View {
-    ScenarioEditorHost(
-      repository: dependencies.scenarioRepository,
-      editingId: editingId,
-      templateYAML: templateYAML
-    )
-  }
-
   /// Resolves the destination for the toolbar "New Scenario" menu item.
   ///
   /// Under `--ui-test-editor-seed-yaml`, `AppDependencies.uiTestEditorSeedYAML`
@@ -332,38 +304,5 @@ extension View {
         PasturaCardSurface()
           .padding(.vertical, PasturaCardMetrics.interCardSpacing / 2)
       )
-  }
-}
-
-/// Host view that owns a ``ScenarioEditorViewModel`` via `@State`.
-///
-/// Needed so the ViewModel is retained across HomeView re-renders — creating
-/// it inside a factory function would produce a fresh instance each time,
-/// losing editor state.
-private struct ScenarioEditorHost: View {
-  let repository: any ScenarioRepository
-  let editingId: String?
-  let templateYAML: String?
-
-  @State private var viewModel: ScenarioEditorViewModel?
-
-  var body: some View {
-    Group {
-      if let viewModel {
-        ScenarioEditorView(viewModel: viewModel)
-      } else {
-        ProgressView()
-      }
-    }
-    .task {
-      guard viewModel == nil else { return }
-      let newViewModel = ScenarioEditorViewModel(repository: repository)
-      if let editingId {
-        await newViewModel.loadForEditing(scenarioId: editingId)
-      } else if let templateYAML {
-        newViewModel.loadFromTemplate(yaml: templateYAML)
-      }
-      viewModel = newViewModel
-    }
   }
 }
