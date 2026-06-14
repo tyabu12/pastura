@@ -1,6 +1,9 @@
 import Foundation
 
-/// Builds pre-filled URLs for Shared Scenario reports.
+/// Builds pre-filled report-channel URLs for ``ReportSheet``'s three
+/// contexts: Shared Scenario reports, the DB migration-failure path, and
+/// general contact. (These stay distinct per ADR-005 §6.7 — the
+/// migration-failure path is §1.5 bug intake, not a §1.2 UGC report.)
 ///
 /// Backs `ReportSheet`'s primary (Google Forms) and secondary
 /// (GitHub issue) surfaces. See `docs/gallery/shared-scenario-reports.md`
