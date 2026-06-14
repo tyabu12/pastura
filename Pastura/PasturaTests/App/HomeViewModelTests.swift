@@ -159,4 +159,100 @@ struct HomeViewModelTests {
     #expect(resolved.count == 1)
     #expect(resolved.first?.id == "broken")
   }
+
+  // MARK: - Row metadata (parse cache + name-only degradation)
+
+  /// A complete, schema-valid scenario YAML. Used so the heavy
+  /// `ScenarioLoader.load` path resolves agentCount / rounds / description.
+  private static func validYAML(
+    id: String, name: String, agents: Int = 2, rounds: Int = 3
+  ) -> String {
+    """
+    id: \(id)
+    language: ja
+    name: \(name)
+    description: A test scenario
+    agents: \(agents)
+    rounds: \(rounds)
+    context: You are in a game.
+    personas:
+      - name: Alice
+        description: A strategist
+      - name: Bob
+        description: An optimist
+    phases:
+      - type: speak_all
+        prompt: "Speak your mind."
+        output:
+          statement: string
+    """
+  }
+
+  @Test func rowMetadataExposesParsedMetaForValidYaml() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "valid", name: "Valid",
+        yamlDefinition: Self.validYAML(id: "valid", name: "Valid", agents: 2, rounds: 5),
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    let meta = viewModel.rowMetadata["valid"]
+    #expect(meta?.name == "Valid")
+    #expect(meta?.agentCount == 2)
+    #expect(meta?.rounds == 5)
+    #expect(meta?.description == "A test scenario")
+    #expect(viewModel.errorMessage == nil)
+  }
+
+  /// Name-only degradation contract. The YAML parses for the light
+  /// `language` key (so the row survives D6 selection) but throws in the
+  /// heavy `ScenarioLoader.load` (missing required `personas`). The row must
+  /// stay visible with name-only metadata, and `errorMessage` must stay nil —
+  /// the second assertion is the load-bearing regression guard.
+  @Test func rowMetadataDegradesToNameOnlyForBrokenYamlWithoutSettingError() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    // Valid top-level `language`, but no `personas`/`agents` → load() throws.
+    let brokenYAML = "id: broken\nlanguage: ja\nname: Broken\n"
+    try repo.save(
+      ScenarioRecord(
+        id: "broken", name: "Broken", yamlDefinition: brokenYAML,
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    // Row stays visible.
+    #expect(viewModel.userScenarios.contains { $0.id == "broken" })
+    // Metadata degrades to name-only.
+    let meta = viewModel.rowMetadata["broken"]
+    #expect(meta?.name == "Broken")
+    #expect(meta?.agentCount == nil)
+    #expect(meta?.rounds == nil)
+    #expect(meta?.description == nil)
+    // One broken row never blanks the whole list.
+    #expect(viewModel.errorMessage == nil)
+  }
+
+  /// D6 non-interference: metadata is resolved on the collapsed row set, so
+  /// its keys are a subset of the displayed (preset + user) row ids — never
+  /// the pre-collapse variant ids.
+  @Test func rowMetadataKeysAreSubsetOfDisplayedRows() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    // Two variants of one canonical scenario — D6 collapses to one row.
+    try repo.save(makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
+    try repo.save(makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    let displayedIds = Set(viewModel.presets.map(\.id) + viewModel.userScenarios.map(\.id))
+    #expect(Set(viewModel.rowMetadata.keys).isSubset(of: displayedIds))
+    #expect(viewModel.presets.count == 1)
+  }
 }

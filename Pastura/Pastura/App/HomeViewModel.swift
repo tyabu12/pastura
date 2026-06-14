@@ -21,12 +21,24 @@ final class HomeViewModel {
   private(set) var isLoading = false
   private(set) var errorMessage: String?
 
+  /// Resolved per-row display metadata, keyed by ``ScenarioRecord/id``.
+  /// Rebuilt on every ``loadScenarios()`` from the collapsed (ADR-010 D6)
+  /// preset set plus the user scenarios. A row whose YAML fails to parse
+  /// gets a name-only ``ScenarioRowMetadata`` and **never** sets
+  /// ``errorMessage`` — one broken preset must not blank the whole list.
+  /// The consuming View (row secondary line, ADR-016 D3) lands in P2.
+  private(set) var rowMetadata: [String: ScenarioRowMetadata] = [:]
+
   /// `ScenarioRecord.id`s for rows whose `sourceHash` differs from the
   /// cached gallery's `yaml_sha256`. Empty when no cache exists. The view
   /// reads this as an inline badge on each row.
   private(set) var galleryUpdateBadges: Set<String> = []
 
   private let repository: any ScenarioRepository
+
+  /// In-process parse memo keyed by `id` + `updatedAt`. See
+  /// ``ScenarioRowMetadataCache`` for the keying / invalidation contract.
+  private var metadataCache = ScenarioRowMetadataCache()
 
   init(repository: any ScenarioRepository) {
     self.repository = repository
@@ -44,6 +56,14 @@ final class HomeViewModel {
       presets = Self.presetsResolvedForLanguage(
         allPresets, deviceLanguage: LocaleResolver.deviceDefault())
       userScenarios = all.filter { !$0.isPreset }
+      // Resolve metadata on the *collapsed* (D6) preset rows + user rows —
+      // never the pre-collapse variant set — so the metadata keys stay a
+      // subset of the displayed row ids and language/variant selection is
+      // never re-derived from the heavy parse (ADR-010 D6 non-interference).
+      let loader = ScenarioLoader()
+      rowMetadata = metadataCache.resolve(presets + userScenarios) { record in
+        Self.parseRowMetadata(record, loader: loader)
+      }
     } catch {
       errorMessage = String(localized: "Failed to load scenarios: \(error.localizedDescription)")
     }
@@ -84,6 +104,27 @@ final class HomeViewModel {
 
     // Stable order — sort by canonical key so reloads don't flicker.
     return resolved.sorted { ($0.sourceId ?? $0.id) < ($1.sourceId ?? $1.id) }
+  }
+
+  /// Parses a record's stored YAML into ``ScenarioRowMetadata`` via the full
+  /// ``ScenarioLoader`` schema gate. On any parse / validation failure the row
+  /// **degrades to name-only** — the `try?` keeps the failure local so it can
+  /// never reach the batch ``errorMessage`` path in ``loadScenarios()`` (one
+  /// broken preset must not blank the whole list). This is the heavy parse the
+  /// ``ScenarioRowMetadataCache`` memoizes; the light ``ScenarioYAMLLanguage``
+  /// parse used for D6 variant selection is unaffected.
+  internal static func parseRowMetadata(
+    _ record: ScenarioRecord, loader: ScenarioLoader
+  ) -> ScenarioRowMetadata {
+    guard let scenario = try? loader.load(yaml: record.yamlDefinition) else {
+      return ScenarioRowMetadata(name: record.name)
+    }
+    return ScenarioRowMetadata(
+      name: record.name,
+      agentCount: scenario.agentCount,
+      rounds: scenario.rounds,
+      description: scenario.description
+    )
   }
 
   func deleteScenario(_ id: String) async {
