@@ -66,6 +66,9 @@ final class HomeViewModel {
   func loadScenarios() async {
     isLoading = true
     errorMessage = nil
+    // Reset so the "recomputed on every load" contract holds even when no
+    // SimulationRepository is injected (the recompute below is gated on it).
+    observationCounts = [:]
 
     do {
       let all = try await offMain { [repository] in
