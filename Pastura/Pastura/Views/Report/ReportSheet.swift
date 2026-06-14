@@ -222,3 +222,23 @@ struct ReportSheet: View {
     (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? ""
   }
 }
+
+extension View {
+  /// Presents a ``ReportSheet`` for the given ``ReportContext``, bound to
+  /// `isPresented`.
+  ///
+  /// Folds the three identical report-sheet call sites
+  /// (`GalleryScenarioDetailView`, `SettingsView`, `PasturaApp`'s DB-recovery
+  /// screen) into one presentation surface.
+  ///
+  /// `.deepLinkGated()` is applied **internally** — callers must NOT wrap
+  /// again. Gating is load-bearing here: a `pastura://` URL arriving while
+  /// the user is mid-report queues until the sheet dismisses, rather than
+  /// pushing a destination under it (see `navigation.md` QA scenario 9).
+  func reportSheet(isPresented: Binding<Bool>, context: ReportContext) -> some View {
+    sheet(isPresented: isPresented) {
+      ReportSheet(context: context)
+        .deepLinkGated()
+    }
+  }
+}

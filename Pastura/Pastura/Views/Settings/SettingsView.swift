@@ -166,15 +166,7 @@ struct SettingsView: View {
       }
       .hidingPasturaSharedBackground()
     }
-    // `.deepLinkGated()` mirrors the existing report sheet at
-    // GalleryScenarioDetailView's call site — a `pastura://` URL
-    // arriving while the user is mid-report queues until the sheet
-    // dismisses, rather than pushing a gallery detail under it (see
-    // navigation.md QA scenario 9).
-    .sheet(isPresented: $isReportSheetPresented) {
-      ReportSheet(context: .general)
-        .deepLinkGated()
-    }
+    .reportSheet(isPresented: $isReportSheetPresented, context: .general)
     .sheet(isPresented: $isLicensesSheetPresented) {
       LicensesSheet()
         .deepLinkGated()
