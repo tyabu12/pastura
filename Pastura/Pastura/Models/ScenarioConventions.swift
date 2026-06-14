@@ -48,4 +48,43 @@ nonisolated public enum ScenarioConventions {
       return nil
     }
   }
+
+  /// Returns the private-thought (secondary) output field name expected on
+  /// `output:` for the given LLM phase, or `nil` for code phases.
+  ///
+  /// Vote returns `"reason"`; every other LLM phase returns `"inner_thought"`.
+  /// Both fields are display-only private reasoning (never routed into the
+  /// conversation log, so invisible to other agents) — `reason` is simply the
+  /// vote-phase spelling of the same concept (vote schemas author
+  /// `{ vote, reason }`, speak schemas `{ statement, inner_thought }`). This is
+  /// the single source of truth that keeps the THINKING section's content
+  /// source consistent across the committed-display path
+  /// (``TurnOutput/secondaryText(for:)``) and the live streaming path
+  /// (``PartialOutputExtractor`` driven by ``LLMCaller``).
+  ///
+  /// Phase-aware (not a blind `inner_thought` fallback) so a stray `reason` on
+  /// a speak/choose output never leaks into THINKING, and a vote's `reason` is
+  /// never dropped in favour of an `inner_thought` vote schemas don't author.
+  public static func thoughtField(for phaseType: PhaseType) -> String? {
+    switch phaseType {
+    case .vote:
+      return "reason"
+    case .speakAll, .speakEach, .choose:
+      return "inner_thought"
+    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+      return nil
+    }
+  }
+
+  /// Decorates a raw primary value for display. Vote prefixes the `→ ` arrow
+  /// affordance (`→ <voted>`); all other phases return the value unchanged.
+  ///
+  /// Single source of truth for the vote arrow so the live-streaming path
+  /// (``AgentOutputRow`` over a bare ``PartialSnapshot/primary``) and the
+  /// committed / export path (``TurnOutput/primaryText(for:)``) render
+  /// identically. Without this, the arrow was only added at commit time and
+  /// "popped in" after the streamed bare value (#609 device QA).
+  public static func decoratePrimary(_ value: String, for phaseType: PhaseType) -> String {
+    phaseType == .vote ? "→ \(value)" : value
+  }
 }

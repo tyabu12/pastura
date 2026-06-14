@@ -327,10 +327,16 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     let output = decodeOutput(turn)
     let content = formatOutput(output, phaseType: turn.phaseType)
     var line = String(format: String(localized: "- **%@**: %@"), agent, content)
-    // Include inner_thought as a nested bullet — the gap between outward
-    // behavior and inner reasoning is often the most analyzable signal in a
-    // multi-agent run (e.g. Asch-style conformity).
-    if let thought = output.innerThought, !thought.isEmpty {
+    // Include the phase's private-thought field as a nested bullet — the gap
+    // between outward behavior and inner reasoning is often the most analyzable
+    // signal in a multi-agent run (e.g. Asch-style conformity). For vote turns
+    // this is `reason` (resolved via `secondaryText(for:)`), which the primary
+    // line no longer carries inline (#609); for speak/choose it is
+    // `inner_thought`. Unknown future phase types fall back to `inner_thought`.
+    let thought =
+      PhaseType(rawValue: turn.phaseType).map { output.secondaryText(for: $0) }
+      ?? output.innerThought
+    if let thought, !thought.isEmpty {
       line += String(format: String(localized: "\n  - 💭 _%@_"), thought)
     }
     return line

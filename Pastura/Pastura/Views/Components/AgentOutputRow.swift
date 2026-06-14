@@ -697,12 +697,25 @@ struct AgentOutputRow: View {
   /// to ``TurnOutput/primaryText(for:)`` — the canonical per-phase
   /// extraction, keyed by ``ScenarioConventions``.
   private var primaryText: String? {
-    if let streamingPrimary { return streamingPrimary }
+    // Decorate the streamed value with the same phase affordance the
+    // committed path applies (vote → `→ <voted>`), so the arrow is present
+    // from the first reveal tick instead of popping in at commit (#609).
+    if let streamingPrimary {
+      return ScenarioConventions.decoratePrimary(streamingPrimary, for: phaseType)
+    }
     return output.primaryText(for: phaseType)
   }
 
-  /// Inner thought text, honouring the streaming override when present.
+  /// Private-thought text for the THINKING section, honouring the streaming
+  /// override when present.
+  ///
+  /// Falls back to the phase's private-thought field via
+  /// ``TurnOutput/secondaryText(for:)`` — `reason` for `.vote`,
+  /// `inner_thought` otherwise — so a vote's reason is surfaced in THINKING
+  /// rather than inline (#609). The streaming override already carries the
+  /// phase-appropriate field (``LLMCaller`` feeds the schema-derived thought
+  /// key to ``PartialOutputExtractor``), so live + committed stay consistent.
   private var resolvedThought: String? {
-    streamingThought ?? output.innerThought
+    streamingThought ?? output.secondaryText(for: phaseType)
   }
 }

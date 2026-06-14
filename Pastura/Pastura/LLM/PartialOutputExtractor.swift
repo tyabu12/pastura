@@ -70,7 +70,17 @@ nonisolated public struct PartialOutputExtractor: Sendable {
 
   public init() {}
 
-  public func extract(from text: String) -> PartialSnapshot {
+  /// Extract a best-effort `(primary, thought)` snapshot from a partial
+  /// buffer.
+  ///
+  /// - Parameter thoughtKey: the secondary field to surface as the
+  ///   snapshot's `thought`. Defaults to ``thoughtKey`` (`inner_thought`).
+  ///   ``LLMCaller`` passes the schema-derived key (e.g. `reason` for vote)
+  ///   so the live streaming THINKING section sources the phase's actual
+  ///   private-thought field — see ``OutputSchema/thoughtFieldName`` (#609).
+  public func extract(
+    from text: String, thoughtKey: String = PartialOutputExtractor.thoughtKey
+  ) -> PartialSnapshot {
     let stripped = stripClosedThinkingTags(text)
     if hasUnclosedThinkingTag(stripped) {
       return .empty
@@ -88,7 +98,7 @@ nonisolated public struct PartialOutputExtractor: Sendable {
       }
     }
     let thought = extractTopLevelStringValue(
-      forKey: Self.thoughtKey, in: jsonPart)
+      forKey: thoughtKey, in: jsonPart)
 
     return PartialSnapshot(primary: primary, thought: thought)
   }

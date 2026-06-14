@@ -108,4 +108,69 @@ struct TurnOutputTests {
     #expect(withRawA == withRawB)
     #expect(withRawA == withoutRaw)
   }
+
+  // MARK: - primaryText (#609)
+
+  // Vote primary text is the bare arrow form `→ <voted>`. The vote `reason`
+  // is the vote-phase private-thought field (the equivalent of speak's
+  // `inner_thought`) and is surfaced via `secondaryText(for:)` / the THINKING
+  // section — NOT appended inline to the primary text. Regression guard:
+  // if a refactor re-appends `(reason)` here, the vote row would double-show
+  // the reason (inline + THINKING).
+  @Test func votePrimaryTextOmitsReason() {
+    let output = TurnOutput(fields: ["vote": "Alice", "reason": "信頼できる"])
+    #expect(output.primaryText(for: .vote) == "→ Alice")
+  }
+
+  @Test func votePrimaryTextWithoutReason() {
+    let output = TurnOutput(fields: ["vote": "Bob"])
+    #expect(output.primaryText(for: .vote) == "→ Bob")
+  }
+
+  @Test func speakPrimaryTextIsStatement() {
+    let output = TurnOutput(fields: ["statement": "Hello"])
+    #expect(output.primaryText(for: .speakAll) == "Hello")
+  }
+
+  // MARK: - secondaryText (#609)
+
+  // `secondaryText(for:)` resolves the phase's private-thought field via
+  // `ScenarioConventions.thoughtField(for:)`: `reason` for vote, `inner_thought`
+  // otherwise. Phase-aware (not a blind `innerThought ?? reason`) so a stray
+  // `reason` on a speak/choose output never leaks into the THINKING section,
+  // and a vote's `reason` is never silently dropped in favour of an
+  // `inner_thought` that vote schemas don't author.
+  @Test func voteSecondaryTextIsReason() {
+    let output = TurnOutput(fields: ["vote": "Alice", "reason": "信頼できる"])
+    #expect(output.secondaryText(for: .vote) == "信頼できる")
+  }
+
+  @Test func speakSecondaryTextIsInnerThought() {
+    let output = TurnOutput(fields: ["statement": "Hi", "inner_thought": "本音"])
+    #expect(output.secondaryText(for: .speakAll) == "本音")
+  }
+
+  @Test func chooseSecondaryTextIsInnerThought() {
+    let output = TurnOutput(fields: ["action": "cooperate", "inner_thought": "戦略"])
+    #expect(output.secondaryText(for: .choose) == "戦略")
+  }
+
+  // Precedence with BOTH fields present (test-fixture shape; presets author
+  // only one per phase). Vote reads `reason`; speak reads `inner_thought` —
+  // neither cross-leaks.
+  @Test func secondaryTextPrefersPhaseFieldWhenBothPresent() {
+    let output = TurnOutput(fields: [
+      "vote": "Alice",
+      "inner_thought": "private calc",
+      "reason": "stated reason"
+    ])
+    #expect(output.secondaryText(for: .vote) == "stated reason")
+    #expect(output.secondaryText(for: .speakAll) == "private calc")
+  }
+
+  // Code phases have no private-thought field.
+  @Test func secondaryTextNilForCodePhase() {
+    let output = TurnOutput(fields: ["inner_thought": "x", "reason": "y"])
+    #expect(output.secondaryText(for: .scoreCalc) == nil)
+  }
 }

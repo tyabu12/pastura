@@ -73,6 +73,34 @@ struct PartialOutputExtractorTests {
     #expect(snap.thought == nil)
   }
 
+  // MARK: - Phase-specific thought key (#609)
+
+  // The vote phase's private-thought field is `reason`, not `inner_thought`.
+  // `LLMCaller` passes the schema-derived thought key so the live streaming
+  // THINKING section surfaces the vote reason as it types in (parity with
+  // speak's `inner_thought`).
+  @Test func reasonThoughtKeyExtractsVoteReason() {
+    let snap = extractor.extract(
+      from: #"{"vote":"Dave","reason":"散歩に行きたい"}"#, thoughtKey: "reason")
+    #expect(snap.primary == "Dave")
+    #expect(snap.thought == "散歩に行きたい")
+  }
+
+  @Test func reasonThoughtStreamsIncrementally() {
+    let snap = extractor.extract(
+      from: #"{"vote":"Dave","reason":"散"#, thoughtKey: "reason")
+    #expect(snap.primary == "Dave")
+    #expect(snap.thought == "散")
+  }
+
+  // Default thought key stays `inner_thought` (back-compat): a vote buffer
+  // read with the default key surfaces no thought.
+  @Test func defaultThoughtKeyIgnoresReason() {
+    let snap = extractor.extract(from: #"{"vote":"Dave","reason":"散歩"}"#)
+    #expect(snap.primary == "Dave")
+    #expect(snap.thought == nil)
+  }
+
   // MARK: - Escape handling
 
   @Test func escapedQuoteInPrimary() {

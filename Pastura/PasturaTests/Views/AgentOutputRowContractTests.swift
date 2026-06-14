@@ -170,18 +170,49 @@ struct AgentOutputRowContractTests {
   }
 
   @Test func targetLengthForVotePhaseFormatsArrowNotation() {
-    // Vote phase primary text = "→ Target (reason)" — counted as chars
-    // for typing reveal. Regression guard against a refactor that
-    // changes the format string and silently shifts the reveal count.
+    // Vote phase primary text = "→ Target" (the `reason` is NOT appended
+    // inline — it is the vote's private-thought field, shown in THINKING;
+    // see #609). With thoughts hidden, only the arrow form counts toward
+    // the typing reveal. Regression guard: re-appending `(reason)` here
+    // would double-show the reason (inline + THINKING) and shift the count.
     let row = AgentOutputRow(
       agent: "Alice",
       output: TurnOutput(fields: ["vote": "Dave", "reason": "散歩"]),
       phaseType: .vote,
       showAllThoughts: false
     )
-    // "→ Dave (散歩)" — 1 arrow + 1 space + 4 "Dave" + 1 space + 1 "(" + 2 散歩 + 1 ")"
-    let expected = "→ Dave (散歩)".count
-    #expect(row.targetLength == expected)
+    // "→ Dave" — 1 arrow + 1 space + 4 "Dave"
+    #expect(row.targetLength == "→ Dave".count)
+  }
+
+  @Test func targetLengthForVotePhaseDecoratesStreamingPrimaryWithArrow() {
+    // #609 device-QA fix: during streaming the row receives the BARE vote
+    // value (no arrow) from the extractor. The arrow must be applied to the
+    // streaming primary too — otherwise it pops in only when the row commits.
+    // targetLength tracking "→ Dave" (not bare "Dave") proves the decoration
+    // is present while streaming.
+    let row = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: [:]),
+      phaseType: .vote,
+      showAllThoughts: false,
+      streamingPrimary: "Dave"  // bare extractor value, no arrow
+    )
+    #expect(row.targetLength == "→ Dave".count)
+  }
+
+  @Test func targetLengthForVotePhaseCountsReasonAsThoughtWhenShown() {
+    // #609: the vote `reason` flows into the THINKING section via
+    // `TurnOutput.secondaryText(for:)`, so when thoughts are shown the
+    // reveal counter covers the arrow primary PLUS the reason — exactly
+    // like speak's statement + inner_thought.
+    let row = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: ["vote": "Dave", "reason": "散歩"]),
+      phaseType: .vote,
+      showAllThoughts: true
+    )
+    #expect(row.targetLength == "→ Dave".count + "散歩".count)
   }
 
   // MARK: - Thought-visibility seed contract
