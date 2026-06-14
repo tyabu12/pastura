@@ -4165,7 +4165,7 @@
       }
     },
     "Send a content report" : {
-      "comment" : "Settings → Legal section row that opens ReportScenarioSheet with no specific scenario context.",
+      "comment" : "Settings → Legal section row that opens ReportSheet with no specific scenario context.",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4176,7 +4176,7 @@
       }
     },
     "Send report" : {
-      "comment" : "Navigation title for ReportScenarioSheet when invoked from Settings (no specific scenario context).",
+      "comment" : "Navigation title for ReportSheet when invoked from Settings (no specific scenario context).",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
