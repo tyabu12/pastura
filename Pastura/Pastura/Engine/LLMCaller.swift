@@ -354,6 +354,11 @@ nonisolated struct LLMCaller: Sendable {
     emitter: @Sendable (SimulationEvent) -> Void
   ) async throws -> StreamResult {
     var suspendCount = 0
+    // Surface the phase's private-thought field in the live snapshot: vote
+    // streams `reason`, speak/choose stream `inner_thought`. Derived from the
+    // schema so the streaming THINKING section matches the committed-display
+    // resolver (`TurnOutput.secondaryText(for:)`) — see #609.
+    let thoughtKey = schema?.thoughtFieldName ?? PartialOutputExtractor.thoughtKey
     while true {
       var rawText = ""
       var completionTokens: Int?
@@ -362,7 +367,7 @@ nonisolated struct LLMCaller: Sendable {
         for try await chunk in stream {
           if !chunk.delta.isEmpty {
             rawText += chunk.delta
-            let snap = extractor.extract(from: rawText)
+            let snap = extractor.extract(from: rawText, thoughtKey: thoughtKey)
             emitter(
               .agentOutputStream(
                 agent: agentName,

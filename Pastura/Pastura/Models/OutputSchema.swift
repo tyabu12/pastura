@@ -48,6 +48,23 @@ nonisolated public struct OutputSchema: Codable, Sendable, Equatable {
     "inner_thought", "reason"
   ]
 
+  /// The declared private-thought (secondary) field name for this schema,
+  /// or `nil` if it declares none. Picks the schema's secondary field in
+  /// ``knownSecondaryKeys`` priority order (`inner_thought` before `reason`).
+  /// Real scenarios author exactly one secondary key per phase (speak →
+  /// `inner_thought`, vote → `reason`), so the order only disambiguates the
+  /// degenerate both-present case.
+  ///
+  /// Consumed by ``LLMCaller`` to feed ``PartialOutputExtractor`` the phase's
+  /// thought key, so the live streaming THINKING section surfaces the vote
+  /// `reason` (not only `inner_thought`). Mirrors the committed-display
+  /// resolver ``ScenarioConventions/thoughtField(for:)`` /
+  /// ``TurnOutput/secondaryText(for:)`` for all preset shapes (#609).
+  public var thoughtFieldName: String? {
+    let declared = Set(fields.map(\.name))
+    return Self.knownSecondaryKeys.first { declared.contains($0) }
+  }
+
   public init(fields: [Field]) {
     self.fields = fields
   }
