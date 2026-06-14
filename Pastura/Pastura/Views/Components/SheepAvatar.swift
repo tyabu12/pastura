@@ -26,6 +26,14 @@ public struct SheepAvatar: View {
   public let character: Character
   public var size: CGFloat = 48
 
+  /// Compact avatar size for dense list rows — the Home scenario list
+  /// renders `agentCount` avatars at this size next to the round count
+  /// (ADR-016 D3 row layout; the consuming View lands in P2). Named so the
+  /// row-density intent is explicit at the call site rather than a bare
+  /// `size: 18` magic number. `Canvas` geometry scales by `size / 28`, so no
+  /// dedicated small-size drawing path is needed at this size.
+  public static let rowSize: CGFloat = 18
+
   /// Top of the visible sheep silhouette expressed as a fraction of
   /// `size`. The outer wool-body circle has center `y = 15` and
   /// radius `8` in the 28-unit viewBox (see ``body``), so the topmost
@@ -269,6 +277,10 @@ extension SheepAvatar.Character {
 
 #Preview("Multiple sizes") {
   HStack(spacing: 20) {
+    VStack(spacing: 4) {
+      SheepAvatar(character: .alice, size: SheepAvatar.rowSize)
+      Text("row (18)").textStyle(Typography.captionName).foregroundStyle(Color.muted)
+    }
     VStack(spacing: 4) {
       SheepAvatar(character: .alice, size: 32)
       Text("32").textStyle(Typography.captionName).foregroundStyle(Color.muted)
