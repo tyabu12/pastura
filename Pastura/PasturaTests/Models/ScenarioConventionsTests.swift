@@ -51,4 +51,48 @@ struct ScenarioConventionsTests {
       }
     }
   }
+
+  // MARK: - thoughtField (#609)
+
+  /// Vote's private-thought field is `reason`; every other LLM phase uses
+  /// `inner_thought`. This is the single source of truth consumed by both the
+  /// committed-display path (`TurnOutput.secondaryText(for:)`) and the
+  /// streaming path (`PartialOutputExtractor` via `LLMCaller`), keeping the
+  /// THINKING section's source consistent across live + replay.
+  @Test func thoughtFieldForVoteReturnsReason() {
+    #expect(ScenarioConventions.thoughtField(for: .vote) == "reason")
+  }
+
+  @Test func thoughtFieldForSpeakAndChooseReturnsInnerThought() {
+    #expect(ScenarioConventions.thoughtField(for: .speakAll) == "inner_thought")
+    #expect(ScenarioConventions.thoughtField(for: .speakEach) == "inner_thought")
+    #expect(ScenarioConventions.thoughtField(for: .choose) == "inner_thought")
+  }
+
+  /// Code phases emit no LLM output, so they have no private-thought field.
+  @Test func thoughtFieldForCodePhasesReturnsNil() {
+    let codePhases: [PhaseType] = [
+      .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject
+    ]
+    for phase in codePhases {
+      #expect(
+        ScenarioConventions.thoughtField(for: phase) == nil,
+        "expected nil for code phase \(phase.rawValue)")
+    }
+  }
+
+  // MARK: - decoratePrimary (#609)
+
+  /// Vote prefixes the `→ ` arrow; other phases pass the value through. The
+  /// shared decorator keeps the live-streaming path (bare snapshot value) and
+  /// the committed/export path rendering the same string — so the arrow no
+  /// longer pops in only at commit time.
+  @Test func decoratePrimaryPrefixesArrowForVote() {
+    #expect(ScenarioConventions.decoratePrimary("ハルト", for: .vote) == "→ ハルト")
+  }
+
+  @Test func decoratePrimaryPassesThroughForNonVote() {
+    #expect(ScenarioConventions.decoratePrimary("Hello", for: .speakAll) == "Hello")
+    #expect(ScenarioConventions.decoratePrimary("cooperate", for: .choose) == "cooperate")
+  }
 }

@@ -155,6 +155,52 @@ struct OutputSchemaTests {
     #expect(OutputSchema.from(phase: phase) == nil)
   }
 
+  // MARK: - thoughtFieldName (#609)
+
+  @Test("vote schema's thought field is reason")
+  func thoughtFieldNameForVoteIsReason() throws {
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .vote, prompt: "…",
+          outputSchema: ["vote": "string", "reason": "string"])))
+    #expect(schema.thoughtFieldName == "reason")
+  }
+
+  @Test("speak schema's thought field is inner_thought")
+  func thoughtFieldNameForSpeakIsInnerThought() throws {
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .speakAll, prompt: "…",
+          outputSchema: ["statement": "string", "inner_thought": "string"])))
+    #expect(schema.thoughtFieldName == "inner_thought")
+  }
+
+  @Test("schema with no secondary key has nil thought field")
+  func thoughtFieldNameNilWhenNoSecondaryKey() throws {
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .vote, prompt: "…",
+          outputSchema: ["vote": "string"])))
+    #expect(schema.thoughtFieldName == nil)
+  }
+
+  // Degenerate both-present case (presets author one secondary key per
+  // phase): `inner_thought` wins by knownSecondaryKeys priority order.
+  @Test("both secondary keys present resolves to inner_thought by priority")
+  func thoughtFieldNamePrefersInnerThoughtWhenBoth() throws {
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .speakAll, prompt: "…",
+          outputSchema: [
+            "statement": "string", "inner_thought": "string", "reason": "string"
+          ])))
+    #expect(schema.thoughtFieldName == "inner_thought")
+  }
+
   // MARK: - Codable
 
   @Test("Codable round-trip preserves fields and order")
