@@ -178,4 +178,29 @@ import Testing
     #expect(try simRepo.fetchById("sim2") == nil)
     #expect(try turnRepo.fetchBySimulationId("sim1").isEmpty)
   }
+
+  @Test func databaseByteCountIsPositiveForMigratedDatabase() throws {
+    let (_, simRepo) = try makeRepos()
+    // A migrated SQLite DB always holds at least the schema pages
+    // (sqlite_master + table roots), so the logical size is non-zero
+    // even before any run is inserted.
+    #expect(try simRepo.databaseByteCount() > 0)
+  }
+
+  @Test func databaseByteCountGrowsAfterHeavyInserts() throws {
+    let (_, simRepo) = try makeRepos()
+    let before = try simRepo.databaseByteCount()
+
+    // Insert enough large-`stateJSON` rows to force new page allocation
+    // past any free pages left by migration. `stateJSON` is one of the two
+    // heavy columns the advisory cap exists to bound (ADR-015 §2). ~8 KB ×
+    // 40 ≈ 320 KB comfortably exceeds the default 4 KB page so the count
+    // strictly increases, not merely stays flat on free-page reuse.
+    let bulkyState = "{\"pad\":\"\(String(repeating: "x", count: 8_000))\"}"
+    for index in 0..<40 {
+      try simRepo.save(makeSimRecord(id: "sim\(index)", stateJSON: bulkyState))
+    }
+
+    #expect(try simRepo.databaseByteCount() > before)
+  }
 }
