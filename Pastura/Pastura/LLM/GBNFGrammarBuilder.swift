@@ -183,12 +183,32 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     // inject arbitrary strings — guard at builder time so the failure
     // mode is a clear `BuilderError`, not a NULL-return from
     // `llama_sampler_init_grammar` via `LLMError.invalidGrammar`.
+    guard Self.isSafeEnumerationOption(option) else {
+      throw BuilderError.invalidEnumerationOption(field: field, option: option)
+    }
+  }
+
+  /// Whether `option` can be emitted as a GBNF enumeration literal without
+  /// escaping — i.e. it contains no `"`, `\`, newline, or ASCII control
+  /// byte (the exact set ``validateEnumerationOption`` rejects).
+  ///
+  /// Non-throwing companion to that internal check, exposed so callers can
+  /// pre-filter *dynamic* enumeration values before constructing an
+  /// ``OutputSchema`` — falling back to ``OutputSchema/Kind/string`` rather
+  /// than triggering the ``BuilderError/invalidEnumerationOption`` abort
+  /// path. The vote phase needs this because its enumeration values are
+  /// persona names (arbitrary user / scenario-factory input), unlike
+  /// `choose`'s author-curated `options` (#524). Non-ASCII printable
+  /// characters (CJK, accented Latin, emoji) are safe — GBNF's `[^"\\]`
+  /// byte class accepts them transparently.
+  nonisolated public static func isSafeEnumerationOption(_ option: String) -> Bool {
     for char in option {
       if char == "\"" || char == "\\" || char.isNewline
         || char.asciiValue.map({ $0 < 0x20 }) == true {
-        throw BuilderError.invalidEnumerationOption(field: field, option: option)
+        return false
       }
     }
+    return true
   }
 
   private func validateFieldName(_ name: String) throws {
