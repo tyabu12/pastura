@@ -159,4 +159,197 @@ struct HomeViewModelTests {
     #expect(resolved.count == 1)
     #expect(resolved.first?.id == "broken")
   }
+
+  // MARK: - Row metadata (parse cache + name-only degradation)
+
+  /// A complete, schema-valid scenario YAML. Used so the heavy
+  /// `ScenarioLoader.load` path resolves agentCount / rounds / description.
+  private static func validYAML(
+    id: String, name: String, agents: Int = 2, rounds: Int = 3
+  ) -> String {
+    """
+    id: \(id)
+    language: ja
+    name: \(name)
+    description: A test scenario
+    agents: \(agents)
+    rounds: \(rounds)
+    context: You are in a game.
+    personas:
+      - name: Alice
+        description: A strategist
+      - name: Bob
+        description: An optimist
+    phases:
+      - type: speak_all
+        prompt: "Speak your mind."
+        output:
+          statement: string
+    """
+  }
+
+  @Test func rowMetadataExposesParsedMetaForValidYaml() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "valid", name: "Valid",
+        yamlDefinition: Self.validYAML(id: "valid", name: "Valid", agents: 2, rounds: 5),
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    let meta = viewModel.rowMetadata["valid"]
+    #expect(meta?.name == "Valid")
+    #expect(meta?.agentCount == 2)
+    #expect(meta?.rounds == 5)
+    #expect(meta?.description == "A test scenario")
+    #expect(viewModel.errorMessage == nil)
+  }
+
+  /// Name-only degradation contract. The YAML parses for the light
+  /// `language` key (so the row survives D6 selection) but throws in the
+  /// heavy `ScenarioLoader.load` (missing required `personas`). The row must
+  /// stay visible with name-only metadata, and `errorMessage` must stay nil —
+  /// the second assertion is the load-bearing regression guard.
+  @Test func rowMetadataDegradesToNameOnlyForBrokenYamlWithoutSettingError() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    // Valid top-level `language`, but no `personas`/`agents` → load() throws.
+    let brokenYAML = "id: broken\nlanguage: ja\nname: Broken\n"
+    try repo.save(
+      ScenarioRecord(
+        id: "broken", name: "Broken", yamlDefinition: brokenYAML,
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    // Row stays visible.
+    #expect(viewModel.userScenarios.contains { $0.id == "broken" })
+    // Metadata degrades to name-only.
+    let meta = viewModel.rowMetadata["broken"]
+    #expect(meta?.name == "Broken")
+    #expect(meta?.agentCount == nil)
+    #expect(meta?.rounds == nil)
+    #expect(meta?.description == nil)
+    // One broken row never blanks the whole list.
+    #expect(viewModel.errorMessage == nil)
+  }
+
+  /// D6 non-interference: metadata is resolved on the collapsed row set, so
+  /// its keys are a subset of the displayed (preset + user) row ids — never
+  /// the pre-collapse variant ids.
+  @Test func rowMetadataKeysAreSubsetOfDisplayedRows() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    // Two variants of one canonical scenario — D6 collapses to one row.
+    try repo.save(makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
+    try repo.save(makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    let displayedIds = Set(viewModel.presets.map(\.id) + viewModel.userScenarios.map(\.id))
+    #expect(Set(viewModel.rowMetadata.keys).isSubset(of: displayedIds))
+    #expect(viewModel.presets.count == 1)
+  }
+
+  // MARK: - Observation count (completed runs, cross-variant aggregated)
+
+  private func completedRun(id: String, scenarioId: String) -> SimulationRecord {
+    SimulationRecord(
+      id: id, scenarioId: scenarioId,
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 0, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: Date(), updatedAt: Date())
+  }
+
+  /// Completed runs against *different* language variants of one canonical
+  /// scenario aggregate onto the single displayed row (ADR-010 D4 intent):
+  /// 2 runs on the JA variant + 1 on the EN variant → 3 on the displayed row.
+  /// A `.paused` run does not count.
+  @Test func observationCountsAggregateCompletedRunsAcrossVariants() async throws {
+    let db = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
+    try scenarioRepo.save(makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
+
+    try simRepo.save(completedRun(id: "r1", scenarioId: "word_wolf"))
+    try simRepo.save(completedRun(id: "r2", scenarioId: "word_wolf"))
+    try simRepo.save(completedRun(id: "r3", scenarioId: "word_wolf_en"))
+    // A paused run on the same scenario must be excluded.
+    try simRepo.save(
+      SimulationRecord(
+        id: "p1", scenarioId: "word_wolf",
+        status: SimulationStatus.paused.rawValue,
+        currentRound: 0, currentPhaseIndex: 0,
+        stateJSON: "{}", configJSON: nil,
+        createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: scenarioRepo, simulationRepository: simRepo)
+    await viewModel.loadScenarios()
+
+    let displayed = try #require(viewModel.presets.first)
+    #expect(viewModel.presets.count == 1)
+    #expect(viewModel.observationCounts[displayed.id] == 3)
+  }
+
+  /// A displayed row with no completed runs reports an explicit 0 (so the
+  /// View can read the dictionary uniformly).
+  @Test func observationCountsReportZeroForRowWithNoRuns() async throws {
+    let db = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "lonely", name: "Lonely", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: scenarioRepo, simulationRepository: simRepo)
+    await viewModel.loadScenarios()
+
+    #expect(viewModel.observationCounts["lonely"] == 0)
+  }
+
+  /// Without an injected `SimulationRepository`, observation counts stay empty
+  /// rather than failing the load (back-compat for fixture tests).
+  @Test func observationCountsEmptyWithoutSimulationRepository() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "u1", name: "U1", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let viewModel = HomeViewModel(repository: repo)
+    await viewModel.loadScenarios()
+
+    #expect(viewModel.observationCounts.isEmpty)
+    #expect(viewModel.errorMessage == nil)
+  }
+
+  /// Pure-function check of the aggregation: per-variant counts roll up to the
+  /// canonical key and project onto the displayed row.
+  @Test func aggregateObservationCountsSumsByCanonicalKey() {
+    let ja = makePreset(id: "ww_ja", language: "ja", sourceId: "ww")
+    let en = makePreset(id: "ww_en", language: "en", sourceId: "ww")
+    let solo = ScenarioRecord(
+      id: "solo", name: "Solo", yamlDefinition: "",
+      isPreset: false, createdAt: Date(), updatedAt: Date())
+
+    let result = HomeViewModel.aggregateObservationCounts(
+      completedByScenarioId: ["ww_ja": 2, "ww_en": 1, "solo": 4, "ghost": 9],
+      scenarios: [ja, en, solo],
+      displayedRows: [ja, solo])
+
+    // `ja` is the displayed variant; its count includes the EN sibling's run.
+    #expect(result["ww_ja"] == 3)
+    #expect(result["solo"] == 4)
+    // `ghost` has no scenario record → contributes to nothing.
+    #expect(result.count == 2)
+  }
 }

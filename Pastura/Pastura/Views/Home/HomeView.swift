@@ -68,7 +68,9 @@ struct HomeView: View {
       // shows first and badges pop in a frame later. Guard prevents
       // re-creation under `.task` re-fire.
       guard viewModel == nil else { return }
-      let newViewModel = HomeViewModel(repository: dependencies.scenarioRepository)
+      let newViewModel = HomeViewModel(
+        repository: dependencies.scenarioRepository,
+        simulationRepository: dependencies.simulationRepository)
       await newViewModel.loadScenarios()
       await newViewModel.refreshGalleryUpdateBadges(using: dependencies.galleryService)
       viewModel = newViewModel

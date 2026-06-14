@@ -71,6 +71,71 @@ import Testing
     #expect(results.isEmpty)
   }
 
+  @Test func fetchByStatusReturnsOnlyMatchingStatus() throws {
+    let (_, simRepo) = try makeRepos()
+    try simRepo.save(makeSimRecord(id: "run1", status: .running))
+    try simRepo.save(makeSimRecord(id: "paused1", status: .paused))
+    try simRepo.save(makeSimRecord(id: "done1", status: .completed))
+
+    let paused = try simRepo.fetchByStatus(.paused)
+    #expect(paused.map(\.id) == ["paused1"])
+    #expect(paused.first?.simulationStatus == .paused)
+  }
+
+  @Test func fetchByStatusReturnsEmptyWhenNoneMatch() throws {
+    let (_, simRepo) = try makeRepos()
+    try simRepo.save(makeSimRecord(id: "run1", status: .running))
+    #expect(try simRepo.fetchByStatus(.paused).isEmpty)
+  }
+
+  @Test func fetchByStatusOrdersNewestFirst() throws {
+    let (_, simRepo) = try makeRepos()
+    // Distinct createdAt so the desc ordering is observable.
+    for (id, offset) in [("old", 0.0), ("mid", 100.0), ("new", 200.0)] {
+      var record = makeSimRecord(id: id, status: .paused)
+      record.createdAt = Date(timeIntervalSince1970: offset)
+      try simRepo.save(record)
+    }
+    #expect(try simRepo.fetchByStatus(.paused).map(\.id) == ["new", "mid", "old"])
+  }
+
+  @Test func completedRunCountsGroupByScenarioExcludingPausedAndOrphaned() throws {
+    let (scenarioRepo, simRepo) = try makeRepos()  // seeds s1
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "s2", name: "Two", yamlDefinition: "yaml",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "s3", name: "Three", yamlDefinition: "yaml",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    // s1: 2 completed + 1 paused (paused must be excluded).
+    try simRepo.save(makeSimRecord(id: "c1", status: .completed))
+    try simRepo.save(makeSimRecord(id: "c2", status: .completed))
+    try simRepo.save(makeSimRecord(id: "p1", status: .paused))
+    // s2: 1 completed.
+    var s2Run = makeSimRecord(id: "c3", status: .completed)
+    s2Run.scenarioId = "s2"
+    try simRepo.save(s2Run)
+    // s3: 1 completed, then s3 deleted → run orphaned (scenarioId NULL),
+    // which must be excluded from the per-scenario count.
+    var orphan = makeSimRecord(id: "orph", status: .completed)
+    orphan.scenarioId = "s3"
+    try simRepo.save(orphan)
+    try scenarioRepo.delete("s3")
+
+    let counts = try simRepo.completedRunCountsByScenarioId()
+    #expect(counts == ["s1": 2, "s2": 1])
+  }
+
+  @Test func completedRunCountsEmptyWhenNoCompletedRuns() throws {
+    let (_, simRepo) = try makeRepos()
+    try simRepo.save(makeSimRecord(id: "run1", status: .running))
+    try simRepo.save(makeSimRecord(id: "paused1", status: .paused))
+    #expect(try simRepo.completedRunCountsByScenarioId().isEmpty)
+  }
+
   @Test func fetchOrphanedReturnsOnlyRunsWhoseScenarioWasDeleted() throws {
     let (scenarioRepo, simRepo) = try makeRepos()
     try scenarioRepo.save(

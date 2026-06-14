@@ -19,6 +19,25 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// Ordered newest-first.
   func fetchOrphaned() throws -> [SimulationRecord]
 
+  /// Fetches all simulations with the given status, ordered newest-first.
+  ///
+  /// Used by the Home redesign's resume-from-paused surface (ADR-016 P3),
+  /// which queries `.paused` runs; the P3 resume logic itself is not wired
+  /// here.
+  func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord]
+
+  /// Returns the number of **completed** runs per scenario, keyed by the
+  /// run's `scenarioId`, computed as a `GROUP BY` aggregate (not a
+  /// fetch-all-then-count). Orphaned runs (`scenarioId IS NULL`, the
+  /// `ON DELETE SET NULL` outcome since v7) are excluded — a null key is
+  /// meaningless for a per-scenario count.
+  ///
+  /// Powers the Home row "観察回数" (ADR-016). The App layer aggregates the
+  /// returned per-variant counts across ADR-010 D6 language variants by
+  /// `sourceId`, so this method intentionally keys by the concrete variant's
+  /// `scenarioId` and leaves the cross-variant rollup to the consumer.
+  func completedRunCountsByScenarioId() throws -> [String: Int]
+
   /// Updates state-related fields (stateJSON, currentRound, currentPhaseIndex)
   /// without touching other columns. Used for pause/resume.
   ///
@@ -96,6 +115,38 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
         .filter(Column("scenarioId") == nil)
         .order(Column("createdAt").desc)
         .fetchAll(db)
+    }
+  }
+
+  public func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord] {
+    try dbWriter.read { db in
+      try SimulationRecord
+        .filter(Column("status") == status.rawValue)
+        .order(Column("createdAt").desc)
+        .fetchAll(db)
+    }
+  }
+
+  public func completedRunCountsByScenarioId() throws -> [String: Int] {
+    try dbWriter.read { db in
+      // GROUP BY aggregate so the count is computed SQL-side. `scenarioId IS
+      // NOT NULL` drops orphaned runs; a null group key can't map onto a row.
+      let rows = try Row.fetchAll(
+        db,
+        sql: """
+          SELECT scenarioId, COUNT(*) AS cnt
+          FROM simulations
+          WHERE status = ? AND scenarioId IS NOT NULL
+          GROUP BY scenarioId
+          """,
+        arguments: [SimulationStatus.completed.rawValue])
+      var result: [String: Int] = [:]
+      for row in rows {
+        // scenarioId is non-null by the WHERE clause; skip defensively if not.
+        guard let scenarioId: String = row["scenarioId"] else { continue }
+        result[scenarioId] = row["cnt"]
+      }
+      return result
     }
   }
 
