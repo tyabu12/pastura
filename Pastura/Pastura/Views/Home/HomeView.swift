@@ -27,39 +27,35 @@ struct HomeView: View {
   }
 
   var body: some View {
-    // `@Bindable` shadow: an `@Observable` injected via `@Environment` is
-    // immutable on the read side; the local `@Bindable` rebinding lets us
-    // derive `$router.path` for `NavigationStack`'s path binding.
-    @Bindable var router = router
-    return NavigationStack(path: $router.path) {
-      Group {
-        if let viewModel {
-          scenarioList(viewModel: viewModel)
-        } else {
-          ProgressView()
-        }
+    // The Home tab's `NavigationStack` (and its `.navigationDestination`
+    // registration via ``RouteResolver``) is owned by ``RootTabView`` so
+    // every tab shares one Route universe (ADR-016 D3). This view is the
+    // Home tab's root *content*; `router` (read below) is the Home tab's
+    // `AppRouter`, injected per-tab by `RootTabView`.
+    Group {
+      if let viewModel {
+        scenarioList(viewModel: viewModel)
+      } else {
+        ProgressView()
       }
-      .background(Color.screenBackground.ignoresSafeArea())
-      .navigationTitle("Pastura")
-      .toolbar {
-        ToolbarItem(placement: .topBarLeading) {
-          NavigationLink(value: Route.settings) {
-            Label(String(localized: "Settings"), systemImage: "gearshape")
-          }
-          .accessibilityIdentifier("home.settingsButton")
+    }
+    .background(Color.screenBackground.ignoresSafeArea())
+    .navigationTitle("Pastura")
+    .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        NavigationLink(value: Route.settings) {
+          Label(String(localized: "Settings"), systemImage: "gearshape")
         }
-        .hidingPasturaSharedBackground()
-        ToolbarItem(placement: .primaryAction) {
-          NavigationLink(value: newScenarioRoute()) {
-            Label(String(localized: "New Scenario"), systemImage: "plus")
-          }
-          .accessibilityIdentifier("home.newScenarioButton")
+        .accessibilityIdentifier("home.settingsButton")
+      }
+      .hidingPasturaSharedBackground()
+      ToolbarItem(placement: .primaryAction) {
+        NavigationLink(value: newScenarioRoute()) {
+          Label(String(localized: "New Scenario"), systemImage: "plus")
         }
-        .hidingPasturaSharedBackground()
+        .accessibilityIdentifier("home.newScenarioButton")
       }
-      .navigationDestination(for: Route.self) { route in
-        RouteResolver(route: route)
-      }
+      .hidingPasturaSharedBackground()
     }
     .task {
       // Defer assignment until both `loadScenarios()` and
@@ -77,7 +73,8 @@ struct HomeView: View {
     }
     // Refresh the list whenever the user navigates back to root.
     // `.task` only runs on initial mount; pushed views like the editor
-    // don't re-trigger it on dismiss.
+    // don't re-trigger it on dismiss. D5.3: `router` is the Home tab's
+    // `AppRouter` (per-tab injected), so this pop-reload stays Home-local.
     .onChange(of: router.path.count) { oldCount, newCount in
       if newCount < oldCount {
         Task {
