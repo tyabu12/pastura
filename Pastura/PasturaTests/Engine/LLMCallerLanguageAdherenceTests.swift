@@ -251,7 +251,7 @@ struct LLMCallerLanguageAdherenceTests {
 
   // MARK: - Schema-aware carve-out (case g)
 
-  @Test func noRetryForChooseSchemaWithEnumOptions() async throws {
+  @Test func noRetryForChooseSchemaWithChoiceField() async throws {
     // choose-phase schema with `action: .choice` on a ja scenario.
     // Output is the author-supplied action token — English text but not
     // LLM-generated language. The schema filter excludes `.choice` from
