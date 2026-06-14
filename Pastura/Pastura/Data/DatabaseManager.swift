@@ -13,6 +13,29 @@ nonisolated public final class DatabaseManager: Sendable {
   /// The underlying database writer. Exposed as `any DatabaseWriter`
   /// so switching from `DatabaseQueue` to `DatabasePool` later requires
   /// only changing the factory method.
+  ///
+  /// The *factory swap* is one line, but the *migration* is not — a
+  /// `DatabasePool` opens the database in WAL journal mode (vs. the current
+  /// `DatabaseQueue` rollback-journal default — see `recreateByBackingUp`
+  /// for the no-sidecar consequence of that default). Enabling WAL pulls in
+  /// two distinct concerns, only one of which is migration-gated:
+  ///
+  /// 1. **WAL sidecar backup** *(migration-gated)*: WAL adds persistent
+  ///    `-wal` / `-shm` files. Exclude those from iCloud backup while
+  ///    keeping `pastura.sqlite` itself backed up (ADR-015 D2 / §4). No
+  ///    sidecars exist today, so there is nothing to do until WAL is on.
+  /// 2. **File-protection / suspension** *(not WAL-specific — a baseline
+  ///    posture)*: a DB access that holds a lock while the device is locked
+  ///    in the background can hit `SQLITE_IOERR` / `0xdead10cc`. This is a
+  ///    background-execution (ADR-003) interaction, not a WAL one, so it
+  ///    already applies to today's `DatabaseQueue`. It is currently a
+  ///    **non-issue**: the store lives in app-private Application Support
+  ///    (no shared-container — the usual `0xdead10cc` trigger) under the
+  ///    default `CompleteUntilFirstUserAuthentication` protection (readable
+  ///    after first unlock, even while subsequently locked). A WAL
+  ///    migration would *sharpen* it (locks/`-shm` mmap held longer), so
+  ///    re-validate GRDB's `observesSuspensionNotifications` posture **at**
+  ///    that migration — it is not a reason to act now.
   public let dbWriter: any DatabaseWriter
 
   /// Creates a `DatabaseManager` with the given writer and applies migrations.

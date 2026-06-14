@@ -1,7 +1,11 @@
 # Shared Scenario Report Handling
 
-Operational procedure for Shared Scenario reports, per
-[ADR-005 §6](../decisions/ADR-005.md).
+Operational procedure for the in-app report mechanism (`ReportSheet`),
+covering all three report contexts it serves: Shared Scenario reports
+(§1.1–§1.2), the general-contact co-tenancy on the same Google Form
+(§1.1), and the DB migration-failure path (§1.3) — per
+[ADR-005 §6](../decisions/ADR-005.md) (see §6.7 for the UGC-vs-general-contact
+framing these contexts deliberately keep distinct).
 
 This document is **maintainer-facing**. User-visible copy in the app
 does not state any specific response-time number — this is intentional
