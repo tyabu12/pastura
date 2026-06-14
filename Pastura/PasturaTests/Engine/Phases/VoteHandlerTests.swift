@@ -209,6 +209,10 @@ struct VoteHandlerTests {
 
     #expect(
       try voteKind(mock, call: 0) == .enumeration(["博士マッド野", "体験者ミラクル子"]))
+    // Assert a second voter too, so an ordering / filter regression on
+    // multi-byte names can't slip through on a single-call lock.
+    #expect(
+      try voteKind(mock, call: 2) == .enumeration(["開き直りマコ", "博士マッド野"]))
   }
 
   @Test func voteSchemaFallsBackToStringForUnsafeCandidate() async throws {
