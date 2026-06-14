@@ -329,8 +329,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Requires iOS 26+, `LlamaCppService` (for GPU↔CPU switching), and the
   /// opt-in `FeatureFlags.backgroundContinuationEnabled` flag (default
   /// `false` — see the flag's doc comment for the unstable-feature
-  /// exposure-shrink rationale and re-enable checklist; tracking issue
-  /// #254).
+  /// exposure-shrink rationale, the parked-indefinitely status, and the
+  /// re-enable bar; gating umbrella #254).
   ///
   /// This computed property is the single source of truth for the BG
   /// continuation surface — both UI rendering (`SimulationView` toggle

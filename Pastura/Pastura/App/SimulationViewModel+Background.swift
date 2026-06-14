@@ -159,7 +159,11 @@ extension SimulationViewModel {
     // re-arm for the next BG transition. Gated on `didActivateBGTask` so that
     // transient `.inactive → .active` transitions (Control Center pull,
     // notification drawer) don't silently disarm the armed toggle.
-    // TODO: persist title/subtitle to auto-rearm without user re-tap (#84 follow-up).
+    // Deferred while BG is parked (no-action) — design question (auto-rearm
+    // vs one-shot) needs TestFlight feedback. Tracked in
+    // `FeatureFlags.backgroundContinuationEnabled` § "Deferred BG enhancements"
+    // (#84 follow-up; retired #117): persist title/subtitle to auto-rearm
+    // without user re-tap.
     if didActivateBGTask && isBackgroundContinuationEnabled {
       isBackgroundContinuationEnabled = false
     }
