@@ -105,15 +105,22 @@ struct VoteHandlerTests {
     #expect(state.variables["vote_result"] == nil)
   }
 
-  @Test func acceptsInvalidVoteTarget() async throws {
+  @Test func dropsInvalidVotesFromTally() async throws {
+    // Regression for #524. Three voters (exclude_self default true):
+    //   Alice → "Alice"   self-vote, invalid (Alice ∉ her candidates)
+    //   Bob   → "Ghost"   hallucinated name, invalid
+    //   Charlie → "Bob"   valid
+    // Reverting the drop would put Alice (self) and Ghost back into the
+    // tally — this test fails in that case.
     let mock = MockLLMService(responses: [
-      #"{"vote": "NonExistent"}"#,
-      #"{"vote": "Alice"}"#
+      #"{"vote": "Alice"}"#,
+      #"{"vote": "Ghost"}"#,
+      #"{"vote": "Bob"}"#
     ])
     try await mock.loadModel()
 
     let scenario = makeTestScenario(
-      agentNames: ["Alice", "Bob"],
+      agentNames: ["Alice", "Bob", "Charlie"],
       phases: [Phase(type: .vote, prompt: "Vote!", outputSchema: ["vote": "string"])]
     )
     var state = SimulationState.initial(for: scenario)
@@ -123,9 +130,21 @@ struct VoteHandlerTests {
     let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
     try await handler.execute(context: context, state: &state)
 
-    // Invalid vote counted dynamically
-    #expect(state.voteResults["NonExistent"] == 1)
-    #expect(state.voteResults["Alice"] == 1)
+    // Only Charlie's valid vote is tallied.
+    #expect(state.voteResults == ["Bob": 1])
+    #expect(state.voteResults["Alice"] == nil)  // self-vote dropped
+    #expect(state.voteResults["Ghost"] == nil)  // hallucinated dropped
+
+    // Divergence is intentional: the raw votes stay visible in the
+    // voteResults event even though they are absent from the tally.
+    let voteEvent = collector.events.compactMap { event -> [String: String]? in
+      if case .voteResults(let votes, _) = event { return votes }
+      return nil
+    }.first
+    let votes = try #require(voteEvent)
+    #expect(votes["Alice"] == "Alice")  // self-vote preserved in votes map
+    #expect(votes["Bob"] == "Ghost")  // hallucinated preserved in votes map
+    #expect(votes["Charlie"] == "Bob")
   }
 
   // MARK: - Per-voter enumeration schema (#524)

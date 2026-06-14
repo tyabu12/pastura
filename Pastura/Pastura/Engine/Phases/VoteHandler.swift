@@ -3,8 +3,11 @@ import Foundation
 /// Handles `vote` phases where all agents vote for one agent.
 ///
 /// Collects votes, tallies results, updates `state.voteResults`, and emits
-/// a `voteResults` event. Invalid vote targets are accepted dynamically
-/// (following prototype behavior).
+/// a `voteResults` event. A vote outside the voter's candidate list (self
+/// under `exclude_self`, an eliminated agent, or a hallucinated name) is
+/// dropped from the tally so it cannot distort scoring or elimination; the
+/// raw value is still recorded in the per-voter `votes` map for
+/// observability in the `voteResults` event (#524).
 nonisolated struct VoteHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
   private let llmCaller = LLMCaller()
@@ -61,8 +64,14 @@ nonisolated struct VoteHandler: PhaseHandler {
 
       let votedFor = output.vote ?? ""
       votes[persona.name] = votedFor
-      // Accept any vote target dynamically (prototype behavior)
-      tallies[votedFor, default: 0] += 1
+      // Tally only votes for a valid candidate. Out-of-candidate votes
+      // (self under exclude_self, eliminated agents, or hallucinated names)
+      // are dropped so they cannot distort scoring or elimination (#524).
+      // The raw value stays in `votes` for observability in the
+      // voteResults event.
+      if candidates.contains(votedFor) {
+        tallies[votedFor, default: 0] += 1
+      }
 
       state.lastOutputs[persona.name] = output
     }
