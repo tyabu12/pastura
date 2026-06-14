@@ -42,6 +42,11 @@ struct RootTabView: View {
         set: { coordinator.handleSelection($0) }
       )
     ) {
+      // Icon-only tabs across ALL supported OS (ADR-016 D1 / design "D3"
+      // mock) — intentionally no visible text title, so do NOT "restore"
+      // `Label(text:)`. VoiceOver reads the per-icon `.accessibilityLabel`
+      // (the JA tab name); its correct surfacing on the tab button is
+      // confirmed by the real-device QA this PR already requires.
       TabNavigationStack(router: coordinator.homeRouter) {
         HomeView()
       }
@@ -94,8 +99,9 @@ private struct TabNavigationStack<Root: View>: View {
 
   var body: some View {
     // Local `@Bindable` rebinding to derive `$router.path` for the stack
-    // (mirrors the established HomeView pattern). `.environment(router)`
-    // scopes this tab's router to its own subtree (D3).
+    // (the `@Bindable` shadow pattern documented on ``AppRouter``).
+    // `.environment(router)` scopes this tab's router to its own
+    // subtree (D3).
     @Bindable var router = router
     return NavigationStack(path: $router.path) {
       root()
