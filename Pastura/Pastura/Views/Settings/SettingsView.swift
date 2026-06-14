@@ -28,18 +28,18 @@ import os
 ///
 /// Two rows: an external Privacy Policy link (opens Safari via
 /// `Environment(\.openURL)`) and a "Send a content report" Button
-/// that presents `ReportScenarioSheet(context: .general)` via
-/// `.sheet(isPresented:)`. The sheet carries `.deepLinkGated()` for
-/// symmetry with `GalleryScenarioDetailView`'s callsite — see
-/// navigation.md QA scenario 9. ADR-005 §6.6 substantive commitment
-/// ("Settings surface exposes report-mechanism copy per §6.4") is
-/// preserved by `ReportScenarioSheet`'s introCopy.
+/// that presents `ReportSheet(context: .general)` via the
+/// `.reportSheet(isPresented:context:)` helper (which applies
+/// `.deepLinkGated()` internally — see navigation.md QA scenario 9).
+/// ADR-005 §6.6 substantive commitment ("Settings surface exposes
+/// report-mechanism copy per §6.4") is preserved by `ReportSheet`'s
+/// introCopy.
 struct SettingsView: View {
   @Environment(\.openURL) private var openURL
 
-  /// Bound to `.sheet(isPresented:)` for the "Send a content report"
-  /// row inside the Legal section. The sheet reuses
-  /// `ReportScenarioSheet` with `context: .general` (Settings has no
+  /// Bound to `.reportSheet(isPresented:context:)` for the "Send a
+  /// content report" row inside the Legal section. The sheet reuses
+  /// `ReportSheet` with `context: .general` (Settings has no
   /// specific scenario context) — see ADR-005 §6.7 dual-use precedent.
   @State private var isReportSheetPresented: Bool = false
 
@@ -176,15 +176,7 @@ struct SettingsView: View {
       }
       .hidingPasturaSharedBackground()
     }
-    // `.deepLinkGated()` mirrors the existing report sheet at
-    // GalleryScenarioDetailView's call site — a `pastura://` URL
-    // arriving while the user is mid-report queues until the sheet
-    // dismisses, rather than pushing a gallery detail under it (see
-    // navigation.md QA scenario 9).
-    .sheet(isPresented: $isReportSheetPresented) {
-      ReportScenarioSheet(context: .general)
-        .deepLinkGated()
-    }
+    .reportSheet(isPresented: $isReportSheetPresented, context: .general)
     .sheet(isPresented: $isLicensesSheetPresented) {
       LicensesSheet()
         .deepLinkGated()

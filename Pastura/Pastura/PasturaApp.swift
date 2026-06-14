@@ -296,10 +296,9 @@ private struct RootView: View {
           .accessibilityIdentifier("recovery.reportButton")
         }
         .padding()
-        .sheet(isPresented: $isRecoveryReportSheetPresented) {
-          ReportScenarioSheet(context: .migrationFailure(error: message))
-            .deepLinkGated()
-        }
+        .reportSheet(
+          isPresented: $isRecoveryReportSheetPresented,
+          context: .migrationFailure(error: message))
 
       case .error(let message):
         VStack(spacing: 16) {

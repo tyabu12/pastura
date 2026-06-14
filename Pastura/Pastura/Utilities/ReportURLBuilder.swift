@@ -2,7 +2,7 @@ import Foundation
 
 /// Builds pre-filled URLs for Shared Scenario reports.
 ///
-/// Backs `ReportScenarioSheet`'s primary (Google Forms) and secondary
+/// Backs `ReportSheet`'s primary (Google Forms) and secondary
 /// (GitHub issue) surfaces. See `docs/gallery/shared-scenario-reports.md`
 /// for the form configuration and ADR-005 §6.6 for the record of the
 /// chosen mechanism.
