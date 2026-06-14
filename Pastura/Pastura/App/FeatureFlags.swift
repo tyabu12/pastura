@@ -51,44 +51,61 @@ nonisolated enum FeatureFlags {
   ///
   /// **Opt-in flag — defaults to `false`** (exposure-shrink for an unstable
   /// feature, the *opposite* of ``realtimeStreamingEnabled``'s rollback-hatch
-  /// policy). Reasoning: real-device QA surfaced two failure modes whose
-  /// fixes are tracked separately:
+  /// policy). Reasoning: real-device QA surfaced two failure modes:
   ///
-  /// - **#111** — Gemma 4 E2B Q4_K_M peaks at ~5 GB resident on iPhone 15 Pro
-  ///   class hardware; tight-memory devices receive `didReceiveMemoryWarning`
-  ///   under nominal foreground load, which BG continuation amplifies (CPU
-  ///   mode keeps the model resident across the BG transition, increasing
-  ///   OOM-kill risk).
-  /// - **#135** — Backgrounding mid-generation with GPU + BG continuation
-  ///   OFF leaves the Metal backend in an unrecoverable error state
-  ///   (`backgroundExecutionNotPermitted` cascade); the in-flight turn is
-  ///   lost.
+  /// - **Memory / OOM** (#111) — Gemma 4 E2B Q4_K_M peaks at ~5 GB resident
+  ///   on iPhone 15 Pro class hardware; tight-memory devices receive
+  ///   `didReceiveMemoryWarning` under nominal foreground load, which BG
+  ///   continuation amplifies (CPU mode keeps the model resident across the
+  ///   BG transition, increasing OOM-kill risk).
+  /// - **Metal-backend unrecoverable state** (#135) — backgrounding
+  ///   mid-generation with GPU + BG continuation OFF leaves the Metal backend
+  ///   in an unrecoverable error state (`backgroundExecutionNotPermitted`
+  ///   cascade); the in-flight turn is lost.
   ///
-  /// While #111 / #135 remain unfixed, the toggle stays hidden from
-  /// TestFlight users. The underlying `BackgroundSimulationManager` /
-  /// `enableBackgroundContinuation` code paths are kept intact so the
-  /// feature can be exercised under `defaults write` for developer
-  /// verification; `BackgroundSimulationManager.register()` at app launch
-  /// is harmless on its own (it only installs a system handler — without
-  /// `scheduleRequest()` being called via `enableBackgroundContinuation`,
-  /// no task is ever submitted).
+  /// **Status: parked indefinitely.** #111 / #135 and the umbrella #254 are
+  /// all closed, but **without** the qualifying re-enable fixes below — BG
+  /// continuation is still unstable and there is **no re-enable currently
+  /// scheduled**. Do *not* read the closed-issue state as "preconditions met,
+  /// almost shippable": issue-closure here does **not** mean the re-enable bar
+  /// is satisfied (the bar is the engineering state below, not an issue count).
+  ///
+  /// The toggle therefore stays hidden from TestFlight users. The underlying
+  /// `BackgroundSimulationManager` / `enableBackgroundContinuation` code paths
+  /// are kept intact so the feature can be exercised under `defaults write`
+  /// for developer verification; `BackgroundSimulationManager.register()` at
+  /// app launch is harmless on its own (it only installs a system handler —
+  /// without `scheduleRequest()` being called via
+  /// `enableBackgroundContinuation`, no task is ever submitted).
   ///
   /// Developer override:
   /// ```
   /// defaults write app.pastura.Pastura backgroundContinuationEnabled -bool true
   /// ```
   ///
-  /// **Re-enable checklist** — do *not* flip this default to `true` until
-  /// all three are satisfied:
-  /// 1. #111 closed with a memory-budget regression test on 6–8 GB-RAM
-  ///    devices.
-  /// 2. #135 closed with a Metal-recovery integration test (rebuild backend
-  ///    on FG return after BG-induced command-buffer rejection).
-  /// 3. Manual on-device validation: 10-minute BG run on a 3 GB-RAM device
-  ///    class (iPhone SE) without OOM, FG return without Metal decode
-  ///    failure.
+  /// **Re-enable bar** — flip this default to `true` only once *all three*
+  /// engineering preconditions actually hold (independent of any issue's
+  /// open/closed state):
+  /// 1. A memory-budget regression test passes on 6–8 GB-RAM devices — the
+  ///    OOM amplification above no longer reproduces.
+  /// 2. A Metal-recovery integration test passes — the backend rebuilds on FG
+  ///    return after a BG-induced command-buffer rejection.
+  /// 3. Manual on-device validation: a 10-minute BG run on a 3 GB-RAM device
+  ///    class (iPhone SE) without OOM, FG return without Metal decode failure.
   ///
-  /// See tracking issue #254 for the broader rationale.
+  /// **Deferred BG enhancements** — revisit together if/when BG is re-enabled
+  /// (no-action while parked):
+  /// - *Auto-rearm on FG return* — after a real BG activation + FG return the
+  ///   toggle disarms, so the user must re-tap the moon icon each cycle.
+  ///   Whether to auto-rearm (simpler, but may surprise users who didn't mean
+  ///   to re-enable) or stay one-shot (explicit, but tedious for routine long
+  ///   runs) needs TestFlight feedback to decide — which can't arrive while
+  ///   the feature is parked. Seam: the `didActivateBGTask` branch in
+  ///   `SimulationViewModel+Background.swift`'s `handleScenePhaseForeground`.
+  ///   (Retired #117 — folded here as no-action.)
+  ///
+  /// See #254 (gating umbrella) and #84 (BG-execution feature lineage) for the
+  /// broader rationale.
   static var backgroundContinuationEnabled: Bool {
     defaultsReadBool(key: backgroundContinuationKey, default: false)
   }
