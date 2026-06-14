@@ -9,14 +9,13 @@ import Foundation
 /// byte sequence via `[^"\\]` — Japanese / emoji pass through without a
 /// separate code-point class.
 ///
-/// Enumeration fields (currently only `choose.action` with non-empty
-/// options) get a per-field rule named `<fieldname>-value` (any `_` in
-/// the field name is mapped to `-` because llama.cpp's GBNF
-/// `is_word_char` rejects underscores in rule identifiers — see
-/// `llama-grammar.cpp:98` of b8694, and ADR-002 §12.8). The options
-/// are emitted as alternation literals; this is strictly stronger
-/// than the runtime `validateAction` fallback because the model cannot
-/// produce an out-of-set value in the first place.
+/// Every field's value position uses the shared `string` production —
+/// the grammar constrains JSON **structure** (object shape, keys, commas)
+/// but never enumerates values. Author-defined choice options
+/// (`choose.action`) were once emitted as alternation literals, but that
+/// crashed llama.cpp's sampler on CJK / dynamic values; value constraint
+/// now lives at runtime (``ChooseHandler`` `validateAction`). See
+/// ``OutputSchema/Kind/choice`` and ADR-002 §12.8 for the history.
 ///
 /// Pure transformation — no I/O, no state. Output is stable and testable
 /// byte-for-byte against golden files for each preset (see
@@ -31,30 +30,19 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   /// ``LLMError/invalidGrammar`` (Item 4) so the retry budget is
   /// preserved.
   nonisolated public enum BuilderError: Error, Equatable, Sendable {
-    /// `.enumeration([])` — a choose-phase options list was empty or
-    /// missing; grammar would have zero alternatives, which llama.cpp
-    /// rejects.
-    case emptyEnumeration(field: String)
     /// Two ``OutputSchema/Field`` entries share the same name.
     case duplicateFieldName(String)
     /// Field name does not match Pastura's preset-input shape
     /// (Unicode-aware): first char must be a letter
     /// (`Character.isLetter` — accepts ASCII + Japanese + other
     /// scripts), and subsequent chars must be letter / digit / `_`.
-    /// Leading `_` and `-` are intentionally rejected to keep
-    /// sanitized rule identifiers (`<name>-value`) from starting
-    /// with `-` (see Shared Scenarios concern in ADR-002 §12.8). The
-    /// actual GBNF rule-name shape (`[a-zA-Z0-9-]` per
-    /// `llama-grammar.cpp:98`) is enforced separately at emit time
-    /// via `sanitizeRuleName(_:)` — input validation gates Pastura
-    /// hygiene, sanitization handles the GBNF mapping.
+    /// Field names are emitted as JSON-key literals (`"\"name\""`) in
+    /// the grammar; rejecting hostile chars here keeps the literal
+    /// well-formed. Leading `_` / `-` stay rejected as a conservative
+    /// Pastura-hygiene rule — see ADR-002 §12.8 for the original
+    /// rule-identifier rationale (now historical, since per-field
+    /// `<name>-value` rules no longer exist).
     case invalidFieldName(String)
-    /// An enumeration option contains a character that would need
-    /// escaping in the GBNF literal form (`"`, `\`, or a control
-    /// byte). Shared Scenarios entries can inject arbitrary `options`
-    /// strings, so we validate up-front and throw a clear error
-    /// rather than emit malformed grammar the sampler would reject.
-    case invalidEnumerationOption(field: String, option: String)
   }
 
   /// Build the complete grammar for ``OutputSchema``.
@@ -66,11 +54,6 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
 
     var rules: [String] = []
     rules.append(rootRule(for: schema))
-    for field in schema.fields {
-      if case .enumeration(let options) = field.kind {
-        rules.append(enumerationRule(name: field.name, options: options))
-      }
-    }
     rules.append(Self.sharedStringProduction)
     rules.append(Self.sharedWhitespaceProduction)
     rules.append(Self.sharedTrailingProduction)
@@ -119,40 +102,13 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   }
 
   private func valueRuleName(for field: OutputSchema.Field) -> String {
+    // Both kinds use the shared `string` production — the grammar
+    // constrains structure, not values (see type doc and
+    // ``OutputSchema/Kind/choice``).
     switch field.kind {
-    case .string:
+    case .string, .choice:
       return "string"
-    case .enumeration:
-      return "\(sanitizeRuleName(field.name))-value"
     }
-  }
-
-  private func enumerationRule(name: String, options: [String]) -> String {
-    let alternatives =
-      options
-      .map { #""\""# + $0 + #"\"""# }
-      .joined(separator: " | ")
-    return "\(sanitizeRuleName(name))-value ::= \(alternatives)"
-  }
-
-  /// Map a Pastura field name to a llama.cpp-acceptable GBNF rule
-  /// identifier. The parser's `is_word_char` (`llama-grammar.cpp:98`
-  /// of b8694) accepts only `[a-zA-Z0-9-]` — underscores are NOT
-  /// valid in rule names, even though Pastura's preset YAML uses
-  /// snake_case for field names. We translate `_` → `-` here so
-  /// `inner_thought` (input) emits as `inner-thought-value` (rule
-  /// reference).
-  ///
-  /// Other invalid chars (leading non-letter, `.`, spaces, control
-  /// bytes) are caught upstream by `validateFieldName`, which is
-  /// Unicode-aware (`Character.isLetter` accepts Japanese / other
-  /// scripts). A non-ASCII letter that passes Pastura validation
-  /// would still fail llama.cpp's ASCII-only `is_word_char` at emit
-  /// time — the stderr-capture diagnostic in `+Sampler.swift` would
-  /// surface that mismatch within one device run if a future preset
-  /// hits it. See ADR-002 §12.8 for the discovery story.
-  private func sanitizeRuleName(_ name: String) -> String {
-    name.replacingOccurrences(of: "_", with: "-")
   }
 
   // MARK: - Validation
@@ -165,42 +121,17 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
         throw BuilderError.duplicateFieldName(field.name)
       }
       seen.insert(field.name)
-      if case .enumeration(let options) = field.kind {
-        guard !options.isEmpty else {
-          throw BuilderError.emptyEnumeration(field: field.name)
-        }
-        for option in options {
-          try validateEnumerationOption(option, field: field.name)
-        }
-      }
-    }
-  }
-
-  private func validateEnumerationOption(_ option: String, field: String) throws {
-    // Reject characters that would need GBNF escaping in the `"\"opt\""`
-    // literal form. Pastura's YAML presets contain only identifier-like
-    // options (`cooperate`, `betray`), but Shared Scenarios entries can
-    // inject arbitrary strings — guard at builder time so the failure
-    // mode is a clear `BuilderError`, not a NULL-return from
-    // `llama_sampler_init_grammar` via `LLMError.invalidGrammar`.
-    for char in option {
-      if char == "\"" || char == "\\" || char.isNewline
-        || char.asciiValue.map({ $0 < 0x20 }) == true {
-        throw BuilderError.invalidEnumerationOption(field: field, option: option)
-      }
     }
   }
 
   private func validateFieldName(_ name: String) throws {
-    // First char must be a letter — leading `_` (or `-`) was previously
-    // tolerated for Pastura's snake_case convention but Shared Scenarios
-    // scenarios can ship arbitrary YAML, and a leading-`_` field name
-    // would sanitize to a leading-`-` rule identifier (`-thing-value`).
-    // b8694's parser accepts that, but it is unconventional and a
-    // future llama.cpp tightening could reject it. Reject at the
-    // Pastura boundary so failures surface as a clear `BuilderError`,
-    // not a llama.cpp `failed to parse grammar` from sampler init.
-    // See ADR-002 §12.8.
+    // Field names are emitted as JSON-key literals (`"\"name\""`) in the
+    // grammar. Reject names whose chars would break that literal or that
+    // Shared Scenarios YAML could inject. The leading-letter + body
+    // letter/digit/`_` rule is a conservative Pastura-hygiene boundary
+    // (it originally also guarded the now-removed `<name>-value` rule
+    // identifier — see ADR-002 §12.8, historical). A clear `BuilderError`
+    // here beats a llama.cpp `failed to parse grammar` at sampler init.
     guard let first = name.first, first.isLetter else {
       throw BuilderError.invalidFieldName(name)
     }

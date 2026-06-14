@@ -72,10 +72,14 @@ struct OutputSchemaTests {
         == ["statement", "inner_thought", "alpha", "zeta"])
   }
 
-  // MARK: - Enumeration for choose.options
+  // MARK: - Choice marker for choose.options
 
-  @Test("choose with options produces enumeration on action field")
-  func chooseOptionsBecomesEnumeration() throws {
+  @Test("choose with options marks the action field as .choice")
+  func chooseOptionsBecomesChoice() throws {
+    // `.choice` is a payload-free marker (no option strings) — the
+    // options are NOT enumerated into the grammar (model-agnostic crash
+    // safety, #599). It signals "author-fixed token, exclude from
+    // language detection" only.
     let schema = try #require(
       OutputSchema.from(
         phase: Phase(
@@ -83,7 +87,7 @@ struct OutputSchemaTests {
           outputSchema: ["action": "string", "inner_thought": "string"],
           options: ["cooperate", "betray"])))
     let actionField = try #require(schema.fields.first { $0.name == "action" })
-    #expect(actionField.kind == .enumeration(["cooperate", "betray"]))
+    #expect(actionField.kind == .choice)
     let thoughtField = try #require(
       schema.fields.first { $0.name == "inner_thought" })
     #expect(thoughtField.kind == .string)
@@ -101,9 +105,9 @@ struct OutputSchemaTests {
     #expect(actionField.kind == .string)
   }
 
-  @Test("non-choose phases never produce enumeration even with options-shaped data")
+  @Test("non-choose phases never produce .choice even with options-shaped data")
   func speakPhaseIgnoresOptions() throws {
-    // Defensive: speak_all should never get enumeration even if options accidentally present
+    // Defensive: speak_all should never get .choice even if options accidentally present
     let schema = try #require(
       OutputSchema.from(
         phase: Phase(

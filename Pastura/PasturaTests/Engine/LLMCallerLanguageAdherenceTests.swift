@@ -17,10 +17,10 @@ import os
 /// - Priority pin: when a response has both `empty_field` and
 ///   wrong-language, the parse-empty retry fires first — the adherence
 ///   check is gated on a non-empty output
-/// - Schema-aware carve-out: option-bound enum fields
-///   (`Field.kind == .enumeration(...)`) are excluded from the
-///   detection input, so a `choose` scenario in `ja` with English
-///   option tokens does not spuriously retry
+/// - Schema-aware carve-out: author-defined choice fields
+///   (`Field.kind == .choice`) are excluded from the detection input,
+///   so a `choose` scenario in `ja` with English option tokens does not
+///   spuriously retry
 @Suite(.timeLimit(.minutes(1)))
 struct LLMCallerLanguageAdherenceTests {
   let caller = LLMCaller()
@@ -51,12 +51,12 @@ struct LLMCallerLanguageAdherenceTests {
   }
 
   /// Mimics a `choose` phase schema with author-supplied English options.
-  /// The `action` field is enum-constrained — the adherence check must
-  /// filter it out and base its verdict on remaining natural-language
-  /// fields (none here → check is skipped entirely).
+  /// The `action` field is `.choice` — the adherence check must filter it
+  /// out and base its verdict on remaining natural-language fields (none
+  /// here → check is skipped entirely).
   private func chooseSchemaWithEnOptions() -> OutputSchema {
     OutputSchema(fields: [
-      OutputSchema.Field(name: "action", kind: .enumeration(["cooperate", "betray"]))
+      OutputSchema.Field(name: "action", kind: .choice)
     ])
   }
 
@@ -252,11 +252,11 @@ struct LLMCallerLanguageAdherenceTests {
   // MARK: - Schema-aware carve-out (case g)
 
   @Test func noRetryForChooseSchemaWithEnumOptions() async throws {
-    // choose-phase schema with `action: .enumeration(["cooperate", "betray"])`
-    // on a ja scenario. Output is the enum-constrained action token —
-    // English text but author-supplied, not LLM-generated language. The
-    // schema filter excludes `action` from natural-language fields, so
-    // the joined detection input is empty → check skipped → no retry.
+    // choose-phase schema with `action: .choice` on a ja scenario.
+    // Output is the author-supplied action token — English text but not
+    // LLM-generated language. The schema filter excludes `.choice` from
+    // natural-language fields, so the joined detection input is empty →
+    // check skipped → no retry.
     let mock = MockLLMService(responses: [
       #"{"action": "cooperate"}"#
     ])

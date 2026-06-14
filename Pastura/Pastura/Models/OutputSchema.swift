@@ -16,7 +16,7 @@ import Foundation
 /// stream. See ADR-002 §12 and the PR #194 plan for the critic-driven
 /// rationale.
 ///
-/// Vocabulary is intentionally minimal (``Kind/string`` + ``Kind/enumeration(_:)``)
+/// Vocabulary is intentionally minimal (``Kind/string`` + ``Kind/choice``)
 /// — matches Pastura's actual scenario shape. Future backends needing
 /// richer JSON Schema features (integers, booleans, regex formats) should
 /// add an adapter, not extend this enum.
@@ -59,17 +59,19 @@ nonisolated public struct OutputSchema: Codable, Sendable, Equatable {
   ///   constrained decoding" and skip grammar injection.
   ///
   /// For `.choose` phases with non-empty `options`, the `action` field
-  /// (if present in the schema) becomes ``Kind/enumeration(_:)``
-  /// carrying those options — stronger than the runtime
-  /// `validateAction` fallback.
+  /// (if present in the schema) becomes ``Kind/choice`` — a marker that
+  /// the field carries an author-defined choice token. The value is NOT
+  /// grammar-constrained (see ``Kind/choice`` for the model-agnostic
+  /// safety rationale, #599); the runtime ``ChooseHandler`` `validateAction`
+  /// fallback constrains it instead.
   public static func from(phase: Phase) -> OutputSchema? {
     guard let raw = phase.outputSchema, !raw.isEmpty else { return nil }
     let orderedNames = orderKeys(Array(raw.keys))
     let isChooseWithOptions =
       phase.type == .choose && !(phase.options ?? []).isEmpty
     let fields = orderedNames.map { name -> Field in
-      if isChooseWithOptions, name == "action", let options = phase.options {
-        return Field(name: name, kind: .enumeration(options))
+      if isChooseWithOptions, name == "action" {
+        return Field(name: name, kind: .choice)
       }
       return Field(name: name, kind: .string)
     }
@@ -108,15 +110,31 @@ nonisolated public struct OutputSchema: Codable, Sendable, Equatable {
 
   /// The kind of value a ``Field`` accepts.
   ///
-  /// Intentionally narrow — Pastura's presets only ever express "a
-  /// string" or "one of these literal string options". Future scenario
-  /// shapes should prefer an adapter to JSON Schema over extending this
-  /// enum.
+  /// Intentionally narrow — Pastura's presets only ever express "a free
+  /// string" or "an author-defined choice token". Future scenario shapes
+  /// should prefer an adapter to JSON Schema over extending this enum.
   nonisolated public enum Kind: Codable, Sendable, Equatable {
     /// Any string value (UTF-8, including CJK / emoji).
     case string
-    /// One of a fixed set of string literals — used for
-    /// ``Phase/options`` on `.choose` phases.
-    case enumeration([String])
+    /// An author-defined choice field (the `action` of a `.choose`
+    /// phase with non-empty ``Phase/options``).
+    ///
+    /// Carries **no** option payload by design. The choice options were
+    /// once enumerated directly into the GBNF grammar as alternation
+    /// literals, but that crashed llama.cpp's sampler on CJK / dynamic
+    /// option values — the crash is token-dependent, so a char-class
+    /// guard cannot make it safe across models (#597 vote precedent,
+    /// #599). The grammar now constrains JSON **structure** only; this
+    /// case is grammar-equivalent to ``string`` (emits the shared
+    /// `string` production). The value is constrained at runtime by
+    /// ``ChooseHandler`` `validateAction` (invalid → `options[0]`), and
+    /// the model still learns the valid options from the prompt
+    /// (``PromptBuilder``).
+    ///
+    /// The marker is retained (rather than collapsing to ``string``) so
+    /// the language-adherence detector can exclude author-fixed tokens
+    /// like `cooperate` / `betray` from its verdict — see
+    /// `LLMCaller.naturalLanguageFieldValues` (ADR-010 Step E, #405).
+    case choice
   }
 }
