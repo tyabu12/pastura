@@ -52,7 +52,7 @@ nonisolated struct VoteHandler: PhaseHandler {
       let output = try await llmCaller.call(
         llm: context.llm, system: systemPrompt, user: userPrompt,
         agentName: persona.name,
-        schema: voteSchema(phase: context.phase, candidates: candidates),
+        schema: OutputSchema.from(phase: context.phase),
         detector: context.detector,
         expectedLanguage: context.scenario.engineLanguage,
         suspendController: context.suspendController,
@@ -82,36 +82,5 @@ nonisolated struct VoteHandler: PhaseHandler {
     state.variables["vote_results"] = promptBuilder.formatScoreboard(tallies)
 
     context.emitter(.voteResults(votes: votes, tallies: tallies))
-  }
-
-  /// Build the per-voter `OutputSchema`, constraining the `vote` field to the
-  /// voter's candidate list at the grammar level when every candidate is
-  /// GBNF-safe and the list is non-empty.
-  ///
-  /// This is the on-device prevention layer: a grammar enumeration makes a
-  /// self-vote (under `exclude_self`) or a vote for an eliminated agent
-  /// structurally unreachable on backends that honor the schema (#524). The
-  /// runtime drop in `execute(...)` remains the correctness floor for
-  /// backends that don't constrain (Mock / Ollama) or grammar bypass.
-  ///
-  /// Falls back to the unconstrained `OutputSchema.from(phase:)` when the
-  /// candidate list is empty or any candidate contains a GBNF-hostile
-  /// character — emitting an `.enumeration` there would throw
-  /// `BuilderError.invalidEnumerationOption`, which propagates as a
-  /// non-retried `llmGenerationFailed` and aborts the run (worse than the
-  /// bug). Candidate values are persona names (arbitrary user / factory
-  /// input), so this guard is load-bearing; `choose`'s author-curated
-  /// `options` never hit it.
-  private func voteSchema(phase: Phase, candidates: [String]) -> OutputSchema? {
-    guard let base = OutputSchema.from(phase: phase) else { return nil }
-    guard !candidates.isEmpty,
-      candidates.allSatisfy(GBNFGrammarBuilder.isSafeEnumerationOption)
-    else { return base }
-    let fields = base.fields.map { field in
-      field.name == "vote"
-        ? OutputSchema.Field(name: field.name, kind: .enumeration(candidates))
-        : field
-    }
-    return OutputSchema(fields: fields)
   }
 }
