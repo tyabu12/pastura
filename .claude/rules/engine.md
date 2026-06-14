@@ -272,7 +272,7 @@ llama.cpp is the active TestFlight backend; the LiteRT-LM migration
 trigger has fired and evaluation is in progress (ADR-002 §8, #496) —
 revisit this section if/when `LlamaCppService` is replaced.
 
-Four trap classes from prior incidents. The first three share a crash
+Five trap classes from prior incidents. The first four share a crash
 signature (`Unexpected empty grammar stack` → SIGABRT) but have
 **different root causes and different fixes** — diagnose before fixing.
 
@@ -328,6 +328,27 @@ and the next `llama_sampler_sample` hits `GGML_ASSERT(!stacks.empty())`
 grammar mode, split the chain into two samplers, or build a
 `common_sampler_accept`-style per-component wrapper that excludes the
 grammar. (PR #480 commit eb26153, reverted in 4ffaf6f; ADR-011.)
+
+### Grammar must not enumerate values — structure only
+
+`GBNFGrammarBuilder` constrains JSON **structure** (object shape, keys,
+the shared `string` value production) but MUST NOT emit value
+enumerations (option / candidate literals) into the grammar. CJK /
+multi-byte / dynamic literal values crash llama.cpp's sampler at
+accept-time (the `Unexpected empty grammar stack` class above; ADR-002
+§12.9), and the trigger is the model's BPE tokenizer — so it is
+**per-model**: a char-class guard that passes for Gemma 4 E2B is
+unverified for any other runtime-selectable model or LiteRT-LM. There is
+no model-agnostic "safe enumeration" predicate (one — `isSafeEnumerationOption`
+— was tried and removed in #597).
+
+Constrain closed-set values at **runtime** instead: `choose` → `options[0]`
+fallback in `ChooseHandler.validateAction`; `vote` → tally drop in
+`VoteHandler`. `OutputSchema.Kind.choice` is a payload-free marker so
+option strings never reach a grammar literal. Vote dropped grammar
+enumeration in #597; choose in #599 (ADR-002 §Amendment 2026-06-14).
+Residual: CJK field **names** still emit as JSON-key literals, same
+mechanism (#607).
 
 ### iOS Simulator cannot run quantized inference
 
