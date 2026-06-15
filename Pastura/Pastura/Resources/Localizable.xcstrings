@@ -1162,6 +1162,16 @@
         }
       }
     },
+    "Browse" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "さがす"
+          }
+        }
+      }
+    },
     "Calculate scores (code, no LLM)" : {
       "localizations" : {
         "ja" : {
@@ -2587,6 +2597,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考を隠す"
+          }
+        }
+      }
+    },
+    "History" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "観察履歴"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "牧場"
           }
         }
       }
