@@ -1,6 +1,9 @@
 import SwiftUI
 
-/// Browse view for the curated gallery of scenarios (Shared Scenarios).
+/// Root of the "Browse" (さがす) tab — a curated gallery of scenarios
+/// (Shared Scenarios). As a tab root it carries no back chrome; it
+/// pushes ``Route/galleryScenarioDetail(scenario:)`` onto its own tab
+/// stack (ADR-016 D4).
 struct SharedScenariosListView: View {
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: SharedScenariosViewModel?
@@ -14,18 +17,8 @@ struct SharedScenariosListView: View {
       }
     }
     .navigationTitle(String(localized: "Shared Scenarios"))
-    // Inline title to match the other tab roots (design-system § 5.11);
-    // "Shared Scenarios" is a generic label, so inline is consistent for
-    // the push variant too.
+    // Inline title to match the other tab roots (design-system § 5.11).
     .navigationBarTitleDisplayMode(.inline)
-    .navigationBarBackButtonHidden(true)
-    .preservesPasturaSwipeBackGesture()
-    .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        PasturaBackButton()
-      }
-      .hidingPasturaSharedBackground()
-    }
     .task {
       let newViewModel = SharedScenariosViewModel(
         galleryService: dependencies.galleryService,

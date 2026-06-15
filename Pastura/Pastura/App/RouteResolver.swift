@@ -33,8 +33,6 @@ struct RouteResolver: View {
       ResultsView(scenarioId: scenarioId)
     case .resultDetail(let simulationId):
       ResultDetailView(simulationId: simulationId)
-    case .sharedScenarios:
-      SharedScenariosListView()
     case .galleryScenarioDetail(let scenario):
       GalleryScenarioDetailView(scenario: scenario)
     }

@@ -126,18 +126,12 @@ struct HomeView: View {
     }
   }
 
-  /// Entry rows for the curated gallery and past results — navigation
-  /// destinations that aren't tied to a single scenario row.
+  /// Entry row for past results — a navigation destination that isn't
+  /// tied to a single scenario row. (Shared Scenarios moved to its own
+  /// "Browse" tab in ADR-016 D4, so it is no longer a Home push.)
   @ViewBuilder
   private func browseSection() -> some View {
     Section {
-      NavigationLink(value: Route.sharedScenarios) {
-        navRowLabel(
-          title: String(localized: "Shared Scenarios"),
-          systemImage: "square.grid.2x2.fill")
-      }
-      .accessibilityIdentifier("home.sharedScenariosButton")
-      .pasturaCardRow()
       NavigationLink(value: Route.results(scenarioId: "")) {
         navRowLabel(
           title: String(localized: "Past Results"),
