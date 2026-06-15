@@ -98,9 +98,9 @@ relaxed, restore the `code-reviewer` pass.
 4. `git fetch origin main` (any auto-fix branch is cut from `origin/main`).
 5. Working tree clean (`git status --porcelain` empty) — the skill leaves
    nothing in the working tree (its auto-fix commits land on a separate
-   `audit/*` branch), so any dirty path means a prior run died mid-way, or a
-   sibling skill (e.g. queue-consumer's uncommitted `data/queue/digest.md`) is
-   in flight; abort and report rather than mixing changes.
+   `audit/*` branch), so any dirty path means a prior run died mid-way;
+   abort and report rather than mixing changes. (Sibling generators no
+   longer dirty the tree — the nightly digests are gitignored local logs.)
 
 ## Step 0.5 — WIP backpressure (skip when the review queue is saturated)
 
@@ -212,11 +212,11 @@ behind in the working tree.
   inside a routine-provided worktree (the queue-consumer model) — fresh off
   `origin/main` each fire, so the clean-tree preflight passes and no branch
   state accumulates in the run's checkout.
-- **Do not overlap the queue-consumer window.** The audit skill leaves nothing
-  in the working tree, but its plain clean-tree preflight will **abort** if it
-  runs in the main checkout while a sibling skill's artifact is uncommitted
-  (e.g. queue-consumer's `data/queue/digest.md`). Schedule the audit run in a
-  separate window.
+- **Sibling-generator overlap is no longer a clean-tree hazard.** The nightly
+  digests (`data/queue/digest.md`, `data/factory/digest.md`) are gitignored
+  local logs, so a concurrent queue-consumer / scenario-factory run does not
+  dirty the main checkout. A manual-run abort now only signals a genuinely
+  dirty tree (a prior run died mid-way), not a sibling's in-flight digest.
 - The skill still never registers itself — scheduling is a `/schedule` action a
   human takes after this lands.
 
