@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Append one factory-cycle section to the committed digest, date-idempotently.
+"""Append one factory-cycle section to the local digest, date-idempotently.
 
 usage: append_digest.py --results <results.json> --digest <digest.md>
+
+The digest is a LOCAL log (gitignored — not committed). If the target
+file is absent (clean clone / first run), it is bootstrapped from a
+scaffold; the canonical promotion docs live in the skill's SKILL.md
+§ Promotion, with only a one-line `Promotion:` pointer kept in the file.
 
 The digest must contain both marker comments:
 
   <!-- factory-digest:sections -->    new sections inserted directly below
                                       (newest first)
-  <!-- factory-digest:promotion -->   promotion footer; never modified
+  <!-- factory-digest:promotion -->   promotion pointer footer; never modified
 
 If a section for the same date already exists between the markers it is
 REPLACED (so re-running a partially-failed cycle is safe) and a warning
@@ -38,12 +43,29 @@ Results JSON schema (composed by the /scenario-factory session):
 
 import argparse
 import json
+import os
 import re
 import sys
 
 SECTIONS_MARKER = "<!-- factory-digest:sections -->"
 PROMOTION_MARKER = "<!-- factory-digest:promotion -->"
 RUBRIC_KEYS = ["coherence", "interaction", "breakdown_free", "humor"]
+# Bootstrap scaffold for a fresh local log (the digest is gitignored, so a
+# clean clone / first run has nothing to append to). Carries BOTH markers
+# and a `Promotion:`-prefixed pointer line so the dual-marker validator and
+# the SKILL.md § Promotion cross-reference both stay intact.
+SCAFFOLD = f"""# Scenario Factory Digest
+
+Local log of `/scenario-factory` cycles, newest first. Gitignored — a
+local journal, not committed. Promoting a winning scenario (bundled
+preset or shared-scenario gallery) goes through an /orchestrate PR; see
+the skill's SKILL.md § Promotion.
+
+{SECTIONS_MARKER}
+
+{PROMOTION_MARKER}
+Promotion: channels documented in `.claude/skills/scenario-factory/SKILL.md` § Promotion.
+"""
 
 
 def cell(value):
@@ -100,6 +122,13 @@ def main():
         print(f"results.date must be YYYY-MM-DD, got: {results.get('date')!r}",
               file=sys.stderr)
         return 1
+
+    if not os.path.exists(args.digest):
+        # Local-log model: the digest is gitignored, so a clean clone or
+        # the very first run has no file. Bootstrap the scaffold.
+        os.makedirs(os.path.dirname(args.digest) or ".", exist_ok=True)
+        with open(args.digest, "w", encoding="utf-8") as f:
+            f.write(SCAFFOLD)
 
     with open(args.digest, encoding="utf-8") as f:
         digest = f.read()
