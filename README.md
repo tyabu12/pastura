@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="pages/img/app-icon.png" width="48" height="48" alt="" /> Pastura
+# <img src="web/public/img/app-icon.png" width="48" height="48" alt="" /> Pastura
 
 *AIgazing. Like stargazing, but for local LLMs.*  
 Running local LLM multi-agent simulations on-device.
@@ -149,7 +149,7 @@ pastura/
 │   ├── design/              # Design system, reference assets
 │   ├── i18n/                # Localization workflow
 │   └── blocklist/           # ContentBlocklist source + build script
-├── pages/                   # The pastura.app site (deployed via GitHub Pages)
+├── web/                     # The pastura.app site (Astro SSG, deployed via GitHub Pages)
 └── scripts/                 # Build, lint, content-blocklist helpers
 ```
 
