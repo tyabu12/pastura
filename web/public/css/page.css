@@ -170,6 +170,14 @@
   letter-spacing: 0.02em;
 }
 
+/* Scenario summary table on /docs/: keep the short metadata columns
+   (name + numeric counts) from wrapping, so the wide description column
+   absorbs the remaining width instead of squeezing the scenario name. */
+.page-prose .scenario-table th,
+.page-prose .scenario-table td:not(:last-child) {
+  white-space: nowrap;
+}
+
 /* ----- Utility class overrides inside .page-prose ----- */
 
 /* .lead (from base.css): add bottom rhythm when it follows the h1. */

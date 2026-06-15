@@ -1,34 +1,37 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
 // Lightweight scenario guide for pre-install visitors and LLM crawlers (#626).
-// Prose variant, same shell as support / privacy-policy. Featured example and
-// the three cards are written from the EN preset YAML under
+// Lives at /docs/scenario/ so /docs/ can hold further topics later. Prose
+// variant, same shell as legal/privacy-policy (two levels deep). Featured
+// example and the example table are written from the EN preset YAML under
 // Pastura/Pastura/Resources/Presets/ (prisoners_dilemma_en / word_wolf_en /
 // bokete_en / target_score_race_en); the how-to and observation tips mirror
 // docs/examples/scenarios/README.md. Per .claude/rules/lp-content.md, this new
 // copy avoids em-dash / prose-colon and does NOT use the AIgazing genre word.
+// Vocabulary follows the LP (index.astro): "AI agents", "local LLM", "presets",
+// "personas / phases", "inner voice".
 ---
 
 <BaseLayout
   locale="en"
   title="Pastura Scenario Guide"
   description="An introduction to Pastura scenarios. Learn what they are, how to write one, and see example experiments you can run on-device."
-  enPath="/docs/"
-  jaPath="/ja/docs/"
+  enPath="/docs/scenario/"
+  jaPath="/ja/docs/scenario/"
   variant="prose"
 >
   <a class="skip-link" href="#main">Skip to content</a>
 
   <div class="page-shell">
     <header role="banner" class="lp-header">
-      <a href="../" class="brand">
-        <img class="icon" src="../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+      <a href="../../" class="brand">
+        <img class="icon" src="../../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
         <span class="brand-name">Pastura</span>
       </a>
       <nav aria-label="Primary" class="lp-nav">
         <div class="lang-toggle" role="group" aria-label="Language">
           <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
-          <a lang="ja" hreflang="ja" href="../ja/docs/">JA</a>
+          <a lang="ja" hreflang="ja" href="../../ja/docs/scenario/">JA</a>
         </div>
       </nav>
     </header>
@@ -38,9 +41,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <h1>Scenario guide</h1>
 
         <p class="lead">
-          Pastura runs small multi-agent experiments on your device. You write a
-          scenario in YAML, and a local language model acts out every agent in it.
-          This page walks through what a scenario looks like and how to write one.
+          Pastura runs multiple AI agents on your device. Scenarios are written
+          in YAML, and a local LLM plays each agent in line with the scenario&rsquo;s
+          personas. This page walks through what a scenario looks like and how to
+          write one.
         </p>
 
         <h2 id="how-it-works">How a scenario works</h2>
@@ -52,7 +56,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </p>
 
         <ul>
-          <li><code>agents</code> and <code>rounds</code> set the size of the run.</li>
+          <li><code>agents</code> and <code>rounds</code> set the size of the scenario.</li>
           <li><code>personas</code> give each agent a name and a short character brief.</li>
           <li>
             <code>phases</code> describe what happens in order, such as everyone
@@ -61,19 +65,20 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </ul>
 
         <p>
-          You can write that file by hand, or build it from form fields in the
-          app&rsquo;s visual editor. Either way, the app ships with several
-          built-in scenarios, so you can watch a run before writing one yourself.
+          You can write that file by hand, or build it in the app&rsquo;s visual
+          editor instead. Either way, the app ships with several presets, so you
+          can watch a run before writing one yourself.
         </p>
 
         <h2 id="example">A worked example</h2>
 
         <p>
-          The built-in <strong>Prisoner&rsquo;s Dilemma</strong> puts five
-          contestants through a classic strategy game. Each round they address the
-          group, then choose to cooperate or betray each opponent in turn. A scoring
-          phase converts those choices into points, and bluffing during the spoken
-          phase is fair play. Here is the shape of it in YAML:
+          The <strong>Prisoner&rsquo;s Dilemma</strong> preset puts five contestants
+          through a classic strategy game. Each round they address the group, then
+          choose to cooperate or betray each opponent in turn. A scoring phase
+          converts those choices into points, and bluffing during the spoken phase
+          is fair play. Here is the shape of it in YAML, with the prompt text left
+          out:
         </p>
 
         <pre><code>name: Prisoner's Dilemma
@@ -96,36 +101,49 @@ personas:
 
 phases:
   - type: speak_all      # everyone addresses the group
+    output:
+      statement: string
+      inner_thought: string
   - type: choose         # pick cooperate or betray, per opponent
-    options: [cooperate, betray]
+    output:
+      action: string
+      inner_thought: string
+    options:
+      - cooperate
+      - betray
     pairing: round_robin
   - type: score_calc     # built-in prisoners_dilemma scoring
     logic: prisoners_dilemma
-  - type: summarize</code></pre>
+  - type: summarize      # recap the round's scoreboard
+    template: &gt;
+      Round &#123;current_round&#125; result: &#123;scoreboard&#125;</code></pre>
 
         <p>
           Five personas, three rounds, four phases. The persona briefs are where the
           run gets its character. A calm strategist and an optimistic people-pleaser
-          will read the same scoreboard and reach for very different moves.
+          will say very different things on the same model.
         </p>
 
-        <h2 id="more-examples">More examples</h2>
+        <h2 id="more-examples">More presets</h2>
 
         <p>
-          The other built-in scenarios each highlight a different mechanic. Every one
-          uses only built-in scoring, so they run out of the box.
+          The other presets each highlight a different mechanic.
         </p>
 
-        <table>
+        <table class="scenario-table">
           <thead>
             <tr>
               <th>Scenario</th>
+              <th>Agents</th>
+              <th>Phases</th>
               <th>What you can watch for</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td><strong>Word Wolf</strong></td>
+              <td>5</td>
+              <td>9</td>
               <td>
                 Five players get a topic word, but one of them gets a different word.
                 Watch how the odd one out hides, and whether the group exposes them in
@@ -134,6 +152,8 @@ phases:
             </tr>
             <tr>
               <td><strong>Bokete</strong></td>
+              <td>5</td>
+              <td>5</td>
               <td>
                 Five comedians caption a photo prompt, then vote on the funniest bit.
                 Watch how each persona&rsquo;s comedic style holds up under a crowd vote.
@@ -141,6 +161,8 @@ phases:
             </tr>
             <tr>
               <td><strong>Score Race</strong></td>
+              <td>3</td>
+              <td>4</td>
               <td>
                 A vote-driven points race to a target score. The round-end summary
                 changes once someone reaches the target, so you can see how a phase
@@ -153,61 +175,48 @@ phases:
         <h2 id="writing">Writing your own</h2>
 
         <p>
-          Every built-in scenario is a starting point. The editor has a visual
-          mode, where names, personas, and phases are plain form fields, and a
-          YAML mode for full control over the file shown above. Open a scenario
-          in either mode, change a persona or a phase, and run it again to see
-          how the outcome shifts. A few things are worth doing as you experiment:
+          Every preset is a starting point. The editor has a visual mode, where
+          names, personas, and phases are form fields, and a YAML mode for direct
+          control over the file shown above. Open a scenario in either mode, change
+          a persona or a phase, and run it again to see how the outcome shifts. A
+          few things are worth doing as you experiment:
         </p>
 
         <ul>
           <li>
-            Run the same scenario several times. The model is non-deterministic, so a
-            single run never tells the whole story. Look for patterns across runs.
+            Run the same scenario several times. Because the AI is non-deterministic,
+            its output shifts every run, so a single run won&rsquo;t tell you much
+            about the scenario. Look for patterns across runs.
           </li>
           <li>
             Vary a persona&rsquo;s description. Adding a trait like &ldquo;confident&rdquo;
             or &ldquo;eager to please&rdquo; can change how the run plays out.
           </li>
           <li>
-            Reveal the inner thoughts. What an agent was privately thinking is often
-            more telling than what it said out loud.
+            Reveal the inner voice. It shows what was behind an agent&rsquo;s words.
           </li>
         </ul>
-
-        <h2 id="get-the-scenarios">Get the scenarios</h2>
-
-        <p>
-          Pastura is coming soon to the App Store. In the meantime, the full YAML for
-          every built-in scenario lives in the project repository, ready to read or
-          adapt.
-        </p>
-
-        <p>
-          <a href="https://github.com/tyabu12/pastura/tree/main/Pastura/Pastura/Resources/Presets" rel="noopener">Browse the bundled presets on GitHub</a>,
-          or head <a href="../">back to the Pastura overview</a>.
-        </p>
       </div>
     </main>
 
     <footer role="contentinfo" class="lp-footer">
       <div class="foot-grid">
         <div>
-          <a href="../" class="brand">
-            <img class="icon" src="../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+          <a href="../../" class="brand">
+            <img class="icon" src="../../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
             <span class="brand-name">Pastura</span>
           </a>
         </div>
         <div>
           <h3 class="foot-h">Product</h3>
-          <a class="foot-link" href="../#usage">Usage</a>
-          <a class="foot-link" href="../#features">Features</a>
-          <a class="foot-link" href="../#faq">FAQ</a>
+          <a class="foot-link" href="../../#usage">Usage</a>
+          <a class="foot-link" href="../../#features">Features</a>
+          <a class="foot-link" href="../../#faq">FAQ</a>
         </div>
         <div>
           <h3 class="foot-h">Resources</h3>
-          <a class="foot-link" href="../legal/privacy-policy/">Privacy Policy</a>
-          <a class="foot-link" href="../support/">Support · Feedback</a>
+          <a class="foot-link" href="../../legal/privacy-policy/">Privacy Policy</a>
+          <a class="foot-link" href="../../support/">Support · Feedback</a>
           <a class="foot-link" href="https://github.com/tyabu12/pastura" rel="noopener">GitHub</a>
         </div>
       </div>
@@ -215,7 +224,7 @@ phases:
         <span class="foot-copy">© 2026 Pastura</span>
         <div class="lang-toggle" role="group" aria-label="Language">
           <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
-          <a lang="ja" hreflang="ja" href="../ja/docs/">JA</a>
+          <a lang="ja" hreflang="ja" href="../../ja/docs/scenario/">JA</a>
         </div>
       </div>
     </footer>
