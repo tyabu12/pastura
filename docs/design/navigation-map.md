@@ -7,24 +7,24 @@
 Screen graph of the root stack, generated from `Route` enum cases and
 `NavigationLink` / `router.push` / `pushIfOnTop` callsites. Sheets and
 fullScreenCover flows are out of scope (`AppRouter` manages the root
-stack only — see `.claude/rules/navigation.md`). `home` is the stack
-root (`HomeView`), not a `Route` case.
+stack only — see `.claude/rules/navigation.md`). `home` (`HomeView`)
+and `sharedScenarios` (`SharedScenariosListView`, the Browse tab root)
+are tab-stack roots, not `Route` cases.
 
 ```mermaid
 flowchart TD
   home([Home])
+  sharedScenarios([Shared Scenarios])
   scenarioDetail["Scenario Detail"]
   editor["Scenario Editor"]
   simulation["Simulation"]
   results["Past Results"]
   resultDetail["Result Detail"]
-  sharedScenarios["Shared Scenarios"]
   galleryScenarioDetail["Gallery Scenario Detail"]
   galleryScenarioDetail --> scenarioDetail
   home -->|"via newScenarioRoute()"| editor
   home --> results
   home --> scenarioDetail
-  home --> sharedScenarios
   results --> resultDetail
   scenarioDetail --> editor
   scenarioDetail --> galleryScenarioDetail
@@ -43,10 +43,10 @@ the tour's per-screen wait identifiers.
 | Node | Screen | Pushed from | Tour anchor | Screenshot |
 |------|--------|-------------|-------------|------------|
 | `home` | Home | — (stack root) | `home.scenarioListCell.*` | `01-home.png` |
+| `sharedScenarios` | Shared Scenarios | — (stack root) | `sharedScenarios.galleryCell.*` | `04-shared-scenarios.png` |
 | `scenarioDetail` | Scenario Detail | `galleryScenarioDetail`, `home`, `scenarioDetail` | `scenarioDetail.list` | `02-scenario-detail.png` |
 | `editor` | Scenario Editor | `home`, `scenarioDetail` | `editor.titleField` | `03-editor.png` |
 | `simulation` | Simulation | `scenarioDetail` | — | deferred — see `screenshots/README.md` |
 | `results` | Past Results | `home`, `scenarioDetail` | `results.list` | `07-results.png` |
 | `resultDetail` | Result Detail | `results` | `resultDetail.timeline` | `08-result-detail.png` |
-| `sharedScenarios` | Shared Scenarios | `home` | `sharedScenarios.galleryCell.*` | `04-shared-scenarios.png` |
 | `galleryScenarioDetail` | Gallery Scenario Detail | `scenarioDetail`, `sharedScenarios` | `galleryDetail.tryButton` | `05-gallery-detail.png` |

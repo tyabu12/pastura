@@ -32,17 +32,18 @@ final class NavigationRegressionTests: XCTestCase {
       app.navigationBars["Pastura"].waitForExistence(timeout: 10),
       "Home did not appear within 10s.")
 
-    // Home → Shared Scenarios.
-    let sharedScenariosCell = app.buttons["home.sharedScenariosButton"]
+    // Switch to the Browse tab (Shared Scenarios is its root since
+    // ADR-016 D4 — no longer a Home push).
+    let browseTab = app.tabBars.buttons["Browse"]
     XCTAssertTrue(
-      sharedScenariosCell.waitForExistence(timeout: 5), "Shared Scenarios entry missing.")
-    sharedScenariosCell.tap()
+      browseTab.waitForExistence(timeout: 5), "Browse tab missing.")
+    browseTab.tap()
 
     XCTAssertTrue(
       app.navigationBars["Shared Scenarios"].waitForExistence(timeout: 5),
       "Shared Scenarios did not appear.")
 
-    // Shared Scenarios → Gallery scenario detail.
+    // Shared Scenarios → Gallery scenario detail (push within the Browse tab).
     let galleryCell = app.buttons["sharedScenarios.galleryCell.ui_test_canary"]
     XCTAssertTrue(
       galleryCell.waitForExistence(timeout: 5),
