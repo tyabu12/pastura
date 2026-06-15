@@ -70,8 +70,13 @@ if python3 "$SCRIPTS/append_digest.py" \
   fail "digest: missing markers should be a hard error"
 fi
 
-# --- sync_digest_pr.py (rolling digest PR helper) ---------------------------
-# run_tests.sh has already cd'd into this tests/ dir (line 9).
-bash ./sync_digest_pr_test.sh
+# absent digest → bootstrap a scaffold (both markers + Promotion: line), append
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$TMP/bootstrap.md" >/dev/null \
+  || fail "digest: absent file should bootstrap, not error"
+grep -q "factory-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sections marker missing"
+grep -q "factory-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
+grep -q "^## 2026-06-13$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
+tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
 
 echo "ALL TESTS PASSED"

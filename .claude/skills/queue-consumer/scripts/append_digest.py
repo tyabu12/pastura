@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Append one queue-run section to the committed queue digest.
+"""Append one queue-run section to the local queue digest.
 
 usage: append_digest.py --results <results.json> [--digest <digest.md>]
 
-Without --digest the target is resolved to the MAIN checkout's
-data/queue/digest.md: the skill runs inside a routine worktree whose
-files are discarded with the worktree, so writing the worktree's copy
-would silently lose the run record. Resolution + guards:
+The digest is a LOCAL log (gitignored — not committed). Without --digest
+the target is resolved to the MAIN checkout's data/queue/digest.md: the
+skill runs inside a routine worktree whose files are discarded with the
+worktree, so writing the worktree's copy would lose the run record.
+Resolution:
 
   1. `git rev-parse --path-format=absolute --git-common-dir` — the
      shared .git directory; its parent is the main checkout regardless
      of which worktree we run from. Abort if it does not end in `.git`
-     (bare repo / unexpected layout).
-  2. The resolved digest must be TRACKED there
-     (`git ls-files --error-unmatch`) — abort loudly otherwise; never
-     create or blind-write a file we merely guessed at.
+     (bare repo / unexpected layout) — this is the real wrong-target
+     catch now that the tracked-check is gone.
+  2. If the digest is absent there, bootstrap a fresh scaffold (the log
+     is no longer tracked, so a clean clone / first run has no file).
+     A present file must still carry the section marker (main() checks)
+     — a stray wrong target would lack it.
 
 With --digest (tests, manual use) resolution is skipped, but the marker
 check below still applies.
@@ -58,6 +61,15 @@ import sys
 
 SECTIONS_MARKER = "<!-- queue-digest:sections -->"
 DIGEST_RELPATH = "data/queue/digest.md"
+# Bootstrap scaffold for a fresh local log (the digest is gitignored, so a
+# clean clone / first run has nothing to append to). One section marker.
+SCAFFOLD = f"""# Overnight Issue Queue — digest
+
+Local log of `/queue-consumer` runs, newest first. Gitignored — a local
+journal, not committed; see the skill's SKILL.md.
+
+{SECTIONS_MARKER}
+"""
 OUTCOMES = (
     "completed", "skipped-pr-open", "skipped-needs-detail",
     "blocked-policy", "blocked-implementation",
@@ -72,7 +84,7 @@ def cell(value):
 
 
 def resolve_main_digest():
-    """Locate the main checkout's tracked digest; abort loudly on doubt."""
+    """Locate the main checkout's local digest; bootstrap it if absent."""
     common = subprocess.run(
         ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
         capture_output=True, text=True, check=True).stdout.strip()
@@ -80,15 +92,15 @@ def resolve_main_digest():
         sys.exit(f"unexpected --git-common-dir {common!r} (bare repo?) — "
                  "pass --digest explicitly")
     main_root = os.path.dirname(common)
-    tracked = subprocess.run(
-        ["git", "-C", main_root, "ls-files", "--error-unmatch",
-         DIGEST_RELPATH],
-        capture_output=True, text=True)
-    if tracked.returncode != 0:
-        sys.exit(f"{DIGEST_RELPATH} is not tracked in {main_root} — "
-                 "refusing to write (wrong target would lose the run "
-                 "record). Pass --digest explicitly if this is intended.")
-    return os.path.join(main_root, DIGEST_RELPATH)
+    path = os.path.join(main_root, DIGEST_RELPATH)
+    if not os.path.exists(path):
+        # Local-log model: the digest is gitignored, so a clean clone or
+        # the very first run has no file. Bootstrap the scaffold (with the
+        # section marker) rather than aborting.
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(SCAFFOLD)
+    return path
 
 
 def render_section(results):

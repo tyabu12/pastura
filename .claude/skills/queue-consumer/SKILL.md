@@ -28,8 +28,9 @@ Non-goals:
 - Branch: `agent/issue-<N>`; collision fallback `agent/issue-<N>-<YYYYMMDD>`
 - Labels: `agent-ready` (input — human-assigned only), `needs-detail`,
   `agent-blocked`
-- Digest: `data/queue/digest.md` **in the main checkout** (the helper
-  script resolves it; the worktree's copy would die with the worktree)
+- Digest: `data/queue/digest.md` — a gitignored **local log** in the main
+  checkout (the helper script resolves it; the worktree's copy would die
+  with the worktree, and it bootstraps the file if absent)
 - Helper scripts: `.claude/skills/queue-consumer/scripts/`
 
 ## Hard rules (non-negotiable)
@@ -234,12 +235,12 @@ python3 .claude/skills/queue-consumer/scripts/append_digest.py \
 ```
 
 Without `--digest`, the script resolves the **main checkout** via
-`git rev-parse --git-common-dir` and refuses to write unless the target
-is a git-tracked `data/queue/digest.md` with the section marker — a
-wrong-target write would silently lose the only persistent run record.
-The digest is left modified in the main checkout's working tree;
-committing it goes through the normal `/orchestrate` flow (mirrors
-`data/factory/digest.md`).
+`git rev-parse --git-common-dir` (the `.git`-basename check is the
+wrong-target catch) and writes `data/queue/digest.md` there — a present
+file must carry the section marker, an absent one is bootstrapped from a
+scaffold. The digest is a gitignored **local log**: the section is
+appended in place and is NOT committed (nothing to commit — it no longer
+shows in `git status`). Mirrors `data/factory/digest.md`.
 
 Finally, report to the user (or the routine transcript): per-issue
 outcomes with PR URLs, blocked/skipped reasons, and the digest location.

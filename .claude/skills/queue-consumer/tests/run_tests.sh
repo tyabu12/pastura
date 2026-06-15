@@ -89,12 +89,33 @@ grep -q "^## 2026-06-14 01:30$" "$REPO/data/queue/digest.md" \
 grep -q "^## " "$TMP/wt/data/queue/digest.md" \
   && fail "resolver: wrote the worktree copy instead of the main checkout"
 
-# untracked digest in the main checkout must refuse loudly
+# local-log model: an untracked-but-present digest with the marker is
+# ACCEPTED — the tracked requirement is gone (the digest is gitignored).
 git -C "$REPO" rm -q --cached data/queue/digest.md
 git -C "$REPO" -c user.email=t@t -c user.name=t commit -q -m untrack
+( cd "$TMP/wt" && python3 "$SCRIPTS/append_digest.py" \
+    --results "$TMP/results2.json" >/dev/null ) \
+  || fail "resolver: untracked-but-present digest should be accepted"
+grep -q "^## 2026-06-15 01:30$" "$REPO/data/queue/digest.md" \
+  || fail "resolver: section not written to untracked digest"
+
+# absent digest → bootstrap a fresh scaffold (with the marker), then append
+rm "$REPO/data/queue/digest.md"
+sed 's/2026-06-14 01:30/2026-06-16 01:30/' \
+  "$FIXTURES/results_sample.json" > "$TMP/results3.json"
+( cd "$TMP/wt" && python3 "$SCRIPTS/append_digest.py" \
+    --results "$TMP/results3.json" >/dev/null ) \
+  || fail "resolver: absent digest should bootstrap, not error"
+grep -q "queue-digest:sections" "$REPO/data/queue/digest.md" \
+  || fail "resolver: bootstrap did not write the section marker"
+grep -q "^## 2026-06-16 01:30$" "$REPO/data/queue/digest.md" \
+  || fail "resolver: bootstrap did not append the section"
+
+# present-but-marker-less file via the resolver → still refuses
+echo "# broken, no marker" > "$REPO/data/queue/digest.md"
 if ( cd "$TMP/wt" && python3 "$SCRIPTS/append_digest.py" \
-    --results "$TMP/results2.json" >/dev/null 2>&1 ); then
-  fail "resolver: untracked digest should be a hard error"
+    --results "$TMP/results3.json" >/dev/null 2>&1 ); then
+  fail "resolver: present-but-marker-less digest should be a hard error"
 fi
 
 echo "ALL TESTS PASSED"

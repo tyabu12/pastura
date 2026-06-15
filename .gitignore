@@ -62,9 +62,16 @@ __pycache__/
 *.pyc
 
 # Scenario-factory raw run logs and generated candidate YAMLs (ADR-013 /
-# #515 / #521) — digest is committed, raw artifacts are local-only.
+# #515 / #521) — local-only.
 data/factory/runs/
 data/factory/scenarios/
+
+# Nightly-routine digests — local judging / run journals appended in place
+# by the scenario-factory / queue-consumer skills. Untracked so the main
+# checkout's working tree stays clean; each skill's append_digest.py
+# bootstraps the file from a scaffold if absent.
+data/factory/digest.md
+data/queue/digest.md
 
 # Design-review screenshots — generated on demand by scripts/ui-tour.sh
 # (see docs/design/screenshots/README.md). Only the README is tracked.
