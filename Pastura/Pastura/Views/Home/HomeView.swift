@@ -95,8 +95,6 @@ struct HomeView: View {
       }
 
       userScenariosSection(viewModel: viewModel)
-
-      browseSection()
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
@@ -123,22 +121,6 @@ struct HomeView: View {
           description: Text(error)
         )
       }
-    }
-  }
-
-  /// Entry row for past results — a navigation destination that isn't
-  /// tied to a single scenario row. (Shared Scenarios moved to its own
-  /// "Browse" tab in ADR-016 D4, so it is no longer a Home push.)
-  @ViewBuilder
-  private func browseSection() -> some View {
-    Section {
-      NavigationLink(value: Route.results(scenarioId: "")) {
-        navRowLabel(
-          title: String(localized: "Past Results"),
-          systemImage: "clock.arrow.circlepath")
-      }
-      .accessibilityIdentifier("home.pastResultsButton")
-      .pasturaCardRow()
     }
   }
 
@@ -238,18 +220,6 @@ struct HomeView: View {
       }
     }
     .padding(.vertical, 2)
-  }
-
-  /// Navigation-row label that keeps the moss-tinted icon (brand accent)
-  /// while inking the title — `Label`'s single `foregroundStyle` can't
-  /// split the two, so the icon + text are composed by hand.
-  private func navRowLabel(title: String, systemImage: String) -> some View {
-    HStack(spacing: 10) {
-      Image(systemName: systemImage)
-        .foregroundStyle(Color.moss)
-      Text(title)
-        .foregroundStyle(Color.ink)
-    }
   }
 
 }

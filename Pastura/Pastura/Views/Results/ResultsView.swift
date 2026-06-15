@@ -33,16 +33,12 @@ struct ResultsView: View {
     .navigationTitle(String(localized: "Past Results"))
     // Inline title to match the other tab roots (design-system § 5.11);
     // "Past Results" is a generic label, so inline is consistent for the
-    // push variant too.
+    // History-tab-root and the pushed-detail variant alike.
     .navigationBarTitleDisplayMode(.inline)
-    .navigationBarBackButtonHidden(true)
-    .preservesPasturaSwipeBackGesture()
-    .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        PasturaBackButton()
-      }
-      .hidingPasturaSharedBackground()
-    }
+    // Back chrome only for the pushed-detail variant (non-empty
+    // scenarioId); as the History tab root (`scenarioId == ""`) there is
+    // no parent to pop to. See ``PushBackChrome``.
+    .modifier(PushBackChrome(isPushed: !scenarioId.isEmpty))
     .task {
       viewModel = ResultsViewModel(
         scenarioRepository: dependencies.scenarioRepository,
@@ -177,6 +173,38 @@ struct ResultsView: View {
     case .none:
       Label(String(localized: "Unknown"), systemImage: "questionmark.circle")
         .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
+    }
+  }
+}
+
+/// Applies the root-stack push chrome — custom back button, hidden system
+/// back, preserved swipe-back gesture — only when ``ResultsView`` is a
+/// pushed detail (non-empty `scenarioId`, entered from a scenario's detail
+/// screen).
+///
+/// As the History tab root (`scenarioId == ""`) the view sits at the bottom
+/// of its tab's `NavigationStack`, so there is nothing to pop to; a
+/// `PasturaBackButton` there would be a dead chevron whose `router.pop()`
+/// fires on an empty path (ADR-016 D4). The three push modifiers are applied
+/// as one unit per the load-bearing pairing in `.claude/rules/navigation.md`.
+/// `scenarioId` is a `let`, so `isPushed` is constant per instance — the
+/// branch never toggles at runtime, so this adds no view-identity churn.
+private struct PushBackChrome: ViewModifier {
+  let isPushed: Bool
+
+  func body(content: Content) -> some View {
+    if isPushed {
+      content
+        .navigationBarBackButtonHidden(true)
+        .preservesPasturaSwipeBackGesture()
+        .toolbar {
+          ToolbarItem(placement: .topBarLeading) {
+            PasturaBackButton()
+          }
+          .hidingPasturaSharedBackground()
+        }
+    } else {
+      content
     }
   }
 }

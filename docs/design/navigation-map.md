@@ -23,7 +23,6 @@ flowchart TD
   galleryScenarioDetail["Gallery Scenario Detail"]
   galleryScenarioDetail --> scenarioDetail
   home -->|"via newScenarioRoute()"| editor
-  home --> results
   home --> scenarioDetail
   results --> resultDetail
   scenarioDetail --> editor
@@ -47,6 +46,6 @@ the tour's per-screen wait identifiers.
 | `scenarioDetail` | Scenario Detail | `galleryScenarioDetail`, `home`, `scenarioDetail` | `scenarioDetail.list` | `02-scenario-detail.png` |
 | `editor` | Scenario Editor | `home`, `scenarioDetail` | `editor.titleField` | `03-editor.png` |
 | `simulation` | Simulation | `scenarioDetail` | — | deferred — see `screenshots/README.md` |
-| `results` | Past Results | `home`, `scenarioDetail` | `results.list` | `07-results.png` |
+| `results` | Past Results | `scenarioDetail` | `results.list` | `07-results.png` |
 | `resultDetail` | Result Detail | `results` | `resultDetail.timeline` | `08-result-detail.png` |
 | `galleryScenarioDetail` | Gallery Scenario Detail | `scenarioDetail`, `sharedScenarios` | `galleryDetail.tryButton` | `05-gallery-detail.png` |
