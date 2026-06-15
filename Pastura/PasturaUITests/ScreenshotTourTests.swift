@@ -64,27 +64,30 @@ final class ScreenshotTourTests: XCTestCase {
     app.buttons["sharedScenarios.galleryCell.ui_test_canary"].tap()
     capture(app, name: "05-gallery-detail", anchorId: "galleryDetail.tryButton")
     // Single goBack pops the gallery detail back to the Browse tab root,
-    // which has no back chevron. (No second goBack: the Home tab kept an
-    // empty stack throughout, so the Settings → Home tab switch below still
-    // lands on Home's root for the past-results step.)
+    // which has no back chevron.
     goBack(app)
 
-    // Settings — now a dedicated tab (ADR-016 D4), reached via the tab
-    // bar rather than a Home push. Switching tabs doesn't push, so there
-    // is no back chevron here; return to the Home tab afterward so the
-    // subsequent past-results step lands on Home's stack.
+    // Settings — a dedicated tab (ADR-016 D4), reached via the tab bar
+    // rather than a Home push. Switching tabs doesn't push, so there is no
+    // back chevron here.
     app.tabBars.buttons["Settings"].tap()
     capture(app, name: "06-settings", anchorId: "settings.licensesLink")
-    app.tabBars.buttons["Home"].tap()
 
-    // Past Results (seeded fixture — see StubResultSeeder).
-    app.buttons["home.pastResultsButton"].tap()
+    // Past Results — now the History tab root (ADR-016 D4), reached via the
+    // tab bar (seeded fixture — see StubResultSeeder). As a tab root it has
+    // no parent to pop to, so confirm the back chevron is absent before
+    // descending into the detail.
+    app.tabBars.buttons["History"].tap()
     capture(app, name: "07-results", anchorId: "results.list")
+    XCTAssertFalse(
+      app.buttons["pasturaBackButton"].exists,
+      "History tab root must not show a back chevron.")
 
-    // Result detail timeline.
+    // Result detail timeline (a push onto the History tab stack).
     app.buttons["results.row.ui_test_result_seed"].tap()
     capture(app, name: "08-result-detail", anchorId: "resultDetail.timeline")
-    goBack(app)
+    // Single goBack pops the result detail back to the History tab root,
+    // which has no back chevron.
     goBack(app)
   }
 
