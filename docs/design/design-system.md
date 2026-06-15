@@ -206,7 +206,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `body/promo` | 12pt | 400 | 1.65 | 0 | プロモ文 |
 | `caption/name` | 10.5pt | 400 | 1.3 | 0.04em | アバター下の名前 |
 | `thinking/body` | 10.5pt | 400 italic | 1.7 | 0.02em | 内なる思考 |
-| `thinking/tag` | 8.5pt | 400 mono UPPER | 1.2 | 0.22em | REASON/THINKING ラベル |
+| `thinking/tag` | 8.5pt | 400 mono UPPER | 1.2 | 0.22em | REASON/INNER VOICE ラベル |
 | `meta/label` | 9pt | 600 mono | 1.2 | 0.06em | meta labels (DL / Vote Results / Round / sub-phase) |
 | `meta/value` | 9pt | 400 mono | 1.2 | 0 | `35%`, `1.0 GB` |
 | `meta/eta` | 10pt | 500 mono | 1.3 | 0 | 残り約4分 |
@@ -272,7 +272,7 @@ box-shadow:
 ```
 [Avatar 48pt]  Alice
                [バブル: しっぽは上左]
-               ▸ THINKING / ▾ タグ＋本文
+               ▸ INNER VOICE / ▾ タグ＋本文
 ```
 
 - バブル間 spacing: 14pt

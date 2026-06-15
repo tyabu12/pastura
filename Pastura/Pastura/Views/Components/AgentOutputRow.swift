@@ -394,7 +394,7 @@ struct AgentOutputRow: View {
     // the accent color is preserved by the per-segment foregroundStyle.
     (Text(showInnerThought ? "▾ " : "▸ ")
       .foregroundStyle(Color.moss)
-      + Text(String(localized: "THINKING"))
+      + Text(String(localized: "INNER VOICE"))
       .foregroundStyle(Color.muted))
       .textStyle(Typography.thinkingTag)
       // 44pt tap target via the **negative-padding trick**.
