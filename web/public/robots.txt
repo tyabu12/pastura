@@ -5,4 +5,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pastura.app/sitemap.xml
+Sitemap: https://pastura.app/sitemap-index.xml

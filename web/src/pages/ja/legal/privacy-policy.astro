@@ -1,44 +1,17 @@
-<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <title>Pastura プライバシーポリシー</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pastura のプライバシーポリシー。Pastura は AI マルチエージェントシナリオを完全にデバイス上で実行するアプリです。現在は iOS のみ。">
-  <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)">
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+// Body ported verbatim from the former pages/ja/legal/privacy-policy/index.html (#475).
+---
 
-  <link rel="canonical" href="https://pastura.app/ja/legal/privacy-policy/">
-  <link rel="alternate" hreflang="en" href="https://pastura.app/legal/privacy-policy/">
-  <link rel="alternate" hreflang="ja" href="https://pastura.app/ja/legal/privacy-policy/">
-  <link rel="alternate" hreflang="x-default" href="https://pastura.app/legal/privacy-policy/">
-
-  <link rel="icon" type="image/png" sizes="64x64" href="../../../img/favicon-64.png">
-  <link rel="apple-touch-icon" href="../../../img/app-icon.png">
-
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Pastura プライバシーポリシー">
-  <meta property="og:description" content="Pastura のプライバシーポリシー。AI マルチエージェントシナリオを端末上で実行するアプリ。">
-  <meta property="og:url" content="https://pastura.app/ja/legal/privacy-policy/">
-  <meta property="og:locale" content="ja_JP">
-  <meta property="og:locale:alternate" content="en_US">
-  <!-- Stub: app-icon (256×256) used as og:image until proper 1200×630 OGP design ships. -->
-  <meta property="og:image" content="https://pastura.app/img/app-icon.png">
-  <meta property="og:image:width" content="256">
-  <meta property="og:image:height" content="256">
-  <meta property="og:image:alt" content="Pastura アプリアイコン">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Pastura プライバシーポリシー">
-  <meta name="twitter:description" content="Pastura のプライバシーポリシー。AI マルチエージェントシナリオを端末上で実行するアプリ。">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="../../../css/base.css">
-  <link rel="stylesheet" href="../../../css/page.css">
-</head>
-<body>
+<BaseLayout
+  locale="ja"
+  title="Pastura プライバシーポリシー"
+  description="Pastura のプライバシーポリシー。Pastura は AI マルチエージェントシナリオを完全にデバイス上で実行するアプリです。現在は iOS のみ。"
+  ogDescription="Pastura のプライバシーポリシー。AI マルチエージェントシナリオを端末上で実行するアプリ。"
+  enPath="/legal/privacy-policy/"
+  jaPath="/ja/legal/privacy-policy/"
+  variant="prose"
+>
   <a class="skip-link" href="#main">本文へスキップ</a>
 
   <div class="page-shell">
@@ -291,5 +264,4 @@
       </div>
     </footer>
   </div>
-</body>
-</html>
+</BaseLayout>

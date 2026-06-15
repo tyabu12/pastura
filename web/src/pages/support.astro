@@ -1,44 +1,16 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Pastura Support</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Support and feedback channel for Pastura, an app for on-device AI multi-agent scenarios.">
-  <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)">
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+// Body ported verbatim from the former pages/support/index.html (#475).
+---
 
-  <link rel="canonical" href="https://pastura.app/support/">
-  <link rel="alternate" hreflang="en" href="https://pastura.app/support/">
-  <link rel="alternate" hreflang="ja" href="https://pastura.app/ja/support/">
-  <link rel="alternate" hreflang="x-default" href="https://pastura.app/support/">
-
-  <link rel="icon" type="image/png" sizes="64x64" href="../img/favicon-64.png">
-  <link rel="apple-touch-icon" href="../img/app-icon.png">
-
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Pastura Support">
-  <meta property="og:description" content="Support and feedback channel for Pastura, an app for on-device AI multi-agent scenarios.">
-  <meta property="og:url" content="https://pastura.app/support/">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:locale:alternate" content="ja_JP">
-  <!-- Stub: app-icon (256×256) used as og:image until proper 1200×630 OGP design ships. -->
-  <meta property="og:image" content="https://pastura.app/img/app-icon.png">
-  <meta property="og:image:width" content="256">
-  <meta property="og:image:height" content="256">
-  <meta property="og:image:alt" content="Pastura app icon">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Pastura Support">
-  <meta name="twitter:description" content="Support and feedback channel for Pastura, an app for on-device AI multi-agent scenarios.">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="../css/base.css">
-  <link rel="stylesheet" href="../css/page.css">
-</head>
-<body>
+<BaseLayout
+  locale="en"
+  title="Pastura Support"
+  description="Support and feedback channel for Pastura, an app for on-device AI multi-agent scenarios."
+  enPath="/support/"
+  jaPath="/ja/support/"
+  variant="prose"
+>
   <a class="skip-link" href="#main">Skip to content</a>
 
   <div class="page-shell">
@@ -139,5 +111,4 @@
       </div>
     </footer>
   </div>
-</body>
-</html>
+</BaseLayout>

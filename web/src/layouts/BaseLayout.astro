@@ -1,0 +1,136 @@
+---
+// Shared document shell for every pastura.app page. Owns <html>, the full
+// <head>, and the <body> wrapper; pages provide their body markup via <slot>.
+//
+// The head is computed from `locale` + `enPath`/`jaPath` so canonical,
+// hreflang, and the og:locale pair can never drift between language variants
+// (the old hand-written pages duplicated these per file — issue #475).
+//
+// Two archetypes via `variant`:
+//   - 'landing' → lp.css + anim.css (loaded LAST) + anim.js + noscript reset,
+//                 body.anim-host. Used by the index pages, which also pass
+//                 `jsonLd`.
+//   - 'prose'   → page.css only, plain body. Used by support / privacy-policy.
+interface Props {
+  locale: 'en' | 'ja';
+  title: string;
+  /** Meta description. */
+  description: string;
+  /**
+   * og:/twitter: description. Defaults to `description`. The landing pages
+   * deliberately use a shorter social-card description than their meta
+   * description, so this is split out.
+   */
+  ogDescription?: string;
+  /** This page's English-variant path (also the hreflang x-default + canonical when locale==='en'). */
+  enPath: string;
+  /** This page's Japanese-variant path (canonical when locale==='ja'). */
+  jaPath: string;
+  variant: 'landing' | 'prose';
+  /** Optional JSON-LD object, rendered only when present (landing pages). */
+  jsonLd?: Record<string, unknown>;
+}
+
+const {
+  locale,
+  title,
+  description,
+  ogDescription = description,
+  enPath,
+  jaPath,
+  variant,
+  jsonLd,
+} = Astro.props;
+
+const site = Astro.site ?? new URL('https://pastura.app');
+const abs = (path: string) => new URL(path, site).href;
+
+const canonical = abs(locale === 'en' ? enPath : jaPath);
+const ogLocale = locale === 'en' ? 'en_US' : 'ja_JP';
+const ogLocaleAlt = locale === 'en' ? 'ja_JP' : 'en_US';
+const imageAlt = locale === 'en' ? 'Pastura app icon' : 'Pastura アプリアイコン';
+
+const fontHref =
+  'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap';
+---
+
+<!doctype html>
+<html lang={locale}>
+<head>
+  <meta charset="utf-8" />
+  <title>{title}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content={description} />
+  <meta name="theme-color" content="#FCFAF4" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1B1C18" media="(prefers-color-scheme: dark)" />
+
+  <link rel="canonical" href={canonical} />
+  <link rel="alternate" hreflang="en" href={abs(enPath)} />
+  <link rel="alternate" hreflang="ja" href={abs(jaPath)} />
+  <link rel="alternate" hreflang="x-default" href={abs(enPath)} />
+
+  <link rel="icon" type="image/png" sizes="64x64" href="/img/favicon-64.png" />
+  <link rel="apple-touch-icon" href="/img/app-icon.png" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={ogDescription} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:locale" content={ogLocale} />
+  <meta property="og:locale:alternate" content={ogLocaleAlt} />
+  {/* Stub: app-icon (256×256) used as og:image until proper 1200×630 OGP design ships. */}
+  <meta property="og:image" content={abs('/img/app-icon.png')} />
+  <meta property="og:image:width" content="256" />
+  <meta property="og:image:height" content="256" />
+  <meta property="og:image:alt" content={imageAlt} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={ogDescription} />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href={fontHref} rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/base.css" />
+  {variant === 'landing' ? (
+    <link rel="stylesheet" href="/css/lp.css" />
+  ) : (
+    <link rel="stylesheet" href="/css/page.css" />
+  )}
+  {variant === 'landing' && (
+    <>
+      {/*
+        anim.css MUST load last so its `opacity:0; transform: translateY(...)`
+        baselines override any cascade above. The runtime in /js/anim.js
+        toggles .is-entered / .is-in to play the fade-up.
+      */}
+      <link rel="stylesheet" href="/css/anim.css" />
+      <script src="/js/anim.js" is:inline defer></script>
+      <noscript>
+        {/*
+          JS-disabled visitors would otherwise sit at opacity:0 forever
+          (anim.css's baseline). Reset to the final state with explicit
+          per-selector overrides so the cascade specificity matches
+          anim.css's @media (prefers-reduced-motion: reduce) block.
+        */}
+        <style>
+          {`.anim-host .hero-fx,
+      .anim-host .reveal-fx,
+      .anim-host .reveal-fx .reveal-child,
+      .anim-host .hero-bubble-row {
+        opacity: 1 !important;
+        transform: none !important;
+      }`}
+        </style>
+      </noscript>
+    </>
+  )}
+
+  {jsonLd && (
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} is:inline />
+  )}
+</head>
+<body class={variant === 'landing' ? 'anim-host' : undefined}>
+  <slot />
+</body>
+</html>

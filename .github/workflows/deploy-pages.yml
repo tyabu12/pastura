@@ -1,75 +1,41 @@
-# Deploys public-facing HTML under `pages/` to GitHub Pages. Currently:
+# Builds the public pastura.app site from the Astro project under `web/` and
+# deploys it to GitHub Pages (issue #475 — migrated from the former
+# hand-written `pages/` tree).
 #
-#   - `pages/index.html`                   → `https://pastura.app/`
-#     (Marketing landing page — see #345)
-#   - `pages/css/base.css`                 → `https://pastura.app/css/base.css`
-#   - `pages/css/lp.css`                   → `https://pastura.app/css/lp.css`
-#   - `pages/css/page.css`                 → `https://pastura.app/css/page.css`
-#     (Shared design tokens + LP layout + prose styling for legal/support)
-#   - `pages/css/anim.css`                 → `https://pastura.app/css/anim.css`
-#     (Fade-up animation stylesheet — hero entrance + scroll reveal — see #377)
-#   - `pages/js/anim.js`                   → `https://pastura.app/js/anim.js`
-#     (Vanilla-JS runtime that toggles `.is-entered` / `.is-in` on the LP — see #377)
-#   - `pages/img/app-icon.png`             → `https://pastura.app/img/app-icon.png`
-#   - `pages/img/favicon-64.png`           → `https://pastura.app/img/favicon-64.png`
-#     (Brand mark + favicon, sourced from the iOS app icon)
-#   - `pages/img/app-store-badge-en.svg`      → `https://pastura.app/img/app-store-badge-en.svg`
-#     (Apple's official "Download on the App Store" badge, used as a
-#     dimmed pre-launch CTA. Do not modify the SVG content.)
-#   - `pages/img/app-store-badge-ja.svg`      → `https://pastura.app/img/app-store-badge-ja.svg`
-#     (Apple's official Japanese App Store badge. Intrinsic size is
-#     ~109×40 vs the EN badge's 120×40; the JA LP drops hardcoded
-#     width so the badge renders at native aspect. Do not modify the
-#     SVG content.)
-#   - `pages/support/index.html`           → `https://pastura.app/support/`
-#     (App Store Connect Support URL — see ADR-005 §6 / §6.7 / §9.2 row #9 / #182)
-#   - `pages/legal/privacy-policy/index.html`
-#                                          → `https://pastura.app/legal/privacy-policy/`
-#     (App Store privacy policy URL — see ADR-005 §9.2 / #233)
-#   - `pages/ja/index.html`                → `https://pastura.app/ja/`
-#     (Japanese mirror of the marketing landing page — see #369)
-#   - `pages/ja/support/index.html`        → `https://pastura.app/ja/support/`
-#     (Japanese mirror of the Support page)
-#   - `pages/ja/legal/privacy-policy/index.html`
-#                                          → `https://pastura.app/ja/legal/privacy-policy/`
-#     (Japanese mirror of the privacy policy page)
-#   - `pages/sitemap.xml`                  → `https://pastura.app/sitemap.xml`
-#     (SEO sitemap — minimal 6-URL form. `lastmod` / `hreflang`
-#     intentionally omitted; see the file's header comment for
-#     rationale.)
-#   - `pages/robots.txt`                   → `https://pastura.app/robots.txt`
-#     (Crawler directive — `User-agent: *` + `Sitemap:` line pointing
-#     at `https://pastura.app/sitemap.xml` for discovery without
-#     requiring Search Console submission.)
-#   - `pages/CNAME`                        → `_site/CNAME` (apex custom domain)
-#     (Single line `pastura.app`. GitHub Pages reads CNAME from the
-#     deployed artifact root to persist `Settings → Pages → Custom
-#     domain` across deploys — omission would wipe the custom-domain
-#     binding on the next deploy.)
+# Pipeline: `npm ci` + `astro build` (in `web/`) → upload `web/dist/` as the
+# Pages artifact → deploy. Astro emits the whole site, so there is no
+# explicit per-file staging step any more; `web/dist/` is a clean build
+# output (no editor detritus), which is why a wholesale upload is safe here.
 #
-# Precondition: Settings → Pages → Source = "GitHub Actions" (NOT
-# "Deploy from a branch", which would publish the entire `pages/` tree
-# wholesale and bypass the staging discipline below).
+# Files that must reach the deployed root come from `web/public/` (Astro
+# copies that directory verbatim into `dist/`):
 #
-# Each file under `pages/` is staged into `_site/` by an explicit `cp` so
-# that a future addition (favicon, split CSS, additional pages) cannot
-# silently 404. **Never** `cp -r pages _site` — that would publish
-# editor detritus (`.DS_Store`, drafts) alongside intended content. List
-# every new asset in the staging step explicitly.
+#   - `web/public/CNAME`      → `dist/CNAME` (apex custom domain, `pastura.app`)
+#     GitHub Pages reads CNAME from the deployed artifact root to persist
+#     `Settings → Pages → Custom domain` across deploys — omission would wipe
+#     the custom-domain binding on the next deploy.
+#   - `web/public/.nojekyll`  → `dist/.nojekyll`
+#     Load-bearing for Astro: the bundled-asset dir `_astro/` is
+#     underscore-prefixed, which Jekyll would strip. `.nojekyll` also guards
+#     against a Source-setting regression back to branch-based Pages.
+#   - `web/public/robots.txt` → `dist/robots.txt`
+#   - `web/public/{css,js,img}/…` → served at `/css/…`, `/js/…`, `/img/…`
 #
-# A `.nojekyll` file is written so a Source-setting regression back to
-# branch-based Pages cannot start running the HTML through Jekyll.
+# The sitemap is generated by @astrojs/sitemap as `sitemap-index.xml` +
+# `sitemap-0.xml` (see `web/astro.config.mjs`). Search Console must be
+# re-pointed at `/sitemap-index.xml` (the old `/sitemap.xml` no longer
+# exists).
+#
+# Precondition: Settings → Pages → Source = "GitHub Actions".
 #
 # Concurrency group `pages` is GitHub's documented convention for Pages
-# deploys — any future Pages workflow in this repo must share it so
-# deploys serialize correctly. `cancel-in-progress: false` is deliberate:
-# cancelling a Pages deploy mid-flight can leave the site in an
-# inconsistent state.
+# deploys — any future Pages workflow in this repo must share it so deploys
+# serialize correctly. `cancel-in-progress: false` is deliberate: cancelling
+# a Pages deploy mid-flight can leave the site in an inconsistent state.
 #
-# A post-deploy smoke check `curl -fsS`'s every deployed URL (HTML AND
-# CSS) so silent staging-step omissions surface as a workflow failure
-# instead of a 404 noticed days later. CSS coverage matters: HTML 200
-# with broken CSS 404 would still pass without it.
+# A post-deploy smoke check `curl -fsS`'s every deployed URL (HTML, CSS, JS,
+# images, sitemaps, robots) so a build/output regression surfaces as a
+# workflow failure instead of a 404 noticed days later.
 
 name: Deploy Pages
 
@@ -77,14 +43,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'pages/**'
+      - 'web/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
-# Workflow-level permissions are minimal. Only the `deploy` job needs
-# write access to Pages and the OIDC token; declaring those at job level
-# keeps the default-token contract narrow per
-# https://docs.github.com/en/actions/reference/security/secure-use
 permissions:
   contents: read
 
@@ -92,10 +54,15 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  ASTRO_TELEMETRY_DISABLED: '1'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # `npm ci` on a cold cache plus `astro build` runs comfortably under this;
+    # the bump from the old 5 min absorbs the first uncached install.
+    timeout-minutes: 10
     permissions:
       contents: read
       pages: write
@@ -103,54 +70,47 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: web
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      - name: Stage artifact
-        # Targeted copy per the discipline note in the file header. If you
-        # add a new file under `pages/`, add a matching line here — silent
-        # drift on this step means the new asset 404s on the deployed site.
-        run: |
-          mkdir -p _site/support _site/legal/privacy-policy _site/ja/support _site/ja/legal/privacy-policy _site/css _site/js _site/img
-          cp pages/index.html _site/index.html
-          cp pages/css/base.css _site/css/base.css
-          cp pages/css/lp.css _site/css/lp.css
-          cp pages/css/page.css _site/css/page.css
-          cp pages/css/anim.css _site/css/anim.css
-          cp pages/js/anim.js _site/js/anim.js
-          cp pages/img/app-icon.png _site/img/app-icon.png
-          cp pages/img/favicon-64.png _site/img/favicon-64.png
-          cp pages/img/app-store-badge-en.svg _site/img/app-store-badge-en.svg
-          cp pages/img/app-store-badge-ja.svg _site/img/app-store-badge-ja.svg
-          cp pages/support/index.html _site/support/index.html
-          cp pages/legal/privacy-policy/index.html _site/legal/privacy-policy/index.html
-          cp pages/ja/index.html _site/ja/index.html
-          cp pages/ja/support/index.html _site/ja/support/index.html
-          cp pages/ja/legal/privacy-policy/index.html _site/ja/legal/privacy-policy/index.html
-          cp pages/sitemap.xml _site/sitemap.xml
-          cp pages/robots.txt _site/robots.txt
-          cp pages/CNAME _site/CNAME
-          touch _site/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: _site
+          # Action input path is relative to the repo root, not the
+          # `defaults.run.working-directory` above (that only affects `run`).
+          path: web/dist
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
       - name: Smoke-check deployed URLs
-        # Pages deploy can succeed structurally while serving the wrong
-        # tree (e.g. a stage-step omission that publishes only one of the
-        # files). A `curl -fsS` against each registered URL turns those
-        # silent failures into a workflow failure. `--retry` covers the
-        # short propagation window after `deploy-pages` returns.
+        # Pages deploy can succeed structurally while serving a broken tree
+        # (e.g. a build regression that drops an asset). A `curl -fsS` against
+        # each expected URL turns those silent failures into a workflow
+        # failure. `--retry` covers the short propagation window after
+        # `deploy-pages` returns. Covers both sitemap files: the index
+        # references the child, so a 404 child is a silent SEO break.
         run: |
           set -euo pipefail
           for url in \
@@ -169,7 +129,8 @@ jobs:
             "https://pastura.app/ja/" \
             "https://pastura.app/ja/support/" \
             "https://pastura.app/ja/legal/privacy-policy/" \
-            "https://pastura.app/sitemap.xml" \
+            "https://pastura.app/sitemap-index.xml" \
+            "https://pastura.app/sitemap-0.xml" \
             "https://pastura.app/robots.txt"; do
             echo "Checking ${url}"
             curl -fsS --retry 5 --retry-delay 5 --retry-all-errors -o /dev/null "${url}"

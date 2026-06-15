@@ -76,3 +76,10 @@ docs/design/screenshots/*.png
 docs/design/motion/*
 !docs/design/motion/README.md
 
+# Astro web project (web/ — the pastura.app site). Build output and
+# dependencies are local-only; package-lock.json IS tracked for
+# reproducible `npm ci` in CI.
+web/node_modules/
+web/dist/
+web/.astro/
+

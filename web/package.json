@@ -1,0 +1,21 @@
+{
+  "name": "pastura-web",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Public pastura.app site (Astro SSG, deployed to GitHub Pages). See issue #475.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.3",
+    "astro": "^6.4.6"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "typescript": "^6.0.3"
+  }
+}

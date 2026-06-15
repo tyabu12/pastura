@@ -211,10 +211,15 @@ Pastura/
     ├── DemoReplays/          # DL-time demo playback (ADR-007)
     └── ContentBlocklist.txt  # ADR-005 content safety
 
-pages/                           # Public HTML deployed via .github/workflows/deploy-pages.yml
-├── support/                     # ASC Support URL
-├── legal/privacy-policy/        # App Store privacy policy URL
-└── ja/                          # Japanese mirror (LP / support / privacy-policy)
+web/                             # The pastura.app site (Astro SSG, deployed via .github/workflows/deploy-pages.yml; #475)
+├── astro.config.mjs             # i18n (en root / ja prefix), sitemap, trailingSlash
+├── public/                      # Static assets served at site root (css/, js/, img/, CNAME, robots.txt, .nojekyll)
+└── src/
+    ├── layouts/BaseLayout.astro # Shared <head> + <body> shell (computes canonical/hreflang/og per locale)
+    └── pages/                   # Route files → en at root, ja mirror under ja/
+        ├── index.astro          #   /            (LP; ja/index.astro → /ja/)
+        ├── support.astro        #   /support/    (ASC Support URL)
+        └── legal/privacy-policy.astro  # /legal/privacy-policy/ (App Store privacy policy URL)
 ```
 
 ## Context-Specific Rules
@@ -227,7 +232,7 @@ pages/                           # Public HTML deployed via .github/workflows/de
 - `ci-workflows.md` — CI workflow / script editing: bash 3.2 gotchas on macOS GHA runners (no `mapfile` etc.), long-lived integration-branch gating shape (`.github/workflows/**`, `scripts/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
 - `i18n.md` — Localization workflow: `String(format: String(localized:))` format-string pattern, `xcstringstool` sync output (multi-arg en blocks, state=new + en-only), catalog editing traps (don't `json.dumps` round-trip) (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `lp-content.md` — Public LP content concepts: AIgazing / AI観測 genre-word zoning (Hero + Bigger picture only), em-dash / prose-colon voice rule for new copy (`pages/**`)
+- `lp-content.md` — Public LP content concepts: AIgazing / AI観測 genre-word zoning (Hero + Bigger picture only), em-dash / prose-colon voice rule for new copy (`web/**`)
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
 - `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via the `currentScenario()` funnel (`Pastura/Pastura/App/ScenarioEditor*`, `Pastura/Pastura/Views/Editor/**`, `Pastura/PasturaTests/App/ScenarioEditorViewModel*`)
