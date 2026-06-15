@@ -33,19 +33,25 @@ flowchart TD
   sharedScenarios --> galleryScenarioDetail
 ```
 
-## Screens
+## Screenshot tour
 
-Screenshot names refer to `scripts/ui-tour.sh` outputs (gitignored —
-regenerate to view; `docs/design/screenshots/README.md`). Anchors are
-the tour's per-screen wait identifiers.
+The `ScreenshotTourTests` UI test
+(`Pastura/PasturaUITests/ScreenshotTourTests.swift`) is the single
+source of truth for what the tour captures, in order — including
+tab-reached screens (e.g. Settings) that are not `Route` graph nodes
+above. `scripts/ui-tour.sh` runs it and extracts the PNGs into
+`docs/design/screenshots/` (gitignored — regenerate to view;
+`docs/design/screenshots/README.md`). Anchors are the per-screen wait
+identifiers; *Reached via* is the launch root, a tab switch, or a
+root-stack push.
 
-| Node | Screen | Pushed from | Tour anchor | Screenshot |
-|------|--------|-------------|-------------|------------|
-| `home` | Home | — (stack root) | `home.scenarioListCell.*` | `01-home.png` |
-| `sharedScenarios` | Shared Scenarios | — (stack root) | `sharedScenarios.galleryCell.*` | `04-shared-scenarios.png` |
-| `scenarioDetail` | Scenario Detail | `galleryScenarioDetail`, `home`, `scenarioDetail` | `scenarioDetail.list` | `02-scenario-detail.png` |
-| `editor` | Scenario Editor | `home`, `scenarioDetail` | `editor.titleField` | `03-editor.png` |
-| `simulation` | Simulation | `scenarioDetail` | — | deferred — see `screenshots/README.md` |
-| `results` | Past Results | `scenarioDetail` | `results.list` | `07-results.png` |
-| `resultDetail` | Result Detail | `results` | `resultDetail.timeline` | `08-result-detail.png` |
-| `galleryScenarioDetail` | Gallery Scenario Detail | `scenarioDetail`, `sharedScenarios` | `galleryDetail.tryButton` | `05-gallery-detail.png` |
+| # | Screenshot | Tour anchor | Reached via |
+|---|------------|-------------|-------------|
+| 1 | `01-home.png` | `home.scenarioListCell.ui_test_home_seed` | root |
+| 2 | `02-scenario-detail.png` | `scenarioDetail.list` | push |
+| 3 | `03-editor.png` | `editor.titleField` | push |
+| 4 | `04-shared-scenarios.png` | `sharedScenarios.galleryCell.ui_test_canary` | tab |
+| 5 | `05-gallery-detail.png` | `galleryDetail.tryButton` | push |
+| 6 | `06-settings.png` | `settings.licensesLink` | tab |
+| 7 | `07-results.png` | `results.list` | tab |
+| 8 | `08-result-detail.png` | `resultDetail.timeline` | push |
