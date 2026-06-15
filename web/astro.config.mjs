@@ -1,9 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 
 // Public pastura.app site. Behavior-preserving migration of the former
-// hand-written `pages/` tree (issue #475). The @astrojs/sitemap integration
-// is wired in a later commit.
+// hand-written `pages/` tree (issue #475).
 //
 // - `trailingSlash: 'always'` + `build.format: 'directory'` reproduce the
 //   GitHub Pages directory-index URL shape the old site relied on
@@ -26,4 +26,18 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
+  integrations: [
+    sitemap({
+      // Preserve the deliberately-minimal `<url><loc>…</loc></url>` form the
+      // hand-written sitemap.xml used (#473): no `lastmod` (Google ignores
+      // inaccurate build-date lastmod — anti-pattern), no `changefreq` /
+      // `priority` (ignored by Google). `serialize` strips everything but loc.
+      //
+      // The integration's `i18n` option is intentionally NOT passed: it would
+      // inject `<xhtml:link rel="alternate" hreflang=…>` into the XML, but the
+      // per-page HTML <head> is the single source of truth for language
+      // variants (#473) — duplicating into XML adds drift risk with no gain.
+      serialize: (item) => ({ url: item.url }),
+    }),
+  ],
 });
