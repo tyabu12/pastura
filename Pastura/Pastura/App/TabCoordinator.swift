@@ -105,4 +105,24 @@ final class TabCoordinator {
       selectedTab = tab
     }
   }
+
+  /// Presents a resolved deep-linked gallery scenario on the さがす
+  /// (Search) tab (ADR-016 D5.2).
+  ///
+  /// A `.galleryScenarioDetail` is a さがす-tab destination, so the target
+  /// tab is fixed by the resolution kind — **not** the currently-selected
+  /// tab. Select that tab, then push onto its router. So a link arriving
+  /// while the user is on another tab still lands the detail on Search.
+  ///
+  /// Plain `push` (not `pushIfOnTop`): the `await` that `pushIfOnTop`
+  /// guards already completed in `PasturaApp.tryDrain` before the drain
+  /// reaches here, and the freshly-selected tab root is normally an empty
+  /// stack where `pushIfOnTop` would no-op. Matches the prior
+  /// unconditional push. (Extracted from `PasturaApp.applyResolution` so
+  /// the routing kernel is unit-testable — `DeepLinkTabRoutingUITests`
+  /// covers the surrounding async drain glue end-to-end.)
+  func presentDeepLinkedGalleryScenario(_ scenario: GalleryScenario) {
+    selectedTab = .search
+    searchRouter.push(.galleryScenarioDetail(scenario: scenario))
+  }
 }

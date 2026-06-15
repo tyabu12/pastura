@@ -113,6 +113,86 @@ import Testing
     #expect(!coordinator.isSimulationOnTop)
   }
 
+  // MARK: - isSimulationOnTop → warm-splash consumer (ADR-016 D5.4)
+
+  // The fold is correct in isolation (above), and `shouldPlayWarmSplash`
+  // is correct given a literal `isSimulationOnTop` (LaunchPhaseCoordinator
+  // tests). These wire the REAL any-tab fold into the warm-splash gate —
+  // the only coverage that catches a narrowing applied between the fold
+  // and its consumer (e.g. the gate reading the selected tab's top route
+  // instead of `isSimulationOnTop`). `// D5.4: any-tab — do not narrow`.
+
+  @Test func anyTabSimulationSuppressesWarmSplash() {
+    let coordinator = TabCoordinator()  // selectedTab == .home
+    // Sim backgrounded on a NON-selected tab: a fold narrowed to the
+    // selected tab would return false here and the splash would wrongly
+    // play over the in-flight run — this is the regression catch.
+    coordinator.searchRouter.push(.simulation(scenarioId: "x"))
+
+    let shouldPlay = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: coordinator.isSimulationOnTop,
+      isSheetActive: false)
+
+    #expect(shouldPlay == false)
+  }
+
+  @Test func warmSplashPlaysWhenNoTabHasSimulation() {
+    // Positive control so the suppression test isn't vacuously false:
+    // with no sim on any tab the fold is false and the warm splash plays.
+    let coordinator = TabCoordinator()
+    coordinator.homeRouter.push(.scenarioDetail(scenarioId: "x"))
+
+    let shouldPlay = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: coordinator.isSimulationOnTop,
+      isSheetActive: false)
+
+    #expect(shouldPlay == true)
+  }
+
+  // MARK: - Deep-link drain routing (ADR-016 D5.2)
+
+  @Test func presentDeepLinkedGalleryScenarioSelectsSearchTabAndPushesOntoIt() {
+    let coordinator = TabCoordinator()  // selectedTab == .home
+    // User is mid-navigation on a NON-search tab when the link arrives.
+    coordinator.homeRouter.push(.scenarioDetail(scenarioId: "home"))
+    let scenario = makeGalleryScenario(id: "linked")
+
+    coordinator.presentDeepLinkedGalleryScenario(scenario)
+
+    // Primary, each independently revert-sensitive: the target tab is the
+    // resolution-fixed さがす tab (not the currently-selected one), and the
+    // detail lands on THAT tab's router.
+    #expect(coordinator.selectedTab == .search)
+    #expect(coordinator.searchRouter.path.last == .galleryScenarioDetail(scenario: scenario))
+    // Secondary defense-in-depth: the routing touches only さがす.
+    #expect(coordinator.homeRouter.path == [.scenarioDetail(scenarioId: "home")])
+    #expect(coordinator.historyRouter.path.isEmpty)
+    #expect(coordinator.settingsRouter.path.isEmpty)
+  }
+
+  @Test func presentDeepLinkedGalleryScenarioAppendsOntoNonEmptySearchStack() {
+    let coordinator = TabCoordinator()
+    // さがす already shows a gallery detail (user browsed there) when a new
+    // link drains. Plain `push` appends unconditionally — pinning the
+    // D5.2 plain-`push` choice so a future ⑥ switch to a guarded push
+    // surfaces here rather than passing silently.
+    let existing = makeGalleryScenario(id: "existing")
+    coordinator.searchRouter.push(.galleryScenarioDetail(scenario: existing))
+    let linked = makeGalleryScenario(id: "linked")
+
+    coordinator.presentDeepLinkedGalleryScenario(linked)
+
+    #expect(
+      coordinator.searchRouter.path == [
+        .galleryScenarioDetail(scenario: existing),
+        .galleryScenarioDetail(scenario: linked)
+      ])
+  }
+
   // MARK: - Cross-tab isolation (ADR-016 D3)
 
   @Test func pushOnOneTabLeavesOtherTabsEmpty() {
