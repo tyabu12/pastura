@@ -27,14 +27,38 @@ set -euo pipefail
 # (subdirectories, submodules, etc.).
 cd "$(git rev-parse --show-toplevel)"
 
+# Classify the staged changeset (#625). SwiftLint and the iOS build are
+# the expensive steps, and neither can be affected by a changeset that
+# touches no Swift / build-relevant files (e.g. web/, docs/, .github/,
+# .claude/). Gate them on the classifier, which is conservative by
+# inversion — any unrecognized path forces the full gate. The blocklist /
+# gallery / p8 sub-gates below stay UNCONDITIONAL: they already self-gate
+# on their own inputs, and the p8 secret gate must always run.
+staged="$(git diff --cached --name-only)"
+gates="$(printf '%s\n' "$staged" | bash scripts/precommit-gate-classify.sh)"
+
 # 1. SwiftLint --strict — surface lint violations before they hit CI.
-swiftlint lint --quiet --strict 2>&1 \
-  || { echo 'SwiftLint violations. Fix before committing.' >&2; exit 2; }
+case " $gates " in
+  *" lint "*)
+    swiftlint lint --quiet --strict 2>&1 \
+      || { echo 'SwiftLint violations. Fix before committing.' >&2; exit 2; }
+    ;;
+  *)
+    echo 'pre-commit: no Swift / .swiftlint.yml staged — skipping SwiftLint.'
+    ;;
+esac
 
 # 2. xcodebuild build — catch compile errors at commit time, not CI time.
 # PASTURA_SKIP_XCSTRINGS_SYNC keeps the catalog stable across commits.
-PASTURA_SKIP_XCSTRINGS_SYNC=1 ./scripts/xcodebuild.sh build -quiet 2>&1 \
-  || { echo 'Build failed. Fix compile errors before committing.' >&2; exit 2; }
+case " $gates " in
+  *" build "*)
+    PASTURA_SKIP_XCSTRINGS_SYNC=1 ./scripts/xcodebuild.sh build -quiet 2>&1 \
+      || { echo 'Build failed. Fix compile errors before committing.' >&2; exit 2; }
+    ;;
+  *)
+    echo 'pre-commit: no build-relevant files staged — skipping xcodebuild build.'
+    ;;
+esac
 
 # 3. Blocklist gate (ADR-005) — fails-fast inside.
 bash ./scripts/blocklist-precommit-gate.sh
