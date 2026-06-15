@@ -113,6 +113,46 @@ import Testing
     #expect(!coordinator.isSimulationOnTop)
   }
 
+  // MARK: - isSimulationOnTop → warm-splash consumer (ADR-016 D5.4)
+
+  // The fold is correct in isolation (above), and `shouldPlayWarmSplash`
+  // is correct given a literal `isSimulationOnTop` (LaunchPhaseCoordinator
+  // tests). These wire the REAL any-tab fold into the warm-splash gate —
+  // the only coverage that catches a narrowing applied between the fold
+  // and its consumer (e.g. the gate reading the selected tab's top route
+  // instead of `isSimulationOnTop`). `// D5.4: any-tab — do not narrow`.
+
+  @Test func anyTabSimulationSuppressesWarmSplash() {
+    let coordinator = TabCoordinator()  // selectedTab == .home
+    // Sim backgrounded on a NON-selected tab: a fold narrowed to the
+    // selected tab would return false here and the splash would wrongly
+    // play over the in-flight run — this is the regression catch.
+    coordinator.searchRouter.push(.simulation(scenarioId: "x"))
+
+    let shouldPlay = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: coordinator.isSimulationOnTop,
+      isSheetActive: false)
+
+    #expect(shouldPlay == false)
+  }
+
+  @Test func warmSplashPlaysWhenNoTabHasSimulation() {
+    // Positive control so the suppression test isn't vacuously false:
+    // with no sim on any tab the fold is false and the warm splash plays.
+    let coordinator = TabCoordinator()
+    coordinator.homeRouter.push(.scenarioDetail(scenarioId: "x"))
+
+    let shouldPlay = LaunchPhaseCoordinator.shouldPlayWarmSplash(
+      launchKind: .warm,
+      appIsReady: true,
+      isSimulationOnTop: coordinator.isSimulationOnTop,
+      isSheetActive: false)
+
+    #expect(shouldPlay == true)
+  }
+
   // MARK: - Deep-link drain routing (ADR-016 D5.2)
 
   @Test func presentDeepLinkedGalleryScenarioSelectsSearchTabAndPushesOntoIt() {
