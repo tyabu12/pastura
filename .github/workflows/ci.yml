@@ -2,9 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `feature/home-redesign-p1` is the Home-redesign P1 integration branch
+    # (6 sub-PRs land there before it merges to main, #612). Without it in
+    # both branch lists, sub-PRs whose base is the integration branch fire
+    # ZERO jobs — the same long-lived-branch gating gap as #220 (see
+    # .claude/rules/ci-workflows.md "Long-lived branch gating", Layer A).
+    # Only the trigger filter needs widening: the verification jobs carry no
+    # main-only `if:`, and coverage stays main-gated by its own `if:`.
+    # Remove both entries once P1 merges to main.
+    branches: [main, feature/home-redesign-p1]
   pull_request:
-    branches: [main]
+    branches: [main, feature/home-redesign-p1]
 
 permissions:
   contents: read
