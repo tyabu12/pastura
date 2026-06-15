@@ -47,12 +47,20 @@ struct RootTabView: View {
       // `Label(text:)`. VoiceOver reads the per-icon `.accessibilityLabel`
       // (the JA tab name); its correct surfacing on the tab button is
       // confirmed by the real-device QA this PR already requires.
+      //
+      // `.environment(\.symbolVariants, .none)` on each icon is
+      // LOAD-BEARING: since iOS 15 a `TabView` tab bar auto-applies the
+      // `.fill` variant to EVERY tab symbol, which would fill our outline
+      // (inactive) symbols too and erase the active/inactive distinction.
+      // Disabling the auto-variant lets `symbolName(for:isActive:)` drive
+      // the fill toggle explicitly. Do NOT remove it.
       TabNavigationStack(router: coordinator.homeRouter) {
         HomeView()
       }
       .tag(AppTab.home)
       .tabItem {
         Image(systemName: Self.symbolName(for: .home, isActive: coordinator.selectedTab == .home))
+          .environment(\.symbolVariants, .none)
           .accessibilityLabel(Text(String(localized: "Home")))
       }
 
@@ -64,6 +72,7 @@ struct RootTabView: View {
         Image(
           systemName: Self.symbolName(for: .search, isActive: coordinator.selectedTab == .search)
         )
+        .environment(\.symbolVariants, .none)
         .accessibilityLabel(Text(String(localized: "Browse")))
       }
 
@@ -78,6 +87,7 @@ struct RootTabView: View {
         Image(
           systemName: Self.symbolName(for: .history, isActive: coordinator.selectedTab == .history)
         )
+        .environment(\.symbolVariants, .none)
         .accessibilityLabel(Text(String(localized: "History")))
       }
 
@@ -90,6 +100,7 @@ struct RootTabView: View {
           systemName: Self.symbolName(
             for: .settings, isActive: coordinator.selectedTab == .settings)
         )
+        .environment(\.symbolVariants, .none)
         .accessibilityLabel(Text(String(localized: "Settings")))
       }
     }
