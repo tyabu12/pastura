@@ -100,7 +100,7 @@ HTML/CSS/JS をそのまま移植せず、**SwiftUI のイディオム**（`VSta
 - **PromoCard**: 起動時は Slot A 表示（独立タイマー駆動で 〜20 秒後に B へ、DL 進捗とは無関係）
 
 ### Frame 2 — デモ序盤の全員発話
-- **状態**: Alice, Bob, Carol, Dave の 4 発言が順次フェードイン（各 180ms ディレイ）。Dave にのみ "THINKING"（内なる思考）を展開
+- **状態**: Alice, Bob, Carol, Dave の 4 発言が順次フェードイン（各 180ms ディレイ）。Dave にのみ "INNER VOICE"（内なる思考）を展開
 - **PromoCard**: Slot A / B / C のいずれか（経過時間次第、DL 進捗とは無関係）
 
 ### Frame 3 — デモ中盤の投票フェーズ
@@ -172,7 +172,7 @@ ZStack(alignment: .top) {
 - フォント: 13pt / 色 `#2d2e26` / line-height 1.65
 
 #### THINKING（内なる思考）
-- 折りたたみ時: `▸ THINKING` のみ（8.5pt / モノスペース / `#b1ac92` / letterSpacing 0.22em）
+- 折りたたみ時: `▸ INNER VOICE` のみ（8.5pt / モノスペース / `#b1ac92` / letterSpacing 0.22em）
 - 展開時: 左に1.5pt縦線（`#d4cba8`）、本文は 10.5pt / `#8a876f` / italic / line-height 1.7
 - **デフォルトは展開**。タップでトグル（折りたたみ ↔ 展開）。
 
