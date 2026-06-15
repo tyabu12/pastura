@@ -921,9 +921,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // fires for all speeds — they do not substitute for one another.
     if let snapshot = streamingSnapshot, snapshot.agent == agent {
       let canonicalPrimary = filtered.primaryText(for: phaseType) ?? ""
-      if !canonicalPrimary.hasPrefix(snapshot.primary) {
+      // Compare against the *decorated* snapshot. `PartialOutputExtractor`
+      // stores the bare primary (e.g. the vote value without the `→ ` arrow),
+      // while `primaryText(for:)` returns the decorated form — so for vote
+      // `"→ X".hasPrefix("X")` was structurally always false and fired a
+      // spurious divergence log every turn (#615). Decorating via the #613
+      // single source of truth restores the prefix invariant. Use the
+      // commit-time `phaseType` parameter (not `snapshot.phaseType`): the
+      // canonical parse is authoritative for the phase this turn committed
+      // as, and a mid-turn snapshot can be stale.
+      let decoratedSnapshot = ScenarioConventions.decoratePrimary(
+        snapshot.primary, for: phaseType)
+      if !canonicalPrimary.hasPrefix(decoratedSnapshot) {
         lifecycleLogger.debug(
-          "stream divergence: agent=\(agent, privacy: .public), snapshot primary \(snapshot.primary.prefix(40), privacy: .public) is not a prefix of canonical \(canonicalPrimary.prefix(40), privacy: .public)"
+          "stream divergence: agent=\(agent, privacy: .public), snapshot primary \(decoratedSnapshot.prefix(40), privacy: .public) is not a prefix of canonical \(canonicalPrimary.prefix(40), privacy: .public)"
         )
       }
     }
