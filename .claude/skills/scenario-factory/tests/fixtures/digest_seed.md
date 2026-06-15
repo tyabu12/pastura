@@ -1,9 +1,10 @@
 # Scenario Factory Digest
 
-Test copy of the digest seed — keep the marker structure in sync with
-`data/factory/digest.md`.
+Test copy of the digest seed — keep the marker structure in sync with the
+`SCAFFOLD` in `scripts/append_digest.py` (the live digest is a gitignored
+local log, bootstrapped from that scaffold).
 
 <!-- factory-digest:sections -->
 
 <!-- factory-digest:promotion -->
-Promotion: copy the winning YAML from `data/factory/scenarios/<date>/` to `Pastura/Pastura/Resources/Presets/` via an `/orchestrate` PR — landing under `Resources/` routes it through the blocklist pre-commit gate.
+Promotion: channels documented in `.claude/skills/scenario-factory/SKILL.md` § Promotion.

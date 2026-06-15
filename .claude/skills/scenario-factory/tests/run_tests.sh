@@ -79,8 +79,4 @@ grep -q "factory-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promo
 grep -q "^## 2026-06-13$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
 
-# --- sync_digest_pr.py (rolling digest PR helper) ---------------------------
-# run_tests.sh has already cd'd into this tests/ dir (line 9).
-bash ./sync_digest_pr_test.sh
-
 echo "ALL TESTS PASSED"

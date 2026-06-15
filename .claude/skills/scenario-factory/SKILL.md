@@ -1,6 +1,6 @@
 ---
 name: scenario-factory
-description: Run one scenario-factory cycle — generate 3 fresh scenario YAMLs, execute each on pastura-harness with real local-LLM inference, judge the transcripts in-session, and append the committed digest. Use when the user asks to run the scenario factory, run a factory cycle, generate and field-test new scenarios, or dogfood scenarios overnight.
+description: Run one scenario-factory cycle — generate 3 fresh scenario YAMLs, execute each on pastura-harness with real local-LLM inference, judge the transcripts in-session, and append the local digest. Use when the user asks to run the scenario factory, run a factory cycle, generate and field-test new scenarios, or dogfood scenarios overnight.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
@@ -19,7 +19,7 @@ Non-goals:
   promoted to a **bundled preset** under `Resources/Presets/`. The
   **shared-scenario gallery** channel (`docs/gallery/`) does NOT pass
   through that gate — curate gallery content by hand. Both channels: see
-  the digest's promotion footer.
+  § Promotion below.
 - **No external LLM APIs.** Generation and judging are done by THIS
   session. Only the local harness (llama.cpp + bundled GGUF) burns
   inference.
@@ -34,8 +34,8 @@ Non-goals:
   harness output dir)
 - Run logs: `data/factory/runs/<DATE>/<id>.jsonl` (gitignored; harness
   stderr lands in a `.stderr.log` sidecar next to each log)
-- Digest: `data/factory/digest.md` (committed — the cycle's only
-  repo-visible artifact)
+- Digest: `data/factory/digest.md` (gitignored local log — appended in
+  place, never committed; bootstrapped by `append_digest.py` if absent)
 - Per-run timeout: `600` seconds (not the harness default 1800 — bounds a
   wedged run at 2 attempts × 600 s)
 - Helper scripts: `.claude/skills/scenario-factory/scripts/`
@@ -163,11 +163,30 @@ the comment). The judge is a quality filter, not a safety screen.
 
 Summarize for the user: per-scenario status + scores + best line of the
 night, failures with one-line causes, and where the artifacts live
-(`scenarios/<DATE>/`, `runs/<DATE>/`, digest diff). `data/factory/digest.md`
-is left modified in the working tree — committing it (and any promotion
-PR — bundled preset or shared-scenario gallery; see the digest's
-promotion footer for the two channels) goes through the normal
-`/orchestrate` flow; this skill does not commit or push.
+(`scenarios/<DATE>/`, `runs/<DATE>/`, the appended digest section).
+`data/factory/digest.md` is a gitignored local log — the new section is
+appended in place and is NOT committed or pushed. Only *promoting* a
+winning scenario (bundled preset or shared-scenario gallery; see
+§ Promotion) goes through the normal `/orchestrate` flow.
+
+## Promotion
+
+The digest itself is never promoted — it is a local judging journal. To
+ship a winning scenario, pick a distribution channel by reach and commit
+via an `/orchestrate` PR either way:
+
+- **Bundled preset** (ships in the app binary): copy the winning YAML from
+  `data/factory/scenarios/<date>/` to `Pastura/Pastura/Resources/Presets/`.
+  Landing under `Resources/` routes it through the blocklist pre-commit
+  gate; reaches users only on the next TestFlight / App Store build.
+- **Shared-scenario gallery** (remote — served from `main` via
+  `raw.githubusercontent.com`, so **merge is the deploy**): copy to
+  `docs/gallery/<slug>_v1.yaml` (rename the YAML's `id:` from
+  `factory_<date>_<slug>` to `<slug>_v1`), then run
+  `scripts/add-gallery-entry.sh`. The gallery does **not** pass through the
+  blocklist gate — curate by the judge scores yourself (hold back
+  low-coherence / low-humor runs). Full bridge: `docs/gallery/README.md`
+  § "Promoting from the scenario factory".
 
 ## Scheduling (how the unattended run works)
 
@@ -175,63 +194,32 @@ promotion footer for the two channels) goes through the normal
   execution"). Scheduling is an operator action: a **Claude Desktop
   *local* Routine** drives the cycle (see the recipe below). Cloud
   routines are unusable here — generation + judging burn the llama.cpp +
-  GGUF harness, which a cloud clone can't reach. (The prior 04:07
-  CronCreate registration is abandoned: CronCreate's durable flag does
-  not hold, so it expires within ~7 days.)
-- **The digest reaches `main` through a rolling Draft PR — never a direct
-  commit.** `main` is push-protected (PR-only), so committing the digest
-  on local `main` would diverge from `origin/main` and break
-  `git pull --ff-only`. Instead `scripts/sync_digest_pr.py` maintains a
-  single open `factory/digest-<YYYYMMDD>` Draft PR: each night appends a
-  section and pushes; the human merges that PR whenever convenient (not
-  daily); after a merge the next night opens a fresh one. The skill body
-  still **does not commit or push** — only the scheduling wrapper (via the
-  helper) publishes, so a *manual* `/scenario-factory` is unchanged (leaves
-  the digest modified for `/orchestrate`).
-- **One-time setup — a persistent dedicated worktree.** Run the nightly
-  factory in its own worktree so the user's main working tree is never
-  touched, and so the rolling branch survives between nights:
-
-  ```bash
-  git worktree add --detach /Users/tyabu12/Work/pastura-factory origin/main
-  ```
-
-  `sync_digest_pr.py prepare` owns this worktree's branch. Do **not** use
-  the Desktop Routine's worktree toggle — it creates a throwaway per-run
-  worktree, which would lose the rolling branch each night.
+  GGUF harness, which a cloud clone can't reach.
+- **The digest is a gitignored local log — never committed or pushed.**
+  Each night appends a section in place; there is no rolling PR and no
+  branch state. `append_digest.py` bootstraps the file if it is absent.
+  A *manual* `/scenario-factory` behaves identically. (Promoting a winning
+  scenario is a separate `/orchestrate` PR — see § Promotion.)
+- **Run in the user's main checkout — not a throwaway worktree.** The
+  gitignored digest, `scenarios/<DATE>/`, and `runs/<DATE>/` must persist
+  between nights so Step 1 dedup reads the full history; a fresh per-run
+  worktree would start with an empty bootstrapped digest and lose that
+  history. The digest being gitignored is what keeps the main working tree
+  clean despite running there.
 - **Routine recipe** (Desktop → Routines → New routine):
   - **Type**: Local
   - **Name**: `scenario-factory-nightly`
-  - **Working folder**: `/Users/tyabu12/Work/pastura-factory` (the
-    dedicated worktree above — NOT the user's main checkout)
-  - **worktree toggle**: **OFF** (the helper owns a persistent worktree)
-  - **Schedule**: **4:07 AM is only an example** — not a nightly requirement.
-    Any slot works as long as the machine is awake + idle + on AC and it does
-    not overlap another family routine (queue-consumer is 1:30). Weekday
-    daytime is fine, and you may register more than one slot: the helper is
-    time-agnostic — the rolling branch is keyed by date, and same-day runs
-    append to the same PR.
+  - **Working folder**: the user's main checkout (`/Users/tyabu12/Work/pastura`)
+  - **worktree toggle**: **OFF** (must run in the persistent main checkout)
+  - **Schedule**: any slot works as long as the machine is awake + idle + on
+    AC and it does not overlap another family routine (queue-consumer is
+    1:30). The cycle is time-agnostic; same-day re-runs replace that date's
+    section (date-idempotent append).
   - **Permission mode**: **`acceptEdits`** (not `bypassPermissions`) —
     auto-accepts in-session file writes (generated YAMLs); least-privilege.
-  - **Instructions** (three steps, in order):
-
-    ```text
-    Run: python3 .claude/skills/scenario-factory/scripts/sync_digest_pr.py prepare
-    Then run the /scenario-factory skill for tonight's cycle.
-    Then run: python3 .claude/skills/scenario-factory/scripts/sync_digest_pr.py publish
-    ```
-
-    `prepare` selects (or creates) the rolling branch **before** the digest
-    is written — fast-forwarding it to the open PR's remote tip so Step 1
-    dedup reads the latest. `publish` commits `data/factory/digest.md`,
-    pushes, and ensures the Draft PR exists. Both are idempotent; a
-    no-digest night is a no-op (no empty PR).
-- **No settings.json change.** The helper is covered by the existing
-  `Bash(python3 .claude/skills/scenario-factory/scripts/*)` allowlist
-  entry, and it **encapsulates** every git/gh call — so no `git push` /
-  `gh` allowlist additions are needed. The containment rationale for that
-  encapsulation (it bypasses the `block-force-push` PreToolUse hook, so the
-  helper's in-script guards are the sole protection) lives in the helper's
-  module doc-comment; do not weaken those guards.
+  - **Instructions**: `Run the /scenario-factory skill for tonight's cycle.`
+- **No settings.json change.** The skill writes only gitignored local files
+  (digest, scenarios, runs) and makes no `git push` / `gh` calls, so no
+  allowlist additions are needed.
 - **Environment prerequisites**: AC power, the machine awake (non-sleep),
   and idle at fire time — the cycle burns local GGUF inference.
