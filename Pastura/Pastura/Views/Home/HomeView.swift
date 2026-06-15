@@ -42,13 +42,6 @@ struct HomeView: View {
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle("Pastura")
     .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        NavigationLink(value: Route.settings) {
-          Label(String(localized: "Settings"), systemImage: "gearshape")
-        }
-        .accessibilityIdentifier("home.settingsButton")
-      }
-      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         NavigationLink(value: newScenarioRoute()) {
           Label(String(localized: "New Scenario"), systemImage: "plus")
