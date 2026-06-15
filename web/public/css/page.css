@@ -144,6 +144,13 @@
   color: inherit;
 }
 
+/* Build-time Shiki output (<Code lang="yaml"> on /docs/scenario/) reuses the
+   same panel as a hand-written <pre>: keep our border / padding / radius and
+   force the site surface colour, letting Shiki own only the token colours. */
+.page-prose pre.astro-code {
+  background: var(--page) !important;
+}
+
 /* ----- Table ----- */
 
 .page-prose table {

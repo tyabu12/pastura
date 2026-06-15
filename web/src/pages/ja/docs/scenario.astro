@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { Code } from 'astro:components';
 // JA mirror of /docs/scenario/ (#626). Content written from the ja preset YAML
 // under Pastura/Pastura/Resources/Presets/ (prisoners_dilemma / word_wolf /
 // bokete / target_score_race); how-to and observation tips mirror
@@ -8,9 +9,47 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 // LP (ja/index.astro) に合わせる (「複数の AI エージェント」「ローカル LLM」
 // 「プリセット」「ペルソナ・フェーズ」「心の声」「観察/眺める」など)。
 //
-// 日本語の本文は 1 文を 1 行に収める。.astro ソースで日本語文を改行すると、
-// その改行+インデントが HTML レンダリング時に半角スペース 1 個へ潰れ、
-// 文中に不自然なスペースが入るため (Latin 語まわりの空白は意図的に残す)。
+// 本文は 1 文を 1 行に収める (改行+インデントが HTML で半角スペースに潰れ、
+// 文中に不自然なスペースが入るため。Latin 語まわりの空白は意図的に残す)。
+//
+// YAML サンプルはビルド時に Astro の <Code> (Shiki) でハイライト。静的 HTML
+// で、クライアント JS は不要。波括弧のエスケープも Shiki 側が行う。
+const prisonersDilemmaYaml = `name: 囚人のジレンマ
+agents: 5
+rounds: 3
+context: >
+  あなたはゲーム番組「囚人のジレンマ」の出場者です。
+  対戦相手と「cooperate（協力）」か「betray（裏切り）」を選びます。
+  両方協力=各3点 / 自分だけ裏切り=5点。
+
+personas:
+  - name: アキラ
+    description: >
+      【立場】冷静な戦略家。
+      【目的】データと過去の行動から最適解を計算する。
+  - name: ミサキ
+    description: >
+      【立場】お人好しの楽観主義者。
+      【目的】基本的に人を信じる。裏切られても懲りない。
+
+phases:
+  - type: speak_all      # 全員に向けて宣言する
+    output:
+      statement: string
+      inner_thought: string
+  - type: choose         # 対戦相手ごとに協力／裏切りを選ぶ
+    output:
+      action: string
+      inner_thought: string
+    options:
+      - cooperate
+      - betray
+    pairing: round_robin
+  - type: score_calc     # 組み込みの prisoners_dilemma 集計
+    logic: prisoners_dilemma
+  - type: summarize      # ラウンドのスコアを総括
+    template: >
+      ラウンド{current_round}結果: {scoreboard}`;
 ---
 
 <BaseLayout
@@ -59,42 +98,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
         <p>プリセットシナリオの<strong>囚人のジレンマ</strong>は、5 人の出場者が定番の戦略ゲームに挑みます。各ラウンドでまず全員に向けて宣言し、対戦相手ごとに「協力」か「裏切り」を選びます。得点フェーズがその選択を点数に変え、宣言での嘘やハッタリもありです。YAMLにすると、プロンプト本文を省くとこんな形です。</p>
 
-        <pre><code>name: 囚人のジレンマ
-agents: 5
-rounds: 3
-context: &gt;
-  あなたはゲーム番組「囚人のジレンマ」の出場者です。
-  対戦相手と「cooperate（協力）」か「betray（裏切り）」を選びます。
-  両方協力=各3点 / 自分だけ裏切り=5点。
-
-personas:
-  - name: アキラ
-    description: &gt;
-      【立場】冷静な戦略家。
-      【目的】データと過去の行動から最適解を計算する。
-  - name: ミサキ
-    description: &gt;
-      【立場】お人好しの楽観主義者。
-      【目的】基本的に人を信じる。裏切られても懲りない。
-
-phases:
-  - type: speak_all      # 全員に向けて宣言する
-    output:
-      statement: string
-      inner_thought: string
-  - type: choose         # 対戦相手ごとに協力／裏切りを選ぶ
-    output:
-      action: string
-      inner_thought: string
-    options:
-      - cooperate
-      - betray
-    pairing: round_robin
-  - type: score_calc     # 組み込みの prisoners_dilemma 集計
-    logic: prisoners_dilemma
-  - type: summarize      # ラウンドのスコアを総括
-    template: &gt;
-      ラウンド&#123;current_round&#125;結果: &#123;scoreboard&#125;</code></pre>
+        <Code code={prisonersDilemmaYaml} lang="yaml" theme="github-light" />
 
         <p>ペルソナ 5 つ、3 ラウンド、フェーズ 4 つです。実行に個性が出るのはペルソナの設定です。冷静な戦略家とお人好しの楽観主義者は、同じモデルでもまったく違う発言をします。</p>
 
