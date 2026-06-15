@@ -125,9 +125,11 @@ jobs:
             "https://pastura.app/img/app-store-badge-en.svg" \
             "https://pastura.app/img/app-store-badge-ja.svg" \
             "https://pastura.app/support/" \
+            "https://pastura.app/docs/" \
             "https://pastura.app/legal/privacy-policy/" \
             "https://pastura.app/ja/" \
             "https://pastura.app/ja/support/" \
+            "https://pastura.app/ja/docs/" \
             "https://pastura.app/ja/legal/privacy-policy/" \
             "https://pastura.app/sitemap-index.xml" \
             "https://pastura.app/sitemap-0.xml" \
