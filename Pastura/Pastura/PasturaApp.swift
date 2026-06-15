@@ -461,15 +461,10 @@ private struct RootView: View {
     switch result {
     case .found(let scenario):
       lastDeepLinkedScenarioId = scenario.id
-      // D5.2: a `.galleryScenarioDetail` is a さがす (Search) tab
-      // destination — the target tab is fixed by the resolution kind, not
-      // the currently-selected tab. Select that tab, then push onto its
-      // router. Plain `push` (not `pushIfOnTop`): the await that
-      // pushIfOnTop guards already completed in `tryDrain` before this
-      // runs, and the freshly-selected tab root has an empty stack where
-      // `pushIfOnTop` would no-op. Matches the prior unconditional push.
-      tabCoordinator.selectedTab = .search
-      tabCoordinator.searchRouter.push(.galleryScenarioDetail(scenario: scenario))
+      // D5.2 fixed-tab routing lives on the coordinator so the kernel is
+      // unit-testable (`TabCoordinatorTests`); the rationale for selecting
+      // さがす + plain-push is documented there.
+      tabCoordinator.presentDeepLinkedGalleryScenario(scenario)
     case .notFound:
       deepLinkError = DeepLinkErrorAlert(
         title: String(localized: "Scenario Not Found"),
