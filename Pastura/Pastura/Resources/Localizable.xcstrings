@@ -4432,12 +4432,12 @@
         }
       }
     },
-    "THINKING" : {
+    "INNER VOICE" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "考え中"
+            "value" : "心の声"
           }
         }
       }
