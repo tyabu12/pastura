@@ -182,7 +182,12 @@ def parse_route_cases(router_source: str) -> list[str]:
 def classify_reached_via(segment: str) -> str:
     """How the next captured screen was reached, from the taps in the interval
     since the previous capture. A tab-bar switch wins over a push; back-button
-    pops are ignored (not forward navigation); no tap => launch root."""
+    pops are ignored (not forward navigation); no tap => launch root.
+
+    Forward navigation must be expressed INLINE (``tabBars.buttons[...].tap()``
+    / ``buttons[...].tap()``) to be seen — a tap hidden behind a helper call
+    (like ``goBack(app)``) is invisible here, so a future forward-nav helper
+    would mis-classify its interval as ``root``."""
     has_tab = False
     has_push = False
     for tap in TAP_RE.finditer(segment):
