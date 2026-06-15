@@ -27,39 +27,35 @@ struct HomeView: View {
   }
 
   var body: some View {
-    // `@Bindable` shadow: an `@Observable` injected via `@Environment` is
-    // immutable on the read side; the local `@Bindable` rebinding lets us
-    // derive `$router.path` for `NavigationStack`'s path binding.
-    @Bindable var router = router
-    return NavigationStack(path: $router.path) {
-      Group {
-        if let viewModel {
-          scenarioList(viewModel: viewModel)
-        } else {
-          ProgressView()
-        }
+    // The Home tab's `NavigationStack` (and its `.navigationDestination`
+    // registration via ``RouteResolver``) is owned by ``RootTabView`` so
+    // every tab shares one Route universe (ADR-016 D3). This view is the
+    // Home tab's root *content*; `router` (read below) is the Home tab's
+    // `AppRouter`, injected per-tab by `RootTabView`.
+    Group {
+      if let viewModel {
+        scenarioList(viewModel: viewModel)
+      } else {
+        ProgressView()
       }
-      .background(Color.screenBackground.ignoresSafeArea())
-      .navigationTitle("Pastura")
-      .toolbar {
-        ToolbarItem(placement: .topBarLeading) {
-          NavigationLink(value: Route.settings) {
-            Label(String(localized: "Settings"), systemImage: "gearshape")
-          }
-          .accessibilityIdentifier("home.settingsButton")
+    }
+    .background(Color.screenBackground.ignoresSafeArea())
+    .navigationTitle("Pastura")
+    .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        NavigationLink(value: Route.settings) {
+          Label(String(localized: "Settings"), systemImage: "gearshape")
         }
-        .hidingPasturaSharedBackground()
-        ToolbarItem(placement: .primaryAction) {
-          NavigationLink(value: newScenarioRoute()) {
-            Label(String(localized: "New Scenario"), systemImage: "plus")
-          }
-          .accessibilityIdentifier("home.newScenarioButton")
+        .accessibilityIdentifier("home.settingsButton")
+      }
+      .hidingPasturaSharedBackground()
+      ToolbarItem(placement: .primaryAction) {
+        NavigationLink(value: newScenarioRoute()) {
+          Label(String(localized: "New Scenario"), systemImage: "plus")
         }
-        .hidingPasturaSharedBackground()
+        .accessibilityIdentifier("home.newScenarioButton")
       }
-      .navigationDestination(for: Route.self) { route in
-        routeDestination(route)
-      }
+      .hidingPasturaSharedBackground()
     }
     .task {
       // Defer assignment until both `loadScenarios()` and
@@ -77,7 +73,8 @@ struct HomeView: View {
     }
     // Refresh the list whenever the user navigates back to root.
     // `.task` only runs on initial mount; pushed views like the editor
-    // don't re-trigger it on dismiss.
+    // don't re-trigger it on dismiss. D5.3: `router` is the Home tab's
+    // `AppRouter` (per-tab injected), so this pop-reload stays Home-local.
     .onChange(of: router.path.count) { oldCount, newCount in
       if newCount < oldCount {
         Task {
@@ -266,39 +263,11 @@ struct HomeView: View {
 
 }
 
-// Root-stack route resolution, split into an extension to keep the main
-// `HomeView` body under SwiftLint's `type_body_length`.
+// Toolbar route helper, split into an extension to keep the main
+// `HomeView` body under SwiftLint's `type_body_length`. Root-stack route
+// resolution itself was hoisted to ``RouteResolver`` (ADR-016 D3) so all
+// four tab stacks share one Route universe.
 extension HomeView {
-  @ViewBuilder
-  func routeDestination(_ route: Route) -> some View {
-    switch route {
-    case .scenarioDetail(let scenarioId, let initialName):
-      ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
-    case .editor(let editingId, let templateYAML):
-      editorView(editingId: editingId, templateYAML: templateYAML)
-    case .simulation(let scenarioId, let initialName):
-      SimulationView(scenarioId: scenarioId, initialName: initialName.value)
-    case .results(let scenarioId):
-      ResultsView(scenarioId: scenarioId)
-    case .resultDetail(let simulationId):
-      ResultDetailView(simulationId: simulationId)
-    case .sharedScenarios:
-      SharedScenariosListView()
-    case .galleryScenarioDetail(let scenario):
-      GalleryScenarioDetailView(scenario: scenario)
-    case .settings:
-      SettingsView()
-    }
-  }
-
-  private func editorView(editingId: String?, templateYAML: String?) -> some View {
-    ScenarioEditorHost(
-      repository: dependencies.scenarioRepository,
-      editingId: editingId,
-      templateYAML: templateYAML
-    )
-  }
-
   /// Resolves the destination for the toolbar "New Scenario" menu item.
   ///
   /// Under `--ui-test-editor-seed-yaml`, `AppDependencies.uiTestEditorSeedYAML`
@@ -332,38 +301,5 @@ extension View {
         PasturaCardSurface()
           .padding(.vertical, PasturaCardMetrics.interCardSpacing / 2)
       )
-  }
-}
-
-/// Host view that owns a ``ScenarioEditorViewModel`` via `@State`.
-///
-/// Needed so the ViewModel is retained across HomeView re-renders — creating
-/// it inside a factory function would produce a fresh instance each time,
-/// losing editor state.
-private struct ScenarioEditorHost: View {
-  let repository: any ScenarioRepository
-  let editingId: String?
-  let templateYAML: String?
-
-  @State private var viewModel: ScenarioEditorViewModel?
-
-  var body: some View {
-    Group {
-      if let viewModel {
-        ScenarioEditorView(viewModel: viewModel)
-      } else {
-        ProgressView()
-      }
-    }
-    .task {
-      guard viewModel == nil else { return }
-      let newViewModel = ScenarioEditorViewModel(repository: repository)
-      if let editingId {
-        await newViewModel.loadForEditing(scenarioId: editingId)
-      } else if let templateYAML {
-        newViewModel.loadFromTemplate(yaml: templateYAML)
-      }
-      viewModel = newViewModel
-    }
   }
 }
