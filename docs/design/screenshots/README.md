@@ -34,8 +34,11 @@ data — review structure, spacing, and tokens here; review real copy in
 the app.
 
 Where each screen sits in the navigation graph:
-[`../navigation-map.md`](../navigation-map.md) (generated; maps nodes
-to these screenshot names and tour anchors).
+[`../navigation-map.md`](../navigation-map.md) (generated). Its
+"Screenshot tour" table is derived from `ScreenshotTourTests` and lists
+these stops in tour order with their wait anchors and how each is
+reached (launch root / tab switch / push); the Mermaid graph above it
+shows the root-stack push edges.
 
 ## Adding a screen
 

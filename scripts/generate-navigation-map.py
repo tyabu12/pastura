@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
-"""Generate docs/design/navigation-map.md from the root-stack navigation source.
+"""Generate docs/design/navigation-map.md from the navigation source.
 
-Derives the screen graph from code so the committed map never drifts:
+Two artifacts, two sources of truth, so the committed map never drifts:
+
+- **Mermaid screen graph** — derived from the ``Route`` enum +
+  ``NavigationLink`` / ``router.push`` / ``pushIfOnTop`` callsites (the
+  root-stack push-edge graph).
+- **Screenshot-tour table** — derived from ``ScreenshotTourTests.swift`` by
+  parsing its ``capture(app, name:, anchorId:)`` calls in order. The test is
+  the single source for what the tour actually captures, including
+  tab-reached screens (e.g. Settings) that are NOT ``Route`` graph nodes.
+  Before this split the table was Route-derived, so converting a pushed
+  screen to a bottom tab silently dropped its tour row even though the test
+  still captured it (#622).
+
+Mermaid graph details:
 
 - **Nodes**: ``Route`` enum cases parsed from ``Pastura/Pastura/App/Router.swift``
   plus the synthetic tab-stack roots in ``SYNTHETIC_ROOTS`` — ``home``
@@ -20,6 +33,21 @@ Derives the screen graph from code so the committed map never drifts:
   helpers fail ``--check`` with "manual edge attribution required" rather
   than silently dropping an edge.
 
+Tour table details:
+
+- Each ``capture(...)`` call is one row (screenshot name + wait anchor).
+  "Reached via" is classified from the navigation taps in the interval since
+  the previous capture: a ``tabBars.buttons[...].tap()`` → ``tab``, any other
+  (non-back) ``buttons[...].tap()`` → ``push``, none → ``root`` (launch).
+  Back-button (``pasturaBackButton``) taps are pops, not forward navigation,
+  so they are ignored. Comments are stripped first (per
+  ``.claude/rules/ci-workflows.md``) so the doc-comment example
+  ``capture(...)`` never parses, and the ``func capture(_ app:, name: String,
+  ...)`` declaration never matches (no string literal after ``name:``).
+- Table rows are driven entirely by the test: a captured screen with no Route
+  node (Settings) still appears, and a Route node with no capture
+  (``simulation``) correctly does not.
+
 Sheets / fullScreenCover are intentionally absent: ``AppRouter`` manages the
 root NavigationStack only (``.claude/rules/navigation.md``); sheet-owned
 flows are out of scope for this map.
@@ -30,9 +58,9 @@ Modes:
                 nonzero exit on drift (CI: navigation-map-drift job)
   --self-test   run embedded regression fixtures; nonzero exit on failure
 
-Screenshot names in the node table reference the *gitignored* outputs of
-``scripts/ui-tour.sh`` by name only (never by link) — see
-``docs/design/screenshots/README.md`` for regeneration.
+Screenshot names refer to the *gitignored* outputs of ``scripts/ui-tour.sh``
+by name only (never by link) — see ``docs/design/screenshots/README.md`` for
+regeneration.
 """
 from __future__ import annotations
 
@@ -43,6 +71,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ROUTER_FILE = REPO_ROOT / "Pastura/Pastura/App/Router.swift"
+TOUR_FILE = REPO_ROOT / "Pastura/PasturaUITests/ScreenshotTourTests.swift"
 SCAN_DIRS = (
     REPO_ROOT / "Pastura/Pastura/Views",
     REPO_ROOT / "Pastura/Pastura/App",
@@ -81,22 +110,22 @@ KNOWN_HELPERS = {"newScenarioRoute"}
 # (SharedScenariosListView): ADR-016 D4 deleted its Route case, but it still
 # pushes Route.galleryScenarioDetail onto its own tab stack, so it remains an
 # edge SOURCE and must be a known node. (Settings is also a tab root but
-# pushes no Route, so it needs no node here.) Rendered with the rounded
-# stadium shape to mark them as roots.
+# pushes no Route, so it needs no node here — it surfaces only in the tour
+# table.) Rendered with the rounded stadium shape to mark them as roots.
 SYNTHETIC_ROOTS = ("home", "sharedScenarios")
 
-# Display label, screenshot-tour anchor identifier, and ui-tour.sh
-# screenshot name per node. Screenshot "None" renders as deferred (see
-# docs/design/screenshots/README.md "Deferred" section).
-NODE_INFO = {
-    "home": ("Home", "home.scenarioListCell.*", "01-home"),
-    "scenarioDetail": ("Scenario Detail", "scenarioDetail.list", "02-scenario-detail"),
-    "editor": ("Scenario Editor", "editor.titleField", "03-editor"),
-    "simulation": ("Simulation", None, None),
-    "results": ("Past Results", "results.list", "07-results"),
-    "resultDetail": ("Result Detail", "resultDetail.timeline", "08-result-detail"),
-    "sharedScenarios": ("Shared Scenarios", "sharedScenarios.galleryCell.*", "04-shared-scenarios"),
-    "galleryScenarioDetail": ("Gallery Scenario Detail", "galleryDetail.tryButton", "05-gallery-detail"),
+# Display label per Mermaid node. Anchors and screenshot names are NOT here
+# anymore — they live solely in ScreenshotTourTests (the tour table's source
+# of truth), removing the double-management this script used to carry (#622).
+NODE_LABELS = {
+    "home": "Home",
+    "scenarioDetail": "Scenario Detail",
+    "editor": "Scenario Editor",
+    "simulation": "Simulation",
+    "results": "Past Results",
+    "resultDetail": "Result Detail",
+    "sharedScenarios": "Shared Scenarios",
+    "galleryScenarioDetail": "Gallery Scenario Detail",
 }
 
 HEADER = """\
@@ -121,6 +150,21 @@ PUSH_RE = re.compile(r"router\.push\(\s*(?:Route)?\.(\w+)")
 # mis-attribute the second call's target.
 PUSH_IF_ON_TOP_RE = re.compile(r"pushIfOnTop\((?:(?!pushIfOnTop\().)*?next:\s*\.(\w+)", re.S)
 
+# A tour stop: capture(app, name: "NN-x", anchorId: "y"). \s tolerates the
+# multi-line wraps swift-format produces (the 01-home stop spans 3 lines with
+# a trailing `timeout:` arg). Requires a string literal after `name:` /
+# `anchorId:`, so the `func capture(_ app:, name: String, anchorId: String)`
+# declaration (no literal) never matches. re.S so `\s` crosses newlines.
+CAPTURE_RE = re.compile(
+    r'capture\(\s*\w+\s*,\s*name:\s*"([^"]+)"\s*,\s*anchorId:\s*"([^"]+)"', re.S
+)
+# A button tap. Group 1 present => tab-bar switch; group 2 is the identifier
+# (so back-button pops can be filtered). `.exists` and other non-`.tap()`
+# accessors deliberately do NOT match — only forward taps count.
+TAP_RE = re.compile(r'(tabBars\.)?buttons\[\s*"([^"]*)"\s*\]\s*\.tap\(\)')
+
+BACK_BUTTON_ID = "pasturaBackButton"
+
 
 def strip_comments(swift: str) -> str:
     """Remove block and line comments. Line-based ``//`` stripping can eat
@@ -133,6 +177,46 @@ def parse_route_cases(router_source: str) -> list[str]:
     """Route case names in declaration order. Router.swift is dedicated to
     the Route enum, so every top-level ``case`` line is a route."""
     return ROUTE_CASE_RE.findall(strip_comments(router_source))
+
+
+def classify_reached_via(segment: str) -> str:
+    """How the next captured screen was reached, from the taps in the interval
+    since the previous capture. A tab-bar switch wins over a push; back-button
+    pops are ignored (not forward navigation); no tap => launch root.
+
+    Forward navigation must be expressed INLINE (``tabBars.buttons[...].tap()``
+    / ``buttons[...].tap()``) to be seen — a tap hidden behind a helper call
+    (like ``goBack(app)``) is invisible here, so a future forward-nav helper
+    would mis-classify its interval as ``root``."""
+    has_tab = False
+    has_push = False
+    for tap in TAP_RE.finditer(segment):
+        if tap.group(1):  # tabBars. prefix
+            has_tab = True
+        elif tap.group(2) != BACK_BUTTON_ID:
+            has_push = True
+    if has_tab:
+        return "tab"
+    if has_push:
+        return "push"
+    return "root"
+
+
+def parse_tour_stops(test_source: str) -> list[tuple[str, str, str]]:
+    """Tour stops (screenshot name, wait anchor, reached-via) in capture order.
+
+    The test is the single source of truth for what the tour captures.
+    Comments are stripped first so the doc-comment ``capture(...)`` example
+    never parses; the ``func capture`` declaration is excluded by the regex
+    requiring a string literal after ``name:``."""
+    stripped = strip_comments(test_source)
+    stops: list[tuple[str, str, str]] = []
+    prev_end = 0
+    for cap in CAPTURE_RE.finditer(stripped):
+        reached = classify_reached_via(stripped[prev_end : cap.start()])
+        stops.append((cap.group(1), cap.group(2), reached))
+        prev_end = cap.end()
+    return stops
 
 
 def scan_file_edges(rel_path: str, swift: str) -> tuple[list[tuple[str, str, str]], list[str]]:
@@ -182,12 +266,12 @@ def collect_edges() -> tuple[list[tuple[str, str, str]], list[str]]:
 # --- emission ----------------------------------------------------------------
 
 
-def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> str:
+def emit_markdown(
+    route_cases: list[str],
+    edges: list[tuple[str, str, str]],
+    tour_stops: list[tuple[str, str, str]],
+) -> str:
     nodes = list(SYNTHETIC_ROOTS) + route_cases
-    incoming_sources: dict[str, set[str]] = {n: set() for n in nodes}
-    for source, target, _ in edges:
-        if target in incoming_sources:
-            incoming_sources[target].add(source)
 
     lines = [HEADER]
     lines.append("# Navigation Map — root NavigationStack\n")
@@ -202,7 +286,7 @@ def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> 
     lines.append("```mermaid")
     lines.append("flowchart TD")
     for node in nodes:
-        label = NODE_INFO.get(node, (node, None, None))[0]
+        label = NODE_LABELS.get(node, node)
         shape = f"([{label}])" if node in SYNTHETIC_ROOTS else f'["{label}"]'
         lines.append(f"  {node}{shape}")
     seen = set()
@@ -214,20 +298,22 @@ def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> 
         lines.append(f"  {source}{arrow}{target}")
     lines.append("```\n")
 
-    lines.append("## Screens\n")
+    lines.append("## Screenshot tour\n")
     lines.append(
-        "Screenshot names refer to `scripts/ui-tour.sh` outputs (gitignored —\n"
-        "regenerate to view; `docs/design/screenshots/README.md`). Anchors are\n"
-        "the tour's per-screen wait identifiers.\n"
+        "The `ScreenshotTourTests` UI test\n"
+        "(`Pastura/PasturaUITests/ScreenshotTourTests.swift`) is the single\n"
+        "source of truth for what the tour captures, in order — including\n"
+        "tab-reached screens (e.g. Settings) that are not `Route` graph nodes\n"
+        "above. `scripts/ui-tour.sh` runs it and extracts the PNGs into\n"
+        "`docs/design/screenshots/` (gitignored — regenerate to view;\n"
+        "`docs/design/screenshots/README.md`). Anchors are the per-screen wait\n"
+        "identifiers; *Reached via* is the launch root, a tab switch, or a\n"
+        "root-stack push.\n"
     )
-    lines.append("| Node | Screen | Pushed from | Tour anchor | Screenshot |")
-    lines.append("|------|--------|-------------|-------------|------------|")
-    for node in nodes:
-        label, anchor, shot = NODE_INFO.get(node, (node, None, None))
-        sources = ", ".join(f"`{s}`" for s in sorted(incoming_sources[node])) or "— (stack root)"
-        anchor_cell = f"`{anchor}`" if anchor else "—"
-        shot_cell = f"`{shot}.png`" if shot else "deferred — see `screenshots/README.md`"
-        lines.append(f"| `{node}` | {label} | {sources} | {anchor_cell} | {shot_cell} |")
+    lines.append("| # | Screenshot | Tour anchor | Reached via |")
+    lines.append("|---|------------|-------------|-------------|")
+    for index, (name, anchor, reached) in enumerate(tour_stops, start=1):
+        lines.append(f"| {index} | `{name}.png` | `{anchor}` | {reached} |")
     lines.append("")
     return "\n".join(lines)
 
@@ -235,19 +321,30 @@ def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> 
 def generate() -> tuple[str, list[str]]:
     route_cases = parse_route_cases(ROUTER_FILE.read_text(encoding="utf-8"))
     edges, errors = collect_edges()
+    tour_stops = parse_tour_stops(TOUR_FILE.read_text(encoding="utf-8"))
     known = set(SYNTHETIC_ROOTS) | set(route_cases)
     for source, target, _ in edges:
         if target not in known:
             errors.append(f"edge target '.{target}' is not a Route case — scanner or Route drift")
         if source not in known:
             errors.append(f"edge source '{source}' is not a known node")
-    missing_info = [n for n in known if n not in NODE_INFO]
-    if missing_info:
+    # Independent of the tour: every Mermaid node needs a display label. This
+    # is NOT a Route<->stop correspondence — `simulation` is a labelled node
+    # with no tour stop, and that is fine.
+    missing_labels = [n for n in known if n not in NODE_LABELS]
+    if missing_labels:
         errors.append(
-            f"NODE_INFO missing entries for: {', '.join(sorted(missing_info))} — "
-            "add label/anchor/screenshot rows in scripts/generate-navigation-map.py"
+            f"NODE_LABELS missing entries for: {', '.join(sorted(missing_labels))} — "
+            "add label rows in scripts/generate-navigation-map.py"
         )
-    return emit_markdown(route_cases, edges), errors
+    # Independent of the graph: a non-empty tour catches a stale capture regex
+    # (a silently-emptied table would otherwise pass --check once committed).
+    if not tour_stops:
+        errors.append(
+            f"no tour stops parsed from {TOUR_FILE.relative_to(REPO_ROOT)} — "
+            "the capture(...) regex in scripts/generate-navigation-map.py may be stale"
+        )
+    return emit_markdown(route_cases, edges, tour_stops), errors
 
 
 # --- self-test ---------------------------------------------------------------
@@ -255,10 +352,15 @@ def generate() -> tuple[str, list[str]]:
 
 def self_test() -> int:
     failures = []
+    total = 0
 
     def check(name: str, condition: bool):
+        nonlocal total
+        total += 1
         if not condition:
             failures.append(name)
+
+    # --- edge scanning (Mermaid graph source) --------------------------------
 
     # Doc-comment tokens must never become edges or nodes.
     commented = "/// Example: `router.push(.settings)` no-ops here.\n// case foo\n"
@@ -306,21 +408,117 @@ def self_test() -> int:
     edges, errs = scan_file_edges("Pastura/Pastura/Views/Settings/SettingsView.swift", "NavigationLink(value: Route.editor()) {}\n")
     check("unknown file: attribution error", edges == [] and len(errs) == 1 and "FILE_TO_SCREEN" in errs[0])
 
-    # SYNTHETIC_ROOTS regression (ADR-016 D4): a tab root whose Route case was
-    # deleted but which still owns an outgoing edge (sharedScenarios →
-    # galleryScenarioDetail) must render as a rounded, sourceless root — not
-    # trip the "unknown node" guard. Exercises emit_markdown, which the seven
-    # fixtures above never touch.
-    md = emit_markdown(["galleryScenarioDetail"], [("sharedScenarios", "galleryScenarioDetail", "")])
+    # --- tour-table parsing (Screenshot tour source) ------------------------
+
+    # Multi-line capture with a trailing `timeout:` (exact 01-home shape).
+    # Doubles as the re.S guard: without re.S the newlines block the match,
+    # parse returns [], and this assertion fails.
+    multiline = (
+        "capture(\n"
+        '  app, name: "01-home",\n'
+        '  anchorId: "home.scenarioListCell.ui_test_home_seed", timeout: 10)\n'
+    )
     check(
-        "synthetic root: sourceless rounded tab root",
+        "tour: multi-line capture w/ timeout (re.S guard)",
+        parse_tour_stops(multiline) == [("01-home", "home.scenarioListCell.ui_test_home_seed", "root")],
+    )
+
+    # Single-line capture.
+    check(
+        "tour: single-line capture",
+        parse_tour_stops('capture(app, name: "02-scenario-detail", anchorId: "scenarioDetail.list")\n')
+        == [("02-scenario-detail", "scenarioDetail.list", "root")],
+    )
+
+    # The verbatim doc-comment example (L14-15 of the test) must NOT parse —
+    # strip_comments removes the `///` lines before the regex runs.
+    doc_comment = (
+        '/// `capture(app, name: "NN-screen-name", anchorId: "<identifier>")` with an\n'
+        "/// identifier that only exists once the screen's content has loaded.\n"
+    )
+    check("tour: doc-comment example ignored", parse_tour_stops(doc_comment) == [])
+
+    # The `func capture` declaration has `name: String` (no string literal) —
+    # must not be parsed as a stop.
+    helper_sig = (
+        "private func capture(\n"
+        "  _ app: XCUIApplication, name: String, anchorId: String,\n"
+        "  timeout: TimeInterval = 5\n"
+        ") {\n"
+    )
+    check("tour: helper signature not parsed", parse_tour_stops(helper_sig) == [])
+
+    # reached-via: root -> push -> tab, with an inline back-button tap that
+    # must be IGNORED (exercises the `!= pasturaBackButton` branch the goBack
+    # helper otherwise hides behind a function call).
+    seq = (
+        'capture(app, name: "01-a", anchorId: "a")\n'
+        'app.buttons["x"].tap()\n'
+        'capture(app, name: "02-b", anchorId: "b")\n'
+        'app.buttons["pasturaBackButton"].tap()\n'
+        'app.tabBars.buttons["Browse"].tap()\n'
+        'capture(app, name: "03-c", anchorId: "c")\n'
+    )
+    check(
+        "tour: reached-via root/push/tab, inline back ignored",
+        parse_tour_stops(seq)
+        == [("01-a", "a", "root"), ("02-b", "b", "push"), ("03-c", "c", "tab")],
+    )
+
+    # An interval whose only tap is the back button => root, NOT push (proves
+    # the back filter is load-bearing: drop the guard and this becomes push).
+    back_only = (
+        'capture(app, name: "01-a", anchorId: "a")\n'
+        'app.buttons["pasturaBackButton"].tap()\n'
+        'capture(app, name: "02-b", anchorId: "b")\n'
+    )
+    check(
+        "tour: inline back-only interval -> root",
+        parse_tour_stops(back_only) == [("01-a", "a", "root"), ("02-b", "b", "root")],
+    )
+
+    # A `.exists` reference (not `.tap()`) must not count as a push — mirrors
+    # the test's `XCTAssertFalse(app.buttons["pasturaBackButton"].exists, ...)`.
+    exists_only = (
+        'capture(app, name: "01-a", anchorId: "a")\n'
+        'XCTAssertFalse(app.buttons["pasturaBackButton"].exists, "no back")\n'
+        'capture(app, name: "02-b", anchorId: "b")\n'
+    )
+    check(
+        "tour: .exists (non-tap) not a push",
+        parse_tour_stops(exists_only) == [("01-a", "a", "root"), ("02-b", "b", "root")],
+    )
+
+    # No captures => no stops (the input that trips generate()'s zero-stops error).
+    check("tour: no captures -> no stops", parse_tour_stops("func body() { app.launch() }\n") == [])
+
+    # --- emission ------------------------------------------------------------
+
+    # SYNTHETIC_ROOTS regression (ADR-016 D4): a tab root whose Route case was
+    # deleted but which still owns an outgoing edge (sharedScenarios ->
+    # galleryScenarioDetail) must render as a rounded, sourceless root. Also
+    # confirms the table is now tour-derived (a row keyed by screenshot name,
+    # not node) and the old node-table columns are gone.
+    md = emit_markdown(
+        ["galleryScenarioDetail"],
+        [("sharedScenarios", "galleryScenarioDetail", "")],
+        [("04-shared-scenarios", "sharedScenarios.galleryCell.ui_test_canary", "tab")],
+    )
+    check(
+        "emit: synthetic root rendered as rounded tab root",
         "sharedScenarios([Shared Scenarios])" in md
-        and "| `sharedScenarios` | Shared Scenarios | — (stack root) |" in md,
+        and 'galleryScenarioDetail["Gallery Scenario Detail"]' in md,
+    )
+    check(
+        "emit: tour table from stops, old node-table columns gone",
+        "| 1 | `04-shared-scenarios.png` | `sharedScenarios.galleryCell.ui_test_canary` | tab |" in md
+        and "Pushed from" not in md
+        and "(stack root)" not in md,  # old table cell `— (stack root)`; prose "tab-stack roots" is fine
     )
 
     for name in failures:
         print(f"SELF-TEST FAIL: {name}", file=sys.stderr)
-    print(f"self-test: {8 - len(failures)}/8 passed")
+    print(f"self-test: {total - len(failures)}/{total} passed")
     return 1 if failures else 0
 
 
