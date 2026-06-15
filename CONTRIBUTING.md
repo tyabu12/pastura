@@ -93,9 +93,14 @@ git's `core.hooksPath` at `scripts/git-hooks/`, activating the
 repo-tracked `pre-commit` hook for every `git commit` (no per-clone
 hand-config needed).
 
-`git commit` then runs four gates in fail-fast order: `swiftlint lint
+`git commit` then runs five gates in fail-fast order: `swiftlint lint
 --strict`, `xcodebuild build`, blocklist integrity, gallery YAML
-schema. Lint violations or compile errors block the commit.
+schema, and a `*.p8` secret block. Lint violations or compile errors
+block the commit. The two expensive steps (`swiftlint`, `xcodebuild
+build`) are skipped when the staged changeset touches no Swift or
+build-relevant files — a docs-only or `web/`-only commit skips the iOS
+build. The classifier is conservative: any unrecognized path runs the
+full gate.
 
 SwiftFormat and `swiftlint --fix` continue to run automatically on
 file edit when you use Claude Code's PostToolUse hooks. A

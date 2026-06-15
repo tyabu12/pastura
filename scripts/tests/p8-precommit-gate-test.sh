@@ -9,7 +9,8 @@
 # (incorrectly) anchored to the repo root, so the subdir placement locks
 # in the depth-agnostic `\.p8$` behaviour.
 #
-# Run manually (no CI wiring — there is no shell-test harness in the repo):
+# CI-wired: the `*-test.sh` naming convention makes this a gate under
+# .github/workflows/ci.yml ("Run scripts/tests/*-test.sh"). Run manually:
 #   bash scripts/tests/p8-precommit-gate-test.sh
 
 set -euo pipefail
