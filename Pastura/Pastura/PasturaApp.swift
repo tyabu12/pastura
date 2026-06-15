@@ -117,7 +117,11 @@ private struct DeepLinkErrorAlert: Identifiable {
 private struct RootView: View {
   @State private var appState: AppState = .initializing
   @State private var modelManager = ModelManager()
-  @State private var router = AppRouter()
+  // Four per-tab AppRouters + selectedTab (ADR-016 D3). Replaces the
+  // single root `AppRouter` — the bottom-tab IA has one stack per tab.
+  // Named `tabCoordinator` to avoid colliding with the splash
+  // `coordinator` (LaunchPhaseCoordinator) below.
+  @State private var tabCoordinator = TabCoordinator()
   @State private var gate = DeepLinkGate()
   @State private var lastDeepLinkedScenarioId: String?
   @State private var deepLinkError: DeepLinkErrorAlert?
@@ -172,14 +176,17 @@ private struct RootView: View {
     // triggers are cheap.
     .onChange(of: appStateKind) { _, _ in tryDrain() }
     .onChange(of: gate.sheetPresentationCount) { _, _ in tryDrain() }
-    .onChange(of: router.path) { _, _ in tryDrain() }
+    // D5.3: the drain must re-fire when ANY tab's path changes (a
+    // simulation popped on a backgrounded tab unblocks the drain), so we
+    // observe all four routers' paths, not just the selected tab's.
+    .onChange(of: tabCoordinator.allRouters.map(\.path)) { _, _ in tryDrain() }
     .onChange(of: gate.pendingURL) { _, new in if new != nil { tryDrain() } }
     .onChange(of: scenePhase) { old, new in handleScenePhase(from: old, to: new) }
-    // Reset source-attribution when the user pops all the way back. Any
-    // subsequent visit to the same gallery scenario detail (via Share
-    // Board, for instance) should not show the "Opened from external
-    // link" banner.
-    .onChange(of: router.path.isEmpty) { _, isEmpty in
+    // Reset source-attribution when the user pops all the way back. The
+    // deep-linked gallery detail lands on the さがす (Search) tab (D5.2),
+    // so the attribution clears when THAT tab's stack empties (D5.3) —
+    // not when an unrelated tab happens to be at root.
+    .onChange(of: tabCoordinator.searchRouter.path.isEmpty) { _, isEmpty in
       if isEmpty { lastDeepLinkedScenarioId = nil }
     }
     .alert(item: $deepLinkError) { alert in
@@ -231,9 +238,11 @@ private struct RootView: View {
         }
 
       case .ready(let dependencies):
-        HomeView()
+        // Per-tab `AppRouter` is injected INSIDE each tab's NavigationStack
+        // by RootTabView (D3) — deliberately not `.environment(router)`
+        // here, which would collapse all tabs onto one stack.
+        RootTabView(coordinator: tabCoordinator)
           .environment(dependencies)
-          .environment(router)
           .environment(gate)
           // `ModelManager` is exposed so Settings → Models can observe
           // state and drive switch / download / delete without threading
@@ -400,9 +409,12 @@ private struct RootView: View {
     }
   }
 
+  // D5.1 / D5.4: a `.simulation` on top of ANY tab's stack — not just the
+  // selected tab's. Single source of truth read by all three consumers
+  // (deep-link block reason, drain guard, warm-splash gate); the fold
+  // lives on TabCoordinator. `// D5.4: any-tab — do not narrow`.
   private var isSimulationOnTop: Bool {
-    if case .some(.simulation) = router.path.last { return true }
-    return false
+    tabCoordinator.isSimulationOnTop
   }
 
   private func handleOpenURL(_ url: URL) {
@@ -449,7 +461,15 @@ private struct RootView: View {
     switch result {
     case .found(let scenario):
       lastDeepLinkedScenarioId = scenario.id
-      router.push(.galleryScenarioDetail(scenario: scenario))
+      // D5.2: a `.galleryScenarioDetail` is a さがす (Search) tab
+      // destination — the target tab is fixed by the resolution kind, not
+      // the currently-selected tab. Select that tab, then push onto its
+      // router. Plain `push` (not `pushIfOnTop`): the await that
+      // pushIfOnTop guards already completed in `tryDrain` before this
+      // runs, and the freshly-selected tab root has an empty stack where
+      // `pushIfOnTop` would no-op. Matches the prior unconditional push.
+      tabCoordinator.selectedTab = .search
+      tabCoordinator.searchRouter.push(.galleryScenarioDetail(scenario: scenario))
     case .notFound:
       deepLinkError = DeepLinkErrorAlert(
         title: String(localized: "Scenario Not Found"),
