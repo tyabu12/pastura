@@ -41,14 +41,11 @@ struct HomeView: View {
     }
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle("Pastura")
+    // Tab roots use an inline title for quiet chrome (design-system § 5.11);
+    // the tab-root rule overrides the 固有名→large axis even though
+    // "Pastura" is a brand name.
+    .navigationBarTitleDisplayMode(.inline)
     .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        NavigationLink(value: Route.settings) {
-          Label(String(localized: "Settings"), systemImage: "gearshape")
-        }
-        .accessibilityIdentifier("home.settingsButton")
-      }
-      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         NavigationLink(value: newScenarioRoute()) {
           Label(String(localized: "New Scenario"), systemImage: "plus")

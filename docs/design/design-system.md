@@ -419,15 +419,15 @@ raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は�
 
 ### 5.11 Navigation title display mode（large / inline）
 
-root `NavigationStack` に push される画面の `.navigationBarTitleDisplayMode` 規約。判断軸は **タイトルが「主題の固有名」か「汎用ラベル」か** — 固有名は見出しとして読ませる価値があるので `.large`、汎用ラベルは画面の chrome なので縦スペースを割かない `.inline`。
+各画面の `.navigationBarTitleDisplayMode` 規約。**タブ root（ボトムタブ4本の根）は常に `.inline`** — タブのタイトルは chrome なので静かに、縦スペースを割かない。タブ root 以外の push 画面は **タイトルが「主題の固有名」か「汎用ラベル」か** で判断 — 固有名は見出しとして読ませる価値があるので `.large`、汎用ラベルは chrome なので `.inline`。
 
 | バケット | モード | 画面 |
 |---------|-------|------|
-| ブラウズ / 一覧の根 | `.large` | Home / Shared Scenarios / Results |
+| タブ root（4タブの根） | `.inline` | Home / Shared Scenarios / Past Results / Settings |
 | 主題の固有名がタイトルの詳細 | `.large` | ScenarioDetail / GalleryScenarioDetail（シナリオ名） |
-| エディタ / フォーム / 汎用ラベルの詳細 | `.inline` | ScenarioEditor / Settings / ResultDetail |
+| エディタ / フォーム / 汎用ラベルの詳細 | `.inline` | ScenarioEditor / ResultDetail |
 
-`.large` の多くは modifier 未指定（iOS デフォルトが large）に依存し、明示しているのは `ScenarioDetailView` のみ。新規詳細画面はこの「固有名 → large / 汎用ラベル → inline」基準で判断する。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
+タブ root ルールは固有名/汎用ラベル軸を上書きする — Home のタイトル `"Pastura"` は固有名だが、タブ root なので `.inline`。4つのタブ root は各 View で明示的に `.inline` を指定する（`HomeView` / `SharedScenariosListView` / `ResultsView` / `SettingsView`）。`Shared Scenarios` / `Past Results` は push でも到達できる（③④で Home 経路が消えるまで）が、どちらも汎用ラベルなので push 版も `.inline` で一貫する。`.large` を明示しているのは固有名詳細の `ScenarioDetailView` のみ（他の large はデフォルト依存）。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
 
 ---
 
