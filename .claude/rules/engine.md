@@ -360,3 +360,23 @@ grammar paths above**; SafeSampler cannot catch it. Load-only
 integration tests pass; anything calling `generate` / `generateStream`
 dies. Verify inference on a real device, or accept unit-test-level
 coverage for sampler code (PR #463 verification).
+
+### Errors split between the log callback and raw stderr
+
+A prebuilt C/C++ library (binary xcframework / pinned artifact) can split error
+reporting across two paths: the **log-callback API** (`llama_log_set`,
+`av_log_set_callback`) and **direct `fprintf(stderr, …)` writes** that bypass the
+callback. iOS's `os_log` does NOT capture process stderr, so the second path is
+silently lost. llama.cpp logs the generic `"failed to parse grammar"` via the
+callback but writes the actionable parser detail (`"expecting ']'"`,
+`"Undefined rule"`) only to stderr — in #194 this gap cost six rounds of
+speculative grammar fixes before a `dup2`-based stderr capture revealed a
+one-line cause (`is_word_char` rejecting `_` in rule names).
+
+**Before the first commit** on a new C-API integration, grep the library source
+for BOTH `*_LOG_*` macros AND `fprintf(stderr, …)` / `printf` on error paths. If
+stderr writes exist on error paths, scaffold a narrow `dup2`-based capture around
+the failing call. The capture details are load-bearing — the `Pipe()` drain order
+matters and `defer` does NOT work (the read needs all writers closed before scope
+exit) — so reuse `LlamaCppService+Sampler.swift` `initGrammarCapturingStderr` as
+the reference implementation rather than re-deriving the fd plumbing.
