@@ -53,16 +53,20 @@ final class ScreenshotTourTests: XCTestCase {
     capture(app, name: "03-editor", anchorId: "editor.titleField")
     goBack(app)
 
-    // Shared Scenarios gallery (StubGalleryService fixture content).
-    app.buttons["home.sharedScenariosButton"].tap()
+    // Shared Scenarios gallery — now the "Browse" tab root (ADR-016 D4),
+    // reached via the tab bar rather than a Home push.
+    app.tabBars.buttons["Browse"].tap()
     capture(
       app, name: "04-shared-scenarios",
       anchorId: "sharedScenarios.galleryCell.ui_test_canary")
 
-    // Gallery scenario detail.
+    // Gallery scenario detail (push within the Browse tab stack).
     app.buttons["sharedScenarios.galleryCell.ui_test_canary"].tap()
     capture(app, name: "05-gallery-detail", anchorId: "galleryDetail.tryButton")
-    goBack(app)
+    // Single goBack pops the gallery detail back to the Browse tab root,
+    // which has no back chevron. (No second goBack: the Home tab kept an
+    // empty stack throughout, so the Settings → Home tab switch below still
+    // lands on Home's root for the past-results step.)
     goBack(app)
 
     // Settings — now a dedicated tab (ADR-016 D4), reached via the tab

@@ -13,18 +13,18 @@ import Testing
 
   @Test func pushAppendsRoute() {
     let router = AppRouter()
-    router.push(.sharedScenarios)
-    #expect(router.path == [.sharedScenarios])
+    router.push(.resultDetail(simulationId: ""))
+    #expect(router.path == [.resultDetail(simulationId: "")])
     router.push(.scenarioDetail(scenarioId: "x"))
-    #expect(router.path == [.sharedScenarios, .scenarioDetail(scenarioId: "x")])
+    #expect(router.path == [.resultDetail(simulationId: ""), .scenarioDetail(scenarioId: "x")])
   }
 
   @Test func popRemovesLast() {
     let router = AppRouter()
-    router.push(.sharedScenarios)
+    router.push(.resultDetail(simulationId: ""))
     router.push(.scenarioDetail(scenarioId: "x"))
     router.pop()
-    #expect(router.path == [.sharedScenarios])
+    #expect(router.path == [.resultDetail(simulationId: "")])
   }
 
   @Test func popOnEmptyIsNoOp() {
@@ -35,7 +35,7 @@ import Testing
 
   @Test func popToRootClearsPath() {
     let router = AppRouter()
-    router.push(.sharedScenarios)
+    router.push(.resultDetail(simulationId: ""))
     router.push(.scenarioDetail(scenarioId: "x"))
     router.push(.simulation(scenarioId: "x"))
     router.popToRoot()
@@ -44,14 +44,14 @@ import Testing
 
   @Test func replacePathOverwrites() {
     let router = AppRouter()
-    router.push(.sharedScenarios)
+    router.push(.resultDetail(simulationId: ""))
     router.replacePath([.results(scenarioId: "y"), .resultDetail(simulationId: "z")])
     #expect(router.path == [.results(scenarioId: "y"), .resultDetail(simulationId: "z")])
   }
 
   @Test func replacePathWithEmptyClearsPath() {
     let router = AppRouter()
-    router.push(.sharedScenarios)
+    router.push(.resultDetail(simulationId: ""))
     router.push(.scenarioDetail(scenarioId: "x"))
     router.replacePath([])
     #expect(router.path.isEmpty)
@@ -59,8 +59,8 @@ import Testing
 
   @Test func replacePathFromEmptySeedsPath() {
     let router = AppRouter()
-    router.replacePath([.sharedScenarios, .scenarioDetail(scenarioId: "x")])
-    #expect(router.path == [.sharedScenarios, .scenarioDetail(scenarioId: "x")])
+    router.replacePath([.resultDetail(simulationId: ""), .scenarioDetail(scenarioId: "x")])
+    #expect(router.path == [.resultDetail(simulationId: ""), .scenarioDetail(scenarioId: "x")])
   }
 
   // MARK: - pushIfOnTop guard
@@ -81,8 +81,8 @@ import Testing
 
   @Test func pushIfOnTopSkipsWhenExpectedDoesNotMatch() {
     let router = AppRouter()
-    // User has already navigated away (e.g. popped back to Shared Scenarios).
-    router.push(.sharedScenarios)
+    // User has already navigated away (e.g. popped back to an earlier screen).
+    router.push(.resultDetail(simulationId: ""))
 
     let scenario = makeGalleryScenario(id: "asch_v1")
     let pushed = router.pushIfOnTop(
@@ -90,13 +90,13 @@ import Testing
       next: .scenarioDetail(scenarioId: "asch_v1"))
 
     #expect(!pushed)
-    #expect(router.path == [.sharedScenarios])
+    #expect(router.path == [.resultDetail(simulationId: "")])
   }
 
   @Test func pushIfOnTopSkipsWhenPathIsEmpty() {
     let router = AppRouter()
     let pushed = router.pushIfOnTop(
-      expected: .sharedScenarios,
+      expected: .resultDetail(simulationId: ""),
       next: .scenarioDetail(scenarioId: "x"))
     #expect(!pushed)
     #expect(router.path.isEmpty)
@@ -107,14 +107,14 @@ import Testing
     // not enough — it must be the current top. Guards against a future
     // well-meaning refactor that loosens the check to `path.contains`.
     let router = AppRouter()
-    router.push(.sharedScenarios)
-    router.push(.scenarioDetail(scenarioId: "x"))  // sharedScenarios is now mid-stack
+    router.push(.resultDetail(simulationId: ""))
+    router.push(.scenarioDetail(scenarioId: "x"))  // resultDetail is now mid-stack
 
     let pushed = router.pushIfOnTop(
-      expected: .sharedScenarios,
+      expected: .resultDetail(simulationId: ""),
       next: .results(scenarioId: "y"))
     #expect(!pushed)
-    #expect(router.path == [.sharedScenarios, .scenarioDetail(scenarioId: "x")])
+    #expect(router.path == [.resultDetail(simulationId: ""), .scenarioDetail(scenarioId: "x")])
   }
 
   // MARK: - RouteHint identity-neutrality (ADR-008)
