@@ -20,12 +20,10 @@ flowchart TD
   resultDetail["Result Detail"]
   sharedScenarios["Shared Scenarios"]
   galleryScenarioDetail["Gallery Scenario Detail"]
-  settings["Settings"]
   galleryScenarioDetail --> scenarioDetail
   home -->|"via newScenarioRoute()"| editor
   home --> results
   home --> scenarioDetail
-  home --> settings
   home --> sharedScenarios
   results --> resultDetail
   scenarioDetail --> editor
@@ -52,4 +50,3 @@ the tour's per-screen wait identifiers.
 | `resultDetail` | Result Detail | `results` | `resultDetail.timeline` | `08-result-detail.png` |
 | `sharedScenarios` | Shared Scenarios | `home` | `sharedScenarios.galleryCell.*` | `04-shared-scenarios.png` |
 | `galleryScenarioDetail` | Gallery Scenario Detail | `scenarioDetail`, `sharedScenarios` | `galleryDetail.tryButton` | `05-gallery-detail.png` |
-| `settings` | Settings | `home` | `settings.licensesLink` | `06-settings.png` |

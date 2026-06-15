@@ -65,10 +65,13 @@ final class ScreenshotTourTests: XCTestCase {
     goBack(app)
     goBack(app)
 
-    // Settings.
-    app.buttons["home.settingsButton"].tap()
+    // Settings — now a dedicated tab (ADR-016 D4), reached via the tab
+    // bar rather than a Home push. Switching tabs doesn't push, so there
+    // is no back chevron here; return to the Home tab afterward so the
+    // subsequent past-results step lands on Home's stack.
+    app.tabBars.buttons["Settings"].tap()
     capture(app, name: "06-settings", anchorId: "settings.licensesLink")
-    goBack(app)
+    app.tabBars.buttons["Home"].tap()
 
     // Past Results (seeded fixture — see StubResultSeeder).
     app.buttons["home.pastResultsButton"].tap()

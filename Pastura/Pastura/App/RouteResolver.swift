@@ -37,8 +37,6 @@ struct RouteResolver: View {
       SharedScenariosListView()
     case .galleryScenarioDetail(let scenario):
       GalleryScenarioDetailView(scenario: scenario)
-    case .settings:
-      SettingsView()
     }
   }
 }
