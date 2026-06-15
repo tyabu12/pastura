@@ -4,8 +4,10 @@
 Derives the screen graph from code so the committed map never drifts:
 
 - **Nodes**: ``Route`` enum cases parsed from ``Pastura/Pastura/App/Router.swift``
-  plus a synthetic ``home`` root (HomeView owns the stack root; it is not a
-  Route case).
+  plus the synthetic tab-stack roots in ``SYNTHETIC_ROOTS`` — ``home``
+  (HomeView) and ``sharedScenarios`` (SharedScenariosListView, the Browse
+  tab root since ADR-016 D4). These own a tab's NavigationStack but are not
+  Route cases.
 - **Edges**: callsites of ``NavigationLink(value: Route.X ...)``,
   ``router.push(.X)`` (forward-looking — zero callsites today), and
   ``router.pushIfOnTop(... next: .X ...)`` scanned across ``Views/`` and
@@ -73,6 +75,15 @@ MANUAL_EDGES = [
 # Helper identifiers covered by MANUAL_EDGES. NavigationLink(value: <id>())
 # with an identifier outside this set is an error.
 KNOWN_HELPERS = {"newScenarioRoute"}
+
+# Synthetic stack-root nodes — own a tab's NavigationStack root but are not
+# Route cases. `home` = Home tab (HomeView). `sharedScenarios` = Browse tab
+# (SharedScenariosListView): ADR-016 D4 deleted its Route case, but it still
+# pushes Route.galleryScenarioDetail onto its own tab stack, so it remains an
+# edge SOURCE and must be a known node. (Settings is also a tab root but
+# pushes no Route, so it needs no node here.) Rendered with the rounded
+# stadium shape to mark them as roots.
+SYNTHETIC_ROOTS = ("home", "sharedScenarios")
 
 # Display label, screenshot-tour anchor identifier, and ui-tour.sh
 # screenshot name per node. Screenshot "None" renders as deferred (see
@@ -173,7 +184,7 @@ def collect_edges() -> tuple[list[tuple[str, str, str]], list[str]]:
 
 
 def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> str:
-    nodes = ["home"] + route_cases
+    nodes = list(SYNTHETIC_ROOTS) + route_cases
     incoming_sources: dict[str, set[str]] = {n: set() for n in nodes}
     for source, target, _ in edges:
         if target in incoming_sources:
@@ -185,14 +196,15 @@ def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> 
         "Screen graph of the root stack, generated from `Route` enum cases and\n"
         "`NavigationLink` / `router.push` / `pushIfOnTop` callsites. Sheets and\n"
         "fullScreenCover flows are out of scope (`AppRouter` manages the root\n"
-        "stack only — see `.claude/rules/navigation.md`). `home` is the stack\n"
-        "root (`HomeView`), not a `Route` case.\n"
+        "stack only — see `.claude/rules/navigation.md`). `home` (`HomeView`)\n"
+        "and `sharedScenarios` (`SharedScenariosListView`, the Browse tab root)\n"
+        "are tab-stack roots, not `Route` cases.\n"
     )
     lines.append("```mermaid")
     lines.append("flowchart TD")
     for node in nodes:
         label = NODE_INFO.get(node, (node, None, None))[0]
-        shape = f"([{label}])" if node == "home" else f'["{label}"]'
+        shape = f"([{label}])" if node in SYNTHETIC_ROOTS else f'["{label}"]'
         lines.append(f"  {node}{shape}")
     seen = set()
     for source, target, label in sorted(edges):
@@ -224,7 +236,7 @@ def emit_markdown(route_cases: list[str], edges: list[tuple[str, str, str]]) -> 
 def generate() -> tuple[str, list[str]]:
     route_cases = parse_route_cases(ROUTER_FILE.read_text(encoding="utf-8"))
     edges, errors = collect_edges()
-    known = set(["home"] + route_cases)
+    known = set(SYNTHETIC_ROOTS) | set(route_cases)
     for source, target, _ in edges:
         if target not in known:
             errors.append(f"edge target '.{target}' is not a Route case — scanner or Route drift")
@@ -295,9 +307,21 @@ def self_test() -> int:
     edges, errs = scan_file_edges("Pastura/Pastura/Views/Settings/SettingsView.swift", "NavigationLink(value: Route.editor()) {}\n")
     check("unknown file: attribution error", edges == [] and len(errs) == 1 and "FILE_TO_SCREEN" in errs[0])
 
+    # SYNTHETIC_ROOTS regression (ADR-016 D4): a tab root whose Route case was
+    # deleted but which still owns an outgoing edge (sharedScenarios →
+    # galleryScenarioDetail) must render as a rounded, sourceless root — not
+    # trip the "unknown node" guard. Exercises emit_markdown, which the seven
+    # fixtures above never touch.
+    md = emit_markdown(["galleryScenarioDetail"], [("sharedScenarios", "galleryScenarioDetail", "")])
+    check(
+        "synthetic root: sourceless rounded tab root",
+        "sharedScenarios([Shared Scenarios])" in md
+        and "| `sharedScenarios` | Shared Scenarios | — (stack root) |" in md,
+    )
+
     for name in failures:
         print(f"SELF-TEST FAIL: {name}", file=sys.stderr)
-    print(f"self-test: {7 - len(failures)}/7 passed")
+    print(f"self-test: {8 - len(failures)}/8 passed")
     return 1 if failures else 0
 
 
