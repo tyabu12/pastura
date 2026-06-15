@@ -4,12 +4,14 @@ import os
 /// Settings screen hosting the Models section (device only) and a
 /// Legal section with Privacy Policy + content-report sheet.
 ///
-/// Pushed onto the root `NavigationStack` via `Route.settings`. Per
+/// The Settings tab's root content, mounted in the tab's
+/// `NavigationStack` by `RootTabView` (ADR-016 D4). Per
 /// `.claude/rules/navigation.md`, this view must NOT add
-/// `navigationDestination(item:|isPresented:)` modifiers — sheets
-/// (`.sheet(isPresented:)`) and `.fullScreenCover(item:)` are exempt
-/// from that rule and are used here for the report sheet and download
-/// cover respectively.
+/// `navigationDestination(item:|isPresented:)` modifiers — the tab's
+/// stack runs the same `Route` destination registry, so mixing scopes
+/// would fight it; sheets (`.sheet(isPresented:)`) and
+/// `.fullScreenCover(item:)` are exempt from that rule and are used
+/// here for the report sheet and download cover respectively.
 ///
 /// ## Models section (device only)
 ///
@@ -168,14 +170,6 @@ struct SettingsView: View {
     .task { await loadStorageUsage() }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
-    .navigationBarBackButtonHidden(true)
-    .preservesPasturaSwipeBackGesture()
-    .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        PasturaBackButton()
-      }
-      .hidingPasturaSharedBackground()
-    }
     .reportSheet(isPresented: $isReportSheetPresented, context: .general)
     .sheet(isPresented: $isLicensesSheetPresented) {
       LicensesSheet()

@@ -53,31 +53,41 @@ final class ScreenshotTourTests: XCTestCase {
     capture(app, name: "03-editor", anchorId: "editor.titleField")
     goBack(app)
 
-    // Shared Scenarios gallery (StubGalleryService fixture content).
-    app.buttons["home.sharedScenariosButton"].tap()
+    // Shared Scenarios gallery — now the "Browse" tab root (ADR-016 D4),
+    // reached via the tab bar rather than a Home push.
+    app.tabBars.buttons["Browse"].tap()
     capture(
       app, name: "04-shared-scenarios",
       anchorId: "sharedScenarios.galleryCell.ui_test_canary")
 
-    // Gallery scenario detail.
+    // Gallery scenario detail (push within the Browse tab stack).
     app.buttons["sharedScenarios.galleryCell.ui_test_canary"].tap()
     capture(app, name: "05-gallery-detail", anchorId: "galleryDetail.tryButton")
-    goBack(app)
+    // Single goBack pops the gallery detail back to the Browse tab root,
+    // which has no back chevron.
     goBack(app)
 
-    // Settings.
-    app.buttons["home.settingsButton"].tap()
+    // Settings — a dedicated tab (ADR-016 D4), reached via the tab bar
+    // rather than a Home push. Switching tabs doesn't push, so there is no
+    // back chevron here.
+    app.tabBars.buttons["Settings"].tap()
     capture(app, name: "06-settings", anchorId: "settings.licensesLink")
-    goBack(app)
 
-    // Past Results (seeded fixture — see StubResultSeeder).
-    app.buttons["home.pastResultsButton"].tap()
+    // Past Results — now the History tab root (ADR-016 D4), reached via the
+    // tab bar (seeded fixture — see StubResultSeeder). As a tab root it has
+    // no parent to pop to, so confirm the back chevron is absent before
+    // descending into the detail.
+    app.tabBars.buttons["History"].tap()
     capture(app, name: "07-results", anchorId: "results.list")
+    XCTAssertFalse(
+      app.buttons["pasturaBackButton"].exists,
+      "History tab root must not show a back chevron.")
 
-    // Result detail timeline.
+    // Result detail timeline (a push onto the History tab stack).
     app.buttons["results.row.ui_test_result_seed"].tap()
     capture(app, name: "08-result-detail", anchorId: "resultDetail.timeline")
-    goBack(app)
+    // Single goBack pops the result detail back to the History tab root,
+    // which has no back chevron.
     goBack(app)
   }
 
