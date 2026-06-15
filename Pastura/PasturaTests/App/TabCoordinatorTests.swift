@@ -113,6 +113,46 @@ import Testing
     #expect(!coordinator.isSimulationOnTop)
   }
 
+  // MARK: - Deep-link drain routing (ADR-016 D5.2)
+
+  @Test func presentDeepLinkedGalleryScenarioSelectsSearchTabAndPushesOntoIt() {
+    let coordinator = TabCoordinator()  // selectedTab == .home
+    // User is mid-navigation on a NON-search tab when the link arrives.
+    coordinator.homeRouter.push(.scenarioDetail(scenarioId: "home"))
+    let scenario = makeGalleryScenario(id: "linked")
+
+    coordinator.presentDeepLinkedGalleryScenario(scenario)
+
+    // Primary, each independently revert-sensitive: the target tab is the
+    // resolution-fixed さがす tab (not the currently-selected one), and the
+    // detail lands on THAT tab's router.
+    #expect(coordinator.selectedTab == .search)
+    #expect(coordinator.searchRouter.path.last == .galleryScenarioDetail(scenario: scenario))
+    // Secondary defense-in-depth: the routing touches only さがす.
+    #expect(coordinator.homeRouter.path == [.scenarioDetail(scenarioId: "home")])
+    #expect(coordinator.historyRouter.path.isEmpty)
+    #expect(coordinator.settingsRouter.path.isEmpty)
+  }
+
+  @Test func presentDeepLinkedGalleryScenarioAppendsOntoNonEmptySearchStack() {
+    let coordinator = TabCoordinator()
+    // さがす already shows a gallery detail (user browsed there) when a new
+    // link drains. Plain `push` appends unconditionally — pinning the
+    // D5.2 plain-`push` choice so a future ⑥ switch to a guarded push
+    // surfaces here rather than passing silently.
+    let existing = makeGalleryScenario(id: "existing")
+    coordinator.searchRouter.push(.galleryScenarioDetail(scenario: existing))
+    let linked = makeGalleryScenario(id: "linked")
+
+    coordinator.presentDeepLinkedGalleryScenario(linked)
+
+    #expect(
+      coordinator.searchRouter.path == [
+        .galleryScenarioDetail(scenario: existing),
+        .galleryScenarioDetail(scenario: linked)
+      ])
+  }
+
   // MARK: - Cross-tab isolation (ADR-016 D3)
 
   @Test func pushOnOneTabLeavesOtherTabsEmpty() {
