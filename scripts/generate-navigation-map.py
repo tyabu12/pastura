@@ -97,7 +97,6 @@ NODE_INFO = {
     "resultDetail": ("Result Detail", "resultDetail.timeline", "08-result-detail"),
     "sharedScenarios": ("Shared Scenarios", "sharedScenarios.galleryCell.*", "04-shared-scenarios"),
     "galleryScenarioDetail": ("Gallery Scenario Detail", "galleryDetail.tryButton", "05-gallery-detail"),
-    "settings": ("Settings", "settings.licensesLink", "06-settings"),
 }
 
 HEADER = """\
