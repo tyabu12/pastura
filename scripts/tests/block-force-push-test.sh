@@ -77,6 +77,14 @@ else
 fi
 
 # --- BLOCK cases ---------------------------------------------------------
+#
+# Note: the `--force*` long form is matched against the WHOLE command, so
+# the `--force` BLOCK cases below pass on BOTH the old and new hook and do
+# NOT exercise the segment-scoping path. The cases that genuinely exercise
+# the new code are the ALLOW sibling-body cases above (BLOCKED by the old
+# hook) and the prefix-wrapped AMBIGUOUS cases below (env/sudo/command +
+# `-uf`/`+refspec` — these would slip through a naive "first word is git"
+# guard, so they lock in the strip-leading-wrappers logic).
 
 assert_block "long force flag" 'git push origin x --force'
 assert_block "force-with-lease" 'git push --force-with-lease origin x'
@@ -84,7 +92,11 @@ assert_block "+refspec" 'git push origin +main'
 assert_block "-uf short-flag cluster" 'git push -uf origin x'
 assert_block "line-continuation force" "$(printf 'git push origin x \\\n--force')"
 assert_block "line-continuation +refspec" "$(printf 'git push origin \\\n+main')"
-assert_block "env-prefixed force (first word not git)" 'env FOO=bar git push --force'
+assert_block "env-prefixed long force" 'env FOO=bar git push --force'
+assert_block "env-prefixed -uf cluster" 'env FOO=bar git push -uf origin x'
+assert_block "sudo-prefixed +refspec" 'sudo git push origin +main'
+assert_block "command-prefixed -uf cluster" 'command git push -uf origin x'
+assert_block "bare VAR=value prefix +refspec" 'FOO=bar git push origin +main'
 assert_block "gh pr ready" 'gh pr ready 123'
 
 # --- result --------------------------------------------------------------
