@@ -3,6 +3,13 @@ import Testing
 
 @testable import Pastura
 
+/// Exercises the **per-tab `AppRouter` contract in isolation** — a single
+/// router's `push` / `pop` / `popToRoot` / `pushIfOnTop` / `RouteHint`
+/// identity semantics. Under the bottom-tab IA (ADR-016 D3) each tab owns
+/// one such router, so this contract holds per tab. The four-router
+/// composition (cross-tab isolation, `isSimulationOnTop` any-tab fold,
+/// deep-link drain routing, tab-reselect → `popToRoot`) lives in
+/// `TabCoordinatorTests`.
 @MainActor
 @Suite(.timeLimit(.minutes(1))) struct AppRouterTests {
 
