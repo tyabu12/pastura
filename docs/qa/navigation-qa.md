@@ -210,11 +210,14 @@ surface changes in areas the automated tests do not exercise.
 6. **Deep Link — cold start** — With Pastura fully terminated, tap a
    `pastura://scenario/<id>` link from Safari / Messages / another app.
    Expected: Pastura launches, waits for initialization + model-download
-   completion (if the model isn't already resolved), then pushes the
-   gallery scenario detail with a **"Opened from an external link"**
-   banner at the top. Tapping **Try this scenario** installs via the
-   normal flow. Invalid id (not present in the curated gallery) shows
-   the **"Scenario Not Found"** alert — never an install prompt.
+   completion (if the model isn't already resolved), then selects the
+   **さがす (Search) tab** and pushes the gallery scenario detail onto it
+   with a **"Opened from an external link"** banner at the top (the
+   detail is a Search-tab destination, so the drain lands it there
+   regardless of which tab was selected — ADR-016 D5.2). Tapping
+   **Try this scenario** installs via the normal flow. Invalid id (not
+   present in the curated gallery) shows the **"Scenario Not Found"**
+   alert — never an install prompt.
 7. **Deep Link — before the app is `.ready`** — Open a `pastura://`
    link while `RootView` is still in any non-`.ready` state:
    `ProgressView("Initializing...")`, `ModelPickerView`
@@ -236,24 +239,28 @@ surface changes in areas the automated tests do not exercise.
    wait for generation to be in flight, then open a `pastura://` link
    from an external app. Expected: **toast** ("Will open when you exit
    this simulation"). The simulation does **not** halt. Back-swipe out
-   of `SimulationView`; the deep link drain fires immediately and
-   pushes the gallery detail on top of the popped stack. Running
-   under BG continuation (toggle on) must not change this — the link
-   still only drains once the simulation screen is no longer on top.
+   of `SimulationView`; the deep link drain fires immediately,
+   selects the さがす (Search) tab and pushes the gallery detail onto
+   that tab's stack. `isSimulationOnTop` is an any-tab fold, so a
+   simulation backgrounded on a non-selected tab keeps blocking the
+   drain. Running under BG continuation (toggle on) must not change
+   this — the link still only drains once no tab has the simulation
+   screen on top.
 9. **Deep Link — during an editor / scoreboard / report sheet** —
    Open any sheet gated by `.deepLinkGated()` (phase editor, persona
    editor, scoreboard, report), then open a `pastura://` link.
    Expected: the sheet stays up with no visible toast (iOS sheets
    present in their own context and occlude the overlay). Dismiss the
-   sheet — the drain fires immediately and the gallery detail pushes
-   onto the underlying stack. User work in the sheet must **not** be
-   discarded by the deep link arrival.
+   sheet — the drain fires immediately, selects the さがす (Search) tab
+   and pushes the gallery detail onto that tab's stack. User work in
+   the sheet must **not** be discarded by the deep link arrival.
 10. **Deep Link — iPad multi-window** — On iPad, open two Pastura
     windows (drag from dock), bring one to focus, then open a
     `pastura://` link from another app. Expected: only the focused
     window handles the link (iOS routes `.onOpenURL` to the active
-    scene). The second window's `AppRouter` and `DeepLinkGate` remain
-    untouched. Swapping focus after handling does not replay the URL.
+    scene). The second window's `TabCoordinator` (its four per-tab
+    `AppRouter`s) and `DeepLinkGate` remain untouched. Swapping focus
+    after handling does not replay the URL.
 11. **Multi-model picker — fresh install on supported device** —
     Install Pastura on a supported device (≥ 8 GB RAM) with no prior
     install and no seeded UserDefaults. Expected: after the splash,

@@ -1,31 +1,68 @@
 # Navigation Rules
 
-The root `NavigationStack` lives in `RootView` (inside `WindowGroup`) and its
-`path` is owned by `AppRouter` — a per-scene `@Observable @MainActor` class
-injected via `@Environment(AppRouter.self)`. All deep navigation off the root
-goes through `Route` cases resolved by HomeView's
-`navigationDestination(for: Route.self)`.
+The app's root is a **four-tab bottom bar** (`RootTabView`, inside
+`WindowGroup`; ADR-016). Each tab owns its **own** `NavigationStack`
+whose `path` is owned by a per-tab `AppRouter` — four instances held by
+`TabCoordinator`, a per-scene `@Observable @MainActor` class. Each tab's
+stack injects its router via `.environment` **inside** the tab's
+`NavigationStack` subtree (`TabNavigationStack`), so an ambient
+`@Environment(AppRouter.self)` read resolves to the router of the tab the
+view lives in. All deep navigation within a tab goes through `Route`
+cases resolved by the shared `RouteResolver` (registered on every tab's
+`navigationDestination(for: Route.self)`).
 
 Generated screen-graph overview:
 [`docs/design/navigation-map.md`](../../docs/design/navigation-map.md)
 (CI drift-guarded — regenerate via the script, never edit by hand).
+
+## Bottom-tab IA — `TabCoordinator` (load-bearing)
+
+The four-tab model (ADR-016) replaced the single root `NavigationStack`.
+Key invariants:
+
+- **`TabCoordinator` owns four *unmodified* `AppRouter` instances**
+  (home / search / history / settings) plus `selectedTab`. `AppRouter`
+  is never widened into a multi-path container — every existing guard
+  (`pushIfOnTop` / `popToRoot` / `path.last`) stays correct **locally
+  inside each tab**.
+- **Native `TabView`, never hand-rolled** (`RootTabView`). Per-tab
+  router injection happens inside `TabNavigationStack`'s `NavigationStack`
+  subtree — injecting one router above the `TabView` would collapse all
+  four tabs onto one stack.
+- **Deep-link drain → さがす (Search) tab.** A resolved
+  `.galleryScenarioDetail` is a Search-tab destination, so
+  `TabCoordinator.presentDeepLinkedGalleryScenario(_:)` selects the
+  Search tab and **plain-`push`**es onto `searchRouter` — *not*
+  `pushIfOnTop`. The `await` that `pushIfOnTop` guards already completed
+  upstream in `PasturaApp.tryDrain`, and the freshly-selected tab root is
+  normally an empty stack where the guard would no-op.
+- **Tab re-select → that tab's `popToRoot()`.** SwiftUI's native
+  auto-pop-to-root on re-tapping the active tab does **not** fire for a
+  `NavigationStack(path:)` bound to an explicit `[Route]` array — the
+  native bar supplies only the *gesture surface* (the selection
+  `Binding`'s setter runs on re-tap); the path reset is performed
+  manually by `TabCoordinator.handleSelection(_:)`.
+- **`isSimulationOnTop` is an any-tab fold.** A `.simulation` route on
+  top of **any** tab's stack (not just the selected tab's) gates the
+  deep-link drain and suppresses the warm splash — a simulation
+  backgrounded by switching tabs is genuinely in-flight (ADR-003).
 
 ## When to use what
 
 | Pattern | Use for |
 |---------|---------|
 | `NavigationLink(value: Route.X) { label }` | **Tap-driven** push (user taps the row/button to navigate). |
-| `router.push(.X)` | **Programmatic** push from synchronous code (button action, callback). |
+| `router.push(.X)` | **Programmatic** push from synchronous code. The ambient `@Environment(AppRouter.self)` is the **current tab's** router, so this pushes onto the tab the view lives in. |
 | `router.pushIfOnTop(expected:next:)` | **Programmatic push after `await`** — guards against pushing onto an unrelated screen if the user popped back during the suspension. |
-| `router.pop()` / `router.popToRoot()` | Programmatic back / unwind. |
-| `PasturaBackButton()` | Custom back chevron for **root NavigationStack** pushed views. Wraps `router.pop()`. Use with `.navigationBarBackButtonHidden(true)` + `.preservesPasturaSwipeBackGesture()`. See "Custom back button" section below. |
-| `@Environment(\.dismiss)` | Dismissing a sheet / modal that is **not** part of the root stack. |
+| `router.pop()` / `router.popToRoot()` | Programmatic back / unwind **within the current tab's stack**. |
+| `PasturaBackButton()` | Custom back chevron for views pushed onto a **tab's** `NavigationStack`. Wraps `router.pop()`. Use with `.navigationBarBackButtonHidden(true)` + `.preservesPasturaSwipeBackGesture()`. See "Custom back button" section below. |
+| `@Environment(\.dismiss)` | Dismissing a sheet / modal that is **not** part of a tab's stack. |
 
-## Forbidden inside the root stack
+## Forbidden inside a tab's stack
 
 `navigationDestination(item:)` and `navigationDestination(isPresented:)` MUST
-NOT be added to any view that gets pushed onto the root stack (i.e. any
-destination in `HomeView.routeDestination(_:)`). Mixing them with the
+NOT be added to any view that gets pushed onto a tab's stack (i.e. any
+destination resolved by the shared `RouteResolver`). Mixing them with the
 Route-based destination registry causes the two destination scopes to fight,
 and pushed views silently re-render or fail to advance.
 
@@ -44,7 +81,7 @@ struct GalleryScenarioDetailView: View {
   var body: some View {
     Content()
       .navigationDestination(item: $installedToken) { token in
-        ScenarioDetailView(scenarioId: token.id)   // ⚠️ mixed with root's Route registry
+        ScenarioDetailView(scenarioId: token.id)   // ⚠️ mixed with the Route registry
       }
   }
 }
@@ -66,7 +103,7 @@ struct GalleryScenarioDetailView: View {
 
 ## Custom back button — `PasturaBackButton`
 
-Every view pushed onto the root `NavigationStack` MUST replace the
+Every view pushed onto a tab's `NavigationStack` MUST replace the
 system back chevron with `PasturaBackButton()` to opt out of iOS 26's
 automatic Liquid Glass capsule styling. The pair of modifiers is
 load-bearing — omitting either breaks behavior:
@@ -89,12 +126,12 @@ level (NOT inside the `ToolbarItem` — toolbar slots constrain size
 enough that `.background()` doesn't render the representable) which
 walks to the host `UINavigationController` and reinstalls the gesture
 with a delegate gating on `viewControllers.count > 1` — preserving
-swipe-back on pushed views without re-enabling pop on the root.
+swipe-back on pushed views without re-enabling pop on a tab root.
 
-**Scope**: root NavigationStack push only. Sheet / fullScreenCover
+**Scope**: a tab's NavigationStack push only. Sheet / fullScreenCover
 content has its own dismiss path — use `@Environment(\.dismiss)`
-directly. `PasturaBackButton` calls `router.pop()` which mutates
-`AppRouter.path` and does NOT dismiss sheets.
+directly. `PasturaBackButton` calls `router.pop()` which mutates the
+current tab's `AppRouter.path` and does NOT dismiss sheets.
 
 **Accepted accessibility regression**: System back announces
 `"Back, button, <upstream view title>"`; `PasturaBackButton` announces
@@ -117,18 +154,22 @@ button / toolbar chrome.
 
 ## Sheets, popovers, fullScreenCover — out of scope
 
-`AppRouter` manages the **root NavigationStack only**. Sheet / popover /
-fullScreenCover content has its own navigation context and may freely use
-`navigationDestination(item:)`, `navigationDestination(isPresented:)`, or
-its own internal `NavigationStack`. The existing `PhaseEditorSheet`,
-`PersonaEditorSheet`, `ScoreboardSheet`, and `ModelDownloadView` are
-sheet-owned stacks and are unaffected by this rule.
+Each tab's `AppRouter` manages **that tab's `NavigationStack` only**.
+Sheet / popover / fullScreenCover content has its own navigation context
+and may freely use `navigationDestination(item:)`,
+`navigationDestination(isPresented:)`, or its own internal
+`NavigationStack`. The existing `PhaseEditorSheet`, `PersonaEditorSheet`,
+`ScoreboardSheet`, and `ModelDownloadView` are sheet-owned stacks and are
+unaffected by this rule.
 
 ## AppRouter scope (load-bearing)
 
 `AppRouter` holds **only** the navigation path. Do not add:
 
-- selection state (use local `@State`)
+- selection state (use local `@State`) — **tab selection lives on
+  `TabCoordinator.selectedTab`**, never on `AppRouter`; this split is
+  the whole reason `TabCoordinator` owns the routers rather than widening
+  `AppRouter` (ADR-016 D3).
 - modal presentation flags (use local `@State` with `.sheet(item:)`)
 - search queries / form state (use local `@State` or a feature ViewModel)
 - network in-flight flags (use local `@State` or a ViewModel)
@@ -142,16 +183,19 @@ belongs elsewhere.
 When reviewing changes that touch navigation:
 
 - [ ] No new `navigationDestination(item:|isPresented:)` inside views pushed
-      onto the root stack. Sheet-owned NavigationStacks are fine.
+      onto any tab's stack. Sheet-owned NavigationStacks are fine.
 - [ ] Programmatic pushes from `await` callsites use `pushIfOnTop` rather
       than raw `push` (unless the call cannot be reached after the originating
-      view is popped).
-- [ ] No direct mutation of `router.path` outside `AppRouter` itself.
-      Grep (mutation patterns only — `.count` / `.last` / `.isEmpty` reads
-      are fine):
+      view is popped, OR the target tab root is freshly selected and empty —
+      the deep-link drain's plain `push`, see "Bottom-tab IA").
+- [ ] No direct mutation of `router.path` outside `AppRouter` itself. The
+      per-tab routers are driven by `TabCoordinator` via method calls
+      (`push` / `popToRoot`), not direct `path` mutation, so the grep below
+      stays clean. Reads (`.count` / `.last` / `.isEmpty`) are fine:
       `rg 'router\.path\s*(=[^=]|\.append|\.removeLast|\.removeAll|\.insert|\.remove\b)' Pastura --glob '!**/AppRouter*'`
       should be empty.
-- [ ] No new properties on `AppRouter` beyond navigation-path management.
+- [ ] No new properties on `AppRouter` beyond navigation-path management
+      (tab selection → `TabCoordinator`).
 
 ## Render-time hints — `RouteHint`
 
@@ -187,9 +231,8 @@ When reviewing a new `Route` case:
 - [ ] Identity-bearing fields (e.g. ids) are plain associated values.
 - [ ] Render-time-only fields (placeholders, animation params) are
       wrapped in `RouteHint<T>`.
-- [ ] If the case adds `RouteHint`, the destination resolver in
-      `HomeView.routeDestination(_:)` extracts `.value` to pass to
-      the destination view.
+- [ ] If the case adds `RouteHint`, the shared `RouteResolver` extracts
+      `.value` to pass to the destination view.
 - [ ] If a callsite pushes with a hint, the source-of-truth for the
       hint value is documented (e.g. gallery curation invariant —
       see `GallerySeedYAMLTests.galleryTitleMatchesYAMLName`).
