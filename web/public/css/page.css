@@ -117,6 +117,40 @@
   color: var(--moss-ink);
 }
 
+/* ----- Code block (scenario YAML excerpts on /docs/) ----- */
+
+.page-prose pre {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 0 0 20px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Reset the inline-code chrome when <code> sits inside a <pre> block,
+   so the block reads as one panel rather than a row of bordered tokens. */
+.page-prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Build-time Shiki output (<Code lang="yaml"> on /docs/scenario/) reuses the
+   same panel as a hand-written <pre>: keep our border / padding / radius and
+   force the site surface colour, letting Shiki own only the token colours. */
+.page-prose pre.astro-code {
+  background: var(--page) !important;
+}
+
 /* ----- Table ----- */
 
 .page-prose table {
@@ -141,6 +175,14 @@
   color: var(--ink);
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Scenario summary table on /docs/: keep the short metadata columns
+   (name + numeric counts) from wrapping, so the wide description column
+   absorbs the remaining width instead of squeezing the scenario name. */
+.page-prose .scenario-table th,
+.page-prose .scenario-table td:not(:last-child) {
+  white-space: nowrap;
 }
 
 /* ----- Utility class overrides inside .page-prose ----- */
