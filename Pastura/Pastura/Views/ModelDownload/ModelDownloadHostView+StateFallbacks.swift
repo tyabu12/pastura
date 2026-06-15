@@ -191,7 +191,7 @@ extension ModelDownloadHostView {
         Text(String(localized: "Downloading Model..."))
           .font(.title2.bold())
         ProgressView(value: progress) {
-          Text("\(Int(progress * 100))%")
+          Text(verbatim: "\(Int(progress * 100))%")
             .font(.subheadline.monospacedDigit())
         }
         .progressViewStyle(.linear)

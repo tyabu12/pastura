@@ -197,7 +197,7 @@ struct SharedScenariosListView: View {
         .lineLimit(2)
       HStack(spacing: 8) {
         Text(scenario.category.displayName)
-        Text("·")
+        Text(verbatim: "·")
         Text(
           String(format: String(localized: "~%lld inferences"), scenario.estimatedInferences))
       }

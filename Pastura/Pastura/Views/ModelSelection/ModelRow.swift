@@ -106,7 +106,7 @@ struct ModelRow: View {
       }
       HStack(spacing: 4) {
         Text(descriptor.vendor)
-        Text("·").opacity(0.5)
+        Text(verbatim: "·").opacity(0.5)
         Text(Self.formattedFileSize(descriptor.fileSize))
       }
       .font(.system(size: 11.5, design: .monospaced))

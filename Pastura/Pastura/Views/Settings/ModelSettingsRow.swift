@@ -88,7 +88,7 @@ struct ModelSettingsRow: View {
           Text(descriptor.vendor)
             .font(.footnote)
             .foregroundStyle(Color.inkSecondary)
-          Text("·").foregroundStyle(Color.muted)
+          Text(verbatim: "·").foregroundStyle(Color.muted)
           Text(Self.formattedFileSize(descriptor.fileSize))
             .textStyle(Typography.metaValue)
             .foregroundStyle(Color.metaStrongL3)
@@ -123,7 +123,7 @@ struct ModelSettingsRow: View {
     case .downloading(let progress):
       Text(
         String(
-          localized: "Downloading \(Int(progress * 100))%"
+          format: String(localized: "Downloading %lld%%"), Int(progress * 100)
         )
       )
       .font(.footnote)
@@ -133,7 +133,7 @@ struct ModelSettingsRow: View {
         .font(.footnote)
         .foregroundStyle(Color.mossDark)
     case .error(let message):
-      Text(String(localized: "Error: \(message)"))
+      Text(String(format: String(localized: "Error: %@"), message))
         .font(.footnote)
         .foregroundStyle(Color.dangerInk)
         .lineLimit(2)
@@ -221,7 +221,7 @@ struct ModelSettingsRow: View {
         .font(.system(size: 18))
         .padding(.top, 2)
         .accessibilityLabel(
-          String(localized: "\(descriptor.displayName) actions"))
+          String(format: String(localized: "%@ actions"), descriptor.displayName))
     }
     .menuStyle(.borderlessButton)
   }

@@ -210,6 +210,22 @@
         }
       }
     },
+    "%@ (%@) requires field '%@' in output." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) requires field '%3$@' in output."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@（%2$@）には output に '%3$@' フィールドが必要です。"
+          }
+        }
+      }
+    },
     "%@ (%@) ↔ %@ (%@)" : {
       "localizations" : {
         "en" : {
@@ -238,6 +254,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ (%2$lld)"
+          }
+        }
+      }
+    },
+    "%@ actions" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のアクション"
           }
         }
       }
@@ -410,32 +436,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: %2$lld"
-          }
-        }
-      }
-    },
-    "%arg (%arg) requires field '%arg' in output." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$arg (%2$arg) requires field '%3$arg' in output."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$arg（%2$arg）には output に '%3$arg' フィールドが必要です。"
-          }
-        }
-      }
-    },
-    "%arg actions" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%arg のアクション"
           }
         }
       }
@@ -1244,22 +1244,22 @@
         }
       }
     },
-    "Cannot overwrite gallery scenario '%arg'. Use Shared Scenarios to update, or delete the local copy first." : {
+    "Cannot overwrite gallery scenario '%@'. Use Shared Scenarios to update, or delete the local copy first." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ギャラリーシナリオ '%arg' は上書きできません。更新には共有シナリオを使用するか、ローカルコピーを削除してください。"
+            "value" : "ギャラリーシナリオ '%@' は上書きできません。更新には共有シナリオを使用するか、ローカルコピーを削除してください。"
           }
         }
       }
     },
-    "Cannot overwrite preset scenario '%arg'" : {
+    "Cannot overwrite preset scenario '%@'" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プリセットシナリオ '%arg' は上書きできません"
+            "value" : "プリセットシナリオ '%@' は上書きできません"
           }
         }
       }
@@ -1928,22 +1928,22 @@
         }
       }
     },
-    "Downloading %arg on cellular may use significant data. Wi-Fi is recommended." : {
+    "Downloading %@ on cellular may use significant data. Wi-Fi is recommended." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%arg をモバイルデータ通信でダウンロードすると通信量が大きくなります。Wi-Fi を推奨します。"
+            "value" : "%@ をモバイルデータ通信でダウンロードすると通信量が大きくなります。Wi-Fi を推奨します。"
           }
         }
       }
     },
-    "Downloading %arg%%" : {
+    "Downloading %lld%%" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%arg%% ダウンロード中"
+            "value" : "%lld%% ダウンロード中"
           }
         }
       }
@@ -2048,12 +2048,12 @@
         }
       }
     },
-    "Error: %arg" : {
+    "Error: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エラー: %arg"
+            "value" : "エラー: %@"
           }
         }
       }
@@ -2207,82 +2207,82 @@
         }
       }
     },
-    "Failed to delete scenario: %arg" : {
+    "Failed to delete scenario: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "シナリオの削除に失敗しました: %arg"
+            "value" : "シナリオの削除に失敗しました: %@"
           }
         }
       }
     },
-    "Failed to delete: %arg" : {
+    "Failed to delete: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "削除に失敗しました: %arg"
+            "value" : "削除に失敗しました: %@"
           }
         }
       }
     },
-    "Failed to enable background continuation: %arg" : {
+    "Failed to enable background continuation: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "バックグラウンド継続の有効化に失敗しました: %arg"
+            "value" : "バックグラウンド継続の有効化に失敗しました: %@"
           }
         }
       }
     },
-    "Failed to load results: %arg" : {
+    "Failed to load results: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "結果の読み込みに失敗しました: %arg"
+            "value" : "結果の読み込みに失敗しました: %@"
           }
         }
       }
     },
-    "Failed to load scenario: %arg" : {
+    "Failed to load scenario: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "シナリオの読み込みに失敗しました: %arg"
+            "value" : "シナリオの読み込みに失敗しました: %@"
           }
         }
       }
     },
-    "Failed to load scenarios: %arg" : {
+    "Failed to load scenarios: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "シナリオの読み込みに失敗しました: %arg"
+            "value" : "シナリオの読み込みに失敗しました: %@"
           }
         }
       }
     },
-    "Failed to load turns: %arg" : {
+    "Failed to load turns: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ターンの読み込みに失敗しました: %arg"
+            "value" : "ターンの読み込みに失敗しました: %@"
           }
         }
       }
     },
-    "Failed to load: %arg" : {
+    "Failed to load: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "読み込みに失敗しました: %arg"
+            "value" : "読み込みに失敗しました: %@"
           }
         }
       }
@@ -2297,38 +2297,32 @@
         }
       }
     },
-    "Failed to read file: %arg" : {
+    "Failed to read file: %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to read file: %arg"
-          }
-        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ファイルの読み込みに失敗しました: %arg"
+            "value" : "ファイルの読み込みに失敗しました: %@"
           }
         }
       }
     },
-    "Failed to switch to CPU: %arg" : {
+    "Failed to switch to CPU: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CPU への切り替えに失敗しました: %arg"
+            "value" : "CPU への切り替えに失敗しました: %@"
           }
         }
       }
     },
-    "Failed to switch to GPU: %arg" : {
+    "Failed to switch to GPU: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "GPU への切り替えに失敗しました: %arg"
+            "value" : "GPU への切り替えに失敗しました: %@"
           }
         }
       }
@@ -2349,12 +2343,12 @@
         }
       }
     },
-    "Failed to write replay file: %arg" : {
+    "Failed to write replay file: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "リプレイファイルの書き込みに失敗しました: %arg"
+            "value" : "リプレイファイルの書き込みに失敗しました: %@"
           }
         }
       }
@@ -2603,6 +2597,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ID: %@"
+          }
+        }
+      }
+    },
+    "INNER VOICE" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心の声"
           }
         }
       }
@@ -3384,32 +3388,32 @@
         }
       }
     },
-    "Persona %arg description contains a term that is not allowed" : {
+    "Persona %lld description contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ペルソナ %arg の説明に許可されていない用語が含まれています"
+            "value" : "ペルソナ %lld の説明に許可されていない用語が含まれています"
           }
         }
       }
     },
-    "Persona %arg name contains a term that is not allowed" : {
+    "Persona %lld name contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ペルソナ %arg の名前に許可されていない用語が含まれています"
+            "value" : "ペルソナ %lld の名前に許可されていない用語が含まれています"
           }
         }
       }
     },
-    "Persona '%arg' description contains a term that is not allowed" : {
+    "Persona '%@' description contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ペルソナ '%arg' の説明に許可されていない用語が含まれています"
+            "value" : "ペルソナ '%@' の説明に許可されていない用語が含まれています"
           }
         }
       }
@@ -3434,58 +3438,58 @@
         }
       }
     },
-    "Personas (%arg)" : {
+    "Personas (%lld)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ペルソナ（%arg）"
+            "value" : "ペルソナ（%lld）"
           }
         }
       }
     },
-    "Phase %arg (assign): unknown target '%arg'. Use 'all' or 'random_one'." : {
+    "Phase %@ condition contains a term that is not allowed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フェーズ %@ の条件に許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Phase %@ prompt contains a term that is not allowed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フェーズ %@ のプロンプトに許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Phase %@ template contains a term that is not allowed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フェーズ %@ のテンプレートに許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Phase %lld (assign): unknown target '%@'. Use 'all' or 'random_one'." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "Phase %1$arg (assign): unknown target '%2$arg'. Use 'all' or 'random_one'."
+            "state" : "translated",
+            "value" : "Phase %1$lld (assign): unknown target '%2$@'. Use 'all' or 'random_one'."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フェーズ %1$arg (assign): 不明な対象 '%2$arg' です。'all' または 'random_one' を使用してください。"
-          }
-        }
-      }
-    },
-    "Phase %arg condition contains a term that is not allowed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フェーズ %arg の条件に許可されていない用語が含まれています"
-          }
-        }
-      }
-    },
-    "Phase %arg prompt contains a term that is not allowed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フェーズ %arg のプロンプトに許可されていない用語が含まれています"
-          }
-        }
-      }
-    },
-    "Phase %arg template contains a term that is not allowed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フェーズ %arg のテンプレートに許可されていない用語が含まれています"
+            "value" : "フェーズ %1$lld (assign): 不明な対象 '%2$@' です。'all' または 'random_one' を使用してください。"
           }
         }
       }
@@ -3500,12 +3504,12 @@
         }
       }
     },
-    "Phases (%arg)" : {
+    "Phases (%lld)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フェーズ（%arg）"
+            "value" : "フェーズ（%lld）"
           }
         }
       }
@@ -4012,16 +4016,6 @@
         }
       }
     },
-    "Save failed: %arg" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存に失敗しました: %arg"
-          }
-        }
-      }
-    },
     "Scenario ID" : {
       "localizations" : {
         "ja" : {
@@ -4432,16 +4426,6 @@
         }
       }
     },
-    "INNER VOICE" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "心の声"
-          }
-        }
-      }
-    },
     "Tap + to import a YAML scenario" : {
       "localizations" : {
         "ja" : {
@@ -4492,12 +4476,12 @@
         }
       }
     },
-    "Template load failed: %arg" : {
+    "Template load failed: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "テンプレートの読み込みに失敗しました: %arg"
+            "value" : "テンプレートの読み込みに失敗しました: %@"
           }
         }
       }
