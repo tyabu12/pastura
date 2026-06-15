@@ -1,11 +1,11 @@
 ---
 paths:
-  - "pages/**"
+  - "web/**"
 ---
 
 # Pastura LP Content Concepts
 
-The LP at `pages/` (EN at root, JA mirror at `pages/ja/`) is largely settled. Two concepts to preserve when editing.
+The LP lives in the Astro project at `web/src/pages/` (EN `index.astro` at the site root, JA mirror at `web/src/pages/ja/`; #475) and is largely settled. Two concepts to preserve when editing.
 
 ## 1. AIgazing / AI観測 — the genre word
 
