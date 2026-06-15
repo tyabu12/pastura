@@ -31,6 +31,10 @@ struct ResultsView: View {
       }
     }
     .navigationTitle(String(localized: "Past Results"))
+    // Inline title to match the other tab roots (design-system § 5.11);
+    // "Past Results" is a generic label, so inline is consistent for the
+    // push variant too.
+    .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
     .toolbar {

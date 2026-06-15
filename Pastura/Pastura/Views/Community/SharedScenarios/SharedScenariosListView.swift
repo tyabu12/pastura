@@ -14,6 +14,10 @@ struct SharedScenariosListView: View {
       }
     }
     .navigationTitle(String(localized: "Shared Scenarios"))
+    // Inline title to match the other tab roots (design-system § 5.11);
+    // "Shared Scenarios" is a generic label, so inline is consistent for
+    // the push variant too.
+    .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
     .toolbar {
