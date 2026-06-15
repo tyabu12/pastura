@@ -48,6 +48,11 @@ fi
 # `build`: any path NOT on the build-irrelevant denylist. The pattern is
 # anchored so a match means the WHOLE path is provably safe; `grep -qv`
 # then succeeds when at least one staged path is NOT safe.
+#
+# `\.md$` treats Markdown as globally build-irrelevant. No `*.md` is a
+# compiled app-bundle resource today; if one is ever added under
+# Pastura/Pastura/Resources/, carve it out of this denylist so it forces
+# the build.
 SAFE='(^(web/|docs/|\.github/|\.claude/))|(\.md$)|(^(\.gitignore|\.gitattributes|\.editorconfig|LICENSE)$)'
 if [ -n "$staged" ] && printf '%s\n' "$staged" | grep -qvE "$SAFE"; then
   tokens="${tokens:+$tokens }build"
