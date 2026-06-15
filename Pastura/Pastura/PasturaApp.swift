@@ -710,6 +710,16 @@ private struct RootView: View {
             simulationRepository: deps.simulationRepository,
             turnRepository: deps.turnRepository)
         }
+        // Deep-link injection for UI tests: queue a `pastura://` URL before
+        // `.ready` so the existing gate drains it via the `appStateKind`
+        // onChange once deps are up — the same queue-then-drain path a real
+        // pre-`.ready` `onOpenURL` would take. Exercises D5 deep-link →
+        // Search-tab routing end-to-end (DeepLinkTabRoutingUITests).
+        if let idx = CommandLine.arguments.firstIndex(of: "--ui-test-open-deeplink"),
+          idx + 1 < CommandLine.arguments.count,
+          let url = URL(string: CommandLine.arguments[idx + 1]) {
+          gate.pendingURL = url
+        }
         appState = .ready(deps)
       } catch {
         appState = .error("UI test setup failed: \(error.localizedDescription)")
