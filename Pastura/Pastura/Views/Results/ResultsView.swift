@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Lists past simulation runs, grouped by scenario.
 struct ResultsView: View {
-  let scenarioId: String
+  let scope: ResultsScope
 
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: ResultsViewModel?
@@ -35,28 +35,28 @@ struct ResultsView: View {
     // "Past Results" is a generic label, so inline is consistent for the
     // History-tab-root and the pushed-detail variant alike.
     .navigationBarTitleDisplayMode(.inline)
-    // Back chrome only for the pushed-detail variant (non-empty
-    // scenarioId); as the History tab root (`scenarioId == ""`) there is
-    // no parent to pop to. See ``PushBackChrome``.
-    .modifier(PushBackChrome(isPushed: !scenarioId.isEmpty))
+    // Back chrome only for the pushed-detail variant (`.scenario`); as the
+    // History tab root (`.aggregate`) there is no parent to pop to. See
+    // ``PushBackChrome``.
+    .modifier(PushBackChrome(isPushed: scope.isPushedDetail))
     .task {
       viewModel = ResultsViewModel(
         scenarioRepository: dependencies.scenarioRepository,
         simulationRepository: dependencies.simulationRepository,
         turnRepository: dependencies.turnRepository
       )
-      await viewModel?.load(scenarioId: scenarioId)
+      await viewModel?.load(scope: scope)
       didInitialLoad = true
     }
     // Re-fetch when the list reappears (e.g. after a per-run delete in
     // ResultDetailView pops back) so the deleted run drops out. Silent
     // (`showLoading: false`) to avoid a spinner flash on every back-nav.
-    // NOTE: the Home path (`scenarioId == ""`) re-runs the unpaginated
+    // NOTE: the aggregate path (`.aggregate`) re-runs the unpaginated
     // N+1 aggregation each time — acceptable at current scale; pagination
     // is deferred (#545 stretch item / ADR-015 §4).
     .onAppear {
       guard didInitialLoad, let viewModel else { return }
-      Task { await viewModel.load(scenarioId: scenarioId, showLoading: false) }
+      Task { await viewModel.load(scope: scope, showLoading: false) }
     }
   }
 
@@ -179,16 +179,16 @@ struct ResultsView: View {
 
 /// Applies the root-stack push chrome — custom back button, hidden system
 /// back, preserved swipe-back gesture — only when ``ResultsView`` is a
-/// pushed detail (non-empty `scenarioId`, entered from a scenario's detail
-/// screen).
+/// pushed detail (``ResultsScope/scenario(_:)``, entered from a scenario's
+/// detail screen).
 ///
-/// As the History tab root (`scenarioId == ""`) the view sits at the bottom
-/// of its tab's `NavigationStack`, so there is nothing to pop to; a
+/// As the History tab root (``ResultsScope/aggregate``) the view sits at the
+/// bottom of its tab's `NavigationStack`, so there is nothing to pop to; a
 /// `PasturaBackButton` there would be a dead chevron whose `router.pop()`
 /// fires on an empty path (ADR-016 D4). The three push modifiers are applied
 /// as one unit per the load-bearing pairing in `.claude/rules/navigation.md`.
-/// `scenarioId` is a `let`, so `isPushed` is constant per instance — the
-/// branch never toggles at runtime, so this adds no view-identity churn.
+/// `scope` is a `let`, so `isPushed` is constant per instance — the branch
+/// never toggles at runtime, so this adds no view-identity churn.
 private struct PushBackChrome: ViewModifier {
   let isPushed: Bool
 

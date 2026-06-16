@@ -69,7 +69,7 @@ extension ResultsViewModelTests {
     try seedSimulation(simRepo: env.simRepo, id: "sim_ja_2", scenarioId: "word_wolf")
     try seedSimulation(simRepo: env.simRepo, id: "sim_en_1", scenarioId: "word_wolf_en")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 1)
     let group = try #require(env.sut.groups.first)
@@ -90,7 +90,7 @@ extension ResultsViewModelTests {
       id: "word_wolf_en", name: "Word Wolf", language: "en", sourceId: "word_wolf")
     try seedSimulation(simRepo: env.simRepo, id: "sim1", scenarioId: "word_wolf")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.first?.sectionName == "ワードウルフ")
   }
@@ -106,7 +106,7 @@ extension ResultsViewModelTests {
       id: "word_wolf_en", name: "Word Wolf", language: "en", sourceId: "word_wolf")
     try seedSimulation(simRepo: env.simRepo, id: "sim1", scenarioId: "word_wolf_en")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "en")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "en")
 
     #expect(env.sut.groups.first?.sectionName == "Word Wolf")
   }
@@ -122,7 +122,7 @@ extension ResultsViewModelTests {
       id: "word_wolf", name: "ワードウルフ", language: "ja", sourceId: "word_wolf")
     try seedSimulation(simRepo: env.simRepo, id: "sim1", scenarioId: "word_wolf")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "en")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "en")
 
     #expect(env.sut.groups.first?.sectionName == "ワードウルフ")
   }
@@ -142,7 +142,7 @@ extension ResultsViewModelTests {
     try seedSimulation(simRepo: env.simRepo, id: "sim_a", scenarioId: "user_a")
     try seedSimulation(simRepo: env.simRepo, id: "sim_b", scenarioId: "user_b")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 2)
     let canonicalKeys = Set(env.sut.groups.map(\.canonicalKey))
@@ -164,7 +164,7 @@ extension ResultsViewModelTests {
     // Only the EN variant has runs.
     try seedSimulation(simRepo: env.simRepo, id: "sim_en_1", scenarioId: "word_wolf_en")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 1)
     let group = try #require(env.sut.groups.first)
@@ -191,7 +191,7 @@ extension ResultsViewModelTests {
     try seedSimulation(simRepo: env.simRepo, id: "sim_ja", scenarioId: "word_wolf")
     try seedSimulation(simRepo: env.simRepo, id: "sim_en", scenarioId: "word_wolf_en")
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     let rows = try #require(env.sut.groups.first?.rows)
     let nameById = Dictionary(uniqueKeysWithValues: rows.map { ($0.record.id, $0.variantName) })
@@ -233,7 +233,7 @@ extension ResultsViewModelTests {
       try db.execute(sql: "PRAGMA foreign_keys = ON")
     }
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 1)
     let allRowIds = env.sut.groups.flatMap { $0.rows.map(\.record.id) }
@@ -259,7 +259,7 @@ extension ResultsViewModelTests {
     try seedSimulation(simRepo: env.simRepo, id: "sim_en", scenarioId: "word_wolf_en")
 
     // Open Detail for the JA variant — EN sibling has runs but JA does not.
-    await env.sut.load(scenarioId: "word_wolf")
+    await env.sut.load(scope: .scenario("word_wolf"))
 
     // No JA runs → empty groups. EN sibling's run is NOT visible from
     // this entry-point.

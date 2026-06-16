@@ -30,7 +30,7 @@ struct RouteResolver: View {
     case .simulation(let scenarioId, let initialName):
       SimulationView(scenarioId: scenarioId, initialName: initialName.value)
     case .results(let scenarioId):
-      ResultsView(scenarioId: scenarioId)
+      ResultsView(scope: .scenario(scenarioId))
     case .resultDetail(let simulationId):
       ResultDetailView(simulationId: simulationId)
     case .galleryScenarioDetail(let scenario):
