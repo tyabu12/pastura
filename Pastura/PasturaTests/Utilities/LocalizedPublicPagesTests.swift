@@ -8,7 +8,7 @@ import Testing
 /// (UI shell consumer), routing reads `Bundle.main.preferredLocalizations`
 /// directly — `LocaleResolver` is deliberately not used (its D2 scope is
 /// new-data creation + multi-variant selection, not external URL
-/// routing). The `ja` pages mirror at `pages/ja/**`; every other locale
+/// routing). The `ja` pages mirror at `web/src/pages/ja/**`; every other locale
 /// falls through to the English pages.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
