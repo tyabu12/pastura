@@ -1,16 +1,16 @@
 import Foundation
 import SwiftUI
 
-/// Owner of the root `NavigationStack`'s path.
+/// Owner of one tab's `NavigationStack` path.
 ///
 /// Inject via `@Environment(AppRouter.self)`. Bind the path with
-/// `NavigationStack(path: $router.path)` at the root view, and call
+/// `NavigationStack(path: $router.path)` inside the tab's stack, and call
 /// `push(_:)` / `pop()` / `popToRoot()` from anywhere in the view tree
 /// for programmatic navigation.
 ///
 /// ## Scope (load-bearing)
 ///
-/// `AppRouter` manages the **root NavigationStack's path only**. It is
+/// `AppRouter` manages **one tab's NavigationStack path only**. It is
 /// deliberately not a place to put selection state, modal presentation
 /// flags, search queries, or any other UI state. See
 /// `.claude/rules/navigation.md` for the full convention.
