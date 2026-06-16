@@ -77,7 +77,7 @@ struct ResultsViewModelTests {
       scenarioId: "s2", scenarioName: "Word Wolf", simulationId: "sim2"
     )
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 2)
     #expect(env.sut.isLoading == false)
@@ -106,7 +106,7 @@ struct ResultsViewModelTests {
       scenarioId: "s3", scenarioName: "Also Has Results", simulationId: "sim2"
     )
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 2)
     let names = Set(env.sut.groups.map(\.sectionName))
@@ -127,7 +127,7 @@ struct ResultsViewModelTests {
       scenarioId: "s2", scenarioName: "Other", simulationId: "sim2"
     )
 
-    await env.sut.load(scenarioId: "s1")
+    await env.sut.load(scope: .scenario("s1"))
 
     #expect(env.sut.groups.count == 1)
     #expect(env.sut.groups.first?.sectionName == "Target")
@@ -138,7 +138,7 @@ struct ResultsViewModelTests {
   @Test func loadSpecificScenarioMissingReturnsEmpty() async throws {
     let env = try makeResultsSUT()
 
-    await env.sut.load(scenarioId: "nonexistent")
+    await env.sut.load(scope: .scenario("nonexistent"))
 
     #expect(env.sut.groups.isEmpty)
     #expect(env.sut.errorMessage == nil)
@@ -155,7 +155,7 @@ struct ResultsViewModelTests {
     )
 
     // First load establishes the group and settles isLoading to false.
-    await env.sut.load(scenarioId: "s1")
+    await env.sut.load(scope: .scenario("s1"))
     #expect(env.sut.groups.first?.rows.count == 1)
     #expect(env.sut.isLoading == false)
 
@@ -169,7 +169,7 @@ struct ResultsViewModelTests {
         createdAt: Date(), updatedAt: Date()
       ))
 
-    await env.sut.load(scenarioId: "s1", showLoading: false)
+    await env.sut.load(scope: .scenario("s1"), showLoading: false)
 
     // The silent refresh picked up the new run (it actually ran)...
     #expect(env.sut.groups.first?.rows.count == 2)
@@ -286,7 +286,7 @@ struct ResultsViewModelTests {
 
     try env.scenarioRepo.delete("s1")  // orphan sim1 (SET NULL)
 
-    await env.sut.load(scenarioId: "", deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     // Both the live group and the orphaned group are present — the deleted
     // scenario's run survives and remains browsable.
