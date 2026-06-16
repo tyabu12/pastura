@@ -128,7 +128,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       validationErrors = []
     } catch {
       validationErrors = [
-        String(localized: "Template load failed: \(error.localizedDescription)")
+        String(format: String(localized: "Template load failed: %@"), error.localizedDescription)
       ]
     }
   }
@@ -154,7 +154,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       }
     } catch {
       validationErrors = [
-        String(localized: "Failed to load: \(error.localizedDescription)")
+        String(format: String(localized: "Failed to load: %@"), error.localizedDescription)
       ]
     }
   }
@@ -183,7 +183,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       validate()
     } catch {
       validationErrors = [
-        String(localized: "Failed to read file: \(error.localizedDescription)")
+        String(format: String(localized: "Failed to read file: %@"), error.localizedDescription)
       ]
     }
   }
@@ -194,7 +194,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// since both are file-I/O failures from the user's perspective.
   func surfaceFileImportError(_ error: any Error) {
     validationErrors = [
-      String(localized: "Failed to read file: \(error.localizedDescription)")
+      String(format: String(localized: "Failed to read file: %@"), error.localizedDescription)
     ]
   }
 
@@ -335,7 +335,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       return true
     } catch {
       validationErrors = [
-        String(localized: "Save failed: \(error.localizedDescription)")
+        String(format: String(localized: "Save failed: %@"), error.localizedDescription)
       ]
       return false
     }
@@ -351,16 +351,18 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
     guard let existing else { return true }
     if existing.isPreset {
       validationErrors = [
-        String(localized: "Cannot overwrite preset scenario '\(existing.name)'")
+        String(
+          format: String(localized: "Cannot overwrite preset scenario '%@'"), existing.name)
       ]
       return false
     }
     if existing.sourceType == ScenarioSourceType.gallery {
       validationErrors = [
         String(
-          localized:
-            "Cannot overwrite gallery scenario '\(existing.name)'. Use Shared Scenarios to update, or delete the local copy first."
-        )
+          format: String(
+            localized:
+              "Cannot overwrite gallery scenario '%@'. Use Shared Scenarios to update, or delete the local copy first."
+          ), existing.name)
       ]
       return false
     }
@@ -393,9 +395,10 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       if !trimmed.isEmpty, AssignTarget(rawValue: trimmed) == nil {
         errors.append(
           String(
-            localized:
-              "Phase \(idx + 1) (assign): unknown target '\(trimmed)'. Use 'all' or 'random_one'."
-          )
+            format: String(
+              localized:
+                "Phase %lld (assign): unknown target '%@'. Use 'all' or 'random_one'."
+            ), idx + 1, trimmed)
         )
       }
     }

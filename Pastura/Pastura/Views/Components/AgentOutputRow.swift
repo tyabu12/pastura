@@ -392,7 +392,7 @@ struct AgentOutputRow: View {
     // `thinkingTag.textCase(.uppercase)` is a no-op on the triangle
     // glyphs `▸` / `▾` (Unicode uppercase = identity for arrows), so
     // the accent color is preserved by the per-segment foregroundStyle.
-    (Text(showInnerThought ? "▾ " : "▸ ")
+    (Text(verbatim: showInnerThought ? "▾ " : "▸ ")
       .foregroundStyle(Color.moss)
       + Text(String(localized: "INNER VOICE"))
       .foregroundStyle(Color.muted))

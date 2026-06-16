@@ -143,7 +143,9 @@ final class ScenarioContentValidator {
 
     if !nameIsClean {
       findings.append(
-        String(localized: "Persona \(position) name contains a term that is not allowed")
+        String(
+          format: String(localized: "Persona %lld name contains a term that is not allowed"),
+          position)
       )
     }
     if containsBlockedPattern(persona.description) {
@@ -154,15 +156,16 @@ final class ScenarioContentValidator {
       if nameIsClean {
         findings.append(
           String(
-            localized:
-              "Persona '\(persona.name)' description contains a term that is not allowed"
-          )
+            format: String(
+              localized: "Persona '%@' description contains a term that is not allowed"),
+            persona.name)
         )
       } else {
         findings.append(
           String(
-            localized: "Persona \(position) description contains a term that is not allowed"
-          )
+            format: String(
+              localized: "Persona %lld description contains a term that is not allowed"),
+            position)
         )
       }
     }
@@ -174,17 +177,23 @@ final class ScenarioContentValidator {
 
     if let prompt = phase.prompt, containsBlockedPattern(prompt) {
       findings.append(
-        String(localized: "Phase \(position) prompt contains a term that is not allowed")
+        String(
+          format: String(localized: "Phase %@ prompt contains a term that is not allowed"),
+          position)
       )
     }
     if let template = phase.template, containsBlockedPattern(template) {
       findings.append(
-        String(localized: "Phase \(position) template contains a term that is not allowed")
+        String(
+          format: String(localized: "Phase %@ template contains a term that is not allowed"),
+          position)
       )
     }
     if let condition = phase.condition, containsBlockedPattern(condition) {
       findings.append(
-        String(localized: "Phase \(position) condition contains a term that is not allowed")
+        String(
+          format: String(localized: "Phase %@ condition contains a term that is not allowed"),
+          position)
       )
     }
 

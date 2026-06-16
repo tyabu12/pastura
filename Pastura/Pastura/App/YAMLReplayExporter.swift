@@ -30,7 +30,7 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
       )
     case .ioFailed(let description):
       return String(
-        localized: "Failed to write replay file: \(description)")
+        format: String(localized: "Failed to write replay file: %@"), description)
     }
   }
 }

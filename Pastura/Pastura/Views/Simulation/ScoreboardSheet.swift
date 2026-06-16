@@ -12,7 +12,7 @@ struct ScoreboardSheet: View {
       List {
         ForEach(sortedAgents, id: \.name) { entry in
           HStack {
-            Text("\(entry.rank).")
+            Text(verbatim: "\(entry.rank).")
               .textStyle(Typography.metaValue)
               .foregroundStyle(Color.muted)
               .monospacedDigit()

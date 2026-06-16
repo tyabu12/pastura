@@ -99,7 +99,8 @@ final class HomeViewModel {
           displayedRows: presets + userScenarios)
       }
     } catch {
-      errorMessage = String(localized: "Failed to load scenarios: \(error.localizedDescription)")
+      errorMessage = String(
+        format: String(localized: "Failed to load scenarios: %@"), error.localizedDescription)
     }
 
     isLoading = false
@@ -199,7 +200,8 @@ final class HomeViewModel {
       }
       userScenarios.removeAll { $0.id == id }
     } catch {
-      errorMessage = String(localized: "Failed to delete scenario: \(error.localizedDescription)")
+      errorMessage = String(
+        format: String(localized: "Failed to delete scenario: %@"), error.localizedDescription)
     }
   }
 
