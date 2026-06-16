@@ -50,6 +50,40 @@ import Testing
     #expect(turns.count == 2)
   }
 
+  @Test func maxSequenceNumberReturnsNilWhenNoTurns() throws {
+    let turnRepo = try makeTurnRepo()
+    #expect(try turnRepo.maxSequenceNumber(simulationId: "sim1") == nil)
+  }
+
+  @Test func maxSequenceNumberReturnsHighestAcrossRows() throws {
+    let turnRepo = try makeTurnRepo()
+    try turnRepo.save(
+      TurnRecord(
+        id: "t1", simulationId: "sim1", roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "r", parsedOutputJSON: "{}",
+        sequenceNumber: 3, createdAt: Date()))
+    try turnRepo.save(
+      TurnRecord(
+        id: "t2", simulationId: "sim1", roundNumber: 2, phaseType: "speak_all",
+        agentName: "Bob", rawOutput: "r", parsedOutputJSON: "{}",
+        sequenceNumber: 7, createdAt: Date()))
+
+    #expect(try turnRepo.maxSequenceNumber(simulationId: "sim1") == 7)
+  }
+
+  @Test func deleteRoundNumberGreaterThanDropsLaterRoundsKeepsThroughK() throws {
+    let turnRepo = try makeTurnRepo()
+    try turnRepo.save(makeTurn(id: "r1", roundNumber: 1))
+    try turnRepo.save(makeTurn(id: "r2", roundNumber: 2))
+    try turnRepo.save(makeTurn(id: "r3", roundNumber: 3))
+
+    // Discard the partial interrupted round (anything past round 2 = K).
+    try turnRepo.deleteBySimulationId("sim1", roundNumberGreaterThan: 2)
+
+    let remaining = try turnRepo.fetchBySimulationId("sim1").map(\.roundNumber).sorted()
+    #expect(remaining == [1, 2])
+  }
+
   @Test func fetchBySimulationIdReturnsOrderedBySequenceNumber() throws {
     let turnRepo = try makeTurnRepo()
     // sequenceNumber order intentionally differs from createdAt order
