@@ -77,12 +77,12 @@ struct RootTabView: View {
       }
 
       TabNavigationStack(router: coordinator.historyRouter) {
-        // History tab root (ADR-016 D4): empty scenarioId selects the
+        // History tab root (ADR-016 D4): `.aggregate` selects the
         // cross-variant aggregation of all past results. `Route.results`
-        // survives only as the per-scenario detail push (non-empty
-        // scenarioId) from ScenarioDetailView; ``ResultsView`` drops its
-        // back chrome for this empty-id root variant.
-        ResultsView(scenarioId: "")
+        // survives only as the per-scenario detail push (`.scenario`)
+        // from ScenarioDetailView; ``ResultsView`` drops its back chrome
+        // for this aggregate root variant.
+        ResultsView(scope: .aggregate)
       }
       .tag(AppTab.history)
       .tabItem {
