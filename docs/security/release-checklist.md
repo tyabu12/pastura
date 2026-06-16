@@ -148,7 +148,7 @@ Pastura's only outbound network is the model download. Cross-check:
 * `App/ModelRegistry.swift` URLs are HTTPS and point to known publishers
   (Hugging Face, Kaggle).
 * `Info.plist` does not declare any `NSAppTransportSecurity` overrides.
-* The privacy policy at `pages/legal/privacy-policy/` accurately reflects
+* The privacy policy at `web/src/pages/legal/privacy-policy.astro` accurately reflects
   the model-download host list.
 
 ### 2.5 Account deletion
