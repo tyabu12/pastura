@@ -54,7 +54,7 @@ nonisolated enum ReportURLBuilder {
   ///
   /// The same underlying form co-tenants as the §1.5 general-contact
   /// surface reached from the App Store Connect Support URL landing
-  /// page (`pages/support/index.html`, #182). That path links the bare
+  /// page (`web/src/pages/support.astro`, #182). That path links the bare
   /// form URL with no pre-fill, and the Scenario ID field is
   /// configured as optional so general-feedback submissions can leave
   /// it blank. This builder always pre-fills both fields — the
