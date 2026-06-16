@@ -94,6 +94,21 @@ Cancellation uses standard Swift `Task` cancellation.
 
 Use `ScenarioLoader.estimateInferenceCount()` to calculate before execution.
 
+#### Parse vs validate boundary
+
+`ScenarioLoader.load(yaml:)` does **not** run these limit/semantic checks —
+it only does structural mapping + construct-time invariants (accepted-language,
+persona/agent-count, depth-1 conditional). The `ScenarioValidator` gate runs
+separately, so any **new** YAML-ingest path must call it before use:
+
+- Persist a newly-authored/ingested scenario → `validateForCommit(_:)`
+  (adds the canonical-primary-field check on top of `validate`).
+- Run a scenario → `validate(_:)` (already enforced at the run-gate).
+- Re-parse already-persisted YAML (replay/export/display) → no validation;
+  the gate ran upstream at create-time. This is why `load` stays un-validating.
+
+See `ScenarioValidator` for the gate; #665 for the boundary rationale.
+
 ### Inference Count Estimation
 
 ```
