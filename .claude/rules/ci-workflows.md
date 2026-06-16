@@ -86,7 +86,7 @@ To skip an expensive job on irrelevant changes (e.g. the heavy macOS jobs on a w
 - **Job-level `if:` skip → reports "Success" → satisfies a required check.** Safe.
 - **Workflow/trigger-level skip** (`on.<event>.paths` / `paths-ignore`, or the whole workflow not firing) → the check stays **"Pending"** → a required-check ruleset blocks the merge forever. This is the footgun; do NOT path-filter at the `on:` trigger for any workflow that owns a required check.
 
-So gate at the **job** level: a cheap detection job classifies the diff and emits an output; each expensive job carries `needs: <classifier>` + `if: needs.<classifier>.outputs.<flag> == 'true'`. When skipped, the required check is still satisfied. (Confirmed by GitHub docs "Troubleshooting required status checks"; impl in `.github/workflows/ci.yml` `changes` job, #642.)
+So gate at the **job** level: a cheap detection job classifies the diff and emits an output; each expensive job carries `needs: <classifier>` + an `if:` that runs unless the classifier explicitly cleared it (exact conservative form in invariant 1 below). When skipped, the required check is still satisfied. (Confirmed by GitHub docs "Troubleshooting required status checks"; impl in `.github/workflows/ci.yml` `changes` job, #642.)
 
 Load-bearing invariants when adding/changing such gating:
 
