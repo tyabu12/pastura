@@ -697,7 +697,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // any cancellation before this point happens before enter(), so
     // leave() stays matched.
     simulationActivityRegistry?.enter()
-    // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
+    // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.).
+    // KEEP IN SYNC with resume()'s defer (hand-duplicated matched-pair anchor).
     defer {
       lifecycleLogger.info(
         "run() defer: isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled), errorMessage=\(self.errorMessage ?? "nil")"
@@ -899,6 +900,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     lifecycleLogger.info(
       "resume() entered: simId=\(simId, privacy: .public), startRound=\(startRound)")
     simulationActivityRegistry?.enter()
+    // Hand-duplicated from run()'s cleanup defer (matched-pair anchor — see
+    // prepareRunInfrastructure's doc). KEEP IN SYNC with run()'s defer: any
+    // change to one (teardown order, completeTask, registry leave) must mirror.
     defer {
       lifecycleLogger.info(
         "resume() defer: isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled), errorMessage=\(self.errorMessage ?? "nil")"

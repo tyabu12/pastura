@@ -98,10 +98,14 @@ private func seedCodeEvent(
       createdAt: Date(timeIntervalSince1970: TimeInterval(seq))))
 }
 
+// Upper bound is generous (30s) because CI runs with code coverage are ~20×
+// slower and the teardown→finalizeRun→async status-write chain can lag; the
+// poll returns immediately on the happy path, so this only widens the
+// failure-wait, not normal runtime (see `.claude/rules` CI-wallclock guidance).
 @MainActor
 private func pollResumeStatus(
   _ repo: GRDBSimulationRepository, _ simId: String,
-  timeout: Duration = .seconds(2),
+  timeout: Duration = .seconds(30),
   until predicate: @escaping (SimulationRecord) -> Bool
 ) async throws -> SimulationRecord? {
   let deadline = ContinuousClock.now.advanced(by: timeout)
