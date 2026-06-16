@@ -108,70 +108,11 @@ struct HomeView: View {
   private func scenarioList(viewModel: HomeViewModel) -> some View {
     List {
       // The paused "resume" card sits above the scenario list (d3), shown
-      // only when a paused run exists (d3-without otherwise). PasturaCard
-      // draws its own surface, so the row clears the List background and
-      // matches the horizontal margin / spacing used by `pasturaCardRow()`.
+      // only when a paused run exists (d3-without otherwise).
       if let paused = viewModel.pausedSummary {
-        Section {
-          pausedCard(paused)
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .listRowInsets(
-              EdgeInsets(
-                top: PasturaCardMetrics.interCardSpacing / 2,
-                leading: PasturaCardMetrics.horizontalMargin,
-                bottom: PasturaCardMetrics.interCardSpacing / 2,
-                trailing: PasturaCardMetrics.horizontalMargin))
-        } header: {
-          Text(String(localized: "Interrupted Scenario"))
-            .textCase(nil)
-        }
+        pausedSection(paused)
       }
-      Section {
-        if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
-          ContentUnavailableView(
-            String(localized: "No Scenarios"),
-            systemImage: "doc.text",
-            description: Text(String(localized: "Tap + to import a YAML scenario"))
-          )
-        } else {
-          // One visual list (d3): user scenarios first (deletable), then the
-          // bundled presets. `.onDelete` attaches to the user `ForEach` only,
-          // so presets stay non-deletable exactly as before the merge.
-          ForEach(viewModel.userScenarios, id: \.id) { scenario in
-            scenarioRow(
-              scenario,
-              metadata: viewModel.rowMetadata[scenario.id],
-              hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
-            )
-            .pasturaCardRow()
-            .accessibilityAction(named: Text(String(localized: "Delete"))) {
-              // VoiceOver-reachable equivalent of the swipe-delete: swipe
-              // actions aren't reliably surfaced to VoiceOver, so name the
-              // action explicitly. Opens the same confirmation alert.
-              pendingDeletion = PendingScenarioDeletion(
-                ids: [scenario.id], name: scenario.name)
-            }
-          }
-          .onDelete { offsets in
-            // Confirm before deleting — destructive and not obviously
-            // recoverable from the user's point of view. Past results survive
-            // (orphaned), but the scenario itself is gone. A swipe deletes a
-            // single user row, so naming the first scenario in the copy is
-            // accurate.
-            let scenarios = offsets.map { viewModel.userScenarios[$0] }
-            pendingDeletion = PendingScenarioDeletion(
-              ids: scenarios.map(\.id),
-              name: scenarios.first?.name ?? "")
-          }
-          ForEach(viewModel.presets, id: \.id) { scenario in
-            scenarioRow(scenario, metadata: viewModel.rowMetadata[scenario.id])
-              .pasturaCardRow()
-          }
-        }
-      } header: {
-        scenariosSectionHeader()
-      }
+      scenariosSection(viewModel: viewModel)
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
@@ -248,152 +189,73 @@ struct HomeView: View {
     }
   }
 
-  private func scenarioRow(
-    _ scenario: ScenarioRecord,
-    metadata: ScenarioRowMetadata?,
-    hasGalleryUpdate: Bool = false
-  ) -> some View {
-    // initialName supplies the scenario name to navigationTitle from
-    // the first frame of the push, before ScenarioDetailViewModel
-    // finishes loading. Identity-neutral via RouteHint (ADR-008).
-    NavigationLink(
-      value: Route.scenarioDetail(
-        scenarioId: scenario.id,
-        initialName: .init(scenario.name)
-      )
-    ) {
-      scenarioRowLabel(scenario, metadata: metadata, hasGalleryUpdate: hasGalleryUpdate)
+  /// The paused "resume" card section (``HomePausedCard``). PasturaCard draws
+  /// its own surface, so the row clears the List background and matches the
+  /// horizontal margin / spacing used by `pasturaCardRow()`.
+  @ViewBuilder
+  private func pausedSection(_ summary: PausedScenarioSummary) -> some View {
+    Section {
+      HomePausedCard(summary: summary)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(
+          EdgeInsets(
+            top: PasturaCardMetrics.interCardSpacing / 2,
+            leading: PasturaCardMetrics.horizontalMargin,
+            bottom: PasturaCardMetrics.interCardSpacing / 2,
+            trailing: PasturaCardMetrics.horizontalMargin))
+    } header: {
+      Text(String(localized: "Interrupted Scenario"))
+        .textCase(nil)
     }
-    .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
   }
 
-  private func scenarioRowLabel(
-    _ scenario: ScenarioRecord,
-    metadata: ScenarioRowMetadata?,
-    hasGalleryUpdate: Bool
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 5) {
-      HStack(spacing: 6) {
-        Text(scenario.name)
-          .font(.headline)
-          .foregroundStyle(Color.ink)
-        // Preset badge moves inline next to the name (d3) rather than its
-        // own caption row below.
-        if scenario.isPreset {
-          Text(String(localized: "Preset"))
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(.secondary.opacity(0.15), in: Capsule())
-        }
-        if hasGalleryUpdate {
-          Text(String(localized: "Update"))
-            .font(.caption2.bold())
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.accentColor.opacity(0.2), in: Capsule())
-            .foregroundStyle(Color.accentColor)
-        }
-      }
-      if HomeScenarioRowFormat.showsMetaLine(
-        agentCount: metadata?.agentCount, rounds: metadata?.rounds) {
-        scenarioMetaLine(agentCount: metadata?.agentCount, rounds: metadata?.rounds)
-      }
-      if let description = metadata?.description, !description.isEmpty {
-        Text(description)
-          .font(.subheadline)
-          .foregroundStyle(Color.inkSecondary)
-          .lineLimit(
-            HomeScenarioRowFormat.descriptionLineLimit(
-              isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
+  /// The unified scenario list section — user scenarios first (deletable),
+  /// then bundled presets (d3). `.onDelete` attaches to the user `ForEach`
+  /// only, so presets stay non-deletable; the empty state shows when both
+  /// lists are empty.
+  @ViewBuilder
+  private func scenariosSection(viewModel: HomeViewModel) -> some View {
+    Section {
+      if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
+        ContentUnavailableView(
+          String(localized: "No Scenarios"),
+          systemImage: "doc.text",
+          description: Text(String(localized: "Tap + to import a YAML scenario"))
+        )
+      } else {
+        ForEach(viewModel.userScenarios, id: \.id) { scenario in
+          HomeScenarioRow(
+            scenario: scenario,
+            metadata: viewModel.rowMetadata[scenario.id],
+            hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
           )
-          .truncationMode(.tail)
-      }
-    }
-    .padding(.vertical, 4)
-  }
-
-  /// Shared meta line — one sheep avatar per agent (clamped via
-  /// ``HomeScenarioRowFormat/maxRowSheep``) followed by the round count. Used
-  /// by both the scenario row and the paused-card. The sheep are decorative
-  /// (``SheepAvatar`` is `.accessibilityHidden`); the true agent count is
-  /// surfaced to VoiceOver through the group's `%lld agents` label so the
-  /// visual clamp never hides it.
-  @ViewBuilder
-  private func scenarioMetaLine(agentCount: Int?, rounds: Int?) -> some View {
-    let sheepCount = HomeScenarioRowFormat.rowSheepCount(agentCount: agentCount)
-    HStack(spacing: 7) {
-      if sheepCount > 0 {
-        HStack(spacing: 2) {
-          ForEach(0..<sheepCount, id: \.self) { index in
-            SheepAvatar(character: .forAgent("", position: index), size: SheepAvatar.rowSize)
+          .pasturaCardRow()
+          .accessibilityAction(named: Text(String(localized: "Delete"))) {
+            // VoiceOver-reachable equivalent of the swipe-delete: swipe
+            // actions aren't reliably surfaced to VoiceOver, so name it
+            // explicitly. Opens the same confirmation alert.
+            pendingDeletion = PendingScenarioDeletion(
+              ids: [scenario.id], name: scenario.name)
           }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-          String(format: String(localized: "%lld agents"), agentCount ?? 0))
-      }
-      if let roundsLabel = HomeScenarioRowFormat.roundsLabel(rounds: rounds) {
-        if sheepCount > 0 {
-          Text(verbatim: "·")
-            .font(.caption2)
-            .foregroundStyle(Color.muted)
+        .onDelete { offsets in
+          // Confirm before deleting — destructive and not obviously
+          // recoverable. Past results survive (orphaned), but the scenario
+          // itself is gone. A swipe deletes a single user row, so naming the
+          // first scenario in the copy is accurate.
+          let scenarios = offsets.map { viewModel.userScenarios[$0] }
+          pendingDeletion = PendingScenarioDeletion(
+            ids: scenarios.map(\.id),
+            name: scenarios.first?.name ?? "")
         }
-        Text(roundsLabel)
-          .font(.caption)
-          .foregroundStyle(Color.muted)
-      }
-    }
-  }
-
-  /// The "resume" card for the most-recent paused run (ADR-016 P2). Mirrors
-  /// the d3 layout — name / sheep · rounds / description / progress + Resume.
-  /// **Display-only in P2**: the Resume button is `.disabled(true)` because
-  /// the run rehydration it needs lands in P3. A nil ``rounds`` hides the
-  /// progress line (orphaned / name-only metadata).
-  @ViewBuilder
-  private func pausedCard(_ summary: PausedScenarioSummary) -> some View {
-    PasturaCard {
-      VStack(alignment: .leading, spacing: 11) {
-        Text(summary.name)
-          .font(.headline)
-          .foregroundStyle(Color.ink)
-        if HomeScenarioRowFormat.showsMetaLine(
-          agentCount: summary.agentCount, rounds: summary.rounds) {
-          scenarioMetaLine(agentCount: summary.agentCount, rounds: summary.rounds)
-        }
-        if let description = summary.description, !description.isEmpty {
-          Text(description)
-            .font(.subheadline)
-            .foregroundStyle(Color.inkSecondary)
-            .lineLimit(
-              HomeScenarioRowFormat.descriptionLineLimit(
-                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
-            )
-            .truncationMode(.tail)
-        }
-        Divider().overlay(Color.rule)
-        HStack {
-          if let progress = HomeScenarioRowFormat.pausedProgressLabel(
-            currentRound: summary.currentRound, totalRounds: summary.rounds) {
-            Text(progress)
-              .font(.subheadline.weight(.semibold))
-              .foregroundStyle(Color.inkSecondary)
-          }
-          Spacer()
-          // P2 ships the card display-only; resume rehydration (DB → live
-          // run) is P3, so the action is disabled rather than wired to a
-          // half-built path (ADR-016 §4).
-          Button {
-          } label: {
-            Label(String(localized: "Resume"), systemImage: "play.fill")
-          }
-          .buttonStyle(.borderedProminent)
-          .disabled(true)
+        ForEach(viewModel.presets, id: \.id) { scenario in
+          HomeScenarioRow(scenario: scenario, metadata: viewModel.rowMetadata[scenario.id])
+            .pasturaCardRow()
         }
       }
-      .padding(16)
+    } header: {
+      scenariosSectionHeader()
     }
   }
 
