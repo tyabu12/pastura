@@ -57,9 +57,11 @@ jobs:
               --jq '.[].filename') || FILES=""
           else
             BEFORE="${{ github.event.before }}"
-            # `before` is all-zeros on branch creation / first push → the range
-            # is unresolvable, so force the full suite (conservative).
-            if printf '%s' "$BEFORE" | grep -qE '^0+$'; then
+            # `before` is all-zeros (or empty) on branch creation / first push →
+            # the range is unresolvable, so force the full suite (conservative).
+            # `-z` is explicit because an empty `$BEFORE` produces no line for
+            # grep to match, so the regex alone would miss it.
+            if [ -z "$BEFORE" ] || printf '%s' "$BEFORE" | grep -qE '^0+$'; then
               FILES=""
             else
               FILES=$(gh api --paginate \
@@ -82,7 +84,15 @@ jobs:
           # *.swift / .swiftlint.yml path is also non-SAFE, and non-Swift build
           # inputs (project.pbxproj, Localizable.xcstrings) must still run
           # lint-and-test. See scripts/precommit-gate-classify.sh.
-          TOKENS=$(printf '%s\n' "$FILES" | bash scripts/precommit-gate-classify.sh)
+          # `if !` keeps a classifier crash from aborting the step under
+          # `set -e` (a failing `TOKENS=$(...)` would otherwise fail the whole
+          # `changes` job → macOS jobs skip-on-failed-dep = a false skip on a
+          # real iOS change). Default to the full suite instead.
+          if ! TOKENS=$(printf '%s\n' "$FILES" | bash scripts/precommit-gate-classify.sh); then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "Classifier failed → defaulting to the full iOS suite."
+            exit 0
+          fi
           echo "Changed paths classified as: '${TOKENS:-<none>}'"
           if printf '%s\n' "$TOKENS" | grep -qw build; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
