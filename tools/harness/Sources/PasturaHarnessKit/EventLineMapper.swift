@@ -96,6 +96,10 @@ package enum EventLineMapper {
       return EventLine(
         t: t, attempt: attempt, event: "language_mismatch", agent: agent,
         detected: detected, expected: expected)
+    case .roundCheckpoint:
+      // Internal resume-persistence snapshot (full SimulationState) — not part
+      // of the transcript surface, so it produces no line.
+      return nil
     case .roundStarted, .roundCompleted, .phaseStarted, .phaseCompleted,
       .agentOutput, .agentOutputStream, .scoreUpdate, .elimination,
       .assignment, .summary, .voteResults, .pairingResult,

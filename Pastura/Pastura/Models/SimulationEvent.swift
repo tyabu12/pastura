@@ -114,6 +114,15 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// The simulation has completed all rounds successfully.
   case simulationCompleted
 
+  /// A resumable snapshot of the full simulation state, emitted at each
+  /// round boundary (after the round completes). The carried
+  /// `state.currentRound` is the last *completed* round — the App layer
+  /// persists this so a paused run can resume from `currentRound + 1`
+  /// (round-boundary continuation; partial progress within the next,
+  /// interrupted round is discarded and re-run). Emitted only by
+  /// `SimulationRunner`; handlers must not emit this event directly.
+  case roundCheckpoint(state: SimulationState)
+
   /// The simulation has been paused at the given position.
   ///
   /// See `phaseStarted` for `phasePath` semantics. Emitted only by

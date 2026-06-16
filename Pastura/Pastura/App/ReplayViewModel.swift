@@ -746,8 +746,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       return
 
     case .roundCompleted, .phaseCompleted, .simulationCompleted,
-      .simulationPaused, .conditionalEvaluated, .agentOutputStream,
-      .inferenceStarted, .inferenceCompleted, .error,
+      .roundCheckpoint, .simulationPaused, .conditionalEvaluated,
+      .agentOutputStream, .inferenceStarted, .inferenceCompleted, .error,
       .languageMismatch:
       // Never emitted by `YAMLReplaySource.plannedEvents()` (see the
       // sync-risk note in the header). A `.error` in particular would
