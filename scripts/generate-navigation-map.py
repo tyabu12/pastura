@@ -5,7 +5,7 @@ Two artifacts, two sources of truth, so the committed map never drifts:
 
 - **Mermaid screen graph** — derived from the ``Route`` enum +
   ``NavigationLink`` / ``router.push`` / ``pushIfOnTop`` callsites (the
-  root-stack push-edge graph).
+  per-tab-stack push-edge graph).
 - **Screenshot-tour table** — derived from ``ScreenshotTourTests.swift`` by
   parsing its ``capture(app, name:, anchorId:)`` calls in order. The test is
   the single source for what the tour actually captures, including
@@ -48,9 +48,9 @@ Tour table details:
   node (Settings) still appears, and a Route node with no capture
   (``simulation``) correctly does not.
 
-Sheets / fullScreenCover are intentionally absent: ``AppRouter`` manages the
-root NavigationStack only (``.claude/rules/navigation.md``); sheet-owned
-flows are out of scope for this map.
+Sheets / fullScreenCover are intentionally absent: each ``AppRouter``
+manages its tab's NavigationStack only (``.claude/rules/navigation.md``);
+sheet-owned flows are out of scope for this map.
 
 Modes:
   (default)     rewrite docs/design/navigation-map.md
@@ -274,14 +274,14 @@ def emit_markdown(
     nodes = list(SYNTHETIC_ROOTS) + route_cases
 
     lines = [HEADER]
-    lines.append("# Navigation Map — root NavigationStack\n")
+    lines.append("# Navigation Map — per-tab NavigationStacks\n")
     lines.append(
-        "Screen graph of the root stack, generated from `Route` enum cases and\n"
-        "`NavigationLink` / `router.push` / `pushIfOnTop` callsites. Sheets and\n"
-        "fullScreenCover flows are out of scope (`AppRouter` manages the root\n"
-        "stack only — see `.claude/rules/navigation.md`). `home` (`HomeView`)\n"
-        "and `sharedScenarios` (`SharedScenariosListView`, the Browse tab root)\n"
-        "are tab-stack roots, not `Route` cases.\n"
+        "Screen graph of the four per-tab stacks, generated from `Route` enum\n"
+        "cases and `NavigationLink` / `router.push` / `pushIfOnTop` callsites.\n"
+        "Sheets and fullScreenCover flows are out of scope (each `AppRouter`\n"
+        "manages its tab's stack only — see `.claude/rules/navigation.md`).\n"
+        "`home` (`HomeView`) and `sharedScenarios` (`SharedScenariosListView`,\n"
+        "the Browse tab root) are tab-stack roots, not `Route` cases.\n"
     )
     lines.append("```mermaid")
     lines.append("flowchart TD")
@@ -308,7 +308,7 @@ def emit_markdown(
         "`docs/design/screenshots/` (gitignored — regenerate to view;\n"
         "`docs/design/screenshots/README.md`). Anchors are the per-screen wait\n"
         "identifiers; *Reached via* is the launch root, a tab switch, or a\n"
-        "root-stack push.\n"
+        "tab-stack push.\n"
     )
     lines.append("| # | Screenshot | Tour anchor | Reached via |")
     lines.append("|---|------------|-------------|-------------|")
