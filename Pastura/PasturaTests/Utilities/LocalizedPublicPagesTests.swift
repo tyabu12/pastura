@@ -53,6 +53,28 @@ struct LocalizedPublicPagesTests {
     #expect(url?.absoluteString == "https://pastura.app/support/")
   }
 
+  // MARK: - Scenario guide
+
+  @Test func jaLocaleResolvesToJapaneseScenarioGuide() {
+    let url = LocalizedPublicPages.scenarioGuide(preferredLocalizations: ["ja"])
+    #expect(url?.absoluteString == "https://pastura.app/ja/docs/scenario/")
+  }
+
+  @Test func enLocaleResolvesToEnglishScenarioGuide() {
+    let url = LocalizedPublicPages.scenarioGuide(preferredLocalizations: ["en"])
+    #expect(url?.absoluteString == "https://pastura.app/docs/scenario/")
+  }
+
+  @Test func unsupportedLocaleFallsBackToEnglishScenarioGuide() {
+    let url = LocalizedPublicPages.scenarioGuide(preferredLocalizations: ["es"])
+    #expect(url?.absoluteString == "https://pastura.app/docs/scenario/")
+  }
+
+  @Test func emptyPreferredLocalizationsFallsBackToEnglishScenarioGuide() {
+    let url = LocalizedPublicPages.scenarioGuide(preferredLocalizations: [])
+    #expect(url?.absoluteString == "https://pastura.app/docs/scenario/")
+  }
+
   // MARK: - Supported devices anchor
 
   @Test func jaLocaleResolvesToJapaneseSupportedDevicesAnchor() {
