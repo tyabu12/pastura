@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Two concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, and long-lived integration-branch gating shape.
+Three concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, and required-check-safe path gating.
 
 ## Shell scripting gotchas (macOS GHA runners)
 
@@ -78,6 +78,23 @@ Critic prompts asking "is this `if:` correct?" tend to anchor on whichever direc
 3. **Verify by opening a dummy PR.** First exercise of `if:` blocks should be a draft PR, not the GO merge, so misconfiguration is cheap to spot.
 
 Workflow trigger layering produces zero-cost gaps — broken `if:` on a job that never fires looks identical to "correctly skipped". Both layers must be reasoned about explicitly.
+
+## Required-check-safe path gating
+
+To skip an expensive job on irrelevant changes (e.g. the heavy macOS jobs on a web/docs-only PR), the **skip mechanism** decides whether the PR can still merge. `main` requires its status checks via a **ruleset**, and the two skip mechanisms diverge:
+
+- **Job-level `if:` skip → reports "Success" → satisfies a required check.** Safe.
+- **Workflow/trigger-level skip** (`on.<event>.paths` / `paths-ignore`, or the whole workflow not firing) → the check stays **"Pending"** → a required-check ruleset blocks the merge forever. This is the footgun; do NOT path-filter at the `on:` trigger for any workflow that owns a required check.
+
+So gate at the **job** level: a cheap detection job classifies the diff and emits an output; each expensive job carries `needs: <classifier>` + an `if:` that runs unless the classifier explicitly cleared it (exact conservative form in invariant 1 below). When skipped, the required check is still satisfied. (Confirmed by GitHub docs "Troubleshooting required status checks"; impl in `.github/workflows/ci.yml` `changes` job, #642.)
+
+Load-bearing invariants when adding/changing such gating:
+
+1. **Conservative by inversion.** Default to running the full suite on any ambiguity — empty / unresolvable / API-errored file list ⇒ run. A *false skip* (a broken build merged because the gate wrongly skipped) is the worst case. Reuse `scripts/precommit-gate-classify.sh` so CI and the pre-commit hook classify identically (#625); note it emits `""` (not a token) on empty input, so the fail-safe lives in the job's bash, not the script. Extend the same posture to the *gated* jobs: write the gate as `if: ${{ !cancelled() && needs.<classifier>.outputs.<flag> != 'false' }}` (run UNLESS explicitly classified out), not `== 'true'`. `!cancelled()` drops the implicit needs-success gate, so a *failed* classifier job (empty output) runs the suite instead of failed-dependency-skipping the required check — a `== 'true'` gate would false-skip there.
+2. **Gate PRs only; `main`/push runs unconditionally.** The classifier short-circuits every non-`pull_request` event to `ios=true`, so a merge to `main` always runs the full suite — stability on the integration branch outweighs the marginal saving, and it sidesteps any push-event diffing edge cases. The optimization spares redundant *PR* runs, not `main`.
+3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
+4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
+5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
 
 ## Related
 
