@@ -908,9 +908,10 @@ private struct CellularConsentDialogModifier: ViewModifier {
       } message: { descriptor in
         Text(
           String(
-            localized:
-              "Downloading \(ModelSettingsRow.formattedFileSize(descriptor.fileSize)) on cellular may use significant data. Wi-Fi is recommended."
-          ))
+            format: String(
+              localized:
+                "Downloading %@ on cellular may use significant data. Wi-Fi is recommended."
+            ), ModelSettingsRow.formattedFileSize(descriptor.fileSize)))
       }
   }
 }

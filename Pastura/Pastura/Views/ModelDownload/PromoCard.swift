@@ -150,7 +150,7 @@ struct PromoCard: View {
           }
         }
 
-        Text("\(pct)%")
+        Text(verbatim: "\(pct)%")
           .textStyle(Typography.metaValue)
           .foregroundStyle(Color.metaBaseL3)
 

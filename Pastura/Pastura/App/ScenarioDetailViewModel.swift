@@ -78,7 +78,7 @@ final class ScenarioDetailViewModel {
       }
     } catch {
       errorMessage = String(
-        localized: "Failed to load scenario: \(error.localizedDescription)"
+        format: String(localized: "Failed to load scenario: %@"), error.localizedDescription
       )
     }
 
@@ -153,7 +153,8 @@ final class ScenarioDetailViewModel {
       }
       return true
     } catch {
-      errorMessage = String(localized: "Failed to delete: \(error.localizedDescription)")
+      errorMessage = String(
+        format: String(localized: "Failed to delete: %@"), error.localizedDescription)
       return false
     }
   }

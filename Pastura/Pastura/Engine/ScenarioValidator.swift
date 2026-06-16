@@ -135,8 +135,8 @@ nonisolated struct ScenarioValidator: Sendable {
     if schema[canonical] == nil {
       throw SimulationError.scenarioValidationFailed(
         String(
-          localized:
-            "\(label) (\(phase.type.rawValue)) requires field '\(canonical)' in output."
+          format: String(localized: "%@ (%@) requires field '%@' in output."),
+          label, phase.type.rawValue, canonical
         )
       )
     }

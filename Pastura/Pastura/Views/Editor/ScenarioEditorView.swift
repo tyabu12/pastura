@@ -226,7 +226,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       HStack {
         Text(String(localized: "Rounds"))
         Spacer()
-        Text("\(viewModel.rounds)")
+        Text(verbatim: "\(viewModel.rounds)")
           .monospacedDigit()
           .foregroundStyle(.secondary)
       }

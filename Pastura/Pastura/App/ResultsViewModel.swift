@@ -93,7 +93,8 @@ final class ResultsViewModel {
         groups = try await loadDetailPerVariant(scenarioId: scenarioId)
       }
     } catch {
-      errorMessage = String(localized: "Failed to load results: \(error.localizedDescription)")
+      errorMessage = String(
+        format: String(localized: "Failed to load results: %@"), error.localizedDescription)
     }
 
     if showLoading { isLoading = false }
@@ -234,7 +235,8 @@ final class ResultsViewModel {
         try turnRepository.fetchBySimulationId(simulationId)
       }
     } catch {
-      errorMessage = String(localized: "Failed to load turns: \(error.localizedDescription)")
+      errorMessage = String(
+        format: String(localized: "Failed to load turns: %@"), error.localizedDescription)
       return []
     }
   }
