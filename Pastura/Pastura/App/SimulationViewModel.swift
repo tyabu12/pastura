@@ -49,6 +49,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private(set) var isRunning = false
   private(set) var isCompleted = false
   private(set) var isCancelled = false
+  /// `true` once `pauseSimulation` has persisted a `.paused` status for the
+  /// current run. Gates the `run()` terminal ladder so a run torn down while
+  /// explicitly paused (e.g. user navigated away) keeps its resumable
+  /// `.paused` row instead of being overwritten with `.completed`/`.failed`.
+  /// Cleared on a fresh `run()`, on `resumeSimulation`, and on
+  /// `cancelSimulation`. Invariant: `didPersistPaused` is only ever observed
+  /// `true` at run exit when the runner was still parked at a pause boundary —
+  /// a resumed run clears it before it can complete.
+  private var didPersistPaused = false
   // Internal `var` (not `private(set)`) because the BG continuation extension
   // in a separate file writes errorMessage from its switchToCPU/GPU error
   // catches. Cross-file extension access can't reach `private(set)`.
@@ -530,6 +539,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       runner.isPaused = true
     }
     suspendController?.requestSuspend()
+    // Persist `.paused` so the run survives navigating away and surfaces on
+    // the Home "paused" card. The full state snapshot is already persisted by
+    // the round-boundary checkpoint consumer; this only flips the status
+    // column. `didPersistPaused` guards the `run()` terminal ladder.
+    didPersistPaused = true
+    Task { await persistStatus(.paused) }
   }
 
   /// Resumes a paused simulation. Symmetric counterpart to
@@ -541,6 +556,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       runner.isPaused = false
     }
     suspendController?.resume()
+    // Restore `.running` and clear the survival flag so a subsequent normal
+    // completion writes `.completed` rather than leaving a stale `.paused`.
+    if didPersistPaused {
+      didPersistPaused = false
+      Task { await persistStatus(.running) }
+    }
   }
 
   func cancelSimulation(caller: String = #function) {
@@ -549,6 +570,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     )
     runTask?.cancel()
     isCancelled = true
+    // User-initiated cancel supersedes a prior pause: clear the survival flag
+    // so the terminal ladder writes `.cancelled` (its `isCancelled` branch
+    // already precedes `didPersistPaused`, but keep the state coherent).
+    didPersistPaused = false
     // Cancellation supersedes pause. Two consumers depend on `isPaused`
     // being cleared here:
     //  1. `GameHeader`'s status pill (#297 PR 3) — defense-in-depth.
@@ -579,6 +604,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     isRunning = true
     isCompleted = false
     isCancelled = false
+    didPersistPaused = false
     errorMessage = nil
     logEntries = []
     // Latent: a second `run()` on the same VM instance would otherwise inherit
@@ -659,7 +685,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // catalog-miss trap (interpolation runs before lookup), so dropping the
       // prefix simultaneously fixes the stack-and-leak class of bug.
       errorMessage = error.localizedDescription
-      await finalizeSimulationStatus(.failed)
+      await persistStatus(.failed)
       return
     }
 
@@ -691,18 +717,29 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // Cleanup
     try? await llm.unloadModel()
 
-    // Pick the terminal status: cancellation intent trumps normal end, but an
-    // error (event-pipeline or persistence) beats both — a broken run is objectively
-    // failed even if the user also pressed cancel.
-    let terminal: SimulationStatus
-    if errorMessage != nil {
-      terminal = .failed
+    // Pick the terminal status.
+    //
+    // `didPersistPaused` is checked FIRST and wins over `errorMessage`: a run
+    // that exits while still explicitly paused was torn down (navigate-away) —
+    // its `.paused` row written by pauseSimulation is the resume point, so skip
+    // the terminal write. Any `errorMessage` present in that case is the
+    // teardown's own cancellation artifact, NOT a genuine failure: a paused run
+    // is parked (no inference can fail), and a real error would have ended the
+    // run before a pause was even possible (error → loop exits → isRunning =
+    // false → pauseSimulation no-ops). User-cancel clears `didPersistPaused`,
+    // so it never collides with this branch.
+    //
+    // For non-paused exits the original precedence holds: a real error beats a
+    // normal end, and explicit user-cancel beats a normal end.
+    if didPersistPaused {
+      lifecycleLogger.info("run() exited while paused; leaving .paused for resume")
+    } else if errorMessage != nil {
+      await persistStatus(.failed)
     } else if isCancelled {
-      terminal = .cancelled
+      await persistStatus(.cancelled)
     } else {
-      terminal = .completed
+      await persistStatus(.completed)
     }
-    await finalizeSimulationStatus(terminal)
   }
 
   // MARK: - Event Handling
@@ -774,7 +811,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
           languageMismatchCount)
         logEntries.append(LogEntry(kind: .summary(text: text)))
       }
+    case .roundCheckpoint(let state):
+      persistCheckpoint(state)
     case .error(let simError):
+      // A `.cancelled` arriving while the run is explicitly paused is the
+      // teardown signal (the user navigated away from a paused run), not a
+      // failure. Suppress it so `errorMessage` stays nil and the run() terminal
+      // ladder leaves the persisted `.paused` row intact (resumable) instead of
+      // overwriting it with `.failed`. Real errors (any non-.cancelled) still
+      // surface even while paused.
+      if didPersistPaused, simError == .cancelled { break }
       // Use `localizedDescription` (LocalizedError-conforming) for both
       // the alert text and the log entry — `"\(simError)"` would render
       // the enum case repr (e.g. "retriesExhausted"), which is debug
@@ -1347,9 +1393,43 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     return try? JSONDecoder().decode(SimulationState.self, from: data)
   }
 
-  /// Persist the terminal status decided by the caller. `.paused` is NOT passed
-  /// here — it is reserved for the pause/resume flow in `runner.isPaused`.
-  private func finalizeSimulationStatus(_ status: SimulationStatus) async {
+  /// Persists a round-boundary checkpoint (full `SimulationState` + the
+  /// just-completed `currentRound`) so a paused run can resume from the next
+  /// round. `currentPhaseIndex` is always `0`: round-boundary continuation
+  /// re-enters at the top of the next round, so the phase index is not a resume
+  /// marker here and PR1b's resume derives `startRound = currentRound + 1`.
+  /// Encodes synchronously on the MainActor (capturing the value) then writes
+  /// off-main; the status and state columns are orthogonal, so this never races
+  /// the `.paused` status write.
+  private func persistCheckpoint(_ state: SimulationState) {
+    guard let simId = simulationId else { return }
+    let json: String
+    do {
+      json = String(data: try JSONEncoder().encode(state), encoding: .utf8) ?? "{}"
+    } catch {
+      lifecycleLogger.error(
+        "Failed to encode checkpoint: \(String(describing: error), privacy: .public)")
+      return
+    }
+    let round = state.currentRound
+    Task { [simulationRepository] in
+      do {
+        try await offMain {
+          try simulationRepository.updateState(
+            simId, stateJSON: json, currentRound: round, currentPhaseIndex: 0)
+        }
+      } catch {
+        self.lifecycleLogger.error(
+          "Failed to persist checkpoint: \(String(describing: error), privacy: .public)")
+      }
+    }
+  }
+
+  /// Persists the given status to the simulation's DB row. Used both for
+  /// terminal statuses (`.completed` / `.failed` / `.cancelled`) and for the
+  /// resumable `.paused` / `.running` transitions driven by
+  /// `pauseSimulation` / `resumeSimulation`.
+  private func persistStatus(_ status: SimulationStatus) async {
     guard let simId = simulationId else { return }
     do {
       try await offMain { [simulationRepository] in
