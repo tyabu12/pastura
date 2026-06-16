@@ -300,6 +300,22 @@
         }
       }
     },
+    "%@ is another conditional, which is not allowed (depth-1 rule)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is another conditional, which is not allowed (depth-1 rule)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は別の conditional であり、許可されていません（depth-1 ルール）。"
+          }
+        }
+      }
+    },
     "%@ is thinking..." : {
       "localizations" : {
         "ja" : {
@@ -436,6 +452,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: %2$lld"
+          }
+        }
+      }
+    },
+    "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: 'source' がありません。event_inject には、イベント文字列の一覧を持つトップレベル YAML フィールドを指す 'source' キーが必要です。"
+          }
+        }
+      }
+    },
+    "%@: missing or empty 'if' expression." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: missing or empty 'if' expression."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: 'if' 式がないか空です。"
+          }
+        }
+      }
+    },
+    "%@: must have at least one sub-phase in 'then' or 'else'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: must have at least one sub-phase in 'then' or 'else'."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: 'then' または 'else' に少なくとも1つのサブフェーズが必要です。"
+          }
+        }
+      }
+    },
+    "%@: nested 'conditional' inside another conditional is not allowed (depth-1 rule)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: nested 'conditional' inside another conditional is not allowed (depth-1 rule)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: conditional の中に conditional をネストすることは許可されていません（depth-1 ルール）。"
+          }
+        }
+      }
+    },
+    "%@: probability %@ is out of range. Must be between 0.0 and 1.0 inclusive." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: probability %2$@ is out of range. Must be between 0.0 and 1.0 inclusive."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: probability %2$@ が範囲外です。0.0 以上 1.0 以下である必要があります。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' contains grouped values (e.g., majority/minority pairs). Use target: random_one to distribute these. Use target: all only for a flat list of strings or a single string." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' contains grouped values (e.g., majority/minority pairs). Use target: random_one to distribute these. Use target: all only for a flat list of strings or a single string."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' にはグループ化された値（例: 多数派/少数派のペア）が含まれています。これらを配分するには target: random_one を使用してください。target: all は文字列のフラットなリストまたは単一の文字列にのみ使用してください。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' is empty. event_inject requires at least one string in the list; for a single fixed event use ['only_event']." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' is empty. event_inject requires at least one string in the list; for a single fixed event use ['only_event']."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' が空です。event_inject にはリストに少なくとも1つの文字列が必要です。単一の固定イベントには ['only_event'] を使用してください。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' must be a list of grouped values (e.g., majority/minority pairs) when target is random_one." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' must be a list of grouped values (e.g., majority/minority pairs) when target is random_one."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: target が random_one の場合、source '%2$@' はグループ化された値（例: 多数派/少数派のペア）のリストである必要があります。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' must be a list of strings. v1 of event_inject only supports the [String] shape; for a single fixed event use ['only_event']." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' must be a list of strings. v1 of event_inject only supports the [String] shape; for a single fixed event use ['only_event']."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' は文字列のリストである必要があります。event_inject の v1 は [String] 形式のみをサポートします。単一の固定イベントには ['only_event'] を使用してください。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' not found in scenario data. Add a top-level '%@' field to the scenario YAML." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' not found in scenario data. Add a top-level '%3$@' field to the scenario YAML."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' がシナリオデータに見つかりません。シナリオ YAML にトップレベルの '%3$@' フィールドを追加してください。"
           }
         }
       }
@@ -998,6 +1174,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "エージェント"
+          }
+        }
+      }
+    },
+    "Agent count (%lld) exceeds maximum of 10" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent count (%lld) exceeds maximum of 10"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェント数 (%lld) が最大値の10を超えています"
+          }
+        }
+      }
+    },
+    "Agent count (%lld) is below minimum of 2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent count (%lld) is below minimum of 2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェント数 (%lld) が最小値の2を下回っています"
           }
         }
       }
@@ -2104,6 +2312,22 @@
         }
       }
     },
+    "Estimated inferences (%lld) exceeds maximum of 100" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated inferences (%lld) exceeds maximum of 100"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推定推論回数 (%lld) が最大値の100を超えています"
+          }
+        }
+      }
+    },
     "Ethics" : {
       "localizations" : {
         "ja" : {
@@ -2613,6 +2837,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考を隠す"
+          }
+        }
+      }
+    },
+    "High inference count (%lld). Simulation may take several minutes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High inference count (%lld). Simulation may take several minutes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推論回数が多めです (%lld)。シミュレーションに数分かかる場合があります。"
           }
         }
       }
@@ -3491,6 +3731,22 @@
         }
       }
     },
+    "Persona count (%lld) does not match agent count (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persona count (%1$lld) does not match agent count (%2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペルソナ数 (%1$lld) がエージェント数 (%2$lld) と一致しません"
+          }
+        }
+      }
+    },
     "Persona name" : {
       "localizations" : {
         "ja" : {
@@ -3993,6 +4249,22 @@
         }
       }
     },
+    "Round count (%lld) exceeds maximum of 30" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Round count (%lld) exceeds maximum of 30"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド数 (%lld) が最大値の30を超えています"
+          }
+        }
+      }
+    },
     "Rounds" : {
       "localizations" : {
         "ja" : {
@@ -4172,6 +4444,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオが見つかりません"
+          }
+        }
+      }
+    },
+    "Scenario: field 'language' must be one of {%@}, got '%@'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: field 'language' must be one of {%1$@}, got '%2$@'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: フィールド 'language' は {%1$@} のいずれかである必要がありますが、'%2$@' が指定されました"
+          }
+        }
+      }
+    },
+    "Scenario: field 'simulationLanguage' must be one of {%@} or nil, got '%@'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: field 'simulationLanguage' must be one of {%1$@} or nil, got '%2$@'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: フィールド 'simulationLanguage' は {%1$@} のいずれか、または nil である必要がありますが、'%2$@' が指定されました"
           }
         }
       }
