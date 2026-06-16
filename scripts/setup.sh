@@ -29,5 +29,5 @@ cd "$(git rev-parse --show-toplevel)"
 
 git config core.hooksPath scripts/git-hooks
 echo "✓ git hooks activated (core.hooksPath = scripts/git-hooks)"
-echo "  Pre-commit gates: swiftlint, xcodebuild build, blocklist, gallery"
+echo "  Pre-commit gates: swiftlint, xcodebuild build, blocklist, gallery, p8, navigation-map"
 echo "  Bypass (discouraged): \`git commit --no-verify\` — CLAUDE.md prohibits."
