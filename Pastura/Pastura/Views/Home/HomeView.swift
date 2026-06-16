@@ -75,13 +75,6 @@ struct HomeView: View {
         .accessibilityIdentifier("home.brandWordmark")
       }
       .hidingPasturaSharedBackground()
-      ToolbarItem(placement: .primaryAction) {
-        NavigationLink(value: newScenarioRoute()) {
-          Label(String(localized: "New Scenario"), systemImage: "plus")
-        }
-        .accessibilityIdentifier("home.newScenarioButton")
-      }
-      .hidingPasturaSharedBackground()
     }
     .task {
       // Defer assignment until both `loadScenarios()` and
@@ -114,16 +107,44 @@ struct HomeView: View {
   @ViewBuilder
   private func scenarioList(viewModel: HomeViewModel) -> some View {
     List {
-      if !viewModel.presets.isEmpty {
-        Section(String(localized: "Presets")) {
+      Section {
+        if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
+          ContentUnavailableView(
+            String(localized: "No Scenarios"),
+            systemImage: "doc.text",
+            description: Text(String(localized: "Tap + to import a YAML scenario"))
+          )
+        } else {
+          // One visual list (d3): user scenarios first (deletable), then the
+          // bundled presets. `.onDelete` attaches to the user `ForEach` only,
+          // so presets stay non-deletable exactly as before the merge.
+          ForEach(viewModel.userScenarios, id: \.id) { scenario in
+            scenarioRow(
+              scenario,
+              metadata: viewModel.rowMetadata[scenario.id],
+              hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
+            )
+            .pasturaCardRow()
+          }
+          .onDelete { offsets in
+            // Confirm before deleting — destructive and not obviously
+            // recoverable from the user's point of view. Past results survive
+            // (orphaned), but the scenario itself is gone. A swipe deletes a
+            // single user row, so naming the first scenario in the copy is
+            // accurate.
+            let scenarios = offsets.map { viewModel.userScenarios[$0] }
+            pendingDeletion = PendingScenarioDeletion(
+              ids: scenarios.map(\.id),
+              name: scenarios.first?.name ?? "")
+          }
           ForEach(viewModel.presets, id: \.id) { scenario in
             scenarioRow(scenario, metadata: viewModel.rowMetadata[scenario.id])
               .pasturaCardRow()
           }
         }
+      } header: {
+        scenariosSectionHeader()
       }
-
-      userScenariosSection(viewModel: viewModel)
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
@@ -153,36 +174,25 @@ struct HomeView: View {
     }
   }
 
-  @ViewBuilder
-  private func userScenariosSection(viewModel: HomeViewModel) -> some View {
-    Section(String(localized: "My Scenarios")) {
-      if viewModel.userScenarios.isEmpty {
-        ContentUnavailableView(
-          String(localized: "No Scenarios"),
-          systemImage: "doc.text",
-          description: Text(String(localized: "Tap + to import a YAML scenario"))
-        )
-      } else {
-        ForEach(viewModel.userScenarios, id: \.id) { scenario in
-          scenarioRow(
-            scenario,
-            metadata: viewModel.rowMetadata[scenario.id],
-            hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
-          )
-          .pasturaCardRow()
-        }
-        .onDelete { offsets in
-          // Confirm before deleting — destructive and not obviously
-          // recoverable from the user's point of view. Past results survive
-          // (orphaned), but the scenario itself is gone.
-          // My Scenarios has no EditButton/multi-select, so a swipe deletes a
-          // single row — naming the first scenario in the copy is accurate.
-          let scenarios = offsets.map { viewModel.userScenarios[$0] }
-          pendingDeletion = PendingScenarioDeletion(
-            ids: scenarios.map(\.id),
-            name: scenarios.first?.name ?? "")
-        }
+  /// Header for the unified scenario list — the "Scenarios" label plus the
+  /// trailing "+" that opens the editor. The "+" moved here from the nav
+  /// toolbar (d3 layout); its `home.newScenarioButton` identifier is
+  /// preserved so EditorReloadTests / ScreenshotTourTests still find it.
+  private func scenariosSectionHeader() -> some View {
+    HStack {
+      // textCase(nil) keeps the soft "Scenarios" label (d3) instead of the
+      // grouped-list default all-caps.
+      Text(String(localized: "Scenarios"))
+        .textCase(nil)
+      Spacer()
+      NavigationLink(value: newScenarioRoute()) {
+        Image(systemName: "plus")
+          .font(.title3)
+          .foregroundStyle(Color.ink)
+          .accessibilityHidden(true)
       }
+      .accessibilityIdentifier("home.newScenarioButton")
+      .accessibilityLabel(String(localized: "New Scenario"))
     }
   }
 

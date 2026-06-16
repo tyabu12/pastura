@@ -3027,6 +3027,7 @@
       }
     },
     "My Scenarios" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3611,6 +3612,7 @@
       }
     },
     "Presets" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4138,6 +4140,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオが見つかりません"
+          }
+        }
+      }
+    },
+    "Scenarios" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenarios"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオ一覧"
           }
         }
       }
