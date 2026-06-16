@@ -145,6 +145,13 @@ struct HomeView: View {
               hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
             )
             .pasturaCardRow()
+            .accessibilityAction(named: Text(String(localized: "Delete"))) {
+              // VoiceOver-reachable equivalent of the swipe-delete: swipe
+              // actions aren't reliably surfaced to VoiceOver, so name the
+              // action explicitly. Opens the same confirmation alert.
+              pendingDeletion = PendingScenarioDeletion(
+                ids: [scenario.id], name: scenario.name)
+            }
           }
           .onDelete { offsets in
             // Confirm before deleting — destructive and not obviously
@@ -168,7 +175,11 @@ struct HomeView: View {
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
-    .confirmationDialog(
+    // `.alert`, not `.confirmationDialog`: on iOS 26 confirmationDialog
+    // renders as a mis-anchored popover on iPhone (reference: iOS 26
+    // confirmationDialog popover anchor). `.alert` supplies no implicit
+    // Cancel, so `deleteConfirmationActions` carries an explicit one.
+    .alert(
       String(localized: "Delete Scenario?"),
       isPresented: Binding(
         get: { pendingDeletion != nil },
