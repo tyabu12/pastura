@@ -52,6 +52,20 @@ enum Route: Hashable {
   /// aggregate id (ADR-010 D4 / #392, ADR-016 D4, #633).
   case results(scenarioId: String)
 
+  /// Resume a previously-paused simulation run from the Home "interrupted run"
+  /// card (ADR-016 P3, #667).
+  ///
+  /// Identity is the paused run's id (`simulationId`) — distinct from
+  /// `.simulation`, whose identity is a `scenarioId`. `initialName` mirrors the
+  /// other cases: a render-time hint (the run's scenario name) for the nav
+  /// title from the first frame, identity-neutral via `RouteHint<String>`
+  /// (ADR-008). `TabCoordinator.isSimulationOnTop` treats this case like
+  /// `.simulation` — a resumed run is equally in-flight.
+  case resumeSimulation(
+    simulationId: String,
+    initialName: RouteHint<String> = .init()
+  )
+
   /// Detail view for a specific past simulation run.
   case resultDetail(simulationId: String)
 
