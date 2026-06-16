@@ -157,14 +157,14 @@ struct ResumeLogReplayMapperTests {
 
     // Expected: roundSeparator, Alice(seq1), score(seq2), Bob(seq3).
     #expect(entries.count == 4)
-    guard case .agentOutput(let a0, _, _) = entries[1].kind,
+    guard case .agentOutput(let firstAgent, _, _) = entries[1].kind,
       case .scoreUpdate = entries[2].kind,
-      case .agentOutput(let a3, _, _) = entries[3].kind
+      case .agentOutput(let lastAgent, _, _) = entries[3].kind
     else {
       Issue.record("ordering not preserved")
       return
     }
-    #expect(a0 == "Alice")
-    #expect(a3 == "Bob")
+    #expect(firstAgent == "Alice")
+    #expect(lastAgent == "Bob")
   }
 }
