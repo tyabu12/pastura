@@ -75,3 +75,34 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
 tool_use when the soft budget is exceeded. Defense in depth: subagent
 budget exhaustion is silent (intermediate text returned, final report
 missing), so the duplication with §2 is intentional.
+
+## 5. Official `/code-review` vs the custom agents
+
+The official `/code-review` skill does **not** replace `code-reviewer`
+or `critic` — the three occupy non-overlapping slots. (For the
+`code-reviewer`-vs-`critic` split itself, see §3's `critic`
+non-recommendation note; this section covers only the official-skill
+axis.)
+
+| Tool | Reviews | Runs as | Convention source |
+|------|---------|---------|-------------------|
+| `/code-review` (official) | working-tree diff: bugs + reuse/simplify cleanups | **foreground, manual** (effort dial up to `ultra` = cloud, billed; `--comment` / `--fix`) | `CLAUDE.md` only |
+| `code-reviewer` | feature-branch diff vs conventions | **subagent gate** — `/orchestrate` Step 4, `/queue-consumer` "No unreviewed PR" | `CLAUDE.md` **+** `.claude/rules/` traps |
+| `critic` | plans / ADRs / design — **not a diff** | subagent — `/orchestrate` Step 1b | — |
+
+**Load-bearing: do NOT slim `code-reviewer`'s general-quality /
+Swift-6-concurrency / secrets sections to "defer to `/code-review`".**
+`code-reviewer` is the *sole* review gate on the unattended path
+(`/queue-consumer` overnight); `/code-review` is a foreground
+interactive skill never wired into a subagent slot, so on that path
+nothing else runs. The official skill also leaves two gaps by design
+(per its plugin definition): it reads `CLAUDE.md` only — never
+`.claude/rules/`, so the trap cheat sheet is invisible to it — and its
+false-positive rule discards generic code-quality / security /
+test-coverage findings unless `CLAUDE.md` demands them. So Dependency
+Rules (in `CLAUDE.md`) may surface via either gate, but `.claude/rules/`
+traps and generic secrets/coverage surface only through `code-reviewer`.
+
+Reach for `/code-review` (e.g. `/code-review high`) as a **complement** —
+deeper generic bug-hunting or `--fix` auto-apply *on top of* the
+convention gate — never as a substitute.
