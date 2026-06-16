@@ -24,6 +24,14 @@ jobs:
   # skipped via `if:` reports "Success" and SATISFIES a required check (even
   # under a ruleset); only a workflow/trigger-level skip leaves the check
   # "Pending" and blocks merge. See .claude/rules/ci-workflows.md.
+  #
+  # The gated jobs use `if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}`
+  # — run UNLESS explicitly classified non-iOS. `!cancelled()` is a status
+  # function, so it drops the implicit needs-success gate: if THIS job fails
+  # (infra / a future bad edit) its `ios` output is empty, `'' != 'false'` is
+  # true, and the macOS jobs run the full suite rather than false-skipping a
+  # required check. A genuine non-iOS change still classifies `ios=false` and
+  # skips (= Success). Cancellation supersedes the run, so `!cancelled()` skips.
   changes:
     name: Classify changeset
     runs-on: ubuntu-latest
@@ -102,7 +110,7 @@ jobs:
 
   lint-and-test:
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     timeout-minutes: 15
     outputs:
@@ -235,7 +243,7 @@ jobs:
 
   ui-test:
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     # UI tests are 5-6x slower on CI simulators (no GPU acceleration). Locally
     # the suite runs in ~2 min; on CI it takes ~12 min. The 25 min budget
@@ -341,7 +349,7 @@ jobs:
   release-build:
     name: Release build (iphoneos) + ADR-005 §8 guard
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     timeout-minutes: 15
     env:
@@ -430,7 +438,7 @@ jobs:
   harness-build:
     name: Harness package build + tests (ADR-013)
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     timeout-minutes: 15
     env:
