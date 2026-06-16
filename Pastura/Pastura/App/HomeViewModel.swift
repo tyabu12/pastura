@@ -129,8 +129,8 @@ final class HomeViewModel {
         // Paused runs feed the "resume" card (ADR-016 P2, display-only —
         // rehydration is P3). Same garnish-not-critical posture as counts:
         // a failed read swallows to [] and the card simply hides, never
-        // blanking the list. fetchByStatus returns newest-first, so the
-        // most-recent paused run is `.first`.
+        // blanking the list. `makePausedSummary` re-ranks by `updatedAt`
+        // (most recently interrupted), not the fetch's `createdAt` order.
         let pausedRuns =
           (try? await offMain { [simulationRepository] in
             try simulationRepository.fetchByStatus(.paused)
@@ -149,10 +149,13 @@ final class HomeViewModel {
     isLoading = false
   }
 
-  /// Builds the "resume" card model from `pausedRuns` (newest-first, as
-  /// `fetchByStatus` returns them): picks the most-recent paused run and
-  /// resolves its display name + metadata. Returns nil when nothing is
-  /// paused or the name can't be resolved (card hidden).
+  /// Builds the "resume" card model from `pausedRuns`: picks the most
+  /// recently *interrupted* run — the one with the latest `updatedAt`, since
+  /// a pause is the run's last write — and resolves its display name +
+  /// metadata. `fetchByStatus` orders by `createdAt`, so the pick re-ranks
+  /// by `updatedAt` rather than taking `.first` (a run created earlier but
+  /// paused more recently should win). Returns nil when nothing is paused or
+  /// the name can't be resolved (card hidden).
   ///
   /// Name resolution prefers the live scenario (`scenariosById`), falling
   /// back to the run's `scenarioNameSnapshot` for orphaned runs whose
@@ -165,7 +168,7 @@ final class HomeViewModel {
     scenariosById: [String: ScenarioRecord],
     rowMetadata: [String: ScenarioRowMetadata]
   ) -> PausedScenarioSummary? {
-    guard let run = pausedRuns.first else { return nil }
+    guard let run = pausedRuns.max(by: { $0.updatedAt < $1.updatedAt }) else { return nil }
     let metadata = run.scenarioId.flatMap { rowMetadata[$0] }
     let liveName = run.scenarioId.flatMap { scenariosById[$0]?.name }
     guard let name = liveName ?? run.scenarioNameSnapshot, !name.isEmpty else {

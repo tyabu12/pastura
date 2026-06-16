@@ -14,6 +14,7 @@ struct HomePausedSummaryTests {
     id: String,
     scenarioId: String?,
     currentRound: Int = 1,
+    updatedAt: TimeInterval = 1_700_000_300,
     nameSnapshot: String? = nil
   ) -> SimulationRecord {
     SimulationRecord(
@@ -22,7 +23,7 @@ struct HomePausedSummaryTests {
       currentRound: currentRound, currentPhaseIndex: 0,
       stateJSON: "{}", configJSON: nil,
       createdAt: Date(timeIntervalSince1970: 1_700_000_000),
-      updatedAt: Date(timeIntervalSince1970: 1_700_000_300),
+      updatedAt: Date(timeIntervalSince1970: updatedAt),
       scenarioNameSnapshot: nameSnapshot)
   }
 
@@ -38,11 +39,12 @@ struct HomePausedSummaryTests {
       HomeViewModel.makePausedSummary(pausedRuns: [], scenariosById: [:], rowMetadata: [:]) == nil)
   }
 
-  @Test func picksMostRecentRunAndResolvesMetadata() {
-    // fetchByStatus returns newest-first, so the first run is the most recent.
+  @Test func picksMostRecentlyInterruptedAndResolvesMetadata() {
+    // Selection re-ranks by updatedAt (most recently paused), NOT the fetch's
+    // createdAt order — r1 here is later-updated despite r2 listed first.
     let runs = [
-      pausedRun(id: "r1", scenarioId: "s1", currentRound: 3),
-      pausedRun(id: "r2", scenarioId: "s2", currentRound: 9)
+      pausedRun(id: "r1", scenarioId: "s1", currentRound: 3, updatedAt: 1_700_009_000),
+      pausedRun(id: "r2", scenarioId: "s2", currentRound: 9, updatedAt: 1_700_000_300)
     ]
     let summary = HomeViewModel.makePausedSummary(
       pausedRuns: runs,
