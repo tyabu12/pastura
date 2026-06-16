@@ -40,12 +40,38 @@ struct HomeView: View {
       }
     }
     .background(Color.screenBackground.ignoresSafeArea())
+    // `.navigationTitle("Pastura")` is kept deliberately even though the
+    // visible center is replaced by the `.principal` brand lockup below.
+    // The nav bar's accessibility identity (`navigationBars["Pastura"]`,
+    // asserted by NavigationRegression / EditorReload / BackGesture UI
+    // tests) derives from the title string, and design-system § 5.11's
+    // tab-root inline-title convention is satisfied by it. A `.principal`
+    // item replaces the title *visual* without clearing the underlying
+    // `UINavigationItem.title`, so both stay true at once.
     .navigationTitle("Pastura")
-    // Tab roots use an inline title for quiet chrome (design-system § 5.11);
-    // the tab-root rule overrides the 固有名→large axis even though
-    // "Pastura" is a brand name.
     .navigationBarTitleDisplayMode(.inline)
+    // Hide the bar's backing material so the brand lockup reads against the
+    // cream screen background (d3 design). This removes the bar material but
+    // NOT the iOS 26 per-item Liquid Glass capsule — that needs the separate
+    // `.hidingPasturaSharedBackground()` on each ToolbarItem below.
+    .toolbarBackground(.hidden, for: .navigationBar)
     .toolbar {
+      ToolbarItem(placement: .principal) {
+        HStack(spacing: 9) {
+          Image("BrandIcon")
+            .resizable()
+            .frame(width: 27, height: 27)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+          // verbatim: "Pastura" is a brand name, never localized — keeps it
+          // out of Localizable.xcstrings and past the i18n SwiftLint tripwire.
+          Text(verbatim: "Pastura")
+            .font(.system(size: 19, weight: .bold))
+            .foregroundStyle(Color.ink)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.brandWordmark")
+      }
+      .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
         NavigationLink(value: newScenarioRoute()) {
           Label(String(localized: "New Scenario"), systemImage: "plus")
