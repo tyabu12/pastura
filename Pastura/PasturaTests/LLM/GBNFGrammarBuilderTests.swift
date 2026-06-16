@@ -191,11 +191,10 @@ struct GBNFGrammarBuilderTests {
   @Test("invalid field name throws")
   func invalidFieldNameThrows() {
     // Field names are emitted as JSON-key literals (`"\"name\""`) in the
-    // grammar. Pastura input requires a leading letter followed by
-    // letter / digit / `_`. Leading `_` / `-` stay rejected as a
-    // conservative hygiene rule (originally also guarded the now-removed
-    // `<name>-value` rule identifier — ADR-002 §12.8, historical).
-    // Leading digit / literal `.` / spaces fail in any case.
+    // grammar. Pastura input requires a leading ASCII letter followed by
+    // ASCII letter / digit / `_` (`ScenarioConventions.isValidFieldName`).
+    // Leading `_` / `-` stay rejected as a conservative hygiene rule;
+    // leading digit / literal `.` / spaces fail in any case.
     let badNames = [
       "1badName", "with space", "dash-only", "dot.name",
       "_leading", "-leading",
@@ -215,20 +214,34 @@ struct GBNFGrammarBuilderTests {
     }
   }
 
-  @Test("valid field names accepted (ASCII snake_case + Unicode letters)")
+  @Test("regression #607: CJK / non-ASCII field NAMES are rejected at the builder")
+  func nonAsciiFieldNamesRejected() {
+    // #607: a CJK / multi-byte field NAME would emit as a JSON-key literal
+    // (`"\"内なる思考\""`) and crash llama.cpp's sampler at accept-time
+    // on-device — the same "empty grammar stack" mechanism that forced CJK
+    // choose OPTION values out of the grammar in #599. The builder is the
+    // unconditional crash backstop (some paths bypass `ScenarioValidator`),
+    // so non-ASCII keys MUST throw here even though string VALUES stay
+    // UTF-8-transparent (see `stringProductionAcceptsUTF8`).
+    let hostileNames = ["内なる思考", "思考", "naïve", "café", "emoji😀key"]
+    for name in hostileNames {
+      let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
+      #expect(
+        throws: GBNFGrammarBuilder.BuilderError.self,
+        "\(name) should be rejected"
+      ) {
+        try builder.build(from: schema)
+      }
+    }
+  }
+
+  @Test("valid ASCII-identifier field names accepted")
   func validFieldNamesAccepted() throws {
-    // `validateFieldName` is Unicode-aware via `Character.isLetter`:
-    // ASCII snake_case (`_` only in body, never leading) AND non-ASCII
-    // letters like Japanese both pass at the builder level. This test
-    // locks in builder-level Unicode acceptance so a future contributor
-    // tightening to ASCII-only must break it explicitly. (Non-ASCII
-    // field NAMES become JSON-key literals; a CJK-key on-device crash is
-    // the same mechanism as the removed CJK-option crash and is tracked
-    // as a separate follow-up — out of scope for #599, which covers
-    // choose OPTION values.)
-    let okNames = [
-      "statement", "inner_thought", "action", "a1b2", "内なる思考"
-    ]
+    // `validateFieldName` delegates to `ScenarioConventions.isValidFieldName`:
+    // ASCII snake_case (`_` only in body, never leading) plus trailing digits.
+    // Non-ASCII letters are NOT accepted — see `nonAsciiFieldNamesRejected`
+    // (#607).
+    let okNames = ["statement", "inner_thought", "action", "vote", "reason", "a1b2"]
     for name in okNames {
       let schema = OutputSchema(fields: [.init(name: name, kind: .string)])
       _ = try builder.build(from: schema)

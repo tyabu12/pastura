@@ -95,4 +95,33 @@ struct ScenarioConventionsTests {
     #expect(ScenarioConventions.decoratePrimary("Hello", for: .speakAll) == "Hello")
     #expect(ScenarioConventions.decoratePrimary("cooperate", for: .choose) == "cooperate")
   }
+
+  // MARK: - isValidFieldName (#607)
+
+  /// ASCII snake_case identifiers — the shape every bundled preset uses
+  /// (`statement`, `inner_thought`, `action`, `vote`, `reason`). Underscores in
+  /// the body and trailing digits are allowed.
+  @Test func isValidFieldNameAcceptsAsciiIdentifiers() {
+    let valid = ["statement", "inner_thought", "action", "vote", "reason", "a1b2", "X"]
+    for name in valid {
+      #expect(
+        ScenarioConventions.isValidFieldName(name), "'\(name)' should be valid")
+    }
+  }
+
+  /// Non-ASCII keys (CJK / emoji) are rejected: they would emit as GBNF JSON-key
+  /// literals and crash llama.cpp's sampler at accept-time on-device (#607, same
+  /// mechanism as the #599 CJK choose-option removal). Leading `_` / `-` / digit
+  /// and structural breakers (space, dot, dash, empty) stay rejected too.
+  @Test func isValidFieldNameRejectsNonAsciiAndStructuralBreakers() {
+    let invalid = [
+      "内なる思考", "思考", "naïve", "café", "emoji😀key",  // non-ASCII
+      "1badName", "_leading", "-leading", "with space",  // leading / structural
+      "dot.name", "dash-only", "", "_", "-"
+    ]
+    for name in invalid {
+      #expect(
+        !ScenarioConventions.isValidFieldName(name), "'\(name)' should be rejected")
+    }
+  }
 }

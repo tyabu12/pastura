@@ -154,9 +154,11 @@ nonisolated struct ScenarioValidator: Sendable {
   /// `ScenarioLoader` (compile-time enforced via `AssignTarget`).
   private func validatePhases(_ scenario: Scenario) throws {
     for (index, phase) in scenario.phases.enumerated() {
+      try validateOutputFieldNames(in: phase, label: "Phase \(index + 1)")
       switch phase.type {
       case .assign:
-        try validateAssignPhase(phase, index: index, scenario: scenario)
+        try validateAssignPhaseShape(
+          phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
       case .conditional:
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
       case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
@@ -166,13 +168,6 @@ nonisolated struct ScenarioValidator: Sendable {
           phase, label: "Phase \(index + 1) (event_inject)", scenario: scenario)
       }
     }
-  }
-
-  private func validateAssignPhase(
-    _ phase: Phase, index: Int, scenario: Scenario
-  ) throws {
-    try validateAssignPhaseShape(
-      phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
   }
 
   /// Enforces the conditional-phase invariants that the construction-time
@@ -246,6 +241,7 @@ nonisolated struct ScenarioValidator: Sendable {
   ) throws {
     for (subIndex, subPhase) in phases.enumerated() {
       let subLabel = "\(parentLabel) \(branchLabel)[\(subIndex + 1)]"
+      try validateOutputFieldNames(in: subPhase, label: subLabel)
       if subPhase.type == .conditional {
         throw validationError(
           String(localized: "%@ is another conditional, which is not allowed (depth-1 rule)."),

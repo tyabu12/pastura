@@ -520,6 +520,22 @@
         }
       }
     },
+    "%@: output field name '%@' must be an ASCII identifier (letters, digits, and underscore, not starting with a digit or underscore). Agent text values may be any language." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: output field name '%2$@' must be an ASCII identifier (letters, digits, and underscore, not starting with a digit or underscore). Agent text values may be any language."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: output フィールド名 '%2$@' は ASCII 識別子（英字・数字・アンダースコアのみ。数字またはアンダースコアで始めることはできません）である必要があります。エージェントのテキスト値は任意の言語で構いません。"
+          }
+        }
+      }
+    },
     "%@: probability %@ is out of range. Must be between 0.0 and 1.0 inclusive." : {
       "localizations" : {
         "en" : {
