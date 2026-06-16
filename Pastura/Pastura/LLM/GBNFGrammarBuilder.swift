@@ -32,16 +32,17 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   nonisolated public enum BuilderError: Error, Equatable, Sendable {
     /// Two ``OutputSchema/Field`` entries share the same name.
     case duplicateFieldName(String)
-    /// Field name does not match Pastura's preset-input shape
-    /// (Unicode-aware): first char must be a letter
-    /// (`Character.isLetter` — accepts ASCII + Japanese + other
-    /// scripts), and subsequent chars must be letter / digit / `_`.
-    /// Field names are emitted as JSON-key literals (`"\"name\""`) in
-    /// the grammar; rejecting hostile chars here keeps the literal
-    /// well-formed. Leading `_` / `-` stay rejected as a conservative
-    /// Pastura-hygiene rule — see ADR-002 §12.8 for the original
-    /// rule-identifier rationale (now historical, since per-field
-    /// `<name>-value` rules no longer exist).
+    /// Field name is not a valid ASCII identifier per
+    /// ``ScenarioConventions/isValidFieldName(_:)``: first char must be an
+    /// ASCII letter (`[A-Za-z]`) and subsequent chars ASCII letter / digit /
+    /// `_`. Field names are emitted as JSON-key literals (`"\"name\""`) in
+    /// the grammar; a non-ASCII / multi-byte key reaches llama.cpp's sampler
+    /// as a literal and crashes it at accept-time on-device (the "empty
+    /// grammar stack" SIGABRT class — same mechanism as the #599 CJK
+    /// choose-option removal; #607). Leading `_` / `-` stay rejected as a
+    /// conservative hygiene rule. This builder check is the unconditional
+    /// crash backstop; ``ScenarioValidator`` surfaces the same rule earlier
+    /// as a clear load-time error.
     case invalidFieldName(String)
   }
 
@@ -126,16 +127,15 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
 
   private func validateFieldName(_ name: String) throws {
     // Field names are emitted as JSON-key literals (`"\"name\""`) in the
-    // grammar. Reject names whose chars would break that literal or that
-    // Shared Scenarios YAML could inject. The leading-letter + body
-    // letter/digit/`_` rule is a conservative Pastura-hygiene boundary
-    // (it originally also guarded the now-removed `<name>-value` rule
-    // identifier — see ADR-002 §12.8, historical). A clear `BuilderError`
-    // here beats a llama.cpp `failed to parse grammar` at sampler init.
-    guard let first = name.first, first.isLetter else {
-      throw BuilderError.invalidFieldName(name)
-    }
-    for char in name where !(char.isLetter || char.isNumber || char == "_") {
+    // grammar. A non-ASCII / multi-byte key reaches llama.cpp's sampler as a
+    // literal and crashes it at accept-time on-device (the "empty grammar
+    // stack" SIGABRT class — same mechanism as the #599 CJK choose-option
+    // removal; #607). The ASCII-identifier rule lives on
+    // `ScenarioConventions.isValidFieldName` as the single source of truth
+    // shared with `ScenarioValidator`; this builder check is the
+    // unconditional crash backstop for paths that bypass the validator
+    // (demo replays, direct LLMCaller tests, a future harness).
+    guard ScenarioConventions.isValidFieldName(name) else {
       throw BuilderError.invalidFieldName(name)
     }
   }
