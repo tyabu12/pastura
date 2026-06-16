@@ -467,6 +467,22 @@
         }
       }
     },
+    "%lld rounds" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld rounds"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ラウンド"
+          }
+        }
+      }
+    },
     "%lld steps" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2701,6 +2717,22 @@
         }
       }
     },
+    "Interrupted Scenario" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrupted Scenario"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中断したシナリオ"
+          }
+        }
+      }
+    },
     "Invalid LLM response: %@" : {
       "localizations" : {
         "ja" : {
@@ -3011,6 +3043,7 @@
       }
     },
     "My Scenarios" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3595,6 +3628,7 @@
       }
     },
     "Presets" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3872,6 +3906,22 @@
         }
       }
     },
+    "Resume" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再開"
+          }
+        }
+      }
+    },
     "Resume playback" : {
       "localizations" : {
         "ja" : {
@@ -4122,6 +4172,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオが見つかりません"
+          }
+        }
+      }
+    },
+    "Scenarios" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenarios"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオ一覧"
           }
         }
       }

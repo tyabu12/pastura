@@ -4,6 +4,9 @@ import SwiftUI
 struct HomeView: View {
   @Environment(AppDependencies.self) private var dependencies
   @Environment(AppRouter.self) private var router
+  // Drives the row description's line limit: 1 truncated line at normal
+  // sizes (d3), unlimited wrap at accessibility sizes (HomeScenarioRowFormat).
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @State private var viewModel: HomeViewModel?
   @State private var pendingDeletion: PendingScenarioDeletion?
 
@@ -40,17 +43,36 @@ struct HomeView: View {
       }
     }
     .background(Color.screenBackground.ignoresSafeArea())
+    // `.navigationTitle("Pastura")` is kept deliberately even though the
+    // visible center is replaced by the `.principal` brand lockup below.
+    // The nav bar's accessibility identity (`navigationBars["Pastura"]`,
+    // asserted by NavigationRegression / EditorReload / BackGesture UI
+    // tests) derives from the title string, and design-system § 5.11's
+    // tab-root inline-title convention is satisfied by it. A `.principal`
+    // item replaces the title *visual* without clearing the underlying
+    // `UINavigationItem.title`, so both stay true at once.
     .navigationTitle("Pastura")
-    // Tab roots use an inline title for quiet chrome (design-system § 5.11);
-    // the tab-root rule overrides the 固有名→large axis even though
-    // "Pastura" is a brand name.
     .navigationBarTitleDisplayMode(.inline)
+    // Hide the bar's backing material so the brand lockup reads against the
+    // cream screen background (d3 design). This removes the bar material but
+    // NOT the iOS 26 per-item Liquid Glass capsule — that needs the separate
+    // `.hidingPasturaSharedBackground()` on each ToolbarItem below.
+    .toolbarBackground(.hidden, for: .navigationBar)
     .toolbar {
-      ToolbarItem(placement: .primaryAction) {
-        NavigationLink(value: newScenarioRoute()) {
-          Label(String(localized: "New Scenario"), systemImage: "plus")
+      ToolbarItem(placement: .principal) {
+        HStack(spacing: 9) {
+          Image("BrandIcon")
+            .resizable()
+            .frame(width: 27, height: 27)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+          // verbatim: "Pastura" is a brand name, never localized — keeps it
+          // out of Localizable.xcstrings and past the i18n SwiftLint tripwire.
+          Text(verbatim: "Pastura")
+            .font(.system(size: 19, weight: .bold))
+            .foregroundStyle(Color.ink)
         }
-        .accessibilityIdentifier("home.newScenarioButton")
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.brandWordmark")
       }
       .hidingPasturaSharedBackground()
     }
@@ -85,20 +107,20 @@ struct HomeView: View {
   @ViewBuilder
   private func scenarioList(viewModel: HomeViewModel) -> some View {
     List {
-      if !viewModel.presets.isEmpty {
-        Section(String(localized: "Presets")) {
-          ForEach(viewModel.presets, id: \.id) { scenario in
-            scenarioRow(scenario)
-              .pasturaCardRow()
-          }
-        }
+      // The paused "resume" card sits above the scenario list (d3), shown
+      // only when a paused run exists (d3-without otherwise).
+      if let paused = viewModel.pausedSummary {
+        pausedSection(paused)
       }
-
-      userScenariosSection(viewModel: viewModel)
+      scenariosSection(viewModel: viewModel)
     }
     .listStyle(.insetGrouped)
     .scrollContentBackground(.hidden)
-    .confirmationDialog(
+    // `.alert`, not `.confirmationDialog`: on iOS 26 confirmationDialog
+    // renders as a mis-anchored popover on iPhone (reference: iOS 26
+    // confirmationDialog popover anchor). `.alert` supplies no implicit
+    // Cancel, so `deleteConfirmationActions` carries an explicit one.
+    .alert(
       String(localized: "Delete Scenario?"),
       isPresented: Binding(
         get: { pendingDeletion != nil },
@@ -124,34 +146,25 @@ struct HomeView: View {
     }
   }
 
-  @ViewBuilder
-  private func userScenariosSection(viewModel: HomeViewModel) -> some View {
-    Section(String(localized: "My Scenarios")) {
-      if viewModel.userScenarios.isEmpty {
-        ContentUnavailableView(
-          String(localized: "No Scenarios"),
-          systemImage: "doc.text",
-          description: Text(String(localized: "Tap + to import a YAML scenario"))
-        )
-      } else {
-        ForEach(viewModel.userScenarios, id: \.id) { scenario in
-          scenarioRow(
-            scenario, hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
-          )
-          .pasturaCardRow()
-        }
-        .onDelete { offsets in
-          // Confirm before deleting — destructive and not obviously
-          // recoverable from the user's point of view. Past results survive
-          // (orphaned), but the scenario itself is gone.
-          // My Scenarios has no EditButton/multi-select, so a swipe deletes a
-          // single row — naming the first scenario in the copy is accurate.
-          let scenarios = offsets.map { viewModel.userScenarios[$0] }
-          pendingDeletion = PendingScenarioDeletion(
-            ids: scenarios.map(\.id),
-            name: scenarios.first?.name ?? "")
-        }
+  /// Header for the unified scenario list — the "Scenarios" label plus the
+  /// trailing "+" that opens the editor. The "+" moved here from the nav
+  /// toolbar (d3 layout); its `home.newScenarioButton` identifier is
+  /// preserved so EditorReloadTests / ScreenshotTourTests still find it.
+  private func scenariosSectionHeader() -> some View {
+    HStack {
+      // textCase(nil) keeps the soft "Scenarios" label (d3) instead of the
+      // grouped-list default all-caps.
+      Text(String(localized: "Scenarios"))
+        .textCase(nil)
+      Spacer()
+      NavigationLink(value: newScenarioRoute()) {
+        Image(systemName: "plus")
+          .font(.title3)
+          .foregroundStyle(Color.ink)
+          .accessibilityHidden(true)
       }
+      .accessibilityIdentifier("home.newScenarioButton")
+      .accessibilityLabel(String(localized: "New Scenario"))
     }
   }
 
@@ -176,50 +189,74 @@ struct HomeView: View {
     }
   }
 
-  private func scenarioRow(
-    _ scenario: ScenarioRecord, hasGalleryUpdate: Bool = false
-  ) -> some View {
-    // initialName supplies the scenario name to navigationTitle from
-    // the first frame of the push, before ScenarioDetailViewModel
-    // finishes loading. Identity-neutral via RouteHint (ADR-008).
-    NavigationLink(
-      value: Route.scenarioDetail(
-        scenarioId: scenario.id,
-        initialName: .init(scenario.name)
-      )
-    ) {
-      scenarioRowLabel(scenario, hasGalleryUpdate: hasGalleryUpdate)
+  /// The paused "resume" card section (``HomePausedCard``). PasturaCard draws
+  /// its own surface, so the row clears the List background and matches the
+  /// horizontal margin / spacing used by `pasturaCardRow()`.
+  @ViewBuilder
+  private func pausedSection(_ summary: PausedScenarioSummary) -> some View {
+    Section {
+      HomePausedCard(summary: summary)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(
+          EdgeInsets(
+            top: PasturaCardMetrics.interCardSpacing / 2,
+            leading: PasturaCardMetrics.horizontalMargin,
+            bottom: PasturaCardMetrics.interCardSpacing / 2,
+            trailing: PasturaCardMetrics.horizontalMargin))
+    } header: {
+      Text(String(localized: "Interrupted Scenario"))
+        .textCase(nil)
     }
-    .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
   }
 
-  private func scenarioRowLabel(
-    _ scenario: ScenarioRecord, hasGalleryUpdate: Bool
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 6) {
-        Text(scenario.name)
-          .font(.headline)
-          .foregroundStyle(Color.ink)
-        if hasGalleryUpdate {
-          Text(String(localized: "Update"))
-            .font(.caption2.bold())
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.accentColor.opacity(0.2), in: Capsule())
-            .foregroundStyle(Color.accentColor)
+  /// The unified scenario list section — user scenarios first (deletable),
+  /// then bundled presets (d3). `.onDelete` attaches to the user `ForEach`
+  /// only, so presets stay non-deletable; the empty state shows when both
+  /// lists are empty.
+  @ViewBuilder
+  private func scenariosSection(viewModel: HomeViewModel) -> some View {
+    Section {
+      if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
+        ContentUnavailableView(
+          String(localized: "No Scenarios"),
+          systemImage: "doc.text",
+          description: Text(String(localized: "Tap + to import a YAML scenario"))
+        )
+      } else {
+        ForEach(viewModel.userScenarios, id: \.id) { scenario in
+          HomeScenarioRow(
+            scenario: scenario,
+            metadata: viewModel.rowMetadata[scenario.id],
+            hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
+          )
+          .pasturaCardRow()
+          .accessibilityAction(named: Text(String(localized: "Delete"))) {
+            // VoiceOver-reachable equivalent of the swipe-delete: swipe
+            // actions aren't reliably surfaced to VoiceOver, so name it
+            // explicitly. Opens the same confirmation alert.
+            pendingDeletion = PendingScenarioDeletion(
+              ids: [scenario.id], name: scenario.name)
+          }
+        }
+        .onDelete { offsets in
+          // Confirm before deleting — destructive and not obviously
+          // recoverable. Past results survive (orphaned), but the scenario
+          // itself is gone. A swipe deletes a single user row, so naming the
+          // first scenario in the copy is accurate.
+          let scenarios = offsets.map { viewModel.userScenarios[$0] }
+          pendingDeletion = PendingScenarioDeletion(
+            ids: scenarios.map(\.id),
+            name: scenarios.first?.name ?? "")
+        }
+        ForEach(viewModel.presets, id: \.id) { scenario in
+          HomeScenarioRow(scenario: scenario, metadata: viewModel.rowMetadata[scenario.id])
+            .pasturaCardRow()
         }
       }
-      if scenario.isPreset {
-        Text(String(localized: "Preset"))
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 2)
-          .background(.secondary.opacity(0.15), in: Capsule())
-      }
+    } header: {
+      scenariosSectionHeader()
     }
-    .padding(.vertical, 2)
   }
 
 }
