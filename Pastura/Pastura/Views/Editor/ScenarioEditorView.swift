@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
   @Bindable var viewModel: ScenarioEditorViewModel
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.openURL) private var openURL
 
   @State private var editingPersona: EditablePersona?
   @State private var editingPhase: EditablePhase?
@@ -106,6 +107,22 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
   private var toolbarContent: some ToolbarContent {
     ToolbarItem(placement: .topBarLeading) { PasturaBackButton() }
       .hidingPasturaSharedBackground()
+    // Help link is mode-independent (visual + YAML) and declared before the
+    // conditional import affordances so it keeps a stable leftmost position
+    // in the trailing cluster as those appear/disappear with mode.
+    ToolbarItem(placement: .topBarTrailing) {
+      Button {
+        // LocalizedPublicPages routes ja → /ja/docs/scenario/ (ADR-010 D6);
+        // openURL hands off to the system browser — no in-app web view (#638).
+        guard let url = LocalizedPublicPages.scenarioGuide() else { return }
+        openURL(url)
+      } label: {
+        Image(systemName: "questionmark.circle")
+      }
+      .accessibilityLabel(String(localized: "Learn more"))
+      .accessibilityIdentifier("editor.scenarioGuideButton")
+    }
+    .hidingPasturaSharedBackground()
     if showsYAMLImportAffordances {
       ToolbarItem(placement: .topBarTrailing) {
         Button {

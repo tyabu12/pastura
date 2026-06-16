@@ -2777,6 +2777,16 @@
         }
       }
     },
+    "Learn more" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詳細はこちら"
+          }
+        }
+      }
+    },
     "Legal" : {
       "comment" : "Settings section header grouping Privacy Policy and content report link.",
       "localizations" : {
