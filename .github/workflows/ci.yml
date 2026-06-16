@@ -20,6 +20,10 @@ jobs:
   # conservative-by-inversion classifier as the pre-commit hook (#625) — so CI
   # and pre-commit never drift.
   #
+  # Gating is PR-ONLY: push events (merges to main) always emit `ios=true`, so
+  # main runs the full suite unconditionally for stability. The optimization
+  # only spares redundant work on web/docs-only PRs.
+  #
   # Why a job-level `if:` (not a trigger-level `paths:`/`paths-ignore`): a job
   # skipped via `if:` reports "Success" and SATISFIES a required check (even
   # under a ruleset); only a workflow/trigger-level skip leaves the check
@@ -52,31 +56,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Resolve the changed-file list for both PR and push events.
-          # `--paginate` defeats the 30-files/page default; the endpoints cap
-          # (pulls/files at 3000), but truncation only risks a shorter list,
-          # never an empty one — and only an EMPTY/errored list trips the
-          # conservative default below. `|| FILES=""` keeps `set -e` (GHA
-          # default) from aborting on a transient API failure.
-          FILES=""
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            FILES=$(gh api --paginate \
-              "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-              --jq '.[].filename') || FILES=""
-          else
-            BEFORE="${{ github.event.before }}"
-            # `before` is all-zeros (or empty) on branch creation / first push →
-            # the range is unresolvable, so force the full suite (conservative).
-            # `-z` is explicit because an empty `$BEFORE` produces no line for
-            # grep to match, so the regex alone would miss it.
-            if [ -z "$BEFORE" ] || printf '%s' "$BEFORE" | grep -qE '^0+$'; then
-              FILES=""
-            else
-              FILES=$(gh api --paginate \
-                "repos/${{ github.repository }}/compare/${BEFORE}...${{ github.sha }}" \
-                --jq '.files[].filename') || FILES=""
-            fi
+          # main stability: a push to main (post-merge) ALWAYS runs the full
+          # iOS suite — path-gating is a PR-only optimization. Short-circuit
+          # every non-PR event before any classification, so a merged change
+          # can never skip tests on main. (Also keeps push off the API path.)
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "Non-PR event → always run the full iOS suite (main stability)."
+            exit 0
           fi
+
+          # PR event: resolve the changed-file list. `--paginate` defeats the
+          # 30-files/page default; the endpoint caps at 3000 files, but
+          # truncation only shortens the list, never empties it — and only an
+          # EMPTY/errored list trips the conservative default below. `|| FILES=""`
+          # keeps `set -e` (GHA default) from aborting on a transient API failure.
+          FILES=$(gh api --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename') || FILES=""
 
           # CONSERVATIVE DEFAULT (#625 — "a false skip is the worst case"). The
           # classifier emits "" (NOT `build`) on empty input, so the fail-safe
@@ -627,13 +624,6 @@ jobs:
     timeout-minutes: 5
     # SECURITY: This condition prevents fork PRs from accessing GIST_SECRET.
     # Do not remove or weaken without reviewing secret exposure implications.
-    #
-    # The plain-boolean `if:` (no `always()`) is load-bearing since #642: when
-    # `lint-and-test` is path-gated OUT on a web/docs-only push to main, it
-    # reports `skipped`, and an `if:` without a status function lets that skip
-    # propagate here — so this job skips too and the coverage badge keeps its
-    # prior value instead of being overwritten with an empty 0%. Do NOT add
-    # `always()`/`!cancelled()` here; it would zero the badge on non-iOS pushes.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       # GIST_SECRET must be a PAT with only the "gist" scope (classic)
