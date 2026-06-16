@@ -57,6 +57,29 @@ custom_rules:
     severity: warning
     message: "User-facing String must be wrapped with String(localized: \"...\") so it lands in Localizable.xcstrings and gets a `ja` translation. See CLAUDE.md § 'User-facing String literals' and docs/i18n/leak-detection.md."
 
+  # Form A interpolation hazard (#629) — `String(localized: "...\(x)...")`
+  # (Swift-interpolation, "Form A") produces a `%arg` catalog key, but the
+  # runtime lookup key resolves the interpolation to `%@`/`%lld` and misses
+  # it on non-base locales → silent English fallback on ja (observed #578,
+  # fixed #579). No prior gate caught this. Use Form B
+  # `String(format: String(localized: "...%@..."), arg)` instead. The regex
+  # spans the multi-line `localized:`-on-next-line form; `\s*` matches the
+  # newline. `match_kinds` restricts to the source-token kinds a real
+  # callsite produces so the rule does NOT fire on the same pattern quoted
+  # inside a comment (e.g. SettingsView.swift documents Form A as a negative
+  # example). Form B is safe: its localized literal holds `%@`, never `\(`.
+  form_a_localized_interpolation:
+    name: "Form A localized interpolation"
+    regex: 'String\(\s*localized:\s*"[^"]*\\\('
+    match_kinds:
+      - identifier
+      - string
+      - string_interpolation_anchor
+    included:
+      - 'Pastura/Pastura/.*\.swift'
+    severity: error
+    message: "String(localized: \"...\\(x)...\") (Form A) silently falls back to English on ja — the interpolated runtime key misses the %arg catalog entry. Use Form B: String(format: String(localized: \"...%@...\"), x). See .claude/rules/i18n.md § 'Form A is a runtime hazard'."
+
   # ADR-002 §12 — `tryClaimGeneratingGuard` / `forceClaimGeneratingGuard` are
   # internal-access only because the cross-file `+Lifecycle.swift` extension
   # cannot reach the `private` `generatingGuard`. They are NOT a public

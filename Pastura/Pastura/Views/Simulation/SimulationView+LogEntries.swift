@@ -55,10 +55,10 @@ extension SimulationView {
     agent1: String, act1: String, agent2: String, act2: String
   ) -> some View {
     HStack {
-      Text("\(agent1)(\(act1))")
+      Text(verbatim: "\(agent1)(\(act1))")
       Text(String(localized: "vs"))
         .foregroundStyle(Color.muted)
-      Text("\(agent2)(\(act2))")
+      Text(verbatim: "\(agent2)(\(act2))")
     }
     .textStyle(Typography.titlePhase)
   }
@@ -102,7 +102,7 @@ extension SimulationView {
   func scoresSummary(_ scores: [String: Int]) -> some View {
     HStack(spacing: 8) {
       ForEach(scores.sorted(by: { $0.value > $1.value }).prefix(5), id: \.key) { name, score in
-        Text("\(name):\(score)")
+        Text(verbatim: "\(name):\(score)")
           .textStyle(Typography.metaValue)
           .monospacedDigit()
       }

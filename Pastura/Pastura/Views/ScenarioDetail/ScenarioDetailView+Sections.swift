@@ -81,7 +81,9 @@ extension ScenarioDetailView {
   }
 
   func personasSection(scenario: Scenario) -> some View {
-    PasturaSection(String(localized: "Personas (\(scenario.personas.count))")) {
+    PasturaSection(
+      String(format: String(localized: "Personas (%lld)"), scenario.personas.count)
+    ) {
       VStack(spacing: 0) {
         ForEach(Array(scenario.personas.enumerated()), id: \.element.name) { index, persona in
           if index > 0 { PasturaRowDivider() }
@@ -102,12 +104,14 @@ extension ScenarioDetailView {
   }
 
   func phasesSection(scenario: Scenario) -> some View {
-    PasturaSection(String(localized: "Phases (\(scenario.phases.count))")) {
+    PasturaSection(
+      String(format: String(localized: "Phases (%lld)"), scenario.phases.count)
+    ) {
       VStack(spacing: 0) {
         ForEach(Array(scenario.phases.enumerated()), id: \.offset) { index, phase in
           if index > 0 { PasturaRowDivider() }
           HStack {
-            Text("\(index + 1).")
+            Text(verbatim: "\(index + 1).")
               .foregroundStyle(Color.muted)
               .monospacedDigit()
             Text(phase.type.rawValue)

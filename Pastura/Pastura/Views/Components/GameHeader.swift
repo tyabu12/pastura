@@ -266,7 +266,7 @@ public struct GameHeader: View {
           .foregroundStyle(Color.mossDark)
           .monospacedDigit()
         if phaseLabel != nil {
-          Text("·")
+          Text(verbatim: "·")
             .textStyle(Typography.metaInline)
             .foregroundStyle(Color.headerRule)
         }
