@@ -206,6 +206,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       if await executePhases(ctx: ctx, state: &state) { return }
 
       ctx.emitter(.roundCompleted(round: round, scores: state.scores))
+
+      // Resumable checkpoint: `state.currentRound == round` here (set above),
+      // so a paused run can later resume from `currentRound + 1`. Emitted only
+      // after the round fully completes — a pause mid-round leaves the prior
+      // round's checkpoint as the resume point (round-boundary continuation).
+      ctx.emitter(.roundCheckpoint(state: state))
     }
 
     ctx.emitter(.simulationCompleted)

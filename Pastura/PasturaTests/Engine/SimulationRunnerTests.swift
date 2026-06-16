@@ -43,6 +43,36 @@ struct SimulationRunnerTests {
       })
   }
 
+  @Test func emitsRoundCheckpointAfterEachCompletedRound() async throws {
+    // Need ≥2 agents (runner skips rounds when activeCount < 2)
+    let mock = MockLLMService(responses: [
+      #"{"statement": "r1-alice"}"#,
+      #"{"statement": "r1-bob"}"#,
+      #"{"statement": "r2-alice"}"#,
+      #"{"statement": "r2-bob"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 2,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runner = SimulationRunner()
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
+
+    // Exactly one checkpoint per completed round, each carrying the
+    // just-completed round number as `currentRound` (the resume marker
+    // PR1b reads to derive startRound = currentRound + 1).
+    let checkpointRounds = events.compactMap { event -> Int? in
+      if case .roundCheckpoint(let state) = event { return state.currentRound }
+      return nil
+    }
+    #expect(checkpointRounds == [1, 2])
+  }
+
   @Test func executesMultipleRoundsAndResetsLog() async throws {
     // Need ≥2 agents (runner skips rounds when activeCount < 2)
     let mock = MockLLMService(responses: [
