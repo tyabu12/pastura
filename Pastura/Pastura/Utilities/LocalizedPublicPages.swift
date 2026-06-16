@@ -50,6 +50,20 @@ nonisolated enum LocalizedPublicPages {
       preferredLocalizations: preferredLocalizations)
   }
 
+  /// Scenario guide page (`pages/docs/scenario/`) — the public
+  /// walkthrough of how Pastura scenarios work. Linked from the
+  /// in-app scenario editor's help affordance (#638), completing the
+  /// Swift-side half of the guide shipped on pastura.app in #628.
+  ///
+  /// - Parameter preferredLocalizations: Injectable for unit tests.
+  ///   Production callers pass `Bundle.main.preferredLocalizations`
+  ///   (the default).
+  static func scenarioGuide(
+    preferredLocalizations: [String] = Bundle.main.preferredLocalizations
+  ) -> URL? {
+    url(path: "docs/scenario/", preferredLocalizations: preferredLocalizations)
+  }
+
   private static func url(
     path: String, preferredLocalizations: [String]
   ) -> URL? {
