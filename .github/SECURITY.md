@@ -67,7 +67,7 @@ least the current minor release.
 
 * Pastura iOS source code (`Pastura/Pastura/**`).
 * CI and build infrastructure (`.github/workflows/**`, `scripts/**`).
-* Public web pages (`pages/**`) served from `pastura.app`.
+* Public web pages (`web/src/pages/**`) served from `pastura.app`.
 * Scenario engine logic and the LLM inference layer's invocation of
   third-party libraries (Yams, GRDB, llama.cpp via mattt/llama.swift).
 
@@ -98,7 +98,7 @@ Knowing how Pastura is built may help you assess impact:
 * Pastura has no user accounts and no authentication. There is no server
   component to compromise.
 * See `docs/decisions/ADR-005.md` for content-safety architecture and
-  `pages/legal/privacy-policy/` for the public privacy policy.
+  `web/src/pages/legal/privacy-policy.astro` for the public privacy policy.
 
 ## Acknowledgments
 
