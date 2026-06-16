@@ -4,6 +4,9 @@ import SwiftUI
 struct HomeView: View {
   @Environment(AppDependencies.self) private var dependencies
   @Environment(AppRouter.self) private var router
+  // Drives the row description's line limit: 1 truncated line at normal
+  // sizes (d3), unlimited wrap at accessibility sizes (HomeScenarioRowFormat).
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @State private var viewModel: HomeViewModel?
   @State private var pendingDeletion: PendingScenarioDeletion?
 
@@ -114,7 +117,7 @@ struct HomeView: View {
       if !viewModel.presets.isEmpty {
         Section(String(localized: "Presets")) {
           ForEach(viewModel.presets, id: \.id) { scenario in
-            scenarioRow(scenario)
+            scenarioRow(scenario, metadata: viewModel.rowMetadata[scenario.id])
               .pasturaCardRow()
           }
         }
@@ -162,7 +165,9 @@ struct HomeView: View {
       } else {
         ForEach(viewModel.userScenarios, id: \.id) { scenario in
           scenarioRow(
-            scenario, hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
+            scenario,
+            metadata: viewModel.rowMetadata[scenario.id],
+            hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
           )
           .pasturaCardRow()
         }
@@ -203,7 +208,9 @@ struct HomeView: View {
   }
 
   private func scenarioRow(
-    _ scenario: ScenarioRecord, hasGalleryUpdate: Bool = false
+    _ scenario: ScenarioRecord,
+    metadata: ScenarioRowMetadata?,
+    hasGalleryUpdate: Bool = false
   ) -> some View {
     // initialName supplies the scenario name to navigationTitle from
     // the first frame of the push, before ScenarioDetailViewModel
@@ -214,19 +221,31 @@ struct HomeView: View {
         initialName: .init(scenario.name)
       )
     ) {
-      scenarioRowLabel(scenario, hasGalleryUpdate: hasGalleryUpdate)
+      scenarioRowLabel(scenario, metadata: metadata, hasGalleryUpdate: hasGalleryUpdate)
     }
     .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
   }
 
   private func scenarioRowLabel(
-    _ scenario: ScenarioRecord, hasGalleryUpdate: Bool
+    _ scenario: ScenarioRecord,
+    metadata: ScenarioRowMetadata?,
+    hasGalleryUpdate: Bool
   ) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 5) {
       HStack(spacing: 6) {
         Text(scenario.name)
           .font(.headline)
           .foregroundStyle(Color.ink)
+        // Preset badge moves inline next to the name (d3) rather than its
+        // own caption row below.
+        if scenario.isPreset {
+          Text(String(localized: "Preset"))
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.secondary.opacity(0.15), in: Capsule())
+        }
         if hasGalleryUpdate {
           Text(String(localized: "Update"))
             .font(.caption2.bold())
@@ -236,16 +255,54 @@ struct HomeView: View {
             .foregroundStyle(Color.accentColor)
         }
       }
-      if scenario.isPreset {
-        Text(String(localized: "Preset"))
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 2)
-          .background(.secondary.opacity(0.15), in: Capsule())
+      if HomeScenarioRowFormat.showsMetaLine(
+        agentCount: metadata?.agentCount, rounds: metadata?.rounds) {
+        scenarioMetaLine(metadata: metadata)
+      }
+      if let description = metadata?.description, !description.isEmpty {
+        Text(description)
+          .font(.subheadline)
+          .foregroundStyle(Color.inkSecondary)
+          .lineLimit(
+            HomeScenarioRowFormat.descriptionLineLimit(
+              isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
+          )
+          .truncationMode(.tail)
       }
     }
-    .padding(.vertical, 2)
+    .padding(.vertical, 4)
+  }
+
+  /// Row meta line — one sheep avatar per agent (clamped via
+  /// ``HomeScenarioRowFormat/maxRowSheep``) followed by the round count. The
+  /// sheep are decorative (``SheepAvatar`` is `.accessibilityHidden`); the
+  /// true agent count is surfaced to VoiceOver through the group's
+  /// `%lld agents` label so the visual clamp never hides it.
+  @ViewBuilder
+  private func scenarioMetaLine(metadata: ScenarioRowMetadata?) -> some View {
+    let sheepCount = HomeScenarioRowFormat.rowSheepCount(agentCount: metadata?.agentCount)
+    HStack(spacing: 7) {
+      if sheepCount > 0 {
+        HStack(spacing: 2) {
+          ForEach(0..<sheepCount, id: \.self) { index in
+            SheepAvatar(character: .forAgent("", position: index), size: SheepAvatar.rowSize)
+          }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+          String(format: String(localized: "%lld agents"), metadata?.agentCount ?? 0))
+      }
+      if let roundsLabel = HomeScenarioRowFormat.roundsLabel(rounds: metadata?.rounds) {
+        if sheepCount > 0 {
+          Text(verbatim: "·")
+            .font(.caption2)
+            .foregroundStyle(Color.muted)
+        }
+        Text(roundsLabel)
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+      }
+    }
   }
 
 }

@@ -467,6 +467,22 @@
         }
       }
     },
+    "%lld rounds" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld rounds"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ラウンド"
+          }
+        }
+      }
+    },
     "%lld steps" : {
       "extractionState" : "manual",
       "localizations" : {
