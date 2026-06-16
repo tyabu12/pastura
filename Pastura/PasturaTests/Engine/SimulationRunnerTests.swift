@@ -43,6 +43,81 @@ struct SimulationRunnerTests {
       })
   }
 
+  @Test func emitsRoundCheckpointAfterEachCompletedRound() async throws {
+    // Need ≥2 agents (runner skips rounds when activeCount < 2)
+    let mock = MockLLMService(responses: [
+      #"{"statement": "r1-alice"}"#,
+      #"{"statement": "r1-bob"}"#,
+      #"{"statement": "r2-alice"}"#,
+      #"{"statement": "r2-bob"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 2,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let runner = SimulationRunner()
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
+
+    // Exactly one checkpoint per completed round, each carrying the
+    // just-completed round number as `currentRound` (the resume marker
+    // PR1b reads to derive startRound = currentRound + 1).
+    let checkpointRounds = events.compactMap { event -> Int? in
+      if case .roundCheckpoint(let state) = event { return state.currentRound }
+      return nil
+    }
+    #expect(checkpointRounds == [1, 2])
+  }
+
+  @Test func resumeFromSeedStartsAtGivenRoundAndPreservesState() async throws {
+    // Resume a 2-round scenario at round 2 with a seeded state. Only round 2
+    // runs (no round-1 replay), and the seeded scores survive into the run.
+    let mock = MockLLMService(responses: [
+      #"{"statement": "r2-alice"}"#,
+      #"{"statement": "r2-bob"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 2,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    var seed = SimulationState.initial(for: scenario)
+    seed.scores = ["Alice": 7, "Bob": 3]
+    seed.currentRound = 1
+
+    let runner = SimulationRunner()
+    let events = await collectAllEvents(
+      runner.run(
+        scenario: scenario, llm: mock, suspendController: SuspendController(),
+        resumingFrom: seed, startRound: 2))
+
+    // Only round 2 started — round 1 was not re-run.
+    let startedRounds = events.compactMap { event -> Int? in
+      if case .roundStarted(let round, _) = event { return round }
+      return nil
+    }
+    #expect(startedRounds == [2])
+
+    // Exactly one round × two agents inferred — no round-1 replay would have
+    // needed 4 responses and exhausted the mock.
+    #expect(mock.capturedPrompts.count == 2)
+
+    // Seeded scores carried into the resumed run's checkpoint.
+    let lastCheckpoint = events.compactMap { event -> SimulationState? in
+      if case .roundCheckpoint(let state) = event { return state }
+      return nil
+    }.last
+    #expect(lastCheckpoint?.scores["Alice"] == 7)
+    #expect(lastCheckpoint?.currentRound == 2)
+  }
+
   @Test func executesMultipleRoundsAndResetsLog() async throws {
     // Need ≥2 agents (runner skips rounds when activeCount < 2)
     let mock = MockLLMService(responses: [

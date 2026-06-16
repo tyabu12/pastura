@@ -78,9 +78,10 @@ struct RunLogTests {
     #expect(votes.tallies == ["B": 1])
   }
 
-  @Test func everyEventKindExceptStreamProducesALine() {
+  @Test func everyEventKindExceptStreamAndCheckpointProducesALine() {
     // Completeness canary: if SimulationEvent gains a case, the mapper's
-    // switch breaks compilation; this test documents the one deliberate nil.
+    // switch breaks compilation; this test documents the two deliberate nils
+    // (`.agentOutputStream` and `.roundCheckpoint`, asserted below).
     let mapped: [SimulationEvent] = [
       .roundStarted(round: 1, totalRounds: 1),
       .roundCompleted(round: 1, scores: ["A": 1]),
@@ -105,5 +106,12 @@ struct RunLogTests {
     for event in mapped {
       #expect(EventLineMapper.map(event, t: 0, attempt: 1) != nil)
     }
+
+    // The two deliberate exceptions produce no transcript line.
+    #expect(
+      EventLineMapper.map(
+        .agentOutputStream(agent: "A", primary: "hi", thought: nil), t: 0, attempt: 1) == nil)
+    #expect(
+      EventLineMapper.map(.roundCheckpoint(state: SimulationState()), t: 0, attempt: 1) == nil)
   }
 }
