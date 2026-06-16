@@ -58,6 +58,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// `true` at run exit when the runner was still parked at a pause boundary —
   /// a resumed run clears it before it can complete.
   private var didPersistPaused = false
+  /// Serializes status-column writes (`.paused` / `.running`) in call order.
+  /// `pauseSimulation` and `resumeSimulation` each enqueue onto this chain so a
+  /// rapid pause→resume cannot land `.paused` *after* `.running` (independent
+  /// unstructured Tasks have no ordering guarantee). MainActor-isolated, so the
+  /// assignment order in `enqueueStatusWrite` equals the call order.
+  private var statusWriteTask: Task<Void, Never>?
   // Internal `var` (not `private(set)`) because the BG continuation extension
   // in a separate file writes errorMessage from its switchToCPU/GPU error
   // catches. Cross-file extension access can't reach `private(set)`.
@@ -544,7 +550,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // the round-boundary checkpoint consumer; this only flips the status
     // column. `didPersistPaused` guards the `run()` terminal ladder.
     didPersistPaused = true
-    Task { await persistStatus(.paused) }
+    enqueueStatusWrite(.paused)
   }
 
   /// Resumes a paused simulation. Symmetric counterpart to
@@ -560,7 +566,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // completion writes `.completed` rather than leaving a stale `.paused`.
     if didPersistPaused {
       didPersistPaused = false
-      Task { await persistStatus(.running) }
+      enqueueStatusWrite(.running)
     }
   }
 
@@ -605,6 +611,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     isCompleted = false
     isCancelled = false
     didPersistPaused = false
+    statusWriteTask = nil
     errorMessage = nil
     logEntries = []
     // Latent: a second `run()` on the same VM instance would otherwise inherit
@@ -716,6 +723,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
     // Cleanup
     try? await llm.unloadModel()
+
+    // Drain any in-flight `.paused` / `.running` status write so the terminal
+    // decision below observes (and writes after) the settled status column.
+    await statusWriteTask?.value
 
     // Pick the terminal status.
     //
@@ -1399,8 +1410,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// re-enters at the top of the next round, so the phase index is not a resume
   /// marker here and PR1b's resume derives `startRound = currentRound + 1`.
   /// Encodes synchronously on the MainActor (capturing the value) then writes
-  /// off-main; the status and state columns are orthogonal, so this never races
-  /// the `.paused` status write.
+  /// off-main. This does not lose-update against the `.paused` status write:
+  /// both `updateState` and `updateStatus` are full-row read-modify-write
+  /// transactions, and `DatabaseWriter` serializes write transactions (and the
+  /// in-transaction `fetchOne` reads the latest committed row), so whichever
+  /// commits second preserves the other's column.
   private func persistCheckpoint(_ state: SimulationState) {
     guard let simId = simulationId else { return }
     let json: String
@@ -1422,6 +1436,19 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         self.lifecycleLogger.error(
           "Failed to persist checkpoint: \(String(describing: error), privacy: .public)")
       }
+    }
+  }
+
+  /// Enqueues a non-terminal status write (`.paused` / `.running`) onto a
+  /// serialized chain so writes commit in call order. Because this runs on the
+  /// MainActor, the `statusWriteTask` reassignment order equals the call order;
+  /// each new task awaits the prior before writing, preventing a rapid
+  /// pause→resume from committing `.paused` after `.running`.
+  private func enqueueStatusWrite(_ status: SimulationStatus) {
+    let previous = statusWriteTask
+    statusWriteTask = Task {
+      await previous?.value
+      await persistStatus(status)
     }
   }
 
