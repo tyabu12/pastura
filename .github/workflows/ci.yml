@@ -14,7 +14,100 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Path classification (#642). Emits `ios=true` when the changeset contains
+  # any build/test-relevant path, so web-only / docs-only PRs skip the heavy
+  # macOS jobs below. Reuses scripts/precommit-gate-classify.sh — the SAME
+  # conservative-by-inversion classifier as the pre-commit hook (#625) — so CI
+  # and pre-commit never drift.
+  #
+  # Gating is PR-ONLY: push events (merges to main) always emit `ios=true`, so
+  # main runs the full suite unconditionally for stability. The optimization
+  # only spares redundant work on web/docs-only PRs.
+  #
+  # Why a job-level `if:` (not a trigger-level `paths:`/`paths-ignore`): a job
+  # skipped via `if:` reports "Success" and SATISFIES a required check (even
+  # under a ruleset); only a workflow/trigger-level skip leaves the check
+  # "Pending" and blocks merge. See .claude/rules/ci-workflows.md.
+  #
+  # The gated jobs use `if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}`
+  # — run UNLESS explicitly classified non-iOS. `!cancelled()` is a status
+  # function, so it drops the implicit needs-success gate: if THIS job fails
+  # (infra / a future bad edit) its `ios` output is empty, `'' != 'false'` is
+  # true, and the macOS jobs run the full suite rather than false-skipping a
+  # required check. A genuine non-iOS change still classifies `ios=false` and
+  # skips (= Success). Cancellation supersedes the run, so `!cancelled()` skips.
+  changes:
+    name: Classify changeset
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Job-scoped (overrides the top-level `contents: read`): the PR-files
+    # endpoint needs `pull-requests: read`; checkout needs `contents: read`.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ios: ${{ steps.classify.outputs.ios }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Classify changed paths
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # main stability: a push to main (post-merge) ALWAYS runs the full
+          # iOS suite — path-gating is a PR-only optimization. Short-circuit
+          # every non-PR event before any classification, so a merged change
+          # can never skip tests on main. (Also keeps push off the API path.)
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "Non-PR event → always run the full iOS suite (main stability)."
+            exit 0
+          fi
+
+          # PR event: resolve the changed-file list. `--paginate` defeats the
+          # 30-files/page default; the endpoint caps at 3000 files, but
+          # truncation only shortens the list, never empties it — and only an
+          # EMPTY/errored list trips the conservative default below. `|| FILES=""`
+          # keeps `set -e` (GHA default) from aborting on a transient API failure.
+          FILES=$(gh api --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename') || FILES=""
+
+          # CONSERVATIVE DEFAULT (#625 — "a false skip is the worst case"). The
+          # classifier emits "" (NOT `build`) on empty input, so the fail-safe
+          # must live HERE, before invoking it: an empty / unresolved / errored
+          # file list ⇒ run the full iOS suite.
+          if [ -z "$FILES" ]; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "No file list resolved → defaulting to the full iOS suite."
+            exit 0
+          fi
+
+          # Gate on the `build` token (not `lint`): `build ⊇ lint` because every
+          # *.swift / .swiftlint.yml path is also non-SAFE, and non-Swift build
+          # inputs (project.pbxproj, Localizable.xcstrings) must still run
+          # lint-and-test. See scripts/precommit-gate-classify.sh.
+          # `if !` keeps a classifier crash from aborting the step under
+          # `set -e` (a failing `TOKENS=$(...)` would otherwise fail the whole
+          # `changes` job → macOS jobs skip-on-failed-dep = a false skip on a
+          # real iOS change). Default to the full suite instead.
+          if ! TOKENS=$(printf '%s\n' "$FILES" | bash scripts/precommit-gate-classify.sh); then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "Classifier failed → defaulting to the full iOS suite."
+            exit 0
+          fi
+          echo "Changed paths classified as: '${TOKENS:-<none>}'"
+          if printf '%s\n' "$TOKENS" | grep -qw build; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint-and-test:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     timeout-minutes: 15
     outputs:
@@ -146,6 +239,8 @@ jobs:
           retention-days: 7
 
   ui-test:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     # UI tests are 5-6x slower on CI simulators (no GPU acceleration). Locally
     # the suite runs in ~2 min; on CI it takes ~12 min. The 25 min budget
@@ -250,6 +345,8 @@ jobs:
   # with lint-and-test and ui-test. See ADR-005 §8 and docs/decisions/ADR-005.md.
   release-build:
     name: Release build (iphoneos) + ADR-005 §8 guard
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     timeout-minutes: 15
     env:
@@ -337,6 +434,8 @@ jobs:
   # critical path (ui-test remains the slowest job).
   harness-build:
     name: Harness package build + tests (ADR-013)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
     timeout-minutes: 15
     env:

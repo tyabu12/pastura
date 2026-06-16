@@ -31,9 +31,9 @@
         simulationRepository: simRepo,
         turnRepository: turnRepo
       )
-      // "" is the Home entry-point sentinel: aggregate across all
-      // scenarios (see Route.results doc) — not an accidental placeholder.
-      await viewModel.load(scenarioId: "")
+      // `.aggregate` is the History-root entry-point: aggregate across
+      // all scenarios (see ``ResultsScope``).
+      await viewModel.load(scope: .aggregate)
 
       #expect(viewModel.errorMessage == nil)
       #expect(viewModel.groups.count == 1, "seeded run should form one group")

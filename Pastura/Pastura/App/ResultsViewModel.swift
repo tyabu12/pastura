@@ -2,21 +2,22 @@ import Foundation
 
 /// ViewModel for past simulation results.
 ///
-/// Two load modes — selected by the `scenarioId` argument:
+/// Two load modes — selected by the ``ResultsScope`` argument:
 ///
-/// - **Home** (`scenarioId == ""`): aggregates per-language scenario
-///   variants under a single canonical group keyed by `sourceId ?? id`
-///   (ADR-010 D4 cross-language aliasing, #392). Each canonical
-///   group's section header is the device-locale variant's `name`,
-///   falling back to the first available variant when the
+/// - **Aggregate** (``ResultsScope/aggregate``): aggregates per-language
+///   scenario variants under a single canonical group keyed by
+///   `sourceId ?? id` (ADR-010 D4 cross-language aliasing, #392). Each
+///   canonical group's section header is the device-locale variant's
+///   `name`, falling back to the first available variant when the
 ///   device-language sibling isn't shipped (D6 line 217). Rows within
 ///   a group are sorted newest-first; row labels show the
 ///   simulation-time variant's `name` (un-translated) so the un-
 ///   translated conversation content stays internally consistent.
-/// - **Detail** (`scenarioId != ""`): per-variant only — shows the one
-///   scenario's simulations under a single group. Cross-variant
-///   aggregation is intentionally Home-only so a user reading a JA
-///   scenario's detail doesn't see EN sibling runs commingled. See
+/// - **Detail** (``ResultsScope/scenario(_:)``): per-variant only — shows
+///   the one scenario's simulations under a single group. Cross-variant
+///   aggregation is intentionally limited to ``ResultsScope/aggregate`` so
+///   a user reading a JA scenario's detail doesn't see EN sibling runs
+///   commingled. See
 ///   ``Route/results(scenarioId:)`` for the entry-point contract.
 @Observable
 final class ResultsViewModel {
@@ -66,8 +67,9 @@ final class ResultsViewModel {
     self.turnRepository = turnRepository
   }
 
-  /// Loads results into ``groups``. `scenarioId == ""` triggers Home
-  /// aggregation; any non-empty id triggers Detail per-variant.
+  /// Loads results into ``groups``. ``ResultsScope/aggregate`` triggers
+  /// cross-variant aggregation; ``ResultsScope/scenario(_:)`` triggers
+  /// Detail per-variant.
   ///
   /// - Parameters:
   ///   - deviceLanguage: Overridable for tests. Production
@@ -79,7 +81,7 @@ final class ResultsViewModel {
   ///     a spinner flash on every back-navigation would be a regression.
   ///     The default (`true`) preserves the first-load behavior.
   func load(
-    scenarioId: String,
+    scope: ResultsScope,
     deviceLanguage: String = LocaleResolver.deviceDefault(),
     showLoading: Bool = true
   ) async {
@@ -87,9 +89,10 @@ final class ResultsViewModel {
     errorMessage = nil
 
     do {
-      if scenarioId.isEmpty {
+      switch scope {
+      case .aggregate:
         groups = try await loadHomeAggregated(deviceLanguage: deviceLanguage)
-      } else {
+      case .scenario(let scenarioId):
         groups = try await loadDetailPerVariant(scenarioId: scenarioId)
       }
     } catch {
