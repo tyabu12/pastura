@@ -14,7 +14,85 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Path classification (#642). Emits `ios=true` when the changeset contains
+  # any build/test-relevant path, so web-only / docs-only PRs skip the heavy
+  # macOS jobs below. Reuses scripts/precommit-gate-classify.sh — the SAME
+  # conservative-by-inversion classifier as the pre-commit hook (#625) — so CI
+  # and pre-commit never drift.
+  #
+  # Why a job-level `if:` (not a trigger-level `paths:`/`paths-ignore`): a job
+  # skipped via `if:` reports "Success" and SATISFIES a required check (even
+  # under a ruleset); only a workflow/trigger-level skip leaves the check
+  # "Pending" and blocks merge. See .claude/rules/ci-workflows.md.
+  changes:
+    name: Classify changeset
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Job-scoped (overrides the top-level `contents: read`): the PR-files
+    # endpoint needs `pull-requests: read`; checkout needs `contents: read`.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ios: ${{ steps.classify.outputs.ios }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Classify changed paths
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Resolve the changed-file list for both PR and push events.
+          # `--paginate` defeats the 30-files/page default; the endpoints cap
+          # (pulls/files at 3000), but truncation only risks a shorter list,
+          # never an empty one — and only an EMPTY/errored list trips the
+          # conservative default below. `|| FILES=""` keeps `set -e` (GHA
+          # default) from aborting on a transient API failure.
+          FILES=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILES=$(gh api --paginate \
+              "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+              --jq '.[].filename') || FILES=""
+          else
+            BEFORE="${{ github.event.before }}"
+            # `before` is all-zeros on branch creation / first push → the range
+            # is unresolvable, so force the full suite (conservative).
+            if printf '%s' "$BEFORE" | grep -qE '^0+$'; then
+              FILES=""
+            else
+              FILES=$(gh api --paginate \
+                "repos/${{ github.repository }}/compare/${BEFORE}...${{ github.sha }}" \
+                --jq '.files[].filename') || FILES=""
+            fi
+          fi
+
+          # CONSERVATIVE DEFAULT (#625 — "a false skip is the worst case"). The
+          # classifier emits "" (NOT `build`) on empty input, so the fail-safe
+          # must live HERE, before invoking it: an empty / unresolved / errored
+          # file list ⇒ run the full iOS suite.
+          if [ -z "$FILES" ]; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "No file list resolved → defaulting to the full iOS suite."
+            exit 0
+          fi
+
+          # Gate on the `build` token (not `lint`): `build ⊇ lint` because every
+          # *.swift / .swiftlint.yml path is also non-SAFE, and non-Swift build
+          # inputs (project.pbxproj, Localizable.xcstrings) must still run
+          # lint-and-test. See scripts/precommit-gate-classify.sh.
+          TOKENS=$(printf '%s\n' "$FILES" | bash scripts/precommit-gate-classify.sh)
+          echo "Changed paths classified as: '${TOKENS:-<none>}'"
+          if printf '%s\n' "$TOKENS" | grep -qw build; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint-and-test:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
     runs-on: macos-26
     timeout-minutes: 15
     outputs:
@@ -146,6 +224,8 @@ jobs:
           retention-days: 7
 
   ui-test:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
     runs-on: macos-26
     # UI tests are 5-6x slower on CI simulators (no GPU acceleration). Locally
     # the suite runs in ~2 min; on CI it takes ~12 min. The 25 min budget
@@ -250,6 +330,8 @@ jobs:
   # with lint-and-test and ui-test. See ADR-005 §8 and docs/decisions/ADR-005.md.
   release-build:
     name: Release build (iphoneos) + ADR-005 §8 guard
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
     runs-on: macos-26
     timeout-minutes: 15
     env:
@@ -337,6 +419,8 @@ jobs:
   # critical path (ui-test remains the slowest job).
   harness-build:
     name: Harness package build + tests (ADR-013)
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
     runs-on: macos-26
     timeout-minutes: 15
     env:
@@ -525,6 +609,13 @@ jobs:
     timeout-minutes: 5
     # SECURITY: This condition prevents fork PRs from accessing GIST_SECRET.
     # Do not remove or weaken without reviewing secret exposure implications.
+    #
+    # The plain-boolean `if:` (no `always()`) is load-bearing since #642: when
+    # `lint-and-test` is path-gated OUT on a web/docs-only push to main, it
+    # reports `skipped`, and an `if:` without a status function lets that skip
+    # propagate here — so this job skips too and the coverage badge keeps its
+    # prior value instead of being overwritten with an empty 0%. Do NOT add
+    # `always()`/`!cancelled()` here; it would zero the badge on non-iOS pushes.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       # GIST_SECRET must be a PAT with only the "gist" scope (classic)
