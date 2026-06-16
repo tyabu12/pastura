@@ -154,6 +154,40 @@ struct PresetLoaderTests {
     }
   }
 
+  /// #607 canary: every bundled preset's `output:` keys must be ASCII
+  /// identifiers. A CJK / multi-byte output key would emit as a GBNF JSON-key
+  /// literal and crash llama.cpp's sampler at accept-time on-device. The
+  /// presets are all ASCII today (`statement`, `inner_thought`, `action`,
+  /// `vote`, `reason`); this fails at build/test time if a future preset ships
+  /// a non-ASCII key, rather than at device run time. `validateForCommit`
+  /// already enforces this transitively, but this asserts the rule directly.
+  @Test func presetOutputFieldNamesAreAsciiIdentifiers() throws {
+    let loader = ScenarioLoader()
+    let bundle = Bundle(for: DatabaseManager.self)
+
+    #expect(PresetLoader.presetFileNames.count >= 8)
+
+    for fileName in PresetLoader.presetFileNames {
+      guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
+        Issue.record("Missing preset: \(fileName).yaml")
+        continue
+      }
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      // Flatten top-level phases plus conditional then/else sub-phases
+      // (depth-1) so a hostile key buried in a branch is caught too.
+      let allPhases =
+        scenario.phases + scenario.phases.flatMap { ($0.thenPhases ?? []) + ($0.elsePhases ?? []) }
+      for phase in allPhases {
+        for name in phase.outputSchema?.keys ?? [:].keys {
+          #expect(
+            ScenarioConventions.isValidFieldName(name),
+            "\(fileName).yaml: output key '\(name)' is not an ASCII identifier")
+        }
+      }
+    }
+  }
+
   @Test func presetYAMLsAreParseable() throws {
     let loader = ScenarioLoader()
     let bundle = Bundle(for: DatabaseManager.self)
