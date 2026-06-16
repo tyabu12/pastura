@@ -1,5 +1,27 @@
 import Foundation
 
+/// Display model for the Home "paused scenario" resume card (ADR-016 P2).
+///
+/// Display-only in P2 — the resume action itself (DB rehydration of the
+/// paused run) lands in P3. Built from the most-recent paused
+/// `SimulationRecord` joined with its live scenario name (snapshot fallback
+/// for orphaned runs) and the cached ``ScenarioRowMetadata``.
+nonisolated struct PausedScenarioSummary: Equatable, Identifiable {
+  /// The paused run's id — also the card's stable identity.
+  let runId: String
+  /// The source scenario's id, or nil when the scenario was deleted
+  /// (orphaned run). Carried for the P3 resume hand-off; in P2 only the
+  /// snapshot-resolved ``name`` is shown.
+  let scenarioId: String?
+  let name: String
+  let agentCount: Int?
+  let rounds: Int?
+  let currentRound: Int
+  let description: String?
+
+  var id: String { runId }
+}
+
 /// ViewModel for the home screen scenario list.
 ///
 /// Fetches scenarios from the repository and splits them into presets
@@ -42,6 +64,12 @@ final class HomeViewModel {
   /// reads this as an inline badge on each row.
   private(set) var galleryUpdateBadges: Set<String> = []
 
+  /// The most-recent paused run surfaced as the Home "resume" card, or nil
+  /// when nothing is paused (card hidden — d3-without). Recomputed on every
+  /// ``loadScenarios()``; nil unless a ``SimulationRepository`` is injected.
+  /// Display-only in P2 — the resume action lands in P3 (ADR-016 §4).
+  private(set) var pausedSummary: PausedScenarioSummary?
+
   private let repository: any ScenarioRepository
 
   /// Optional — supplies completed-run counts for ``observationCounts``.
@@ -69,6 +97,7 @@ final class HomeViewModel {
     // Reset so the "recomputed on every load" contract holds even when no
     // SimulationRepository is injected (the recompute below is gated on it).
     observationCounts = [:]
+    pausedSummary = nil
 
     do {
       let all = try await offMain { [repository] in
@@ -97,6 +126,20 @@ final class HomeViewModel {
           completedByScenarioId: completed,
           scenarios: all,
           displayedRows: presets + userScenarios)
+        // Paused runs feed the "resume" card (ADR-016 P2, display-only —
+        // rehydration is P3). Same garnish-not-critical posture as counts:
+        // a failed read swallows to [] and the card simply hides, never
+        // blanking the list. fetchByStatus returns newest-first, so the
+        // most-recent paused run is `.first`.
+        let pausedRuns =
+          (try? await offMain { [simulationRepository] in
+            try simulationRepository.fetchByStatus(.paused)
+          }) ?? []
+        pausedSummary = Self.makePausedSummary(
+          pausedRuns: pausedRuns,
+          scenariosById: Dictionary(
+            all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }),
+          rowMetadata: rowMetadata)
       }
     } catch {
       errorMessage = String(
@@ -104,6 +147,38 @@ final class HomeViewModel {
     }
 
     isLoading = false
+  }
+
+  /// Builds the "resume" card model from `pausedRuns` (newest-first, as
+  /// `fetchByStatus` returns them): picks the most-recent paused run and
+  /// resolves its display name + metadata. Returns nil when nothing is
+  /// paused or the name can't be resolved (card hidden).
+  ///
+  /// Name resolution prefers the live scenario (`scenariosById`), falling
+  /// back to the run's `scenarioNameSnapshot` for orphaned runs whose
+  /// scenario was deleted. Metadata (`agentCount` / `rounds` / `description`)
+  /// comes from the displayed-row ``rowMetadata`; absent for a paused run on
+  /// a non-displayed preset variant, in which case the card degrades to
+  /// name-only — same posture as a name-only row.
+  nonisolated static func makePausedSummary(
+    pausedRuns: [SimulationRecord],
+    scenariosById: [String: ScenarioRecord],
+    rowMetadata: [String: ScenarioRowMetadata]
+  ) -> PausedScenarioSummary? {
+    guard let run = pausedRuns.first else { return nil }
+    let metadata = run.scenarioId.flatMap { rowMetadata[$0] }
+    let liveName = run.scenarioId.flatMap { scenariosById[$0]?.name }
+    guard let name = liveName ?? run.scenarioNameSnapshot, !name.isEmpty else {
+      return nil
+    }
+    return PausedScenarioSummary(
+      runId: run.id,
+      scenarioId: run.scenarioId,
+      name: name,
+      agentCount: metadata?.agentCount,
+      rounds: metadata?.rounds,
+      currentRound: run.currentRound,
+      description: metadata?.description)
   }
 
   /// ADR-010 D6 variant collapsing: groups bundled presets by canonical

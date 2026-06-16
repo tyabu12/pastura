@@ -107,6 +107,26 @@ struct HomeView: View {
   @ViewBuilder
   private func scenarioList(viewModel: HomeViewModel) -> some View {
     List {
+      // The paused "resume" card sits above the scenario list (d3), shown
+      // only when a paused run exists (d3-without otherwise). PasturaCard
+      // draws its own surface, so the row clears the List background and
+      // matches the horizontal margin / spacing used by `pasturaCardRow()`.
+      if let paused = viewModel.pausedSummary {
+        Section {
+          pausedCard(paused)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(
+              EdgeInsets(
+                top: PasturaCardMetrics.interCardSpacing / 2,
+                leading: PasturaCardMetrics.horizontalMargin,
+                bottom: PasturaCardMetrics.interCardSpacing / 2,
+                trailing: PasturaCardMetrics.horizontalMargin))
+        } header: {
+          Text(String(localized: "Interrupted Scenario"))
+            .textCase(nil)
+        }
+      }
       Section {
         if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
           ContentUnavailableView(
@@ -267,7 +287,7 @@ struct HomeView: View {
       }
       if HomeScenarioRowFormat.showsMetaLine(
         agentCount: metadata?.agentCount, rounds: metadata?.rounds) {
-        scenarioMetaLine(metadata: metadata)
+        scenarioMetaLine(agentCount: metadata?.agentCount, rounds: metadata?.rounds)
       }
       if let description = metadata?.description, !description.isEmpty {
         Text(description)
@@ -283,14 +303,15 @@ struct HomeView: View {
     .padding(.vertical, 4)
   }
 
-  /// Row meta line — one sheep avatar per agent (clamped via
-  /// ``HomeScenarioRowFormat/maxRowSheep``) followed by the round count. The
-  /// sheep are decorative (``SheepAvatar`` is `.accessibilityHidden`); the
-  /// true agent count is surfaced to VoiceOver through the group's
-  /// `%lld agents` label so the visual clamp never hides it.
+  /// Shared meta line — one sheep avatar per agent (clamped via
+  /// ``HomeScenarioRowFormat/maxRowSheep``) followed by the round count. Used
+  /// by both the scenario row and the paused-card. The sheep are decorative
+  /// (``SheepAvatar`` is `.accessibilityHidden`); the true agent count is
+  /// surfaced to VoiceOver through the group's `%lld agents` label so the
+  /// visual clamp never hides it.
   @ViewBuilder
-  private func scenarioMetaLine(metadata: ScenarioRowMetadata?) -> some View {
-    let sheepCount = HomeScenarioRowFormat.rowSheepCount(agentCount: metadata?.agentCount)
+  private func scenarioMetaLine(agentCount: Int?, rounds: Int?) -> some View {
+    let sheepCount = HomeScenarioRowFormat.rowSheepCount(agentCount: agentCount)
     HStack(spacing: 7) {
       if sheepCount > 0 {
         HStack(spacing: 2) {
@@ -300,9 +321,9 @@ struct HomeView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-          String(format: String(localized: "%lld agents"), metadata?.agentCount ?? 0))
+          String(format: String(localized: "%lld agents"), agentCount ?? 0))
       }
-      if let roundsLabel = HomeScenarioRowFormat.roundsLabel(rounds: metadata?.rounds) {
+      if let roundsLabel = HomeScenarioRowFormat.roundsLabel(rounds: rounds) {
         if sheepCount > 0 {
           Text(verbatim: "·")
             .font(.caption2)
@@ -312,6 +333,56 @@ struct HomeView: View {
           .font(.caption)
           .foregroundStyle(Color.muted)
       }
+    }
+  }
+
+  /// The "resume" card for the most-recent paused run (ADR-016 P2). Mirrors
+  /// the d3 layout — name / sheep · rounds / description / progress + Resume.
+  /// **Display-only in P2**: the Resume button is `.disabled(true)` because
+  /// the run rehydration it needs lands in P3. A nil ``rounds`` hides the
+  /// progress line (orphaned / name-only metadata).
+  @ViewBuilder
+  private func pausedCard(_ summary: PausedScenarioSummary) -> some View {
+    PasturaCard {
+      VStack(alignment: .leading, spacing: 11) {
+        Text(summary.name)
+          .font(.headline)
+          .foregroundStyle(Color.ink)
+        if HomeScenarioRowFormat.showsMetaLine(
+          agentCount: summary.agentCount, rounds: summary.rounds) {
+          scenarioMetaLine(agentCount: summary.agentCount, rounds: summary.rounds)
+        }
+        if let description = summary.description, !description.isEmpty {
+          Text(description)
+            .font(.subheadline)
+            .foregroundStyle(Color.inkSecondary)
+            .lineLimit(
+              HomeScenarioRowFormat.descriptionLineLimit(
+                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
+            )
+            .truncationMode(.tail)
+        }
+        Divider().overlay(Color.rule)
+        HStack {
+          if let progress = HomeScenarioRowFormat.pausedProgressLabel(
+            currentRound: summary.currentRound, totalRounds: summary.rounds) {
+            Text(progress)
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(Color.inkSecondary)
+          }
+          Spacer()
+          // P2 ships the card display-only; resume rehydration (DB → live
+          // run) is P3, so the action is disabled rather than wired to a
+          // half-built path (ADR-016 §4).
+          Button {
+          } label: {
+            Label(String(localized: "Resume"), systemImage: "play.fill")
+          }
+          .buttonStyle(.borderedProminent)
+          .disabled(true)
+        }
+      }
+      .padding(16)
     }
   }
 

@@ -63,4 +63,17 @@ struct HomeScenarioRowFormatTests {
   @Test func descriptionLineLimitUnlimitedAtAccessibilitySizes() {
     #expect(HomeScenarioRowFormat.descriptionLineLimit(isAccessibilitySize: true) == nil)
   }
+
+  // MARK: - Paused-card progress label
+
+  @Test func pausedProgressNilWhenTotalUnknown() {
+    #expect(HomeScenarioRowFormat.pausedProgressLabel(currentRound: 3, totalRounds: nil) == nil)
+    #expect(HomeScenarioRowFormat.pausedProgressLabel(currentRound: 3, totalRounds: 0) == nil)
+  }
+
+  @Test func pausedProgressInterpolatesBothNumbers() {
+    let label = HomeScenarioRowFormat.pausedProgressLabel(currentRound: 3, totalRounds: 5)
+    #expect(label?.contains("3") == true)
+    #expect(label?.contains("5") == true)
+  }
 }

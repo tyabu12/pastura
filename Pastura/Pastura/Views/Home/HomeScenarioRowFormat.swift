@@ -46,4 +46,13 @@ nonisolated enum HomeScenarioRowFormat {
   static func descriptionLineLimit(isAccessibilitySize: Bool) -> Int? {
     isAccessibilitySize ? nil : 1
   }
+
+  /// Progress label for the paused "resume" card — "Round X / Y", reusing the
+  /// existing `Round %lld / %lld` catalog key. nil when the total round count
+  /// is unknown (orphaned run / name-only metadata) so the caller hides the
+  /// progress segment rather than rendering a half-pair.
+  static func pausedProgressLabel(currentRound: Int, totalRounds: Int?) -> String? {
+    guard let totalRounds, totalRounds > 0 else { return nil }
+    return String(format: String(localized: "Round %lld / %lld"), currentRound, totalRounds)
+  }
 }
