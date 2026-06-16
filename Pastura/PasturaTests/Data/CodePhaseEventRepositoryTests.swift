@@ -49,6 +49,31 @@ import Testing
     #expect(records.count == 2)
   }
 
+  @Test func maxSequenceNumberReturnsNilWhenEmpty() throws {
+    let repo = try makeRepo()
+    #expect(try repo.maxSequenceNumber(simulationId: "sim1") == nil)
+  }
+
+  @Test func maxSequenceNumberReturnsHighestAcrossRows() throws {
+    let repo = try makeRepo()
+    try repo.save(makeRecord(id: "c1", roundNumber: 1, sequenceNumber: 4))
+    try repo.save(makeRecord(id: "c2", roundNumber: 2, sequenceNumber: 9))
+
+    #expect(try repo.maxSequenceNumber(simulationId: "sim1") == 9)
+  }
+
+  @Test func deleteRoundNumberGreaterThanDropsLaterRoundsKeepsThroughK() throws {
+    let repo = try makeRepo()
+    try repo.save(makeRecord(id: "c1", roundNumber: 1, sequenceNumber: 1))
+    try repo.save(makeRecord(id: "c2", roundNumber: 2, sequenceNumber: 2))
+    try repo.save(makeRecord(id: "c3", roundNumber: 3, sequenceNumber: 3))
+
+    try repo.deleteBySimulationId("sim1", roundNumberGreaterThan: 2)
+
+    let remaining = try repo.fetchBySimulationId("sim1").map(\.roundNumber).sorted()
+    #expect(remaining == [1, 2])
+  }
+
   @Test func fetchBySimulationIdReturnsOrderedBySequenceNumber() throws {
     let repo = try makeRepo()
     // Insert out of order to prove ordering is by sequenceNumber.

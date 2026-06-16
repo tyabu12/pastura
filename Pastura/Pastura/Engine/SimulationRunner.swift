@@ -104,11 +104,21 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   ///     layer and the LLM. The same instance flows into every
   ///     ``PhaseContext`` so that a single ``SuspendController/requestSuspend()``
   ///     call interrupts the simulation regardless of which phase is in flight.
+  ///   - seed: An optional resumed state. When non-`nil`, the run starts from
+  ///     this state instead of a fresh ``SimulationState/initial(for:)`` —
+  ///     used to resume a paused run (round-boundary continuation). The seed
+  ///     is a `Models` value; the App layer decodes it from persistence before
+  ///     calling, so the Engine never depends on the `Data` layer.
+  ///   - startRound: The 1-based round to begin at. Defaults to `1` (fresh
+  ///     run). On resume, callers pass `seed.currentRound + 1` so the last
+  ///     completed round is not re-run.
   /// - Returns: An `AsyncStream` of ``SimulationEvent`` values.
   public func run(
     scenario: Scenario,
     llm: LLMService,
-    suspendController: SuspendController
+    suspendController: SuspendController,
+    resumingFrom seed: SimulationState? = nil,
+    startRound: Int = 1
   ) -> AsyncStream<SimulationEvent> {
     // Capture needed values to avoid retaining self in the Task
     let dispatcher = self.dispatcher
@@ -124,6 +134,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           pauseState: pauseState,
           suspendController: suspendController,
           detector: detector,
+          seed: seed, startRound: startRound,
           emitter: { continuation.yield($0) }
         )
         continuation.finish()
@@ -145,6 +156,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let pauseState: OSAllocatedUnfairLock<PauseState>
     let suspendController: SuspendController
     let detector: (any LanguageDetector)?
+    /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).
+    let startRound: Int
     let emitter: @Sendable (SimulationEvent) -> Void
   }
 
@@ -155,6 +168,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     pauseState: OSAllocatedUnfairLock<PauseState>,
     suspendController: SuspendController,
     detector: (any LanguageDetector)?,
+    seed: SimulationState?, startRound: Int,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
     // Validate scenario
@@ -174,38 +188,51 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
       pauseState: pauseState, suspendController: suspendController,
-      detector: detector, emitter: emitter
+      detector: detector, startRound: startRound, emitter: emitter
     )
 
-    var state = SimulationState.initial(for: scenario)
+    // Resume from the persisted state when seeded; otherwise start fresh.
+    var state = seed ?? SimulationState.initial(for: scenario)
     await runRoundLoop(ctx: ctx, state: &state)
   }
 
   private static func runRoundLoop(ctx: ExecutionContext, state: inout SimulationState) async {
-    for round in 1...ctx.scenario.rounds {
-      if Task.isCancelled {
-        ctx.emitter(.error(.cancelled))
-        return
+    // `startRound > rounds` (e.g. resume of an already-finished run) yields an
+    // empty range, so guard before forming `startRound...rounds` (which would
+    // trap) and fall straight through to `.simulationCompleted`.
+    if ctx.startRound <= ctx.scenario.rounds {
+      for round in ctx.startRound...ctx.scenario.rounds {
+        if Task.isCancelled {
+          ctx.emitter(.error(.cancelled))
+          return
+        }
+
+        if await checkPaused(ctx: ctx, round: round) { return }
+
+        let activeCount = state.eliminated.values.filter { !$0 }.count
+        if activeCount < 2 {
+          ctx.emitter(
+            .summary(text: "Simulation ended early: fewer than 2 active agents remaining"))
+          break
+        }
+
+        state.conversationLog = []
+        state.pairings = []
+        state.currentRound = round
+        state.variables["current_round"] = "\(round)"
+
+        ctx.emitter(.roundStarted(round: round, totalRounds: ctx.scenario.rounds))
+
+        if await executePhases(ctx: ctx, state: &state) { return }
+
+        ctx.emitter(.roundCompleted(round: round, scores: state.scores))
+
+        // Resumable checkpoint: `state.currentRound == round` here (set above),
+        // so a paused run can later resume from `currentRound + 1`. Emitted only
+        // after the round fully completes — a pause mid-round leaves the prior
+        // round's checkpoint as the resume point (round-boundary continuation).
+        ctx.emitter(.roundCheckpoint(state: state))
       }
-
-      if await checkPaused(ctx: ctx, round: round) { return }
-
-      let activeCount = state.eliminated.values.filter { !$0 }.count
-      if activeCount < 2 {
-        ctx.emitter(.summary(text: "Simulation ended early: fewer than 2 active agents remaining"))
-        break
-      }
-
-      state.conversationLog = []
-      state.pairings = []
-      state.currentRound = round
-      state.variables["current_round"] = "\(round)"
-
-      ctx.emitter(.roundStarted(round: round, totalRounds: ctx.scenario.rounds))
-
-      if await executePhases(ctx: ctx, state: &state) { return }
-
-      ctx.emitter(.roundCompleted(round: round, scores: state.scores))
     }
 
     ctx.emitter(.simulationCompleted)
