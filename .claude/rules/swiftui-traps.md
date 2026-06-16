@@ -26,6 +26,24 @@ Root cause for the iOS 26 regression on `.navigationBarBackButtonHidden(true)`: 
 
 Architectural rationale: [ADR-008 §Amendment 2026-05-10](../../docs/decisions/ADR-008.md).
 
+## TabView tab-bar SF Symbol auto-fill (iOS 15+)
+
+A native `TabView` tab bar auto-applies the `.fill` SF Symbol variant to
+**every** tab icon (iOS 15+). If you drive the active/inactive
+outline↔fill distinction yourself (e.g. `house` ↔ `house.fill`), the
+auto-fill overrides it — every tab renders filled in both states and the
+distinction is erased.
+
+**Apply**: add `.environment(\.symbolVariants, .none)` to each tab
+`Image` to disable the auto-variant, then let your own `isActive`-driven
+symbol name carry the fill toggle. The modifier is LOAD-BEARING —
+removing it silently re-fills every tab.
+
+Reference impl + full rationale (including why `magnifyingglass`, which
+has no `.fill` variant, was the only tab where the symptom was
+diagnosable): the LOAD-BEARING comment in
+`Pastura/Pastura/App/RootTabView.swift` (`symbolName(for:isActive:)`).
+
 ## Production-side-effecting service: inject at View boundary
 
 When introducing a **production-only side-effecting service** (LLM-output detector, telemetry analyzer, content-rewriting filter, on-the-fly classifier, A/B-flag injector), inject it at the **View boundary**, NOT as a default value on the VM's `init()` signature.

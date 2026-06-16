@@ -2,14 +2,14 @@
      Regenerate: python3 scripts/generate-navigation-map.py
      Drift guard: python3 scripts/generate-navigation-map.py --check (CI: navigation-map-drift) -->
 
-# Navigation Map — root NavigationStack
+# Navigation Map — per-tab NavigationStacks
 
-Screen graph of the root stack, generated from `Route` enum cases and
-`NavigationLink` / `router.push` / `pushIfOnTop` callsites. Sheets and
-fullScreenCover flows are out of scope (`AppRouter` manages the root
-stack only — see `.claude/rules/navigation.md`). `home` (`HomeView`)
-and `sharedScenarios` (`SharedScenariosListView`, the Browse tab root)
-are tab-stack roots, not `Route` cases.
+Screen graph of the four per-tab stacks, generated from `Route` enum
+cases and `NavigationLink` / `router.push` / `pushIfOnTop` callsites.
+Sheets and fullScreenCover flows are out of scope (each `AppRouter`
+manages its tab's stack only — see `.claude/rules/navigation.md`).
+`home` (`HomeView`) and `sharedScenarios` (`SharedScenariosListView`,
+the Browse tab root) are tab-stack roots, not `Route` cases.
 
 ```mermaid
 flowchart TD
@@ -43,7 +43,7 @@ above. `scripts/ui-tour.sh` runs it and extracts the PNGs into
 `docs/design/screenshots/` (gitignored — regenerate to view;
 `docs/design/screenshots/README.md`). Anchors are the per-screen wait
 identifiers; *Reached via* is the launch root, a tab switch, or a
-root-stack push.
+tab-stack push.
 
 | # | Screenshot | Tour anchor | Reached via |
 |---|------------|-------------|-------------|
