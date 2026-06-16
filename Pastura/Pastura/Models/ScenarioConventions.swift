@@ -87,4 +87,36 @@ nonisolated public enum ScenarioConventions {
   public static func decoratePrimary(_ value: String, for phaseType: PhaseType) -> String {
     phaseType == .vote ? "→ \(value)" : value
   }
+
+  /// Returns `true` if `name` is a valid scenario `output:` field name.
+  ///
+  /// Output field names (the `output:` block keys) are emitted verbatim as
+  /// JSON-key literals (`"\"<name>\""`) into every LLM-phase GBNF grammar by
+  /// ``GBNFGrammarBuilder``. A non-ASCII / multi-byte key reaches llama.cpp's
+  /// sampler as a literal and crashes it at accept-time on-device — an
+  /// uncatchable SIGABRT (the "empty grammar stack" class). This is the same
+  /// mechanism that forced CJK choose-option *values* out of the grammar in
+  /// #599; field names are the residual key surface (#607). The trigger is the
+  /// model's BPE tokenizer, so it is per-model and there is no model-agnostic
+  /// "safe non-ASCII" predicate — ASCII-only is the only durable boundary.
+  ///
+  /// Field names carry no user-visible value: they are machine-internal keys
+  /// the model maps to via the localized prompt (``PromptBuilder``). Agent text
+  /// *values* stay unconstrained and may be any language — only the keys are
+  /// gated here.
+  ///
+  /// Rule: non-empty, first character an ASCII letter (`[A-Za-z]`), every
+  /// subsequent character an ASCII letter, digit, or underscore
+  /// (`[A-Za-z0-9_]`). Leading `_` / `-` / digit are rejected. Single source of
+  /// truth for both the ``GBNFGrammarBuilder`` crash backstop and the
+  /// ``ScenarioValidator`` load-gate.
+  public static func isValidFieldName(_ name: String) -> Bool {
+    guard let first = name.first, first.isASCII, first.isLetter else {
+      return false
+    }
+    for char in name where !(char.isASCII && (char.isLetter || char.isNumber || char == "_")) {
+      return false
+    }
+    return true
+  }
 }
