@@ -36,6 +36,13 @@ opt_in_rules:
   - private_action
   - private_outlet
   - redundant_nil_coalescing
+
+# Analyzer-only rules (require `swiftlint analyze`, not `swiftlint lint`).
+# NOTE: no pipeline runs `analyze` today — CI, the git pre-commit hook, and
+# the Claude Code edit hook all run `swiftlint lint` only — so these are
+# armed-but-dormant, not enforced. Listed here for correct placement (the
+# lint warning that asked for this section) + intent if `analyze` is ever wired up.
+analyzer_rules:
   - unused_import
 
 custom_rules:
