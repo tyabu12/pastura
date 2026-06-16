@@ -37,23 +37,19 @@ enum Route: Hashable {
     initialName: RouteHint<String> = .init()
   )
 
-  /// Past simulation results list.
+  /// Past simulation results list — **Detail entry-point only** (e.g.
+  /// tapping "Past Results" inside a ``ScenarioDetailView``). The resolver
+  /// maps `scenarioId` to ``ResultsScope/scenario(_:)``, so this is
+  /// per-variant: it surfaces simulations for *exactly* this scenario id
+  /// even when a cross-language sibling exists with its own runs. This UX
+  /// seam — a JA Detail's Past Results does NOT show EN sibling runs — is
+  /// intentional, so a user reading a single-language scenario doesn't see
+  /// semantically un-comparable sibling runs commingled.
   ///
-  /// Two semantics based on `scenarioId`:
-  ///
-  /// - **Empty (`""`)** — Home entry-point. ``ResultsViewModel``
-  ///   aggregates simulations across language-variant siblings
-  ///   sharing a canonical `ScenarioRecord.sourceId` (ADR-010 D4 /
-  ///   #392). Each section's header uses the device-locale variant's
-  ///   `name`; rows preserve the simulation-time variant's own name.
-  /// - **Non-empty** — Detail entry-point (e.g. tapping "Past
-  ///   Results" inside a ``ScenarioDetailView``). Per-variant only:
-  ///   surfaces simulations for *exactly* this scenario id even when
-  ///   a cross-language sibling exists with its own runs. This UX
-  ///   seam — a JA Detail's Past Results does NOT show EN sibling
-  ///   runs — is intentional, so a user reading a single-language
-  ///   scenario doesn't see semantically un-comparable sibling runs
-  ///   commingled. Cross-variant browsing is reserved for Home.
+  /// Cross-variant browsing is reserved for the History-tab root
+  /// (``ResultsScope/aggregate``), which `RootTabView` mounts directly —
+  /// it is **not** a `Route` push, so this case never carries an empty /
+  /// aggregate id (ADR-010 D4 / #392, ADR-016 D4, #633).
   case results(scenarioId: String)
 
   /// Detail view for a specific past simulation run.
