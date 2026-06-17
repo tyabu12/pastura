@@ -204,6 +204,77 @@ import Testing
     #expect(coordinator.settingsRouter.path.isEmpty)
   }
 
+  // MARK: - Leave guard / deferred tab-switch (#673)
+
+  @Test func guardDefersCrossTabSwitch() {
+    let coordinator = TabCoordinator()
+    coordinator.homeRouter.push(.simulation(scenarioId: "x"))
+    coordinator.hasUnsavedInFlightRun = true
+
+    coordinator.handleSelection(.history)
+
+    // The switch is deferred: selectedTab stays put, target is parked.
+    #expect(coordinator.selectedTab == .home)
+    #expect(coordinator.pendingTabSwitch == .history)
+  }
+
+  @Test func guardDoesNotBlockReselectionPopToRoot() {
+    // Re-selection short-circuits above the guard — re-tapping the current tab
+    // pops-to-root even mid-run (it does not leave the screen, so no confirm).
+    let coordinator = TabCoordinator()
+    coordinator.homeRouter.push(.simulation(scenarioId: "x"))
+    coordinator.hasUnsavedInFlightRun = true
+
+    coordinator.handleSelection(.home)
+
+    #expect(coordinator.homeRouter.path.isEmpty)
+    #expect(coordinator.pendingTabSwitch == nil)
+    #expect(coordinator.selectedTab == .home)
+  }
+
+  @Test func clearedGuardDoesNotDeferSelection() {
+    // Race guard (critic Axis 4): a SimulationView that set the flag true and
+    // then cleared it on disappear must not leave a stale `true` that freezes
+    // every subsequent tab switch.
+    let coordinator = TabCoordinator()
+    coordinator.hasUnsavedInFlightRun = true
+    coordinator.hasUnsavedInFlightRun = false  // onDisappear unconditional clear
+
+    coordinator.handleSelection(.search)
+
+    #expect(coordinator.selectedTab == .search)
+    #expect(coordinator.pendingTabSwitch == nil)
+  }
+
+  @Test func commitPendingTabSwitchPerformsDeferredSwitch() {
+    let coordinator = TabCoordinator()
+    coordinator.hasUnsavedInFlightRun = true
+    coordinator.handleSelection(.settings)
+
+    coordinator.commitPendingTabSwitch()
+
+    #expect(coordinator.selectedTab == .settings)
+    #expect(coordinator.pendingTabSwitch == nil)
+  }
+
+  @Test func commitPendingTabSwitchIsNoopWhenNothingPending() {
+    let coordinator = TabCoordinator()
+    coordinator.commitPendingTabSwitch()
+    #expect(coordinator.selectedTab == .home)
+    #expect(coordinator.pendingTabSwitch == nil)
+  }
+
+  @Test func cancelPendingTabSwitchStaysOnCurrentTab() {
+    let coordinator = TabCoordinator()
+    coordinator.hasUnsavedInFlightRun = true
+    coordinator.handleSelection(.settings)
+
+    coordinator.cancelPendingTabSwitch()
+
+    #expect(coordinator.selectedTab == .home)
+    #expect(coordinator.pendingTabSwitch == nil)
+  }
+
   // MARK: - Helpers
 
   private func makeGalleryScenario(id: String) -> GalleryScenario {
