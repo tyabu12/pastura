@@ -58,7 +58,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     guard let raw = try? Yams.load(yaml: stripped),
       let dict = raw as? [String: Any]
     else {
-      throw SimulationError.scenarioValidationFailed("Invalid YAML format")
+      throw validationError(String(localized: "Invalid YAML format"))
     }
 
     return try mapToScenario(dict)
@@ -129,14 +129,13 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     _ dict: [String: Any], key: String, label: String
   ) throws -> T {
     guard let raw = dict[key] else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): missing required field '\(key)'"
-      )
+      throw validationError(
+        String(localized: "%@: missing required field '%@'"), label, key)
     }
     guard let typed = raw as? T else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): field '\(key)' must be \(T.self), got \(type(of: raw))"
-      )
+      throw validationError(
+        String(localized: "%@: field '%@' must be %@, got %@"),
+        label, key, String(describing: T.self), String(describing: type(of: raw)))
     }
     return typed
   }
@@ -151,9 +150,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   ) throws -> T? {
     guard let raw = dict[key] else { return nil }
     guard let typed = raw as? T else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): field '\(key)' must be \(T.self), got \(type(of: raw))"
-      )
+      throw validationError(
+        String(localized: "%@: field '%@' must be %@, got %@"),
+        label, key, String(describing: T.self), String(describing: type(of: raw)))
     }
     return typed
   }
@@ -181,9 +180,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     if let int = raw as? Int, !(raw is Bool) {
       return Double(int)
     }
-    throw SimulationError.scenarioValidationFailed(
-      "\(label): field '\(key)' must be Double or Int, got \(type(of: raw))"
-    )
+    throw validationError(
+      String(localized: "%@: field '%@' must be Double or Int, got %@"),
+      label, key, String(describing: type(of: raw)))
   }
 
   /// Maps a raw YAML dictionary to a ``Scenario`` model.
@@ -194,18 +193,19 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     let language: String = try parseRequired(dict, key: "language", label: "Scenario")
     guard Scenario.acceptedLanguages.contains(language) else {
       let allowed = Scenario.acceptedLanguages.sorted().joined(separator: ", ")
-      throw SimulationError.scenarioValidationFailed(
-        "Scenario: field 'language' must be one of {\(allowed)}, got '\(language)'"
-      )
+      throw validationError(
+        String(localized: "Scenario: field 'language' must be one of {%@}, got '%@'"),
+        allowed, language)
     }
     let simulationLanguage: String? = try parseOptional(
       dict, key: "simulation_language", label: "Scenario")
     if let simulationLanguage, !Scenario.acceptedLanguages.contains(simulationLanguage) {
       let allowed = Scenario.acceptedLanguages.sorted().joined(separator: ", ")
-      throw SimulationError.scenarioValidationFailed(
-        "Scenario: field 'simulation_language' must be one of {\(allowed)} or absent, "
-          + "got '\(simulationLanguage)'"
-      )
+      throw validationError(
+        String(
+          localized: "Scenario: field 'simulation_language' must be one of {%@} or absent, got '%@'"
+        ),
+        allowed, simulationLanguage)
     }
     let agentCount: Int = try parseRequired(dict, key: "agents", label: "Scenario")
     let rounds: Int = try parseRequired(dict, key: "rounds", label: "Scenario")
@@ -218,9 +218,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
 
     let personas = try personasRaw.map { try mapPersona($0) }
     if personas.count != agentCount {
-      throw SimulationError.scenarioValidationFailed(
-        "agents (\(agentCount)) does not match personas count (\(personas.count))"
-      )
+      throw validationError(
+        String(localized: "agents (%lld) does not match personas count (%lld)"),
+        agentCount, personas.count)
     }
 
     let phases = try phasesRaw.enumerated().map { index, raw in
@@ -267,9 +267,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return nil
     }
     guard let parsed = AssignTarget(rawValue: str) else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label) has invalid target: '\(str)'. Use 'all' or 'random_one'."
-      )
+      throw validationError(
+        String(localized: "%@ has invalid target: '%@'. Use 'all' or 'random_one'."),
+        label, str)
     }
     return parsed
   }
@@ -279,9 +279,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return nil
     }
     guard let parsed = PairingStrategy(rawValue: str) else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label) has invalid pairing: '\(str)'. Use 'round_robin'."
-      )
+      throw validationError(
+        String(localized: "%@ has invalid pairing: '%@'. Use 'round_robin'."),
+        label, str)
     }
     return parsed
   }
@@ -292,9 +292,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     }
     guard let parsed = ScoreCalcLogic(rawValue: str) else {
       let allowed = ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")
-      throw SimulationError.scenarioValidationFailed(
-        "\(label) has invalid logic: '\(str)'. Expected one of: \(allowed)."
-      )
+      throw validationError(
+        String(localized: "%@ has invalid logic: '%@'. Expected one of: %@."),
+        label, str, allowed)
     }
     return parsed
   }
@@ -366,18 +366,18 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     _ dict: [String: Any], label: String, depth: Int
   ) throws -> PhaseType {
     guard let typeString = dict["type"] as? String else {
-      throw SimulationError.scenarioValidationFailed("\(label) missing 'type'")
+      throw validationError(String(localized: "%@ missing 'type'"), label)
     }
     guard let phaseType = PhaseType(rawValue: typeString) else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label) has invalid type: '\(typeString)'"
-      )
+      throw validationError(
+        String(localized: "%@ has invalid type: '%@'"), label, typeString)
     }
     if phaseType == .conditional && depth > 0 {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): nested 'conditional' inside another conditional is not "
-          + "allowed (depth-1 rule)."
-      )
+      throw validationError(
+        String(
+          localized:
+            "%@: nested 'conditional' inside another conditional is not allowed (depth-1 rule)."),
+        label)
     }
     return phaseType
   }
@@ -390,16 +390,16 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   ) throws -> [String: String]? {
     guard let raw = dict["output"] else { return nil }
     guard let output = raw as? [String: Any] else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): field 'output' must be a dictionary of String values, got \(type(of: raw))"
-      )
+      throw validationError(
+        String(localized: "%@: field 'output' must be a dictionary of String values, got %@"),
+        label, String(describing: type(of: raw)))
     }
     var result: [String: String] = [:]
     for (key, value) in output {
       guard let str = value as? String else {
-        throw SimulationError.scenarioValidationFailed(
-          "\(label): output schema value for '\(key)' must be String, got \(type(of: value))"
-        )
+        throw validationError(
+          String(localized: "%@: output schema value for '%@' must be String, got %@"),
+          label, key, String(describing: type(of: value)))
       }
       result[key] = str
     }
@@ -411,9 +411,9 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   ) throws -> [Phase]? {
     guard let phasesRaw = raw else { return nil }
     guard let list = phasesRaw as? [[String: Any]] else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(parentLabel): '\(branchLabel)' must be an array of phase objects"
-      )
+      throw validationError(
+        String(localized: "%@: '%@' must be an array of phase objects"),
+        parentLabel, branchLabel)
     }
     return try list.enumerated().map { subIndex, subRaw in
       try mapPhase(
@@ -445,31 +445,50 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       // Array of dicts where any value isn't a String — previously stringified
       // silently, which hid typos like `majority: 1`.
       if arr.allSatisfy({ $0 is [String: Any] }) {
-        throw SimulationError.scenarioValidationFailed(
-          "Top-level field '\(key)': array-of-dict values must all be String. "
-            + "Quote non-string values (e.g. `majority: \"1\"`)."
-        )
+        throw validationError(
+          String(
+            localized:
+              "Top-level field '%@': array-of-dict values must all be String. Quote non-string values (e.g. `majority: \"1\"`)."
+          ),
+          key)
       }
       if arr.allSatisfy({ $0 is String }) {
         return .array(arr.compactMap { $0 as? String })
       }
-      throw SimulationError.scenarioValidationFailed(
-        "Top-level field '\(key)': mixed-type arrays are not supported. "
-          + "Use a pure [String] or [[String: String]]."
-      )
+      throw validationError(
+        String(
+          localized:
+            "Top-level field '%@': mixed-type arrays are not supported. Use a pure [String] or [[String: String]]."
+        ),
+        key)
     }
     if let dict = value as? [String: String] {
       return .dictionary(dict)
     }
     if value is [String: Any] {
-      throw SimulationError.scenarioValidationFailed(
-        "Top-level field '\(key)': dictionary values must all be String. "
-          + "Quote non-string values."
-      )
+      throw validationError(
+        String(
+          localized:
+            "Top-level field '%@': dictionary values must all be String. Quote non-string values."),
+        key)
     }
-    throw SimulationError.scenarioValidationFailed(
-      "Top-level field '\(key)' has unsupported type \(type(of: value)). "
-        + "Supported shapes: \(Self.supportedExtraDataShapes)."
-    )
+    throw validationError(
+      String(localized: "Top-level field '%@' has unsupported type %@. Supported shapes: %@."),
+      key, String(describing: type(of: value)), Self.supportedExtraDataShapes)
   }
+}
+
+/// Builds a ``SimulationError/scenarioValidationFailed(_:)`` from a localized
+/// format string and its arguments. Collapses the `String(format:)` wrapper at
+/// every call site so each throw stays a single `String(localized:)` literal —
+/// xcstringstool still extracts it as Form B (see `.claude/rules/i18n.md`).
+///
+/// File-scope (not a method) so it stays out of `ScenarioLoader`'s
+/// `type_body_length` budget; `nonisolated` because top-level functions inherit
+/// `MainActor` under `SWIFT_DEFAULT_ACTOR_ISOLATION` and the `nonisolated`
+/// loader calls it synchronously.
+nonisolated private func validationError(
+  _ format: String, _ arguments: CVarArg...
+) -> SimulationError {
+  .scenarioValidationFailed(String(format: format, arguments: arguments))
 }
