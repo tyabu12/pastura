@@ -30,9 +30,28 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
 
   /// Parse a YAML string into a ``Scenario`` model.
   ///
+  /// Enforces structural mapping plus a narrow band of construct-time
+  /// invariants (accepted-`language` / `simulation_language` membership,
+  /// `personas` count matching `agents`, depth-1 `conditional`). It does
+  /// **not** run ``ScenarioValidator``'s execution-limit / inference-cap /
+  /// phase-semantic gate — so the returned scenario is well-formed but not
+  /// yet known to be runnable.
+  ///
+  /// Boundary contract for callers:
+  /// - **Persisting** a newly-authored / ingested scenario to the database →
+  ///   call ``ScenarioValidator/validateForCommit(_:)`` first (it adds the
+  ///   canonical-primary-field check on top of `validate`).
+  /// - **Running** a scenario → ``ScenarioValidator/validate(_:)`` (already
+  ///   enforced at the run-gate in `SimulationRunner`).
+  /// - **Re-parsing** already-persisted YAML (replay / export / display) →
+  ///   no validation needed; the gate already ran upstream at create-time.
+  ///   This exemption is the reason `load` itself stays un-validating.
+  ///
   /// - Parameter yaml: Raw YAML text, possibly wrapped in code fences.
-  /// - Returns: A validated ``Scenario`` instance.
-  /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` on parse or validation failure.
+  /// - Returns: A structurally-mapped ``Scenario`` instance (not run-validated).
+  /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` on a YAML
+  ///   parse error or a construct-time invariant violation (wrong field type,
+  ///   unknown `language`, persona/agent mismatch, malformed phase shape).
   public func load(yaml: String) throws -> Scenario {
     let stripped = stripCodeFences(yaml)
 

@@ -27,52 +27,48 @@ nonisolated struct ScenarioValidator: Sendable {
     // gate, mirrors `ScenarioLoader`'s YAML-parse path).
     if !Scenario.acceptedLanguages.contains(scenario.language) {
       let allowed = Scenario.acceptedLanguages.sorted().joined(separator: ", ")
-      throw SimulationError.scenarioValidationFailed(
-        "Scenario: field 'language' must be one of {\(allowed)}, got '\(scenario.language)'"
-      )
+      throw validationError(
+        String(localized: "Scenario: field 'language' must be one of {%@}, got '%@'"),
+        allowed, scenario.language)
     }
     if let simulationLanguage = scenario.simulationLanguage,
       !Scenario.acceptedLanguages.contains(simulationLanguage) {
       let allowed = Scenario.acceptedLanguages.sorted().joined(separator: ", ")
-      throw SimulationError.scenarioValidationFailed(
-        "Scenario: field 'simulationLanguage' must be one of {\(allowed)} or nil, "
-          + "got '\(simulationLanguage)'"
-      )
+      throw validationError(
+        String(
+          localized: "Scenario: field 'simulationLanguage' must be one of {%@} or nil, got '%@'"),
+        allowed, simulationLanguage)
     }
 
     // Agent count limits (checked first for clearer error messages)
     if scenario.agentCount < 2 {
-      throw SimulationError.scenarioValidationFailed(
-        "Agent count (\(scenario.agentCount)) is below minimum of 2"
-      )
+      throw validationError(
+        String(localized: "Agent count (%lld) is below minimum of 2"), scenario.agentCount)
     }
     if scenario.agentCount > 10 {
-      throw SimulationError.scenarioValidationFailed(
-        "Agent count (\(scenario.agentCount)) exceeds maximum of 10"
-      )
+      throw validationError(
+        String(localized: "Agent count (%lld) exceeds maximum of 10"), scenario.agentCount)
     }
 
     // Persona count must match agentCount
     if scenario.personas.count != scenario.agentCount {
-      throw SimulationError.scenarioValidationFailed(
-        "Persona count (\(scenario.personas.count)) does not match agent count (\(scenario.agentCount))"
-      )
+      throw validationError(
+        String(localized: "Persona count (%lld) does not match agent count (%lld)"),
+        scenario.personas.count, scenario.agentCount)
     }
 
     // Round count limit
     if scenario.rounds > 30 {
-      throw SimulationError.scenarioValidationFailed(
-        "Round count (\(scenario.rounds)) exceeds maximum of 30"
-      )
+      throw validationError(
+        String(localized: "Round count (%lld) exceeds maximum of 30"), scenario.rounds)
     }
 
     // Inference count estimation
     let estimated = ScenarioLoader.estimateInferenceCount(scenario)
 
     if estimated > 100 {
-      throw SimulationError.scenarioValidationFailed(
-        "Estimated inferences (\(estimated)) exceeds maximum of 100"
-      )
+      throw validationError(
+        String(localized: "Estimated inferences (%lld) exceeds maximum of 100"), estimated)
     }
 
     try validatePhases(scenario)
@@ -80,8 +76,10 @@ nonisolated struct ScenarioValidator: Sendable {
     var warnings: [String] = []
     if estimated > 50 {
       warnings.append(
-        "High inference count (\(estimated)). Simulation may take several minutes."
-      )
+        String(
+          format: String(
+            localized: "High inference count (%lld). Simulation may take several minutes."),
+          estimated))
     }
 
     return ValidationResult(warnings: warnings, estimatedInferences: estimated)
@@ -133,12 +131,9 @@ nonisolated struct ScenarioValidator: Sendable {
     }
     let schema = phase.outputSchema ?? [:]
     if schema[canonical] == nil {
-      throw SimulationError.scenarioValidationFailed(
-        String(
-          format: String(localized: "%@ (%@) requires field '%@' in output."),
-          label, phase.type.rawValue, canonical
-        )
-      )
+      throw validationError(
+        String(localized: "%@ (%@) requires field '%@' in output."),
+        label, phase.type.rawValue, canonical)
     }
   }
 
@@ -162,7 +157,8 @@ nonisolated struct ScenarioValidator: Sendable {
       try validateOutputFieldNames(in: phase, label: "Phase \(index + 1)")
       switch phase.type {
       case .assign:
-        try validateAssignPhase(phase, index: index, scenario: scenario)
+        try validateAssignPhaseShape(
+          phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
       case .conditional:
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
       case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
@@ -172,13 +168,6 @@ nonisolated struct ScenarioValidator: Sendable {
           phase, label: "Phase \(index + 1) (event_inject)", scenario: scenario)
       }
     }
-  }
-
-  private func validateAssignPhase(
-    _ phase: Phase, index: Int, scenario: Scenario
-  ) throws {
-    try validateAssignPhaseShape(
-      phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
   }
 
   /// Enforces the conditional-phase invariants that the construction-time
@@ -197,9 +186,8 @@ nonisolated struct ScenarioValidator: Sendable {
     let trimmedCondition = (phase.condition ?? "").trimmingCharacters(
       in: .whitespacesAndNewlines)
     if trimmedCondition.isEmpty {
-      throw SimulationError.scenarioValidationFailed(
-        "\(phaseLabel): missing or empty 'if' expression."
-      )
+      throw validationError(
+        String(localized: "%@: missing or empty 'if' expression."), phaseLabel)
     }
 
     // Parse-only pre-flight: malformed `if:` (mismatched parens, dangling
@@ -210,22 +198,26 @@ nonisolated struct ScenarioValidator: Sendable {
     do {
       try ConditionEvaluator().parse(trimmedCondition)
     } catch let SimulationError.scenarioValidationFailed(message) {
+      // Raw interpolation is deliberate here (not Form-B): this only prefixes
+      // the phase locator onto `message`, which is already a localized string
+      // emitted by `ConditionEvaluator.parse`. There is no new translatable
+      // literal to extract, so a future i18n sweep should skip this site.
       throw SimulationError.scenarioValidationFailed("\(phaseLabel): \(message)")
     }
 
     let thenCount = phase.thenPhases?.count ?? 0
     let elseCount = phase.elsePhases?.count ?? 0
     if thenCount == 0 && elseCount == 0 {
-      throw SimulationError.scenarioValidationFailed(
-        "\(phaseLabel): must have at least one sub-phase in 'then' or 'else'."
-      )
+      throw validationError(
+        String(localized: "%@: must have at least one sub-phase in 'then' or 'else'."), phaseLabel)
     }
 
     if depth > 0 {
-      throw SimulationError.scenarioValidationFailed(
-        "\(phaseLabel): nested 'conditional' inside another conditional is "
-          + "not allowed (depth-1 rule)."
-      )
+      throw validationError(
+        String(
+          localized:
+            "%@: nested 'conditional' inside another conditional is not allowed (depth-1 rule)."),
+        phaseLabel)
     }
 
     try validateBranch(
@@ -251,9 +243,9 @@ nonisolated struct ScenarioValidator: Sendable {
       let subLabel = "\(parentLabel) \(branchLabel)[\(subIndex + 1)]"
       try validateOutputFieldNames(in: subPhase, label: subLabel)
       if subPhase.type == .conditional {
-        throw SimulationError.scenarioValidationFailed(
-          "\(subLabel) is another conditional, which is not allowed (depth-1 rule)."
-        )
+        throw validationError(
+          String(localized: "%@ is another conditional, which is not allowed (depth-1 rule)."),
+          subLabel)
       }
       if subPhase.type == .assign {
         try validateAssignPhaseShape(subPhase, label: subLabel, scenario: scenario)
@@ -288,16 +280,20 @@ nonisolated struct ScenarioValidator: Sendable {
   ) throws {
     let sourceKey = (phase.source ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sourceKey.isEmpty else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): missing 'source'. event_inject requires a 'source' key naming "
-          + "a top-level YAML field that lists the event strings."
-      )
+      throw validationError(
+        String(
+          localized:
+            "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings."
+        ),
+        label)
     }
     guard let sourceValue = scenario.extraData[sourceKey] else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): source '\(sourceKey)' not found in scenario data. "
-          + "Add a top-level '\(sourceKey)' field to the scenario YAML."
-      )
+      throw validationError(
+        String(
+          localized:
+            "%@: source '%@' not found in scenario data. Add a top-level '%@' field to the scenario YAML."
+        ),
+        label, sourceKey, sourceKey)
     }
     switch sourceValue {
     case .array(let entries):
@@ -306,25 +302,27 @@ nonisolated struct ScenarioValidator: Sendable {
       // which a curator cannot distinguish from a string of unlucky rolls.
       // Reject early so the misconfiguration surfaces at scenario load.
       guard !entries.isEmpty else {
-        throw SimulationError.scenarioValidationFailed(
-          "\(label): source '\(sourceKey)' is empty. "
-            + "event_inject requires at least one string in the list; "
-            + "for a single fixed event use ['only_event']."
-        )
+        throw validationError(
+          String(
+            localized:
+              "%@: source '%@' is empty. event_inject requires at least one string in the list; for a single fixed event use ['only_event']."
+          ),
+          label, sourceKey)
       }
     case .string, .dictionary, .arrayOfDictionaries:
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): source '\(sourceKey)' must be a list of strings. "
-          + "v1 of event_inject only supports the [String] shape; "
-          + "for a single fixed event use ['only_event']."
-      )
+      throw validationError(
+        String(
+          localized:
+            "%@: source '%@' must be a list of strings. v1 of event_inject only supports the [String] shape; for a single fixed event use ['only_event']."
+        ),
+        label, sourceKey)
     }
     if let probability = phase.probability {
       guard (0.0...1.0).contains(probability) else {
-        throw SimulationError.scenarioValidationFailed(
-          "\(label): probability \(probability) is out of range. "
-            + "Must be between 0.0 and 1.0 inclusive."
-        )
+        throw validationError(
+          String(
+            localized: "%@: probability %@ is out of range. Must be between 0.0 and 1.0 inclusive."),
+          label, String(probability))
       }
     }
   }
@@ -342,10 +340,12 @@ nonisolated struct ScenarioValidator: Sendable {
     // here means the scenario YAML genuinely lacks the referenced field —
     // the assign would silently no-op at runtime. Surface it early.
     guard let sourceValue = scenario.extraData[sourceKey] else {
-      throw SimulationError.scenarioValidationFailed(
-        "\(label): source '\(sourceKey)' not found in scenario data. "
-          + "Add a top-level '\(sourceKey)' field to the scenario YAML."
-      )
+      throw validationError(
+        String(
+          localized:
+            "%@: source '%@' not found in scenario data. Add a top-level '%@' field to the scenario YAML."
+        ),
+        label, sourceKey, sourceKey)
     }
     let effectiveTarget = phase.target ?? .all
     switch effectiveTarget {
@@ -354,22 +354,40 @@ nonisolated struct ScenarioValidator: Sendable {
       case .array, .string:
         return
       case .arrayOfDictionaries, .dictionary:
-        throw SimulationError.scenarioValidationFailed(
-          "\(label): source '\(sourceKey)' contains grouped values (e.g., majority/minority pairs). "
-            + "Use target: random_one to distribute these. "
-            + "Use target: all only for a flat list of strings or a single string."
-        )
+        throw validationError(
+          String(
+            localized:
+              "%@: source '%@' contains grouped values (e.g., majority/minority pairs). Use target: random_one to distribute these. Use target: all only for a flat list of strings or a single string."
+          ),
+          label, sourceKey)
       }
     case .randomOne:
       switch sourceValue {
       case .arrayOfDictionaries:
         return
       case .array, .string, .dictionary:
-        throw SimulationError.scenarioValidationFailed(
-          "\(label): source '\(sourceKey)' must be a list of grouped values "
-            + "(e.g., majority/minority pairs) when target is random_one."
-        )
+        throw validationError(
+          String(
+            localized:
+              "%@: source '%@' must be a list of grouped values (e.g., majority/minority pairs) when target is random_one."
+          ),
+          label, sourceKey)
       }
     }
   }
+}
+
+/// Builds a ``SimulationError/scenarioValidationFailed(_:)`` from a localized
+/// format string and its arguments. Collapses the `String(format:)` wrapper at
+/// every call site so each throw stays a single `String(localized:)` literal —
+/// xcstringstool still extracts it as Form B (see `.claude/rules/i18n.md`).
+///
+/// File-scope (not a method) so it stays out of `ScenarioValidator`'s
+/// `type_body_length` budget; `nonisolated` because top-level functions inherit
+/// `MainActor` under `SWIFT_DEFAULT_ACTOR_ISOLATION` and the `nonisolated`
+/// validator calls it synchronously.
+nonisolated private func validationError(
+  _ format: String, _ arguments: CVarArg...
+) -> SimulationError {
+  .scenarioValidationFailed(String(format: format, arguments: arguments))
 }
