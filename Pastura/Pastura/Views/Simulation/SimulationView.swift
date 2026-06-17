@@ -104,6 +104,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // PasturaBackButton's UIKit bridge documentation.
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
+    // Focus mode (#646): hide the bottom tab bar while a simulation is on top
+    // of a tab's stack, so tab-switching mid-run is structurally impossible.
+    // That removes the only foreground path that tore the view-scoped run down
+    // and reset it (tab switch → onDisappear → `.task` cancel → fresh `run()`
+    // on return). The only exits are back / swipe-back, where the
+    // confirm-on-leave dialog + `.paused` safety net already apply. `.tabBar` is
+    // a separate toolbar surface from the navigationBar hide matrix in
+    // `.claude/rules/swiftui-traps.md` — it does NOT touch the back chevron or
+    // the swipe-back gesture. Applied to the whole view so it covers both the
+    // `.simulation` and `.resumeSimulation` routes (both render SimulationView).
+    // See ADR-017; opt-in cross-screen continuation is deferred to Phase B.
+    .toolbar(.hidden, for: .tabBar)
     .task {
       switch source {
       case .scenario(let scenarioId):
