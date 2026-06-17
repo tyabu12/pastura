@@ -116,6 +116,41 @@ private func pollResumeStatus(
   return try repo.fetchById(simId)
 }
 
+/// A fresh run parked mid-flight by ``startSuspendedFreshRun(rounds:)``.
+@MainActor
+private struct SuspendedFreshRun {
+  let env: ContinuationSUT
+  let simId: String
+  let runTask: Task<Void, Never>
+}
+
+/// Starts a FRESH `run(...)` whose first generate is parked (so the run is
+/// genuinely mid-flight and its `.running` record persisted), localizing the
+/// park-and-wait choreography. The caller then applies the leave action under
+/// test (raw `Task.cancel()` vs `cancelSimulation`). `nil` if no record formed.
+@MainActor
+private func startSuspendedFreshRun(rounds: Int = 3) async throws -> SuspendedFreshRun? {
+  let env = try makeContinuationSUT(rounds: rounds)
+  let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
+  env.sut.speed = .instant
+  mock.simulateSuspendOnNextGenerate()
+
+  let runTask = Task { await env.sut.run(scenario: env.scenario, llm: mock) }
+  env.sut.runTask = runTask
+
+  // Wait until the parked inference has started — by then run() has already
+  // awaited createSimulationRecord, so simulationId is populated.
+  let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+  while env.sut.thinkingAgents.isEmpty, ContinuousClock.now < deadline {
+    await Task.yield()
+  }
+  guard let simId = env.sut.simulationId else {
+    runTask.cancel()
+    return nil
+  }
+  return SuspendedFreshRun(env: env, simId: simId, runTask: runTask)
+}
+
 extension SimulationViewModelStatusTests {
 
   // MARK: - Pure terminal-status ladder (deterministic, no run needed)
@@ -125,47 +160,53 @@ extension SimulationViewModelStatusTests {
     #expect(
       SimulationViewModel.terminalStatus(
         didPersistPaused: true, errorMessage: "boom",
-        isCancelled: true, isResumedRun: true, isCompleted: false) == nil)
+        isCancelled: true, isCompleted: false) == nil)
   }
 
   @Test func terminalStatusFailedBeatsCompletion() {
     #expect(
       SimulationViewModel.terminalStatus(
         didPersistPaused: false, errorMessage: "boom",
-        isCancelled: false, isResumedRun: true, isCompleted: true) == .failed)
+        isCancelled: false, isCompleted: true) == .failed)
   }
 
-  @Test func terminalStatusCancelBeatsResumeAndCompletion() {
+  @Test func terminalStatusFailedBeatsTeardown() {
+    // A real error on a not-yet-completed run still wins over the `.paused`
+    // teardown branch — errorMessage is checked above `!isCompleted` (#673).
+    #expect(
+      SimulationViewModel.terminalStatus(
+        didPersistPaused: false, errorMessage: "boom",
+        isCancelled: false, isCompleted: false) == .failed)
+  }
+
+  @Test func terminalStatusCancelBeatsTeardownAndCompletion() {
+    // User-cancel (`isCancelled`) is checked above `!isCompleted`, so a run
+    // cancelled mid-flight records `.cancelled`, never the teardown `.paused`.
     #expect(
       SimulationViewModel.terminalStatus(
         didPersistPaused: false, errorMessage: nil,
-        isCancelled: true, isResumedRun: true, isCompleted: false) == .cancelled)
+        isCancelled: true, isCompleted: false) == .cancelled)
   }
 
-  @Test func terminalStatusResumedTornDownMidFlightStaysPaused() {
-    // The resume-specific branch: a resumed run torn down before completion
-    // (no pause/cancel/error) stays resumable rather than being marked complete.
+  @Test func terminalStatusTornDownMidFlightStaysPaused() {
+    // #673 — a run torn down before completion (no pause/cancel/error) stays
+    // resumable rather than being marked complete. Symmetric across fresh and
+    // resumed runs: `isResumedRun` is no longer a discriminator here. This
+    // replaces the prior fresh-vs-resumed asymmetry pin (the fresh case used
+    // to write `.completed`, silently losing the run).
     #expect(
       SimulationViewModel.terminalStatus(
         didPersistPaused: false, errorMessage: nil,
-        isCancelled: false, isResumedRun: true, isCompleted: false) == .paused)
+        isCancelled: false, isCompleted: false) == .paused)
   }
 
-  @Test func terminalStatusResumedRunThatCompletedWritesCompleted() {
+  @Test func terminalStatusCompletedRunWritesCompleted() {
+    // The only path to `.completed`: `.simulationCompleted` set isCompleted, and
+    // no higher-precedence terminal flag fired.
     #expect(
       SimulationViewModel.terminalStatus(
         didPersistPaused: false, errorMessage: nil,
-        isCancelled: false, isResumedRun: true, isCompleted: true) == .completed)
-  }
-
-  @Test func terminalStatusFreshRunTornDownWritesCompletedNotPaused() {
-    // Asymmetry pin: a FRESH run (isResumedRun == false) that exhausts its
-    // stream writes .completed even with isCompleted false — fresh-run
-    // mid-flight survival is #646 / PR2 scope, deliberately not lifted here.
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: false, errorMessage: nil,
-        isCancelled: false, isResumedRun: false, isCompleted: false) == .completed)
+        isCancelled: false, isCompleted: true) == .completed)
   }
 
   // MARK: - Resume continuation (seed → resume → assert persisted rows)
@@ -314,5 +355,46 @@ extension SimulationViewModelStatusTests {
 
     let rec = try await pollResumeStatus(env.simRepo, simId) { $0.simulationStatus == .paused }
     #expect(rec?.simulationStatus == .paused)
+  }
+
+  // MARK: - Fresh-run mid-flight teardown (#673 terminal-ladder symmetry)
+
+  @Test func freshRunTornDownMidFlightPersistsPaused() async throws {
+    // #673 safety net: a FRESH run cancelled at the Task level (tab-switch /
+    // back / swipe-back) WITHOUT cancelSimulation must leave the row .paused, not
+    // the silent .completed (data loss) of the prior asymmetry. Reverting
+    // `!isCompleted` → `isResumedRun && !isCompleted` would fail this assert.
+    guard let run = try await startSuspendedFreshRun() else {
+      Issue.record("fresh run did not create a simulation record")
+      return
+    }
+
+    // Tab-switch / back teardown: cancel the Task directly (NOT cancelSimulation).
+    run.runTask.cancel()
+    await run.runTask.value
+
+    let rec = try await pollResumeStatus(run.env.simRepo, run.simId) {
+      $0.simulationStatus == .paused
+    }
+    #expect(rec?.simulationStatus == .paused)
+  }
+
+  @Test func freshRunUserCancelledPersistsCancelled() async throws {
+    // Guard the #673 ladder change against demoting a genuine user-cancel into
+    // `.paused`: cancelSimulation sets isCancelled, which the ladder checks ABOVE
+    // the `!isCompleted` teardown branch → `.cancelled`.
+    guard let run = try await startSuspendedFreshRun() else {
+      Issue.record("fresh run did not create a simulation record")
+      return
+    }
+
+    // User-initiated cancel (vs. the silent teardown above).
+    run.env.sut.cancelSimulation()
+    await run.runTask.value
+
+    let rec = try await pollResumeStatus(run.env.simRepo, run.simId) {
+      $0.simulationStatus == .cancelled
+    }
+    #expect(rec?.simulationStatus == .cancelled)
   }
 }
