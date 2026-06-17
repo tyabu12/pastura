@@ -13,6 +13,32 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// Fetches all simulations for a given scenario.
   func fetchByScenarioId(_ scenarioId: String) throws -> [SimulationRecord]
 
+  /// Fetches a page of past runs across **all** scenarios, newest-first, as
+  /// lightweight ``PastRunListItem`` projections — each run's full `stateJSON`
+  /// is decoded only to extract the top-3 scores and is then discarded, so it
+  /// never accumulates in app memory (the #586 memory fix).
+  ///
+  /// Keyset pagination: pass the previous page's last item as `before` (nil
+  /// for the first page); the next page returns rows strictly older than the
+  /// cursor on the composite `(createdAt DESC, id DESC)` order. This is stable
+  /// under concurrent inserts at the top of the stream, unlike `LIMIT/OFFSET`.
+  ///
+  /// When `nameQuery` is non-nil and non-blank the page is narrowed to runs
+  /// whose scenario name (live runs) or ``SimulationRecord/scenarioNameSnapshot``
+  /// (orphaned runs) contains the query as a case-insensitive substring.
+  ///
+  /// - Returns: up to `limit` items. A returned count equal to `limit`
+  ///   indicates more pages may exist.
+  func fetchRecentRunPage(
+    nameQuery: String?, before: SimulationPageCursor?, limit: Int
+  ) throws -> [PastRunListItem]
+
+  /// Fetches **all** runs for a single scenario, newest-first, as lightweight
+  /// ``PastRunListItem`` projections (the per-scenario Detail entry-point —
+  /// not paginated). Shares the `stateJSON`-projecting path with
+  /// ``fetchRecentRunPage(nameQuery:before:limit:)``.
+  func fetchRunList(scenarioId: String) throws -> [PastRunListItem]
+
   /// Fetches all "orphaned" simulations — runs whose source scenario was
   /// deleted, leaving `scenarioId` NULL (the FK is `ON DELETE SET NULL`
   /// since v7). Their display data lives in the `scenario*Snapshot` columns.
@@ -106,6 +132,125 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
         .order(Column("createdAt").desc)
         .fetchAll(db)
     }
+  }
+
+  public func fetchRecentRunPage(
+    nameQuery: String?, before: SimulationPageCursor?, limit: Int
+  ) throws -> [PastRunListItem] {
+    try dbWriter.read { db in
+      var conditions: [String] = []
+      var arguments: [DatabaseValueConvertible] = []
+
+      // Name filter — push the substring match into SQL so it can surface
+      // runs that are not yet on a loaded page. Live runs match the joined
+      // scenario name; orphaned runs match their captured snapshot. Relies on
+      // SQLite's default ASCII-only case-folding for `LIKE` (adequate for the
+      // ja/en scope: ja has no case; en folds). `%`/`_` in the user query are
+      // escaped so they are matched literally, not as wildcards.
+      let trimmed = nameQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
+      let hasFilter = !(trimmed ?? "").isEmpty
+      if hasFilter, let trimmed {
+        let pattern = "%" + Self.escapeLikePattern(trimmed) + "%"
+        conditions.append(
+          #"(sc.name LIKE ? ESCAPE '\' OR sim.scenarioNameSnapshot LIKE ? ESCAPE '\')"#)
+        arguments.append(pattern)
+        arguments.append(pattern)
+      }
+
+      // Keyset (seek) predicate — strictly older than the cursor on the
+      // composite `(createdAt DESC, id DESC)` order. `createdAt` is stored as
+      // a fixed-width millisecond TEXT (GRDB default), so the `id` tie-break
+      // is load-bearing whenever two runs collapse to the same millisecond.
+      if let cursor = before {
+        conditions.append(
+          "(sim.createdAt < ? OR (sim.createdAt = ? AND sim.id < ?))")
+        arguments.append(cursor.createdAt)
+        arguments.append(cursor.createdAt)
+        arguments.append(cursor.id)
+      }
+
+      let joinClause = hasFilter ? "LEFT JOIN scenarios sc ON sim.scenarioId = sc.id" : ""
+      let whereClause =
+        conditions.isEmpty ? "" : "WHERE " + conditions.joined(separator: " AND ")
+      arguments.append(limit)
+
+      let sql = """
+        SELECT sim.* FROM simulations sim
+        \(joinClause)
+        \(whereClause)
+        ORDER BY sim.createdAt DESC, sim.id DESC
+        LIMIT ?
+        """
+
+      let cursor = try SimulationRecord.fetchCursor(
+        db, sql: sql, arguments: StatementArguments(arguments))
+      var items: [PastRunListItem] = []
+      // Iterate one record at a time so the heavy `stateJSON` of the current
+      // row is the only one resident — it is projected to top-3 scores and the
+      // record is then released before the next is read.
+      while let record = try cursor.next() {
+        items.append(Self.projectListItem(from: record))
+      }
+      return items
+    }
+  }
+
+  public func fetchRunList(scenarioId: String) throws -> [PastRunListItem] {
+    try dbWriter.read { db in
+      let cursor = try SimulationRecord.fetchCursor(
+        db,
+        sql: """
+          SELECT * FROM simulations
+          WHERE scenarioId = ?
+          ORDER BY createdAt DESC, id DESC
+          """,
+        arguments: [scenarioId])
+      var items: [PastRunListItem] = []
+      while let record = try cursor.next() {
+        items.append(Self.projectListItem(from: record))
+      }
+      return items
+    }
+  }
+
+  /// Projects a full record to its lightweight list shape, decoding only the
+  /// `scores` map out of `stateJSON` (the heavy `conversationLog` etc. are
+  /// never materialized). Top scores are highest-first, capped at three, with
+  /// agent name as a deterministic tie-break so the chip order is stable.
+  private static func projectListItem(from record: SimulationRecord) -> PastRunListItem {
+    PastRunListItem(
+      id: record.id,
+      scenarioId: record.scenarioId,
+      createdAt: record.createdAt,
+      status: record.status,
+      scenarioNameSnapshot: record.scenarioNameSnapshot,
+      topScores: topScores(fromStateJSON: record.stateJSON))
+  }
+
+  /// A minimal decodable view over `stateJSON` — only `scores` is read, so
+  /// decoding stays cheap and never holds the full `SimulationState`.
+  private struct ScoresProjection: Decodable {
+    let scores: [String: Int]
+  }
+
+  private static func topScores(fromStateJSON json: String) -> [PastRunScore] {
+    guard let data = json.data(using: .utf8),
+      let parsed = try? JSONDecoder().decode(ScoresProjection.self, from: data)
+    else { return [] }
+    return
+      parsed.scores
+      .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+      .prefix(3)
+      .map { PastRunScore(name: $0.key, value: $0.value) }
+  }
+
+  /// Escapes `LIKE` metacharacters so a user's filter text matches literally.
+  /// Backslash first (it is the `ESCAPE` char), then `%` and `_`.
+  private static func escapeLikePattern(_ raw: String) -> String {
+    raw
+      .replacingOccurrences(of: "\\", with: "\\\\")
+      .replacingOccurrences(of: "%", with: "\\%")
+      .replacingOccurrences(of: "_", with: "\\_")
   }
 
   public func fetchOrphaned() throws -> [SimulationRecord] {
