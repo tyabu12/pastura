@@ -213,51 +213,6 @@ struct ResultsViewModelTests {
     #expect(env.sut.errorMessage == nil)
   }
 
-  // MARK: - Decode State
-
-  @Test func decodeStateFromValidJSON() throws {
-    let state = SimulationState(
-      scores: ["Alice": 10, "Bob": 5],
-      eliminated: ["Alice": false, "Bob": false],
-      conversationLog: [],
-      lastOutputs: [:],
-      voteResults: [:],
-      pairings: [],
-      variables: [:],
-      currentRound: 2
-    )
-    let stateJSON = String(data: try JSONEncoder().encode(state), encoding: .utf8)!
-
-    let record = SimulationRecord(
-      id: "sim1", scenarioId: "s1",
-      status: "completed", currentRound: 2, currentPhaseIndex: 0,
-      stateJSON: stateJSON, configJSON: nil,
-      createdAt: Date(), updatedAt: Date()
-    )
-
-    let env = try makeResultsSUT()
-    let decoded = env.sut.decodeState(from: record)
-
-    #expect(decoded != nil)
-    #expect(decoded?.scores["Alice"] == 10)
-    #expect(decoded?.scores["Bob"] == 5)
-    #expect(decoded?.currentRound == 2)
-  }
-
-  @Test func decodeStateReturnsNilForInvalidJSON() throws {
-    let record = SimulationRecord(
-      id: "sim1", scenarioId: "s1",
-      status: "completed", currentRound: 1, currentPhaseIndex: 0,
-      stateJSON: "not valid json", configJSON: nil,
-      createdAt: Date(), updatedAt: Date()
-    )
-
-    let env = try makeResultsSUT()
-    let decoded = env.sut.decodeState(from: record)
-
-    #expect(decoded == nil)
-  }
-
   // MARK: - Orphaned runs (deleted scenario) — v7 history preservation
 
   @Test func homeAggregationSurfacesOrphanedRunWithoutMergingLiveGroups() async throws {
@@ -296,11 +251,16 @@ struct ResultsViewModelTests {
     #expect(names.contains("Prisoner's Dilemma"))
 
     // The orphaned group did not merge into a live group: its canonical key
-    // is reserved (≠ the former scenario id), and it sorts last.
+    // is reserved (≠ the former scenario id) and distinct from the live group's.
+    // Under the recency window orphans interleave by time rather than always
+    // sorting last (#586), so the anti-merge contract is asserted on key
+    // identity, not list position.
     let orphanGroup = try #require(
       env.sut.groups.first { $0.sectionName == "Prisoner's Dilemma" })
     #expect(orphanGroup.rows.map(\.id) == ["sim1"])
     #expect(orphanGroup.canonicalKey != "s1")
-    #expect(env.sut.groups.last?.canonicalKey == orphanGroup.canonicalKey)
+    #expect(orphanGroup.canonicalKey.hasPrefix("\u{0}orphan:"))
+    let liveGroup = try #require(env.sut.groups.first { $0.sectionName == "Word Wolf" })
+    #expect(liveGroup.canonicalKey != orphanGroup.canonicalKey)
   }
 }

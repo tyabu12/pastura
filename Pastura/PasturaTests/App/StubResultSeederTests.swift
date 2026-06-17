@@ -38,8 +38,8 @@
       #expect(viewModel.errorMessage == nil)
       #expect(viewModel.groups.count == 1, "seeded run should form one group")
       let row = try #require(viewModel.groups.first?.rows.first)
-      #expect(row.record.id == StubResultSeeder.simulationId)
-      #expect(row.record.simulationStatus == .completed)
+      #expect(row.item.id == StubResultSeeder.simulationId)
+      #expect(row.item.simulationStatus == .completed)
 
       let turns = await viewModel.loadTurns(
         simulationId: StubResultSeeder.simulationId)

@@ -2815,6 +2815,22 @@
         }
       }
     },
+    "Filter by scenario name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter by scenario name"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオ名で絞り込む"
+          }
+        }
+      }
+    },
     "Finish the current simulation before clearing results." : {
       "localizations" : {
         "ja" : {

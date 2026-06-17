@@ -75,7 +75,7 @@ extension ResultsViewModelTests {
     let group = try #require(env.sut.groups.first)
     #expect(group.canonicalKey == "word_wolf")
     #expect(group.rows.count == 3)
-    let simIds = Set(group.rows.map { $0.record.id })
+    let simIds = Set(group.rows.map { $0.item.id })
     #expect(simIds == ["sim_ja_1", "sim_ja_2", "sim_en_1"])
   }
 
@@ -172,7 +172,7 @@ extension ResultsViewModelTests {
     #expect(group.sectionName == "ワードウルフ")
     // Rows only include the EN sim.
     #expect(group.rows.count == 1)
-    #expect(group.rows.first?.record.id == "sim_en_1")
+    #expect(group.rows.first?.item.id == "sim_en_1")
     #expect(group.rows.first?.variantName == "Word Wolf")
   }
 
@@ -194,7 +194,7 @@ extension ResultsViewModelTests {
     await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     let rows = try #require(env.sut.groups.first?.rows)
-    let nameById = Dictionary(uniqueKeysWithValues: rows.map { ($0.record.id, $0.variantName) })
+    let nameById = Dictionary(uniqueKeysWithValues: rows.map { ($0.item.id, $0.variantName) })
     #expect(nameById["sim_ja"] == "ワードウルフ")
     #expect(nameById["sim_en"] == "Word Wolf")
   }
@@ -236,7 +236,7 @@ extension ResultsViewModelTests {
     await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
 
     #expect(env.sut.groups.count == 1)
-    let allRowIds = env.sut.groups.flatMap { $0.rows.map(\.record.id) }
+    let allRowIds = env.sut.groups.flatMap { $0.rows.map(\.item.id) }
     #expect(allRowIds == ["sim_owned"])
     #expect(!allRowIds.contains("sim_orphan"))
   }
