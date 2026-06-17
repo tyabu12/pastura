@@ -300,6 +300,70 @@
         }
       }
     },
+    "%@ has invalid logic: '%@'. Expected one of: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ has invalid logic: '%2$@'. Expected one of: %3$@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ の logic '%2$@' は無効です。次のいずれかを指定してください: %3$@。"
+          }
+        }
+      }
+    },
+    "%@ has invalid pairing: '%@'. Use 'round_robin'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ has invalid pairing: '%2$@'. Use 'round_robin'."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ の pairing '%2$@' は無効です。'round_robin' を使用してください。"
+          }
+        }
+      }
+    },
+    "%@ has invalid target: '%@'. Use 'all' or 'random_one'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ has invalid target: '%2$@'. Use 'all' or 'random_one'."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ の target '%2$@' は無効です。'all' または 'random_one' を使用してください。"
+          }
+        }
+      }
+    },
+    "%@ has invalid type: '%@'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ has invalid type: '%2$@'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ の type '%2$@' は無効です"
+          }
+        }
+      }
+    },
     "%@ is another conditional, which is not allowed (depth-1 rule)." : {
       "localizations" : {
         "en" : {
@@ -322,6 +386,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ は考え中..."
+          }
+        }
+      }
+    },
+    "%@ missing 'type'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ missing 'type'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ に 'type' がありません"
           }
         }
       }
@@ -456,6 +536,70 @@
         }
       }
     },
+    "%@: '%@' must be an array of phase objects" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: '%2$@' must be an array of phase objects"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: '%2$@' はフェーズオブジェクトの配列である必要があります"
+          }
+        }
+      }
+    },
+    "%@: field '%@' must be %@, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field '%2$@' must be %3$@, got %4$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド '%2$@' は %3$@ である必要がありますが、%4$@ が指定されました"
+          }
+        }
+      }
+    },
+    "%@: field '%@' must be Double or Int, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field '%2$@' must be Double or Int, got %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド '%2$@' は Double または Int である必要がありますが、%3$@ が指定されました"
+          }
+        }
+      }
+    },
+    "%@: field 'output' must be a dictionary of String values, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field 'output' must be a dictionary of String values, got %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド 'output' は String 値の辞書である必要がありますが、%2$@ が指定されました"
+          }
+        }
+      }
+    },
     "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings." : {
       "localizations" : {
         "en" : {
@@ -484,6 +628,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@: 'if' 式がないか空です。"
+          }
+        }
+      }
+    },
+    "%@: missing required field '%@'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: missing required field '%2$@'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: 必須フィールド '%2$@' がありません"
           }
         }
       }
@@ -532,6 +692,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: output フィールド名 '%2$@' は ASCII 識別子（英字・数字・アンダースコアのみ。数字またはアンダースコアで始めることはできません）である必要があります。エージェントのテキスト値は任意の言語で構いません。"
+          }
+        }
+      }
+    },
+    "%@: output schema value for '%@' must be String, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: output schema value for '%2$@' must be String, got %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: output スキーマのフィールド '%2$@' の値は String である必要がありますが、%3$@ が指定されました"
           }
         }
       }
@@ -2999,6 +3175,22 @@
         }
       }
     },
+    "Invalid YAML format" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid YAML format"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無効な YAML 形式です"
+          }
+        }
+      }
+    },
     "Invalid grammar for constrained decoding: %@" : {
       "localizations" : {
         "ja" : {
@@ -4506,6 +4698,22 @@
         }
       }
     },
+    "Scenario: field 'simulation_language' must be one of {%@} or absent, got '%@'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: field 'simulation_language' must be one of {%1$@} or absent, got '%2$@'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: フィールド 'simulation_language' は {%1$@} のいずれか、または省略可能である必要がありますが、'%2$@' が指定されました"
+          }
+        }
+      }
+    },
     "Scenarios" : {
       "localizations" : {
         "en" : {
@@ -5042,6 +5250,70 @@
         }
       }
     },
+    "Top-level field '%@' has unsupported type %@. Supported shapes: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top-level field '%1$@' has unsupported type %2$@. Supported shapes: %3$@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップレベルフィールド '%1$@' はサポートされていない型 %2$@ です。サポートされる形式: %3$@。"
+          }
+        }
+      }
+    },
+    "Top-level field '%@': array-of-dict values must all be String. Quote non-string values (e.g. `majority: \"1\"`)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top-level field '%@': array-of-dict values must all be String. Quote non-string values (e.g. `majority: \"1\"`)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップレベルフィールド '%@': 辞書配列の値はすべて String である必要があります。String 以外の値は引用符で囲んでください（例: `majority: \"1\"`）。"
+          }
+        }
+      }
+    },
+    "Top-level field '%@': dictionary values must all be String. Quote non-string values." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top-level field '%@': dictionary values must all be String. Quote non-string values."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップレベルフィールド '%@': 辞書の値はすべて String である必要があります。String 以外の値は引用符で囲んでください。"
+          }
+        }
+      }
+    },
+    "Top-level field '%@': mixed-type arrays are not supported. Use a pure [String] or [[String: String]]." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top-level field '%@': mixed-type arrays are not supported. Use a pure [String] or [[String: String]]."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップレベルフィールド '%@': 混在型の配列はサポートされていません。純粋な [String] または [[String: String]] を使用してください。"
+          }
+        }
+      }
+    },
     "Try Again" : {
       "localizations" : {
         "ja" : {
@@ -5560,6 +5832,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アクティブ"
+          }
+        }
+      }
+    },
+    "agents (%lld) does not match personas count (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "agents (%1$lld) does not match personas count (%2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "agents (%1$lld) が personas の数 (%2$lld) と一致しません"
           }
         }
       }
