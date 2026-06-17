@@ -132,6 +132,34 @@ extension ResultsViewModelTests {
     #expect(Set(ids).count == ids.count)
   }
 
+  /// A filter change that lands while an auto-fired `loadMore` is in flight
+  /// must win — the stale (unfiltered) page is discarded by the generation
+  /// guard rather than folded into the freshly-filtered window (review Warning).
+  @Test func aggregateFilterSupersedesInFlightLoadMore() async throws {
+    let env = try makePagedSUT(pageSize: 2)
+    try seedPagedScenario(env.scenarioRepo, id: "alpha", name: "Alpha")
+    try seedPagedScenario(env.scenarioRepo, id: "beta", name: "Beta")
+    try seedPagedRun(env.simRepo, id: "alpha1", scenarioId: "alpha", at: 4)
+    try seedPagedRun(env.simRepo, id: "beta1", scenarioId: "beta", at: 3)
+    try seedPagedRun(env.simRepo, id: "alpha2", scenarioId: "alpha", at: 2)
+    try seedPagedRun(env.simRepo, id: "beta2", scenarioId: "beta", at: 1)
+
+    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
+    #expect(env.sut.hasMore)
+
+    // Interleave a load-more with a filter change.
+    async let more: Void = env.sut.loadMore()
+    async let filter: Void = env.sut.applyFilter("alpha", deviceLanguage: "ja")
+    _ = await (more, filter)
+
+    // Whatever the interleaving, the final window reflects the "alpha" filter —
+    // no stale Beta rows leaked in from the discarded loadMore page.
+    let canonicalKeys = Set(env.sut.groups.map(\.canonicalKey))
+    #expect(canonicalKeys == ["alpha"])
+    let ids = env.sut.groups.flatMap { $0.rows.map(\.id) }
+    #expect(Set(ids) == ["alpha1", "alpha2"])
+  }
+
   // MARK: - Incremental reappear refresh
 
   /// After a per-run delete (the #545 reappear trigger), the incremental

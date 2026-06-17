@@ -172,6 +172,9 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
       let joinClause = hasFilter ? "LEFT JOIN scenarios sc ON sim.scenarioId = sc.id" : ""
       let whereClause =
         conditions.isEmpty ? "" : "WHERE " + conditions.joined(separator: " AND ")
+      // `arguments` is bound positionally, so its append order must mirror the
+      // `?` order in the SQL: filter pattern ×2 → cursor ×3 → LIMIT. Any new
+      // condition added above must keep `LIMIT` appended last.
       arguments.append(limit)
 
       let sql = """

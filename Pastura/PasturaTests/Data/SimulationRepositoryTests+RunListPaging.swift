@@ -152,6 +152,26 @@ extension SimulationRepositoryTests {
     #expect(page.map(\.id) == ["sim_pct"])
   }
 
+  @Test func fetchRecentRunPageEscapesUnderscoreAndBackslashWildcards() throws {
+    let env = try makePagingRepos()
+    // `_` is a single-char LIKE wildcard; a literal `_` must not match a
+    // different character. `\` exercises the escape-char doubling path.
+    try env.scenarios.save(scenario(id: "u", name: "a_b"))
+    try env.scenarios.save(scenario(id: "x", name: "axb"))
+    try env.scenarios.save(scenario(id: "bs", name: #"path\to"#))
+    try env.sims.save(run(id: "sim_u", scenarioId: "u", at: 30))
+    try env.sims.save(run(id: "sim_x", scenarioId: "x", at: 20))
+    try env.sims.save(run(id: "sim_bs", scenarioId: "bs", at: 10))
+
+    // Literal "a_b" matches only "a_b", not "axb".
+    let underscore = try env.sims.fetchRecentRunPage(nameQuery: "a_b", before: nil, limit: 10)
+    #expect(underscore.map(\.id) == ["sim_u"])
+
+    // Literal backslash survives the ESCAPE doubling and matches.
+    let backslash = try env.sims.fetchRecentRunPage(nameQuery: #"path\to"#, before: nil, limit: 10)
+    #expect(backslash.map(\.id) == ["sim_bs"])
+  }
+
   @Test func fetchRecentRunPageBlankQueryReturnsAll() throws {
     let env = try makePagingRepos()
     try env.scenarios.save(scenario(id: "s1", name: "One"))

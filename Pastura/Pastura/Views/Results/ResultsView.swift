@@ -104,12 +104,17 @@ struct ResultsView: View {
   /// into view. The `isLoadingMore` guard inside `loadMore()` makes a repeated
   /// `onAppear` (e.g. from a group reorder) a no-op.
   private func loadMoreSentinel(viewModel: ResultsViewModel) -> some View {
+    // Fixed height keeps the sentinel materializable (so `onAppear` fires) and
+    // gives a stable hit area; the spinner shows only while a fetch is actually
+    // in flight rather than spinning idly whenever more pages remain.
     HStack {
       Spacer()
-      ProgressView()
+      if viewModel.isLoadingMore {
+        ProgressView()
+      }
       Spacer()
     }
-    .padding(.vertical, 12)
+    .frame(height: 44)
     .accessibilityIdentifier("results.loadMore")
     .onAppear {
       Task { await viewModel.loadMore() }

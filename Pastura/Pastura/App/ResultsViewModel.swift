@@ -52,6 +52,13 @@ final class ResultsViewModel {
   /// Cumulative count of **raw** rows fetched — the depth a reappear-refresh
   /// re-reads from the top so the user's scroll position survives.
   private var loadedRawCount = 0
+  /// Monotonic load-cycle stamp. Bumped whenever the window is reset
+  /// (`reloadAggregate` / `applyFilter` / `refreshAggregatePreservingDepth`).
+  /// An in-flight `loadMore`/drain captures the stamp and discards a page whose
+  /// stamp is stale — so a filter change (or reappear-refresh) that lands while
+  /// the auto-firing load-more sentinel is mid-fetch can't fold an
+  /// old-query/old-cursor page into the freshly-reset window.
+  private var loadGeneration = 0
   /// Live scenarios by id — bounded (small rows), kept for canonical-key
   /// bucketing and device-locale header resolution.
   private var scenarioById: [String: ScenarioRecord] = [:]
@@ -130,15 +137,19 @@ final class ResultsViewModel {
   }
 
   /// Loads the next visible page of the aggregate window. No-op when no more
-  /// pages exist or a fetch is already in flight.
+  /// pages exist or a fetch is already in flight. If a window reset (filter /
+  /// refresh) supersedes this call mid-fetch, the stale page is discarded.
   func loadMore() async {
     guard hasMore, !isLoadingMore else { return }
     isLoadingMore = true
+    let generation = loadGeneration
     do {
-      try await drainUntilVisibleProgress()
-      rebuildGroups()
+      try await drainUntilVisibleProgress(generation: generation)
+      if generation == loadGeneration { rebuildGroups() }
     } catch {
-      errorMessage = Self.failureMessage(error)
+      // Suppress an error from a page that a window reset already superseded —
+      // it no longer corresponds to the live window.
+      if generation == loadGeneration { errorMessage = Self.failureMessage(error) }
     }
     isLoadingMore = false
   }
@@ -193,12 +204,16 @@ final class ResultsViewModel {
 
   /// Resets the window and loads the first visible page.
   private func reloadAggregate() async throws {
+    loadGeneration += 1
+    let generation = loadGeneration
     try await refreshScenarioIndex()
+    guard generation == loadGeneration else { return }
     loadedRuns = []
     cursor = nil
     loadedRawCount = 0
     hasMore = true
-    try await drainUntilVisibleProgress()
+    try await drainUntilVisibleProgress(generation: generation)
+    guard generation == loadGeneration else { return }
     rebuildGroups()
   }
 
@@ -206,7 +221,7 @@ final class ResultsViewModel {
   /// no pages remain. A page made entirely of dangling-scenarioId (invisible)
   /// rows would otherwise stall the load-more affordance, so such pages are
   /// drained internally rather than surfaced one-at-a-time (#586 auto-drain).
-  private func drainUntilVisibleProgress() async throws {
+  private func drainUntilVisibleProgress(generation: Int) async throws {
     let startCount = loadedRuns.count
     while loadedRuns.count == startCount && hasMore {
       let query = nameQuery.isEmpty ? nil : nameQuery
@@ -216,6 +231,10 @@ final class ResultsViewModel {
         try simulationRepository.fetchRecentRunPage(
           nameQuery: query, before: cursorSnapshot, limit: limit)
       }
+      // A window reset (filter / refresh) landed during the fetch — this page
+      // was read against a now-stale query/cursor, so drop it rather than fold
+      // it into the reset window.
+      guard generation == loadGeneration else { return }
       ingest(rawPage)
     }
   }
@@ -235,14 +254,21 @@ final class ResultsViewModel {
   /// Re-reads the loaded depth from the top, recomputing `cursor` + `hasMore`
   /// from the re-fetched window. Keyset tolerates a cursor that points at a
   /// since-deleted row (it is still a valid `< ` boundary), so a delete between
-  /// pages cannot corrupt a subsequent ``loadMore()``.
+  /// pages cannot corrupt a subsequent ``loadMore()``. The re-read depth is
+  /// unbounded by design (it preserves the user's scroll position); memory
+  /// stays light because the repository still projects `stateJSON` away per
+  /// row — only the top-3-score CPU cost scales with depth on this path.
   private func refreshAggregatePreservingDepth() async throws {
+    loadGeneration += 1
+    let generation = loadGeneration
     try await refreshScenarioIndex()
+    guard generation == loadGeneration else { return }
     let depth = max(loadedRawCount, pageSize)
     let query = nameQuery.isEmpty ? nil : nameQuery
     let rawPage = try await offMain { [simulationRepository] in
       try simulationRepository.fetchRecentRunPage(nameQuery: query, before: nil, limit: depth)
     }
+    guard generation == loadGeneration else { return }
     loadedRawCount = rawPage.count
     hasMore = rawPage.count == depth
     cursor = rawPage.last.map { SimulationPageCursor(createdAt: $0.createdAt, id: $0.id) }
