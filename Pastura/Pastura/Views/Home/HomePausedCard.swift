@@ -67,7 +67,7 @@ struct HomePausedCard: View {
       } label: {
         Label(String(localized: "Resume"), systemImage: "play.fill")
       }
-      .buttonStyle(PasturaPrimaryButtonStyle())
+      .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
     }
   }
 }
