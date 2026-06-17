@@ -42,10 +42,19 @@ Key invariants:
   native bar supplies only the *gesture surface* (the selection
   `Binding`'s setter runs on re-tap); the path reset is performed
   manually by `TabCoordinator.handleSelection(_:)`.
-- **`isSimulationOnTop` is an any-tab fold.** A `.simulation` route on
-  top of **any** tab's stack (not just the selected tab's) gates the
-  deep-link drain and suppresses the warm splash — a simulation
-  backgrounded by switching tabs is genuinely in-flight (ADR-003).
+- **`isSimulationOnTop` is an any-tab fold.** A `.simulation` /
+  `.resumeSimulation` route on top of **any** tab's stack gates the
+  deep-link drain and suppresses the warm splash. Load-bearing on multi-tab
+  *hosting* (a sim can top any tab's stack) + scenePhase-background
+  (ADR-003), **not** on tab-switching — do not narrow to the selected tab
+  (ADR-016 § Amendment 2026-06-18).
+- **Simulation focus mode (#646).** While a sim is on top, the tab bar is
+  hidden (`.toolbar(.hidden, for: .tabBar)` on `SimulationView`), so
+  tab-switching mid-run is structurally impossible; the only exits are back
+  / swipe-back (confirm-on-leave `.back` arm + `.paused` safety net). The
+  PR #673 tab-switch defer machinery (`hasUnsavedInFlightRun` /
+  `pendingTabSwitch`) was removed — do not re-add it. ADR-017; opt-in
+  cross-screen continuation is Phase B.
 
 ## When to use what
 
@@ -196,6 +205,11 @@ When reviewing changes that touch navigation:
       should be empty.
 - [ ] No new properties on `AppRouter` beyond navigation-path management
       (tab selection → `TabCoordinator`).
+- [ ] Focus mode intact (#646): `SimulationView` keeps
+      `.toolbar(.hidden, for: .tabBar)`, and no tab-switch defer state is
+      re-introduced on `TabCoordinator` (`hasUnsavedInFlightRun` /
+      `pendingTabSwitch` were removed). `isSimulationOnTop` stays an any-tab
+      fold (ADR-016 § Amendment 2026-06-18).
 
 ## Render-time hints — `RouteHint`
 
