@@ -248,6 +248,12 @@ private struct RootView: View {
           // state and drive switch / download / delete without threading
           // it through every intermediate view.
           .environment(modelManager)
+          // The coordinator is exposed app-wide (in addition to driving
+          // RootTabView) so a pushed `SimulationView` can publish its
+          // leave-guard flag and resolve a deferred tab-switch for the
+          // confirm-on-leave dialog (#673). Injected ABOVE the TabView is
+          // safe — unlike the per-tab `AppRouter`, the coordinator is shared.
+          .environment(tabCoordinator)
           .environment(\.lastDeepLinkedScenarioId, lastDeepLinkedScenarioId)
 
       case .databaseRecovery(let message):

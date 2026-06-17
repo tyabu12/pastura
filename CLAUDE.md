@@ -19,7 +19,7 @@ Phase 2 progress:
 - **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
 - **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, body #367, B-1a public pages #369, responsive-design migration #373, Engine dynamic localization #383, drift script + Past Results compat #386, bundled English presets + EN DL demo replays + locale-driven runtime selection #388, Step E PR1 simulation_language Engine wiring #398, Step E PR2 LLM output-language adherence enforcement #405, Step E follow-up `.languageMismatch` UI toast + completion summary #422, Past Results cross-language aggregation (ADR-010 D4 consumer) #392)
 - **Launch animation** — cold "Pastoral Drift" + warm "Breath" hybrid; per-scene `LaunchPhaseCoordinator` + Reduce Motion fallback (#412/#415)
-- **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667)
+- **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667, confirm-on-leave pause for in-flight runs #673)
 
 ## Language Rules
 

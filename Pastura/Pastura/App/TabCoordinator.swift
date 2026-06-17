@@ -47,6 +47,23 @@ final class TabCoordinator {
   /// The currently-selected tab. Drives the `TabView` selection binding.
   var selectedTab: AppTab = .home
 
+  /// `true` while an in-flight, not-yet-paused simulation run is on screen —
+  /// published by the active ``SimulationView`` (#673). Gates the cross-tab
+  /// switch in ``handleSelection(_:)`` so a tab tap defers to a confirm-on-leave
+  /// dialog instead of silently tearing the run down.
+  ///
+  /// Lives here (not on `AppRouter`, per `navigation.md` § "AppRouter scope")
+  /// because it gates **tab selection**, which this coordinator already owns.
+  /// The publishing View clears it unconditionally on disappear, so a torn-down
+  /// run can never leave a stale `true` that would freeze all future switches.
+  var hasUnsavedInFlightRun = false
+
+  /// A cross-tab switch deferred by the leave guard, awaiting the user's
+  /// confirm-on-leave decision (#673). The active ``SimulationView`` observes
+  /// this to present its alert; ``commitPendingTabSwitch()`` /
+  /// ``cancelPendingTabSwitch()`` resolve it. `nil` when no switch is pending.
+  var pendingTabSwitch: AppTab?
+
   /// All four routers, for cross-tab folds (e.g. ``isSimulationOnTop``).
   /// Order matches ``AppTab/allCases``.
   var allRouters: [AppRouter] {
@@ -102,12 +119,37 @@ final class TabCoordinator {
   /// Applies a tab-bar selection event: pop the tab to root on
   /// re-selection, switch to it otherwise. Wire this from the `TabView`
   /// selection `Binding`'s setter.
+  ///
+  /// When ``hasUnsavedInFlightRun`` is set, a genuine cross-tab switch is
+  /// **deferred** — `selectedTab` stays put and the target is parked in
+  /// ``pendingTabSwitch`` for the confirm-on-leave dialog (#673). Re-selection
+  /// short-circuits above the guard, so re-tapping the current tab still
+  /// pops-to-root even mid-run (it does not leave the screen).
   func handleSelection(_ tab: AppTab) {
     if isReselection(of: tab) {
       router(for: tab).popToRoot()
+    } else if hasUnsavedInFlightRun {
+      pendingTabSwitch = tab
     } else {
       selectedTab = tab
     }
+  }
+
+  /// Commits a switch deferred by ``handleSelection(_:)`` once the user chose
+  /// "pause and leave" in the confirm-on-leave dialog (#673). No-op when nothing
+  /// is pending. The target is read from coordinator state — never re-read from
+  /// the SimulationView, which may already be tearing down — so the commit is
+  /// race-free.
+  func commitPendingTabSwitch() {
+    guard let tab = pendingTabSwitch else { return }
+    selectedTab = tab
+    pendingTabSwitch = nil
+  }
+
+  /// Discards a deferred switch — the user chose "stay" (#673). The run keeps
+  /// running on the current tab.
+  func cancelPendingTabSwitch() {
+    pendingTabSwitch = nil
   }
 
   /// Presents a resolved deep-linked gallery scenario on the さがす

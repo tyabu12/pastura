@@ -762,13 +762,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// For non-paused exits a real error beats a normal end, and explicit
   /// user-cancel beats a normal end.
   ///
-  /// The `isResumedRun && !isCompleted` branch keeps a **resumed** run that was
-  /// torn down mid-flight (tab-switch / back, with no explicit pause or cancel)
-  /// at `.paused` so it stays resumable from its latest checkpoint. A **fresh**
-  /// run reaching here (`isResumedRun == false`) genuinely exhausted its event
-  /// stream and writes `.completed`. This fresh-vs-resumed asymmetry is
-  /// intentional: making a fresh run survive mid-flight teardown is #646 / PR2
-  /// scope (the tab-move dialog), deliberately not lifted here.
+  /// The `!isCompleted` branch keeps **any** run torn down mid-flight (tab-switch
+  /// / back / swipe-back, with no explicit pause, cancel, or error) at `.paused`
+  /// so it stays resumable from its latest round-boundary checkpoint — fresh and
+  /// resumed runs alike. `isCompleted` is set only by the `.simulationCompleted`
+  /// event, so a run that genuinely exhausted its stream still falls through to
+  /// `.completed`; only a teardown that ends the event loop early lands here with
+  /// `isCompleted == false`. Home P3 PR2 (#673) lifted the prior fresh-vs-resumed
+  /// asymmetry that silently mislabelled a torn-down fresh run as `.completed`
+  /// (data loss) — the in-app confirm-on-leave dialog pauses explicitly, but this
+  /// branch is the lossless safety net for the un-prompted swipe-back path.
   private func finalizeRun(llm: any LLMService) async {
     // finish() is idempotent; defer also calls it for early-return paths.
     persistenceContinuation?.finish()
@@ -782,7 +785,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
     if let status = Self.terminalStatus(
       didPersistPaused: didPersistPaused, errorMessage: errorMessage,
-      isCancelled: isCancelled, isResumedRun: isResumedRun, isCompleted: isCompleted) {
+      isCancelled: isCancelled, isCompleted: isCompleted) {
       await persistStatus(status)
     } else {
       lifecycleLogger.info("run exited while paused; leaving .paused for resume")
@@ -792,20 +795,22 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Pure terminal-status decision for ``finalizeRun(llm:)``. Returns the status
   /// to persist, or `nil` to leave the existing row untouched (the explicit
   /// `.paused` resume point). Lifted to a `static` so the precedence — including
-  /// the resume-specific branch — is unit-testable without driving a full run
+  /// the mid-flight-teardown branch — is unit-testable without driving a full run
   /// (mirrors ``deriveStatus(isCancelled:errorMessage:isCompleted:isPaused:)``).
   ///
   /// Precedence (load-bearing): see ``finalizeRun(llm:)``'s doc-comment for the
-  /// `didPersistPaused`-first rationale and the fresh-vs-resumed asymmetry of
-  /// the `isResumedRun && !isCompleted` branch.
+  /// `didPersistPaused`-first rationale and the `!isCompleted` mid-flight-teardown
+  /// branch. `isResumedRun` is deliberately NOT a parameter — the teardown branch
+  /// is symmetric across fresh and resumed runs (#673); the field still gates the
+  /// `.error(.cancelled)` suppression in `handleEvent`, which is a separate concern.
   static func terminalStatus(
     didPersistPaused: Bool, errorMessage: String?,
-    isCancelled: Bool, isResumedRun: Bool, isCompleted: Bool
+    isCancelled: Bool, isCompleted: Bool
   ) -> SimulationStatus? {
     if didPersistPaused { return nil }
     if errorMessage != nil { return .failed }
     if isCancelled { return .cancelled }
-    if isResumedRun && !isCompleted { return .paused }
+    if !isCompleted { return .paused }
     return .completed
   }
 

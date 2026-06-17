@@ -30,6 +30,21 @@ import UIKit
 /// `@Environment(\.dismiss)` directly — `PasturaBackButton` will NOT
 /// dismiss a sheet. See `.claude/rules/navigation.md`.
 ///
+/// ## Tap-action override
+///
+/// Pass `action:` to intercept the tap instead of popping — e.g.
+/// SimulationView routes it to a confirm-on-leave dialog before popping
+/// an in-flight run (#673). The override owns the pop: it must call
+/// `router.pop()` itself once it decides to leave. Default `nil` keeps the
+/// plain `router.pop()` behaviour, so every existing callsite is unchanged.
+///
+/// **Swipe-back bypasses the override.** The edge-pan gesture pops via the
+/// UIKit `interactivePopGestureRecognizer` (see below), never through this
+/// `Button`, so an `action` override does NOT gate swipe-back. That gap is
+/// deliberate for #673 — the terminal-ladder safety net (`SimulationViewModel`
+/// persists a torn-down run as resumable `.paused`) makes an un-prompted
+/// swipe-back lossless, so no alert is needed there.
+///
 /// ## Accessibility
 ///
 /// Announces as `"Back, button"`. The chevron-only design intentionally
@@ -50,9 +65,18 @@ import UIKit
 struct PasturaBackButton: View {
   @Environment(AppRouter.self) private var router
 
+  /// Optional tap interceptor. When non-nil, the tap invokes `action` instead
+  /// of `router.pop()` — the override is then responsible for popping once it
+  /// decides to leave (#673). `nil` (default) keeps the plain pop behaviour.
+  var action: (() -> Void)?
+
   var body: some View {
     Button {
-      router.pop()
+      if let action {
+        action()
+      } else {
+        router.pop()
+      }
     } label: {
       Image(systemName: Self.iconName)
         .foregroundStyle(Self.tint)
