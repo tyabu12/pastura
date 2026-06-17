@@ -28,7 +28,9 @@ struct RouteResolver: View {
         templateYAML: templateYAML
       )
     case .simulation(let scenarioId, let initialName):
-      SimulationView(scenarioId: scenarioId, initialName: initialName.value)
+      SimulationView(source: .scenario(scenarioId: scenarioId), initialName: initialName.value)
+    case .resumeSimulation(let simulationId, let initialName):
+      SimulationView(source: .resume(runId: simulationId), initialName: initialName.value)
     case .results(let scenarioId):
       ResultsView(scope: .scenario(scenarioId))
     case .resultDetail(let simulationId):

@@ -1,14 +1,25 @@
 import SwiftUI
 
-/// The "resume" card for the most-recent paused run (ADR-016 P2). Mirrors the
-/// d3 layout — name / sheep · rounds / description / progress + Resume.
+/// The "resume" card for the most-recent paused run (ADR-016 P2 layout, P3
+/// resume). Mirrors the d3 layout — name / sheep · rounds / description /
+/// progress + Resume. A nil `rounds` hides the progress line (orphaned /
+/// name-only metadata).
 ///
-/// **Display-only in P2**: the Resume button is `.disabled(true)` because the
-/// run rehydration it needs lands in P3. A nil `rounds` hides the progress
-/// line (orphaned / name-only metadata).
+/// **P3 (#667)**: the Resume button pushes ``Route/resumeSimulation`` onto the
+/// current tab's stack (the Home tab — `@Environment(AppRouter.self)` resolves
+/// to the tab the card lives in, per `.claude/rules/navigation.md`).
 struct HomePausedCard: View {
   let summary: PausedScenarioSummary
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  @Environment(AppRouter.self) private var router
+
+  /// Pure mapping from the card's summary to its resume destination, extracted
+  /// so the dispatch is unit-testable without a live `AppRouter`. Identity is
+  /// the paused run's id; the name rides along as an identity-neutral
+  /// `RouteHint` for the nav title (ADR-008).
+  static func resumeRoute(for summary: PausedScenarioSummary) -> Route {
+    .resumeSimulation(simulationId: summary.runId, initialName: .init(summary.name))
+  }
 
   var body: some View {
     PasturaCard {
@@ -46,15 +57,17 @@ struct HomePausedCard: View {
           .foregroundStyle(Color.inkSecondary)
       }
       Spacer()
-      // P2 ships the card display-only; resume rehydration (DB → live run) is
-      // P3, so the action is disabled rather than wired to a half-built path
-      // (ADR-016 §4).
+      // Use the design-system primary style (mossDark + white label, AA pass),
+      // NOT raw `.borderedProminent`: on iOS 26 the latter opts into the Liquid
+      // Glass capsule, which renders the `play.fill` glyph into the fill so it
+      // vanishes (design-system §5.8 / PasturaPrimaryButtonStyle rationale).
+      // The explicit white `foregroundStyle` on the label restores the icon.
       Button {
+        router.push(Self.resumeRoute(for: summary))
       } label: {
         Label(String(localized: "Resume"), systemImage: "play.fill")
       }
-      .buttonStyle(.borderedProminent)
-      .disabled(true)
+      .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
     }
   }
 }

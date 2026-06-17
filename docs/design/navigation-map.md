@@ -19,6 +19,7 @@ flowchart TD
   editor["Scenario Editor"]
   simulation["Simulation"]
   results["Past Results"]
+  resumeSimulation["Resume Simulation"]
   resultDetail["Result Detail"]
   galleryScenarioDetail["Gallery Scenario Detail"]
   galleryScenarioDetail --> scenarioDetail
