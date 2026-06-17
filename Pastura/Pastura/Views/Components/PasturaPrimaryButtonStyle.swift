@@ -29,18 +29,30 @@ import SwiftUI
 ///   .frame(maxWidth: .infinity)
 /// ```
 struct PasturaPrimaryButtonStyle: ButtonStyle {
+  /// Sizing variant. `.regular` is the full-width browse CTA (gallery Try /
+  /// Shared Scenarios Retry). `.compact` is an inline card action (e.g.
+  /// HomePausedCard's Resume) where the regular padding would dominate a
+  /// footer row — only the metrics change; fill / foreground / press feedback
+  /// are shared so contrast and voice stay identical.
+  enum Size { case regular, compact }
+  var size: Size = .regular
+
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
-      .font(.system(size: 16, weight: .semibold))
+      .font(.system(size: fontSize, weight: .semibold))
       .foregroundStyle(Self.foreground)
-      .padding(.vertical, Self.verticalPadding)
-      .padding(.horizontal, Self.horizontalPadding)
+      .padding(.vertical, verticalPadding)
+      .padding(.horizontal, horizontalPadding)
       .background(
         Self.fill,
         in: RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
       )
       .opacity(configuration.isPressed ? Self.pressedOpacity : 1.0)
   }
+
+  private var fontSize: CGFloat { size == .compact ? 15 : 16 }
+  private var verticalPadding: CGFloat { size == .compact ? 9 : 15 }
+  private var horizontalPadding: CGFloat { size == .compact ? 16 : 20 }
 
   /// Fill color. `mossDark` (#6B7852) — white-on-fill ≈ 4.76:1 (AA pass),
   /// vs. base `moss` (#8A9A6C) ≈ 3.0:1 from `.borderedProminent`.
@@ -54,8 +66,6 @@ struct PasturaPrimaryButtonStyle: ButtonStyle {
   /// Corner radius. Slightly tighter than the 14pt card so a CTA inside a
   /// card never visually fights the enclosing corner.
   static let cornerRadius: CGFloat = 12
-  static let verticalPadding: CGFloat = 15
-  static let horizontalPadding: CGFloat = 20
 
   /// Pressed-state opacity reduction — single source of truth, mirroring
   /// `PasturaToolbarButtonStyle.pressedOpacity`. Signals the touch without

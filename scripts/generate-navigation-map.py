@@ -123,6 +123,7 @@ NODE_LABELS = {
     "scenarioDetail": "Scenario Detail",
     "editor": "Scenario Editor",
     "simulation": "Simulation",
+    "resumeSimulation": "Resume Simulation",
     "results": "Past Results",
     "resultDetail": "Result Detail",
     "sharedScenarios": "Shared Scenarios",

@@ -73,8 +73,12 @@ final class TabCoordinator {
   /// tab would mis-time both (ADR-016 D5.4).
   var isSimulationOnTop: Bool {
     allRouters.contains { router in
-      if case .some(.simulation) = router.path.last { return true }
-      return false
+      // `.resumeSimulation` counts too — a resumed run is equally in-flight, so
+      // it must block the deep-link drain and suppress the warm splash (#667).
+      switch router.path.last {
+      case .simulation, .resumeSimulation: return true
+      default: return false
+      }
     }
   }
 

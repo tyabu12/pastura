@@ -58,6 +58,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// `true` at run exit when the runner was still parked at a pause boundary —
   /// a resumed run clears it before it can complete.
   private var didPersistPaused = false
+  /// `true` while the current run was started via ``resume(record:scenario:llm:)``
+  /// rather than a fresh ``run(scenario:llm:)``. Gates two resume-specific
+  /// behaviors: the `finalizeRun` terminal ladder leaves a mid-flight-torn-down
+  /// resumed run at `.paused` (resumable) instead of `.completed`, and the
+  /// `.error` handler suppresses a teardown `.cancelled` even when
+  /// `didPersistPaused` is false (a resumed run that was never re-paused). Reset
+  /// to `false` per run by `prepareRunInfrastructure`; set `true` by `resume`.
+  private var isResumedRun = false
   /// Serializes status-column writes (`.paused` / `.running`) in call order.
   /// `pauseSimulation` and `resumeSimulation` each enqueue onto this chain so a
   /// rapid pause→resume cannot land `.paused` *after* `.running` (independent
@@ -604,17 +612,33 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     thinkingAgents.removeAll()
   }
 
-  /// Starts the simulation, consuming events and persisting results.
-  func run(scenario: Scenario, llm: any LLMService) async {  // swiftlint:disable:this function_body_length
+  /// Resets per-run state shared by a fresh ``run(scenario:llm:)`` and a
+  /// resumed ``resume(record:scenario:llm:)``, bridges the `isPaused`
+  /// observation, creates + attaches a fresh ``SuspendController``, and starts
+  /// both persistence consumers. Returns the controller so the caller can wire
+  /// it into the runner and its cleanup `defer`.
+  ///
+  /// **Zero mode flags by design.** State that DIVERGES between fresh and
+  /// resumed runs is deliberately NOT touched here and stays in each caller:
+  /// `scores` / `eliminated` / `totalRounds` (fresh zeroes from the scenario
+  /// vs resume rehydrates from the persisted `SimulationState`), `simulationId`
+  /// + `createSimulationRecord` (a new UUID vs the existing run's id), and
+  /// `turnSequence` (reset to `0` vs reseeded from the persisted MAX). The
+  /// `simulationActivityRegistry.enter()` / `defer { … leave() }` / `for await`
+  /// consumption loop also stay in each caller as a matched-pair anchor
+  /// (ADR-003 §10) — splitting them across the helper boundary would risk an
+  /// unmatched `enter()` on an early cancellation.
+  private func prepareRunInfrastructure(llm: any LLMService) async -> SuspendController {
     currentLLM = llm
     isRunning = true
     isCompleted = false
     isCancelled = false
     didPersistPaused = false
+    isResumedRun = false
     statusWriteTask = nil
     errorMessage = nil
     logEntries = []
-    // Latent: a second `run()` on the same VM instance would otherwise inherit
+    // Latent: a second run on the same VM instance would otherwise inherit
     // these from the previous simulation — `latestAgentOutputId` points at a
     // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
     // stale in-flight row under a brand-new scenario.
@@ -622,8 +646,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     streamingSnapshot = nil
     prerevealedAgentOutputIds = []
     // ADR-010 §"Out of Scope" — language-mismatch surface state must reset
-    // per `run()` so a re-used VM does not inherit the previous run's
-    // toast pending or accumulated count.
+    // per run so a re-used VM does not inherit the previous run's toast
+    // pending or accumulated count.
     pendingLanguageMismatchToast = nil
     languageMismatchCount = 0
     // Defense against VM reuse: today production creates a fresh VM per view
@@ -637,6 +661,24 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       inflightInferenceAttempts = [:]
       lastRawStreamingPrimary = [:]
     #endif
+    currentPhaseType = nil
+    currentPhasePath = nil
+
+    // Attach BEFORE loadModel so scene-phase handlers can signal suspend as
+    // soon as the run is in flight.
+    let controller = SuspendController()
+    suspendController = controller
+    await llm.attachSuspendController(controller)
+
+    // Start both persistence consumers before any events can arrive.
+    startPersistenceConsumer()
+    startCodePhasePersistenceConsumer()
+    return controller
+  }
+
+  /// Starts the simulation, consuming events and persisting results.
+  func run(scenario: Scenario, llm: any LLMService) async {
+    let controller = await prepareRunInfrastructure(llm: llm)
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
     totalRounds = scenario.rounds
@@ -649,25 +691,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       simId: simId, scenario: scenario, state: initialState, llm: llm)
 
     turnSequence = 0
-    currentPhaseType = nil
-    currentPhasePath = nil
-
-    // Attach BEFORE loadModel so scene-phase handlers can signal suspend as
-    // soon as run() is in flight.
-    let controller = SuspendController()
-    suspendController = controller
-    await llm.attachSuspendController(controller)
-
-    // Start both persistence consumers before any events can arrive.
-    startPersistenceConsumer()
-    startCodePhasePersistenceConsumer()
     lifecycleLogger.info("run() entered: simId=\(simId)")
     // Bracket inference activity with the registry. Placed immediately
     // before the cleanup defer so no awaitable step runs between them —
     // any cancellation before this point happens before enter(), so
     // leave() stays matched.
     simulationActivityRegistry?.enter()
-    // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.)
+    // Guarantee cleanup in ALL exit paths (LLM load failure, cancellation, etc.).
+    // KEEP IN SYNC with resume()'s defer (hand-duplicated matched-pair anchor).
     defer {
       lifecycleLogger.info(
         "run() defer: isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled), errorMessage=\(self.errorMessage ?? "nil")"
@@ -712,45 +743,214 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       handleEvent(event, scenario: scenario)
     }
 
-    // Drain BOTH persistence queues before marking simulation as completed.
-    // `fetchExportPayload` guards on `.completed`, so unflushed writes would
-    // race the export. finish() is idempotent; defer also calls it for
-    // early-return paths.
+    await finalizeRun(llm: llm)
+  }
+
+  /// Drains both persistence queues, unloads the model, settles any in-flight
+  /// status write, then persists the terminal status. Shared by
+  /// ``run(scenario:llm:)`` and ``resume(record:scenario:llm:)`` — the drain
+  /// must complete before the status write because `fetchExportPayload` guards
+  /// on `.completed`, so unflushed turn writes would race a post-run export.
+  ///
+  /// **Terminal ladder precedence (load-bearing).** `didPersistPaused` is
+  /// checked FIRST and wins over `errorMessage`: a run torn down while still
+  /// explicitly paused (navigate-away) keeps its resumable `.paused` row, and
+  /// any `errorMessage` in that window is the teardown's own cancellation
+  /// artifact, NOT a genuine failure (a paused run is parked — no inference can
+  /// fail — and a real error would have ended the run before a pause was even
+  /// possible). User-cancel clears `didPersistPaused`, so it never collides.
+  /// For non-paused exits a real error beats a normal end, and explicit
+  /// user-cancel beats a normal end.
+  ///
+  /// The `isResumedRun && !isCompleted` branch keeps a **resumed** run that was
+  /// torn down mid-flight (tab-switch / back, with no explicit pause or cancel)
+  /// at `.paused` so it stays resumable from its latest checkpoint. A **fresh**
+  /// run reaching here (`isResumedRun == false`) genuinely exhausted its event
+  /// stream and writes `.completed`. This fresh-vs-resumed asymmetry is
+  /// intentional: making a fresh run survive mid-flight teardown is #646 / PR2
+  /// scope (the tab-move dialog), deliberately not lifted here.
+  private func finalizeRun(llm: any LLMService) async {
+    // finish() is idempotent; defer also calls it for early-return paths.
     persistenceContinuation?.finish()
     codePhasePersistenceContinuation?.finish()
     await persistenceTask?.value
     await codePhasePersistenceTask?.value
-
-    // Cleanup
     try? await llm.unloadModel()
-
     // Drain any in-flight `.paused` / `.running` status write so the terminal
     // decision below observes (and writes after) the settled status column.
     await statusWriteTask?.value
 
-    // Pick the terminal status.
-    //
-    // `didPersistPaused` is checked FIRST and wins over `errorMessage`: a run
-    // that exits while still explicitly paused was torn down (navigate-away) —
-    // its `.paused` row written by pauseSimulation is the resume point, so skip
-    // the terminal write. Any `errorMessage` present in that case is the
-    // teardown's own cancellation artifact, NOT a genuine failure: a paused run
-    // is parked (no inference can fail), and a real error would have ended the
-    // run before a pause was even possible (error → loop exits → isRunning =
-    // false → pauseSimulation no-ops). User-cancel clears `didPersistPaused`,
-    // so it never collides with this branch.
-    //
-    // For non-paused exits the original precedence holds: a real error beats a
-    // normal end, and explicit user-cancel beats a normal end.
-    if didPersistPaused {
-      lifecycleLogger.info("run() exited while paused; leaving .paused for resume")
-    } else if errorMessage != nil {
-      await persistStatus(.failed)
-    } else if isCancelled {
-      await persistStatus(.cancelled)
+    if let status = Self.terminalStatus(
+      didPersistPaused: didPersistPaused, errorMessage: errorMessage,
+      isCancelled: isCancelled, isResumedRun: isResumedRun, isCompleted: isCompleted) {
+      await persistStatus(status)
     } else {
-      await persistStatus(.completed)
+      lifecycleLogger.info("run exited while paused; leaving .paused for resume")
     }
+  }
+
+  /// Pure terminal-status decision for ``finalizeRun(llm:)``. Returns the status
+  /// to persist, or `nil` to leave the existing row untouched (the explicit
+  /// `.paused` resume point). Lifted to a `static` so the precedence — including
+  /// the resume-specific branch — is unit-testable without driving a full run
+  /// (mirrors ``deriveStatus(isCancelled:errorMessage:isCompleted:isPaused:)``).
+  ///
+  /// Precedence (load-bearing): see ``finalizeRun(llm:)``'s doc-comment for the
+  /// `didPersistPaused`-first rationale and the fresh-vs-resumed asymmetry of
+  /// the `isResumedRun && !isCompleted` branch.
+  static func terminalStatus(
+    didPersistPaused: Bool, errorMessage: String?,
+    isCancelled: Bool, isResumedRun: Bool, isCompleted: Bool
+  ) -> SimulationStatus? {
+    if didPersistPaused { return nil }
+    if errorMessage != nil { return .failed }
+    if isCancelled { return .cancelled }
+    if isResumedRun && !isCompleted { return .paused }
+    return .completed
+  }
+
+  /// Resumes a previously-paused simulation from its persisted checkpoint.
+  ///
+  /// Symmetric counterpart to ``run(scenario:llm:)`` for a run whose `.paused`
+  /// row already exists. The caller (``SimulationView``'s resume entry) hands in
+  /// the persisted `record` and the snapshot-resolved `scenario` so a live
+  /// scenario edit / deletion cannot drift the resumed run.
+  ///
+  /// **Four resume hazards, each handled inline below:**
+  /// 1. **Model not loaded** — `loadModel()` runs first; a failure leaves the
+  ///    DB row `.paused` (never `.failed`) so the run stays resumable, and
+  ///    surfaces the run in-memory as paused (not errored).
+  /// 2. **Scenario drift** — the run executes against the passed `scenario`
+  ///    (snapshot-resolved upstream via ``ScenarioSnapshotResolver``), never a
+  ///    re-fetched live row that may have been edited or deleted.
+  /// 3. **Sequence-number collision** — round-`> K` partial-round rows are
+  ///    deleted, then `turnSequence` is reseeded from the surviving MAX
+  ///    (last-used value) so the pre-increment in `persistTurnRecord` /
+  ///    `persistCodePhaseEvent` continues the sequence without gap or collision.
+  /// 4. **BG re-attach is VM-local** — a fresh ``SuspendController`` is created
+  ///    per resume (via `prepareRunInfrastructure`), never shared across runs
+  ///    (ADR-003 §10 invariant 1).
+  ///
+  /// - Parameters:
+  ///   - record: The persisted `.paused` run to resume. `record.stateJSON`
+  ///     decodes to the checkpoint; `record.id` is reused (no new UUID).
+  ///   - scenario: The snapshot-resolved scenario the run executes against.
+  ///   - llm: The LLM service for inference.
+  func resume(  // swiftlint:disable:this function_body_length
+    record: SimulationRecord, scenario: Scenario, llm: any LLMService
+  ) async {
+    guard let state = decodeState(from: record) else {
+      // Unreadable checkpoint — nothing is set up yet, so a bare return leaves
+      // the DB row untouched (still `.paused`).
+      lifecycleLogger.error(
+        "resume: failed to decode state for simId=\(record.id, privacy: .public)")
+      return
+    }
+    // `currentRound` on the checkpoint is the just-COMPLETED round K (the
+    // producer emits `.roundCheckpoint` only after `.roundCompleted`); resume
+    // re-enters at K+1.
+    let completedRound = state.currentRound
+    let startRound = completedRound + 1
+    let simId = record.id
+    let turnRepo = turnRepository
+    let codeRepo = codePhaseEventRepository
+
+    // Prune the partial round-`> K` rows and compute the reseed BEFORE touching
+    // any run state, so a DB failure aborts cleanly with the row still `.paused`
+    // and no half-started run. Reseed = the surviving MAX (last-used value): the
+    // pre-increment at persist time then yields MAX+1 for the first resumed row
+    // — contiguous, no gap, no collision. Empty tables (e.g. a pause before any
+    // round completed, K=0) yield `?? 0`, so the first resumed row gets seq 1.
+    let reseedValue: Int
+    let history: ([TurnRecord], [CodePhaseEventRecord])
+    do {
+      reseedValue = try await offMain {
+        try turnRepo.deleteBySimulationId(simId, roundNumberGreaterThan: completedRound)
+        try codeRepo?.deleteBySimulationId(simId, roundNumberGreaterThan: completedRound)
+        let turnMax = try turnRepo.maxSequenceNumber(simulationId: simId)
+        let codeMax = (try codeRepo?.maxSequenceNumber(simulationId: simId))
+        return [turnMax, codeMax].compactMap { $0 }.max() ?? 0
+      }
+      history = try await offMain {
+        let turns = try turnRepo.fetchBySimulationId(simId)
+        let events = (try codeRepo?.fetchBySimulationId(simId)) ?? []
+        return (turns, events)
+      }
+    } catch {
+      lifecycleLogger.error(
+        "resume: DB prune/fetch failed, leaving .paused: \(String(describing: error), privacy: .public)"
+      )
+      return
+    }
+
+    let controller = await prepareRunInfrastructure(llm: llm)
+    simulationId = simId
+    isResumedRun = true
+    totalRounds = scenario.rounds
+    // Rehydrate accumulated state from the checkpoint (NOT from the replayed
+    // log entries — those are display-only; see ResumeLogReplayMapper).
+    scores = state.scores
+    eliminated = state.eliminated
+    currentRound = completedRound
+    turnSequence = reseedValue
+    let items = ResultDetailTimelineBuilder.build(turns: history.0, events: history.1)
+    logEntries = ResumeLogReplayMapper.map(
+      items: items, totalRounds: scenario.rounds, contentFilter: contentFilter)
+
+    lifecycleLogger.info(
+      "resume() entered: simId=\(simId, privacy: .public), startRound=\(startRound)")
+    simulationActivityRegistry?.enter()
+    // Hand-duplicated from run()'s cleanup defer (matched-pair anchor — see
+    // prepareRunInfrastructure's doc). KEEP IN SYNC with run()'s defer: any
+    // change to one (teardown order, completeTask, registry leave) must mirror.
+    defer {
+      lifecycleLogger.info(
+        "resume() defer: isCompleted=\(self.isCompleted), isCancelled=\(self.isCancelled), errorMessage=\(self.errorMessage ?? "nil")"
+      )
+      controller.resume()
+      persistenceContinuation?.finish()
+      codePhasePersistenceContinuation?.finish()
+      backgroundManager?.completeTask(success: isCompleted)
+      isRunning = false
+      currentLLM = nil
+      suspendController = nil
+      simulationActivityRegistry?.leave()
+    }
+
+    // Hazard 1: load the model first. A failure must NOT reuse run()'s
+    // `.failed` path (that would destroy the resume point) — leave the DB row
+    // `.paused` (no status write below, since we return before `.running` is
+    // enqueued) and present the run as paused in-memory so the user can retry
+    // from the Home card.
+    do {
+      try await llm.loadModel()
+    } catch {
+      lifecycleLogger.error(
+        "resume: loadModel failed, leaving run resumable: \(String(describing: error), privacy: .public)"
+      )
+      withMutation(keyPath: \.isPaused) {
+        runner.isPaused = true
+      }
+      return
+    }
+    // Model is up — flip the DB row `.paused` → `.running`. Gated on loadModel
+    // success: writing `.running` before the load would strand the row as
+    // `.running` on a load failure with no easy restore to `.paused`.
+    enqueueStatusWrite(.running)
+
+    for await event in runner.run(
+      scenario: scenario, llm: llm, suspendController: controller,
+      resumingFrom: state, startRound: startRound
+    ) {
+      if case .agentOutput = event {
+        // no inter-event sleep — typing animation handles pacing
+      } else if speed.interEventDelayMs > 0 {
+        try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
+      }
+      handleEvent(event, scenario: scenario)
+    }
+
+    await finalizeRun(llm: llm)
   }
 
   // MARK: - Event Handling
@@ -825,13 +1025,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .roundCheckpoint(let state):
       persistCheckpoint(state)
     case .error(let simError):
-      // A `.cancelled` arriving while the run is explicitly paused is the
-      // teardown signal (the user navigated away from a paused run), not a
-      // failure. Suppress it so `errorMessage` stays nil and the run() terminal
-      // ladder leaves the persisted `.paused` row intact (resumable) instead of
-      // overwriting it with `.failed`. Real errors (any non-.cancelled) still
-      // surface even while paused.
-      if didPersistPaused, simError == .cancelled { break }
+      // A `.cancelled` arriving while the run is explicitly paused OR is a
+      // resumed run is the teardown signal (the user navigated away / switched
+      // tabs), not a failure. Suppress it so `errorMessage` stays nil and the
+      // terminal ladder leaves the run resumable (`.paused`) instead of
+      // overwriting it with `.failed`. `isResumedRun` widens the guard beyond
+      // `didPersistPaused` because a resumed run torn down mid-flight was never
+      // re-paused (so `didPersistPaused` is false) yet must stay resumable from
+      // its latest checkpoint. Real errors (any non-`.cancelled`) still surface.
+      if didPersistPaused || isResumedRun, simError == .cancelled { break }
       // Use `localizedDescription` (LocalizedError-conforming) for both
       // the alert text and the log entry — `"\(simError)"` would render
       // the enum case repr (e.g. "retriesExhausted"), which is debug

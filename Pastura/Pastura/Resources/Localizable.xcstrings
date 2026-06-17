@@ -3909,6 +3909,16 @@
         }
       }
     },
+    "Paused run not found" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中断中の実行が見つかりません"
+          }
+        }
+      }
+    },
     "Persona %lld description contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {

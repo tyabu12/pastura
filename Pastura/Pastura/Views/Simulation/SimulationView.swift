@@ -9,12 +9,21 @@ import UIKit
 
 /// Live simulation execution screen with real-time log, controls, and scoreboard.
 struct SimulationView: View {  // swiftlint:disable:this type_body_length
-  let scenarioId: String
-  /// Render-time hint for the navigation title — supplied by the
-  /// caller (`ScenarioDetailView`'s Run Simulation push) so the title
-  /// is correct from the first frame of the push, before
-  /// `loadAndRun()` re-parses the YAML. `nil` falls back to the
-  /// empty-string placeholder. See ADR-008.
+  /// How this view obtains its run: a fresh simulation for a `scenarioId`, or a
+  /// resume of an already-paused run identified by its `runId`. Modelled as a
+  /// single enum (not two optionals) so the two mutually-exclusive entries
+  /// can't both be set; `.task` dispatches on it (ADR-016 P3, #667).
+  enum Source: Hashable {
+    case scenario(scenarioId: String)
+    case resume(runId: String)
+  }
+
+  let source: Source
+  /// Render-time hint for the navigation title — supplied by the caller
+  /// (`ScenarioDetailView`'s Run Simulation push, or the Home resume card)
+  /// so the title is correct from the first frame of the push, before the
+  /// scenario YAML is (re-)parsed. `nil` falls back to the empty-string
+  /// placeholder. See ADR-008.
   var initialName: String?
 
   @Environment(\.scenePhase) private var scenePhase
@@ -78,7 +87,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
     .task {
-      await loadAndRun()
+      switch source {
+      case .scenario(let scenarioId):
+        await loadAndRun(scenarioId: scenarioId)
+      case .resume(let runId):
+        await loadAndResume(runId: runId)
+      }
     }
     .onChange(of: scenePhase) { _, newPhase in
       // Two-phase BG handling (ADR-003):
@@ -640,8 +654,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Load & Run
 
-  private func loadAndRun() async {
-    let loader = ScenarioLoader()
+  /// Fresh-run entry: fetch the scenario, parse it, and drive `run()`.
+  private func loadAndRun(scenarioId: String) async {
     let deps = dependencies
     do {
       guard
@@ -652,43 +666,88 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         loadError = String(localized: "Scenario not found")
         return
       }
-
-      let parsed = try loader.load(yaml: record.yamlDefinition)
+      let parsed = try ScenarioLoader().load(yaml: record.yamlDefinition)
       scenario = parsed
-
-      // ADR-010 Step E PR2 — production runner gets the
-      // `NLLanguageDetector` so adherence retry + `.languageMismatch`
-      // event are live. Tests construct `SimulationViewModel` directly
-      // with the default-nil detector to retain pre-Step E PR2 retry
-      // semantics.
-      let simViewModel = SimulationViewModel(
-        runner: SimulationRunner(detector: NLLanguageDetector()),
-        simulationRepository: deps.simulationRepository,
-        turnRepository: deps.turnRepository,
-        codePhaseEventRepository: deps.codePhaseEventRepository,
-        scenarioRepository: deps.scenarioRepository,
-        backgroundManager: deps.backgroundManager,
-        simulationActivityRegistry: deps.simulationActivityRegistry
-      )
+      let simViewModel = makeViewModel()
       viewModel = simViewModel
-
-      // Store task reference so cancelSimulation() (e.g., on memory warning) works.
-      let runTask = Task {
+      await drive(simViewModel) {
         await simViewModel.run(scenario: parsed, llm: deps.llmService)
-      }
-      simViewModel.runTask = runTask
-      // Propagate `.task` cancellation to `runTask`. `Task { }` is unstructured
-      // and does not inherit cancellation, so a plain `await runTask.value`
-      // would leak the simulation when the user navigates back from this view
-      // — the old run() keeps driving the shared LLMService while a newly
-      // pushed SimulationView starts its own run(), corrupting the model state.
-      await withTaskCancellationHandler {
-        await runTask.value
-      } onCancel: {
-        runTask.cancel()
       }
     } catch {
       loadError = error.localizedDescription
+    }
+  }
+
+  /// Resume entry (ADR-016 P3, #667): resolve the paused run + the scenario it
+  /// actually ran against (snapshot-preferred, live fallback — the same
+  /// ``ScenarioSnapshotResolver`` the export / past-results paths use, so a
+  /// since-edited or -deleted live scenario can't drift the resumed run), then
+  /// drive `resume(record:scenario:llm:)`.
+  private func loadAndResume(runId: String) async {
+    let deps = dependencies
+    do {
+      let resolved: (SimulationRecord, ScenarioRecord)? = try await offMain {
+        guard
+          let record = try deps.simulationRepository.fetchById(runId),
+          let scenarioRecord = try ScenarioSnapshotResolver.resolve(
+            for: record, liveLookup: deps.scenarioRepository.fetchById)
+        else { return nil }
+        return (record, scenarioRecord)
+      }
+      guard let (record, scenarioRecord) = resolved else {
+        loadError = String(localized: "Paused run not found")
+        return
+      }
+      let parsed = try ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition)
+      scenario = parsed
+      let simViewModel = makeViewModel()
+      viewModel = simViewModel
+      await drive(simViewModel) {
+        await simViewModel.resume(record: record, scenario: parsed, llm: deps.llmService)
+      }
+    } catch {
+      loadError = error.localizedDescription
+    }
+  }
+
+  /// Constructs the live `SimulationViewModel` shared by both entries.
+  ///
+  /// ADR-010 Step E PR2 — the production runner gets the `NLLanguageDetector`
+  /// so adherence retry + `.languageMismatch` are live. Injected here at the
+  /// View boundary (not as a VM `init` default) so fixture tests that build the
+  /// VM directly keep pre-Step E retry semantics (`.claude/rules/swiftui-traps.md`
+  /// § "Production-side-effecting service").
+  private func makeViewModel() -> SimulationViewModel {
+    let deps = dependencies
+    return SimulationViewModel(
+      runner: SimulationRunner(detector: NLLanguageDetector()),
+      simulationRepository: deps.simulationRepository,
+      turnRepository: deps.turnRepository,
+      codePhaseEventRepository: deps.codePhaseEventRepository,
+      scenarioRepository: deps.scenarioRepository,
+      backgroundManager: deps.backgroundManager,
+      simulationActivityRegistry: deps.simulationActivityRegistry
+    )
+  }
+
+  /// Drives `body` (a `run` / `resume` call) on an unstructured Task wired for
+  /// cancellation propagation.
+  ///
+  /// `Task { }` is unstructured and does not inherit `.task` cancellation, so a
+  /// plain `await runTask.value` would leak the run when the user navigates
+  /// back — the old run keeps driving the shared `LLMService` while a newly
+  /// pushed `SimulationView` starts its own, corrupting model state. The
+  /// `runTask` reference also lets `cancelSimulation()` (e.g. memory warning)
+  /// stop the run.
+  private func drive(
+    _ viewModel: SimulationViewModel, _ body: @escaping () async -> Void
+  ) async {
+    let runTask = Task { await body() }
+    viewModel.runTask = runTask
+    await withTaskCancellationHandler {
+      await runTask.value
+    } onCancel: {
+      runTask.cancel()
     }
   }
 
