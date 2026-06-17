@@ -18,6 +18,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     case resume(runId: String)
   }
 
+  /// Which leave gesture triggered the confirm-on-leave dialog (#673): a
+  /// deferred cross-tab switch (the target lives in
+  /// ``TabCoordinator/pendingTabSwitch``) or a back-button tap (pop the
+  /// current tab's stack). Swipe-back is intentionally absent — it bypasses
+  /// the dialog and relies on the terminal-ladder `.paused` safety net.
+  private enum PendingLeave: Equatable {
+    case tab
+    case back
+  }
+
   let source: Source
   /// Render-time hint for the navigation title — supplied by the caller
   /// (`ScenarioDetailView`'s Run Simulation push, or the Home resume card)
@@ -28,7 +38,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
+  // Router (current tab's, via the tab-scoped injection) + coordinator drive
+  // the confirm-on-leave flow (#673): the back button pops through `router`,
+  // and `tabCoordinator` carries the leave-guard flag + deferred tab-switch.
+  @Environment(AppRouter.self) private var router
+  @Environment(TabCoordinator.self) private var tabCoordinator
   @State private var viewModel: SimulationViewModel?
+  /// Non-nil while the confirm-on-leave dialog is showing, recording which
+  /// gesture asked to leave (#673).
+  @State private var pendingLeave: PendingLeave?
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
@@ -164,6 +182,87 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     } message: {
       Text(exportError ?? "")
     }
+    // Confirm-on-leave (#673). Publish the leave guard so a cross-tab tap is
+    // deferred by TabCoordinator; observe the deferral to raise the dialog;
+    // the back button raises it directly via `handleBackTap()`.
+    .onChange(of: leaveGuardActive) { _, active in
+      tabCoordinator.hasUnsavedInFlightRun = active
+    }
+    .onAppear { tabCoordinator.hasUnsavedInFlightRun = leaveGuardActive }
+    // Unconditional clear (critic Axis 4): a torn-down run must never leave a
+    // stale `true` that would freeze every future tab switch app-wide.
+    .onDisappear { tabCoordinator.hasUnsavedInFlightRun = false }
+    .onChange(of: tabCoordinator.pendingTabSwitch) { _, newValue in
+      if newValue != nil { pendingLeave = .tab }
+    }
+    .alert(
+      String(localized: "A simulation is in progress"),
+      isPresented: leaveAlertBinding,
+      presenting: pendingLeave
+    ) { leave in
+      Button(String(localized: "Pause and leave")) { confirmLeave(leave) }
+      Button(String(localized: "Stay"), role: .cancel) { stay() }
+    } message: { _ in
+      Text(String(localized: "Pause and save it so you can resume later?"))
+    }
+  }
+
+  // MARK: - Confirm-on-leave (#673)
+
+  /// Pure predicate: a leave (tab-switch / back) must be confirmed only when a
+  /// run is genuinely in flight and not already paused or completed. A paused
+  /// run is already saved (`.paused`), and a completed one has nothing to lose.
+  /// Extracted `static` so the three-flag logic is unit-tested (ADR-009).
+  static func shouldGuardLeave(isRunning: Bool, isPaused: Bool, isCompleted: Bool) -> Bool {
+    isRunning && !isPaused && !isCompleted
+  }
+
+  /// Whether the current run should gate a leave gesture behind the dialog.
+  private var leaveGuardActive: Bool {
+    guard let viewModel else { return false }
+    return Self.shouldGuardLeave(
+      isRunning: viewModel.isRunning,
+      isPaused: viewModel.isPaused,
+      isCompleted: viewModel.isCompleted)
+  }
+
+  /// Back-button tap (#673). Confirm first when a run is in flight; otherwise
+  /// pop immediately.
+  private func handleBackTap() {
+    if leaveGuardActive {
+      pendingLeave = .back
+    } else {
+      router.pop()
+    }
+  }
+
+  /// `isPresented` binding for the leave dialog. The setter only fires `stay()`
+  /// on a programmatic dismissal that didn't go through a button (the buttons
+  /// already clear `pendingLeave`, so the guard skips the double-handling).
+  private var leaveAlertBinding: Binding<Bool> {
+    Binding(
+      get: { pendingLeave != nil },
+      set: { presented in
+        if !presented, pendingLeave != nil { stay() }
+      })
+  }
+
+  /// "Pause and leave": persist a resumable `.paused`, then perform the parked
+  /// leave (commit the deferred tab-switch, or pop the back stack).
+  private func confirmLeave(_ leave: PendingLeave) {
+    viewModel?.pauseSimulation()
+    switch leave {
+    case .tab: tabCoordinator.commitPendingTabSwitch()
+    case .back: router.pop()
+    }
+    pendingLeave = nil
+  }
+
+  /// "Stay": discard the pending leave and keep running. A deferred tab-switch
+  /// is also cleared on the coordinator so the parked target doesn't linger.
+  private func stay() {
+    if pendingLeave == .tab { tabCoordinator.cancelPendingTabSwitch() }
+    pendingLeave = nil
   }
 
   private func simulationContent(  // swiftlint:disable:this function_body_length
@@ -296,7 +395,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // continuity. See ADR-008 §Amendment 2026-05-10.
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {
-        PasturaBackButton()
+        // Route the back tap through the confirm-on-leave guard (#673).
+        // Swipe-back bypasses this (UIKit gesture) and relies on the
+        // terminal-ladder `.paused` safety net — see PasturaBackButton's doc.
+        PasturaBackButton(action: handleBackTap)
       }
       .hidingPasturaSharedBackground()
       ToolbarItem(placement: .principal) {

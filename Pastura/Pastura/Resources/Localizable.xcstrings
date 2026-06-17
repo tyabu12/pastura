@@ -1108,6 +1108,16 @@
         }
       }
     },
+    "A simulation is in progress" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行中のシミュレーションがあります"
+          }
+        }
+      }
+    },
     "AI Models" : {
       "localizations" : {
         "ja" : {
@@ -3691,6 +3701,26 @@
         }
       }
     },
+    "Pause and leave" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時停止して移動"
+          }
+        }
+      }
+    },
+    "Pause and save it so you can resume later?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時停止して保存しますか？あとで再開できます。"
+          }
+        }
+      }
+    },
     "Pause playback" : {
       "localizations" : {
         "ja" : {
@@ -4768,6 +4798,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "状態"
+          }
+        }
+      }
+    },
+    "Stay" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留まる"
           }
         }
       }
