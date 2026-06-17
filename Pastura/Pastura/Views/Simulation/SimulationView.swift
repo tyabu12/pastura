@@ -253,6 +253,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     viewModel?.pauseSimulation()
     switch leave {
     case .tab: tabCoordinator.commitPendingTabSwitch()
+    // `.back` was raised by handleBackTap(), not the pendingTabSwitch onChange,
+    // so no tab switch is ever parked here — deliberately don't touch coordinator
+    // state, just pop the current tab's stack.
     case .back: router.pop()
     }
     pendingLeave = nil

@@ -116,6 +116,41 @@ private func pollResumeStatus(
   return try repo.fetchById(simId)
 }
 
+/// A fresh run parked mid-flight by ``startSuspendedFreshRun(rounds:)``.
+@MainActor
+private struct SuspendedFreshRun {
+  let env: ContinuationSUT
+  let simId: String
+  let runTask: Task<Void, Never>
+}
+
+/// Starts a FRESH `run(...)` whose first generate is parked (so the run is
+/// genuinely mid-flight and its `.running` record persisted), localizing the
+/// park-and-wait choreography. The caller then applies the leave action under
+/// test (raw `Task.cancel()` vs `cancelSimulation`). `nil` if no record formed.
+@MainActor
+private func startSuspendedFreshRun(rounds: Int = 3) async throws -> SuspendedFreshRun? {
+  let env = try makeContinuationSUT(rounds: rounds)
+  let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
+  env.sut.speed = .instant
+  mock.simulateSuspendOnNextGenerate()
+
+  let runTask = Task { await env.sut.run(scenario: env.scenario, llm: mock) }
+  env.sut.runTask = runTask
+
+  // Wait until the parked inference has started — by then run() has already
+  // awaited createSimulationRecord, so simulationId is populated.
+  let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+  while env.sut.thinkingAgents.isEmpty, ContinuousClock.now < deadline {
+    await Task.yield()
+  }
+  guard let simId = env.sut.simulationId else {
+    runTask.cancel()
+    return nil
+  }
+  return SuspendedFreshRun(env: env, simId: simId, runTask: runTask)
+}
+
 extension SimulationViewModelStatusTests {
 
   // MARK: - Pure terminal-status ladder (deterministic, no run needed)
@@ -326,67 +361,40 @@ extension SimulationViewModelStatusTests {
 
   @Test func freshRunTornDownMidFlightPersistsPaused() async throws {
     // #673 safety net: a FRESH run cancelled at the Task level (tab-switch /
-    // back / swipe-back) WITHOUT cancelSimulation must leave the row .paused —
-    // not the silent .completed (data loss) the prior fresh-vs-resumed asymmetry
-    // produced. A scheduled suspend parks the first generate so the cancel lands
-    // deterministically mid-flight.
-    let env = try makeContinuationSUT(rounds: 3)
-    let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
-    env.sut.speed = .instant
-    mock.simulateSuspendOnNextGenerate()
-
-    let runTask = Task { await env.sut.run(scenario: env.scenario, llm: mock) }
-    env.sut.runTask = runTask
-
-    // Wait until the parked inference has started — by then run() has already
-    // awaited createSimulationRecord, so simulationId is populated.
-    let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-    while env.sut.thinkingAgents.isEmpty, ContinuousClock.now < deadline {
-      await Task.yield()
-    }
-    guard let simId = env.sut.simulationId else {
+    // back / swipe-back) WITHOUT cancelSimulation must leave the row .paused, not
+    // the silent .completed (data loss) of the prior asymmetry. Reverting
+    // `!isCompleted` → `isResumedRun && !isCompleted` would fail this assert.
+    guard let run = try await startSuspendedFreshRun() else {
       Issue.record("fresh run did not create a simulation record")
-      runTask.cancel()
       return
     }
 
     // Tab-switch / back teardown: cancel the Task directly (NOT cancelSimulation).
-    runTask.cancel()
-    await runTask.value
+    run.runTask.cancel()
+    await run.runTask.value
 
-    let rec = try await pollResumeStatus(env.simRepo, simId) { $0.simulationStatus == .paused }
+    let rec = try await pollResumeStatus(run.env.simRepo, run.simId) {
+      $0.simulationStatus == .paused
+    }
     #expect(rec?.simulationStatus == .paused)
   }
 
   @Test func freshRunUserCancelledPersistsCancelled() async throws {
     // Guard the #673 ladder change against demoting a genuine user-cancel into
     // `.paused`: cancelSimulation sets isCancelled, which the ladder checks ABOVE
-    // the `!isCompleted` teardown branch → `.cancelled`. Same mid-flight setup as
-    // the teardown test; only the leave action differs (cancelSimulation vs
-    // raw Task cancel).
-    let env = try makeContinuationSUT(rounds: 3)
-    let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
-    env.sut.speed = .instant
-    mock.simulateSuspendOnNextGenerate()
-
-    let runTask = Task { await env.sut.run(scenario: env.scenario, llm: mock) }
-    env.sut.runTask = runTask
-
-    let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-    while env.sut.thinkingAgents.isEmpty, ContinuousClock.now < deadline {
-      await Task.yield()
-    }
-    guard let simId = env.sut.simulationId else {
+    // the `!isCompleted` teardown branch → `.cancelled`.
+    guard let run = try await startSuspendedFreshRun() else {
       Issue.record("fresh run did not create a simulation record")
-      runTask.cancel()
       return
     }
 
     // User-initiated cancel (vs. the silent teardown above).
-    env.sut.cancelSimulation()
-    await runTask.value
+    run.env.sut.cancelSimulation()
+    await run.runTask.value
 
-    let rec = try await pollResumeStatus(env.simRepo, simId) { $0.simulationStatus == .cancelled }
+    let rec = try await pollResumeStatus(run.env.simRepo, run.simId) {
+      $0.simulationStatus == .cancelled
+    }
     #expect(rec?.simulationStatus == .cancelled)
   }
 }
