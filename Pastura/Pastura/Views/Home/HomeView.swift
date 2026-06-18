@@ -224,13 +224,24 @@ struct HomeView: View {
           description: Text(String(localized: "Tap + to import a YAML scenario"))
         )
       } else {
+        // Single grouped card (d3): user rows then preset rows tile into one
+        // bordered card with hairline dividers and zero inter-row gap (the
+        // pre-#684 layout drew a separate 18pt-spaced card per row). Each row's
+        // background is a positional ``ScenarioCardSlice`` whose rounded corners
+        // + 1pt `rule` border close only the section's outer edges; adjacent
+        // slices' shared straight edges overlap into the row-to-row hairline, so
+        // no `PasturaRowDivider` is hand-drawn and the native separator stays
+        // hidden (avoids the List two-ForEach boundary + swipe-animation traps).
+        let firstId = (viewModel.userScenarios.first ?? viewModel.presets.first)?.id
+        let lastId = (viewModel.presets.last ?? viewModel.userScenarios.last)?.id
         ForEach(viewModel.userScenarios, id: \.id) { scenario in
-          HomeScenarioRow(
-            scenario: scenario,
-            metadata: viewModel.rowMetadata[scenario.id],
-            hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
+          groupedScenarioRow(
+            HomeScenarioRow(
+              scenario: scenario,
+              metadata: viewModel.rowMetadata[scenario.id],
+              hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)),
+            position: Self.cardPosition(scenario.id, firstId: firstId, lastId: lastId)
           )
-          .pasturaCardRow()
           .accessibilityAction(named: Text(String(localized: "Delete"))) {
             // VoiceOver-reachable equivalent of the swipe-delete: swipe
             // actions aren't reliably surfaced to VoiceOver, so name it
@@ -250,12 +261,49 @@ struct HomeView: View {
             name: scenarios.first?.name ?? "")
         }
         ForEach(viewModel.presets, id: \.id) { scenario in
-          HomeScenarioRow(scenario: scenario, metadata: viewModel.rowMetadata[scenario.id])
-            .pasturaCardRow()
+          groupedScenarioRow(
+            HomeScenarioRow(scenario: scenario, metadata: viewModel.rowMetadata[scenario.id]),
+            position: Self.cardPosition(scenario.id, firstId: firstId, lastId: lastId)
+          )
         }
       }
     } header: {
       scenariosSectionHeader()
+    }
+  }
+
+  /// Wraps one scenario row as a slice of the single grouped card (d3): interior
+  /// padding (text inset, matching the resume card), a positional
+  /// ``ScenarioCardSlice`` background, and a `horizontalMargin` row inset so the
+  /// card edge aligns with the resume card above. `listRowBackground(.clear)`
+  /// keeps the slice as content so the swipe-delete reveal animates cleanly, and
+  /// the native separator is hidden since the slices draw their own hairline.
+  @ViewBuilder
+  private func groupedScenarioRow(_ row: HomeScenarioRow, position: ScenarioCardSlice.Position)
+    -> some View {
+    row
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(ScenarioCardSlice(position: position))
+      .listRowInsets(
+        EdgeInsets(
+          top: 0, leading: PasturaCardMetrics.horizontalMargin,
+          bottom: 0, trailing: PasturaCardMetrics.horizontalMargin)
+      )
+      .listRowBackground(Color.clear)
+      .listRowSeparator(.hidden)
+  }
+
+  /// Position of a row within the single grouped card, from its id against the
+  /// section's first/last displayed ids (user rows precede preset rows).
+  static func cardPosition(_ id: String, firstId: String?, lastId: String?)
+    -> ScenarioCardSlice.Position {
+    switch (id == firstId, id == lastId) {
+    case (true, true): return .only
+    case (true, false): return .top
+    case (false, true): return .bottom
+    default: return .middle
     }
   }
 
@@ -282,22 +330,35 @@ extension HomeView {
   }
 }
 
-extension View {
-  /// Renders a `List` row as a flat ``PasturaCard``: white
-  /// ``PasturaCardSurface`` (1pt `rule` border, 14pt radius, no shadow),
-  /// inset vertically by half ``PasturaCardMetrics/interCardSpacing`` so
-  /// adjacent rows read as separate cards, separators hidden.
-  ///
-  /// Home stays on `List` (for swipe-`.onDelete`); this is the List-host
-  /// counterpart to the `ScrollView` ``PasturaCard`` container used on the
-  /// other browse screens, sharing the same metrics so the card form
-  /// matches across hosts.
-  fileprivate func pasturaCardRow() -> some View {
-    self
-      .listRowSeparator(.hidden)
-      .listRowBackground(
-        PasturaCardSurface()
-          .padding(.vertical, PasturaCardMetrics.interCardSpacing / 2)
-      )
+/// One row's slice of the Home scenario list's single grouped card (d3, #684).
+///
+/// Home keeps `List` (for swipe-`.onDelete`) but renders its rows as one
+/// continuous bordered card rather than the pre-#684 per-row ``PasturaCard``
+/// (which spaced rows 18pt apart). Each slice fills ``Color/bubbleBackground``
+/// and strokes a 1pt ``Color/rule`` border on a positional
+/// `UnevenRoundedRectangle`: only the `.top` / `.bottom` / `.only` slices round
+/// the card's outer corners, and adjacent slices' shared straight edges overlap
+/// into the row-to-row hairline. Shares ``PasturaCardMetrics`` (14pt radius,
+/// 1pt border) with the `ScrollView`-host ``PasturaCard`` so the card form
+/// stays consistent across hosts.
+struct ScenarioCardSlice: View {
+  /// A row's position within the grouped card. `.only` is the sole row.
+  enum Position { case only, top, middle, bottom }
+
+  let position: Position
+
+  var body: some View {
+    let radius = PasturaCardMetrics.cornerRadius
+    let topRadius = (position == .only || position == .top) ? radius : 0
+    let bottomRadius = (position == .only || position == .bottom) ? radius : 0
+    let shape = UnevenRoundedRectangle(
+      topLeadingRadius: topRadius,
+      bottomLeadingRadius: bottomRadius,
+      bottomTrailingRadius: bottomRadius,
+      topTrailingRadius: topRadius,
+      style: .continuous)
+    shape
+      .fill(Color.bubbleBackground)
+      .overlay(shape.strokeBorder(Color.rule, lineWidth: PasturaCardMetrics.borderWidth))
   }
 }
