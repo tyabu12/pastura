@@ -8,7 +8,7 @@
   /// ``StubScenarioSeeder/richWordWolfScenarioId`` so `HomeView`'s resume card
   /// renders with a non-nil progress line. Activated by the
   /// `--ui-test-seed-paused` launch argument (used by `ScreenshotTourTests`'s
-  /// `01b-home-resume` capture); plain `--ui-test` runs stay without a paused
+  /// `09-home-resume` capture); plain `--ui-test` runs stay without a paused
   /// run so the card stays hidden (d3-without).
   ///
   /// **Dependency:** the referenced scenario must be present, so callers pair
@@ -25,15 +25,15 @@
 
     /// Round the paused run is interrupted on. Kept `< richWordWolfRounds` so
     /// `HomeScenarioRowFormat.pausedProgressLabel` renders "1 / 5" rather than
-    /// hiding (the visual detail `01b-home-resume` verifies).
+    /// hiding (the visual detail `09-home-resume` verifies).
     public static let currentRound = 1
 
     /// Inserts the paused simulation record.
     ///
     /// Idempotent per repository upsert semantics — safe to re-run after an
-    /// in-test app relaunch. Compile-time guard keeps `currentRound` below the
-    /// referenced scenario's round count so a future edit can't silently hide
-    /// the progress line.
+    /// in-test app relaunch. A debug-build assertion keeps `currentRound` below
+    /// the referenced scenario's round count so a future edit can't silently
+    /// hide the progress line (also test-covered in `StubPausedRunSeederTests`).
     public static func seed(simulationRepository: any SimulationRepository) async throws {
       assert(
         currentRound < StubScenarioSeeder.richWordWolfRounds,
