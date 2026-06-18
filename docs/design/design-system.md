@@ -402,7 +402,10 @@ ToolbarItem(placement: .primaryAction) {
 
 `PasturaCardMetrics` がレイアウト定数（角丸 14 / 罫線 1 / 外側水平マージン 16 / カード間 18）を一元管理し、`ScrollView` コンテナ（`PasturaCard`）と `List` 行背景（`PasturaCardSurface` を `.listRowBackground` に）で同一の見た目を共有する。複数行グループは1枚のカード内を `PasturaRowDivider`（`rule` 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。`ScrollView` 化したカードに「タップで push する行」を置く場合は `PasturaRowLabel`（moss アイコン＋ink タイトル＋chevron＋全幅タップ）を `NavigationLink { } .buttonStyle(.plain)` で包む。
 
-**ホスト選択**: `.onDelete` スワイプ削除を持つ画面（Home）や `.onMove` ドラッグ並べ替えを持つ画面（Editor）は `List` / `Form` を維持し、地を暖色化（`.scrollContentBackground(.hidden)` + `screenBackground`）して `PasturaCardSurface` を行背景に当てる。それ以外のブラウズ系は `ScrollView` + `PasturaCard` でグループカード化する。
+**ホスト選択**: スワイプ削除（`.onDelete`）やドラッグ並べ替え（`.onMove`）を持つ画面は `List` / `Form` を維持し、地を暖色化する（`.scrollContentBackground(.hidden)` + `screenBackground`）。それ以外のブラウズ系は `ScrollView` + `PasturaCard` でグループカード化する。`List` ホストでのカード描画は画面で分かれる:
+
+- **Home（`.onDelete`）** は `List` を保ちつつシナリオ一覧を**1枚のグループカード**として描く（d3、#684）。各行背景を位置依存の `ScenarioCardSlice` —  `bubbleBackground` 塗り + 外周のみ角丸/`rule` 罫線を閉じる `UnevenRoundedRectangle` — にし、隣接スライスの共有直線辺が重なって行間ヘアラインを成す。`PasturaRowDivider` は手描きせず、ネイティブセパレータも隠す（`List` 内 2-`ForEach` 境界と swipe アニメーションの罠を回避）。行間ギャップは無し（`PasturaCardMetrics.interCardSpacing` は Home の一覧には使わない）。中断シナリオの resume カードは別の `PasturaCard` として一覧の上に置く。
+- **Editor（`.onMove`）** は `Form` のまま per-row 挙動を保つ（並べ替えのため行を独立させる）。
 
 ### 5.10 Primary Button（`PasturaPrimaryButtonStyle`）
 
