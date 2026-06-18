@@ -263,4 +263,85 @@ struct ResultsViewModelTests {
     let liveGroup = try #require(env.sut.groups.first { $0.sectionName == "Word Wolf" })
     #expect(liveGroup.canonicalKey != orphanGroup.canonicalKey)
   }
+
+  // MARK: - Filter index reuse (#678)
+
+  /// Regression for #678: the scenario index — `scenarioRepository.fetchAll()`
+  /// plus a per-row `ScenarioYAMLLanguage.parse(yamlDefinition)` — must NOT be
+  /// rebuilt on every filter keystroke. The scenario set is invariant while
+  /// the user types, so the filter path reuses the already-built index.
+  ///
+  /// `CountingScenarioRepository` pins it via `fetchAll()` count: with the fix
+  /// the count stays at 1 (the initial load's build); reverting the fix
+  /// (re-fetch + re-parse per keystroke) would raise it to 5
+  /// (1 load + 3 distinct filters + 1 clear). The distinct, non-empty queries
+  /// matter — a repeated query would hit `applyFilter`'s no-op guard and
+  /// short-circuit before `reloadAggregate`, passing for the wrong reason.
+  @Test func filterReusesScenarioIndexAcrossKeystrokes() async throws {
+    let db = try DatabaseManager.inMemory()
+    let realScenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let countingRepo = CountingScenarioRepository(wrapping: realScenarioRepo)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let sut = ResultsViewModel(
+      scenarioRepository: countingRepo,
+      simulationRepository: simRepo,
+      turnRepository: turnRepo)
+
+    try seedScenarioWithSimulation(
+      scenarioRepo: realScenarioRepo, simRepo: simRepo,
+      scenarioId: "s1", scenarioName: "Prisoner's Dilemma", simulationId: "sim1")
+    try seedScenarioWithSimulation(
+      scenarioRepo: realScenarioRepo, simRepo: simRepo,
+      scenarioId: "s2", scenarioName: "Word Wolf", simulationId: "sim2")
+
+    await sut.load(scope: .aggregate, deviceLanguage: "ja")
+    #expect(sut.groups.count == 2)
+    #expect(countingRepo.fetchAllCount == 1)  // initial index build
+
+    // Three distinct, non-empty keystrokes — each a substring LIKE that
+    // narrows to "Prisoner's Dilemma" only — then a clear.
+    await sut.applyFilter("Pri", deviceLanguage: "ja")
+    #expect(sut.groups.count == 1)
+    #expect(sut.groups.first?.sectionName == "Prisoner's Dilemma")
+    await sut.applyFilter("Pris", deviceLanguage: "ja")
+    #expect(sut.groups.count == 1)
+    await sut.applyFilter("Priso", deviceLanguage: "ja")
+    #expect(sut.groups.count == 1)
+
+    // Clearing restores the full window.
+    await sut.applyFilter("", deviceLanguage: "ja")
+    #expect(sut.groups.count == 2)
+
+    // The index was reused throughout — never rebuilt per keystroke.
+    #expect(countingRepo.fetchAllCount == 1)
+  }
+}
+
+/// Wraps a real ``ScenarioRepository`` and counts ``ScenarioRepository/fetchAll()``
+/// calls so the #678 regression can assert the scenario index is built once,
+/// not rebuilt per filter keystroke. `nonisolated` + `@unchecked Sendable`
+/// with an `NSLock`-guarded counter because repository methods run off the
+/// main actor (`ResultsViewModel.offMain`) and the protocol is `Sendable`.
+nonisolated private final class CountingScenarioRepository: ScenarioRepository, @unchecked Sendable {
+  private let wrapped: any ScenarioRepository
+  private let lock = NSLock()
+  private var _fetchAllCount = 0
+
+  var fetchAllCount: Int { lock.withLock { _fetchAllCount } }
+
+  init(wrapping: any ScenarioRepository) { self.wrapped = wrapping }
+
+  func fetchAll() throws -> [ScenarioRecord] {
+    lock.withLock { _fetchAllCount += 1 }
+    return try wrapped.fetchAll()
+  }
+
+  func save(_ record: ScenarioRecord) throws { try wrapped.save(record) }
+  func fetchById(_ id: String) throws -> ScenarioRecord? { try wrapped.fetchById(id) }
+  func fetchBySource(type: String, id: String) throws -> ScenarioRecord? {
+    try wrapped.fetchBySource(type: type, id: id)
+  }
+  func fetchPresets() throws -> [ScenarioRecord] { try wrapped.fetchPresets() }
+  func delete(_ id: String) throws { try wrapped.delete(id) }
 }

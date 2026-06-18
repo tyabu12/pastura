@@ -64,6 +64,11 @@ final class ResultsViewModel {
   private var scenarioById: [String: ScenarioRecord] = [:]
   /// Precomputed device-locale section header per live canonical key.
   private var headerNameByCanonicalKey: [String: String] = [:]
+  /// The `deviceLanguage` the scenario index was built for (`nil` before the
+  /// first build). The filter path reuses the index while this matches, so it
+  /// doesn't re-`fetchAll()` + re-parse per keystroke; a language change still
+  /// rebuilds (header map is locale-dependent). See #678.
+  private var indexedLanguage: String?
 
   /// One simulation row within a ``ScenarioGroup``.
   ///
@@ -164,10 +169,14 @@ final class ResultsViewModel {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard trimmed != nameQuery else { return }
     nameQuery = trimmed
+    // Assign `deviceLanguage` BEFORE `reloadAggregate` so its index-reuse gate
+    // (`indexedLanguage != deviceLanguage`) sees the active language. Do not
+    // reorder these two lines.
     self.deviceLanguage = deviceLanguage
     errorMessage = nil
     do {
-      try await reloadAggregate()
+      // Reuse the index — the scenario set is invariant while typing (#678).
+      try await reloadAggregate(rebuildIndex: false)
     } catch {
       errorMessage = Self.failureMessage(error)
     }
@@ -202,12 +211,15 @@ final class ResultsViewModel {
   /// guarantees no collision with a live scenario's `sourceId ?? id`.
   private static let orphanCanonicalKeyPrefix = "\u{0}orphan:"
 
-  /// Resets the window and loads the first visible page.
-  private func reloadAggregate() async throws {
+  /// Resets the window and loads the first visible page. `rebuildIndex: false`
+  /// reuses the scenario index (filter path, #678) — see ``indexedLanguage``.
+  private func reloadAggregate(rebuildIndex: Bool = true) async throws {
     loadGeneration += 1
     let generation = loadGeneration
-    try await refreshScenarioIndex()
-    guard generation == loadGeneration else { return }
+    if rebuildIndex || indexedLanguage != deviceLanguage {
+      try await refreshScenarioIndex()
+      guard generation == loadGeneration else { return }
+    }
     loadedRuns = []
     cursor = nil
     loadedRawCount = 0
@@ -299,6 +311,7 @@ final class ResultsViewModel {
       if let headerVariant { headers[canonicalKey] = headerVariant.name }
     }
     headerNameByCanonicalKey = headers
+    indexedLanguage = deviceLanguage  // stamp for the filter-path reuse gate (#678)
   }
 
   /// Buckets a run to its canonical group + per-variant label. Returns `nil`
