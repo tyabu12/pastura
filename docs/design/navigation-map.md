@@ -56,3 +56,4 @@ tab-stack push.
 | 6 | `06-settings.png` | `settings.licensesLink` | tab |
 | 7 | `07-results.png` | `results.list` | tab |
 | 8 | `08-result-detail.png` | `resultDetail.timeline` | push |
+| 9 | `09-home-resume.png` | `home.resumeButton` | root |
