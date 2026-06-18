@@ -50,7 +50,10 @@ struct PasturaPrimaryButtonStyle: ButtonStyle {
       .opacity(configuration.isPressed ? Self.pressedOpacity : 1.0)
   }
 
-  private var fontSize: CGFloat { size == .compact ? 15 : 16 }
+  // `.compact` is 13pt to match the d3 Home resume button (`.resume .go`,
+  // 13px); the `play.fill` glyph in the `Label` rides this font, so no
+  // separate icon-size override is needed. `.regular` stays 16pt.
+  private var fontSize: CGFloat { size == .compact ? 13 : 16 }
   private var verticalPadding: CGFloat { size == .compact ? 9 : 15 }
   private var horizontalPadding: CGFloat { size == .compact ? 16 : 20 }
 
