@@ -245,7 +245,11 @@ surface changes in areas the automated tests do not exercise.
    simulation backgrounded on a non-selected tab keeps blocking the
    drain. Running under BG continuation (toggle on) must not change
    this — the link still only drains once no tab has the simulation
-   screen on top.
+   screen on top. Under focus mode (#646, ADR-017) the sim can no longer be
+   backgrounded by a tab switch (the tab bar is hidden), so the drain's only
+   unblock is exiting `SimulationView` via back / swipe-back — exactly the
+   path above. The any-tab fold still holds for the scenePhase-background
+   case (app backgrounded with BG continuation).
 9. **Deep Link — during an editor / scoreboard / report sheet** —
    Open any sheet gated by `.deepLinkGated()` (phase editor, persona
    editor, scoreboard, report), then open a `pastura://` link.
@@ -468,3 +472,31 @@ surface changes in areas the automated tests do not exercise.
       focused scene's gate is incremented (each scene owns its own
       `DeepLinkGate` and `ModelManager`), so a dialog in scene A
       does not block deep-link drain in scene B.
+18. **Simulation focus mode (#646, ADR-017)** — Partially automated by
+    `SimulationFocusModeTests` (tab bar hidden on push, restored on pop, in
+    the simulator). The **device-only** checks below are the #646 C-1 gate
+    (iOS 17 + 26 — `.toolbar(.hidden, for: .tabBar)` is not
+    simulator-load-bearing for the iOS-26 visual):
+
+    - **Hide / restore visual** — Start a simulation. Expected: the bottom
+      tab bar animates out cleanly on push (no half-rendered bar, no Liquid
+      Glass flicker). Back out twice over two runs — once via the back
+      button → "Pause and leave", once via edge swipe-back: the tab bar
+      restores cleanly and fully interactive on pop, with no stuck-hidden
+      state.
+
+    - **No tab affordance mid-run** — While the sim runs, confirm there is
+      no way to switch tabs (the bar is absent); the only exits are the back
+      button and the edge swipe-back.
+
+    - **Background → foreground (FM-4)** — Mid-run, background the app (home
+      button / app switcher), then foreground. Expected: the tab bar stays
+      hidden on return, the run resumes (ADR-003), and no warm splash
+      flashes (`isSimulationOnTop` suppresses it — ADR-016 § Amendment
+      2026-06-18).
+
+    - **VoiceOver single exit (m-3)** — With VoiceOver on, confirm the only
+      navigation affordance out of a focused run is `PasturaBackButton`
+      (announced "Back, button" — the chevron-only a11y regression from
+      scenario 2 applies) plus the swipe-back gesture. The tab bar is
+      absent, so it is correctly not in the VoiceOver rotor.

@@ -18,16 +18,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     case resume(runId: String)
   }
 
-  /// Which leave gesture triggered the confirm-on-leave dialog (#673): a
-  /// deferred cross-tab switch (the target lives in
-  /// ``TabCoordinator/pendingTabSwitch``) or a back-button tap (pop the
-  /// current tab's stack). Swipe-back is intentionally absent — it bypasses
-  /// the dialog and relies on the terminal-ladder `.paused` safety net.
-  private enum PendingLeave: Equatable {
-    case tab
-    case back
-  }
-
   let source: Source
   /// Render-time hint for the navigation title — supplied by the caller
   /// (`ScenarioDetailView`'s Run Simulation push, or the Home resume card)
@@ -38,15 +28,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   @Environment(\.scenePhase) private var scenePhase
   @Environment(AppDependencies.self) private var dependencies
-  // Router (current tab's, via the tab-scoped injection) + coordinator drive
-  // the confirm-on-leave flow (#673): the back button pops through `router`,
-  // and `tabCoordinator` carries the leave-guard flag + deferred tab-switch.
+  // Router (current tab's, via the tab-scoped injection) drives the back-button
+  // confirm-on-leave flow (#673): the back button pops through `router`. Focus
+  // mode (ADR-017) hides the tab bar during a run, so a mid-run tab switch — and
+  // the TabCoordinator defer path it used to need — is impossible; only the back
+  // path remains.
   @Environment(AppRouter.self) private var router
-  @Environment(TabCoordinator.self) private var tabCoordinator
   @State private var viewModel: SimulationViewModel?
-  /// Non-nil while the confirm-on-leave dialog is showing, recording which
-  /// gesture asked to leave (#673).
-  @State private var pendingLeave: PendingLeave?
+  /// `true` while the back-button confirm-on-leave dialog is showing (#673).
+  @State private var pendingBackLeave = false
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
@@ -104,6 +94,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // PasturaBackButton's UIKit bridge documentation.
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
+    // Focus mode (#646): hide the bottom tab bar while a simulation is on top
+    // of a tab's stack, so tab-switching mid-run is structurally impossible.
+    // That removes the only foreground path that tore the view-scoped run down
+    // and reset it (tab switch → onDisappear → `.task` cancel → fresh `run()`
+    // on return). The only exits are back / swipe-back, where the
+    // confirm-on-leave dialog + `.paused` safety net already apply. `.tabBar` is
+    // a separate toolbar surface from the navigationBar hide matrix in
+    // `.claude/rules/swiftui-traps.md` — it does NOT touch the back chevron or
+    // the swipe-back gesture. Applied to the whole view so it covers both the
+    // `.simulation` and `.resumeSimulation` routes (both render SimulationView).
+    // See ADR-017; opt-in cross-screen continuation is deferred to Phase B.
+    .toolbar(.hidden, for: .tabBar)
     .task {
       switch source {
       case .scenario(let scenarioId):
@@ -182,27 +184,17 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     } message: {
       Text(exportError ?? "")
     }
-    // Confirm-on-leave (#673). Publish the leave guard so a cross-tab tap is
-    // deferred by TabCoordinator; observe the deferral to raise the dialog;
-    // the back button raises it directly via `handleBackTap()`.
-    .onChange(of: leaveGuardActive) { _, active in
-      tabCoordinator.hasUnsavedInFlightRun = active
-    }
-    .onAppear { tabCoordinator.hasUnsavedInFlightRun = leaveGuardActive }
-    // Unconditional clear (critic Axis 4): a torn-down run must never leave a
-    // stale `true` that would freeze every future tab switch app-wide.
-    .onDisappear { tabCoordinator.hasUnsavedInFlightRun = false }
-    .onChange(of: tabCoordinator.pendingTabSwitch) { _, newValue in
-      if newValue != nil { pendingLeave = .tab }
-    }
+    // Back-button confirm-on-leave (#673). The back button raises the dialog
+    // via `handleBackTap()`. Focus mode (ADR-017) hides the tab bar during a
+    // run, so a mid-run tab switch — and the TabCoordinator defer path it used
+    // to need — is impossible; only the back path remains.
     .alert(
       String(localized: "A simulation is in progress"),
-      isPresented: leaveAlertBinding,
-      presenting: pendingLeave
-    ) { leave in
-      Button(String(localized: "Pause and leave")) { confirmLeave(leave) }
+      isPresented: leaveAlertBinding
+    ) {
+      Button(String(localized: "Pause and leave")) { confirmLeave() }
       Button(String(localized: "Stay"), role: .cancel) { stay() }
-    } message: { _ in
+    } message: {
       Text(String(localized: "Pause and save it so you can resume later?"))
     }
   }
@@ -230,7 +222,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// pop immediately.
   private func handleBackTap() {
     if leaveGuardActive {
-      pendingLeave = .back
+      pendingBackLeave = true
     } else {
       router.pop()
     }
@@ -238,34 +230,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   /// `isPresented` binding for the leave dialog. The setter only fires `stay()`
   /// on a programmatic dismissal that didn't go through a button (the buttons
-  /// already clear `pendingLeave`, so the guard skips the double-handling).
+  /// already clear `pendingBackLeave`, so the guard skips the double-handling).
   private var leaveAlertBinding: Binding<Bool> {
     Binding(
-      get: { pendingLeave != nil },
+      get: { pendingBackLeave },
       set: { presented in
-        if !presented, pendingLeave != nil { stay() }
+        if !presented, pendingBackLeave { stay() }
       })
   }
 
-  /// "Pause and leave": persist a resumable `.paused`, then perform the parked
-  /// leave (commit the deferred tab-switch, or pop the back stack).
-  private func confirmLeave(_ leave: PendingLeave) {
+  /// "Pause and leave": persist a resumable `.paused`, then pop the current
+  /// tab's stack. Only the back path reaches here — swipe-back bypasses the
+  /// dialog, and a tab switch is impossible under focus mode (ADR-017).
+  private func confirmLeave() {
     viewModel?.pauseSimulation()
-    switch leave {
-    case .tab: tabCoordinator.commitPendingTabSwitch()
-    // `.back` was raised by handleBackTap(), not the pendingTabSwitch onChange,
-    // so no tab switch is ever parked here — deliberately don't touch coordinator
-    // state, just pop the current tab's stack.
-    case .back: router.pop()
-    }
-    pendingLeave = nil
+    router.pop()
+    pendingBackLeave = false
   }
 
-  /// "Stay": discard the pending leave and keep running. A deferred tab-switch
-  /// is also cleared on the coordinator so the parked target doesn't linger.
+  /// "Stay": discard the pending leave and keep running.
   private func stay() {
-    if pendingLeave == .tab { tabCoordinator.cancelPendingTabSwitch() }
-    pendingLeave = nil
+    pendingBackLeave = false
   }
 
   private func simulationContent(  // swiftlint:disable:this function_body_length

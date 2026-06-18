@@ -298,7 +298,8 @@ same change:
 | `docs/decisions/ADR-013.md`           | Headless macOS simulation harness — SwiftPM source reuse for the scenario factory (#515, impl #517) |
 | `docs/decisions/ADR-014.md`           | Release automation toolchain — fastlane + ASC API Key, local-first, TestFlight-upload scope (Status: Proposed; #555) |
 | `docs/decisions/ADR-015.md`           | Execution-log retention posture (no silent auto-delete; manual purge + advisory cap) + SQLite iCloud-backup decision (keep backed up; DatabaseQueue ⇒ no WAL sidecars) (#547) |
-| `docs/decisions/ADR-016.md`           | Home redesign — bottom-tab IA + deep-link tab routing (4-tab; `TabCoordinator`×4 unmodified AppRouter; `.settings`/`.sharedScenarios` removed from Route; `isSimulationOnTop` = any-tab) (Status: Accepted; #602) |
+| `docs/decisions/ADR-016.md`           | Home redesign — bottom-tab IA + deep-link tab routing (4-tab; `TabCoordinator`×4 unmodified AppRouter; `.settings`/`.sharedScenarios` removed from Route; `isSimulationOnTop` = any-tab) (Status: Accepted; #602; § Amendment 2026-06-18 re-anchors the fold on hosting + scenePhase per ADR-017) |
+| `docs/decisions/ADR-017.md`           | Simulation focus mode — hide the tab bar during a run so tab-switching mid-run is impossible (#646 Phase A); cross-screen continuation (ownership lift) deferred to Phase B (Status: Accepted; #646) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
 | `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
