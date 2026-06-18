@@ -272,7 +272,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "%1$@ assigned: %2$@"
           }
         },
@@ -288,7 +288,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "%1$@ eliminated (%2$lld votes)"
           }
         },
@@ -3821,7 +3821,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Output drifted from expected %1$@ for %2$@"
           }
         },
@@ -3837,7 +3837,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Output drifted to %1$@ (expected %2$@) for %3$@"
           }
         },

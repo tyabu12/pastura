@@ -2,7 +2,8 @@
 """Localization coverage gate for Pastura (Issue #294, ROADMAP § Step A details).
 
 Validates that every top-level key in ``Localizable.xcstrings`` has a complete
-``ja`` translation. The script exits non-zero on any of:
+``ja`` translation, plus a ``translated`` ``en`` source-locale state whenever an
+``en`` block is present. The script exits non-zero on any of:
 
 1. **Missing localizations** — empty ``{}`` form, or ``localizations`` present
    without a ``ja`` sub-key. (Apple xcstrings represents never-translated keys
@@ -19,6 +20,13 @@ Validates that every top-level key in ``Localizable.xcstrings`` has a complete
 6. **Top-level non-ASCII keys** — defensive guard against the reverse-direction
    regression Critic flagged (Q1 cleanup): if ``"キャンセル"`` or any other
    Japanese-source key reappears at the top level, fail.
+7. **``en`` source-locale state** — when (and only when) a ``localizations.en``
+   block is present (sync emits one for multi-arg positional forms), its
+   ``stringUnit.state`` must be ``"translated"`` with a non-empty value. Keys
+   with no ``en`` block use the key literal as their source and stay valid.
+   This enforces the ``en`` half of .claude/rules/i18n.md § "state=new + en-only
+   after sync" — "flip BOTH ``en`` and ``ja`` ``state`` to ``translated``"
+   (#676).
 
 Run ``--self-test`` to exercise the failure paths against in-memory fixtures
 before touching the real catalog. CI invokes the script with no arguments.
@@ -89,6 +97,14 @@ def validate_catalog(data: dict[str, Any]) -> list[str]:
         for required_locale in REQUIRED_LOCALES:
             errors.extend(_validate_locale(key, entry, required_locale))
 
+        # Source-locale (en) state check — only when an `en` block is present.
+        # The dominant shape `{ "localizations": { "ja": {…} } }` has no `en`
+        # block (the source is the key literal itself) and must stay valid;
+        # but when sync emits a positional-form `en` block (multi-arg keys),
+        # its `state` must reach "translated" too, mirroring the workflow in
+        # .claude/rules/i18n.md § "state=new + en-only after sync" (#676).
+        errors.extend(_validate_source_locale(key, entry))
+
     return errors
 
 
@@ -130,6 +146,44 @@ def _validate_locale(key: str, entry: dict[str, Any], locale: str) -> list[str]:
     value = string_unit.get("value", "")
     if not isinstance(value, str) or not value.strip():
         errors.append(f"{key!r}: {locale!r} value is empty or missing")
+
+    return errors
+
+
+def _validate_source_locale(key: str, entry: dict[str, Any]) -> list[str]:
+    """Validate the ``en`` source locale's state — only when an ``en`` block exists.
+
+    Keys with no ``localizations.en`` block use the key literal itself as the
+    English source (the dominant catalog shape) and are valid as-is. But when
+    sync emits an explicit ``en`` block (e.g. the positional form for
+    multi-arg keys), a ``state: "new"`` there means the workflow's "flip BOTH
+    en and ja to translated" step was skipped — fail so it can't pass silently.
+    """
+    errors: list[str] = []
+
+    localizations = entry.get("localizations")
+    if not isinstance(localizations, dict) or "en" not in localizations:
+        return errors  # source-is-key — valid, nothing to check
+
+    locale_payload = localizations["en"]
+    if not isinstance(locale_payload, dict):
+        errors.append(f"{key!r}: 'en' payload is not an object")
+        return errors
+
+    string_unit = locale_payload.get("stringUnit")
+    if not isinstance(string_unit, dict):
+        # No stringUnit to inspect — leave as-is (don't require en presence).
+        return errors
+
+    state = string_unit.get("state")
+    if state != "translated":
+        errors.append(
+            f"{key!r}: 'en' source state = {state!r}, expected 'translated'"
+        )
+
+    value = string_unit.get("value", "")
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{key!r}: 'en' source value is empty or missing")
 
     return errors
 
@@ -313,6 +367,80 @@ def _self_test() -> int:
     }
     results.append(
         expect_pass("typographic Unicode in English keys", typographic_data)
+    )
+
+    # 11. en source-locale state = new → fail (#676). A multi-arg positional
+    #     en block left at state:"new" after sync must not pass silently.
+    en_new_entry = {
+        "localizations": {
+            "en": {
+                "stringUnit": {
+                    "state": "new",
+                    "value": "%1$@ assigned: %2$@",
+                }
+            },
+            "ja": {
+                "stringUnit": {"state": "translated", "value": "テスト"}
+            },
+        }
+    }
+    results.append(
+        expect_fail(
+            "en source state = new",
+            {"sourceLanguage": "en", "strings": {"%@ assigned: %@": en_new_entry}},
+            "'en' source state = 'new'",
+        )
+    )
+
+    # 12. No en block (source-is-key, the dominant shape) → pass. Asserts the
+    #     new en check does NOT require en presence.
+    results.append(
+        expect_pass(
+            "no en block (source-is-key)",
+            {"sourceLanguage": "en", "strings": {"Hello": make_valid_entry()}},
+        )
+    )
+
+    # 13. en translated + ja translated → pass.
+    en_translated_entry = {
+        "localizations": {
+            "en": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "%1$@ assigned: %2$@",
+                }
+            },
+            "ja": {
+                "stringUnit": {"state": "translated", "value": "テスト"}
+            },
+        }
+    }
+    results.append(
+        expect_pass(
+            "en translated + ja translated",
+            {
+                "sourceLanguage": "en",
+                "strings": {"%@ assigned: %@": en_translated_entry},
+            },
+        )
+    )
+
+    # 14. en source value empty → fail (mirrors the ja empty-value guard).
+    en_empty_value_entry = {
+        "localizations": {
+            "en": {"stringUnit": {"state": "translated", "value": ""}},
+            "ja": {"stringUnit": {"state": "translated", "value": "テスト"}},
+        }
+    }
+    results.append(
+        expect_fail(
+            "en source value empty",
+            {
+                "sourceLanguage": "en",
+                "strings": {"Hello": en_empty_value_entry},
+            },
+            "'en' source value is empty",
+        )
     )
 
     passed = sum(results)
