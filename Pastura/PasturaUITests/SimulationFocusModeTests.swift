@@ -87,9 +87,9 @@ final class SimulationFocusModeTests: XCTestCase {
       object: browseTab)
     wait(for: [tabBarGone], timeout: 5)
 
-    // Pop via the interactive edge-swipe — it bypasses the confirm-on-leave
-    // dialog by design (see SimulationView.PendingLeave), so this is robust to
-    // the mock run's completion timing. Coordinate-based drag is required;
+    // Pop via the interactive edge-swipe — it bypasses the back-button
+    // confirm-on-leave dialog by design, so this is robust to the mock run's
+    // completion timing. Coordinate-based drag is required;
     // swipeRight() does not trigger interactivePopGestureRecognizer on iOS 17+
     // (mirrors BackGestureTests).
     let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
