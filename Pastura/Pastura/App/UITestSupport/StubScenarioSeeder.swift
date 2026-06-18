@@ -102,6 +102,130 @@
           output:
             statement: string
       """
+
+    // MARK: - Rich Home seed (--ui-test-seed-home-rich)
+
+    /// Canonical id for the gallery-sourced "Word Wolf" user row in the rich
+    /// Home seed. Also the scenario that ``StubPausedRunSeeder`` references for
+    /// its resume-card fixture, so ``richWordWolfYAML`` defines `rounds: 5`
+    /// (≥ 2) — the resume card's progress line needs `currentRound < rounds`.
+    public static let richWordWolfScenarioId = "ui_test_home_wordwolf"
+
+    /// Human-readable name for the gallery-sourced rich-seed row, kept in sync
+    /// with ``richWordWolfYAML``'s `name`.
+    public static let richWordWolfScenarioName = "Word Wolf"
+
+    /// `rounds` baked into ``richWordWolfYAML``. Exposed so
+    /// ``StubPausedRunSeeder`` can pick a `currentRound < rounds` without
+    /// re-parsing the YAML.
+    public static let richWordWolfRounds = 5
+
+    /// Seeds the richer Home fixture the ui-tour screenshots use: two bundled
+    /// presets (so the "Preset" badge and a multi-row card render) plus a
+    /// gallery-sourced user scenario (a "shared" install shown alongside the
+    /// always-present ``homeSeedScenarioId`` row). Opt-in via the
+    /// `--ui-test-seed-home-rich` launch argument; plain `--ui-test` keeps the
+    /// minimal single-row seed so navigation tests stay deterministic.
+    ///
+    /// Idempotent per `ScenarioRepository.save` (full-row upsert) — safe to
+    /// re-run after an in-test app relaunch.
+    public static func seedRichHome(into repository: any ScenarioRepository) async throws {
+      let now = Date()
+      let records: [ScenarioRecord] = [
+        ScenarioRecord(
+          id: "ui_test_preset_dilemma", name: "Prisoner's Dilemma",
+          yamlDefinition: richDilemmaYAML, isPreset: true,
+          createdAt: now, updatedAt: now),
+        ScenarioRecord(
+          id: "ui_test_preset_desert", name: "Desert Survival",
+          yamlDefinition: richDesertYAML, isPreset: true,
+          createdAt: now, updatedAt: now),
+        ScenarioRecord(
+          id: richWordWolfScenarioId, name: richWordWolfScenarioName,
+          yamlDefinition: richWordWolfYAML, isPreset: false,
+          createdAt: now, updatedAt: now,
+          // sourceType "gallery" makes this read as a Shared-Scenarios install
+          // (a "共有シナリオ") on the Home list. sourceId is a stub — the
+          // --ui-test StubGalleryService index doesn't carry it, so no spurious
+          // "Update" badge surfaces (refreshGalleryUpdateBadges finds no match).
+          sourceType: ScenarioSourceType.gallery,
+          sourceId: "ui_test_gallery_wordwolf",
+          sourceHash: String(repeating: "0", count: 64))
+      ]
+      try await offMain {
+        for record in records { try repository.save(record) }
+      }
+    }
+
+    /// Preset fixture: 2 agents, 10 rounds. inferences = 2×10 = 20 (< 50 warn).
+    static let richDilemmaYAML: String = """
+      id: ui_test_preset_dilemma
+      language: en
+      name: Prisoner's Dilemma
+      description: Cooperate or defect — watch trust build or break over repeated rounds.
+      agents: 2
+      rounds: 10
+      context: Two agents repeatedly choose to cooperate or defect.
+      personas:
+        - name: Alice
+          description: Tends to cooperate when trust is high.
+        - name: Bob
+          description: Weighs short-term gain against reputation.
+      phases:
+        - type: speak_all
+          prompt: State your choice and reasoning.
+          output:
+            statement: string
+      """
+
+    /// Preset fixture: 3 agents, 8 rounds. inferences = 3×8 = 24 (< 50 warn).
+    static let richDesertYAML: String = """
+      id: ui_test_preset_desert
+      language: en
+      name: Desert Survival
+      description: Stranded survivors rank their gear and reach consensus to make it out.
+      agents: 3
+      rounds: 8
+      context: Three survivors must agree on how to prioritize limited supplies.
+      personas:
+        - name: Carol
+          description: Pragmatic and risk-averse.
+        - name: Dave
+          description: Optimistic and quick to act.
+        - name: Erin
+          description: Methodical, insists on a shared plan.
+      phases:
+        - type: speak_all
+          prompt: Argue for your supply priority.
+          output:
+            statement: string
+      """
+
+    /// Gallery-sourced user fixture: 4 agents, 5 rounds. inferences = 4×5 = 20.
+    /// ``StubPausedRunSeeder`` references this scenario, so `rounds` stays ≥ 2.
+    static let richWordWolfYAML: String = """
+      id: ui_test_home_wordwolf
+      language: en
+      name: Word Wolf
+      description: Find the minority who was handed a different word — a hidden-role talk game.
+      agents: 4
+      rounds: 5
+      context: Players discuss their secret word to expose the odd one out.
+      personas:
+        - name: Alice
+          description: Asks probing questions early.
+        - name: Bob
+          description: Keeps a low profile to avoid suspicion.
+        - name: Carol
+          description: Builds on others' clues.
+        - name: Dave
+          description: Bluffs confidently when cornered.
+      phases:
+        - type: speak_all
+          prompt: Describe your word without naming it.
+          output:
+            statement: string
+      """
   }
 
 #endif

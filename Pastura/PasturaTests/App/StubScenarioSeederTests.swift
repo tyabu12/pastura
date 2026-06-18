@@ -78,6 +78,50 @@
       #expect(unwrapped.name == StubScenarioSeeder.homeSeedScenarioName)
       #expect(unwrapped.isPreset == false)
     }
+
+    // MARK: - rich Home seed (--ui-test-seed-home-rich)
+
+    /// Every rich-seed YAML must parse, validate, and pass content validation —
+    /// same gate as `homeSeedYAML`, so fixture drift breaks here instead of in
+    /// the slow UI-test tour.
+    @Test func testRichHomeSeedYAMLsParseAndPassValidation() throws {
+      let loader = ScenarioLoader()
+      let validator = ScenarioValidator()
+      let contentValidator = ScenarioContentValidator()
+      for yaml in [
+        StubScenarioSeeder.richDilemmaYAML,
+        StubScenarioSeeder.richDesertYAML,
+        StubScenarioSeeder.richWordWolfYAML
+      ] {
+        let scenario = try loader.load(yaml: yaml)
+        _ = try validator.validate(scenario)
+        let findings = contentValidator.validate(scenario)
+        #expect(findings.isEmpty, "Content findings for \(scenario.id): \(findings)")
+      }
+    }
+
+    /// `seedRichHome(into:)` persists the preset rows (with `isPreset`) and the
+    /// gallery-sourced user row (with `sourceType`), and the Word Wolf scenario
+    /// keeps `rounds == richWordWolfRounds` (≥ 2) — the invariant the paused-run
+    /// resume card depends on for a visible progress line.
+    @Test func testSeedRichHomePersistsPresetAndGalleryRows() async throws {
+      let db = try DatabaseManager.inMemory()
+      let repository = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+      try await StubScenarioSeeder.seedRichHome(into: repository)
+
+      let dilemma = try #require(try repository.fetchById("ui_test_preset_dilemma"))
+      #expect(dilemma.isPreset == true)
+
+      let wordWolf = try #require(
+        try repository.fetchById(StubScenarioSeeder.richWordWolfScenarioId))
+      #expect(wordWolf.isPreset == false)
+      #expect(wordWolf.sourceType == ScenarioSourceType.gallery)
+
+      let scenario = try ScenarioLoader().load(yaml: wordWolf.yamlDefinition)
+      #expect(scenario.rounds == StubScenarioSeeder.richWordWolfRounds)
+      #expect(scenario.rounds >= 2)
+    }
   }
 
 #endif
