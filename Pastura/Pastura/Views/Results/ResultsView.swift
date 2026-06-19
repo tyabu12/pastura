@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Lists past simulation runs, grouped by scenario.
+/// Lists past simulation runs. The aggregate History-tab root groups runs into
+/// date sections (Today / This Week / …, P5); the pushed per-scenario detail
+/// shows one scenario's runs under a single section.
 struct ResultsView: View {
   let scope: ResultsScope
 
@@ -21,7 +23,7 @@ struct ResultsView: View {
       if let viewModel {
         if viewModel.isLoading {
           ProgressView(String(localized: "Loading..."))
-        } else if viewModel.groups.isEmpty {
+        } else if viewModel.sections.isEmpty {
           ContentUnavailableView(
             String(localized: "No Results"),
             systemImage: "tray",
@@ -69,15 +71,32 @@ struct ResultsView: View {
     }
   }
 
+  /// Centered "N records" count under the screen title (観察履歴 → "12 回の記録",
+  /// P5 mock). Full-width so it centers within the card column.
+  private func recordCountSubtitle(_ count: Int) -> some View {
+    Text(String(format: String(localized: "%lld records"), count))
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
+      .frame(maxWidth: .infinity, alignment: .center)
+      .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
+      .accessibilityIdentifier("results.recordCount")
+  }
+
   private func resultsList(viewModel: ResultsViewModel) -> some View {
     ScrollView {
       // LazyVStack so off-screen rows don't decode/materialize eagerly and the
       // bottom load-more sentinel only fires once scrolled into view (#586).
       LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
-        ForEach(viewModel.groups) { group in
-          PasturaSection(group.sectionName) {
+        // Screen-title subtitle "N records" — aggregate root only (a pushed
+        // per-scenario detail shows one scenario, so a global count is
+        // meaningless there). Sits above the first date section (P5 mock).
+        if !scope.isPushedDetail {
+          recordCountSubtitle(viewModel.totalRunCount)
+        }
+        ForEach(viewModel.sections) { section in
+          PasturaSection(section.title) {
             VStack(spacing: 0) {
-              ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
+              ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
                 if index > 0 { PasturaRowDivider() }
                 NavigationLink(value: Route.resultDetail(simulationId: row.item.id)) {
                   resultRow(row)
@@ -136,12 +155,11 @@ struct ResultsView: View {
     .contentShape(Rectangle())
   }
 
-  // Each row repeats the simulation-time `variantName` (`.headline` font,
-  // matching HomeView preset list role-weight) so the row's identity is
-  // the variant's un-translated name even when Home aggregation surfaces
-  // a sibling-language section header. Detail rows show the same name as
-  // their section by design — keeping the row shape identical across
-  // entry-points (#392).
+  // Each row shows the simulation-time `variantName` (`.headline` font,
+  // matching HomeView preset list role-weight) — the variant's un-translated
+  // name (or the captured snapshot for a deleted scenario), kept consistent
+  // with the run's recorded conversation content. Row body unchanged in P5;
+  // the archetype-safe result summary + sheep avatars land in the follow-up.
   private func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(row.variantName)

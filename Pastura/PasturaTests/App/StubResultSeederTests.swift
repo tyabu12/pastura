@@ -36,8 +36,8 @@
       await viewModel.load(scope: .aggregate)
 
       #expect(viewModel.errorMessage == nil)
-      #expect(viewModel.groups.count == 1, "seeded run should form one group")
-      let row = try #require(viewModel.groups.first?.rows.first)
+      #expect(viewModel.sections.count == 1, "seeded run should form one date section")
+      let row = try #require(viewModel.sections.first?.rows.first)
       #expect(row.item.id == StubResultSeeder.simulationId)
       #expect(row.item.simulationStatus == .completed)
 
