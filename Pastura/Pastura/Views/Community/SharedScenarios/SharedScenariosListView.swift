@@ -274,6 +274,14 @@ struct SharedScenariosListView: View {
           badge(text: String(localized: "Installed"), style: .secondary)
         }
       }
+      // sheep ×N · N rounds — reuses the Home/Past Results meta line
+      // (HomeScenarioMetaLine). Guarded so a feed entry without
+      // agent_count/rounds (older feed, forward-compat) hides the line
+      // rather than reserving empty space.
+      if HomeScenarioRowFormat.showsMetaLine(
+        agentCount: scenario.agentCount, rounds: scenario.rounds) {
+        HomeScenarioMetaLine(agentCount: scenario.agentCount, rounds: scenario.rounds)
+      }
       Text(scenario.description)
         .font(.subheadline)
         .foregroundStyle(Color.inkSecondary)
