@@ -4,26 +4,33 @@ import Foundation
 ///
 /// Two load modes — selected by the ``ResultsScope`` argument:
 ///
-/// - **Aggregate** (``ResultsScope/aggregate``): a paginated global recency
-///   window over **all** runs (#586). Runs are fetched newest-first one keyset
-///   page at a time and bucketed into canonical groups keyed by `sourceId ?? id`
-///   (ADR-010 D4 cross-language aliasing, #392). Each canonical group's section
-///   header is the device-locale variant's `name`, falling back to the first
-///   available variant when the device-language sibling isn't shipped. Rows
-///   within a group stay newest-first; row labels show the simulation-time
-///   variant's `name` (un-translated). Groups are ordered by their most-recent
-///   run, so loading an older page can move an already-shown group up the list,
-///   and NULL-`scenarioId` orphan runs interleave by recency rather than always
-///   sorting last. An optional free-text scenario-name filter narrows the
-///   window (pushed into SQL so it reaches un-loaded runs).
-/// - **Detail** (``ResultsScope/scenario(_:)``): per-variant only — shows
-///   the one scenario's simulations under a single group. Cross-variant
-///   aggregation is intentionally limited to ``ResultsScope/aggregate`` so
-///   a user reading a JA scenario's detail doesn't see EN sibling runs
-///   commingled. See ``Route/results(scenarioId:)`` for the entry-point contract.
+/// - **Aggregate** (``ResultsScope/aggregate``): the History-tab root — a
+///   paginated global recency window over **all** runs (#586), grouped into
+///   **date sections** (Today / This Week / This Month / older "Month [Year]"
+///   headings, Home redesign P5). Runs are fetched newest-first one keyset page
+///   at a time; each run is its own row (no scenario-level collapsing). Row
+///   labels show the simulation-time variant's `name` (un-translated), falling
+///   back to the captured ``PastRunListItem/scenarioNameSnapshot`` for a run
+///   whose scenario was deleted. ``totalRunCount`` backs the screen-title
+///   "N records" subtitle. An optional free-text scenario-name filter narrows
+///   the window (pushed into SQL so it reaches un-loaded runs).
+/// - **Detail** (``ResultsScope/scenario(_:)``): per-variant only — shows the
+///   one scenario's simulations under a single section. A user reading a JA
+///   scenario's detail doesn't see EN sibling runs commingled. See
+///   ``Route/results(scenarioId:)`` for the entry-point contract.
+///
+/// History note: the aggregate path previously collapsed same-scenario
+/// language siblings into one section (ADR-010 D4 / #392). P5 replaced that
+/// scenario-keyed grouping with date sections; D4's `sourceId` canonical link
+/// still backs the **detail** path and the data model, but the History-tab
+/// cross-language consumer was retired here.
 @Observable
 final class ResultsViewModel {
-  private(set) var groups: [ScenarioGroup] = []
+  private(set) var sections: [ResultSection] = []
+  /// Total runs matching the active filter — backs the aggregate screen-title
+  /// "N records" subtitle. Equals the number of rows the list renders (P5
+  /// shows every run, so no count/list divergence). Unused by the detail path.
+  private(set) var totalRunCount = 0
   private(set) var isLoading = false
   /// `true` while a ``loadMore()`` page fetch is in flight — drives the
   /// load-more affordance's spinner and guards against re-entrant fetches.
@@ -39,43 +46,45 @@ final class ResultsViewModel {
   /// Page size for the aggregate keyset window. Injectable so tests can drive
   /// multi-page behavior without seeding hundreds of runs.
   private let pageSize: Int
+  /// Clock + calendar for date bucketing — injectable so day/week/month
+  /// boundaries are deterministic in tests (production uses the live clock and
+  /// `Calendar.current`).
+  private let now: () -> Date
+  private let calendar: Calendar
 
   // Aggregate pagination state.
   private var nameQuery: String = ""
-  private var deviceLanguage: String = LocaleResolver.deviceDefault()
-  /// Accumulated **visible** light items across loaded pages (dangling-
-  /// scenarioId rows already dropped), global newest-first.
+  /// Accumulated light items across loaded pages, global newest-first. P5 keeps
+  /// every run (no dangling-scenarioId drop), so this is the full window.
   private var loadedRuns: [PastRunListItem] = []
-  /// Keyset cursor = the last **raw** row of the last fetched page (regardless
-  /// of visibility), so the next page resumes correctly even past filtered rows.
+  /// Keyset cursor = the last row of the last fetched page, so the next page
+  /// resumes correctly on the composite `(createdAt DESC, id DESC)` order.
   private var cursor: SimulationPageCursor?
-  /// Cumulative count of **raw** rows fetched — the depth a reappear-refresh
-  /// re-reads from the top so the user's scroll position survives.
+  /// Cumulative count of rows fetched — the depth a reappear-refresh re-reads
+  /// from the top so the user's scroll position survives.
   private var loadedRawCount = 0
   /// Monotonic load-cycle stamp. Bumped whenever the window is reset
   /// (`reloadAggregate` / `applyFilter` / `refreshAggregatePreservingDepth`).
-  /// An in-flight `loadMore`/drain captures the stamp and discards a page whose
-  /// stamp is stale — so a filter change (or reappear-refresh) that lands while
-  /// the auto-firing load-more sentinel is mid-fetch can't fold an
+  /// An in-flight `loadMore` captures the stamp and discards a page whose stamp
+  /// is stale — so a filter change (or reappear-refresh) that lands while the
+  /// auto-firing load-more sentinel is mid-fetch can't fold an
   /// old-query/old-cursor page into the freshly-reset window.
   private var loadGeneration = 0
-  /// Live scenarios by id — bounded (small rows), kept for canonical-key
-  /// bucketing and device-locale header resolution.
+  /// Live scenarios by id — bounded (small rows), kept to resolve each run's
+  /// per-variant row label. The scenario set is invariant while typing a
+  /// filter, so the index is built once and reused across keystrokes (#678).
   private var scenarioById: [String: ScenarioRecord] = [:]
-  /// Precomputed device-locale section header per live canonical key.
-  private var headerNameByCanonicalKey: [String: String] = [:]
-  /// The `deviceLanguage` the scenario index was built for (`nil` before the
-  /// first build). The filter path reuses the index while this matches, so it
-  /// doesn't re-`fetchAll()` + re-parse per keystroke; a language change still
-  /// rebuilds (header map is locale-dependent). See #678.
-  private var indexedLanguage: String?
+  /// `true` once ``scenarioById`` has been built — the filter path reuses it
+  /// rather than re-`fetchAll()`-ing per keystroke.
+  private var scenarioIndexBuilt = false
 
-  /// One simulation row within a ``ScenarioGroup``.
+  /// One simulation row within a ``ResultSection``.
   ///
   /// `variantName` is the simulation-time variant's display name — the
   /// `ScenarioRecord.name` of the variant whose `id` matches the run's
-  /// `scenarioId`. Kept un-translated (per-variant) so the label stays
-  /// consistent with the run's recorded conversation content.
+  /// `scenarioId` (or the captured snapshot for a deleted scenario). Kept
+  /// un-translated (per-variant) so the label stays consistent with the run's
+  /// recorded conversation content.
   struct SimulationRow: Identifiable, Sendable {
     let item: PastRunListItem
     let variantName: String
@@ -84,51 +93,48 @@ final class ResultsViewModel {
 
   /// One section in the results list.
   ///
-  /// `sectionName` is the device-locale variant's `name` for Home
-  /// aggregation, or the single variant's `name` for Detail.
-  /// `canonicalKey` is `sourceId ?? id` — distinct from per-language
-  /// `id` only for aggregated groups.
-  struct ScenarioGroup: Identifiable, Sendable {
-    let sectionName: String
-    let canonicalKey: String
+  /// For the aggregate path `title` is the date-bucket heading (Today / This
+  /// Week / …) and `key` is the bucket's stable identity
+  /// (``ResultsRowFormat/DateBucket/key``). For the detail path it is the
+  /// single scenario's `name` / canonical id. `key` is kept separate from the
+  /// display `title` so sections coalesce by identity across keyset pages.
+  struct ResultSection: Identifiable, Sendable {
+    let key: String
+    let title: String
     let rows: [SimulationRow]
-    var id: String { canonicalKey }
+    var id: String { key }
   }
 
   init(
     scenarioRepository: any ScenarioRepository,
     simulationRepository: any SimulationRepository,
     turnRepository: any TurnRepository,
-    pageSize: Int = 50
+    pageSize: Int = 50,
+    now: @escaping () -> Date = { Date() },
+    calendar: Calendar = .current
   ) {
     self.scenarioRepository = scenarioRepository
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
     self.pageSize = pageSize
+    self.now = now
+    self.calendar = calendar
   }
 
-  /// Loads results into ``groups``. ``ResultsScope/aggregate`` resets the
-  /// keyset window and loads its first visible page; ``ResultsScope/scenario(_:)``
+  /// Loads results into ``sections``. ``ResultsScope/aggregate`` resets the
+  /// keyset window and loads its first page; ``ResultsScope/scenario(_:)``
   /// loads the one scenario's runs (un-paginated).
   ///
-  /// - Parameters:
-  ///   - deviceLanguage: Overridable for tests. Production call-sites use the
-  ///     default (``LocaleResolver/deviceDefault(preferredLocalizations:)``).
-  ///   - showLoading: When `false`, the `isLoading` spinner state is left
-  ///     untouched so the call refreshes ``groups`` in place without flashing
-  ///     the full-screen `ProgressView` (the Detail reappear-refresh path).
-  func load(
-    scope: ResultsScope,
-    deviceLanguage: String = LocaleResolver.deviceDefault(),
-    showLoading: Bool = true
-  ) async {
+  /// - Parameter showLoading: When `false`, the `isLoading` spinner state is
+  ///   left untouched so the call refreshes ``sections`` in place without
+  ///   flashing the full-screen `ProgressView` (the Detail reappear path).
+  func load(scope: ResultsScope, showLoading: Bool = true) async {
     if showLoading { isLoading = true }
     errorMessage = nil
 
     do {
       switch scope {
       case .aggregate:
-        self.deviceLanguage = deviceLanguage
         try await reloadAggregate()
       case .scenario(let scenarioId):
         hasMore = false
@@ -141,16 +147,16 @@ final class ResultsViewModel {
     if showLoading { isLoading = false }
   }
 
-  /// Loads the next visible page of the aggregate window. No-op when no more
-  /// pages exist or a fetch is already in flight. If a window reset (filter /
+  /// Loads the next page of the aggregate window. No-op when no more pages
+  /// exist or a fetch is already in flight. If a window reset (filter /
   /// refresh) supersedes this call mid-fetch, the stale page is discarded.
   func loadMore() async {
     guard hasMore, !isLoadingMore else { return }
     isLoadingMore = true
     let generation = loadGeneration
     do {
-      try await drainUntilVisibleProgress(generation: generation)
-      if generation == loadGeneration { rebuildGroups() }
+      try await fetchNextPage(generation: generation)
+      if generation == loadGeneration { rebuildSections() }
     } catch {
       // Suppress an error from a page that a window reset already superseded —
       // it no longer corresponds to the live window.
@@ -160,19 +166,12 @@ final class ResultsViewModel {
   }
 
   /// Applies (or clears) the scenario-name filter and reloads the aggregate
-  /// window from the top. No spinner — the prior groups stay visible until the
-  /// new page resolves. No-op when the query is unchanged.
-  func applyFilter(
-    _ query: String,
-    deviceLanguage: String = LocaleResolver.deviceDefault()
-  ) async {
+  /// window from the top. No spinner — the prior sections stay visible until
+  /// the new page resolves. No-op when the query is unchanged.
+  func applyFilter(_ query: String) async {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard trimmed != nameQuery else { return }
     nameQuery = trimmed
-    // Assign `deviceLanguage` BEFORE `reloadAggregate` so its index-reuse gate
-    // (`indexedLanguage != deviceLanguage`) sees the active language. Do not
-    // reorder these two lines.
-    self.deviceLanguage = deviceLanguage
     errorMessage = nil
     do {
       // Reuse the index — the scenario set is invariant while typing (#678).
@@ -185,38 +184,29 @@ final class ResultsViewModel {
   /// Re-fetches in place when the list reappears (e.g. after a per-run delete
   /// pops back). For aggregate, the currently-loaded depth is re-read from the
   /// top so a deleted run drops out without resetting the user's scroll
-  /// position (#586 incremental refresh of the #545 reappear-refresh). For
-  /// detail, a silent full reload.
-  func refreshOnReappear(
-    scope: ResultsScope,
-    deviceLanguage: String = LocaleResolver.deviceDefault()
-  ) async {
+  /// position (#586). For detail, a silent full reload.
+  func refreshOnReappear(scope: ResultsScope) async {
     errorMessage = nil
     switch scope {
     case .aggregate:
-      self.deviceLanguage = deviceLanguage
       do {
         try await refreshAggregatePreservingDepth()
       } catch {
         errorMessage = Self.failureMessage(error)
       }
     case .scenario:
-      await load(scope: scope, deviceLanguage: deviceLanguage, showLoading: false)
+      await load(scope: scope, showLoading: false)
     }
   }
 
   // MARK: - Aggregate (paginated recency window)
 
-  /// Reserved canonical-key prefix for orphaned-run groups. The leading NUL
-  /// guarantees no collision with a live scenario's `sourceId ?? id`.
-  private static let orphanCanonicalKeyPrefix = "\u{0}orphan:"
-
-  /// Resets the window and loads the first visible page. `rebuildIndex: false`
-  /// reuses the scenario index (filter path, #678) — see ``indexedLanguage``.
+  /// Resets the window and loads the first page. `rebuildIndex: false` reuses
+  /// the scenario index (filter path, #678) — see ``scenarioIndexBuilt``.
   private func reloadAggregate(rebuildIndex: Bool = true) async throws {
     loadGeneration += 1
     let generation = loadGeneration
-    if rebuildIndex || indexedLanguage != deviceLanguage {
+    if rebuildIndex || !scenarioIndexBuilt {
       try await refreshScenarioIndex()
       guard generation == loadGeneration else { return }
     }
@@ -224,56 +214,56 @@ final class ResultsViewModel {
     cursor = nil
     loadedRawCount = 0
     hasMore = true
-    try await drainUntilVisibleProgress(generation: generation)
+    try await loadTotalRunCount(generation: generation)
     guard generation == loadGeneration else { return }
-    rebuildGroups()
+    try await fetchNextPage(generation: generation)
+    guard generation == loadGeneration else { return }
+    rebuildSections()
   }
 
-  /// Fetches keyset pages until at least one new **visible** row is appended or
-  /// no pages remain. A page made entirely of dangling-scenarioId (invisible)
-  /// rows would otherwise stall the load-more affordance, so such pages are
-  /// drained internally rather than surfaced one-at-a-time (#586 auto-drain).
-  private func drainUntilVisibleProgress(generation: Int) async throws {
-    let startCount = loadedRuns.count
-    while loadedRuns.count == startCount && hasMore {
-      let query = nameQuery.isEmpty ? nil : nameQuery
-      let cursorSnapshot = cursor
-      let limit = pageSize
-      let rawPage = try await offMain { [simulationRepository] in
-        try simulationRepository.fetchRecentRunPage(
-          nameQuery: query, before: cursorSnapshot, limit: limit)
-      }
-      // A window reset (filter / refresh) landed during the fetch — this page
-      // was read against a now-stale query/cursor, so drop it rather than fold
-      // it into the reset window.
-      guard generation == loadGeneration else { return }
-      ingest(rawPage)
+  /// Fetches the next keyset page and folds it into the window. Every fetched
+  /// row is visible (P5 keeps all runs), so a single page either makes progress
+  /// or signals the end — no dangling-row drain loop is needed.
+  private func fetchNextPage(generation: Int) async throws {
+    guard hasMore else { return }
+    let query = nameQuery.isEmpty ? nil : nameQuery
+    let cursorSnapshot = cursor
+    let limit = pageSize
+    let rawPage = try await offMain { [simulationRepository] in
+      try simulationRepository.fetchRecentRunPage(
+        nameQuery: query, before: cursorSnapshot, limit: limit)
     }
+    // A window reset (filter / refresh) landed during the fetch — this page was
+    // read against a now-stale query/cursor, so drop it rather than fold it
+    // into the reset window.
+    guard generation == loadGeneration else { return }
+    ingest(rawPage)
   }
 
-  /// Folds a freshly-fetched raw page into the window: advances `hasMore` and
-  /// the keyset `cursor` off the **raw** row count / last raw row, and appends
-  /// only the visible (non-dangling) rows to ``loadedRuns``.
+  /// Folds a freshly-fetched page into the window: advances `hasMore` and the
+  /// keyset `cursor` off the row count / last row, and appends every row.
   private func ingest(_ rawPage: [PastRunListItem]) {
     loadedRawCount += rawPage.count
     hasMore = rawPage.count == pageSize
     if let last = rawPage.last {
       cursor = SimulationPageCursor(createdAt: last.createdAt, id: last.id)
     }
-    loadedRuns += rawPage.filter { bucket(for: $0) != nil }
+    loadedRuns += rawPage
   }
 
   /// Re-reads the loaded depth from the top, recomputing `cursor` + `hasMore`
   /// from the re-fetched window. Keyset tolerates a cursor that points at a
-  /// since-deleted row (it is still a valid `< ` boundary), so a delete between
+  /// since-deleted row (it is still a valid `<` boundary), so a delete between
   /// pages cannot corrupt a subsequent ``loadMore()``. The re-read depth is
   /// unbounded by design (it preserves the user's scroll position); memory
   /// stays light because the repository still projects `stateJSON` away per
-  /// row — only the top-3-score CPU cost scales with depth on this path.
+  /// row.
   private func refreshAggregatePreservingDepth() async throws {
     loadGeneration += 1
     let generation = loadGeneration
     try await refreshScenarioIndex()
+    guard generation == loadGeneration else { return }
+    try await loadTotalRunCount(generation: generation)
     guard generation == loadGeneration else { return }
     let depth = max(loadedRawCount, pageSize)
     let query = nameQuery.isEmpty ? nil : nameQuery
@@ -284,81 +274,75 @@ final class ResultsViewModel {
     loadedRawCount = rawPage.count
     hasMore = rawPage.count == depth
     cursor = rawPage.last.map { SimulationPageCursor(createdAt: $0.createdAt, id: $0.id) }
-    loadedRuns = rawPage.filter { bucket(for: $0) != nil }
-    rebuildGroups()
+    loadedRuns = rawPage
+    rebuildSections()
   }
 
-  /// Reloads the bounded scenario index + device-locale header map. Scenario
-  /// rows are small (no `stateJSON`); the heavy run rows page in lazily.
+  /// Loads the filtered total-run count (off the main actor). Guarded by the
+  /// generation stamp so a stale window-reset's count can't overwrite a newer
+  /// one.
+  private func loadTotalRunCount(generation: Int) async throws {
+    let query = nameQuery.isEmpty ? nil : nameQuery
+    let count = try await offMain { [simulationRepository] in
+      try simulationRepository.totalRunCount(nameQuery: query)
+    }
+    guard generation == loadGeneration else { return }
+    totalRunCount = count
+  }
+
+  /// Reloads the bounded scenario index used for per-row labels. Scenario rows
+  /// are small (no `stateJSON`); the heavy run rows page in lazily.
   private func refreshScenarioIndex() async throws {
     let scenarios = try await offMain { [scenarioRepository] in
       try scenarioRepository.fetchAll()
     }
     scenarioById = Dictionary(
       scenarios.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-
-    let grouped = Dictionary(grouping: scenarios) { $0.sourceId ?? $0.id }
-    var headers: [String: String] = [:]
-    for (canonicalKey, variants) in grouped {
-      // Pick the device-locale variant for the section header, falling back to
-      // the first available variant when the device-language sibling is absent.
-      let variantsWithLang = variants.map {
-        (record: $0, lang: ScenarioYAMLLanguage.parse($0.yamlDefinition))
-      }
-      let headerVariant =
-        variantsWithLang.first(where: { $0.lang == deviceLanguage })?.record
-        ?? variantsWithLang.first?.record
-      if let headerVariant { headers[canonicalKey] = headerVariant.name }
-    }
-    headerNameByCanonicalKey = headers
-    indexedLanguage = deviceLanguage  // stamp for the filter-path reuse gate (#678)
+    scenarioIndexBuilt = true
   }
 
-  /// Buckets a run to its canonical group + per-variant label. Returns `nil`
-  /// for a **dangling** run (non-null `scenarioId` absent from the live index)
-  /// so it stays invisible — preserving the prior structural contract that
-  /// dangling runs never surface (the new direct-table query would otherwise
-  /// return them).
-  private func bucket(for item: PastRunListItem) -> (key: String, variantName: String)? {
-    if let scenarioId = item.scenarioId {
-      guard let scenario = scenarioById[scenarioId] else { return nil }
-      return (scenario.sourceId ?? scenario.id, scenario.name)
+  /// The per-variant display label for a run's row — the live scenario `name`,
+  /// falling back to the captured snapshot for a deleted scenario, then a
+  /// generic placeholder. Never empty, so no run is dropped from the list (P5
+  /// retired the prior dangling-scenarioId hide).
+  private func variantName(for item: PastRunListItem) -> String {
+    if let scenarioId = item.scenarioId, let scenario = scenarioById[scenarioId] {
+      return scenario.name
     }
-    // NULL scenarioId — a deleted-scenario orphan; key off the captured
-    // snapshot under the reserved prefix so it cannot merge with a live group.
-    let snapshot = item.scenarioNameSnapshot
-    let name = snapshot ?? String(localized: "Deleted scenario")
-    let keySuffix = snapshot ?? "\u{0}unnamed"
-    return (Self.orphanCanonicalKeyPrefix + keySuffix, name)
+    return item.scenarioNameSnapshot ?? String(localized: "Deleted scenario")
   }
 
-  /// Re-buckets the full accumulated visible window into canonical groups.
-  /// Groups appear in the recency order their most-recent run was first seen
-  /// (``loadedRuns`` is global newest-first), so older pages extend existing
-  /// groups downward and only introduce new groups below.
-  private func rebuildGroups() {
+  /// Re-buckets the full accumulated window into date sections. Sections appear
+  /// in the recency order their most-recent run was first seen (``loadedRuns``
+  /// is global newest-first), so older pages extend existing sections downward
+  /// and only introduce new (older) sections below.
+  private func rebuildSections() {
+    let currentDate = now()
     var order: [String] = []
+    var titleByKey: [String: String] = [:]
     var rowsByKey: [String: [SimulationRow]] = [:]
     for item in loadedRuns {
-      guard let bucket = bucket(for: item) else { continue }
+      let bucket = ResultsRowFormat.dateBucket(
+        for: item.createdAt, now: currentDate, calendar: calendar)
       if rowsByKey[bucket.key] == nil {
         order.append(bucket.key)
         rowsByKey[bucket.key] = []
+        titleByKey[bucket.key] = bucket.title
       }
-      rowsByKey[bucket.key]?.append(SimulationRow(item: item, variantName: bucket.variantName))
+      rowsByKey[bucket.key]?.append(
+        SimulationRow(item: item, variantName: variantName(for: item)))
     }
-    groups = order.compactMap { key in
+    sections = order.compactMap { key in
       guard let rows = rowsByKey[key], !rows.isEmpty else { return nil }
-      let header = headerNameByCanonicalKey[key] ?? rows[0].variantName
-      return ScenarioGroup(sectionName: header, canonicalKey: key, rows: rows)
+      return ResultSection(key: key, title: titleByKey[key] ?? "", rows: rows)
     }
   }
 
   // MARK: - Detail (per-variant, un-paginated)
 
-  /// Detail path: shows only this scenario's simulations as lightweight rows.
-  /// No cross-variant aggregation by design — a user on a JA `ScenarioDetailView`
-  /// sees only JA runs even when an EN sibling exists.
+  /// Detail path: shows only this scenario's simulations as lightweight rows
+  /// under a single section. No cross-variant aggregation by design — a user on
+  /// a JA `ScenarioDetailView` sees only JA runs even when an EN sibling exists.
   private func loadDetailPerVariant(scenarioId: String) async throws {
     let scenario = try await offMain { [scenarioRepository] in
       try scenarioRepository.fetchById(scenarioId)
@@ -367,7 +351,8 @@ final class ResultsViewModel {
       try simulationRepository.fetchRunList(scenarioId: scenarioId)
     }
     guard !items.isEmpty else {
-      groups = []
+      sections = []
+      totalRunCount = 0
       return
     }
 
@@ -375,7 +360,8 @@ final class ResultsViewModel {
     let canonical = scenario?.sourceId ?? scenarioId
     // `fetchRunList` already returns newest-first; no re-sort needed.
     let rows = items.map { SimulationRow(item: $0, variantName: name) }
-    groups = [ScenarioGroup(sectionName: name, canonicalKey: canonical, rows: rows)]
+    sections = [ResultSection(key: canonical, title: name, rows: rows)]
+    totalRunCount = items.count
   }
 
   // MARK: - Turns

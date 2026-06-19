@@ -14,9 +14,8 @@ nonisolated enum ResultsRowFormat {
   /// `key` is a stable, locale-independent identity used to coalesce runs into
   /// one section — load-bearing for keyset pagination, where runs of the same
   /// period arrive across multiple pages and must merge rather than spawn a
-  /// duplicate section. `title` is the localized display heading (separate from
-  /// `key` for exactly the reason `ScenarioGroup` split `canonicalKey` from
-  /// `sectionName`).
+  /// duplicate section. `title` is the localized display heading, kept separate
+  /// from `key` so display copy never affects section identity.
   struct DateBucket: Equatable, Sendable {
     let key: String
     let title: String
