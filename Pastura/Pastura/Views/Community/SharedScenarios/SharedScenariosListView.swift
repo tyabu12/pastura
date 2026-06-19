@@ -19,6 +19,12 @@ struct SharedScenariosListView: View {
     .navigationTitle(String(localized: "Browse Shared Scenarios"))
     // Inline title to match the other tab roots (design-system § 5.11).
     .navigationBarTitleDisplayMode(.inline)
+    // Attach `.searchable` at the body boundary (mirroring ResultsView's
+    // `AggregateSearchable`), NOT inside `scenarioList`'s ScrollView — so the
+    // field is owned by the tab root's NavigationStack bar and is stable
+    // across `state` transitions. Gated to the loaded states: searching the
+    // loading / network-unavailable / error screens is meaningless.
+    .modifier(GallerySearchable(enabled: isSearchEnabled, text: searchQueryBinding))
     .task {
       let newViewModel = SharedScenariosViewModel(
         galleryService: dependencies.galleryService,
@@ -26,6 +32,23 @@ struct SharedScenariosListView: View {
       viewModel = newViewModel
       await newViewModel.load()
     }
+  }
+
+  /// True only in the states that render a searchable scenario list.
+  private var isSearchEnabled: Bool {
+    guard let viewModel else { return false }
+    switch viewModel.state {
+    case .loaded, .offlineWithCache: return true
+    case .idle, .loading, .empty, .error: return false
+    }
+  }
+
+  /// Bridges the `.searchable` field to the optional ViewModel's
+  /// `searchQuery` (the VM is created lazily in `.task`).
+  private var searchQueryBinding: Binding<String> {
+    Binding(
+      get: { viewModel?.searchQuery ?? "" },
+      set: { viewModel?.searchQuery = $0 })
   }
 
   @ViewBuilder
@@ -107,7 +130,7 @@ struct SharedScenariosListView: View {
   private func scenariosCard(viewModel: SharedScenariosViewModel) -> some View {
     if viewModel.visibleScenarios.isEmpty {
       PasturaSection {
-        Text(String(localized: "No scenarios in this category."))
+        Text(emptyResultsMessage(viewModel: viewModel))
           .foregroundStyle(Color.inkSecondary)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, 17)
@@ -127,6 +150,23 @@ struct SharedScenariosListView: View {
           }
         }
       }
+    }
+  }
+
+  /// Context-accurate copy for the empty scenarios card — distinguishes
+  /// "no search match" (with the query echoed), "category is empty", and
+  /// "gallery shipped nothing". The query echo uses the `String(format:)`
+  /// form (i18n Form B), never `\(query)` interpolation, which would
+  /// silently fall back to English on a ja device (.claude/rules/i18n.md).
+  private func emptyResultsMessage(viewModel: SharedScenariosViewModel) -> String {
+    switch viewModel.emptyReason {
+    case .noMatchingQuery:
+      return String(
+        format: String(localized: "No scenarios match \"%@\"."), viewModel.searchQuery)
+    case .emptyCategory:
+      return String(localized: "No scenarios in this category.")
+    case .galleryEmpty:
+      return String(localized: "No scenarios available yet.")
     }
   }
 
@@ -276,6 +316,27 @@ extension GalleryCategory {
     case .roleplay: return String(localized: "Roleplay")
     case .creative: return String(localized: "Creative")
     case .experimental: return String(localized: "Experimental")
+    }
+  }
+}
+
+/// Attaches the scenario `.searchable` field to the Browse tab, but only when
+/// a list is actually on screen (`enabled`). Mirrors ResultsView's
+/// `AggregateSearchable`: applied at the `body` boundary so the field lives on
+/// the tab root's NavigationStack bar rather than inside a state-specific
+/// subtree, keeping it stable across `LoadState` transitions.
+private struct GallerySearchable: ViewModifier {
+  let enabled: Bool
+  @Binding var text: String
+
+  func body(content: Content) -> some View {
+    if enabled {
+      content.searchable(
+        text: $text,
+        placement: .navigationBarDrawer(displayMode: .always),
+        prompt: Text(String(localized: "Search scenarios")))
+    } else {
+      content
     }
   }
 }

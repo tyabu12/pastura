@@ -3667,12 +3667,32 @@
         }
       }
     },
+    "No scenarios available yet." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まだシナリオがありません。"
+          }
+        }
+      }
+    },
     "No scenarios in this category." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "このカテゴリにシナリオはありません。"
+          }
+        }
+      }
+    },
+    "No scenarios match \"%@\"." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」に一致するシナリオはありません。"
           }
         }
       }
@@ -4854,6 +4874,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "スコアリングロジック"
+          }
+        }
+      }
+    },
+    "Search scenarios" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオを検索"
           }
         }
       }
