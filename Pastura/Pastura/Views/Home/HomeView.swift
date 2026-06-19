@@ -10,13 +10,12 @@ struct HomeView: View {
   @State private var viewModel: HomeViewModel?
   @State private var pendingDeletion: PendingScenarioDeletion?
 
-  /// A user-scenario deletion awaiting confirmation. Carries the target ids
-  /// (an `.onDelete` swipe is normally one, but multi-select can batch) and
-  /// the first scenario's name for the confirmation copy.
+  /// A user-scenario deletion awaiting confirmation — the target scenario's id
+  /// plus its name for the confirmation copy. The context-menu / accessibility
+  /// "Delete" affordances each act on a single row.
   private struct PendingScenarioDeletion: Identifiable {
-    let ids: [String]
+    let id: String
     let name: String
-    var id: String { ids.joined(separator: ",") }
   }
 
   /// Confirmation copy for deleting a user scenario. Since v7 the scenario
@@ -191,9 +190,7 @@ struct HomeView: View {
   ) -> some View {
     Button(role: .destructive) {
       Task {
-        for id in pending.ids {
-          await viewModel.deleteScenario(id)
-        }
+        await viewModel.deleteScenario(pending.id)
         pendingDeletion = nil
       }
     } label: {
@@ -262,14 +259,14 @@ struct HomeView: View {
             // recoverable. Past results survive (orphaned), but the scenario
             // itself is gone.
             pendingDeletion = PendingScenarioDeletion(
-              ids: [scenario.id], name: scenario.name)
+              id: scenario.id, name: scenario.name)
           } label: {
             Label(String(localized: "Delete"), systemImage: "trash")
           }
         }
         .accessibilityAction(named: Text(String(localized: "Delete"))) {
           pendingDeletion = PendingScenarioDeletion(
-            ids: [scenario.id], name: scenario.name)
+            id: scenario.id, name: scenario.name)
         }
     }
   }
