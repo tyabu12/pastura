@@ -1598,6 +1598,16 @@
         }
       }
     },
+    "Browse Shared Scenarios" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有シナリオを探す"
+          }
+        }
+      }
+    },
     "Calculate scores (code, no LLM)" : {
       "localizations" : {
         "ja" : {
@@ -4250,6 +4260,16 @@
         }
       }
     },
+    "Recommended Scenarios" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "おすすめのシナリオ"
+          }
+        }
+      }
+    },
     "Recommended model" : {
       "localizations" : {
         "ja" : {
@@ -4886,16 +4906,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "準備ができました"
-          }
-        }
-      }
-    },
-    "Shared Scenarios" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有シナリオ"
           }
         }
       }
