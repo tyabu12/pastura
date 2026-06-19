@@ -230,6 +230,51 @@ import Testing
     }
   }
 
+  /// Pins the curation invariant that every `gallery.json` entry's
+  /// `agentCount` / `rounds` match the corresponding YAML's `agents:` /
+  /// `rounds:` fields. These drive the Browse-tab row meta line (sheep ×N ·
+  /// N rounds); a drifted or omitted value would silently mis-render or hide
+  /// the line. `#require` makes an un-populated entry (nil) a loud failure
+  /// rather than a silent skip — catching a future gallery addition that
+  /// forgets the new fields.
+  @Test func galleryAgentCountAndRoundsMatchYAML() throws {
+    let loader = ScenarioLoader()
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let indexURL = galleryDir.appendingPathComponent("gallery.json")
+    let indexData = try Data(contentsOf: indexURL)
+    let index = try JSONDecoder().decode(GalleryIndex.self, from: indexData)
+
+    #expect(!index.scenarios.isEmpty, "gallery.json has no scenarios")
+
+    for entry in index.scenarios {
+      let yamlPath =
+        galleryDir
+        .appendingPathComponent(entry.yamlURL.lastPathComponent)
+      let yaml = try String(contentsOf: yamlPath, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+
+      let agentCount = try #require(
+        entry.agentCount,
+        "gallery.json entry id=\(entry.id) is missing agent_count")
+      #expect(
+        agentCount == scenario.agentCount,
+        """
+        gallery.json entry id=\(entry.id) agent_count=\(agentCount) \
+        != yaml agents=\(scenario.agentCount)
+        """)
+
+      let rounds = try #require(
+        entry.rounds,
+        "gallery.json entry id=\(entry.id) is missing rounds")
+      #expect(
+        rounds == scenario.rounds,
+        """
+        gallery.json entry id=\(entry.id) rounds=\(rounds) \
+        != yaml rounds=\(scenario.rounds)
+        """)
+    }
+  }
+
   /// Resolve the repo root relative to this test file. `#filePath` expands
   /// at compile time to the absolute source path; we walk up until we find
   /// the directory that contains `docs/gallery`.

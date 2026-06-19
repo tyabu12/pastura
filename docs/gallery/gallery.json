@@ -10,6 +10,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 10,
+      "agent_count": 5,
+      "rounds": 2,
       "yaml_url": "asch_conformity_v1.yaml",
       "yaml_sha256": "c4dc793962bfa5309efb8a00930958070f875e271aab8cda2fc0c662c0648947",
       "added_at": "2026-04-15"
@@ -22,6 +24,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 12,
+      "agent_count": 4,
+      "rounds": 2,
       "yaml_url": "trolley_dilemma_v1.yaml",
       "yaml_sha256": "8e4f2d870c1ada91f42cb269d35d7c3c032940a2f76ba7c417186378fdc63d0b",
       "added_at": "2026-04-15"
@@ -34,6 +38,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 15,
+      "agent_count": 5,
+      "rounds": 1,
       "yaml_url": "detective_scene_v1.yaml",
       "yaml_sha256": "9b01a7ced10853e5e46b036961d9930b10bdfcadd0b3dd89651c0a3d6857bbad",
       "added_at": "2026-04-15"
@@ -46,6 +52,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 20,
+      "agent_count": 5,
+      "rounds": 1,
       "yaml_url": "kinoko_takenoko_v1.yaml",
       "yaml_sha256": "d382514728e1bb484868c0f5a02fdc9a2ba6b463f208d76a4f691172df096024",
       "added_at": "2026-04-29"
@@ -58,6 +66,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
       "yaml_url": "iiwake_battle_v1.yaml",
       "yaml_sha256": "6b35dbf5ac872170d480ca73f5c088dd34f5c727f21015a7d39eb7032d22ec9d",
       "added_at": "2026-06-13"
@@ -70,6 +80,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
       "yaml_url": "kinku_bokete_v1.yaml",
       "yaml_sha256": "6c880ebdad761f953251b4f2c623fa8139e3dd0b011825dff08378e2418215a7",
       "added_at": "2026-06-13"
@@ -82,6 +94,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
       "yaml_url": "shachiku_senryu_v1.yaml",
       "yaml_sha256": "8dabdec1f554e471c02c42fbab69101dce7f34097c103f8494b17c5d133fe3ea",
       "added_at": "2026-06-13"
@@ -94,6 +108,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 24,
+      "agent_count": 4,
+      "rounds": 3,
       "yaml_url": "oogiri_knockout_v1.yaml",
       "yaml_sha256": "9675bfa9cda85c848cfed97dbdc568280ddeebc06c466f4cbd24cbb8393cd5b3",
       "added_at": "2026-06-13"
@@ -106,6 +122,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
       "yaml_url": "chin_jimaku_v1.yaml",
       "yaml_sha256": "6417957f7ce11f461a8be2adedd537e366bf98a00a5d0ab1c20531ad77b078e5",
       "added_at": "2026-06-13"
@@ -118,6 +136,8 @@
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
       "yaml_url": "chinkaitou_soudan_v1.yaml",
       "yaml_sha256": "c7e1a4a4ec7e5e1e8b4c8a7fc677773b35713fc12ac244609277b06d1863cee7",
       "added_at": "2026-06-13"
