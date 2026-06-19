@@ -106,16 +106,33 @@ struct HomeView: View {
 
   @ViewBuilder
   private func scenarioList(viewModel: HomeViewModel) -> some View {
-    List {
-      // The paused "resume" card sits above the scenario list (d3), shown
-      // only when a paused run exists (d3-without otherwise).
-      if let paused = viewModel.pausedSummary {
-        pausedSection(paused)
+    // Same host as the other browse screens (Shared Scenarios / Past Results /
+    // Settings): ScrollView + `PasturaSection`-style headers + `PasturaCard`
+    // grouped cards with `PasturaRowDivider` hairlines (#684 follow-up — Home
+    // dropped its bespoke `List`/`ScenarioCardSlice` rendering so the card form
+    // is shared, not re-implemented). Delete moved from List swipe to a
+    // long-press context menu (Apple's documented non-List alternative).
+    ScrollView {
+      LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        // The paused "resume" card sits above the scenario list (d3), shown
+        // only when a paused run exists (d3-without otherwise).
+        if let paused = viewModel.pausedSummary {
+          pausedSection(paused)
+        }
+        if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
+          ContentUnavailableView(
+            String(localized: "No Scenarios"),
+            systemImage: "doc.text",
+            description: Text(String(localized: "Tap + to import a YAML scenario"))
+          )
+          .frame(maxWidth: .infinity)
+          .padding(.top, 60)
+        } else {
+          scenariosSection(viewModel: viewModel)
+        }
       }
-      scenariosSection(viewModel: viewModel)
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .listStyle(.insetGrouped)
-    .scrollContentBackground(.hidden)
     // `.alert`, not `.confirmationDialog`: on iOS 26 confirmationDialog
     // renders as a mis-anchored popover on iPhone (reference: iOS 26
     // confirmationDialog popover anchor). `.alert` supplies no implicit
@@ -147,15 +164,14 @@ struct HomeView: View {
   }
 
   /// Header for the unified scenario list — the "Scenarios" label plus the
-  /// trailing "+" that opens the editor. The "+" moved here from the nav
-  /// toolbar (d3 layout); its `home.newScenarioButton` identifier is
-  /// preserved so EditorReloadTests / ScreenshotTourTests still find it.
+  /// trailing "+" that opens the editor, styled like a ``PasturaSection``
+  /// header (muted subheadline, 6pt inset). Its `home.newScenarioButton`
+  /// identifier is preserved so EditorReloadTests / ScreenshotTourTests find it.
   private func scenariosSectionHeader() -> some View {
     HStack {
-      // textCase(nil) keeps the soft "Scenarios" label (d3) instead of the
-      // grouped-list default all-caps.
       Text(String(localized: "Scenarios"))
-        .textCase(nil)
+        .font(.subheadline)
+        .foregroundStyle(Color.muted)
       Spacer()
       NavigationLink(value: newScenarioRoute()) {
         Image(systemName: "plus")
@@ -166,6 +182,7 @@ struct HomeView: View {
       .accessibilityIdentifier("home.newScenarioButton")
       .accessibilityLabel(String(localized: "New Scenario"))
     }
+    .padding(.horizontal, 6)
   }
 
   @ViewBuilder
@@ -189,117 +206,71 @@ struct HomeView: View {
     }
   }
 
-  /// The paused "resume" card section (``HomePausedCard``). PasturaCard draws
-  /// its own surface, so the row clears the List background. Horizontal insets
-  /// are zero so the `.insetGrouped` section margin (≈16pt) alone positions the
-  /// card — matching the other browse screens' 16pt card margin (the prior
-  /// 16pt inset *added* to the section margin, landing Home at ≈33pt). `top: 0`
-  /// keeps the header→card gap identical to the Scenarios section below.
+  /// The paused "resume" card section: a ``PasturaSection``-style muted header
+  /// above ``HomePausedCard`` (which already draws its own ``PasturaCard``), at
+  /// the shared 16pt horizontal margin.
   @ViewBuilder
   private func pausedSection(_ summary: PausedScenarioSummary) -> some View {
-    Section {
-      HomePausedCard(summary: summary)
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-    } header: {
+    VStack(alignment: .leading, spacing: 7) {
       Text(String(localized: "Interrupted Scenario"))
-        .textCase(nil)
+        .font(.subheadline)
+        .foregroundStyle(Color.muted)
+        .padding(.leading, 6)
+      HomePausedCard(summary: summary)
     }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
   }
 
-  /// The unified scenario list section — user scenarios first (deletable),
-  /// then bundled presets (d3). `.onDelete` attaches to the user `ForEach`
-  /// only, so presets stay non-deletable; the empty state shows when both
-  /// lists are empty.
+  /// The unified scenario card — user scenarios first (deletable via long-press
+  /// context menu), then bundled presets (d3), as one ``PasturaCard`` with
+  /// ``PasturaRowDivider`` hairlines between every adjacent pair. Mirrors the
+  /// Shared Scenarios / Past Results card structure exactly.
   @ViewBuilder
   private func scenariosSection(viewModel: HomeViewModel) -> some View {
-    Section {
-      if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
-        ContentUnavailableView(
-          String(localized: "No Scenarios"),
-          systemImage: "doc.text",
-          description: Text(String(localized: "Tap + to import a YAML scenario"))
-        )
-      } else {
-        // Single grouped card (d3): user rows then preset rows tile into one
-        // bordered card with hairline dividers and zero inter-row gap (the
-        // pre-#684 layout drew a separate 18pt-spaced card per row). Each row's
-        // background is a positional ``ScenarioCardSlice`` whose rounded corners
-        // + 1pt `rule` border close only the section's outer edges; adjacent
-        // slices' shared straight edges overlap into the row-to-row hairline, so
-        // no `PasturaRowDivider` is hand-drawn and the native separator stays
-        // hidden (avoids the List two-ForEach boundary + swipe-animation traps).
-        let firstId = (viewModel.userScenarios.first ?? viewModel.presets.first)?.id
-        let lastId = (viewModel.presets.last ?? viewModel.userScenarios.last)?.id
-        ForEach(viewModel.userScenarios, id: \.id) { scenario in
-          groupedScenarioRow(
-            HomeScenarioRow(
-              scenario: scenario,
-              metadata: viewModel.rowMetadata[scenario.id],
-              hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)),
-            position: Self.cardPosition(scenario.id, firstId: firstId, lastId: lastId)
-          )
-          .accessibilityAction(named: Text(String(localized: "Delete"))) {
-            // VoiceOver-reachable equivalent of the swipe-delete: swipe
-            // actions aren't reliably surfaced to VoiceOver, so name it
-            // explicitly. Opens the same confirmation alert.
-            pendingDeletion = PendingScenarioDeletion(
-              ids: [scenario.id], name: scenario.name)
+    let rows = viewModel.userScenarios + viewModel.presets
+    VStack(alignment: .leading, spacing: 7) {
+      scenariosSectionHeader()
+      PasturaCard {
+        VStack(spacing: 0) {
+          ForEach(Array(rows.enumerated()), id: \.element.id) { index, scenario in
+            if index > 0 { PasturaRowDivider() }
+            scenarioRow(scenario, viewModel: viewModel)
           }
         }
-        .onDelete { offsets in
-          // Confirm before deleting — destructive and not obviously
-          // recoverable. Past results survive (orphaned), but the scenario
-          // itself is gone. A swipe deletes a single user row, so naming the
-          // first scenario in the copy is accurate.
-          let scenarios = offsets.map { viewModel.userScenarios[$0] }
-          pendingDeletion = PendingScenarioDeletion(
-            ids: scenarios.map(\.id),
-            name: scenarios.first?.name ?? "")
-        }
-        ForEach(viewModel.presets, id: \.id) { scenario in
-          groupedScenarioRow(
-            HomeScenarioRow(scenario: scenario, metadata: viewModel.rowMetadata[scenario.id]),
-            position: Self.cardPosition(scenario.id, firstId: firstId, lastId: lastId)
-          )
-        }
       }
-    } header: {
-      scenariosSectionHeader()
     }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
   }
 
-  /// Wraps one scenario row as a slice of the single grouped card (d3): 17pt
-  /// interior text padding (matching the other browse screens' row padding), a
-  /// positional ``ScenarioCardSlice`` background, and **zero** horizontal row
-  /// insets so the `.insetGrouped` section margin (≈16pt) alone sets the card
-  /// edge — aligning Home with the 16pt card margin used on Shared Scenarios /
-  /// Past Results / Settings. `listRowBackground(.clear)` keeps the slice as
-  /// content so the swipe-delete reveal animates cleanly, and the native
-  /// separator is hidden since the slices draw their own hairline divider.
+  /// One scenario row inside the grouped card. User scenarios (non-preset)
+  /// carry a destructive "Delete" in both a long-press context menu and a
+  /// VoiceOver-reachable accessibility action (swipe actions aren't reliably
+  /// surfaced to VoiceOver); presets are non-deletable, so they get neither.
   @ViewBuilder
-  private func groupedScenarioRow(_ row: HomeScenarioRow, position: ScenarioCardSlice.Position)
-    -> some View {
-    row
-      .padding(.horizontal, 17)
-      .padding(.vertical, 12)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(ScenarioCardSlice(position: position))
-      .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-      .listRowBackground(Color.clear)
-      .listRowSeparator(.hidden)
-  }
-
-  /// Position of a row within the single grouped card, from its id against the
-  /// section's first/last displayed ids (user rows precede preset rows).
-  static func cardPosition(_ id: String, firstId: String?, lastId: String?)
-    -> ScenarioCardSlice.Position {
-    switch (id == firstId, id == lastId) {
-    case (true, true): return .only
-    case (true, false): return .top
-    case (false, true): return .bottom
-    default: return .middle
+  private func scenarioRow(_ scenario: ScenarioRecord, viewModel: HomeViewModel) -> some View {
+    let row = HomeScenarioRow(
+      scenario: scenario,
+      metadata: viewModel.rowMetadata[scenario.id],
+      hasGalleryUpdate: !scenario.isPreset && viewModel.galleryUpdateBadges.contains(scenario.id))
+    if scenario.isPreset {
+      row
+    } else {
+      row
+        .contextMenu {
+          Button(role: .destructive) {
+            // Confirm before deleting — destructive and not obviously
+            // recoverable. Past results survive (orphaned), but the scenario
+            // itself is gone.
+            pendingDeletion = PendingScenarioDeletion(
+              ids: [scenario.id], name: scenario.name)
+          } label: {
+            Label(String(localized: "Delete"), systemImage: "trash")
+          }
+        }
+        .accessibilityAction(named: Text(String(localized: "Delete"))) {
+          pendingDeletion = PendingScenarioDeletion(
+            ids: [scenario.id], name: scenario.name)
+        }
     }
   }
 

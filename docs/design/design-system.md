@@ -400,12 +400,12 @@ ToolbarItem(placement: .primaryAction) {
 | シャドウ | **なし**（§1「観察＝持ち上げない」。§4.3 の苔シャドウは Sim 画面で単一要素が浮く用途に限定） |
 | 地（field） | `screenBackground`（#FCFAF4） |
 
-`PasturaCardMetrics` がレイアウト定数（角丸 14 / 罫線 1 / 外側水平マージン 16 / カード間 18）を一元管理し、`ScrollView` コンテナ（`PasturaCard`）と `List` 行背景（`PasturaCardSurface` を `.listRowBackground` に）で同一の見た目を共有する。複数行グループは1枚のカード内を `PasturaRowDivider`（`rule` 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。`ScrollView` 化したカードに「タップで push する行」を置く場合は `PasturaRowLabel`（moss アイコン＋ink タイトル＋chevron＋全幅タップ）を `NavigationLink { } .buttonStyle(.plain)` で包む。
+`PasturaCardMetrics` がレイアウト定数（角丸 14 / 罫線 1 / 外側水平マージン 16 / カード間 18）を一元管理する。全ブラウズ画面が `ScrollView` + `PasturaCard` の単一ホストを共有し、複数行グループは1枚のカード内を `PasturaRowDivider`（`rule` 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。カードに「タップで push する行」を置く場合は `NavigationLink { 行 + 末尾 chevron } .buttonStyle(.plain)`（汎用行は `PasturaRowLabel` ＝ moss アイコン＋ink タイトル＋chevron＋全幅タップを利用）。
 
-**ホスト選択**: スワイプ削除（`.onDelete`）やドラッグ並べ替え（`.onMove`）を持つ画面は `List` / `Form` を維持し、地を暖色化する（`.scrollContentBackground(.hidden)` + `screenBackground`）。それ以外のブラウズ系は `ScrollView` + `PasturaCard` でグループカード化する。`List` ホストでのカード描画は画面で分かれる:
+**ホスト選択**: ブラウズ系（Home / Shared Scenarios / Past Results / Settings）は**すべて** `ScrollView` + `PasturaCard` + `PasturaRowDivider` で統一する（#684）。Home も例外ではなく、シナリオ一覧は他画面と同一の `PasturaCard` グループカードで描く — `List` 上で同じ見た目を再現しようとすると角の描画や行間ヘアラインで破綻するため、機構ごと共通化した。
 
-- **Home（`.onDelete`）** は `List` を保ちつつシナリオ一覧を**1枚のグループカード**として描く（d3、#684）。各行背景を位置依存の `ScenarioCardSlice` —  `bubbleBackground` 塗り + 外周のみ角丸/`rule` 罫線を閉じる `UnevenRoundedRectangle` — にし、隣接スライスの共有直線辺が重なって行間ヘアラインを成す。`PasturaRowDivider` は手描きせず、ネイティブセパレータも隠す（`List` 内 2-`ForEach` 境界と swipe アニメーションの罠を回避）。行間ギャップは無し（`PasturaCardMetrics.interCardSpacing` は Home の一覧には使わない）。中断シナリオの resume カードは別の `PasturaCard` として一覧の上に置く。
-- **Editor（`.onMove`）** は `Form` のまま per-row 挙動を保つ（並べ替えのため行を独立させる）。
+- **Home のシナリオ削除** は `List` の `.onDelete` スワイプではなく**長押しコンテキストメニュー**（`.contextMenu` の destructive「削除」）＋ VoiceOver 用 `.accessibilityAction(named:)` で提供する。`List` を捨てたことでスワイプ削除は使えないが、Apple が List 外削除の代替として案内する方式（`swiftui-traps.md` 参照）。プリセット行は非削除なので contextMenu を付けない。
+- **Editor（`.onMove`）** だけは並べ替えのため `Form` を維持し per-row 挙動を保つ。ドラッグ並べ替えを持つ画面が唯一の `List`/`Form` ホスト例外。
 
 ### 5.10 Primary Button（`PasturaPrimaryButtonStyle`）
 

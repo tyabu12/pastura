@@ -1,8 +1,12 @@
 import SwiftUI
 
 /// One row in the Home scenario list (ADR-016 D3): name (+ inline preset /
-/// gallery-update badges) / sheep · rounds meta line / 1-line description.
-/// Wraps a value-based `NavigationLink` to the scenario detail.
+/// gallery-update badges) / sheep · rounds meta line / 1-line description, plus
+/// a trailing chevron. Wraps a value-based `NavigationLink` to the scenario
+/// detail. Rendered inside the Home ``PasturaCard`` (ScrollView host, like the
+/// other browse screens — Shared Scenarios / Past Results / Settings), so it
+/// supplies its own chevron + row padding + `.buttonStyle(.plain)` rather than
+/// relying on a `List` cell's disclosure chrome.
 struct HomeScenarioRow: View {
   let scenario: ScenarioRecord
   let metadata: ScenarioRowMetadata?
@@ -19,8 +23,21 @@ struct HomeScenarioRow: View {
         initialName: .init(scenario.name)
       )
     ) {
-      label
+      HStack(spacing: 10) {
+        label
+        Spacer(minLength: 8)
+        // Manual disclosure chevron — the ScrollView/`PasturaCard` host has no
+        // List-cell chrome to supply one (matches Shared Scenarios' galleryRow).
+        Image(systemName: "chevron.forward")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(Color.muted)
+          .accessibilityHidden(true)
+      }
+      .padding(.horizontal, 17)
+      .padding(.vertical, 12)
+      .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
     .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
   }
 
@@ -64,6 +81,5 @@ struct HomeScenarioRow: View {
           .truncationMode(.tail)
       }
     }
-    .padding(.vertical, 4)
   }
 }
