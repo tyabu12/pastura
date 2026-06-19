@@ -406,6 +406,7 @@ ToolbarItem(placement: .primaryAction) {
 
 - **Home のシナリオ削除** は `List` の `.onDelete` スワイプではなく**長押しコンテキストメニュー**（`.contextMenu` の destructive「削除」）＋ VoiceOver 用 `.accessibilityAction(named:)` で提供する。`List` を捨てたことでスワイプ削除は使えないが、Apple が List 外削除の代替として案内する方式（`swiftui-traps.md` 参照）。プリセット行は非削除なので contextMenu を付けない。
 - **Editor（`.onMove`）** だけは並べ替えのため `Form` を維持し per-row 挙動を保つ。ドラッグ並べ替えを持つ画面が唯一の `List`/`Form` ホスト例外。
+- **Past Results（観察履歴）の `PasturaSection` 見出しは日付バケット**（今日 / 今週 / 今月 / 過去は「M月 [YYYY年]」、P5）。同一ホスト上で各 run を時系列の独立行として描き、画面タイトル直下に総件数「N 回の記録」を中央寄せで添える（aggregate root のみ。push 詳細は単一セクション）。バケットの安定キーと表示ラベルの分離は `ResultsRowFormat`。
 
 ### 5.10 Primary Button（`PasturaPrimaryButtonStyle`）
 

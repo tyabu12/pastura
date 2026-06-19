@@ -78,6 +78,21 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// - Throws: `DataError.recordNotFound` if no record with the given ID exists.
   func updateStatus(_ id: String, status: SimulationStatus) throws
 
+  /// Returns the total number of runs matching the same name filter used by
+  /// ``fetchRecentRunPage(nameQuery:before:limit:)`` — but with no keyset
+  /// cursor and no row limit. Powers the Past Results screen-title subtitle
+  /// "N 回の記録" (Home redesign P5).
+  ///
+  /// Every run visible in the P5 date-grouped History list is shown (no
+  /// dangling-drop), so this count is intended to equal the number of rows
+  /// the list renders for the same filter. Orphaned runs (scenarioId NULL)
+  /// are **included** in the unfiltered total because they appear in the list.
+  ///
+  /// - Parameter nameQuery: Optional substring. nil or blank → unfiltered.
+  ///   Non-blank → case-insensitive LIKE match on the live scenario name or
+  ///   the run's ``SimulationRecord/scenarioNameSnapshot``.
+  func totalRunCount(nameQuery: String?) throws -> Int
+
   /// Deletes a simulation by ID. No-op if the record does not exist.
   func delete(_ id: String) throws
 
@@ -322,6 +337,34 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
       record.status = status.rawValue
       record.updatedAt = Date()
       try record.update(db)
+    }
+  }
+
+  public func totalRunCount(nameQuery: String?) throws -> Int {
+    try dbWriter.read { db in
+      // Mirror fetchRecentRunPage's name-filter logic exactly so this count
+      // equals the number of rows the P5 date-grouped History list renders for
+      // the same query (parity rationale: every run is shown in the list —
+      // no dangling-drop — so count == list row count for any given filter).
+      let trimmed = nameQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
+      let hasFilter = !(trimmed ?? "").isEmpty
+
+      if hasFilter, let trimmed {
+        let pattern = "%" + Self.escapeLikePattern(trimmed) + "%"
+        // The JOIN is required only when filtering; omitting it for the
+        // unfiltered path keeps the query minimal (no unnecessary scan of
+        // the scenarios table).
+        return try Int.fetchOne(
+          db,
+          sql: #"""
+            SELECT COUNT(*) FROM simulations sim
+            LEFT JOIN scenarios sc ON sim.scenarioId = sc.id
+            WHERE (sc.name LIKE ? ESCAPE '\' OR sim.scenarioNameSnapshot LIKE ? ESCAPE '\')
+            """#,
+          arguments: [pattern, pattern]) ?? 0
+      } else {
+        return try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM simulations") ?? 0
+      }
     }
   }
 

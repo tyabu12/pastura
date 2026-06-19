@@ -4,87 +4,75 @@ import Testing
 
 @testable import Pastura
 
-/// Keyset-pagination, name-filter, auto-drain, re-entrancy, and incremental
-/// reappear-refresh tests for ``ResultsViewModel``'s aggregate path (#586).
-/// Sibling extension on the same suite — see `testing.md` § "Splitting a Suite
-/// Across Files". Helpers are file-scope (the suite's `makeResultsSUT` builds
-/// at the default page size; these tests need a small page size to drive
-/// multi-page behavior without seeding hundreds of runs).
+/// Keyset-pagination, name-filter, re-entrancy, and incremental reappear-refresh
+/// tests for ``ResultsViewModel``'s aggregate path (#586). Sibling extension on
+/// the same suite — see `testing.md` § "Splitting a Suite Across Files". Helpers
+/// are file-scope (the suite's `makeResultsSUT` builds at the default page size;
+/// these tests need a small page size to drive multi-page behavior without
+/// seeding hundreds of runs).
+///
+/// Pagination is asserted on the flattened row stream (`sections.flatMap rows`)
+/// rather than per-scenario groups: P5 groups by date, so runs seeded at the
+/// same instant share one section and the meaningful contract is the
+/// newest-first row order / count across `loadMore`.
 extension ResultsViewModelTests {
 
   // MARK: - Keyset pagination + load-more
 
   @Test func aggregatePaginatesAcrossPagesWithLoadMore() async throws {
     let env = try makePagedSUT(pageSize: 2)
-    // 5 scenarios, one run each, distinct times → 5 single-row groups.
+    // 5 runs at distinct times (all in one ancient date bucket — the row order,
+    // not the bucket, is what pagination guarantees).
     for index in 1...5 {
       try seedPagedScenario(env.scenarioRepo, id: "s\(index)", name: "Scenario \(index)")
       try seedPagedRun(env.simRepo, id: "r\(index)", scenarioId: "s\(index)", at: Double(index))
     }
 
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
-    #expect(env.sut.groups.count == 2)
-    #expect(env.sut.hasMore)
-    #expect(env.sut.groups.map(\.canonicalKey) == ["s5", "s4"])
-
-    await env.sut.loadMore()
-    #expect(env.sut.groups.count == 4)
+    await env.sut.load(scope: .aggregate)
+    #expect(rowIds(env.sut) == ["r5", "r4"])
     #expect(env.sut.hasMore)
 
     await env.sut.loadMore()
-    #expect(env.sut.groups.map(\.canonicalKey) == ["s5", "s4", "s3", "s2", "s1"])
+    #expect(rowIds(env.sut) == ["r5", "r4", "r3", "r2"])
+    #expect(env.sut.hasMore)
+
+    await env.sut.loadMore()
+    #expect(rowIds(env.sut) == ["r5", "r4", "r3", "r2", "r1"])
     #expect(env.sut.hasMore == false)
 
     // Exhausted — a further loadMore is a no-op.
     await env.sut.loadMore()
-    #expect(env.sut.groups.count == 5)
+    #expect(rowIds(env.sut).count == 5)
   }
 
-  /// A canonical group whose runs straddle a page boundary must reassemble
-  /// into a single group as the older page loads (critic Axis 1 — the
-  /// row-paginated / group-displayed seam).
-  @Test func aggregateGroupSplitAcrossPagesReassembles() async throws {
+  /// Runs in the same date bucket whose rows straddle a page boundary must
+  /// reassemble into a single section as the older page loads — the stable
+  /// bucket key coalesces them rather than spawning a duplicate section
+  /// (critic Warning 3: multi-page same-bucket merge).
+  @Test func aggregateSameWeekRunsMergeAcrossPages() async throws {
     let env = try makePagedSUT(pageSize: 2)
-    try seedPagedScenario(env.scenarioRepo, id: "A", name: "Alpha")
-    try seedPagedScenario(env.scenarioRepo, id: "B", name: "Beta")
-    // Global recency: A@5, B@4, A@3 → A's runs straddle the 2-row boundary.
-    try seedPagedRun(env.simRepo, id: "a_new", scenarioId: "A", at: 5)
-    try seedPagedRun(env.simRepo, id: "b_mid", scenarioId: "B", at: 4)
-    try seedPagedRun(env.simRepo, id: "a_old", scenarioId: "A", at: 3)
+    try seedPagedScenario(env.scenarioRepo, id: "s", name: "Scenario")
+    // Three runs, all earlier this week (not today) relative to resultsTestNow
+    // (2026-06-17): 06-16, 06-15, 06-14. Ids are assigned so their lexical
+    // order DISAGREES with the date order — newest (06-16) gets the lexically
+    // smallest id "d16" only by date, so a regression from createdAt-desc to
+    // id-asc sorting would reorder the rows and fail the assertion.
+    try seedPagedRun(env.simRepo, id: "d16", scenarioId: "s", on: resultsTestDate(2026, 6, 16))
+    try seedPagedRun(env.simRepo, id: "d15", scenarioId: "s", on: resultsTestDate(2026, 6, 15))
+    try seedPagedRun(env.simRepo, id: "d14", scenarioId: "s", on: resultsTestDate(2026, 6, 14))
 
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
-    // Page 1: A has only its newest run so far.
-    #expect(env.sut.groups.first { $0.canonicalKey == "A" }?.rows.count == 1)
+    await env.sut.load(scope: .aggregate)
+    // Page 1: two of the three week runs, single "week" section, newest-first
+    // (date-desc) — NOT id-asc, which would be ["d14", "d15"].
+    #expect(env.sut.sections.count == 1)
+    #expect(env.sut.sections.first?.key == "week")
+    #expect(rowIds(env.sut) == ["d16", "d15"])
 
     await env.sut.loadMore()
-    // Page 2 brings A's older run — the group reassembles to two rows,
-    // newest-first, still a single group.
-    let groupA = try #require(env.sut.groups.first { $0.canonicalKey == "A" })
-    #expect(groupA.rows.map(\.id) == ["a_new", "a_old"])
-    #expect(env.sut.groups.first { $0.canonicalKey == "B" }?.rows.count == 1)
-    #expect(env.sut.groups.count == 2)
-  }
-
-  // MARK: - Auto-drain invisible (dangling) pages
-
-  /// A full page of dangling-scenarioId (invisible) runs must not stall the
-  /// window — `loadMore`/first-load drain past it to surface the visible runs
-  /// beneath (critic Axis 2).
-  @Test func aggregateDrainsAllDanglingPageToSurfaceVisibleRun() async throws {
-    let env = try makePagedSUT(pageSize: 2)
-    try seedPagedScenario(env.scenarioRepo, id: "owned", name: "Owned")
-    // Visible run is the OLDEST; two newer dangling runs fill the first page.
-    try seedPagedRun(env.simRepo, id: "visible", scenarioId: "owned", at: 1)
-    try plantDanglingRun(env.db, id: "ghost_a", at: 3)
-    try plantDanglingRun(env.db, id: "ghost_b", at: 2)
-
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
-
-    // The all-dangling first page was drained internally; the visible run
-    // surfaced rather than the list stalling empty.
-    #expect(env.sut.groups.count == 1)
-    let allRowIds = env.sut.groups.flatMap { $0.rows.map(\.id) }
-    #expect(allRowIds == ["visible"])
+    // Page 2 brings the third — still ONE "week" section, newest-first.
+    #expect(env.sut.sections.count == 1)
+    #expect(env.sut.sections.first?.key == "week")
+    #expect(rowIds(env.sut) == ["d16", "d15", "d14"])
   }
 
   // MARK: - Name filter
@@ -96,22 +84,21 @@ extension ResultsViewModelTests {
     try seedPagedRun(env.simRepo, id: "ra", scenarioId: "a", at: 2)
     try seedPagedRun(env.simRepo, id: "rb", scenarioId: "b", at: 1)
 
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
-    #expect(env.sut.groups.count == 2)
+    await env.sut.load(scope: .aggregate)
+    #expect(Set(rowIds(env.sut)) == ["ra", "rb"])
 
-    await env.sut.applyFilter("alpha", deviceLanguage: "ja")
-    #expect(env.sut.groups.map(\.canonicalKey) == ["a"])
+    await env.sut.applyFilter("alpha")
+    #expect(rowIds(env.sut) == ["ra"])
 
     // Clearing the filter restores the full window.
-    await env.sut.applyFilter("", deviceLanguage: "ja")
-    #expect(env.sut.groups.count == 2)
+    await env.sut.applyFilter("")
+    #expect(Set(rowIds(env.sut)) == ["ra", "rb"])
   }
 
   // MARK: - Re-entrancy
 
   /// Two concurrent `loadMore()` calls must load exactly one page — the
-  /// `isLoadingMore` guard prevents a double-append at the same cursor
-  /// (critic Axis 4).
+  /// `isLoadingMore` guard prevents a double-append at the same cursor.
   @Test func aggregateConcurrentLoadMoreLoadsOnePageOnly() async throws {
     let env = try makePagedSUT(pageSize: 2)
     for index in 1...5 {
@@ -119,22 +106,22 @@ extension ResultsViewModelTests {
       try seedPagedRun(env.simRepo, id: "r\(index)", scenarioId: "s\(index)", at: Double(index))
     }
 
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
-    #expect(env.sut.groups.count == 2)
+    await env.sut.load(scope: .aggregate)
+    #expect(rowIds(env.sut).count == 2)
 
     async let first: Void = env.sut.loadMore()
     async let second: Void = env.sut.loadMore()
     _ = await (first, second)
 
     // Exactly one extra page (2 rows) — not two pages, no duplicate rows.
-    let ids = env.sut.groups.flatMap { $0.rows.map(\.id) }
+    let ids = rowIds(env.sut)
     #expect(ids.count == 4)
     #expect(Set(ids).count == ids.count)
   }
 
-  /// A filter change that lands while an auto-fired `loadMore` is in flight
-  /// must win — the stale (unfiltered) page is discarded by the generation
-  /// guard rather than folded into the freshly-filtered window (review Warning).
+  /// A filter change that lands while an auto-fired `loadMore` is in flight must
+  /// win — the stale (unfiltered) page is discarded by the generation guard
+  /// rather than folded into the freshly-filtered window.
   @Test func aggregateFilterSupersedesInFlightLoadMore() async throws {
     let env = try makePagedSUT(pageSize: 2)
     try seedPagedScenario(env.scenarioRepo, id: "alpha", name: "Alpha")
@@ -144,20 +131,17 @@ extension ResultsViewModelTests {
     try seedPagedRun(env.simRepo, id: "alpha2", scenarioId: "alpha", at: 2)
     try seedPagedRun(env.simRepo, id: "beta2", scenarioId: "beta", at: 1)
 
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")
+    await env.sut.load(scope: .aggregate)
     #expect(env.sut.hasMore)
 
     // Interleave a load-more with a filter change.
     async let more: Void = env.sut.loadMore()
-    async let filter: Void = env.sut.applyFilter("alpha", deviceLanguage: "ja")
+    async let filter: Void = env.sut.applyFilter("alpha")
     _ = await (more, filter)
 
     // Whatever the interleaving, the final window reflects the "alpha" filter —
     // no stale Beta rows leaked in from the discarded loadMore page.
-    let canonicalKeys = Set(env.sut.groups.map(\.canonicalKey))
-    #expect(canonicalKeys == ["alpha"])
-    let ids = env.sut.groups.flatMap { $0.rows.map(\.id) }
-    #expect(Set(ids) == ["alpha1", "alpha2"])
+    #expect(Set(rowIds(env.sut)) == ["alpha1", "alpha2"])
   }
 
   // MARK: - Incremental reappear refresh
@@ -165,7 +149,7 @@ extension ResultsViewModelTests {
   /// After a per-run delete (the #545 reappear trigger), the incremental
   /// refresh re-reads the loaded depth from the top — dropping the deleted run,
   /// preserving depth, and recomputing the cursor so a later `loadMore` neither
-  /// duplicates nor skips (critic Axis 6).
+  /// duplicates nor skips.
   @Test func aggregateRefreshAfterDeletePreservesDepthAndCursor() async throws {
     let env = try makePagedSUT(pageSize: 2)
     for index in 1...5 {
@@ -173,28 +157,33 @@ extension ResultsViewModelTests {
       try seedPagedRun(env.simRepo, id: "r\(index)", scenarioId: "s\(index)", at: Double(index))
     }
 
-    await env.sut.load(scope: .aggregate, deviceLanguage: "ja")  // r5, r4
+    await env.sut.load(scope: .aggregate)  // r5, r4
     await env.sut.loadMore()  // + r3, r2 → depth 4 loaded, a 5th remains
 
     // Delete a loaded run, then reappear-refresh.
     try env.simRepo.delete("r4")
-    await env.sut.refreshOnReappear(scope: .aggregate, deviceLanguage: "ja")
+    await env.sut.refreshOnReappear(scope: .aggregate)
 
-    var ids = env.sut.groups.flatMap { $0.rows.map(\.id) }
+    var ids = rowIds(env.sut)
     #expect(!ids.contains("r4"))
     #expect(Set(ids) == ["r5", "r3", "r2", "r1"])  // depth refilled to 4 from the top
     #expect(Set(ids).count == ids.count)
 
-    // Cursor was recomputed from the refreshed window — a further loadMore
-    // finds nothing older and adds no duplicate.
+    // Cursor was recomputed from the refreshed window — a further loadMore finds
+    // nothing older and adds no duplicate.
     await env.sut.loadMore()
-    ids = env.sut.groups.flatMap { $0.rows.map(\.id) }
+    ids = rowIds(env.sut)
     #expect(Set(ids) == ["r5", "r3", "r2", "r1"])
     #expect(Set(ids).count == ids.count)
   }
 }
 
 // MARK: - File-scope helpers
+
+@MainActor
+private func rowIds(_ sut: ResultsViewModel) -> [String] {
+  sut.sections.flatMap { $0.rows.map(\.id) }
+}
 
 private struct PagedResultsSUT {
   let db: DatabaseManager
@@ -213,24 +202,31 @@ private func makePagedSUT(pageSize: Int) throws -> PagedResultsSUT {
     scenarioRepository: scenarioRepo,
     simulationRepository: simRepo,
     turnRepository: turnRepo,
-    pageSize: pageSize)
+    pageSize: pageSize,
+    now: { resultsTestNow },
+    calendar: resultsTestCalendar)
   return PagedResultsSUT(db: db, sut: sut, scenarioRepo: scenarioRepo, simRepo: simRepo)
 }
 
 private func seedPagedScenario(
-  _ repo: GRDBScenarioRepository, id: String, name: String, language: String = "ja"
+  _ repo: GRDBScenarioRepository, id: String, name: String
 ) throws {
   try repo.save(
     ScenarioRecord(
       id: id, name: name,
-      yamlDefinition: "id: \(id)\nlanguage: \(language)\nname: \(name)\n",
+      yamlDefinition: "id: \(id)\nname: \(name)\n",
       isPreset: false, createdAt: Date(), updatedAt: Date()))
 }
 
 private func seedPagedRun(
   _ repo: GRDBSimulationRepository, id: String, scenarioId: String, at offset: Double
 ) throws {
-  let when = Date(timeIntervalSince1970: offset)
+  try seedPagedRun(repo, id: id, scenarioId: scenarioId, on: Date(timeIntervalSince1970: offset))
+}
+
+private func seedPagedRun(
+  _ repo: GRDBSimulationRepository, id: String, scenarioId: String, on when: Date
+) throws {
   try repo.save(
     SimulationRecord(
       id: id, scenarioId: scenarioId,
@@ -238,28 +234,4 @@ private func seedPagedRun(
       currentRound: 1, currentPhaseIndex: 0,
       stateJSON: "{}", configJSON: nil,
       createdAt: when, updatedAt: when))
-}
-
-/// Plants a run whose non-null `scenarioId` references no live scenario — a
-/// dangling row only reachable by bypassing FK enforcement (production schema
-/// makes it impossible). Used to exercise the invisible-dangling contract.
-private func plantDanglingRun(_ db: DatabaseManager, id: String, at offset: Double) throws {
-  let when = Date(timeIntervalSince1970: offset)
-  // SQLite ignores `PRAGMA foreign_keys` inside a transaction, so take the
-  // pragma in autocommit mode via `writeWithoutTransaction`.
-  try db.dbWriter.writeWithoutTransaction { db in
-    try db.execute(sql: "PRAGMA foreign_keys = OFF")
-    try db.execute(
-      sql: """
-        INSERT INTO simulations
-        (id, scenarioId, status, currentRound, currentPhaseIndex,
-         stateJSON, configJSON, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-      arguments: [
-        id, "ghost_scenario", SimulationStatus.completed.rawValue,
-        1, 0, "{}", nil, when, when
-      ])
-    try db.execute(sql: "PRAGMA foreign_keys = ON")
-  }
 }
