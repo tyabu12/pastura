@@ -835,6 +835,16 @@
         }
       }
     },
+    "%lld records" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 回の記録"
+          }
+        }
+      }
+    },
     "%lld rounds" : {
       "localizations" : {
         "en" : {
