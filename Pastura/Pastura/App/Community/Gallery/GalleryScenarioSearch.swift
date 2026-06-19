@@ -7,9 +7,10 @@ import Foundation
 /// Kept `nonisolated` and dependency-free (plain `[GalleryScenario]` +
 /// category + query inputs, no ViewModel reference) so the filtering and the
 /// empty-state classification are unit-testable without rendering or a
-/// `@MainActor` hop (ADR-009 / `.claude/rules/view-testing.md`). Sibling of
-/// `GalleryCategoryFilter`, which models the chip presentation; this type
-/// models the actual data filtering those chips (plus the search field) feed.
+/// `@MainActor` hop (ADR-009 / `.claude/rules/view-testing.md`). Counterpart
+/// to `GalleryCategoryFilter` (in `Views/`, which models the chip
+/// presentation); this type models the actual data filtering those chips
+/// (plus the search field) feed.
 nonisolated enum GalleryScenarioSearch {
 
   /// Returns the scenarios matching both the category filter and the search
