@@ -48,15 +48,29 @@ final class SharedScenariosViewModel {
   /// `nil` means "all categories".
   var selectedCategory: GalleryCategory?
 
+  /// The Browse-tab search field text. Blank / whitespace-only applies no
+  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:)``).
+  var searchQuery: String = ""
+
   /// Rows keyed by `sourceId` for the subset of scenarios whose
   /// `sourceType == "gallery"` and whose `sourceId` is non-nil. Rebuilt
   /// after every load and save so UI bindings can read synchronously.
   private(set) var installedBySourceId: [String: ScenarioRecord] = [:]
 
-  /// Filtered view based on `selectedCategory`.
+  /// Filtered view based on `selectedCategory` AND `searchQuery`. The actual
+  /// filtering lives in the pure ``GalleryScenarioSearch`` so it is
+  /// unit-testable without the ViewModel (ADR-009).
   var visibleScenarios: [GalleryScenario] {
-    guard let category = selectedCategory else { return allScenarios }
-    return allScenarios.filter { $0.category == category }
+    GalleryScenarioSearch.filter(
+      allScenarios, category: selectedCategory, query: searchQuery)
+  }
+
+  /// Why ``visibleScenarios`` is empty — drives the empty-card copy. Only
+  /// meaningful when ``visibleScenarios`` is actually empty.
+  var emptyReason: GalleryScenarioSearch.EmptyReason {
+    GalleryScenarioSearch.emptyReason(
+      allScenariosEmpty: allScenarios.isEmpty,
+      category: selectedCategory, query: searchQuery)
   }
 
   private let galleryService: any GalleryService
