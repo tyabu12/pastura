@@ -40,8 +40,8 @@ final class NavigationRegressionTests: XCTestCase {
     browseTab.tap()
 
     XCTAssertTrue(
-      app.navigationBars["Shared Scenarios"].waitForExistence(timeout: 5),
-      "Shared Scenarios did not appear.")
+      app.navigationBars["Browse Shared Scenarios"].waitForExistence(timeout: 5),
+      "Browse Shared Scenarios did not appear.")
 
     // Shared Scenarios → Gallery scenario detail (push within the Browse tab).
     let galleryCell = app.buttons["sharedScenarios.galleryCell.ui_test_canary"]

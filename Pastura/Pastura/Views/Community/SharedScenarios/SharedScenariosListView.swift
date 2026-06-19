@@ -16,7 +16,7 @@ struct SharedScenariosListView: View {
         ProgressView()
       }
     }
-    .navigationTitle(String(localized: "Shared Scenarios"))
+    .navigationTitle(String(localized: "Browse Shared Scenarios"))
     // Inline title to match the other tab roots (design-system § 5.11).
     .navigationBarTitleDisplayMode(.inline)
     .task {
@@ -85,15 +85,8 @@ struct SharedScenariosListView: View {
         if case .offlineWithCache = viewModel.state {
           offlineBanner
         }
-        PasturaSection {
-          HStack {
-            Text(String(localized: "Category")).foregroundStyle(Color.ink)
-            Spacer(minLength: 8)
-            categoryPicker(selection: $bindable.selectedCategory)
-          }
-          .padding(.horizontal, 17)
-          .padding(.vertical, 8)
-        }
+        categoryChips(selection: $bindable.selectedCategory)
+        recommendedHeader
         scenariosCard(viewModel: viewModel)
         if let updated = viewModel.updatedAt {
           Text(String(format: String(localized: "Last updated: %@"), updated))
@@ -165,14 +158,67 @@ struct SharedScenariosListView: View {
     .contentShape(Rectangle())
   }
 
-  private func categoryPicker(selection: Binding<GalleryCategory?>) -> some View {
-    Picker(String(localized: "Category"), selection: selection) {
-      Text(String(localized: "All")).tag(GalleryCategory?.none)
-      ForEach(GalleryCategory.allCases, id: \.self) { category in
-        Text(category.displayName).tag(GalleryCategory?.some(category))
+  // MARK: - Category filter chips
+
+  /// Horizontal, scrollable category-filter chip row (ADR-016 P4). Replaces
+  /// the menu `Picker`: every category is one tap inline, matching the D3
+  /// Browse mock. Drives the existing `selectedCategory` binding (nil =
+  /// "All"); `visibleScenarios` still owns the actual filtering.
+  private func categoryChips(selection: Binding<GalleryCategory?>) -> some View {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack(spacing: 8) {
+        ForEach(GalleryCategoryFilter.options, id: \.self) { option in
+          categoryChip(option, selection: selection)
+        }
       }
+      .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
     }
-    .pickerStyle(.menu)
+  }
+
+  private func categoryChip(
+    _ option: GalleryCategoryFilter, selection: Binding<GalleryCategory?>
+  ) -> some View {
+    let isSelected = option.selectedCategory == selection.wrappedValue
+    return Button {
+      selection.wrappedValue = option.selectedCategory
+    } label: {
+      Text(chipTitle(option))
+        .font(.subheadline.weight(isSelected ? .semibold : .regular))
+        // Selected uses `mossDark`, not base `moss`: white-on-mossDark clears
+        // WCAG AA (≈4.76:1) whereas white-on-moss is only ≈3.0:1
+        // (PasturaPrimaryButtonStyle §2.3). White-on-accent is the
+        // contrast-passing pair, distinct from §1's avoid-white-surfaces rule.
+        .foregroundStyle(isSelected ? Color.white : Color.ink)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(isSelected ? Color.mossDark : Color.bubbleBackground, in: Capsule())
+        .overlay(
+          Capsule().strokeBorder(
+            isSelected ? Color.clear : Color.rule,
+            lineWidth: PasturaCardMetrics.borderWidth))
+    }
+    .buttonStyle(.plain)
+    // The menu Picker announced its selection for free; rebuild that on the
+    // hand-rolled chips so VoiceOver still reads which filter is active.
+    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+  }
+
+  private func chipTitle(_ option: GalleryCategoryFilter) -> String {
+    switch option {
+    case .all: return String(localized: "All")
+    case .category(let category): return category.displayName
+    }
+  }
+
+  /// "Recommended" section header above the scenarios card (D3 Browse mock),
+  /// styled like a ``PasturaSection`` header (muted subheadline).
+  private var recommendedHeader: some View {
+    Text(String(localized: "Recommended Scenarios"))
+      .font(.subheadline)
+      .foregroundStyle(Color.muted)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
+      .accessibilityAddTraits(.isHeader)
   }
 
   private func scenarioRow(
