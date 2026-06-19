@@ -704,6 +704,22 @@ private struct RootView: View {
           uiTestEditorSeedYAML: editorSeedYAML
         )
         try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
+        // Rich Home fixture (presets + a gallery-sourced "shared" row) is
+        // opt-in for the ui-tour Home captures. Also implied by
+        // --ui-test-seed-paused, since the resume card reads its metadata from
+        // the rich seed's scenario (StubPausedRunSeeder dependency).
+        let wantsRichHome =
+          CommandLine.arguments.contains("--ui-test-seed-home-rich")
+          || CommandLine.arguments.contains("--ui-test-seed-paused")
+        if wantsRichHome {
+          try await StubScenarioSeeder.seedRichHome(into: deps.scenarioRepository)
+        }
+        // Paused-run fixture surfaces the Home resume card (d3-with). Opt-in so
+        // plain --ui-test keeps the card hidden (d3-without).
+        if CommandLine.arguments.contains("--ui-test-seed-paused") {
+          try await StubPausedRunSeeder.seed(
+            simulationRepository: deps.simulationRepository)
+        }
         // Past Results fixtures are opt-in so plain --ui-test runs keep
         // exercising the empty state (ScreenshotTourTests opts in).
         if CommandLine.arguments.contains("--ui-test-seed-results") {

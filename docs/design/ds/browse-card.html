@@ -49,7 +49,7 @@
         <div class="prow"><span class="icn">↺</span>Past Results<span class="chev">›</span></div>
       </div>
     </div>
-    <p class="section-note">複数行グループは1枚のカード内を <code>PasturaRowDivider</code>（rule 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。タップ行は <code>PasturaRowLabel</code>（moss アイコン＋ink タイトル＋chevron）を NavigationLink + .buttonStyle(.plain) で包む。<code>PasturaCardMetrics</code> が角丸 14 / 罫線 1 / 外マージン 16 / カード間 18 を一元管理し、ScrollView コンテナと List 行背景（PasturaCardSurface）で共有。</p>
+    <p class="section-note">複数行グループは1枚のカード内を <code>PasturaRowDivider</code>（rule 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。タップ行は <code>PasturaRowLabel</code>（moss アイコン＋ink タイトル＋chevron）を NavigationLink + .buttonStyle(.plain) で包む。<code>PasturaCardMetrics</code> が角丸 14 / 罫線 1 / 外マージン 16 / カード間 18 を一元管理。全ブラウズ画面（Home / Shared Scenarios / Past Results / Settings）が ScrollView + <code>PasturaCard</code> の単一ホストを共有する（#684）。</p>
   </div>
 </div>
 </body>

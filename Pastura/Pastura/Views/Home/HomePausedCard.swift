@@ -68,6 +68,9 @@ struct HomePausedCard: View {
         Label(String(localized: "Resume"), systemImage: "play.fill")
       }
       .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
+      // Stable anchor so the ui-tour `09-home-resume` capture can wait for the
+      // resume card to render before screenshotting.
+      .accessibilityIdentifier("home.resumeButton")
     }
   }
 }

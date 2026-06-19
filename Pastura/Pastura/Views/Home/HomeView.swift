@@ -10,13 +10,12 @@ struct HomeView: View {
   @State private var viewModel: HomeViewModel?
   @State private var pendingDeletion: PendingScenarioDeletion?
 
-  /// A user-scenario deletion awaiting confirmation. Carries the target ids
-  /// (an `.onDelete` swipe is normally one, but multi-select can batch) and
-  /// the first scenario's name for the confirmation copy.
+  /// A user-scenario deletion awaiting confirmation — the target scenario's id
+  /// plus its name for the confirmation copy. The context-menu / accessibility
+  /// "Delete" affordances each act on a single row.
   private struct PendingScenarioDeletion: Identifiable {
-    let ids: [String]
+    let id: String
     let name: String
-    var id: String { ids.joined(separator: ",") }
   }
 
   /// Confirmation copy for deleting a user scenario. Since v7 the scenario
@@ -106,16 +105,33 @@ struct HomeView: View {
 
   @ViewBuilder
   private func scenarioList(viewModel: HomeViewModel) -> some View {
-    List {
-      // The paused "resume" card sits above the scenario list (d3), shown
-      // only when a paused run exists (d3-without otherwise).
-      if let paused = viewModel.pausedSummary {
-        pausedSection(paused)
+    // Same host as the other browse screens (Shared Scenarios / Past Results /
+    // Settings): ScrollView + `PasturaSection`-style headers + `PasturaCard`
+    // grouped cards with `PasturaRowDivider` hairlines (#684 follow-up — Home
+    // dropped its bespoke `List`/`ScenarioCardSlice` rendering so the card form
+    // is shared, not re-implemented). Delete moved from List swipe to a
+    // long-press context menu (Apple's documented non-List alternative).
+    ScrollView {
+      LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        // The paused "resume" card sits above the scenario list (d3), shown
+        // only when a paused run exists (d3-without otherwise).
+        if let paused = viewModel.pausedSummary {
+          pausedSection(paused)
+        }
+        if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
+          ContentUnavailableView(
+            String(localized: "No Scenarios"),
+            systemImage: "doc.text",
+            description: Text(String(localized: "Tap + to import a YAML scenario"))
+          )
+          .frame(maxWidth: .infinity)
+          .padding(.top, 60)
+        } else {
+          scenariosSection(viewModel: viewModel)
+        }
       }
-      scenariosSection(viewModel: viewModel)
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .listStyle(.insetGrouped)
-    .scrollContentBackground(.hidden)
     // `.alert`, not `.confirmationDialog`: on iOS 26 confirmationDialog
     // renders as a mis-anchored popover on iPhone (reference: iOS 26
     // confirmationDialog popover anchor). `.alert` supplies no implicit
@@ -147,15 +163,14 @@ struct HomeView: View {
   }
 
   /// Header for the unified scenario list — the "Scenarios" label plus the
-  /// trailing "+" that opens the editor. The "+" moved here from the nav
-  /// toolbar (d3 layout); its `home.newScenarioButton` identifier is
-  /// preserved so EditorReloadTests / ScreenshotTourTests still find it.
+  /// trailing "+" that opens the editor, styled like a ``PasturaSection``
+  /// header (muted subheadline, 6pt inset). Its `home.newScenarioButton`
+  /// identifier is preserved so EditorReloadTests / ScreenshotTourTests find it.
   private func scenariosSectionHeader() -> some View {
     HStack {
-      // textCase(nil) keeps the soft "Scenarios" label (d3) instead of the
-      // grouped-list default all-caps.
       Text(String(localized: "Scenarios"))
-        .textCase(nil)
+        .font(.subheadline)
+        .foregroundStyle(Color.muted)
       Spacer()
       NavigationLink(value: newScenarioRoute()) {
         Image(systemName: "plus")
@@ -166,6 +181,7 @@ struct HomeView: View {
       .accessibilityIdentifier("home.newScenarioButton")
       .accessibilityLabel(String(localized: "New Scenario"))
     }
+    .padding(.horizontal, 6)
   }
 
   @ViewBuilder
@@ -174,9 +190,7 @@ struct HomeView: View {
   ) -> some View {
     Button(role: .destructive) {
       Task {
-        for id in pending.ids {
-          await viewModel.deleteScenario(id)
-        }
+        await viewModel.deleteScenario(pending.id)
         pendingDeletion = nil
       }
     } label: {
@@ -189,73 +203,71 @@ struct HomeView: View {
     }
   }
 
-  /// The paused "resume" card section (``HomePausedCard``). PasturaCard draws
-  /// its own surface, so the row clears the List background and matches the
-  /// horizontal margin / spacing used by `pasturaCardRow()`.
+  /// The paused "resume" card section: a ``PasturaSection``-style muted header
+  /// above ``HomePausedCard`` (which already draws its own ``PasturaCard``), at
+  /// the shared 16pt horizontal margin.
   @ViewBuilder
   private func pausedSection(_ summary: PausedScenarioSummary) -> some View {
-    Section {
-      HomePausedCard(summary: summary)
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-        .listRowInsets(
-          EdgeInsets(
-            top: PasturaCardMetrics.interCardSpacing / 2,
-            leading: PasturaCardMetrics.horizontalMargin,
-            bottom: PasturaCardMetrics.interCardSpacing / 2,
-            trailing: PasturaCardMetrics.horizontalMargin))
-    } header: {
+    VStack(alignment: .leading, spacing: 7) {
       Text(String(localized: "Interrupted Scenario"))
-        .textCase(nil)
+        .font(.subheadline)
+        .foregroundStyle(Color.muted)
+        .padding(.leading, 6)
+      HomePausedCard(summary: summary)
     }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
   }
 
-  /// The unified scenario list section — user scenarios first (deletable),
-  /// then bundled presets (d3). `.onDelete` attaches to the user `ForEach`
-  /// only, so presets stay non-deletable; the empty state shows when both
-  /// lists are empty.
+  /// The unified scenario card — user scenarios first (deletable via long-press
+  /// context menu), then bundled presets (d3), as one ``PasturaCard`` with
+  /// ``PasturaRowDivider`` hairlines between every adjacent pair. Mirrors the
+  /// Shared Scenarios / Past Results card structure exactly.
   @ViewBuilder
   private func scenariosSection(viewModel: HomeViewModel) -> some View {
-    Section {
-      if viewModel.presets.isEmpty && viewModel.userScenarios.isEmpty {
-        ContentUnavailableView(
-          String(localized: "No Scenarios"),
-          systemImage: "doc.text",
-          description: Text(String(localized: "Tap + to import a YAML scenario"))
-        )
-      } else {
-        ForEach(viewModel.userScenarios, id: \.id) { scenario in
-          HomeScenarioRow(
-            scenario: scenario,
-            metadata: viewModel.rowMetadata[scenario.id],
-            hasGalleryUpdate: viewModel.galleryUpdateBadges.contains(scenario.id)
-          )
-          .pasturaCardRow()
-          .accessibilityAction(named: Text(String(localized: "Delete"))) {
-            // VoiceOver-reachable equivalent of the swipe-delete: swipe
-            // actions aren't reliably surfaced to VoiceOver, so name it
-            // explicitly. Opens the same confirmation alert.
-            pendingDeletion = PendingScenarioDeletion(
-              ids: [scenario.id], name: scenario.name)
+    let rows = viewModel.userScenarios + viewModel.presets
+    VStack(alignment: .leading, spacing: 7) {
+      scenariosSectionHeader()
+      PasturaCard {
+        VStack(spacing: 0) {
+          ForEach(Array(rows.enumerated()), id: \.element.id) { index, scenario in
+            if index > 0 { PasturaRowDivider() }
+            scenarioRow(scenario, viewModel: viewModel)
           }
         }
-        .onDelete { offsets in
-          // Confirm before deleting — destructive and not obviously
-          // recoverable. Past results survive (orphaned), but the scenario
-          // itself is gone. A swipe deletes a single user row, so naming the
-          // first scenario in the copy is accurate.
-          let scenarios = offsets.map { viewModel.userScenarios[$0] }
-          pendingDeletion = PendingScenarioDeletion(
-            ids: scenarios.map(\.id),
-            name: scenarios.first?.name ?? "")
-        }
-        ForEach(viewModel.presets, id: \.id) { scenario in
-          HomeScenarioRow(scenario: scenario, metadata: viewModel.rowMetadata[scenario.id])
-            .pasturaCardRow()
-        }
       }
-    } header: {
-      scenariosSectionHeader()
+    }
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
+  }
+
+  /// One scenario row inside the grouped card. User scenarios (non-preset)
+  /// carry a destructive "Delete" in both a long-press context menu and a
+  /// VoiceOver-reachable accessibility action (swipe actions aren't reliably
+  /// surfaced to VoiceOver); presets are non-deletable, so they get neither.
+  @ViewBuilder
+  private func scenarioRow(_ scenario: ScenarioRecord, viewModel: HomeViewModel) -> some View {
+    let row = HomeScenarioRow(
+      scenario: scenario,
+      metadata: viewModel.rowMetadata[scenario.id],
+      hasGalleryUpdate: !scenario.isPreset && viewModel.galleryUpdateBadges.contains(scenario.id))
+    if scenario.isPreset {
+      row
+    } else {
+      row
+        .contextMenu {
+          Button(role: .destructive) {
+            // Confirm before deleting — destructive and not obviously
+            // recoverable. Past results survive (orphaned), but the scenario
+            // itself is gone.
+            pendingDeletion = PendingScenarioDeletion(
+              id: scenario.id, name: scenario.name)
+          } label: {
+            Label(String(localized: "Delete"), systemImage: "trash")
+          }
+        }
+        .accessibilityAction(named: Text(String(localized: "Delete"))) {
+          pendingDeletion = PendingScenarioDeletion(
+            id: scenario.id, name: scenario.name)
+        }
     }
   }
 
@@ -279,25 +291,5 @@ extension HomeView {
       }
     #endif
     return .editor()
-  }
-}
-
-extension View {
-  /// Renders a `List` row as a flat ``PasturaCard``: white
-  /// ``PasturaCardSurface`` (1pt `rule` border, 14pt radius, no shadow),
-  /// inset vertically by half ``PasturaCardMetrics/interCardSpacing`` so
-  /// adjacent rows read as separate cards, separators hidden.
-  ///
-  /// Home stays on `List` (for swipe-`.onDelete`); this is the List-host
-  /// counterpart to the `ScrollView` ``PasturaCard`` container used on the
-  /// other browse screens, sharing the same metrics so the card form
-  /// matches across hosts.
-  fileprivate func pasturaCardRow() -> some View {
-    self
-      .listRowSeparator(.hidden)
-      .listRowBackground(
-        PasturaCardSurface()
-          .padding(.vertical, PasturaCardMetrics.interCardSpacing / 2)
-      )
   }
 }

@@ -3,10 +3,9 @@ import Testing
 
 @testable import Pastura
 
-/// Pure-logic contract tests for ``PasturaCard`` / ``PasturaCardSurface``.
-/// SwiftUI body rendering is out of scope per ADR-009; these pin the
-/// shared layout metrics so an accidental token/radius swap (or a
-/// re-introduced shadow) is caught in CI.
+/// Pure-logic contract tests for ``PasturaCard``. SwiftUI body rendering is
+/// out of scope per ADR-009; these pin the shared layout metrics so an
+/// accidental token/radius swap (or a re-introduced shadow) is caught in CI.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct PasturaCardTests {
@@ -19,9 +18,9 @@ struct PasturaCardTests {
     #expect(PasturaCardMetrics.borderWidth == 1)
   }
 
-  // Outer margin + inter-card spacing are shared so the List host (Home)
-  // and ScrollView hosts (detail screens) align — pin them positive so a
-  // refactor can't silently zero them and collapse the rhythm.
+  // Outer margin + inter-card spacing are shared across every browse screen's
+  // ScrollView host so they align — pin them positive so a refactor can't
+  // silently zero them and collapse the rhythm.
   @Test func layoutSpacingIsPositive() {
     #expect(PasturaCardMetrics.horizontalMargin > 0)
     #expect(PasturaCardMetrics.interCardSpacing > 0)

@@ -32,9 +32,12 @@ final class ScreenshotTourTests: XCTestCase {
 
   func testCaptureScreenshotTour() throws {
     let app = XCUIApplication()
-    // --ui-test-seed-results adds a completed simulation fixture so the
-    // Past Results stops render content instead of the empty state.
-    app.launchArguments = ["--ui-test", "--ui-test-seed-results"]
+    // --ui-test-seed-home-rich seeds presets + a gallery-sourced "shared" row
+    // so the Home capture exercises the multi-row grouped card (d3, #684).
+    // --ui-test-seed-results adds a completed simulation fixture so the Past
+    // Results stops render content instead of the empty state. No paused run
+    // here, so the resume card is absent (the 01b relaunch below adds it).
+    app.launchArguments = ["--ui-test", "--ui-test-seed-home-rich", "--ui-test-seed-results"]
     app.launch()
 
     // Home — the seeded row only appears once HomeViewModel finishes loading.
@@ -89,6 +92,19 @@ final class ScreenshotTourTests: XCTestCase {
     // Single goBack pops the result detail back to the History tab root,
     // which has no back chevron.
     goBack(app)
+
+    // Home (resume variant) — relaunch with the paused fixture so the Home
+    // resume card renders (d3-with). Done as a relaunch at the end to leave the
+    // linear walk above undisturbed. The name MUST be a strict `NN-` prefix
+    // (two digits + dash): ui-tour.sh's exporter filter is `^[0-9]{2}-`, so a
+    // `01b-` form is silently dropped — hence `09-` rather than `01b-`.
+    // --ui-test-seed-paused implies the rich seed (PasturaApp pairs them), so
+    // presets + the shared row are present too. Anchor on the resume button so
+    // the capture waits for the card, not just the list.
+    app.terminate()
+    app.launchArguments = ["--ui-test", "--ui-test-seed-paused"]
+    app.launch()
+    capture(app, name: "09-home-resume", anchorId: "home.resumeButton", timeout: 10)
   }
 
   // MARK: - Helpers

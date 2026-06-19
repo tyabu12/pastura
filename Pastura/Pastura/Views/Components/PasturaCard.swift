@@ -1,13 +1,11 @@
 import SwiftUI
 
-/// Shared layout constants for ``PasturaCard`` / ``PasturaCardSurface``.
+/// Shared layout constants for ``PasturaCard``.
 ///
-/// Exposed as a single source of truth so the two card hosts —
-/// `ScrollView` containers (`PasturaCard { ... }`) and `List` rows
-/// (`.listRowBackground(PasturaCardSurface())` + matching insets) — render
-/// identical outer margins and inter-card rhythm. Without a shared anchor,
-/// List's row insets and a hand-rolled VStack spacing drift apart (the
-/// Home-on-List vs siblings-on-ScrollView consistency risk).
+/// Exposed as a single source of truth so every browse-screen card
+/// (`ScrollView` + `PasturaCard { ... }`) renders identical outer margins
+/// and inter-card rhythm. All browse screens — Home / Shared Scenarios /
+/// Past Results / Settings — share this one host (#684).
 enum PasturaCardMetrics {
   /// Card corner radius — design-system §4.2 "プロモカード 14pt".
   static let cornerRadius: CGFloat = 14
@@ -15,42 +13,19 @@ enum PasturaCardMetrics {
   static let borderWidth: CGFloat = 1
   /// Outer horizontal margin from the screen edge to the card.
   static let horizontalMargin: CGFloat = 16
-  /// Vertical gap between sibling cards in a `ScrollView` stack, and the
-  /// target row spacing for `List` hosts.
+  /// Vertical gap between sibling cards in a `ScrollView` stack.
   static let interCardSpacing: CGFloat = 18
 }
 
-/// The flat card surface: a white (`bubbleBackground`) rounded rectangle
-/// with a 1pt `rule` hairline border and **no shadow**.
+/// The browse-side card container: wraps arbitrary content in a white
+/// (`bubbleBackground`) `.continuous` rounded rectangle with a 1pt `rule`
+/// hairline border and **no shadow**, clipping content to the rounded corners.
 ///
 /// Pastura's browse-side card form (design-system §9 "他画面への展開"),
-/// distinct from the chat/promo bubble (§5.2/§5.4) which carries a left
-/// 3pt moss border + soft moss shadow. Here the card reads as a quiet
-/// pane laid on the warm `screenBackground` field — defined by a hairline,
-/// not lifted by elevation. The "observation, not manipulation" voice
-/// (§1) argues against the z-axis cue a shadow implies for a list of
-/// repeated cards.
-///
-/// Use standalone as a `List` row background:
-///
-/// ```swift
-/// .listRowBackground(PasturaCardSurface())
-/// ```
-///
-/// or via the ``PasturaCard`` container in a `ScrollView`.
-struct PasturaCardSurface: View {
-  var body: some View {
-    let shape = RoundedRectangle(
-      cornerRadius: PasturaCardMetrics.cornerRadius, style: .continuous)
-    shape
-      .fill(Color.bubbleBackground)
-      .overlay(shape.strokeBorder(Color.rule, lineWidth: PasturaCardMetrics.borderWidth))
-  }
-}
-
-/// A `ScrollView`-friendly card container that wraps arbitrary content in
-/// the ``PasturaCardSurface`` (white + 1pt `rule` border + 14pt radius,
-/// no shadow) and clips content to the rounded corners.
+/// distinct from the chat/promo bubble (§5.2/§5.4) which carries a left 3pt
+/// moss border + soft moss shadow. Here the card reads as a quiet pane laid on
+/// the warm `screenBackground` field — defined by a hairline, not lifted by
+/// elevation (§1 "observation, not manipulation").
 ///
 /// The container adds **no internal padding** — callers control it. This
 /// keeps full-bleed internal dividers possible for multi-row grouped cards
@@ -61,16 +36,16 @@ struct PasturaCardSurface: View {
 /// PasturaCard {
 ///   VStack(spacing: 0) {
 ///     row1
-///     Divider().overlay(Color.rule)
+///     PasturaRowDivider()
 ///     row2
 ///   }
 /// }
 /// ```
 ///
-/// For width: the card fills its host's width; outer horizontal margin is
-/// the caller's responsibility (apply `PasturaCardMetrics.horizontalMargin`
-/// to the enclosing stack), kept symmetric with `List` row insets so the
-/// Home (List) and detail (ScrollView) screens align.
+/// For width: the card fills its host's width; the outer horizontal margin is
+/// the caller's responsibility (apply `PasturaCardMetrics.horizontalMargin` to
+/// the enclosing stack). Every browse screen uses this one `ScrollView` host
+/// (#684), so the margins line up across screens by construction.
 struct PasturaCard<Content: View>: View {
   private let content: Content
 
