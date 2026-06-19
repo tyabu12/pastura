@@ -128,10 +128,24 @@ import Testing
   /// meta line is simply hidden rather than the decode throwing. Mirrors the
   /// `recommendedModel` non-hardening posture.
   @Test func decodeWithoutAgentCountAndRoundsYieldsNil() throws {
-    // Self.sampleJSON intentionally omits agent_count / rounds.
-    let data = Data(Self.sampleJSON.utf8)
-    let index = try JSONDecoder().decode(GalleryIndex.self, from: data)
-    let scenario = try #require(index.scenarios.first)
+    // Dedicated literal that omits agent_count / rounds, so this test stays
+    // self-contained — a future edit to a shared fixture can't silently
+    // invert what it asserts.
+    let json = """
+      {
+        "id": "legacy_v1",
+        "title": "Legacy",
+        "category": "experimental",
+        "description": "desc",
+        "author": "tyabu12",
+        "recommended_model": "gemma-4-e2b-q4-k-m",
+        "estimated_inferences": 8,
+        "yaml_url": "https://example.com/legacy.yaml",
+        "yaml_sha256": "deadbeef",
+        "added_at": "2026-04-15"
+      }
+      """
+    let scenario = try JSONDecoder().decode(GalleryScenario.self, from: Data(json.utf8))
     #expect(scenario.agentCount == nil)
     #expect(scenario.rounds == nil)
   }
