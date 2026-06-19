@@ -5226,6 +5226,26 @@
         }
       }
     },
+    "This Month" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今月"
+          }
+        }
+      }
+    },
+    "This Week" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今週"
+          }
+        }
+      }
+    },
     "This can take a few seconds" : {
       "localizations" : {
         "ja" : {
@@ -5302,6 +5322,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このシナリオはもうギャラリーにありません。"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日"
           }
         }
       }
