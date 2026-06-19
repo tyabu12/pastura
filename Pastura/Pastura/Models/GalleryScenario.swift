@@ -49,6 +49,21 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   /// Approximate number of LLM inferences the scenario requires.
   public let estimatedInferences: Int
 
+  /// Number of agents (personas) the scenario runs, surfaced as the sheep
+  /// avatars in the Browse-tab row meta line.
+  ///
+  /// Optional and decoded leniently (never throws on absence) so an older
+  /// app reading a newer feed — or a newer app reading a feed predating this
+  /// key — still decodes; an absent value surfaces as `nil` and the meta
+  /// line is hidden. Same forward-compat posture as ``recommendedModel``;
+  /// a future contributor making this required would break older installs.
+  public let agentCount: Int?
+
+  /// Number of rounds the scenario runs, surfaced in the Browse-tab row meta
+  /// line. Optional and forward-compat for the same reason as ``agentCount``
+  /// — see its note.
+  public let rounds: Int?
+
   /// Remote URL from which the YAML definition can be fetched.
   public let yamlURL: URL
 
@@ -70,7 +85,9 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     estimatedInferences: Int,
     yamlURL: URL,
     yamlSHA256: String,
-    addedAt: String
+    addedAt: String,
+    agentCount: Int? = nil,
+    rounds: Int? = nil
   ) {
     self.id = id
     self.title = title
@@ -82,6 +99,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     self.yamlURL = yamlURL
     self.yamlSHA256 = yamlSHA256
     self.addedAt = addedAt
+    self.agentCount = agentCount
+    self.rounds = rounds
   }
 
   // Explicit CodingKeys so the JSON snake_case ↔ Swift camelCase mapping is
@@ -95,6 +114,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     case author
     case recommendedModel = "recommended_model"
     case estimatedInferences = "estimated_inferences"
+    case agentCount = "agent_count"
+    case rounds
     case yamlURL = "yaml_url"
     case yamlSHA256 = "yaml_sha256"
     case addedAt = "added_at"
