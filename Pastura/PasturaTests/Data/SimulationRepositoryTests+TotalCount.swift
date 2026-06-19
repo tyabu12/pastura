@@ -6,9 +6,9 @@ import Testing
 /// Total-count tests for ``SimulationRepository/totalRunCount(nameQuery:)``
 /// (P5 History screen-title "N 回の記録" subtitle). Sibling extension on the
 /// same suite — see `testing.md` § "Splitting a Suite Across Files".
-/// Helpers live at file scope; `makePagingRepos` / `scenario` / `run` are
-/// reused from `SimulationRepositoryTests+RunListPaging.swift` (file-private
-/// there, so identical local helpers are defined here).
+/// Helpers are file-scope and local (`makeTotalCountRepos` / `totalCountScenario`
+/// / `totalCountRun`); the `+RunListPaging` sibling's analogues are `fileprivate`
+/// there, so this file defines its own rather than sharing.
 extension SimulationRepositoryTests {
 
   // MARK: - Unfiltered count

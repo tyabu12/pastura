@@ -105,6 +105,18 @@ struct ResultsRowFormatTests {
     #expect(second.key == "ym-2026-5")
   }
 
+  @Test func bucketKeyMatchesFullBucketKey() {
+    // The cheap key-only path (used per-run for grouping) must agree with the
+    // full `dateBucket` key (used once per section for the title).
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17)
+    for sample in [date(cal, 2026, 6, 17), date(cal, 2026, 6, 15), date(cal, 2026, 5, 20)] {
+      #expect(
+        ResultsRowFormat.bucketKey(for: sample, now: now, calendar: cal)
+          == ResultsRowFormat.dateBucket(for: sample, now: now, calendar: cal).key)
+    }
+  }
+
   @Test func dayBoundaryStraddleSeparatesTodayFromWeek() {
     // A run at 23:59 "yesterday" must not collapse into "today" when now is
     // just past midnight — the day boundary, not a 24h window, defines Today.

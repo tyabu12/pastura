@@ -322,14 +322,19 @@ final class ResultsViewModel {
     var titleByKey: [String: String] = [:]
     var rowsByKey: [String: [SimulationRow]] = [:]
     for item in loadedRuns {
-      let bucket = ResultsRowFormat.dateBucket(
+      // Resolve the (cheap) key per run, but the display title — whose older
+      // "Month" headings build a DateFormatter — only once per distinct key.
+      let key = ResultsRowFormat.bucketKey(
         for: item.createdAt, now: currentDate, calendar: calendar)
-      if rowsByKey[bucket.key] == nil {
-        order.append(bucket.key)
-        rowsByKey[bucket.key] = []
-        titleByKey[bucket.key] = bucket.title
+      if rowsByKey[key] == nil {
+        order.append(key)
+        rowsByKey[key] = []
+        titleByKey[key] =
+          ResultsRowFormat.dateBucket(
+            for: item.createdAt, now: currentDate, calendar: calendar
+          ).title
       }
-      rowsByKey[bucket.key]?.append(
+      rowsByKey[key]?.append(
         SimulationRow(item: item, variantName: variantName(for: item)))
     }
     sections = order.compactMap { key in

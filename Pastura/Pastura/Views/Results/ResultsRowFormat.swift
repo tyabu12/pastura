@@ -34,21 +34,31 @@ nonisolated enum ResultsRowFormat {
   ///     heading's locale) are deterministic in tests. Production passes
   ///     `Calendar.current`.
   static func dateBucket(for date: Date, now: Date, calendar: Calendar) -> DateBucket {
-    if calendar.isDate(date, inSameDayAs: now) {
-      return DateBucket(key: "today", title: String(localized: "Today"))
-    }
-    if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) {
-      return DateBucket(key: "week", title: String(localized: "This Week"))
-    }
-    if calendar.isDate(date, equalTo: now, toGranularity: .month) {
-      return DateBucket(key: "month", title: String(localized: "This Month"))
-    }
+    let key = bucketKey(for: date, now: now, calendar: calendar)
+    return DateBucket(key: key, title: title(forKey: key, date: date, now: now, calendar: calendar))
+  }
+
+  /// The stable bucket key alone — cheap (calendar comparisons only, no
+  /// `DateFormatter`). The caller groups a run stream by this key and resolves
+  /// the display ``DateBucket/title`` once per distinct key, so the per-section
+  /// month-heading formatter isn't rebuilt for every run.
+  static func bucketKey(for date: Date, now: Date, calendar: Calendar) -> String {
+    if calendar.isDate(date, inSameDayAs: now) { return "today" }
+    if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) { return "week" }
+    if calendar.isDate(date, equalTo: now, toGranularity: .month) { return "month" }
     let comps = calendar.dateComponents([.year, .month], from: date)
-    let year = comps.year ?? 0
-    let month = comps.month ?? 0
-    return DateBucket(
-      key: "ym-\(year)-\(month)",
-      title: monthHeading(for: date, now: now, calendar: calendar))
+    return "ym-\(comps.year ?? 0)-\(comps.month ?? 0)"
+  }
+
+  private static func title(
+    forKey key: String, date: Date, now: Date, calendar: Calendar
+  ) -> String {
+    switch key {
+    case "today": return String(localized: "Today")
+    case "week": return String(localized: "This Week")
+    case "month": return String(localized: "This Month")
+    default: return monthHeading(for: date, now: now, calendar: calendar)
+    }
   }
 
   /// Localized "Month" heading for an older section — bare month name when the

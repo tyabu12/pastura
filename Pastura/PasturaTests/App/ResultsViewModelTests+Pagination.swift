@@ -53,22 +53,26 @@ extension ResultsViewModelTests {
     let env = try makePagedSUT(pageSize: 2)
     try seedPagedScenario(env.scenarioRepo, id: "s", name: "Scenario")
     // Three runs, all earlier this week (not today) relative to resultsTestNow
-    // (2026-06-17): 06-16, 06-15, 06-14 — newest-first across a 2-row page.
-    try seedPagedRun(env.simRepo, id: "w1", scenarioId: "s", on: resultsTestDate(2026, 6, 16))
-    try seedPagedRun(env.simRepo, id: "w2", scenarioId: "s", on: resultsTestDate(2026, 6, 15))
-    try seedPagedRun(env.simRepo, id: "w3", scenarioId: "s", on: resultsTestDate(2026, 6, 14))
+    // (2026-06-17): 06-16, 06-15, 06-14. Ids are assigned so their lexical
+    // order DISAGREES with the date order — newest (06-16) gets the lexically
+    // smallest id "d16" only by date, so a regression from createdAt-desc to
+    // id-asc sorting would reorder the rows and fail the assertion.
+    try seedPagedRun(env.simRepo, id: "d16", scenarioId: "s", on: resultsTestDate(2026, 6, 16))
+    try seedPagedRun(env.simRepo, id: "d15", scenarioId: "s", on: resultsTestDate(2026, 6, 15))
+    try seedPagedRun(env.simRepo, id: "d14", scenarioId: "s", on: resultsTestDate(2026, 6, 14))
 
     await env.sut.load(scope: .aggregate)
-    // Page 1: two of the three week runs, single "week" section.
+    // Page 1: two of the three week runs, single "week" section, newest-first
+    // (date-desc) — NOT id-asc, which would be ["d14", "d15"].
     #expect(env.sut.sections.count == 1)
     #expect(env.sut.sections.first?.key == "week")
-    #expect(rowIds(env.sut) == ["w1", "w2"])
+    #expect(rowIds(env.sut) == ["d16", "d15"])
 
     await env.sut.loadMore()
     // Page 2 brings the third — still ONE "week" section, newest-first.
     #expect(env.sut.sections.count == 1)
     #expect(env.sut.sections.first?.key == "week")
-    #expect(rowIds(env.sut) == ["w1", "w2", "w3"])
+    #expect(rowIds(env.sut) == ["d16", "d15", "d14"])
   }
 
   // MARK: - Name filter
