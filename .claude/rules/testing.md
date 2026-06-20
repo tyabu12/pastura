@@ -164,6 +164,33 @@ PR #474 (#220 W3 PR-B).
   exhausted — this is intentional to catch over/under-provisioning.
 - Use `mock.capturedPrompts` to verify prompt content in tests.
 
+## Parking a run mid-flight (teardown / cancel tests)
+
+To hold a `SimulationViewModel.run()` / `resume()` genuinely parked mid-flight
+(e.g. to test a raw `Task.cancel()` teardown), arm the controller at attach
+time: call `mock.suspendOnControllerAttach()` **before** starting the run. That
+puts the live `SuspendController` in `.suspended` the instant the run attaches
+it — before the first generate — so the run parks deterministically, with no
+scheduling window.
+
+Do **not**:
+
+- Use `mock.throwSuspendedOnNextGenerate()` as a park. It only schedules a
+  `.suspended` throw; the controller stays `.idle`, `awaitResume()` returns
+  immediately, and the run keeps running (that helper is for unit-testing the
+  suspend-retry loop, not parking).
+- Arm `sut.suspendController?.requestSuspend()` from the test **after** the run
+  starts on the **resume** path. `run()` has an awaited `createSimulationRecord`
+  hop before its first generate that yields a window, but `resume()` does not —
+  its `.instant` Engine burst (unbuffered `AsyncStream`, no backpressure) races
+  the arm and the run completes → `.completed` flake (#707).
+- Route through `pauseSimulation()` when the test pins the `!isCompleted`
+  teardown branch (#673) — it sets `didPersistPaused` and shifts the ladder.
+
+Full mechanism + the wait helper live in `parkRunMidFlight`
+(`SimulationViewModelStatusTests+ResumeContinuation.swift`) and the
+`suspendOnControllerAttach()` doc-comment — point there, don't re-derive.
+
 ## Shared Test Helpers (`EngineTestHelpers.swift`)
 
 - **`EventCollector`**: Thread-safe event collector for `@Sendable` emitter closures.

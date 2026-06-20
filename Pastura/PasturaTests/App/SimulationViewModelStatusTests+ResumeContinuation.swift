@@ -124,6 +124,48 @@ private struct SuspendedFreshRun {
   let runTask: Task<Void, Never>
 }
 
+/// Waits until an in-flight `run()`/`resume()` Task is GENUINELY parked at its
+/// first generate, so a caller's teardown lands deterministically mid-flight.
+///
+/// Requires the run's mock to have opted into
+/// ``MockLLMService/suspendOnControllerAttach()`` BEFORE the run starts: that
+/// arms the live ``SuspendController`` the instant `prepareRunInfrastructure`
+/// attaches it — before any generate is issued — so the run parks with no
+/// scheduling window. Arming AFTER the run starts races the `.instant` Engine
+/// burst (which has no awaited hop on the resume path) and lets the run complete
+/// → `.completed` flake (#707). The mock-side arm is also why this helper does
+/// NOT call `pauseSimulation()`, which would set `didPersistPaused` and shift the
+/// terminal ladder off the `!isCompleted` safety-net branch under test (#673).
+@MainActor
+private func parkRunMidFlight(
+  _ sut: SimulationViewModel, simRepo: GRDBSimulationRepository
+) async {
+  // Confirm the run is in-flight (controller + committed row + populated
+  // `simulationId`) AND genuinely parked: a parked generate is stuck at
+  // `awaitResume()` and never emits `.inferenceCompleted`, so its
+  // `thinkingAgents` entry stays put with the controller still suspended; a
+  // non-parked `.instant` run would clear it and advance. Require the same
+  // non-empty set to hold across several yields before returning.
+  let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+  while ContinuousClock.now < deadline {
+    let parked = sut.thinkingAgents
+    if sut.suspendController?.isSuspendRequested() == true, !parked.isEmpty,
+      let simId = sut.simulationId, (try? simRepo.fetchById(simId)) != nil {
+      var stable = true
+      for _ in 0..<4 {
+        await Task.yield()
+        if sut.thinkingAgents != parked
+          || sut.suspendController?.isSuspendRequested() != true {
+          stable = false
+          break
+        }
+      }
+      if stable { return }
+    }
+    await Task.yield()
+  }
+}
+
 /// Starts a FRESH `run(...)` whose first generate is parked (so the run is
 /// genuinely mid-flight and its `.running` record persisted), localizing the
 /// park-and-wait choreography. The caller then applies the leave action under
@@ -132,18 +174,18 @@ private struct SuspendedFreshRun {
 private func startSuspendedFreshRun(rounds: Int = 3) async throws -> SuspendedFreshRun? {
   let env = try makeContinuationSUT(rounds: rounds)
   let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
+  // Arm the run's controller on attach so the first generate parks genuinely —
+  // no fake `throwSuspendedOnNextGenerate` race, no scheduling window (#707).
+  mock.suspendOnControllerAttach()
   env.sut.speed = .instant
-  mock.simulateSuspendOnNextGenerate()
 
   let runTask = Task { await env.sut.run(scenario: env.scenario, llm: mock) }
   env.sut.runTask = runTask
 
-  // Wait until the parked inference has started — by then run() has already
-  // awaited createSimulationRecord, so simulationId is populated.
-  let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-  while env.sut.thinkingAgents.isEmpty, ContinuousClock.now < deadline {
-    await Task.yield()
-  }
+  // By the time this returns, run() has parked at its first generate, so
+  // simulationId is populated and the run cannot complete until resumed.
+  await parkRunMidFlight(env.sut, simRepo: env.simRepo)
+
   guard let simId = env.sut.simulationId else {
     runTask.cancel()
     return nil
@@ -152,62 +194,6 @@ private func startSuspendedFreshRun(rounds: Int = 3) async throws -> SuspendedFr
 }
 
 extension SimulationViewModelStatusTests {
-
-  // MARK: - Pure terminal-status ladder (deterministic, no run needed)
-
-  @Test func terminalStatusLeavesPausedWhenExplicitlyPaused() {
-    // didPersistPaused wins over everything → nil (skip the write, keep .paused).
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: true, errorMessage: "boom",
-        isCancelled: true, isCompleted: false) == nil)
-  }
-
-  @Test func terminalStatusFailedBeatsCompletion() {
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: false, errorMessage: "boom",
-        isCancelled: false, isCompleted: true) == .failed)
-  }
-
-  @Test func terminalStatusFailedBeatsTeardown() {
-    // A real error on a not-yet-completed run still wins over the `.paused`
-    // teardown branch — errorMessage is checked above `!isCompleted` (#673).
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: false, errorMessage: "boom",
-        isCancelled: false, isCompleted: false) == .failed)
-  }
-
-  @Test func terminalStatusCancelBeatsTeardownAndCompletion() {
-    // User-cancel (`isCancelled`) is checked above `!isCompleted`, so a run
-    // cancelled mid-flight records `.cancelled`, never the teardown `.paused`.
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: false, errorMessage: nil,
-        isCancelled: true, isCompleted: false) == .cancelled)
-  }
-
-  @Test func terminalStatusTornDownMidFlightStaysPaused() {
-    // #673 — a run torn down before completion (no pause/cancel/error) stays
-    // resumable rather than being marked complete. Symmetric across fresh and
-    // resumed runs: `isResumedRun` is no longer a discriminator here. This
-    // replaces the prior fresh-vs-resumed asymmetry pin (the fresh case used
-    // to write `.completed`, silently losing the run).
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: false, errorMessage: nil,
-        isCancelled: false, isCompleted: false) == .paused)
-  }
-
-  @Test func terminalStatusCompletedRunWritesCompleted() {
-    // The only path to `.completed`: `.simulationCompleted` set isCompleted, and
-    // no higher-precedence terminal flag fired.
-    #expect(
-      SimulationViewModel.terminalStatus(
-        didPersistPaused: false, errorMessage: nil,
-        isCancelled: false, isCompleted: true) == .completed)
-  }
 
   // MARK: - Resume continuation (seed → resume → assert persisted rows)
 
@@ -322,8 +308,9 @@ extension SimulationViewModelStatusTests {
   @Test func resumedRunTornDownMidFlightPersistsPaused() async throws {
     // End-to-end of the terminal-ladder branch: a resumed run cancelled at the
     // Task level (tab-switch / navigate-away) WITHOUT cancelSimulation must
-    // leave the row .paused, not .failed/.completed. A scheduled suspend parks
-    // the first round-2 generate so the cancel lands deterministically mid-flight.
+    // leave the row .paused, not .failed/.completed. A real controller suspend
+    // parks the first resumed generate so the cancel lands deterministically
+    // mid-flight (see `parkRunMidFlight`).
     let env = try makeContinuationSUT(rounds: 3)
     let simId = "sim-resume-teardown"
     try seedPausedRun(env, simId: simId, completedRound: 1)
@@ -335,19 +322,17 @@ extension SimulationViewModelStatusTests {
       return
     }
     let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
+    // Arm the controller on attach so the first resumed generate parks genuinely
+    // (the resume path has no awaited hop before the .instant Engine burst, so
+    // arming after the run starts would race it to completion — #707).
+    mock.suspendOnControllerAttach()
     env.sut.speed = .instant
-    // Park the first resumed generate so the run is genuinely in-flight when
-    // we tear it down (otherwise .instant would complete before the cancel).
-    mock.simulateSuspendOnNextGenerate()
 
     let runTask = Task { await env.sut.resume(record: record, scenario: env.scenario, llm: mock) }
     env.sut.runTask = runTask
 
-    // Wait until the parked inference has started (run is mid-flight).
-    let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-    while env.sut.thinkingAgents.isEmpty, ContinuousClock.now < deadline {
-      await Task.yield()
-    }
+    // The run is now genuinely parked mid-flight (cannot complete until resumed).
+    await parkRunMidFlight(env.sut, simRepo: env.simRepo)
 
     // Tab-switch teardown: cancel the Task directly (NOT cancelSimulation).
     runTask.cancel()

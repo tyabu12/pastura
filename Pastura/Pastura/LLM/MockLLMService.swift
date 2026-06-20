@@ -25,6 +25,9 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     /// When set, generate() also honours the controller's suspend flag — this
     /// lets tests exercise the same code path as LlamaCppService.
     var controller: SuspendController?
+    /// When `true`, ``attachSuspendController(_:)`` arms the controller's
+    /// suspend immediately on attach (see ``suspendOnControllerAttach()``).
+    var suspendOnAttach: Bool = false
     /// Per-inference delta sequences for ``generateStream(system:user:schema:)``.
     /// `nil` means "use the default wrap" (generate + single chunk).
     /// Independent from `responses` — streaming tests that need specific
@@ -105,7 +108,26 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   }
 
   public func attachSuspendController(_ controller: SuspendController?) async {
-    state.withLock { $0.controller = controller }
+    let shouldArm = state.withLock { mutableState -> Bool in
+      mutableState.controller = controller
+      return controller != nil && mutableState.suspendOnAttach
+    }
+    // Arm OUTSIDE the lock (SuspendController has its own lock). This parks the
+    // run at its FIRST generate with no scheduling window: run()/resume() attach
+    // the controller in `prepareRunInfrastructure` before any generate is issued.
+    if shouldArm, let controller { controller.requestSuspend() }
+  }
+
+  /// Make ``attachSuspendController(_:)`` arm the controller's suspend on attach,
+  /// so a run parks GENUINELY at its first generate with no scheduling race.
+  ///
+  /// Unlike ``throwSuspendedOnNextGenerate()`` (which pre-schedules a throw but
+  /// leaves the controller `.idle`, so `awaitResume()` returns immediately and
+  /// the run never blocks), this puts the live controller in `.suspended` before
+  /// the first generate — `awaitResume()` then genuinely parks until the run is
+  /// resumed or torn down. Deterministic regardless of `.instant` speed (#707).
+  public func suspendOnControllerAttach() {
+    state.withLock { $0.suspendOnAttach = true }
   }
 
   // MARK: - Streaming
@@ -258,10 +280,14 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   /// the configured sequence (the response at the current `callIndex` is not
   /// consumed by the suspend throw).
   ///
-  /// - Note: For tests that want to exercise the live controller path instead
-  ///   of pre-scheduling, attach a ``SuspendController`` via
-  ///   ``attachSuspendController(_:)`` and toggle it directly.
-  public func simulateSuspendOnNextGenerate() {
+  /// - Important: This does **NOT** park a run. The attached ``SuspendController``
+  ///   stays `.idle`, so `LLMCaller.awaitResume()` returns immediately and the
+  ///   generate retries and succeeds — the run keeps running. Use this only to
+  ///   unit-test the suspend-retry loop (how a caller reacts to a `.suspended`
+  ///   throw), NOT to hold a run mid-flight. For a genuine mid-flight park, use
+  ///   ``suspendOnControllerAttach()`` (puts the controller in `.suspended` so
+  ///   `awaitResume()` actually blocks).
+  public func throwSuspendedOnNextGenerate() {
     state.withLock { $0.pendingSuspendCount += 1 }
   }
 }
