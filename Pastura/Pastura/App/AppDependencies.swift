@@ -45,6 +45,12 @@ final class AppDependencies: @unchecked Sendable {
   /// `SimulationViewModel.run()`.
   let simulationActivityRegistry: SimulationActivityRegistry
 
+  /// App-level owner of an in-flight simulation run (Phase B, ADR-017).
+  /// Holds the run's view model + driving task so it can outlive its
+  /// `SimulationView` (Variant 3: park-on-hide). PR1 wires ownership without
+  /// changing behaviour — `SimulationView` still ends the run on disappear.
+  let simulationSession: SimulationSession
+
   #if DEBUG
     /// YAML pre-filled into the scenario editor when the Home screen's
     /// "New Scenario" menu is tapped under `--ui-test`. `nil` in all other
@@ -66,9 +72,11 @@ final class AppDependencies: @unchecked Sendable {
     backgroundManager: BackgroundSimulationManager = BackgroundSimulationManager(),
     galleryService: (any GalleryService)? = nil,
     simulationActivityRegistry: SimulationActivityRegistry = SimulationActivityRegistry(),
+    simulationSession: SimulationSession = SimulationSession(),
     uiTestEditorSeedYAML: String? = nil
   ) {
     self.simulationActivityRegistry = simulationActivityRegistry
+    self.simulationSession = simulationSession
     self.databaseManager = databaseManager
     let writer = databaseManager.dbWriter
     self.scenarioRepository = GRDBScenarioRepository(dbWriter: writer)
