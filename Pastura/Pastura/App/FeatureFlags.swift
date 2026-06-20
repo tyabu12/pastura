@@ -25,6 +25,7 @@ nonisolated enum FeatureFlags {
 
   private static let realtimeStreamingKey = "realtimeStreamingEnabled"
   private static let backgroundContinuationKey = "backgroundContinuationEnabled"
+  private static let keepRunningOnLeaveKey = "keepRunningOnLeaveEnabled"
 
   // MARK: - Read accessors
 
@@ -108,6 +109,30 @@ nonisolated enum FeatureFlags {
   /// broader rationale.
   static var backgroundContinuationEnabled: Bool {
     defaultsReadBool(key: backgroundContinuationKey, default: false)
+  }
+
+  /// Whether leaving the simulation screen keeps the run alive (parked in
+  /// memory) instead of pausing it, skipping the per-leave dialog (ADR-017
+  /// Phase B, #682). When `false` (the default), leaving an in-flight run
+  /// raises the three-button confirm dialog (Pause and leave / Leave & keep
+  /// running / Stay); when `true`, leaving silently parks the run and the
+  /// in-flight indicator surfaces it on other tabs.
+  ///
+  /// **Opt-in flag — defaults to `false`.** Unlike
+  /// ``backgroundContinuationEnabled`` (a dev-only `defaults write` escape
+  /// hatch), this one is **user-facing**: the Settings toggle writes it via
+  /// ``setKeepRunningOnLeave(_:)``. `defaultsReadBool` distinguishes "never
+  /// set" from "explicitly off" so the unset default is honoured.
+  static var keepRunningOnLeaveEnabled: Bool {
+    defaultsReadBool(key: keepRunningOnLeaveKey, default: false)
+  }
+
+  // MARK: - Write accessors
+
+  /// Persists the user's choice for ``keepRunningOnLeaveEnabled`` (Settings
+  /// toggle). Read on demand (no caching), so the next leave honours it.
+  static func setKeepRunningOnLeave(_ enabled: Bool) {
+    UserDefaults.standard.set(enabled, forKey: keepRunningOnLeaveKey)
   }
 
   // MARK: - Helpers
