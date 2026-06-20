@@ -101,7 +101,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     // Arm OUTSIDE the lock (SuspendController has its own lock). This parks the
     // run at its FIRST generate with no scheduling window: run()/resume() attach
     // the controller in `prepareRunInfrastructure` before any generate is issued.
-    if shouldArm { controller?.requestSuspend() }
+    if shouldArm, let controller { controller.requestSuspend() }
   }
 
   /// Make ``attachSuspendController(_:)`` arm the controller's suspend on attach,
