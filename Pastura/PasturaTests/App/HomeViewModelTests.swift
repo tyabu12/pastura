@@ -68,19 +68,8 @@ struct HomeViewModelTests {
   }
 
   // MARK: - ADR-010 D6 variant collapsing
-
-  /// Test fixture helper — bundled-preset row with parsed-from-YAML
-  /// `language` field. Keeps the per-test YAML minimal so the
-  /// language attribute is the only signal under test.
-  private func makePreset(
-    id: String, language: String, sourceId: String?
-  ) -> ScenarioRecord {
-    ScenarioRecord(
-      id: id, name: id,
-      yamlDefinition: "id: \(id)\nlanguage: \(language)\nname: \(id)\n",
-      isPreset: true, createdAt: Date(), updatedAt: Date(),
-      sourceType: nil, sourceId: sourceId, sourceHash: nil)
-  }
+  // Preset fixture helpers (`makePreset` / `makePresetRecord`) live in the
+  // sibling `HomeViewModelTests+Fixtures.swift` extension (type_body_length).
 
   @Test func presetsResolvedForLanguageEmptyInputReturnsEmpty() {
     let resolved = HomeViewModel.presetsResolvedForLanguage([], deviceLanguage: "ja")
@@ -146,18 +135,19 @@ struct HomeViewModelTests {
     #expect(enResolved.first?.id == "word_wolf")
   }
 
-  /// Malformed yamlDefinition falls back to `"ja"` rather than the row
-  /// disappearing. Phase 1 convention applies — a row stays visible
-  /// even if its YAML can't be re-parsed for the language field.
-  @Test func presetsResolvedForLanguageMalformedYamlFallsBackToJa() {
-    let bad = ScenarioRecord(
-      id: "broken", name: "broken",
-      yamlDefinition: "\t\tnot: [valid: yaml::",
-      isPreset: true, createdAt: Date(), updatedAt: Date(),
-      sourceType: nil, sourceId: "broken", sourceHash: nil)
-    let resolved = HomeViewModel.presetsResolvedForLanguage([bad], deviceLanguage: "ja")
-    #expect(resolved.count == 1)
-    #expect(resolved.first?.id == "broken")
+  /// A `nil` language column (pre-v8 / failed-backfill row) falls back to
+  /// `"ja"` rather than the row disappearing — Phase 1 convention, preserving
+  /// the prior ``ScenarioYAMLLanguage`` behavior after the #679 column switch.
+  @Test func presetsResolvedForLanguageNilLanguageFallsBackToJa() {
+    let bad = makePreset(id: "broken", language: nil, sourceId: "broken")
+    // On a ja device the nil-language row is picked (nil → "ja" match).
+    let jaResolved = HomeViewModel.presetsResolvedForLanguage([bad], deviceLanguage: "ja")
+    #expect(jaResolved.count == 1)
+    #expect(jaResolved.first?.id == "broken")
+    // On an en device it still surfaces via the "any available variant" fallback.
+    let enResolved = HomeViewModel.presetsResolvedForLanguage([bad], deviceLanguage: "en")
+    #expect(enResolved.count == 1)
+    #expect(enResolved.first?.id == "broken")
   }
 
   // MARK: - Row metadata (parse cache + name-only degradation)
@@ -245,8 +235,8 @@ struct HomeViewModelTests {
     let db = try DatabaseManager.inMemory()
     let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
     // Two variants of one canonical scenario — D6 collapses to one row.
-    try repo.save(makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
-    try repo.save(makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
+    try repo.save(makePresetRecord(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
+    try repo.save(makePresetRecord(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
 
     let viewModel = HomeViewModel(repository: repo)
     await viewModel.loadScenarios()
@@ -275,8 +265,9 @@ struct HomeViewModelTests {
     let db = try DatabaseManager.inMemory()
     let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
-    try scenarioRepo.save(makePreset(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
-    try scenarioRepo.save(makePreset(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
+    try scenarioRepo.save(makePresetRecord(id: "word_wolf", language: "ja", sourceId: "word_wolf"))
+    try scenarioRepo.save(
+      makePresetRecord(id: "word_wolf_en", language: "en", sourceId: "word_wolf"))
 
     try simRepo.save(completedRun(id: "r1", scenarioId: "word_wolf"))
     try simRepo.save(completedRun(id: "r2", scenarioId: "word_wolf"))
@@ -337,9 +328,8 @@ struct HomeViewModelTests {
   @Test func aggregateObservationCountsSumsByCanonicalKey() {
     let ja = makePreset(id: "ww_ja", language: "ja", sourceId: "ww")
     let en = makePreset(id: "ww_en", language: "en", sourceId: "ww")
-    let solo = ScenarioRecord(
-      id: "solo", name: "Solo", yamlDefinition: "",
-      isPreset: false, createdAt: Date(), updatedAt: Date())
+    let solo = ScenarioSummary(
+      id: "solo", name: "Solo", isPreset: false, sourceId: nil, language: "ja")
 
     let result = HomeViewModel.aggregateObservationCounts(
       completedByScenarioId: ["ww_ja": 2, "ww_en": 1, "solo": 4, "ghost": 9],

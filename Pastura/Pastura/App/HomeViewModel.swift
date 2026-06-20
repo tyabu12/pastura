@@ -100,17 +100,36 @@ final class HomeViewModel {
     pausedSummary = nil
 
     do {
-      let all = try await offMain { [repository] in
-        try repository.fetchAll()
+      // Light projection: every row's id/name/isPreset/sourceId/language with
+      // the heavy `yamlDefinition` left on disk. Used for variant collapse,
+      // observation aggregation, and the paused-card name lookup — none of
+      // which need the YAML (#679).
+      let summaries = try await offMain { [repository] in
+        try repository.fetchAllSummaries()
       }
-      let allPresets = all.filter(\.isPreset)
-      presets = Self.presetsResolvedForLanguage(
-        allPresets, deviceLanguage: LocaleResolver.deviceDefault())
-      userScenarios = all.filter { !$0.isPreset }
+      let presetSummaries = summaries.filter(\.isPreset)
+      let userSummaries = summaries.filter { !$0.isPreset }
+      // Collapse preset variants by canonical `sourceId`, surfacing the
+      // device-language variant (ADR-010 D6) — reads the denormalized
+      // `language` column, no per-variant YAML parse.
+      let resolvedPresets = Self.presetsResolvedForLanguage(
+        presetSummaries, deviceLanguage: LocaleResolver.deviceDefault())
+
+      // Displayed rows = collapsed presets + all user scenarios. Load the full
+      // records (with `yamlDefinition`) for ONLY these, so the collapsed-away
+      // language siblings never load their YAML. `fetchByIds` is
+      // order-independent, so rebuild the arrays in the summaries' order.
+      let displayedIds = resolvedPresets.map(\.id) + userSummaries.map(\.id)
+      let recordsById = try await offMain { [repository] in
+        Dictionary(
+          try repository.fetchByIds(displayedIds).map { ($0.id, $0) },
+          uniquingKeysWith: { first, _ in first })
+      }
+      presets = resolvedPresets.compactMap { recordsById[$0.id] }
+      userScenarios = userSummaries.compactMap { recordsById[$0.id] }
       // Resolve metadata on the *collapsed* (D6) preset rows + user rows —
-      // never the pre-collapse variant set — so the metadata keys stay a
-      // subset of the displayed row ids and language/variant selection is
-      // never re-derived from the heavy parse (ADR-010 D6 non-interference).
+      // the displayed set — so the metadata keys stay a subset of the
+      // displayed row ids (ADR-010 D6 non-interference).
       let loader = ScenarioLoader()
       rowMetadata = metadataCache.resolve(presets + userScenarios) { record in
         Self.parseRowMetadata(record, loader: loader)
@@ -122,10 +141,12 @@ final class HomeViewModel {
           (try? await offMain { [simulationRepository] in
             try simulationRepository.completedRunCountsByScenarioId()
           }) ?? [:]
+        // `scenarios` is the full (uncollapsed) summary set so a run against a
+        // non-displayed language variant still rolls up to its canonical key.
         observationCounts = Self.aggregateObservationCounts(
           completedByScenarioId: completed,
-          scenarios: all,
-          displayedRows: presets + userScenarios)
+          scenarios: summaries,
+          displayedRows: resolvedPresets + userSummaries)
         // Paused runs feed the "resume" card (ADR-016 P2, display-only —
         // rehydration is P3). Same garnish-not-critical posture as counts:
         // a failed read swallows to [] and the card simply hides, never
@@ -138,7 +159,7 @@ final class HomeViewModel {
         pausedSummary = Self.makePausedSummary(
           pausedRuns: pausedRuns,
           scenariosById: Dictionary(
-            all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }),
+            summaries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }),
           rowMetadata: rowMetadata)
       }
     } catch {
@@ -165,7 +186,7 @@ final class HomeViewModel {
   /// name-only — same posture as a name-only row.
   nonisolated static func makePausedSummary(
     pausedRuns: [SimulationRecord],
-    scenariosById: [String: ScenarioRecord],
+    scenariosById: [String: ScenarioSummary],
     rowMetadata: [String: ScenarioRowMetadata]
   ) -> PausedScenarioSummary? {
     guard let run = pausedRuns.max(by: { $0.updatedAt < $1.updatedAt }) else { return nil }
@@ -184,34 +205,28 @@ final class HomeViewModel {
       description: metadata?.description)
   }
 
-  /// ADR-010 D6 variant collapsing: groups bundled presets by canonical
-  /// `sourceId` (legacy rows with `sourceId == nil` group by `id`),
+  /// ADR-010 D6 variant collapsing: groups preset ``ScenarioSummary`` rows by
+  /// canonical `sourceId` (legacy rows with `sourceId == nil` group by `id`),
   /// then surfaces the device-language variant per group. Falls back to
   /// any available variant when the device-language sibling isn't
   /// shipped (D6 line 217 "falls back to any available variant if the
   /// device-default's variant is absent").
   ///
-  /// Per-variant language read goes through ``ScenarioYAMLLanguage/parse(_:)``
-  /// (light top-level Yams parse, `"ja"` fallback on malformed YAML —
-  /// see that type's doc-comment for the failure-mode contract). The
-  /// same helper is reused by ``ResultsViewModel`` for cross-language
-  /// section-header selection (#392), so when ADR-010 D6's eventual
-  /// `ScenarioRepository.variants(of:)` lands, both consumers can
-  /// migrate together.
+  /// The per-variant language is read from the denormalized
+  /// ``ScenarioSummary/language`` column (#679) — no YAML parse. A row whose
+  /// column is `nil` (pre-v8 / failed-backfill) falls back to `"ja"`, matching
+  /// the prior ``ScenarioYAMLLanguage`` convention so a row never disappears.
   internal static func presetsResolvedForLanguage(
-    _ presets: [ScenarioRecord],
+    _ presets: [ScenarioSummary],
     deviceLanguage: String
-  ) -> [ScenarioRecord] {
+  ) -> [ScenarioSummary] {
     let grouped = Dictionary(grouping: presets) { $0.sourceId ?? $0.id }
 
-    var resolved: [ScenarioRecord] = []
+    var resolved: [ScenarioSummary] = []
     for (_, variants) in grouped {
-      let withLang = variants.map {
-        (record: $0, lang: ScenarioYAMLLanguage.parse($0.yamlDefinition))
-      }
       let picked =
-        withLang.first(where: { $0.lang == deviceLanguage })?.record
-        ?? withLang.first?.record
+        variants.first(where: { ($0.language ?? "ja") == deviceLanguage })
+        ?? variants.first
       if let picked { resolved.append(picked) }
     }
 
@@ -248,8 +263,8 @@ final class HomeViewModel {
   /// completed runs).
   internal static func aggregateObservationCounts(
     completedByScenarioId: [String: Int],
-    scenarios: [ScenarioRecord],
-    displayedRows: [ScenarioRecord]
+    scenarios: [ScenarioSummary],
+    displayedRows: [ScenarioSummary]
   ) -> [String: Int] {
     // Each concrete scenario id → its canonical D6 key.
     let canonicalKey = Dictionary(
