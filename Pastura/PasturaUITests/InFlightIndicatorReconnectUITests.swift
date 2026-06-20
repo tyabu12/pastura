@@ -11,8 +11,10 @@ import XCTest
 /// (`view-testing.md` rule 2): the adopt-on-return is a composition of the
 /// session, the tab coordinator, and the view's `.task`. The simulator can't run
 /// real inference, so `--ui-test-slow-llm` holds the run in-flight (blocked in
-/// the first `generate`) for the whole test; `-keepRunningOnLeaveEnabled YES`
-/// makes leaving silently park.
+/// the first `generate`) for the whole test; `--ui-test-keep-running` enables
+/// the opt-in (a real Bool write — a `-key YES` launch arg lands as a String
+/// that `FeatureFlags`' `object(forKey:) as? Bool` reads as nil) so leaving
+/// silently parks.
 ///
 /// Subject to the UI-test flake classes in `.claude/rules/xcodebuild-cli.md`.
 @MainActor

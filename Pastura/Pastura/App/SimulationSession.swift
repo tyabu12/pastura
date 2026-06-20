@@ -186,11 +186,12 @@ final class SimulationSession {
     self.source = source
     self.tab = tab
     parkReasons = []
-    let task = Task { await body(viewModel) }
     // Back-reference (weak on the VM) so the VM's non-terminal suspend/resume
     // (user-pause, scene-phase) route through this session's park gate instead
     // of touching the SuspendController directly — see `routePark(reason:)`.
+    // Set BEFORE spawning the task so the run body always observes it.
     viewModel.session = self
+    let task = Task { await body(viewModel) }
     // Intentional dual assignment of the SAME task: `driveTask` is the
     // session's cancellation handle (``end()``), and `viewModel.runTask` is the
     // VM's (`cancelSimulation()` — user cancel, memory warning). Two independent
