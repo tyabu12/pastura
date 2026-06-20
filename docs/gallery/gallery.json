@@ -155,6 +155,20 @@
       "yaml_url": "hapning_ranyu_v1.yaml",
       "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
       "added_at": "2026-06-20"
+    },
+    {
+      "id": "hissatsu_naming_v1",
+      "title": "必殺技ネーミング 決勝サドンデス",
+      "category": "creative",
+      "description": "地味な日常動作に、字面が強すぎる中二病的な必殺技名を一文で命名する 大喜利。最終ラウンドは「サドンデス」に突入し、二つの地味な動作を 合体させた究極奥義へとお題が過激化する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "hissatsu_naming_v1.yaml",
+      "yaml_sha256": "2a96a740912f789d7446a9fff326dafab4d2fb1c867106e2b7b51c797e931342",
+      "added_at": "2026-06-20"
     }
   ]
 }
