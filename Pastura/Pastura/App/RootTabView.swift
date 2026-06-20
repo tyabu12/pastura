@@ -43,10 +43,11 @@ import SwiftUI
 /// preserve that. Whether the iOS 26 Liquid Glass *floating* bar renders
 /// this cleanly icon-only is verified only on a real device (the simulator
 /// mis-renders the iOS 26 bar); if it cannot, the fallback is native
-/// labels (which would amend ADR-016 D1). The さがす tab uses the
-/// empty-label `Tab(role:.search)` so the system supplies the search
-/// affordance + morph; its VoiceOver label is the system default rather
-/// than the explicit "Browse" of the other tabs (accepted, device-QA item).
+/// labels (which would amend ADR-016 D1). The さがす tab uses
+/// `Tab(role:.search)` with a custom `label:` (magnifyingglass + the
+/// "Browse" `accessibilityLabel`) so VoiceOver and the UI tests keep
+/// locating it by that label, while the search role still drives the
+/// iOS 26 morph.
 ///
 /// `.tint(Color.moss)` tints the active tab on all supported OS.
 struct RootTabView: View {
@@ -83,9 +84,16 @@ struct RootTabView: View {
       }
       // さがす: `role: .search` pins this trailing on iOS 18–25 and, on
       // iOS 26, separates it + morphs the bar into a search field (driven
-      // by the `.searchable` inside `SharedScenariosListView`). Empty
-      // label — the search role supplies the magnifying-glass affordance.
-      Tab(value: AppTab.search, role: .search) { searchStack }
+      // by the `.searchable` inside `SharedScenariosListView`). A custom
+      // `label:` (not the empty-label form) keeps the explicit "Browse"
+      // accessibilityLabel — VoiceOver and the UI tests locate the tab by
+      // it — and the magnifyingglass icon, while the role still drives the
+      // morph.
+      Tab(value: AppTab.search, role: .search) {
+        searchStack
+      } label: {
+        tabIcon(.search, label: String(localized: "Browse"))
+      }
       Tab(value: AppTab.history) {
         historyStack
       } label: {
