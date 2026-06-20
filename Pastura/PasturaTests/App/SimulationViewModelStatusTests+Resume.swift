@@ -57,17 +57,32 @@ private func pollSimulation(
   return try repo.fetchById(simId)
 }
 
-/// Drives `run()` on a background Task and waits until the SuspendController is
-/// attached (run is genuinely in-flight) so pause/teardown land mid-run.
+/// Drives `run()` on a background Task and waits until the run is genuinely
+/// in-flight AND its DB row exists, so a subsequent `pauseSimulation()` /
+/// teardown lands mid-run against a committed row.
+///
+/// Gating on `suspendController != nil` ALONE is insufficient (the #702 flake):
+/// `run()` attaches the controller in `prepareRunInfrastructure` BEFORE it
+/// assigns `simulationId` and runs `createSimulationRecord`. A pause enqueued in
+/// that window has its `.paused` status write silently dropped — `persistStatus`'s
+/// `guard let simId` short-circuits, or `updateStatus` no-ops against a
+/// not-yet-created row — leaving the row stuck at `.running` until the 2s poll
+/// times out. Waiting for the row to be fetchable closes that window
+/// deterministically.
 @MainActor
 private func startInFlight(
-  _ sut: SimulationViewModel, _ scenario: Scenario, _ mock: MockLLMService
+  _ sut: SimulationViewModel, _ scenario: Scenario, _ mock: MockLLMService,
+  repo: GRDBSimulationRepository
 ) async -> Task<Void, Never> {
   sut.speed = .instant
   let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
   sut.runTask = runTask
   let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-  while sut.suspendController == nil, ContinuousClock.now < deadline {
+  while ContinuousClock.now < deadline {
+    if sut.suspendController != nil, let simId = sut.simulationId,
+      (try? repo.fetchById(simId)) != nil {
+      break
+    }
     await Task.yield()
   }
   return runTask
@@ -85,7 +100,7 @@ extension SimulationViewModelStatusTests {
     let mock = MockLLMService(responses: [
       #"{"statement": "a"}"#, #"{"statement": "b"}"#
     ])
-    let runTask = await startInFlight(sut, scenario, mock)
+    let runTask = await startInFlight(sut, scenario, mock, repo: simRepo)
     await runTask.value
 
     guard let simId = sut.simulationId else {
@@ -112,7 +127,7 @@ extension SimulationViewModelStatusTests {
     let mock = MockLLMService(responses: [
       #"{"statement": "a"}"#, #"{"statement": "b"}"#
     ])
-    let runTask = await startInFlight(sut, scenario, mock)
+    let runTask = await startInFlight(sut, scenario, mock, repo: simRepo)
     #expect(sut.suspendController != nil)
 
     sut.pauseSimulation()
@@ -141,14 +156,24 @@ extension SimulationViewModelStatusTests {
     let mock = MockLLMService(responses: [
       #"{"statement": "a"}"#, #"{"statement": "b"}"#
     ])
-    let runTask = await startInFlight(sut, scenario, mock)
+    let runTask = await startInFlight(sut, scenario, mock, repo: simRepo)
 
     sut.pauseSimulation()
     guard let simId = sut.simulationId else {
       Issue.record("simulationId should be set")
       return
     }
-    _ = try await pollSimulation(simRepo, simId) { $0.simulationStatus == .paused }
+    // Precondition: pause must actually persist `.paused` BEFORE we tear down.
+    // Binding + requiring the poll result (rather than discarding it with `_ =`)
+    // fails fast with a clear message if the row never reached `.paused`, instead
+    // of mis-attributing that race to the post-teardown assertion below. It also
+    // makes the teardown outcome deterministic: with `.paused` already committed,
+    // the `didPersistPaused`-first terminal branch leaves the row untouched.
+    // Mirrors the non-flaky sibling `pausePersistsPausedStatusAndResumeRestoresRunning`.
+    let paused = try await pollSimulation(simRepo, simId) { $0.simulationStatus == .paused }
+    try #require(
+      paused?.simulationStatus == .paused,
+      "precondition: pause must persist `.paused` before teardown")
 
     // Simulate the view tearing down (tab switch / navigate-away): cancel the
     // run Task directly WITHOUT cancelSimulation (which is user-cancel). The
@@ -168,7 +193,7 @@ extension SimulationViewModelStatusTests {
     let mock = MockLLMService(responses: [
       #"{"statement": "a"}"#, #"{"statement": "b"}"#
     ])
-    let runTask = await startInFlight(sut, scenario, mock)
+    let runTask = await startInFlight(sut, scenario, mock, repo: simRepo)
 
     sut.pauseSimulation()
     guard let simId = sut.simulationId else {
@@ -197,7 +222,7 @@ extension SimulationViewModelStatusTests {
     let mock = MockLLMService(responses: [
       #"{"statement": "a"}"#, #"{"statement": "b"}"#
     ])
-    let runTask = await startInFlight(sut, scenario, mock)
+    let runTask = await startInFlight(sut, scenario, mock, repo: simRepo)
 
     sut.pauseSimulation()
     sut.resumeSimulation()
@@ -220,10 +245,11 @@ extension SimulationViewModelStatusTests {
     let env = try makeResumeSUT(rounds: 1)
     let sut = env.sut
     let scenario = env.scenario
+    let simRepo = env.simRepo
     let mock = MockLLMService(responses: [
       #"{"statement": "a"}"#, #"{"statement": "b"}"#
     ])
-    let runTask = await startInFlight(sut, scenario, mock)
+    let runTask = await startInFlight(sut, scenario, mock, repo: simRepo)
 
     sut.pauseSimulation()
 

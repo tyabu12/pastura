@@ -1,0 +1,91 @@
+id: hissatsu_naming_v1
+language: ja
+name: 必殺技ネーミング 決勝サドンデス
+description: >
+  地味な日常動作に、字面が強すぎる中二病的な必殺技名を一文で命名する
+  大喜利。最終ラウンドは「サドンデス」に突入し、二つの地味な動作を
+  合体させた究極奥義へとお題が過激化する。
+context: >
+  あなたは必殺技ネーミングの達人です。どうでもいい日常の動作に、
+  仰々しくて字面の強い必殺技名と短い口上を一文でつけてください。
+  動作の地味さと技名の大げささのギャップが大きいほど面白くなります。
+
+agents: 4
+rounds: 2
+
+personas:
+  - name: 中二の覇王
+    description: >
+      【立場】闇と運命を語る中二病の王
+      【目的】最大級に痛い厨二ワードで命名する。
+      例:「我が右手が疼く……『深淵への二度寝(アビス・スヌーズ)』」
+  - name: 格ゲー脳
+    description: >
+      【立場】格闘ゲームのコマンド表で生きる男
+      【目的】技名にコマンド入力と発生フレームをつける。
+      例:「↓↘→＋P『歯磨き烈震脚』、発生三フレーム」
+  - name: 古武術師範
+    description: >
+      【立場】何でも一族相伝の奥義にしてしまう老師
+      【目的】伝統と血脈を大げさに語る。
+      例:「これぞ我が一族相伝『冷蔵庫開眼ノ構エ』」
+  - name: 翻訳調の刺客
+    description: >
+      【立場】洋画の吹き替えみたいな大仰な翻訳口調
+      【目的】無駄に英語混じりの口上で命名する。
+      例:「くらえ、これがオレ流の“レジ袋・リジェクション”だ」
+
+phases:
+  - type: conditional
+    if: current_round == total_rounds
+    then:
+      - type: speak_all
+        prompt: >
+          【決勝サドンデス】二つの地味な動作:
+          「満員電車で吊り革を掴む」と「コンビニで肉まんを注文する」。
+
+          この二動作を“合体”させた究極の必殺技を一文で命名し、短い口上を
+          添えてください。字面が強く、大げさであるほど良い。一文で。
+        output:
+          statement: string
+      - type: vote
+        prompt: >
+          決勝の究極奥義たち:
+          {conversation_log}
+
+          自分以外で、一番字面が強くて笑った究極奥義に投票してください。
+          投票先は必ず以下の名前のいずれかを正確に書くこと: {candidates}
+        output:
+          vote: string
+          reason: string
+        exclude_self: true
+      - type: score_calc
+        logic: vote_tally
+      - type: summarize
+        template: >
+          決勝結果: {scoreboard}
+    else:
+      - type: speak_all
+        prompt: >
+          地味な日常動作のお題: 「朝、目覚ましを止める」。
+
+          この動作に、字面の強い必殺技名と短い口上を一文でつけてください。
+          地味さと大げささのギャップで笑わせてください。一文で。
+        output:
+          statement: string
+      - type: vote
+        prompt: >
+          参加者の必殺技:
+          {conversation_log}
+
+          自分以外で、一番面白い必殺技に投票してください。
+          投票先は必ず以下の名前のいずれかを正確に書くこと: {candidates}
+        output:
+          vote: string
+          reason: string
+        exclude_self: true
+      - type: score_calc
+        logic: vote_tally
+      - type: summarize
+        template: >
+          ラウンド{current_round}結果: {scoreboard}

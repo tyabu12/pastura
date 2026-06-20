@@ -77,33 +77,12 @@ final class ResultsViewModel {
   /// `true` once ``scenarioById`` has been built — the filter path reuses it
   /// rather than re-`fetchAllSummaries()`-ing per keystroke.
   private var scenarioIndexBuilt = false
+  /// Resolves + memoizes each row's `agentCount` / total-rounds `N` from the
+  /// run's scenario YAML (snapshot-first). See ``RunScenarioMetaResolver``.
+  private var metaResolver = RunScenarioMetaResolver()
 
-  /// One simulation row within a ``ResultSection``.
-  ///
-  /// `variantName` is the simulation-time variant's display name — the
-  /// `ScenarioSummary.name` of the variant whose `id` matches the run's
-  /// `scenarioId` (or the captured snapshot for a deleted scenario). Kept
-  /// un-translated (per-variant) so the label stays consistent with the run's
-  /// recorded conversation content.
-  struct SimulationRow: Identifiable, Sendable {
-    let item: PastRunListItem
-    let variantName: String
-    var id: String { item.id }
-  }
-
-  /// One section in the results list.
-  ///
-  /// For the aggregate path `title` is the date-bucket heading (Today / This
-  /// Week / …) and `key` is the bucket's stable identity
-  /// (``ResultsRowFormat/DateBucket/key``). For the detail path it is the
-  /// single scenario's `name` / canonical id. `key` is kept separate from the
-  /// display `title` so sections coalesce by identity across keyset pages.
-  struct ResultSection: Identifiable, Sendable {
-    let key: String
-    let title: String
-    let rows: [SimulationRow]
-    var id: String { key }
-  }
+  // `SimulationRow` / `ResultSection` (the list's value types) live in
+  // `ResultsViewModel+Rows.swift`.
 
   init(
     scenarioRepository: any ScenarioRepository,
@@ -320,6 +299,10 @@ final class ResultsViewModel {
   /// and only introduce new (older) sections below.
   private func rebuildSections() {
     let currentDate = now()
+    // Resolve each run's scenario meta (snapshot-first, live YAML as the pre-v7
+    // fallback) in one pass; the resolver rebuilds its memo to this key set.
+    let metaById = metaResolver.resolve(
+      loadedRuns.map { (id: $0.id, yaml: yamlSource(for: $0)) })
     var order: [String] = []
     var titleByKey: [String: String] = [:]
     var rowsByKey: [String: [SimulationRow]] = [:]
@@ -336,13 +319,27 @@ final class ResultsViewModel {
             for: item.createdAt, now: currentDate, calendar: calendar
           ).title
       }
+      let meta = metaById[item.id] ?? .unknown
       rowsByKey[key]?.append(
-        SimulationRow(item: item, variantName: variantName(for: item)))
+        SimulationRow(
+          item: item, variantName: variantName(for: item),
+          agentCount: meta.agentCount, totalRounds: meta.rounds))
     }
     sections = order.compactMap { key in
       guard let rows = rowsByKey[key], !rows.isEmpty else { return nil }
       return ResultSection(key: key, title: titleByKey[key] ?? "", rows: rows)
     }
+  }
+
+  /// The YAML a run's meta resolves from in the aggregate list — its captured
+  /// `scenarioYamlSnapshot` only. The bounded scenario index is the
+  /// `yamlDefinition`-excluding ``ScenarioSummary`` projection (#679/#700: no
+  /// bulk YAML in the list's memory), so there is no live-YAML fallback here — a
+  /// pre-v7 run with no snapshot resolves to `nil`, degrading to name-only. The
+  /// per-scenario **detail** path keeps a live fallback (it already fetches that
+  /// one scenario's full record, see ``loadDetailPerVariant(scenarioId:)``).
+  private func yamlSource(for item: PastRunListItem) -> String? {
+    item.scenarioYamlSnapshot
   }
 
   // MARK: - Detail (per-variant, un-paginated)
@@ -365,8 +362,18 @@ final class ResultsViewModel {
 
     let name = scenario?.name ?? String(localized: "Unknown")
     let canonical = scenario?.sourceId ?? scenarioId
-    // `fetchRunList` already returns newest-first; no re-sort needed.
-    let rows = items.map { SimulationRow(item: $0, variantName: name) }
+    // `fetchRunList` already returns newest-first; no re-sort needed. Resolve
+    // each run's meta snapshot-first, with this scenario's live YAML as the
+    // pre-v7 fallback.
+    let liveYAML = scenario?.yamlDefinition
+    let metaById = metaResolver.resolve(
+      items.map { (id: $0.id, yaml: $0.scenarioYamlSnapshot ?? liveYAML) })
+    let rows = items.map { item -> SimulationRow in
+      let meta = metaById[item.id] ?? .unknown
+      return SimulationRow(
+        item: item, variantName: name,
+        agentCount: meta.agentCount, totalRounds: meta.rounds)
+    }
     sections = [ResultSection(key: canonical, title: name, rows: rows)]
     totalRunCount = items.count
   }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-13T00:00:00Z",
+  "updated_at": "2026-06-20T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -141,6 +141,48 @@
       "yaml_url": "chinkaitou_soudan_v1.yaml",
       "yaml_sha256": "c7e1a4a4ec7e5e1e8b4c8a7fc677773b35713fc12ac244609277b06d1863cee7",
       "added_at": "2026-06-13"
+    },
+    {
+      "id": "hapning_ranyu_v1",
+      "title": "ハプニング乱入 即興大喜利",
+      "category": "creative",
+      "description": "芸人たちがボケを繰り出そうとするたび、会場に予測不能のハプニングが 乱入する。降ってきた異常事態をその場で一文の笑いに変えるアドリブ 大喜利。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "hapning_ranyu_v1.yaml",
+      "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
+      "added_at": "2026-06-20"
+    },
+    {
+      "id": "hissatsu_naming_v1",
+      "title": "必殺技ネーミング 決勝サドンデス",
+      "category": "creative",
+      "description": "地味な日常動作に、字面が強すぎる中二病的な必殺技名を一文で命名する 大喜利。最終ラウンドは「サドンデス」に突入し、二つの地味な動作を 合体させた究極奥義へとお題が過激化する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "hissatsu_naming_v1.yaml",
+      "yaml_sha256": "2a96a740912f789d7446a9fff326dafab4d2fb1c867106e2b7b51c797e931342",
+      "added_at": "2026-06-20"
+    },
+    {
+      "id": "tengoku_jigoku_v1",
+      "title": "天国か地獄か査定会議",
+      "category": "creative",
+      "description": "4人のあの世の判事が、どうでもいい些細な「罪」に対し、天国行きか地獄行きかを おおげさに査定する大喜利。choose フェーズで各自が天国/地獄を即決し、 不釣り合いに重々しい理由をつける。最後に一番面白い判決へ投票する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "tengoku_jigoku_v1.yaml",
+      "yaml_sha256": "bc4d0dd059035ba0d97f16333ab8bbc5a015296b8bfca6495ce90b875db1576d",
+      "added_at": "2026-06-20"
     }
   ]
 }
