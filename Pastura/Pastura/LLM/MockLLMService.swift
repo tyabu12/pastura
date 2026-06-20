@@ -34,15 +34,24 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     /// separately from `callIndex` (which counts `generate` calls) so
     /// tests that mix both paths can assert each count independently.
     var streamCallIndex: Int = 0
+    /// Artificial per-call delay applied before each `generate` returns.
+    /// `.zero` (default) keeps existing tests instant. Used by the UI-test
+    /// harness to hold a run in-flight long enough to exercise the Phase B
+    /// park-and-return flow on the simulator (which can't run real inference).
+    var generateDelay: Duration = .zero
   }
 
   private let state: OSAllocatedUnfairLock<State>
 
   /// Initialize with an ordered sequence of raw JSON responses.
   ///
-  /// - Parameter responses: The responses to return in order from ``generate(system:user:)``.
-  public init(responses: [String]) {
-    self.state = OSAllocatedUnfairLock(initialState: State(responses: responses))
+  /// - Parameters:
+  ///   - responses: The responses to return in order from ``generate(system:user:)``.
+  ///   - generateDelay: Artificial delay applied before each `generate` returns.
+  ///     Defaults to `.zero` (instant) — set only by the UI-test harness.
+  public init(responses: [String], generateDelay: Duration = .zero) {
+    self.state = OSAllocatedUnfairLock(
+      initialState: State(responses: responses, generateDelay: generateDelay))
   }
 
   public func loadModel() async throws {
@@ -63,7 +72,12 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   public func generate(
     system: String, user: String, schema: OutputSchema?
   ) async throws -> String {
-    try state.withLock { mutableState in
+    // Await the configured delay OUTSIDE the lock (can't `await` inside a
+    // synchronous `withLock`). Cooperative cancellation lets a cancelled run
+    // tear down promptly. Default `.zero` is a no-op for existing tests.
+    let delay = state.withLock { $0.generateDelay }
+    if delay > .zero { try await Task.sleep(for: delay) }
+    return try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
       // Drain a pending suspend slot first — this lets tests deterministically
       // schedule N suspend throws before the next normal response is delivered.
