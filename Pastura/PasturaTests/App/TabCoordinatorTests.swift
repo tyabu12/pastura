@@ -204,6 +204,31 @@ import Testing
     #expect(coordinator.settingsRouter.path.isEmpty)
   }
 
+  // MARK: - Return to running simulation (Phase B, ADR-017 #682)
+
+  @Test func returnToRunningSimulationSelectsHostTabAndPushesRoute() {
+    let coordinator = TabCoordinator()
+    coordinator.selectedTab = .home
+
+    let route = Route.simulation(scenarioId: "abc")
+    coordinator.returnToRunningSimulation(tab: .search, route: route)
+
+    #expect(coordinator.selectedTab == .search, "re-selects the run's host tab")
+    #expect(coordinator.searchRouter.path == [route], "pushes the sim route onto the host tab")
+  }
+
+  @Test func returnToRunningSimulationDoesNotPushDuplicateWhenOnTop() {
+    let coordinator = TabCoordinator()
+    let route = Route.resumeSimulation(simulationId: "run-1")
+    coordinator.homeRouter.push(route)
+
+    coordinator.returnToRunningSimulation(tab: .home, route: route)
+
+    #expect(
+      coordinator.homeRouter.path == [route],
+      "no duplicate push when the sim route is already on top (rapid re-tap)")
+  }
+
   // MARK: - Helpers
 
   private func makeGalleryScenario(id: String) -> GalleryScenario {

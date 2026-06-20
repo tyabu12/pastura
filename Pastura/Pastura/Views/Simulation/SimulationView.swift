@@ -48,6 +48,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// re-handle the run (critic Axis 6 — would otherwise double-terminate a kept
   /// or paused run). Consumed + reset in `onDisappear`. Phase B (ADR-017).
   @State private var leaveHandled = false
+  /// `true` when a *different* run already owns the session (a second-run
+  /// attempt) — the view shows a "return to the running simulation" state
+  /// instead of starting a competing run (Phase B, ADR-017 #682).
+  @State private var alreadyRunning = false
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
@@ -67,6 +71,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     Group {
       if let viewModel, scenario != nil {
         simulationContent(viewModel: viewModel)
+      } else if alreadyRunning {
+        alreadyRunningView
       } else if let loadError {
         ContentUnavailableView(
           String(localized: "Error"),
@@ -132,6 +138,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         // Returning to the screen clears the view-hide park; if no other reason
         // holds (app-background / user-pause), the parked generate resumes.
         session.requestResume(reason: .viewHide)
+        return
+      }
+      // A *different* run owns the session (a parked-away run while the user
+      // tapped Run on another scenario). Refuse the second run and offer to
+      // return to the live one rather than starting a competing run (the start
+      // guard would refuse anyway; this surfaces it as actionable UI).
+      if session.isLive {
+        alreadyRunning = true
         return
       }
       switch source {
@@ -359,6 +373,31 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// "Stay": discard the pending leave and keep running.
   private func stay() {
     pendingBackLeave = false
+  }
+
+  // MARK: - Already-running state (Phase B second-run refusal, #682)
+
+  /// Shown when a second run is attempted while a different run owns the
+  /// session. Offers to return to the live run instead of starting a competing
+  /// one (the single-run guard would refuse the start anyway).
+  private var alreadyRunningView: some View {
+    ContentUnavailableView {
+      Label(String(localized: "A simulation is already running"), systemImage: "waveform")
+    } description: {
+      Text(String(localized: "Return to it to keep watching, or pause it before starting another."))
+    } actions: {
+      Button(String(localized: "Return to the running simulation")) { returnToLiveRun() }
+        .buttonStyle(.borderedProminent)
+    }
+  }
+
+  /// Pops this dead-end second-run view and re-surfaces the live run on its host
+  /// tab (reuses the in-flight indicator's return action).
+  private func returnToLiveRun() {
+    let session = dependencies.simulationSession
+    guard let tab = session.tab, let route = session.returnRoute else { return }
+    router.pop()
+    tabCoordinator.returnToRunningSimulation(tab: tab, route: route)
   }
 
   private func simulationContent(  // swiftlint:disable:this function_body_length

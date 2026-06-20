@@ -115,6 +115,26 @@ final class TabCoordinator {
     }
   }
 
+  /// Returns to a parked-away simulation run (Phase B, ADR-017 #682): selects
+  /// the tab that hosted the run and re-pushes its route, so the re-mounted
+  /// `SimulationView` adopts the still-live session (instant reconnect, no
+  /// reload). Driven by the in-flight indicator tap and the "already running"
+  /// Return button.
+  ///
+  /// Plain `push` (not `pushIfOnTop`): on "keep running" leave the sim route was
+  /// popped off this tab's stack, so it must be pushed fresh. The `path.last`
+  /// guard only suppresses a duplicate from a rapid re-tap while already on the
+  /// sim screen. A *buried* sim route (in the stack but not on top) can't occur
+  /// under focus mode — the sim screen has no affordance to push anything on top
+  /// of itself — so a simple top-of-stack guard suffices.
+  func returnToRunningSimulation(tab: AppTab, route: Route) {
+    selectedTab = tab
+    let router = router(for: tab)
+    if router.path.last != route {
+      router.push(route)
+    }
+  }
+
   /// Presents a resolved deep-linked gallery scenario on the さがす
   /// (Search) tab (ADR-016 D5.2).
   ///
