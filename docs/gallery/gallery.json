@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-13T00:00:00Z",
+  "updated_at": "2026-06-20T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -141,6 +141,20 @@
       "yaml_url": "chinkaitou_soudan_v1.yaml",
       "yaml_sha256": "c7e1a4a4ec7e5e1e8b4c8a7fc677773b35713fc12ac244609277b06d1863cee7",
       "added_at": "2026-06-13"
+    },
+    {
+      "id": "hapning_ranyu_v1",
+      "title": "ハプニング乱入 即興大喜利",
+      "category": "creative",
+      "description": "芸人たちがボケを繰り出そうとするたび、会場に予測不能のハプニングが 乱入する。降ってきた異常事態をその場で一文の笑いに変えるアドリブ 大喜利。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "hapning_ranyu_v1.yaml",
+      "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
+      "added_at": "2026-06-20"
     }
   ]
 }
