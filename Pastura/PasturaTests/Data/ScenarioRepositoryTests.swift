@@ -17,12 +17,15 @@ import Testing
     isPreset: Bool = false,
     sourceType: String? = nil,
     sourceId: String? = nil,
-    sourceHash: String? = nil
+    sourceHash: String? = nil,
+    language: String? = nil,
+    createdAt: Date = Date()
   ) -> ScenarioRecord {
     ScenarioRecord(
       id: id, name: name, yamlDefinition: "yaml: true",
-      isPreset: isPreset, createdAt: Date(), updatedAt: Date(),
-      sourceType: sourceType, sourceId: sourceId, sourceHash: sourceHash)
+      isPreset: isPreset, createdAt: createdAt, updatedAt: createdAt,
+      sourceType: sourceType, sourceId: sourceId, sourceHash: sourceHash,
+      language: language)
   }
 
   @Test func saveAndFetchById() throws {
@@ -258,5 +261,55 @@ import Testing
     }
     #expect(simStillThere != nil)
     #expect(simStillThere?.scenarioId == "s1")
+  }
+
+  // MARK: - Projection (fetchAllSummaries / fetchByIds)
+
+  @Test func fetchAllSummariesProjectsColumnsAndPreservesLanguage() throws {
+    let repo = try makeRepo()
+    try repo.save(
+      makeRecord(
+        id: "en1", name: "Word Wolf", isPreset: true, sourceId: "word_wolf", language: "en"))
+    try repo.save(
+      makeRecord(id: "ja1", name: "人狼", isPreset: true, sourceId: "word_wolf", language: "ja"))
+
+    let summaries = try repo.fetchAllSummaries()
+    let byId = Dictionary(uniqueKeysWithValues: summaries.map { ($0.id, $0) })
+
+    #expect(summaries.count == 2)
+    #expect(byId["en1"]?.name == "Word Wolf")
+    #expect(byId["en1"]?.isPreset == true)
+    #expect(byId["en1"]?.sourceId == "word_wolf")
+    #expect(byId["en1"]?.language == "en")
+    #expect(byId["ja1"]?.language == "ja")
+  }
+
+  @Test func fetchAllSummariesOrdersNewestFirst() throws {
+    let repo = try makeRepo()
+    let old = Date(timeIntervalSince1970: 1000)
+    let new = Date(timeIntervalSince1970: 2000)
+    try repo.save(makeRecord(id: "older", createdAt: old))
+    try repo.save(makeRecord(id: "newer", createdAt: new))
+
+    #expect(try repo.fetchAllSummaries().map(\.id) == ["newer", "older"])
+  }
+
+  @Test func fetchByIdsReturnsMatchingRecordsAndOmitsAbsent() throws {
+    let repo = try makeRepo()
+    try repo.save(makeRecord(id: "a", language: "en"))
+    try repo.save(makeRecord(id: "b"))
+    try repo.save(makeRecord(id: "c"))
+
+    let fetched = try repo.fetchByIds(["a", "c", "missing"])
+    #expect(Set(fetched.map(\.id)) == ["a", "c"])
+    // Full records carry the heavy column the summary projection drops.
+    #expect(fetched.first { $0.id == "a" }?.language == "en")
+    #expect(fetched.allSatisfy { !$0.yamlDefinition.isEmpty })
+  }
+
+  @Test func fetchByIdsWithEmptyInputReturnsEmpty() throws {
+    let repo = try makeRepo()
+    try repo.save(makeRecord(id: "a"))
+    #expect(try repo.fetchByIds([]).isEmpty)
   }
 }

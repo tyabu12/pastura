@@ -27,11 +27,8 @@ struct HomePausedSummaryTests {
       scenarioNameSnapshot: nameSnapshot)
   }
 
-  private func scenario(id: String, name: String) -> ScenarioRecord {
-    ScenarioRecord(
-      id: id, name: name, yamlDefinition: "", isPreset: false,
-      createdAt: Date(timeIntervalSince1970: 1_700_000_000),
-      updatedAt: Date(timeIntervalSince1970: 1_700_000_000))
+  private func scenario(id: String, name: String) -> ScenarioSummary {
+    ScenarioSummary(id: id, name: name, isPreset: false, sourceId: nil, language: "ja")
   }
 
   @Test func nilWhenNoPausedRuns() {

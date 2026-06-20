@@ -36,6 +36,19 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
   /// SHA256 hex of the YAML at the moment it was fetched. `nil` for local scenarios.
   public var sourceHash: String?
 
+  /// ISO 639-1 lowercase language code (`"ja"` / `"en"`) denormalized from the
+  /// YAML's mandatory top-level `language:` field (ADR-010 D1).
+  ///
+  /// Stored as a column so cross-language variant grouping (Home / Past
+  /// Results, ADR-010 D4/D6) can collapse by `sourceId` + language without
+  /// loading and parsing `yamlDefinition` for every row. Populated at the
+  /// persisted construction sites from `Scenario.language`. `nil` for rows
+  /// written before the v8 column (not backfilled — ADR-010 D11: reinstall,
+  /// don't migrate) or transient/DEBUG records never round-tripped through the
+  /// repository — consumers fall back to `"ja"` (matching
+  /// ``ScenarioYAMLLanguage``'s convention).
+  public var language: String?
+
   public init(
     id: String,
     name: String,
@@ -45,7 +58,8 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
     updatedAt: Date,
     sourceType: String? = nil,
     sourceId: String? = nil,
-    sourceHash: String? = nil
+    sourceHash: String? = nil,
+    language: String? = nil
   ) {
     self.id = id
     self.name = name
@@ -56,5 +70,6 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
     self.sourceType = sourceType
     self.sourceId = sourceId
     self.sourceHash = sourceHash
+    self.language = language
   }
 }

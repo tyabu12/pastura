@@ -74,7 +74,8 @@ nonisolated enum PresetLoader {
           isPreset: true,
           createdAt: Date(),
           updatedAt: Date(),
-          sourceId: canonicalSourceId(for: scenario)
+          sourceId: canonicalSourceId(for: scenario),
+          language: scenario.language
         )
         try repository.save(record)
       } catch {
