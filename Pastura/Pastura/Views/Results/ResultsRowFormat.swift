@@ -150,4 +150,66 @@ nonisolated enum ResultsRowFormat {
     guard let agentCount, agentCount > 0 else { return 0 }
     return min(agentCount, maxRowSheep)
   }
+
+  // MARK: - Relative timestamp (#712)
+
+  /// A relative, X / Instagram-style timestamp for a History row: "Just now" /
+  /// "N minutes / hours / days ago" for recent runs, then a locale-formatted
+  /// absolute date ("Jun 11" this year, "Nov 10, 2025" earlier).
+  ///
+  /// The tiers use **elapsed time** (`now − date`), deliberately independent of
+  /// the section header's **calendar-day** bucket (Today / This Week / …) — so a
+  /// run from 22:00 yesterday, read at 09:00, sits under "This Week" yet shows
+  /// "11 hours ago". The two are complementary, not contradictory.
+  ///
+  /// English singular forms are separate keys (n == 1) so "1 hour ago" never
+  /// renders as the ungrammatical "1 hours ago"; Japanese has no plural so both
+  /// map to the same shape (1時間前 / N時間前). A future date (clock skew,
+  /// `delta ≤ 0`) collapses to "Just now".
+  ///
+  /// - Parameters:
+  ///   - now / calendar: injectable so the elapsed-time tiers and the
+  ///     locale-driven absolute date are deterministic in tests (production
+  ///     passes `Date()` / `Calendar.current`).
+  static func relativeTimestamp(for date: Date, now: Date, calendar: Calendar) -> String {
+    let delta = now.timeIntervalSince(date)
+    if delta < 60 { return String(localized: "Just now") }
+    if delta < 3600 {
+      let minutes = Int(delta / 60)
+      return minutes == 1
+        ? String(localized: "1 minute ago")
+        : String(format: String(localized: "%lld minutes ago"), minutes)
+    }
+    if delta < 86_400 {
+      let hours = Int(delta / 3600)
+      return hours == 1
+        ? String(localized: "1 hour ago")
+        : String(format: String(localized: "%lld hours ago"), hours)
+    }
+    if delta < 7 * 86_400 {
+      let days = Int(delta / 86_400)
+      return days == 1
+        ? String(localized: "1 day ago")
+        : String(format: String(localized: "%lld days ago"), days)
+    }
+    return absoluteDate(for: date, now: now, calendar: calendar)
+  }
+
+  /// Locale-formatted absolute date for an older run — month + day this year,
+  /// month + day + year for a prior year. Mirrors ``monthHeading``'s mechanism
+  /// (a `DateFormatter` keyed off the injected calendar's locale) with a day
+  /// component, so the ja "6月11日" / "2025年11月10日" ordering is CLDR-driven.
+  private static func absoluteDate(for date: Date, now: Date, calendar: Calendar) -> String {
+    let sameYear =
+      calendar.component(.year, from: date) == calendar.component(.year, from: now)
+    let formatter = DateFormatter()
+    formatter.calendar = calendar
+    formatter.locale = calendar.locale ?? Locale.current
+    // Pin the zone to the injected calendar's (not DateFormatter's default
+    // `TimeZone.current`) so the rendered day/year agrees with the `sameYear`
+    // extraction above for any injected calendar — full test determinism.
+    formatter.timeZone = calendar.timeZone
+    formatter.setLocalizedDateFormatFromTemplate(sameYear ? "MMMd" : "yMMMd")
+    return formatter.string(from: date)
+  }
 }
