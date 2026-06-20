@@ -134,14 +134,27 @@ final class ScenarioDetailViewModel {
       return
     }
 
-    // Repository fetch off MainActor — same idiom as the gallery
-    // refresh path above. Cheap for the bundled-preset table (~ 8 rows
-    // today).
-    let all = try? await offMain { [repository] in
-      try repository.fetchAll()
+    // Repository fetch off MainActor. Resolve the sibling via the
+    // lightweight ``ScenarioSummary`` projection (only `id` + `sourceId`
+    // are needed to match), then load that single record's full row —
+    // avoids pulling every scenario's heavy `yamlDefinition` into memory
+    // for a one-row lookup (#704). `fetchAllSummaries()` shares
+    // `fetchAll()`'s `createdAt DESC` ordering, so `.first` preserves the
+    // newest-wins tie-break when multiple records share the canonical
+    // `sourceId`.
+    let summaries = try? await offMain { [repository] in
+      try repository.fetchAllSummaries()
     }
-    siblingVariant = all?.first { other in
-      other.id != record.id && other.sourceId == sourceId
+    guard
+      let siblingId = summaries?.first(where: { summary in
+        summary.id != record.id && summary.sourceId == sourceId
+      })?.id
+    else {
+      siblingVariant = nil
+      return
+    }
+    siblingVariant = try? await offMain { [repository] in
+      try repository.fetchById(siblingId)
     }
   }
 
