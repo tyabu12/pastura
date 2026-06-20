@@ -72,7 +72,8 @@ scenarios (
     updatedAt DATETIME NOT NULL,
     sourceType TEXT,   -- "gallery" for Shared Scenarios imports; NULL for local/preset
     sourceId TEXT,     -- canonical id in the source system (gallery scenario id)
-    sourceHash TEXT    -- SHA256 of the fetched YAML (update-detection key)
+    sourceHash TEXT,   -- SHA256 of the fetched YAML (update-detection key)
+    language TEXT      -- v8: ISO 639-1 denormalized from YAML `language` (ADR-010 D1/D6); NULL pre-v8/failed-backfill
 )
 
 simulations (
@@ -131,7 +132,7 @@ All records use `var` properties (GRDB convention for mutable persistence).
 
 | Protocol | Implementation | Key Operations |
 |----------|---------------|----------------|
-| `ScenarioRepository` | `GRDBScenarioRepository` | save (upsert), fetchById, fetchAll, fetchPresets, delete |
+| `ScenarioRepository` | `GRDBScenarioRepository` | save (upsert), fetchById, fetchAll, fetchAllSummaries (yamlDefinition-excluding projection), fetchByIds, fetchPresets, delete |
 | `SimulationRepository` | `GRDBSimulationRepository` | save, fetchById, fetchByScenarioId, fetchOrphaned, updateState, updateStatus, delete |
 | `TurnRepository` | `GRDBTurnRepository` | save, saveBatch, fetchBySimulationId, fetchBySimulationAndRound, deleteBySimulationId |
 
