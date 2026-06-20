@@ -42,11 +42,11 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
   /// Stored as a column so cross-language variant grouping (Home / Past
   /// Results, ADR-010 D4/D6) can collapse by `sourceId` + language without
   /// loading and parsing `yamlDefinition` for every row. Populated at the
-  /// persisted construction sites from `Scenario.language`; the v8 migration
-  /// backfills pre-existing rows by scanning their stored YAML. `nil` only for
-  /// rows written before v8 that failed the scan, or transient/DEBUG records
-  /// never round-tripped through the repository — consumers fall back to
-  /// `"ja"` (matching ``ScenarioYAMLLanguage``'s convention).
+  /// persisted construction sites from `Scenario.language`. `nil` for rows
+  /// written before the v8 column (not backfilled — ADR-010 D11: reinstall,
+  /// don't migrate) or transient/DEBUG records never round-tripped through the
+  /// repository — consumers fall back to `"ja"` (matching
+  /// ``ScenarioYAMLLanguage``'s convention).
   public var language: String?
 
   public init(

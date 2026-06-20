@@ -73,7 +73,7 @@ scenarios (
     sourceType TEXT,   -- "gallery" for Shared Scenarios imports; NULL for local/preset
     sourceId TEXT,     -- canonical id in the source system (gallery scenario id)
     sourceHash TEXT,   -- SHA256 of the fetched YAML (update-detection key)
-    language TEXT      -- v8: ISO 639-1 denormalized from YAML `language` (ADR-010 D1/D6); NULL pre-v8/failed-backfill
+    language TEXT      -- v8: ISO 639-1 denormalized from YAML `language` (ADR-010 D1/D6); NULL pre-v8 (existing rows not backfilled; populated at save)
 )
 
 simulations (

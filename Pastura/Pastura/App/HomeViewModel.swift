@@ -214,7 +214,7 @@ final class HomeViewModel {
   ///
   /// The per-variant language is read from the denormalized
   /// ``ScenarioSummary/language`` column (#679) — no YAML parse. A row whose
-  /// column is `nil` (pre-v8 / failed-backfill) falls back to `"ja"`, matching
+  /// column is `nil` (pre-v8 / not-yet-resaved) falls back to `"ja"`, matching
   /// the prior ``ScenarioYAMLLanguage`` convention so a row never disappears.
   internal static func presetsResolvedForLanguage(
     _ presets: [ScenarioSummary],

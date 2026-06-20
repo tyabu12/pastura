@@ -10,8 +10,7 @@ import Yams
 /// As of #679 the Home / Past Results variant-collapse paths read the
 /// denormalized ``ScenarioSummary/language`` column instead, so this type has
 /// no production call-site on those paths; it remains the canonical reference
-/// for the `"ja"`-fallback convention (the Data-layer ``ScenarioLanguageScan``
-/// mirrors it without importing Yams). Kept for any future raw-YAML consumer.
+/// for the `"ja"`-fallback convention. Kept for any future raw-YAML consumer.
 ///
 /// **Failure mode**: parse failures and missing `language` keys return
 /// `"ja"` (Phase 1 convention) so the consumer's row stays visible

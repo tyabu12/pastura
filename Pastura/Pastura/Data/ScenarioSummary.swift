@@ -23,8 +23,8 @@ nonisolated public struct ScenarioSummary: Sendable, Equatable, Identifiable,
   /// share a `sourceId`; legacy rows group by `id` (`sourceId == nil`).
   public let sourceId: String?
   /// Denormalized ISO 639-1 language code (`"ja"` / `"en"`). `nil` for rows
-  /// written before migration v8 that failed the backfill scan — consumers
-  /// fall back to `"ja"` (matching ``ScenarioYAMLLanguage``).
+  /// written before the v8 column (not backfilled — consumers fall back to
+  /// `"ja"`, matching ``ScenarioYAMLLanguage``).
   public let language: String?
 
   public init(id: String, name: String, isPreset: Bool, sourceId: String?, language: String?) {

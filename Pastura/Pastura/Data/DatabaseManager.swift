@@ -281,24 +281,15 @@ nonisolated public final class DatabaseManager: Sendable {
     // by `sourceId` + language without loading + parsing `yamlDefinition` for
     // every row (the residual unbounded load from #586 / PR #674).
     migrator.registerMigration("v8_addLanguageToScenarios") { db in
-      // Nullable TEXT (mirrors the v4 source columns). Existing rows are
-      // backfilled below; new rows carry the value from `ScenarioRecord`.
+      // Nullable TEXT (mirrors the v4 source columns). Existing rows stay NULL
+      // and consumers fall back to `"ja"`; new/re-saved rows carry the value
+      // from `ScenarioRecord`. Pre-existing rows are intentionally NOT
+      // backfilled — per ADR-010 D11 the install base is effectively zero and
+      // testers reinstall (a fresh install loads presets with the column set),
+      // so a content-parsing backfill would only ever touch a developer's own
+      // pre-v8 DB. Keeping Data free of any YAML interpretation.
       try db.alter(table: "scenarios") { t in
         t.add(column: "language", .text)
-      }
-      // Backfill by scanning each stored YAML's top-level `language:` key.
-      // String scan (not Yams) keeps Data free of the Yams dependency; the
-      // `"ja"` fallback matches `ScenarioYAMLLanguage`'s Phase-1 convention.
-      // The install base is effectively zero (ADR-010 D11 reinstall policy),
-      // so in practice this runs over an empty table on fresh installs.
-      let rows = try Row.fetchAll(db, sql: "SELECT id, yamlDefinition FROM scenarios")
-      for row in rows {
-        let id: String = row["id"]
-        let yaml: String = row["yamlDefinition"]
-        let language = ScenarioLanguageScan.topLevelLanguage(in: yaml) ?? "ja"
-        try db.execute(
-          sql: "UPDATE scenarios SET language = ? WHERE id = ?",
-          arguments: [language, id])
       }
     }
   }

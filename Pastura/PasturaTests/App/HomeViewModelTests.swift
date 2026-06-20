@@ -135,7 +135,7 @@ struct HomeViewModelTests {
     #expect(enResolved.first?.id == "word_wolf")
   }
 
-  /// A `nil` language column (pre-v8 / failed-backfill row) falls back to
+  /// A `nil` language column (pre-v8 / not-yet-resaved row) falls back to
   /// `"ja"` rather than the row disappearing — Phase 1 convention, preserving
   /// the prior ``ScenarioYAMLLanguage`` behavior after the #679 column switch.
   @Test func presetsResolvedForLanguageNilLanguageFallsBackToJa() {
