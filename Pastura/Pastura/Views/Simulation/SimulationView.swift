@@ -132,9 +132,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // through `drive(_:_:)`). `end()` cancels the run's task; it unwinds through
     // the terminal ladder to a resumable `.paused` row. PR2 makes this
     // conditional on the keep-running opt-in.
+    //
+    // Guarded on ownership identity: a view whose load failed (no run started)
+    // — and, in PR2, a view that never owned the live run — must not tear down a
+    // run it doesn't own. Under focus mode `onDisappear` ⇔ permanent removal
+    // (the tab-recycle path that fires `onDisappear` without teardown is gone),
+    // so this is the genuine cancel-on-disappear trigger; device QA should
+    // confirm it never fires spuriously mid-run.
     .onDisappear {
-      dependencies.simulationSession.end()
+      let session = dependencies.simulationSession
+      if session.source == source {
+        session.end()
+      }
     }
+    // Phase B (ADR-017) PR2 TODO: these lifecycle handlers (scenePhase,
+    // memory-warning, willResignActive) act on the view-local `@State viewModel`
+    // projection. In PR1 that is the same object the session owns, so they reach
+    // the live run. Once a run can outlive the view (PR2 keep-running), route
+    // memory-pressure / scene-phase handling through
+    // `dependencies.simulationSession.viewModel` (and an always-mounted host for
+    // the away case) — otherwise a parked-away run loses memory-pressure
+    // protection. See the plan's "Memory safety while parked" section.
     .onChange(of: scenePhase) { _, newPhase in
       // Two-phase BG handling (ADR-003):
       // - .background: synchronous pause for safety (stops in-flight work ASAP).
@@ -858,6 +876,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       body: body
     ) {
     case .started:
+      // `startGuarded` spawns the run task before this returns, but the task
+      // first suspends at an `await` inside `run()` and `SimulationSession` is
+      // `@MainActor`, so no observable state mutates before these synchronous
+      // @State assignments complete on the same MainActor run loop — no flash.
+      // `body`'s `if let viewModel, scenario != nil` gate also guards a
+      // half-projected frame.
       scenario = parsed
       viewModel = session.viewModel
     case .refusedLiveRunExists:

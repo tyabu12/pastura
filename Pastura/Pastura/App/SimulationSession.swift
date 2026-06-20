@@ -109,8 +109,11 @@ final class SimulationSession {
     self.scenario = scenario
     self.source = source
     let task = Task { await body(viewModel) }
-    // Point the VM's runTask at the same task so cancelSimulation() (user
-    // cancel, memory warning) cancels the run the session is driving.
+    // Intentional dual assignment of the SAME task: `driveTask` is the
+    // session's cancellation handle (``end()``), and `viewModel.runTask` is the
+    // VM's (`cancelSimulation()` — user cancel, memory warning). Two independent
+    // cancellation entry points onto one task; `Task.cancel()` is idempotent, so
+    // there is no double-cancel hazard. Not a duplicate to "clean up".
     viewModel.runTask = task
     driveTask = task
     return .started
