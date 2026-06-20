@@ -60,6 +60,9 @@ nonisolated final class CountingScenarioRepository: ScenarioRepository, @uncheck
   func fetchBySource(type: String, id: String) throws -> ScenarioRecord? {
     try wrapped.fetchBySource(type: type, id: id)
   }
+  func fetchBySourceType(_ type: String) throws -> [ScenarioRecord] {
+    try wrapped.fetchBySourceType(type)
+  }
   func fetchByIds(_ ids: [String]) throws -> [ScenarioRecord] { try wrapped.fetchByIds(ids) }
   func fetchPresets() throws -> [ScenarioRecord] { try wrapped.fetchPresets() }
   func delete(_ id: String) throws { try wrapped.delete(id) }
