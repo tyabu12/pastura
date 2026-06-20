@@ -15,7 +15,9 @@ import SwiftUI
 /// — HomeView's pop-reload, `PasturaBackButton`, `ResultDetailView`'s
 /// post-delete pop — resolves to the router of the tab the view actually
 /// lives in. Injecting a single router above the `TabView` would collapse
-/// all four tabs' `pop()` onto one stack.
+/// all four tabs' `pop()` onto one stack. The per-tab `TabNavigationStack`
+/// content is identical across the two OS branches below — only the tab
+/// *enumeration wrapper* differs.
 ///
 /// ## Tab-reselect → pop-to-root (§2 corrected)
 ///
@@ -25,88 +27,144 @@ import SwiftUI
 /// selection `Binding`'s setter runs on re-tap); the path reset is
 /// performed by ``TabCoordinator/handleSelection(_:)``.
 ///
-/// ## OS styling
+/// ## OS branches (iOS 18+ structural `Tab` vs iOS 17 `.tabItem`)
 ///
-/// `.tint(Color.moss)` tints the active tab on all supported OS. On
-/// iOS 26 the native floating Liquid Glass tab bar renders automatically
-/// (no opt-in); OS-specific treatments (search-role morphing) are
-/// deferred to P4. Real-device QA on both iOS 17–25 and iOS 26 is
-/// required — the simulator mis-renders the iOS 26 bar.
+/// iOS 18+ adopts the structural `Tab` API to future-proof the deprecated
+/// `.tabItem` (deprecated on iOS 18+) and to keep the iOS 26 search-role
+/// morph re-enableable behind a one-line `role:` change — though that morph
+/// is currently **deferred** (see the さがす-tab note below). iOS 17 keeps
+/// the closure-based `.tabItem` form; the new `Tab` builder cannot be mixed
+/// with `.tabItem` in one `TabView`, so the whole bar is branched.
+///
+/// ADR-016 D1 keeps tabs **icon-only** (no text title). The structural
+/// `Tab` API has no icon-only titled initializer, so the modern branch
+/// uses the `label:`-closure form with a bare `Image` (no `Text`) to
+/// preserve that. Whether the iOS 26 Liquid Glass *floating* bar renders
+/// this cleanly icon-only is verified only on a real device (the simulator
+/// mis-renders the iOS 26 bar); if it cannot, the fallback is native
+/// labels (which would amend ADR-016 D1).
+///
+/// The さがす tab is a **regular grouped tab**, not `Tab(role:.search)`:
+/// the iOS 26 search role separates it into a detached capsule that reads
+/// as an in-screen search button rather than a tab switch. The iOS 26
+/// search-field morph is deferred in favor of that clarity (ADR-016 §7).
+///
+/// `.tint(Color.moss)` tints the active tab on all supported OS.
 struct RootTabView: View {
   @Bindable var coordinator: TabCoordinator
 
   var body: some View {
-    TabView(
-      selection: Binding(
-        get: { coordinator.selectedTab },
-        set: { coordinator.handleSelection($0) }
-      )
-    ) {
-      // Icon-only tabs across ALL supported OS (ADR-016 D1 / design "D3"
-      // mock) — intentionally no visible text title, so do NOT "restore"
-      // `Label(text:)`. VoiceOver reads the per-icon `.accessibilityLabel`
-      // (the JA tab name); its correct surfacing on the tab button is
-      // confirmed by the real-device QA this PR already requires.
-      //
-      // `.environment(\.symbolVariants, .none)` on each icon is
-      // LOAD-BEARING: since iOS 15 a `TabView` tab bar auto-applies the
-      // `.fill` variant to EVERY tab symbol, which would fill our outline
-      // (inactive) symbols too and erase the active/inactive distinction.
-      // Disabling the auto-variant lets `symbolName(for:isActive:)` drive
-      // the fill toggle explicitly. Do NOT remove it.
-      TabNavigationStack(router: coordinator.homeRouter) {
-        HomeView()
-      }
-      .tag(AppTab.home)
-      .tabItem {
-        Image(systemName: Self.symbolName(for: .home, isActive: coordinator.selectedTab == .home))
-          .environment(\.symbolVariants, .none)
-          .accessibilityLabel(Text(String(localized: "Home")))
-      }
+    if #available(iOS 18.0, *) {
+      modernTabView
+    } else {
+      legacyTabView
+    }
+  }
 
-      TabNavigationStack(router: coordinator.searchRouter) {
-        SharedScenariosListView()
-      }
-      .tag(AppTab.search)
-      .tabItem {
-        Image(
-          systemName: Self.symbolName(for: .search, isActive: coordinator.selectedTab == .search)
-        )
-        .environment(\.symbolVariants, .none)
-        .accessibilityLabel(Text(String(localized: "Browse")))
-      }
+  /// Shared selection binding — the same `AppTab` enum drives both
+  /// branches; only the per-tab plumbing (`Tab(value:)` vs `.tag()`)
+  /// differs. The setter routes through ``TabCoordinator/handleSelection(_:)``
+  /// so a re-tap pops the active tab to root (§2).
+  private var selectionBinding: Binding<AppTab> {
+    Binding(
+      get: { coordinator.selectedTab },
+      set: { coordinator.handleSelection($0) }
+    )
+  }
 
-      TabNavigationStack(router: coordinator.historyRouter) {
-        // History tab root (ADR-016 D4): `.aggregate` selects the
-        // cross-variant aggregation of all past results. `Route.results`
-        // survives only as the per-scenario detail push (`.scenario`)
-        // from ScenarioDetailView; ``ResultsView`` drops its back chrome
-        // for this aggregate root variant.
-        ResultsView(scope: .aggregate)
-      }
-      .tag(AppTab.history)
-      .tabItem {
-        Image(
-          systemName: Self.symbolName(for: .history, isActive: coordinator.selectedTab == .history)
-        )
-        .environment(\.symbolVariants, .none)
-        .accessibilityLabel(Text(String(localized: "History")))
-      }
+  // MARK: - iOS 18+ (structural `Tab` API; grouped search tab, morph deferred)
 
-      TabNavigationStack(router: coordinator.settingsRouter) {
-        SettingsView()
+  @available(iOS 18.0, *)
+  private var modernTabView: some View {
+    TabView(selection: selectionBinding) {
+      Tab(value: AppTab.home) {
+        homeStack
+      } label: {
+        tabIcon(.home, label: String(localized: "Home"))
       }
-      .tag(AppTab.settings)
-      .tabItem {
-        Image(
-          systemName: Self.symbolName(
-            for: .settings, isActive: coordinator.selectedTab == .settings)
-        )
-        .environment(\.symbolVariants, .none)
-        .accessibilityLabel(Text(String(localized: "Settings")))
+      // さがす: a regular grouped tab — deliberately NOT `role: .search`.
+      // The iOS 26 search role separates the tab into its own trailing
+      // capsule + morphs it into a search field, but that detached
+      // magnifying glass reads as an in-screen search button rather than a
+      // tab switch (compounded by History's own in-screen search). Keeping
+      // it grouped with the other tabs makes "this switches screens"
+      // unmistakable. Search itself stays the in-screen `.searchable` on
+      // `SharedScenariosListView`; the iOS 26 morph is deferred (ADR-016 §7).
+      Tab(value: AppTab.search) {
+        searchStack
+      } label: {
+        tabIcon(.search, label: String(localized: "Browse"))
+      }
+      Tab(value: AppTab.history) {
+        historyStack
+      } label: {
+        tabIcon(.history, label: String(localized: "History"))
+      }
+      Tab(value: AppTab.settings) {
+        settingsStack
+      } label: {
+        tabIcon(.settings, label: String(localized: "Settings"))
       }
     }
     .tint(Color.moss)
+  }
+
+  // MARK: - iOS 17 fallback (closure-based `.tabItem`)
+
+  private var legacyTabView: some View {
+    TabView(selection: selectionBinding) {
+      homeStack
+        .tag(AppTab.home)
+        .tabItem { tabIcon(.home, label: String(localized: "Home")) }
+      searchStack
+        .tag(AppTab.search)
+        .tabItem { tabIcon(.search, label: String(localized: "Browse")) }
+      historyStack
+        .tag(AppTab.history)
+        .tabItem { tabIcon(.history, label: String(localized: "History")) }
+      settingsStack
+        .tag(AppTab.settings)
+        .tabItem { tabIcon(.settings, label: String(localized: "Settings")) }
+    }
+    .tint(Color.moss)
+  }
+
+  // MARK: - Shared per-tab content
+
+  private var homeStack: some View {
+    TabNavigationStack(router: coordinator.homeRouter) { HomeView() }
+  }
+  // Search is the in-screen `.searchable` on `SharedScenariosListView`
+  // (`GallerySearchable`); the tab just navigates here (no iOS 26 morph —
+  // the search tab is a grouped regular tab, not `role: .search`).
+  private var searchStack: some View {
+    TabNavigationStack(router: coordinator.searchRouter) { SharedScenariosListView() }
+  }
+  // History tab root (ADR-016 D4): `.aggregate` selects the cross-variant
+  // aggregation of all past results. `Route.results` survives only as the
+  // per-scenario detail push (`.scenario`) from ScenarioDetailView;
+  // ``ResultsView`` drops its back chrome for this aggregate root variant.
+  private var historyStack: some View {
+    TabNavigationStack(router: coordinator.historyRouter) { ResultsView(scope: .aggregate) }
+  }
+  private var settingsStack: some View {
+    TabNavigationStack(router: coordinator.settingsRouter) { SettingsView() }
+  }
+
+  /// Icon-only tab label (ADR-016 D1) — no visible text title, so do NOT
+  /// "restore" a text label; VoiceOver reads the passed `.accessibilityLabel`
+  /// (the JA tab name).
+  ///
+  /// `.environment(\.symbolVariants, .none)` is LOAD-BEARING: since iOS 15 a
+  /// `TabView` tab bar auto-applies the `.fill` variant to EVERY tab symbol,
+  /// which would fill our outline (inactive) symbols too and erase the
+  /// active/inactive distinction. Disabling the auto-variant lets
+  /// `symbolName(for:isActive:)` drive the fill toggle explicitly. Do NOT
+  /// remove it.
+  private func tabIcon(_ tab: AppTab, label: String) -> some View {
+    Image(systemName: Self.symbolName(for: tab, isActive: coordinator.selectedTab == tab))
+      .environment(\.symbolVariants, .none)
+      .accessibilityLabel(Text(label))
   }
 }
 
@@ -117,7 +175,9 @@ extension RootTabView {
   /// `magnifyingglass` has **no** `.fill` variant (`magnifyingglass.fill`
   /// does not exist and would render blank), so the さがす tab keeps the
   /// outline in both states and relies on the moss `.tint` alone to mark
-  /// active. Pure + `internal` so the mapping is unit-tested.
+  /// active. Pure + `internal` so the mapping is unit-tested. Drives all
+  /// four tabs on both OS branches (the さがす tab is a grouped regular tab,
+  /// not a search role, so it too maps through here).
   static func symbolName(for tab: AppTab, isActive: Bool) -> String {
     switch tab {
     case .home: return isActive ? "house.fill" : "house"
