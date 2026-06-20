@@ -339,22 +339,13 @@ private struct GallerySearchable: ViewModifier {
 
   func body(content: Content) -> some View {
     if enabled {
-      if #available(iOS 26.0, *) {
-        // iOS 26: default placement so the `Tab(role:.search)` search tab
-        // (RootTabView) can morph the bar into a search field. Pinning
-        // `.navigationBarDrawer` would force a top field and suppress the
-        // morph. The field becomes scroll-collapsible (vs always-visible)
-        // — accepted: the search affordance now lives on the search tab.
-        content.searchable(
-          text: $text,
-          prompt: Text(String(localized: "Search scenarios")))
-      } else {
-        // iOS 17–25: always-visible field in the nav-bar drawer (no morph).
-        content.searchable(
-          text: $text,
-          placement: .navigationBarDrawer(displayMode: .always),
-          prompt: Text(String(localized: "Search scenarios")))
-      }
+      // Always-visible field in the nav-bar drawer on all OS. (The さがす
+      // tab is a grouped regular tab, not `Tab(role:.search)`, so there is
+      // no iOS 26 bar→search morph to feed a default placement.)
+      content.searchable(
+        text: $text,
+        placement: .navigationBarDrawer(displayMode: .always),
+        prompt: Text(String(localized: "Search scenarios")))
     } else {
       content
     }

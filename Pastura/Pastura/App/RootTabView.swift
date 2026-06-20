@@ -43,11 +43,12 @@ import SwiftUI
 /// preserve that. Whether the iOS 26 Liquid Glass *floating* bar renders
 /// this cleanly icon-only is verified only on a real device (the simulator
 /// mis-renders the iOS 26 bar); if it cannot, the fallback is native
-/// labels (which would amend ADR-016 D1). The さがす tab uses
-/// `Tab(role:.search)` with a custom `label:` (magnifyingglass + the
-/// "Browse" `accessibilityLabel`) so VoiceOver and the UI tests keep
-/// locating it by that label, while the search role still drives the
-/// iOS 26 morph.
+/// labels (which would amend ADR-016 D1).
+///
+/// The さがす tab is a **regular grouped tab**, not `Tab(role:.search)`:
+/// the iOS 26 search role separates it into a detached capsule that reads
+/// as an in-screen search button rather than a tab switch. The iOS 26
+/// search-field morph is deferred in favor of that clarity (ADR-016 §7).
 ///
 /// `.tint(Color.moss)` tints the active tab on all supported OS.
 struct RootTabView: View {
@@ -72,7 +73,7 @@ struct RootTabView: View {
     )
   }
 
-  // MARK: - iOS 18+ (structural `Tab` API; iOS 26 morphs the search tab)
+  // MARK: - iOS 18+ (structural `Tab` API; grouped search tab, morph deferred)
 
   @available(iOS 18.0, *)
   private var modernTabView: some View {
@@ -82,14 +83,15 @@ struct RootTabView: View {
       } label: {
         tabIcon(.home, label: String(localized: "Home"))
       }
-      // さがす: `role: .search` pins this trailing on iOS 18–25 and, on
-      // iOS 26, separates it + morphs the bar into a search field (driven
-      // by the `.searchable` inside `SharedScenariosListView`). A custom
-      // `label:` (not the empty-label form) keeps the explicit "Browse"
-      // accessibilityLabel — VoiceOver and the UI tests locate the tab by
-      // it — and the magnifyingglass icon, while the role still drives the
-      // morph.
-      Tab(value: AppTab.search, role: .search) {
+      // さがす: a regular grouped tab — deliberately NOT `role: .search`.
+      // The iOS 26 search role separates the tab into its own trailing
+      // capsule + morphs it into a search field, but that detached
+      // magnifying glass reads as an in-screen search button rather than a
+      // tab switch (compounded by History's own in-screen search). Keeping
+      // it grouped with the other tabs makes "this switches screens"
+      // unmistakable. Search itself stays the in-screen `.searchable` on
+      // `SharedScenariosListView`; the iOS 26 morph is deferred (ADR-016 §7).
+      Tab(value: AppTab.search) {
         searchStack
       } label: {
         tabIcon(.search, label: String(localized: "Browse"))
@@ -133,9 +135,9 @@ struct RootTabView: View {
   private var homeStack: some View {
     TabNavigationStack(router: coordinator.homeRouter) { HomeView() }
   }
-  // The iOS 26 search-field morph is co-driven: `role: .search` on the
-  // modern-branch tab + the `.searchable` placement inside
-  // `SharedScenariosListView` (`GallerySearchable`, iOS-26 default placement).
+  // Search is the in-screen `.searchable` on `SharedScenariosListView`
+  // (`GallerySearchable`); the tab just navigates here (no iOS 26 morph —
+  // the search tab is a grouped regular tab, not `role: .search`).
   private var searchStack: some View {
     TabNavigationStack(router: coordinator.searchRouter) { SharedScenariosListView() }
   }
