@@ -185,6 +185,44 @@ import Testing
     #expect(turnCount == 1)
   }
 
+  @Test func v8AddsNullableLanguageColumnPreservingExistingRows() throws {
+    let queue = try makeQueue()
+    let migrator = DatabaseManager.makeMigrator()
+
+    // Migrate up to v7 — mimics an on-device DB before the language column.
+    try migrator.migrate(queue, upTo: "v7_snapshotScenarioAndRelaxScenarioFK")
+
+    // Seed an existing row. Raw SQL: the struct now knows about the v8
+    // `language` column the v7 schema lacks.
+    let now = Date()
+    try queue.write { db in
+      try db.execute(
+        sql: """
+          INSERT INTO scenarios (id, name, yamlDefinition, isPreset, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["legacy", "Legacy", "language: en", false, now, now])
+    }
+
+    // Apply v8 — adds the nullable column. Existing rows are NOT backfilled
+    // (ADR-010 D11: reinstall, don't migrate); they read as NULL.
+    try migrator.migrate(queue)
+
+    let legacy = try queue.read { db in try ScenarioRecord.fetchOne(db, key: "legacy") }
+    #expect(legacy != nil)
+    #expect(legacy?.language == nil)
+
+    // New rows persist the column from the struct.
+    try queue.write { db in
+      var record = ScenarioRecord(
+        id: "new_en", name: "New", yamlDefinition: "language: en",
+        isPreset: false, createdAt: now, updatedAt: now, language: "en")
+      try record.insert(db)
+    }
+    let fetched = try queue.read { db in try ScenarioRecord.fetchOne(db, key: "new_en") }
+    #expect(fetched?.language == "en")
+  }
+
   @Test func allMigrationsApplyIdempotently() throws {
     // Applying the full migrator twice must not fail and must not duplicate work.
     let queue = try makeQueue()

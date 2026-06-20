@@ -83,6 +83,26 @@ struct PresetLoaderTests {
     #expect(try repo.fetchById("target_score_race_en")?.sourceId == "target_score_race")
   }
 
+  /// ADR-010 D6 denormalization: `PresetLoader` writes each preset's
+  /// `language` column from the parsed `Scenario.language`, so Home /
+  /// Past Results can collapse variants without parsing YAML (#679).
+  @Test func presetsWriteLanguageColumnOnInsert() throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+    PresetLoader.loadPresetsIfNeeded(
+      repository: repo,
+      bundle: Bundle(for: DatabaseManager.self)
+    )
+
+    #expect(try repo.fetchById("word_wolf")?.language == "ja")
+    #expect(try repo.fetchById("prisoners_dilemma")?.language == "ja")
+    #expect(try repo.fetchById("word_wolf_en")?.language == "en")
+    #expect(try repo.fetchById("prisoners_dilemma_en")?.language == "en")
+    // Every bundled preset carries a non-nil language column.
+    #expect(try repo.fetchAll().allSatisfy { $0.language != nil })
+  }
+
   /// Cross-language grouping invariant: for each canonical id, both
   /// language siblings carry the same `sourceId`. This is the
   /// schema-level pin for ADR-010 D4; the production Past Results UI

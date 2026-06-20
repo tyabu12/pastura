@@ -39,6 +39,8 @@ nonisolated final class CountingScenarioRepository: ScenarioRepository, @uncheck
   private let lock = NSLock()
   private var _fetchAllCount = 0
 
+  /// Counts the index-rebuild fetches (`fetchAll` / `fetchAllSummaries`) — the
+  /// scenario-index load `ResultsViewModel` issues per window reset.
   var fetchAllCount: Int { lock.withLock { _fetchAllCount } }
 
   init(wrapping: any ScenarioRepository) { self.wrapped = wrapping }
@@ -48,11 +50,17 @@ nonisolated final class CountingScenarioRepository: ScenarioRepository, @uncheck
     return try wrapped.fetchAll()
   }
 
+  func fetchAllSummaries() throws -> [ScenarioSummary] {
+    lock.withLock { _fetchAllCount += 1 }
+    return try wrapped.fetchAllSummaries()
+  }
+
   func save(_ record: ScenarioRecord) throws { try wrapped.save(record) }
   func fetchById(_ id: String) throws -> ScenarioRecord? { try wrapped.fetchById(id) }
   func fetchBySource(type: String, id: String) throws -> ScenarioRecord? {
     try wrapped.fetchBySource(type: type, id: id)
   }
+  func fetchByIds(_ ids: [String]) throws -> [ScenarioRecord] { try wrapped.fetchByIds(ids) }
   func fetchPresets() throws -> [ScenarioRecord] { try wrapped.fetchPresets() }
   func delete(_ id: String) throws { try wrapped.delete(id) }
 }
