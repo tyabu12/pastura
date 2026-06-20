@@ -234,4 +234,108 @@ struct ResultsRowFormatTests {
     #expect(ResultsRowFormat.rowSheepCount(agentCount: nil) == 0)
     #expect(ResultsRowFormat.rowSheepCount(agentCount: 0) == 0)
   }
+
+  // MARK: - Relative timestamp (#712)
+
+  /// `relativeTimestamp` for a run `secondsAgo` before `now`.
+  private func rel(_ now: Date, _ secondsAgo: Double, _ cal: Calendar) -> String {
+    ResultsRowFormat.relativeTimestamp(
+      for: now.addingTimeInterval(-secondsAgo), now: now, calendar: cal)
+  }
+
+  // The relative-tier *copy* comes from `String(localized:)` (device locale), so
+  // the exact words aren't asserted; the locale-independent numeral IS. The
+  // absolute-date tier is driven by the injected en_US_POSIX calendar, so its
+  // month/year ARE asserted exactly (mirrors the date-bucket tests above).
+
+  @Test func relativeJustNowCarriesNoNumber() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    // < 60s (and the 59s edge) → "Just now" / "たった今" — no numeral.
+    for secondsAgo in [0.0, 30.0, 59.0] {
+      let result = rel(now, secondsAgo, cal)
+      #expect(result.rangeOfCharacter(from: .decimalDigits) == nil)
+    }
+  }
+
+  @Test func relativeFutureDateCollapsesToJustNow() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    // Clock skew (date after now) → "Just now", never a negative number.
+    let result = ResultsRowFormat.relativeTimestamp(
+      for: now.addingTimeInterval(3600), now: now, calendar: cal)
+    #expect(result.rangeOfCharacter(from: .decimalDigits) == nil)
+  }
+
+  @Test func relativeMinutesTier() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    #expect(rel(now, 60, cal).contains("1"))  // 60s → singular
+    #expect(rel(now, 330, cal).contains("5"))  // 5m30s → 5
+    #expect(rel(now, 3599, cal).contains("59"))  // 59m59s → still minutes
+  }
+
+  @Test func relativeHoursTierStartsAtExactly3600s() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    let oneHour = rel(now, 3600, cal)  // exactly 1h → hours tier, not "59 min"
+    #expect(oneHour.contains("1"))
+    #expect(!oneHour.contains("59"))
+    #expect(rel(now, 23 * 3600, cal).contains("23"))
+  }
+
+  @Test func relativeDaysTierStartsAtExactly24h() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    let oneDay = rel(now, 86_400, cal)  // exactly 24h → days tier, not "24 hours"
+    #expect(oneDay.contains("1"))
+    #expect(!oneDay.contains("24"))
+    #expect(rel(now, 6 * 86_400, cal).contains("6"))
+  }
+
+  @Test func relativeTierBoundariesSelectDistinctCopy() {
+    // The numeral "1" is shared by the minute/hour/day singular forms, so assert
+    // the tiers pick *different* copy (locale-robust: ja 1分前/1時間前/1日前 differ).
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    #expect(rel(now, 60, cal) != rel(now, 3600, cal))
+    #expect(rel(now, 3600, cal) != rel(now, 86_400, cal))
+  }
+
+  @Test func relativeSevenDaysSwitchesToAbsoluteDate() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    // Exactly 7 days → absolute date tier (en_US_POSIX MMMd → "Jun 10").
+    #expect(rel(now, 7 * 86_400, cal).contains("Jun"))
+  }
+
+  @Test func relativeSameYearDateOmitsYear() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    // 14 days ago, same year → "Jun 3" (month + day, no year).
+    let result = ResultsRowFormat.relativeTimestamp(
+      for: date(cal, 2026, 6, 3, 12), now: now, calendar: cal)
+    #expect(result.contains("Jun"))
+    #expect(!result.contains("2026"))
+  }
+
+  @Test func relativePriorYearDateCarriesYear() {
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 6, 17, 12)
+    let result = ResultsRowFormat.relativeTimestamp(
+      for: date(cal, 2025, 11, 10, 12), now: now, calendar: cal)
+    #expect(result.contains("Nov"))
+    #expect(result.contains("2025"))
+  }
+
+  @Test func relativeCrossYearNearSevenDaysUsesPriorYearDate() {
+    // 8 days ago across the year boundary → absolute date tier, prior-year form
+    // (the one case where a reader might fear a 7-day/date-tier gap).
+    let cal = fixedCalendar()
+    let now = date(cal, 2026, 1, 3, 12)
+    let result = ResultsRowFormat.relativeTimestamp(
+      for: date(cal, 2025, 12, 26, 12), now: now, calendar: cal)
+    #expect(result.contains("Dec"))
+    #expect(result.contains("2025"))
+  }
 }
