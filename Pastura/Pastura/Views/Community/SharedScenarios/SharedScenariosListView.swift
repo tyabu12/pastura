@@ -339,6 +339,9 @@ private struct GallerySearchable: ViewModifier {
 
   func body(content: Content) -> some View {
     if enabled {
+      // Always-visible field in the nav-bar drawer on all OS. (The さがす
+      // tab is a grouped regular tab, not `Tab(role:.search)`, so there is
+      // no iOS 26 bar→search morph to feed a default placement.)
       content.searchable(
         text: $text,
         placement: .navigationBarDrawer(displayMode: .always),
