@@ -6,6 +6,7 @@
 // further extraction would scatter state bindings across files.
 import SwiftUI
 import UIKit
+import os
 
 /// Live simulation execution screen with real-time log, controls, and scoreboard.
 struct SimulationView: View {  // swiftlint:disable:this type_body_length
@@ -49,6 +50,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// "X is thinking..." indicators so they don't appear above text that's
   /// still being revealed.
   @State private var latestRowIsAnimating = false
+
+  private static let logger = Logger(
+    subsystem: "app.pastura.Pastura", category: "SimulationView")
 
   var body: some View {
     Group {
@@ -107,12 +111,29 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // See ADR-017; opt-in cross-screen continuation is deferred to Phase B.
     .toolbar(.hidden, for: .tabBar)
     .task {
+      // Phase B (ADR-017): reconnect to a run the app-level session still owns
+      // instead of starting a fresh one. PR1 always falls through — the run is
+      // ended on `onDisappear` (below), so nothing survives to adopt; PR2's
+      // keep-running path is what makes adoption live.
+      if let adopted = dependencies.simulationSession.adoptIfMatching(source: source) {
+        viewModel = adopted
+        scenario = dependencies.simulationSession.scenario
+        return
+      }
       switch source {
       case .scenario(let scenarioId):
         await loadAndRun(scenarioId: scenarioId)
       case .resume(let runId):
         await loadAndResume(runId: runId)
       }
+    }
+    // Phase B (ADR-017) PR1: end the owned run on disappear, reproducing
+    // today's cancel-on-disappear (previously driven by `.task` cancellation
+    // through `drive(_:_:)`). `end()` cancels the run's task; it unwinds through
+    // the terminal ladder to a resumable `.paused` row. PR2 makes this
+    // conditional on the keep-running opt-in.
+    .onDisappear {
+      dependencies.simulationSession.end()
     }
     .onChange(of: scenePhase) { _, newPhase in
       // Two-phase BG handling (ADR-003):
@@ -744,7 +765,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Load & Run
 
-  /// Fresh-run entry: fetch the scenario, parse it, and drive `run()`.
+  /// Fresh-run entry: fetch the scenario, parse it, and start `run()` via the
+  /// app-level session (``startOwnedRun(_:body:)``).
   private func loadAndRun(scenarioId: String) async {
     let deps = dependencies
     do {
@@ -757,11 +779,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         return
       }
       let parsed = try ScenarioLoader().load(yaml: record.yamlDefinition)
-      scenario = parsed
-      let simViewModel = makeViewModel()
-      viewModel = simViewModel
-      await drive(simViewModel) {
-        await simViewModel.run(scenario: parsed, llm: deps.llmService)
+      startOwnedRun(parsed) { model in
+        await model.run(scenario: parsed, llm: deps.llmService)
       }
     } catch {
       loadError = error.localizedDescription
@@ -772,7 +791,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// actually ran against (snapshot-preferred, live fallback — the same
   /// ``ScenarioSnapshotResolver`` the export / past-results paths use, so a
   /// since-edited or -deleted live scenario can't drift the resumed run), then
-  /// drive `resume(record:scenario:llm:)`.
+  /// start `resume(record:scenario:llm:)` via the app-level session
+  /// (``startOwnedRun(_:body:)``).
   private func loadAndResume(runId: String) async {
     let deps = dependencies
     do {
@@ -789,11 +809,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         return
       }
       let parsed = try ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition)
-      scenario = parsed
-      let simViewModel = makeViewModel()
-      viewModel = simViewModel
-      await drive(simViewModel) {
-        await simViewModel.resume(record: record, scenario: parsed, llm: deps.llmService)
+      startOwnedRun(parsed) { model in
+        await model.resume(record: record, scenario: parsed, llm: deps.llmService)
       }
     } catch {
       loadError = error.localizedDescription
@@ -820,24 +837,34 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     )
   }
 
-  /// Drives `body` (a `run` / `resume` call) on an unstructured Task wired for
-  /// cancellation propagation.
+  /// Starts a run owned by the app-level ``SimulationSession`` and projects it
+  /// into local `@State` for rendering.
   ///
-  /// `Task { }` is unstructured and does not inherit `.task` cancellation, so a
-  /// plain `await runTask.value` would leak the run when the user navigates
-  /// back — the old run keeps driving the shared `LLMService` while a newly
-  /// pushed `SimulationView` starts its own, corrupting model state. The
-  /// `runTask` reference also lets `cancelSimulation()` (e.g. memory warning)
-  /// stop the run.
-  private func drive(
-    _ viewModel: SimulationViewModel, _ body: @escaping () async -> Void
-  ) async {
-    let runTask = Task { await body() }
-    viewModel.runTask = runTask
-    await withTaskCancellationHandler {
-      await runTask.value
-    } onCancel: {
-      runTask.cancel()
+  /// Phase B (ADR-017) PR1: ownership of the driving task moves to the session
+  /// (relocated from the former `drive(_:_:)`), so the run can outlive the view
+  /// (PR2). The run is still ended on `onDisappear`, so behaviour is unchanged.
+  /// The session's `startGuarded` is the start-time single-run guard that
+  /// replaces cancel-on-disappear as the invariant's enforcer once ownership is
+  /// lifted.
+  private func startOwnedRun(
+    _ parsed: Scenario,
+    body: @escaping (SimulationViewModel) async -> Void
+  ) {
+    let session = dependencies.simulationSession
+    switch session.startGuarded(
+      source: source,
+      scenario: parsed,
+      makeViewModel: makeViewModel,
+      body: body
+    ) {
+    case .started:
+      scenario = parsed
+      viewModel = session.viewModel
+    case .refusedLiveRunExists:
+      // PR1: structurally unreachable — `onDisappear` → `session.end()` frees
+      // the slot before any second start. The "already running" + Return-to-run
+      // UI lands in PR2 with the in-flight indicator.
+      Self.logger.warning("startGuarded refused: a run is already owned; ignoring (PR1)")
     }
   }
 
