@@ -242,6 +242,12 @@ private struct RootView: View {
         // by RootTabView (D3) — deliberately not `.environment(router)`
         // here, which would collapse all tabs onto one stack.
         RootTabView(coordinator: tabCoordinator)
+          // Phase B (ADR-017 #682): the "return to your running simulation"
+          // pill, shown across tabs while a run is parked-away. Placed before
+          // the `.environment` calls so it inherits `dependencies` +
+          // `tabCoordinator`; it self-gates visibility via `shouldShowIndicator`
+          // and carries the away-case memory-warning + scene-phase observers.
+          .overlay { InFlightSimulationIndicator() }
           .environment(dependencies)
           .environment(gate)
           // `ModelManager` is exposed so Settings → Models can observe
