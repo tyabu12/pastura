@@ -454,14 +454,14 @@ struct SimulationViewModelLifecycleTests {
     sut.speed = .instant
 
     // 2 agents × 1 phase × 1 round = 2 generate calls. The first generate will
-    // throw `.suspended` (via simulateSuspendOnNextGenerate); the retry after
+    // throw `.suspended` (via throwSuspendedOnNextGenerate); the retry after
     // resume delivers the first response. The second agent's generate runs
     // normally.
     let mock = MockLLMService(responses: [
       #"{"statement": "first"}"#,
       #"{"statement": "second"}"#
     ])
-    mock.simulateSuspendOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
 
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
