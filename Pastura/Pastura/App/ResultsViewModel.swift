@@ -73,15 +73,15 @@ final class ResultsViewModel {
   /// Live scenarios by id — bounded (small rows), kept to resolve each run's
   /// per-variant row label. The scenario set is invariant while typing a
   /// filter, so the index is built once and reused across keystrokes (#678).
-  private var scenarioById: [String: ScenarioRecord] = [:]
+  private var scenarioById: [String: ScenarioSummary] = [:]
   /// `true` once ``scenarioById`` has been built — the filter path reuses it
-  /// rather than re-`fetchAll()`-ing per keystroke.
+  /// rather than re-`fetchAllSummaries()`-ing per keystroke.
   private var scenarioIndexBuilt = false
 
   /// One simulation row within a ``ResultSection``.
   ///
   /// `variantName` is the simulation-time variant's display name — the
-  /// `ScenarioRecord.name` of the variant whose `id` matches the run's
+  /// `ScenarioSummary.name` of the variant whose `id` matches the run's
   /// `scenarioId` (or the captured snapshot for a deleted scenario). Kept
   /// un-translated (per-variant) so the label stays consistent with the run's
   /// recorded conversation content.
@@ -290,11 +290,13 @@ final class ResultsViewModel {
     totalRunCount = count
   }
 
-  /// Reloads the bounded scenario index used for per-row labels. Scenario rows
-  /// are small (no `stateJSON`); the heavy run rows page in lazily.
+  /// Reloads the bounded scenario index used for per-row labels. Uses the
+  /// `yamlDefinition`-excluding ``ScenarioSummary`` projection — the row label
+  /// only needs `name`, so the heavy YAML never crosses into memory (#679); the
+  /// heavy run rows page in lazily.
   private func refreshScenarioIndex() async throws {
     let scenarios = try await offMain { [scenarioRepository] in
-      try scenarioRepository.fetchAll()
+      try scenarioRepository.fetchAllSummaries()
     }
     scenarioById = Dictionary(
       scenarios.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
