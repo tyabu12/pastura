@@ -205,6 +205,10 @@ nonisolated enum ResultsRowFormat {
     let formatter = DateFormatter()
     formatter.calendar = calendar
     formatter.locale = calendar.locale ?? Locale.current
+    // Pin the zone to the injected calendar's (not DateFormatter's default
+    // `TimeZone.current`) so the rendered day/year agrees with the `sameYear`
+    // extraction above for any injected calendar — full test determinism.
+    formatter.timeZone = calendar.timeZone
     formatter.setLocalizedDateFormatFromTemplate(sameYear ? "MMMd" : "yMMMd")
     return formatter.string(from: date)
   }
