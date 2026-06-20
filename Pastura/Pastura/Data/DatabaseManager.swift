@@ -272,6 +272,26 @@ nonisolated public final class DatabaseManager: Sendable {
     }
 
     registerV7(&migrator)
+    registerV8(&migrator)
+  }
+
+  private static func registerV8(_ migrator: inout DatabaseMigrator) {
+    // Denormalize ADR-010 D1's mandatory YAML `language` field into a column
+    // so Home / Past Results cross-language variant grouping (D4/D6) collapses
+    // by `sourceId` + language without loading + parsing `yamlDefinition` for
+    // every row (the residual unbounded load from #586 / PR #674).
+    migrator.registerMigration("v8_addLanguageToScenarios") { db in
+      // Nullable TEXT (mirrors the v4 source columns). Existing rows stay NULL
+      // and consumers fall back to `"ja"`; new/re-saved rows carry the value
+      // from `ScenarioRecord`. Pre-existing rows are intentionally NOT
+      // backfilled — per ADR-010 D11 the install base is effectively zero and
+      // testers reinstall (a fresh install loads presets with the column set),
+      // so a content-parsing backfill would only ever touch a developer's own
+      // pre-v8 DB. Keeping Data free of any YAML interpretation.
+      try db.alter(table: "scenarios") { t in
+        t.add(column: "language", .text)
+      }
+    }
   }
 
   private static func registerV7(_ migrator: inout DatabaseMigrator) {

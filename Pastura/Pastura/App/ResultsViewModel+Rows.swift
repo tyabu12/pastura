@@ -8,7 +8,7 @@ extension ResultsViewModel {
   /// One simulation row within a ``ResultSection``.
   ///
   /// `variantName` is the simulation-time variant's display name — the
-  /// `ScenarioRecord.name` of the variant whose `id` matches the run's
+  /// `ScenarioSummary.name` of the variant whose `id` matches the run's
   /// `scenarioId` (or the captured snapshot for a deleted scenario). Kept
   /// un-translated (per-variant) so the label stays consistent with the run's
   /// recorded conversation content.

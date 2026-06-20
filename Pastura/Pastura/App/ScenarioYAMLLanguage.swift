@@ -3,23 +3,20 @@ import Yams
 
 /// Light-touch language extraction from a `ScenarioRecord`'s stored YAML.
 ///
-/// Used by App-layer consumers that need to know the `language` of a
-/// stored scenario without invoking the full ``ScenarioLoader`` schema
-/// gate. Reads only the top-level `language` key via `Yams.load`.
-/// Current call-sites: ``HomeViewModel/presetsResolvedForLanguage(_:deviceLanguage:)``
-/// (ADR-010 D6 preset variant collapsing) and ``ResultsViewModel``
-/// (cross-language section-header selection, #392).
+/// A Yams-based reader for App-layer consumers that need the `language` of a
+/// stored scenario when they only hold raw YAML and not a parsed `Scenario`.
+/// Reads only the top-level `language` key via `Yams.load`.
+///
+/// As of #679 the Home / Past Results variant-collapse paths read the
+/// denormalized ``ScenarioSummary/language`` column instead, so this type has
+/// no production call-site on those paths; it remains the canonical reference
+/// for the `"ja"`-fallback convention. Kept for any future raw-YAML consumer.
 ///
 /// **Failure mode**: parse failures and missing `language` keys return
 /// `"ja"` (Phase 1 convention) so the consumer's row stays visible
 /// rather than silently disappearing. Stored YAML language is mandatory
 /// per ADR-010 D1, so production records should always parse cleanly —
 /// the fallback is defensive.
-///
-/// **Performance**: per-record Yams parse is O(yamlLength) but only the
-/// top-level mapping is needed. Call-sites bound the call count
-/// (≤ 8 preset rows on Home; ≤ 2-3 variants per canonical group in
-/// Past Results) so caching is unnecessary.
 nonisolated public enum ScenarioYAMLLanguage {
   /// Returns the YAML's top-level `language` value as a `String`,
   /// falling back to `"ja"` for any parse failure, missing key, or

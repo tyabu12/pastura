@@ -216,7 +216,8 @@ final class SharedScenariosViewModel {
       updatedAt: Date(),
       sourceType: ScenarioSourceType.gallery,
       sourceId: scenario.id,
-      sourceHash: scenario.yamlSHA256
+      sourceHash: scenario.yamlSHA256,
+      language: parsed.language
     )
     try await offMain { [repository] in
       try repository.save(record)

@@ -62,9 +62,11 @@ extension ResultsViewModelTests {
     #expect(row.totalRounds == 5)  // snapshot wins over the edited live N
   }
 
-  @Test func preV7RunFallsBackToLiveScenarioYAML() async throws {
+  @Test func aggregatePreV7RunWithoutSnapshotDegradesToNilMeta() async throws {
     let env = try makeResultsSUT()
-    // No snapshot (pre-v7 run) → resolve from the live scenario's YAML.
+    // The aggregate index is the yamlDefinition-excluding ScenarioSummary
+    // projection (#700: no bulk YAML in the list's memory), so a pre-v7 run with
+    // no snapshot has no YAML source in the aggregate path → name-only meta.
     try env.scenarioRepo.save(
       ScenarioRecord(
         id: "s1", name: "Live", yamlDefinition: metaYAML(agents: 3, rounds: 7),
@@ -72,6 +74,23 @@ extension ResultsViewModelTests {
     try env.simRepo.save(runWithSnapshot(id: "sim1", scenarioId: "s1", snapshot: nil))
 
     await env.sut.load(scope: .aggregate)
+
+    let row = try #require(env.sut.sections.flatMap { $0.rows }.first)
+    #expect(row.agentCount == nil)
+    #expect(row.totalRounds == nil)
+  }
+
+  @Test func detailPreV7RunFallsBackToLiveScenarioYAML() async throws {
+    let env = try makeResultsSUT()
+    // The detail path fetches the one scenario's full record, so its live YAML
+    // is already in hand — a pre-v7 run (no snapshot) still resolves meta there.
+    try env.scenarioRepo.save(
+      ScenarioRecord(
+        id: "s1", name: "Live", yamlDefinition: metaYAML(agents: 3, rounds: 7),
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try env.simRepo.save(runWithSnapshot(id: "sim1", scenarioId: "s1", snapshot: nil))
+
+    await env.sut.load(scope: .scenario("s1"))
 
     let row = try #require(env.sut.sections.flatMap { $0.rows }.first)
     #expect(row.agentCount == 3)

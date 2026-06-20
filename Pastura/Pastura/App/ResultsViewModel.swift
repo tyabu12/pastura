@@ -73,9 +73,9 @@ final class ResultsViewModel {
   /// Live scenarios by id — bounded (small rows), kept to resolve each run's
   /// per-variant row label. The scenario set is invariant while typing a
   /// filter, so the index is built once and reused across keystrokes (#678).
-  private var scenarioById: [String: ScenarioRecord] = [:]
+  private var scenarioById: [String: ScenarioSummary] = [:]
   /// `true` once ``scenarioById`` has been built — the filter path reuses it
-  /// rather than re-`fetchAll()`-ing per keystroke.
+  /// rather than re-`fetchAllSummaries()`-ing per keystroke.
   private var scenarioIndexBuilt = false
   /// Resolves + memoizes each row's `agentCount` / total-rounds `N` from the
   /// run's scenario YAML (snapshot-first). See ``RunScenarioMetaResolver``.
@@ -269,11 +269,13 @@ final class ResultsViewModel {
     totalRunCount = count
   }
 
-  /// Reloads the bounded scenario index used for per-row labels. Scenario rows
-  /// are small (no `stateJSON`); the heavy run rows page in lazily.
+  /// Reloads the bounded scenario index used for per-row labels. Uses the
+  /// `yamlDefinition`-excluding ``ScenarioSummary`` projection — the row label
+  /// only needs `name`, so the heavy YAML never crosses into memory (#679); the
+  /// heavy run rows page in lazily.
   private func refreshScenarioIndex() async throws {
     let scenarios = try await offMain { [scenarioRepository] in
-      try scenarioRepository.fetchAll()
+      try scenarioRepository.fetchAllSummaries()
     }
     scenarioById = Dictionary(
       scenarios.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -329,11 +331,15 @@ final class ResultsViewModel {
     }
   }
 
-  /// The YAML a run's meta resolves from — its captured snapshot first
-  /// (run-time-faithful), then the live scenario's YAML from the bounded index
-  /// (the pre-v7 fallback). `nil` ⇒ the row degrades to name-only.
+  /// The YAML a run's meta resolves from in the aggregate list — its captured
+  /// `scenarioYamlSnapshot` only. The bounded scenario index is the
+  /// `yamlDefinition`-excluding ``ScenarioSummary`` projection (#679/#700: no
+  /// bulk YAML in the list's memory), so there is no live-YAML fallback here — a
+  /// pre-v7 run with no snapshot resolves to `nil`, degrading to name-only. The
+  /// per-scenario **detail** path keeps a live fallback (it already fetches that
+  /// one scenario's full record, see ``loadDetailPerVariant(scenarioId:)``).
   private func yamlSource(for item: PastRunListItem) -> String? {
-    item.scenarioYamlSnapshot ?? item.scenarioId.flatMap { scenarioById[$0]?.yamlDefinition }
+    item.scenarioYamlSnapshot
   }
 
   // MARK: - Detail (per-variant, un-paginated)
