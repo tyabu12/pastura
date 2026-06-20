@@ -241,7 +241,9 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
       scenarioId: record.scenarioId,
       createdAt: record.createdAt,
       status: record.status,
+      currentRound: record.currentRound,
       scenarioNameSnapshot: record.scenarioNameSnapshot,
+      scenarioYamlSnapshot: record.scenarioYamlSnapshot,
       topScores: topScores(fromStateJSON: record.stateJSON))
   }
 
@@ -255,8 +257,7 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
     guard let data = json.data(using: .utf8),
       let parsed = try? JSONDecoder().decode(ScoresProjection.self, from: data)
     else { return [] }
-    return
-      parsed.scores
+    return parsed.scores
       .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
       .prefix(3)
       .map { PastRunScore(name: $0.key, value: $0.value) }

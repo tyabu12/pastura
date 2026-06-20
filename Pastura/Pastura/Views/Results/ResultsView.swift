@@ -158,34 +158,56 @@ struct ResultsView: View {
   // Each row shows the simulation-time `variantName` (`.headline` font,
   // matching HomeView preset list role-weight) — the variant's un-translated
   // name (or the captured snapshot for a deleted scenario), kept consistent
-  // with the run's recorded conversation content. Row body unchanged in P5;
-  // the archetype-safe result summary + sheep avatars land in the follow-up.
+  // with the run's recorded conversation content. The meta line carries one
+  // sheep avatar per agent (clamped) plus the timestamp; the result summary
+  // (P5 PR2) replaces the raw score chips with the archetype-safe ladder.
   private func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
+    let item = row.item
+    let sheepCount = ResultsRowFormat.rowSheepCount(agentCount: row.agentCount)
+    // Resolved in the View (not the VM) so all display formatting stays in the
+    // Views layer — the VM carries only the resolved agentCount / totalRounds.
+    let summary = ResultsRowFormat.resultSummary(
+      status: item.simulationStatus, topScores: item.topScores,
+      currentRound: item.currentRound, totalRounds: row.totalRounds)
+    return VStack(alignment: .leading, spacing: 4) {
       Text(row.variantName)
         .font(.headline)
         .foregroundStyle(Color.ink)
-      HStack {
-        Text(row.item.createdAt, style: .date)
-        Text(row.item.createdAt, style: .time)
-        Spacer()
-        statusBadge(row.item.simulationStatus)
+      HStack(spacing: 7) {
+        if sheepCount > 0 {
+          sheepCluster(count: sheepCount, agentCount: row.agentCount)
+        }
+        Text(item.createdAt, style: .date)
+        Text(item.createdAt, style: .time)
       }
       .font(.subheadline)
       .foregroundStyle(Color.inkSecondary)
 
-      // Top-3 score chips come pre-projected from the repository — the heavy
-      // `stateJSON` is never decoded in the list (#586).
-      if !row.item.topScores.isEmpty {
-        HStack(spacing: 8) {
-          ForEach(row.item.topScores, id: \.name) { score in
-            Text(String(format: String(localized: "%@ (%lld)"), score.name, score.value))
-              .textStyle(Typography.metaValue)
-              .foregroundStyle(Color.muted)
-          }
-        }
+      // The archetype-safe result summary — or, when no summary applies
+      // (running / failed / cancelled), the status badge as a fallback so the
+      // run's state is never silent.
+      if let summary {
+        Text(summary)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.muted)
+      } else {
+        statusBadge(item.simulationStatus)
       }
     }
+  }
+
+  /// One sheep avatar per agent (clamped via ``ResultsRowFormat/rowSheepCount``).
+  /// The sheep are decorative (``SheepAvatar`` is `.accessibilityHidden`); the
+  /// true agent count is announced to VoiceOver via the group's `%lld agents`
+  /// label so the visual clamp never hides it (mirrors ``HomeScenarioMetaLine``).
+  private func sheepCluster(count: Int, agentCount: Int?) -> some View {
+    HStack(spacing: 2) {
+      ForEach(0..<count, id: \.self) { index in
+        SheepAvatar(character: .forAgent("", position: index), size: SheepAvatar.rowSize)
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(String(format: String(localized: "%lld agents"), agentCount ?? 0))
   }
 
   @ViewBuilder
