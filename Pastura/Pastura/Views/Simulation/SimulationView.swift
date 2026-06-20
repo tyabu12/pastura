@@ -35,6 +35,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // the TabCoordinator defer path it used to need — is impossible; only the back
   // path remains.
   @Environment(AppRouter.self) private var router
+  // Read to record the host tab on the app-level session at run-start, so the
+  // Phase B in-flight indicator can re-select it and re-push the sim route when
+  // returning to a parked-away run (ADR-017). Focus mode pins the run to whatever
+  // tab is selected at start, so `selectedTab` here *is* the host tab.
+  @Environment(TabCoordinator.self) private var tabCoordinator
   @State private var viewModel: SimulationViewModel?
   /// `true` while the back-button confirm-on-leave dialog is showing (#673).
   @State private var pendingBackLeave = false
@@ -872,6 +877,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     switch session.startGuarded(
       source: source,
       scenario: parsed,
+      tab: tabCoordinator.selectedTab,
       makeViewModel: makeViewModel,
       body: body
     ) {

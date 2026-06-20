@@ -51,6 +51,7 @@ struct SimulationSessionTests {
     let first = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { _ in })
 
@@ -60,6 +61,7 @@ struct SimulationSessionTests {
     let second = session.startGuarded(
       source: .scenario(scenarioId: "other"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: {
         Issue.record("makeViewModel must not run on refusal")
         return viewModel
@@ -75,6 +77,7 @@ struct SimulationSessionTests {
     let third = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { _ in })
     #expect(third == .started, "a new run may start once the slot is freed")
@@ -96,6 +99,7 @@ struct SimulationSessionTests {
     _ = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { _ in })
 
@@ -135,6 +139,7 @@ struct SimulationSessionTests {
     let decision = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { model in await model.run(scenario: scenario, llm: mock) })
     #expect(decision == .started)
@@ -169,5 +174,172 @@ struct SimulationSessionTests {
       sims.first?.simulationStatus == .paused,
       "a mid-flight end() leaves a resumable .paused row")
     #expect(registry.activeCount == 0, "run()'s registry enter/leave stays matched through end()")
+  }
+
+  // MARK: - Park / resume gate (Phase B PR2, ADR-017)
+
+  /// Starts a live session whose owned VM has `controller` attached as its
+  /// suspend channel, without running a real `run()` (a no-op body keeps the
+  /// slot occupied). Lets the gate be exercised against a real
+  /// ``SuspendController`` rather than a full inference.
+  private func makeLiveSession(
+    controller: SuspendController,
+    source: SimulationView.Source = .scenario(scenarioId: "test")
+  ) throws -> SimulationSession {
+    let session = SimulationSession()
+    let (viewModel, _) = try makeViewModel()
+    viewModel.suspendController = controller
+    let scenario = makeTestScenario(agentNames: ["Alice"], rounds: 1)
+    _ = session.startGuarded(
+      source: source,
+      scenario: scenario,
+      tab: .home,
+      makeViewModel: { viewModel },
+      body: { _ in })
+    return session
+  }
+
+  @Test func parkSuspendsOnFirstReasonAndResumesOnLast() throws {
+    let controller = SuspendController()
+    let session = try makeLiveSession(controller: controller)
+
+    #expect(controller.isSuspendRequested() == false, "a fresh run is not parked")
+
+    session.requestPark(reason: .viewHide)
+    #expect(controller.isSuspendRequested() == true, "first park suspends the run")
+    #expect(session.parkReasons == [.viewHide])
+
+    session.requestResume(reason: .viewHide)
+    #expect(controller.isSuspendRequested() == false, "removing the only reason resumes")
+    #expect(session.parkReasons.isEmpty)
+
+    session.end()
+  }
+
+  @Test func parkStaysSuspendedWhileAnotherReasonHolds() throws {
+    // Case (c): away + app-background. Foregrounding removes only
+    // `.appBackground`; `.viewHide` remains, so the run stays parked.
+    let controller = SuspendController()
+    let session = try makeLiveSession(controller: controller)
+
+    session.requestPark(reason: .viewHide)
+    session.requestPark(reason: .appBackground)
+    #expect(controller.isSuspendRequested() == true)
+    #expect(session.parkReasons == [.viewHide, .appBackground])
+
+    // App returns to foreground — only the background reason clears.
+    session.requestResume(reason: .appBackground)
+    #expect(
+      controller.isSuspendRequested() == true,
+      "still parked: the view is still hidden")
+    #expect(session.parkReasons == [.viewHide])
+
+    // User returns to the screen — the last reason clears.
+    session.requestResume(reason: .viewHide)
+    #expect(controller.isSuspendRequested() == false)
+    #expect(session.parkReasons.isEmpty)
+
+    session.end()
+  }
+
+  @Test func userPauseResumeWhileViewHideHeldStaysParked() throws {
+    // The reason `.userPause` exists so the pause button composes through the
+    // gate: a user-resume while the run is still parked-away (`.viewHide` held)
+    // must NOT un-park. A direct `controller.resume()` would desync.
+    let controller = SuspendController()
+    let session = try makeLiveSession(controller: controller)
+
+    session.requestPark(reason: .viewHide)  // left the screen
+    session.requestPark(reason: .userPause)  // tapped pause on a re-adopted view
+    #expect(controller.isSuspendRequested() == true)
+    #expect(session.parkReasons == [.viewHide, .userPause])
+
+    session.requestResume(reason: .userPause)  // tapped resume
+    #expect(
+      controller.isSuspendRequested() == true,
+      "user-resume does not un-park while view-hide still holds")
+    #expect(session.parkReasons == [.viewHide])
+
+    session.requestResume(reason: .viewHide)
+    #expect(controller.isSuspendRequested() == false)
+
+    session.end()
+  }
+
+  @Test func bgExpirationPauseWhileParkedAwayStaysParked() throws {
+    // Parked-away + app-background, then a BG-expiration `pauseSimulation`
+    // (routed through `.userPause` in PR2). The extra reason must not resume;
+    // the run stays parked until every reason clears.
+    let controller = SuspendController()
+    let session = try makeLiveSession(controller: controller)
+
+    session.requestPark(reason: .viewHide)
+    session.requestPark(reason: .appBackground)
+    session.requestPark(reason: .userPause)  // BG expiration → pauseSimulation
+    #expect(controller.isSuspendRequested() == true)
+    #expect(session.parkReasons == [.viewHide, .appBackground, .userPause])
+
+    session.end()
+  }
+
+  @Test func viewHidePrecedenceQuery() throws {
+    let controller = SuspendController()
+    let session = try makeLiveSession(controller: controller)
+
+    #expect(session.isParkedForViewHide == false)
+    session.requestPark(reason: .appBackground)
+    #expect(
+      session.isParkedForViewHide == false,
+      "an app-background-only park does not suppress the CPU switch")
+    session.requestPark(reason: .viewHide)
+    #expect(
+      session.isParkedForViewHide == true,
+      "a view-hide park suppresses the background-continuation CPU switch")
+
+    session.end()
+  }
+
+  // MARK: - Return routing (in-flight indicator)
+
+  @Test func returnRouteDerivesFromSourceAndScenarioName() throws {
+    let session = SimulationSession()
+    #expect(session.returnRoute == nil, "no route when idle")
+    #expect(session.tab == nil)
+
+    let (viewModel, _) = try makeViewModel()
+    let scenario = makeTestScenario(agentNames: ["Alice"], rounds: 1)
+    _ = session.startGuarded(
+      source: .scenario(scenarioId: "abc"),
+      scenario: scenario,
+      tab: .search,
+      makeViewModel: { viewModel },
+      body: { _ in })
+
+    #expect(session.tab == .search, "the host tab is recorded")
+    #expect(
+      session.returnRoute == .simulation(scenarioId: "abc"),
+      "a fresh run returns to .simulation (RouteHint title is identity-neutral)")
+
+    session.end()
+    #expect(session.returnRoute == nil, "cleared on end()")
+    #expect(session.tab == nil)
+  }
+
+  @Test func returnRouteForResumeSource() throws {
+    let session = SimulationSession()
+    let (viewModel, _) = try makeViewModel()
+    let scenario = makeTestScenario(agentNames: ["Alice"], rounds: 1)
+    _ = session.startGuarded(
+      source: .resume(runId: "run-1"),
+      scenario: scenario,
+      tab: .home,
+      makeViewModel: { viewModel },
+      body: { _ in })
+
+    #expect(
+      session.returnRoute == .resumeSimulation(simulationId: "run-1"),
+      "a resume run returns to .resumeSimulation")
+
+    session.end()
   }
 }
