@@ -129,4 +129,109 @@ struct ResultsRowFormatTests {
       ResultsRowFormat.dateBucket(for: date(cal, 2026, 6, 17, 0, 5), now: now, calendar: cal).key
         == "today")
   }
+
+  // MARK: - Result summary ladder (P5 PR2)
+
+  private func scores(_ pairs: [(String, Int)]) -> [PastRunScore] {
+    pairs.map { PastRunScore(name: $0.0, value: $0.1) }
+  }
+
+  @Test func pausedSummaryWithKnownTotalShowsBothRounds() {
+    let summary = ResultsRowFormat.resultSummary(
+      status: .paused, topScores: [], currentRound: 3, totalRounds: 5)
+    let value = try? #require(summary)
+    #expect(value?.contains("3") == true)
+    #expect(value?.contains("5") == true)
+  }
+
+  @Test func pausedSummaryWithoutTotalOmitsTheTotal() {
+    let summary = ResultsRowFormat.resultSummary(
+      status: .paused, topScores: [], currentRound: 3, totalRounds: nil)
+    let value = try? #require(summary)
+    #expect(value?.contains("3") == true)
+    // No "/" pair when N is unknown — the single-round form, not "Round 3 / ?".
+    #expect(value?.contains("/") == false)
+  }
+
+  @Test func completedWithUniqueTopScorerShowsWinner() {
+    // Repository projects highest-first; a strict 1st > 2nd is a unique winner.
+    let summary = ResultsRowFormat.resultSummary(
+      status: .completed, topScores: scores([("Carol", 12), ("Alice", 10), ("Bob", 8)]),
+      currentRound: 5, totalRounds: 5)
+    #expect(summary?.contains("Carol") == true)
+  }
+
+  @Test func completedSoloScorerCountsAsUniqueWinner() {
+    // A single-agent run (one scorer) is a deliberate unique winner, not a
+    // "completion" summary.
+    let summary = ResultsRowFormat.resultSummary(
+      status: .completed, topScores: scores([("Alice", 7)]), currentRound: 1, totalRounds: 1)
+    #expect(summary?.contains("Alice") == true)
+  }
+
+  @Test func completedWithTopOfTableTieFallsBackToCompletion() {
+    // Tie at the top → no unique winner → completion summary, NOT a name.
+    let summary = ResultsRowFormat.resultSummary(
+      status: .completed, topScores: scores([("Alice", 9), ("Bob", 9)]),
+      currentRound: 5, totalRounds: 5)
+    let value = try? #require(summary)
+    #expect(value?.contains("Alice") == false)
+    #expect(value?.contains("5") == true)
+  }
+
+  @Test func completedWithEmptyScoresNeverShowsAScore() {
+    // ★ The load-bearing invariant: a score-empty archetype (werewolf /
+    // consensus) must NEVER render "0". N = 5 has no "0" digit, so the absence
+    // of "0" is an exact check that no score number leaked in.
+    let summary = ResultsRowFormat.resultSummary(
+      status: .completed, topScores: [], currentRound: 5, totalRounds: 5)
+    let value = try? #require(summary)
+    #expect(value?.contains("0") == false)
+    #expect(value?.contains("(") == false)  // no "X (0)" chip form
+    #expect(value?.contains("5") == true)  // the round count is shown
+  }
+
+  @Test func completedWithEmptyScoresAndUnknownTotalShowsBareCompletion() {
+    let summary = ResultsRowFormat.resultSummary(
+      status: .completed, topScores: [], currentRound: 5, totalRounds: nil)
+    let value = try? #require(summary)
+    #expect(value?.isEmpty == false)
+    #expect(value?.contains("0") == false)
+    #expect(value?.contains("(") == false)
+  }
+
+  @Test func nonPausedNonCompletedStatusesHaveNoSummary() {
+    for status in [SimulationStatus.running, .failed, .cancelled] as [SimulationStatus] {
+      #expect(
+        ResultsRowFormat.resultSummary(
+          status: status, topScores: scores([("Alice", 3)]), currentRound: 2, totalRounds: 5)
+          == nil)
+    }
+    // Unknown status (nil) also yields no summary.
+    #expect(
+      ResultsRowFormat.resultSummary(
+        status: nil, topScores: [], currentRound: 0, totalRounds: nil) == nil)
+  }
+
+  // MARK: - Sheep count clamping (P5 PR2)
+
+  @Test func rowSheepCountMatchesAgentCountBelowMax() {
+    #expect(ResultsRowFormat.rowSheepCount(agentCount: 1) == 1)
+    #expect(ResultsRowFormat.rowSheepCount(agentCount: 4) == 4)
+    #expect(
+      ResultsRowFormat.rowSheepCount(agentCount: ResultsRowFormat.maxRowSheep)
+        == ResultsRowFormat.maxRowSheep)
+  }
+
+  @Test func rowSheepCountClampsAboveMax() {
+    #expect(
+      ResultsRowFormat.rowSheepCount(agentCount: ResultsRowFormat.maxRowSheep + 1)
+        == ResultsRowFormat.maxRowSheep)
+    #expect(ResultsRowFormat.rowSheepCount(agentCount: 99) == ResultsRowFormat.maxRowSheep)
+  }
+
+  @Test func rowSheepCountZeroWhenUnknownOrEmpty() {
+    #expect(ResultsRowFormat.rowSheepCount(agentCount: nil) == 0)
+    #expect(ResultsRowFormat.rowSheepCount(agentCount: 0) == 0)
+  }
 }

@@ -75,4 +75,79 @@ nonisolated enum ResultsRowFormat {
     formatter.setLocalizedDateFormatFromTemplate(sameYear ? "MMMM" : "yMMMM")
     return formatter.string(from: date)
   }
+
+  // MARK: - Result summary (P5 PR2)
+
+  /// One-line, archetype-safe result summary for a History row — replaces the
+  /// raw score chips (`%@ (%lld)`), which would print "0" for score-empty
+  /// archetypes (werewolf / consensus, whose `state.scores` is empty). A
+  /// deliberate fallback ladder that NEVER surfaces a score number for a
+  /// score-empty run:
+  ///
+  /// 1. **paused** → "Paused at Round K / N" (N known) or "Paused at Round K"
+  ///    (N unknown — orphaned / parse-failed metadata).
+  /// 2. **completed with a unique top scorer** (non-empty top scores AND a
+  ///    strict 1st > 2nd) → "Winner: X".
+  /// 3. **completed otherwise** (empty scores OR a top-of-table tie) →
+  ///    "All N rounds complete" (N known) or "Complete". No score number, so a
+  ///    score-empty run can never read "0".
+  /// 4. **any other status** (running / failed / cancelled / unknown) → `nil`;
+  ///    the caller falls back to the status badge.
+  ///
+  /// - Parameters:
+  ///   - topScores: the repository projection (highest-first, capped at 3), so
+  ///     the unique-max test is a cheap first-vs-second comparison.
+  ///   - currentRound: `K`, the round the run reached (paused branch only).
+  ///   - totalRounds: `N` from the scenario definition; `nil` when unknown.
+  static func resultSummary(
+    status: SimulationStatus?,
+    topScores: [PastRunScore],
+    currentRound: Int,
+    totalRounds: Int?
+  ) -> String? {
+    switch status {
+    case .paused:
+      if let totalRounds, totalRounds > 0 {
+        return String(
+          format: String(localized: "Paused at Round %lld / %lld"), currentRound, totalRounds)
+      }
+      return String(format: String(localized: "Paused at Round %lld"), currentRound)
+    case .completed:
+      if let winner = uniqueTopScorer(topScores) {
+        return String(format: String(localized: "Winner: %@"), winner)
+      }
+      if let totalRounds, totalRounds > 0 {
+        return String(format: String(localized: "All %lld rounds complete"), totalRounds)
+      }
+      return String(localized: "Complete")
+    default:
+      return nil
+    }
+  }
+
+  /// The single highest-scoring agent's name when the top score is strictly
+  /// greater than the runner-up (a unique winner — including a solo run with a
+  /// single scorer). `nil` for empty scores or a top-of-table tie, which route
+  /// to the completion summary instead.
+  private static func uniqueTopScorer(_ topScores: [PastRunScore]) -> String? {
+    guard let first = topScores.first else { return nil }
+    if topScores.count == 1 { return first.name }
+    return first.value > topScores[1].value ? first.name : nil
+  }
+
+  // MARK: - Sheep avatars (P5 PR2)
+
+  /// Maximum sheep avatars drawn in one row before clamping (mirrors
+  /// ``HomeScenarioRowFormat/maxRowSheep``). The exact cast size is secondary
+  /// garnish the user doesn't act on in the list; VoiceOver still announces the
+  /// true count via the row's `%lld agents` label.
+  static let maxRowSheep = 5
+
+  /// Number of sheep faces to draw for `agentCount`, clamped to ``maxRowSheep``.
+  /// Returns 0 when the count is unknown (snapshot / live YAML parse failure)
+  /// so the caller draws no faces.
+  static func rowSheepCount(agentCount: Int?) -> Int {
+    guard let agentCount, agentCount > 0 else { return 0 }
+    return min(agentCount, maxRowSheep)
+  }
 }
