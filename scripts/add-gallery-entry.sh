@@ -196,6 +196,14 @@ YAML_STEM="$(basename "$YAML_PATH" .yaml)"
 YAML_ID="$(python3 -c "import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))['id'])" "$YAML_PATH")"
 YAML_NAME="$(python3 -c "import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))['name'])" "$YAML_PATH")"
 YAML_DESC="$(python3 -c "import sys, yaml; d = yaml.safe_load(open(sys.argv[1])).get('description', ''); print((d or '').strip())" "$YAML_PATH")"
+# agent_count / rounds are YAML-derived facts (not curator choices), like
+# title/sha — read the `agents:` / `rounds:` SCALARS, never len(personas),
+# so the value matches ScenarioLoader (and GallerySeedYAMLTests
+# .galleryAgentCountAndRoundsMatchYAML, which #require()s both fields).
+YAML_AGENTS="$(python3 -c "import sys, yaml; print(int(yaml.safe_load(open(sys.argv[1]))['agents']))" "$YAML_PATH")"
+YAML_ROUNDS="$(python3 -c "import sys, yaml; print(int(yaml.safe_load(open(sys.argv[1]))['rounds']))" "$YAML_PATH")"
+case "$YAML_AGENTS" in ''|*[!0-9]*) echo "ERROR: YAML 'agents' must be a positive integer (got: '$YAML_AGENTS')" >&2; exit 1 ;; esac
+case "$YAML_ROUNDS" in ''|*[!0-9]*) echo "ERROR: YAML 'rounds' must be a positive integer (got: '$YAML_ROUNDS')" >&2; exit 1 ;; esac
 YAML_SHA="$(shasum -a 256 "$YAML_PATH" | awk '{print $1}')"
 YAML_SIZE="$(wc -c < "$YAML_PATH" | awk '{print $1}')"
 
@@ -364,6 +372,8 @@ NEW_ENTRY=$(jq -n \
   --arg author "$AUTHOR" \
   --arg recommended_model "$RECOMMENDED_MODEL" \
   --argjson estimated_inferences "$ESTIMATED_INFERENCES" \
+  --argjson agent_count "$YAML_AGENTS" \
+  --argjson rounds "$YAML_ROUNDS" \
   --arg yaml_url "$YAML_BASENAME" \
   --arg yaml_sha256 "$YAML_SHA" \
   --arg added_at "$ADDED_AT" \
@@ -375,6 +385,8 @@ NEW_ENTRY=$(jq -n \
     author: $author,
     recommended_model: $recommended_model,
     estimated_inferences: $estimated_inferences,
+    agent_count: $agent_count,
+    rounds: $rounds,
     yaml_url: $yaml_url,
     yaml_sha256: $yaml_sha256,
     added_at: $added_at
@@ -420,7 +432,7 @@ print_entry_diff() {
   local old="$1"
   local new="$2"
   local field old_val new_val source_label
-  for field in title category description author recommended_model estimated_inferences added_at yaml_sha256; do
+  for field in title category description author recommended_model estimated_inferences agent_count rounds added_at yaml_sha256; do
     old_val="$(echo "$old" | jq -r --arg f "$field" '.[$f] | tostring')"
     new_val="$(echo "$new" | jq -r --arg f "$field" '.[$f] | tostring')"
     if [ "$old_val" = "$new_val" ]; then
@@ -428,7 +440,7 @@ print_entry_diff() {
     fi
     source_label=""
     case "$field" in
-      title|yaml_sha256) source_label=" (from YAML)" ;;
+      title|yaml_sha256|agent_count|rounds) source_label=" (from YAML)" ;;
     esac
     if [ "$field" = "description" ] && { [[ "$old_val" == *$'\n'* ]] || [[ "$new_val" == *$'\n'* ]]; }; then
       printf "  %s%s (old):\n" "$field" "$source_label"
