@@ -25,6 +25,23 @@ nonisolated public protocol ScenarioRepository: Sendable {
   /// Fetches all scenarios.
   func fetchAll() throws -> [ScenarioRecord]
 
+  /// Fetches lightweight summaries of all scenarios, excluding the heavy
+  /// `yamlDefinition` column.
+  ///
+  /// The grouping/listing surfaces (Home, Past Results) only need
+  /// `id` / `name` / `isPreset` / `sourceId` / `language` to collapse
+  /// cross-language variants and render row labels — see ``ScenarioSummary``.
+  /// Ordered newest-first (`createdAt DESC`) to match ``fetchAll()``.
+  func fetchAllSummaries() throws -> [ScenarioSummary]
+
+  /// Fetches full records for the given ids. Order-independent; absent ids are
+  /// simply omitted from the result.
+  ///
+  /// Used to load `yamlDefinition` for only the **displayed** scenario rows
+  /// (after variant collapse) when full metadata is needed, instead of loading
+  /// every row's YAML up front.
+  func fetchByIds(_ ids: [String]) throws -> [ScenarioRecord]
+
   /// Fetches only preset (bundled) scenarios.
   func fetchPresets() throws -> [ScenarioRecord]
 
@@ -80,6 +97,26 @@ nonisolated public final class GRDBScenarioRepository: ScenarioRepository, Senda
   public func fetchAll() throws -> [ScenarioRecord] {
     try dbWriter.read { db in
       try ScenarioRecord.order(Column("createdAt").desc).fetchAll(db)
+    }
+  }
+
+  public func fetchAllSummaries() throws -> [ScenarioSummary] {
+    try dbWriter.read { db in
+      // Explicit column list — never `SELECT *` — so the heavy `yamlDefinition`
+      // column is left on disk and never crosses into app memory.
+      try ScenarioSummary.fetchAll(
+        db,
+        sql: """
+          SELECT id, name, isPreset, sourceId, language FROM scenarios
+          ORDER BY createdAt DESC
+          """)
+    }
+  }
+
+  public func fetchByIds(_ ids: [String]) throws -> [ScenarioRecord] {
+    guard !ids.isEmpty else { return [] }
+    return try dbWriter.read { db in
+      try ScenarioRecord.filter(keys: ids).fetchAll(db)
     }
   }
 
