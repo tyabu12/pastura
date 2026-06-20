@@ -134,7 +134,7 @@ struct LLMServiceStreamTests {
     let mock = MockLLMService(responses: [])
     mock.setStreamChunks([["x"]])
     try await mock.loadModel()
-    mock.simulateSuspendOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
 
     await #expect(throws: LLMError.suspended) {
       for try await _ in mock.generateStream(system: "s", user: "u") {}

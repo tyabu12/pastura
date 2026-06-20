@@ -175,7 +175,7 @@ private func startSuspendedFreshRun(rounds: Int = 3) async throws -> SuspendedFr
   let env = try makeContinuationSUT(rounds: rounds)
   let mock = MockLLMService(responses: Array(repeating: #"{"statement":"x"}"#, count: 10))
   // Arm the run's controller on attach so the first generate parks genuinely —
-  // no fake `simulateSuspendOnNextGenerate` race, no scheduling window (#707).
+  // no fake `throwSuspendedOnNextGenerate` race, no scheduling window (#707).
   mock.suspendOnControllerAttach()
   env.sut.speed = .instant
 
