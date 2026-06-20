@@ -243,6 +243,7 @@
       }
     },
     "%@ (%lld)" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1462,6 +1463,16 @@
         }
       }
     },
+    "All %lld rounds complete" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全%lldラウンド完了"
+          }
+        }
+      }
+    },
     "All agents speak simultaneously" : {
       "localizations" : {
         "ja" : {
@@ -1853,6 +1864,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "比較: lhs OP rhs（OP は ==, !=, <, <=, >, >= のいずれか）。&&（AND）と ||（OR）で組み合わせ可能で、&& の方が優先順位が高い。括弧でグループ化できます。識別子: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>、またはテンプレート変数。文字列リテラルはダブルクォートで囲んでください。"
+          }
+        }
+      }
+    },
+    "Complete" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了"
           }
         }
       }
@@ -3995,6 +4016,32 @@
         }
       }
     },
+    "Paused at Round %lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Round %lld で中断"
+          }
+        }
+      }
+    },
+    "Paused at Round %lld / %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused at Round %1$lld / %2$lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Round %1$lld/%2$lld で中断"
+          }
+        }
+      }
+    },
     "Paused run not found" : {
       "localizations" : {
         "ja" : {
@@ -5848,6 +5895,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "推奨モデル %2$@ ではなく %1$@ で実行されます"
+          }
+        }
+      }
+    },
+    "Winner: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "勝者: %@"
           }
         }
       }

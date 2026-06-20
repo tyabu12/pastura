@@ -34,9 +34,22 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
   /// Raw status string (matches `SimulationStatus.rawValue`); use
   /// ``simulationStatus`` for type-safe access.
   public let status: String
+  /// The round the run reached — `K` in the History row's "Round K / N で中断"
+  /// summary for a paused run (Home redesign P5 PR2). Projected straight from
+  /// `simulations.currentRound`, the same column the Home paused-resume card
+  /// reads, so the two surfaces report the same round for one run.
+  public let currentRound: Int
   /// Display name captured at run-creation, surfaced for orphaned runs whose
   /// source scenario was deleted.
   public let scenarioNameSnapshot: String?
+  /// The source scenario's YAML captured at run-creation (v7+; `nil` for
+  /// pre-v7 runs). The History row resolves `agentCount` / total-rounds `N`
+  /// from this snapshot in the App layer — snapshot-first, so the row stays
+  /// faithful to the scenario that *actually ran* even after a later edit or
+  /// deletion (mirrors ``ScenarioSnapshotResolver``). YAML is ~1–5 KB/row —
+  /// ~1/100 of the `stateJSON` (~100–300 KB) the projection deliberately drops
+  /// (#586), so retaining it over the loaded window stays within that budget.
+  public let scenarioYamlSnapshot: String?
   /// The run's highest-scoring agents (highest-first, at most three).
   public let topScores: [PastRunScore]
 
@@ -45,14 +58,18 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
     scenarioId: String?,
     createdAt: Date,
     status: String,
+    currentRound: Int,
     scenarioNameSnapshot: String?,
+    scenarioYamlSnapshot: String?,
     topScores: [PastRunScore]
   ) {
     self.id = id
     self.scenarioId = scenarioId
     self.createdAt = createdAt
     self.status = status
+    self.currentRound = currentRound
     self.scenarioNameSnapshot = scenarioNameSnapshot
+    self.scenarioYamlSnapshot = scenarioYamlSnapshot
     self.topScores = topScores
   }
 
