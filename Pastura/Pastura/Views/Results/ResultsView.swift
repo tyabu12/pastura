@@ -194,6 +194,11 @@ struct ResultsView: View {
         statusBadge(item.simulationStatus)
       }
     }
+    // Fill the row width so every row's title/meta left-aligns at the same x.
+    // Without this the VStack sizes to its content and the enclosing
+    // `resultRow` HStack (no Spacer) centers the group, so each row's left edge
+    // drifts with its content width. The chevron then rides the trailing edge.
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   /// One sheep avatar per agent (clamped via ``ResultsRowFormat/rowSheepCount``).
