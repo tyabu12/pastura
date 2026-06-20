@@ -112,6 +112,23 @@ import Testing
     #expect(miss == nil)
   }
 
+  @Test func fetchBySourceTypeReturnsOnlyMatchingRows() throws {
+    let repo = try makeRepo()
+    try repo.save(
+      makeRecord(
+        id: "g1", sourceType: ScenarioSourceType.gallery, sourceId: "asch_v1", sourceHash: "h1"))
+    try repo.save(
+      makeRecord(
+        id: "g2", sourceType: ScenarioSourceType.gallery, sourceId: "milgram_v1", sourceHash: "h2"))
+    try repo.save(makeRecord(id: "local"))  // sourceType = nil
+
+    let gallery = try repo.fetchBySourceType(ScenarioSourceType.gallery)
+    #expect(Set(gallery.map(\.id)) == ["g1", "g2"])
+
+    let none = try repo.fetchBySourceType("nonexistent")
+    #expect(none.isEmpty)
+  }
+
   @Test func fetchBySourceIgnoresLocalRows() throws {
     let repo = try makeRepo()
     try repo.save(makeRecord(id: "local"))  // sourceType = nil

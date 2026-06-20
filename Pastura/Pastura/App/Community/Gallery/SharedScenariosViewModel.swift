@@ -249,7 +249,7 @@ final class SharedScenariosViewModel {
     let rows: [ScenarioRecord]
     do {
       rows = try await offMain { [repository] in
-        try repository.fetchAll().filter { $0.sourceType == ScenarioSourceType.gallery }
+        try repository.fetchBySourceType(ScenarioSourceType.gallery)
       }
     } catch {
       // Soft-fail: keep stale snapshot rather than clearing UI state on a

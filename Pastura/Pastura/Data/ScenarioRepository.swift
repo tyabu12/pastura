@@ -22,6 +22,16 @@ nonisolated public protocol ScenarioRepository: Sendable {
   /// independently of the primary key. Returns `nil` if no matching row.
   func fetchBySource(type: String, id: String) throws -> ScenarioRecord?
 
+  /// Fetches all scenarios with the given `sourceType` (e.g. gallery
+  /// installs).
+  ///
+  /// DB-side filter so callers needing every row of one source type (e.g.
+  /// the gallery-installed snapshot) avoid loading the full table just to
+  /// filter it in memory. Returns the full records — unlike
+  /// ``fetchAllSummaries()`` — because consumers read `sourceHash` for
+  /// update detection.
+  func fetchBySourceType(_ type: String) throws -> [ScenarioRecord]
+
   /// Fetches all scenarios.
   func fetchAll() throws -> [ScenarioRecord]
 
@@ -91,6 +101,14 @@ nonisolated public final class GRDBScenarioRepository: ScenarioRepository, Senda
         .filter(Column("sourceType") == type)
         .filter(Column("sourceId") == id)
         .fetchOne(db)
+    }
+  }
+
+  public func fetchBySourceType(_ type: String) throws -> [ScenarioRecord] {
+    try dbWriter.read { db in
+      try ScenarioRecord
+        .filter(Column("sourceType") == type)
+        .fetchAll(db)
     }
   }
 

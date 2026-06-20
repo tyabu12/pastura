@@ -21,6 +21,9 @@ nonisolated struct ThrowingDeleteScenarioRepository: ScenarioRepository {
   func save(_ record: ScenarioRecord) throws {}
   func fetchById(_ id: String) throws -> ScenarioRecord? { scenarios.first { $0.id == id } }
   func fetchBySource(type: String, id: String) throws -> ScenarioRecord? { nil }
+  func fetchBySourceType(_ type: String) throws -> [ScenarioRecord] {
+    scenarios.filter { $0.sourceType == type }
+  }
   func fetchAll() throws -> [ScenarioRecord] { scenarios }
   func fetchAllSummaries() throws -> [ScenarioSummary] {
     scenarios.map {

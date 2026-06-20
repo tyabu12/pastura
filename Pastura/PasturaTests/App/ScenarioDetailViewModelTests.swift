@@ -255,4 +255,41 @@ struct ScenarioDetailViewModelTests {
 
     #expect(viewModel.siblingVariant == nil)
   }
+
+  /// Two siblings share the canonical `sourceId` — the resolver returns
+  /// the **newest** (`createdAt DESC`). Pins the newest-wins tie-break
+  /// preserved by the `fetchAllSummaries()` + `fetchById()` lookup
+  /// (#704), so a future refactor that drops the ordering or resolves
+  /// the wrong sibling fails here.
+  @Test func loadSiblingResolvesNewestAmongMultipleSiblings() async throws {
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario", name: "Test", yamlDefinition: Self.validYAML,
+        isPreset: true, createdAt: Date(timeIntervalSince1970: 2000),
+        updatedAt: Date(timeIntervalSince1970: 2000),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+    // Older sibling — must lose to the newer one below.
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario_old", name: "Test", yamlDefinition: Self.validYAMLEn,
+        isPreset: true, createdAt: Date(timeIntervalSince1970: 1000),
+        updatedAt: Date(timeIntervalSince1970: 1000),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+    // Newest sibling — the resolver should pick this one.
+    try repo.save(
+      ScenarioRecord(
+        id: "test_scenario_new", name: "Test", yamlDefinition: Self.validYAMLEn,
+        isPreset: true, createdAt: Date(timeIntervalSince1970: 3000),
+        updatedAt: Date(timeIntervalSince1970: 3000),
+        sourceType: nil, sourceId: "test_scenario", sourceHash: nil))
+
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "test_scenario")
+    await viewModel.loadSibling()
+
+    #expect(viewModel.siblingVariant?.id == "test_scenario_new")
+  }
 }
