@@ -326,7 +326,8 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
         yamlDefinition: yaml,
         isPreset: false,
         createdAt: Date(),
-        updatedAt: Date()
+        updatedAt: Date(),
+        language: scenario.language
       )
       try await offMain { [repository] in
         try repository.save(record)
