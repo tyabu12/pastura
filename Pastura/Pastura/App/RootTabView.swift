@@ -29,13 +29,12 @@ import SwiftUI
 ///
 /// ## OS branches (iOS 18+ structural `Tab` vs iOS 17 `.tabItem`)
 ///
-/// iOS 18+ adopts the structural `Tab` API so the さがす (Browse) tab can
-/// use ``SwiftUI/TabRole/search`` — which on iOS 26 separates the tab and
-/// **morphs** it into a search field (automatic from `Tab(role:.search)` +
-/// the `.searchable` already on ``SharedScenariosListView``). iOS 17 keeps
-/// the closure-based `.tabItem` form (`.tabItem` is deprecated on iOS 18+
-/// and the new `Tab` builder cannot be mixed with `.tabItem` in one
-/// `TabView`, so the whole bar is branched).
+/// iOS 18+ adopts the structural `Tab` API to future-proof the deprecated
+/// `.tabItem` (deprecated on iOS 18+) and to keep the iOS 26 search-role
+/// morph re-enableable behind a one-line `role:` change — though that morph
+/// is currently **deferred** (see the さがす-tab note below). iOS 17 keeps
+/// the closure-based `.tabItem` form; the new `Tab` builder cannot be mixed
+/// with `.tabItem` in one `TabView`, so the whole bar is branched.
 ///
 /// ADR-016 D1 keeps tabs **icon-only** (no text title). The structural
 /// `Tab` API has no icon-only titled initializer, so the modern branch
@@ -176,9 +175,9 @@ extension RootTabView {
   /// `magnifyingglass` has **no** `.fill` variant (`magnifyingglass.fill`
   /// does not exist and would render blank), so the さがす tab keeps the
   /// outline in both states and relies on the moss `.tint` alone to mark
-  /// active. Pure + `internal` so the mapping is unit-tested. Drives the
-  /// iOS 17 branch and the iOS 18+ non-search tabs; the iOS 18+ さがす tab
-  /// uses the system search-role affordance instead.
+  /// active. Pure + `internal` so the mapping is unit-tested. Drives all
+  /// four tabs on both OS branches (the さがす tab is a grouped regular tab,
+  /// not a search role, so it too maps through here).
   static func symbolName(for tab: AppTab, isActive: Bool) -> String {
     switch tab {
     case .home: return isActive ? "house.fill" : "house"
