@@ -206,6 +206,45 @@ extension SimulationRepositoryTests {
     #expect(try #require(page.first).topScores.isEmpty)
   }
 
+  // MARK: - currentRound + scenario-YAML-snapshot projection (P5 PR2)
+
+  @Test func fetchRecentRunPageProjectsCurrentRoundAndYamlSnapshot() throws {
+    let env = try makePagingRepos()
+    try env.scenarios.save(scenario(id: "s1", name: "One"))
+    let snapshot = "id: s1\nname: One\nagents: 4\nrounds: 5\n"
+    try env.sims.save(
+      run(id: "sim", scenarioId: "s1", at: 10, currentRound: 3, yamlSnapshot: snapshot))
+
+    let item = try #require(
+      try env.sims.fetchRecentRunPage(nameQuery: nil, before: nil, limit: 10).first)
+    #expect(item.currentRound == 3)
+    #expect(item.scenarioYamlSnapshot == snapshot)
+  }
+
+  @Test func fetchRunListProjectsCurrentRoundAndYamlSnapshot() throws {
+    let env = try makePagingRepos()
+    try env.scenarios.save(scenario(id: "s1", name: "One"))
+    let snapshot = "id: s1\nname: One\nagents: 4\nrounds: 5\n"
+    try env.sims.save(
+      run(id: "sim", scenarioId: "s1", at: 10, currentRound: 2, yamlSnapshot: snapshot))
+
+    let item = try #require(try env.sims.fetchRunList(scenarioId: "s1").first)
+    #expect(item.currentRound == 2)
+    #expect(item.scenarioYamlSnapshot == snapshot)
+  }
+
+  /// A pre-v7 run (no captured snapshot) projects `nil` for the YAML snapshot
+  /// — the App-layer resolver then falls back to the live scenario.
+  @Test func fetchRecentRunPageProjectsNilSnapshotForPreV7Run() throws {
+    let env = try makePagingRepos()
+    try env.scenarios.save(scenario(id: "s1", name: "One"))
+    try env.sims.save(run(id: "sim", scenarioId: "s1", at: 10, yamlSnapshot: nil))
+
+    let item = try #require(
+      try env.sims.fetchRecentRunPage(nameQuery: nil, before: nil, limit: 10).first)
+    #expect(item.scenarioYamlSnapshot == nil)
+  }
+
   // MARK: - Detail light fetch
 
   @Test func fetchRunListReturnsScenarioRunsNewestFirst() throws {
@@ -247,11 +286,14 @@ private func run(
   scenarioId: String?,
   at offset: Double,
   stateJSON: String = "{}",
-  nameSnapshot: String? = nil
+  nameSnapshot: String? = nil,
+  currentRound: Int = 1,
+  yamlSnapshot: String? = nil
 ) -> SimulationRecord {
   run(
     id: id, scenarioId: scenarioId, at: Date(timeIntervalSince1970: offset),
-    stateJSON: stateJSON, nameSnapshot: nameSnapshot)
+    stateJSON: stateJSON, nameSnapshot: nameSnapshot,
+    currentRound: currentRound, yamlSnapshot: yamlSnapshot)
 }
 
 private func run(
@@ -259,13 +301,16 @@ private func run(
   scenarioId: String?,
   at createdAt: Date,
   stateJSON: String = "{}",
-  nameSnapshot: String? = nil
+  nameSnapshot: String? = nil,
+  currentRound: Int = 1,
+  yamlSnapshot: String? = nil
 ) -> SimulationRecord {
   SimulationRecord(
     id: id, scenarioId: scenarioId,
     status: SimulationStatus.completed.rawValue,
-    currentRound: 1, currentPhaseIndex: 0,
+    currentRound: currentRound, currentPhaseIndex: 0,
     stateJSON: stateJSON, configJSON: nil,
     createdAt: createdAt, updatedAt: createdAt,
+    scenarioYamlSnapshot: yamlSnapshot,
     scenarioNameSnapshot: nameSnapshot)
 }
