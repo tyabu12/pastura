@@ -155,12 +155,11 @@ struct ResultsView: View {
     .contentShape(Rectangle())
   }
 
-  // Each row shows the simulation-time `variantName` (`.headline` font,
-  // matching HomeView preset list role-weight) — the variant's un-translated
-  // name (or the captured snapshot for a deleted scenario), kept consistent
-  // with the run's recorded conversation content. The meta line carries one
-  // sheep avatar per agent (clamped) plus the timestamp; the result summary
-  // (P5 PR2) replaces the raw score chips with the archetype-safe ladder.
+  // Each row stacks: the simulation-time `variantName` (`.headline`, the
+  // variant's un-translated name or the deleted-scenario snapshot); a sheep
+  // avatar per agent (clamped); the archetype-safe result summary (P5 PR2,
+  // replacing the raw score chips); and a relative timestamp (#712) at the
+  // bottom, left-aligned.
   private func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
     let item = row.item
     let sheepCount = ResultsRowFormat.rowSheepCount(agentCount: row.agentCount)
@@ -173,15 +172,11 @@ struct ResultsView: View {
       Text(row.variantName)
         .font(.headline)
         .foregroundStyle(Color.ink)
-      HStack(spacing: 7) {
-        if sheepCount > 0 {
-          sheepCluster(count: sheepCount, agentCount: row.agentCount)
-        }
-        Text(item.createdAt, style: .date)
-        Text(item.createdAt, style: .time)
+      // Sheep avatars only — the timestamp moved to the bottom line. Guard the
+      // whole row so an unknown agent count (sheepCount 0) leaves no empty gap.
+      if sheepCount > 0 {
+        sheepCluster(count: sheepCount, agentCount: row.agentCount)
       }
-      .font(.subheadline)
-      .foregroundStyle(Color.inkSecondary)
 
       // The archetype-safe result summary — or, when no summary applies
       // (running / failed / cancelled), the status badge as a fallback so the
@@ -193,6 +188,16 @@ struct ResultsView: View {
       } else {
         statusBadge(item.simulationStatus)
       }
+
+      // Relative timestamp (X / Instagram-style), below the summary/status.
+      // Computed in the View off the live clock — formatting stays in the Views
+      // layer, like the summary above.
+      Text(
+        ResultsRowFormat.relativeTimestamp(
+          for: item.createdAt, now: Date(), calendar: .current)
+      )
+      .font(.caption)
+      .foregroundStyle(Color.muted)
     }
     // Fill the row width so every row's title/meta left-aligns at the same x.
     // Without this the VStack sizes to its content and the enclosing
