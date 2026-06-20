@@ -126,9 +126,9 @@ struct LLMCallerTests {
     // would fail. With it, all suspends are absorbed transparently.
     let mock = MockLLMService(responses: [#"{"statement": "ok"}"#])
     try await mock.loadModel()
-    mock.simulateSuspendOnNextGenerate()
-    mock.simulateSuspendOnNextGenerate()
-    mock.simulateSuspendOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
 
     let collector = EventCollector()
     let result = try await caller.call(
@@ -180,8 +180,8 @@ struct LLMCallerTests {
     // "thinking" indicator for every BG/FG cycle.
     let mock = MockLLMService(responses: [#"{"statement": "hi"}"#])
     try await mock.loadModel()
-    mock.simulateSuspendOnNextGenerate()
-    mock.simulateSuspendOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
+    mock.throwSuspendedOnNextGenerate()
 
     let collector = EventCollector()
     _ = try await caller.call(
