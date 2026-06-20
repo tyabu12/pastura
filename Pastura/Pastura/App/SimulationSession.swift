@@ -87,6 +87,16 @@ final class SimulationSession {
   /// owned). See ``ParkReason`` for the gate contract.
   private(set) var parkReasons: Set<ParkReason> = []
 
+  /// The single memory-warning throttle for the owned run.
+  ///
+  /// Relocated from `SimulationView`'s `@State` (PR2): a parked-away run has no
+  /// view to host the throttle, so it lives on the session and **both** the
+  /// present view and the always-mounted in-flight indicator route their
+  /// `didReceiveMemoryWarning` here (critic Axis 5). One throttle keeps the
+  /// 2-strike escalation + reset-on-resume policy consistent — a second naive
+  /// observer would double-count one warning.
+  private var memoryThrottle = MemoryWarningThrottle()
+
   /// The unstructured task driving the run.
   ///
   /// Relocated from `SimulationView.drive(_:_:)`. An unstructured `Task` does
@@ -222,6 +232,40 @@ final class SimulationSession {
     if parkReasons.isEmpty {
       viewModel?.suspendController?.resume()
     }
+  }
+
+  // MARK: - Memory safety
+
+  /// Applies the memory-warning policy to the owned run, called by whichever
+  /// surface is mounted (the present view's `.onReceive`, or the in-flight
+  /// indicator host's for a parked-away run). No-op when no run is owned.
+  ///
+  /// - Parameter isAppActive: Whether the app is foregrounded
+  ///   (`scenePhase == .active`). On pressure the throttle pauses first
+  ///   (lossy-but-safe `.paused`) and escalates to cancel only on sustained
+  ///   foreground pressure or a backgrounded run — see ``MemoryWarningThrottle``.
+  func handleMemoryWarning(isAppActive: Bool) {
+    guard let viewModel, viewModel.isRunning, !viewModel.isCancelled else { return }
+    switch memoryThrottle.decide(
+      isActive: isAppActive, isPaused: viewModel.isPaused, now: Date()
+    ) {
+    case .ignore:
+      break
+    case .pauseAndLog:
+      viewModel.pauseSimulation(
+        reason: String(localized: "Memory warning — simulation paused. Tap resume to continue."))
+    case .cancelDueToBackground:
+      viewModel.cancelSimulation(caller: "memoryWarning-bg")
+    case .cancelDueToEscalation:
+      viewModel.cancelSimulation(caller: "memoryWarning-escalated")
+    }
+  }
+
+  /// Clears the throttle's escalation state. Call when the user resumes after a
+  /// memory-warning pause so a delayed warning doesn't immediately escalate to
+  /// cancel (the previous pressure is presumed to have subsided).
+  func resetMemoryThrottle() {
+    memoryThrottle.reset()
   }
 
   /// Ends the owned run: cancels the driving task and releases all references.

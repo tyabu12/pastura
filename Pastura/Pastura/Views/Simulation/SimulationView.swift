@@ -55,7 +55,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
   @State private var isExporting = false
-  @State private var memoryThrottle = MemoryWarningThrottle()
   /// Whether the latest agent-output row is still typing. Used to suppress
   /// "X is thinking..." indicators so they don't appear above text that's
   /// still being revealed.
@@ -199,29 +198,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         for: UIApplication.didReceiveMemoryWarningNotification
       )
     ) { _ in
-      // Policy in MemoryWarningThrottle. See that file for rationale.
-      guard let viewModel, viewModel.isRunning, !viewModel.isCancelled else { return }
-      let decision = memoryThrottle.decide(
-        isActive: scenePhase == .active, isPaused: viewModel.isPaused, now: Date()
-      )
-      switch decision {
-      case .ignore: break
-      case .pauseAndLog:
-        viewModel.pauseSimulation(
-          reason: String(
-            localized: "Memory warning — simulation paused. Tap resume to continue.")
-        )
-      case .cancelDueToBackground:
-        viewModel.cancelSimulation(caller: "memoryWarning-bg")
-      case .cancelDueToEscalation:
-        viewModel.cancelSimulation(caller: "memoryWarning-escalated")
-      }
+      // Present-view entry to the single throttle on the session (the away-case
+      // entry is the in-flight indicator host). Policy in MemoryWarningThrottle.
+      dependencies.simulationSession.handleMemoryWarning(isAppActive: scenePhase == .active)
     }
     .onChange(of: viewModel?.isPaused ?? false) { _, isPaused in
       // After the user resumes, treat the previous pressure as resolved so a
       // delayed warning doesn't immediately escalate to cancel (closes the
       // "user just resumed and got cancelled" trap from critic Axis 2).
-      if !isPaused { memoryThrottle.reset() }
+      if !isPaused { dependencies.simulationSession.resetMemoryThrottle() }
     }
     // willResignActive fires earlier than scenePhase = .background, beating
     // the iOS Metal-deny window. Backstopped by handleScenePhaseBackground.

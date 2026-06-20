@@ -253,4 +253,55 @@ extension SimulationSessionTests {
     session.end()
     await viewModel.runTask?.value
   }
+
+  // MARK: - Memory safety
+
+  @Test func memoryWarningNoOpsWhenNoRunOwned() {
+    // The away-case host can fire after a run ended; the session must no-op
+    // rather than crash on a nil view model.
+    let session = SimulationSession()
+    session.handleMemoryWarning(isAppActive: true)
+    session.resetMemoryThrottle()
+    #expect(session.isLive == false)
+  }
+
+  @Test func memoryWarningPausesInFlightRun() async throws {
+    // First foreground warning pauses (lossy-but-safe `.paused`), not cancels —
+    // the single throttle's policy applied through the session.
+    let (viewModel, _) = try makeViewModel()
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    let session = SimulationSession()
+    _ = session.startGuarded(
+      source: .scenario(scenarioId: "test"),
+      scenario: scenario,
+      tab: .home,
+      makeViewModel: { viewModel },
+      body: { model in await model.run(scenario: scenario, llm: mock) })
+
+    while viewModel.suspendController == nil {
+      await Task.yield()
+    }
+    // Park the generate so the run holds in-flight (doesn't complete before the
+    // warning), mirroring `endCancelsInFlightRunAndPersistsPaused`.
+    session.requestPark(reason: .viewHide)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(viewModel.isRunning == true)
+    #expect(viewModel.isPaused == false)
+
+    session.handleMemoryWarning(isAppActive: true)
+    #expect(viewModel.isPaused == true, "first foreground warning pauses, not cancels")
+    #expect(viewModel.isCancelled == false)
+
+    session.end()
+    await viewModel.runTask?.value
+  }
 }
