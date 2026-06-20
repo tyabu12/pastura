@@ -130,16 +130,19 @@ struct RootTabView: View {
 
   // MARK: - Shared per-tab content
 
+  private var homeStack: some View {
+    TabNavigationStack(router: coordinator.homeRouter) { HomeView() }
+  }
+  // The iOS 26 search-field morph is co-driven: `role: .search` on the
+  // modern-branch tab + the `.searchable` placement inside
+  // `SharedScenariosListView` (`GallerySearchable`, iOS-26 default placement).
+  private var searchStack: some View {
+    TabNavigationStack(router: coordinator.searchRouter) { SharedScenariosListView() }
+  }
   // History tab root (ADR-016 D4): `.aggregate` selects the cross-variant
   // aggregation of all past results. `Route.results` survives only as the
   // per-scenario detail push (`.scenario`) from ScenarioDetailView;
   // ``ResultsView`` drops its back chrome for this aggregate root variant.
-  private var homeStack: some View {
-    TabNavigationStack(router: coordinator.homeRouter) { HomeView() }
-  }
-  private var searchStack: some View {
-    TabNavigationStack(router: coordinator.searchRouter) { SharedScenariosListView() }
-  }
   private var historyStack: some View {
     TabNavigationStack(router: coordinator.historyRouter) { ResultsView(scope: .aggregate) }
   }
