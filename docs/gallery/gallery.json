@@ -169,6 +169,20 @@
       "yaml_url": "hissatsu_naming_v1.yaml",
       "yaml_sha256": "2a96a740912f789d7446a9fff326dafab4d2fb1c867106e2b7b51c797e931342",
       "added_at": "2026-06-20"
+    },
+    {
+      "id": "tengoku_jigoku_v1",
+      "title": "天国か地獄か査定会議",
+      "category": "creative",
+      "description": "4人のあの世の判事が、どうでもいい些細な「罪」に対し、天国行きか地獄行きかを おおげさに査定する大喜利。choose フェーズで各自が天国/地獄を即決し、 不釣り合いに重々しい理由をつける。最後に一番面白い判決へ投票する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "tengoku_jigoku_v1.yaml",
+      "yaml_sha256": "bc4d0dd059035ba0d97f16333ab8bbc5a015296b8bfca6495ce90b875db1576d",
+      "added_at": "2026-06-20"
     }
   ]
 }
