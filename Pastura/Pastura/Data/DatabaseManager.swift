@@ -272,6 +272,35 @@ nonisolated public final class DatabaseManager: Sendable {
     }
 
     registerV7(&migrator)
+    registerV8(&migrator)
+  }
+
+  private static func registerV8(_ migrator: inout DatabaseMigrator) {
+    // Denormalize ADR-010 D1's mandatory YAML `language` field into a column
+    // so Home / Past Results cross-language variant grouping (D4/D6) collapses
+    // by `sourceId` + language without loading + parsing `yamlDefinition` for
+    // every row (the residual unbounded load from #586 / PR #674).
+    migrator.registerMigration("v8_addLanguageToScenarios") { db in
+      // Nullable TEXT (mirrors the v4 source columns). Existing rows are
+      // backfilled below; new rows carry the value from `ScenarioRecord`.
+      try db.alter(table: "scenarios") { t in
+        t.add(column: "language", .text)
+      }
+      // Backfill by scanning each stored YAML's top-level `language:` key.
+      // String scan (not Yams) keeps Data free of the Yams dependency; the
+      // `"ja"` fallback matches `ScenarioYAMLLanguage`'s Phase-1 convention.
+      // The install base is effectively zero (ADR-010 D11 reinstall policy),
+      // so in practice this runs over an empty table on fresh installs.
+      let rows = try Row.fetchAll(db, sql: "SELECT id, yamlDefinition FROM scenarios")
+      for row in rows {
+        let id: String = row["id"]
+        let yaml: String = row["yamlDefinition"]
+        let language = ScenarioLanguageScan.topLevelLanguage(in: yaml) ?? "ja"
+        try db.execute(
+          sql: "UPDATE scenarios SET language = ? WHERE id = ?",
+          arguments: [language, id])
+      }
+    }
   }
 
   private static func registerV7(_ migrator: inout DatabaseMigrator) {

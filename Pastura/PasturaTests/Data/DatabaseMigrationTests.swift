@@ -185,6 +185,58 @@ import Testing
     #expect(turnCount == 1)
   }
 
+  @Test func v8BackfillsLanguageColumnFromStoredYAML() throws {
+    let queue = try makeQueue()
+    let migrator = DatabaseManager.makeMigrator()
+
+    // Migrate up to v7 — mimics an on-device DB before the language column.
+    try migrator.migrate(queue, upTo: "v7_snapshotScenarioAndRelaxScenarioFK")
+
+    // Seed rows covering each backfill branch. Raw SQL: the struct now knows
+    // about the v8 `language` column the v7 schema lacks.
+    let now = Date()
+    let seeds: [(id: String, yaml: String)] = [
+      ("ja_row", "name: 人狼\nlanguage: ja"),
+      ("en_row", "name: Word Wolf\nlanguage: en"),
+      // Prefix-collision: simulation_language must NOT be read as language.
+      ("cross_row", "simulation_language: en\nlanguage: ja"),
+      // No top-level language → "ja" fallback.
+      ("legacy_row", "name: Legacy\nrounds: 1")
+    ]
+    try queue.write { db in
+      for seed in seeds {
+        try db.execute(
+          sql: """
+            INSERT INTO scenarios (id, name, yamlDefinition, isPreset, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+          arguments: [seed.id, seed.id, seed.yaml, false, now, now])
+      }
+    }
+
+    // Apply v8 — adds the column and backfills every row.
+    try migrator.migrate(queue)
+
+    let byId = try queue.read { db in
+      Dictionary(
+        uniqueKeysWithValues: try ScenarioRecord.fetchAll(db).map { ($0.id, $0.language) })
+    }
+    #expect(byId["ja_row"] == "ja")
+    #expect(byId["en_row"] == "en")
+    #expect(byId["cross_row"] == "ja")  // not "en" — prefix-collision skipped
+    #expect(byId["legacy_row"] == "ja")  // fallback
+
+    // New rows persist the column from the struct.
+    try queue.write { db in
+      var record = ScenarioRecord(
+        id: "new_en", name: "New", yamlDefinition: "language: en",
+        isPreset: false, createdAt: now, updatedAt: now, language: "en")
+      try record.insert(db)
+    }
+    let fetched = try queue.read { db in try ScenarioRecord.fetchOne(db, key: "new_en") }
+    #expect(fetched?.language == "en")
+  }
+
   @Test func allMigrationsApplyIdempotently() throws {
     // Applying the full migrator twice must not fail and must not duplicate work.
     let queue = try makeQueue()
