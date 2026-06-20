@@ -29,7 +29,12 @@ nonisolated public enum ScenarioLanguageScan {
       guard let colonIndex = line.firstIndex(of: ":") else { continue }
       // Exact-key match: rejects `simulation_language:` and `languages:`.
       guard line[line.startIndex..<colonIndex] == "language" else { continue }
-      let value = line[line.index(after: colonIndex)...]
+      let rawValue = line[line.index(after: colonIndex)...]
+      // Drop a trailing YAML inline comment (a `#` preceded by whitespace) so
+      // `language: en  # note` yields `en`, not `en  # note`.
+      let withoutComment = rawValue.range(of: " #").map { rawValue[..<$0.lowerBound] } ?? rawValue
+      let value =
+        withoutComment
         .trimmingCharacters(in: .whitespaces)
         .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
       return value.isEmpty ? nil : value

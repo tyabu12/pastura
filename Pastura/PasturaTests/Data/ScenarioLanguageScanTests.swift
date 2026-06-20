@@ -61,4 +61,12 @@ import Testing
   @Test func returnsNilWhenAbsent() {
     #expect(ScenarioLanguageScan.topLevelLanguage(in: "name: Test\nrounds: 1") == nil)
   }
+
+  @Test func dropsTrailingInlineComment() {
+    #expect(ScenarioLanguageScan.topLevelLanguage(in: "language: en  # primary") == "en")
+  }
+
+  @Test func trimsTrailingWhitespaceInValue() {
+    #expect(ScenarioLanguageScan.topLevelLanguage(in: "language: en   ") == "en")
+  }
 }
