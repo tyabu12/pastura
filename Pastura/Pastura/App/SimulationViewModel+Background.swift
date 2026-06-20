@@ -101,7 +101,7 @@ extension SimulationViewModel {
       "scenePhase=.background: isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), bgEnabled=\(self.isBackgroundContinuationEnabled)"
     )
     guard isRunning else { return }
-    suspendController?.requestSuspend()
+    routePark(reason: .appBackground)
   }
 
   /// Called by `SimulationView` on `UIApplication.willResignActiveNotification`,
@@ -116,7 +116,7 @@ extension SimulationViewModel {
   func handleWillResignActive() {
     lifecycleLogger.info("willResignActive: isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU)")
     guard isRunning else { return }
-    suspendController?.requestSuspend()
+    routePark(reason: .appBackground)
   }
 
   /// Called by `SimulationView` when `scenePhase` becomes `.active`.
@@ -151,7 +151,10 @@ extension SimulationViewModel {
     // Order: resume() BEFORE completeTask(). Between these two sync calls
     // there is no MainActor interleaving; the ordering matters semantically
     // so the generate is already unparked by the time we release the BG task.
-    suspendController?.resume()
+    // Phase B: routed through the gate so this clears the `.appBackground` park
+    // reason — if a `.viewHide` park still holds (an away run), the run stays
+    // parked rather than resuming off-screen.
+    routeUnpark(reason: .appBackground)
 
     backgroundManager?.completeTask(success: true)
 
@@ -197,9 +200,19 @@ extension SimulationViewModel {
       backgroundManager?.completeTask(success: true)
       return
     }
+    // Phase B precedence (ADR-017 Variant 3): a run parked because the user left
+    // the screen must NOT switch to CPU and run off-screen — the opt-in keeps it
+    // parked in memory, not burning CPU invisibly. Release the BG task and stay
+    // parked; the FG return / view re-adopt resumes it via the gate.
+    if session?.isParkedForViewHide == true {
+      lifecycleLogger.info(
+        "BG task activation: parked for view-hide — staying parked, no CPU switch")
+      backgroundManager?.completeTask(success: true)
+      return
+    }
     await switchToCPUInference()
-    lifecycleLogger.info("BG task activation: switchToCPU returned, calling resume()")
-    suspendController?.resume()
+    lifecycleLogger.info("BG task activation: switchToCPU returned, resuming")
+    routeUnpark(reason: .appBackground)
   }
 
   /// Called when the system expires the BG continuation task (time/resource
