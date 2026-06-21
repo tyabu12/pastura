@@ -203,6 +203,19 @@ struct MockLLMServiceTests {
     #expect(result == "done")
   }
 
+  @Test func armedButUnloadedStillThrowsNotLoadedAfterUnblock() async throws {
+    // The block parks BEFORE the isModelLoaded check — releasing it must not
+    // swallow the .notLoaded throw. Locks the ordering the production comment
+    // on blockGenerateUntilSignal() relies on (never loaded here on purpose).
+    let service = MockLLMService(responses: ["done"])
+    service.blockGenerateUntilSignal()
+    service.unblockGenerate()
+
+    await #expect(throws: LLMError.notLoaded) {
+      try await service.generate(system: "s", user: "u")
+    }
+  }
+
   // MARK: - generateWithMetrics default dispatch
 
   /// Mock doesn't override `generateWithMetrics`, so the protocol-extension
