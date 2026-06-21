@@ -153,13 +153,32 @@ entry:
    through the blocklist gate (that gate is Presets-only). Apply the
    *Content guidelines* above yourself.
 
-Then continue with step 2 (`add-gallery-entry.sh`) below — step 1's
-drafting is already done.
+Steps 1–3 are automated by `scripts/promote-factory-to-gallery.sh`,
+which copies + rewrites the YAML, extracts `estimated_inferences` from
+the run log, defaults `category` / `recommended_model`, then delegates
+registration to `add-gallery-entry.sh`:
 
-> **Automation trigger:** if you have hand-run this bridge ≥3 times, or
-> the factory becomes a scheduled Routine, graduate steps 1–3 to
-> `scripts/promote-factory-to-gallery.sh` (curation stays manual — the
-> script takes an explicit slug). Tracked in #542.
+```sh
+bash scripts/promote-factory-to-gallery.sh <factory-id> \
+  --description "<short card-friendly summary>"
+```
+
+`<factory-id>` is the YAML's `id:` (e.g. `factory_20260618_uso_kigen`);
+the script derives the scenario / run-log paths and the default
+`<slug>_v1` gallery id from it. Pass `--description` to write a clean
+card summary — without it the factory YAML's description (which carries
+curation meta-notes) is used verbatim and only a warning is printed (it
+becomes a hard error under `--non-interactive`). Preview the derived
+values first with `--dry-run`; `--help` lists every flag — notably
+`--category` (default `creative`), `--recommended-model` (default
+`gemma-4-e2b-q4-k-m`), `--id` (for a `_v2` re-promotion), and
+`--scenario` / `--run-log` (to promote a
+non-factory source YAML, e.g. an improved variant). **Step 4 (curation)
+is still yours** — the script promotes the id you name and never picks
+by score.
+
+Then verify the scenario end-to-end (§3 below) and open a PR (§4) — the
+script has already done §1's drafting and §2's registration.
 
 ### 1. Draft the YAML
 
