@@ -309,8 +309,9 @@ jobs:
           # ui-tour.sh), not a gate — skipped here so it never burns CI
           # minutes or inherits UI-test infra flakes.
           # -test-timeouts-enabled + -default-test-execution-time-allowance cap
-          # each test ITERATION at 180s. After the #728 animation fix the heavy
-          # tests pass in <=126s on CI, so 180s clears them while killing a
+          # each test ITERATION at 250s. After the #728 animation fix the
+          # flake-prone heavy tests pass in <=149s on CI (observed across runs,
+          # high variance), so 250s clears them with margin while killing a
           # first-clone infra-flake stall (which otherwise crawls to ~350-380s)
           # early enough for the fast retry to keep the job under its 25-min
           # budget. InFlightIndicatorReconnectUITests is slow by design (~225s)
@@ -324,7 +325,7 @@ jobs:
             -retry-tests-on-failure \
             -test-iterations 2 \
             -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 180 \
+            -default-test-execution-time-allowance 250 \
             -resultBundlePath UITestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-ui.log || true
           TEST_EXIT=${PIPESTATUS[0]}
