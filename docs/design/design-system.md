@@ -238,6 +238,8 @@ Pastura 唯一のブランド色。用途別に4段階。
 | iPhone 本体内側 | 31pt（デバイス追従） |
 | 発言バブル | **上左 4pt, 他 14pt**（しっぽ付き） |
 | プロモカード | 14pt |
+| Browse カード（`.insetGrouped`、詳細画面） | 14pt（continuous、§5.9） |
+| 一覧セクション（`.grouped`、一覧画面） | なし（全幅バンド、§5.9 / #731） |
 | ボタン（投票） | 8pt |
 | ドット | 50%（円） |
 
@@ -395,14 +397,14 @@ ToolbarItem(placement: .primaryAction) {
 | 仕様項目 | 値 |
 |---------|-----|
 | 背景 | `bubbleBackground`（#FFFFFF） |
-| 罫線 | `rule`（#E0DBCE）1px 全周（`strokeBorder`） |
-| 角丸 | 14pt（continuous） |
+| 罫線 | `rule`（#E0DBCE）0.5pt ヘアライン。`.insetGrouped` は全周（`strokeBorder`）、`.grouped` は上下のみ |
+| 角丸 | `.insetGrouped` 14pt（continuous） / `.grouped` なし（全幅バンド） |
 | シャドウ | **なし**（§1「観察＝持ち上げない」。§4.3 の苔シャドウは Sim 画面で単一要素が浮く用途に限定） |
 | 地（field） | `screenBackground`（#FCFAF4） |
 
-`PasturaCardMetrics` がレイアウト定数（角丸 14 / 罫線 1 / 外側水平マージン 16 / カード間 18）を一元管理する。全ブラウズ画面が `ScrollView` + `PasturaCard` の単一ホストを共有し、複数行グループは1枚のカード内を `PasturaRowDivider`（`rule` 罫線）で仕切る（iOS inset-grouped の構造を踏襲）。カードに「タップで push する行」を置く場合は `NavigationLink { 行 + 末尾 chevron } .buttonStyle(.plain)`（汎用行は `PasturaRowLabel` ＝ moss アイコン＋ink タイトル＋chevron＋全幅タップを利用）。
+`PasturaCardMetrics` がレイアウト定数（角丸 14 / ヘアライン 0.5 / チップ罫線 1 / 外側水平マージン 16 / カード間 18）を一元管理する。カード形式は `PasturaSectionStyle` で2種を選ぶ（命名は `UITableView.Style` / `ListStyle` に倣う）— `.insetGrouped`（角丸インセット枠・全周罫線、詳細画面の既定）と `.grouped`（左右マージン・角丸・側面罫線なしの全幅バンド＋上下ヘアライン、一覧画面）。全幅化のゼロ上書き（マージン / 角丸）は style 側に持たせ、`PasturaCardMetrics` の共有定数は正のまま保つ。複数行グループは1枚のカード内を `PasturaRowDivider`（`rule` ヘアライン、`.grouped` ではテキスト位置へ `leadingInset` で字下げ）で仕切る（iOS inset-grouped の構造を踏襲）。カードに「タップで push する行」を置く場合は `NavigationLink { 行 + 末尾 chevron } .buttonStyle(.plain)`（汎用行は `PasturaRowLabel` ＝ moss アイコン＋ink タイトル＋chevron＋全幅タップを利用）。
 
-**ホスト選択**: ブラウズ系（Home / Shared Scenarios / Past Results / Settings）は**すべて** `ScrollView` + `PasturaCard` + `PasturaRowDivider` で統一する（#684）。Home も例外ではなく、シナリオ一覧は他画面と同一の `PasturaCard` グループカードで描く — `List` 上で同じ見た目を再現しようとすると角の描画や行間ヘアラインで破綻するため、機構ごと共通化した。
+**ホスト選択**: ブラウズ系は**すべて** `ScrollView` + `PasturaCard` + `PasturaRowDivider` で統一する（#684）。一覧画面（Home / Shared Scenarios / Past Results / Settings）は `.grouped`（全幅バンド、#731）、詳細画面（ScenarioDetail / GalleryScenarioDetail）は `.insetGrouped`（角丸インセット）を使う — 「行のリスト＝全幅 / 内容のまとまり＝角丸」の線引き。一覧側で `.grouped` を採るのは、地のクリーム（#FCFAF4）と白カードの明度差が約2%しかなく、浮いた角丸枠が「箱が並ぶ」印象を与えていたため（#731）。Home も例外ではなく、シナリオ一覧は他画面と同一の `PasturaCard` グループカードで描く — `List` 上で同じ見た目を再現しようとすると角の描画や行間ヘアラインで破綻するため、機構ごと共通化した。一覧の見出し（セクションタイトル）と SharedScenarios のオフラインバナー / カテゴリチップは `.grouped` でも独立して画面端インセットを保つ（全幅化しない）。
 
 - **Home のシナリオ削除** は `List` の `.onDelete` スワイプではなく**長押しコンテキストメニュー**（`.contextMenu` の destructive「削除」）＋ VoiceOver 用 `.accessibilityAction(named:)` で提供する。`List` を捨てたことでスワイプ削除は使えないが、Apple が List 外削除の代替として案内する方式（`swiftui-traps.md` 参照）。プリセット行は非削除なので contextMenu を付けない。
 - **Editor（`.onMove`）** だけは並べ替えのため `Form` を維持し per-row 挙動を保つ。ドラッグ並べ替えを持つ画面が唯一の `List`/`Form` ホスト例外。
@@ -500,7 +502,7 @@ raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は�
 
 - [ ] 背景は必ず `--screen-bg`（#FCFAF4）から始める。ブラウズ系（一覧・詳細・設定）では `screenBackground` を地（field）として敷き、その上にカードを置く（§5.9）。全面コンテンツ画面（Sim / DL）は `screenBackground` をそのまま本体背景に使う
 - [ ] アクセント色は `--moss` の1色のみ。2色目が欲しくなったら「構成を減らす」方を検討
-- [ ] **カード形式は2種を使い分ける**：チャット/プロモのバブルは**角丸 14pt + 白背景 + 左ボーダー3pt moss + 苔シャドウ**（§5.2 / §5.4）。ブラウズ系のカードは**角丸 14pt + 白背景 + 1px `rule` 全周罫線・影なし**（`PasturaCard`、§5.9）。後者は「観察＝持ち上げない」voice に沿って影でなく罫線で面を定義する
+- [ ] **カード形式は2種を使い分ける**：チャット/プロモのバブルは**角丸 14pt + 白背景 + 左ボーダー3pt moss + 苔シャドウ**（§5.2 / §5.4）。ブラウズ系のカードは**白背景 + `rule` 0.5pt ヘアライン・影なし**（`PasturaCard`、§5.9）で、`PasturaSectionStyle` により一覧は `.grouped`（全幅・角丸なし・上下罫線のみ）、詳細は `.insetGrouped`（角丸14pt・全周罫線）を使い分ける。ブラウズ系は「観察＝持ち上げない」voice に沿って影でなく罫線で面を定義する
 - [ ] モノスペースはメタ情報・ラベル・数値のみ。本文には使わない
 - [ ] アニメーションは 600ms 以上、ease-out を基準に
 - [ ] 犬マーク（コリー）は「アシスタント」の記号、羊はユーザー側エージェントの記号として使い分ける
