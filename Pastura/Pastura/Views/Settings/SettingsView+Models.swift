@@ -18,10 +18,12 @@ import SwiftUI
     var modelsSection: some View {
       VStack(alignment: .leading, spacing: 7) {
         let catalog = modelManager.catalog
-        PasturaSection(String(localized: "Models")) {
+        PasturaSection(String(localized: "Models"), style: .grouped) {
           VStack(spacing: 0) {
             ForEach(Array(catalog.enumerated()), id: \.element.id) { index, descriptor in
-              if index > 0 { PasturaRowDivider() }
+              if index > 0 {
+                PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
+              }
               ModelSettingsRow(
                 descriptor: descriptor,
                 state: modelManager.state[descriptor.id] ?? .checking,
@@ -62,7 +64,7 @@ import SwiftUI
     @ViewBuilder
     private var orphanedFilesRows: some View {
       ForEach(Array(orphanedFiles.enumerated()), id: \.element.id) { _, file in
-        PasturaRowDivider()
+        PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
         OrphanedModelFileRow(
           file: file,
           onRequestDelete: { pendingOrphanDelete = file }
