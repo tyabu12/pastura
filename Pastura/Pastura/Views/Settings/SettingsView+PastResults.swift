@@ -30,7 +30,7 @@ extension SettingsView {
   @ViewBuilder
   var pastResultsSection: some View {
     VStack(alignment: .leading, spacing: 7) {
-      PasturaSection(String(localized: "Past Results")) {
+      PasturaSection(String(localized: "Past Results"), style: .grouped) {
         Button {
           isShowingClearAllConfirm = true
         } label: {

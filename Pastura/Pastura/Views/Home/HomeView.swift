@@ -181,7 +181,9 @@ struct HomeView: View {
       .accessibilityIdentifier("home.newScenarioButton")
       .accessibilityLabel(String(localized: "New Scenario"))
     }
-    .padding(.horizontal, 6)
+    // .grouped sections sit edge-to-edge, so the header carries the screen-edge
+    // inset itself (the section no longer pads horizontally).
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
   }
 
   @ViewBuilder
@@ -212,10 +214,9 @@ struct HomeView: View {
       Text(String(localized: "Interrupted Scenario"))
         .font(.subheadline)
         .foregroundStyle(Color.muted)
-        .padding(.leading, 6)
+        .padding(.leading, PasturaCardMetrics.horizontalMargin)
       HomePausedCard(summary: summary)
     }
-    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
   }
 
   /// The unified scenario card — user scenarios first (deletable via long-press
@@ -227,16 +228,17 @@ struct HomeView: View {
     let rows = viewModel.userScenarios + viewModel.presets
     VStack(alignment: .leading, spacing: 7) {
       scenariosSectionHeader()
-      PasturaCard {
+      PasturaCard(style: .grouped) {
         VStack(spacing: 0) {
           ForEach(Array(rows.enumerated()), id: \.element.id) { index, scenario in
-            if index > 0 { PasturaRowDivider() }
+            if index > 0 {
+              PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
+            }
             scenarioRow(scenario, viewModel: viewModel)
           }
         }
       }
     }
-    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
   }
 
   /// One scenario row inside the grouped card. User scenarios (non-preset)
