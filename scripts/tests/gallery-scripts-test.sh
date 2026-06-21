@@ -136,6 +136,7 @@ runc "$R" jq -r '.scenarios[0] | "\(.id) \(.estimated_inferences) \(.agent_count
 expect_out "demo_v1 42 4 2 Test demo" "P2 entry has derived id/ei + YAML-sourced agent_count/rounds/title"
 
 # P9 — re-promote without --force refuses to overwrite the curated YAML.
+# Reuses P2's repo (already has demo_v1.yaml); no new_repo between them.
 runc "$R" bash scripts/promote-factory-to-gallery.sh factory_20260101_demo \
   --non-interactive --description x --author tester
 expect_fail "P9 re-promote without --force fails"
