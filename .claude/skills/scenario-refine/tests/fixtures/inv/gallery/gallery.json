@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "scenarios": [
+    {"id": "asch_conformity_v1", "title": "Asch Conformity", "category": "social_psychology", "yaml_url": "asch_conformity_v1.yaml"},
+    {"id": "trolley_dilemma_v1", "title": "Trolley Dilemma", "category": "ethics", "yaml_url": "trolley_dilemma_v1.yaml"},
+    {"id": "weird_experimental_v1", "title": "Weird Experimental", "category": "experimental", "yaml_url": "weird_experimental_v1.yaml"}
+  ]
+}
