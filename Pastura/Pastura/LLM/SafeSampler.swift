@@ -40,6 +40,21 @@ nonisolated enum SafeSampler {
     Outcome(raw: pastura_llama_sampler_sample_safe(sampler, context, idx))
   }
 
+  /// Calls `llama_sampler_accept` through the C++ exception-catching bridge.
+  ///
+  /// `LlamaCppService` drives sampling as a split apply + accept so it can
+  /// skip this accept for EOG tokens — accepting an EOG token advances the
+  /// grammar into the never-used post-EOG state that fires the #253
+  /// `GGML_ABORT`. For every non-EOG token the accept runs exactly as the
+  /// bundled ``sample(sampler:context:idx:)`` path would, so the sampling
+  /// distribution is unchanged. The catch covers the grammar `accept_token`
+  /// throw (#334) — see `LLM/SafeSampler/SafeSampler.h`.
+  static func accept(
+    sampler: UnsafeMutablePointer<llama_sampler>, token: Int32
+  ) -> Outcome {
+    Outcome(raw: pastura_llama_sampler_accept_safe(sampler, token))
+  }
+
   /// Result of a wrapped sample call.
   nonisolated struct Outcome: Equatable, Sendable {
     /// Sampled token id. Meaningful only when ``errorMessage`` is `nil`.
