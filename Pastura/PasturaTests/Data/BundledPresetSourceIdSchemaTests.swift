@@ -8,7 +8,7 @@ import Testing
 /// aliasing. Step D's `PresetLoader` writes the canonical `sourceId`
 /// on every bundled preset insert (Step D-3, #388 item 3); this suite
 /// asserts the resulting data shape — both JA and EN siblings share
-/// the canonical sourceId, and `fetchAll().filter` aggregates them
+/// the canonical sourceId, and `fetchAllSummaries().filter` aggregates them
 /// reachable by that single key.
 ///
 /// **Scope is deliberately schema-only.** The Past Results UI
@@ -68,11 +68,11 @@ struct BundledPresetSourceIdSchemaTests {
     #expect(try repo.fetchById("word_wolf_en")?.sourceId == "word_wolf")
 
     // Schema-level cross-language aggregation by canonical sourceId.
-    // `fetchAll().filter` is the lowest-common-denominator query
+    // `fetchAllSummaries().filter` is the lowest-common-denominator query
     // shape — the data layer reaches both rows by sourceId regardless
     // of how a future consumer surfaces the aggregation (sourceId-
     // only fetch method, ScenarioSourceType.preset case, etc.).
-    let aggregated = try repo.fetchAll().filter { $0.sourceId == "word_wolf" }
+    let aggregated = try repo.fetchAllSummaries().filter { $0.sourceId == "word_wolf" }
     #expect(aggregated.count == 2)
     let ids = Set(aggregated.map(\.id))
     #expect(ids == ["word_wolf", "word_wolf_en"])

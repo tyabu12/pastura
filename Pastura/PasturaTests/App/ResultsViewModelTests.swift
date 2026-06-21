@@ -295,12 +295,12 @@ struct ResultsViewModelTests {
 
   // MARK: - Filter index reuse (#678)
 
-  /// Regression for #678: the scenario index (`scenarioRepository.fetchAll()`)
-  /// must NOT be rebuilt on every filter keystroke. The scenario set is
-  /// invariant while the user types, so the filter path reuses the already-built
-  /// index.
+  /// Regression for #678: the scenario index
+  /// (`scenarioRepository.fetchAllSummaries()`) must NOT be rebuilt on every
+  /// filter keystroke. The scenario set is invariant while the user types, so
+  /// the filter path reuses the already-built index.
   ///
-  /// `CountingScenarioRepository` pins it via `fetchAll()` count: with the fix
+  /// `CountingScenarioRepository` pins it via `fetchAllSummaries()` count: with the fix
   /// the count stays at 1 (the initial load's build); reverting the fix
   /// (re-fetch per keystroke) would raise it to 5 (1 load + 3 distinct filters
   /// + 1 clear). The distinct, non-empty queries matter — a repeated query

@@ -45,16 +45,6 @@ import Testing
     #expect(fetched == nil)
   }
 
-  @Test func fetchAllReturnsAllRecords() throws {
-    let repo = try makeRepo()
-    for i in 1...3 {
-      try repo.save(makeRecord(id: "s\(i)", name: "Scenario \(i)"))
-    }
-
-    let all = try repo.fetchAll()
-    #expect(all.count == 3)
-  }
-
   @Test func fetchPresetsReturnsOnlyPresets() throws {
     let repo = try makeRepo()
     try repo.save(makeRecord(id: "p1", name: "Preset 1", isPreset: true))
@@ -92,7 +82,7 @@ import Testing
     let fetched = try repo.fetchById("s1")
     #expect(fetched?.name == "Updated")
 
-    let all = try repo.fetchAll()
+    let all = try repo.fetchAllSummaries()
     #expect(all.count == 1)
   }
 

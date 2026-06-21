@@ -32,16 +32,13 @@ nonisolated public protocol ScenarioRepository: Sendable {
   /// update detection.
   func fetchBySourceType(_ type: String) throws -> [ScenarioRecord]
 
-  /// Fetches all scenarios.
-  func fetchAll() throws -> [ScenarioRecord]
-
   /// Fetches lightweight summaries of all scenarios, excluding the heavy
   /// `yamlDefinition` column.
   ///
   /// The grouping/listing surfaces (Home, Past Results) only need
   /// `id` / `name` / `isPreset` / `sourceId` / `language` to collapse
   /// cross-language variants and render row labels — see ``ScenarioSummary``.
-  /// Ordered newest-first (`createdAt DESC`) to match ``fetchAll()``.
+  /// Ordered newest-first (`createdAt DESC`).
   func fetchAllSummaries() throws -> [ScenarioSummary]
 
   /// Fetches full records for the given ids. Order-independent; absent ids are
@@ -109,12 +106,6 @@ nonisolated public final class GRDBScenarioRepository: ScenarioRepository, Senda
       try ScenarioRecord
         .filter(Column("sourceType") == type)
         .fetchAll(db)
-    }
-  }
-
-  public func fetchAll() throws -> [ScenarioRecord] {
-    try dbWriter.read { db in
-      try ScenarioRecord.order(Column("createdAt").desc).fetchAll(db)
     }
   }
 
