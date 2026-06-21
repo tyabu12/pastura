@@ -22,6 +22,9 @@ struct InFlightSimulationIndicator: View {
   @Environment(AppDependencies.self) private var dependencies
   @Environment(TabCoordinator.self) private var tabCoordinator
   @Environment(\.scenePhase) private var scenePhase
+  // Suppress the repeating waveform under the XCUITest harness — a continuous
+  // symbol effect never lets XCUITest reach "idle" (#728).
+  @Environment(\.isUITestMode) private var isUITestMode
 
   /// Pure visibility predicate — mirrors `SimulationView.shouldGuardLeave`'s
   /// extract-for-testing shape. Show only when a run is active and not already
@@ -62,7 +65,7 @@ struct InFlightSimulationIndicator: View {
     Button(action: returnToRun) {
       HStack(spacing: 8) {
         Image(systemName: "waveform")
-          .symbolEffect(.variableColor.iterative, options: .repeating)
+          .symbolEffect(.variableColor.iterative, options: .repeating, isActive: !isUITestMode)
           .accessibilityHidden(true)
         Text(label)
           .textStyle(Typography.metaValue)

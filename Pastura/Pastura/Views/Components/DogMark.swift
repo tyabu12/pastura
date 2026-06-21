@@ -133,13 +133,16 @@ public struct DogMark: View {
 private struct PulsingModifier: ViewModifier {
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  // Treat the XCUITest harness like Reduce Motion: a `repeatForever` pulse is a
+  // continuous animation that never lets XCUITest reach "idle" (#728).
+  @Environment(\.isUITestMode) private var isUITestMode
   @State private var pulsing = false
 
   func body(content: Content) -> some View {
     content
       .scaleEffect(pulsing ? 1.06 : 1.0)
       .onAppear {
-        guard !reduceMotion else { return }
+        guard !reduceMotion, !isUITestMode else { return }
         withAnimation(
           // 2.4 s ease-in-out that repeats and auto-reverses (1.0 ↔ 1.06 loop).
           .easeInOut(duration: 2.4).repeatForever(autoreverses: true)

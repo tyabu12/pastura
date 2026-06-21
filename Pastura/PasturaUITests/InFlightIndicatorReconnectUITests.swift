@@ -31,6 +31,13 @@ import XCTest
 final class InFlightIndicatorReconnectUITests: XCTestCase {
   override func setUpWithError() throws {
     continueAfterFailure = false
+    // Opt out of the ci.yml per-test execution-time cap (#728): this test is
+    // slow by design — it holds the run in-flight via --ui-test-slow-llm and
+    // exercises the park/return flow, taking ~125-225s on CI. That legit range
+    // overlaps the infra-flake stall the cap targets, so it gets a generous
+    // dedicated allowance instead of the tighter default. No-op locally where
+    // -test-timeouts-enabled is not passed.
+    executionTimeAllowance = 600
   }
 
   override func tearDownWithError() throws {

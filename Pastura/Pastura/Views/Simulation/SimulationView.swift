@@ -80,7 +80,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           description: Text(loadError)
         )
       } else {
-        ProgressView(String(localized: "Loading scenario..."))
+        IdleFriendlyProgressView(String(localized: "Loading scenario..."))
       }
     }
     // "Fill the bar" pattern (#312, ADR-008 §Amendment 2026-05-10).
@@ -441,7 +441,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             if !latestRowIsAnimating {
               ForEach(Array(viewModel.thinkingAgents), id: \.self) { agent in
                 HStack(spacing: 8) {
-                  ProgressView()
+                  IdleFriendlyProgressView()
                     .scaleEffect(0.7)
                   Text(String(format: String(localized: "%@ is thinking..."), agent))
                     .textStyle(Typography.thinkingBody)
@@ -590,7 +590,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     ZStack {
       Color.ink.opacity(0.4).ignoresSafeArea()
       VStack(spacing: 12) {
-        ProgressView()
+        IdleFriendlyProgressView()
           .scaleEffect(1.2)
         Text(String(localized: "Reloading model..."))
           .textStyle(Typography.titlePhase)
@@ -782,7 +782,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         Task { await triggerExport(viewModel: viewModel) }
       } label: {
         if isExporting {
-          ProgressView().frame(minWidth: Self.controlSlotMinWidth)
+          IdleFriendlyProgressView().frame(minWidth: Self.controlSlotMinWidth)
         } else {
           Label(String(localized: "Export"), systemImage: "square.and.arrow.up")
             .font(.title3)
