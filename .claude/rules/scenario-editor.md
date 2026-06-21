@@ -23,21 +23,35 @@ save, export, preview, share — MUST route through `currentScenario()`.
 Reading `buildScenario()` or `serializer.serialize(...)` directly bypasses
 the mode dispatch and silently re-introduces the #336 drift class.
 
-## PR review grep
+## Automated gate
+
+`scripts/scenario-editor-funnel-gate.sh` counts `buildScenario()`
+occurrences across `Pastura/Pastura/App/ScenarioEditorViewModel*.swift` and
+fails when the count `!= 3` (1 private declaration + 2 sanctioned callsites
+in `switchToYAMLMode()` and `currentScenario()`). It runs in the git
+pre-commit hook (self-gates on the VM glob) and the CI
+`scenario-editor-funnel-drift` job. Manual check:
 
 ```
-rg 'buildScenario\(\)' Pastura/Pastura/App/ScenarioEditorViewModel.swift
+grep -coF 'buildScenario()' Pastura/Pastura/App/ScenarioEditorViewModel.swift
 ```
 
-Should return **exactly 3 hits** (callsites from `switchToYAMLMode()` and
-`currentScenario()`, plus the `private func buildScenario()` declaration).
-Hit-count assertion — line numbers drift on any insertion. **>3** means a
-new consumer is reading visual state directly: either route through
-`currentScenario()`, or treat it as a named re-evaluation trigger for #338
-(the source-of-truth shift was deliberately deferred). **<3** means a
-sanctioned callsite was dropped — same re-evaluation gate applies.
+The count is a **re-evaluation trigger, not a correctness proof**:
+
+- **> 3** — a new consumer reads visual state directly. Route it through
+  `currentScenario()`, or treat it as the trigger to revisit the editor
+  source-of-truth design (see #725).
+- **< 3** — a sanctioned callsite was dropped; same re-evaluation gate.
+- **A count of 3 with a NEW direct visual-state read** still violates the
+  funnel. The Swift behavioral tripwire (`visualModeSavePreservesExtraData`
+  in `ScenarioEditorViewModelTests`) is the backstop.
+
+If the VM is ever split into `ScenarioEditorViewModel+*.swift`, revisit the
+expected count in the gate.
 
 ## Related
 
 - PR #336 — drift bug fixed via the funnel
-- Issue #338 — deferred source-of-truth refactor; this rule is the safety net
+- Issue #338 — closed; its manual grep is now this automated gate
+- Issue #725 — deferred source-of-truth redesign (supersedes #338); this
+  gate is the safety net until then
