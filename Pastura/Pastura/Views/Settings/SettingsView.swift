@@ -39,6 +39,12 @@ import os
 struct SettingsView: View {
   @Environment(\.openURL) private var openURL
 
+  /// Opt-in: keep a simulation running (parked in memory) when leaving its
+  /// screen, skipping the leave dialog (ADR-017 Phase B, #682). Mirrors the
+  /// `FeatureFlags` value at init and persists every flip via its setter, so the
+  /// flag stays the single source of truth.
+  @State private var keepRunningOnLeave = FeatureFlags.keepRunningOnLeaveEnabled
+
   /// Bound to `.reportSheet(isPresented:context:)` for the "Send a
   /// content report" row inside the Legal section. The sheet reuses
   /// `ReportSheet` with `context: .general` (Settings has no
@@ -110,6 +116,7 @@ struct SettingsView: View {
         #if !targetEnvironment(simulator)
           modelsSection
         #endif
+        simulationSection
         // Theme D — tappable-row language split by destination:
         // Privacy Policy is the lone external link (opens Safari), so it
         // keeps the green `Color.link` dialect + the external-link arrow
@@ -168,6 +175,9 @@ struct SettingsView: View {
     // async context for the off-main read; it re-fires when the view is
     // recreated, and `clearAllResults()` re-loads explicitly after a purge.
     .task { await loadStorageUsage() }
+    .onChange(of: keepRunningOnLeave) { _, newValue in
+      FeatureFlags.setKeepRunningOnLeave(newValue)
+    }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
     .reportSheet(isPresented: $isReportSheetPresented, context: .general)
@@ -285,5 +295,31 @@ struct SettingsView: View {
         pendingCoverDescriptor = nil
       }
     #endif
+  }
+
+  /// Opt-in toggle to keep a run alive (parked in memory) when leaving its
+  /// screen instead of pausing it (ADR-017 Phase B, #682). Label-closure form
+  /// per the i18n convenience-init convention (`.claude/rules/i18n.md`).
+  private var simulationSection: some View {
+    PasturaSection(String(localized: "Simulation")) {
+      Toggle(isOn: $keepRunningOnLeave) {
+        VStack(alignment: .leading, spacing: 3) {
+          Text(String(localized: "Keep running when I leave"))
+            .foregroundStyle(Color.ink)
+          Text(
+            String(
+              localized:
+                "Leave the simulation screen without pausing — the run keeps going in memory and resumes when you return."
+            )
+          )
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+        }
+      }
+      .tint(Color.link)
+      .padding(.horizontal, 17)
+      .padding(.vertical, 13)
+      .accessibilityIdentifier("settings.keepRunningOnLeaveToggle")
+    }
   }
 }

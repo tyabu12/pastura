@@ -35,9 +35,23 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // the TabCoordinator defer path it used to need — is impossible; only the back
   // path remains.
   @Environment(AppRouter.self) private var router
+  // Read to record the host tab on the app-level session at run-start, so the
+  // Phase B in-flight indicator can re-select it and re-push the sim route when
+  // returning to a parked-away run (ADR-017). Focus mode pins the run to whatever
+  // tab is selected at start, so `selectedTab` here *is* the host tab.
+  @Environment(TabCoordinator.self) private var tabCoordinator
   @State private var viewModel: SimulationViewModel?
   /// `true` while the back-button confirm-on-leave dialog is showing (#673).
   @State private var pendingBackLeave = false
+  /// Set by an explicit leave (`confirmLeave` / `confirmLeaveKeepRunning`) so the
+  /// trailing `onDisappear` from that path's own `router.pop()` does not
+  /// re-handle the run (critic Axis 6 — would otherwise double-terminate a kept
+  /// or paused run). Consumed + reset in `onDisappear`. Phase B (ADR-017).
+  @State private var leaveHandled = false
+  /// `true` when a *different* run already owns the session (a second-run
+  /// attempt) — the view shows a "return to the running simulation" state
+  /// instead of starting a competing run (Phase B, ADR-017 #682).
+  @State private var alreadyRunning = false
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
@@ -45,7 +59,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
   @State private var isExporting = false
-  @State private var memoryThrottle = MemoryWarningThrottle()
   /// Whether the latest agent-output row is still typing. Used to suppress
   /// "X is thinking..." indicators so they don't appear above text that's
   /// still being revealed.
@@ -58,6 +71,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     Group {
       if let viewModel, scenario != nil {
         simulationContent(viewModel: viewModel)
+      } else if alreadyRunning {
+        alreadyRunningView
       } else if let loadError {
         ContentUnavailableView(
           String(localized: "Error"),
@@ -112,12 +127,25 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .toolbar(.hidden, for: .tabBar)
     .task {
       // Phase B (ADR-017): reconnect to a run the app-level session still owns
-      // instead of starting a fresh one. PR1 always falls through — the run is
-      // ended on `onDisappear` (below), so nothing survives to adopt; PR2's
-      // keep-running path is what makes adoption live.
-      if let adopted = dependencies.simulationSession.adoptIfMatching(source: source) {
+      // instead of starting a fresh one. Under "keep running" the run survives
+      // `onDisappear` (parked in memory), so a returning view re-projects the
+      // live view model and un-parks the view-hide suspend — no model reload,
+      // mid-generate preserved.
+      let session = dependencies.simulationSession
+      if let adopted = session.adoptIfMatching(source: source) {
         viewModel = adopted
-        scenario = dependencies.simulationSession.scenario
+        scenario = session.scenario
+        // Returning to the screen clears the view-hide park; if no other reason
+        // holds (app-background / user-pause), the parked generate resumes.
+        session.requestResume(reason: .viewHide)
+        return
+      }
+      // A *different* run owns the session (a parked-away run while the user
+      // tapped Run on another scenario). Refuse the second run and offer to
+      // return to the live one rather than starting a competing run (the start
+      // guard would refuse anyway; this surfaces it as actionable UI).
+      if session.isLive {
+        alreadyRunning = true
         return
       }
       switch source {
@@ -127,32 +155,38 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         await loadAndResume(runId: runId)
       }
     }
-    // Phase B (ADR-017) PR1: end the owned run on disappear, reproducing
-    // today's cancel-on-disappear (previously driven by `.task` cancellation
-    // through `drive(_:_:)`). `end()` cancels the run's task; it unwinds through
-    // the terminal ladder to a resumable `.paused` row. PR2 makes this
-    // conditional on the keep-running opt-in.
+    // Phase B (ADR-017) PR2: park vs. end on disappear.
     //
-    // Guarded on ownership identity: a view whose load failed (no run started)
-    // — and, in PR2, a view that never owned the live run — must not tear down a
-    // run it doesn't own. Under focus mode `onDisappear` ⇔ permanent removal
-    // (the tab-recycle path that fires `onDisappear` without teardown is gone),
-    // so this is the genuine cancel-on-disappear trigger; device QA should
-    // confirm it never fires spuriously mid-run.
+    // `leaveHandled` short-circuits the trailing `onDisappear` that an explicit
+    // leave's own `router.pop()` triggers — without it, "Leave & keep running"
+    // would park then immediately `end()` the kept run, and "Pause and leave"
+    // would write `.paused` twice (critic Axis 6). Only an *unhandled* disappear
+    // (a true swipe-back) reaches the park-vs-end arm, keyed on the opt-in:
+    // Setting on + in-flight → park (`requestPark(.viewHide)`); otherwise
+    // `end()` (today's cancel-on-disappear terminal ladder → resumable
+    // `.paused`). Ownership-guarded so a view that never owned the live run
+    // doesn't tear one down. See `disappearAction(...)`.
     .onDisappear {
       let session = dependencies.simulationSession
-      if session.source == source {
+      switch Self.disappearAction(
+        leaveHandled: leaveHandled,
+        owns: session.source == source,
+        keepRunningEnabled: FeatureFlags.keepRunningOnLeaveEnabled,
+        isGuarded: leaveGuardActive
+      ) {
+      case .ignore:
+        leaveHandled = false  // consume the flag set by the explicit-leave path
+      case .park:
+        session.requestPark(reason: .viewHide)
+      case .end:
         session.end()
       }
     }
-    // Phase B (ADR-017) PR2 TODO: these lifecycle handlers (scenePhase,
-    // memory-warning, willResignActive) act on the view-local `@State viewModel`
-    // projection. In PR1 that is the same object the session owns, so they reach
-    // the live run. Once a run can outlive the view (PR2 keep-running), route
-    // memory-pressure / scene-phase handling through
-    // `dependencies.simulationSession.viewModel` (and an always-mounted host for
-    // the away case) — otherwise a parked-away run loses memory-pressure
-    // protection. See the plan's "Memory safety while parked" section.
+    // Memory-pressure + scene-phase handling for the *present-view* case. When a
+    // run is parked-away (no view mounted), the always-mounted in-flight
+    // indicator host carries the away-case observers (see
+    // `InFlightSimulationIndicator`). Both surfaces route through the single
+    // throttle on `SimulationSession` so escalation/reset stays consistent.
     .onChange(of: scenePhase) { _, newPhase in
       // Two-phase BG handling (ADR-003):
       // - .background: synchronous pause for safety (stops in-flight work ASAP).
@@ -178,29 +212,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         for: UIApplication.didReceiveMemoryWarningNotification
       )
     ) { _ in
-      // Policy in MemoryWarningThrottle. See that file for rationale.
-      guard let viewModel, viewModel.isRunning, !viewModel.isCancelled else { return }
-      let decision = memoryThrottle.decide(
-        isActive: scenePhase == .active, isPaused: viewModel.isPaused, now: Date()
-      )
-      switch decision {
-      case .ignore: break
-      case .pauseAndLog:
-        viewModel.pauseSimulation(
-          reason: String(
-            localized: "Memory warning — simulation paused. Tap resume to continue.")
-        )
-      case .cancelDueToBackground:
-        viewModel.cancelSimulation(caller: "memoryWarning-bg")
-      case .cancelDueToEscalation:
-        viewModel.cancelSimulation(caller: "memoryWarning-escalated")
-      }
+      // Present-view entry to the single throttle on the session (the away-case
+      // entry is the in-flight indicator host). Policy in MemoryWarningThrottle.
+      dependencies.simulationSession.handleMemoryWarning(isAppActive: scenePhase == .active)
     }
     .onChange(of: viewModel?.isPaused ?? false) { _, isPaused in
       // After the user resumes, treat the previous pressure as resolved so a
       // delayed warning doesn't immediately escalate to cancel (closes the
       // "user just resumed and got cancelled" trap from critic Axis 2).
-      if !isPaused { memoryThrottle.reset() }
+      if !isPaused { dependencies.simulationSession.resetMemoryThrottle() }
     }
     // willResignActive fires earlier than scenePhase = .background, beating
     // the iOS Metal-deny window. Backstopped by handleScenePhaseBackground.
@@ -223,18 +243,26 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     } message: {
       Text(exportError ?? "")
     }
-    // Back-button confirm-on-leave (#673). The back button raises the dialog
-    // via `handleBackTap()`. Focus mode (ADR-017) hides the tab bar during a
-    // run, so a mid-run tab switch — and the TabCoordinator defer path it used
-    // to need — is impossible; only the back path remains.
+    // Back-button confirm-on-leave (#673, extended for Phase B opt-in #682).
+    // The back button raises this dialog via `handleBackTap()` when the
+    // keep-running Setting is off; with it on, leaving silently parks (no
+    // dialog). Three buttons, kept as `.alert` deliberately —
+    // `.confirmationDialog` renders as a mis-anchored popover on iOS 26
+    // (`.claude/rules/...` / ADR-016 § Amendment). Focus mode (ADR-017) hides the
+    // tab bar during a run, so only the back / swipe-back path remains.
     .alert(
       String(localized: "A simulation is in progress"),
       isPresented: leaveAlertBinding
     ) {
       Button(String(localized: "Pause and leave")) { confirmLeave() }
+      Button(String(localized: "Leave & keep running")) { confirmLeaveKeepRunning() }
       Button(String(localized: "Stay"), role: .cancel) { stay() }
     } message: {
-      Text(String(localized: "Pause and save it so you can resume later?"))
+      Text(
+        String(
+          localized:
+            "Pause and save it so you can resume later, or keep it running while you step away?"
+        ))
     }
   }
 
@@ -257,13 +285,56 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       isCompleted: viewModel.isCompleted)
   }
 
-  /// Back-button tap (#673). Confirm first when a run is in flight; otherwise
-  /// pop immediately.
+  /// The three outcomes of a back-button tap, decided purely so the routing is
+  /// unit-tested (ADR-009).
+  enum LeaveAction: Equatable {
+    /// Nothing in flight — pop immediately, no confirm.
+    case popImmediately
+    /// Keep-running Setting is on — park silently and pop, no dialog.
+    case silentKeepRunning
+    /// In flight with the Setting off — raise the three-button confirm dialog.
+    case showDialog
+  }
+
+  /// Pure decision for a back-button tap. Extracted `static` for unit testing.
+  static func leaveAction(isGuarded: Bool, keepRunningEnabled: Bool) -> LeaveAction {
+    guard isGuarded else { return .popImmediately }
+    return keepRunningEnabled ? .silentKeepRunning : .showDialog
+  }
+
+  /// What `onDisappear` should do for the run. Pure so the "exactly one terminal
+  /// action per leave path" invariant (critic Axis 6) is unit-tested without
+  /// driving SwiftUI: an explicit leave sets `leaveHandled` → `.ignore`; a true
+  /// swipe-back falls through to park (Setting on + in-flight) or end.
+  enum DisappearAction: Equatable {
+    /// Already handled by an explicit-leave path (or no run owned) — do nothing.
+    case ignore
+    /// Keep the run alive in memory (view-hide park).
+    case park
+    /// Tear the run down to a resumable `.paused` (cancel-on-disappear).
+    case end
+  }
+
+  static func disappearAction(
+    leaveHandled: Bool, owns: Bool, keepRunningEnabled: Bool, isGuarded: Bool
+  ) -> DisappearAction {
+    if leaveHandled { return .ignore }
+    guard owns else { return .ignore }
+    return (keepRunningEnabled && isGuarded) ? .park : .end
+  }
+
+  /// Back-button tap (#673, #682). Routes through ``leaveAction(isGuarded:keepRunningEnabled:)``.
   private func handleBackTap() {
-    if leaveGuardActive {
-      pendingBackLeave = true
-    } else {
+    switch Self.leaveAction(
+      isGuarded: leaveGuardActive,
+      keepRunningEnabled: FeatureFlags.keepRunningOnLeaveEnabled
+    ) {
+    case .popImmediately:
       router.pop()
+    case .silentKeepRunning:
+      confirmLeaveKeepRunning()
+    case .showDialog:
+      pendingBackLeave = true
     }
   }
 
@@ -279,10 +350,22 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   /// "Pause and leave": persist a resumable `.paused`, then pop the current
-  /// tab's stack. Only the back path reaches here — swipe-back bypasses the
-  /// dialog, and a tab switch is impossible under focus mode (ADR-017).
+  /// tab's stack. Sets `leaveHandled` so the trailing `onDisappear` doesn't
+  /// re-terminate (writing `.paused` twice).
   private func confirmLeave() {
+    leaveHandled = true
     viewModel?.pauseSimulation()
+    router.pop()
+    pendingBackLeave = false
+  }
+
+  /// "Leave & keep running": park the run in memory (no pause — it resumes
+  /// instantly on return) and pop. Sets `leaveHandled` so the trailing
+  /// `onDisappear` doesn't `end()` the just-kept run (critic Axis 6). Also the
+  /// silent-park target when the keep-running Setting is on.
+  private func confirmLeaveKeepRunning() {
+    leaveHandled = true
+    dependencies.simulationSession.requestPark(reason: .viewHide)
     router.pop()
     pendingBackLeave = false
   }
@@ -290,6 +373,31 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// "Stay": discard the pending leave and keep running.
   private func stay() {
     pendingBackLeave = false
+  }
+
+  // MARK: - Already-running state (Phase B second-run refusal, #682)
+
+  /// Shown when a second run is attempted while a different run owns the
+  /// session. Offers to return to the live run instead of starting a competing
+  /// one (the single-run guard would refuse the start anyway).
+  private var alreadyRunningView: some View {
+    ContentUnavailableView {
+      Label(String(localized: "A simulation is already running"), systemImage: "waveform")
+    } description: {
+      Text(String(localized: "Return to it to keep watching, or pause it before starting another."))
+    } actions: {
+      Button(String(localized: "Return to the running simulation")) { returnToLiveRun() }
+        .buttonStyle(.borderedProminent)
+    }
+  }
+
+  /// Pops this dead-end second-run view and re-surfaces the live run on its host
+  /// tab (reuses the in-flight indicator's return action).
+  private func returnToLiveRun() {
+    let session = dependencies.simulationSession
+    guard let tab = session.tab, let route = session.returnRoute else { return }
+    router.pop()
+    tabCoordinator.returnToRunningSimulation(tab: tab, route: route)
   }
 
   private func simulationContent(  // swiftlint:disable:this function_body_length
@@ -872,6 +980,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     switch session.startGuarded(
       source: source,
       scenario: parsed,
+      tab: tabCoordinator.selectedTab,
       makeViewModel: makeViewModel,
       body: body
     ) {

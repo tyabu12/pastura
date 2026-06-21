@@ -17,7 +17,7 @@ struct SimulationSessionTests {
 
   /// Builds an in-memory-backed view model + the saved scenario record the run
   /// will create rows against. Mirrors `SimulationViewModelLifecycleTests`.
-  private func makeViewModel(
+  func makeViewModel(
     registry: SimulationActivityRegistry = SimulationActivityRegistry()
   ) throws -> (viewModel: SimulationViewModel, simRepo: any SimulationRepository) {
     let db = try DatabaseManager.inMemory()
@@ -51,6 +51,7 @@ struct SimulationSessionTests {
     let first = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { _ in })
 
@@ -60,6 +61,7 @@ struct SimulationSessionTests {
     let second = session.startGuarded(
       source: .scenario(scenarioId: "other"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: {
         Issue.record("makeViewModel must not run on refusal")
         return viewModel
@@ -75,6 +77,7 @@ struct SimulationSessionTests {
     let third = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { _ in })
     #expect(third == .started, "a new run may start once the slot is freed")
@@ -96,6 +99,7 @@ struct SimulationSessionTests {
     _ = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { _ in })
 
@@ -135,6 +139,7 @@ struct SimulationSessionTests {
     let decision = session.startGuarded(
       source: .scenario(scenarioId: "test"),
       scenario: scenario,
+      tab: .home,
       makeViewModel: { viewModel },
       body: { model in await model.run(scenario: scenario, llm: mock) })
     #expect(decision == .started)

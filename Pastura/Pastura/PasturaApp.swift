@@ -242,6 +242,12 @@ private struct RootView: View {
         // by RootTabView (D3) — deliberately not `.environment(router)`
         // here, which would collapse all tabs onto one stack.
         RootTabView(coordinator: tabCoordinator)
+          // Phase B (ADR-017 #682): the "return to your running simulation"
+          // pill, shown across tabs while a run is parked-away. Placed before
+          // the `.environment` calls so it inherits `dependencies` +
+          // `tabCoordinator`; it self-gates visibility via `shouldShowIndicator`
+          // and carries the away-case memory-warning + scene-phase observers.
+          .overlay { InFlightSimulationIndicator() }
           .environment(dependencies)
           .environment(gate)
           // `ModelManager` is exposed so Settings → Models can observe
@@ -693,7 +699,22 @@ private struct RootView: View {
     /// that would make navigation regressions hard to catch reliably.
     private func setupUITestState() async {
       do {
-        let llm = MockLLMService(responses: [])
+        // `--ui-test-slow-llm`: hold each inference for longer than a UI test
+        // runs so a started simulation stays in-flight (the simulator can't run
+        // real inference). Lets the Phase B park-and-return flow be exercised
+        // end-to-end (the run blocks in the first `generate`, so `registry.isActive`
+        // stays true throughout — `InFlightIndicatorReconnectUITests`).
+        let llm =
+          CommandLine.arguments.contains("--ui-test-slow-llm")
+          ? MockLLMService(responses: [], generateDelay: .seconds(120))
+          : MockLLMService(responses: [])
+        // Normalize keep-running-on-leave every --ui-test launch (a real Bool
+        // write; a `-key YES` launch arg lands as a String that `FeatureFlags`'
+        // `object(forKey:) as? Bool` reads as nil → default false). Setting it
+        // explicitly both ways prevents the persisted flag leaking into later
+        // UI-test runs on the same simulator.
+        FeatureFlags.setKeepRunningOnLeave(
+          CommandLine.arguments.contains("--ui-test-keep-running"))
         let gallery = StubGalleryService.uiTestPreset()
         let editorSeedYAML =
           CommandLine.arguments.contains("--ui-test-editor-seed-yaml")

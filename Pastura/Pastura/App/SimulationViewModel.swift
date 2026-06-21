@@ -448,6 +448,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Cleared on `run()` exit.
   var suspendController: SuspendController?
 
+  /// The app-level session that owns this run, set by
+  /// ``SimulationSession/startGuarded(source:scenario:tab:makeViewModel:body:)``.
+  ///
+  /// Phase B (ADR-017): the non-terminal suspend/resume triggers (user-pause,
+  /// scene-phase background) route through the session's park gate so they
+  /// compose with the view-hide park on one reason set instead of touching the
+  /// ``SuspendController`` directly and desyncing. Weak — the session owns the
+  /// view model, not the reverse. `nil` in fixture tests that build the VM
+  /// directly, where ``routePark(reason:)`` falls back to the controller.
+  @ObservationIgnored weak var session: SimulationSession?
+
   // Serial persistence queue — guarantees TurnRecords are written to the DB in
   // the same order events arrive. Without this, independent Task.detached calls
   // race and createdAt-based ordering in fetchBySimulationId becomes unreliable.
@@ -552,7 +563,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     withMutation(keyPath: \.isPaused) {
       runner.isPaused = true
     }
-    suspendController?.requestSuspend()
+    routePark(reason: .userPause)
     // Persist `.paused` so the run survives navigating away and surfaces on
     // the Home "paused" card. The full state snapshot is already persisted by
     // the round-boundary checkpoint consumer; this only flips the status
@@ -569,12 +580,40 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     withMutation(keyPath: \.isPaused) {
       runner.isPaused = false
     }
-    suspendController?.resume()
+    routeUnpark(reason: .userPause)
     // Restore `.running` and clear the survival flag so a subsequent normal
     // completion writes `.completed` rather than leaving a stale `.paused`.
     if didPersistPaused {
       didPersistPaused = false
       enqueueStatusWrite(.running)
+    }
+  }
+
+  /// Routes a **non-terminal** suspend through the session's park gate so the
+  /// user-pause / scene-phase-background triggers compose with the view-hide
+  /// park on one reason set (Phase B, ADR-017). Falls back to the
+  /// ``SuspendController`` directly when no session owns this run (fixture tests
+  /// build the VM without a session), preserving pre-Phase-B behaviour.
+  ///
+  /// The **terminal** suspend/resume paths (`cancelSimulation`, the `run()` /
+  /// `resume()` cleanup `defer`s) deliberately bypass this and touch the
+  /// controller directly — they fire only as a run ends, where an over-resume is
+  /// harmless and the gate would add nothing.
+  func routePark(reason: SimulationSession.ParkReason) {
+    if let session {
+      session.requestPark(reason: reason)
+    } else {
+      suspendController?.requestSuspend()
+    }
+  }
+
+  /// Routes a **non-terminal** resume through the session's park gate — resumes
+  /// only when no other park reason still holds. See ``routePark(reason:)``.
+  func routeUnpark(reason: SimulationSession.ParkReason) {
+    if let session {
+      session.requestResume(reason: reason)
+    } else {
+      suspendController?.resume()
     }
   }
 

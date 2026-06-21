@@ -53,8 +53,18 @@ Key invariants:
   tab-switching mid-run is structurally impossible; the only exits are back
   / swipe-back (confirm-on-leave `.back` arm + `.paused` safety net). The
   PR #673 tab-switch defer machinery (`hasUnsavedInFlightRun` /
-  `pendingTabSwitch`) was removed — do not re-add it. ADR-017; opt-in
-  cross-screen continuation is Phase B.
+  `pendingTabSwitch`) was removed — do not re-add it. ADR-017.
+- **Phase B opt-in cross-screen continuation (#682, ADR-017 § Amendment
+  2026-06-20).** With `FeatureFlags.keepRunningOnLeaveEnabled` on (default
+  off), leaving the sim **parks** the run in memory instead of ending it
+  (`SimulationView.disappearAction` → `session.requestPark(.viewHide)`); the
+  `.paused` safety net is the Setting-off path. While parked-away the
+  `InFlightSimulationIndicator` (mounted on the `RootTabView` overlay, shown
+  when `isActive && !isSimulationOnTop`) re-surfaces the run via
+  `TabCoordinator.returnToRunningSimulation(tab:route:)` — a plain `push`
+  (the sim route was popped on leave), guarded against a duplicate when
+  already on top. This re-consumes the `isSimulationOnTop` fold — do not
+  delete it.
 
 ## When to use what
 

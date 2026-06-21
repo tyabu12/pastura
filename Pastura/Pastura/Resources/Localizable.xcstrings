@@ -1355,6 +1355,16 @@
         }
       }
     },
+    "A simulation is already running" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すでにシミュレーションが実行中です"
+          }
+        }
+      }
+    },
     "A simulation is in progress" : {
       "localizations" : {
         "ja" : {
@@ -3358,6 +3368,16 @@
         }
       }
     },
+    "Keep running when I leave" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面を離れても実行を続ける"
+          }
+        }
+      }
+    },
     "LLM" : {
       "localizations" : {
         "ja" : {
@@ -3404,6 +3424,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "詳細はこちら"
+          }
+        }
+      }
+    },
+    "Leave & keep running" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行したまま離れる"
+          }
+        }
+      }
+    },
+    "Leave the simulation screen without pausing — the run keeps going in memory and resumes when you return." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時停止せずにシミュレーション画面を離れます。実行はメモリ内で続き、戻ると再開します。"
           }
         }
       }
@@ -4050,7 +4090,18 @@
         }
       }
     },
+    "Pause and save it so you can resume later, or keep it running while you step away?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時停止して保存し後で再開しますか、それとも離れている間も実行を続けますか？"
+          }
+        }
+      }
+    },
     "Pause and save it so you can resume later?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4629,6 +4680,36 @@
         }
       }
     },
+    "Return to it to keep watching, or pause it before starting another." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "戻って観察を続けるか、別のものを始める前に一時停止してください。"
+          }
+        }
+      }
+    },
+    "Return to the running simulation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行中のシミュレーションに戻る"
+          }
+        }
+      }
+    },
+    "Returns to the running simulation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行中のシミュレーションに戻ります"
+          }
+        }
+      }
+    },
     "Roleplay" : {
       "localizations" : {
         "ja" : {
@@ -4666,6 +4747,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ラウンド %lld / %lld"
+          }
+        }
+      }
+    },
+    "Round %lld / %lld — tap to return" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Round %1$lld / %2$lld — tap to return"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド %1$lld / %2$lld — タップで戻る"
           }
         }
       }
@@ -5097,12 +5194,32 @@
         }
       }
     },
+    "Simulation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シミュレーション"
+          }
+        }
+      }
+    },
     "Simulation cancelled" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "シミュレーションがキャンセルされました"
+          }
+        }
+      }
+    },
+    "Simulation running — tap to return" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シミュレーション実行中 — タップで戻る"
           }
         }
       }
