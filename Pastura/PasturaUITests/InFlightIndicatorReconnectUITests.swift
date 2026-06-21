@@ -53,19 +53,18 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
       app.navigationBars["Pastura"].waitForExistence(timeout: 10),
       "Home did not appear within 10s.")
 
-    // Reach SimulationView via the proven gallery-install → Run Simulation flow
-    // (mirrors SimulationFocusModeTests).
+    // Reach SimulationView via the one-tap Home-seed row (mirrors BackGestureTests).
+    // The `ui_test_home_seed` scenario is installed unconditionally by
+    // StubScenarioSeeder on every `--ui-test` launch, so tapping its Home row
+    // lands directly on the run-capable ScenarioDetailView — skipping the
+    // Browse → gallery → Try-install reach (~70s, the dominant ui-test cost).
+    // `browseTab` is declared here only as the "tab bar restored" sentinel used
+    // after the park below; it is never tapped (Home is the default tab).
     let browseTab = app.tabBars.buttons["Browse"]
-    XCTAssertTrue(browseTab.waitForExistence(timeout: 5), "Browse tab missing.")
-    browseTab.tap()
 
-    let galleryCell = app.buttons["sharedScenarios.galleryCell.ui_test_canary"]
-    XCTAssertTrue(galleryCell.waitForExistence(timeout: 5), "Canary gallery cell missing.")
-    galleryCell.tap()
-
-    let tryButton = app.buttons["galleryDetail.tryButton"]
-    XCTAssertTrue(tryButton.waitForExistence(timeout: 5), "Try button missing.")
-    tryButton.tap()
+    let homeRow = app.buttons["home.scenarioListCell.ui_test_home_seed"]
+    XCTAssertTrue(homeRow.waitForExistence(timeout: 5), "Home seed scenario row missing.")
+    homeRow.tap()
 
     let detailList = app.scrollViews["scenarioDetail.list"]
     XCTAssertTrue(detailList.waitForExistence(timeout: 10), "ScenarioDetailView did not appear.")
