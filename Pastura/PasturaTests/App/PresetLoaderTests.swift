@@ -14,7 +14,7 @@ struct PresetLoaderTests {
       bundle: Bundle(for: DatabaseManager.self)
     )
 
-    let all = try repo.fetchAll()
+    let all = try repo.fetchAllSummaries()
     #expect(all.count == 8)
 
     let presets = try repo.fetchPresets()
@@ -53,7 +53,7 @@ struct PresetLoaderTests {
     let second = try repo.fetchById("prisoners_dilemma")
 
     #expect(second?.createdAt == firstDate)
-    #expect(try repo.fetchAll().count == 8)
+    #expect(try repo.fetchAllSummaries().count == 8)
   }
 
   /// ADR-010 D4: per-language sibling presets share a canonical
@@ -100,7 +100,7 @@ struct PresetLoaderTests {
     #expect(try repo.fetchById("word_wolf_en")?.language == "en")
     #expect(try repo.fetchById("prisoners_dilemma_en")?.language == "en")
     // Every bundled preset carries a non-nil language column.
-    #expect(try repo.fetchAll().allSatisfy { $0.language != nil })
+    #expect(try repo.fetchAllSummaries().allSatisfy { $0.language != nil })
   }
 
   /// Cross-language grouping invariant: for each canonical id, both
@@ -124,7 +124,7 @@ struct PresetLoaderTests {
       #expect(en?.sourceId == canonical, "EN \(canonical) sourceId")
       // Cross-language grouping reachable by sourceId — distinct PKs,
       // shared canonical key.
-      let bySourceId = try repo.fetchAll().filter { $0.sourceId == canonical }
+      let bySourceId = try repo.fetchAllSummaries().filter { $0.sourceId == canonical }
       #expect(bySourceId.count == 2)
     }
   }
@@ -138,7 +138,7 @@ struct PresetLoaderTests {
       bundle: Bundle(for: DatabaseManager.self)
     )
 
-    let all = try repo.fetchAll()
+    let all = try repo.fetchAllSummaries()
     for record in all {
       #expect(record.isPreset == true)
     }

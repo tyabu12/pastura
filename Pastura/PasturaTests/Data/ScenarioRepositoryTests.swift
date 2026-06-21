@@ -92,7 +92,7 @@ import Testing
     let fetched = try repo.fetchById("s1")
     #expect(fetched?.name == "Updated")
 
-    let all = try repo.fetchAll()
+    let all = try repo.fetchAllSummaries()
     #expect(all.count == 1)
   }
 
