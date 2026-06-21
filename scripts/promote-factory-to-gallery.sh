@@ -128,7 +128,7 @@ while [ $# -gt 0 ]; do
     --force) FORCE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --non-interactive|-y) NON_INTERACTIVE=1; shift ;;
-    -h|--help) awk '/^# Usage/{p=1} /^set -/{exit} p' "$0" | sed -E 's/^# ?//'; exit 0 ;;
+    -h|--help) awk 'NR==1{next} /^set -/{exit} /^#/' "$0" | sed -E 's/^# ?//'; exit 0 ;;
     -*) echo "Unknown flag: $1" >&2; exit 1 ;;
     *)
       if [ -z "$FACTORY_ID" ]; then
@@ -257,11 +257,12 @@ case "$ESTIMATED_INFERENCES" in
     echo "ERROR: estimated_inferences must be a positive integer (got: '$ESTIMATED_INFERENCES')." >&2
     exit 1 ;;
 esac
-# Advisory only — the gallery README suggests rough parity with a real run;
-# unusually large values are worth a glance but not a hard failure.
+# Advisory only — docs/gallery/README.md § "Content guidelines" sets a
+# soft norm of "under ~50 total estimated inferences"; flag (not fail)
+# anything above it so the curator can eyeball cost before promoting.
 if [ "$ESTIMATED_INFERENCES" -gt 50 ]; then
-  echo "ADVISORY: estimated_inferences=$ESTIMATED_INFERENCES is high (>50);" >&2
-  echo "          confirm it matches a real run (see docs/gallery/README.md)." >&2
+  echo "ADVISORY: estimated_inferences=$ESTIMATED_INFERENCES exceeds the ~50 soft" >&2
+  echo "          norm (docs/gallery/README.md § Content guidelines); confirm." >&2
 fi
 
 # --- description resolution ------------------------------------------------
@@ -284,8 +285,12 @@ if [ "$DESCRIPTION_SET" != "1" ]; then
 fi
 
 # --- Original id (for messaging) ------------------------------------------
-
-ORIG_ID="$(awk '/^id:[[:space:]]/{sub(/^id:[[:space:]]*/, ""); print; exit}' "$SCENARIO_PATH")"
+#
+# Message-only: the actual id rewrite below writes GALLERY_ID regardless of
+# the source's quoting, so this awk does not need to match add-gallery's
+# PyYAML parse — it just strips surrounding quotes so a quoted source id
+# (`id: "factory_…"`) renders cleanly in the "id: X → Y" line.
+ORIG_ID="$(awk '/^id:[[:space:]]/{sub(/^id:[[:space:]]*/, ""); print; exit}' "$SCENARIO_PATH" | sed -E 's/^["'\'']//; s/["'\'']$//')"
 if [ -z "$ORIG_ID" ]; then
   echo "ERROR: source YAML has no top-level 'id:' line: $SCENARIO_PATH" >&2
   exit 1

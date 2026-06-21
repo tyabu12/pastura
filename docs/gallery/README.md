@@ -170,8 +170,9 @@ card summary — without it the factory YAML's description (which carries
 curation meta-notes) is used verbatim and only a warning is printed (it
 becomes a hard error under `--non-interactive`). Preview the derived
 values first with `--dry-run`; `--help` lists every flag — notably
-`--category` (default `creative`), `--recommended-model`, `--id` (for a
-`_v2` re-promotion), and `--scenario` / `--run-log` (to promote a
+`--category` (default `creative`), `--recommended-model` (default
+`gemma-4-e2b-q4-k-m`), `--id` (for a `_v2` re-promotion), and
+`--scenario` / `--run-log` (to promote a
 non-factory source YAML, e.g. an improved variant). **Step 4 (curation)
 is still yours** — the script promotes the id you name and never picks
 by score.
