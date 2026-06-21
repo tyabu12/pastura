@@ -138,8 +138,8 @@ final class ScenarioDetailViewModel {
     // lightweight ``ScenarioSummary`` projection (only `id` + `sourceId`
     // are needed to match), then load that single record's full row —
     // avoids pulling every scenario's heavy `yamlDefinition` into memory
-    // for a one-row lookup (#704). `fetchAllSummaries()` shares
-    // `fetchAll()`'s `createdAt DESC` ordering, so `.first` preserves the
+    // for a one-row lookup (#704). `fetchAllSummaries()` returns rows
+    // newest-first (`createdAt DESC`), so `.first` preserves the
     // newest-wins tie-break when multiple records share the canonical
     // `sourceId`.
     let summaries = try? await offMain { [repository] in

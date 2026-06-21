@@ -132,7 +132,7 @@ All records use `var` properties (GRDB convention for mutable persistence).
 
 | Protocol | Implementation | Key Operations |
 |----------|---------------|----------------|
-| `ScenarioRepository` | `GRDBScenarioRepository` | save (upsert), fetchById, fetchAll, fetchAllSummaries (yamlDefinition-excluding projection), fetchByIds, fetchPresets, delete |
+| `ScenarioRepository` | `GRDBScenarioRepository` | save (upsert), fetchById, fetchAllSummaries (yamlDefinition-excluding projection), fetchByIds, fetchPresets, delete |
 | `SimulationRepository` | `GRDBSimulationRepository` | save, fetchById, fetchByScenarioId, fetchOrphaned, updateState, updateStatus, delete |
 | `TurnRepository` | `GRDBTurnRepository` | save, saveBatch, fetchBySimulationId, fetchBySimulationAndRound, deleteBySimulationId |
 

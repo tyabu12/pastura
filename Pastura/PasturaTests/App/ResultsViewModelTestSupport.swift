@@ -29,9 +29,10 @@ func resultsTestDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
   resultsTestCalendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
 }
 
-/// Wraps a real ``ScenarioRepository`` and counts ``ScenarioRepository/fetchAll()``
-/// calls so the #678 regression can assert the scenario index is built once,
-/// not rebuilt per filter keystroke. `nonisolated` + `@unchecked Sendable`
+/// Wraps a real ``ScenarioRepository`` and counts
+/// ``ScenarioRepository/fetchAllSummaries()`` calls so the #678 regression can
+/// assert the scenario index is built once, not rebuilt per filter keystroke.
+/// `nonisolated` + `@unchecked Sendable`
 /// with an `NSLock`-guarded counter because repository methods run off the
 /// main actor (`ResultsViewModel.offMain`) and the protocol is `Sendable`.
 nonisolated final class CountingScenarioRepository: ScenarioRepository, @unchecked Sendable {
@@ -39,16 +40,11 @@ nonisolated final class CountingScenarioRepository: ScenarioRepository, @uncheck
   private let lock = NSLock()
   private var _fetchAllCount = 0
 
-  /// Counts the index-rebuild fetches (`fetchAll` / `fetchAllSummaries`) — the
+  /// Counts the index-rebuild fetches (`fetchAllSummaries`) — the
   /// scenario-index load `ResultsViewModel` issues per window reset.
   var fetchAllCount: Int { lock.withLock { _fetchAllCount } }
 
   init(wrapping: any ScenarioRepository) { self.wrapped = wrapping }
-
-  func fetchAll() throws -> [ScenarioRecord] {
-    lock.withLock { _fetchAllCount += 1 }
-    return try wrapped.fetchAll()
-  }
 
   func fetchAllSummaries() throws -> [ScenarioSummary] {
     lock.withLock { _fetchAllCount += 1 }
