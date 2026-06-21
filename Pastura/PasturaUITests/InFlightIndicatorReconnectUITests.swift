@@ -16,12 +16,14 @@ import XCTest
 /// that `FeatureFlags`' `object(forKey:) as? Bool` reads as nil) so leaving
 /// silently parks.
 ///
-/// The slow-LLM hold uses a wall-clock `generateDelay` (blocked *inside*
-/// `generate`), deliberately NOT `suspendOnControllerAttach` (which *parks*
-/// pre-generate): the return path resumes the controller through the
+/// The slow-LLM hold uses `blockGenerateUntilSignal()` — `generate` blocks on
+/// an explicit signal, deliberately NOT `suspendOnControllerAttach` (which
+/// *parks* pre-generate): the return path resumes the controller through the
 /// `.viewHide` gate, which would let a parked generate exhaust its empty
-/// `responses: []` and error. That wall-clock delay is timing-fragile against
-/// CI variance (durable fix tracked in #719). Full rationale lives at
+/// `responses: []` and error. The block is wall-clock-independent, so a slow CI
+/// runner can never expire the hold mid-test (#719 replaced the former
+/// timing-fragile `generateDelay` sleep); the test never unblocks — tearDown's
+/// `terminate()` ends the run. Full rationale lives at
 /// `PasturaApp.setupUITestState`.
 ///
 /// Subject to the UI-test flake classes in `.claude/rules/xcodebuild-cli.md`.
