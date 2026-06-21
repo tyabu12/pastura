@@ -66,6 +66,12 @@ J6=$(sel --count 6 --journal fixtures/journal_seed.md)
 echo "$J6" | jq -e '[.[].id] | index("bokete_en")' >/dev/null \
   || fail "en sibling should be reached at count=6"
 
+# --- select_inventory.py: --only explicit pick (skips rotation/count) ------
+JO=$(sel --count 1 --journal fixtures/journal_seed.md --only "bokete,word_wolf")
+echo "$JO" | jq -e 'length == 2' >/dev/null || fail "--only should return exactly the 2 named (ignoring count)"
+echo "$JO" | jq -e '[.[].id] | sort == ["bokete","word_wolf"]' >/dev/null \
+  || fail "--only returned the wrong ids"
+
 # --- select_inventory.py: empty / absent journal (first-run path) -----------
 JE=$(sel --count 99 --journal "$TMP/does_not_exist.md")
 echo "$JE" | jq -e 'all(.last_evaluated == null)' >/dev/null \

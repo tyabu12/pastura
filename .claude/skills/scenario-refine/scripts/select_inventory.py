@@ -205,12 +205,21 @@ def main():
     parser.add_argument("--gallery-dir", default="docs/gallery")
     parser.add_argument("--gallery-json", default="docs/gallery/gallery.json")
     parser.add_argument("--journal", default="data/factory/audit-digest.md")
+    parser.add_argument("--only", default="",
+                        help="comma-separated ids; restrict to these "
+                             "(skips rotation/count)")
     args = parser.parse_args()
 
     items = (enumerate_presets(args.presets_dir)
              + enumerate_gallery(args.gallery_dir, args.gallery_json))
     last = parse_journal_last_evaluated(args.journal, args.model)
-    selected = select(items, last, args.count)
+    if args.only:
+        wanted = {s.strip() for s in args.only.split(",") if s.strip()}
+        items = [it for it in items if it["id"] in wanted]
+        # --only is an explicit pick: return every match, ignoring --count.
+        selected = select(items, last, len(items))
+    else:
+        selected = select(items, last, args.count)
     json.dump(selected, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0

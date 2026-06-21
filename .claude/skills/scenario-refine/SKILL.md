@@ -11,6 +11,14 @@ One full refine cycle: **select → run → judge (regression) → improve (A/B)
 fresh scenarios, refine *evaluates and polishes the existing shipped
 inventory*. Run from the repository root.
 
+Optional args:
+
+- `only: <id,...>` — restrict the cycle to the named scenarios (skip the
+  rotation), e.g. to re-check one preset on demand.
+- `force-improve: <id,...>` — generate an A/B v2 for the named scenarios even
+  if they are NOT low scorers (Step 4), to probe whether a high scorer can be
+  pushed higher.
+
 ## Safety boundary (read first)
 
 **This skill writes ONLY under `data/factory/` (run logs, A/B candidate
@@ -165,6 +173,17 @@ For low scorers, generate ONE v2 candidate and A/B-test it. A scenario is an
 `coherence` ≤ 2, OR `breakdown_free` ≤ 2, OR it regressed (`⚠️`). **Cap at 3
 candidates per cycle** (inference budget) — pick the lowest scorers; log any
 skipped over the cap (no silent truncation).
+
+**Forced exploration (`force-improve`).** When invoked with a force list (the
+`force-improve:` arg, or a plain-language request to A/B specific scenarios
+regardless of score), generate a v2 for each named scenario even if it is a
+high scorer — to probe whether it can be pushed higher. Forced candidates
+still obey the 3-candidate cap, still land in `improvements/`, and are never
+auto-promoted. Note `forced` in the candidate's comment so the journal
+distinguishes a forced probe (which often loses — a valid, informative result)
+from a score-triggered repair. A forced v2 that does NOT beat its baseline
+(`vs base ≤ 0`) is evidence the current design is near-optimal for this model,
+not a failure of the cycle.
 
 For each chosen baseline:
 
