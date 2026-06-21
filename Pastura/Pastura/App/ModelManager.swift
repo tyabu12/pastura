@@ -295,12 +295,12 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   ///
   /// In-flight partial downloads (in `cachesDirectoryURL`) and `.error`-state
   /// leftovers are intentionally excluded — the figure represents completed,
-  /// on-device models, matching the Settings "Downloaded models" label.
+  /// on-device models, matching the Settings "Downloaded" label.
   ///
   /// A `.ready` catalog descriptor's declared `fileSize` is a valid stand-in
   /// for its on-disk size: `computeState` deletes any file whose actual size
   /// ≠ declared size, so the two always agree once `.ready`. Consumed by
-  /// `SettingsView.storageTotalLine`, which feeds it the ready descriptors'
+  /// `SettingsView.downloadedTotalText`, which feeds it the ready descriptors'
   /// declared sizes plus its reactive orphan snapshot (mirrors how the
   /// picker consumes `isLowStorage` — pure static, no filesystem read in
   /// the view body).

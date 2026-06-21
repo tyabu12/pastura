@@ -126,7 +126,7 @@ struct SettingsView: View {
         // Results. `Color.link` (design-system §2.8) lands its first real
         // consumer here; the explicit `Color.link` form (not `.link`)
         // sidesteps the ShapeStyle-vs-Color token trap.
-        PasturaSection(String(localized: "Legal")) {
+        PasturaSection(String(localized: "Legal"), style: .grouped) {
           VStack(spacing: 0) {
             Button {
               guard let url = LocalizedPublicPages.privacyPolicy() else { return }
@@ -145,7 +145,7 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("settings.privacyPolicyLink")
 
-            PasturaRowDivider()
+            PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
             Button {
               isReportSheetPresented = true
             } label: {
@@ -154,7 +154,7 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("settings.sendContentReportButton")
 
-            PasturaRowDivider()
+            PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
             Button {
               isLicensesSheetPresented = true
             } label: {
@@ -301,7 +301,7 @@ struct SettingsView: View {
   /// screen instead of pausing it (ADR-017 Phase B, #682). Label-closure form
   /// per the i18n convenience-init convention (`.claude/rules/i18n.md`).
   private var simulationSection: some View {
-    PasturaSection(String(localized: "Simulation")) {
+    PasturaSection(String(localized: "Simulation"), style: .grouped) {
       Toggle(isOn: $keepRunningOnLeave) {
         VStack(alignment: .leading, spacing: 3) {
           Text(String(localized: "Keep running when I leave"))

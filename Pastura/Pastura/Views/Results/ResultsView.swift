@@ -94,10 +94,12 @@ struct ResultsView: View {
           recordCountSubtitle(viewModel.totalRunCount)
         }
         ForEach(viewModel.sections) { section in
-          PasturaSection(section.title) {
+          PasturaSection(section.title, style: .grouped) {
             VStack(spacing: 0) {
               ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
-                if index > 0 { PasturaRowDivider() }
+                if index > 0 {
+                  PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
+                }
                 NavigationLink(value: Route.resultDetail(simulationId: row.item.id)) {
                   resultRow(row)
                 }
