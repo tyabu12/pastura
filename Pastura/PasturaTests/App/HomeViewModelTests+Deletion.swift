@@ -6,10 +6,10 @@ import Testing
 // MARK: - Scenario deletion (#686)
 
 /// In-memory `ScenarioRepository` whose `delete(_:)` always throws, while
-/// `fetchAll()` still returns the seeded rows. Required because a single
-/// repository instance backs both `HomeViewModel.loadScenarios()` (via
-/// `fetchAll`) and `HomeViewModel.deleteScenario(_:)` (via `delete`): to
-/// exercise the failure path we need the list populated *and* the delete
+/// `fetchAllSummaries()` still returns the seeded rows. Required because a
+/// single repository instance backs both `HomeViewModel.loadScenarios()` (via
+/// `fetchAllSummaries`) and `HomeViewModel.deleteScenario(_:)` (via `delete`):
+/// to exercise the failure path we need the list populated *and* the delete
 /// to fail, which a real `GRDBScenarioRepository` cannot do at once.
 ///
 /// `nonisolated` because the suite is `@MainActor`; the type holds only
@@ -24,7 +24,6 @@ nonisolated struct ThrowingDeleteScenarioRepository: ScenarioRepository {
   func fetchBySourceType(_ type: String) throws -> [ScenarioRecord] {
     scenarios.filter { $0.sourceType == type }
   }
-  func fetchAll() throws -> [ScenarioRecord] { scenarios }
   func fetchAllSummaries() throws -> [ScenarioSummary] {
     scenarios.map {
       ScenarioSummary(
