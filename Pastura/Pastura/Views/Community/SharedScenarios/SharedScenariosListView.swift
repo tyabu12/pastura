@@ -109,7 +109,6 @@ struct SharedScenariosListView: View {
           offlineBanner
         }
         categoryChips(selection: $bindable.selectedCategory)
-        recommendedHeader
         scenariosCard(viewModel: viewModel)
         if let updated = viewModel.updatedAt {
           Text(String(format: String(localized: "Last updated: %@"), updated))
@@ -205,17 +204,6 @@ struct SharedScenariosListView: View {
   // `categoryChips` / `categoryChip` / `chipTitle` live in
   // `SharedScenariosListView+CategoryChips.swift` (split out for the
   // type_body_length budget, #731).
-
-  /// "Recommended" section header above the scenarios card (D3 Browse mock),
-  /// styled like a ``PasturaSection`` header (muted subheadline).
-  private var recommendedHeader: some View {
-    Text(String(localized: "Recommended Scenarios"))
-      .font(.subheadline)
-      .foregroundStyle(Color.muted)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
-      .accessibilityAddTraits(.isHeader)
-  }
 
   private func scenarioRow(
     scenario: GalleryScenario, viewModel: SharedScenariosViewModel

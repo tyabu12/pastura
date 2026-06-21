@@ -2460,6 +2460,7 @@
       }
     },
     "Downloaded models · %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2471,6 +2472,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロード済みモデル · %@"
+          }
+        }
+      }
+    },
+    "Downloaded · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloaded · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード済み · %@"
           }
         }
       }
@@ -4459,6 +4476,7 @@
       }
     },
     "Recommended Scenarios" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -6127,6 +6145,7 @@
       }
     },
     "You can keep multiple models on this device. Only the active one is loaded in memory." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

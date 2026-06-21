@@ -18,7 +18,8 @@ import SwiftUI
     var modelsSection: some View {
       VStack(alignment: .leading, spacing: 7) {
         let catalog = modelManager.catalog
-        PasturaSection(String(localized: "Models"), style: .grouped) {
+        modelsHeader
+        PasturaSection(style: .grouped) {
           VStack(spacing: 0) {
             ForEach(Array(catalog.enumerated()), id: \.element.id) { index, descriptor in
               if index > 0 {
@@ -46,11 +47,6 @@ import SwiftUI
             orphanedFilesRows
           }
         }
-        storageTotalLine
-        modelsFooter
-          .font(.caption)
-          .foregroundStyle(Color.muted)
-          .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
       }
       // `orphanedModelFiles()` is a filesystem read (not `@Observable`),
       // so seed the local `@State` snapshot on appear; delete refreshes it.
@@ -74,46 +70,53 @@ import SwiftUI
       }
     }
 
-    /// Aggregate footprint line ("Downloaded models · X.X GB"). Hidden when
-    /// nothing is on disk (total 0) so the empty state stays quiet. Reads
-    /// observed `state` (reactive to download/delete) and the `@State`
-    /// orphan snapshot, summing via the pure `totalModelStorageBytes(...)`
-    /// so the figure always matches the rows shown above.
+    /// Section header for the Models card: the "Models" label, a downloaded-
+    /// storage subtitle, and — while a run is active — the switch-blocked note.
+    /// These live above the card (not as a footer) so they stay in first view
+    /// as the catalog grows (#731 follow-up). The idle "keep multiple models"
+    /// reassurance was dropped as redundant.
     @ViewBuilder
-    private var storageTotalLine: some View {
+    private var modelsHeader: some View {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(String(localized: "Models"))
+          .font(.subheadline)
+          .foregroundStyle(Color.muted)
+        if let downloadedTotalText {
+          Text(downloadedTotalText)
+            .font(.caption)
+            .foregroundStyle(Color.metaStrongL3)
+        }
+        // Only while a simulation is running: explains why the active-model
+        // switch is disabled (downloads / deletes stay available).
+        if dependencies.simulationActivityRegistry.isActive {
+          Text(
+            String(
+              localized:
+                "Finish the current simulation before switching models. Downloads and deletes of other models remain available."
+            )
+          )
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+        }
+      }
+      .padding(.leading, PasturaCardMetrics.horizontalMargin)
+    }
+
+    /// Aggregate footprint ("Downloaded · X.X GB"), or nil when nothing is on
+    /// disk so the subtitle stays quiet. Sums ready catalog models + the
+    /// `@State` orphan snapshot via the pure `totalModelStorageBytes(...)`, so
+    /// the figure always matches the rows below.
+    private var downloadedTotalText: String? {
       let readySizes: [Int64] = modelManager.catalog.compactMap { descriptor in
         if case .ready = modelManager.state[descriptor.id] { return descriptor.fileSize }
         return nil
       }
       let total = ModelManager.totalModelStorageBytes(
         readyDescriptorSizes: readySizes, orphanSizes: orphanedFiles.map(\.sizeBytes))
-      if total > 0 {
-        Text(
-          String(
-            format: String(localized: "Downloaded models · %@"),
-            ModelSettingsRow.formattedFileSize(total))
-        )
-        .font(.caption)
-        .foregroundStyle(Color.metaStrongL3)
-        .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
-      }
-    }
-
-    @ViewBuilder
-    private var modelsFooter: some View {
-      if dependencies.simulationActivityRegistry.isActive {
-        Text(
-          String(
-            localized:
-              "Finish the current simulation before switching models. Downloads and deletes of other models remain available."
-          ))
-      } else {
-        Text(
-          String(
-            localized:
-              "You can keep multiple models on this device. Only the active one is loaded in memory."
-          ))
-      }
+      guard total > 0 else { return nil }
+      return String(
+        format: String(localized: "Downloaded · %@"),
+        ModelSettingsRow.formattedFileSize(total))
     }
 
     /// Whether any descriptor other than `id` is mid-download or has a
