@@ -37,24 +37,29 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     /// separately from `callIndex` (which counts `generate` calls) so
     /// tests that mix both paths can assert each count independently.
     var streamCallIndex: Int = 0
-    /// Artificial per-call delay applied before each `generate` returns.
-    /// `.zero` (default) keeps existing tests instant. Used by the UI-test
-    /// harness to hold a run in-flight long enough to exercise the Phase B
-    /// park-and-return flow on the simulator (which can't run real inference).
-    var generateDelay: Duration = .zero
+    /// Signal-blocked gate for the UI-test hold — see ``blockGenerateUntilSignal()``.
+    var blockGate: BlockGate = .disabled
+  }
+
+  /// State of the ``blockGenerateUntilSignal()`` gate. Stored continuation is
+  /// non-nil only while a `generate` call is parked. Mirrors
+  /// ``SuspendController``'s `idle`/`suspended`/`resumed` shape (incl. its
+  /// proven cancel-before-store race fix); `.disabled` is the mode-off default
+  /// so the gate is a pure no-op unless explicitly armed.
+  private enum BlockGate: Sendable {
+    case disabled
+    case armed(CheckedContinuation<Void, Never>?)
+    case released
   }
 
   private let state: OSAllocatedUnfairLock<State>
 
   /// Initialize with an ordered sequence of raw JSON responses.
   ///
-  /// - Parameters:
-  ///   - responses: The responses to return in order from ``generate(system:user:)``.
-  ///   - generateDelay: Artificial delay applied before each `generate` returns.
-  ///     Defaults to `.zero` (instant) — set only by the UI-test harness.
-  public init(responses: [String], generateDelay: Duration = .zero) {
-    self.state = OSAllocatedUnfairLock(
-      initialState: State(responses: responses, generateDelay: generateDelay))
+  /// - Parameter responses: The responses to return in order from
+  ///   ``generate(system:user:)``.
+  public init(responses: [String]) {
+    self.state = OSAllocatedUnfairLock(initialState: State(responses: responses))
   }
 
   public func loadModel() async throws {
@@ -75,11 +80,11 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   public func generate(
     system: String, user: String, schema: OutputSchema?
   ) async throws -> String {
-    // Await the configured delay OUTSIDE the lock (can't `await` inside a
-    // synchronous `withLock`). Cooperative cancellation lets a cancelled run
-    // tear down promptly. Default `.zero` is a no-op for existing tests.
-    let delay = state.withLock { $0.generateDelay }
-    if delay > .zero { try await Task.sleep(for: delay) }
+    // Park on the block gate OUTSIDE the lock (can't `await` inside a
+    // synchronous `withLock`). Disabled by default — a pure no-op for existing
+    // tests. When armed, the run is held in-flight until unblock or
+    // cancellation, wall-clock-independent (#719).
+    try await awaitBlockReleaseIfArmed()
     return try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
       // Drain a pending suspend slot first — this lets tests deterministically
@@ -128,6 +133,108 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   /// resumed or torn down. Deterministic regardless of `.instant` speed (#707).
   public func suspendOnControllerAttach() {
     state.withLock { $0.suspendOnAttach = true }
+  }
+
+  // MARK: - Signal-blocked generate (UI-test hold)
+
+  /// Arm `generate` to park (before its not-loaded / suspend / response checks)
+  /// until ``unblockGenerate()`` is called or the calling task is cancelled.
+  ///
+  /// Holds a run in-flight **independent of wall-clock** — replaces the former
+  /// `generateDelay` timed sleep so a slow CI runner can never expire the hold
+  /// mid-test (#719). The block lives INSIDE `generate` and is **not** released
+  /// by a ``SuspendController`` resume, which is the whole point: it stays
+  /// distinct from ``suspendOnControllerAttach()`` (a pre-generate *park* that
+  /// the `.viewHide` resume gate would clear, letting the generate run on and
+  /// exhaust an empty `responses` queue).
+  ///
+  /// Scope: gates ``generate(system:user:schema:)`` and therefore wrap-mode
+  /// ``generateStream(system:user:schema:)``, but NOT explicit
+  /// ``setStreamChunks(_:)`` streaming (that path never calls `generate`). The
+  /// armed mode is a *configuration* that survives ``reset()`` (like
+  /// `controller` / `suspendOnAttach`); ``unblockGenerate()`` releases it.
+  public func blockGenerateUntilSignal() {
+    state.withLock { $0.blockGate = .armed(nil) }
+  }
+
+  /// Release a `generate` parked by ``blockGenerateUntilSignal()`` and latch the
+  /// release so a later park returns immediately.
+  ///
+  /// Idempotent and safe to call before any `generate` parks (the latch makes
+  /// the unblock un-loseable). No-op when the gate is `.disabled`.
+  public func unblockGenerate() {
+    // Extract the parked continuation under the lock, resume OUTSIDE it (the
+    // executor enqueue must not run while holding the lock). Mirrors
+    // SuspendController.resume().
+    let continuation: CheckedContinuation<Void, Never>? = state.withLock { mutableState in
+      switch mutableState.blockGate {
+      case .disabled, .released:
+        return nil
+      case .armed(let stored):
+        mutableState.blockGate = .released
+        return stored
+      }
+    }
+    continuation?.resume()
+  }
+
+  /// Park the calling task on an armed block gate until ``unblockGenerate()`` or
+  /// task cancellation; return immediately when the gate is `.disabled` /
+  /// `.released`. Verbatim-mirrors ``SuspendController/awaitResume()``'s proven
+  /// cancel-before-store race fix (#134) — `<Void, Never>` + post-await `checkCancellation()`.
+  private func awaitBlockReleaseIfArmed() async throws {
+    // Fast path: skip the continuation hop when the mode is off, so a default
+    // MockLLMService behaves exactly as before.
+    let isArmed = state.withLock { mutableState -> Bool in
+      if case .disabled = mutableState.blockGate { return false }
+      return true
+    }
+    guard isArmed else { return }
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        let resumeNow = state.withLock { mutableState -> Bool in
+          switch mutableState.blockGate {
+          case .disabled, .released:
+            // Already released (latched unblock) — return immediately.
+            return true
+          case .armed(let existing):
+            precondition(
+              existing == nil,
+              "MockLLMService: multi-awaiter block not supported (1 generate = 1 waiter)"
+            )
+            mutableState.blockGate = .armed(continuation)
+            return false
+          }
+        }
+        if resumeNow {
+          continuation.resume()
+          return
+        }
+        // onCancel may have fired BEFORE the continuation was installed — it
+        // then saw `.armed(nil)` and no-op'd, leaving the just-stored
+        // continuation parked forever. Self-resume to close the race.
+        if Task.isCancelled {
+          extractParkedBlockContinuation()?.resume()
+        }
+      }
+    } onCancel: {
+      extractParkedBlockContinuation()?.resume()
+    }
+    // Distinguish cancellation from a normal unblock for the caller.
+    try Task.checkCancellation()
+  }
+
+  /// Atomically extract the parked block continuation (if any), clearing it to
+  /// `.armed(nil)` so cancel / unblock paths never resume it twice. Resume the
+  /// returned value OUTSIDE any lock. Mirrors `extractStoredContinuation()`.
+  private func extractParkedBlockContinuation() -> CheckedContinuation<Void, Never>? {
+    state.withLock { mutableState in
+      guard case .armed(let stored) = mutableState.blockGate, let cont = stored else {
+        return nil
+      }
+      mutableState.blockGate = .armed(nil)
+      return cont
+    }
   }
 
   // MARK: - Streaming
