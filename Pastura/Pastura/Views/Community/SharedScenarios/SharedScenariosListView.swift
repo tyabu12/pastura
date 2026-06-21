@@ -129,7 +129,7 @@ struct SharedScenariosListView: View {
   @ViewBuilder
   private func scenariosCard(viewModel: SharedScenariosViewModel) -> some View {
     if viewModel.visibleScenarios.isEmpty {
-      PasturaSection {
+      PasturaSection(style: .grouped) {
         Text(emptyResultsMessage(viewModel: viewModel))
           .foregroundStyle(Color.inkSecondary)
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -138,10 +138,12 @@ struct SharedScenariosListView: View {
       }
     } else {
       let scenarios = viewModel.visibleScenarios
-      PasturaSection {
+      PasturaSection(style: .grouped) {
         VStack(spacing: 0) {
           ForEach(Array(scenarios.enumerated()), id: \.element.id) { index, scenario in
-            if index > 0 { PasturaRowDivider() }
+            if index > 0 {
+              PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
+            }
             NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
               galleryRow(scenario: scenario, viewModel: viewModel)
             }
@@ -199,56 +201,10 @@ struct SharedScenariosListView: View {
   }
 
   // MARK: - Category filter chips
-
-  /// Horizontal, scrollable category-filter chip row (ADR-016 P4). Replaces
-  /// the menu `Picker`: every category is one tap inline, matching the D3
-  /// Browse mock. Drives the existing `selectedCategory` binding (nil =
-  /// "All"); `visibleScenarios` still owns the actual filtering.
-  private func categoryChips(selection: Binding<GalleryCategory?>) -> some View {
-    ScrollView(.horizontal, showsIndicators: false) {
-      HStack(spacing: 8) {
-        ForEach(GalleryCategoryFilter.options, id: \.self) { option in
-          categoryChip(option, selection: selection)
-        }
-      }
-      .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
-    }
-  }
-
-  private func categoryChip(
-    _ option: GalleryCategoryFilter, selection: Binding<GalleryCategory?>
-  ) -> some View {
-    let isSelected = option.selectedCategory == selection.wrappedValue
-    return Button {
-      selection.wrappedValue = option.selectedCategory
-    } label: {
-      Text(chipTitle(option))
-        .font(.subheadline.weight(isSelected ? .semibold : .regular))
-        // Selected uses `mossDark`, not base `moss`: white-on-mossDark clears
-        // WCAG AA (≈4.76:1) whereas white-on-moss is only ≈3.0:1
-        // (PasturaPrimaryButtonStyle §2.3). White-on-accent is the
-        // contrast-passing pair, distinct from §1's avoid-white-surfaces rule.
-        .foregroundStyle(isSelected ? Color.white : Color.ink)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .background(isSelected ? Color.mossDark : Color.bubbleBackground, in: Capsule())
-        .overlay(
-          Capsule().strokeBorder(
-            isSelected ? Color.clear : Color.rule,
-            lineWidth: PasturaCardMetrics.borderWidth))
-    }
-    .buttonStyle(.plain)
-    // The menu Picker announced its selection for free; rebuild that on the
-    // hand-rolled chips so VoiceOver still reads which filter is active.
-    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-  }
-
-  private func chipTitle(_ option: GalleryCategoryFilter) -> String {
-    switch option {
-    case .all: return String(localized: "All")
-    case .category(let category): return category.displayName
-    }
-  }
+  //
+  // `categoryChips` / `categoryChip` / `chipTitle` live in
+  // `SharedScenariosListView+CategoryChips.swift` (split out for the
+  // type_body_length budget, #731).
 
   /// "Recommended" section header above the scenarios card (D3 Browse mock),
   /// styled like a ``PasturaSection`` header (muted subheadline).
