@@ -33,7 +33,7 @@ pre-commit hook (self-gates on the VM glob) and the CI
 `scenario-editor-funnel-drift` job. Manual check:
 
 ```
-grep -coF 'buildScenario()' Pastura/Pastura/App/ScenarioEditorViewModel.swift
+grep -oF 'buildScenario()' Pastura/Pastura/App/ScenarioEditorViewModel.swift | wc -l
 ```
 
 The count is a **re-evaluation trigger, not a correctness proof**:

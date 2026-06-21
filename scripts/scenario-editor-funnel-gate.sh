@@ -62,6 +62,10 @@ if [ "$CHECK_ALL" -eq 0 ]; then
   fi
 fi
 
+# The count is read from the WORKING TREE (find + grep on-disk), not the
+# staged blob — consistent with the gallery / navigation-map siblings. The
+# CI --check job is the authoritative merge-time gate.
+#
 # Collect the production VM file(s). find keeps this robust if the glob is
 # ever empty (rename) — we fail loudly rather than letting an unquoted glob
 # expand to a literal and grep read stdin.
