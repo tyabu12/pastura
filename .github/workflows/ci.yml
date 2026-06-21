@@ -244,9 +244,9 @@ jobs:
     runs-on: macos-26
     # UI tests are far slower on the GPU-less CI simulator than locally
     # (~25s/suite locally either way). With continuous animations suppressed
-    # under --ui-test (#728) a clean CI run is ~10-12 min; an infra-flake-struck
-    # run (first-clone main-thread stall → retry) is bounded by the per-test
-    # cap in the test step below, keeping the worst case well under this budget.
+    # under --ui-test (#728) a clean CI run is ~12-13 min. A run that hits the
+    # pre-existing first-clone infra flake (main-thread stall → retry) can
+    # approach ~24 min but still completes under this budget.
     timeout-minutes: 25
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
@@ -308,13 +308,6 @@ jobs:
           # ScreenshotTourTests is a review-only capture tour (scripts/
           # ui-tour.sh), not a gate — skipped here so it never burns CI
           # minutes or inherits UI-test infra flakes.
-          # -test-timeouts-enabled + -default-test-execution-time-allowance cap
-          # each test ITERATION at 240s. With continuous animations suppressed
-          # (#728) a healthy run's slowest test is ~125s on CI, so 240s leaves
-          # ~2x headroom; an infra-flake-struck first iteration (main-thread
-          # stall) that would otherwise crawl to ~380s is killed at 240s and
-          # the fast retry takes over — bounding the worst case under the 25-min
-          # job budget. Tune up if a legitimate test ever approaches 240s on CI.
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
@@ -323,8 +316,6 @@ jobs:
             -skip-testing PasturaUITests/ScreenshotTourTests \
             -retry-tests-on-failure \
             -test-iterations 2 \
-            -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 240 \
             -resultBundlePath UITestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-ui.log || true
           TEST_EXIT=${PIPESTATUS[0]}
