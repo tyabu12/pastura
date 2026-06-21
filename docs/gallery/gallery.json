@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-20T00:00:00Z",
+  "updated_at": "2026-06-21T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -183,6 +183,20 @@
       "yaml_url": "tengoku_jigoku_v1.yaml",
       "yaml_sha256": "bc4d0dd059035ba0d97f16333ab8bbc5a015296b8bfca6495ce90b875db1576d",
       "added_at": "2026-06-20"
+    },
+    {
+      "id": "chinwaza_saiyo_v1",
+      "title": "珍特技 即採用面接",
+      "category": "creative",
+      "description": "4人の面接官が、応募者のどうでもいい「珍特技」を見て「即採用」か「お祈り」かを即決する大喜利。根性論・横文字ベンチャー・昭和の頑固職人・スピリチュアル人事、それぞれのキャラならではの大げさで不釣り合いな理由が笑いを生む。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "yaml_url": "chinwaza_saiyo_v1.yaml",
+      "yaml_sha256": "7dcc4cfdb6ec6f0ffd37f65e2e1c1521fc01e20161410a947f912710a479d6d9",
+      "added_at": "2026-06-21"
     }
   ]
 }
