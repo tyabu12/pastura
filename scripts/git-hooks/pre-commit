@@ -76,3 +76,8 @@ bash ./scripts/p8-precommit-gate.sh
 # 6. Navigation-map drift gate (#652) — self-gates on nav-map inputs,
 # fails-fast inside. Mirrors the CI navigation-map-drift job locally.
 bash ./scripts/navigation-map-precommit-gate.sh
+
+# 7. ScenarioEditor funnel tripwire (#338) — self-gates on
+# ScenarioEditorViewModel*.swift, fails-fast inside. Mirrors the CI
+# scenario-editor-funnel-drift job locally.
+bash ./scripts/scenario-editor-funnel-gate.sh
