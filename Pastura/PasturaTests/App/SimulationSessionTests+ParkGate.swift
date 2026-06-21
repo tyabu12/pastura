@@ -304,4 +304,84 @@ extension SimulationSessionTests {
     session.end()
     await viewModel.runTask?.value
   }
+
+  /// Starts a real 1-round `speak_all` run and parks it away (`.viewHide`),
+  /// returning once the run is genuinely held in-flight at its first generate
+  /// (parked, not yet completed). Mirrors the inline setup of
+  /// `memoryWarningPausesInFlightRun`; the two memory-warning-while-parked tests
+  /// below share it. Uses `.milliseconds(50)` to settle, matching that test.
+  ///
+  /// The two `responses` are provisioned to mirror that inline setup but are
+  /// never consumed by design: the run parks at its first generate and both
+  /// callers tear it down (pause-compose / background-cancel → `end()`) before
+  /// any generate completes, so `MockLLMService`'s exhaustion throw never fires.
+  private func startParkedAwayRun() async throws -> (
+    session: SimulationSession, viewModel: SimulationViewModel
+  ) {
+    let (viewModel, _) = try makeViewModel()
+    let mock = MockLLMService(responses: [
+      #"{"statement": "first"}"#,
+      #"{"statement": "second"}"#
+    ])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+    let session = SimulationSession()
+    _ = session.startGuarded(
+      source: .scenario(scenarioId: "test"),
+      scenario: scenario,
+      tab: .home,
+      makeViewModel: { viewModel },
+      body: { model in await model.run(scenario: scenario, llm: mock) })
+
+    while viewModel.suspendController == nil {
+      await Task.yield()
+    }
+    // The user left the screen with "keep running" → view-hide park.
+    session.requestPark(reason: .viewHide)
+    try await Task.sleep(for: .milliseconds(50))
+    return (session, viewModel)
+  }
+
+  @Test func memoryWarningPauseComposesWithViewHidePark() async throws {
+    // Parked-away (`.viewHide` held) + a FOREGROUND memory warning. The throttle
+    // pauses (first warning), and `pauseSimulation` routes its suspend through the
+    // gate as `.userPause` — so the run stays suspended and `parkReasons` composes
+    // both reasons. Distinct from `memoryWarningPausesInFlightRun`, which pins only
+    // the pause-not-cancel policy: this pins the park-gate composition (a
+    // memory-warning pause must not desync the view-hide park).
+    let (session, viewModel) = try await startParkedAwayRun()
+    #expect(viewModel.isRunning == true)
+    #expect(session.parkReasons == [.viewHide])
+
+    session.handleMemoryWarning(isAppActive: true)
+    #expect(viewModel.isPaused == true, "first foreground warning pauses, not cancels")
+    #expect(viewModel.isCancelled == false)
+    #expect(
+      session.parkReasons == [.viewHide, .userPause],
+      "the pause composes through the gate without un-parking the view-hide hold")
+    #expect(viewModel.suspendController?.isSuspendRequested() == true)
+
+    session.end()
+    await viewModel.runTask?.value
+  }
+
+  @Test func memoryWarningCancelsParkedAwayRunInBackground() async throws {
+    // Parked-away (`.viewHide` held) + a BACKGROUND memory warning. The throttle's
+    // `!isActive` branch cancels immediately — a backgrounded run is jetsamed at a
+    // much lower threshold, so preserving the terminal `.cancelled` status beats
+    // losing the run silently. The view-hide park must not suppress that cancel.
+    let (session, viewModel) = try await startParkedAwayRun()
+    #expect(viewModel.isRunning == true)
+
+    session.handleMemoryWarning(isAppActive: false)
+    #expect(
+      viewModel.isCancelled == true,
+      "a background memory warning cancels even a view-hide-parked run")
+
+    session.end()
+    await viewModel.runTask?.value
+  }
 }
