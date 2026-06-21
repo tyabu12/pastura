@@ -48,10 +48,3 @@ The count is a **re-evaluation trigger, not a correctness proof**:
 
 If the VM is ever split into `ScenarioEditorViewModel+*.swift`, revisit the
 expected count in the gate.
-
-## Related
-
-- PR #336 — drift bug fixed via the funnel
-- Issue #338 — closed; its manual grep is now this automated gate
-- Issue #725 — deferred source-of-truth redesign (supersedes #338); this
-  gate is the safety net until then
