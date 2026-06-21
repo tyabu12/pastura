@@ -72,4 +72,75 @@ echo "$JE" | jq -e 'all(.last_evaluated == null)' >/dev/null \
   || fail "absent journal should leave every last_evaluated null"
 echo "$JE" | jq -e 'length >= 6' >/dev/null || fail "absent journal should still enumerate inventory"
 
+# --- append_audit.py: section render + baseline delta ----------------------
+cp fixtures/journal_seed.md "$TMP/journal.md"
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$TMP/journal.md" >/dev/null
+grep -q "^## 2026-06-21$" "$TMP/journal.md" || fail "audit: section heading missing"
+
+# regression: word_wolf prior total 16 (2026-06-20) → new 12 → Δ-4, flagged ⚠️
+WW_ROW=$(grep '^| word_wolf ' "$TMP/journal.md")
+echo "$WW_ROW" | grep -q -- "-4" || fail "audit: word_wolf regression delta -4 missing"
+echo "$WW_ROW" | grep -q "⚠️" || fail "audit: regression ⚠️ flag missing"
+
+# A/B candidate: bokete__v2 total 20 vs same-run baseline bokete 18 → vs base +2
+CAND_ROW=$(grep '^| bokete__v2 ' "$TMP/journal.md")
+echo "$CAND_ROW" | grep -q "vs base +2" || fail "audit: A/B delta 'vs base +2' missing"
+echo "$CAND_ROW" | grep -q "✅" || fail "audit: A/B win ✅ missing"
+
+# bokete itself has no prior baseline → Δ em-dash, not a number
+BK_ROW=$(grep '^| bokete ' "$TMP/journal.md")
+
+# failed run: no scores, Δ em-dash, error surfaced in comment
+DET_ROW=$(grep '^| detective_scene_v1 ' "$TMP/journal.md")
+echo "$DET_ROW" | grep -q "failed" || fail "audit: failed status missing"
+echo "$DET_ROW" | grep -q "#253" || fail "audit: failed error not surfaced in comment"
+
+# machine-readable comment present; pipe escaped in human comment cell
+grep -q "audit-data:" "$TMP/journal.md" || fail "audit: data comment missing"
+echo "$WW_ROW" | grep -q '噛み合わせ \\| が弱い' || fail "audit: pipe not escaped in comment"
+
+# failed run excluded from scores in the data comment (status only)
+DATA=$(grep -o '<!-- audit-data: .* -->' "$TMP/journal.md" \
+  | sed 's/^<!-- audit-data: //; s/ -->$//' | jq -s '.[] | select(.date=="2026-06-21")')
+echo "$DATA" | jq -e '.scenarios.detective_scene_v1.status == "failed"' >/dev/null \
+  || fail "audit: failed run should be in data comment as failed"
+echo "$DATA" | jq -e '.scenarios.detective_scene_v1 | has("coherence") | not' >/dev/null \
+  || fail "audit: failed run must carry no scores"
+echo "$DATA" | jq -e '.scenarios.word_wolf.coherence == 3' >/dev/null \
+  || fail "audit: ok run scores missing from data comment"
+
+# --- append_audit.py: round-trip into select rotation ----------------------
+# After appending, the evaluated ids must read as evaluated-today in select.
+RT=$(python3 "$SCRIPTS/select_inventory.py" \
+  --presets-dir "$INV/presets" --gallery-dir "$INV/gallery" \
+  --gallery-json "$INV/gallery/gallery.json" --count 99 --journal "$TMP/journal.md")
+RT_WW=$(echo "$RT" | jq -r '.[] | select(.id=="word_wolf") | .last_evaluated')
+[ "$RT_WW" = "2026-06-21" ] || fail "round-trip: word_wolf should read evaluated 2026-06-21, got $RT_WW"
+
+# --- append_audit.py: date idempotency -------------------------------------
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$TMP/journal.md" >/dev/null 2>"$TMP/warn"
+COUNT=$(grep -c "^## 2026-06-21$" "$TMP/journal.md")
+[ "$COUNT" -eq 1 ] || fail "audit: re-append duplicated the section ($COUNT)"
+grep -q "warning: replaced" "$TMP/warn" || fail "audit: replace warning missing"
+# re-running same date must NOT use the replaced same-date section as its own
+# baseline — word_wolf still compares to 2026-06-20, so Δ stays -4 (not 0).
+grep '^| word_wolf ' "$TMP/journal.md" | grep -q -- "-4" \
+  || fail "audit: same-date re-run must not self-baseline (Δ should stay -4)"
+
+# --- append_audit.py: markers + bootstrap ----------------------------------
+echo "# broken" > "$TMP/broken.md"
+if python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$TMP/broken.md" 2>/dev/null; then
+  fail "audit: missing markers should be a hard error"
+fi
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$TMP/bootstrap.md" >/dev/null \
+  || fail "audit: absent file should bootstrap, not error"
+grep -q "audit-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sections marker missing"
+grep -q "audit-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
+grep -q "^## 2026-06-21$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
+tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
+
 echo "ALL TESTS PASSED"
