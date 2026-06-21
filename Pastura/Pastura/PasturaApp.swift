@@ -699,37 +699,27 @@ private struct RootView: View {
     /// that would make navigation regressions hard to catch reliably.
     private func setupUITestState() async {
       do {
-        // `--ui-test-slow-llm`: hold each inference for longer than a UI test
-        // runs so a started simulation stays in-flight (the simulator can't run
-        // real inference). Lets the Phase B park-and-return flow be exercised
+        // `--ui-test-slow-llm`: hold the run in-flight for the whole UI test so a
+        // started simulation never completes (the simulator can't run real
+        // inference). Lets the Phase B park-and-return flow be exercised
         // end-to-end (the run blocks in the first `generate`, so `registry.isActive`
         // stays true throughout — `InFlightIndicatorReconnectUITests`).
         //
-        // Why `generateDelay` and NOT `MockLLMService.suspendOnControllerAttach()`:
-        // `generateDelay` blocks INSIDE `generate` (a `Task.sleep` before the
-        // suspend check), faithfully modelling a sim that is still *running*.
-        // `suspendOnControllerAttach` instead *parks* the run pre-generate by
-        // requesting controller suspend — but the test returns to the run through
-        // the `.viewHide` resume gate (`requestResume(.viewHide)` resumes the
-        // controller), which would then let the parked generate proceed, exhaust
-        // the empty `responses: []`, and error-terminate the run. The two
-        // mechanisms are deliberately distinct (blocked-in-generate vs parked); do
-        // not swap them here.
+        // `blockGenerateUntilSignal()` blocks INSIDE `generate` on an explicit
+        // signal — wall-clock-INDEPENDENT, so a slow CI runner can never expire
+        // the hold mid-test (#719; the old `generateDelay` wall-clock sleep was
+        // calibrated to a 120s constant against 109–286s CI timing variance).
+        // The test never unblocks; tearDown's `terminate()` ends the run.
         //
-        // Why 120s and NOT a smaller constant: the delay is a wall-clock
-        // `Task.sleep` unaffected by park, and once the test returns and the gate
-        // resumes the controller, only the still-ongoing sleep keeps the run
-        // in-flight — so the delay must outlast the whole tap→final-assert window.
-        // On CI this test has been observed at ~109s end-to-end (with a flaky
-        // ~286s attempt on the same run), so 120s is near the safe floor, not
-        // over-generous; trimming it reintroduces a mid-test sleep-expiry flake.
-        // The wall-clock approach is itself timing-fragile against CI variance —
-        // the durable fix is a signal-blocked mock (block in `generate` until an
-        // explicit unblock), tracked in #719, not a larger constant.
-        let llm =
-          CommandLine.arguments.contains("--ui-test-slow-llm")
-          ? MockLLMService(responses: [], generateDelay: .seconds(120))
-          : MockLLMService(responses: [])
+        // NOT `suspendOnControllerAttach()`: that *parks* the run pre-generate via
+        // the controller, which the test's `.viewHide` resume gate
+        // (`requestResume(.viewHide)`) would clear — letting the generate run on,
+        // exhaust the empty `responses: []`, and error-terminate the run. The two
+        // mechanisms are deliberately distinct (blocked-in-generate vs parked).
+        let llm = MockLLMService(responses: [])
+        if CommandLine.arguments.contains("--ui-test-slow-llm") {
+          llm.blockGenerateUntilSignal()
+        }
         // Normalize keep-running-on-leave every --ui-test launch (a real Bool
         // write; a `-key YES` launch arg lands as a String that `FeatureFlags`'
         // `object(forKey:) as? Bool` reads as nil → default false). Setting it

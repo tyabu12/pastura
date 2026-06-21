@@ -163,6 +163,46 @@ struct MockLLMServiceTests {
     #expect(result == "a")
   }
 
+  // MARK: - Signal-blocked generate (UI-test Phase B hold)
+
+  @Test func blockGenerateHoldsThenUnblockReleases() async throws {
+    let service = MockLLMService(responses: ["done"])
+    try await service.loadModel()
+    service.blockGenerateUntilSignal()
+
+    let task = Task { try await service.generate(system: "s", user: "u") }
+    // Race-free: if generate hasn't parked yet, the latched release covers the
+    // next park; if it has parked, the stored continuation resumes.
+    service.unblockGenerate()
+
+    let result = try await task.value
+    #expect(result == "done")
+  }
+
+  @Test func blockedGenerateThrowsOnCancellation() async throws {
+    let service = MockLLMService(responses: ["never"])
+    try await service.loadModel()
+    service.blockGenerateUntilSignal()
+
+    let task = Task { try await service.generate(system: "s", user: "u") }
+    task.cancel()
+
+    await #expect(throws: CancellationError.self) {
+      try await task.value
+    }
+  }
+
+  @Test func unblockBeforeParkIsNotLost() async throws {
+    let service = MockLLMService(responses: ["done"])
+    try await service.loadModel()
+    service.blockGenerateUntilSignal()
+    // Unblock latches before any generate parks — the signal must not be lost.
+    service.unblockGenerate()
+
+    let result = try await service.generate(system: "s", user: "u")
+    #expect(result == "done")
+  }
+
   // MARK: - generateWithMetrics default dispatch
 
   /// Mock doesn't override `generateWithMetrics`, so the protocol-extension
