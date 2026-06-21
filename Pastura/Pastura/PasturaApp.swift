@@ -261,6 +261,10 @@ private struct RootView: View {
           // safe — unlike the per-tab `AppRouter`, the coordinator is shared.
           .environment(tabCoordinator)
           .environment(\.lastDeepLinkedScenarioId, lastDeepLinkedScenarioId)
+          // Suppress continuous animations under the XCUITest harness so the
+          // app reaches "idle" between interactions (#728). Read once here;
+          // leaf Views consume it via `@Environment(\.isUITestMode)`.
+          .environment(\.isUITestMode, UITestMode.isActive)
 
       case .databaseRecovery(let message):
         // Reached only for a recoverable `DataError` (deterministic migration
