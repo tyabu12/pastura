@@ -244,9 +244,9 @@ jobs:
     runs-on: macos-26
     # UI tests are far slower on the GPU-less CI simulator than locally
     # (~25s/suite locally either way). With continuous animations suppressed
-    # under --ui-test (#728) a clean CI run is ~12-13 min. A run that hits the
-    # pre-existing first-clone infra flake (main-thread stall → retry) can
-    # approach ~24 min but still completes under this budget.
+    # under --ui-test (#728) a clean CI run is ~12-13 min. The per-test
+    # execution-time cap in the test step below bounds a first-clone infra-flake
+    # stall so even a flake-struck run stays comfortably under this budget.
     timeout-minutes: 25
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
@@ -308,6 +308,13 @@ jobs:
           # ScreenshotTourTests is a review-only capture tour (scripts/
           # ui-tour.sh), not a gate — skipped here so it never burns CI
           # minutes or inherits UI-test infra flakes.
+          # -test-timeouts-enabled + -default-test-execution-time-allowance cap
+          # each test ITERATION at 180s. After the #728 animation fix the heavy
+          # tests pass in <=126s on CI, so 180s clears them while killing a
+          # first-clone infra-flake stall (which otherwise crawls to ~350-380s)
+          # early enough for the fast retry to keep the job under its 25-min
+          # budget. InFlightIndicatorReconnectUITests is slow by design (~225s)
+          # and opts out with its own executionTimeAllowance in setUp.
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
@@ -316,6 +323,8 @@ jobs:
             -skip-testing PasturaUITests/ScreenshotTourTests \
             -retry-tests-on-failure \
             -test-iterations 2 \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 180 \
             -resultBundlePath UITestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xctest-ui.log || true
           TEST_EXIT=${PIPESTATUS[0]}
