@@ -22,6 +22,10 @@ struct IdleFriendlyProgressView: View {
     self.title = nil
   }
 
+  /// - Parameter title: Must be an already-localized string (e.g.
+  ///   `String(localized: "…")`) — it is displayed verbatim. The SwiftLint
+  ///   i18n tripwire does not inspect this initializer, so a bare literal here
+  ///   would silently escape catalog extraction.
   init(_ title: String) {
     self.title = title
   }
