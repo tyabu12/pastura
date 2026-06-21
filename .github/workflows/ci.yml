@@ -510,8 +510,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      # Regression tests for the repo's shell gates (currently the p8
-      # secret-gate test). Pure git + bash, so ubuntu — no Xcode needed.
+      # gallery-scripts-test.sh delegates to add/check-gallery-entry.sh,
+      # which parse YAML via PyYAML. Pin major to match the gallery-drift
+      # job's install. The other shell tests don't need it; the install
+      # is cheap and unconditional keeps the job simple.
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet 'pyyaml>=6,<7'
+
+      # Regression tests for the repo's shell gates (p8 secret-gate,
+      # gallery tooling, …). Pure git + bash, so ubuntu — no Xcode needed.
       # The `*-test.sh` naming convention is the contract: any matching
       # file becomes a CI gate. GHA's default shell runs `set -eo pipefail`,
       # so a non-zero test exit fails the job (no `|| true` wrapper).
