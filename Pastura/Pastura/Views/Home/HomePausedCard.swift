@@ -22,7 +22,9 @@ struct HomePausedCard: View {
   }
 
   var body: some View {
-    PasturaCard {
+    // .grouped so the resume card reads as the same full-bleed band as the
+    // scenario list stacked beneath it on Home (#731).
+    PasturaCard(style: .grouped) {
       VStack(alignment: .leading, spacing: 11) {
         Text(summary.name)
           .font(.headline)
@@ -41,7 +43,9 @@ struct HomePausedCard: View {
             )
             .truncationMode(.tail)
         }
-        Divider().overlay(Color.rule)
+        // Shared 0.5pt hairline (not a raw `Divider`, ~1pt) so this intra-card
+        // rule matches the thinned separators in the list stacked beneath it.
+        PasturaRowDivider()
         footer
       }
       .padding(16)
