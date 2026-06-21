@@ -64,6 +64,8 @@ SCORE_KEYS = COMMON_AXES + ["payoff"]
 # 4-axis total is the smallest change unlikely to be sampling noise.
 REGRESSION_THRESHOLD = -2
 
+# Must stay byte-identical to select_inventory.py's copy — the writer and
+# reader of the same audit-data contract. Change both or neither.
 AUDIT_DATA_RE = re.compile(r"<!--\s*audit-data:\s*(\{.*?\})\s*-->")
 
 SCAFFOLD = f"""# Scenario Refine Audit Digest
@@ -100,6 +102,11 @@ def prior_ok_scores(journal_text, model, exclude_date):
     Reads the machine-readable audit-data comments, not the human tables.
     Returns {id: scores_dict}. A re-run on the same date excludes that date
     so the section being replaced never becomes its own baseline.
+
+    An ok record missing any of the 4 score axes is skipped as a baseline AND
+    a `warning:` is emitted — an ok run should always carry a full score set,
+    so an incomplete one signals a malformed compose rather than being
+    silently treated as "no prior baseline".
     """
     best = {}  # id -> (date, scores)
     for blob in AUDIT_DATA_RE.findall(journal_text):
@@ -117,6 +124,9 @@ def prior_ok_scores(journal_text, model, exclude_date):
                 continue
             scores = {k: rec.get(k) for k in SCORE_KEYS if rec.get(k) is not None}
             if len(scores) < len(SCORE_KEYS):
+                print(f"warning: ok record {sid!r} on {date} is missing score "
+                      f"axes {sorted(set(SCORE_KEYS) - set(scores))} — skipped "
+                      "as a baseline (malformed compose?)", file=sys.stderr)
                 continue
             if sid not in best or date > best[sid][0]:
                 best[sid] = (date, scores)
@@ -257,7 +267,8 @@ def main():
         print(f"warning: replaced existing section for {results['date']}",
               file=sys.stderr)
 
-    body = "\n\n" + section + "\n" + body.strip("\n") + ("\n\n" if body.strip("\n") else "\n")
+    stripped = body.strip("\n")
+    body = "\n\n" + section + "\n" + stripped + ("\n\n" if stripped else "\n")
 
     with open(args.journal, "w", encoding="utf-8") as f:
         f.write(head + SECTIONS_MARKER + body + PROMOTION_MARKER + footer)

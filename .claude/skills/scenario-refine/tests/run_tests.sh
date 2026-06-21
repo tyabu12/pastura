@@ -88,8 +88,12 @@ CAND_ROW=$(grep '^| bokete__v2 ' "$TMP/journal.md")
 echo "$CAND_ROW" | grep -q "vs base +2" || fail "audit: A/B delta 'vs base +2' missing"
 echo "$CAND_ROW" | grep -q "✅" || fail "audit: A/B win ✅ missing"
 
-# bokete itself has no prior baseline → Δ em-dash, not a number
+# bokete itself has no prior baseline → Δ em-dash, not a number. Field 10
+# (split on " | ") is the Δ cell; reverting the "if base is None: return –"
+# arm would make this a spurious number and fail here.
 BK_ROW=$(grep '^| bokete ' "$TMP/journal.md")
+BK_DELTA=$(echo "$BK_ROW" | awk -F' \\| ' '{print $10}')
+[ "$BK_DELTA" = "–" ] || fail "audit: no-prior-baseline Δ must be em-dash, got '$BK_DELTA'"
 
 # failed run: no scores, Δ em-dash, error surfaced in comment
 DET_ROW=$(grep '^| detective_scene_v1 ' "$TMP/journal.md")
@@ -142,5 +146,24 @@ grep -q "audit-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sections
 grep -q "audit-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
 grep -q "^## 2026-06-21$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
+
+# --- append_audit.py: malformed prior ok record warns (not silent) ---------
+# A prior ok record missing an axis must emit a stderr warning rather than
+# silently dropping out of the baseline.
+cat > "$TMP/malformed.md" <<'EOF'
+# seed
+<!-- audit-digest:sections -->
+## 2026-06-19
+
+<!-- audit-data: {"date": "2026-06-19", "model": "gemma-4-E2B-it-Q4_K_M", "scenarios": {"bokete": {"coherence": 4, "interaction": 4, "breakdown_free": 4, "status": "ok"}}} -->
+
+<!-- audit-digest:promotion -->
+Promotion: x
+EOF
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$TMP/malformed.md" \
+  >/dev/null 2>"$TMP/mwarn"
+grep -q "missing score axes" "$TMP/mwarn" \
+  || fail "audit: malformed prior ok record should warn, not silently skip"
 
 echo "ALL TESTS PASSED"

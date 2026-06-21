@@ -5,7 +5,7 @@ Enumerates the shipped inventory — bundled presets (`Resources/Presets/`) and
 the shared-scenario gallery (`docs/gallery/`) — joins it with the local audit
 journal to find each scenario's last-evaluated date, and emits the N
 least-recently-evaluated as a ROTATION. Running the whole inventory every
-night is too slow (≈45-90 min for all ~22), so each cycle re-checks the
+night is too slow (≈45-90 min for all ~21), so each cycle re-checks the
 oldest slice; over several nights every scenario comes round again.
 
 Also resolves each scenario's rubric category so the judge knows which 4th
@@ -117,6 +117,9 @@ def enumerate_gallery(gallery_dir, gallery_json):
     with open(gallery_json, encoding="utf-8") as f:
         index = json.load(f)
     for entry in index.get("scenarios", []):
+        sid = entry.get("id")
+        if not sid:
+            continue  # malformed gallery.json entry — never emit a null-id item
         url = entry.get("yaml_url", "")
         # gallery.json yaml_url is a bare filename resolved relative to the
         # index; an absolute https URL has no local file to run, so skip it.
@@ -125,7 +128,7 @@ def enumerate_gallery(gallery_dir, gallery_json):
         path = os.path.join(gallery_dir, url)
         category = entry.get("category") or FALLBACK_CATEGORY
         items.append({
-            "id": entry.get("id"),
+            "id": sid,
             "name": entry.get("title") or entry.get("id"),
             "path": path,
             "channel": "gallery",
@@ -140,6 +143,8 @@ def enumerate_gallery(gallery_dir, gallery_json):
 # append_audit.py) carrying that night's per-scenario scores. Parsing it — not
 # the human table — is the robust way to learn when each scenario was last
 # evaluated (and, in append_audit, its prior scores for the baseline delta).
+# Must stay byte-identical to append_audit.py's copy — the reader and writer
+# of the same audit-data contract. Change both or neither.
 AUDIT_DATA_RE = re.compile(r"<!--\s*audit-data:\s*(\{.*?\})\s*-->")
 
 
