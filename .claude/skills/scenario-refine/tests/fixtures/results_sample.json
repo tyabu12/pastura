@@ -1,0 +1,71 @@
+{
+  "date": "2026-06-21",
+  "model": "gemma-4-E2B-it-Q4_K_M",
+  "notes": "self-test fixture",
+  "scenarios": [
+    {
+      "id": "word_wolf",
+      "name": "ワードウルフ",
+      "channel": "preset",
+      "category": "game_theory",
+      "yaml": "Pastura/Pastura/Resources/Presets/word_wolf.yaml",
+      "run_log": "data/factory/audit-runs/2026-06-21/word_wolf.jsonl",
+      "status": "ok",
+      "attempts": 1,
+      "duration_sec": 120.0,
+      "scores": {"coherence": 3, "interaction": 3, "breakdown_free": 4, "payoff": 2},
+      "payoff_axis": "strategic_tension",
+      "comment": "前回より噛み合わせ | が弱い",
+      "error": null,
+      "candidate_of": null
+    },
+    {
+      "id": "bokete",
+      "name": "ボケて",
+      "channel": "preset",
+      "category": "creative",
+      "yaml": "Pastura/Pastura/Resources/Presets/bokete.yaml",
+      "run_log": "data/factory/audit-runs/2026-06-21/bokete.jsonl",
+      "status": "ok",
+      "attempts": 1,
+      "duration_sec": 90.0,
+      "scores": {"coherence": 5, "interaction": 4, "breakdown_free": 5, "payoff": 4},
+      "payoff_axis": "humor",
+      "comment": "安定して面白い",
+      "error": null,
+      "candidate_of": null
+    },
+    {
+      "id": "bokete__v2",
+      "name": "ボケて (v2 candidate)",
+      "channel": "preset",
+      "category": "creative",
+      "yaml": "data/factory/improvements/2026-06-21/bokete__v2.yaml",
+      "run_log": "data/factory/audit-runs/2026-06-21/bokete__v2.jsonl",
+      "status": "ok",
+      "attempts": 1,
+      "duration_sec": 95.0,
+      "scores": {"coherence": 5, "interaction": 5, "breakdown_free": 5, "payoff": 5},
+      "payoff_axis": "humor",
+      "comment": "お題制約を足したら一段面白くなった",
+      "error": null,
+      "candidate_of": "bokete"
+    },
+    {
+      "id": "detective_scene_v1",
+      "name": "推理劇場",
+      "channel": "gallery",
+      "category": "roleplay",
+      "yaml": "docs/gallery/detective_scene_v1.yaml",
+      "run_log": "data/factory/audit-runs/2026-06-21/detective_scene_v1.jsonl",
+      "status": "failed",
+      "attempts": 1,
+      "duration_sec": 40.0,
+      "scores": null,
+      "payoff_axis": "narrative_engagement",
+      "comment": "",
+      "error": "run_end line missing — process died mid-run (#253)",
+      "candidate_of": null
+    }
+  ]
+}

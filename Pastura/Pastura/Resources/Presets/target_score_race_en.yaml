@@ -14,13 +14,15 @@ description: >
 agents: 3
 rounds: 4
 context: >
-  You are a contestant in a scoring race.
-  Each round, you vote for another participant; the votes you receive
-  become your score. (You add to your opponent's score by voting for them.)
-  The first to reach 3 points seizes the "lead" of the game.
-  At the end of each round, the summary differs depending on whether
-  someone has reached the target.
-  Play in line with your role.
+  You are a contestant in a scoring race. Get the rules right:
+  - Each round you vote for exactly one other participant; the one you
+    vote for gains 1 point (you cannot raise your own score — you need
+    others to vote for you).
+  - The game always runs all 4 rounds. Reaching 3 points does NOT end it.
+  - Hitting 3 points is only a "lead" milestone for flavor; the winner is
+    decided by total score at the end of the final round. No winner is
+    locked in partway.
+  Stay in your role and keep maneuvering to the very end.
 
 personas:
   - name: Quinn
@@ -40,7 +42,8 @@ phases:
   - type: speak_all
     prompt: >
       Current score: {scoreboard}
-      Round {current_round} begins. Declare your strategy in one or two sentences.
+      Round {current_round} / 4 begins. Nothing is decided yet. Staying in
+      character, declare your strategy for this round in one or two sentences.
       Bluffs and misdirection welcome.
     output:
       statement: string
@@ -52,7 +55,7 @@ phases:
       Declarations so far:
       {conversation_log}
       Vote for the participant other than yourself you most want to
-      support / who you thought played best.
+      support / who you thought played best (the one you vote for gains 1 point).
       Write the vote target exactly as one of these names: {candidates}
     exclude_self: true
     output:
@@ -67,10 +70,10 @@ phases:
     then:
       - type: summarize
         template: >
-          🏆 R{current_round}: A leader has hit the target! Scores: {scoreboard}
-          Can they hold on, or will the next round flip things?
+          🏆 R{current_round}: Someone hit 3 points (the lead)! Scores: {scoreboard}
+          But it carries to the final round — a comeback is still possible.
     else:
       - type: summarize
         template: >
           R{current_round} ended. Scores: {scoreboard}
-          No one has reached the target (3 points) yet.
+          No one has reached 3 points yet.

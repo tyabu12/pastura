@@ -66,11 +66,20 @@ __pycache__/
 data/factory/runs/
 data/factory/scenarios/
 
+# Scenario-refine (/scenario-refine #730) raw run logs and A/B improvement
+# candidate YAMLs — local-only. The skill's hard safety boundary is that it
+# writes ONLY under data/factory/; these gitignores keep that output channel
+# untracked so an errant write can never reach users (the skill never commits
+# or pushes — a stray write stays a dirty working tree).
+data/factory/audit-runs/
+data/factory/improvements/
+
 # Nightly-routine digests — local judging / run journals appended in place
 # by the scenario-factory / queue-consumer skills. Untracked so the main
 # checkout's working tree stays clean; each skill's append_digest.py
 # bootstraps the file from a scaffold if absent.
 data/factory/digest.md
+data/factory/audit-digest.md
 data/queue/digest.md
 
 # Design-review screenshots — generated on demand by scripts/ui-tour.sh
