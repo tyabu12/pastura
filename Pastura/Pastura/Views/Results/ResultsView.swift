@@ -157,33 +157,42 @@ struct ResultsView: View {
     .contentShape(Rectangle())
   }
 
-  // Each row stacks: the simulation-time `variantName` (`.headline`, the
-  // variant's un-translated name or the deleted-scenario snapshot); a sheep
-  // avatar per agent (clamped); the archetype-safe result summary (P5 PR2,
-  // replacing the raw score chips); and a relative timestamp (#712) at the
-  // bottom, left-aligned.
+  // Each row stacks: line 1 = the simulation-time `variantName` (`.headline`,
+  // the variant's un-translated name or the deleted-scenario snapshot) with the
+  // result status pill trailing (#747); then a sheep avatar per agent (clamped);
+  // the scenario's 1-line description (#747); and a relative timestamp (#712) at
+  // the bottom. The result rides line 1 (next to the name) rather than between
+  // the scenario-info rows, so the scenario context (sheep · description) stays
+  // one visually-grouped block beneath the title.
   private func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
     let item = row.item
     let sheepCount = ResultsRowFormat.rowSheepCount(agentCount: row.agentCount)
     // Resolved in the View (not the VM) so all display formatting stays in the
     // Views layer — the VM carries only the resolved agentCount / totalRounds.
-    let summary = ResultsRowFormat.resultSummary(
+    let pill = ResultsRowFormat.resultPill(
       status: item.simulationStatus, topScores: item.topScores,
       currentRound: item.currentRound, totalRounds: row.totalRounds)
     return VStack(alignment: .leading, spacing: 4) {
-      Text(row.variantName)
-        .font(.headline)
-        .foregroundStyle(Color.ink)
+      HStack(spacing: 8) {
+        Text(row.variantName)
+          .font(.headline)
+          .foregroundStyle(Color.ink)
+          .lineLimit(1)
+          .truncationMode(.tail)
+          // Greedy so the name takes the row and yields (truncates) to the pill
+          // when both are long — the result stays readable (favoured over name).
+          .frame(maxWidth: .infinity, alignment: .leading)
+        resultPill(pill)
+      }
       // Sheep avatars only — the timestamp moved to the bottom line. Guard the
       // whole row so an unknown agent count (sheepCount 0) leaves no empty gap.
       if sheepCount > 0 {
         sheepCluster(count: sheepCount, agentCount: row.agentCount)
       }
 
-      // The scenario's 1-line description (#747) — the only scenario-context
-      // field on this otherwise result-centric row. Resolved snapshot-first by
-      // the VM; absent (deleted / pre-v7 / empty) → no line, like the rest of
-      // the row's graceful degrade. Font / color / truncation mirror the shared
+      // The scenario's 1-line description (#747). Resolved snapshot-first by the
+      // VM; absent (deleted / pre-v7 / empty) → no line, like the rest of the
+      // row's graceful degrade. Font / color / truncation mirror the shared
       // `ScenarioSummaryRow` description line, but lineLimit is a deliberate
       // hard 1 here (vs the shared row's Dynamic-Type-aware limit) to keep the
       // results row compact — do not "restore" parity. Not String(localized:)-
@@ -198,20 +207,8 @@ struct ResultsView: View {
           .truncationMode(.tail)
       }
 
-      // The archetype-safe result summary — or, when no summary applies
-      // (running / failed / cancelled), the status badge as a fallback so the
-      // run's state is never silent.
-      if let summary {
-        Text(summary)
-          .textStyle(Typography.metaValue)
-          .foregroundStyle(Color.muted)
-      } else {
-        statusBadge(item.simulationStatus)
-      }
-
-      // Relative timestamp (X / Instagram-style), below the summary/status.
-      // Computed in the View off the live clock — formatting stays in the Views
-      // layer, like the summary above.
+      // Relative timestamp (X / Instagram-style), at the bottom. Computed in the
+      // View off the live clock — formatting stays in the Views layer.
       Text(
         ResultsRowFormat.relativeTimestamp(
           for: item.createdAt, now: Date(), calendar: .current)
@@ -226,6 +223,41 @@ struct ResultsView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
+  /// The trailing result status pill (#747) — one capsule for every run state,
+  /// replacing the former result-summary text + `statusBadge` fallback. The
+  /// label comes from ``ResultsRowFormat/resultPill(status:topScores:currentRound:totalRounds:)``;
+  /// the tint is mapped here (App keeps the color choice in the Views layer, as
+  /// the old `statusBadge` did). Tokens are §1-palette-compliant (moss / neutral
+  /// / muted) — no saturated status colors.
+  private func resultPill(_ pill: ResultPill) -> some View {
+    Text(pill.label)
+      .font(.caption)
+      .fontWeight(.semibold)
+      .lineLimit(1)
+      .truncationMode(.tail)
+      .foregroundStyle(pillForeground(pill.style))
+      .padding(.horizontal, 10)
+      .padding(.vertical, 5)
+      .background(pillBackground(pill.style), in: Capsule())
+      .layoutPriority(1)
+  }
+
+  private func pillForeground(_ style: ResultPill.Style) -> Color {
+    switch style {
+    case .completed: Color.mossInk
+    case .paused: Color.inkSecondary
+    case .pending: Color.muted
+    }
+  }
+
+  private func pillBackground(_ style: ResultPill.Style) -> Color {
+    switch style {
+    case .completed: Color.moss.opacity(0.16)
+    case .paused: Color.inkSecondary.opacity(0.12)
+    case .pending: Color.muted.opacity(0.14)
+    }
+  }
+
   /// One sheep avatar per agent (clamped via ``ResultsRowFormat/rowSheepCount``).
   /// The sheep are decorative (``SheepAvatar`` is `.accessibilityHidden`); the
   /// true agent count is announced to VoiceOver via the group's `%lld agents`
@@ -238,42 +270,6 @@ struct ResultsView: View {
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(String(format: String(localized: "%lld agents"), agentCount ?? 0))
-  }
-
-  @ViewBuilder
-  private func statusBadge(_ status: SimulationStatus?) -> some View {
-    // Pastura tokens (§2.3): completed = moss-dark（ステータスラベル用途、§2.3
-    // で "ステータスラベル（Completed 等）" と enumerate）、paused / default
-    // は ink-secondary / muted の neutral。`.green / .orange / .secondary`
-    // は §1 飽和色禁則・パレット非準拠で置換。SimulationView ヘッダーの
-    // Completed ラベルとも揃えてある。
-    //
-    // Label font も同時に `Typography.metaLabel` 化（隣接トークンの一貫性
-    // — `.caption` だけ残ると section 内で system font / Pastura token が
-    // 混在するため）。
-    //
-    // Structured as individual cases (not a 3-tuple) to stay within
-    // SwiftLint's `large_tuple` limit of 2 members.
-    switch status {
-    case .completed:
-      Label(String(localized: "Completed"), systemImage: "checkmark.circle.fill")
-        .textStyle(Typography.metaLabel).foregroundStyle(Color.mossDark)
-    case .paused:
-      Label(String(localized: "Paused"), systemImage: "pause.circle.fill")
-        .textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
-    case .running:
-      Label(String(localized: "Running"), systemImage: "play.circle.fill")
-        .textStyle(Typography.metaLabel).foregroundStyle(Color.inkSecondary)
-    case .failed:
-      Label(String(localized: "Failed"), systemImage: "exclamationmark.circle.fill")
-        .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
-    case .cancelled:
-      Label(String(localized: "Cancelled"), systemImage: "xmark.circle.fill")
-        .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
-    case .none:
-      Label(String(localized: "Unknown"), systemImage: "questionmark.circle")
-        .textStyle(Typography.metaLabel).foregroundStyle(Color.muted)
-    }
   }
 }
 
