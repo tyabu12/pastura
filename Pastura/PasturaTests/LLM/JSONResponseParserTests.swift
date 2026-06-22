@@ -318,6 +318,9 @@ struct JSONResponseParserTests {
   }
 
   // Empty object `{}` balances immediately and parses to an empty field set.
+  // Also exercises the residue boundary the scan's OOB-safety relies on:
+  // balance hits 0 at the last char, so `chars[(i+1)...]` is the empty slice
+  // (`residue.first == nil`) — neither salvage-trim nor the object-like throw.
   @Test func parsesEmptyObject() throws {
     let output = try parser.parse("{}")
     #expect(output.fields.isEmpty)
