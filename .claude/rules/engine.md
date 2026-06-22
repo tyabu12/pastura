@@ -178,7 +178,14 @@ Port directly from Python prototype `parse_json_response()`. Must handle:
 
 1. Gemma 4 thinking tags: `<|channel>thought\n...<channel|>` → strip
 2. Code block wrapping: ```json ... ``` → extract inner content
-3. Leading garbage before `{` → find first `{...}` with regex
+3. Leading garbage / trailing garbage around the object → extract the first
+   **balanced** `{...}` via a string-aware brace scan (`StringStateMachine`),
+   stopping at the `}` that returns brace balance to zero. This runs
+   unconditionally (NOT gated on a `{`/`}` prefix/suffix check) so a stray
+   trailing `}` (`{…}}`) or post-object prose is discarded. A greedy
+   `\{.*\}` regex would keep them by matching to the last `}`. The scan
+   returns the input unchanged when braces never balance, so the repair
+   pipeline still fires on a genuinely-unclosed object. (#751 sub-class 1)
 4. All values normalized to String in TurnOutput
 
 ### Retry Policy
@@ -186,6 +193,11 @@ Port directly from Python prototype `parse_json_response()`. Must handle:
 Max 2 retries. Retry on:
 - JSON parse failure
 - Empty fields ("..." or empty string)
+
+**Deferred (#751 sub-class 2):** completely-empty model output (EOG-at-
+position-0 suspected) exhausts the retry budget. It is inference-side, not
+parser-recoverable — root-cause on-device per the issue before adding any
+retry-budget change. Tracked under #751.
 
 ## Content Filter
 
