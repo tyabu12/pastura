@@ -47,6 +47,16 @@ nonisolated enum HomeScenarioRowFormat {
     isAccessibilitySize ? nil : 2
   }
 
+  /// Localized leading caption for the gallery category (#748), or nil when
+  /// the scenario carries no category (local / self-made / preset → no badge)
+  /// or the persisted raw value no longer maps to a `GalleryCategory` case (a
+  /// case removed in a future version reading an old row — degrade to nil
+  /// rather than show a stale token). `nil` ⇒ the caption shows the inference
+  /// count alone, with no dangling separator.
+  static func categoryCaption(for category: String?) -> String? {
+    category.flatMap { GalleryCategory(rawValue: $0)?.displayName }
+  }
+
   /// Progress label for the paused "resume" card — "Round X / Y", reusing the
   /// existing `Round %lld / %lld` catalog key. nil when the total round count
   /// is unknown (orphaned run / name-only metadata) so the caller hides the

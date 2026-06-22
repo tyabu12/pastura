@@ -16,6 +16,25 @@ nonisolated public enum GalleryCategory: String, Codable, Sendable, Equatable, C
   case experimental = "experimental"
 }
 
+nonisolated extension GalleryCategory {
+  /// Human-readable, localized display name for the category.
+  ///
+  /// Co-located with the enum (rather than a View file) so every surface that
+  /// renders a persisted category — Browse, Home, Past Results (#748) — shares
+  /// one mapping. `nonisolated` so non-MainActor callers (e.g. tests) can read
+  /// it; the strings land in `Localizable.xcstrings` for `ja` translation.
+  public var displayName: String {
+    switch self {
+    case .socialPsychology: return String(localized: "Social Psychology")
+    case .gameTheory: return String(localized: "Game Theory")
+    case .ethics: return String(localized: "Ethics")
+    case .roleplay: return String(localized: "Roleplay")
+    case .creative: return String(localized: "Creative")
+    case .experimental: return String(localized: "Experimental")
+    }
+  }
+}
+
 /// A single scenario entry in the remote gallery.
 ///
 /// Maps to one element of the `scenarios` array in `gallery.json`.

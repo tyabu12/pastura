@@ -217,7 +217,10 @@ final class SharedScenariosViewModel {
       sourceType: ScenarioSourceType.gallery,
       sourceId: scenario.id,
       sourceHash: scenario.yamlSHA256,
-      language: parsed.language
+      language: parsed.language,
+      // Denormalize the gallery category so Home / Past Results can surface it
+      // without the live gallery feed (#748). Raw value; the enum is not in Data.
+      category: scenario.category.rawValue
     )
     try await offMain { [repository] in
       try repository.save(record)

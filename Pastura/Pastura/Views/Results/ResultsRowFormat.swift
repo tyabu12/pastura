@@ -151,6 +151,16 @@ nonisolated enum ResultsRowFormat {
     return min(agentCount, maxRowSheep)
   }
 
+  // MARK: - Category caption (#748)
+
+  /// Localized display name for a run's snapshot gallery category, or nil when
+  /// the run carries no category (local / self-made / pre-v10) or the snapshot
+  /// raw value no longer maps to a `GalleryCategory` case (degrade to nil
+  /// rather than show a stale token). nil ⇒ the row draws no category line.
+  static func categoryCaption(for categorySnapshot: String?) -> String? {
+    categorySnapshot.flatMap { GalleryCategory(rawValue: $0)?.displayName }
+  }
+
   // MARK: - Relative timestamp (#712)
 
   /// A relative, X / Instagram-style timestamp for a History row: "Just now" /

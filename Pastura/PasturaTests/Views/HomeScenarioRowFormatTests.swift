@@ -76,4 +76,23 @@ struct HomeScenarioRowFormatTests {
     #expect(label?.contains("3") == true)
     #expect(label?.contains("5") == true)
   }
+
+  // MARK: - categoryCaption (#748)
+
+  @Test func categoryCaptionNilForLocalScenario() {
+    // No category column (local / self-made / preset) ⇒ no leading caption,
+    // so the row shows the inference count alone with no dangling separator.
+    #expect(HomeScenarioRowFormat.categoryCaption(for: nil) == nil)
+  }
+
+  @Test func categoryCaptionNilForUnknownRawValue() {
+    // A persisted raw value no longer mapping to a case degrades to nil.
+    #expect(HomeScenarioRowFormat.categoryCaption(for: "no_such_category") == nil)
+  }
+
+  @Test func categoryCaptionResolvesKnownCategory() {
+    #expect(
+      HomeScenarioRowFormat.categoryCaption(for: GalleryCategory.gameTheory.rawValue)
+        == GalleryCategory.gameTheory.displayName)
+  }
 }

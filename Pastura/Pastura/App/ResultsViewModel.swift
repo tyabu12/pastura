@@ -322,8 +322,8 @@ final class ResultsViewModel {
       let meta = metaById[item.id] ?? .unknown
       rowsByKey[key]?.append(
         SimulationRow(
-          item: item, variantName: variantName(for: item),
-          agentCount: meta.agentCount, totalRounds: meta.rounds))
+          item: item, variantName: variantName(for: item), agentCount: meta.agentCount,
+          totalRounds: meta.rounds, category: item.scenarioCategorySnapshot))
     }
     sections = order.compactMap { key in
       guard let rows = rowsByKey[key], !rows.isEmpty else { return nil }
@@ -371,8 +371,8 @@ final class ResultsViewModel {
     let rows = items.map { item -> SimulationRow in
       let meta = metaById[item.id] ?? .unknown
       return SimulationRow(
-        item: item, variantName: name,
-        agentCount: meta.agentCount, totalRounds: meta.rounds)
+        item: item, variantName: name, agentCount: meta.agentCount,
+        totalRounds: meta.rounds, category: item.scenarioCategorySnapshot)
     }
     sections = [ResultSection(key: canonical, title: name, rows: rows)]
     totalRunCount = items.count

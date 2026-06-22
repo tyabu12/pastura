@@ -26,6 +26,12 @@ extension ResultsViewModel {
     /// unknown, which routes the summary to its bare "Complete" / "Paused at
     /// Round K" form.
     let totalRounds: Int?
+    /// The run's snapshot gallery category (`GalleryCategory` raw value), from
+    /// ``PastRunListItem/scenarioCategorySnapshot`` (#748). `nil` for runs of
+    /// local scenarios and pre-v10 runs. The View resolves its display name via
+    /// ``ResultsRowFormat/categoryCaption(for:)`` — the row carries the raw
+    /// resolved data, not the formatted caption (App keeps no Views dependency).
+    let category: String?
     var id: String { item.id }
   }
 

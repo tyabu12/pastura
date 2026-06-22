@@ -233,6 +233,21 @@ extension SimulationRepositoryTests {
     #expect(item.scenarioYamlSnapshot == snapshot)
   }
 
+  /// #748: the gallery category captured at run-creation projects through to
+  /// the Past Results list item; `nil` for runs of local (categoryless) rows.
+  @Test func fetchRunListProjectsCategorySnapshot() throws {
+    let env = try makePagingRepos()
+    try env.scenarios.save(scenario(id: "s1", name: "One"))
+    try env.sims.save(
+      run(id: "withCat", scenarioId: "s1", at: 20, categorySnapshot: "game_theory"))
+    try env.sims.save(
+      run(id: "noCat", scenarioId: "s1", at: 10, categorySnapshot: nil))
+
+    let list = try env.sims.fetchRunList(scenarioId: "s1")
+    #expect(list.first { $0.id == "withCat" }?.scenarioCategorySnapshot == "game_theory")
+    #expect(list.first { $0.id == "noCat" }?.scenarioCategorySnapshot == nil)
+  }
+
   /// A pre-v7 run (no captured snapshot) projects `nil` for the YAML snapshot
   /// — the App-layer resolver then falls back to the live scenario.
   @Test func fetchRecentRunPageProjectsNilSnapshotForPreV7Run() throws {
@@ -288,12 +303,14 @@ private func run(
   stateJSON: String = "{}",
   nameSnapshot: String? = nil,
   currentRound: Int = 1,
-  yamlSnapshot: String? = nil
+  yamlSnapshot: String? = nil,
+  categorySnapshot: String? = nil
 ) -> SimulationRecord {
   run(
     id: id, scenarioId: scenarioId, at: Date(timeIntervalSince1970: offset),
     stateJSON: stateJSON, nameSnapshot: nameSnapshot,
-    currentRound: currentRound, yamlSnapshot: yamlSnapshot)
+    currentRound: currentRound, yamlSnapshot: yamlSnapshot,
+    categorySnapshot: categorySnapshot)
 }
 
 private func run(
@@ -303,7 +320,8 @@ private func run(
   stateJSON: String = "{}",
   nameSnapshot: String? = nil,
   currentRound: Int = 1,
-  yamlSnapshot: String? = nil
+  yamlSnapshot: String? = nil,
+  categorySnapshot: String? = nil
 ) -> SimulationRecord {
   SimulationRecord(
     id: id, scenarioId: scenarioId,
@@ -312,5 +330,6 @@ private func run(
     stateJSON: stateJSON, configJSON: nil,
     createdAt: createdAt, updatedAt: createdAt,
     scenarioYamlSnapshot: yamlSnapshot,
-    scenarioNameSnapshot: nameSnapshot)
+    scenarioNameSnapshot: nameSnapshot,
+    scenarioCategorySnapshot: categorySnapshot)
 }

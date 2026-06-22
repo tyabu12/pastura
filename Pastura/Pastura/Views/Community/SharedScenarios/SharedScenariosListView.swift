@@ -230,20 +230,6 @@ struct SharedScenariosListView: View {
   }
 }
 
-extension GalleryCategory {
-  /// Human-readable display name for the UI picker.
-  public var displayName: String {
-    switch self {
-    case .socialPsychology: return String(localized: "Social Psychology")
-    case .gameTheory: return String(localized: "Game Theory")
-    case .ethics: return String(localized: "Ethics")
-    case .roleplay: return String(localized: "Roleplay")
-    case .creative: return String(localized: "Creative")
-    case .experimental: return String(localized: "Experimental")
-    }
-  }
-}
-
 /// Attaches the scenario `.searchable` field to the Browse tab, but only when
 /// a list is actually on screen (`enabled`). Mirrors ResultsView's
 /// `AggregateSearchable`: applied at the `body` boundary so the field lives on

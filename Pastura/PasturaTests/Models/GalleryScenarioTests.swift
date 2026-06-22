@@ -206,4 +206,19 @@ import Testing
       #expect(decoded == expected)
     }
   }
+
+  // MARK: - displayName (#748)
+
+  @Test func displayNameIsNonEmptyAndDistinctForEveryCase() {
+    // Centralized in Models so Browse / Home / Past Results share one mapping.
+    let names = GalleryCategory.allCases.map(\.displayName)
+    #expect(names.allSatisfy { !$0.isEmpty })
+    #expect(Set(names).count == GalleryCategory.allCases.count)
+  }
+
+  @Test func displayNameMatchesKnownLabels() {
+    #expect(GalleryCategory.socialPsychology.displayName == "Social Psychology")
+    #expect(GalleryCategory.gameTheory.displayName == "Game Theory")
+    #expect(GalleryCategory.experimental.displayName == "Experimental")
+  }
 }
