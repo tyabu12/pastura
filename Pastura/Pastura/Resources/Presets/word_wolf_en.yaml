@@ -1,11 +1,13 @@
 # Translation notes (ADR-010 D3 sibling-file authoring):
 # - Personas use neutral EN unisex first names (Avery / Riley / Morgan /
 #   Casey / Jordan). Names carry no comedic load in word_wolf — the
-#   game is gameplay-driven, not persona-archetype-driven, so a culture-
-#   transparent name set keeps the persona descriptions doing the work.
-# - Persona example utterances rewritten as natural EN equivalents
-#   (mirroring tone — observational / outgoing / analytical / laid-back /
-#   strategic), NOT translated literally.
+#   game is gameplay-driven, not persona-archetype-driven.
+# - v2 clue mechanic ported from the JA sibling: each speak turn must emit
+#   a concrete `clue` field, and personas are anchored to distinct clue
+#   axes (appearance / taste / how-eaten / season / touch) so the topic
+#   difference surfaces instead of degenerating into vague meta-talk.
+#   Persona descriptions are natural-EN equivalents of the JA axes, NOT
+#   literal translations.
 # - The word pair stays apple / orange (りんご / みかん) — both are
 #   archetypal "round fruit" referents in EN identical to JA, so the
 #   gameplay obfuscation (similar shape/season cues) carries over.
@@ -23,7 +25,9 @@ context: >
   You are a contestant on the game show "Word Wolf".
   Each of you has been given a topic word, but one player has a
   different word from the rest. Never say your topic word out loud.
-  Talk about the topic, then vote to identify the minority (the wolf).
+  But do actively describe concrete features that evoke it — colour,
+  shape, taste, season, how you eat it. Anyone who only speaks in vague
+  terms looks suspicious. Then vote to identify the minority (the wolf).
   You do not know whether you are the majority or the minority.
 
 words:
@@ -32,35 +36,39 @@ words:
 
 mid_game_announcements:
   - "📺 Host: Mid-show check-in — time is running short, let's narrow it down."
-  - "📺 Audience: We want more depth! Give us specific stories."
+  - "📺 Audience: Enough abstractions! We want concrete talk — colour, taste, how you eat it."
   - "📺 Host: A suspect is starting to emerge. Lock in your impression with one final remark."
 
 personas:
   - name: Avery
     description: >
-      [Role] Cautious observer.
-      [Goal] Avoid revealing your own information; watch how others speak.
-      Calm, measured tone. Example: "Hm, I see what you mean — there's something to that take."
+      [Role] Goes after appearance and colour.
+      [Goal] Describe one concrete visual feature (colour, shape) of the
+      topic and watch for clashes with others' visual descriptions.
+      Calm, concise tone. Example: "Colour-wise, it's a pretty distinct shade."
   - name: Riley
     description: >
-      [Role] Outgoing chatter.
-      [Goal] Speak in concrete anecdotes and keep energy in the room.
-      Bright, friendly tone. Example: "Oh, I had this just the other day — it was so good!"
+      [Role] Outgoing, talks taste and texture.
+      [Goal] Describe the taste, texture, and mouth-feel of the topic
+      concretely.
+      Bright, friendly tone. Example: "That burst of flavour — I love it!"
   - name: Morgan
     description: >
-      [Role] Analytical detective.
-      [Goal] Look for inconsistencies in what others say.
-      Sharp, intellectual tone. Example: "Hold on — doesn't that contradict what you said earlier?"
+      [Role] Analytical, goes after how and when it's eaten.
+      [Goal] Describe how or when you eat it, and probe contradictions in
+      others' descriptions.
+      Sharp, intellectual tone. Example: "Hold on — that way of eating it doesn't add up with what you said."
   - name: Casey
     description: >
-      [Role] Laid-back natural.
-      [Goal] Don't overthink — just say what comes to mind.
-      Easy, unhurried tone. Example: "Mmm, I just like the feel of it — kind of warm, you know?"
+      [Role] Laid-back natural, talks season and memory.
+      [Goal] Speak plainly about the season or a memory tied to the topic;
+      don't overthink.
+      Easy, unhurried tone. Example: "Mmm, I've got this memory of having it with family when it was cold out."
   - name: Jordan
     description: >
-      [Role] Poker-faced strategist.
-      [Goal] Speak in vague terms and watch how others react.
-      Cool, detached tone. Example: "Well, it depends — different people picture it differently."
+      [Role] Poker-faced, doles out clues sparingly.
+      [Goal] Offer just one concrete feature and watch how others react.
+      Cool, detached tone. Example: "Well, if I say one thing… it's the feel of it in your hand."
 
 phases:
   - type: assign
@@ -75,29 +83,26 @@ phases:
       {conversation_log}
 
       Talk about the topic. Never say the topic word itself.
-      Watch closely for clues about who might be the minority.
+      In `clue`, you must give exactly one concrete feature that evokes
+      your topic (colour, shape, taste, season, how you eat it, a memory —
+      vague phrases like "nice" or "warm" are not allowed). Watch others'
+      clues closely to find the minority.
     output:
       statement: string
+      clue: string
       inner_thought: string
     rounds: 2
 
-  # 50% chance a mid-show announcement is injected as external disruption.
-  # event_inject's primary use (text injection) is leveraged here to
-  # perturb the running conversation.
   - type: event_inject
     source: mid_game_announcements
     probability: 0.5
 
-  # Surface a summary line only when an announcement actually fired.
-  # When event_inject misses, current_event is an empty string — gate
-  # the summarize on that condition.
   - type: conditional
     if: 'current_event != ""'
     then:
       - type: summarize
         template: "{current_event}"
 
-  # Final remark after the announcement. Reaction speak_each.
   - type: speak_each
     prompt: >
       Your topic: {assigned_word}
@@ -107,8 +112,9 @@ phases:
 
       Announcement from the show: {current_event}
 
-      Reflecting on the conversation and (if any) the announcement,
-      make your final pre-vote remark. Never say the topic word itself.
+      Comparing the clues raised so far, point to whose clue seems out of
+      step with the others, and make your final pre-vote remark. Never say
+      the topic word itself.
     output:
       statement: string
       inner_thought: string
@@ -121,7 +127,8 @@ phases:
       Conversation log:
       {conversation_log}
 
-      Vote for whoever you think is the minority (the wolf).
+      Compare the clues that were given and vote for the minority (the
+      wolf) whose features are out of step with the rest.
       Write the vote target exactly as one of these names: {candidates}
     output:
       vote: string
