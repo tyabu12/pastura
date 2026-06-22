@@ -208,53 +208,25 @@ struct SharedScenariosListView: View {
   private func scenarioRow(
     scenario: GalleryScenario, viewModel: SharedScenariosViewModel
   ) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        Text(scenario.title).font(.headline).foregroundStyle(Color.ink)
-        Spacer()
-        if viewModel.hasUpdate(for: scenario) {
-          badge(text: String(localized: "Update"), style: .tint)
-        } else if viewModel.isInstalled(scenario) {
-          badge(text: String(localized: "Installed"), style: .secondary)
-        }
-      }
-      // sheep ×N · N rounds — reuses the Home/Past Results meta line
-      // (HomeScenarioMetaLine). Guarded so a feed entry without
-      // agent_count/rounds (older feed, forward-compat) hides the line
-      // rather than reserving empty space.
-      if HomeScenarioRowFormat.showsMetaLine(
-        agentCount: scenario.agentCount, rounds: scenario.rounds) {
-        HomeScenarioMetaLine(agentCount: scenario.agentCount, rounds: scenario.rounds)
-      }
-      Text(scenario.description)
-        .font(.subheadline)
-        .foregroundStyle(Color.inkSecondary)
-        .lineLimit(2)
-      HStack(spacing: 8) {
-        Text(scenario.category.displayName)
-        Text(verbatim: "·")
-        Text(
-          String(format: String(localized: "~%lld inferences"), scenario.estimatedInferences))
-      }
-      .font(.caption)
-      .foregroundStyle(Color.muted)
-    }
-  }
-
-  private enum BadgeStyle { case tint, secondary }
-
-  private func badge(text: String, style: BadgeStyle) -> some View {
-    Text(text)
-      .font(.caption2.bold())
-      .padding(.horizontal, 6)
-      .padding(.vertical, 2)
-      .background(
-        style == .tint
-          ? Color.accentColor.opacity(0.2)
-          : Color.secondary.opacity(0.15),
-        in: Capsule()
+    // hasUpdate wins over isInstalled — an updatable scenario is installed too,
+    // but the "changed" signal is the more useful one to surface.
+    let badge: ScenarioBadge? =
+      viewModel.hasUpdate(for: scenario)
+      ? .update
+      : (viewModel.isInstalled(scenario) ? .installed : nil)
+    return ScenarioSummaryRow(
+      model: ScenarioSummaryRow.Model(
+        title: scenario.title,
+        badge: badge,
+        agentCount: scenario.agentCount,
+        rounds: scenario.rounds,
+        description: scenario.description,
+        descriptionLineLimit: 2,
+        captionLeading: scenario.category.displayName,
+        captionTrailing: String(
+          format: String(localized: "~%lld inferences"), scenario.estimatedInferences)
       )
-      .foregroundStyle(style == .tint ? Color.accentColor : .secondary)
+    )
   }
 }
 
