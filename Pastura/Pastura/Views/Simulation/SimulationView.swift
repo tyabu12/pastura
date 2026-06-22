@@ -519,7 +519,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         modelReloadingOverlay
       }
     }
-    .overlay(alignment: .top) {
+    .overlay(alignment: LanguageDriftToastLayout.overlayAlignment) {
       languageDriftToast(viewModel: viewModel)
     }
     .animation(.default, value: viewModel.pendingLanguageMismatchToast)
@@ -568,18 +568,21 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   ) -> some View {
     if let text = viewModel.languageMismatchToastText {
       Label(text, systemImage: "globe")
+        // `.font(.caption)` stays inline: `SwiftUI.Font` is not `Equatable`,
+        // so it can't back the `LanguageDriftToastLayout` value-mirror
+        // tripwire — it's code-review-gated alongside the rendered surface.
         .font(.caption)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, LanguageDriftToastLayout.contentHorizontalPadding)
+        .padding(.vertical, LanguageDriftToastLayout.contentVerticalPadding)
         .background(.ultraThinMaterial, in: Capsule())
-        .padding(.top, 8)
-        .padding(.horizontal, 16)
+        .padding(.top, LanguageDriftToastLayout.topInset)
+        .padding(.horizontal, LanguageDriftToastLayout.edgeHorizontalPadding)
         .transition(.move(edge: .top).combined(with: .opacity))
         // Decorative SF Symbol — `text` already carries the semantic.
         // Matches `GameHeader.metaRow`'s globe badge accessibility.
         .accessibilityLabel(text)
         .task(id: viewModel.pendingLanguageMismatchToast) {
-          try? await Task.sleep(for: .seconds(4))
+          try? await Task.sleep(for: .seconds(LanguageDriftToastLayout.autoDismissSeconds))
           viewModel.dismissLanguageMismatchToast()
         }
         .accessibilityIdentifier("simulation.languageDriftToast")
