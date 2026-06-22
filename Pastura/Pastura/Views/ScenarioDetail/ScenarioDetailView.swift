@@ -179,10 +179,13 @@ struct ScenarioDetailView: View {
         initialName: .init(scenario.name)
       )
     ) {
+      // `.frame(maxWidth:)` goes on the *label* (not the outer link) so the
+      // style's fill spans the band — the gallery "Try this scenario"
+      // full-width CTA convention (GalleryScenarioDetailView).
       Label(String(localized: "Run Simulation"), systemImage: "play.fill")
+        .frame(maxWidth: .infinity)
     }
     .buttonStyle(PasturaPrimaryButtonStyle())
-    .frame(maxWidth: .infinity)
     .disabled(!viewModel.canRun)
     .opacity(viewModel.canRun ? 1 : 0.4)
     .accessibilityIdentifier("scenarioDetail.runSimulationButton")
