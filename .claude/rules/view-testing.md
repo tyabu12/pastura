@@ -37,5 +37,23 @@ rule below.
    tests. Defer to manual QA + code-review gatekeeping. PRs #252, #249,
    #150 are case-study patterns.
 
+## Change-detector tripwire for code-review-gated tokens
+
+When a visual / timing surface is code-review-gated only (rule 4) and has
+no manual trigger to *see* it, extract its load-bearing layout / timing
+constants into a named enum and add a **change-detector** unit test that
+asserts each value. A failure is NOT a bug — it means a code-review-gated
+token drifted (typically in an unrelated refactor) and the editor must
+confirm the change passed review, then update the expected value. This
+narrows the silent-drift regression window without rendering the View, so
+rule 3 (no ViewInspector / snapshot) still holds. Frame the intent in the
+test's doc-comment, or the next contributor will (fairly) delete it as
+tautological.
+
+Only `Equatable` constants qualify: `SwiftUI.Font` / `AnyTransition` are
+not `Equatable`, so leave those inline and code-review-gate them. Canonical
+example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests` (the
+`.languageMismatch` drift toast; #456 / ADR-009 § Amendment 2026-06-23).
+
 Full Why + alternatives + revisit triggers:
 [ADR-009](../../docs/decisions/ADR-009.md).
