@@ -183,10 +183,13 @@ struct ResultsView: View {
       // The scenario's 1-line description (#747) — the only scenario-context
       // field on this otherwise result-centric row. Resolved snapshot-first by
       // the VM; absent (deleted / pre-v7 / empty) → no line, like the rest of
-      // the row's graceful degrade. Styling mirrors the shared `ScenarioSummaryRow`
-      // description line; not String(localized:)-wrapped — it is dynamic scenario
-      // content, not UI chrome. `description` is already empty-normalized to nil
-      // by the resolver; the `!isEmpty` re-guard mirrors `ScenarioSummaryRow`.
+      // the row's graceful degrade. Font / color / truncation mirror the shared
+      // `ScenarioSummaryRow` description line, but lineLimit is a deliberate
+      // hard 1 here (vs the shared row's Dynamic-Type-aware limit) to keep the
+      // results row compact — do not "restore" parity. Not String(localized:)-
+      // wrapped: dynamic scenario content, not UI chrome. `description` is
+      // already empty-normalized to nil by the resolver; the `!isEmpty` re-guard
+      // is harmless defense-in-depth for parity with `ScenarioSummaryRow`.
       if let description = row.description, !description.isEmpty {
         Text(description)
           .font(.subheadline)
