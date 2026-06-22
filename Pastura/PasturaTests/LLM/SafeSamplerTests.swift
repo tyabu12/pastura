@@ -57,6 +57,26 @@ struct SafeSamplerTests {
       #expect(byteCount >= 400, "truncation cut too aggressively: \(byteCount) bytes")
     }
 
+    @Test("accept-wrapper Outcome marshals a successful (no-throw) result")
+    func acceptOutcomeSuccessMarshalling() {
+      // `pastura_llama_sampler_accept_safe` cannot be exercised end-to-end
+      // from the test target: the raw `llama_sampler_*` C symbols are not
+      // linked into PasturaTests (only the app dylib links llama; the test
+      // bundle sees the `pastura_*` bridge symbols via TEST_HOST but not the
+      // underlying llama C-API). Real accept coverage is the macOS harness
+      // (ADR-013) per the "Simulator cannot run quantized inference" reality
+      // (engine.md / PR #463). Here we lock the Outcome contract for the
+      // accept wrapper's success shape: did_throw == false ⇒ errorMessage nil,
+      // token echoed. The throw arm shares its `try/catch` + marshalling with
+      // the sample wrapper, covered by the simulators above.
+      var raw = pastura_sample_result_t()
+      raw.token = 7
+      raw.did_throw = false
+      let outcome = SafeSampler.Outcome(raw: raw)
+      #expect(outcome.token == 7)
+      #expect(outcome.errorMessage == nil)
+    }
+
     @Test("happy-path callers see no errorMessage")
     func successResultHasNilErrorMessage() {
       // Construct an `Outcome` from a synthetic raw struct that mimics a

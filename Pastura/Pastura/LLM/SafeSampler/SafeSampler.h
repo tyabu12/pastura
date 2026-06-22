@@ -16,9 +16,15 @@
 //      stack — including future llama.cpp bumps that introduce new throws.
 //
 //  Scope (NOT covered):
-//    * `GGML_ABORT` from the EOG path at `llama-grammar.cpp:1435` raises
-//      SIGABRT, not a C++ exception. POSIX signals do not propagate through
-//      `try/catch`; that crash class is tracked separately as issue #253.
+//    * `GGML_ABORT` (SIGABRT) cannot be caught here — POSIX signals do not
+//      propagate through `try/catch`. The #253 EOG-path abort at
+//      `llama-grammar.cpp:1435` is instead AVOIDED upstream of this bridge:
+//      `LlamaCppService` splits sampling into apply + accept and skips
+//      `llama_sampler_accept` for EOG tokens (which would advance the
+//      grammar into the never-used post-EOG state that triggers the abort).
+//      See `pastura_llama_sampler_accept_safe` below and
+//      `LlamaCppService+Sampler.swift`. A SIGABRT from any other source
+//      still terminates the process.
 //    * Decode failures returned via `llama_decode`'s non-zero result code
 //      (handled by `LlamaCppService.decodeFailureError`).
 //
@@ -64,6 +70,30 @@ typedef struct {
 /// returns the outcome.
 pastura_sample_result_t pastura_llama_sampler_sample_safe(
     struct llama_sampler *sampler, struct llama_context *ctx, int32_t idx);
+
+/// Calls `llama_sampler_accept` inside a `try { } catch (...) { }` and
+/// returns the outcome.
+///
+/// `LlamaCppService` drives sampling as a split apply + accept (replicating
+/// what `llama_sampler_sample` does internally) so it can SKIP this accept
+/// for EOG tokens — accepting EOG advances the grammar into the never-used
+/// post-EOG state that fires the #253 `GGML_ABORT` at
+/// `llama-grammar.cpp:1435`. For every non-EOG token the accept runs exactly
+/// as the bundled `llama_sampler_sample` would, so the sampling distribution
+/// is unchanged.
+///
+/// The catch scope is the same `std::exception` set as the sample wrapper:
+/// the non-EOG `Unexpected empty grammar stack` throw (#334) originates in
+/// the grammar `accept_token` path, so wrapping accept preserves that
+/// coverage. The grammar `apply` (logit masking) does not throw
+/// `std::exception` (only `GGML_ASSERT` / `GGML_ABORT` signals, which no
+/// `try/catch` can intercept), so it does not need a wrapper.
+///
+/// On the success path `error_message[0] == '\0'` and `token` echoes the
+/// accepted token id; on the throw path `did_throw == true` and
+/// `error_message` holds the truncated `what()`.
+pastura_sample_result_t pastura_llama_sampler_accept_safe(
+    struct llama_sampler *sampler, int32_t token);
 
 #ifdef DEBUG
 /// DEBUG-only entry point: intentionally throws and catches a
