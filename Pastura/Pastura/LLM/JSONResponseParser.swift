@@ -30,10 +30,6 @@ nonisolated public struct JSONResponseParser: Sendable {
     pattern: #"```(?:json)?\s*\n?(.*?)\n?```"#,
     options: .dotMatchesLineSeparators
   )
-  private static let jsonObjectRegex = try? NSRegularExpression(
-    pattern: #"\{.*\}"#,
-    options: .dotMatchesLineSeparators
-  )
 
   public init() {}
 
@@ -58,7 +54,8 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
   /// 2. Truncate at chat template tokens (`<|im_end|>`)
   /// 3. Extract content from markdown code blocks
-  /// 4. Find first `{...}` JSON object
+  /// 4. Extract the first balanced `{...}` object (string-aware), discarding
+  ///    any trailing content after its matching close brace
   /// 5. Try `JSONSerialization` on the cleaned text
   /// 6. On failure: apply the two-step repair pipeline
   ///    (`unclosed_string` → `unclosed_brace`), retry parse, and reject
@@ -155,9 +152,15 @@ nonisolated public struct JSONResponseParser: Sendable {
     cleaned = truncateAtChatTemplateToken(cleaned)
     cleaned = extractFromCodeBlock(cleaned)
     cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !cleaned.hasPrefix("{") || !cleaned.hasSuffix("}") {
-      cleaned = extractFirstJSONObject(cleaned)
-    }
+    // Always extract: a `{`/`}`-framed string is NOT proof of a clean single
+    // object. Grammar-constrained generation can append a stray `}` (`{…}}`,
+    // #751 sub-class 1) or trailing prose after the real close — both pass a
+    // prefix/suffix check yet break `JSONSerialization`. The balanced scan is
+    // an identity transform for an already-clean object; for trailing garbage
+    // it trims back to the first complete object, and for an object-like
+    // trailing residue (`{…}{…}`) it returns the input unchanged so the
+    // multi-object span throws (see `extractFirstJSONObject`, #751 hybrid).
+    cleaned = extractFirstJSONObject(cleaned)
     return cleaned
   }
 
@@ -277,18 +280,62 @@ nonisolated public struct JSONResponseParser: Sendable {
     return String(text[contentRange])
   }
 
-  /// Find the first `{...}` JSON object in text with leading garbage.
+  /// Extract the first balanced `{...}` JSON object, string-aware.
+  ///
+  /// Walks from the first structural `{` (outside any string literal),
+  /// tracking brace balance over characters outside string context via
+  /// ``StringStateMachine``, and returns the slice ending at the `}` that
+  /// brings balance back to zero. A greedy `#"\{.*\}"#` regex (the prior
+  /// implementation) would instead run to the *last* `}` in the text; the
+  /// balanced scan stops at the *first* matching close.
+  ///
+  /// Trailing content after that close is treated by its severity (#751
+  /// hybrid):
+  /// - A stray `}` (`{…}}`, #751 sub-class 1) or trailing prose is a benign
+  ///   boundary artifact (the object content completed before it) — discard
+  ///   it and keep the complete first object.
+  /// - A trailing **object-like** residue (`{…}{…}`, the post-close text
+  ///   starts with `{`) signals the generation re-rolled a whole second
+  ///   answer — a stronger instability signal. Return the input unchanged so
+  ///   `JSONSerialization` rejects the multi-object span → the inference is
+  ///   re-tried for a cleaner sample, rather than silently salvaging a
+  ///   possibly off-persona first object.
+  ///
+  /// Also returns the input unchanged when no `{` exists or the braces never
+  /// balance (unclosed object) so the downstream repair pipeline
+  /// (`closeUnclosedBraces`) can still fire.
   private func extractFirstJSONObject(_ text: String) -> String {
-    guard let regex = Self.jsonObjectRegex else { return text }
-
-    let range = NSRange(text.startIndex..., in: text)
-    guard let match = regex.firstMatch(in: text, range: range),
-      let matchRange = Range(match.range, in: text)
+    let chars = Array(text)
+    let machine = StringStateMachine(text)
+    guard
+      let start = chars.indices.first(where: {
+        chars[$0] == "{" && !machine.isInsideString(at: $0)
+      })
     else {
       return text
     }
 
-    return String(text[matchRange])
+    var balance = 0
+    for i in start..<chars.count where !machine.isInsideString(at: i) {
+      switch chars[i] {
+      case "{":
+        balance += 1
+      case "}":
+        balance -= 1
+        if balance == 0 {
+          // Object-like trailing residue → defer to multi-object throw.
+          let residue = chars[(i + 1)...].drop(while: { $0.isWhitespace })
+          if residue.first == "{" {
+            return text
+          }
+          return String(chars[start...i])
+        }
+      default:
+        break
+      }
+    }
+    // Unclosed — let the repair pipeline handle it.
+    return text
   }
 
   /// Normalize all JSON values to `String`. Null values are omitted.
