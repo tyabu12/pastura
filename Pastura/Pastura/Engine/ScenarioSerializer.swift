@@ -26,7 +26,11 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append("simulation_language: \(simulationLanguage)")
     }
     lines.append("name: \(yamlScalar(scenario.name))")
-    lines.append("description: \(yamlScalar(scenario.description))")
+    // `description` may be a multi-paragraph brief; route it through
+    // `yamlReadableBlockScalar` so a multi-line value renders as a readable
+    // `|-` literal block instead of an escaped one-liner (#752). Single-line
+    // descriptions still serialize inline via the helper's fallback branch.
+    lines.append(yamlReadableBlockScalar("description", scenario.description))
     lines.append("agents: \(scenario.agentCount)")
     lines.append("rounds: \(scenario.rounds)")
     lines.append(yamlBlockScalar("context", scenario.context))
@@ -43,7 +47,10 @@ nonisolated struct ScenarioSerializer: Sendable {
     lines.append("personas:")
     for persona in scenario.personas {
       lines.append("  - name: \(yamlScalar(persona.name))")
-      lines.append("    description: \(yamlScalar(persona.description))")
+      // `indent: 4` nests the block scalar under the `  - name:` list item
+      // (marker at column 4, content at column 6); with the default `indent: 0`
+      // a multi-line persona description would break the persona mapping (#752).
+      lines.append(yamlReadableBlockScalar("description", persona.description, indent: 4))
     }
 
     // Phases
@@ -198,6 +205,11 @@ nonisolated struct ScenarioSerializer: Sendable {
   private func serializeExtraData(key: String, value: AnyCodableValue) -> String {
     switch value {
     case .string(let str):
+      // Stays on the inline (`yamlScalar`) path — a multi-line extraData string
+      // renders as an escaped one-liner, which round-trips correctly (#749) but
+      // is less readable than a `|` block. Block-scalar output for extraData is
+      // deferred (#752): the array/dict/arrayOfDictionaries branches below would
+      // each need block-scalar indentation threaded through their nesting.
       return "\(key): \(yamlScalar(str))"
 
     case .array(let items):
@@ -253,6 +265,32 @@ nonisolated struct ScenarioSerializer: Sendable {
     } else {
       return "\(prefix)\(key): \(yamlScalar(value))"
     }
+  }
+
+  /// Produces a **strip-chomped** YAML literal block scalar (`|-`) for a
+  /// multi-line value with no trailing newline, or an inline scalar otherwise.
+  ///
+  /// Used for user-authored prose fields (`description`, persona `description`)
+  /// where a multi-paragraph value should read as a `|-` block rather than an
+  /// escaped one-liner (#752). Differs from ``yamlBlockScalar`` in chomping:
+  /// the clip `|` form appends a trailing newline on reload, which breaks an
+  /// **exact** round-trip for the common no-trailing-newline shape; strip `|-`
+  /// round-trips it verbatim. A value that *does* end in a newline cannot
+  /// survive `|-` (strip removes it), so it falls back to the inline (escaped)
+  /// path, which ``YAMLScalarFormatter`` guarantees round-trips for any string
+  /// (#749). Single-line values also serialize inline.
+  private func yamlReadableBlockScalar(_ key: String, _ value: String, indent: Int = 0) -> String {
+    let prefix = String(repeating: " ", count: indent)
+
+    guard value.contains("\n"), !value.hasSuffix("\n") else {
+      return "\(prefix)\(key): \(yamlScalar(value))"
+    }
+    var lines = ["\(prefix)\(key): |-"]
+    let contentIndent = prefix + "  "
+    for line in value.split(separator: "\n", omittingEmptySubsequences: false) {
+      lines.append("\(contentIndent)\(line)")
+    }
+    return lines.joined(separator: "\n")
   }
 
   /// Escapes a string for safe inline YAML if it contains special characters.
