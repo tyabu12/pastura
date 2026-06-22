@@ -153,12 +153,27 @@ extension JSONResponseParserTests {
     }
   }
 
-  // Multi-object input — existing greedy `\{.*\}` regex captures the
-  // whole span; repair pipeline must not "fix" it into a single fake
-  // object.
+  // Multi-object input — the balanced scan finds the first complete object
+  // but sees an object-like trailing residue (`{"b":2}`), so it returns the
+  // input unchanged rather than salvaging the first object. A second whole
+  // object is a strong instability signal: re-roll the inference for a
+  // cleaner sample instead of silently accepting a possibly off-persona
+  // first answer (#751 hybrid). The concatenated span then fails to parse →
+  // throw.
   @Test func throwsOnMultipleObjectsInput() {
     #expect(throws: LLMError.self) {
       _ = try parser.parse(#"{"a":1}{"b":2}"#, expectedKeys: [])
+    }
+  }
+
+  // Hybrid boundary (#751): an object-like trailing residue triggers the
+  // multi-object throw even when that residue is itself incomplete — the
+  // `{`-start is the signal, not its validity. Distinguishes this path from
+  // `discardsTrailingProseAfterObject` (residue NOT starting with `{` →
+  // salvaged).
+  @Test func throwsWhenTrailingResidueIsObjectLike() {
+    #expect(throws: LLMError.self) {
+      _ = try parser.parse(#"{"statement": "hi"} {"oops"#, expectedKeys: [])
     }
   }
 
