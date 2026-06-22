@@ -480,6 +480,16 @@ extension LlamaCppService {
     let vocab = prepared.vocab
     let sampler = prepared.sampler
 
+    // #253 EOG-guard scratch: when a grammar is active, `safeSample`
+    // replicates `llama_sampler_sample` so it can skip the abort-prone EOG
+    // accept, which needs an n_vocab candidate buffer. Allocate once and
+    // reuse across the token loop. `nil` when no grammar is active — that
+    // path uses the bundled sampler (no buffer, no EOG abort to guard).
+    let candidateBuffer: UnsafeMutableBufferPointer<llama_token_data>? =
+      schema != nil
+      ? .allocate(capacity: Int(llama_vocab_n_tokens(vocab))) : nil
+    defer { candidateBuffer?.deallocate() }
+
     // Auto-regressive generation loop with string-based stop detection.
     // Tokens are decoded incrementally so we can detect <|im_end|> even when
     // the model's tokenizer splits it across multiple subword tokens.
@@ -509,7 +519,8 @@ extension LlamaCppService {
       }
 
       let newTokenId = try safeSample(
-        sampler: sampler, context: context, mode: "non-stream")
+        sampler: sampler, context: context, vocab: vocab,
+        candidates: candidateBuffer, mode: "non-stream")
 
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
@@ -647,6 +658,16 @@ extension LlamaCppService {
     let vocab = prepared.vocab
     let sampler = prepared.sampler
 
+    // #253 EOG-guard scratch: when a grammar is active, `safeSample`
+    // replicates `llama_sampler_sample` so it can skip the abort-prone EOG
+    // accept, which needs an n_vocab candidate buffer. Allocate once and
+    // reuse across the token loop. `nil` when no grammar is active — that
+    // path uses the bundled sampler (no buffer, no EOG abort to guard).
+    let candidateBuffer: UnsafeMutableBufferPointer<llama_token_data>? =
+      schema != nil
+      ? .allocate(capacity: Int(llama_vocab_n_tokens(vocab))) : nil
+    defer { candidateBuffer?.deallocate() }
+
     // Byte-level accumulation so UTF-8 characters split across pieces
     // (common for CJK / emoji) never emit as partial replacement
     // characters. `decodedText` always holds the longest valid UTF-8
@@ -669,7 +690,8 @@ extension LlamaCppService {
       }
 
       let newTokenId = try safeSample(
-        sampler: sampler, context: context, mode: "stream")
+        sampler: sampler, context: context, vocab: vocab,
+        candidates: candidateBuffer, mode: "stream")
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
       generatedTokens += 1

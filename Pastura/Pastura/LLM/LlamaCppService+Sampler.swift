@@ -112,55 +112,128 @@ extension LlamaCppService {
     return chain
   }
 
-  /// Wrap a `llama_sampler_sample` call so any C++ exception thrown from the
-  /// nested grammar accept path (`llama_grammar_accept_token`) is caught at
-  /// the Obj-C++ bridge and surfaced as a Swift error instead of crashing
-  /// the process via `std::terminate`. See `LLM/SafeSampler/SafeSampler.h` for the
-  /// catch scope (covers #334 + #366 + #371; not #253's SIGABRT).
+  /// Sample the next token, guarding the grammar accept against the #253
+  /// EOG-path `GGML_ABORT`.
   ///
-  /// On the catch path:
+  /// `llama_sampler_sample` does apply (logit mask + selection) then
+  /// `llama_sampler_accept` in one call. The #253 abort
+  /// (`llama-grammar.cpp:1435`) fires inside that accept when the sampled
+  /// token is EOG and no grammar stack is empty. Generation ends at EOG, so
+  /// the grammar's post-EOG state is never read again — accepting EOG is
+  /// pointless. POSIX `SIGABRT` cannot be caught (it bypasses `try/catch`),
+  /// so the only fix is to NOT take that accept.
+  ///
+  /// - When a grammar is active (`candidates != nil`) this replicates the
+  ///   sample path — build `cur_p` from the logits → `llama_sampler_apply`
+  ///   (runs the full chain incl. the dist selection) → read `selected` —
+  ///   and then accepts ONLY non-EOG tokens via
+  ///   ``SafeSampler/accept(sampler:token:)``. Non-EOG tokens accept exactly
+  ///   as the bundled call would, so the sampling distribution is unchanged;
+  ///   only the never-used EOG accept is skipped.
+  /// - When no grammar is active (`candidates == nil`) the bundled
+  ///   ``SafeSampler/sample(sampler:context:idx:)`` runs unchanged: with no
+  ///   grammar there is nothing for an EOG accept to abort, and the bundled
+  ///   path reuses llama's internal candidate buffer.
+  ///
+  /// Catch path (both branches): the grammar `accept_token`
+  /// `std::runtime_error` (#334 / #366 / #371) surfaces as
+  /// ``SafeSampler/Outcome/errorMessage`` and is routed through
+  /// ``handleSamplerCatch(_:mode:)`` (diagnostic + `LLMError.generationFailed`).
+  /// See `LLM/SafeSampler/SafeSampler.h` for the catch scope. The grammar
+  /// `apply` does not throw `std::exception` (only `GGML_ASSERT` /
+  /// `GGML_ABORT` signals), so the Swift-side `apply` here loses no coverage.
+  ///
+  /// - Parameters:
+  ///   - vocab: model vocab pointer, for EOG classification.
+  ///   - candidates: caller-owned, `n_vocab`-sized scratch buffer reused
+  ///     across the token loop (avoids a per-token allocation). `nil` selects
+  ///     the bundled fast path (no grammar active).
+  ///   - mode: `non-stream` / `stream` tag for the diagnostic line, so the
+  ///     analyzer can attribute catches to the calling loop.
+  func safeSample(
+    sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
+    vocab: OpaquePointer?,
+    candidates: UnsafeMutableBufferPointer<llama_token_data>?,
+    mode: String
+  ) throws -> Int32 {
+    guard let candidates else {
+      // No grammar active: the bundled sample+accept cannot hit the #253
+      // grammar abort (no grammar to accept into), and reuses llama's
+      // internal candidate buffer — keep the simpler, allocation-free path.
+      let outcome = SafeSampler.sample(sampler: sampler, context: context, idx: -1)
+      try handleSamplerCatch(outcome.errorMessage, mode: mode)
+      return outcome.token
+    }
+
+    // Grammar active: replicate `llama_sampler_sample` so the EOG accept can
+    // be skipped. Mirrors the upstream CPU path (b8694
+    // `src/llama-sampler.cpp`) — our chain uses no backend sampler, so the
+    // plain logits branch is the one that runs.
+    guard let logits = llama_get_logits_ith(context, -1) else {
+      throw LLMError.generationFailed(
+        description: String(localized: "Sampler produced no logits"))
+    }
+    guard let base = candidates.baseAddress, !candidates.isEmpty else {
+      throw LLMError.generationFailed(
+        description: String(localized: "Sampler candidate buffer is empty"))
+    }
+    let count = candidates.count
+    for i in 0..<count {
+      base[i] = llama_token_data(id: Int32(i), logit: logits[i], p: 0)
+    }
+    // Rebuild `cur_p` each token with `selected = -1` so a stale selection
+    // index cannot leak across the reused buffer; `llama_sampler_apply` sets
+    // it (the chain's terminal dist sampler selects).
+    var curP = llama_token_data_array(
+      data: base, size: count, selected: -1, sorted: false)
+    llama_sampler_apply(sampler, &curP)
+    guard curP.selected >= 0, curP.selected < Int64(curP.size),
+      let selected = curP.data
+    else {
+      throw LLMError.generationFailed(
+        description: String(localized: "Sampler produced no selection"))
+    }
+    let token = selected[Int(curP.selected)].id
+
+    // #253: skip the accept for EOG. Accepting an EOG token advances the
+    // grammar into the never-used post-EOG state whose all-non-empty-stack
+    // case fires `GGML_ABORT`. Every non-EOG token accepts as the bundled
+    // path would, so the distribution is unchanged.
+    if !llama_vocab_is_eog(vocab, token) {
+      let outcome = SafeSampler.accept(sampler: sampler, token: token)
+      try handleSamplerCatch(outcome.errorMessage, mode: mode)
+    }
+    return token
+  }
+
+  /// Shared catch handling for both ``safeSample(sampler:context:vocab:candidates:mode:)``
+  /// branches. On a caught C++ exception from the bridge:
   ///   1. Truncate the captured `what()` to ~160 chars so the OSLog and
   ///      `LLMError.description` carriers stay readable.
   ///   2. Emit a `samplerCrashCaught` structured line on
   ///      `category:StreamingDiag` (always-on; see `samplerCatchDiagLogger`)
-  ///      so the analyzer pipeline can aggregate occurrence rates across
-  ///      builds.
-  ///   3. Throw `LLMError.generationFailed`. Per
-  ///      `Pastura/Engine/LLMCaller.swift:88-94`, `.generationFailed`
-  ///      exits the retry loop immediately (no in-loop retry). The decision
-  ///      is documented in this PR — sampler crashes appear deterministic
-  ///      per (model, prompt, schema) so a 3× retry storm would just
-  ///      multiply latency without improving recovery odds.
-  ///
-  /// - Parameter mode: tag included in the diagnostic line — `non-stream` for
-  ///   `runGeneration`, `stream` for `runStreamGeneration`. Lets the
-  ///   analyzer attribute catches to the calling loop without inspecting the
-  ///   stack.
-  func safeSample(
-    sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
-    mode: String
-  ) throws -> Int32 {
-    let outcome = SafeSampler.sample(sampler: sampler, context: context, idx: -1)
-    if let errorMessage = outcome.errorMessage {
-      let truncated = String(errorMessage.prefix(160))
-      // `truncated` is the C++ `what()` text from llama.cpp's grammar
-      // accept; the canonical form includes the just-sampled piece
-      // (`"after accepting piece: <piece> (<id>)"`). The piece can be a
-      // mid-string fragment of model-generated content, so we keep it
-      // `<private>` in TestFlight / Release per CLAUDE.md "Logger
-      // privacy". The structured `mode` + `model` fields remain `.public`
-      // because they are postmortem pivot keys, not output content.
-      Self.samplerCatchDiagLogger.error(
-        """
-        samplerCrashCaught what="\(truncated)" \
-        mode=\(mode, privacy: .public) \
-        model=\(self.modelIdentifier, privacy: .public)
-        """)
-      throw LLMError.generationFailed(
-        description: String(
-          format: String(localized: "Sampler crash caught: %@"), truncated))
-    }
-    return outcome.token
+  ///      so the analyzer pipeline can aggregate occurrence rates across builds.
+  ///   3. Throw `LLMError.generationFailed`. Per `LLMCaller.swift:88-94`,
+  ///      `.generationFailed` exits the retry loop immediately — sampler
+  ///      crashes appear deterministic per (model, prompt, schema), so a 3×
+  ///      retry storm would just multiply latency without improving recovery.
+  private func handleSamplerCatch(_ errorMessage: String?, mode: String) throws {
+    guard let errorMessage else { return }
+    let truncated = String(errorMessage.prefix(160))
+    // `truncated` is llama.cpp's grammar-accept `what()`; its canonical form
+    // includes the just-sampled piece (`"after accepting piece: <piece> (<id>)"`),
+    // which can be a mid-string fragment of model-generated content — keep it
+    // `<private>` in TestFlight / Release per CLAUDE.md "Logger privacy". The
+    // structured `mode` + `model` fields stay `.public` as postmortem pivot keys.
+    Self.samplerCatchDiagLogger.error(
+      """
+      samplerCrashCaught what="\(truncated)" \
+      mode=\(mode, privacy: .public) \
+      model=\(self.modelIdentifier, privacy: .public)
+      """)
+    throw LLMError.generationFailed(
+      description: String(
+        format: String(localized: "Sampler crash caught: %@"), truncated))
   }
 
   /// Call `llama_sampler_init_grammar` with stderr redirected to a `Pipe`
