@@ -64,6 +64,12 @@ nonisolated public struct ScenarioYAMLPatcher: Sendable {
   /// represent (counts, types, or list/nested-collection contents).
   private func hasStructuralChange(base: Scenario, visual: Scenario) -> Bool {
     if base.personas.count != visual.personas.count { return true }
+    // `agents:` has no inline-scalar edit entry, so a change to it must be
+    // caught here. Today it cannot differ when persona counts match (both
+    // derive from `personas.count`), but checking it explicitly keeps the
+    // intent clear and is cheap insurance against a future editor that
+    // decouples the two — rather than resting solely on the reparse net.
+    if base.agentCount != visual.agentCount { return true }
     if base.phases.count != visual.phases.count { return true }
     if base.extraData != visual.extraData { return true }
     for (basePhase, visualPhase) in zip(base.phases, visual.phases) {
@@ -81,6 +87,10 @@ nonisolated public struct ScenarioYAMLPatcher: Sendable {
   /// Collects an edit for every changed inline scalar. Returns `nil` to signal
   /// a forced fallback (a changed value whose key is absent, is a block scalar,
   /// or otherwise cannot be rendered inline).
+  ///
+  /// Sub-collector order is irrelevant: `applyEdits` dedups and orders by
+  /// `mark.line`, not by insertion order, so the `&&` short-circuit only affects
+  /// *whether* a fallback is signalled, never the resulting splice.
   private func collectEdits(base: Scenario, visual: Scenario, root: Node) -> [ScalarEdit]? {
     var edits: [ScalarEdit] = []
     guard topLevelEdits(base, visual, root, into: &edits),
@@ -210,6 +220,10 @@ nonisolated public struct ScenarioYAMLPatcher: Sendable {
       if byLine[edit.mark.line] != nil { return nil }
       byLine[edit.mark.line] = edit
     }
+    // Split on "\n" only: a CRLF base keeps its `\r` as each line's last
+    // scalar, which spliceLine treats as trailing whitespace. joined("\n")
+    // restores it byte-for-byte. Do NOT switch to a CRLF-aware splitter — that
+    // would double-handle the `\r`.
     var lines = base.components(separatedBy: "\n")
     for (lineNumber, edit) in byLine {
       let lineIndex = lineNumber - 1

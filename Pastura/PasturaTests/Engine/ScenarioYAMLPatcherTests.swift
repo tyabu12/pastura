@@ -219,4 +219,38 @@ struct ScenarioYAMLPatcherTests {
     #expect(out.contains("name: New Name  # display name\r\n"))
     #expect(try loader.load(yaml: out) == visual)
   }
+
+  /// An interior `#` (not preceded by whitespace) is part of a plain scalar, not
+  /// a comment — `plainValueEnd` must only treat a ` #` as the comment boundary.
+  /// Plants the input the guard catches: a naive `firstIndex(of: "#")` would
+  /// split inside `ff#00` and corrupt the line.
+  @Test func plainValueWithInteriorHashSplicesCorrectly() throws {
+    let yaml = """
+      id: demo
+      language: en
+      name: ff#00  # color code
+      description: d
+      agents: 2
+      rounds: 1
+      context: c
+      personas:
+        - name: Alice
+          description: x
+        - name: Bob
+          description: y
+      phases:
+        - type: speak_all
+          prompt: go
+          output:
+            statement: string
+      """
+    let baseScenario = try loader.load(yaml: yaml)
+    #expect(baseScenario.name == "ff#00")  // interior # is part of the plain value
+    let visual = mutated(baseScenario, name: "Renamed")
+    let out = patcher.patch(visual: visual, base: yaml)
+
+    #expect(out.contains("name: Renamed  # color code"))  // old value replaced, comment kept
+    #expect(!out.contains("#00"))  // the interior-# fragment is gone, not stranded
+    #expect(try loader.load(yaml: out) == visual)
+  }
 }
