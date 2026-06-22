@@ -908,8 +908,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         return
       }
       let parsed = try ScenarioLoader().load(yaml: record.yamlDefinition)
+      // Thread the gallery category from the record we already hold (#748) so
+      // the run snapshots it without a refetch-by-id — category is gallery
+      // metadata not present in the parsed YAML. nil for local scenarios.
+      let categorySnapshot = record.category
       startOwnedRun(parsed) { model in
-        await model.run(scenario: parsed, llm: deps.llmService)
+        await model.run(
+          scenario: parsed, llm: deps.llmService,
+          scenarioCategorySnapshot: categorySnapshot)
       }
     } catch {
       loadError = error.localizedDescription
