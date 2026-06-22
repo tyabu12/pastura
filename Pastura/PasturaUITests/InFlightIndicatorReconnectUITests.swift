@@ -67,7 +67,13 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
     homeRow.tap()
 
     let detailList = app.scrollViews["scenarioDetail.list"]
-    XCTAssertTrue(detailList.waitForExistence(timeout: 10), "ScenarioDetailView did not appear.")
+    // 30s (vs the suite's usual 10s): the first navigation render on a cold
+    // first simulator clone can stall past 10s under CI runner pressure
+    // (app-launch infra-flake class — see .claude/rules/xcodebuild-cli.md
+    // § CI flake catalog). waitForExistence returns on appearance, so the
+    // sub-second success path is unchanged; this only widens tolerance for the
+    // cold-start stall, matching this test's executionTimeAllowance = 600.
+    XCTAssertTrue(detailList.waitForExistence(timeout: 30), "ScenarioDetailView did not appear.")
     let runSimulation = app.buttons["scenarioDetail.runSimulationButton"]
     var scrollAttempts = 0
     while !runSimulation.exists && scrollAttempts < 6 {
@@ -82,7 +88,10 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
 
     // The run is now on top and blocked in its first inference (slow LLM).
     let header = app.descendants(matching: .any)["simulation.header.meta"]
-    XCTAssertTrue(header.waitForExistence(timeout: 10), "SimulationView did not appear.")
+    // 30s for the same cold-clone reason as the scenarioDetail.list wait above:
+    // this is navigation #2 on the same clone, still inside the cold-start
+    // window (see the comment there + .claude/rules/xcodebuild-cli.md).
+    XCTAssertTrue(header.waitForExistence(timeout: 30), "SimulationView did not appear.")
 
     // Leave with "keep running" (Setting on → silent park) via the interactive
     // edge-swipe (bypasses the dialog; coordinate drag required on iOS 17+).
