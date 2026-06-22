@@ -138,7 +138,7 @@ struct ScenarioDetailView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
         galleryBannerSection(viewModel: viewModel)
-        overviewSection(scenario: scenario, viewModel: viewModel)
+        summaryStrip(scenario: scenario, viewModel: viewModel)
         contextSection(scenario: scenario)
         personasSection(scenario: scenario)
         phasesSection(scenario: scenario)

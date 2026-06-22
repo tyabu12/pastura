@@ -3,18 +3,6 @@ import SwiftUI
 // Section builders for ScenarioDetailView, split into a sibling-file
 // extension to keep the main view under SwiftLint type_body_length.
 extension ScenarioDetailView {
-  // MARK: - Section scaffolding
-
-  func infoRow(_ label: String, value: String) -> some View {
-    HStack {
-      Text(label).foregroundStyle(Color.ink)
-      Spacer(minLength: 8)
-      Text(value).foregroundStyle(Color.muted)
-    }
-    .padding(.horizontal, 17)
-    .padding(.vertical, 14)
-  }
-
   // MARK: - Sections
 
   @ViewBuilder
@@ -44,29 +32,36 @@ extension ScenarioDetailView {
     }
   }
 
-  func overviewSection(
+  /// Compact one-line stat summary shown directly under the title — replaces
+  /// the old labeled "Overview" card. Reuses the existing localized stat
+  /// labels (`Agents` / `Rounds` / `Est. Inferences`) verbatim via the pure
+  /// `ScenarioSummaryStrip.text` formatter (no new catalog keys, no plural). The
+  /// leading inset matches the grouped-section header convention so the strip
+  /// lines up with the section labels below it.
+  func summaryStrip(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
-    PasturaSection(String(localized: "Overview")) {
-      VStack(spacing: 0) {
-        infoRow(String(localized: "Agents"), value: "\(scenario.agentCount)")
-        PasturaRowDivider()
-        infoRow(String(localized: "Rounds"), value: "\(scenario.rounds)")
-        PasturaRowDivider()
-        infoRow(
-          String(localized: "Est. Inferences"),
-          value: "\(viewModel.estimatedInferences)")
-        if !scenario.description.isEmpty {
-          PasturaRowDivider()
-          Text(scenario.description)
-            .font(.subheadline)
-            .foregroundStyle(Color.inkSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 17)
-            .padding(.vertical, 14)
-        }
+    VStack(alignment: .leading, spacing: 6) {
+      Text(
+        ScenarioSummaryStrip.text(stats: [
+          (String(localized: "Agents"), scenario.agentCount),
+          (String(localized: "Rounds"), scenario.rounds),
+          (String(localized: "Est. Inferences"), viewModel.estimatedInferences)
+        ])
+      )
+      .font(.subheadline)
+      .foregroundStyle(Color.inkSecondary)
+      // Carry forward the empty-description guard so a scenario without a
+      // description renders no stray line.
+      if !scenario.description.isEmpty {
+        Text(scenario.description)
+          .font(.subheadline)
+          .foregroundStyle(Color.muted)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.leading, PasturaCardMetrics.horizontalMargin + 6)
+    .padding(.trailing, PasturaCardMetrics.horizontalMargin)
   }
 
   func contextSection(scenario: Scenario) -> some View {
