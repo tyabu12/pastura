@@ -130,87 +130,82 @@ struct ResultsRowFormatTests {
         == "today")
   }
 
-  // MARK: - Result summary ladder (P5 PR2)
+  // MARK: - Result pill ladder (#747)
 
   private func scores(_ pairs: [(String, Int)]) -> [PastRunScore] {
     pairs.map { PastRunScore(name: $0.0, value: $0.1) }
   }
 
-  @Test func pausedSummaryWithKnownTotalShowsBothRounds() {
-    let summary = ResultsRowFormat.resultSummary(
+  @Test func pausedPillWithKnownTotalShowsBothRounds() {
+    let pill = ResultsRowFormat.resultPill(
       status: .paused, topScores: [], currentRound: 3, totalRounds: 5)
-    let value = try? #require(summary)
-    #expect(value?.contains("3") == true)
-    #expect(value?.contains("5") == true)
+    #expect(pill.style == .paused)
+    #expect(pill.label.contains("3"))
+    #expect(pill.label.contains("5"))
   }
 
-  @Test func pausedSummaryWithoutTotalOmitsTheTotal() {
-    let summary = ResultsRowFormat.resultSummary(
+  @Test func pausedPillWithoutTotalOmitsTheTotal() {
+    let pill = ResultsRowFormat.resultPill(
       status: .paused, topScores: [], currentRound: 3, totalRounds: nil)
-    let value = try? #require(summary)
-    #expect(value?.contains("3") == true)
-    // No "/" pair when N is unknown — the single-round form, not "Round 3 / ?".
-    #expect(value?.contains("/") == false)
+    #expect(pill.style == .paused)
+    #expect(pill.label.contains("3"))
+    // No "/" pair when N is unknown — the single-round form, not "Paused 3/?".
+    #expect(pill.label.contains("/") == false)
   }
 
   @Test func completedWithUniqueTopScorerShowsWinner() {
     // Repository projects highest-first; a strict 1st > 2nd is a unique winner.
-    let summary = ResultsRowFormat.resultSummary(
+    let pill = ResultsRowFormat.resultPill(
       status: .completed, topScores: scores([("Carol", 12), ("Alice", 10), ("Bob", 8)]),
       currentRound: 5, totalRounds: 5)
-    #expect(summary?.contains("Carol") == true)
+    #expect(pill.style == .completed)
+    #expect(pill.label.contains("Carol"))
   }
 
   @Test func completedSoloScorerCountsAsUniqueWinner() {
     // A single-agent run (one scorer) is a deliberate unique winner, not a
-    // "completion" summary.
-    let summary = ResultsRowFormat.resultSummary(
+    // bare completion pill.
+    let pill = ResultsRowFormat.resultPill(
       status: .completed, topScores: scores([("Alice", 7)]), currentRound: 1, totalRounds: 1)
-    #expect(summary?.contains("Alice") == true)
+    #expect(pill.label.contains("Alice"))
   }
 
   @Test func completedWithTopOfTableTieFallsBackToCompletion() {
-    // Tie at the top → no unique winner → completion summary, NOT a name.
-    let summary = ResultsRowFormat.resultSummary(
+    // Tie at the top → no unique winner → bare completion pill, NOT a name.
+    let pill = ResultsRowFormat.resultPill(
       status: .completed, topScores: scores([("Alice", 9), ("Bob", 9)]),
       currentRound: 5, totalRounds: 5)
-    let value = try? #require(summary)
-    #expect(value?.contains("Alice") == false)
-    #expect(value?.contains("5") == true)
+    #expect(pill.style == .completed)
+    #expect(pill.label.contains("Alice") == false)
   }
 
   @Test func completedWithEmptyScoresNeverShowsAScore() {
     // ★ The load-bearing invariant: a score-empty archetype (werewolf /
-    // consensus) must NEVER render "0". N = 5 has no "0" digit, so the absence
-    // of "0" is an exact check that no score number leaked in.
-    let summary = ResultsRowFormat.resultSummary(
+    // consensus) must NEVER render a score number. The compact completion pill
+    // ("Complete" / "完了") carries no digit at all, so "contains no number" is
+    // an exact check that no score leaked in — reverting to a score chip fails it.
+    let pill = ResultsRowFormat.resultPill(
       status: .completed, topScores: [], currentRound: 5, totalRounds: 5)
-    let value = try? #require(summary)
-    #expect(value?.contains("0") == false)
-    #expect(value?.contains("(") == false)  // no "X (0)" chip form
-    #expect(value?.contains("5") == true)  // the round count is shown
+    #expect(pill.style == .completed)
+    #expect(pill.label.contains(where: \.isNumber) == false)
+    #expect(pill.label.isEmpty == false)
   }
 
-  @Test func completedWithEmptyScoresAndUnknownTotalShowsBareCompletion() {
-    let summary = ResultsRowFormat.resultSummary(
-      status: .completed, topScores: [], currentRound: 5, totalRounds: nil)
-    let value = try? #require(summary)
-    #expect(value?.isEmpty == false)
-    #expect(value?.contains("0") == false)
-    #expect(value?.contains("(") == false)
-  }
-
-  @Test func nonPausedNonCompletedStatusesHaveNoSummary() {
+  @Test func pendingStatusesYieldNonEmptyPendingPill() {
+    // running / failed / cancelled all map to the muted "pending" style with a
+    // bare state label — the pill is never blank, so the run state is never
+    // silent (the old code returned nil here and fell back to a status badge).
     for status in [SimulationStatus.running, .failed, .cancelled] as [SimulationStatus] {
-      #expect(
-        ResultsRowFormat.resultSummary(
-          status: status, topScores: scores([("Alice", 3)]), currentRound: 2, totalRounds: 5)
-          == nil)
+      let pill = ResultsRowFormat.resultPill(
+        status: status, topScores: scores([("Alice", 3)]), currentRound: 2, totalRounds: 5)
+      #expect(pill.style == .pending)
+      #expect(pill.label.isEmpty == false)
     }
-    // Unknown status (nil) also yields no summary.
-    #expect(
-      ResultsRowFormat.resultSummary(
-        status: nil, topScores: [], currentRound: 0, totalRounds: nil) == nil)
+    // Unknown status (nil) → pending with a non-empty label, never blank.
+    let unknown = ResultsRowFormat.resultPill(
+      status: nil, topScores: [], currentRound: 0, totalRounds: nil)
+    #expect(unknown.style == .pending)
+    #expect(unknown.label.isEmpty == false)
   }
 
   // MARK: - Sheep count clamping (P5 PR2)
