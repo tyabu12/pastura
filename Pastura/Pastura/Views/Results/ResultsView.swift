@@ -170,10 +170,18 @@ struct ResultsView: View {
     let summary = ResultsRowFormat.resultSummary(
       status: item.simulationStatus, topScores: item.topScores,
       currentRound: item.currentRound, totalRounds: row.totalRounds)
+    // Gallery category caption (#748), resolved in the View from the run's
+    // snapshot raw value. nil for local / pre-v10 runs ⇒ the line is omitted.
+    let categoryCaption = ResultsRowFormat.categoryCaption(for: row.category)
     return VStack(alignment: .leading, spacing: 4) {
       Text(row.variantName)
         .font(.headline)
         .foregroundStyle(Color.ink)
+      if let categoryCaption {
+        Text(categoryCaption)
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+      }
       // Sheep avatars only — the timestamp moved to the bottom line. Guard the
       // whole row so an unknown agent count (sheepCount 0) leaves no empty gap.
       if sheepCount > 0 {
