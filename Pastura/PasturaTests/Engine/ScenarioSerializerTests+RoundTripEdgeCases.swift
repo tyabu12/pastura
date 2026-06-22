@@ -91,4 +91,55 @@ extension ScenarioSerializerTests {
     #expect(reloaded.personas[0].description == scenario.personas[0].description)
     #expect(reloaded.personas[1].description == scenario.personas[1].description)
   }
+
+  /// Serializes a scenario whose only multi-line field is `description`
+  /// (single-line personas), so an emitted `description: |-` block is
+  /// unambiguously attributable to the value under test.
+  private func serializeWithDescription(_ description: String) -> String {
+    serializer.serialize(
+      Scenario(
+        id: "edge", name: "Edge", description: description, language: "en",
+        agentCount: 2, rounds: 1, context: "A single-line context.",
+        personas: [
+          Persona(name: "Alice", description: "A strategist"),
+          Persona(name: "Bob", description: "An optimist")
+        ],
+        phases: [Phase(type: .speakAll, prompt: "Speak.", outputSchema: ["statement": "string"])]
+      ))
+  }
+
+  // Block-unsafe multi-line descriptions (#752, surfaced in code review): a
+  // first line with leading whitespace makes a literal block *unparseable* —
+  // without the self-verifying gate the scenario would be unloadable after a
+  // save — while CRLF and a trailing newline don't survive a `|-` block
+  // verbatim. The self-verify must fall back to the inline (escaped) path, which
+  // round-trips any string (#749). Regression guard: revert the gate and the
+  // leading-whitespace case fails the inline-fallback assertion (and would
+  // throw on reload); CRLF / trailing-newline fail the round-trip equality.
+  @Test func blockUnsafeDescriptionsFallBackToInline() throws {
+    let mustFallBack = [
+      "  indented first line.\nsecond line.",  // leading whitespace → unparseable block
+      "first line.\r\nsecond line.",  // CRLF → \r normalized by a block
+      "ends with newline.\nlast line.\n"  // trailing newline → stripped by `|-`
+    ]
+    for description in mustFallBack {
+      let yaml = serializeWithDescription(description)
+      #expect(
+        !yaml.contains("description: |-"),
+        "expected inline fallback for \(description.debugDescription)")
+      #expect(
+        try loader.load(yaml: yaml).description == description,
+        "round-trip failed for \(description.debugDescription)")
+    }
+  }
+
+  // The self-verifying gate adapts to the actual Yams parser: a multi-line value
+  // with a whitespace-only interior line round-trips through a literal block in
+  // libYAML, so the gate keeps the readable block form. Whichever form it picks,
+  // the value must round-trip exactly.
+  @Test func blockSafeEdgeDescriptionRoundTrips() throws {
+    let description = "first line.\n   \nthird line."  // whitespace-only interior line
+    let yaml = serializeWithDescription(description)
+    #expect(try loader.load(yaml: yaml).description == description)
+  }
 }

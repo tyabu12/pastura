@@ -1,4 +1,5 @@
 import Foundation
+import Yams
 
 /// Converts a ``Scenario`` model back to a YAML string.
 ///
@@ -268,29 +269,46 @@ nonisolated struct ScenarioSerializer: Sendable {
   }
 
   /// Produces a **strip-chomped** YAML literal block scalar (`|-`) for a
-  /// multi-line value with no trailing newline, or an inline scalar otherwise.
+  /// multi-line value that round-trips verbatim, or an inline scalar otherwise.
   ///
   /// Used for user-authored prose fields (`description`, persona `description`)
   /// where a multi-paragraph value should read as a `|-` block rather than an
   /// escaped one-liner (#752). Differs from ``yamlBlockScalar`` in chomping:
   /// the clip `|` form appends a trailing newline on reload, which breaks an
   /// **exact** round-trip for the common no-trailing-newline shape; strip `|-`
-  /// round-trips it verbatim. A value that *does* end in a newline cannot
-  /// survive `|-` (strip removes it), so it falls back to the inline (escaped)
-  /// path, which ``YAMLScalarFormatter`` guarantees round-trips for any string
-  /// (#749). Single-line values also serialize inline.
+  /// round-trips it verbatim.
+  ///
+  /// The block form is emitted only when a **self-verifying reparse** confirms
+  /// it parses back to the exact value: several multi-line shapes don't survive
+  /// a literal block (a value ending in a newline loses it to strip chomping; a
+  /// first line with leading whitespace makes the block unparseable; `CRLF` and
+  /// some whitespace-only lines normalize). Any such value — and every
+  /// single-line value — falls back to the inline (escaped) path, which
+  /// ``YAMLScalarFormatter`` guarantees round-trips for any string (#749). The
+  /// reparse uses the same ``Yams`` parser ``ScenarioLoader`` loads with, so the
+  /// gate can never disagree with the loader, mirroring the
+  /// ``ScenarioYAMLPatcher`` reparse safety-net (ADR-018).
   private func yamlReadableBlockScalar(_ key: String, _ value: String, indent: Int = 0) -> String {
-    let prefix = String(repeating: " ", count: indent)
+    func block(_ pfx: String) -> String {
+      var lines = ["\(pfx)\(key): |-"]
+      let contentIndent = pfx + "  "
+      for line in value.split(separator: "\n", omittingEmptySubsequences: false) {
+        lines.append("\(contentIndent)\(line)")
+      }
+      return lines.joined(separator: "\n")
+    }
 
-    guard value.contains("\n"), !value.hasSuffix("\n") else {
-      return "\(prefix)\(key): \(yamlScalar(value))"
-    }
-    var lines = ["\(prefix)\(key): |-"]
-    let contentIndent = prefix + "  "
-    for line in value.split(separator: "\n", omittingEmptySubsequences: false) {
-      lines.append("\(contentIndent)\(line)")
-    }
-    return lines.joined(separator: "\n")
+    let prefix = String(repeating: " ", count: indent)
+    let inline = "\(prefix)\(key): \(yamlScalar(value))"
+
+    // Self-verify the relative structure at indent 0 — the block's
+    // parse-ability and round-trip fidelity depend only on the content lines'
+    // indentation relative to the marker, which `indent` shifts uniformly.
+    guard value.contains("\n"),
+      let parsed = try? Yams.load(yaml: block("")) as? [String: Any],
+      parsed[key] as? String == value
+    else { return inline }
+    return block(prefix)
   }
 
   /// Escapes a string for safe inline YAML if it contains special characters.
