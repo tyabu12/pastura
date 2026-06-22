@@ -18,8 +18,7 @@ schema_version: 1
 preset_ref:
   id: word_wolf_en
   version: '1.0'
-  yaml_sha256: '5930669f1b56974acbe2f8777ce8cb59a3d8fd33f23697d460d78932c32aef4c'
-
+  yaml_sha256: '090b62c69bf4c6c9c4bac2676d02c162e4a5fd8201ad3675d2f81fcac0595929'
 metadata:
   title: 'Word Wolf — Spot the Minority'
   description: 'Five players, one different topic. Watch the conversation, find the wolf.'
