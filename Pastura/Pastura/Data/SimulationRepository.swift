@@ -244,6 +244,7 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
       currentRound: record.currentRound,
       scenarioNameSnapshot: record.scenarioNameSnapshot,
       scenarioYamlSnapshot: record.scenarioYamlSnapshot,
+      scenarioCategorySnapshot: record.scenarioCategorySnapshot,
       topScores: topScores(fromStateJSON: record.stateJSON))
   }
 
@@ -266,8 +267,7 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
   /// Escapes `LIKE` metacharacters so a user's filter text matches literally.
   /// Backslash first (it is the `ESCAPE` char), then `%` and `_`.
   private static func escapeLikePattern(_ raw: String) -> String {
-    raw
-      .replacingOccurrences(of: "\\", with: "\\\\")
+    raw.replacingOccurrences(of: "\\", with: "\\\\")
       .replacingOccurrences(of: "%", with: "\\%")
       .replacingOccurrences(of: "_", with: "\\_")
   }

@@ -716,7 +716,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   }
 
   /// Starts the simulation, consuming events and persisting results.
-  func run(scenario: Scenario, llm: any LLMService) async {
+  ///
+  /// `scenarioCategorySnapshot` is the source scenario's gallery category
+  /// (`GalleryCategory` raw value), passed by the launch callsite that already
+  /// holds the `ScenarioRecord` (#748). Unlike name / YAML — derivable from the
+  /// live `scenario` domain object — category is gallery metadata absent from
+  /// the YAML, so it is threaded in here rather than reached for from the
+  /// repository (which would reintroduce the refetch-by-id drift the snapshot
+  /// design deliberately avoids). `nil` for local / self-made scenarios.
+  func run(
+    scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil
+  ) async {
     let controller = await prepareRunInfrastructure(llm: llm)
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
@@ -727,7 +737,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     simulationId = simId
     let initialState = SimulationState.initial(for: scenario)
     await createSimulationRecord(
-      simId: simId, scenario: scenario, state: initialState, llm: llm)
+      simId: simId, scenario: scenario, state: initialState, llm: llm,
+      scenarioCategorySnapshot: scenarioCategorySnapshot)
 
     turnSequence = 0
     lifecycleLogger.info("run() entered: simId=\(simId)")
@@ -1390,7 +1401,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Persistence
 
   private func createSimulationRecord(
-    simId: String, scenario: Scenario, state: SimulationState, llm: any LLMService
+    simId: String, scenario: Scenario, state: SimulationState, llm: any LLMService,
+    scenarioCategorySnapshot: String?
   ) async {
     do {
       let stateJSON = try JSONEncoder().encode(state)
@@ -1400,6 +1412,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // this run and independent of whether/when the scenario row is later
       // edited or deleted. Read paths reconstruct from this when `scenarioId`
       // is nil (scenario deleted) or to avoid edit-drift while it still exists.
+      // The gallery category (#748) is the exception: it is not on the domain
+      // object (it's gallery metadata, not in the YAML), so the launch callsite
+      // threads it in as `scenarioCategorySnapshot` from the `ScenarioRecord` it
+      // already holds — still captured here, still no refetch-by-id.
       let scenarioYamlSnapshot = ScenarioSerializer().serialize(scenario)
       let record = SimulationRecord(
         id: simId,
@@ -1414,7 +1430,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         modelIdentifier: llm.modelIdentifier,
         llmBackend: llm.backendIdentifier,
         scenarioYamlSnapshot: scenarioYamlSnapshot,
-        scenarioNameSnapshot: scenario.name
+        scenarioNameSnapshot: scenario.name,
+        scenarioCategorySnapshot: scenarioCategorySnapshot
       )
       try await offMain { [simulationRepository] in
         try simulationRepository.save(record)
