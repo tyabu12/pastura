@@ -195,6 +195,9 @@ struct HomeViewModelTests {
     #expect(meta?.agentCount == 2)
     #expect(meta?.rounds == 5)
     #expect(meta?.description == "A test scenario")
+    // Estimator wired through — exact value depends on phase composition
+    // (covered by ScenarioLoader's own tests); here we assert it resolved.
+    #expect((meta?.estimatedInferences ?? 0) > 0)
     #expect(viewModel.errorMessage == nil)
   }
 
@@ -224,6 +227,7 @@ struct HomeViewModelTests {
     #expect(meta?.agentCount == nil)
     #expect(meta?.rounds == nil)
     #expect(meta?.description == nil)
+    #expect(meta?.estimatedInferences == nil)
     // One broken row never blanks the whole list.
     #expect(viewModel.errorMessage == nil)
   }

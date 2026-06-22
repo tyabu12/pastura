@@ -24,17 +24,24 @@ nonisolated struct ScenarioRowMetadata: Equatable, Sendable {
   let rounds: Int?
   /// One-line description from the parsed scenario; `nil` on parse failure.
   let description: String?
+  /// Estimated LLM inference count for one run, from
+  /// ``ScenarioLoader/estimateInferenceCount(_:)`` — the same estimator the
+  /// Shared Scenarios gallery reflects, so the Home and Browse tabs show a
+  /// consistent number for the same scenario. `nil` on parse failure.
+  let estimatedInferences: Int?
 
   init(
     name: String,
     agentCount: Int? = nil,
     rounds: Int? = nil,
-    description: String? = nil
+    description: String? = nil,
+    estimatedInferences: Int? = nil
   ) {
     self.name = name
     self.agentCount = agentCount
     self.rounds = rounds
     self.description = description
+    self.estimatedInferences = estimatedInferences
   }
 }
 

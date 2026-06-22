@@ -251,7 +251,8 @@ final class HomeViewModel {
       name: record.name,
       agentCount: scenario.agentCount,
       rounds: scenario.rounds,
-      description: scenario.description
+      description: scenario.description,
+      estimatedInferences: ScenarioLoader.estimateInferenceCount(scenario)
     )
   }
 
