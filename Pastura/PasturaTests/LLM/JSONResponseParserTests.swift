@@ -278,6 +278,61 @@ struct JSONResponseParserTests {
     #expect(output.rawText == input, "rawText should preserve the original pre-cleanup input")
   }
 
+  // MARK: - 24. Balanced first-object extraction (#751)
+
+  // Sub-class 1 of #751: grammar-constrained generation occasionally emits
+  // an otherwise-valid object plus one stray trailing `}` (`{…}}`). The old
+  // pipeline skipped extraction when the text both started with `{` and ended
+  // with `}`, so `{…}}` reached `JSONSerialization` unmodified and was
+  // rejected. Reverting the balanced-extraction fix makes this test fail.
+  @Test func recoversStrayTrailingBrace() throws {
+    let input = #"{"statement": "hello", "inner_thought": "wary"}}"#
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "hello")
+    #expect(output.fields["inner_thought"] == "wary")
+  }
+
+  // Trailing prose after the closing brace is discarded by the balanced scan.
+  @Test func discardsTrailingProseAfterObject() throws {
+    let input = #"{"action": "betray"} and that is my final answer."#
+    let output = try parser.parse(input)
+    #expect(output.fields["action"] == "betray")
+  }
+
+  // String-aware core: a `}` (and `{`) INSIDE a string value must not be
+  // mistaken for the structural close. Without `StringStateMachine`-driven
+  // string tracking the scan would stop early at the in-string `}`.
+  @Test func ignoresBracesInsideStringValue() throws {
+    let input = #"{"statement": "use {a} or }b{ here"} trailing"#
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "use {a} or }b{ here")
+  }
+
+  // Nested object balances both levels, then discards trailing garbage.
+  @Test func balancesNestedObjectAndDiscardsGarbage() throws {
+    let input = #"{"data": {"key": "value"}, "ok": "yes"}garbage}"#
+    let output = try parser.parse(input)
+    #expect(output.fields["ok"] == "yes")
+    let dataValue = try #require(output.fields["data"])
+    #expect(dataValue.contains("value"))
+  }
+
+  // Empty object `{}` balances immediately and parses to an empty field set.
+  @Test func parsesEmptyObject() throws {
+    let output = try parser.parse("{}")
+    #expect(output.fields.isEmpty)
+  }
+
+  // Identity guard: removing the prefix/suffix extraction skip changes the
+  // pipeline for EVERY input, so confirm a clean single object with NO
+  // trailing content still parses (no over-trimming regression).
+  @Test func cleanObjectUnaffectedByAlwaysOnExtraction() throws {
+    let input = #"{"statement": "hi", "action": "cooperate"}"#
+    let output = try parser.parse(input)
+    #expect(output.fields["statement"] == "hi")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
   // A2 repair-pipeline tests live in `JSONResponseParserTests+Repair.swift`
   // (sibling extension). Split per `.claude/rules/testing.md` to keep this
   // file under the `file_length` lint budget.
