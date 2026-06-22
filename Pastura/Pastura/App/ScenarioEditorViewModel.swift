@@ -96,7 +96,10 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
 
   private let repository: any ScenarioRepository
   private let loader = ScenarioLoader()
-  private let serializer = ScenarioSerializer()
+  /// Format-preserving visual→YAML boundary sync (ADR-018). Splices changed
+  /// scalar values into the existing `yamlText` (preserving comments / key
+  /// order) and falls back to canonical full serialization otherwise.
+  private let patcher = ScenarioYAMLPatcher()
   private let validator = ScenarioValidator()
   private let contentValidator = ScenarioContentValidator()
 
@@ -202,10 +205,14 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
 
   /// Switches from visual mode to YAML mode.
   ///
-  /// Serializes the current visual state to YAML text.
+  /// Materializes the visual state to YAML via the format-preserving
+  /// ``ScenarioYAMLPatcher`` (ADR-018): when only scalar values changed, the
+  /// existing `yamlText` is patched in place so the user's comments / key order
+  /// survive; structural or block-scalar changes (and a blank base) fall back to
+  /// canonical serialization.
   func switchToYAMLMode() {
     let scenario = buildScenario()
-    yamlText = serializer.serialize(scenario)
+    yamlText = patcher.patch(visual: scenario, base: yamlText)
     editorMode = .yaml
   }
 
@@ -416,8 +423,11 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// - YAML mode: parses `yamlText` and persists the user's *exact* text so
   ///   author-supplied comments and key order survive. Re-serializing would
   ///   normalize them away.
-  /// - Visual mode: builds from typed fields and serializes canonically (the
-  ///   visual editor has no place to surface raw text artifacts anyway).
+  /// - Visual mode: builds from typed fields and emits YAML via the
+  ///   format-preserving ``ScenarioYAMLPatcher`` (ADR-018) against the current
+  ///   `yamlText`, so a scalar-only visual edit on an existing scenario keeps
+  ///   its comments / key order; structural / block-scalar / blank-base cases
+  ///   fall back to canonical serialization.
   private func currentScenario() throws -> (scenario: Scenario, yaml: String) {
     switch editorMode {
     case .yaml:
@@ -426,7 +436,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       return (parsed, trimmed)
     case .visual:
       let scenario = buildScenario()
-      return (scenario, serializer.serialize(scenario))
+      return (scenario, patcher.patch(visual: scenario, base: yamlText))
     }
   }
 
