@@ -148,6 +148,12 @@ struct ScenarioDetailView: View {
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
     .background(Color.screenBackground.ignoresSafeArea())
+    // Post-load anchor: this ScrollView only exists once the scenario
+    // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
+    // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
+    // applied after, its identifier scopes the inset's Run button too and
+    // overrides the button's own `scenarioDetail.runSimulationButton` id.
+    .accessibilityIdentifier("scenarioDetail.list")
     // Primary CTA pinned to the bottom safe-area edge so the app's core
     // action stays in the thumb zone regardless of scroll position; content
     // scrolls under the band. The tab bar sits below this (focus mode hides
@@ -155,10 +161,6 @@ struct ScenarioDetailView: View {
     .safeAreaInset(edge: .bottom) {
       runSimulationCTA(scenario: scenario, viewModel: viewModel)
     }
-    // Post-load anchor: this ScrollView only exists once the scenario
-    // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
-    // can wait on it instead of sleeping.
-    .accessibilityIdentifier("scenarioDetail.list")
   }
 
   /// Bottom-pinned primary call-to-action. Uses `PasturaPrimaryButtonStyle`
