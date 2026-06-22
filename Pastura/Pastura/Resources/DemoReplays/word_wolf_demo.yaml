@@ -17,8 +17,7 @@ schema_version: 1
 preset_ref:
   id: word_wolf
   version: '1.0'
-  yaml_sha256: 'b56208895eceb7012879d7ba3e0d1edbebdff75a685e1dd290a5f2f7cc8d10f5'
-
+  yaml_sha256: '70f37c9c3b98d52deb4f06d55a340a08e3bbf3e867b19fca918b943617d72ee1'
 metadata:
   title: 'ワードウルフ — 少数派を見抜け'
   description: '5人のうち1人だけ違うお題。観察と会話から少数派を当てる社会推理デモ。'
