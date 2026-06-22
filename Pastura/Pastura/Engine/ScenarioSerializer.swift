@@ -257,29 +257,10 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   /// Escapes a string for safe inline YAML if it contains special characters.
   /// Uses double-quoting when the value might be misinterpreted by a YAML parser.
+  ///
+  /// Delegates to the shared ``YAMLScalarFormatter`` so the format-preserving
+  /// ``ScenarioYAMLPatcher`` (ADR-018) quotes spliced values by identical rules.
   private func yamlScalar(_ value: String) -> String {
-    // Values that need quoting: empty, contains special chars, looks like number/bool
-    let needsQuoting =
-      value.isEmpty
-      || value.hasPrefix("{") || value.hasPrefix("[")
-      || value.hasPrefix("*") || value.hasPrefix("&")
-      || value.hasPrefix("!") || value.hasPrefix("%")
-      || value.hasPrefix("'") || value.hasPrefix("\"")
-      || value.contains(": ") || value.contains(" #")
-      || value.hasPrefix("- ") || value.hasPrefix("? ")
-      || value == "true" || value == "false"
-      || value == "null" || value == "~"
-      || value.contains("\n") || value.contains("\r")
-      || Int(value) != nil || Double(value) != nil
-
-    if needsQuoting {
-      let escaped =
-        value
-        .replacingOccurrences(of: "\\", with: "\\\\")
-        .replacingOccurrences(of: "\"", with: "\\\"")
-      return "\"\(escaped)\""
-    }
-
-    return value
+    YAMLScalarFormatter.quote(value)
   }
 }

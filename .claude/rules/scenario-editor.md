@@ -16,6 +16,15 @@ keystroke. The two sides reconcile at materialization via the private
 materialized from empty visual fields when the user had only ever touched
 YAML mode (`"Agent count (0)"` error).
 
+At the visual→YAML boundary the funnel emits through `ScenarioYAMLPatcher`
+([ADR-018](../../docs/decisions/ADR-018.md)): a scalar-only visual edit
+splices just the changed values into the existing `yamlText` so comments /
+key order survive, falling back to canonical `ScenarioSerializer` output for
+structural changes, block-scalar edits (`context`/`prompt`/`template`), or a
+blank/unparseable base. The patcher is a pure `(Scenario, base)` function fed
+by `buildScenario()`, so it does not add a visual-state read — the funnel and
+its count gate below stay intact.
+
 ## Invariant
 
 Every new callsite that needs a `(Scenario, yaml)` pair from the editor —
@@ -40,7 +49,8 @@ The count is a **re-evaluation trigger, not a correctness proof**:
 
 - **> 3** — a new consumer reads visual state directly. Route it through
   `currentScenario()`, or treat it as the trigger to revisit the editor
-  source-of-truth design (see #725).
+  source-of-truth design ([ADR-018](../../docs/decisions/ADR-018.md), the
+  format-preserving boundary that resolved #725).
 - **< 3** — a sanctioned callsite was dropped; same re-evaluation gate.
 - **A count of 3 with a NEW direct visual-state read** still violates the
   funnel. The Swift behavioral tripwire (`visualModeSavePreservesExtraData`
