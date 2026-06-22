@@ -344,6 +344,16 @@ grammar mode, split the chain into two samplers, or build a
 `common_sampler_accept`-style per-component wrapper that excludes the
 grammar. (PR #480 commit eb26153, reverted in 4ffaf6f; ADR-011.)
 
+The **EOG-path** variant of this abort (#253 — EOG sampled mid-generation,
+not prompt-token accept) is now mitigated with exactly that
+"control-the-accept-explicitly" technique: `LlamaCppService.safeSample`
+splits the grammar-active step into `llama_sampler_apply` + a guarded
+`llama_sampler_accept`, skipping the accept for EOG tokens (whose post-EOG
+grammar state is never read). Non-EOG selection is byte-identical to the
+bundled `llama_sampler_sample`, so the distribution is unchanged. SafeSampler
+still cannot *catch* a `SIGABRT`; the EOG abort is *avoided*, not caught.
+(ADR-002 §12.9 Mitigation, #253.)
+
 ### Grammar must not enumerate values — structure only
 
 `GBNFGrammarBuilder` constrains JSON **structure** (object shape, keys,

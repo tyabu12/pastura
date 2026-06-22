@@ -36,6 +36,14 @@
 extern "C" int32_t llama_sampler_sample(
     struct llama_sampler *smpl, struct llama_context *ctx, int32_t idx);
 
+// `llama_sampler_accept(smpl, token)` advances every chain component
+// (penalties ring buffer, grammar state). Same manual-extern rationale as
+// `llama_sampler_sample` above: `llama_token` is a `typedef int32_t` and the
+// signature is stable across llama.cpp b8694+. Declared here so the
+// EOG-guarded split sampling in `LlamaCppService` can wrap just the accept
+// step in the C++ exception catcher (the grammar `accept_token` throw, #334).
+extern "C" void llama_sampler_accept(struct llama_sampler *smpl, int32_t token);
+
 namespace {
 
 void fill_error_message(
@@ -73,6 +81,29 @@ pastura_sample_result_t pastura_llama_sampler_sample_safe(
     fill_error_message(
         result.error_message,
         "Unknown non-std exception caught in SafeSampler wrapper");
+  }
+  return result;
+}
+
+pastura_sample_result_t pastura_llama_sampler_accept_safe(
+    struct llama_sampler *sampler, int32_t token) {
+  pastura_sample_result_t result;
+  reset_result(result);
+  // Echo the accepted token so the Swift facade's `Outcome.token` stays
+  // meaningful on the success path (the caller already holds it, but this
+  // keeps the success/throw shape uniform with the sample wrapper).
+  result.token = token;
+
+  try {
+    llama_sampler_accept(sampler, token);
+  } catch (const std::exception &e) {
+    result.did_throw = true;
+    fill_error_message(result.error_message, e.what());
+  } catch (...) {
+    result.did_throw = true;
+    fill_error_message(
+        result.error_message,
+        "Unknown non-std exception caught in SafeSampler accept wrapper");
   }
   return result;
 }

@@ -480,6 +480,11 @@ extension LlamaCppService {
     let vocab = prepared.vocab
     let sampler = prepared.sampler
 
+    // #253 EOG-guard scratch buffer (nil when no grammar is active — that
+    // path uses the bundled sampler). See `makeCandidateBuffer`.
+    let candidateBuffer = makeCandidateBuffer(schema: schema, vocab: vocab)
+    defer { candidateBuffer?.deallocate() }
+
     // Auto-regressive generation loop with string-based stop detection.
     // Tokens are decoded incrementally so we can detect <|im_end|> even when
     // the model's tokenizer splits it across multiple subword tokens.
@@ -509,7 +514,8 @@ extension LlamaCppService {
       }
 
       let newTokenId = try safeSample(
-        sampler: sampler, context: context, mode: "non-stream")
+        sampler: sampler, context: context, vocab: vocab,
+        candidates: candidateBuffer, mode: "non-stream")
 
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
@@ -647,6 +653,11 @@ extension LlamaCppService {
     let vocab = prepared.vocab
     let sampler = prepared.sampler
 
+    // #253 EOG-guard scratch buffer (nil when no grammar is active — that
+    // path uses the bundled sampler). See `makeCandidateBuffer`.
+    let candidateBuffer = makeCandidateBuffer(schema: schema, vocab: vocab)
+    defer { candidateBuffer?.deallocate() }
+
     // Byte-level accumulation so UTF-8 characters split across pieces
     // (common for CJK / emoji) never emit as partial replacement
     // characters. `decodedText` always holds the longest valid UTF-8
@@ -669,7 +680,8 @@ extension LlamaCppService {
       }
 
       let newTokenId = try safeSample(
-        sampler: sampler, context: context, mode: "stream")
+        sampler: sampler, context: context, vocab: vocab,
+        candidates: candidateBuffer, mode: "stream")
       if llama_vocab_is_eog(vocab, newTokenId) { break }
 
       generatedTokens += 1
