@@ -1,12 +1,5 @@
 import Foundation
 
-/// Pure display-formatting helpers for the Past Results (観察履歴) list
-/// (Home redesign P5: date-grouped chronological runs).
-///
-/// Kept `nonisolated` and side-effect-free so the date-bucketing logic — the
-/// non-trivial part the list depends on — is unit-testable without rendering
-/// (ADR-009 / `.claude/rules/view-testing.md`: extract logic, never assert
-/// rendered output). Mirrors `HomeScenarioRowFormat`.
 /// The compact result label + status-color category shown in a History row's
 /// trailing status pill (#747). One pill covers **every** state — it replaces
 /// the former `resultSummary` text + `statusBadge` fallback pair (a completed /
@@ -40,6 +33,13 @@ nonisolated struct ResultPill: Equatable, Sendable {
   let style: Style
 }
 
+/// Pure display-formatting helpers for the Past Results (観察履歴) list
+/// (Home redesign P5: date-grouped chronological runs).
+///
+/// Kept `nonisolated` and side-effect-free so the date-bucketing logic — the
+/// non-trivial part the list depends on — is unit-testable without rendering
+/// (ADR-009 / `.claude/rules/view-testing.md`: extract logic, never assert
+/// rendered output). Mirrors `HomeScenarioRowFormat`.
 nonisolated enum ResultsRowFormat {
 
   /// A date-grouping section for the History list.
