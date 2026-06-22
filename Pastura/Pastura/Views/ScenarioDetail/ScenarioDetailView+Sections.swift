@@ -180,24 +180,8 @@ extension ScenarioDetailView {
         .buttonStyle(.plain)
 
         siblingLanguageLink(scenario: scenario, viewModel: viewModel)
-
-        if let record = viewModel.record {
-          PasturaRowDivider()
-          if record.isPreset || viewModel.isGallerySourced {
-            // Preset and gallery rows are read-only; offer a clone-as-template
-            // action instead of direct edit so users can customize safely.
-            NavigationLink(value: Route.editor(templateYAML: record.yamlDefinition)) {
-              PasturaRowLabel(
-                title: String(localized: "Use as Template"), systemImage: "doc.on.doc")
-            }
-            .buttonStyle(.plain)
-          } else {
-            NavigationLink(value: Route.editor(editingId: scenarioId)) {
-              PasturaRowLabel(title: String(localized: "Edit"), systemImage: "pencil")
-            }
-            .buttonStyle(.plain)
-          }
-        }
+        // Edit / Use-as-Template moved to the `⋯` overflow menu in the
+        // navigation bar (see ScenarioDetailView's toolbar).
       }
     }
   }

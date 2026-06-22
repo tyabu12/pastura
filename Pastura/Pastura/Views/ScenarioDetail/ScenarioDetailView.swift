@@ -13,6 +13,10 @@ struct ScenarioDetailView: View {
 
   @Environment(AppDependencies.self) private var dependencies
   @Environment(\.dismiss) private var dismiss
+  // Programmatic push for the overflow-menu Edit / Use-as-Template actions:
+  // a `NavigationLink` inside a `Menu` does not reliably push, so these go
+  // through the current tab's router (navigation.md § "When to use what").
+  @Environment(AppRouter.self) private var router
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
 
@@ -54,12 +58,42 @@ struct ScenarioDetailView: View {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
-      if let record = viewModel?.record, !record.isPreset {
-        ToolbarItem(placement: .destructiveAction) {
-          Button(String(localized: "Delete"), role: .destructive) {
-            showDeleteConfirm = true
+      // Low-frequency scenario-management actions (edit / clone / delete)
+      // live in a `⋯` overflow menu rather than a pinned top-right slot —
+      // the prime real estate is reserved for the primary Run CTA (now a
+      // bottom-pinned button). Mirrors `ResultDetailView`'s ellipsis idiom.
+      if let record = viewModel?.record {
+        ToolbarItem(placement: .primaryAction) {
+          Menu {
+            // Read-only sources (preset / installed gallery copy) get a
+            // clone-as-template action; user scenarios get direct edit.
+            if record.isPreset || (viewModel?.isGallerySourced ?? false) {
+              Button {
+                router.push(.editor(templateYAML: record.yamlDefinition))
+              } label: {
+                Label(String(localized: "Use as Template"), systemImage: "doc.on.doc")
+              }
+            } else {
+              Button {
+                router.push(.editor(editingId: scenarioId))
+              } label: {
+                Label(String(localized: "Edit"), systemImage: "pencil")
+              }
+            }
+            // Delete is gated EXACTLY as the prior toolbar button (`!isPreset`),
+            // so an installed gallery copy (`isPreset == false`) stays deletable
+            // — gallery read-only blocks edit/overwrite, not deleting the copy.
+            if !record.isPreset {
+              Button(role: .destructive) {
+                showDeleteConfirm = true
+              } label: {
+                Label(String(localized: "Delete"), systemImage: "trash")
+              }
+            }
+          } label: {
+            Image(systemName: "ellipsis.circle")
           }
-          .buttonStyle(PasturaToolbarButtonStyle(variant: .destructive))
+          .accessibilityIdentifier("scenarioDetail.actionsMenu")
         }
         .hidingPasturaSharedBackground()
       }
