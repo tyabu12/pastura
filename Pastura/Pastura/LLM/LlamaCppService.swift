@@ -480,14 +480,9 @@ extension LlamaCppService {
     let vocab = prepared.vocab
     let sampler = prepared.sampler
 
-    // #253 EOG-guard scratch: when a grammar is active, `safeSample`
-    // replicates `llama_sampler_sample` so it can skip the abort-prone EOG
-    // accept, which needs an n_vocab candidate buffer. Allocate once and
-    // reuse across the token loop. `nil` when no grammar is active — that
-    // path uses the bundled sampler (no buffer, no EOG abort to guard).
-    let candidateBuffer: UnsafeMutableBufferPointer<llama_token_data>? =
-      schema != nil
-      ? .allocate(capacity: Int(llama_vocab_n_tokens(vocab))) : nil
+    // #253 EOG-guard scratch buffer (nil when no grammar is active — that
+    // path uses the bundled sampler). See `makeCandidateBuffer`.
+    let candidateBuffer = makeCandidateBuffer(schema: schema, vocab: vocab)
     defer { candidateBuffer?.deallocate() }
 
     // Auto-regressive generation loop with string-based stop detection.
@@ -658,14 +653,9 @@ extension LlamaCppService {
     let vocab = prepared.vocab
     let sampler = prepared.sampler
 
-    // #253 EOG-guard scratch: when a grammar is active, `safeSample`
-    // replicates `llama_sampler_sample` so it can skip the abort-prone EOG
-    // accept, which needs an n_vocab candidate buffer. Allocate once and
-    // reuse across the token loop. `nil` when no grammar is active — that
-    // path uses the bundled sampler (no buffer, no EOG abort to guard).
-    let candidateBuffer: UnsafeMutableBufferPointer<llama_token_data>? =
-      schema != nil
-      ? .allocate(capacity: Int(llama_vocab_n_tokens(vocab))) : nil
+    // #253 EOG-guard scratch buffer (nil when no grammar is active — that
+    // path uses the bundled sampler). See `makeCandidateBuffer`.
+    let candidateBuffer = makeCandidateBuffer(schema: schema, vocab: vocab)
     defer { candidateBuffer?.deallocate() }
 
     // Byte-level accumulation so UTF-8 characters split across pieces

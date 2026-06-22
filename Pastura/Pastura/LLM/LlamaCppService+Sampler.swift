@@ -150,6 +150,28 @@ extension LlamaCppService {
   ///     the bundled fast path (no grammar active).
   ///   - mode: `non-stream` / `stream` tag for the diagnostic line, so the
   ///     analyzer can attribute catches to the calling loop.
+  /// Allocate the reused per-generation candidate scratch buffer for the
+  /// EOG-guarded sampling path, or `nil` when no grammar is active.
+  ///
+  /// When a grammar is active, ``safeSample(sampler:context:vocab:candidates:mode:)``
+  /// replicates `llama_sampler_sample` so it can skip the abort-prone EOG
+  /// accept, which needs an `n_vocab` candidate buffer. Allocated once per
+  /// generation and reused across the token loop. Returns `nil` when
+  /// `schema == nil` (no grammar built — the bundled path needs no buffer),
+  /// mirroring the `createSampler` grammar-build condition so the two call
+  /// sites (`runGeneration` / `runStreamGeneration`) cannot drift.
+  ///
+  /// - Important: ownership stays with the caller — the buffer's lifetime is
+  ///   the whole generation, so the caller MUST `deallocate()` it (via
+  ///   `defer`). Returning it (rather than taking a closure) keeps the
+  ///   `defer` adjacent to the token loop it guards.
+  func makeCandidateBuffer(
+    schema: OutputSchema?, vocab: OpaquePointer?
+  ) -> UnsafeMutableBufferPointer<llama_token_data>? {
+    guard schema != nil else { return nil }
+    return .allocate(capacity: Int(llama_vocab_n_tokens(vocab)))
+  }
+
   func safeSample(
     sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
     vocab: OpaquePointer?,
