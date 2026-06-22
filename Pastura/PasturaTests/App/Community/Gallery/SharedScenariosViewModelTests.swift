@@ -164,6 +164,9 @@ import Testing
     #expect(saved?.sourceType == ScenarioSourceType.gallery)
     #expect(saved?.sourceId == "asch_v1")
     #expect(saved?.sourceHash == Self.sampleYAMLHash)
+    // #748: the gallery category is denormalized onto the installed record so
+    // Home / Past Results can surface it without the live gallery feed.
+    #expect(saved?.category == GalleryCategory.socialPsychology.rawValue)
   }
 
   @Test func tryInstallConflictsWithLocalNonGalleryRow() async throws {

@@ -50,6 +50,12 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
   /// ~1/100 of the `stateJSON` (~100–300 KB) the projection deliberately drops
   /// (#586), so retaining it over the loaded window stays within that budget.
   public let scenarioYamlSnapshot: String?
+  /// The source scenario's gallery category (`GalleryCategory` raw value)
+  /// captured at run-creation (v10+; `nil` for pre-v10 runs and runs of local
+  /// scenarios). The History row renders its display name via
+  /// `GalleryCategory(rawValue:)`. Snapshot-sourced so the row keeps the
+  /// category even after the source scenario is edited or deleted (#748).
+  public let scenarioCategorySnapshot: String?
   /// The run's highest-scoring agents (highest-first, at most three).
   public let topScores: [PastRunScore]
 
@@ -61,6 +67,7 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
     currentRound: Int,
     scenarioNameSnapshot: String?,
     scenarioYamlSnapshot: String?,
+    scenarioCategorySnapshot: String?,
     topScores: [PastRunScore]
   ) {
     self.id = id
@@ -70,6 +77,7 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
     self.currentRound = currentRound
     self.scenarioNameSnapshot = scenarioNameSnapshot
     self.scenarioYamlSnapshot = scenarioYamlSnapshot
+    self.scenarioCategorySnapshot = scenarioCategorySnapshot
     self.topScores = topScores
   }
 

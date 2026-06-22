@@ -94,6 +94,49 @@ import Testing
     #expect(fetched?.llmBackend == "llama.cpp")
   }
 
+  @Test func scenarioCategorySnapshotRoundTrips() throws {
+    // #748: the gallery category captured at run-creation survives in the
+    // simulations row (v10 column) so Past Results keeps it after edit/delete.
+    let manager = try makeManagerWithScenario()
+    let now = Date()
+    var record = SimulationRecord(
+      id: "sim1", scenarioId: "s1",
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 5, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: now, updatedAt: now,
+      scenarioCategorySnapshot: GalleryCategory.gameTheory.rawValue)
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try SimulationRecord.fetchOne(db, key: "sim1")
+    }
+    #expect(fetched?.scenarioCategorySnapshot == GalleryCategory.gameTheory.rawValue)
+  }
+
+  @Test func scenarioCategorySnapshotDefaultsToNil() throws {
+    let manager = try makeManagerWithScenario()
+    let now = Date()
+    var record = SimulationRecord(
+      id: "sim1", scenarioId: "s1",
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 1, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: now, updatedAt: now)
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try SimulationRecord.fetchOne(db, key: "sim1")
+    }
+    #expect(fetched?.scenarioCategorySnapshot == nil)
+  }
+
   @Test func modelIdentifierAndLLMBackendDefaultToNil() throws {
     // Rows inserted without explicit model metadata (e.g., created before the v3 migration
     // on TestFlight devices) decode with nil for both new fields and round-trip cleanly.

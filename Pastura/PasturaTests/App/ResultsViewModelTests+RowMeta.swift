@@ -111,6 +111,66 @@ extension ResultsViewModelTests {
     #expect(row.totalRounds == nil)
   }
 
+  // MARK: - Snapshot-first description resolution (#747)
+
+  @Test func aggregateRowCarriesDescriptionFromSnapshot() async throws {
+    let env = try makeResultsSUT()
+    try env.simRepo.save(
+      runWithSnapshot(
+        id: "sim1", scenarioId: nil,
+        snapshot: metaYAML(agents: 3, rounds: 2, description: "A tense standoff")))
+
+    await env.sut.load(scope: .aggregate)
+
+    let row = try #require(env.sut.sections.flatMap { $0.rows }.first)
+    #expect(row.description == "A tense standoff")
+  }
+
+  @Test func emptyDescriptionNormalizesToNil() async throws {
+    let env = try makeResultsSUT()
+    try env.simRepo.save(
+      runWithSnapshot(
+        id: "sim1", scenarioId: nil,
+        snapshot: metaYAML(agents: 3, rounds: 2, description: "")))
+
+    await env.sut.load(scope: .aggregate)
+
+    let row = try #require(env.sut.sections.flatMap { $0.rows }.first)
+    // Empty description → no description line (graceful degrade), but the row
+    // still resolves the rest of its meta normally.
+    #expect(row.description == nil)
+    #expect(row.agentCount == 3)
+  }
+
+  @Test func whitespaceOnlyDescriptionNormalizesToNil() async throws {
+    let env = try makeResultsSUT()
+    try env.simRepo.save(
+      runWithSnapshot(
+        id: "sim1", scenarioId: nil,
+        snapshot: metaYAML(agents: 3, rounds: 2, description: "   ")))
+
+    await env.sut.load(scope: .aggregate)
+
+    let row = try #require(env.sut.sections.flatMap { $0.rows }.first)
+    #expect(row.description == nil)
+  }
+
+  @Test func missingSnapshotDegradesToNilDescription() async throws {
+    let env = try makeResultsSUT()
+    // Pre-v7 run with no snapshot in the aggregate path → no YAML source, so
+    // description (like agentCount / rounds) degrades to nil.
+    try env.scenarioRepo.save(
+      ScenarioRecord(
+        id: "s1", name: "Live", yamlDefinition: metaYAML(agents: 3, rounds: 7),
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try env.simRepo.save(runWithSnapshot(id: "sim1", scenarioId: "s1", snapshot: nil))
+
+    await env.sut.load(scope: .aggregate)
+
+    let row = try #require(env.sut.sections.flatMap { $0.rows }.first)
+    #expect(row.description == nil)
+  }
+
   // MARK: - currentRound (K) cross-surface consistency
 
   /// The paused "Round K で中断" summary reads `K` from the same
@@ -163,15 +223,16 @@ private func runWithSnapshot(
 
 /// A structurally-valid scenario YAML (parseable by `ScenarioLoader.load`) with
 /// the given agent / round counts — `agents` personas so the persona/agent-count
-/// invariant holds.
-private func metaYAML(agents: Int, rounds: Int) -> String {
+/// invariant holds. `description` is quoted so empty / whitespace-only values are
+/// representable for the #747 normalization tests.
+private func metaYAML(agents: Int, rounds: Int, description: String = "a fixture") -> String {
   let personas = (0..<agents)
     .map { "  - name: Agent\($0)\n    description: persona \($0)" }
     .joined(separator: "\n")
   return """
     id: meta
     name: Meta Scenario
-    description: a fixture
+    description: "\(description)"
     language: en
     agents: \(agents)
     rounds: \(rounds)

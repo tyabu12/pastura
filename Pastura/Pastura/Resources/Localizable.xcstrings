@@ -455,6 +455,22 @@
         }
       }
     },
+    "%@ wins" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wins"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 勝利"
+          }
+        }
+      }
+    },
     "%@ × %@" : {
       "comment" : "Event-inject phase summary in scenario editor; first arg is YAML source key name, second arg is probability (e.g. 0.5).",
       "localizations" : {
@@ -1534,6 +1550,7 @@
       }
     },
     "All %lld rounds complete" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4155,7 +4172,40 @@
         }
       }
     },
+    "Paused %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中断 %lld"
+          }
+        }
+      }
+    },
+    "Paused %lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused %1$lld/%2$lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中断 %1$lld/%2$lld"
+          }
+        }
+      }
+    },
     "Paused at Round %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -4166,6 +4216,7 @@
       }
     },
     "Paused at Round %lld / %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6136,6 +6187,7 @@
       }
     },
     "Winner: %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
