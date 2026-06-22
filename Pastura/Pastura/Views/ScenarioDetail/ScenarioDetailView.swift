@@ -148,9 +148,51 @@ struct ScenarioDetailView: View {
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
     .background(Color.screenBackground.ignoresSafeArea())
+    // Primary CTA pinned to the bottom safe-area edge so the app's core
+    // action stays in the thumb zone regardless of scroll position; content
+    // scrolls under the band. The tab bar sits below this (focus mode hides
+    // the tab bar only during a run, ADR-017 — not here).
+    .safeAreaInset(edge: .bottom) {
+      runSimulationCTA(scenario: scenario, viewModel: viewModel)
+    }
     // Post-load anchor: this ScrollView only exists once the scenario
     // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
     // can wait on it instead of sleeping.
     .accessibilityIdentifier("scenarioDetail.list")
+  }
+
+  /// Bottom-pinned primary call-to-action. Uses `PasturaPrimaryButtonStyle`
+  /// (mossDark fill, WCAG-AA, no capsule / scale animation — design-system
+  /// §1 static voice). Stays a `NavigationLink` pushing onto the current
+  /// tab's stack (no `navigationDestination(item:)` — navigation.md).
+  private func runSimulationCTA(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
+    // initialName supplies the scenario name to SimulationView's
+    // navigationTitle from the first frame, before loadAndRun() re-parses
+    // the YAML. Identity-neutral via RouteHint (ADR-008).
+    NavigationLink(
+      value: Route.simulation(
+        scenarioId: scenarioId,
+        initialName: .init(scenario.name)
+      )
+    ) {
+      Label(String(localized: "Run Simulation"), systemImage: "play.fill")
+    }
+    .buttonStyle(PasturaPrimaryButtonStyle())
+    .frame(maxWidth: .infinity)
+    .disabled(!viewModel.canRun)
+    .opacity(viewModel.canRun ? 1 : 0.4)
+    .accessibilityIdentifier("scenarioDetail.runSimulationButton")
+    .padding(.horizontal, PasturaCardMetrics.interCardSpacing)
+    .padding(.vertical, 12)
+    // Opaque band + top hairline so scroll content reads as passing *under*
+    // a distinct footer, not blending into the last card. If device QA shows
+    // a colour seam against the tab bar, bleed the band background down with
+    // `.ignoresSafeArea(.container, edges: .bottom)` (background only).
+    .background(alignment: .top) {
+      Color.screenBackground
+        .overlay(alignment: .top) { Color.rule.frame(height: 0.5) }
+    }
   }
 }

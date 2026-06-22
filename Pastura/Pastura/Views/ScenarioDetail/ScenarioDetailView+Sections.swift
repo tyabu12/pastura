@@ -154,24 +154,10 @@ extension ScenarioDetailView {
   ) -> some View {
     PasturaSection {
       VStack(spacing: 0) {
-        // initialName supplies the scenario name to SimulationView's
-        // navigationTitle from the first frame, before loadAndRun()
-        // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
-        NavigationLink(
-          value: Route.simulation(
-            scenarioId: scenarioId,
-            initialName: .init(scenario.name)
-          )
-        ) {
-          PasturaRowLabel(
-            title: String(localized: "Run Simulation"), systemImage: "play.fill")
-        }
-        .buttonStyle(.plain)
-        .disabled(!viewModel.canRun)
-        .opacity(viewModel.canRun ? 1 : 0.4)
-        .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-
-        PasturaRowDivider()
+        // Run Simulation is the bottom-pinned primary CTA (see
+        // ScenarioDetailView.runSimulationCTA); this section holds the
+        // secondary affordances. Past Results is the first row, so no
+        // leading divider.
         NavigationLink(value: Route.results(scenarioId: scenarioId)) {
           PasturaRowLabel(
             title: String(localized: "Past Results"),
