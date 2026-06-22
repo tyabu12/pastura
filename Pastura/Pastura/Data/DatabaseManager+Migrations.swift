@@ -70,6 +70,7 @@ nonisolated extension DatabaseManager {
     registerV7(&migrator)
     registerV8(&migrator)
     registerV9(&migrator)
+    registerV10(&migrator)
   }
 
   private static func registerV9(_ migrator: inout DatabaseMigrator) {
@@ -79,6 +80,18 @@ nonisolated extension DatabaseManager {
     migrator.registerMigration("v9_addCategoryToScenarios") { db in
       try db.alter(table: "scenarios") { t in
         t.add(column: "category", .text)
+      }
+    }
+  }
+
+  private static func registerV10(_ migrator: inout DatabaseMigrator) {
+    // Snapshot the gallery category onto each run so Past Results keeps it even
+    // after the source scenario is edited / deleted (#748). Nullable TEXT,
+    // additive alter (no table rebuild); NULL for pre-v10 runs and runs of
+    // local scenarios — see `SimulationRecord.scenarioCategorySnapshot`.
+    migrator.registerMigration("v10_addScenarioCategorySnapshotToSimulations") { db in
+      try db.alter(table: "simulations") { t in
+        t.add(column: "scenarioCategorySnapshot", .text)
       }
     }
   }

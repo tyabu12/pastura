@@ -43,6 +43,14 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
   /// run-creation time. Used as the section/label for orphaned runs whose
   /// `scenarioId` is nil. Nil for rows created before the v7 migration.
   public var scenarioNameSnapshot: String?
+  /// Snapshot of the source scenario's gallery category (`GalleryCategory` raw
+  /// value), captured at run-creation time so Past Results can surface it even
+  /// after the source scenario is edited or deleted (#748). Unlike the YAML /
+  /// name snapshots — which derive from the run's live domain object — category
+  /// is gallery metadata not present in the YAML, so it is threaded from the
+  /// run-launch callsite's `ScenarioRecord`. Nil for runs of local / self-made
+  /// scenarios (no category) and for rows created before the v10 migration.
+  public var scenarioCategorySnapshot: String?
 
   public init(
     id: String,
@@ -57,7 +65,8 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
     modelIdentifier: String? = nil,
     llmBackend: String? = nil,
     scenarioYamlSnapshot: String? = nil,
-    scenarioNameSnapshot: String? = nil
+    scenarioNameSnapshot: String? = nil,
+    scenarioCategorySnapshot: String? = nil
   ) {
     self.id = id
     self.scenarioId = scenarioId
@@ -72,6 +81,7 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
     self.llmBackend = llmBackend
     self.scenarioYamlSnapshot = scenarioYamlSnapshot
     self.scenarioNameSnapshot = scenarioNameSnapshot
+    self.scenarioCategorySnapshot = scenarioCategorySnapshot
   }
 
   /// Type-safe accessor for the simulation status.
