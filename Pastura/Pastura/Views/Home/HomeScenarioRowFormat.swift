@@ -39,12 +39,12 @@ nonisolated enum HomeScenarioRowFormat {
     rowSheepCount(agentCount: agentCount) > 0 || roundsLabel(rounds: rounds) != nil
   }
 
-  /// Description line limit: a single truncated line at normal Dynamic Type
-  /// sizes (d3 design), but unlimited so the text wraps at accessibility
-  /// sizes — clipping a description to one line at AX5 would drop most of it.
-  /// `nil` means "no limit" to SwiftUI's `.lineLimit(_:)`.
+  /// Description line limit: up to two truncated lines at normal Dynamic Type
+  /// sizes (aligned to the Shared Scenarios row), but unlimited so the text
+  /// wraps at accessibility sizes — clipping to two lines at AX5 would drop
+  /// most of it. `nil` means "no limit" to SwiftUI's `.lineLimit(_:)`.
   static func descriptionLineLimit(isAccessibilitySize: Bool) -> Int? {
-    isAccessibilitySize ? nil : 1
+    isAccessibilitySize ? nil : 2
   }
 
   /// Progress label for the paused "resume" card — "Round X / Y", reusing the

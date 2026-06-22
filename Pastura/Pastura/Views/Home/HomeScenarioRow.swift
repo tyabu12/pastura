@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// One row in the Home scenario list (ADR-016 D3): name (+ inline preset /
-/// gallery-update badges) / sheep · rounds meta line / 1-line description, plus
-/// a trailing chevron. Wraps a value-based `NavigationLink` to the scenario
-/// detail. Rendered inside the Home ``PasturaCard`` (ScrollView host, like the
-/// other browse screens — Shared Scenarios / Past Results / Settings), so it
-/// supplies its own chevron + row padding + `.buttonStyle(.plain)` rather than
-/// relying on a `List` cell's disclosure chrome.
+/// One row in the Home scenario list (ADR-016 D3): name (+ trailing preset /
+/// gallery-update badge) / sheep · rounds meta line / 2-line description /
+/// estimated-inference caption, plus a trailing chevron. Wraps a value-based
+/// `NavigationLink` to the scenario detail. Rendered inside the Home
+/// ``PasturaCard`` (ScrollView host, like the other browse screens — Shared
+/// Scenarios / Past Results / Settings), so it supplies its own chevron + row
+/// padding + `.buttonStyle(.plain)` rather than relying on a `List` cell's
+/// disclosure chrome. The inner label is the shared ``ScenarioSummaryRow``, so
+/// Home and Shared Scenarios stay visually aligned.
 struct HomeScenarioRow: View {
   let scenario: ScenarioRecord
   let metadata: ScenarioRowMetadata?
@@ -24,7 +26,7 @@ struct HomeScenarioRow: View {
       )
     ) {
       HStack(spacing: 10) {
-        label
+        ScenarioSummaryRow(model: model)
         Spacer(minLength: 8)
         // Manual disclosure chevron — the ScrollView/`PasturaCard` host has no
         // List-cell chrome to supply one (matches Shared Scenarios' galleryRow).
@@ -41,45 +43,28 @@ struct HomeScenarioRow: View {
     .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
   }
 
-  private var label: some View {
-    VStack(alignment: .leading, spacing: 5) {
-      HStack(spacing: 6) {
-        Text(scenario.name)
-          .font(.headline)
-          .foregroundStyle(Color.ink)
-        // Preset badge moves inline next to the name (d3) rather than its
-        // own caption row below.
-        if scenario.isPreset {
-          Text(String(localized: "Preset"))
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(.secondary.opacity(0.15), in: Capsule())
-        }
-        if hasGalleryUpdate {
-          Text(String(localized: "Update"))
-            .font(.caption2.bold())
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.accentColor.opacity(0.2), in: Capsule())
-            .foregroundStyle(Color.accentColor)
-        }
+  private var model: ScenarioSummaryRow.Model {
+    ScenarioSummaryRow.Model(
+      title: scenario.name,
+      badge: badge,
+      agentCount: metadata?.agentCount,
+      rounds: metadata?.rounds,
+      description: metadata?.description,
+      descriptionLineLimit: HomeScenarioRowFormat.descriptionLineLimit(
+        isAccessibilitySize: dynamicTypeSize.isAccessibilitySize),
+      // No category for local scenarios (gallery-only) — the caption shows the
+      // estimated inference count alone (leading nil ⇒ no dangling separator).
+      captionTrailing: metadata?.estimatedInferences.map {
+        String(format: String(localized: "~%lld inferences"), $0)
       }
-      if HomeScenarioRowFormat.showsMetaLine(
-        agentCount: metadata?.agentCount, rounds: metadata?.rounds) {
-        HomeScenarioMetaLine(agentCount: metadata?.agentCount, rounds: metadata?.rounds)
-      }
-      if let description = metadata?.description, !description.isEmpty {
-        Text(description)
-          .font(.subheadline)
-          .foregroundStyle(Color.inkSecondary)
-          .lineLimit(
-            HomeScenarioRowFormat.descriptionLineLimit(
-              isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
-          )
-          .truncationMode(.tail)
-      }
-    }
+    )
+  }
+
+  /// Update wins over Preset — but a preset (bundled, never gallery-installed)
+  /// never carries a gallery update, so in practice they are exclusive.
+  private var badge: ScenarioBadge? {
+    if hasGalleryUpdate { return .update }
+    if scenario.isPreset { return .preset }
+    return nil
   }
 }

@@ -56,8 +56,8 @@ struct HomeScenarioRowFormatTests {
 
   // MARK: - Description line limit
 
-  @Test func descriptionLineLimitSingleLineAtNormalSizes() {
-    #expect(HomeScenarioRowFormat.descriptionLineLimit(isAccessibilitySize: false) == 1)
+  @Test func descriptionLineLimitTwoLinesAtNormalSizes() {
+    #expect(HomeScenarioRowFormat.descriptionLineLimit(isAccessibilitySize: false) == 2)
   }
 
   @Test func descriptionLineLimitUnlimitedAtAccessibilitySizes() {
