@@ -52,8 +52,10 @@ struct HomeScenarioRow: View {
       description: metadata?.description,
       descriptionLineLimit: HomeScenarioRowFormat.descriptionLineLimit(
         isAccessibilitySize: dynamicTypeSize.isAccessibilitySize),
-      // No category for local scenarios (gallery-only) — the caption shows the
-      // estimated inference count alone (leading nil ⇒ no dangling separator).
+      // Gallery category leads the caption (#748), mirroring the Browse row.
+      // nil for local / self-made / preset scenarios ⇒ the caption shows the
+      // inference count alone, with no dangling separator.
+      captionLeading: HomeScenarioRowFormat.categoryCaption(for: scenario.category),
       captionTrailing: metadata?.estimatedInferences.map {
         String(format: String(localized: "~%lld inferences"), $0)
       }
