@@ -133,4 +133,31 @@ import Testing
       isPreset: false, createdAt: Date(), updatedAt: Date())
     #expect(record.sourceType == nil)
   }
+
+  @Test func categoryDefaultsToNil() throws {
+    // Local / self-made scenarios carry no gallery category (#748).
+    let record = ScenarioRecord(
+      id: "s1", name: "Test", yamlDefinition: "yaml",
+      isPreset: false, createdAt: Date(), updatedAt: Date())
+    #expect(record.category == nil)
+  }
+
+  @Test func categoryRoundTripsThroughDB() throws {
+    let manager = try makeManager()
+    let now = Date()
+    var record = ScenarioRecord(
+      id: "gx", name: "From Gallery", yamlDefinition: "yaml: true",
+      isPreset: false, createdAt: now, updatedAt: now,
+      sourceType: ScenarioSourceType.gallery, sourceId: "asch_v1", sourceHash: "abc123",
+      category: GalleryCategory.socialPsychology.rawValue)
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try ScenarioRecord.fetchOne(db, key: "gx")
+    }
+    #expect(fetched?.category == GalleryCategory.socialPsychology.rawValue)
+  }
 }

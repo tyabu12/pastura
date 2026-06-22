@@ -49,6 +49,22 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
   /// ``ScenarioYAMLLanguage``'s convention).
   public var language: String?
 
+  /// Gallery curation category (`GalleryCategory` raw value, e.g.
+  /// `"social_psychology"`) denormalized from the remote `GalleryScenario` at
+  /// install time, so Home / Past Results can surface it without the live
+  /// gallery feed (#748).
+  ///
+  /// `nil` for local / self-made scenarios and bundled presets (no gallery
+  /// category — rendered as no badge), and for rows written before the v9
+  /// column. Pre-existing installed gallery rows are intentionally NOT
+  /// backfilled (mirrors the v8 `language` posture): the install base is
+  /// effectively zero and testers reinstall, so such rows simply render no
+  /// category caption until re-installed. Stored as the raw string (not the
+  /// enum) to keep Data free of display concerns and to degrade gracefully if
+  /// a future enum case is removed — consumers reconstruct via
+  /// `GalleryCategory(rawValue:)`.
+  public var category: String?
+
   public init(
     id: String,
     name: String,
@@ -59,7 +75,8 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
     sourceType: String? = nil,
     sourceId: String? = nil,
     sourceHash: String? = nil,
-    language: String? = nil
+    language: String? = nil,
+    category: String? = nil
   ) {
     self.id = id
     self.name = name
@@ -71,5 +88,6 @@ nonisolated public struct ScenarioRecord: Codable, Sendable, Equatable,
     self.sourceId = sourceId
     self.sourceHash = sourceHash
     self.language = language
+    self.category = category
   }
 }

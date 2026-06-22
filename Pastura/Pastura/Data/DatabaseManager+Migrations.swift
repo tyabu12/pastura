@@ -69,6 +69,18 @@ nonisolated extension DatabaseManager {
 
     registerV7(&migrator)
     registerV8(&migrator)
+    registerV9(&migrator)
+  }
+
+  private static func registerV9(_ migrator: inout DatabaseMigrator) {
+    // Denormalize the gallery category onto scenarios for Home / Past Results
+    // (#748). Nullable TEXT (v8 `language` pattern); existing rows stay NULL,
+    // no backfill — see `ScenarioRecord.category` for the no-backfill rationale.
+    migrator.registerMigration("v9_addCategoryToScenarios") { db in
+      try db.alter(table: "scenarios") { t in
+        t.add(column: "category", .text)
+      }
+    }
   }
 
   private static func registerV8(_ migrator: inout DatabaseMigrator) {
