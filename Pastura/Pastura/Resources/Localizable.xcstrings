@@ -4894,12 +4894,42 @@
         }
       }
     },
+    "Sampler candidate buffer is empty" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプラーの候補バッファが空です"
+          }
+        }
+      }
+    },
     "Sampler crash caught: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "サンプラーのクラッシュを捕捉しました: %@"
+          }
+        }
+      }
+    },
+    "Sampler produced no logits" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプラーがロジットを取得できませんでした"
+          }
+        }
+      }
+    },
+    "Sampler produced no selection" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプラーがトークンを選択できませんでした"
           }
         }
       }
