@@ -172,6 +172,9 @@ struct ResultsView: View {
     let pill = ResultsRowFormat.resultPill(
       status: item.simulationStatus, topScores: item.topScores,
       currentRound: item.currentRound, totalRounds: row.totalRounds)
+    // Gallery category caption (#748), resolved in the View from the run's
+    // snapshot raw value. nil for local / pre-v10 runs ⇒ the line is omitted.
+    let categoryCaption = ResultsRowFormat.categoryCaption(for: row.category)
     return VStack(alignment: .leading, spacing: 4) {
       HStack(spacing: 8) {
         Text(row.variantName)
@@ -183,6 +186,15 @@ struct ResultsView: View {
           // when both are long — the result stays readable (favoured over name).
           .frame(maxWidth: .infinity, alignment: .leading)
         resultPill(pill)
+      }
+      // Gallery category caption (#748) — a small scenario-type label under the
+      // title, part of the scenario-context block (category · sheep ·
+      // description) beneath the name+result header. Omitted (nil) for local /
+      // pre-v10 runs.
+      if let categoryCaption {
+        Text(categoryCaption)
+          .font(.caption)
+          .foregroundStyle(Color.muted)
       }
       // Sheep avatars only — the timestamp moved to the bottom line. Guard the
       // whole row so an unknown agent count (sheepCount 0) leaves no empty gap.

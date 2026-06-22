@@ -232,6 +232,40 @@ struct SimulationViewModelLifecycleTests {
     #expect(sims.first?.llmBackend == "mock")
   }
 
+  /// #748: the gallery category threaded from the launch callsite is snapshot
+  /// onto the run record (no refetch-by-id), so Past Results keeps it.
+  @Test func runSnapshotsThreadedScenarioCategory() async throws {
+    let db = try DatabaseManager.inMemory()
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+    // Satisfy the simulations→scenarios FK so the run record persists.
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: scenario.id, name: scenario.name, yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let sut = SimulationViewModel(
+      simulationRepository: simRepo, turnRepository: turnRepo)
+    sut.speed = .instant
+    let mock = MockLLMService(responses: [
+      #"{"statement": "hi from Alice"}"#,
+      #"{"statement": "hi from Bob"}"#
+    ])
+
+    await sut.run(
+      scenario: scenario, llm: mock,
+      scenarioCategorySnapshot: GalleryCategory.gameTheory.rawValue)
+
+    let sims = try simRepo.fetchByScenarioId(scenario.id)
+    #expect(sims.first?.scenarioCategorySnapshot == GalleryCategory.gameTheory.rawValue)
+  }
+
   @Test func runMarksStatusFailedOnEngineError() async throws {
     let db = try DatabaseManager.inMemory()
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)

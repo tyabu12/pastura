@@ -29,10 +29,14 @@ extension ResultsViewModel {
     /// The scenario's 1-line description from its definition (snapshot-first,
     /// see ``RunScenarioMetaResolver``). `nil` when the YAML is missing, failed
     /// to parse, or the description is empty / whitespace-only — the row then
-    /// draws no description line (graceful degrade, #747). Past Results stays
-    /// result-centric: this is the only scenario-context field beyond the name
-    /// (no category badge — `category` is gallery-curated, not persisted).
+    /// draws no description line (graceful degrade, #747).
     let description: String?
+    /// The run's snapshot gallery category (`GalleryCategory` raw value), from
+    /// ``PastRunListItem/scenarioCategorySnapshot`` (#748). `nil` for runs of
+    /// local scenarios and pre-v10 runs. The View resolves its display name via
+    /// ``ResultsRowFormat/categoryCaption(for:)`` — the row carries the raw
+    /// resolved data, not the formatted caption (App keeps no Views dependency).
+    let category: String?
     var id: String { item.id }
   }
 
@@ -46,7 +50,7 @@ extension ResultsViewModel {
     SimulationRow(
       item: item, variantName: variantName,
       agentCount: meta.agentCount, totalRounds: meta.rounds,
-      description: meta.description)
+      description: meta.description, category: item.scenarioCategorySnapshot)
   }
 
   /// One section in the results list.
