@@ -16,13 +16,18 @@ import Foundation
 /// value cache constructed and mutated from ``ResultsViewModel`` with no
 /// MainActor state of its own (see `.claude/rules/swift-isolation.md` Pattern 2).
 nonisolated struct RunScenarioMetaResolver {
-  /// The two scenario-definition fields the redesigned row needs. Both `nil`
-  /// when the YAML is absent or failed to parse — the row then degrades to
-  /// name-only (no sheep avatars, bare completion summary) rather than blanking.
+  /// The scenario-definition fields the redesigned row needs. `agentCount` /
+  /// `rounds` / `description` are all `nil` when the YAML is absent or failed to
+  /// parse — the row then degrades to name-only (no sheep avatars, no description
+  /// line, bare completion summary) rather than blanking. `description` is
+  /// additionally `nil` when the parsed scenario's description is empty or
+  /// whitespace-only — normalized here so the resolver is the single source of
+  /// truth and the View need not re-decide (#747).
   struct Meta: Equatable, Sendable {
     let agentCount: Int?
     let rounds: Int?
-    static let unknown = Meta(agentCount: nil, rounds: nil)
+    let description: String?
+    static let unknown = Meta(agentCount: nil, rounds: nil, description: nil)
   }
 
   /// YAML→`Scenario` parsing lives in `Engine`, which `Data` may not import, so
@@ -59,10 +64,15 @@ nonisolated struct RunScenarioMetaResolver {
     return result
   }
 
-  /// Parses YAML to its `agentCount` / `rounds`; a parse failure degrades to
-  /// ``Meta/unknown`` (one broken snapshot must never blank the row).
+  /// Parses YAML to its `agentCount` / `rounds` / `description`; a parse failure
+  /// degrades to ``Meta/unknown`` (one broken snapshot must never blank the row).
+  /// An empty / whitespace-only description normalizes to `nil` so the row draws
+  /// no description line (graceful degrade, #747).
   private func parse(_ yaml: String) -> Meta {
     guard let scenario = try? loader.load(yaml: yaml) else { return .unknown }
-    return Meta(agentCount: scenario.agentCount, rounds: scenario.rounds)
+    let trimmed = scenario.description.trimmingCharacters(in: .whitespacesAndNewlines)
+    return Meta(
+      agentCount: scenario.agentCount, rounds: scenario.rounds,
+      description: trimmed.isEmpty ? nil : trimmed)
   }
 }

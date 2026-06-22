@@ -26,6 +26,11 @@ extension ResultsViewModel {
     /// unknown, which routes the summary to its bare "Complete" / "Paused at
     /// Round K" form.
     let totalRounds: Int?
+    /// The scenario's 1-line description from its definition (snapshot-first,
+    /// see ``RunScenarioMetaResolver``). `nil` when the YAML is missing, failed
+    /// to parse, or the description is empty / whitespace-only — the row then
+    /// draws no description line (graceful degrade, #747).
+    let description: String?
     /// The run's snapshot gallery category (`GalleryCategory` raw value), from
     /// ``PastRunListItem/scenarioCategorySnapshot`` (#748). `nil` for runs of
     /// local scenarios and pre-v10 runs. The View resolves its display name via
@@ -33,6 +38,19 @@ extension ResultsViewModel {
     /// resolved data, not the formatted caption (App keeps no Views dependency).
     let category: String?
     var id: String { item.id }
+  }
+
+  /// Builds a ``SimulationRow`` from a run and its resolved scenario meta —
+  /// shared by the aggregate (`rebuildSections`) and detail
+  /// (`loadDetailPerVariant`) paths so the carrier's field list lives in one
+  /// place. Pure mapping; touches no ViewModel state.
+  func makeRow(
+    _ item: PastRunListItem, meta: RunScenarioMetaResolver.Meta, variantName: String
+  ) -> SimulationRow {
+    SimulationRow(
+      item: item, variantName: variantName,
+      agentCount: meta.agentCount, totalRounds: meta.rounds,
+      description: meta.description, category: item.scenarioCategorySnapshot)
   }
 
   /// One section in the results list.

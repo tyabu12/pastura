@@ -1,5 +1,38 @@
 import Foundation
 
+/// The compact result label + status-color category shown in a History row's
+/// trailing status pill (#747). One pill covers **every** state — it replaces
+/// the former `resultSummary` text + `statusBadge` fallback pair (a completed /
+/// paused run got prose, everything else a badge). The label is kept short so
+/// it sits beside the scenario name without crowding it (`style` drives the pill
+/// tint, mapped in `ResultsView`); it is archetype-safe and NEVER surfaces a
+/// score number for a score-empty run (werewolf / consensus, whose
+/// `state.scores` is empty):
+///
+/// 1. **completed with a unique top scorer** (strict 1st > 2nd) → "X wins".
+/// 2. **completed otherwise** (empty scores OR a top-of-table tie) → "Complete".
+///    No score number, so a score-empty run can never read "0".
+/// 3. **paused** → "Paused K/N" (N known) or "Paused K" (N unknown).
+/// 4. **running / failed / cancelled / unknown** → the bare state label.
+///
+/// Top-level (not nested in ``ResultsRowFormat``) to stay within SwiftLint's
+/// 1-level `nesting` limit, since it carries its own nested ``Style``.
+nonisolated struct ResultPill: Equatable, Sendable {
+  /// Status-color category — mapped to tint tokens by the View, not here, so the
+  /// App/Views color boundary stays intact (mirrors `statusBadge`'s old
+  /// per-state coloring).
+  enum Style: Equatable, Sendable {
+    /// completed / has a winner — moss (positive).
+    case completed
+    /// paused — neutral ink-secondary.
+    case paused
+    /// running / failed / cancelled / unknown — muted.
+    case pending
+  }
+  let label: String
+  let style: Style
+}
+
 /// Pure display-formatting helpers for the Past Results (観察履歴) list
 /// (Home redesign P5: date-grouped chronological runs).
 ///
@@ -76,52 +109,45 @@ nonisolated enum ResultsRowFormat {
     return formatter.string(from: date)
   }
 
-  // MARK: - Result summary (P5 PR2)
+  // MARK: - Result pill (#747 follow-up)
 
-  /// One-line, archetype-safe result summary for a History row — replaces the
-  /// raw score chips (`%@ (%lld)`), which would print "0" for score-empty
-  /// archetypes (werewolf / consensus, whose `state.scores` is empty). A
-  /// deliberate fallback ladder that NEVER surfaces a score number for a
-  /// score-empty run:
-  ///
-  /// 1. **paused** → "Paused at Round K / N" (N known) or "Paused at Round K"
-  ///    (N unknown — orphaned / parse-failed metadata).
-  /// 2. **completed with a unique top scorer** (non-empty top scores AND a
-  ///    strict 1st > 2nd) → "Winner: X".
-  /// 3. **completed otherwise** (empty scores OR a top-of-table tie) →
-  ///    "All N rounds complete" (N known) or "Complete". No score number, so a
-  ///    score-empty run can never read "0".
-  /// 4. **any other status** (running / failed / cancelled / unknown) → `nil`;
-  ///    the caller falls back to the status badge.
+  /// Builds the trailing result pill for a History row. See ``ResultPill`` for
+  /// the label ladder.
   ///
   /// - Parameters:
   ///   - topScores: the repository projection (highest-first, capped at 3), so
   ///     the unique-max test is a cheap first-vs-second comparison.
   ///   - currentRound: `K`, the round the run reached (paused branch only).
   ///   - totalRounds: `N` from the scenario definition; `nil` when unknown.
-  static func resultSummary(
+  static func resultPill(
     status: SimulationStatus?,
     topScores: [PastRunScore],
     currentRound: Int,
     totalRounds: Int?
-  ) -> String? {
+  ) -> ResultPill {
     switch status {
-    case .paused:
-      if let totalRounds, totalRounds > 0 {
-        return String(
-          format: String(localized: "Paused at Round %lld / %lld"), currentRound, totalRounds)
-      }
-      return String(format: String(localized: "Paused at Round %lld"), currentRound)
     case .completed:
       if let winner = uniqueTopScorer(topScores) {
-        return String(format: String(localized: "Winner: %@"), winner)
+        return ResultPill(
+          label: String(format: String(localized: "%@ wins"), winner), style: .completed)
       }
+      return ResultPill(label: String(localized: "Complete"), style: .completed)
+    case .paused:
       if let totalRounds, totalRounds > 0 {
-        return String(format: String(localized: "All %lld rounds complete"), totalRounds)
+        return ResultPill(
+          label: String(format: String(localized: "Paused %lld/%lld"), currentRound, totalRounds),
+          style: .paused)
       }
-      return String(localized: "Complete")
-    default:
-      return nil
+      return ResultPill(
+        label: String(format: String(localized: "Paused %lld"), currentRound), style: .paused)
+    case .running:
+      return ResultPill(label: String(localized: "Running"), style: .pending)
+    case .failed:
+      return ResultPill(label: String(localized: "Failed"), style: .pending)
+    case .cancelled:
+      return ResultPill(label: String(localized: "Cancelled"), style: .pending)
+    case .none:
+      return ResultPill(label: String(localized: "Unknown"), style: .pending)
     }
   }
 
