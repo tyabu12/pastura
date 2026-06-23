@@ -595,14 +595,25 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     let plan = sources[sourceIndex].plannedEvents()
     var cursor = startCursor
     var overrideMs = firstSleepOverrideMs
+    // Typing-dwell floor owed by the previously-applied agent bubble (raw,
+    // pre-speed). A LOCAL var — seeded 0 on each `playSource` entry — so it
+    // never leaks across a source rotation (`advanceAfterSource` re-enters
+    // with a fresh call) or a resume-from-background restart (which supplies
+    // `firstSleepOverrideMs`). The resume override bypasses the floor for the
+    // single restarted event, which is correct: its remaining sleep was
+    // already computed with the floor folded in before backgrounding.
+    var pendingFloorMs = 0
     while cursor < plan.count {
       if Task.isCancelled { return }
       let paced = plan[cursor]
-      let delayMs = overrideMs ?? scaledDelay(for: paced.kind)
+      let delayMs = overrideMs ?? scaledDelay(for: paced.kind, floorMs: pendingFloorMs)
       overrideMs = nil
       await sleepOrYield(milliseconds: delayMs)
       if Task.isCancelled { return }
       apply(paced.event)
+      // The floor for THIS bubble gates the delay before the NEXT event — the
+      // window during which this bubble is typing on screen.
+      pendingFloorMs = typingFloorMs(for: paced.event)
       cursor += 1
       // Only advance observable cursor if we're still playing (not
       // backgrounded mid-publish). Guards against a stale state
@@ -643,6 +654,12 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   }
 
   private func advanceAfterSource(currentIndex: Int) -> AdvanceAction {
+    // Out of scope for proportional turn dwell (#779): the source's LAST
+    // bubble gets no dwell floor here — the floor only widens the delay that
+    // sits *before* the next event, and rotation/wrap has no such next-event
+    // sleep to widen. So a long final bubble of a source may still be mid-type
+    // when the rotation fires. Accepted; covering it would need a post-event
+    // settle hop the playback loop doesn't currently have.
     let isLastSource = currentIndex == sources.count - 1
     switch config.loopBehaviour {
     case .loop:
@@ -779,6 +796,42 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Pacing helpers
 
+  /// Extra dwell (ms) added on top of a bubble's typing duration so a fully
+  /// typed line lingers a beat before the next turn replaces the latest-row
+  /// animation. Tuned so a short turn's `max(turnDelayMs, typing + readPause)`
+  /// stays near the flat 1200ms rhythm while long bubbles extend past it.
+  private let typingReadPauseMs = 700
+
+  /// Proportional turn-dwell floor (raw ms, pre-speed) the *next* inter-event
+  /// delay must cover so the just-applied agent bubble finishes its
+  /// ``AgentOutputRow`` reveal animation before the next turn appears.
+  ///
+  /// Returns 0 for non-agent events (nothing is typing) and when the config
+  /// opts out of proportional dwell (``ReplayPlaybackConfig/typingCharsPerSecond``
+  /// `== nil`). Otherwise estimates the reveal time via
+  /// ``TurnOutput/revealedSegments(for:includeThought:)`` +
+  /// ``typingDurationMs(primary:thought:charsPerSecond:)`` and adds
+  /// ``typingReadPauseMs``.
+  ///
+  /// The thought segment is gated on the global ``showAllThoughts``. NOTE:
+  /// ``AgentOutputRow`` honours a *per-row* `showInnerThought` seeded from
+  /// this global but then mutable via the row's chevron, so a mid-flight
+  /// chevron tap on the latest row makes this estimate slightly inexact. That
+  /// is an accepted heuristic imprecision — the floor is a lower bound on
+  /// dwell, not a frame-exact contract (animation timing is code-review-gated
+  /// per `.claude/rules/view-testing.md` rule 4, not asserted). `internal`
+  /// (not `private`) so `ReplayViewModelTests+Pacing` can exercise it.
+  func typingFloorMs(for event: SimulationEvent) -> Int {
+    guard case .agentOutput(_, let output, let phaseType) = event else { return 0 }
+    guard let cps = config.typingCharsPerSecond else { return 0 }
+    let segments = output.revealedSegments(
+      for: phaseType, includeThought: showAllThoughts)
+    let typing = typingDurationMs(
+      primary: segments.primary, thought: segments.thought, charsPerSecond: cps)
+    guard typing > 0 else { return 0 }
+    return typing + typingReadPauseMs
+  }
+
   /// Per-event sleep in milliseconds. Reads ``playbackSpeed`` (the
   /// runtime-mutable VM state, not `config.playbackSpeed`) so a Speed
   /// Menu change reflects on the next call.
@@ -788,17 +841,27 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// `.infinity` sentinel on `.instant.multiplier` would arithmetically
   /// produce 0 too, but explicit early-return avoids depending on
   /// IEEE-754 division semantics.
-  private func scaledDelay(for kind: PacedEvent.Kind) -> Int {
+  ///
+  /// `floorMs` is the proportional turn-dwell floor (raw, pre-speed): the
+  /// time the previously-applied agent bubble still needs to finish typing
+  /// (see ``typingFloorMs(for:)``). The base delay is raised to at least the
+  /// floor *before* the speed division, so a long bubble holds the next turn
+  /// until it has typed out, while short turns keep the flat ``turnDelayMs``
+  /// rhythm. `.instant` ignores the floor too (collapses to 0). `internal`
+  /// (not `private`) so `ReplayViewModelTests+Pacing` can pin the arithmetic.
+  func scaledDelay(for kind: PacedEvent.Kind, floorMs: Int = 0) -> Int {
     if playbackSpeed == .instant { return 0 }
     let speed = max(playbackSpeed.multiplier, 0.001)
+    let base: Int
     switch kind {
     case .turn:
-      return Int(Double(config.turnDelayMs) / speed)
+      base = config.turnDelayMs
     case .codePhase:
-      return Int(Double(config.codePhaseDelayMs) / speed)
+      base = config.codePhaseDelayMs
     case .lifecycle:
-      return 0
+      base = 0
     }
+    return Int(Double(max(base, floorMs)) / speed)
   }
 
   /// Computes the outstanding sleep in milliseconds given
