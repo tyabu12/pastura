@@ -136,21 +136,19 @@ struct SharedScenariosListView: View {
           .padding(.vertical, 14)
       }
     } else {
-      let scenarios = viewModel.visibleScenarios
-      PasturaSection(style: .grouped) {
-        VStack(spacing: 0) {
-          ForEach(Array(scenarios.enumerated()), id: \.element.id) { index, scenario in
-            if index > 0 {
-              PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
-            }
-            NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
-              galleryRow(scenario: scenario, viewModel: viewModel)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+      // Spaced landscape catalog cards (tab-identity PR2, #777) — NOT a divided
+      // `.grouped` band — so Browse reads as a card catalog, distinct from the
+      // Home compact rows and the Past Results timeline.
+      VStack(alignment: .leading, spacing: GalleryCatalogMetrics.listSpacing) {
+        ForEach(viewModel.visibleScenarios, id: \.id) { scenario in
+          NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
+            GalleryCatalogRow(model: catalogModel(scenario: scenario, viewModel: viewModel))
           }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
         }
       }
+      .padding(.horizontal, GalleryCatalogMetrics.listHorizontalMargin)
     }
   }
 
@@ -183,50 +181,33 @@ struct SharedScenariosListView: View {
     .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
   }
 
-  /// Wraps ``scenarioRow`` with a trailing chevron + full-row hit target,
-  /// restoring the List disclosure affordance after the ScrollView move.
-  private func galleryRow(
-    scenario: GalleryScenario, viewModel: SharedScenariosViewModel
-  ) -> some View {
-    HStack(spacing: 10) {
-      scenarioRow(scenario: scenario, viewModel: viewModel)
-      Image(systemName: "chevron.forward")
-        .font(.footnote.weight(.semibold))
-        .foregroundStyle(Color.muted)
-    }
-    .padding(.horizontal, 17)
-    .padding(.vertical, 12)
-    .contentShape(Rectangle())
-  }
-
   // MARK: - Category filter chips
   //
   // `categoryChips` / `categoryChip` / `chipTitle` live in
   // `SharedScenariosListView+CategoryChips.swift` (split out for the
   // type_body_length budget, #731).
 
-  private func scenarioRow(
+  /// Maps a ``GalleryScenario`` into the presentation-only
+  /// ``GalleryCatalogRow/Model`` (tab-identity PR2, #777). The category moves
+  /// to the card's inline chip and `agent_count · rounds` to its footer; the
+  /// `~N inferences` caption from the old shared row is dropped under the
+  /// catalog layout (matches the approved lookbook).
+  private func catalogModel(
     scenario: GalleryScenario, viewModel: SharedScenariosViewModel
-  ) -> some View {
+  ) -> GalleryCatalogRow.Model {
     // hasUpdate wins over isInstalled — an updatable scenario is installed too,
     // but the "changed" signal is the more useful one to surface.
     let badge: ScenarioBadge? =
       viewModel.hasUpdate(for: scenario)
       ? .update
       : (viewModel.isInstalled(scenario) ? .installed : nil)
-    return ScenarioSummaryRow(
-      model: ScenarioSummaryRow.Model(
-        title: scenario.title,
-        badge: badge,
-        agentCount: scenario.agentCount,
-        rounds: scenario.rounds,
-        description: scenario.description,
-        descriptionLineLimit: 2,
-        captionLeading: scenario.category.displayName,
-        captionTrailing: String(
-          format: String(localized: "~%lld inferences"), scenario.estimatedInferences)
-      )
-    )
+    return GalleryCatalogRow.Model(
+      title: scenario.title,
+      badge: badge,
+      category: scenario.category.displayName,
+      description: scenario.description,
+      agentCount: scenario.agentCount,
+      rounds: scenario.rounds)
   }
 }
 
