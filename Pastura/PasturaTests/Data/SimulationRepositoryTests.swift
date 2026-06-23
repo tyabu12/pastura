@@ -244,28 +244,27 @@ import Testing
     #expect(try turnRepo.fetchBySimulationId("sim1").isEmpty)
   }
 
-  @Test func databaseByteCountIsPositiveForMigratedDatabase() throws {
+  @Test func pastResultsByteCountIsZeroForEmptyDatabase() throws {
     let (_, simRepo) = try makeRepos()
-    // A migrated SQLite DB always holds at least the schema pages
-    // (sqlite_master + table roots), so the logical size is non-zero
-    // even before any run is inserted.
-    #expect(try simRepo.databaseByteCount() > 0)
+    // The measure sums result-table content only — not the SQLite schema
+    // pages. A migrated-but-empty DB has zero runs, so the size is exactly
+    // 0 (the #770 fix: "Storage used" reaches 0 once results are cleared,
+    // unlike the old whole-DB `page_count * page_size` measure).
+    #expect(try simRepo.pastResultsByteCount() == 0)
   }
 
-  @Test func databaseByteCountGrowsAfterHeavyInserts() throws {
+  @Test func pastResultsByteCountGrowsAfterHeavyInserts() throws {
     let (_, simRepo) = try makeRepos()
-    let before = try simRepo.databaseByteCount()
+    let before = try simRepo.pastResultsByteCount()
 
-    // Insert enough large-`stateJSON` rows to force new page allocation
-    // past any free pages left by migration. `stateJSON` is one of the two
-    // heavy columns the advisory cap exists to bound (ADR-015 §2). ~8 KB ×
-    // 40 ≈ 320 KB comfortably exceeds the default 4 KB page so the count
-    // strictly increases, not merely stays flat on free-page reuse.
+    // Insert large-`stateJSON` rows. `stateJSON` is one of the two heavy
+    // columns the advisory cap exists to bound (ADR-015 §2), and is summed
+    // by the content measure, so the count strictly increases.
     let bulkyState = "{\"pad\":\"\(String(repeating: "x", count: 8_000))\"}"
     for index in 0..<40 {
       try simRepo.save(makeSimRecord(id: "sim\(index)", stateJSON: bulkyState))
     }
 
-    #expect(try simRepo.databaseByteCount() > before)
+    #expect(try simRepo.pastResultsByteCount() > before)
   }
 }
