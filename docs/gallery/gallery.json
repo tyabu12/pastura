@@ -27,7 +27,7 @@
       "agent_count": 4,
       "rounds": 2,
       "yaml_url": "trolley_dilemma_v1.yaml",
-      "yaml_sha256": "8e4f2d870c1ada91f42cb269d35d7c3c032940a2f76ba7c417186378fdc63d0b",
+      "yaml_sha256": "4f4068e49cef3fc6d0903cdb1da017b5d2884d00f3ce527c7e08f464f20393ab",
       "added_at": "2026-04-15"
     },
     {
@@ -55,7 +55,7 @@
       "agent_count": 5,
       "rounds": 1,
       "yaml_url": "kinoko_takenoko_v1.yaml",
-      "yaml_sha256": "d382514728e1bb484868c0f5a02fdc9a2ba6b463f208d76a4f691172df096024",
+      "yaml_sha256": "11f4ccaeba2e511fdf21ea2695e2bac024f18a2fc15ba56d6c61a1ba7f09777b",
       "added_at": "2026-04-29"
     },
     {
@@ -181,7 +181,7 @@
       "agent_count": 4,
       "rounds": 2,
       "yaml_url": "tengoku_jigoku_v1.yaml",
-      "yaml_sha256": "bc4d0dd059035ba0d97f16333ab8bbc5a015296b8bfca6495ce90b875db1576d",
+      "yaml_sha256": "321828104b4034f020419b28571657d5194dd6e238fe80fdc28464dc2833b736",
       "added_at": "2026-06-20"
     },
     {
@@ -195,7 +195,7 @@
       "agent_count": 4,
       "rounds": 2,
       "yaml_url": "chinwaza_saiyo_v1.yaml",
-      "yaml_sha256": "7dcc4cfdb6ec6f0ffd37f65e2e1c1521fc01e20161410a947f912710a479d6d9",
+      "yaml_sha256": "f9b817d272b26bb10ff0a28e30df6ec00847f7912de96b96f811e5b7d861d08e",
       "added_at": "2026-06-21"
     }
   ]

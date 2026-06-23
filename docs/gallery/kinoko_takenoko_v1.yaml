@@ -73,7 +73,7 @@ phases:
       - takenoko
     output:
       action: string
-      reason: string
+      inner_thought: string
 
   - type: speak_each
     prompt: >
