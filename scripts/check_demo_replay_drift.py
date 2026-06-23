@@ -69,13 +69,19 @@ def read_text(path: Path) -> str:
   return path.read_text(encoding="utf-8")
 
 
-def load_preset_shas() -> dict[str, str]:
-  """Return ``{preset_id: sha256_hex}`` for every shipped preset.
+def load_preset_shas() -> tuple[dict[str, str], dict[str, str | None]]:
+  """Return ``({preset_id: sha256_hex}, {preset_id: language})`` per preset.
 
   Globs both ``Presets/`` (user-facing presets) and ``DemoPresets/``
   (demo-backing presets, #764). The Swift-side bundle flattens both dirs,
   so a demo's ``preset_ref.id`` resolves against either; the drift guard
   must hash both to validate the demo SHA.
+
+  The second map (``language``) lets ``validate_demo`` cross-check each
+  demo's ``metadata.language`` against the language of the preset it
+  resolves to (#769) — a mismatch silent-skips at runtime
+  (``BundledDemoReplaySource.loadOne`` filters on
+  ``resolvedPreset.scenario.language``).
 
   Also enforces two invariants:
 
@@ -90,6 +96,7 @@ def load_preset_shas() -> dict[str, str]:
     silently overwrite each other in this map. Fail loudly instead.
   """
   shas: dict[str, str] = {}
+  languages: dict[str, str | None] = {}
   source_dir: dict[str, str] = {}  # id -> dir name, for collision reporting
   for preset_dir in (PRESETS_DIR, DEMOPRESETS_DIR):
     if not preset_dir.is_dir():
@@ -122,10 +129,18 @@ def load_preset_shas() -> dict[str, str]:
         )
       source_dir[preset_id] = preset_dir.name
       shas[preset_id] = sha256_hex(text)
-  return shas
+      # Capture verbatim (may be None / non-str for a malformed preset) — the
+      # demo cross-check below treats anything != the demo's language as a
+      # mismatch, which surfaces a missing/invalid preset language too.
+      languages[preset_id] = parsed.get("language")
+  return shas, languages
 
 
-def validate_demo(path: Path, preset_shas: dict[str, str]) -> list[str]:
+def validate_demo(
+  path: Path,
+  preset_shas: dict[str, str],
+  preset_languages: dict[str, str | None],
+) -> list[str]:
   errors: list[str] = []
   size = path.stat().st_size
   if size > MAX_PER_FILE_BYTES:
@@ -186,6 +201,24 @@ def validate_demo(path: Path, preset_shas: dict[str, str]) -> list[str]:
         f"{sorted(ALLOWED_LANGUAGES)} (curation-gate label; tracks "
         f"ADR-010 D1 accepted values per ADR-007 §4.5)"
       )
+    elif isinstance(preset_ref, dict):
+      # Cross-check the demo's language against its backing preset's
+      # language (#769). BundledDemoReplaySource.loadOne filters on
+      # `resolvedPreset.scenario.language == requested locale`, so a demo
+      # whose metadata.language disagrees with the preset it resolves to
+      # silent-skips on every device (no CI signal otherwise). Mirror that
+      # comparison here. Only checked once the demo language is a valid
+      # {ja, en} value (the branch above already flagged it if not).
+      preset_id = preset_ref.get("id")
+      if isinstance(preset_id, str) and preset_id in preset_languages:
+        preset_language = preset_languages[preset_id]
+        if language != preset_language:
+          errors.append(
+            f"{path.name}: metadata.language {language!r} does not match "
+            f"backing preset {preset_id!r} language {preset_language!r} — "
+            f"BundledDemoReplaySource.loadOne would silent-skip this demo "
+            f"at runtime (spec §3.3 runtime filter)"
+          )
     if metadata.get("content_filter_applied") is not True:
       errors.append(
         f"{path.name}: metadata.content_filter_applied must be true "
@@ -279,7 +312,7 @@ def main() -> int:
   if not PRESETS_DIR.is_dir():
     print(f"::error::Presets dir not found at {PRESETS_DIR}", file=sys.stderr)
     return 2
-  preset_shas = load_preset_shas()
+  preset_shas, preset_languages = load_preset_shas()
 
   if args.fix:
     if not DEMOS_DIR.is_dir():
@@ -317,7 +350,7 @@ def main() -> int:
     )
 
   for demo_path in demo_paths:
-    errors.extend(validate_demo(demo_path, preset_shas))
+    errors.extend(validate_demo(demo_path, preset_shas, preset_languages))
 
   if errors:
     print("::error::Demo replay drift guard FAILED", file=sys.stderr)
