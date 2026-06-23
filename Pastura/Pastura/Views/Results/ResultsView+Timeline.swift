@@ -48,15 +48,15 @@ extension ResultsView {
   private func editorialHeader(count: Int) -> some View {
     VStack(alignment: .leading, spacing: 0) {
       Text(String(localized: "History"))
+        // Eyebrow + big-title `Font`/`tracking` are inline + code-review-gated
+        // (not `Equatable`, so they stay out of ``ResultsTimelineMetrics``).
+        // Provisional sizes; final type scale tuned on-device.
         .font(.system(.caption2, design: .monospaced).weight(.semibold))
         .tracking(1.4)
         .textCase(.uppercase)
         .foregroundStyle(Color.mossDark)
         .accessibilityHidden(true)
       Text(String(localized: "Past Results"))
-        // Big editorial title — inline `Font` is code-review-gated (not
-        // `Equatable`, so it stays out of ``ResultsTimelineMetrics``). Provisional
-        // size; final scale tuned on-device.
         .font(.largeTitle.weight(.bold))
         .foregroundStyle(Color.ink)
         .padding(.top, ResultsTimelineMetrics.eyebrowTitleSpacing)
@@ -69,6 +69,9 @@ extension ResultsView {
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
     .padding(.top, ResultsTimelineMetrics.headerTopPadding)
+    // Stacks with the first section's own `.padding(.top, daySectionTopSpacing)`
+    // for a wider header-to-content gutter than the inter-section gap — don't
+    // "deduplicate" this into one inset.
     .padding(.bottom, ResultsTimelineMetrics.daySectionTopSpacing)
   }
 
