@@ -253,4 +253,45 @@ struct ScenarioYAMLPatcherTests {
     #expect(!out.contains("#00"))  // the interior-# fragment is gone, not stranded
     #expect(try loader.load(yaml: out) == visual)
   }
+
+  // ADR-018 compatibility for #752: a base whose `description` is authored as a
+  // literal `|` block has Yams style `.literal`, so editing it is out-of-scope
+  // for the in-place splice (`tryEdit` rejects `.literal`/`.folded`) and forces
+  // the full-serialize fallback — where the serializer's new `|-` block output
+  // for a multi-line `description` appears and must round-trip.
+  @Test func blockScalarDescriptionEditFallsBackToBlockScalar() throws {
+    let blockBase = """
+      id: demo_scenario
+      language: en
+      name: Original Name
+      description: |
+        First brief line.
+        Second brief line.
+      agents: 2
+      rounds: 3
+      context: Shared context.
+      personas:
+        - name: Alice
+          description: An optimistic agent
+        - name: Bob
+          description: A skeptical agent
+      phases:
+        - type: speak_all
+          prompt: Speak your mind.
+          output:
+            statement: string
+      """
+    let baseScenario = try loader.load(yaml: blockBase)
+    let visual = mutated(
+      baseScenario, description: "Rewritten first line.\nRewritten second line.")
+    let out = patcher.patch(visual: visual, base: blockBase)
+
+    // Out-of-scope (block-scalar) edit → full-serialize fallback.
+    #expect(out == serializer.serialize(visual))
+    // The fallback emits a strip-chomped `|-` literal block for the multi-line
+    // description...
+    #expect(out.contains("description: |-\n  Rewritten first line.\n  Rewritten second line."))
+    // ...which round-trips back to the edited scenario.
+    #expect(try loader.load(yaml: out).description == visual.description)
+  }
 }
