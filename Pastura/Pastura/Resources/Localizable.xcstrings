@@ -5239,7 +5239,14 @@
       }
     },
     "Self-made" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自作"
+          }
+        }
+      }
     },
     "Send a content report" : {
       "comment" : "Settings → Legal section row that opens ReportSheet with no specific scenario context.",
