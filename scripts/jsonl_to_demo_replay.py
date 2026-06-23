@@ -114,7 +114,13 @@ def code_payload(ev):
     if e == "event_injected":
         return {"kind": kind, "event": ev.get("value", "")}
     if e == "pairing_result":
-        return {"kind": kind}
+        # The harness EventLine names agent1 `agent`; agent2/action1/action2
+        # keep their names. decodePairingResult requires agent1+agent2 (throws
+        # otherwise), so populate all four — a bare {kind} would silent-skip a
+        # pairing-based demo (e.g. prisoner's-dilemma) at load.
+        return {"kind": kind,
+                "agent1": ev.get("agent", ""), "action1": ev.get("action1", ""),
+                "agent2": ev.get("agent2", ""), "action2": ev.get("action2", "")}
     return {"kind": kind}  # summary carries no structured payload
 
 
