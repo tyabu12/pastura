@@ -118,6 +118,35 @@ nonisolated public struct TurnOutput: Codable, Sendable, Equatable {
     }
     return fields[key]
   }
+
+  /// The exact display segments ``AgentOutputRow`` reveals for this output
+  /// in the committed / replay (non-streaming) path: the decorated primary
+  /// (vote → `→ <name>`) and the private thought, the latter empty unless
+  /// `includeThought`.
+  ///
+  /// Single source of truth shared by the reveal counter
+  /// (``AgentOutputRow`` `targetLength`, which reads the same
+  /// ``primaryText(for:)`` / ``secondaryText(for:)`` accessors) and the
+  /// replay typing-duration estimate (``ReplayViewModel`` turn-dwell floor),
+  /// so the two can never disagree on what — or how much — gets typed. The
+  /// vote arrow is applied exactly once here (via ``primaryText(for:)``),
+  /// never re-decorated.
+  ///
+  /// `nil` primary / thought collapse to `""` so callers can concatenate and
+  /// count without optional handling. Code phases yield `("", "")`.
+  ///
+  /// - Parameters:
+  ///   - phaseType: The phase whose canonical fields to resolve.
+  ///   - includeThought: Whether the THINKING section is currently shown;
+  ///     when `false` the thought segment is empty (the reveal counter omits
+  ///     it too).
+  public func revealedSegments(
+    for phaseType: PhaseType, includeThought: Bool
+  ) -> (primary: String, thought: String) {
+    let primary = primaryText(for: phaseType) ?? ""
+    let thought = includeThought ? (secondaryText(for: phaseType) ?? "") : ""
+    return (primary, thought)
+  }
 }
 
 /// Errors related to accessing ``TurnOutput`` fields.

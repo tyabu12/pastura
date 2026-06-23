@@ -173,4 +173,45 @@ struct TurnOutputTests {
     let output = TurnOutput(fields: ["inner_thought": "x", "reason": "y"])
     #expect(output.secondaryText(for: .scoreCalc) == nil)
   }
+
+  // MARK: - revealedSegments (what AgentOutputRow actually types)
+
+  @Test func revealedSegmentsSpeakWithThought() {
+    let output = TurnOutput(fields: ["statement": "Hello", "inner_thought": "hmm"])
+    let segments = output.revealedSegments(for: .speakAll, includeThought: true)
+    #expect(segments.primary == "Hello")
+    #expect(segments.thought == "hmm")
+  }
+
+  @Test func revealedSegmentsGatesThoughtOnIncludeFlag() {
+    let output = TurnOutput(fields: ["statement": "Hello", "inner_thought": "hmm"])
+    let segments = output.revealedSegments(for: .speakAll, includeThought: false)
+    #expect(segments.primary == "Hello")
+    #expect(segments.thought == "")
+  }
+
+  @Test func revealedSegmentsVoteCarriesArrowAndReason() {
+    let output = TurnOutput(fields: ["vote": "Alice", "reason": "trust"])
+    let segments = output.revealedSegments(for: .vote, includeThought: true)
+    // Vote primary is the decorated `→ <name>` form, NOT double-decorated.
+    #expect(segments.primary == "→ Alice")
+    #expect(segments.thought == "trust")
+  }
+
+  // Pins the no-drift contract: revealedSegments resolves the primary via the
+  // SAME `primaryText(for:)` accessor AgentOutputRow's replay path uses, so the
+  // vote arrow is applied exactly once (never re-decorated into `→ → Alice`).
+  @Test func revealedSegmentsPrimaryMatchesPrimaryTextAccessor() {
+    let output = TurnOutput(fields: ["vote": "Alice", "reason": "trust"])
+    #expect(
+      output.revealedSegments(for: .vote, includeThought: false).primary
+        == output.primaryText(for: .vote))
+  }
+
+  @Test func revealedSegmentsEmptyForCodePhase() {
+    let output = TurnOutput(fields: ["inner_thought": "x"])
+    let segments = output.revealedSegments(for: .scoreCalc, includeThought: true)
+    #expect(segments.primary == "")
+    #expect(segments.thought == "")
+  }
 }
