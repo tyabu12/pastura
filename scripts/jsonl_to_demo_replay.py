@@ -132,7 +132,7 @@ def main():
     preset = yaml.safe_load(open(a.preset, encoding="utf-8"))
 
     turns, code = [], []
-    round_no, phase_idx = 0, 0
+    round_no, phase_idx, phase_type_cur = 0, 0, ""
     scene_set_rounds = set()  # rounds whose assignment scene-setter is already emitted
     for l in lines:
         if l.get("type") != "event":
@@ -141,7 +141,14 @@ def main():
         if e == "round_started":
             round_no = l["round"]
         elif e == "phase_started":
+            # Track both the index and the phase_type of the current phase.
+            # Code-phase events (vote_results / score_update / summary /
+            # event_injected) carry NO phase_type of their own, so the demo's
+            # phase_type — which must equal scenario.phases[phase_index].type
+            # (BundledDemoReplaySource rejects the demo otherwise) — has to
+            # come from the enclosing phase_started, not the event name.
             phase_idx = (l.get("phase_path") or [0])[0]
+            phase_type_cur = l.get("phase_type", "")
         elif e == "agent_output":
             turns.append({
                 "round": round_no,
@@ -160,7 +167,7 @@ def main():
             code.append({
                 "round": round_no,
                 "phase_index": phase_idx,
-                "phase_type": "assign",
+                "phase_type": phase_type_cur,
                 "summary": f"{agent} assigned: {value}",
                 "payload": {"kind": "assignment", "agent": agent, "value": value},
             })
@@ -168,7 +175,7 @@ def main():
             code.append({
                 "round": round_no,
                 "phase_index": phase_idx,
-                "phase_type": l.get("phase_type", e),
+                "phase_type": l.get("phase_type") or phase_type_cur,
                 "summary": code_summary(l),
                 "payload": code_payload(l),
             })

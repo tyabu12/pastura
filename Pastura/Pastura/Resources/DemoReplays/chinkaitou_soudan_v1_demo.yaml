@@ -151,7 +151,7 @@ code_phase_events:
       '
 - round: 1
   phase_index: 2
-  phase_type: vote_results
+  phase_type: vote
   summary: 'Votes — 占い師ミステリア: 3, 熱血コーチ先生: 1'
   payload:
     kind: voteResults
@@ -165,7 +165,7 @@ code_phase_events:
       熱血コーチ先生: 1
 - round: 1
   phase_index: 3
-  phase_type: score_update
+  phase_type: score_calc
   summary: 'Scores — アシスタントAI 2.0: 0, 人生疲れた田中: 0, 占い師ミステリア: 3, 熱血コーチ先生: 1'
   payload:
     kind: scoreUpdate
@@ -176,7 +176,7 @@ code_phase_events:
       熱血コーチ先生: 1
 - round: 1
   phase_index: 4
-  phase_type: summary
+  phase_type: summarize
   summary: 'ラウンド1結果: {"アシスタントAI 2.0": 0, "人生疲れた田中": 0, "占い師ミステリア": 3, "熱血コーチ先生": 1}'
   payload:
     kind: summary
@@ -194,7 +194,7 @@ code_phase_events:
       '
 - round: 2
   phase_index: 2
-  phase_type: vote_results
+  phase_type: vote
   summary: 'Votes — 人生疲れた田中: 1, 占い師ミステリア: 1, 熱血コーチ先生: 2'
   payload:
     kind: voteResults
@@ -209,7 +209,7 @@ code_phase_events:
       熱血コーチ先生: 2
 - round: 2
   phase_index: 3
-  phase_type: score_update
+  phase_type: score_calc
   summary: 'Scores — アシスタントAI 2.0: 0, 人生疲れた田中: 1, 占い師ミステリア: 4, 熱血コーチ先生: 3'
   payload:
     kind: scoreUpdate
@@ -220,7 +220,7 @@ code_phase_events:
       熱血コーチ先生: 3
 - round: 2
   phase_index: 4
-  phase_type: summary
+  phase_type: summarize
   summary: 'ラウンド2結果: {"アシスタントAI 2.0": 0, "人生疲れた田中": 1, "占い師ミステリア": 4, "熱血コーチ先生": 3}'
   payload:
     kind: summary
