@@ -212,6 +212,14 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
+  /// Character-reveal rate forwarded from
+  /// ``ReplayPlaybackConfig/typingCharsPerSecond``. ``ModelDownloadHostView``
+  /// reads this when building each ``AgentOutputRow`` so the View's typing
+  /// animation and this VM's turn-dwell floor share one source of truth
+  /// (`nil` ⇒ instant text / no proportional dwell). No `@Observable`
+  /// bridging needed — `config` is immutable.
+  var typingCharsPerSecond: Double? { config.typingCharsPerSecond }
+
   /// One rendered agent output suitable for `AgentOutputRow`.
   nonisolated struct AgentOutputEntry: Sendable, Equatable, Identifiable {
     public let id: UUID
