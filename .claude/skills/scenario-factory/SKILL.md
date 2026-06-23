@@ -93,6 +93,12 @@ Schema requirements (ScenarioLoader — all required):
   `prompt` + `output` field maps; `vote` needs `exclude_self` thought
   through; scoring usually wants a `score_calc` (logic: `vote_tally`)
   and a `summarize`.
+- **Canonical `output` field names** (enforced by
+  `ScenarioValidator.validateForCommit`): primary = `statement` (speak),
+  `action` (choose), `vote` (vote). The optional private-thought field is
+  `reason` for `vote`, `inner_thought` for `speak_all` / `speak_each` /
+  `choose`. Do NOT author `reason` on a choose/speak phase — it streams live
+  but goes blank on the committed row, and the commit gate rejects it (#760).
 - Plain YAML only — no markdown fences in the file.
 
 Inference budget — compute BEFORE writing each file:

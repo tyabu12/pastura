@@ -58,7 +58,7 @@ phases:
     options: [即採用, お祈り]
     output:
       action: string
-      reason: string
+      inner_thought: string
 
   - type: vote
     prompt: >

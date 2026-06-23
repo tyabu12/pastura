@@ -98,53 +98,8 @@ nonisolated struct ScenarioValidator: Sendable {
   /// new ones from entering the database in the broken shape.
   func validateForCommit(_ scenario: Scenario) throws -> ValidationResult {
     let result = try validate(scenario)
-    try validateCanonicalPrimaryFields(scenario)
+    try validateCanonicalFields(scenario)
     return result
-  }
-
-  /// Enforces ``ScenarioConventions/primaryField(for:)`` for LLM phases,
-  /// recursing into `conditional` branches so canonical-field violations
-  /// inside `then:` / `else:` sub-phases are caught at commit time.
-  /// Code phases are exempt (the conventions table returns `nil` and the
-  /// per-phase check returns early). Termination is trivial: `.conditional`
-  /// is depth-1 by both `validateConditionalPhase` and the YAML parser
-  /// (`ScenarioLoader.mapPhase`), so the recursion bottoms out after one
-  /// descent.
-  private func validateCanonicalPrimaryFields(_ scenario: Scenario) throws {
-    for (index, phase) in scenario.phases.enumerated() {
-      let label = "Phase \(index + 1)"
-      try validateCanonicalPrimaryField(in: phase, label: label)
-      // Mirror `validateBranch`'s label shape so sub-phase errors carry
-      // the parent's "(conditional)" annotation — keeps a single mental
-      // template across all branch-related validator messages.
-      let parentLabel = "\(label) (\(phase.type.rawValue))"
-      try validateBranchCanonicalFields(
-        phase.thenPhases, parentLabel: parentLabel, branchLabel: "then")
-      try validateBranchCanonicalFields(
-        phase.elsePhases, parentLabel: parentLabel, branchLabel: "else")
-    }
-  }
-
-  private func validateCanonicalPrimaryField(in phase: Phase, label: String) throws {
-    guard let canonical = ScenarioConventions.primaryField(for: phase.type) else {
-      return
-    }
-    let schema = phase.outputSchema ?? [:]
-    if schema[canonical] == nil {
-      throw validationError(
-        String(localized: "%@ (%@) requires field '%@' in output."),
-        label, phase.type.rawValue, canonical)
-    }
-  }
-
-  private func validateBranchCanonicalFields(
-    _ phases: [Phase]?, parentLabel: String, branchLabel: String
-  ) throws {
-    guard let phases else { return }
-    for (subIndex, subPhase) in phases.enumerated() {
-      try validateCanonicalPrimaryField(
-        in: subPhase, label: "\(parentLabel) \(branchLabel)[\(subIndex + 1)]")
-    }
   }
 
   /// Per-phase semantic checks beyond execution-limit validation.
@@ -385,7 +340,9 @@ nonisolated struct ScenarioValidator: Sendable {
 /// File-scope (not a method) so it stays out of `ScenarioValidator`'s
 /// `type_body_length` budget; `nonisolated` because top-level functions inherit
 /// `MainActor` under `SWIFT_DEFAULT_ACTOR_ISOLATION` and the `nonisolated`
-/// validator calls it synchronously.
+/// validator calls it synchronously. `private` (file-scope) so it does not
+/// collide with `ScenarioLoader`'s same-named helper at module scope — the
+/// sibling `ScenarioValidator+CanonicalFields.swift` carries its own copy.
 nonisolated private func validationError(
   _ format: String, _ arguments: CVarArg...
 ) -> SimulationError {

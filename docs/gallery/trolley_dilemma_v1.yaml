@@ -51,7 +51,7 @@ phases:
       一つ選び、1文で理由を述べてください。
     output:
       action: string
-      reason: string
+      inner_thought: string
     options:
       - pull
       - stand

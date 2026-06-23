@@ -55,7 +55,7 @@ phases:
       - 地獄
     output:
       action: string
-      reason: string
+      inner_thought: string
 
   - type: vote
     prompt: >
