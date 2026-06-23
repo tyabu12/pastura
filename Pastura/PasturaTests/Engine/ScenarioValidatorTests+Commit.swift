@@ -216,4 +216,151 @@ extension ScenarioValidatorTests {
       Issue.record("Unexpected error type: \(error)")
     }
   }
+
+  // MARK: - Canonical thought (secondary) field
+  //
+  // Companion to the primary-field checks above. The secondary field is
+  // OPTIONAL, but when a known secondary key (`inner_thought` / `reason`)
+  // is declared it must be the phase's canonical one
+  // (`ScenarioConventions.thoughtField(for:)`): vote→reason,
+  // speak*/choose→inner_thought. This keeps the streaming THINKING source
+  // (`OutputSchema.thoughtFieldName`, schema-driven) and the committed
+  // source (`TurnOutput.secondaryText`, phase-hardcoded) reading the same
+  // key — a choose authored with `reason` streamed live but went blank on
+  // commit (#760).
+
+  @Test func validateForCommit_acceptsChooseWithInnerThought() throws {
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string", "inner_thought": "string"],
+      options: ["yes", "no"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    _ = try validator.validateForCommit(scenario)
+  }
+
+  @Test func validateForCommit_rejectsChooseWithReason() {
+    // The #760 root case: choose authored `reason` (not canonical
+    // `inner_thought`). Streaming surfaced it but the committed row read
+    // the empty `inner_thought`, so the reasoning vanished on commit.
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string", "reason": "string"],
+      options: ["kinoko", "takenoko"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_rejectsSpeakAllWithReason() {
+    // Speak phases are canonical-`inner_thought` too, so a stray `reason`
+    // is rejected — symmetric to the choose case.
+    let phase = Phase(
+      type: .speakAll, prompt: "Speak.",
+      outputSchema: ["statement": "string", "reason": "string"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_rejectsVoteWithInnerThought() {
+    // Vote's canonical secondary is `reason`; `inner_thought` is the wrong
+    // key for vote (the inverse of the choose/speak direction).
+    let phase = Phase(
+      type: .vote, prompt: "Vote.",
+      outputSchema: ["vote": "string", "inner_thought": "string"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_rejectsChooseWithBothInnerThoughtAndReason() {
+    // The rule must inspect EVERY declared known-secondary key, not just
+    // `OutputSchema.thoughtFieldName`'s priority pick (which returns
+    // `inner_thought` here and would miss the stray `reason`).
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: [
+        "action": "string", "inner_thought": "string", "reason": "string"
+      ],
+      options: ["yes", "no"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_acceptsChooseWithNoSecondaryField() throws {
+    // Secondary is optional — only the canonical primary (`action`) plus
+    // no thought field still passes.
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string"],
+      options: ["yes", "no"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    _ = try validator.validateForCommit(scenario)
+  }
+
+  @Test func validateForCommit_acceptsUnknownSecondaryKey() throws {
+    // The rule keys only on `OutputSchema.knownSecondaryKeys`
+    // (inner_thought / reason). A non-known extra field (`notes`) is not a
+    // secondary key and must not trip the check.
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string", "notes": "string"],
+      options: ["yes", "no"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    _ = try validator.validateForCommit(scenario)
+  }
+
+  @Test func validate_acceptsChooseWithReason() throws {
+    // Runtime `validate(_:)` stays lenient — only `validateForCommit`
+    // enforces the canonical thought-field rule, so a scenario authored
+    // before this convention still runs.
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string", "reason": "string"],
+      options: ["kinoko", "takenoko"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    _ = try validator.validate(scenario)
+  }
+
+  @Test func validateForCommit_rejectsChooseWithReasonInsideThenBranch() {
+    // Recurses into conditional branches, same as the primary-field check.
+    let nested = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string", "reason": "string"],
+      options: ["yes", "no"])
+    let conditional = Phase(
+      type: .conditional, condition: "max_score >= 1",
+      thenPhases: [nested])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [conditional])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_thoughtFieldErrorMentionsPhaseAndKeys() {
+    let phase = Phase(
+      type: .choose, prompt: "Choose.",
+      outputSchema: ["action": "string", "reason": "string"],
+      options: ["yes", "no"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    do {
+      _ = try validator.validateForCommit(scenario)
+      Issue.record("Expected validateForCommit to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      // Partial-match per CLAUDE.md i18n rule — the message names the
+      // canonical field, the offending field, the phase type, and the
+      // 1-based phase index.
+      #expect(message.contains("inner_thought"))
+      #expect(message.contains("reason"))
+      #expect(message.contains("choose"))
+      #expect(message.contains("Phase 1"))
+    } catch {
+      Issue.record("Unexpected error type: \(error)")
+    }
+  }
 }

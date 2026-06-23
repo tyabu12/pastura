@@ -65,6 +65,14 @@ nonisolated public enum ScenarioConventions {
   /// Phase-aware (not a blind `inner_thought` fallback) so a stray `reason` on
   /// a speak/choose output never leaks into THINKING, and a vote's `reason` is
   /// never dropped in favour of an `inner_thought` vote schemas don't author.
+  ///
+  /// **Do not widen this to a `inner_thought ?? reason` fallback.** That would
+  /// re-leak a stray `reason` into a speak/choose THINKING section and re-open
+  /// the divergence against the schema-driven streaming resolver
+  /// (``OutputSchema/thoughtFieldName``). Consistency between the two resolvers
+  /// is held by **authoring enforcement** — `ScenarioValidator.validateForCommit`
+  /// rejects a non-canonical secondary key at commit time — NOT by runtime
+  /// reconciliation here (#760).
   public static func thoughtField(for phaseType: PhaseType) -> String? {
     switch phaseType {
     case .vote:

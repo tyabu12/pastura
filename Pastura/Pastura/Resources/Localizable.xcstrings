@@ -226,6 +226,22 @@
         }
       }
     },
+    "%@ (%@) secondary field must be '%@', not '%@'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) secondary field must be '%3$@', not '%4$@'."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@（%2$@）の副次フィールドは '%4$@' ではなく '%3$@' を使ってください。"
+          }
+        }
+      }
+    },
     "%@ (%@) ↔ %@ (%@)" : {
       "localizations" : {
         "en" : {
