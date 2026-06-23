@@ -18,17 +18,24 @@ import Foundation
 /// `SimulationViewModel` is `@MainActor` and consumes this type
 /// freely — no isolation friction for value-type enums.
 ///
-/// **Two consumers, two pacing models — properties are NOT
-/// universally consumed:**
-/// - Sim uses ``charsPerSecond`` (typing animation) and
-///   ``interEventDelayMs`` (non-agent inter-event delay).
-/// - Replay uses ``multiplier`` to scale ``ReplayPlaybackConfig``'s
-///   `turnDelayMs` / `codePhaseDelayMs`. Replay does **not** consume
-///   ``charsPerSecond`` (no typing animation on replay) nor
-///   ``interEventDelayMs`` (its turn vs. codePhase distinction is
-///   richer than Sim's flat 120ms-or-zero gap). Don't extend replay
-///   pacing through the Sim-side properties; add a replay-side
-///   property here if a new pacing dimension is needed.
+/// **Consumers — properties are NOT universally consumed:**
+/// - **Sim** (``SimulationViewModel``) uses ``charsPerSecond`` (typing
+///   animation) and ``interEventDelayMs`` (non-agent inter-event delay).
+/// - **``ReplayViewModel``** (the replay *pacing* model) uses
+///   ``multiplier`` to scale ``ReplayPlaybackConfig``'s `turnDelayMs` /
+///   `codePhaseDelayMs`. It does **not** consume ``charsPerSecond`` (it
+///   advances bubbles on its own sleep clock, not a per-character
+///   timeline) nor ``interEventDelayMs`` (its turn vs. codePhase
+///   distinction is richer than Sim's flat 120ms-or-zero gap). Don't
+///   extend replay pacing through the Sim-side properties; add a
+///   replay-side property here if a new pacing dimension is needed.
+/// - **The DL-time demo replay _screen_** (``ModelDownloadHostView``)
+///   renders ``ReplayViewModel``'s `chatItems` through
+///   ``AgentOutputRow`` and statically references ``normal``'s
+///   ``charsPerSecond`` so its typing matches Sim x1. This is the View
+///   surface, distinct from ``ReplayViewModel``'s pacing above: the
+///   demo's Speed picker scales only ``multiplier`` (turn pacing),
+///   never typing cps.
 /// - ``.instant`` should be handled by an explicit early-return at
 ///   each delay-scaling callsite (see ``ReplayViewModel/scaledDelay(for:)``
 ///   and ``YAMLReplaySource``); the sentinel ``multiplier`` value is
@@ -45,7 +52,10 @@ nonisolated public enum PlaybackSpeed:
 
   /// Characters revealed per second during typing animation.
   /// `nil` means "render full text immediately" (`.instant`).
-  /// Sim-only — replay does not animate typing.
+  /// Consumed by Sim (``SimulationViewModel``) and — statically via
+  /// ``normal`` — by the DL-time demo replay screen
+  /// (``ModelDownloadHostView``). ``ReplayViewModel``'s own turn pacing
+  /// does not read it.
   public var charsPerSecond: Double? {
     switch self {
     case .slow: 15
