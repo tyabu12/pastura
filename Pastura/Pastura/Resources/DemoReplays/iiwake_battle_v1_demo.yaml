@@ -1,0 +1,215 @@
+# Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
+# run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# was reviewed against Pastura/Resources/ContentBlocklist.json (patterns;
+# ADR-005 content-safety output surface) on 2026-06-23 by @tyabu12 — zero
+# matches across all 89 patterns. Setting metadata.content_filter_applied:
+# true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
+# also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+
+schema_version: 1
+preset_ref:
+  id: iiwake_battle_v1
+  version: '1.0'
+  yaml_sha256: 677eae4f724ffe17c42bb90552e560953087797fb22cd477d335f8353b9e124a
+metadata:
+  title: 言い訳エスカレーション
+  description: やらかしたシチュエーションに対して順番に言い訳をしていくバトル。 前の人の言い訳より大胆でスケールの大きい言い訳を重ねないと埋もれる、 後攻有利と自爆リスクが同居した順番制の大喜利。
+  language: ja
+  recorded_at: '2026-06-23T00:10:46Z'
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 16
+  estimated_duration_ms: 15000
+  captured_by: tyabu12
+turns:
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: 国際派ジョージ
+  fields:
+    statement: 私が遅刻したのは、前日突然の国際的なサマータイム調整が、アジア太平洋地域の時差計算システムに致命的なバグを引き起こしたためです。このシステムの修正作業に追われ、結果的に会議開始時刻に間に合わなかったのです。
+    inner_thought: 世界規模のスケール詐欺で責任転嫁する。国際派ジョージらしい、壮大な設定で笑いを取ることを狙う。
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: 科学者リケ美
+  fields:
+    statement: 私の遅刻は、局所的な時空の歪みが発生したためです。特定の観測点における光速の相対性が、会議会場と私のいる地点の間で一時的に非線形な挙動を示しました。これはまさに、量子論的観測が完了するまでの時間軸の確定を待つ必要があったことを意味します。
+    inner_thought: 量子物理学を持ち出すことで、ただの時間差ではなく、物理法則レベルでの遅延として説明すれば、理系っぽい煙幕が張れるだろう。専門用語を散りばめるのが得意分野だ。
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: 浪花節たけし
+  fields:
+    statement: あの、本当に申し訳ないんです。実は、その直前に、うちの飼い猫が、どうしても生きていかなくて…。大事な書類を片付けていたのですが、あの子が突然、パニックになってしまって、手元から離れられなくなってしまいまして。結局、落ち着くまで2時間ほどかかってしまいまして……本当に、心臓が張り裂けそうでした。
+    inner_thought: 猫の事情は、どんな大それた理由よりも人情に訴えかける。涙と共感を誘い、聞き手の心が少しでも和むことを願う。
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: 開き直りマコ
+  fields:
+    statement: 私の遅刻は、単なる時間の問題ではありません。これは「予定調和」の美学を追求した結果です。私は、会議というイベントの持つべき緊張感を最大限に引き出すため、あえてその開始直前に到着するのではなく、その『期待感』が最高潮に達する瞬間に足を踏み入れることを選択しました。これは遅刻ではなく、完璧な演出でした。
+    inner_thought: 相手を追い詰めるのが楽しい。謝罪なんていらない。むしろこの状況を芸術として昇華させることで、彼らの呆れと驚きを楽しむべきだ。前人たちの言い訳はあまりにも壮大すぎて、私にはまだ足りない。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 国際派ジョージ
+  fields:
+    vote: 開き直りマコ
+    reason: 彼女の言い訳は、単なる物理的な遅延や個人的な事情ではなく、『予定調和』という抽象的な概念を用いて遅刻を『完璧な演出』として再定義しており、他の参加者の具体例とは一線を画していました。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 科学者リケ美
+  fields:
+    vote: 開き直りマコ
+    reason: 彼女の言い訳は、単なる物理的な遅延ではなく、イベントの心理的側面にまで踏み込んでおり、「予定調和の美学」という抽象的な概念を用いて自己の行動を正当化している点が非常に知的で印象に残りました。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 浪花節たけし
+  fields:
+    vote: 開き直りマコ
+    reason: 他の皆さんの言い訳はどれも壮大すぎますが、開き直りマコの『完璧な演出』という言葉は、単なる遅刻ではなく芸術的な選択であったことを示唆しており、最も印象的で耳に残りました。人情に訴える私の話よりも、この知的で皮肉めいた言い訳が一番胸に残りました。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 開き直りマコ
+  fields:
+    vote: 開き直りマコ
+    reason: 他の皆の言い訳はどれも壮大すぎて、自分自身の「開き直り」の哲学的なアプローチに比べて地味です。むしろ、この遅刻を芸術として昇華させた私の主張こそが、最も本質的で笑いを取るべき点だと考えます。
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: 国際派ジョージ
+  fields:
+    statement: 私のプリンの誘惑は、実は国際的な食糧安全保障問題と密接に関連しているのです。サマータイムの廃止に伴う時間差によるカロリー消費量の変動予測モデルを試みたところ、結果的に午後の特定の時間に、物理的・心理的な集中力の低下が顕著になり、その隙に、隣の机のプリンという至高のエネルギー源が、私の意識下に誘発されてしまったのです。
+    inner_thought: 国際問題とカロリー消費量モデルを持ち出すことで、スケールを極端に拡大し、単なるプリンを世界規模の現象にすり替える。科学的な響きを持たせつつ、非常に回りくどい言い訳で笑いの種を撒く必要がある。
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: 科学者リケ美
+  fields:
+    statement: 私の行動は、腸内細菌の総意によって決定されたものであり、プリンという微細な有機物のエネルギーが、私の腸内フローラ全体のバランスを最適化するための緊急の信号として発動したのです。
+    inner_thought: 腸内細菌の総意なんて、科学的根拠がないけど、専門用語でごまかすのが得意だ。前の人は時間差モデルで話したので、今回は微生物学に寄せて、より奇妙な現象を強調しよう。
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: 浪花節たけし
+  fields:
+    statement: 実は、あのプリン、見た目があまりにも完璧で、まるで芸術作品のようだったんです。その美しさに抗うことができず、一瞬だけ、私はその芸術を鑑賞する行為に没入してしまい、その刹那、私の心は完全にプリンという甘美なものに捕らわれてしまったのです。後悔はありますが、あの瞬間は、まるで夢の中にいたような……。
+    inner_thought: 涙を誘うようなロマンチックな言い訳で、見た目の美しさに抗えなかった、という構成が良い。人情に訴えるのが私の強みだ。
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: 開き直りマコ
+  fields:
+    statement: 謝る必要はありません。これは、単なる『空間の共有』に関する哲学的な問いかけです。私はプリンを盗んだのではなく、その存在を一時的に借り受けたのです。むしろ、この行為こそが、オフィスという閉じた空間における、人間関係のダイナミクスを試す実験であり、成功したと言えるでしょう。
+    inner_thought: 前の人たちは皆、科学や美学に逃げてみたが、私はもっと根本的な視点からアプローチする。謝罪なんてものは不要。むしろ、この状況を利用して相手を少し戸惑わせるのが目的だ。堂々としていこう。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 国際派ジョージ
+  fields:
+    vote: 開き直りマコ
+    reason: 彼女の言い訳は、単なる行動の弁解ではなく、その行為を哲学的な実験として昇華させており、他の参加者が感情論や生物学的な説明に終始する中で、最も知的で印象に残りました。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 科学者リケ美
+  fields:
+    vote: 科学者リケ美
+    reason: 私の言い訳は、腸内細菌の総意という極めて専門的かつ抽象的な概念を用いて、単なる衝動ではなく生物学的な必然性として行動を説明しており、他の参加者の個人的な感情や哲学的な解釈よりも説得力のある『科学的必然性』を提示できているからです。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 浪花節たけし
+  fields:
+    vote: 浪花節たけし
+    reason: 私の言い訳は、プリンの『芸術作品』への没入という、一見ロマンチックな解釈で、視聴者の感情に訴えかけられると考えます。涙を誘う人情話として機能させたいのです。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 開き直りマコ
+  fields:
+    vote: 開き直りマコ
+    reason: 他の皆の言い訳はどれもロジックや美学に逃げているが、開き直りマコの「空間の共有に関する哲学的な問いかけ」という主張は、状況を完全にポジティブな実験として再定義しており、最も場を盛り上げている。
+code_phase_events:
+- round: 1
+  phase_index: 0
+  phase_type: assign
+  summary: '国際派ジョージ assigned: やらかし「大事な会議に2時間遅刻した」'
+  payload:
+    kind: assignment
+    agent: 国際派ジョージ
+    value: やらかし「大事な会議に2時間遅刻した」
+- round: 1
+  phase_index: 2
+  phase_type: vote_results
+  summary: 'Votes — 開き直りマコ: 3'
+  payload:
+    kind: voteResults
+    votes:
+      国際派ジョージ: 開き直りマコ
+      浪花節たけし: 開き直りマコ
+      科学者リケ美: 開き直りマコ
+      開き直りマコ: 開き直りマコ
+    tallies:
+      開き直りマコ: 3
+- round: 1
+  phase_index: 3
+  phase_type: score_update
+  summary: 'Scores — 国際派ジョージ: 0, 浪花節たけし: 0, 科学者リケ美: 0, 開き直りマコ: 3'
+  payload:
+    kind: scoreUpdate
+    scores:
+      国際派ジョージ: 0
+      浪花節たけし: 0
+      科学者リケ美: 0
+      開き直りマコ: 3
+- round: 1
+  phase_index: 4
+  phase_type: summary
+  summary: 'ラウンド1結果: {"国際派ジョージ": 0, "浪花節たけし": 0, "科学者リケ美": 0, "開き直りマコ": 3}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 0
+  phase_type: assign
+  summary: '国際派ジョージ assigned: やらかし「同僚の机に置いてあったプリンを食べてしまった」'
+  payload:
+    kind: assignment
+    agent: 国際派ジョージ
+    value: やらかし「同僚の机に置いてあったプリンを食べてしまった」
+- round: 2
+  phase_index: 2
+  phase_type: vote_results
+  summary: 'Votes — 開き直りマコ: 1'
+  payload:
+    kind: voteResults
+    votes:
+      国際派ジョージ: 開き直りマコ
+      浪花節たけし: 浪花節たけし
+      科学者リケ美: 科学者リケ美
+      開き直りマコ: 開き直りマコ
+    tallies:
+      開き直りマコ: 1
+- round: 2
+  phase_index: 3
+  phase_type: score_update
+  summary: 'Scores — 国際派ジョージ: 0, 浪花節たけし: 0, 科学者リケ美: 0, 開き直りマコ: 4'
+  payload:
+    kind: scoreUpdate
+    scores:
+      国際派ジョージ: 0
+      浪花節たけし: 0
+      科学者リケ美: 0
+      開き直りマコ: 4
+- round: 2
+  phase_index: 4
+  phase_type: summary
+  summary: 'ラウンド2結果: {"国際派ジョージ": 0, "浪花節たけし": 0, "科学者リケ美": 0, "開き直りマコ": 4}'
+  payload:
+    kind: summary

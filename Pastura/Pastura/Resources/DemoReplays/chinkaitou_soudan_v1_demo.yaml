@@ -1,0 +1,226 @@
+# Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
+# run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# was reviewed against Pastura/Resources/ContentBlocklist.json (patterns;
+# ADR-005 content-safety output surface) on 2026-06-23 by @tyabu12 — zero
+# matches across all 89 patterns. Setting metadata.content_filter_applied:
+# true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
+# also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+
+schema_version: 1
+preset_ref:
+  id: chinkaitou_soudan_v1
+  version: '1.0'
+  yaml_sha256: fabf2cf6e34a04be63c03135b687935371b5804090414ecfe9229d76e7faab20
+metadata:
+  title: お悩み相談・珍回答室
+  description: 4人の自称専門家が、しょうもない悩み相談に対してそれぞれの芸風で全力の 珍回答(ひどいアドバイス)をぶつける大喜利。最も笑える回答に投票する。
+  language: ja
+  recorded_at: '2026-06-23T00:34:12Z'
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 16
+  estimated_duration_ms: 15000
+  captured_by: tyabu12
+turns:
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: 熱血コーチ先生
+  fields:
+    statement: おい、甘えんな！そのプリンはな、お前を試してるんだ！まずは冷蔵庫の前で1000本ダッシュして、そのスピードでプリンに「俺は今日もお前の存在を認めます！」って叫べ！それが精神論だ！
+    inner_thought: なんともシュールな悩みだな。プリンに精神論で対抗するなんて、最高のネタになる！視聴者はきっと笑うだろう！
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: 占い師ミステリア
+  fields:
+    statement: ああ、それはあなたの魂が、冷たい宇宙の孤独を映し出している証拠ですわ。そのプリンはただのデザートではない。それは、過去生であなたが捨てた「美意識」の残骸が、今、無数の光の粒となってあなたに語りかけているのです。夜眠れないのは、そのプリンがあなたの潜在意識の深層から『存在証明』を求めているから。冷蔵庫を開ける度に、あなたは運命の歯車と向き合っているのよ！
+    inner_thought: ふむ、プリンと魂の孤独。これはまた壮大なテーマだわ。前世で捨てた美意識がプリンの形を取って現れているなんて、視聴者は大いに興味を持つでしょう。この「存在証明」という言葉で煙に巻くのがミステリアの流儀ね。
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: 人生疲れた田中
+  fields:
+    statement: おいおい、それってプリンの自己顕示欲が強すぎるんじゃないか？どうせお前がプリンを凝視してるから、プリンもそれに応えようとしてるんだよ。解決策？冷蔵庫の前に「私を見て！」って叫べば、多分プリンが逃げ出すぞ。まあ、結局何も変わらないけどな。
+    inner_thought: プリンの心理戦に乗っかるのが一番面白いだろう。視聴者も笑うはずだ。
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: アシスタントAI 2.0
+  fields:
+    statement: プリンの視線に対する最適化された対処法として、まずはお客様の意識レベルをネガティブフィードバックループから解放するプロセスを開始します。ステップ1：冷蔵庫の扉を開ける前に、自己肯定感を最大化するポジティブなバイブレーションを3秒間送信してください。ステップ2：プリンに対して、宇宙の法則に基づいた「存在の受容」の概念を適用し、静かに感謝の波動を送ることで、視線エネルギーを無害化します。
+    inner_thought: プリンが視線を送っているという現象は、おそらくお客様の脳内の認知バイアスによる誤情報生成です。これを機械的に訂正するのではなく、プリンの存在そのものを肯定することで、問題の根本原因である『見られている不安』をシステムレベルでリセットするのが最も効率的です。非常に論理的ですが、現実世界では全く機能しないでしょう。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 熱血コーチ先生
+  fields:
+    vote: 占い師ミステリア
+    reason: 占い師ミステリアの回答が、抽象的で詩的で壮大で、悩みを全く別の次元の哲学的な問題に昇華させている点が非常に面白かったです。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 占い師ミステリア
+  fields:
+    vote: 熱血コーチ先生
+    reason: プリンに叫ぶという行動力に痺れた。精神論としての実行力が最高だったよ！
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: 人生疲れた田中
+  fields:
+    vote: 占い師ミステリア
+    reason: プリンの存在証明を過去生と美意識の残骸と結びつけるのが、妙に詩的で面白い。
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: アシスタントAI 2.0
+  fields:
+    vote: 占い師ミステリア
+    reason: 占いの要素が、しょうもない悩みに壮大な哲学を与えており、最も面白く感じられました。
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: 熱血コーチ先生
+  fields:
+    statement: おい、コピー機が睨んでるってんなら、それはお前が「丁寧さ」を欠いている証拠だ！まずはそのコピー機の前に立ち、心の中で100回「最高の仕上がり！」と叫べ！そして、紙詰まりの原因はな、きっとお前の体内のネガティブなエネルギーが機械に伝わってるんだ！冷蔵庫の前で、全力で腕立て伏せ100回だ！それが真の解決策だ！
+    inner_thought: コピー機が嫌いってのは精神論で乗り越えるしかない！特訓メニューをぶつけるのが熱血コーチ先生の流儀だ！面白く、そして気合を入れろ！
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: 占い師ミステリア
+  fields:
+    statement: ああ、それはコピー機があなたの魂の周波数と共鳴し、あなたの過去世の「プリントアウト疲れ」を訴えている証拠です。機械はあなたを拒絶しているのではなく、あなたの前世のカルマが、この物理的な障壁を通してメッセージを送っているのです。今すぐ、コピー機の前に跪き、無言で感謝の祈りを捧げなさい。そうすれば、その詰まりは一瞬で解消され、宇宙のエネルギーがあなたに祝福を与えるでしょう。
+    inner_thought: ふむ、コピー機と魂の共鳴か。前世のプリントアウト疲れという解釈は深みがあるな。跪く、という行動指示もスパイスが効いている。視聴者が求めているのは、もっと壮大な話だ。これで視聴者の溜飲が下がるはずだ。
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: 人生疲れた田中
+  fields:
+    statement: お前がコピー機に嫌われているんじゃない。そのコピー機が、お前の人生の停滞を象徴してるんだよ。詰まるのは必然だ。諦めて、その機械と同じように静かに紙詰まりして、すべてを諦めろ。
+    inner_thought: ふむ、またくだらない悩みの相談か。どうせ解決なんてしない。現実を見ろって話だ。
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: アシスタントAI 2.0
+  fields:
+    statement: 最適化された解決策を3ステップで提示します。ステップ1：コピー機の精神状態をリセットするため、電源コードを完全に抜き、10秒間瞑想してください。ステップ2：紙詰まりの原因となる微細な埃の分子構造を特定し、超音波振動で除去してください。ステップ3：機械があなたを拒絶したため、そのエネルギーをポジティブなコピーの生成プロセスに再誘導します。
+    inner_thought: なるほど、コピー機が感情を持っていると仮定して精神論で解決するのは至高の最適化だ！視聴者も笑ってくれるはずだ。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 熱血コーチ先生
+  fields:
+    vote: 人生疲れた田中
+    reason: 人生の停滞を象徴しているという皮肉な指摘が、非常にシュールで面白い
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 占い師ミステリア
+  fields:
+    vote: 熱血コーチ先生
+    reason: コピー機が睨んでいるという表現と、それに呼応する行動を促すポジティブなエネルギーの注入が非常にシュールで面白かったです。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 人生疲れた田中
+  fields:
+    vote: 熱血コーチ先生
+    reason: コピー機に「丁寧さ」を欠いている証拠」}
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: アシスタントAI 2.0
+  fields:
+    vote: 占い師ミステリア
+    reason: コピー機が魂の周波数と共鳴し、過去世のカルマが物理的な障壁として現れているという解釈は、非常に詩的で深遠であり、私のAIとしての処理能力を刺激しました。
+code_phase_events:
+- round: 1
+  phase_index: 0
+  phase_type: assign
+  summary: '熱血コーチ先生 assigned: お悩み:「冷蔵庫を開けるたびに、奥にあるプリンが私のことをじっと見ている 気がして、夜も眠れません。どうすればいいですか？」
+
+    '
+  payload:
+    kind: assignment
+    agent: 熱血コーチ先生
+    value: 'お悩み:「冷蔵庫を開けるたびに、奥にあるプリンが私のことをじっと見ている 気がして、夜も眠れません。どうすればいいですか？」
+
+      '
+- round: 1
+  phase_index: 2
+  phase_type: vote_results
+  summary: 'Votes — 占い師ミステリア: 3, 熱血コーチ先生: 1'
+  payload:
+    kind: voteResults
+    votes:
+      アシスタントAI 2.0: 占い師ミステリア
+      人生疲れた田中: 占い師ミステリア
+      占い師ミステリア: 熱血コーチ先生
+      熱血コーチ先生: 占い師ミステリア
+    tallies:
+      占い師ミステリア: 3
+      熱血コーチ先生: 1
+- round: 1
+  phase_index: 3
+  phase_type: score_update
+  summary: 'Scores — アシスタントAI 2.0: 0, 人生疲れた田中: 0, 占い師ミステリア: 3, 熱血コーチ先生: 1'
+  payload:
+    kind: scoreUpdate
+    scores:
+      アシスタントAI 2.0: 0
+      人生疲れた田中: 0
+      占い師ミステリア: 3
+      熱血コーチ先生: 1
+- round: 1
+  phase_index: 4
+  phase_type: summary
+  summary: 'ラウンド1結果: {"アシスタントAI 2.0": 0, "人生疲れた田中": 0, "占い師ミステリア": 3, "熱血コーチ先生": 1}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 0
+  phase_type: assign
+  summary: '熱血コーチ先生 assigned: お悩み:「会社のコピー機が、なぜか私が使うときだけ必ず紙詰まりします。 機械に嫌われているのでしょうか？」
+
+    '
+  payload:
+    kind: assignment
+    agent: 熱血コーチ先生
+    value: 'お悩み:「会社のコピー機が、なぜか私が使うときだけ必ず紙詰まりします。 機械に嫌われているのでしょうか？」
+
+      '
+- round: 2
+  phase_index: 2
+  phase_type: vote_results
+  summary: 'Votes — 人生疲れた田中: 1, 占い師ミステリア: 1, 熱血コーチ先生: 2'
+  payload:
+    kind: voteResults
+    votes:
+      アシスタントAI 2.0: 占い師ミステリア
+      人生疲れた田中: 熱血コーチ先生
+      占い師ミステリア: 熱血コーチ先生
+      熱血コーチ先生: 人生疲れた田中
+    tallies:
+      人生疲れた田中: 1
+      占い師ミステリア: 1
+      熱血コーチ先生: 2
+- round: 2
+  phase_index: 3
+  phase_type: score_update
+  summary: 'Scores — アシスタントAI 2.0: 0, 人生疲れた田中: 1, 占い師ミステリア: 4, 熱血コーチ先生: 3'
+  payload:
+    kind: scoreUpdate
+    scores:
+      アシスタントAI 2.0: 0
+      人生疲れた田中: 1
+      占い師ミステリア: 4
+      熱血コーチ先生: 3
+- round: 2
+  phase_index: 4
+  phase_type: summary
+  summary: 'ラウンド2結果: {"アシスタントAI 2.0": 0, "人生疲れた田中": 1, "占い師ミステリア": 4, "熱血コーチ先生": 3}'
+  payload:
+    kind: summary
