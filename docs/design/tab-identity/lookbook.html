@@ -1,0 +1,342 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<title>Pastura — タブ identity 比較ルックブック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#F3EFE7;--screen-bg:#FCFAF4;--bubble-bg:#FFFFFF;--promo-bg:#FBFAF2;--promo-border:#E4E7D2;
+  --ink:#2D2E26;--ink-2:#5A5A55;--muted:#8A8A83;--rule:#E0DBCE;
+  --moss:#8A9A6C;--moss-dark:#6B7852;--moss-ink:#3D4030;--moss-soft:#D4CBA8;
+  --selected:rgba(138,154,108,.20);--moss-wash:rgba(138,154,108,.10);
+  --font-sans:"Noto Sans JP",system-ui,sans-serif;--font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);background:#E7E2D6;color:var(--ink);-webkit-font-smoothing:antialiased;padding:34px 28px 60px}
+h1{font-size:23px;font-weight:700;letter-spacing:.01em;margin-bottom:5px}
+.sub{font-size:13px;color:var(--ink-2);margin-bottom:30px;line-height:1.6;max-width:1100px}
+.sub b{color:var(--moss-dark)}
+.grp{margin-bottom:42px}
+.grp>h2{font-size:15px;font-weight:700;letter-spacing:.02em;margin-bottom:4px;display:flex;align-items:center;gap:9px}
+.grp>h2 .pin{font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--moss-dark);background:var(--selected);border-radius:6px;padding:3px 8px;letter-spacing:.05em}
+.grp>.note{font-size:12px;color:var(--ink-2);margin-bottom:16px;line-height:1.5}
+.phones{display:flex;gap:26px;flex-wrap:wrap}
+.frame{width:390px}
+.vlabel{display:flex;align-items:baseline;gap:8px;margin-bottom:9px}
+.vlabel .v{font-size:13px;font-weight:700}
+.vlabel .v.rec{color:var(--moss-dark)}
+.vlabel .d{font-size:11px;color:var(--ink-2);line-height:1.4}
+.tagrec{font-family:var(--font-mono);font-size:9px;font-weight:600;color:#fff;background:var(--moss-dark);border-radius:5px;padding:2px 7px;letter-spacing:.06em}
+
+/* ---- phone shell ---- */
+.screen{position:relative;width:390px;height:844px;overflow:hidden;background:var(--screen-bg);border-radius:30px;box-shadow:0 10px 30px -12px rgba(60,64,40,.45);border:1px solid #d9d4c6}
+.sb{height:50px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 7px;font-family:var(--font-mono);font-size:14px;font-weight:600}
+.sb .r{display:flex;align-items:center;gap:6px}.sb .r svg{display:block}
+.dock{position:absolute;left:0;right:0;bottom:0;height:96px;display:flex;justify-content:center;align-items:flex-start;padding:14px 0 0;background:linear-gradient(to top,var(--screen-bg) 55%,transparent)}
+.tabbar{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.86);border:1px solid var(--rule);border-radius:24px;padding:7px;box-shadow:0 4px 14px -8px rgba(90,100,60,.25)}
+.tab{width:54px;height:44px;border-radius:15px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.tab svg{width:23px;height:23px}.tab.on{background:var(--selected);color:var(--moss-dark)}
+
+/* ---- titles ---- */
+.title-c{display:flex;justify-content:center;padding:12px 0 4px}.title-c span{font-size:19px;font-weight:700;letter-spacing:.02em}
+.title-c .cnt{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);letter-spacing:.05em;margin-top:3px;display:block;text-align:center}
+.bigh{padding:10px 20px 2px}
+.bigh .ey{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--moss-dark);display:flex;align-items:center;gap:6px}
+.bigh .ey svg{width:14px;height:14px}
+.bigh h3{font-size:28px;font-weight:700;letter-spacing:.01em;margin-top:3px;line-height:1.05}
+.bigh .cnt{font-size:11px;color:var(--muted);margin-top:5px;font-family:var(--font-mono);letter-spacing:.03em}
+
+.searchbar{margin:11px 16px 0;display:flex;align-items:center;gap:9px;padding:11px 14px;border:1px solid var(--rule);border-radius:12px;background:var(--bubble-bg);color:var(--muted)}
+.searchbar svg{width:17px;height:17px;flex:none}.searchbar span{font-size:13px}
+.chips{display:flex;gap:8px;padding:13px 16px 2px;overflow:hidden}
+.chip{font-size:12px;font-weight:500;color:var(--ink-2);border:1px solid var(--rule);border-radius:18px;padding:6px 13px;white-space:nowrap}
+.chip.on{background:var(--moss-dark);color:#fff;border-color:transparent;font-weight:600}
+.lblrow{display:flex;align-items:flex-end;justify-content:space-between;padding:18px 20px 6px}
+.lblrow .l{font-size:11px;font-weight:600;letter-spacing:.05em;color:var(--ink-2)}
+
+/* ---- shared sheep meta ---- */
+.meta{display:flex;align-items:center;gap:7px;margin-top:5px}
+.meta .sheep{display:flex;gap:2px}.meta .sheep svg{width:18px;height:18px;display:block}
+.meta .sep{color:var(--muted);font-size:9px}.meta .rd{font-size:10px;color:var(--muted);letter-spacing:.02em;font-family:var(--font-mono)}
+
+/* ============ BEFORE: shared list/row ============ */
+.list{margin:0 16px;background:var(--bubble-bg);border:1px solid var(--rule);border-radius:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px}
+.row+.row{border-top:1px solid var(--rule)}
+.row .bd{flex:1;min-width:0}
+.row .nm{font-size:13.5px;font-weight:600;letter-spacing:.01em;display:flex;align-items:center;gap:7px}
+.row .tag{font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--moss-dark);border:1px solid var(--moss-soft);border-radius:5px;padding:2px 5px}
+.row .desc{font-size:11.5px;color:var(--ink-2);line-height:1.4;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .cap{font-size:10px;color:var(--muted);margin-top:4px}
+.row .chev{width:15px;height:15px;color:var(--muted);flex:none}
+.pill{font-family:var(--font-sans);font-size:9.5px;font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill.done{background:rgba(138,154,108,.16);color:var(--moss-ink)}
+.pill.paused{background:rgba(90,90,85,.12);color:var(--ink-2)}
+.pill.run{background:rgba(138,154,108,.16);color:var(--moss-dark)}
+.nmrow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+
+/* ============ 案C — さがす：カタログ（横長カード＋左アート） ============ */
+.catlist{padding:4px 16px 0;display:flex;flex-direction:column;gap:12px}
+.cat{display:flex;gap:13px;background:var(--bubble-bg);border:1px solid var(--rule);border-radius:16px;padding:13px;box-shadow:0 1px 2px rgba(90,100,60,.04)}
+.cat .art{width:74px;height:74px;flex:none;border-radius:13px;background:var(--moss-wash);border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center}
+.cat .art .cluster{display:grid;grid-template-columns:1fr 1fr;gap:1px}
+.cat .art .cluster svg{width:26px;height:26px;display:block}
+.cat .bd{flex:1;min-width:0;display:flex;flex-direction:column}
+.cat .nm{font-size:14.5px;font-weight:700;letter-spacing:.01em}
+.cat .catchip{align-self:flex-start;font-family:var(--font-mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--moss-dark);background:var(--selected);border-radius:6px;padding:2px 7px;margin-top:5px}
+.cat .desc{font-size:11.5px;color:var(--ink-2);line-height:1.45;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cat .ft{margin-top:auto;padding-top:7px;font-family:var(--font-mono);font-size:9.5px;color:var(--muted);letter-spacing:.03em}
+
+/* ============ 案B — さがす：2列グリッド ============ */
+.grid{padding:6px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.tile{background:var(--bubble-bg);border:1px solid var(--rule);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(90,100,60,.04)}
+.tile .cover{position:relative;height:104px;background:var(--moss-wash);display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--rule)}
+.tile .cover .cluster{display:flex;gap:3px}
+.tile .cover .cluster svg{width:34px;height:34px;display:block}
+.tile .cover .catchip{position:absolute;top:8px;left:8px;font-family:var(--font-mono);font-size:8px;letter-spacing:.07em;text-transform:uppercase;color:var(--moss-dark);background:rgba(255,255,255,.85);border-radius:6px;padding:2px 6px}
+.tile .tb{padding:10px 11px 12px}
+.tile .nm{font-size:13px;font-weight:700;letter-spacing:.01em;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:32px}
+.tile .ft{margin-top:7px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.02em}
+
+/* ============ 案C/B — 過去の結果：タイムライン ============ */
+.tl{padding:6px 0 0;margin:0 20px}
+.day{display:flex;align-items:center;gap:11px;margin:16px 0 9px}
+.day:first-child{margin-top:6px}
+.day .node{width:13px;height:13px;border-radius:50%;border:2.5px solid var(--moss);background:var(--screen-bg);flex:none;margin-left:1px}
+.day .node.paused{border-color:var(--ink-2)}
+.day h4{font-size:15px;font-weight:700;letter-spacing:.01em}
+.day .c{font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-left:auto;letter-spacing:.04em}
+.rail{position:relative;margin-left:7px;padding-left:21px;border-left:2px solid var(--moss-soft)}
+.tlrow{position:relative;padding:11px 13px;background:var(--bubble-bg);border:1px solid var(--rule);border-radius:13px;margin-bottom:9px;box-shadow:0 1px 2px rgba(90,100,60,.04)}
+.tlrow::before{content:"";position:absolute;left:-28px;top:18px;width:9px;height:9px;border-radius:50%;background:var(--moss);border:2px solid var(--screen-bg)}
+.tlrow.paused::before{background:var(--ink-2)}
+.tlrow .top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.tlrow .nm{font-size:13.5px;font-weight:700;letter-spacing:.01em}
+.tlrow .res{font-size:11px;color:var(--ink-2);line-height:1.4;margin-top:5px}
+.tlrow .mr{display:flex;align-items:center;gap:7px;margin-top:7px}
+.tlrow .mr .sheep{display:flex;gap:2px}.tlrow .mr .sheep svg{width:16px;height:16px;display:block}
+.tlrow .mr .tm{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.03em}
+.tlrow .mr .sep{color:var(--muted);font-size:8px}
+
+/* ============ 案C — ホーム：ヒーロー＋コンパクト ============ */
+.brand{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0 4px}
+.brand .lf{width:21px;height:21px;color:var(--moss)}
+.brand span{font-size:19px;font-weight:700;letter-spacing:.02em}
+.hero{margin:12px 16px 0;background:linear-gradient(135deg,rgba(138,154,108,.16),rgba(138,154,108,.07));border:1px solid var(--moss-soft);border-radius:18px;padding:16px 17px}
+.hero .eyebrow{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--moss-dark)}
+.hero .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--moss-dark);animation:none}
+.hero .hn{font-size:17px;font-weight:700;margin-top:9px}
+.hero .hd{font-size:11.5px;color:var(--ink-2);line-height:1.5;margin-top:5px}
+.hero .hf{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.hero .prog{font-family:var(--font-mono);font-size:10px;color:var(--moss-ink);letter-spacing:.03em}
+.hero .resume{display:flex;align-items:center;gap:6px;background:var(--moss-dark);color:#fff;font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:11px}
+.hero .resume svg{width:13px;height:13px}
+.complist{margin:0 16px;background:var(--bubble-bg);border:1px solid var(--rule);border-radius:14px;overflow:hidden}
+.crow{display:flex;align-items:center;gap:11px;padding:11px 15px}
+.crow+.crow{border-top:1px solid var(--rule)}
+.crow .ci{width:34px;height:34px;border-radius:9px;background:var(--moss-wash);border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center;flex:none}
+.crow .ci svg{width:19px;height:19px}
+.crow .cb{flex:1;min-width:0}
+.crow .cn{font-size:13px;font-weight:600}
+.crow .cc{font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--font-mono);letter-spacing:.02em}
+.crow .chev{width:14px;height:14px;color:var(--muted);flex:none}
+</style></head><body>
+
+<svg width="0" height="0" style="position:absolute">
+<symbol id="sh" viewBox="0 0 28 28"><circle cx="14" cy="15" r="8" fill="var(--b)"/><circle cx="9" cy="13" r="3.2" fill="var(--b)"/><circle cx="19" cy="13" r="3.2" fill="var(--b)"/><circle cx="11" cy="18" r="3" fill="var(--b)"/><circle cx="17" cy="18" r="3" fill="var(--b)"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--f)"/><circle cx="12.6" cy="14.8" r=".7" fill="#2d2e26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2d2e26"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></symbol>
+<symbol id="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19.4 13a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V20a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 4 4 8 4 13c0 4 3 7 7 7 1 0 1-1 1-2 0-4 2-8 7-9-2 6-5 8-8 9 0 0 5 1 8-3 2-3 2-8-7-13z"/></symbol>
+<symbol id="play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></symbol>
+<symbol id="doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></symbol>
+</svg>
+
+<h1>Pastura — タブ identity 比較ルックブック</h1>
+<p class="sub">各タブは <b>#684</b> で同一スクロール土台（<b>PasturaCard(.grouped) + RowDivider</b>）へ意図的に統一されており、共通カードを <b>3タブが再利用</b>しています。診断: 見た目の <b>約7〜8割が同一molecule</b>。差別化は <b>カードトークンは維持しつつレイアウトの「形」とヘッダ identity を分岐</b>させる方向で行います（ブランド色がmoss一色のため色テーマ分けは不可）。各タブを <b>現状 / 案C 中庸（推奨）/ 案B 大胆</b> の順に並べて比較できます。</p>
+
+<!-- ============================== さがす ============================== -->
+<div class="grp">
+  <h2><span class="pin">さがす</span> 共有シナリオを探す</h2>
+  <div class="note">差別化レバー: <b>リスト → カタログ/グリッド</b>。リストと2列グリッドは形が根本的に違うため、スクロールした瞬間に「別画面」と認識される。最大の効きどころ。</div>
+  <div class="phones">
+
+    <!-- BEFORE -->
+    <div class="frame">
+      <div class="vlabel"><span class="v">現状</span><span class="d">中央タイトル＋検索＋chips＋分割リスト</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="title-c"><span>共有シナリオを探す</span></div>
+        <div class="searchbar"><svg><use href="#search"/></svg><span>シナリオを検索</span></div>
+        <div class="chips"><span class="chip on">すべて</span><span class="chip">交渉</span><span class="chip">心理戦</span><span class="chip">協力</span></div>
+        <div class="lblrow"><span class="l">おすすめのシナリオ</span></div>
+        <div class="list">
+          <div class="row"><div class="bd"><div class="nm">哲学者たちの円卓 <span class="tag">今週</span></div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">6 ラウンド</span></div><div class="desc">4人の思想家が「正義とは何か」を巡って対話する。</div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nm">人狼 — 月夜の村</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">投票制</span></div><div class="desc">5人の村人に紛れた人狼を議論と投票で追い詰める。</div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nm">スタートアップ役員会</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">合意形成</span></div><div class="desc">資金配分を巡り3人の役員が落としどころを探る。</div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nm">最後通牒ゲーム</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">5 ラウンド</span></div><div class="desc">分け前の提案と拒否。公平さと利得の綱引き。</div></div><svg class="chev"><use href="#chev"/></svg></div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab"><svg><use href="#home"/></svg></div><div class="tab on"><svg><use href="#search"/></svg></div><div class="tab"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+    <!-- 案C カタログ -->
+    <div class="frame">
+      <div class="vlabel"><span class="v rec">案C 中庸</span><span class="tagrec">推奨</span><span class="d">大見出し＋横長カタログカード（左アートタイル）</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="bigh"><div class="ey"><svg><use href="#search"/></svg>さがす</div><h3>共有シナリオ</h3></div>
+        <div class="chips"><span class="chip on">すべて</span><span class="chip">交渉</span><span class="chip">心理戦</span><span class="chip">協力</span></div>
+        <div class="catlist">
+          <div class="cat"><div class="art"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></div></div><div class="bd"><div class="nm">哲学者たちの円卓</div><span class="catchip">倫理</span><div class="desc">4人の思想家が「正義とは何か」を巡って対話する。</div><div class="ft">4体 · 6 ラウンド</div></div></div>
+          <div class="cat"><div class="art"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></div></div><div class="bd"><div class="nm">人狼 — 月夜の村</div><span class="catchip">心理戦</span><div class="desc">5人の村人に紛れた人狼を議論と投票で追い詰める。</div><div class="ft">5体 · 投票制</div></div></div>
+          <div class="cat"><div class="art"><div class="cluster"><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></div></div><div class="bd"><div class="nm">スタートアップ役員会</div><span class="catchip">交渉</span><div class="desc">資金配分を巡り3人の役員が落としどころを探る。</div><div class="ft">3体 · 合意形成</div></div></div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab"><svg><use href="#home"/></svg></div><div class="tab on"><svg><use href="#search"/></svg></div><div class="tab"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+    <!-- 案B グリッド -->
+    <div class="frame">
+      <div class="vlabel"><span class="v">案B 大胆</span><span class="d">2列カバーグリッド（App Store / 写真型）</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="bigh"><div class="ey"><svg><use href="#search"/></svg>さがす</div><h3>共有シナリオ</h3></div>
+        <div class="chips"><span class="chip on">すべて</span><span class="chip">交渉</span><span class="chip">心理戦</span><span class="chip">協力</span></div>
+        <div class="grid">
+          <div class="tile"><div class="cover"><span class="catchip">倫理</span><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></div></div><div class="tb"><div class="nm">哲学者たちの円卓</div><div class="ft">4体 · 6 ラウンド</div></div></div>
+          <div class="tile"><div class="cover"><span class="catchip">心理戦</span><div class="cluster"><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></div></div><div class="tb"><div class="nm">人狼 — 月夜の村</div><div class="ft">5体 · 投票制</div></div></div>
+          <div class="tile"><div class="cover"><span class="catchip">交渉</span><div class="cluster"><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></div></div><div class="tb"><div class="nm">スタートアップ役員会</div><div class="ft">3体 · 合意形成</div></div></div>
+          <div class="tile"><div class="cover"><span class="catchip">交渉</span><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></div></div><div class="tb"><div class="nm">最後通牒ゲーム</div><div class="ft">2体 · 5 ラウンド</div></div></div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab"><svg><use href="#home"/></svg></div><div class="tab on"><svg><use href="#search"/></svg></div><div class="tab"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================== 過去の結果 ============================== -->
+<div class="grp">
+  <h2><span class="pin">過去の結果</span> 観察履歴</h2>
+  <div class="note">差別化レバー: <b>分割リスト → タイムライン</b>。左レール＋大きな日付見出し＋結果ノードで「日誌/ログ」の形に。グリッド(さがす)とも featured(ホーム)とも全く違う silhouette になる。</div>
+  <div class="phones">
+
+    <!-- BEFORE -->
+    <div class="frame">
+      <div class="vlabel"><span class="v">現状</span><span class="d">小さな日付ラベル＋分割リスト（pillは下位）</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="title-c"><span>過去の結果</span><span class="cnt">12 件の記録</span></div>
+        <div class="lblrow"><span class="l">今日</span></div>
+        <div class="list">
+          <div class="row"><div class="bd"><div class="nmrow"><span class="nm">嘘つきは誰だ</span><span class="pill done">Dave 勝利</span></div><div class="cap">心理戦</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">2時間前</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nmrow"><span class="nm">囚人のジレンマ</span><span class="pill done">完了</span></div><div class="cap">ゲーム理論</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">8時間前</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+        </div>
+        <div class="lblrow"><span class="l">今週</span></div>
+        <div class="list">
+          <div class="row"><div class="bd"><div class="nmrow"><span class="nm">交渉ゲーム</span><span class="pill paused">一時停止 6/8</span></div><div class="cap">交渉</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">6月11日</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nmrow"><span class="nm">砂漠の遭難</span><span class="pill done">完了</span></div><div class="cap">協力</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">6月10日</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab"><svg><use href="#home"/></svg></div><div class="tab"><svg><use href="#search"/></svg></div><div class="tab on"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+    <!-- 案C タイムライン -->
+    <div class="frame">
+      <div class="vlabel"><span class="v rec">案C 中庸</span><span class="tagrec">推奨</span><span class="d">大見出し＋タイムラインレール＋結果ノード</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="bigh"><div class="ey"><svg><use href="#clock"/></svg>観察履歴</div><h3>過去の結果</h3><div class="cnt">12 件の記録</div></div>
+        <div class="tl">
+          <div class="day"><span class="node"></span><h4>今日</h4><span class="c">2 件</span></div>
+          <div class="rail">
+            <div class="tlrow"><div class="top"><span class="nm">嘘つきは誰だ</span><span class="pill done">Dave 勝利</span></div><div class="res">全5ラウンド完了 · 投票で Dave が脱落</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">2時間前</span></div></div>
+            <div class="tlrow"><div class="top"><span class="nm">囚人のジレンマ</span><span class="pill done">完了</span></div><div class="res">全10ラウンド完了 · 相互協調に収束</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">8時間前</span></div></div>
+          </div>
+          <div class="day"><span class="node paused"></span><h4>今週</h4><span class="c">3 件</span></div>
+          <div class="rail">
+            <div class="tlrow paused"><div class="top"><span class="nm">交渉ゲーム</span><span class="pill paused">一時停止 6/8</span></div><div class="res">途中まで · 成立価格を交渉中</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">6月11日</span></div></div>
+            <div class="tlrow"><div class="top"><span class="nm">砂漠の遭難</span><span class="pill done">完了</span></div><div class="res">優先順位の合意に到達 · 生還ルート確定</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">6月10日</span></div></div>
+          </div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab"><svg><use href="#home"/></svg></div><div class="tab"><svg><use href="#search"/></svg></div><div class="tab on"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+    <!-- 案B タイムライン強め -->
+    <div class="frame">
+      <div class="vlabel"><span class="v">案B 大胆</span><span class="d">結果色ノード＋カードレスで日誌感をさらに強調</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="bigh"><div class="ey"><svg><use href="#clock"/></svg>観察履歴</div><h3>過去の結果</h3><div class="cnt">12 件の記録</div></div>
+        <div class="tl">
+          <div class="day"><span class="node"></span><h4>今日</h4><span class="c">2 件</span></div>
+          <div class="rail" style="border-left-color:var(--moss);border-left-width:2.5px">
+            <div class="tlrow" style="box-shadow:none;border-color:transparent;background:transparent;padding:9px 4px"><div class="top"><span class="nm">嘘つきは誰だ</span><span class="pill done">Dave 勝利</span></div><div class="res">全5ラウンド完了 · 投票で Dave が脱落</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">2時間前</span></div></div>
+            <div class="tlrow" style="box-shadow:none;border-color:transparent;background:transparent;padding:9px 4px"><div class="top"><span class="nm">囚人のジレンマ</span><span class="pill done">完了</span></div><div class="res">全10ラウンド完了 · 相互協調に収束</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">8時間前</span></div></div>
+          </div>
+          <div class="day"><span class="node paused"></span><h4>今週</h4><span class="c">3 件</span></div>
+          <div class="rail" style="border-left-color:var(--ink-2);border-left-width:2.5px">
+            <div class="tlrow paused" style="box-shadow:none;border-color:transparent;background:transparent;padding:9px 4px"><div class="top"><span class="nm">交渉ゲーム</span><span class="pill paused">一時停止 6/8</span></div><div class="res">途中まで · 成立価格を交渉中</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">6月11日</span></div></div>
+            <div class="tlrow" style="box-shadow:none;border-color:transparent;background:transparent;padding:9px 4px"><div class="top"><span class="nm">砂漠の遭難</span><span class="pill done">完了</span></div><div class="res">優先順位の合意に到達 · 生還ルート確定</div><div class="mr"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="tm">6月10日</span></div></div>
+          </div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab"><svg><use href="#home"/></svg></div><div class="tab"><svg><use href="#search"/></svg></div><div class="tab on"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================== ホーム ============================== -->
+<div class="grp">
+  <h2><span class="pin">ホーム</span> 牧場</h2>
+  <div class="note">差別化レバー: <b>エディトリアル化</b>。再開ヒーローを大きく＋シナリオ一覧はアイコン付きコンパクト行に。「自分の出発点」として featured な性格を強める（App Store の Today 型）。</div>
+  <div class="phones">
+
+    <!-- BEFORE -->
+    <div class="frame">
+      <div class="vlabel"><span class="v">現状</span><span class="d">ブランドロゴ＋再開カード＋通常リスト</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="brand"><svg class="lf"><use href="#leaf"/></svg><span>Pastura</span></div>
+        <div class="lblrow"><span class="l">中断中のシナリオ</span></div>
+        <div class="list"><div class="row"><div class="bd"><div class="nm">交渉ゲーム</div><div class="desc">Round 6 / 8 · タップで再開</div></div><svg class="chev"><use href="#chev"/></svg></div></div>
+        <div class="lblrow"><span class="l">シナリオ</span><span class="l" style="color:var(--moss-dark)">＋</span></div>
+        <div class="list">
+          <div class="row"><div class="bd"><div class="nm">囚人のジレンマ <span class="tag">プリセット</span></div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">10 ラウンド</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nm">砂漠の遭難 <span class="tag">プリセット</span></div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">合意形成</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="row"><div class="bd"><div class="nm">私のシナリオ</div><div class="meta"><span class="sheep"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><span class="sep">·</span><span class="rd">4 ラウンド</span></div></div><svg class="chev"><use href="#chev"/></svg></div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab on"><svg><use href="#home"/></svg></div><div class="tab"><svg><use href="#search"/></svg></div><div class="tab"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+    <!-- 案C ホーム -->
+    <div class="frame">
+      <div class="vlabel"><span class="v rec">案C 中庸</span><span class="tagrec">推奨</span><span class="d">再開ヒーロー大型化＋アイコン付きコンパクト行</span></div>
+      <div class="screen">
+        <div class="sb"><span>9:41</span><span class="r"><svg width="18" height="13" viewBox="0 0 18 13" fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg><svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="22" height="11" rx="3" stroke="currentColor" stroke-width="1" opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg></span></div>
+        <div class="brand"><svg class="lf"><use href="#leaf"/></svg><span>Pastura</span></div>
+        <div class="hero">
+          <div class="eyebrow"><span class="dot"></span>中断中のシナリオ</div>
+          <div class="hn">交渉ゲーム — 値切りの達人</div>
+          <div class="hd">2人のエージェントが成立価格を交渉中。続きから観察を再開できます。</div>
+          <div class="hf"><span class="prog">Round 6 / 8</span><span class="resume"><svg><use href="#play"/></svg>再開する</span></div>
+        </div>
+        <div class="lblrow"><span class="l">シナリオ</span><span class="l" style="color:var(--moss-dark)">＋ 新規</span></div>
+        <div class="complist">
+          <div class="crow"><span class="ci"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></span><div class="cb"><div class="cn">囚人のジレンマ</div><div class="cc">プリセット · 2体 · 10 ラウンド</div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="crow"><span class="ci"><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg></span><div class="cb"><div class="cn">砂漠の遭難</div><div class="cc">プリセット · 3体 · 合意形成</div></div><svg class="chev"><use href="#chev"/></svg></div>
+          <div class="crow"><span class="ci"><svg><use href="#doc"/></svg></span><div class="cb"><div class="cn">私のシナリオ</div><div class="cc">自作 · 2体 · 4 ラウンド</div></div><svg class="chev"><use href="#chev"/></svg></div>
+        </div>
+        <div class="dock"><div class="tabbar"><div class="tab on"><svg><use href="#home"/></svg></div><div class="tab"><svg><use href="#search"/></svg></div><div class="tab"><svg><use href="#clock"/></svg></div><div class="tab"><svg><use href="#gear"/></svg></div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body></html>

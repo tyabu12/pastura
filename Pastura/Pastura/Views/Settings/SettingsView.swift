@@ -69,11 +69,13 @@ struct SettingsView: View {
   /// Set when `deleteAll()` throws; surfaced via an alert. Not `private`
   /// — written by the `+PastResults.swift` sibling extension.
   @State var clearAllError: String?
-  /// Logical size of the execution-log database in bytes, for the Past
-  /// Results storage caption + advisory growth-cap warning (#565). `nil`
-  /// until loaded (and left `nil` on read failure → caption hidden). Not
-  /// `private` — read / written by the `+PastResults.swift` extension.
-  @State var databaseByteCount: Int64?
+  /// Byte size of the past-results content (runs + turns + code-phase
+  /// events) for the Past Results storage caption + advisory growth-cap
+  /// warning (#565/#770). Excludes scenarios + SQLite overhead so it
+  /// reaches 0 after a clear-all. `nil` until loaded (and left `nil` on
+  /// read failure → caption hidden). Not `private` — read / written by the
+  /// `+PastResults.swift` extension.
+  @State var pastResultsByteCount: Int64?
 
   #if !targetEnvironment(simulator)
     // `internal` (not `private`): the device-only helpers in the sibling

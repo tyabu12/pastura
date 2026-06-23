@@ -29,17 +29,24 @@ struct ResultsView: View {
             systemImage: "tray",
             description: Text(String(localized: "Run a simulation to see results here"))
           )
-        } else {
+        } else if scope.isPushedDetail {
+          // Pushed per-scenario detail keeps the grouped list — it is a single
+          // section, not a tab root, so the timeline's rail + editorial header
+          // would be noise. The tab-identity timeline (#767) is aggregate-only.
           resultsList(viewModel: viewModel)
+        } else {
+          timelineList(viewModel: viewModel)
         }
       } else {
         ProgressView()
       }
     }
     .navigationTitle(String(localized: "Past Results"))
-    // Inline title to match the other tab roots (design-system § 5.11);
-    // "Past Results" is a generic label, so inline is consistent for the
-    // History-tab-root and the pushed-detail variant alike.
+    // Inline title for both the History-tab root and the pushed detail, matching
+    // the other tab roots (design-system § 5.11). The timeline's identity comes
+    // from its rail/node shape — NOT a custom big in-scroll header — so the
+    // familiar inline title stays and the `.searchable` field sits under it as
+    // before (an in-scroll big title would push the search drawer above it, #767).
     .navigationBarTitleDisplayMode(.inline)
     // Back chrome only for the pushed-detail variant (`.scenario`); as the
     // History tab root (`.aggregate`) there is no parent to pop to. See
@@ -71,28 +78,11 @@ struct ResultsView: View {
     }
   }
 
-  /// Centered "N records" count under the screen title (観察履歴 → "12 回の記録",
-  /// P5 mock). Full-width so it centers within the card column.
-  private func recordCountSubtitle(_ count: Int) -> some View {
-    Text(String(format: String(localized: "%lld records"), count))
-      .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
-      .frame(maxWidth: .infinity, alignment: .center)
-      .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
-      .accessibilityIdentifier("results.recordCount")
-  }
-
   private func resultsList(viewModel: ResultsViewModel) -> some View {
     ScrollView {
       // LazyVStack so off-screen rows don't decode/materialize eagerly and the
       // bottom load-more sentinel only fires once scrolled into view (#586).
       LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
-        // Screen-title subtitle "N records" — aggregate root only (a pushed
-        // per-scenario detail shows one scenario, so a global count is
-        // meaningless there). Sits above the first date section (P5 mock).
-        if !scope.isPushedDetail {
-          recordCountSubtitle(viewModel.totalRunCount)
-        }
         ForEach(viewModel.sections) { section in
           PasturaSection(section.title, style: .grouped) {
             VStack(spacing: 0) {
@@ -124,7 +114,10 @@ struct ResultsView: View {
   /// Bottom-of-list affordance that pages in the next window when scrolled
   /// into view. The `isLoadingMore` guard inside `loadMore()` makes a repeated
   /// `onAppear` (e.g. from a group reorder) a no-op.
-  private func loadMoreSentinel(viewModel: ResultsViewModel) -> some View {
+  ///
+  /// Internal (not private) so the timeline rendering in `ResultsView+Timeline`
+  /// can reuse it — both the grouped list and the timeline share this sentinel.
+  func loadMoreSentinel(viewModel: ResultsViewModel) -> some View {
     // Fixed height keeps the sentinel materializable (so `onAppear` fires) and
     // gives a stable hit area; the spinner shows only while a fetch is actually
     // in flight rather than spinning idly whenever more pages remain.
@@ -164,7 +157,9 @@ struct ResultsView: View {
   // the bottom. The result rides line 1 (next to the name) rather than between
   // the scenario-info rows, so the scenario context (sheep · description) stays
   // one visually-grouped block beneath the title.
-  private func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
+  // Internal (not private) so `ResultsView+Timeline` reuses the exact row
+  // content — the timeline changes only the section chrome, not the row body.
+  func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
     let item = row.item
     let sheepCount = ResultsRowFormat.rowSheepCount(agentCount: row.agentCount)
     // Resolved in the View (not the VM) so all display formatting stays in the
@@ -254,7 +249,9 @@ struct ResultsView: View {
       .layoutPriority(1)
   }
 
-  private func pillForeground(_ style: ResultPill.Style) -> Color {
+  // Internal (not private) so the timeline node reuses the pill tint as its
+  // dot color (single source — see `ResultsView+Timeline.timelineRow`).
+  func pillForeground(_ style: ResultPill.Style) -> Color {
     switch style {
     case .completed: Color.mossInk
     case .paused: Color.inkSecondary

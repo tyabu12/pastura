@@ -11,12 +11,18 @@ import Foundation
 /// via the existing "Clear all results" affordance (#545). It never
 /// deletes without explicit consent.
 ///
-/// ## Metric: database size only
+/// ## Metric: past-results content size only
 ///
 /// ADR-015 D1 permits "run count **or** total DB size"; #565 picks **size
 /// only**. Per-run storage is dominated by two heavy columns
 /// (`turns.rawOutput`, `simulations.stateJSON` — ADR-015 §2), so total
 /// byte size tracks growth directly without a separate run-count accessor.
+/// As of #770 the measure is the *past-results* content size
+/// (``SimulationRepository/pastResultsByteCount()``), not the whole-DB file
+/// size — it excludes the `scenarios` table + SQLite schema/index pages.
+/// That number is strictly smaller than the old whole-DB measure, so the
+/// advisory now fires *no earlier* than before for the same data; against a
+/// 250 MB threshold the excluded KB-scale overhead is immaterial.
 ///
 /// ## Threshold: 250 MB, generous by design
 ///
@@ -28,15 +34,15 @@ import Foundation
 /// ADR-015 D1 (the *decision* — an advisory cap exists, never auto-deletes
 /// — is fixed in the ADR; only the literal lives in code).
 enum RetentionAdvisory {
-  /// Database byte size at or above which the advisory surfaces. 250 MB.
+  /// Past-results content size at or above which the advisory surfaces. 250 MB.
   static let advisoryByteThreshold: Int64 = 250 * 1024 * 1024
 
-  /// Whether the advisory should surface for the given database size.
+  /// Whether the advisory should surface for the given past-results size.
   ///
-  /// - Parameter databaseByteCount: Logical DB size in bytes, from
-  ///   ``SimulationRepository/databaseByteCount()``.
+  /// - Parameter pastResultsByteCount: Past-results content size in bytes,
+  ///   from ``SimulationRepository/pastResultsByteCount()``.
   /// - Returns: `true` once the size reaches ``advisoryByteThreshold``.
-  static func isOverAdvisoryCap(databaseByteCount: Int64) -> Bool {
-    databaseByteCount >= advisoryByteThreshold
+  static func isOverAdvisoryCap(pastResultsByteCount: Int64) -> Bool {
+    pastResultsByteCount >= advisoryByteThreshold
   }
 }

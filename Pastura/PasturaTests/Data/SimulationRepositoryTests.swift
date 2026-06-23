@@ -244,28 +244,70 @@ import Testing
     #expect(try turnRepo.fetchBySimulationId("sim1").isEmpty)
   }
 
-  @Test func databaseByteCountIsPositiveForMigratedDatabase() throws {
+  @Test func pastResultsByteCountIsZeroForEmptyDatabase() throws {
     let (_, simRepo) = try makeRepos()
-    // A migrated SQLite DB always holds at least the schema pages
-    // (sqlite_master + table roots), so the logical size is non-zero
-    // even before any run is inserted.
-    #expect(try simRepo.databaseByteCount() > 0)
+    // The measure sums result-table content only — not the SQLite schema
+    // pages. A migrated-but-empty DB has zero runs, so the size is exactly
+    // 0 (the #770 fix: "Storage used" reaches 0 once results are cleared,
+    // unlike the old whole-DB `page_count * page_size` measure).
+    #expect(try simRepo.pastResultsByteCount() == 0)
   }
 
-  @Test func databaseByteCountGrowsAfterHeavyInserts() throws {
+  @Test func pastResultsByteCountGrowsAfterHeavyInserts() throws {
     let (_, simRepo) = try makeRepos()
-    let before = try simRepo.databaseByteCount()
+    let before = try simRepo.pastResultsByteCount()
 
-    // Insert enough large-`stateJSON` rows to force new page allocation
-    // past any free pages left by migration. `stateJSON` is one of the two
-    // heavy columns the advisory cap exists to bound (ADR-015 §2). ~8 KB ×
-    // 40 ≈ 320 KB comfortably exceeds the default 4 KB page so the count
-    // strictly increases, not merely stays flat on free-page reuse.
+    // Insert large-`stateJSON` rows. `stateJSON` is one of the two heavy
+    // columns the advisory cap exists to bound (ADR-015 §2), and is summed
+    // by the content measure, so the count strictly increases.
     let bulkyState = "{\"pad\":\"\(String(repeating: "x", count: 8_000))\"}"
     for index in 0..<40 {
       try simRepo.save(makeSimRecord(id: "sim\(index)", stateJSON: bulkyState))
     }
 
-    #expect(try simRepo.databaseByteCount() > before)
+    #expect(try simRepo.pastResultsByteCount() > before)
+  }
+
+  @Test func pastResultsByteCountExcludesScenarios() throws {
+    let (scenarioRepo, simRepo) = try makeRepos()
+    // Save a scenario with a deliberately large `yamlDefinition` and no
+    // simulation runs. The measure must ignore the `scenarios` table
+    // entirely (the #770 root cause: scenarios — incl. re-seeded presets —
+    // survive clear-all but are not "results"), so the size stays 0.
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "big", name: "Big",
+        yamlDefinition: String(repeating: "y", count: 20_000),
+        isPreset: true, createdAt: Date(), updatedAt: Date()))
+
+    #expect(try simRepo.pastResultsByteCount() == 0)
+  }
+
+  @Test func pastResultsByteCountIsZeroAfterDeleteAllWithScenariosPresent() throws {
+    let manager = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: manager.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: manager.dbWriter)
+
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "s1", name: "Test", yamlDefinition: "yaml",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try simRepo.save(makeSimRecord(id: "sim1", stateJSON: "{\"pad\":\"data\"}"))
+    try turnRepo.save(
+      TurnRecord(
+        id: "t1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "raw",
+        parsedOutputJSON: #"{"statement":"hello"}"#,
+        createdAt: Date()))
+    #expect(try simRepo.pastResultsByteCount() > 0)
+
+    try simRepo.deleteAll()
+
+    // Runs are gone → size is 0, even though the scenario row survives
+    // (clear-all never touches `scenarios`).
+    #expect(try simRepo.pastResultsByteCount() == 0)
+    #expect(try scenarioRepo.fetchById("s1") != nil)
   }
 }
