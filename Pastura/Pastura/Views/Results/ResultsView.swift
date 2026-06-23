@@ -41,11 +41,12 @@ struct ResultsView: View {
         ProgressView()
       }
     }
-    // Aggregate root: empty nav title so the in-scroll editorial header
-    // (ResultsView+Timeline) is the SOLE "Past Results" title — avoids the
-    // duplicate the nav-bar title would otherwise create (#767). The pushed
-    // per-scenario detail keeps the inline title for its back-stack context.
-    .navigationTitle(scope.isPushedDetail ? String(localized: "Past Results") : "")
+    .navigationTitle(String(localized: "Past Results"))
+    // Inline title for both the History-tab root and the pushed detail, matching
+    // the other tab roots (design-system § 5.11). The timeline's identity comes
+    // from its rail/node shape — NOT a custom big in-scroll header — so the
+    // familiar inline title stays and the `.searchable` field sits under it as
+    // before (an in-scroll big title would push the search drawer above it, #767).
     .navigationBarTitleDisplayMode(.inline)
     // Back chrome only for the pushed-detail variant (`.scenario`); as the
     // History tab root (`.aggregate`) there is no parent to pop to. See

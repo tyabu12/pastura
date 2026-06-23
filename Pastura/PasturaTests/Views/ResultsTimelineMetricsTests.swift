@@ -44,9 +44,7 @@ struct ResultsTimelineMetricsTests {
     #expect(ResultsTimelineMetrics.dayHeaderGap == 11)
   }
 
-  @Test func editorialHeaderSpacingUnchanged() {
+  @Test func headerSpacingUnchanged() {
     #expect(ResultsTimelineMetrics.headerTopPadding == 10)
-    #expect(ResultsTimelineMetrics.eyebrowTitleSpacing == 3)
-    #expect(ResultsTimelineMetrics.titleCountSpacing == 5)
   }
 }

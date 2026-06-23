@@ -55,12 +55,6 @@ nonisolated enum ResultsTimelineMetrics {
   /// Gap between the day-header node and its title text.
   static let dayHeaderGap: CGFloat = 11
 
-  /// Top padding of the editorial screen header (eyebrow + big title + count).
+  /// Top padding of the record-count line below the (inline) nav title.
   static let headerTopPadding: CGFloat = 10
-
-  /// Vertical gap between the eyebrow line and the big title.
-  static let eyebrowTitleSpacing: CGFloat = 3
-
-  /// Vertical gap between the big title and the record-count line.
-  static let titleCountSpacing: CGFloat = 5
 }

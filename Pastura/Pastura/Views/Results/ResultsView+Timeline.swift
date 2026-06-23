@@ -8,24 +8,24 @@ import SwiftUI
 /// row, read as a chronological log rather than yet another divided card list.
 /// The row *content* (`simulationRow`: name + result pill + sheep + description
 /// + relative timestamp) is reused verbatim from the grouped list — only the
-/// section chrome and the editorial screen header are new. The pushed
+/// section chrome (rail + nodes) is new. The familiar inline nav title is kept
+/// (the timeline's identity comes from its rail/node shape, not a custom big
+/// header), so the search field sits under the title as before. The pushed
 /// per-scenario detail keeps the grouped list (it is a single section, not a
 /// tab root).
 ///
 /// Sibling-file extension on a Views/ (default-MainActor) type, so no
 /// `nonisolated` annotation is needed (swift-isolation.md applies to
-/// Models/LLM/Engine/Data). Layout constants live in
-/// ``ResultsTimelineMetrics``; the big-title `Font` is inline + code-review-
-/// gated (not `Equatable`, so it cannot live in the change-detector enum).
+/// Models/LLM/Engine/Data). Layout constants live in ``ResultsTimelineMetrics``.
 extension ResultsView {
 
-  /// Aggregate-root timeline list: editorial header → date sections on a rail →
+  /// Aggregate-root timeline list: record count → date sections on a rail →
   /// load-more sentinel. Mirrors ``resultsList``'s ScrollView host (same
   /// `results.list` anchor the ScreenshotTour waits on, same background).
   func timelineList(viewModel: ResultsViewModel) -> some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: 0) {
-        editorialHeader(count: viewModel.totalRunCount)
+        recordCount(viewModel.totalRunCount)
         ForEach(viewModel.sections) { section in
           daySection(section)
         }
@@ -40,39 +40,17 @@ extension ResultsView {
     .accessibilityIdentifier("results.list")
   }
 
-  /// Editorial screen header — eyebrow + big title + record count. Replaces the
-  /// nav-bar title (aggregate root sets it empty) so there is a single
-  /// "Past Results" title (the in-scroll one), not two. The eyebrow is
-  /// decorative (`.accessibilityHidden`) since the big title already announces
-  /// "Past Results" — avoids VoiceOver reading "History, Past Results".
-  private func editorialHeader(count: Int) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Text(String(localized: "History"))
-        // Eyebrow + big-title `Font`/`tracking` are inline + code-review-gated
-        // (not `Equatable`, so they stay out of ``ResultsTimelineMetrics``).
-        // Provisional sizes; final type scale tuned on-device.
-        .font(.system(.caption2, design: .monospaced).weight(.semibold))
-        .tracking(1.4)
-        .textCase(.uppercase)
-        .foregroundStyle(Color.mossDark)
-        .accessibilityHidden(true)
-      Text(String(localized: "Past Results"))
-        .font(.largeTitle.weight(.bold))
-        .foregroundStyle(Color.ink)
-        .padding(.top, ResultsTimelineMetrics.eyebrowTitleSpacing)
-      Text(String(format: String(localized: "%lld records"), count))
-        .textStyle(Typography.metaValue)
-        .foregroundStyle(Color.muted)
-        .padding(.top, ResultsTimelineMetrics.titleCountSpacing)
-        .accessibilityIdentifier("results.recordCount")
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
-    .padding(.top, ResultsTimelineMetrics.headerTopPadding)
-    // Stacks with the first section's own `.padding(.top, daySectionTopSpacing)`
-    // for a wider header-to-content gutter than the inter-section gap — don't
-    // "deduplicate" this into one inset.
-    .padding(.bottom, ResultsTimelineMetrics.daySectionTopSpacing)
+  /// Centered "N records" count under the (inline) nav title — restored from
+  /// the pre-timeline header so the familiar subtitle sits below the title and
+  /// above the first date section. Aggregate root only (`timelineList`).
+  private func recordCount(_ count: Int) -> some View {
+    Text(String(format: String(localized: "%lld records"), count))
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
+      .frame(maxWidth: .infinity, alignment: .center)
+      .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
+      .padding(.top, ResultsTimelineMetrics.headerTopPadding)
+      .accessibilityIdentifier("results.recordCount")
   }
 
   /// One date section: a big day header + its rows, threaded by a continuous
