@@ -208,9 +208,11 @@ adds/changes a `SimulationEvent` case (or harness-reused Engine/Models source), 
 `scripts/xcodebuild.sh build`, `scripts/ui-tour.sh`, and CI all use. A compile error OR
 layout regression there ships unseen. Compile-check without provisioning:
 `scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`
-(`-destination` override accepted last-wins; signing skipped; Swift compilation runs before
-signing so `** BUILD SUCCEEDED **` confirms the block compiles). **Layout/visual** still
-needs a real device — flag device-QA explicitly in PRs touching these blocks.
+(the wrapper forwards trailing args — `-destination` last-wins, and the
+`CODE_SIGNING_ALLOWED=NO` build-setting reaches xcodebuild — so signing is skipped; Swift
+compilation runs before signing, so `** BUILD SUCCEEDED **` confirms the block compiles).
+**Layout/visual** still needs a real device — flag device-QA explicitly in PRs touching
+these blocks.
 
 ## Fresh worktree's first build can fail SPM resolution (misleading message)
 
