@@ -41,7 +41,12 @@ The rendered PNG is a derived artifact — not committed.
 
 1. **PR1 — 過去の結果 timeline** (#767). Presentation-only; the
    `ResultsViewModel` date-bucket grouping is unchanged. Aggregate root only;
-   the pushed per-scenario detail keeps the grouped list.
+   the pushed per-scenario detail keeps the grouped list. **Shipped deviation
+   from the mock:** the editorial big-title header (eyebrow + large "Past
+   Results") was dropped after on-device review — the always-on `.searchable`
+   drawer rendered above it, inverting the title→search order. The shipped
+   timeline keeps the familiar inline nav title + "N records" subtitle; its tab
+   identity comes from the rail/node shape alone.
 2. **PR2 — さがす catalog cards** (planned).
 3. **PR3 — ホーム hero + compact rows** (planned). After PR3, revisit whether
    `ScenarioSummaryRow` (shared by Home + Search today) can be retired.
