@@ -48,13 +48,26 @@ Non-goals:
 3. `swift build` once to warm the harness build (incremental afterwards).
    A build failure aborts the cycle — report it, do not generate.
 
-## Step 1 — Read the digest (dedup)
+## Step 1 — Read prior scenarios (dedup)
 
 Read `data/factory/digest.md`. Collect every past scenario **id, name,
 theme, and comment** from the section tables. The new batch must not
 repeat: same premise, same persona cast, or a theme judged ≤2 on humor
 twice in a row. Low-scoring past entries are signals about what NOT to
 generate again; high scorers indicate directions worth varying further.
+
+Also collect the **`name` + `description`** of every already-shipped
+scenario, so generation can avoid colliding with the inventory it might
+later be promoted into (§ Promotion):
+
+- Bundled presets — `Pastura/Pastura/Resources/Presets/*.yaml`, **excluding
+  the `*_en.yaml` English mirrors** (they duplicate the `ja` originals).
+- Shared-scenario gallery — `docs/gallery/*_v1.yaml` (read only the YAML
+  `name:` / `description:` scalars; skip `README.md` / `gallery.json` /
+  `shared-scenario-reports.md`).
+
+A new scenario that repeats a shipped preset/gallery premise, mechanics, or
+persona cast is a dedup miss even when the digest is clean.
 
 ## Step 2 — Generate 3 scenario YAMLs
 
