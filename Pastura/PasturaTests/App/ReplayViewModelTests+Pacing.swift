@@ -24,4 +24,11 @@ extension ReplayViewModelTests {
       sources: [source], config: .demoDefault, contentFilter: ContentFilter())
     #expect(viewModel.typingCharsPerSecond == PlaybackSpeed.normal.charsPerSecond)
   }
+
+  // MARK: - showAllThoughts ownership (moved from host @State)
+
+  @Test func showAllThoughtsDefaultsToTrue() throws {
+    let viewModel = try Self.makeVM()
+    #expect(viewModel.showAllThoughts)
+  }
 }

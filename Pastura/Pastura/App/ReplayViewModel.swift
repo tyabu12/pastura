@@ -167,6 +167,15 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// is acceptable for the Demo screen.
   var playbackSpeed: PlaybackSpeed
 
+  /// Whether agent thought lines (`▸ THINKING`) are expanded across the
+  /// demo chat stream. Owned here (not on the host `View`) so the pacing
+  /// floor can read it — the turn-dwell estimate only counts the thought
+  /// segment's typing time when thoughts are shown. Default `true` mirrors
+  /// the Sim / Results state. Aligns the demo with Sim's per-VM toggle
+  /// (``SimulationViewModel``); ``ModelDownloadHostView`` binds the control
+  /// bar's ``ThoughtVisibilityToggle`` to `$viewModel.showAllThoughts`.
+  var showAllThoughts: Bool = true
+
   /// Chat-stream timeline backing the host view's `ScrollView` —
   /// mixed agent outputs and demo-boundary markers in publish order.
   ///

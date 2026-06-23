@@ -84,13 +84,9 @@ struct ModelDownloadHostView: View {
   @State private var replayHadStarted: Bool = false
   @State private var sources: [any ReplaySource] = []
   @State private var isShowingCancelConfirmation: Bool = false
-  /// Whether agent thought lines (`▸ THINKING`) are expanded across the
-  /// chat stream. Default `true` mirrors the Sim / Results state and the
-  /// `docs/specs/demo-replay-ui.md` §163-165 amendment in this PR
-  /// (project-wide "expanded by default"). Module-internal (drops
-  /// `private`) so the sibling `+ControlBar.swift` extension can bind
-  /// to it via `$showAllThoughts`.
-  @State var showAllThoughts: Bool = true
+  // Thought-visibility (`▸ THINKING` expanded) now lives on `ReplayViewModel`
+  // (`showAllThoughts`) so the pacing floor can read it; the control bar binds
+  // `$viewModel.showAllThoughts`. See the VM property's doc-comment.
   /// Re-entry guard for `handleModelStateChange`: `.onChange(of: currentState)`
   /// only fires on inequality, but a defensive same-value re-emit by
   /// `ModelManager` (or a future refactor) would otherwise dispatch the
@@ -233,7 +229,7 @@ struct ModelDownloadHostView: View {
                   agent: entry.agent,
                   output: entry.output,
                   phaseType: entry.phaseType,
-                  showAllThoughts: showAllThoughts,
+                  showAllThoughts: viewModel.showAllThoughts,
                   isLatest: entry.id == lastAgentId,
                   charsPerSecond: viewModel.typingCharsPerSecond,
                   agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
