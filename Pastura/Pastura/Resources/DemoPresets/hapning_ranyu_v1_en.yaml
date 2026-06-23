@@ -1,0 +1,106 @@
+# Demo-backing preset (#764). Resolved by BundledDemoReplaySource /
+# BundledPresetResolver to drive the DL-time demo-replay loop
+# (Resources/DemoReplays/<id>_demo.yaml references this id). Intentionally
+# NOT listed in PresetLoader.presetFileNames, so it does not appear in the
+# user-facing preset picker — it exists only to back a bundled demo.
+# scripts/check_demo_replay_drift.py hashes these bytes for the demo's
+# preset_ref.yaml_sha256 drift guard.
+
+# Translation notes (ADR-010 D3 sibling-file authoring; comedy archetypes
+# carry the game, not the gameplay — see bokete_en.yaml).
+#
+# Persona name rationale: the JA names (安定の正統派 / 便乗の天才 /
+# 哲学かぶれ / 天然パニック) each encode the persona's improv register.
+# Cultural-equivalent EN archetypes are used instead of romaji:
+#
+#   - 安定の正統派 → Steady Eddie     (calm, orthodox one-liner pro)
+#   - 便乗の天才   → Bandwagon Benny  (piles onto the chaos)
+#   - 哲学かぶれ   → Professor Cosmo  (ties everything to the cosmos)
+#   - 天然パニック → Panicky Penny    (sincerely misreads the situation)
+#
+# Events and example utterances are rewritten as natural EN, NOT literal
+# translations. The speak_all phase intentionally outputs `statement`
+# only (no inner_thought) — mirrors the JA source.
+
+id: hapning_ranyu_v1_en
+language: en
+name: Crash the Stage
+description: >
+  Every time the comedians try to land a bit, an unpredictable disaster
+  crashes the venue. An improv game about turning whatever just fell out
+  of the sky into a one-line laugh.
+context: >
+  You are a performer on an improv-disaster show. Every round, a sudden
+  catastrophe strikes the venue. Turn that chaos into a laugh in a single
+  line. Don't pretend it didn't happen — the harder you lean into it, the
+  funnier it gets.
+
+agents: 4
+rounds: 2
+
+events:
+  - a sudden blackout plunges the venue into darkness and no one can see anyone's face
+  - for no reason, a torrent of ping-pong balls rains down from the ceiling
+  - every judge on the panel abruptly falls fast asleep on the spot
+  - the entire venue is now declared to be sunk 10,000 meters deep in the ocean
+  - the whole audience has been swapped out for three-month-old babies
+
+personas:
+  - name: Steady Eddie
+    description: >
+      [Role] A reliable pro who warms up the room with orthodox bits.
+      [Goal] Stay unshaken by any disaster and fire back one calm line.
+      Examples: "A blackout? Finally my face is marked down to list price."
+  - name: Bandwagon Benny
+    description: >
+      [Role] The mischief-maker who leaps onto whatever just happened.
+      [Goal] Amplify the chaos and drag everyone further into it.
+      Examples: "These ping-pong balls? Yeah, those were all my setup from earlier."
+  - name: Professor Cosmo
+    description: >
+      [Role] A pretentious act that ties everything to the cosmos and the
+      meaning of life.
+      [Goal] Reframe a trivial disaster as a grand cosmic truth.
+      Examples: "Darkness is merely the mirror in which the audience confronts itself."
+  - name: Panicky Penny
+    description: >
+      [Role] A natural who genuinely panics and reacts off-target.
+      [Goal] Sincerely misread the situation and blow herself up.
+      Examples: "Babies?! So tonight's paycheck is, what, baby food?"
+
+phases:
+  - type: event_inject
+    source: events
+    as: current_event
+    probability: 1
+
+  - type: speak_all
+    prompt: >
+      Disaster striking the venue: {current_event}
+
+      Give us your best single line that turns this chaos into a laugh.
+      Lean all the way into it. Keep it to one short sentence.
+    output:
+      statement: string
+
+  - type: vote
+    prompt: >
+      This round's disaster: {current_event}
+
+      Each performer's line:
+      {conversation_log}
+
+      Vote for the line, other than your own, that cooked this situation
+      into the biggest laugh.
+      Write the vote target exactly as one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      Round {current_round} result: {scoreboard}

@@ -1,0 +1,217 @@
+# Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
+# run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# was reviewed against Pastura/Resources/ContentBlocklist.json (patterns;
+# ADR-005 content-safety output surface) on 2026-06-23 by @tyabu12 — zero
+# matches across all 89 patterns. Setting metadata.content_filter_applied:
+# true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
+# also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+
+schema_version: 1
+preset_ref:
+  id: iiwake_battle_v1_en
+  version: '1.0'
+  yaml_sha256: 759ef44dfbda424cdb0ffa03235801b0b80a1ceb5b2dd72a3b67becd9aa4a086
+metadata:
+  title: Excuse Escalation
+  description: A battle where contestants take turns making excuses for the same blunder. Each excuse has to be bolder and bigger in scale than the last or it gets buried — a turn-based comedy game where going later is an advantage but overreaching backfires.
+  language: en
+  recorded_at: '2026-06-23T00:50:58Z'
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 16
+  estimated_duration_ms: 15000
+  captured_by: tyabu12
+turns:
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: Globe-Trotter Gary
+  fields:
+    statement: The geopolitical instability caused by a rogue satellite drifting across the Pacific directly impacted my ability to adhere to schedule.
+    inner_thought: A space-based excuse involving global politics should sound suitably absurd and world-weary.
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: Dr. Quantum Quinn
+  fields:
+    statement: My temporal signature experienced a localized phase shift, rendering my arrival time non-linear across standard spacetime metrics.
+    inner_thought: This uses quantum physics jargon to sound incredibly complex and completely unprovable.
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: Tearjerker Theo
+  fields:
+    statement: I was momentarily paralyzed by the sheer overwhelming grief of realizing I had forgotten to feed my beloved, very ancient houseplant, and its resulting existential despair caused a catastrophic delay.
+    inner_thought: This is suitably dramatic and leans into my sentimental nature while sounding completely unbelievable.
+- round: 1
+  phase_index: 1
+  phase_type: speak_each
+  agent: Brazen Bella
+  fields:
+    statement: Look, I wasn't late; I was optimizing my arrival time for maximum dramatic effect, which is clearly superior to boring punctuality.
+    inner_thought: This excuse leans into the theme of spectacle and defiance, fitting Brazen Bella's style perfectly.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Globe-Trotter Gary
+  fields:
+    vote: Dr. Quantum Quinn
+    reason: The concept of non-linear spacetime metrics is the most absurd and scientifically detached explanation for being late.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Dr. Quantum Quinn
+  fields:
+    vote: Globe-Trotter Gary
+    reason: The geopolitical instability excuse is the most complex and sounds genuinely serious, leveraging high-level concepts to sound undeniably plausible.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Tearjerker Theo
+  fields:
+    vote: Dr. Quantum Quinn
+    reason: Dr. Quantum Quinn's excuse involving temporal signatures sounds the most scientifically elaborate and therefore the most plausible, even in this ridiculous scenario.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Brazen Bella
+  fields:
+    vote: Dr. Quantum Quinn
+    reason: The concept of a temporal signature phase shift is far more absurd and abstract than geopolitical instability or plant grief, making it the most memorable and unbelievable excuse.
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: Globe-Trotter Gary
+  fields:
+    statement: The sheer geopolitical instability caused a temporal shift that made the pudding temporally inaccessible to my immediate consumption.
+    inner_thought: This sounds suitably dramatic and blames global chaos for my minor snack crime.
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: Dr. Quantum Quinn
+  fields:
+    statement: My digestive tract initiated a quantum entanglement with the pudding molecules, causing a localized state collapse that resulted in instantaneous molecular assimilation.
+    inner_thought: This sounds sufficiently complicated and scientifically absurd.
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: Tearjerker Theo
+  fields:
+    statement: Oh, the betrayal! That pudding held a secret recipe my late Aunt Mildred used to make, and I felt compelled by her memory to consume it in silent mourning.
+    inner_thought: This one leans into sentimental grief and legacy, which should appeal to the emotional core of the judges.
+- round: 2
+  phase_index: 1
+  phase_type: speak_each
+  agent: Brazen Bella
+  fields:
+    statement: I didn't eat the pudding; I simply initiated a symbiotic relationship with it, and now we are sharing vital nutritional data.
+    inner_thought: This sounds both scientific and completely ridiculous, leaning into my 'owning it' persona.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Globe-Trotter Gary
+  fields:
+    vote: Dr. Quantum Quinn
+    reason: The quantum entanglement explanation is the most scientifically absurd and therefore the most memorable way to explain a simple act of eating.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Dr. Quantum Quinn
+  fields:
+    vote: Brazen Bella
+    reason: Brazen Bella's excuse about a symbiotic relationship with the pudding sounds the most uniquely fabricated and memorable.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Tearjerker Theo
+  fields:
+    vote: Dr. Quantum Quinn
+    reason: The quantum entanglement story is the most creative and sounds genuinely baffling, which fits the high-concept nature of this show better than sentimental grief.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Brazen Bella
+  fields:
+    vote: Dr. Quantum Quinn
+    reason: Dr. Quantum Quinn's explanation involving quantum entanglement is the most creative and absurdly scientific, making it the most memorable excuse among the group.
+code_phase_events:
+- round: 1
+  phase_index: 0
+  phase_type: assign
+  summary: 'Globe-Trotter Gary assigned: Your blunder: you showed up two hours late to an important meeting.'
+  payload:
+    kind: assignment
+    agent: Globe-Trotter Gary
+    value: 'Your blunder: you showed up two hours late to an important meeting.'
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  summary: 'Votes — Dr. Quantum Quinn: 3, Globe-Trotter Gary: 1'
+  payload:
+    kind: voteResults
+    votes:
+      Brazen Bella: Dr. Quantum Quinn
+      Dr. Quantum Quinn: Globe-Trotter Gary
+      Globe-Trotter Gary: Dr. Quantum Quinn
+      Tearjerker Theo: Dr. Quantum Quinn
+    tallies:
+      Dr. Quantum Quinn: 3
+      Globe-Trotter Gary: 1
+- round: 1
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Brazen Bella: 0, Dr. Quantum Quinn: 3, Globe-Trotter Gary: 1, Tearjerker Theo: 0'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Brazen Bella: 0
+      Dr. Quantum Quinn: 3
+      Globe-Trotter Gary: 1
+      Tearjerker Theo: 0
+- round: 1
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 1 result: {"Brazen Bella": 0, "Dr. Quantum Quinn": 3, "Globe-Trotter Gary": 1, "Tearjerker Theo": 0}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 0
+  phase_type: assign
+  summary: 'Globe-Trotter Gary assigned: Your blunder: you ate the pudding your coworker left on their desk.'
+  payload:
+    kind: assignment
+    agent: Globe-Trotter Gary
+    value: 'Your blunder: you ate the pudding your coworker left on their desk.'
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  summary: 'Votes — Brazen Bella: 1, Dr. Quantum Quinn: 3'
+  payload:
+    kind: voteResults
+    votes:
+      Brazen Bella: Dr. Quantum Quinn
+      Dr. Quantum Quinn: Brazen Bella
+      Globe-Trotter Gary: Dr. Quantum Quinn
+      Tearjerker Theo: Dr. Quantum Quinn
+    tallies:
+      Brazen Bella: 1
+      Dr. Quantum Quinn: 3
+- round: 2
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Brazen Bella: 1, Dr. Quantum Quinn: 6, Globe-Trotter Gary: 1, Tearjerker Theo: 0'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Brazen Bella: 1
+      Dr. Quantum Quinn: 6
+      Globe-Trotter Gary: 1
+      Tearjerker Theo: 0
+- round: 2
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 2 result: {"Brazen Bella": 1, "Dr. Quantum Quinn": 6, "Globe-Trotter Gary": 1, "Tearjerker Theo": 0}'
+  payload:
+    kind: summary
