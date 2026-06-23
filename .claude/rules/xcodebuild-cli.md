@@ -189,30 +189,25 @@ Swift-Testing-only files it always prints `Executed 0 tests`, which is **cosmeti
 
 ## Engine/Models/`SimulationEvent` changes need local `swift build` (harness)
 
-The ADR-013 harness is a SwiftPM package (root `Package.swift`, `PasturaCore` target reusing
-`Models`/`LLM`/`Engine`). It is built by `swift build` / `swift test`, NOT by
-`scripts/xcodebuild.sh` or the pre-commit hook (iOS app target only). So a change to a
-`SimulationEvent` case — or any Engine/Models source the harness reuses — can pass the full
-xcodebuild suite + pre-commit locally and still break the CI "Harness package build" job.
-`tools/harness/Sources/PasturaHarnessKit/EventLineMapper.swift` has an intentional
-no-`default:` exhaustive switch (compile-time canary) plus a `RunLogTests` curated-list
-canary, so a new event case breaks the harness build by design. **Apply**: when a PR
-adds/changes a `SimulationEvent` case (or harness-reused Engine/Models source), run
-`swift build` (and `swift test`) from the repo root before push, and map the new event in
-`EventLineMapper` (return `nil` for internal/persistence events).
+The ADR-013 harness is a SwiftPM package reusing `Models`/`LLM`/`Engine`, built by
+`swift build` / `swift test` — NOT by `scripts/xcodebuild.sh` or the pre-commit hook (iOS
+app target only). So a change to a `SimulationEvent` case (or any harness-reused Engine/
+Models source) can pass the full xcodebuild suite + pre-commit locally and still break the
+CI "Harness package build" job — `EventLineMapper.swift` has an intentional no-`default:`
+exhaustive switch (compile-time canary). **Apply**: on any such change, run `swift build`
+from the repo root before push and map the new event in `EventLineMapper` (`nil` for
+internal/persistence events). See ADR-013.
 
 ## Compile-checking device-only (`#if !targetEnvironment(simulator)`) code
 
 `#if !targetEnvironment(simulator)` blocks (e.g. `SettingsView` model-management UI,
 `ModelSettingsRow`) are excluded from the simulator build — which is what
-`scripts/xcodebuild.sh build`, `scripts/ui-tour.sh`, and CI all use. A compile error OR
+`scripts/xcodebuild.sh build`, `scripts/ui-tour.sh`, and CI all use, so a compile error OR
 layout regression there ships unseen. Compile-check without provisioning:
 `scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`
-(the wrapper forwards trailing args — `-destination` last-wins, and the
-`CODE_SIGNING_ALLOWED=NO` build-setting reaches xcodebuild — so signing is skipped; Swift
-compilation runs before signing, so `** BUILD SUCCEEDED **` confirms the block compiles).
-**Layout/visual** still needs a real device — flag device-QA explicitly in PRs touching
-these blocks.
+(wrapper forwards both trailing args; signing is skipped, and Swift compiles before signing
+so `** BUILD SUCCEEDED **` confirms the block compiles). **Layout/visual** still needs a
+real device — flag device-QA explicitly in PRs touching these blocks.
 
 ## Fresh worktree's first build can fail SPM resolution (misleading message)
 
@@ -249,17 +244,15 @@ load + within-process clone pressure under constrained VM).
 
 ### XCUITest idle-stall on continuous animations (slowness, not a retry-flake)
 
-When the `ui-test` job is slow (heavy tests 300–400 s on the GPU-less macos-26 sim) but the
-same tests run ~25 s locally, suspect **idle-stall**: XCUITest waits for the app to reach
-"idle" (no continuous `CAAnimation`) before each element query; indeterminate
-`ProgressView()`, `.symbolEffect(…, options: .repeating)`, `.repeatForever` never settle and
-stall every query. Manifests on the GPU-less CI sim, NOT locally (Mac GPU masks it) —
-**local before/after can't validate; use a draft-PR CI run**. Suppress under `--ui-test`
-(`UITestMode.isActive` → `\.isUITestMode` env → `IdleFriendlyProgressView`,
-`symbolEffect(isActive: !isUITestMode)`, DogMark pulse guard). **Cap-tuning gotcha**: legit
-CI durations overlap the stall range, so a single tight
-`-default-test-execution-time-allowance` false-kills slow-by-design tests
-(`InFlightIndicatorReconnectUITests` opts out via `executionTimeAllowance = 600`).
+When the `ui-test` job is slow (heavy tests 300–400 s) but the same tests run ~25 s
+locally, suspect **idle-stall**: XCUITest waits for the app to reach "idle" (no continuous
+`CAAnimation`) before each query, so indeterminate `ProgressView()`,
+`.symbolEffect(…, options: .repeating)`, `.repeatForever` stall every query. Manifests on
+the GPU-less CI sim only (Mac GPU masks it locally) — **local before/after can't validate;
+use a draft-PR CI run**. Suppress under `--ui-test` (`UITestMode.isActive` →
+`IdleFriendlyProgressView` + `symbolEffect(isActive:)` guards). **Cap-tuning gotcha**: legit
+durations overlap the stall range, so a single tight `-default-test-execution-time-allowance`
+false-kills slow-by-design tests (opt out via per-test `executionTimeAllowance`).
 
 ### When to escalate
 
