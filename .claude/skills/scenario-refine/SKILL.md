@@ -194,6 +194,10 @@ For each chosen baseline:
    *mechanics* (persona differentiation, output-field constraints, round/topic
    structure — see the factory's generation learnings), not just topic
    strings. Keep the inference estimate ≤ 50 (the wrapper hard-blocks > 100).
+   When varying `output` fields, keep the **canonical** names: primary =
+   `statement`/`action`/`vote`, private-thought = `reason` for `vote` and
+   `inner_thought` for `speak_all`/`speak_each`/`choose`. A choose/speak phase
+   with `reason` streams live but goes blank on the committed row (#760).
    **This is the only YAML the skill writes, and it goes under
    `data/factory/` — never next to the baseline.**
 3. Run it (Step 2 shape, into `audit-runs/<DATE>/<id>__v2.jsonl`) and judge it
