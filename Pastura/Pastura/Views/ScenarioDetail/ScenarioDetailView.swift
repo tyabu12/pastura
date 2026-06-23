@@ -13,6 +13,10 @@ struct ScenarioDetailView: View {
 
   @Environment(AppDependencies.self) private var dependencies
   @Environment(\.dismiss) private var dismiss
+  // Programmatic push for the overflow-menu Edit / Use-as-Template actions:
+  // a `NavigationLink` inside a `Menu` does not reliably push, so these go
+  // through the current tab's router (navigation.md § "When to use what").
+  @Environment(AppRouter.self) private var router
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
 
@@ -54,12 +58,42 @@ struct ScenarioDetailView: View {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
-      if let record = viewModel?.record, !record.isPreset {
-        ToolbarItem(placement: .destructiveAction) {
-          Button(String(localized: "Delete"), role: .destructive) {
-            showDeleteConfirm = true
+      // Low-frequency scenario-management actions (edit / clone / delete)
+      // live in a `⋯` overflow menu rather than a pinned top-right slot —
+      // the prime real estate is reserved for the primary Run CTA (now a
+      // bottom-pinned button). Mirrors `ResultDetailView`'s ellipsis idiom.
+      if let record = viewModel?.record {
+        ToolbarItem(placement: .primaryAction) {
+          Menu {
+            // Read-only sources (preset / installed gallery copy) get a
+            // clone-as-template action; user scenarios get direct edit.
+            if record.isPreset || (viewModel?.isGallerySourced ?? false) {
+              Button {
+                router.push(.editor(templateYAML: record.yamlDefinition))
+              } label: {
+                Label(String(localized: "Use as Template"), systemImage: "doc.on.doc")
+              }
+            } else {
+              Button {
+                router.push(.editor(editingId: scenarioId))
+              } label: {
+                Label(String(localized: "Edit"), systemImage: "pencil")
+              }
+            }
+            // Delete is gated EXACTLY as the prior toolbar button (`!isPreset`),
+            // so an installed gallery copy (`isPreset == false`) stays deletable
+            // — gallery read-only blocks edit/overwrite, not deleting the copy.
+            if !record.isPreset {
+              Button(role: .destructive) {
+                showDeleteConfirm = true
+              } label: {
+                Label(String(localized: "Delete"), systemImage: "trash")
+              }
+            }
+          } label: {
+            Image(systemName: "ellipsis.circle")
           }
-          .buttonStyle(PasturaToolbarButtonStyle(variant: .destructive))
+          .accessibilityIdentifier("scenarioDetail.actionsMenu")
         }
         .hidingPasturaSharedBackground()
       }
@@ -104,7 +138,7 @@ struct ScenarioDetailView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
         galleryBannerSection(viewModel: viewModel)
-        overviewSection(scenario: scenario, viewModel: viewModel)
+        summaryStrip(scenario: scenario, viewModel: viewModel)
         contextSection(scenario: scenario)
         personasSection(scenario: scenario)
         phasesSection(scenario: scenario)
@@ -116,7 +150,55 @@ struct ScenarioDetailView: View {
     .background(Color.screenBackground.ignoresSafeArea())
     // Post-load anchor: this ScrollView only exists once the scenario
     // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
-    // can wait on it instead of sleeping.
+    // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
+    // applied after, its identifier scopes the inset's Run button too and
+    // overrides the button's own `scenarioDetail.runSimulationButton` id.
     .accessibilityIdentifier("scenarioDetail.list")
+    // Primary CTA pinned to the bottom safe-area edge so the app's core
+    // action stays in the thumb zone regardless of scroll position; content
+    // scrolls under the band. The tab bar sits below this (focus mode hides
+    // the tab bar only during a run, ADR-017 — not here).
+    .safeAreaInset(edge: .bottom) {
+      runSimulationCTA(scenario: scenario, viewModel: viewModel)
+    }
+  }
+
+  /// Bottom-pinned primary call-to-action. Uses `PasturaPrimaryButtonStyle`
+  /// in its `.compact` size — a centred, content-width pill rather than a
+  /// full-width slab, keeping design-system §1's restrained "static, observed"
+  /// voice (the full-width mossDark bar read as too dominant on device). Stays
+  /// a `NavigationLink` pushing onto the current tab's stack (no
+  /// `navigationDestination(item:)` — navigation.md).
+  private func runSimulationCTA(
+    scenario: Scenario, viewModel: ScenarioDetailViewModel
+  ) -> some View {
+    // initialName supplies the scenario name to SimulationView's
+    // navigationTitle from the first frame, before loadAndRun() re-parses
+    // the YAML. Identity-neutral via RouteHint (ADR-008).
+    NavigationLink(
+      value: Route.simulation(
+        scenarioId: scenarioId,
+        initialName: .init(scenario.name)
+      )
+    ) {
+      Label(String(localized: "Run Simulation"), systemImage: "play.fill")
+    }
+    .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
+    .disabled(!viewModel.canRun)
+    .opacity(viewModel.canRun ? 1 : 0.4)
+    .accessibilityIdentifier("scenarioDetail.runSimulationButton")
+    // Intrinsic-width pill centred in the full-width band (no label
+    // `.frame(maxWidth:)`); the outer frame spans the band so the hairline
+    // background reaches both edges.
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 12)
+    // Opaque band + top hairline so scroll content reads as passing *under*
+    // a distinct footer, not blending into the last card. If device QA shows
+    // a colour seam against the tab bar, bleed the band background down with
+    // `.ignoresSafeArea(.container, edges: .bottom)` (background only).
+    .background(alignment: .top) {
+      Color.screenBackground
+        .overlay(alignment: .top) { Color.rule.frame(height: 0.5) }
+    }
   }
 }
