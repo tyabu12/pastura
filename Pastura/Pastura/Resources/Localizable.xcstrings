@@ -5238,6 +5238,9 @@
         }
       }
     },
+    "Self-made" : {
+
+    },
     "Send a content report" : {
       "comment" : "Settings → Legal section row that opens ReportSheet with no specific scenario context.",
       "localizations" : {

@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// A single scenario-summary row shared by the Home and Shared Scenarios
-/// (Browse) tabs. Renders the inner label only — title (+ trailing badge) /
+/// A single scenario-summary row used by the Shared Scenarios (Browse) and
+/// Past Results tabs. Renders the inner label only — title (+ trailing badge) /
 /// sheep · rounds meta line / description / an optional `leading · trailing`
 /// caption. The enclosing chevron and row padding stay in the **caller**
-/// (`HomeScenarioRow` / Shared Scenarios' `galleryRow`), which already wrap
-/// this label with a `NavigationLink` + disclosure chevron; keeping that
-/// chrome out of the component leaves a single owner for the hit target and
-/// avoids two chevrons.
+/// (Shared Scenarios' `galleryRow`, etc.), which already wraps this label with
+/// a `NavigationLink` + disclosure chevron; keeping that chrome out of the
+/// component leaves a single owner for the hit target and avoids two chevrons.
+///
+/// (Home moved to the denser ``HomeCompactScenarioRow`` in the tab-identity
+/// redesign — PR3; whether this shared row can be retired is revisited once
+/// Search's catalog redesign also lands.)
 ///
 /// The component is presentation-only: it takes already-resolved values
 /// (``ScenarioSummaryRow/Model``), never the Engine/Data domain types, so it

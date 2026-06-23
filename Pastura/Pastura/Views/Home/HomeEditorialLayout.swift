@@ -105,4 +105,14 @@ enum HomeCompactRowLayout {
 
   /// Letter spacing applied to the mono caption.
   static let captionTracking: CGFloat = 0.2
+
+  /// Diameter of the accent "gallery update available" dot pinned to the icon
+  /// tile's top-trailing corner. Replaces the old inline "Update" text badge —
+  /// the compact row keeps the signal minimal; VoiceOver still announces it via
+  /// the row's accessibility value.
+  static let updateBadgeDotSize: CGFloat = 9
+
+  /// Screen-background ring around the update dot so it reads as a badge over
+  /// the moss-wash tile.
+  static let updateBadgeDotStrokeWidth: CGFloat = 1.5
 }

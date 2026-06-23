@@ -53,6 +53,9 @@ struct HomeCompactScenarioRow: View {
     }
     .buttonStyle(.plain)
     .accessibilityIdentifier("home.scenarioListCell.\(scenario.id)")
+    // Preserve the gallery-update signal for VoiceOver now that the inline
+    // "Update" text badge is gone (the visible dot on the tile is decorative).
+    .accessibilityValue(hasGalleryUpdate ? Text(String(localized: "Update")) : Text(""))
   }
 
   /// The leading icon tile: a moss-wash rounded square framing either a sheep
@@ -79,6 +82,22 @@ struct HomeCompactScenarioRow: View {
       }
     }
     .frame(width: HomeCompactRowLayout.iconTileSize, height: HomeCompactRowLayout.iconTileSize)
+    .overlay(alignment: .topTrailing) {
+      if hasGalleryUpdate {
+        Circle()
+          .fill(Color.accentColor)
+          .frame(
+            width: HomeCompactRowLayout.updateBadgeDotSize,
+            height: HomeCompactRowLayout.updateBadgeDotSize
+          )
+          .overlay(
+            Circle().strokeBorder(
+              Color.screenBackground, lineWidth: HomeCompactRowLayout.updateBadgeDotStrokeWidth)
+          )
+          // Nudge so the dot straddles the tile's corner.
+          .offset(x: 3, y: -3)
+      }
+    }
     .accessibilityHidden(true)
   }
 

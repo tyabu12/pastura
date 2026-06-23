@@ -72,4 +72,9 @@ struct HomeCompactRowLayoutTests {
     #expect(HomeCompactRowLayout.captionFontSize == 11)
     #expect(HomeCompactRowLayout.captionTracking == 0.2)
   }
+
+  @Test func updateBadgeDotUnchanged() {
+    #expect(HomeCompactRowLayout.updateBadgeDotSize == 9)
+    #expect(HomeCompactRowLayout.updateBadgeDotStrokeWidth == 1.5)
+  }
 }
