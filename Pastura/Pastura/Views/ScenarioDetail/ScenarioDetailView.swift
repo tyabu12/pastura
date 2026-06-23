@@ -164,9 +164,11 @@ struct ScenarioDetailView: View {
   }
 
   /// Bottom-pinned primary call-to-action. Uses `PasturaPrimaryButtonStyle`
-  /// (mossDark fill, WCAG-AA, no capsule / scale animation — design-system
-  /// §1 static voice). Stays a `NavigationLink` pushing onto the current
-  /// tab's stack (no `navigationDestination(item:)` — navigation.md).
+  /// in its `.compact` size — a centred, content-width pill rather than a
+  /// full-width slab, keeping design-system §1's restrained "static, observed"
+  /// voice (the full-width mossDark bar read as too dominant on device). Stays
+  /// a `NavigationLink` pushing onto the current tab's stack (no
+  /// `navigationDestination(item:)` — navigation.md).
   private func runSimulationCTA(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
@@ -179,17 +181,16 @@ struct ScenarioDetailView: View {
         initialName: .init(scenario.name)
       )
     ) {
-      // `.frame(maxWidth:)` goes on the *label* (not the outer link) so the
-      // style's fill spans the band — the gallery "Try this scenario"
-      // full-width CTA convention (GalleryScenarioDetailView).
       Label(String(localized: "Run Simulation"), systemImage: "play.fill")
-        .frame(maxWidth: .infinity)
     }
-    .buttonStyle(PasturaPrimaryButtonStyle())
+    .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
     .disabled(!viewModel.canRun)
     .opacity(viewModel.canRun ? 1 : 0.4)
     .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-    .padding(.horizontal, PasturaCardMetrics.interCardSpacing)
+    // Intrinsic-width pill centred in the full-width band (no label
+    // `.frame(maxWidth:)`); the outer frame spans the band so the hairline
+    // background reaches both edges.
+    .frame(maxWidth: .infinity)
     .padding(.vertical, 12)
     // Opaque band + top hairline so scroll content reads as passing *under*
     // a distinct footer, not blending into the last card. If device QA shows
