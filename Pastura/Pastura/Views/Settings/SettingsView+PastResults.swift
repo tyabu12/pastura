@@ -13,8 +13,8 @@ extension SettingsView {
   /// Whether the execution-log DB has crossed the advisory growth cap
   /// (ADR-015 D1 / #565). `false` while the size is still loading (`nil`).
   var isOverGrowthCap: Bool {
-    guard let bytes = databaseByteCount else { return false }
-    return RetentionAdvisory.isOverAdvisoryCap(databaseByteCount: bytes)
+    guard let bytes = pastResultsByteCount else { return false }
+    return RetentionAdvisory.isOverAdvisoryCap(pastResultsByteCount: bytes)
   }
   /// Whether clear-all is blocked because a simulation is in flight.
   /// Mirrors the Models section's model-switch gate
@@ -50,7 +50,7 @@ extension SettingsView {
       }
       // Always-on storage caption (#565) — surfaces current DB size once
       // loaded. Hidden while loading or after a read failure (`nil`).
-      if let bytes = databaseByteCount {
+      if let bytes = pastResultsByteCount {
         Text(
           String(
             format: String(localized: "Storage used: %@"),
@@ -95,17 +95,17 @@ extension SettingsView {
     return formatter.string(fromByteCount: bytes)
   }
 
-  /// Loads the execution-log DB size off the main actor for the storage
-  /// caption + advisory cap (#565). On failure the caption is informational,
-  /// so hide it (`nil`) and log rather than alerting.
+  /// Loads the past-results content size off the main actor for the storage
+  /// caption + advisory cap (#565/#770). On failure the caption is
+  /// informational, so hide it (`nil`) and log rather than alerting.
   func loadStorageUsage() async {
     let simRepo = dependencies.simulationRepository
     do {
-      databaseByteCount = try await offMain { try simRepo.databaseByteCount() }
+      pastResultsByteCount = try await offMain { try simRepo.pastResultsByteCount() }
     } catch {
-      databaseByteCount = nil
+      pastResultsByteCount = nil
       Self.pastResultsLogger.error(
-        "databaseByteCount read failed: \(error.localizedDescription, privacy: .public)")
+        "pastResultsByteCount read failed: \(error.localizedDescription, privacy: .public)")
     }
   }
 
