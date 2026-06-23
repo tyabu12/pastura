@@ -5,7 +5,7 @@ paths:
 
 # SwiftUI / Swift 6 Traps
 
-Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface during Pastura app development. Loaded only when editing Swift files in the app target. Cross-references to `navigation.md` (always-loaded) for AppRouter / `PasturaBackButton` mechanics — this file is the trap catalog, that one is the navigation pattern.
+Aggregation point for SwiftUI footguns, Swift 6 isolation quirks, and build-graph/xcodeproj traps that surface during Pastura app development. Loaded only when editing Swift files in the app target. Cross-references to `navigation.md` (always-loaded) for AppRouter / `PasturaBackButton` mechanics — this file is the trap catalog, that one is the navigation pattern.
 
 ## Toolbar-hide API matrix (iOS 17 → 26)
 
@@ -95,3 +95,44 @@ not after a full PR cycle" see #144.
 - [Apple Dev Forums thread/674393](https://developer.apple.com/forums/thread/674393) (cross-section drag)
 - [Apple Dev Forums thread/730367](https://developer.apple.com/forums/thread/730367) (dropDestination in List)
 - [HIG — Drag and drop](https://developer.apple.com/design/human-interface-guidelines/drag-and-drop)
+
+## `.accessibilityIdentifier` ordering around `.safeAreaInset`
+
+`.accessibilityIdentifier("X")` applied to a container **after**
+`.safeAreaInset(edge:)` scopes "X" into the inset's child subtree,
+**overriding** a child button's own `.accessibilityIdentifier("Y")`. In
+XCUITest the button then surfaces with identifier "X", so `app.buttons["Y"]`
+never resolves — a silent break (the element exists, just under the wrong id).
+Scoped to the **container the inset is attached to** (outer position), not a
+blanket "id always leaks."
+
+**Apply**: put the container's `.accessibilityIdentifier` **before**
+`.safeAreaInset`, so the inset content stays out of that id's scope.
+
+```swift
+ScrollView { … }
+  .accessibilityIdentifier("scenarioDetail.list")   // BEFORE — scopes scroll content only
+  .safeAreaInset(edge: .bottom) { runCTA }            // inset keeps its own button id
+```
+
+Reference + inline rationale: `ScenarioDetailView.swift` (`scenarioDetail.list`
+just above its `.safeAreaInset`).
+
+**Diagnose** which id an element actually carries — instead of guessing —
+by exporting the a11y snapshot from the failing `.xcresult`:
+`xcrun xcresulttool export attachments --path <xcresult> --output-path <dir>`,
+then read the "App UI hierarchy" `.txt`.
+
+## Duplicate base filename → `.stringsdata` collision (build trap, not SwiftUI)
+
+Two Swift files with the same **base name** in one target fail the build with
+`error: Multiple commands produce '…/<Name>.stringsdata'` (each Swift file emits
+one `<BaseName>.stringsdata`). Easy to hit under Pastura's
+`PBXFileSystemSynchronizedRootGroup` — sync folder groups auto-include every new
+file under `Pastura/`, so a duplicate base name **anywhere** in the tree (even
+cross-layer) collides.
+
+**Apply**: before adding a file, `find Pastura/Pastura -name '<Name>*.swift'`;
+if taken, pick a distinct name (rename the type too if it also clashes). Case
+study: #759 renamed a new `ScenarioSummary.swift` (Views) that collided with the
+Data-layer `ScenarioSummary` → `ScenarioSummaryStrip`.
