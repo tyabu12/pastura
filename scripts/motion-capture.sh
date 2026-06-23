@@ -7,12 +7,18 @@
 # under docs/design/motion/<variant>/. The artifacts give a human or agent
 # a *time axis* on motion that a single screenshot can't convey.
 #
-# First-deliverable variants (the app-launch sequence — see
+# Launch-animation variants (the app-launch sequence — see
 # Pastura/Pastura/Views/Splash/ and LaunchAnimationConfig):
 #   cold          — "Pastoral Drift" full cold-launch splash
 #   warm          — abbreviated "Breath" warm-launch splash
 #   reduce-motion — cold splash with the Reduce Motion fallback
-#   all (default) — all three in sequence
+#   all (default) — the three launch variants in sequence
+#
+# Other variants (explicit-only — NOT part of `all`, different in nature):
+#   demo          — the DL-time demo replay screen, for verifying the
+#                   chat-stream TYPING animation speed frame-by-frame
+#                   (the filmstrip gives a time axis; count the characters
+#                   revealed per frame at MOTION_FPS to read off chars/sec).
 #
 # How the launch animation is forced: under `--ui-test` the splash is
 # normally suppressed (PasturaApp.swift). The DEBUG-only `--capture-launch`
@@ -23,6 +29,12 @@
 # accessibilityReduceMotion)`; that key is read-only in Swift 6, so it can't
 # be injected from code).
 #
+# How the demo replay is forced: the DEBUG-only `--capture-demo` arg
+# (PasturaApp.swift) seeds the active model into `.downloading` and routes to
+# `.needsModelDownload`, so `ModelDownloadHostView` renders the bundled demo
+# replay — WITHOUT a real download. It does NOT use `--ui-test` (that would
+# short-circuit to `.ready` and never reach the demo host).
+#
 # Local-run only by design — generated artifacts are gitignored (only the
 # README is tracked), and this is NOT a CI gate (same posture as
 # scripts/ui-tour.sh). Do NOT run concurrently with scripts/ui-tour.sh or
@@ -30,8 +42,9 @@
 # simulator's Reduce Motion setting and holds a video recorder, and the
 # sim-dest.sh gate only sees `xcodebuild test`, not `simctl io`.
 #
-# Usage: scripts/motion-capture.sh [cold|warm|reduce-motion|all]
-# Env:   MOTION_FPS (default 12)   — frame extraction rate
+# Usage: scripts/motion-capture.sh [cold|warm|reduce-motion|all|demo]
+# Env:   MOTION_FPS (default 12)   — frame extraction rate (bump it, e.g.
+#        MOTION_FPS=24, for finer chars/sec resolution on the `demo` variant)
 #        MOTION_THUMB_W (default 160) — per-frame width (px) in the filmstrip
 # Requires: ffmpeg (brew install ffmpeg)
 
@@ -54,9 +67,9 @@ fi
 
 VARIANT="${1:-all}"
 case "$VARIANT" in
-  cold | warm | reduce-motion | all) ;;
+  cold | warm | reduce-motion | all | demo) ;;
   *)
-    echo "ERROR: unknown variant '$VARIANT' (expected: cold | warm | reduce-motion | all)" >&2
+    echo "ERROR: unknown variant '$VARIANT' (expected: cold | warm | reduce-motion | all | demo)" >&2
     exit 1
     ;;
 esac
@@ -145,6 +158,18 @@ xcrun simctl launch "$UDID" "$BUNDLE_ID" --ui-test > /dev/null 2>&1 || true
 sleep 4
 xcrun simctl terminate "$UDID" "$BUNDLE_ID" > /dev/null 2>&1 || true
 
+# The `--ui-test` warm-up above boots into the in-memory MockLLM path, which
+# does NOT warm the `--capture-demo` init (AppDependencies.production() + demo
+# resource load). Pay that distinct cold cost once so the demo capture_window
+# below isn't spent waiting on first-launch init instead of the typing it
+# means to record.
+if [ "$VARIANT" = "demo" ]; then
+  echo "Warming up demo-replay init path..."
+  xcrun simctl launch "$UDID" "$BUNDLE_ID" --capture-demo > /dev/null 2>&1 || true
+  sleep 4
+  xcrun simctl terminate "$UDID" "$BUNDLE_ID" > /dev/null 2>&1 || true
+fi
+
 # capture_one <variant>: record a single launch animation and expand it.
 capture_one() {
   local variant="$1"
@@ -169,6 +194,17 @@ capture_one() {
       reduce_motion=0
       # warmDuration 0.7s (~0.5s hold + ~0.2s exit); extra to show Home.
       capture_window=2.0
+      ;;
+    demo)
+      launch_args="--capture-demo"
+      reduce_motion=0
+      # Sized for a COLD demo-host boot (the --ui-test cache warm-up does not
+      # warm the --capture-demo production-init path) PLUS a generous stretch
+      # of the chat-stream typing animation — the actual thing being measured.
+      # The replay loops through several demos, so over-shooting just captures
+      # more typing; under-shooting clips it. Re-run with a larger value (or
+      # a higher MOTION_FPS) if the first agent bubble doesn't finish on screen.
+      capture_window=18.0
       ;;
   esac
 

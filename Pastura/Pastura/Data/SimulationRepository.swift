@@ -104,24 +104,35 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// per-run ``delete(_:)`` deliberately skips `VACUUM`).
   func deleteAll() throws
 
-  /// Returns the logical size of the database in bytes, computed as
-  /// `page_count * page_size` (SQLite `PRAGMA`s).
+  /// Returns the byte size of the **past-results** content only — the
+  /// `simulations`, `turns`, and `code_phase_events` tables — by summing
+  /// the UTF-8 length of their substantial TEXT columns.
   ///
-  /// This is the SQLite-allocated size: it counts every page the file
-  /// still holds (deletes free pages but only `VACUUM` shrinks the file)
-  /// and excludes the transient rollback journal. It reads off a single
-  /// connection, so it works for in-memory databases (tests) as well as
-  /// the on-disk store — no file-path dependency, keeping the measure
-  /// inside the Data layer.
+  /// Deliberately **excludes** the `scenarios` table (bundled presets are
+  /// re-seeded on every launch and survive a clear-all), the SQLite schema
+  /// / index / free pages, and the rollback journal. So this is NOT the
+  /// database file size (`page_count * page_size`): it is what "Clear all
+  /// results" actually reclaims, and it reaches exactly `0` once every run
+  /// is deleted — matching the Settings "Past Results" caption's intent
+  /// (#770). It reads off a single connection, so it works for in-memory
+  /// databases (tests) as well as the on-disk store — no file-path
+  /// dependency, keeping the measure inside the Data layer.
+  ///
+  /// The sum covers the JSON-payload + snapshot columns that dominate
+  /// per-run storage (ADR-015 §2); id / FK / integer / timestamp / short
+  /// label columns are omitted as byte-negligible next to the payloads.
   ///
   /// Powers the App layer's advisory growth cap (ADR-015 D1 / §3) — a
   /// non-deleting safety stop surfaced when the store grows large.
-  func databaseByteCount() throws -> Int64
+  func pastResultsByteCount() throws -> Int64
 }
 
 /// GRDB-backed implementation of `SimulationRepository`.
 nonisolated public final class GRDBSimulationRepository: SimulationRepository, Sendable {
-  private let dbWriter: any DatabaseWriter
+  // `internal` (not `private`): read by the `pastResultsByteCount()` impl
+  // in the sibling `SimulationRepository+PastResultsSize.swift` extension,
+  // which a cross-file extension can only reach at module scope.
+  let dbWriter: any DatabaseWriter
 
   public init(dbWriter: any DatabaseWriter) {
     self.dbWriter = dbWriter
@@ -383,18 +394,6 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
     try dbWriter.writeWithoutTransaction { db in
       _ = try SimulationRecord.deleteAll(db)
       try db.execute(sql: "VACUUM")
-    }
-  }
-
-  public func databaseByteCount() throws -> Int64 {
-    try dbWriter.read { db in
-      // `PRAGMA` results come back as rows; read each as a scalar. `?? 0`
-      // is a safe floor: these PRAGMAs always return a row, but if one ever
-      // didn't, reporting 0 fails soft (suppresses the advisory) rather than
-      // throwing — matching the informational, never-deleting posture.
-      let pageCount = try Int64.fetchOne(db, sql: "PRAGMA page_count") ?? 0
-      let pageSize = try Int64.fetchOne(db, sql: "PRAGMA page_size") ?? 0
-      return pageCount * pageSize
     }
   }
 }

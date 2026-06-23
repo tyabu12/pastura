@@ -17,18 +17,18 @@ struct RetentionAdvisoryTests {
   }
 
   @Test func belowThresholdDoesNotSurface() {
-    #expect(!RetentionAdvisory.isOverAdvisoryCap(databaseByteCount: threshold - 1))
+    #expect(!RetentionAdvisory.isOverAdvisoryCap(pastResultsByteCount: threshold - 1))
   }
 
   @Test func exactlyAtThresholdSurfaces() {
-    #expect(RetentionAdvisory.isOverAdvisoryCap(databaseByteCount: threshold))
+    #expect(RetentionAdvisory.isOverAdvisoryCap(pastResultsByteCount: threshold))
   }
 
   @Test func aboveThresholdSurfaces() {
-    #expect(RetentionAdvisory.isOverAdvisoryCap(databaseByteCount: threshold + 1))
+    #expect(RetentionAdvisory.isOverAdvisoryCap(pastResultsByteCount: threshold + 1))
   }
 
   @Test func zeroDoesNotSurface() {
-    #expect(!RetentionAdvisory.isOverAdvisoryCap(databaseByteCount: 0))
+    #expect(!RetentionAdvisory.isOverAdvisoryCap(pastResultsByteCount: 0))
   }
 }
