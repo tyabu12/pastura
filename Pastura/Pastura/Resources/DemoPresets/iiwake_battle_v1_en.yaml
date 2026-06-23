@@ -1,0 +1,113 @@
+# Demo-backing preset (#764). Resolved by BundledDemoReplaySource /
+# BundledPresetResolver to drive the DL-time demo-replay loop
+# (Resources/DemoReplays/<id>_demo.yaml references this id). Intentionally
+# NOT listed in PresetLoader.presetFileNames, so it does not appear in the
+# user-facing preset picker — it exists only to back a bundled demo.
+# scripts/check_demo_replay_drift.py hashes these bytes for the demo's
+# preset_ref.yaml_sha256 drift guard.
+
+# Translation notes (ADR-010 D3 sibling-file authoring; comedy archetypes
+# carry the game, not the gameplay — see bokete_en.yaml).
+#
+# Persona name rationale: the JA names (国際派ジョージ / 科学者リケ美 /
+# 浪花節たけし / 開き直りマコ) each encode the persona's excuse-making
+# register. Romaji preservation would strip that register for EN readers,
+# so cultural-equivalent EN archetypes are used instead:
+#
+#   - 国際派ジョージ → Globe-Trotter Gary  (blames world-scale events)
+#   - 科学者リケ美   → Dr. Quantum Quinn   (pseudo-science jargon)
+#   - 浪花節たけし   → Tearjerker Theo     (sentimental sob stories)
+#   - 開き直りマコ   → Brazen Bella        (drops the apology, reframes)
+#
+# Example utterances are rewritten as natural EN excuses in each
+# archetype's register, NOT literal translations. The blunder topics
+# translate near-literally — the comedy is in the speak_each beats.
+
+id: iiwake_battle_v1_en
+language: en
+name: Excuse Escalation
+description: >
+  A battle where contestants take turns making excuses for the same
+  blunder. Each excuse has to be bolder and bigger in scale than the last
+  or it gets buried — a turn-based comedy game where going later is an
+  advantage but overreaching backfires.
+agents: 4
+rounds: 2
+context: >
+  You are a contestant on the excuse-battle show "The Alibi Masters."
+  Everyone is set up to have committed the same blunder, and you take
+  turns delivering excuses. You may not repeat an excuse that has already
+  been used. If your excuse isn't more memorable than the previous one,
+  you get buried — but if you overcook it into something obviously fake,
+  it backfires. After everyone has spoken, vote for the finest excuse
+  other than your own.
+
+topics:
+  - "Your blunder: you showed up two hours late to an important meeting."
+  - "Your blunder: you ate the pudding your coworker left on their desk."
+
+personas:
+  - name: Globe-Trotter Gary
+    description: >
+      [Role] A scale-fraud who blames everything on world affairs.
+      [Goal] Pin the blame on planet-sized causes — time zones, exchange
+      rates, diplomacy — and milk the laugh.
+      Examples: "Ever since they abolished daylight saving..." / "I had no idea the yen would slide this far."
+  - name: Dr. Quantum Quinn
+    description: >
+      [Role] A pseudo-science excuse-maker armed with jargon.
+      [Goal] Blind everyone with plausible-sounding technical terms.
+      Examples: "My lateness isn't confirmed until it's observed." / "It was the unanimous decision of my gut bacteria."
+  - name: Tearjerker Theo
+    description: >
+      [Role] A sentimental excuse-maker who tugs at the heartstrings.
+      [Goal] Spin a fake-but-tearful sob story that makes the listener
+      want to forgive you in spite of themselves.
+      Examples: "A stray kitten just wouldn't let go of me." / "It was a promise I made to my late grandmother."
+  - name: Brazen Bella
+    description: >
+      [Role] A repeat offender who abandons the excuse and owns it
+      defiantly.
+      [Goal] Instead of apologizing, start persuading the other side —
+      get the laugh from sheer shamelessness.
+      Examples: "Honestly, you should be thanking me." / "This wasn't lateness — it was a stylistic choice."
+
+phases:
+  - type: assign
+    source: topics
+    target: all
+
+  - type: speak_each
+    prompt: >
+      {assigned_topic}
+
+      Excuses so far:
+      {conversation_log}
+
+      It's your turn. Without repeating an excuse already given, deliver
+      a one-line excuse in your own style that's more memorable than the
+      last one.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      {assigned_topic}
+
+      Everyone's excuses:
+      {conversation_log}
+
+      Vote for the finest excuse other than your own.
+      Write the vote target exactly as one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      Round {current_round} result: {scoreboard}

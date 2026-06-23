@@ -33,6 +33,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 PRESETS_DIR = ROOT / "Pastura" / "Pastura" / "Resources" / "Presets"
+# Demo-backing presets (#764): preset YAMLs that exist only to resolve a
+# bundled demo's preset_ref.id. They are NOT in PresetLoader.presetFileNames
+# (so they stay out of the user picker), but the bundle flattens them, so the
+# Swift-side BundledPresetResolver resolves them by id at runtime just like
+# any Presets/ entry. The drift guard must therefore hash them too.
+DEMOPRESETS_DIR = ROOT / "Pastura" / "Pastura" / "Resources" / "DemoPresets"
 DEMOS_DIR = ROOT / "Pastura" / "Pastura" / "Resources" / "DemoReplays"
 
 MIN_DEMOS = 3
@@ -66,35 +72,56 @@ def read_text(path: Path) -> str:
 def load_preset_shas() -> dict[str, str]:
   """Return ``{preset_id: sha256_hex}`` for every shipped preset.
 
-  Also enforces the "no preset filename ends in ``_demo``" invariant. The
-  Swift-side loader (``BundledDemoReplaySource.enumerateDemoYAMLs``)
-  scans every `.yaml` at the bundle root and keeps files whose stem ends
-  with ``DEMO_FILENAME_SUFFIX``; a preset named ``foo_demo.yaml`` would
-  silently be picked up as a demo (and then silent-skip because its
-  schema doesn't match), masking a curator mistake.
+  Globs both ``Presets/`` (user-facing presets) and ``DemoPresets/``
+  (demo-backing presets, #764). The Swift-side bundle flattens both dirs,
+  so a demo's ``preset_ref.id`` resolves against either; the drift guard
+  must hash both to validate the demo SHA.
+
+  Also enforces two invariants:
+
+  - **No preset filename ends in ``_demo``** — the Swift loader
+    (``BundledDemoReplaySource.enumerateDemoYAMLs``) scans every `.yaml`
+    at the bundle root and keeps files whose stem ends with
+    ``DEMO_FILENAME_SUFFIX``; a preset named ``foo_demo.yaml`` would
+    silently be picked up as a demo, masking a curator mistake.
+  - **No cross-dir duplicate ``id``** — because the bundle is flat,
+    ``Presets/foo.yaml`` and ``DemoPresets/foo.yaml`` sharing an ``id``
+    would make ``bundle.url(forResource:id)`` ambiguous at runtime and
+    silently overwrite each other in this map. Fail loudly instead.
   """
   shas: dict[str, str] = {}
-  for yaml_path in sorted(PRESETS_DIR.glob("*.yaml")):
-    stem = yaml_path.stem
-    if stem.endswith(DEMO_FILENAME_SUFFIX):
-      raise SystemExit(
-        f"::error::Preset {yaml_path.name} has reserved suffix "
-        f"{DEMO_FILENAME_SUFFIX!r} — the bundle loader would misread it "
-        f"as a demo. Rename the preset."
-      )
-    text = read_text(yaml_path)
-    try:
-      parsed = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
-      raise SystemExit(f"::error::Preset {yaml_path.name}: {exc}")
-    if not isinstance(parsed, dict):
-      raise SystemExit(
-        f"::error::Preset {yaml_path.name}: top-level is not a mapping"
-      )
-    preset_id = parsed.get("id")
-    if not isinstance(preset_id, str) or not preset_id:
-      raise SystemExit(f"::error::Preset {yaml_path.name}: no 'id' field")
-    shas[preset_id] = sha256_hex(text)
+  source_dir: dict[str, str] = {}  # id -> dir name, for collision reporting
+  for preset_dir in (PRESETS_DIR, DEMOPRESETS_DIR):
+    if not preset_dir.is_dir():
+      continue
+    for yaml_path in sorted(preset_dir.glob("*.yaml")):
+      stem = yaml_path.stem
+      if stem.endswith(DEMO_FILENAME_SUFFIX):
+        raise SystemExit(
+          f"::error::Preset {yaml_path.name} has reserved suffix "
+          f"{DEMO_FILENAME_SUFFIX!r} — the bundle loader would misread it "
+          f"as a demo. Rename the preset."
+        )
+      text = read_text(yaml_path)
+      try:
+        parsed = yaml.safe_load(text)
+      except yaml.YAMLError as exc:
+        raise SystemExit(f"::error::Preset {yaml_path.name}: {exc}")
+      if not isinstance(parsed, dict):
+        raise SystemExit(
+          f"::error::Preset {yaml_path.name}: top-level is not a mapping"
+        )
+      preset_id = parsed.get("id")
+      if not isinstance(preset_id, str) or not preset_id:
+        raise SystemExit(f"::error::Preset {yaml_path.name}: no 'id' field")
+      if preset_id in source_dir:
+        raise SystemExit(
+          f"::error::Preset id {preset_id!r} appears in both "
+          f"{source_dir[preset_id]}/ and {preset_dir.name}/ — the flat "
+          f"bundle makes forResource:{preset_id!r} ambiguous. Rename one."
+        )
+      source_dir[preset_id] = preset_dir.name
+      shas[preset_id] = sha256_hex(text)
   return shas
 
 

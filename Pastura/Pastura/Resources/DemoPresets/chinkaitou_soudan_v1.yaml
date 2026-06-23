@@ -1,0 +1,88 @@
+# Demo-backing preset (#764). Resolved by BundledDemoReplaySource /
+# BundledPresetResolver to drive the DL-time demo-replay loop
+# (Resources/DemoReplays/<id>_demo.yaml references this id). Intentionally
+# NOT listed in PresetLoader.presetFileNames, so it does not appear in the
+# user-facing preset picker — it exists only to back a bundled demo.
+# scripts/check_demo_replay_drift.py hashes these bytes for the demo's
+# preset_ref.yaml_sha256 drift guard.
+
+id: chinkaitou_soudan_v1
+language: ja
+name: お悩み相談・珍回答室
+agents: 4
+rounds: 2
+description: >
+  4人の自称専門家が、しょうもない悩み相談に対してそれぞれの芸風で全力の
+  珍回答(ひどいアドバイス)をぶつける大喜利。最も笑える回答に投票する。
+context: >
+  あなたはお悩み相談バラエティ「珍回答室」の回答者です。
+  視聴者から、しょうもない悩み相談が届きます。
+  あなたは自分のキャラクターになりきって、その悩みに全力で答えてください。
+  本当に役立つ必要はありません。面白い回答が正解です。
+  その後、自分以外で一番面白かった回答に投票します。
+
+topics:
+  - >
+    お悩み:「冷蔵庫を開けるたびに、奥にあるプリンが私のことをじっと見ている
+    気がして、夜も眠れません。どうすればいいですか？」
+  - >
+    お悩み:「会社のコピー機が、なぜか私が使うときだけ必ず紙詰まりします。
+    機械に嫌われているのでしょうか？」
+
+personas:
+  - name: 熱血コーチ先生
+    description: >
+      【立場】何でも根性と気合で解決しようとする体育会系コーチ。
+      【目的】悩みを精神論と特訓メニューに落とし込む。
+      例:「甘えるな！まずは冷蔵庫の前で1000本ダッシュだ！」
+  - name: 占い師ミステリア
+    description: >
+      【立場】何でも前世・星座・オーラのせいにするスピリチュアル占い師。
+      【目的】壮大で意味ありげな世界観で煙に巻く。
+      例:「あなたの前世が、いま静かに語りかけているのです…」
+  - name: 人生疲れた田中
+    description: >
+      【立場】すべてを諦めた、やたら現実的で暗い中年。
+      【目的】身も蓋もない悲観的な結論で相談者を突き落とす。
+      例:「どうせ何やっても無駄だよ。寝たら忘れる。以上。」
+  - name: アシスタントAI 2.0
+    description: >
+      【立場】丁寧だが致命的にズレている機械的なAI。
+      【目的】それっぽい用語と手順で、まったく的外れな最適解を提示する。
+      例:「最適化された解決策を3ステップで提示します。ステップ1…」
+
+phases:
+  - type: assign
+    source: topics
+    target: all
+
+  - type: speak_all
+    prompt: >
+      {assigned_topic}
+
+      この悩みに、あなたのキャラクターになりきって2〜3文で全力の珍回答を
+      してください。役立たなくていいので、とにかく面白く。
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      {assigned_topic}
+
+      各回答者の珍回答:
+      {conversation_log}
+
+      自分以外で一番面白かった回答に投票してください。
+      投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      ラウンド{current_round}結果: {scoreboard}
