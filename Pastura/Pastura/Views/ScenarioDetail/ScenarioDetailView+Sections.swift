@@ -3,18 +3,6 @@ import SwiftUI
 // Section builders for ScenarioDetailView, split into a sibling-file
 // extension to keep the main view under SwiftLint type_body_length.
 extension ScenarioDetailView {
-  // MARK: - Section scaffolding
-
-  func infoRow(_ label: String, value: String) -> some View {
-    HStack {
-      Text(label).foregroundStyle(Color.ink)
-      Spacer(minLength: 8)
-      Text(value).foregroundStyle(Color.muted)
-    }
-    .padding(.horizontal, 17)
-    .padding(.vertical, 14)
-  }
-
   // MARK: - Sections
 
   @ViewBuilder
@@ -44,29 +32,36 @@ extension ScenarioDetailView {
     }
   }
 
-  func overviewSection(
+  /// Compact one-line stat summary shown directly under the title — replaces
+  /// the old labeled "Overview" card. Reuses the existing localized stat
+  /// labels (`Agents` / `Rounds` / `Est. Inferences`) verbatim via the pure
+  /// `ScenarioSummaryStrip.text` formatter (no new catalog keys, no plural). The
+  /// leading inset matches the grouped-section header convention so the strip
+  /// lines up with the section labels below it.
+  func summaryStrip(
     scenario: Scenario, viewModel: ScenarioDetailViewModel
   ) -> some View {
-    PasturaSection(String(localized: "Overview")) {
-      VStack(spacing: 0) {
-        infoRow(String(localized: "Agents"), value: "\(scenario.agentCount)")
-        PasturaRowDivider()
-        infoRow(String(localized: "Rounds"), value: "\(scenario.rounds)")
-        PasturaRowDivider()
-        infoRow(
-          String(localized: "Est. Inferences"),
-          value: "\(viewModel.estimatedInferences)")
-        if !scenario.description.isEmpty {
-          PasturaRowDivider()
-          Text(scenario.description)
-            .font(.subheadline)
-            .foregroundStyle(Color.inkSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 17)
-            .padding(.vertical, 14)
-        }
+    VStack(alignment: .leading, spacing: 6) {
+      Text(
+        ScenarioSummaryStrip.text(stats: [
+          (String(localized: "Agents"), scenario.agentCount),
+          (String(localized: "Rounds"), scenario.rounds),
+          (String(localized: "Est. Inferences"), viewModel.estimatedInferences)
+        ])
+      )
+      .font(.subheadline)
+      .foregroundStyle(Color.inkSecondary)
+      // Carry forward the empty-description guard so a scenario without a
+      // description renders no stray line.
+      if !scenario.description.isEmpty {
+        Text(scenario.description)
+          .font(.subheadline)
+          .foregroundStyle(Color.muted)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.leading, PasturaCardMetrics.horizontalMargin + 6)
+    .padding(.trailing, PasturaCardMetrics.horizontalMargin)
   }
 
   func contextSection(scenario: Scenario) -> some View {
@@ -154,24 +149,10 @@ extension ScenarioDetailView {
   ) -> some View {
     PasturaSection {
       VStack(spacing: 0) {
-        // initialName supplies the scenario name to SimulationView's
-        // navigationTitle from the first frame, before loadAndRun()
-        // re-parses the YAML. Identity-neutral via RouteHint (ADR-008).
-        NavigationLink(
-          value: Route.simulation(
-            scenarioId: scenarioId,
-            initialName: .init(scenario.name)
-          )
-        ) {
-          PasturaRowLabel(
-            title: String(localized: "Run Simulation"), systemImage: "play.fill")
-        }
-        .buttonStyle(.plain)
-        .disabled(!viewModel.canRun)
-        .opacity(viewModel.canRun ? 1 : 0.4)
-        .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-
-        PasturaRowDivider()
+        // Run Simulation is the bottom-pinned primary CTA (see
+        // ScenarioDetailView.runSimulationCTA); this section holds the
+        // secondary affordances. Past Results is the first row, so no
+        // leading divider.
         NavigationLink(value: Route.results(scenarioId: scenarioId)) {
           PasturaRowLabel(
             title: String(localized: "Past Results"),
@@ -180,24 +161,8 @@ extension ScenarioDetailView {
         .buttonStyle(.plain)
 
         siblingLanguageLink(scenario: scenario, viewModel: viewModel)
-
-        if let record = viewModel.record {
-          PasturaRowDivider()
-          if record.isPreset || viewModel.isGallerySourced {
-            // Preset and gallery rows are read-only; offer a clone-as-template
-            // action instead of direct edit so users can customize safely.
-            NavigationLink(value: Route.editor(templateYAML: record.yamlDefinition)) {
-              PasturaRowLabel(
-                title: String(localized: "Use as Template"), systemImage: "doc.on.doc")
-            }
-            .buttonStyle(.plain)
-          } else {
-            NavigationLink(value: Route.editor(editingId: scenarioId)) {
-              PasturaRowLabel(title: String(localized: "Edit"), systemImage: "pencil")
-            }
-            .buttonStyle(.plain)
-          }
-        }
+        // Edit / Use-as-Template moved to the `⋯` overflow menu in the
+        // navigation bar (see ScenarioDetailView's toolbar).
       }
     }
   }
