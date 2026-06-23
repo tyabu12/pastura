@@ -267,4 +267,47 @@ import Testing
 
     #expect(try simRepo.pastResultsByteCount() > before)
   }
+
+  @Test func pastResultsByteCountExcludesScenarios() throws {
+    let (scenarioRepo, simRepo) = try makeRepos()
+    // Save a scenario with a deliberately large `yamlDefinition` and no
+    // simulation runs. The measure must ignore the `scenarios` table
+    // entirely (the #770 root cause: scenarios — incl. re-seeded presets —
+    // survive clear-all but are not "results"), so the size stays 0.
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "big", name: "Big",
+        yamlDefinition: String(repeating: "y", count: 20_000),
+        isPreset: true, createdAt: Date(), updatedAt: Date()))
+
+    #expect(try simRepo.pastResultsByteCount() == 0)
+  }
+
+  @Test func pastResultsByteCountIsZeroAfterDeleteAllWithScenariosPresent() throws {
+    let manager = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: manager.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: manager.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: manager.dbWriter)
+
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "s1", name: "Test", yamlDefinition: "yaml",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+    try simRepo.save(makeSimRecord(id: "sim1", stateJSON: "{\"pad\":\"data\"}"))
+    try turnRepo.save(
+      TurnRecord(
+        id: "t1", simulationId: "sim1",
+        roundNumber: 1, phaseType: "speak_all",
+        agentName: "Alice", rawOutput: "raw",
+        parsedOutputJSON: #"{"statement":"hello"}"#,
+        createdAt: Date()))
+    #expect(try simRepo.pastResultsByteCount() > 0)
+
+    try simRepo.deleteAll()
+
+    // Runs are gone → size is 0, even though the scenario row survives
+    // (clear-all never touches `scenarios`).
+    #expect(try simRepo.pastResultsByteCount() == 0)
+    #expect(try scenarioRepo.fetchById("s1") != nil)
+  }
 }
