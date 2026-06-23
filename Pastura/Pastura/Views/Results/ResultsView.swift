@@ -29,17 +29,23 @@ struct ResultsView: View {
             systemImage: "tray",
             description: Text(String(localized: "Run a simulation to see results here"))
           )
-        } else {
+        } else if scope.isPushedDetail {
+          // Pushed per-scenario detail keeps the grouped list — it is a single
+          // section, not a tab root, so the timeline's rail + editorial header
+          // would be noise. The tab-identity timeline (#767) is aggregate-only.
           resultsList(viewModel: viewModel)
+        } else {
+          timelineList(viewModel: viewModel)
         }
       } else {
         ProgressView()
       }
     }
-    .navigationTitle(String(localized: "Past Results"))
-    // Inline title to match the other tab roots (design-system § 5.11);
-    // "Past Results" is a generic label, so inline is consistent for the
-    // History-tab-root and the pushed-detail variant alike.
+    // Aggregate root: empty nav title so the in-scroll editorial header
+    // (ResultsView+Timeline) is the SOLE "Past Results" title — avoids the
+    // duplicate the nav-bar title would otherwise create (#767). The pushed
+    // per-scenario detail keeps the inline title for its back-stack context.
+    .navigationTitle(scope.isPushedDetail ? String(localized: "Past Results") : "")
     .navigationBarTitleDisplayMode(.inline)
     // Back chrome only for the pushed-detail variant (`.scenario`); as the
     // History tab root (`.aggregate`) there is no parent to pop to. See
@@ -71,28 +77,11 @@ struct ResultsView: View {
     }
   }
 
-  /// Centered "N records" count under the screen title (観察履歴 → "12 回の記録",
-  /// P5 mock). Full-width so it centers within the card column.
-  private func recordCountSubtitle(_ count: Int) -> some View {
-    Text(String(format: String(localized: "%lld records"), count))
-      .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
-      .frame(maxWidth: .infinity, alignment: .center)
-      .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
-      .accessibilityIdentifier("results.recordCount")
-  }
-
   private func resultsList(viewModel: ResultsViewModel) -> some View {
     ScrollView {
       // LazyVStack so off-screen rows don't decode/materialize eagerly and the
       // bottom load-more sentinel only fires once scrolled into view (#586).
       LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
-        // Screen-title subtitle "N records" — aggregate root only (a pushed
-        // per-scenario detail shows one scenario, so a global count is
-        // meaningless there). Sits above the first date section (P5 mock).
-        if !scope.isPushedDetail {
-          recordCountSubtitle(viewModel.totalRunCount)
-        }
         ForEach(viewModel.sections) { section in
           PasturaSection(section.title, style: .grouped) {
             VStack(spacing: 0) {
