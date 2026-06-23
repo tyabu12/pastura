@@ -235,7 +235,7 @@ struct ModelDownloadHostView: View {
                   phaseType: entry.phaseType,
                   showAllThoughts: showAllThoughts,
                   isLatest: entry.id == lastAgentId,
-                  charsPerSecond: 60,
+                  charsPerSecond: PlaybackSpeed.normal.charsPerSecond,
                   agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
                 )
                 .id(entry.id)
