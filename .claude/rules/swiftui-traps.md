@@ -136,3 +136,82 @@ cross-layer) collides.
 if taken, pick a distinct name (rename the type too if it also clashes). Case
 study: #759 renamed a new `ScenarioSummary.swift` (Views) that collided with the
 Data-layer `ScenarioSummary` → `ScenarioSummaryStrip`.
+
+## iOS 26 `.confirmationDialog` renders as a mis-anchored popover
+
+On iOS 26 a SwiftUI `.confirmationDialog` (body-attached and/or triggered from a
+`Menu` item) renders on iPhone as a **popover whose arrow anchors to the body
+centre** — pointing at empty space, not the control that opened it.
+`.confirmationDialog` exposes no source-anchor API, so the anchor cannot be fixed.
+
+**Use `.alert` for confirmations** — a centred modal, no arrow, presents correctly
+regardless of trigger. Two caveats:
+- `.alert` does NOT auto-add a Cancel button (confirmationDialog does) — add
+  `Button(role: .cancel) {}` explicitly.
+- `.alert` supports `presenting:` for item-scoped dialogs, same as confirmationDialog.
+
+In-code rationale lives at the delete-confirmation callsites (`ResultDetailView+Delete.swift`,
+`HomeView.swift`, `ScenarioDetailView.swift`, `SettingsView+PastResults.swift`).
+
+## iOS 26 Liquid Glass toolbar capsule — `.buttonStyle(.plain)` does NOT remove it
+
+On iOS 26 every `ToolbarItem` is wrapped in a translucent Liquid Glass capsule by the
+**toolbar itself**, independently of the inner `Button`'s style. `.buttonStyle(.plain)`
+only changes how content renders *inside* the capsule — it does **not** remove the
+capsule. The documented opt-out is `sharedBackgroundVisibility(.hidden)` on
+`ToolbarContent` (iOS 26+).
+
+Pastura wraps it for the iOS 17 deployment target as
+`ToolbarContent.hidingPasturaSharedBackground()` (`PasturaBackButton.swift`) — apply to
+every `ToolbarItem` that wraps a custom Pastura control. Caveats:
+- **Real-device verification required**: the iOS 26 simulator suppresses the capsule even
+  without the opt-out, so the simulator visual is misleading.
+- `UIDesignRequiresCompatibility = YES` (Info.plist) is the global escape hatch; Pastura
+  uses per-item opt-out instead, so that key is NOT set.
+
+Design-system reference: `docs/design/design-system.md` § 5.8.
+
+## Swift 6 makes accessibility env keypaths read-only
+
+Pre-Swift-6, `.environment(\.accessibilityReduceMotion, true)` inside a `#Preview`
+overrode the value for visual testing. Under Swift 6 strict + `InferIsolatedConformances`,
+the keypath is `any KeyPath<EnvironmentValues, Bool> & Sendable`, not `WritableKeyPath`, so
+`.environment(_:_:)` no longer accepts it (compile error: `cannot convert ... to expected
+argument type 'WritableKeyPath<...>'`). Affects `accessibilityReduceMotion`,
+`accessibilityReduceTransparency`, and the other system-set (app-read) accessibility env
+values.
+
+**Pattern**: extract animation timing into a `nonisolated enum` of pure functions taking
+`reduceMotion: Bool` (see `ModelSelectionAnimations`); the View reads
+`@Environment(\.accessibilityReduceMotion)` and forwards per call site; unit-test the pure
+helper across the phase × reduceMotion matrix. Do NOT write the Preview override; cover
+visual parity with manual QA (Settings → Accessibility → Reduce Motion → relaunch).
+
+## Custom `Color` tokens don't work with `.foregroundStyle` dot-syntax
+
+`.foregroundStyle(.muted)` (and any `PasturaPalette`-derived token: `.ink`, `.inkSecondary`,
+`.moss`, `.mossDark`, …) does **not** compile — the leading-dot in `foregroundStyle(_:)`
+resolves against `HierarchicalShapeStyle`/`ShapeStyle`, not `Color`. Our tokens live only on
+`Color` (`DesignTokens+SwiftUI.swift`), so write the type explicitly:
+`.foregroundStyle(Color.muted)`.
+
+System hierarchy styles (`.secondary`, `.tertiary`, `.quaternary`, `.clear`) *do* work with
+dot-syntax because they're `ShapeStyle` conformances — which is why pre-token code compiled.
+When token-izing `.foregroundStyle(.secondary)`, always switch to `Color.tokenName`.
+
+## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
+
+For `.sheet(item: $binding)`, pass the **model itself** as `Optional<Model>`. Never wrap an
+array index in a project-wide `extension Int: Identifiable` — it applies to every `Int` in
+the project, conflicts with future Swift evolution, and silently affects any code passing
+`Int` where `Identifiable` is expected. Capturing an array index in the sheet closure also
+risks out-of-bounds if the array mutates between trigger and body evaluation; do a
+`firstIndex(where: { $0.id == item.id })` lookup inside the closure instead.
+
+## Never instantiate a ViewModel in a factory func / computed property
+
+A ViewModel created inside a View function or computed property (`let vm = MyViewModel()`
+then `return EditorView(viewModel: vm)`) gets a **fresh instance on every `body`
+re-evaluation**, silently wiping user state — because `@Bindable`/`@Observable` references
+observe but do not own. Retain it with `@State` in a host view that creates the VM once
+(`.task { guard viewModel == nil ... }`), rendering a `ProgressView` until it exists.
