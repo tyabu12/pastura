@@ -139,13 +139,17 @@ Data-layer `ScenarioSummary` → `ScenarioSummaryStrip`.
 
 ## iOS 26 `.confirmationDialog` renders as a mis-anchored popover
 
-On iOS 26 a SwiftUI `.confirmationDialog` (body-attached and/or triggered from a
-`Menu` item) renders on iPhone as a **popover whose arrow anchors to the body
-centre** — pointing at empty space, not the control that opened it.
-`.confirmationDialog` exposes no source-anchor API, so the anchor cannot be fixed.
+On iOS 26 a SwiftUI `.confirmationDialog` **anchored to a specific control** — a
+`⋯`-`Menu` item or a row button in a list/menu — renders on iPhone as a **popover
+whose arrow anchors to the body centre**, pointing at empty space, not the control
+that opened it. `.confirmationDialog` exposes no source-anchor API, so the anchor
+cannot be fixed. **Carve-out**: scene-level `isPresented`-driven *choice* dialogs
+(cellular-consent `CellularConsentDialogModifier` in `PasturaApp.swift`,
+`ModelDownloadHostView.swift`) are NOT control-anchored and render acceptably —
+keep those as `.confirmationDialog`.
 
-**Use `.alert` for confirmations** — a centred modal, no arrow, presents correctly
-regardless of trigger. Two caveats:
+**Use `.alert` for the control-anchored confirmations** — a centred modal, no arrow,
+presents correctly regardless of trigger. Two caveats:
 - `.alert` does NOT auto-add a Cancel button (confirmationDialog does) — add
   `Button(role: .cancel) {}` explicitly.
 - `.alert` supports `presenting:` for item-scoped dialogs, same as confirmationDialog.
@@ -169,15 +173,19 @@ every `ToolbarItem` that wraps a custom Pastura control. Caveats:
 - `UIDesignRequiresCompatibility = YES` (Info.plist) is the global escape hatch; Pastura
   uses per-item opt-out instead, so that key is NOT set.
 
-Design-system reference: `docs/design/design-system.md` § 5.8.
+Canonical source for this fact: `docs/design/design-system.md` § 5.8.1 (the
+`PasturaBackButton` spec) — `navigation.md` and the `PasturaBackButton.swift`
+doc-comment also reference the capsule opt-out; keep this entry pointing there so the
+loci don't drift.
 
 ## Swift 6 makes accessibility env keypaths read-only
 
 Pre-Swift-6, `.environment(\.accessibilityReduceMotion, true)` inside a `#Preview`
-overrode the value for visual testing. Under Swift 6 strict + `InferIsolatedConformances`,
-the keypath is `any KeyPath<EnvironmentValues, Bool> & Sendable`, not `WritableKeyPath`, so
-`.environment(_:_:)` no longer accepts it (compile error: `cannot convert ... to expected
-argument type 'WritableKeyPath<...>'`). Affects `accessibilityReduceMotion`,
+overrode the value for visual testing. Under the project's Swift 6 mode, the system
+accessibility env keypath resolves as `any KeyPath<EnvironmentValues, Bool> & Sendable`,
+NOT `WritableKeyPath`, so `.environment(_:_:)` no longer accepts it (compile error:
+`cannot convert ... to expected argument type 'WritableKeyPath<...>'`). Affects
+`accessibilityReduceMotion`,
 `accessibilityReduceTransparency`, and the other system-set (app-read) accessibility env
 values.
 
