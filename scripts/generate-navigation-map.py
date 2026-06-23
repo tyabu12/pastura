@@ -93,6 +93,7 @@ FILE_TO_SCREEN = {
     "Pastura/Pastura/Views/ScenarioDetail/ScenarioDetailView.swift": "scenarioDetail",
     "Pastura/Pastura/Views/ScenarioDetail/ScenarioDetailView+Sections.swift": "scenarioDetail",
     "Pastura/Pastura/Views/Results/ResultsView.swift": "results",
+    "Pastura/Pastura/Views/Results/ResultsView+Timeline.swift": "results",
     "Pastura/Pastura/Views/Community/SharedScenarios/SharedScenariosListView.swift": "sharedScenarios",
     "Pastura/Pastura/Views/Community/SharedScenarios/GalleryScenarioDetailView.swift": "galleryScenarioDetail",
 }
