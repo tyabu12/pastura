@@ -17,9 +17,12 @@ import Testing
       // Precondition: a fresh manager seeds every descriptor `.checking`.
       #expect(sut.state[descriptor.id] == .checking)
 
-      sut.captureSeedDownloadingState(for: descriptor)
+      // Pass an explicit progress so the assertion exercises the seam's
+      // contract ("force `.downloading` with the given value") rather than
+      // coupling to the production default.
+      sut.captureSeedDownloadingState(for: descriptor, progress: 0.3)
 
-      #expect(sut.state[descriptor.id] == .downloading(progress: 0.4))
+      #expect(sut.state[descriptor.id] == .downloading(progress: 0.3))
     }
   }
 #endif
