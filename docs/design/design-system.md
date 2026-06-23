@@ -335,7 +335,7 @@ root `NavigationStack` に push された全ビューで、システム back che
 |---------|----------|
 | アイコン | SF Symbol `chevron.backward`（RTL 対応版を選択） |
 | 前景色 | `Color.ink` (#2D2E26、§2.2) |
-| ボタンスタイル | `.buttonStyle(.plain)` で iOS 26 の Liquid Glass を抑制 |
+| ボタンスタイル | `.buttonStyle(.plain)`（内側 chevron の content 用）。iOS 26 Liquid Glass capsule の抑制は ToolbarItem 側の `hidingPasturaSharedBackground()`（`.plain` 単体では capsule は消えない） |
 | タップ動作 | `router.pop()`（`.claude/rules/navigation.md` 準拠） |
 | アクセシビリティラベル | `String(localized: "Back")` → ja "戻る" |
 | swipe-back gesture | `.preservesPasturaSwipeBackGesture()` View modifier 必須 |
