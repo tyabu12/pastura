@@ -124,7 +124,10 @@ struct ResultsView: View {
   /// Bottom-of-list affordance that pages in the next window when scrolled
   /// into view. The `isLoadingMore` guard inside `loadMore()` makes a repeated
   /// `onAppear` (e.g. from a group reorder) a no-op.
-  private func loadMoreSentinel(viewModel: ResultsViewModel) -> some View {
+  ///
+  /// Internal (not private) so the timeline rendering in `ResultsView+Timeline`
+  /// can reuse it — both the grouped list and the timeline share this sentinel.
+  func loadMoreSentinel(viewModel: ResultsViewModel) -> some View {
     // Fixed height keeps the sentinel materializable (so `onAppear` fires) and
     // gives a stable hit area; the spinner shows only while a fetch is actually
     // in flight rather than spinning idly whenever more pages remain.
@@ -164,7 +167,9 @@ struct ResultsView: View {
   // the bottom. The result rides line 1 (next to the name) rather than between
   // the scenario-info rows, so the scenario context (sheep · description) stays
   // one visually-grouped block beneath the title.
-  private func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
+  // Internal (not private) so `ResultsView+Timeline` reuses the exact row
+  // content — the timeline changes only the section chrome, not the row body.
+  func simulationRow(_ row: ResultsViewModel.SimulationRow) -> some View {
     let item = row.item
     let sheepCount = ResultsRowFormat.rowSheepCount(agentCount: row.agentCount)
     // Resolved in the View (not the VM) so all display formatting stays in the
@@ -254,7 +259,9 @@ struct ResultsView: View {
       .layoutPriority(1)
   }
 
-  private func pillForeground(_ style: ResultPill.Style) -> Color {
+  // Internal (not private) so the timeline node reuses the pill tint as its
+  // dot color (single source — see `ResultsView+Timeline.timelineRow`).
+  func pillForeground(_ style: ResultPill.Style) -> Color {
     switch style {
     case .completed: Color.mossInk
     case .paused: Color.inkSecondary
