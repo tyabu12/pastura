@@ -1024,3 +1024,29 @@ extension ModelManager {
     cancelDownload(descriptor: descriptor)
   }
 }
+
+#if DEBUG
+  // MARK: - Capture tooling (DEBUG only)
+
+  extension ModelManager {
+    /// Forces `descriptor` into `.downloading` so the `.needsModelDownload`
+    /// host renders the demo replay screen for `scripts/motion-capture.sh demo`
+    /// — WITHOUT starting a real network download. Motion-capture tooling only;
+    /// never call from product code.
+    ///
+    /// **Why a seam is needed:** `state` is `private(set)`, so the external
+    /// caller (`RootView.setupCaptureDemoState()`) cannot seed it directly.
+    ///
+    /// **Why a static `.downloading(progress:)` value is sufficient:** the demo
+    /// replay (`ReplayViewModel`) plays independently of download progress — it
+    /// owns its own pacing and writes to no repository / DB sink (ADR-007 §4.2),
+    /// and `ModelDownloadHostView.stateView(...)` routes any `.downloading` (with
+    /// ≥ `minPlayableDemoCount` demos loaded) to `.demoHost`. The progress value
+    /// never has to advance for the typing animation to run.
+    func captureSeedDownloadingState(
+      for descriptor: ModelDescriptor, progress: Double = 0.4
+    ) {
+      state[descriptor.id] = .downloading(progress: progress)
+    }
+  }
+#endif

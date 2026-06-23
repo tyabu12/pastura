@@ -153,6 +153,9 @@ private struct RootView: View {
       // these args, control falls through unchanged.
       if CommandLine.arguments.contains("--capture-launch-warm") { return .warm }
       if CommandLine.arguments.contains("--capture-launch") { return .cold }
+      // The `demo` capture variant records the demo replay screen, not the
+      // splash — suppress the splash so it doesn't clip the recording window.
+      if CommandLine.arguments.contains("--capture-demo") { return nil }
       if CommandLine.arguments.contains("--ui-test") { return nil }
     #endif
     return .cold
@@ -505,10 +508,9 @@ private struct RootView: View {
 
   private func initialize() async {
     #if DEBUG
-      if CommandLine.arguments.contains("--ui-test") {
-        await setupUITestState()
-        return
-      }
+      // Capture-tooling / UI-test launch overrides. Extracted to a helper so
+      // initialize() stays under SwiftLint's cyclomatic-complexity cap.
+      if await handleDebugLaunchOverride() { return }
     #endif
     // Fail-fast on catalog collisions at the earliest possible point so
     // duplicate ids / fileNames crash in dev rather than corrupting
@@ -778,6 +780,43 @@ private struct RootView: View {
       } catch {
         appState = .error("UI test setup failed: \(error.localizedDescription)")
       }
+    }
+
+    /// Dispatches DEBUG-only launch overrides. Returns `true` when an override
+    /// fired (caller returns early), `false` to fall through to normal init.
+    /// `--capture-demo` must be handled before `initialize()`'s `#if
+    /// targetEnvironment(simulator)` branch, which otherwise goes straight to
+    /// `.ready` on the simulator and never reaches `.needsModelDownload`.
+    private func handleDebugLaunchOverride() async -> Bool {
+      if CommandLine.arguments.contains("--capture-demo") {
+        setupCaptureDemoState()
+        return true
+      }
+      if CommandLine.arguments.contains("--ui-test") {
+        await setupUITestState()
+        return true
+      }
+      return false
+    }
+
+    /// Capture-tooling-only bootstrap (`scripts/motion-capture.sh demo`): seed
+    /// the active descriptor into `.downloading` and route to
+    /// `.needsModelDownload` so `ModelDownloadHostView` renders the demo replay
+    /// screen for recording. Starts NO real download (no `startDownload`) — the
+    /// demo replay plays independently of download progress (ADR-007 §4.2).
+    private func setupCaptureDemoState() {
+      // `activeDescriptor` is nil only with an empty catalog (never in
+      // production). Guard loudly: without it the seed can't fire, the host
+      // routes to `.plainProgress`, and the capture silently records a
+      // no-typing screen that the script's size check can't flag.
+      guard let descriptor = modelManager.activeDescriptor else {
+        Self.logger.error(
+          "--capture-demo: no active descriptor; demo replay will not render")
+        appState = .needsModelDownload
+        return
+      }
+      modelManager.captureSeedDownloadingState(for: descriptor)
+      appState = .needsModelDownload
     }
   #endif
 }
