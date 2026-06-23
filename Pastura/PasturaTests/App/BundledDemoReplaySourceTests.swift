@@ -240,20 +240,22 @@ struct BundledDemoReplaySourceTests {
   // MARK: - Production bundle layout (#170)
 
   @Test func bundleMainLoadsAllShippedJaDemos() throws {
-    // Issue #170 populates `Resources/DemoReplays/` with 3 JA demos
-    // (word_wolf_demo, prisoners_dilemma_demo, bokete_demo). Verify the
-    // production enumeration + real `BundledPresetResolver` resolves
-    // all 3 against `Bundle.main` (test host = `Pastura.app`) when the
-    // locale filter requests `ja`.
+    // #764 populates `Resources/DemoReplays/` with 3 JA demos recaptured
+    // from real local inference (iiwake_battle_v1, chinkaitou_soudan_v1,
+    // hapning_ranyu_v1). Verify the production enumeration + real
+    // `BundledPresetResolver` resolves all 3 against `Bundle.main`
+    // (test host = `Pastura.app`) when the locale filter requests `ja`.
+    // The demo-backing presets live under `Resources/DemoPresets/`, but
+    // the bundle flattens them so id resolution works identically.
     // Guards against (a) bundle-layout regressions — e.g. a demo
     // filename drops the `_demo` suffix and is silently skipped by the
     // loader's enumeration filter — and (b) preset-SHA drift that
     // would silent-skip at runtime without CI catching it.
     let sources = BundledDemoReplaySource.loadAll(language: "ja")
     let scenarioIds = Set(sources.map { $0.scenario.id })
-    #expect(scenarioIds.contains("word_wolf"))
-    #expect(scenarioIds.contains("prisoners_dilemma"))
-    #expect(scenarioIds.contains("bokete"))
+    #expect(scenarioIds.contains("iiwake_battle_v1"))
+    #expect(scenarioIds.contains("chinkaitou_soudan_v1"))
+    #expect(scenarioIds.contains("hapning_ranyu_v1"))
     // Spec §5.2: bundled count floor is ≥ 3; shipped JA count is 3
     // today. `>= 3` keeps the test forward-compatible with future demo
     // additions; the language filter prevents EN demos from inflating
@@ -261,9 +263,9 @@ struct BundledDemoReplaySourceTests {
     #expect(sources.count >= 3)
     // Cross-check the filter actually filters — none of the EN demo
     // ids should appear in the JA bucket.
-    #expect(!scenarioIds.contains("word_wolf_en"))
-    #expect(!scenarioIds.contains("prisoners_dilemma_en"))
-    #expect(!scenarioIds.contains("bokete_en"))
+    #expect(!scenarioIds.contains("iiwake_battle_v1_en"))
+    #expect(!scenarioIds.contains("chinkaitou_soudan_v1_en"))
+    #expect(!scenarioIds.contains("hapning_ranyu_v1_en"))
   }
 
   /// Step D (#388) sibling of ``bundleMainLoadsAllShippedJaDemos`` —
@@ -272,13 +274,13 @@ struct BundledDemoReplaySourceTests {
   @Test func bundleMainLoadsAllShippedEnDemos() throws {
     let sources = BundledDemoReplaySource.loadAll(language: "en")
     let scenarioIds = Set(sources.map { $0.scenario.id })
-    #expect(scenarioIds.contains("word_wolf_en"))
-    #expect(scenarioIds.contains("prisoners_dilemma_en"))
-    #expect(scenarioIds.contains("bokete_en"))
+    #expect(scenarioIds.contains("iiwake_battle_v1_en"))
+    #expect(scenarioIds.contains("chinkaitou_soudan_v1_en"))
+    #expect(scenarioIds.contains("hapning_ranyu_v1_en"))
     #expect(sources.count >= 3)
-    #expect(!scenarioIds.contains("word_wolf"))
-    #expect(!scenarioIds.contains("prisoners_dilemma"))
-    #expect(!scenarioIds.contains("bokete"))
+    #expect(!scenarioIds.contains("iiwake_battle_v1"))
+    #expect(!scenarioIds.contains("chinkaitou_soudan_v1"))
+    #expect(!scenarioIds.contains("hapning_ranyu_v1"))
   }
 
   /// Locale filter rejection: requesting a language with no shipped

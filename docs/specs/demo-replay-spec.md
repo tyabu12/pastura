@@ -150,7 +150,7 @@ bundled presets and uses that scenario as the render context.
 schema_version: 1
 
 preset_ref:
-  id: word_wolf              # must match a shipped preset id (Resources/Presets/*.yaml or DB isPreset=true)
+  id: word_wolf              # must match a shipped preset id (Resources/Presets/*.yaml, Resources/DemoPresets/*.yaml, or DB isPreset=true)
   version: "1.0"             # informational; surface mismatches in CI, not at runtime
   yaml_sha256: 9f…           # REQUIRED — SHA-256 of the preset YAML as shipped at record time
 
@@ -653,6 +653,16 @@ in slot rotation.
   time — see `Pastura/Pastura/App/BundledDemoReplaySource.swift`.
 - **Step E**: Cross-language simulation override (user can select locale
   independent of device setting).
+- **#764 recapture**: the original hand-authored set (word_wolf / bokete /
+  prisoners_dilemma × ja/en, §5.6) was fully replaced by demos recaptured
+  from real local Gemma inference (`pastura-harness`, ADR-013) via
+  `scripts/jsonl_to_demo_replay.py`. The shipped set is now three gallery
+  scenarios — iiwake_battle_v1 (excuse escalation), chinkaitou_soudan_v1
+  (bad-advice room), hapning_ranyu_v1 (improv chaos) × ja/en. Their
+  demo-backing presets live in `Resources/DemoPresets/` (kept out of
+  `PresetLoader.presetFileNames` so they don't surface in the user picker);
+  EN variants are culturally-adapted translations. The §5.6 candidate list
+  below is retained as the original MVP rationale.
 
 ### 5.6 MVP preset candidates
 

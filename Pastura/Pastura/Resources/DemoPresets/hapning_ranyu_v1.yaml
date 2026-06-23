@@ -1,0 +1,87 @@
+# Demo-backing preset (#764). Resolved by BundledDemoReplaySource /
+# BundledPresetResolver to drive the DL-time demo-replay loop
+# (Resources/DemoReplays/<id>_demo.yaml references this id). Intentionally
+# NOT listed in PresetLoader.presetFileNames, so it does not appear in the
+# user-facing preset picker — it exists only to back a bundled demo.
+# scripts/check_demo_replay_drift.py hashes these bytes for the demo's
+# preset_ref.yaml_sha256 drift guard.
+
+id: hapning_ranyu_v1
+language: ja
+name: ハプニング乱入 即興大喜利
+description: >
+  芸人たちがボケを繰り出そうとするたび、会場に予測不能のハプニングが
+  乱入する。降ってきた異常事態をその場で一文の笑いに変えるアドリブ
+  大喜利。
+context: >
+  あなたはハプニング即興番組の出演者です。毎ラウンド、会場に突然の
+  ハプニングが発生します。その異常事態を一文で笑いに変えてください。
+  状況をなかったことにせず、全力で乗っかるほど面白くなります。
+
+agents: 4
+rounds: 2
+
+events:
+  - 突然の停電で会場が真っ暗になり、誰の顔も見えなくなった
+  - なぜか天井から大量のピンポン玉が降ってきた
+  - 審査員が全員、その場ですやすやと眠り始めた
+  - 会場が丸ごと深海一万メートルに沈んだ設定になった
+  - 観客が全員、生後三か月の赤ちゃんに入れ替わった
+
+personas:
+  - name: 安定の正統派
+    description: >
+      【立場】王道のボケで会場を温める実力者
+      【目的】どんな乱入にも動じず冷静に一言で切り返す。
+      例:「停電? これでようやく私の顔面も定価になった」
+  - name: 便乗の天才
+    description: >
+      【立場】状況に全力で乗っかる悪ノリ担当
+      【目的】ハプニングをさらに増幅させて巻き込む。
+      例:「ピンポン玉、これ全部さっきの俺の伏線だから」
+  - name: 哲学かぶれ
+    description: >
+      【立場】何でも宇宙と人生に結びつける小難しい芸風
+      【目的】些末な事態を壮大な真理にすり替える。
+      例:「闇とは、観客が己自身と向き合うための鏡である」
+  - name: 天然パニック
+    description: >
+      【立場】素で慌てて的外れな反応をする天然
+      【目的】本気でズレた解釈をして自爆する。
+      例:「赤ちゃん!? じゃあ今夜のギャラは離乳食ですか?」
+
+phases:
+  - type: event_inject
+    source: events
+    as: current_event
+    probability: 1
+
+  - type: speak_all
+    prompt: >
+      会場に発生したハプニング: {current_event}
+
+      この異常事態を一文で笑いに変える、とっておきの一言をどうぞ。
+      状況に全力で乗っかってください。長くせず、一文で簡潔に。
+    output:
+      statement: string
+
+  - type: vote
+    prompt: >
+      今ラウンドのハプニング: {current_event}
+
+      参加者の一言:
+      {conversation_log}
+
+      自分以外で、この状況を一番面白く料理した一言に投票してください。
+      投票先は必ず以下の名前のいずれかを正確に書くこと: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      ラウンド{current_round}結果: {scoreboard}

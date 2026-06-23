@@ -1,0 +1,208 @@
+# Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
+# run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# was reviewed against Pastura/Resources/ContentBlocklist.json (patterns;
+# ADR-005 content-safety output surface) on 2026-06-23 by @tyabu12 — zero
+# matches across all 89 patterns. Setting metadata.content_filter_applied:
+# true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
+# also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+
+schema_version: 1
+preset_ref:
+  id: hapning_ranyu_v1_en
+  version: '1.0'
+  yaml_sha256: 27df6954e6d203942d1b12b8227a338ac2058ec4947d6b258c3ce59d3aae905d
+metadata:
+  title: Crash the Stage
+  description: Every time the comedians try to land a bit, an unpredictable disaster crashes the venue. An improv game about turning whatever just fell out of the sky into a one-line laugh.
+  language: en
+  recorded_at: '2026-06-23T00:59:55Z'
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 16
+  estimated_duration_ms: 15000
+  captured_by: tyabu12
+turns:
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: Steady Eddie
+  fields:
+    statement: Well, at least now we have a legitimate reason to start collecting for emergency ball retrieval.
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: Bandwagon Benny
+  fields:
+    statement: These aren't just ping-pong balls, folks, these are the official confetti cannons for my next act!
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: Professor Cosmo
+  fields:
+    statement: The descent of the ping-pong spheres is merely the universe demonstrating that even absurdity adheres to a predictable, yet utterly ridiculous, trajectory.
+- round: 1
+  phase_index: 1
+  phase_type: speak_all
+  agent: Panicky Penny
+  fields:
+    statement: Ping-pong balls! I knew my confidence level was about to get a serious, plastic makeover!
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Steady Eddie
+  fields:
+    vote: Panicky Penny
+    reason: The line about confidence getting a plastic makeover is the most relatable and instantly funny response to the absurdity of ping-pong balls.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Bandwagon Benny
+  fields:
+    vote: Panicky Penny
+    reason: Panicky Penny's line perfectly captures the sudden, panicked shift in confidence caused by the ping-pong balls.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Professor Cosmo
+  fields:
+    vote: Bandwagon Benny
+    reason: Bandwagon Benny's attempt to reframe the ping-pong balls as confetti cannons instantly elevates a trivial mess into a spectacle of misplaced ambition.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Panicky Penny
+  fields:
+    vote: Bandwagon Benny
+    reason: Bandwagon Benny's attempt to spin the ping-pong balls into a confetti cannon setup is a hilarious and absurd misdirection.
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Steady Eddie
+  fields:
+    statement: Well, at least the acoustics are perfect for a deep-sea monologue!
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Bandwagon Benny
+  fields:
+    statement: Well, looks like we're auditioning for the deep-sea documentary about sunken band practice!
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Professor Cosmo
+  fields:
+    statement: The ocean merely revealed the true, liquid dimension of our ephemeral stage existence.
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Panicky Penny
+  fields:
+    statement: Well, at least my sequins are waterproof for a deep-sea performance!
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Steady Eddie
+  fields:
+    vote: Panicky Penny
+    reason: The idea of sequins being waterproof for a deep-sea performance is a wonderfully absurd juxtaposition.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Bandwagon Benny
+  fields:
+    vote: Professor Cosmo
+    reason: Professor Cosmo's comment elevates the disaster into an existential crisis about stage existence underwater.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Professor Cosmo
+  fields:
+    vote: Bandwagon Benny
+    reason: Bandwagon Benny's suggestion to frame the disaster as an audition for a deep-sea documentary successfully turns a sinking into a niche media opportunity.
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: Panicky Penny
+  fields:
+    vote: Bandwagon Benny
+    reason: Bandwagon Benny's take on auditioning for a deep-sea documentary about sunken band practice is the most absurd and unexpected connection to the disaster.
+code_phase_events:
+- round: 1
+  phase_index: 0
+  phase_type: event_inject
+  summary: 'Event: for no reason, a torrent of ping-pong balls rains down from the ceiling'
+  payload:
+    kind: eventInjected
+    event: for no reason, a torrent of ping-pong balls rains down from the ceiling
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  summary: 'Votes — Bandwagon Benny: 2, Panicky Penny: 2'
+  payload:
+    kind: voteResults
+    votes:
+      Bandwagon Benny: Panicky Penny
+      Panicky Penny: Bandwagon Benny
+      Professor Cosmo: Bandwagon Benny
+      Steady Eddie: Panicky Penny
+    tallies:
+      Bandwagon Benny: 2
+      Panicky Penny: 2
+- round: 1
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Bandwagon Benny: 2, Panicky Penny: 2, Professor Cosmo: 0, Steady Eddie: 0'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Bandwagon Benny: 2
+      Panicky Penny: 2
+      Professor Cosmo: 0
+      Steady Eddie: 0
+- round: 1
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 1 result: {"Bandwagon Benny": 2, "Panicky Penny": 2, "Professor Cosmo": 0, "Steady Eddie": 0}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 0
+  phase_type: event_inject
+  summary: 'Event: the entire venue is now declared to be sunk 10,000 meters deep in the ocean'
+  payload:
+    kind: eventInjected
+    event: the entire venue is now declared to be sunk 10,000 meters deep in the ocean
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  summary: 'Votes — Bandwagon Benny: 2, Panicky Penny: 1, Professor Cosmo: 1'
+  payload:
+    kind: voteResults
+    votes:
+      Bandwagon Benny: Professor Cosmo
+      Panicky Penny: Bandwagon Benny
+      Professor Cosmo: Bandwagon Benny
+      Steady Eddie: Panicky Penny
+    tallies:
+      Bandwagon Benny: 2
+      Panicky Penny: 1
+      Professor Cosmo: 1
+- round: 2
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Bandwagon Benny: 4, Panicky Penny: 3, Professor Cosmo: 1, Steady Eddie: 0'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Bandwagon Benny: 4
+      Panicky Penny: 3
+      Professor Cosmo: 1
+      Steady Eddie: 0
+- round: 2
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 2 result: {"Bandwagon Benny": 4, "Panicky Penny": 3, "Professor Cosmo": 1, "Steady Eddie": 0}'
+  payload:
+    kind: summary
