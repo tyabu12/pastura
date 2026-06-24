@@ -97,5 +97,13 @@ echo "$C" | grep "game_theory" | grep -q "rare" || fail "census: zero-count cate
 echo '{"version":1,"scenarios":[]}' > "$TMP/empty.json"
 python3 "$SCRIPTS/gallery_census.py" "$TMP/empty.json" | grep -q "empty gallery" \
   || fail "census: empty gallery not handled cleanly"
+# fallback: when no axis trips rare/crowded (all 2/4), still suggest 3 rarest
+F=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_balanced.json)
+echo "$F" | grep -q "avoid piling onto crowded" && fail "census: balanced should have no crowded axis"
+echo "$F" | grep "mechanic axes:" | grep -q "peer_vote" || fail "census: fallback rarest-3 targets missing"
+# unrecognized category drift surfaces on stderr (not silently absorbed)
+echo '{"version":1,"scenarios":[{"id":"x","category":"made_up_cat","phases":["vote"]}]}' > "$TMP/drift.json"
+python3 "$SCRIPTS/gallery_census.py" "$TMP/drift.json" 2>"$TMP/drift.err" >/dev/null
+grep -q "unrecognized categories" "$TMP/drift.err" || fail "census: category drift not warned"
 
 echo "ALL TESTS PASSED"

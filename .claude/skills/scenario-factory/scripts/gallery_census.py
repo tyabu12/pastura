@@ -25,6 +25,9 @@ import sys
 # scaffolding phases (assign / summarize / speak_all) are deliberately NOT axes
 # — they don't define a scenario's format. List order is the deterministic
 # tie-break for equally-rare axes (a stable sort on count preserves it).
+# NOTE: `scoring_free` is a NEGATION axis — a scenario counts toward it
+# precisely because it lacks vote AND score_calc, so it is anti-correlated
+# with peer_vote/scored by construction (the 8 axes are not all orthogonal).
 AXES = [
     ("peer_vote", lambda p: "vote" in p),
     ("scored", lambda p: "score_calc" in p),
@@ -103,6 +106,9 @@ def main():
         print(line(label, count, n_ax))
 
     # Categories — seed every valid category at 0 so absent ones still rank.
+    # `category` is a non-optional field in the schema, so n_cat == total in
+    # practice; the axis denominator (n_ax) may be smaller because it excludes
+    # phase-less entries — the two fractions are intentionally not comparable.
     cat_counts = {c: 0 for c in VALID_CATEGORIES}
     for s in scenarios:
         cat = s.get("category")
@@ -110,6 +116,13 @@ def main():
             cat_counts[cat] = cat_counts.get(cat, 0) + 1
     n_cat = sum(1 for s in scenarios if s.get("category"))
     cats_by_presence = sorted(cat_counts.items(), key=lambda x: (x[1], x[0]))
+    # Surface enum drift the hardcoded VALID_CATEGORIES can't anticipate, so a
+    # new/typo'd category lands in the overnight log instead of silently
+    # inflating the denominator.
+    unknown = sorted(c for c in cat_counts if c not in VALID_CATEGORIES)
+    if unknown:
+        print("census: WARNING unrecognized categories (GalleryCategory "
+              f"drift?): {', '.join(unknown)}", file=sys.stderr)
 
     print()
     print(f"Category (count / {n_cat}):")
