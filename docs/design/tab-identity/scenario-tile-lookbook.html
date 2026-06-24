@@ -1,0 +1,246 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<title>Pastura — シナリオ・アートタイル 探索ルックブック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#E7E2D6;--screen-bg:#FCFAF4;--bubble-bg:#FFFFFF;
+  --ink:#2D2E26;--ink-2:#5A5A55;--muted:#8A8A83;--rule:#E0DBCE;
+  --moss:#8A9A6C;--moss-dark:#6B7852;--moss-ink:#3D4030;--moss-soft:#D4CBA8;
+  --selected:rgba(138,154,108,.20);--moss-wash:rgba(138,154,108,.10);
+  --font-sans:"Noto Sans JP",system-ui,sans-serif;--font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased;padding:34px 28px 70px}
+h1{font-size:23px;font-weight:700;margin-bottom:6px}
+.sub{font-size:13px;color:var(--ink-2);margin-bottom:18px;line-height:1.65;max-width:1180px}
+.sub b{color:var(--moss-dark)}
+.facts{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:30px;max-width:1180px}
+.fact{flex:1;min-width:240px;background:var(--screen-bg);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.55;color:var(--ink-2)}
+.fact b{color:var(--moss-dark);font-weight:600}
+
+/* legend */
+.legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;background:var(--screen-bg);border:1px solid var(--rule);border-radius:12px;padding:12px 16px;margin-bottom:30px;max-width:1180px}
+.legend .lg{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-2)}
+.legend .gi{width:26px;height:26px;border-radius:7px;background:var(--moss-wash);border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center;color:var(--moss-dark)}
+.legend .gi svg{width:15px;height:15px}
+.legend .ttl{font-weight:600;color:var(--ink);font-size:12px;margin-right:4px}
+
+/* matrix */
+.matrix{display:grid;grid-template-columns:118px repeat(3,minmax(260px,1fr));gap:0;border:1px solid var(--rule);border-radius:16px;overflow:hidden;background:var(--bubble-bg);max-width:1180px}
+.mh{background:var(--screen-bg);border-bottom:1px solid var(--rule);padding:14px 16px}
+.mh.corner{border-right:1px solid var(--rule)}
+.mh .v{font-size:14px;font-weight:700}
+.mh .v .pin{font-family:var(--font-mono);font-size:9px;font-weight:600;color:#fff;background:var(--moss-dark);border-radius:5px;padding:2px 6px;margin-left:6px;letter-spacing:.05em}
+.mh .v .pin.b{background:var(--moss)}.mh .v .pin.c{background:var(--moss-ink)}
+.mh .d{font-size:10.5px;color:var(--ink-2);line-height:1.4;margin-top:5px}
+.rl{background:var(--screen-bg);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px 12px;display:flex;flex-direction:column;justify-content:center}
+.rl .nm{font-size:12px;font-weight:700;line-height:1.3}
+.rl .mech{font-family:var(--font-mono);font-size:9px;color:var(--moss-dark);margin-top:5px;letter-spacing:.03em}
+.rl .ag{font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:2px}
+.cell{border-bottom:1px solid var(--rule);border-right:1px solid var(--rule);padding:14px 14px;display:flex;align-items:center;background:var(--screen-bg)}
+.matrix>.cell:nth-last-child(-n+1){border-right:none}
+.cell:last-child{border-right:none}
+
+/* ===== shared catalog card ===== */
+.card{display:flex;gap:12px;background:var(--bubble-bg);border:1px solid var(--rule);border-radius:14px;padding:11px;box-shadow:0 1px 2px rgba(90,100,60,.05);width:100%}
+.card .bd{flex:1;min-width:0;display:flex;flex-direction:column}
+.card .nm{font-size:13px;font-weight:700;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .chip{align-self:flex-start;font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--moss-dark);background:var(--selected);border-radius:6px;padding:2px 6px;margin-top:5px}
+.card .ft{margin-top:auto;padding-top:7px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.02em}
+
+/* card variant B: timeline banner on top */
+.cardB{flex-direction:column;gap:0;padding:0;overflow:hidden}
+.cardB .banner{padding:10px 12px;background:var(--moss-wash);border-bottom:1px solid var(--rule)}
+.cardB .bd{padding:10px 12px}
+
+/* ===== A: left square tile + sheep cluster + mechanic glyph badge ===== */
+.tileA{position:relative;width:74px;height:74px;flex:none;border-radius:13px;background:var(--moss-wash);border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center}
+.tileA .cluster{display:grid;grid-template-columns:1fr 1fr;gap:1px}
+.tileA .cluster svg{width:25px;height:25px;display:block}
+.tileA .badge{position:absolute;right:-6px;bottom:-6px;width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center;color:var(--moss-dark);box-shadow:0 1px 3px rgba(90,100,60,.18)}
+.tileA .badge svg{width:15px;height:15px}
+
+/* ===== B: top banner — agent dots row + phase mini-timeline ===== */
+.bnAgents{display:flex;align-items:center;gap:5px;margin-bottom:9px}
+.bnAgents .sh{display:flex;gap:1px}.bnAgents .sh svg{width:19px;height:19px;display:block}
+.bnAgents .ct{font-family:var(--font-mono);font-size:9px;color:var(--moss-ink);letter-spacing:.02em}
+.timeline{display:flex;align-items:center;gap:0}
+.timeline .node{width:24px;height:24px;border-radius:8px;background:#fff;border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center;color:var(--moss-dark);flex:none}
+.timeline .node.key{background:var(--moss-dark);border-color:var(--moss-dark);color:#fff}
+.timeline .node svg{width:14px;height:14px}
+.timeline .seg{height:2px;width:9px;background:var(--moss-soft);flex:none}
+
+/* ===== C: abstract emblem — agents in formation + central mechanic ===== */
+.tileC{width:74px;height:74px;flex:none;border-radius:13px;background:radial-gradient(circle at 50% 45%,rgba(138,154,108,.16),var(--moss-wash));border:1px solid var(--moss-soft);position:relative}
+.tileC .ring{position:absolute;inset:0}
+.tileC .ring .ag{position:absolute;width:15px;height:15px;margin:-7.5px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(107,120,82,.25)}
+.tileC .core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--moss-soft);display:flex;align-items:center;justify-content:center;color:var(--moss-dark);box-shadow:0 1px 4px rgba(90,100,60,.2)}
+.tileC .core svg{width:17px;height:17px}
+
+/* ===== stress test (many phases) ===== */
+.stress{max-width:1180px;margin-top:36px}
+.stress h2{font-size:16px;font-weight:700;margin-bottom:4px}
+.stress h2 .pin{font-family:var(--font-mono);font-size:10px;font-weight:600;color:#fff;background:#b06a52;border-radius:5px;padding:2px 7px;margin-left:8px;letter-spacing:.04em}
+.stress .note{font-size:12px;color:var(--ink-2);line-height:1.55;margin-bottom:16px}
+.stress .note b{color:var(--moss-dark)}
+.strow{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.stcol{width:270px}
+.stcol .lab{font-size:12px;font-weight:700;margin-bottom:7px}
+.stcol .lab .v{font-family:var(--font-mono);font-size:9px;font-weight:600;border-radius:5px;padding:2px 6px;margin-left:6px;letter-spacing:.04em}
+.stcol .lab .ok{background:var(--selected);color:var(--moss-dark)}
+.stcol .lab .bad{background:rgba(176,106,82,.18);color:#a85638}
+.stcol .cap{font-size:10.5px;color:var(--ink-2);margin-top:8px;line-height:1.45}
+/* clipped banner to demonstrate overflow */
+.clip{position:relative;overflow:hidden}
+.clip::after{content:"";position:absolute;top:0;right:0;bottom:0;width:34px;background:linear-gradient(to right,transparent,var(--moss-wash))}
+.timeline.tight .node{width:22px;height:22px;border-radius:7px}.timeline.tight .seg{width:6px}
+.ovf{font-family:var(--font-mono);font-size:9px;font-weight:600;color:var(--moss-dark);background:var(--selected);border-radius:6px;padding:3px 6px;margin-left:6px;align-self:center}
+.foot{font-size:12px;color:var(--ink-2);line-height:1.6;margin-top:26px;max-width:1180px}
+.foot b{color:var(--moss-dark)}
+</style></head><body>
+
+<svg width="0" height="0" style="position:absolute">
+<!-- sheep -->
+<symbol id="sh" viewBox="0 0 28 28"><circle cx="14" cy="15" r="8" fill="var(--b)"/><circle cx="9" cy="13" r="3.2" fill="var(--b)"/><circle cx="19" cy="13" r="3.2" fill="var(--b)"/><circle cx="11" cy="18" r="3" fill="var(--b)"/><circle cx="17" cy="18" r="3" fill="var(--b)"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="var(--f)"/><circle cx="12.6" cy="14.8" r=".7" fill="#2d2e26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2d2e26"/></symbol>
+<!-- phase glyphs (stroke, currentColor) -->
+<symbol id="g-discuss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 5h11v7H8l-3 3v-3H3z"/><path d="M14 11h7v6h-2v2.5L16.5 17H14z"/></symbol>
+<symbol id="g-vote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M8.5 10V5.5h7V10"/><path d="M9 14.5l2.2 2.2L15.5 12"/></symbol>
+<symbol id="g-choose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-8"/><path d="M12 13L6.5 6"/><path d="M12 13l5.5-7"/><circle cx="5.6" cy="5" r="2"/><circle cx="18.4" cy="5" r="2"/></symbol>
+<symbol id="g-eliminate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="g-conditional" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3l8.5 9-8.5 9-8.5-9z"/><path d="M12 12h5.5"/></symbol>
+<symbol id="g-event" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 2L5 13.2h5.2L9 22l9-12.4h-5.6z"/></symbol>
+<symbol id="g-score" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 20v-7M12 20V5M18 20v-10"/></symbol>
+<!-- scaffolding phases (muted) -->
+<symbol id="g-assign" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="10" height="13" rx="1.5"/><path d="M9 6V4.5h11V16"/></symbol>
+<symbol id="g-summarize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h8"/></symbol>
+</svg>
+
+<h1>Pastura — シナリオ・アートタイル 探索ルックブック</h1>
+<p class="sub">さがすカードの「顔」を強化する探索。目標は <b>① 正確なエージェント数</b> と <b>② シナリオの肝になるフェーズ（vote / choose / eliminate …）</b> を、文字でなく<b>イラスト/記号で一目で</b>伝えること。行＝実在シナリオ、列＝方向案（<b>A 控えめ → B 中庸 → C 大胆</b>）。すべて実データ（体数・フェーズ列）で描画。</p>
+
+<div class="facts">
+  <div class="fact"><b>色は4種まで</b>：羊カラーは alice/bob/carol/dave の4色のみ。5体は<b>色が循環</b>（5匹目＝alice色）。色＝個体識別ではなく「群れ＝人数」として読ませる前提。</div>
+  <div class="fact"><b>フェーズはまだ一覧に無い</b>：gallery.json は agent_count / rounds のみ。フェーズ表示（B/C）は <b>gallery.json にフェーズ要約を追加</b>する前提（curation時にYAMLから抽出。既存 gallery scripts が解析済みなので安価）。A の単一グリフも同様に1フィールドで足りる。</div>
+  <div class="fact"><b>フェーズ語彙</b>：assign / speak_all / speak_each / vote / eliminate / summarize / score_calc / choose / event_inject / conditional（最大5/シナリオ）。下の凡例が肝フェーズのグリフ。</div>
+</div>
+
+<div class="legend">
+  <span class="ttl">フェーズ・グリフ</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-discuss"/></svg></span>議論</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-vote"/></svg></span>投票</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-choose"/></svg></span>選択</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-eliminate"/></svg></span>脱落</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-conditional"/></svg></span>分岐</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-event"/></svg></span>乱入</span>
+  <span class="lg"><span class="gi"><svg><use href="#g-score"/></svg></span>採点</span>
+  <span class="lg"><span class="gi" style="color:var(--muted);background:#f3f1ea"><svg><use href="#g-assign"/></svg></span>配役<span style="color:var(--muted)">(補助)</span></span>
+  <span class="lg"><span class="gi" style="color:var(--muted);background:#f3f1ea"><svg><use href="#g-summarize"/></svg></span>総括<span style="color:var(--muted)">(補助)</span></span>
+</div>
+
+<div class="matrix">
+  <!-- header row -->
+  <div class="mh corner"><div class="v">シナリオ</div><div class="d">実在ギャラリーから5種<br>（体数・肝フェーズ違い）</div></div>
+  <div class="mh"><div class="v">案A<span class="pin">控えめ</span></div><div class="d">左正方形タイル：正確な羊数＋右下に肝フェーズのグリフ・バッジ1個。PR2の最小進化。</div></div>
+  <div class="mh"><div class="v">案B<span class="pin b">中庸</span></div><div class="d">上部バナー：エージェント点列＋フェーズのミニ横タイムライン（流れ全体）。肝フェーズだけ濃ノード。</div></div>
+  <div class="mh"><div class="v">案C<span class="pin c">大胆</span></div><div class="d">抽象エンブレム：エージェントを円環配置＋中央に肝フェーズのシンボル＝ジャンルの紋章。</div></div>
+
+  <!-- ROW 1: アッシュの同調実験 — 5体 — discuss -->
+  <div class="rl"><div class="nm">アッシュの同調実験</div><div class="mech">議論型 (speak→summarize)</div><div class="ag">5体 · 2ラウンド</div></div>
+  <div class="cell">
+    <div class="card"><div class="tileA"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></div><span class="badge"><svg><use href="#g-discuss"/></svg></span></div><div class="bd"><div class="nm">アッシュの同調実験</div><span class="chip">社会心理</span><div class="ft">5体 · 2ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></span><span class="ct">5体</span></div><div class="timeline"><span class="node key"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-summarize"/></svg></span></div></div><div class="bd"><div class="nm">アッシュの同調実験</div><span class="chip">社会心理</span><div class="ft">5体 · 2ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card"><div class="tileC"><div class="ring"><span class="ag" style="left:50%;top:14%;background:#c9a979"></span><span class="ag" style="left:83%;top:42%;background:#8a9a6c"></span><span class="ag" style="left:70%;top:82%;background:#b8877c"></span><span class="ag" style="left:30%;top:82%;background:#6b6858"></span><span class="ag" style="left:17%;top:42%;background:#c9a979"></span></div><span class="core"><svg><use href="#g-discuss"/></svg></span></div><div class="bd"><div class="nm">アッシュの同調実験</div><span class="chip">社会心理</span><div class="ft">5体 · 2ラウンド</div></div></div>
+  </div>
+
+  <!-- ROW 2: トロッコ問題 — 4体 — choose -->
+  <div class="rl"><div class="nm">トロッコ問題</div><div class="mech">選択型 (speak→choose)</div><div class="ag">4体 · 2ラウンド</div></div>
+  <div class="cell">
+    <div class="card"><div class="tileA"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></div><span class="badge"><svg><use href="#g-choose"/></svg></span></div><div class="bd"><div class="nm">トロッコ問題</div><span class="chip">倫理</span><div class="ft">4体 · 2ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></span><span class="ct">4体</span></div><div class="timeline"><span class="node"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-choose"/></svg></span></div></div><div class="bd"><div class="nm">トロッコ問題</div><span class="chip">倫理</span><div class="ft">4体 · 2ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card"><div class="tileC"><div class="ring"><span class="ag" style="left:30%;top:20%;background:#c9a979"></span><span class="ag" style="left:70%;top:20%;background:#8a9a6c"></span><span class="ag" style="left:80%;top:66%;background:#b8877c"></span><span class="ag" style="left:20%;top:66%;background:#6b6858"></span></div><span class="core"><svg><use href="#g-choose"/></svg></span></div><div class="bd"><div class="nm">トロッコ問題</div><span class="chip">倫理</span><div class="ft">4体 · 2ラウンド</div></div></div>
+  </div>
+
+  <!-- ROW 3: 大喜利ノックアウト — 4体 — eliminate -->
+  <div class="rl"><div class="nm">大喜利ノックアウト</div><div class="mech">脱落型 (vote→eliminate)</div><div class="ag">4体 · 3ラウンド</div></div>
+  <div class="cell">
+    <div class="card"><div class="tileA"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></div><span class="badge"><svg><use href="#g-eliminate"/></svg></span></div><div class="bd"><div class="nm">大喜利ノックアウト</div><span class="chip">創作</span><div class="ft">4体 · 3ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></span><span class="ct">4体</span></div><div class="timeline"><span class="node"><svg><use href="#g-assign"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-vote"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-eliminate"/></svg></span></div></div><div class="bd"><div class="nm">大喜利ノックアウト</div><span class="chip">創作</span><div class="ft">4体 · 3ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card"><div class="tileC"><div class="ring"><span class="ag" style="left:30%;top:20%;background:#c9a979"></span><span class="ag" style="left:70%;top:20%;background:#8a9a6c"></span><span class="ag" style="left:80%;top:66%;background:#b8877c"></span><span class="ag" style="left:20%;top:66%;background:#d9d7c9;opacity:.4;border-style:dashed"></span></div><span class="core"><svg><use href="#g-eliminate"/></svg></span></div><div class="bd"><div class="nm">大喜利ノックアウト</div><span class="chip">創作</span><div class="ft">4体 · 3ラウンド</div></div></div>
+  </div>
+
+  <!-- ROW 4: 映画の珍字幕 — 4体 — vote/score -->
+  <div class="rl"><div class="nm">映画の珍字幕</div><div class="mech">投票・採点型 (vote→score)</div><div class="ag">4体 · 2ラウンド</div></div>
+  <div class="cell">
+    <div class="card"><div class="tileA"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></div><span class="badge"><svg><use href="#g-vote"/></svg></span></div><div class="bd"><div class="nm">映画の珍字幕</div><span class="chip">創作</span><div class="ft">4体 · 2ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg></span><span class="ct">4体</span></div><div class="timeline"><span class="node"><svg><use href="#g-assign"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-vote"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-score"/></svg></span></div></div><div class="bd"><div class="nm">映画の珍字幕</div><span class="chip">創作</span><div class="ft">4体 · 2ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card"><div class="tileC"><div class="ring"><span class="ag" style="left:30%;top:20%;background:#c9a979"></span><span class="ag" style="left:70%;top:20%;background:#8a9a6c"></span><span class="ag" style="left:80%;top:66%;background:#b8877c"></span><span class="ag" style="left:20%;top:66%;background:#6b6858"></span></div><span class="core"><svg><use href="#g-vote"/></svg></span></div><div class="bd"><div class="nm">映画の珍字幕</div><span class="chip">創作</span><div class="ft">4体 · 2ラウンド</div></div></div>
+  </div>
+
+  <!-- ROW 5: 探偵の推理会議 — 5体 — conditional -->
+  <div class="rl"><div class="nm">探偵の推理会議</div><div class="mech">分岐型 (vote→score→conditional)</div><div class="ag">5体 · 1ラウンド</div></div>
+  <div class="cell">
+    <div class="card"><div class="tileA"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></div><span class="badge"><svg><use href="#g-conditional"/></svg></span></div><div class="bd"><div class="nm">探偵の推理会議</div><span class="chip">ロールプレイ</span><div class="ft">5体 · 1ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></span><span class="ct">5体</span></div><div class="timeline"><span class="node"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-vote"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-score"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-conditional"/></svg></span></div></div><div class="bd"><div class="nm">探偵の推理会議</div><span class="chip">ロールプレイ</span><div class="ft">5体 · 1ラウンド</div></div></div>
+  </div>
+  <div class="cell">
+    <div class="card"><div class="tileC"><div class="ring"><span class="ag" style="left:50%;top:14%;background:#c9a979"></span><span class="ag" style="left:83%;top:42%;background:#8a9a6c"></span><span class="ag" style="left:70%;top:82%;background:#b8877c"></span><span class="ag" style="left:30%;top:82%;background:#6b6858"></span><span class="ag" style="left:17%;top:42%;background:#c9a979"></span></div><span class="core"><svg><use href="#g-conditional"/></svg></span></div><div class="bd"><div class="nm">探偵の推理会議</div><span class="chip">ロールプレイ</span><div class="ft">5体 · 1ラウンド</div></div></div>
+  </div>
+</div>
+
+<div class="stress">
+  <h2>ストレステスト：フェーズが多い時<span class="pin">上限なし</span></h2>
+  <div class="note">フェーズ数に<b>仕様上の上限はない</b>（ユーザーが自作可能）。現状の最大は <b>Word Wolf＝5体・9フェーズ</b>（assign→speak_each→event_inject→conditional→speak_each→vote→eliminate→score_calc→conditional）。案Aと案Bがこの最大ケースでどう振る舞うか:</div>
+  <div class="strow">
+
+    <!-- A: signature only — O(1) -->
+    <div class="stcol">
+      <div class="lab">案A：肝フェーズ1個<span class="v ok">破綻しない</span></div>
+      <div class="card"><div class="tileA"><div class="cluster"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></div><span class="badge"><svg><use href="#g-eliminate"/></svg></span></div><div class="bd"><div class="nm">ワードウルフ</div><span class="chip">ロールプレイ</span><div class="ft">5体 · 1ラウンド</div></div></div>
+      <div class="cap">フェーズ数に関係なく常に1グリフ。優先順位で「看板の仕組み」を1つ選ぶ（脱落 > 選択 > 分岐 > 投票 > 乱入 > 採点 > 議論）→ ワードウルフは <b>脱落</b>。</div>
+    </div>
+
+    <!-- B naive: 9 nodes → overflow -->
+    <div class="stcol">
+      <div class="lab">案B：全フェーズ素直に<span class="v bad">破綻</span></div>
+      <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></span><span class="ct">5体</span></div><div class="timeline tight clip"><span class="node"><svg><use href="#g-assign"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-event"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-conditional"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-discuss"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-vote"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-eliminate"/></svg></span><span class="seg"></span><span class="node"><svg><use href="#g-score"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-conditional"/></svg></span></div></div><div class="bd"><div class="nm">ワードウルフ</div><span class="chip">ロールプレイ</span><div class="ft">5体 · 1ラウンド</div></div></div>
+      <div class="cap">9ノードはカード幅に収まらず右端で見切れる（フェード）。グリフも潰れて視認性が落ちる。<b>このまま並べるのは不可</b>。</div>
+    </div>
+
+    <!-- B fixed: key-only + dedupe + cap -->
+    <div class="stcol">
+      <div class="lab">案B：肝のみ＋重複除去＋上限<span class="v ok">解決</span></div>
+      <div class="card cardB"><div class="banner"><div class="bnAgents"><span class="sh"><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg><svg style="--b:#dde4cc;--f:#8a9a6c"><use href="#sh"/></svg><svg style="--b:#ead6d1;--f:#b8877c"><use href="#sh"/></svg><svg style="--b:#d9d7c9;--f:#6b6858"><use href="#sh"/></svg><svg style="--b:#f2e3c8;--f:#c9a979"><use href="#sh"/></svg></span><span class="ct">5体</span></div><div class="timeline"><span class="node key"><svg><use href="#g-event"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-conditional"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-vote"/></svg></span><span class="seg"></span><span class="node key"><svg><use href="#g-eliminate"/></svg></span></div></div><div class="bd"><div class="nm">ワードウルフ</div><span class="chip">ロールプレイ</span><div class="ft">5体 · 1ラウンド</div></div></div>
+      <div class="cap">補助フェーズ(配役/発言/採点/総括)を畳み、肝だけ＝乱入→分岐→投票→脱落の4個に。さらに上限(例4)を超えたら末尾を <span class="ovf" style="margin:0">+2</span> ピルに。<b>全シナリオ4±で安定</b>。</div>
+    </div>
+
+  </div>
+</div>
+
+<p class="foot">
+<b>比較の論点</b>
+① <b>体数の正確さ</b>：A/B は群れ＝人数で5体も正確（5匹目は alice 色に循環）。C はリング配置で人数を表現（脱落者は破線・半透明で「eliminate」を兼ねられる＝3行目）。<br>
+② <b>肝フェーズの伝達</b>：A は単一グリフで「何で勝つゲームか」を即伝達（最安・データ1フィールド）。B は流れ全体（議論→投票→脱落 等）が読める情報量最大。C はジャンルの雰囲気・記憶に残る紋章性が最大。<br>
+③ <b>実装コスト</b>：A＝gallery.json に「signature_phase」1個追加。B＝「phases配列要約」追加＋横幅レイアウト変更（カード構造に踏み込む）。C＝同上＋円環の自前描画。<br>
+<b>未確定</b>：グリフのモチーフ（投票＝投票箱／選択＝分岐路／脱落＝×丸 など）は要詰め。C のリング座標は今は固定例。フィードバックで方向を1つに絞ったら、データ経路（gallery.json 拡張）と合わせて /orchestrate で実装。
+</p>
+
+</body></html>
