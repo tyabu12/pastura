@@ -107,6 +107,15 @@ nonisolated enum HomeScenarioRowFormat {
     return segments
   }
 
+  /// Description line limit for the compact row: a single truncated line at
+  /// normal Dynamic Type sizes (denser than the old Home row's two), but
+  /// unlimited so the text wraps at accessibility sizes — clipping to one line
+  /// at AX5 would drop almost all of it. `nil` means "no limit" to
+  /// SwiftUI's `.lineLimit(_:)`.
+  static func compactDescriptionLineLimit(isAccessibilitySize: Bool) -> Int? {
+    isAccessibilitySize ? nil : 1
+  }
+
   /// Whether the compact row draws a document glyph instead of a sheep avatar
   /// in its leading icon tile. Document only for self-authored scenarios (no
   /// preset, no resolvable gallery category); presets and gallery-installed

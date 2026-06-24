@@ -155,6 +155,16 @@ struct HomeScenarioRowFormatTests {
     #expect(segments == [String(localized: "Self-made")])
   }
 
+  // MARK: - Compact-row description line limit
+
+  @Test func compactDescriptionLimitOneLineAtNormalSizes() {
+    #expect(HomeScenarioRowFormat.compactDescriptionLineLimit(isAccessibilitySize: false) == 1)
+  }
+
+  @Test func compactDescriptionLimitUnlimitedAtAccessibilitySizes() {
+    #expect(HomeScenarioRowFormat.compactDescriptionLineLimit(isAccessibilitySize: true) == nil)
+  }
+
   // MARK: - Compact-row icon decision
 
   @Test func usesDocIconOnlyForSelfAuthored() {

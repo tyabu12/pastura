@@ -21,6 +21,10 @@ struct HomeCompactScenarioRow: View {
   let scenario: ScenarioRecord
   let metadata: ScenarioRowMetadata?
   var hasGalleryUpdate: Bool = false
+  // Drives the description's line limit: one truncated line at normal sizes
+  // (denser than the old 2-line Home row), unlimited wrap at accessibility
+  // sizes so the text isn't clipped to nothing.
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     NavigationLink(
@@ -37,6 +41,19 @@ struct HomeCompactScenarioRow: View {
             // worse than a 2-line row in this dense layout.
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(Color.ink)
+          // One-line description restores the "what is this scenario?" context
+          // the metadata-only caption can't carry — Home is where you pick what
+          // to run, and preset names alone aren't self-explanatory.
+          if let description = metadata?.description, !description.isEmpty {
+            Text(description)
+              .font(.footnote)
+              .foregroundStyle(Color.inkSecondary)
+              .lineLimit(
+                HomeScenarioRowFormat.compactDescriptionLineLimit(
+                  isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
+              )
+              .truncationMode(.tail)
+          }
           caption
         }
         Spacer(minLength: 8)
