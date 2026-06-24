@@ -7,6 +7,7 @@
       "id": "factory_20260613_test_ok",
       "name": "テスト大喜利",
       "theme": "大喜利",
+      "axis": "elimination / creative",
       "yaml": "data/factory/scenarios/2026-06-13/factory_20260613_test_ok.yaml",
       "run_log": "data/factory/runs/2026-06-13/factory_20260613_test_ok.jsonl",
       "status": "ok",

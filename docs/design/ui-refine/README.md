@@ -41,9 +41,13 @@ resource the whole brush-up family is built to protect:
    guideline) it advances, plus a concrete before → after. Vague "make it nicer"
    is rejected before it reaches the digest.
 5. **Adversarial self-filter** — a second pass tries to *reject* each candidate
-   (already by-design? design-system already covers it? subjective preference?
-   out of scope per the ROADMAP? would a maintainer say "considered, no"?). Only
-   survivors reach the digest.
+   (already by-design? subjective preference? out of scope per the ROADMAP?
+   would a maintainer say "considered, no"?). The "already covered" test splits
+   on what the UI *actually does*: a screen that **correctly follows** the
+   convention is noise → drop; a screen that **violates** a spec-determined value
+   is the highest-value finding → keep it as a **compliance gap** (a code-fix,
+   surfaced separately from judgment-based *design proposals*). Only survivors
+   reach the digest.
 
 This inherits the brush-up family's shared **Output Contract** (canonical text:
 [`.claude/skills/consistency-audit/SKILL.md`](../../../.claude/skills/consistency-audit/SKILL.md)
@@ -79,6 +83,27 @@ journal. Pin this constraint before any Routine is wired up.
    reason — this is what stops it from resurfacing next rotation.
 4. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
    the promotion triggered.
+
+## Known coverage limitations
+
+The capture step (`scripts/ui-tour.sh`) renders the app under `--ui-test`, which
+seeds **populated** fixtures only — it surfaces no genuinely empty (zero
+scenarios / zero results / no-search-match) or error (gallery offline / load
+failure) state. That caps the **L5** (empty / error / edge) and **L6** (copy —
+the on-screen text *is* the UITest fixture) lenses: they can only critique the
+populated surfaces the tour happens to render. The motion path inherits a
+parallel gap — § 5.5 DL-Progress-Dots (motion timing in § 6) and the
+bubble-entrance animation are unreachable under `--ui-test`
+(`../motion/README.md` § Deferred).
+
+The real fix is a launch-argument path that seeds empty / error states into the
+tour (and a canned-response queue for the live-simulation surfaces) —
+app + `ScreenshotTourTests` work, **out of scope for the markdown-only skill
+iteration** and tracked as a separate follow-up. Until it lands, treat L5/L6
+(and L4's DL-dot / interactive-state anchors) as coverage-bounded: do not infer
+empty / error findings from fixtures that never show those states. This note is
+the durable home for the signal — the per-run digests that first recorded it are
+gitignored.
 
 ## Deferred next phases (NOT in this prototype)
 
