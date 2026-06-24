@@ -202,3 +202,51 @@ Full mechanism + the wait helper live in `parkRunMidFlight`
 - **`makePhaseContext(scenario:phaseIndex:llm:collector:)`**: Convenience factory
   for `PhaseContext`. Bundles scenario, phase, LLM, and emitter for handler tests.
   Use this instead of constructing `PhaseContext` manually.
+
+## Wall-clock test bounds need CI headroom (20–30×)
+
+Wall-clock assertions (`elapsed >= X && elapsed < Y`) that pass locally can fail on CI
+even with generous bounds: the `lint-and-test` job runs `-enableCodeCoverage YES` on a
+shared runner, and coverage bookkeeping is non-trivial for concurrency-heavy code
+(AsyncStream, `Task.sleep`). A body measured at ~120 ms locally was observed at ~3.3 s on
+CI (20×+).
+
+- **Lower bound** (the load-bearing check): keep tight to local — if it trips, something is
+  genuinely broken (pacing bypassed, sleep not applied).
+- **Upper bound** (runaway guard only): set generously, e.g. `< 30.0 s` for a sub-second
+  test; rely on the suite `.timeLimit(.minutes(1))` as the real backstop.
+- **Avoid** absolute windows like `elapsed < 1.0` for a 100 ms test — coverage + scheduler
+  jitter alone consumes that.
+- **Better**: inject an observable (callback counter, Clock stub) so the test is
+  deterministic regardless of runner load.
+
+## Expanding bundled data breaks count-pinning tests far away
+
+Expanding a bundled data file (e.g. ContentBlocklist 9→90) silently breaks `count == N`
+canaries that live in tests far from the data file (`ContentBlocklistTests`, registry /
+preset suites). Narrow `-only-testing` runs — the delegation default — never execute them,
+so the breakage stays invisible until a full run. Before (or in the same commit as) any
+bundled-data expansion, run `rg 'count == |\.count\b' Pastura/PasturaTests --type swift`
+scoped to the data's consumers and update the canaries; instruct delegated subagents to run
+the data's EXISTING suites, not only their new one.
+
+## Use exactly-representable IEEE-754 inputs in float-formatter tests
+
+When pinning `String(format: "%.Nf", x)` (or any platform float formatter), use
+**exactly-representable** Double inputs — halves (`1.5`, `12.5`, `0.25`, `0.125`). `1.85` is
+NOT exactly representable; the stored value sits just above/below, and `%.1f` rounds
+platform-dependently to `"1.8"` or `"1.9"` — passing on one machine, failing on CI. Avoid
+`1.1`, `1.85`, `2.4`, `0.1`, `0.3`, `0.7` (infinite binary expansions). To test a specific
+rounding boundary, use `Decimal` or assert against the platform's actual output, not a
+literal expected string.
+
+## A regression test must drive the exact unguarded-path input
+
+A regression test for a fix that adds a guard (`if case`, `guard let`, branch check) MUST
+construct the input shape that would hit the **unguarded** path. If it only exercises inputs
+that succeed even without the guard, it's coverage theater — it passes both pre- and
+post-fix, and a future refactor dropping the guard still passes. Shape: (1) plant the input
+that would hit the unguarded mutation, (2) run the method, (3) probe via **behavior** (e.g.
+`registerReattachedIfAbsent(...) == false` as a "slot still occupied" probe), not private
+state. Mental check before writing: *"If I revert the fix line, does this test FAIL?"* If not
+a confident yes, it isn't a regression test for the fix.

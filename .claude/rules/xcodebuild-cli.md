@@ -176,6 +176,49 @@ directly are at risk — child-process invokers (`ui-tour.sh` →
   → `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
   are real bugs (signing / plist / app-state regression), not flakes.
 
+## "Executed 0 tests" in the XCTest stanza is cosmetic for Swift-Testing suites
+
+The XCTest output stanza (`Executed N tests`) counts only `XCTestCase` subclasses — for
+Swift-Testing-only files it always prints `Executed 0 tests`, which is **cosmetic, not a
+"file not in target" signal**. The real count is in the Swift Testing stanza below
+(`✔ Test … passed`, `Test run with N tests …`). Most Pastura tests are Swift Testing.
+**Disambiguate a true zero**: `✔` markers / `Test run with N tests` present → normal; absent
+→ real bug (file at wrong path / not compiled — cf. the `-only-testing` zero-match trap in
+`testing.md`). When filtering output keep the markers:
+`grep -E "(error:|Test Suite|Executed|passed|failed|✔ Test|Test run)"`.
+
+## Engine/Models/`SimulationEvent` changes need local `swift build` (harness)
+
+The ADR-013 harness is a SwiftPM package reusing `Models`/`LLM`/`Engine`, built by
+`swift build` / `swift test` — NOT by `scripts/xcodebuild.sh` or the pre-commit hook (iOS
+app target only). So a change to a `SimulationEvent` case (or any harness-reused Engine/
+Models source) can pass the full xcodebuild suite + pre-commit locally and still break the
+CI "Harness package build" job — `EventLineMapper.swift` has an intentional no-`default:`
+exhaustive switch (compile-time canary). **Apply**: on any such change, run `swift build`
+from the repo root before push and map the new event in `EventLineMapper` (`nil` for
+internal/persistence events). See ADR-013.
+
+## Compile-checking device-only (`#if !targetEnvironment(simulator)`) code
+
+`#if !targetEnvironment(simulator)` blocks (e.g. `SettingsView` model-management UI,
+`ModelSettingsRow`) are excluded from the simulator build — which is what
+`scripts/xcodebuild.sh build`, `scripts/ui-tour.sh`, and CI all use, so a compile error OR
+layout regression there ships unseen. Compile-check without provisioning:
+`scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`
+(wrapper forwards both trailing args; signing is skipped, and Swift compiles before signing
+so `** BUILD SUCCEEDED **` confirms the block compiles). **Layout/visual** still needs a
+real device — flag device-QA explicitly in PRs touching these blocks.
+
+## Fresh worktree's first build can fail SPM resolution (misleading message)
+
+A fresh `/orchestrate` worktree has its own empty `Pastura/DerivedData/`. The first build the
+pre-commit hook triggers (any build-relevant path — `scripts/**` counts per
+`precommit-gate-classify.sh`) can fail at SPM resolution with a trailing
+`Build failed. Fix compile errors before committing.` — **misleading**: the real cause is
+unresolved SPM working copies, not a compile error. Fix once, then re-commit:
+`xcodebuild -resolvePackageDependencies -project Pastura/Pastura.xcodeproj -scheme Pastura -derivedDataPath Pastura/DerivedData`.
+Distinct from the harness `swift build` entry above (that's the SwiftPM *harness*).
+
 ## CI flake catalog (auto-retried by `ci-retry.yml`)
 
 `.github/workflows/ci-retry.yml` auto-retries failed UI test jobs
@@ -198,6 +241,18 @@ is the runner already booted + app explicitly rejected, recoverable by
 erasing the simulator. The three flakes above are infra-pressure failures
 on the GHA macos-26 runner (suspected root cause: Accessibility framework
 load + within-process clone pressure under constrained VM).
+
+### XCUITest idle-stall on continuous animations (slowness, not a retry-flake)
+
+When the `ui-test` job is slow (heavy tests 300–400 s) but the same tests run ~25 s
+locally, suspect **idle-stall**: XCUITest waits for the app to reach "idle" (no continuous
+`CAAnimation`) before each query, so indeterminate `ProgressView()`,
+`.symbolEffect(…, options: .repeating)`, `.repeatForever` stall every query. Manifests on
+the GPU-less CI sim only (Mac GPU masks it locally) — **local before/after can't validate;
+use a draft-PR CI run**. Suppress under `--ui-test` (`UITestMode.isActive` →
+`IdleFriendlyProgressView` + `symbolEffect(isActive:)` guards). **Cap-tuning gotcha**: legit
+durations overlap the stall range, so a single tight `-default-test-execution-time-allowance`
+false-kills slow-by-design tests (opt out via per-test `executionTimeAllowance`).
 
 ### When to escalate
 
