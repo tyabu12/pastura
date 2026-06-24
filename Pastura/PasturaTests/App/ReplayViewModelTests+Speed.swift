@@ -138,4 +138,51 @@ extension ReplayViewModelTests {
       Issue.record("Expected .playing after userResume(), got \(viewModel.state)")
     }
   }
+
+  // MARK: - typingCharsPerSecond tracks playbackSpeed (#791)
+  //
+  // Before #791 the demo's typing cps was the fixed `config.typingCharsPerSecond`
+  // (30), so the Speed menu changed only turn dwell, not typing. These pin that
+  // the cps now follows the runtime `playbackSpeed` (Sim parity) on a demo
+  // (opt-in) config, and that a non-demo config (typingCharsPerSecond == nil)
+  // still opts out regardless of speed. Reverting the fix (returning
+  // `config.typingCharsPerSecond`) makes the .slow/.fast/.instant cases fail.
+
+  @Test func typingCharsPerSecondTracksPlaybackSpeedOnDemoDefault() throws {
+    let source = try YAMLReplaySource(
+      yaml: Self.threeTurnYAML, scenario: Self.makeScenario(),
+      config: .demoDefault)
+    let viewModel = ReplayViewModel(sources: [source], config: .demoDefault)
+
+    viewModel.playbackSpeed = .slow
+    #expect(viewModel.typingCharsPerSecond == PlaybackSpeed.slow.charsPerSecond)
+    #expect(viewModel.typingCharsPerSecond == 15)
+
+    viewModel.playbackSpeed = .normal
+    #expect(viewModel.typingCharsPerSecond == 30)
+
+    viewModel.playbackSpeed = .fast
+    #expect(viewModel.typingCharsPerSecond == 45)
+
+    // `.instant` → nil so `AgentOutputRow` renders full text immediately.
+    viewModel.playbackSpeed = .instant
+    #expect(viewModel.typingCharsPerSecond == nil)
+  }
+
+  @Test func typingCharsPerSecondStaysNilForNonDemoConfigAcrossSpeeds() throws {
+    // Non-demo config leaves `typingCharsPerSecond` at its nil default — the
+    // opt-in gate must keep it nil at every speed (no proportional dwell /
+    // instant text), unchanged from pre-#791 behavior.
+    let config = ReplayPlaybackConfig(
+      playbackSpeed: .normal,
+      loopBehaviour: .stopAfterLast, onComplete: .stopPlayback)
+    let source = try YAMLReplaySource(
+      yaml: Self.threeTurnYAML, scenario: Self.makeScenario(), config: config)
+    let viewModel = ReplayViewModel(sources: [source], config: config)
+
+    for speed in PlaybackSpeed.allCases {
+      viewModel.playbackSpeed = speed
+      #expect(viewModel.typingCharsPerSecond == nil)
+    }
+  }
 }

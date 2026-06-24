@@ -30,12 +30,13 @@ import Foundation
 ///   extend replay pacing through the Sim-side properties; add a
 ///   replay-side property here if a new pacing dimension is needed.
 /// - **The DL-time demo replay _screen_** (``ModelDownloadHostView``)
-///   renders ``ReplayViewModel``'s `chatItems` through
-///   ``AgentOutputRow`` and statically references ``normal``'s
-///   ``charsPerSecond`` so its typing matches Sim x1. This is the View
-///   surface, distinct from ``ReplayViewModel``'s pacing above: the
-///   demo's Speed picker scales only ``multiplier`` (turn pacing),
-///   never typing cps.
+///   renders ``ReplayViewModel``'s `chatItems` through ``AgentOutputRow``.
+///   Its typing cps comes from ``ReplayViewModel/typingCharsPerSecond``,
+///   which (since #791) tracks the runtime ``ReplayViewModel/playbackSpeed``
+///   — so the demo's Speed picker scales **both** typing cps (this property)
+///   and turn dwell (``multiplier``), matching Sim at every speed (not just
+///   x1). ``ReplayPlaybackConfig/typingCharsPerSecond`` remains the opt-in
+///   gate (demo non-nil vs non-demo nil).
 /// - ``.instant`` should be handled by an explicit early-return at
 ///   each delay-scaling callsite (see ``ReplayViewModel/scaledDelay(for:)``
 ///   and ``YAMLReplaySource``); the sentinel ``multiplier`` value is
@@ -52,10 +53,14 @@ nonisolated public enum PlaybackSpeed:
 
   /// Characters revealed per second during typing animation.
   /// `nil` means "render full text immediately" (`.instant`).
-  /// Consumed by Sim (``SimulationViewModel``) and — statically via
-  /// ``normal`` — by the DL-time demo replay screen
-  /// (``ModelDownloadHostView``). ``ReplayViewModel``'s own turn pacing
-  /// does not read it.
+  /// Consumed by Sim (``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``)
+  /// and — since #791, via ``ReplayViewModel/typingCharsPerSecond`` keyed on
+  /// the runtime ``ReplayViewModel/playbackSpeed`` — by the DL-time demo
+  /// replay screen. ``ReplayViewModel``'s turn-dwell floor
+  /// (``ReplayViewModel/typingFloorMs(for:)``) does NOT read this; it uses the
+  /// fixed `config` reference, then ``ReplayViewModel/scaledDelay(for:floorMs:)``
+  /// divides by ``multiplier`` (and `charsPerSecond == 30 × multiplier`, so the
+  /// dwell stays synced with the speed-scaled typing).
   public var charsPerSecond: Double? {
     switch self {
     case .slow: 15
