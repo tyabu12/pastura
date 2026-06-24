@@ -38,12 +38,29 @@ import SwiftUI
 ///
 /// ## Reflow-stable rendering
 ///
-/// **Replay path (non-streaming):** primary text is rendered as
+/// **Replay path (non-streaming), default:** primary text is rendered as
 /// `Text(visible) + Text(hidden).foregroundStyle(.clear)` so the full string
 /// is laid out from the first frame. This keeps line-wrap positions from
 /// shifting as characters appear and lets the parent `ScrollViewReader`
 /// land its single `scrollTo(last.id)` correctly without per-character
-/// follow-up scrolls.
+/// follow-up scrolls. This is the default for Sim committed rows, Results,
+/// and past-log replay.
+///
+/// **Replay path with ``growsWithReveal`` (demo opt-in):** the DL-time demo
+/// host opts into a *growing* bubble — it drops the hidden `.clear` tail so
+/// the bubble lays out only the visible prefix and grows as characters
+/// surface (``shouldReserveHiddenTail`` is then `false`). This deliberately
+/// **reverses** the reflow-stable choice above for the demo screen so its
+/// playback feels like Sim's live token stream rather than a pre-sized
+/// placeholder (#785). Two consequences, both accepted and confined to the
+/// demo: (1) line wraps can reposition as the text grows — geometrically
+/// identical to Sim's streaming path, which already lives with this; and
+/// (2) the single-`scrollTo` guarantee is replaced by per-tick follow via
+/// ``onRevealProgress`` (the demo host re-anchors on each reveal). The flag
+/// folds in ``shouldAnimate``, so non-latest / `.instant` demo rows still
+/// reserve the full layout (no growth) and stay visually unchanged. Sim /
+/// Results / past-log never pass the flag, so their reflow-stable rendering
+/// is untouched.
 ///
 /// The thought section (`▸ THINKING` chevron + optional body) is the one
 /// intentional exception: it is gated on
@@ -92,6 +109,16 @@ struct AgentOutputRow: View {
   /// (e.g., "is thinking..." indicators) so they don't appear while text is
   /// still rendering.
   var onAnimatingChange: ((Bool) -> Void)?
+  /// Invoked on every reveal-counter tick (`visibleChars` advance) while
+  /// this row is typing. Unlike ``onAnimatingChange`` (which fires only at
+  /// the start / end boundaries), this fires continuously through the
+  /// reveal so a parent can follow the row's *growth* — e.g. keep the
+  /// newest text scrolled into view while the bubble grows under
+  /// ``growsWithReveal``. Mirrors the role ``SimulationView`` gets for free
+  /// from `streamingSnapshot` changes; replay rows have no such
+  /// parent-observable signal because growth is driven internally by
+  /// `visibleChars`.
+  var onRevealProgress: (() -> Void)?
 
   /// Live streaming override for the primary text. When non-nil, replaces
   /// the phase-derived value from `output` — used by ``SimulationView``
@@ -104,6 +131,15 @@ struct AgentOutputRow: View {
   /// Live streaming override for `inner_thought`. Same semantics as
   /// ``streamingPrimary``.
   var streamingThought: String?
+
+  /// Opt-in: render the primary bubble (and thought body) sized to the
+  /// *visible* prefix so it grows as characters surface, instead of the
+  /// default reflow-stable concat that reserves the full layout from frame
+  /// one. Used only by the DL-time demo host to mirror Sim's streaming feel
+  /// (#785). Folds in ``shouldAnimate`` via ``shouldReserveHiddenTail``, so
+  /// it has no effect on non-animating rows. See the type doc-comment
+  /// §"Reflow-stable rendering" for the trade-off.
+  var growsWithReveal: Bool = false
 
   /// Whether to prepend a sheep avatar column to this row. Defaults to
   /// true — production call sites all want the avatar. Pass `false` for
@@ -172,8 +208,10 @@ struct AgentOutputRow: View {
     isLatest: Bool = false,
     charsPerSecond: Double? = nil,
     onAnimatingChange: ((Bool) -> Void)? = nil,
+    onRevealProgress: (() -> Void)? = nil,
     streamingPrimary: String? = nil,
     streamingThought: String? = nil,
+    growsWithReveal: Bool = false,
     showAvatar: Bool = true,
     agentPosition: Int? = nil,
     debugRowID: String? = nil
@@ -185,8 +223,10 @@ struct AgentOutputRow: View {
     self.isLatest = isLatest
     self.charsPerSecond = charsPerSecond
     self.onAnimatingChange = onAnimatingChange
+    self.onRevealProgress = onRevealProgress
     self.streamingPrimary = streamingPrimary
     self.streamingThought = streamingThought
+    self.growsWithReveal = growsWithReveal
     self.showAvatar = showAvatar
     self.agentPosition = agentPosition
     self.debugRowID = debugRowID
@@ -281,6 +321,11 @@ struct AgentOutputRow: View {
     // also kick it back on.
     .onChange(of: streamingPrimary) { _, _ in handleStreamTargetChange() }
     .onChange(of: streamingThought) { _, _ in handleStreamTargetChange() }
+    // Growth signal for parents that follow the reveal (e.g. the demo host
+    // keeps the newest text scrolled into view while a ``growsWithReveal``
+    // bubble grows). Fires on every counter tick; only meaningful while
+    // animating — older rows snap `visibleChars` once and never advance.
+    .onChange(of: visibleChars) { _, _ in onRevealProgress?() }
     .onDisappear {
       #if DEBUG
         logDebugLifecycle(event: "onDisappear")
@@ -291,17 +336,22 @@ struct AgentOutputRow: View {
 
   // MARK: - Subviews
 
-  /// Renders the primary text with the concat trick so the final layout is
-  /// established on first frame and the revealed prefix grows in place.
+  /// Renders the primary text. Default: the concat trick so the final
+  /// layout is established on first frame and the revealed prefix grows in
+  /// place. Under ``growsWithReveal`` on an animating row
+  /// (``shouldReserveHiddenTail`` == false), the hidden tail is dropped so
+  /// the bubble grows with the visible prefix — see type doc-comment
+  /// §"Reflow-stable rendering".
   private func primaryView(fullText: String) -> some View {
     let primaryLen = fullText.count
     let revealed = min(visibleChars, primaryLen)
     let splitIdx = fullText.index(fullText.startIndex, offsetBy: revealed)
     let visible = fullText[..<splitIdx]
     let hidden = fullText[splitIdx...]
+    let tail = shouldReserveHiddenTail ? Text(hidden).foregroundStyle(.clear) : Text("")
     // Why: `.textStyle(_:)` on the concatenated `Text + Text` — uniform
     // lineSpacing/tracking keeps the concat trick stable (see type doc).
-    return (Text(visible) + Text(hidden).foregroundStyle(.clear))
+    return (Text(visible) + tail)
       .textStyle(Typography.bodyBubble)
       // Streaming grows `streamingPrimary` token-by-token; SwiftUI would
       // otherwise animate the Text's string change implicitly and the
@@ -468,52 +518,21 @@ struct AgentOutputRow: View {
     let splitIdx = fullText.index(fullText.startIndex, offsetBy: thoughtRevealed)
     let visible = fullText[..<splitIdx]
     let hidden = fullText[splitIdx...]
-    return (Text(visible) + Text(hidden).foregroundStyle(.clear))
+    // Same grow-vs-reserve choice as `primaryView` so the thought body grows
+    // with the demo opt-in instead of pre-sizing to the full thought height.
+    let tail = shouldReserveHiddenTail ? Text(hidden).foregroundStyle(.clear) : Text("")
+    return (Text(visible) + tail)
       .textStyle(Typography.thinkingBody)
       .foregroundStyle(Color.muted)
       .thoughtLeftRule()
       .transition(.opacity.combined(with: .move(edge: .top)))
   }
 
-  // MARK: - Pure helpers (extracted for unit-test reach per ADR-009)
-
-  /// Per-row thought-toggle VoiceOver label. Singular form, intentionally
-  /// distinct from the global toggle's plural "Hide / Show all thoughts"
-  /// (`ThoughtVisibilityToggle.accessibilityLabel(for:)`) so a screen-reader
-  /// user can tell whether the next tap collapses just this row or every
-  /// row on screen.
-  static func thoughtToggleAccessibilityLabel(showInnerThought: Bool) -> String {
-    showInnerThought
-      ? String(localized: "Hide thought")
-      : String(localized: "Show thought")
-  }
-
-  // MARK: - Derived lengths
-
-  /// Total characters the counter should cover: primary plus thought when
-  /// the thought is currently visible. Driven by ``showInnerThought``
-  /// (per-row, seeded from `showAllThoughts` at init), so manual chevron
-  /// taps grow / shrink the target the same way a global mode flip does.
-  /// The reveal task re-reads this every tick, so target growth during
-  /// active typing extends the reveal in place; growth between taps with
-  /// no task running is handled by ``handleThoughtVisibilityChange``.
-  var targetLength: Int {
-    let primary = primaryText?.count ?? 0
-    let thought = showInnerThought ? (resolvedThought?.count ?? 0) : 0
-    return primary + thought
-  }
-
-  /// Whether this row should run the character-reveal animation. The
-  /// live-streaming path (``streamingPrimary`` / ``streamingThought``
-  /// non-nil) always animates — the parent grows those values as tokens
-  /// arrive, and the reveal loop re-reads the target each tick so the
-  /// display tracks the incoming stream at `charsPerSecond`. The replay
-  /// path (no streaming override) only animates when this is the latest
-  /// row, matching past-results playback.
-  private var shouldAnimate: Bool {
-    guard charsPerSecond != nil else { return false }
-    return isLatest || streamingPrimary != nil || streamingThought != nil
-  }
+  // Pure helpers (VoiceOver label) + derived lengths (`targetLength`,
+  // `shouldAnimate`, `shouldReserveHiddenTail`) live in the same-file
+  // `extension AgentOutputRow` at the bottom — extracted out of the struct
+  // body to stay under swiftlint's `type_body_length` cap while remaining
+  // unit-test reachable per ADR-009.
 
   // MARK: - Animation control
 
@@ -717,5 +736,65 @@ struct AgentOutputRow: View {
   /// key to ``PartialOutputExtractor``), so live + committed stay consistent.
   private var resolvedThought: String? {
     streamingThought ?? output.secondaryText(for: phaseType)
+  }
+}
+
+// MARK: - Pure helpers + derived lengths
+//
+// Extracted from the struct body (same file, so `private` members stay
+// reachable) to keep `AgentOutputRow` under swiftlint's `type_body_length`
+// cap. These are the unit-test-reachable pure-logic surface per ADR-009 —
+// `AgentOutputRowContractTests` exercises them without a SwiftUI host.
+extension AgentOutputRow {
+
+  /// Per-row thought-toggle VoiceOver label. Singular form, intentionally
+  /// distinct from the global toggle's plural "Hide / Show all thoughts"
+  /// (`ThoughtVisibilityToggle.accessibilityLabel(for:)`) so a screen-reader
+  /// user can tell whether the next tap collapses just this row or every
+  /// row on screen.
+  static func thoughtToggleAccessibilityLabel(showInnerThought: Bool) -> String {
+    showInnerThought
+      ? String(localized: "Hide thought")
+      : String(localized: "Show thought")
+  }
+
+  /// Total characters the counter should cover: primary plus thought when
+  /// the thought is currently visible. Driven by ``showInnerThought``
+  /// (per-row, seeded from `showAllThoughts` at init), so manual chevron
+  /// taps grow / shrink the target the same way a global mode flip does.
+  /// The reveal task re-reads this every tick, so target growth during
+  /// active typing extends the reveal in place; growth between taps with
+  /// no task running is handled by ``handleThoughtVisibilityChange``.
+  var targetLength: Int {
+    let primary = primaryText?.count ?? 0
+    let thought = showInnerThought ? (resolvedThought?.count ?? 0) : 0
+    return primary + thought
+  }
+
+  /// Whether this row should run the character-reveal animation. The
+  /// live-streaming path (``streamingPrimary`` / ``streamingThought``
+  /// non-nil) always animates — the parent grows those values as tokens
+  /// arrive, and the reveal loop re-reads the target each tick so the
+  /// display tracks the incoming stream at `charsPerSecond`. The replay
+  /// path (no streaming override) only animates when this is the latest
+  /// row, matching past-results playback.
+  var shouldAnimate: Bool {
+    guard charsPerSecond != nil else { return false }
+    return isLatest || streamingPrimary != nil || streamingThought != nil
+  }
+
+  /// Whether `primaryView` / `thoughtBody` keep the hidden `.clear` tail
+  /// that reserves the full layout from frame one (reflow-stable rendering).
+  ///
+  /// `true` (default) everywhere except the demo opt-in: it is `false` only
+  /// when ``growsWithReveal`` is set AND this is an animating replay row
+  /// (`streamingPrimary == nil`, ``shouldAnimate``). In that one case the
+  /// tail is dropped so the bubble grows with the visible prefix. Folding in
+  /// ``shouldAnimate`` keeps non-latest / `.instant` demo rows reserving the
+  /// full layout (their `visibleChars` is snapped to target, so the tail is
+  /// empty anyway — but the guard makes the intent explicit and matches the
+  /// streaming exclusion). Internal for ``AgentOutputRowContractTests``.
+  var shouldReserveHiddenTail: Bool {
+    !(growsWithReveal && streamingPrimary == nil && shouldAnimate)
   }
 }
