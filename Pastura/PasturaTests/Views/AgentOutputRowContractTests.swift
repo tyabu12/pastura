@@ -324,4 +324,9 @@ struct AgentOutputRowContractTests {
       showInnerThought: false)
     #expect(onLabel != offLabel)
   }
+
+  // `shouldReserveHiddenTail(...)` truth-table lives in the sibling file
+  // `AgentOutputRowContractTests+ReservedTail.swift` per
+  // `.claude/rules/testing.md` § "Splitting a Suite Across Files" (this
+  // file would cross the 400-line `file_length` cap otherwise).
 }
