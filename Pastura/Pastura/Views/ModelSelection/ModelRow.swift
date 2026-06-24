@@ -11,7 +11,7 @@ import SwiftUI
 ///  ┌───────────────────────────────────────────────────┐
 ///  │ ┃ [sheep]  Gemma 4 E2B  [推奨]                  ◉ │
 ///  │ ┃          Google · 3.1 GB                        │
-///  │ ┃          Balanced choice. Rich expression…     │
+///  │ ┃          Balanced choice. Rich, considered…    │
 ///  └───────────────────────────────────────────────────┘
 /// ```
 ///

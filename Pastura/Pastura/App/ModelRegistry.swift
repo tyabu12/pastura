@@ -52,7 +52,7 @@ enum ModelRegistry {
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
     systemPromptSuffix: nil,
-    tagline: String(localized: "Balanced choice. Rich expression and measured reasoning.")
+    tagline: String(localized: "Balanced choice. Rich, considered responses.")
   )
 
   nonisolated static let qwen34B: ModelDescriptor = ModelDescriptor(
@@ -79,11 +79,11 @@ enum ModelRegistry {
     // not prevent the leading `<think>` token; the prefill is the load-bearing
     // fix. `/no_think` stays as belt-and-suspenders.
     assistantPrefix: "<think>\n\n</think>\n\n",
-    // Reuses an existing translated catalog key (originally the conditional
-    // `ModelPickerView.hint(for:)` for `/no_think` descriptors). Item 6 of
-    // the picker redesign removes that helper and routes the tagline through
-    // this field instead.
-    tagline: String(localized: "Lightweight reasoning mode — faster responses, leaner footprint.")
+    // Tagline avoids any "reasoning"/"thinking" framing on purpose: this model
+    // runs with `/no_think` + the empty-thinking prefill above, so thinking
+    // mode is OFF. Copy that implied a reasoning mode would contradict the
+    // runtime config — it leans on size/footprint instead.
+    tagline: String(localized: "Compact and nimble. A small download you can try freely.")
   )
 
   /// Full production catalog, ordered by display preference (Gemma first, Qwen second).
