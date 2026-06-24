@@ -433,7 +433,7 @@ raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は�
 | 主題の固有名がタイトルの詳細 | `.large` | ScenarioDetail / GalleryScenarioDetail（シナリオ名） |
 | エディタ / フォーム / 汎用ラベルの詳細 | `.inline` | ScenarioEditor / ResultDetail |
 
-タブ root ルールは固有名/汎用ラベル軸を上書きする — Home のタイトル `"Pastura"` は固有名だが、タブ root なので `.inline`。4つのタブ root は各 View で明示的に `.inline` を指定する（`HomeView` / `SharedScenariosListView` / `ResultsView` / `SettingsView`）。`Shared Scenarios` / `Past Results` は push でも到達できる（③④で Home 経路が消えるまで）が、どちらも汎用ラベルなので push 版も `.inline` で一貫する。`.large` を明示しているのは固有名詳細の `ScenarioDetailView` のみ（他の large はデフォルト依存）。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
+タブ root ルールは固有名/汎用ラベル軸を上書きする — Home のタイトル `"Pastura"` は固有名だが、タブ root なので `.inline`。4つのタブ root は各 View で明示的に `.inline` を指定する（`HomeView` / `SharedScenariosListView` / `ResultsView` / `SettingsView`）。`Shared Scenarios` / `Past Results` は push でも到達できる（③④で Home 経路が消えるまで）が、どちらも汎用ラベルなので push 版も `.inline` で一貫する。`.large` を明示指定しているのは固有名詳細の `ScenarioDetailView` と `GalleryScenarioDetailView`（どちらもシナリオ名が主題の固有名で、上の表どおり `.large`）。後者は明示しないと `.inline` の Search タブ root から `.inline` を継承してしまうため、明示が必須。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
 
 ### 5.12 Simulation control bar — 円形主操作ボタン & 確認シート
 
