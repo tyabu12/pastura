@@ -99,6 +99,61 @@ nonisolated public enum PlaybackSpeed:
     }
   }
 
+  /// Reading pause held AFTER an agent utterance has fully revealed, before
+  /// the next simulation event is consumed — the visual-novel "auto mode"
+  /// beat that lets the reader absorb a line instead of having it scroll
+  /// past. Scales with `displayLength` (longer line → longer pause) and the
+  /// speed tier (slower tier → longer per-character pause); `.instant`
+  /// returns `.zero` so Max playback keeps its no-gap behavior.
+  ///
+  /// **Sim-only.** Like ``charsPerSecond`` and ``interEventDelayMs`` this is
+  /// a Sim-side pacing property: ``ReplayViewModel`` already paces turns via
+  /// ``multiplier`` × `turnDelayMs`/`codePhaseDelayMs` and must NOT route
+  /// through this — see the type-level "Consumers" note and the
+  /// `multiplier` doc-comment's replay-only contract.
+  ///
+  /// **`displayLength` is the grapheme count of the committed _primary_ text**
+  /// (``TurnOutput/primaryText(for:)`` — see the consumer in
+  /// ``SimulationViewModel``). Inner-thought text is intentionally excluded,
+  /// so thought-heavy turns are paced on their primary line only — an
+  /// accepted approximation; revisit (`+ thoughtLength` when shown) only if
+  /// manual QA shows under-pausing. Grapheme `.count` (not UTF-16) is the
+  /// right reading-length proxy for Japanese / emoji.
+  ///
+  /// Formula: `min(base + perChar · max(0, displayLength), cap)`, clamped so
+  /// a very long line cannot stall playback (or the cancellation window)
+  /// past `cap`.
+  ///
+  /// Adding this method widens the public API surface, so it is
+  /// SemVer-relevant per the type-level note above. Values are change-detector
+  /// pinned by ``PlaybackSpeedTests``.
+  public func readingDwell(displayLength: Int) -> Duration {
+    let perCharMs: Double
+    let baseMs: Double
+    let capMs: Double
+    switch self {
+    // Per-tier constants tuned so the pause reads as a "let it land" beat on
+    // top of the reveal, not a full re-read: at normal, a ~40-char line dwells
+    // ~1.1s, ~100 chars ~2.1s, long lines clamp at 3.2s. Slower tiers dwell
+    // longer per char and clamp higher; faster tiers shorter.
+    case .slow:
+      perCharMs = 28
+      baseMs = 500
+      capMs = 4500
+    case .normal:
+      perCharMs = 18
+      baseMs = 350
+      capMs = 3200
+    case .fast:
+      perCharMs = 10
+      baseMs = 220
+      capMs = 2200
+    case .instant: return .zero
+    }
+    let clampedMs = min(baseMs + perCharMs * Double(max(0, displayLength)), capMs)
+    return .milliseconds(Int(clampedMs))
+  }
+
   /// User-facing label rendered via `Text(speed.label)`. Only `.instant`
   /// is wrapped in `String(localized:)` — the `x0.5`/`x1`/`x1.5` multiplier
   /// notation is universal across locales (Netflix / YouTube / Apple TV
