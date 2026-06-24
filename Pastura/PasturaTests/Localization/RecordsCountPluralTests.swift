@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 
+@testable import Pastura
+
 /// Catalog-structure assertion for the **first plural** entry in
 /// `Localizable.xcstrings` — the Past Results count line (`"%lld records"`,
 /// UR-003). A change-detector test (`.claude/rules/view-testing.md`
@@ -83,6 +85,25 @@ struct RecordsCountPluralTests {
     let (value, state) = try stringUnit(ja)
     #expect(value == "%lld 回の記録")
     #expect(state == "translated")
+  }
+
+  @Test func englishPluralFiresAtRuntime() {
+    // Behavioral counterpart to the structure assertions: resolve the key
+    // against the COMPILED catalog (app bundle, not the test runner's) with a
+    // pinned `en` locale, so the assertion is deterministic regardless of the
+    // CI runner's locale. This is the actual UR-003 regression — n=1 rendering
+    // "1 records". Not a tautology (asserts hardcoded literals) and not
+    // ViewInspector (pure Foundation resolution, ADR-009-compatible). The Int
+    // interpolation here is the same plural mechanism the `Text("\(count)…")`
+    // callsite uses; `String(localized: "…\(x)…")` is fine in test code (the
+    // `form_a_localized_interpolation` SwiftLint rule scopes to app source).
+    let bundle = Bundle(for: DatabaseManager.self)
+    let en = Locale(identifier: "en")
+    #expect(String(localized: "\(1) records", bundle: bundle, locale: en) == "1 record")
+    #expect(String(localized: "\(2) records", bundle: bundle, locale: en) == "2 records")
+    // n=0 falls to the `other` bucket in en CLDR (not reachable at the callsite
+    // — empty-state guard — but pinned here to document the CLDR behavior).
+    #expect(String(localized: "\(0) records", bundle: bundle, locale: en) == "0 records")
   }
 
   @Test func keyIsManuallyManaged() throws {
