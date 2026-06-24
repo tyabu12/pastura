@@ -1,10 +1,14 @@
 # Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
 # run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+# Regenerated for #798: the backing preset's speak_all phase now declares
+# inner_thought in its output schema (parity with the other two demos), so
+# the captured turns carry inner_thought and the DL-demo renders thought
+# bubbles. preset_ref.yaml_sha256 updated to match the edited preset bytes.
 #
 # ContentFilter audit: every fields.* string and code_phase_events[].summary
-# was reviewed against Pastura/Resources/ContentBlocklist.json (patterns;
-# ADR-005 content-safety output surface) on 2026-06-23 by @tyabu12 — zero
-# matches across all 89 patterns. Setting metadata.content_filter_applied:
+# was reviewed against Pastura/Pastura/Resources/ContentBlocklist.json
+# (patterns; ADR-005 content-safety output surface) on 2026-06-24 by @tyabu12
+# — zero matches across all 89 patterns. Setting metadata.content_filter_applied:
 # true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
 # also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
 
@@ -12,12 +16,12 @@ schema_version: 1
 preset_ref:
   id: hapning_ranyu_v1
   version: '1.0'
-  yaml_sha256: 070a180e8e00893e0e717f249bce8fc7cc405b1b619cedf9c4f8c9a97874d087
+  yaml_sha256: 46e93d221650d7af8fc27dfab895731afbd1af1713e583b527cc583af007cc24
 metadata:
   title: ハプニング乱入 即興大喜利
   description: 芸人たちがボケを繰り出そうとするたび、会場に予測不能のハプニングが 乱入する。降ってきた異常事態をその場で一文の笑いに変えるアドリブ 大喜利。
   language: ja
-  recorded_at: '2026-06-23T00:27:54Z'
+  recorded_at: '2026-06-24T14:05:11Z'
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true
   total_turns: 16
@@ -29,179 +33,188 @@ turns:
   phase_type: speak_all
   agent: 安定の正統派
   fields:
-    statement: え、これはもう『赤ちゃんハイ』のライブだ！みんなの可愛さで会場の酸素濃度が異常に高まってるぜ！
+    statement: 天井からピンポン玉が降ってきたのは、我々のステージが今、世界一のボールパークになった瞬間だ！
+    inner_thought: 天井からのピンポン玉なんて、最高のエンターテイメントの予兆にしか見えない。このカオスこそが我々のブランドだ！
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: 便乗の天才
   fields:
-    statement: え、これって新しい『赤ちゃんのお昼寝タイム』の企画じゃん！
+    statement: 天井から降ってきたピンポン玉は、これぞ天からのサプライズギフト！さあ、これで俺の今日のエンタメのクオリティが宇宙レベルに引き上げられたぜ！
+    inner_thought: ピンポン玉？これは俺の仕組んだ伏線だ！この奇跡を最大限に利用して、このハプニングを俺の最高のパフォーマンスの一部に組み込むしかない！
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: 哲学かぶれ
   fields:
-    statement: これは、我々が物質と精神の境界を超え、生命の最も純粋な形へと還元されるという、宇宙の壮大な実験なのですね！
+    statement: 天井から降るピンポン玉は、宇宙が我々に送る、無数の微小な存在の哲学的な問いかけなのです！
+    inner_thought: 天からの贈り物として受け止め、この奇妙な現象を壮大な存在論的なテーマに昇華させるのが私の役目だ。
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: 天然パニック
   fields:
-    statement: わあ、みんな赤ちゃんになってるんですね！じゃあ今夜のギャラは離乳食ですか？
+    statement: 天井から降ってきたピンポン玉は、まるで天国からの豪華なバースデーサプライズみたいですね！
+    inner_thought: 天国からのピンポン玉ってことは、今夜のギャラはキラキラの記念品ですか？
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: 安定の正統派
   fields:
-    vote: 天然パニック
-    reason: 天然パニックの「じゃあ今夜のギャラは離乳食ですか？」という現実的かつシュールな問いかけが、状況の異常性を最高の形で笑いに変えている
+    vote: 便乗の天才
+    reason: 天井から降ってきたピンポン玉をサプライズギフトと表現し、エンターテイメントのクオリティ向上に結びつけている点が最も過激で面白い。
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: 便乗の天才
   fields:
     vote: 天然パニック
-    reason: 赤ちゃんになってるんですね！じゃあ今夜のギャラは離乳食ですか？
+    reason: 天井から降ってきたピンポン玉を天国からの豪華なバースデーサプライズと表現したのが、状況の非現実性を最も愉快に昇華させているためだ。
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: 哲学かぶれ
   fields:
     vote: 便乗の天才
-    reason: この状況を新しい企画として捉え直す視点は、最も場を盛り上げる即興番組の性質に合致しているためです。
+    reason: 天井からのピンポン玉を『天からのサプライズギフト』と表現し、自らのエンタメの質が宇宙レベルに引き上がったと宣言しており、状況を最大限に楽しむ姿勢が最も面白かった
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: 天然パニック
   fields:
     vote: 天然パニック
-    reason: 私が赤ちゃんになったことで、今夜のギャラは離乳食になります
+    reason: 天井から降ってきたピンポン玉は、まるで天国からの豪華なバースデーサプライズみたいですね！
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: 安定の正統派
   fields:
-    statement: 深海に沈んだってことは、これで私の髪の毛も水圧でダイヤモンドになったってことだね！
+    statement: 審査員の皆様、これはまさしく「究極の睡眠タイムアワー」、夢の中での完璧な評価が始まりますよ！
+    inner_thought: 眠っている審査員たちが最高にリラックスしている様子を最高のエンターテイメントに変えるのが私の役目だ。この静寂こそが最高のボケになる。
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: 便乗の天才
   fields:
-    statement: 深海に沈んだってことは、これで俺たちのステージが世界一の海底ライブになるってことだろ！
+    statement: 審査員さんたちが深い眠りについたのは、最高の評価が魂のレベルで浸透した証拠だ！
+    inner_thought: 最高に面白い状況だ！全員寝ちゃったってことは、俺のセンスが規格外ってこと。この眠気すらも次のネタへの伏線だ！もっと巻き込むぞ！
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: 哲学かぶれ
   fields:
-    statement: 深海への降下は、我々が宇宙の深淵と対峙し、存在そのものの重力を体感する壮大な瞑想体験となったのである！
+    statement: 審査員の深い瞑想状態は、宇宙の無への究極の静寂が、我々の意識を深淵へと誘う壮大な哲学的な睡蓮となって現れたのだ。
+    inner_thought: 眠り始めたという些細な事態を、宇宙の根源的な静けさや精神的な探求といった壮大なテーマにすり替えるのが私の流儀だ。この状況を真面目に受け止めつつも、笑いの中に深い意味を見出すことが重要だ。
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: 天然パニック
   fields:
-    statement: 深海になったってことは、今夜のギャラは深海魚の餌代になりますね！
+    statement: 審査員さんたち、これは最高の『夢の中の特番』で、今夜は皆さんの睡眠の質を上げるための至高の癒しタイムですね！
+    inner_thought: 眠っちゃうなんて珍しい現象！これはきっと、彼らのパフォーマンスが深く、聴衆の心に染み込んでいる証拠なんだ！最高の睡眠導入プログラムだわ！
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: 安定の正統派
-  fields:
-    vote: 便乗の天才
-    reason: 会場が深海に沈んだという状況を、ステージが世界一の海底ライブになるというポジティブな解釈で盛り上げているのが最も場の空気を変える面白さがあった
-- round: 2
-  phase_index: 2
-  phase_type: vote
-  agent: 便乗の天才
-  fields:
-    vote: 天然パニック
-    reason: 深海になったってことは、今夜のギャラは深海魚の餌代になりますね！という発言で、状況を金銭的な危機にすり替えて即座に笑いに変えるのが最高に現実的で面白いです！
-- round: 2
-  phase_index: 2
-  phase_type: vote
-  agent: 哲学かぶれ
   fields:
     vote: 哲学かぶれ
-    reason: 深海への降下は、我々が宇宙の深淵と対峙し、存在そのものの重力を体感する壮大な瞑想体験となったのである！
+    reason: 審査員の深い瞑想状態を宇宙の無への静寂という壮大な哲学的な睡蓮として表現した点が、状況を最も知的かつユーモラスに昇華させていると判断しました。
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 便乗の天才
+  fields:
+    vote: 天然パニック
+    reason: 審査員さんが眠っちゃったのは、最高の夢の中の特番になって、今夜は皆さんの睡眠の質を上げるための至高の癒しタイムだ！
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  agent: 哲学かぶれ
+  fields:
+    vote: 便乗の天才
+    reason: 審査員さんの眠りは最高の評価が魂のレベルで浸透した証拠という解釈は、状況を最もポジティブかつ自己利益に結びつけており、ハプニングを瞬時に華やかな成功体験へと転換させているため、最も面白く料理できたと判断する。
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: 天然パニック
   fields:
-    vote: 天然パニック
-    reason: 深海になったってことは、今夜のギャラは深海魚の餌代になりますね！
+    vote: 便乗の天才
+    reason: 審査員さんが眠っているのを最高の評価が浸透した証拠と解釈するのは、完全に状況を乗っ取って面白くしている。
 code_phase_events:
 - round: 1
   phase_index: 0
   phase_type: event_inject
-  summary: 'Event: 観客が全員、生後三か月の赤ちゃんに入れ替わった'
+  summary: 'Event: なぜか天井から大量のピンポン玉が降ってきた'
   payload:
     kind: eventInjected
-    event: 観客が全員、生後三か月の赤ちゃんに入れ替わった
+    event: なぜか天井から大量のピンポン玉が降ってきた
 - round: 1
   phase_index: 2
   phase_type: vote
-  summary: 'Votes — 便乗の天才: 1, 天然パニック: 2'
+  summary: 'Votes — 便乗の天才: 2, 天然パニック: 1'
   payload:
     kind: voteResults
     votes:
       便乗の天才: 天然パニック
       哲学かぶれ: 便乗の天才
       天然パニック: 天然パニック
-      安定の正統派: 天然パニック
-    tallies:
-      便乗の天才: 1
-      天然パニック: 2
-- round: 1
-  phase_index: 3
-  phase_type: score_calc
-  summary: 'Scores — 便乗の天才: 1, 哲学かぶれ: 0, 天然パニック: 2, 安定の正統派: 0'
-  payload:
-    kind: scoreUpdate
-    scores:
-      便乗の天才: 1
-      哲学かぶれ: 0
-      天然パニック: 2
-      安定の正統派: 0
-- round: 1
-  phase_index: 4
-  phase_type: summarize
-  summary: 'ラウンド1結果: {"便乗の天才": 1, "哲学かぶれ": 0, "天然パニック": 2, "安定の正統派": 0}'
-  payload:
-    kind: summary
-- round: 2
-  phase_index: 0
-  phase_type: event_inject
-  summary: 'Event: 会場が丸ごと深海一万メートルに沈んだ設定になった'
-  payload:
-    kind: eventInjected
-    event: 会場が丸ごと深海一万メートルに沈んだ設定になった
-- round: 2
-  phase_index: 2
-  phase_type: vote
-  summary: 'Votes — 便乗の天才: 1, 天然パニック: 1'
-  payload:
-    kind: voteResults
-    votes:
-      便乗の天才: 天然パニック
-      哲学かぶれ: 哲学かぶれ
-      天然パニック: 天然パニック
       安定の正統派: 便乗の天才
     tallies:
-      便乗の天才: 1
+      便乗の天才: 2
       天然パニック: 1
-- round: 2
+- round: 1
   phase_index: 3
   phase_type: score_calc
-  summary: 'Scores — 便乗の天才: 2, 哲学かぶれ: 0, 天然パニック: 3, 安定の正統派: 0'
+  summary: 'Scores — 便乗の天才: 2, 哲学かぶれ: 0, 天然パニック: 1, 安定の正統派: 0'
   payload:
     kind: scoreUpdate
     scores:
       便乗の天才: 2
       哲学かぶれ: 0
-      天然パニック: 3
+      天然パニック: 1
+      安定の正統派: 0
+- round: 1
+  phase_index: 4
+  phase_type: summarize
+  summary: 'ラウンド1結果: {"便乗の天才": 2, "哲学かぶれ": 0, "天然パニック": 1, "安定の正統派": 0}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 0
+  phase_type: event_inject
+  summary: 'Event: 審査員が全員、その場ですやすやと眠り始めた'
+  payload:
+    kind: eventInjected
+    event: 審査員が全員、その場ですやすやと眠り始めた
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  summary: 'Votes — 便乗の天才: 2, 哲学かぶれ: 1, 天然パニック: 1'
+  payload:
+    kind: voteResults
+    votes:
+      便乗の天才: 天然パニック
+      哲学かぶれ: 便乗の天才
+      天然パニック: 便乗の天才
+      安定の正統派: 哲学かぶれ
+    tallies:
+      便乗の天才: 2
+      哲学かぶれ: 1
+      天然パニック: 1
+- round: 2
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — 便乗の天才: 4, 哲学かぶれ: 1, 天然パニック: 2, 安定の正統派: 0'
+  payload:
+    kind: scoreUpdate
+    scores:
+      便乗の天才: 4
+      哲学かぶれ: 1
+      天然パニック: 2
       安定の正統派: 0
 - round: 2
   phase_index: 4
   phase_type: summarize
-  summary: 'ラウンド2結果: {"便乗の天才": 2, "哲学かぶれ": 0, "天然パニック": 3, "安定の正統派": 0}'
+  summary: 'ラウンド2結果: {"便乗の天才": 4, "哲学かぶれ": 1, "天然パニック": 2, "安定の正統派": 0}'
   payload:
     kind: summary

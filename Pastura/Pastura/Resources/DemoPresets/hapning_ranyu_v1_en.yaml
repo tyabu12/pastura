@@ -82,6 +82,7 @@ phases:
       Lean all the way into it. Keep it to one short sentence.
     output:
       statement: string
+      inner_thought: string
 
   - type: vote
     prompt: >
