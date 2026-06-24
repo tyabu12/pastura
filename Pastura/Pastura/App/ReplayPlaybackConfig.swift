@@ -49,6 +49,22 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
   /// What the consumer does once playback has nothing left to play.
   public var onComplete: CompletionAction
 
+  /// Character-reveal rate (chars/second) for the demo replay's typing
+  /// animation, and the rate the pacing floor uses to estimate how long a
+  /// bubble takes to type. **Single source of truth** so the View
+  /// (``AgentOutputRow`` via ``ModelDownloadHostView``, through
+  /// ``ReplayViewModel/typingCharsPerSecond``) and the
+  /// ``ReplayViewModel`` turn-dwell floor read the same value and cannot
+  /// drift.
+  ///
+  /// `nil` means "no proportional dwell" — the turn pacing stays on the
+  /// flat ``turnDelayMs`` / ``codePhaseDelayMs`` schedule and the View
+  /// renders full text immediately (matching ``PlaybackSpeed/charsPerSecond``
+  /// `nil == .instant`). Defaults to `nil` so existing configs and
+  /// timing-sensitive tests keep their legacy behaviour; only ``demoDefault``
+  /// opts in.
+  public var typingCharsPerSecond: Double?
+
   public enum LoopBehaviour: Sendable, Equatable {
     /// Rewind to the first event and keep playing — DL-time demo default.
     case loop
@@ -75,13 +91,15 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
     turnDelayMs: Int = 1200,
     codePhaseDelayMs: Int = 500,
     loopBehaviour: LoopBehaviour,
-    onComplete: CompletionAction
+    onComplete: CompletionAction,
+    typingCharsPerSecond: Double? = nil
   ) {
     self.playbackSpeed = playbackSpeed
     self.turnDelayMs = turnDelayMs
     self.codePhaseDelayMs = codePhaseDelayMs
     self.loopBehaviour = loopBehaviour
     self.onComplete = onComplete
+    self.typingCharsPerSecond = typingCharsPerSecond
   }
 
   /// Preset for the DL-time demo host: nominal speed, loop forever,
@@ -93,5 +111,8 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
   public static let demoDefault = ReplayPlaybackConfig(
     playbackSpeed: .normal,
     loopBehaviour: .loop,
-    onComplete: .awaitTransitionSignal)
+    onComplete: .awaitTransitionSignal,
+    // Opt the demo into proportional turn dwell at the Sim x1 cadence so a
+    // long bubble finishes typing before the next turn appears (no snap).
+    typingCharsPerSecond: PlaybackSpeed.normal.charsPerSecond)
 }

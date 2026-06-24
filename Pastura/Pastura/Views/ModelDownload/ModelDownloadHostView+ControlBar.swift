@@ -13,9 +13,10 @@ extension ModelDownloadHostView {
   /// - Speed Menu binds directly to ``ReplayViewModel/playbackSpeed``
   ///   over `PlaybackSpeed.allCases`, matching Sim's pattern at
   ///   `SimulationView.swift:434`.
-  /// - Thought toggle remains bound to `showAllThoughts` (Sim and
-  ///   Replay diverge here — Sim's is a per-VM property, Demo's is a
-  ///   View-local `@State`).
+  /// - Thought toggle binds to `$viewModel.showAllThoughts` — a per-VM
+  ///   property, matching Sim (``SimulationViewModel``). The previous
+  ///   View-local `@State` divergence was removed so the demo's pacing
+  ///   floor can read the flag (#779).
   ///
   /// Does **not** apply `.ignoresSafeArea(.container, edges: .bottom)`
   /// (unlike `SimulationView.controlBar`). The host's
@@ -25,13 +26,16 @@ extension ModelDownloadHostView {
   /// PromoCard layer (#273 critic Axis 2).
   @ViewBuilder
   func controlBar(viewModel: ReplayViewModel) -> some View {
+    // Rebind so the thought toggle can project a `Binding` into the VM's
+    // `showAllThoughts` (a plain parameter has no projected value).
+    @Bindable var viewModel = viewModel
     HStack(spacing: 16) {
       pauseButton(viewModel: viewModel)
       speedMenu(viewModel: viewModel)
 
       Spacer()
 
-      ThoughtVisibilityToggle(isOn: $showAllThoughts)
+      ThoughtVisibilityToggle(isOn: $viewModel.showAllThoughts)
         .font(.title3)
     }
     .padding(.horizontal)
