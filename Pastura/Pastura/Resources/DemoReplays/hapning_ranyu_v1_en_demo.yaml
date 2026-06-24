@@ -11,6 +11,7 @@
 # — zero matches across all 89 patterns. Setting metadata.content_filter_applied:
 # true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
 # also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+
 schema_version: 1
 preset_ref:
   id: hapning_ranyu_v1_en
