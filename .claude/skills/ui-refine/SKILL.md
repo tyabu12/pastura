@@ -77,10 +77,22 @@ file to triage-guardian's "keep in sync" set.
    `docs/design/ui-refine/` both exist).
 3. Confirm `docs/design/design-system.md` and `docs/design/ui-refine/ledger.md`
    exist (the anchor source and the dedup memory).
+4. Resolve the lens id early (the `lens:` arg, else `date +%u`) — Step 1's
+   capture path branches on it. If it resolves to **L4**, also require `ffmpeg`
+   (`brew install ffmpeg`): L4 captures motion via `scripts/motion-capture.sh`
+   instead of `ui-tour.sh` (Step 1). Full anchor resolution still happens in
+   Step 2; this is only the id needed to pick the capture path.
 
 If any check fails, **abort the cycle** — do not proceed against a partial setup.
 
-## Step 1 — Capture the current UI
+## Step 1 — Capture the current UI (lens-aware)
+
+The capture path branches on the lens id resolved in Step 0. **On any capture
+failure or timeout, ABORT the cycle** (both paths) — never critique against
+stale or missing artifacts; an empty / stale set produces hallucinated, flood-y
+proposals, defeating the anti-flood goal. Report the failure and stop.
+
+### Default lenses (L1–L3, L5–L7) — static screenshots
 
 Run the tour to refresh the screenshots:
 
@@ -91,15 +103,42 @@ scripts/ui-tour.sh
 This runs `ScreenshotTourTests` on the UDID-pinned simulator and writes the 8
 fixture-driven PNGs to `docs/design/screenshots/` (takes several minutes incl.
 the build; subject to the concurrent-session simulator gate per
-`.claude/rules/xcodebuild-cli.md`).
+`.claude/rules/xcodebuild-cli.md`). After it succeeds, confirm the expected PNGs
+are present and freshly written (`docs/design/screenshots/*.png`). The covered
+screens are listed in `docs/design/screenshots/README.md`.
 
-**On any ui-tour failure or timeout, ABORT the cycle.** Never critique against
-stale or missing screenshots — an empty / stale set produces hallucinated,
-flood-y proposals, defeating the anti-flood goal. Report the failure and stop.
+### L4 (Motion & feedback) — motion filmstrips
 
-After it succeeds, confirm the expected PNGs are present and freshly written
-(`docs/design/screenshots/*.png`). The covered screens are listed in
-`docs/design/screenshots/README.md`.
+Motion is a *time axis* a single screenshot can't show, so L4 captures
+filmstrips **instead of** static PNGs. Run `motion-capture.sh` (never alongside
+`ui-tour.sh` — see the concurrency invariant):
+
+```sh
+scripts/motion-capture.sh all   # launch variants: cold / warm / reduce-motion
+```
+
+This writes per-frame images + a tiled filmstrip under
+`docs/design/motion/<variant>/` (requires `ffmpeg`; takes a few minutes incl.
+the build). `all` covers the launch-animation surfaces (§ 6 transitions). The
+`demo` typing variant (`scripts/motion-capture.sh demo`, DL-time demo replay) is
+available when explicitly reviewing that surface, but is **not** part of the
+default L4 capture. After it succeeds, confirm fresh frames are present under
+`docs/design/motion/<variant>/frames/`.
+
+**Concurrency invariant — never run `motion-capture.sh` and `ui-tour.sh` (or
+`xcodebuild test`) against the same simulator at once.** motion-capture mutates
+the sim's Reduce Motion setting and holds a video recorder, and the
+`sim-dest.sh` gate only sees `xcodebuild test`, not `simctl io`
+(`docs/design/motion/README.md` § "Don't run concurrently"). The L4 branch runs
+motion-capture **exclusively** — it does not also run ui-tour.
+
+**Coverage bound:** L4's § 5.5 DL-Progress-Dots and § 2.7 Interactive-States
+anchors are currently **uncapturable** — `--ui-test` bypasses the download flow
+and there is no interaction driver (`docs/design/motion/README.md` § Deferred).
+Until launch-arg seeding lands (README § "Known coverage limitations"), L4's
+motion critique is bounded to the launch (and explicit `demo`-typing) surfaces;
+do not hallucinate DL-dot / pressed-state findings from frames that don't show
+them.
 
 ## Step 2 — Pick today's lens
 
@@ -114,10 +153,11 @@ those are the principles a proposal under this lens must cite.
 
 ## Step 3 — Generate quota-capped proposals
 
-Read the relevant screenshots with vision (all 8, or the `screen:` arg subset),
-read the lens's anchor sections in `docs/design/design-system.md`, then generate
-candidates **strictly through today's lens** — do not drift into other lenses'
-concerns.
+Read the relevant capture artifacts with vision — the static screenshots (all 8,
+or the `screen:` arg subset) for default lenses, or the motion filmstrip frames
+under `docs/design/motion/<variant>/` for **L4** — read the lens's anchor
+sections in `docs/design/design-system.md`, then generate candidates **strictly
+through today's lens** — do not drift into other lenses' concerns.
 
 - **Quota: at most 1–2 candidates.** Force ranking: "if you could change one
   thing under this lens, what and why." Quality via scarcity.

@@ -60,6 +60,11 @@ Transitions, loading/progress affordances, state-change feedback, perceived
 latency. Ask: does the UI acknowledge every user action and every wait?
 - Anchors: § 6 モーション / アニメーション; § 2.7 Interactive States;
   § 5.5 DL Progress Dots.
+- **Input:** unlike the other lenses, an L4 run critiques motion *filmstrips*
+  from `scripts/motion-capture.sh` (launch variants), not the static
+  `ui-tour.sh` PNGs — motion needs a time axis (SKILL § Step 1). § 5.5
+  DL-Progress-Dots and § 2.7 Interactive-States are currently uncapturable under
+  `--ui-test` (`docs/design/motion/README.md` § Deferred).
 
 ### L5 — Empty / error / edge states
 First-run/empty inventory, error and failure surfaces, long-content overflow,
