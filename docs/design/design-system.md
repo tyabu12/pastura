@@ -495,7 +495,7 @@ Sim 画面に限った2つの例外的コンポーネント。Source: `Simulatio
 ## 8. アクセシビリティ
 
 - 本文の最小コントラスト比: 7:1（AAA）を目標に `--ink` と `--screen-bg` の組み合わせで達成
-- **判読が要るメタ情報**（DL 進捗・ステータス等、確実に読ませる必要があるもの）は § 2.4 の L3 コントラストプリセット（`--meta-base` #4A4E3D ≈ 7:1）で 4.5:1 以上を確保する
+- **判読が要るメタ情報**（DL 進捗・ステータス等、確実に読ませる必要があるもの）は § 2.4 の L3 コントラストプリセット（`--meta-base` #4A4E3D ≈ 8:1）で 4.5:1 以上を確保する
 - **`--muted`（#8A8A83）quietude 階層は意図的に sub-AA**（#FCFAF4 上で ≈ 3.3:1）。一覧キャプション（`provenance · N agents · N rounds`）・脚注・アンビエントなラベル（`DEMO中` など）に使う、§1 の「静謐・観察」を体現する控えめなティアで、上の 4.5:1 要件の対象外とする意図的な判断。これにより § 2.2（`--muted` をメタ情報・脚注に割り当て）と本節の整合を取る。判読が要る情報をこのティアに置かないこと（その場合は上の L3 プリセットへ）
 - DL 進捗は `role="status" aria-live="polite"` / SwiftUI は `.accessibilityAddTraits(.updatesFrequently)`
 - アバター・犬マークは `aria-hidden="true"` / `.accessibilityHidden(true)`（飾りだから）
