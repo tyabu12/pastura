@@ -83,6 +83,22 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   /// — see its note.
   public let rounds: Int?
 
+  /// Ordered list of the scenario's phase-type raw values (e.g.
+  /// `["assign", "speak_all", "vote", "eliminate", "summarize"]`), derived
+  /// from the backing YAML at curation time. Drives the Browse-tab art tile's
+  /// signature-phase glyph badge (the client picks the "headline" phase via a
+  /// fixed priority order — see ``GalleryCatalogRowFormat/signaturePhase(phases:)``).
+  ///
+  /// Decoded as `[String]` — **not** `[PhaseType]` — on purpose: a throwing
+  /// `[PhaseType]` decode would fail the **entire** ``GalleryIndex`` parse the
+  /// moment a future feed adds one phase kind this app build doesn't know,
+  /// breaking the older-app × newer-feed direction. The lenient `[String]`
+  /// passes unknown kinds through and the signature derivation falls back when
+  /// it can't map a kind. Optional + forward-compat like ``agentCount`` /
+  /// ``rounds`` (absent → `nil` → the badge is simply hidden); making it
+  /// required would break older installs reading a feed predating this key.
+  public let phases: [String]?
+
   /// Remote URL from which the YAML definition can be fetched.
   public let yamlURL: URL
 
@@ -106,7 +122,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     yamlSHA256: String,
     addedAt: String,
     agentCount: Int? = nil,
-    rounds: Int? = nil
+    rounds: Int? = nil,
+    phases: [String]? = nil
   ) {
     self.id = id
     self.title = title
@@ -120,6 +137,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     self.addedAt = addedAt
     self.agentCount = agentCount
     self.rounds = rounds
+    self.phases = phases
   }
 
   // Explicit CodingKeys so the JSON snake_case ↔ Swift camelCase mapping is
@@ -135,6 +153,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     case estimatedInferences = "estimated_inferences"
     case agentCount = "agent_count"
     case rounds
+    case phases
     case yamlURL = "yaml_url"
     case yamlSHA256 = "yaml_sha256"
     case addedAt = "added_at"

@@ -204,6 +204,14 @@ YAML_AGENTS="$(python3 -c "import sys, yaml; print(int(yaml.safe_load(open(sys.a
 YAML_ROUNDS="$(python3 -c "import sys, yaml; print(int(yaml.safe_load(open(sys.argv[1]))['rounds']))" "$YAML_PATH")"
 case "$YAML_AGENTS" in ''|*[!0-9]*) echo "ERROR: YAML 'agents' must be a positive integer (got: '$YAML_AGENTS')" >&2; exit 1 ;; esac
 case "$YAML_ROUNDS" in ''|*[!0-9]*) echo "ERROR: YAML 'rounds' must be a positive integer (got: '$YAML_ROUNDS')" >&2; exit 1 ;; esac
+# phases: ordered list of phase-type raw values, a YAML-derived fact like
+# agents/rounds. Drives the Browse art-tile signature glyph; the Swift
+# GallerySeedYAMLTests.galleryPhasesMatchYAML pins it against this same order.
+# Emitted as a JSON array string for jq --argjson below. `|| { … }` turns a
+# malformed `phases:` (not a list, or a phase missing `type`) into a curated
+# error matching the agents/rounds style above, not a raw Python traceback.
+YAML_PHASES="$(python3 -c "import sys, yaml, json; print(json.dumps([p['type'] for p in yaml.safe_load(open(sys.argv[1]))['phases']]))" "$YAML_PATH")" \
+  || { echo "ERROR: YAML 'phases' must be a list of mappings each carrying a 'type' key" >&2; exit 1; }
 YAML_SHA="$(shasum -a 256 "$YAML_PATH" | awk '{print $1}')"
 YAML_SIZE="$(wc -c < "$YAML_PATH" | awk '{print $1}')"
 
@@ -374,6 +382,7 @@ NEW_ENTRY=$(jq -n \
   --argjson estimated_inferences "$ESTIMATED_INFERENCES" \
   --argjson agent_count "$YAML_AGENTS" \
   --argjson rounds "$YAML_ROUNDS" \
+  --argjson phases "$YAML_PHASES" \
   --arg yaml_url "$YAML_BASENAME" \
   --arg yaml_sha256 "$YAML_SHA" \
   --arg added_at "$ADDED_AT" \
@@ -387,6 +396,7 @@ NEW_ENTRY=$(jq -n \
     estimated_inferences: $estimated_inferences,
     agent_count: $agent_count,
     rounds: $rounds,
+    phases: $phases,
     yaml_url: $yaml_url,
     yaml_sha256: $yaml_sha256,
     added_at: $added_at
@@ -432,7 +442,7 @@ print_entry_diff() {
   local old="$1"
   local new="$2"
   local field old_val new_val source_label
-  for field in title category description author recommended_model estimated_inferences agent_count rounds added_at yaml_sha256; do
+  for field in title category description author recommended_model estimated_inferences agent_count rounds phases added_at yaml_sha256; do
     old_val="$(echo "$old" | jq -r --arg f "$field" '.[$f] | tostring')"
     new_val="$(echo "$new" | jq -r --arg f "$field" '.[$f] | tostring')"
     if [ "$old_val" = "$new_val" ]; then
@@ -440,7 +450,7 @@ print_entry_diff() {
     fi
     source_label=""
     case "$field" in
-      title|yaml_sha256|agent_count|rounds) source_label=" (from YAML)" ;;
+      title|yaml_sha256|agent_count|rounds|phases) source_label=" (from YAML)" ;;
     esac
     if [ "$field" = "description" ] && { [[ "$old_val" == *$'\n'* ]] || [[ "$new_val" == *$'\n'* ]]; }; then
       printf "  %s%s (old):\n" "$field" "$source_label"

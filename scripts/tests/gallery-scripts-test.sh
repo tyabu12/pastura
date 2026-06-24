@@ -89,6 +89,9 @@ description: factory description with a curation meta-note
 personas:
   - name: persona1
     description: body references factory_${ds}_${slug} verbatim
+phases:
+  - type: speak_all
+  - type: vote
 YAML
   printf '{"type":"run_start","estimated_inferences":%s}\n{"type":"turn"}\n{"type":"run_end"}\n' \
     "$ei" > "$d/data/factory/runs/$date/factory_${ds}_${slug}.jsonl"
@@ -106,6 +109,9 @@ description: $desc
 personas:
   - name: a
     description: aa
+phases:
+  - type: speak_all
+  - type: vote
 YAML
 }
 
