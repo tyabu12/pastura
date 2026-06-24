@@ -64,6 +64,7 @@ phases:
       状況に全力で乗っかってください。長くせず、一文で簡潔に。
     output:
       statement: string
+      inner_thought: string
 
   - type: vote
     prompt: >
