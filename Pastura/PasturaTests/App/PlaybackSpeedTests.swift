@@ -51,46 +51,83 @@ struct PlaybackSpeedTests {
 
   // MARK: - readingDwell (Sim-only VN reading pause)
 
-  @Test func readingDwellValuesPinned() {
-    // Change-detector pin on the Sim reading-pause formula
+  @Test func readingDwellDenseValuesPinned() {
+    // Change-detector pin on the dense-script (ja) reading-pause formula
     // `min(base + perChar * max(0, len), cap)`. A failure means a
     // code-review-gated pacing constant drifted — confirm it was an
     // intentional, reviewed change, then update the expected value.
-    // normal: base 350, perChar 18, cap 3200
-    #expect(PlaybackSpeed.normal.readingDwell(displayLength: 0) == .milliseconds(350))
-    #expect(PlaybackSpeed.normal.readingDwell(displayLength: 40) == .milliseconds(1070))
-    #expect(PlaybackSpeed.normal.readingDwell(displayLength: 100) == .milliseconds(2150))
-    // slow: base 500, perChar 28, cap 4500
-    #expect(PlaybackSpeed.slow.readingDwell(displayLength: 0) == .milliseconds(500))
-    #expect(PlaybackSpeed.slow.readingDwell(displayLength: 100) == .milliseconds(3300))
-    // fast: base 220, perChar 10, cap 2200
-    #expect(PlaybackSpeed.fast.readingDwell(displayLength: 0) == .milliseconds(220))
-    #expect(PlaybackSpeed.fast.readingDwell(displayLength: 100) == .milliseconds(1220))
+    // normal dense: base 300, perChar 60 (Ren'Py afm_time=15 anchor)
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 0, script: .dense) == .milliseconds(300))
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 40, script: .dense) == .milliseconds(2700))
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 100, script: .dense) == .milliseconds(6300))
+    // slow dense: base 400, perChar 80
+    #expect(PlaybackSpeed.slow.readingDwell(displayLength: 0, script: .dense) == .milliseconds(400))
+    #expect(
+      PlaybackSpeed.slow.readingDwell(displayLength: 50, script: .dense) == .milliseconds(4400))
+    // fast dense: base 200, perChar 40
+    #expect(PlaybackSpeed.fast.readingDwell(displayLength: 0, script: .dense) == .milliseconds(200))
+    #expect(
+      PlaybackSpeed.fast.readingDwell(displayLength: 100, script: .dense) == .milliseconds(4200))
+  }
+
+  @Test func readingDwellSparseValuesPinned() {
+    // sparse (en) ≈ 0.62× dense per-char; base/cap language-neutral.
+    // normal sparse: base 300, perChar 38
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 0, script: .sparse) == .milliseconds(300))
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 40, script: .sparse) == .milliseconds(1820))
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 100, script: .sparse) == .milliseconds(4100))
+    // slow sparse: base 400, perChar 50
+    #expect(
+      PlaybackSpeed.slow.readingDwell(displayLength: 100, script: .sparse) == .milliseconds(5400))
+    // fast sparse: base 200, perChar 24
+    #expect(
+      PlaybackSpeed.fast.readingDwell(displayLength: 100, script: .sparse) == .milliseconds(2600))
+  }
+
+  @Test func readingDwellDenseExceedsSparse() {
+    // Same tier + length: dense (ja) dwells longer than sparse (en).
+    for speed in [PlaybackSpeed.slow, .normal, .fast] {
+      let dense = speed.readingDwell(displayLength: 60, script: .dense)
+      let sparse = speed.readingDwell(displayLength: 60, script: .sparse)
+      #expect(dense > sparse)
+    }
   }
 
   @Test func readingDwellInstantIsZero() {
-    // Max playback keeps its no-gap behavior at any length.
-    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 0) == .zero)
-    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 100) == .zero)
-    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 10_000) == .zero)
+    // Max playback keeps its no-gap behavior at any length / script.
+    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 0, script: .dense) == .zero)
+    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 100, script: .dense) == .zero)
+    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 100, script: .sparse) == .zero)
+    #expect(PlaybackSpeed.instant.readingDwell(displayLength: 10_000, script: .dense) == .zero)
   }
 
   @Test func readingDwellClampsLongLines() {
     // A very long line cannot stall playback (or the cancellation window)
-    // past the per-tier cap.
-    #expect(PlaybackSpeed.slow.readingDwell(displayLength: 10_000) == .milliseconds(4500))
-    #expect(PlaybackSpeed.normal.readingDwell(displayLength: 10_000) == .milliseconds(3200))
-    #expect(PlaybackSpeed.fast.readingDwell(displayLength: 10_000) == .milliseconds(2200))
+    // past the per-tier cap (language-neutral cap).
+    #expect(
+      PlaybackSpeed.slow.readingDwell(displayLength: 10_000, script: .dense) == .milliseconds(8000))
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: 10_000, script: .dense)
+        == .milliseconds(6500))
+    #expect(
+      PlaybackSpeed.fast.readingDwell(displayLength: 10_000, script: .sparse) == .milliseconds(5000)
+    )
   }
 
   @Test func readingDwellMonotonicAcrossTiers() {
     // Slower tier ⇒ longer (or equal) pause at a fixed length; instant is
     // always the shortest (zero).
-    let len = 100
-    let slow = PlaybackSpeed.slow.readingDwell(displayLength: len)
-    let normal = PlaybackSpeed.normal.readingDwell(displayLength: len)
-    let fast = PlaybackSpeed.fast.readingDwell(displayLength: len)
-    let instant = PlaybackSpeed.instant.readingDwell(displayLength: len)
+    let len = 60
+    let slow = PlaybackSpeed.slow.readingDwell(displayLength: len, script: .dense)
+    let normal = PlaybackSpeed.normal.readingDwell(displayLength: len, script: .dense)
+    let fast = PlaybackSpeed.fast.readingDwell(displayLength: len, script: .dense)
+    let instant = PlaybackSpeed.instant.readingDwell(displayLength: len, script: .dense)
     #expect(slow >= normal)
     #expect(normal >= fast)
     #expect(fast >= instant)
@@ -100,6 +137,15 @@ struct PlaybackSpeedTests {
   @Test func readingDwellNegativeLengthClampsToBase() {
     // Defensive: a negative length floors to 0 → base-only pause, never
     // a negative Duration.
-    #expect(PlaybackSpeed.normal.readingDwell(displayLength: -5) == .milliseconds(350))
+    #expect(
+      PlaybackSpeed.normal.readingDwell(displayLength: -5, script: .dense) == .milliseconds(300))
+  }
+
+  @Test func readingScriptResolvesByEngineLanguage() {
+    // Only `ja` is dense today; `en` and any unknown fall back to sparse.
+    #expect(ReadingScript.resolve(engineLanguage: "ja") == .dense)
+    #expect(ReadingScript.resolve(engineLanguage: "en") == .sparse)
+    #expect(ReadingScript.resolve(engineLanguage: "fr") == .sparse)
+    #expect(ReadingScript.resolve(engineLanguage: "") == .sparse)
   }
 }

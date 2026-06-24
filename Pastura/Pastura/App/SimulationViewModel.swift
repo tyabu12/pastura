@@ -790,6 +790,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation in AgentOutputRow; other events (phase/round separators,
     // code-phase results) get a small fixed delay so they stay on-screen
     // long enough to read. `.instant` skips both.
+    let readingScript = ReadingScript.resolve(engineLanguage: scenario.engineLanguage)
     for await event in runner.run(
       scenario: scenario, llm: llm, suspendController: controller
     ) {
@@ -805,7 +806,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
       // VN-style reading pause after a committed utterance (Sim-only).
       if case .agentOutput = event {
-        await holdAfterAgentOutput()
+        await holdAfterAgentOutput(script: readingScript)
       }
     }
 
@@ -1009,6 +1010,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // `.running` on a load failure with no easy restore to `.paused`.
     enqueueStatusWrite(.running)
 
+    let readingScript = ReadingScript.resolve(engineLanguage: scenario.engineLanguage)
     for await event in runner.run(
       scenario: scenario, llm: llm, suspendController: controller,
       resumingFrom: state, startRound: startRound
@@ -1027,7 +1029,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // resume() is live Sim (LLM generation from round K+1), so it gets the
       // same beat as run() — not replay, which paces on its own clock.
       if case .agentOutput = event {
-        await holdAfterAgentOutput()
+        await holdAfterAgentOutput(script: readingScript)
       }
     }
 
@@ -1324,11 +1326,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// this minimal reading-pause (tap-to-advance is the #801 follow-up).
   ///
   /// Reads `speed` at call time so a mid-run speed change applies on the next
-  /// pause; `.instant` yields `.zero` and is skipped. `try?` swallows a
-  /// teardown/cancel during the sleep, matching the existing `interEventDelayMs`
-  /// sleep; `readingDwell`'s per-tier cap bounds the added cancellation window.
-  private func holdAfterAgentOutput() async {
-    let dwell = speed.readingDwell(displayLength: lastAgentOutputDisplayLength)
+  /// pause; `.instant` yields `.zero` and is skipped. `script` is the run's
+  /// reading-density class (from `scenario.engineLanguage`) — passed in rather
+  /// than stored because it is constant for a run and the consume loop already
+  /// holds the scenario. `try?` swallows a teardown/cancel during the sleep,
+  /// matching the existing `interEventDelayMs` sleep; `readingDwell`'s per-tier
+  /// cap bounds the added cancellation window.
+  private func holdAfterAgentOutput(script: ReadingScript) async {
+    let dwell = speed.readingDwell(
+      displayLength: lastAgentOutputDisplayLength, script: script)
     guard dwell > .zero else { return }
     try? await Task.sleep(for: dwell)
   }
