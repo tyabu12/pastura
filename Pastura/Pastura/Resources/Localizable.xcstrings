@@ -1682,12 +1682,12 @@
         }
       }
     },
-    "Balanced choice. Rich expression and measured reasoning." : {
+    "Balanced choice. Rich, considered responses." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "バランス型。表現が豊かで、推論も落ち着いた応答。"
+            "value" : "バランス型。表現が豊かで、落ち着いた応答。"
           }
         }
       }
@@ -1957,6 +1957,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シェアされたシナリオを開くには、このシートを閉じてください"
+          }
+        }
+      }
+    },
+    "Compact and nimble. A small download you can try freely." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンパクトで軽快。容量が小さく、気軽に試せる。"
           }
         }
       }
@@ -3525,16 +3535,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ライセンス"
-          }
-        }
-      }
-    },
-    "Lightweight reasoning mode — faster responses, leaner footprint." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "軽量モード — 応答が速く、容量も小さめ。"
           }
         }
       }
