@@ -28,6 +28,9 @@ Results JSON schema (composed by the /scenario-factory session):
     {
       "id": "factory_20260613_example",
       "name": "...", "theme": "...",
+      "axis": "branching / roleplay",   // optional: the under-represented
+                                        // gallery axis this scenario targeted
+                                        // (SKILL.md Step 1.5); omitted → em-dash
       "yaml": "data/factory/scenarios/2026-06-13/....yaml",
       "run_log": "data/factory/runs/2026-06-13/....jsonl",
       "status": "ok|failed|config_error",
@@ -88,9 +91,9 @@ def render_section(results):
         f"(ok {counts['ok']} / failed {counts['failed']} / "
         f"config_error {counts['config_error']})",
         "",
-        "| id | name | theme | status | (a) coherence | (b) interaction "
+        "| id | name | theme | axis | status | (a) coherence | (b) interaction "
         "| (c) breakdown-free | (d) humor | comment |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for s in scenarios:
         scores = s.get("scores") or {}
@@ -99,7 +102,7 @@ def render_section(results):
             comment = f"{comment} error: {s['error']}".strip()
         row = [
             cell(s.get("id")), cell(s.get("name")), cell(s.get("theme")),
-            cell(s.get("status")),
+            cell(s.get("axis")), cell(s.get("status")),
         ]
         row += [cell(scores.get(k)) for k in RUBRIC_KEYS]
         row.append(cell(comment))

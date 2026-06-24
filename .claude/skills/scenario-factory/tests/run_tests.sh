@@ -53,6 +53,9 @@ python3 "$SCRIPTS/append_digest.py" \
 grep -q "^## 2026-06-13$" "$TMP/digest.md" || fail "digest: section heading missing"
 grep -q "factory_20260613_test_ok" "$TMP/digest.md" || fail "digest: ok row missing"
 grep -q '設定は一貫、ボケの幅 \\| は狭め' "$TMP/digest.md" || fail "digest: pipe not escaped in comment"
+grep -q 'elimination / creative' "$TMP/digest.md" || fail "digest: axis column not rendered"
+# scenario without an axis renders the em-dash (backward-compat via cell())
+grep -q 'クラッシュ再現 | 大喜利 | – |' "$TMP/digest.md" || fail "digest: missing axis not em-dashed"
 grep -q "factory-digest:promotion" "$TMP/digest.md" || fail "digest: promotion marker lost"
 tail -1 "$TMP/digest.md" | grep -q "^Promotion:" || fail "digest: promotion line no longer last"
 
