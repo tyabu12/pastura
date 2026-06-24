@@ -244,25 +244,28 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       Text(exportError ?? "")
     }
     // Back-button confirm-on-leave (#673, extended for Phase B opt-in #682).
-    // The back button raises this dialog via `handleBackTap()` when the
-    // keep-running Setting is off; with it on, leaving silently parks (no
-    // dialog). Three buttons, kept as `.alert` deliberately —
-    // `.confirmationDialog` renders as a mis-anchored popover on iOS 26
-    // (`.claude/rules/...` / ADR-016 § Amendment). Focus mode (ADR-017) hides the
-    // tab bar during a run, so only the back / swipe-back path remains.
-    .alert(
-      String(localized: "A simulation is in progress"),
-      isPresented: leaveAlertBinding
-    ) {
-      Button(String(localized: "Pause and leave")) { confirmLeave() }
-      Button(String(localized: "Leave & keep running")) { confirmLeaveKeepRunning() }
-      Button(String(localized: "Stay"), role: .cancel) { stay() }
-    } message: {
-      Text(
-        String(
-          localized:
-            "Pause and save it so you can resume later, or keep it running while you step away?"
-        ))
+    // Raised by `handleBackTap()` only when the keep-running Setting is off
+    // (with it on, leaving silently parks — no dialog). A custom `.sheet`
+    // (`SimulationLeaveSheet`), not `.alert`/`.confirmationDialog`, so the
+    // three actions can carry semantic design-system colors (moss primary /
+    // amber caution / neutral) — `.alert` exposes no per-button color API and
+    // `.confirmationDialog` mis-anchors as a popover on iOS 26 (swiftui-traps).
+    // Reuses `leaveAlertBinding`: a swipe-to-dismiss (no button) routes to
+    // `stay()` via the binding's setter — the correct "keep running, didn't
+    // pick anything" outcome. Focus mode (ADR-017) hides the tab bar during a
+    // run, so only the back / swipe-back path reaches here.
+    .sheet(isPresented: leaveAlertBinding) {
+      // Wrapped in a ScrollView so the content scrolls (not clips) at the
+      // largest Dynamic Type sizes; bounce is suppressed when it already fits.
+      ScrollView {
+        SimulationLeaveSheet(
+          onPauseAndLeave: confirmLeave,
+          onKeepRunning: confirmLeaveKeepRunning,
+          onStay: stay)
+      }
+      .scrollBounceBehavior(.basedOnSize)
+      .presentationDetents([.height(340)])
+      .presentationDragIndicator(.visible)
     }
   }
 
@@ -826,26 +829,41 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
+  /// Pause/Resume — a filled `mossDark` circle + white glyph (see
+  /// ``SimulationPlayButtonMetrics``) rather than a bare glyph: the lone
+  /// filled symbol used to read as a stray "black blob" on the frosted bar.
+  /// `disabledText` fill when disabled. No circle shadow — the frosted bar
+  /// already lifts (design-system §1/§4.3 single floating element; avoid
+  /// double-lift).
+  private func playPauseButton(viewModel: SimulationViewModel, isDisabled: Bool) -> some View {
+    Button {
+      if viewModel.isPaused {
+        viewModel.resumeSimulation()
+      } else {
+        viewModel.pauseSimulation()
+      }
+    } label: {
+      Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
+        .font(.system(size: SimulationPlayButtonMetrics.glyphPointSize, weight: .semibold))
+        .foregroundStyle(SimulationPlayButtonMetrics.glyphColor)
+        .frame(
+          width: SimulationPlayButtonMetrics.diameter,
+          height: SimulationPlayButtonMetrics.diameter
+        )
+        .background(
+          isDisabled
+            ? SimulationPlayButtonMetrics.disabledFill
+            : SimulationPlayButtonMetrics.enabledFill,
+          in: Circle())
+    }
+    .buttonStyle(.plain)
+    .disabled(isDisabled)
+  }
+
   private func controlBar(viewModel: SimulationViewModel) -> some View {
     let isPauseDisabled = !viewModel.isRunning || viewModel.isCompleted
     return HStack(spacing: 16) {
-      // Pause/Resume
-      Button {
-        if viewModel.isPaused {
-          viewModel.resumeSimulation()
-        } else {
-          viewModel.pauseSimulation()
-        }
-      } label: {
-        // Explicit `Color.disabledText` (design-system §2.7) when
-        // disabled, matching Demo's controlBar (#273 PR 1a). Enabled
-        // state uses `Color.ink` for the icon color rather than the
-        // system tint so the bar's color story stays in our palette.
-        Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
-          .font(.title3)
-          .foregroundStyle(isPauseDisabled ? Color.disabledText : Color.ink)
-      }
-      .disabled(isPauseDisabled)
+      playPauseButton(viewModel: viewModel, isDisabled: isPauseDisabled)
 
       // Speed picker while running; swapped with an export button once the
       // simulation is completed because playback speed is no longer relevant.
