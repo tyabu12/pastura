@@ -28,6 +28,10 @@ struct GalleryCatalogRow: View {
     let description: String?
     let agentCount: Int?
     let rounds: Int?
+    /// Already-resolved signature phase for the art-tile glyph badge, or `nil`
+    /// for no badge. Resolved at the mapping boundary (the Model carries
+    /// display-ready values, never the raw `phases` array).
+    let signature: ScenarioSignaturePhase?
 
     init(
       title: String,
@@ -35,7 +39,8 @@ struct GalleryCatalogRow: View {
       category: String,
       description: String? = nil,
       agentCount: Int? = nil,
-      rounds: Int? = nil
+      rounds: Int? = nil,
+      signature: ScenarioSignaturePhase? = nil
     ) {
       self.title = title
       self.badge = badge
@@ -43,6 +48,7 @@ struct GalleryCatalogRow: View {
       self.description = description
       self.agentCount = agentCount
       self.rounds = rounds
+      self.signature = signature
     }
   }
 
@@ -52,7 +58,7 @@ struct GalleryCatalogRow: View {
     let shape = RoundedRectangle(
       cornerRadius: GalleryCatalogMetrics.cardCornerRadius, style: .continuous)
     return HStack(alignment: .top, spacing: GalleryCatalogMetrics.cardSpacing) {
-      ScenarioArtTile(agentCount: model.agentCount)
+      ScenarioArtTile(agentCount: model.agentCount, signature: model.signature)
       bodyColumn
     }
     .padding(GalleryCatalogMetrics.cardPadding)
@@ -180,5 +186,83 @@ nonisolated enum GalleryCatalogRowFormat {
   static func clusterSheepCount(agentCount: Int?) -> Int {
     guard let agentCount, agentCount > 0 else { return 0 }
     return min(agentCount, GalleryCatalogMetrics.maxClusterSheep)
+  }
+
+  /// The headline phase the art tile surfaces as its glyph badge, picked from
+  /// `phases` by a **fixed, corpus-independent** priority order
+  /// (``ScenarioSignaturePhase/priorityOrder``). Scans that order top-down and
+  /// returns the first kind present; if the scenario carries only scaffolding
+  /// (or unknown) phases, falls back to ``ScenarioSignaturePhase/discuss``.
+  /// Returns `nil` — no badge — only when `phases` is absent / empty (an older
+  /// feed predating the key), mirroring the unknown-`agentCount` "draw nothing"
+  /// posture.
+  ///
+  /// The order is a property of the phase *vocabulary* (how strongly each kind
+  /// defines the scenario's mechanic), NOT the gallery's current distribution,
+  /// so a scenario's badge never shifts as the gallery grows.
+  static func signaturePhase(phases: [String]?) -> ScenarioSignaturePhase? {
+    guard let phases, !phases.isEmpty else { return nil }
+    let present = Set(phases.compactMap(ScenarioSignaturePhase.init(phaseRawValue:)))
+    for candidate in ScenarioSignaturePhase.priorityOrder where present.contains(candidate) {
+      return candidate
+    }
+    return .discuss
+  }
+}
+
+/// The "headline" mechanic a Browse art tile surfaces as a single glyph badge —
+/// the one phase kind that most defines how a scenario is played. Derived from a
+/// scenario's phase list by ``GalleryCatalogRowFormat/signaturePhase(phases:)``.
+///
+/// `nonisolated` so the pure-logic derivation + its change-detector test read
+/// the cases from a non-`@MainActor` context (swift-isolation.md Pattern 5 —
+/// without it the auto-synth `Equatable` conformance lookup would be
+/// MainActor-bound and the nonisolated test couldn't compare cases).
+nonisolated enum ScenarioSignaturePhase: CaseIterable {
+  case eliminate
+  case choose
+  case conditional
+  case eventInject
+  case vote
+  case scoreCalc
+  /// Fallback for scaffolding-only / unknown-phase scenarios — never mapped
+  /// from a phase raw value, so it is absent from ``priorityOrder``.
+  case discuss
+
+  /// Fixed scan order (highest mechanic-salience first). `discuss` is the
+  /// fallback and is intentionally excluded. event_inject ranks above vote so a
+  /// disruption-driven scenario reads by its real hook rather than its (common)
+  /// vote step.
+  static let priorityOrder: [ScenarioSignaturePhase] = [
+    .eliminate, .choose, .conditional, .eventInject, .vote, .scoreCalc
+  ]
+
+  /// Maps a ``PhaseType`` raw value to its signature kind, or `nil` for
+  /// scaffolding phases (`assign` / `speak_all` / `speak_each` / `summarize`)
+  /// and any unknown future kind — neither contributes a headline.
+  init?(phaseRawValue raw: String) {
+    switch raw {
+    case "eliminate": self = .eliminate
+    case "choose": self = .choose
+    case "conditional": self = .conditional
+    case "event_inject": self = .eventInject
+    case "vote": self = .vote
+    case "score_calc": self = .scoreCalc
+    default: return nil
+    }
+  }
+
+  /// SF Symbol name for the glyph badge (visual reference: the lookbook
+  /// `docs/design/tab-identity/scenario-tile-lookbook.html` 案A legend).
+  var sfSymbolName: String {
+    switch self {
+    case .eliminate: return "xmark.circle"
+    case .choose: return "arrow.triangle.branch"
+    case .conditional: return "diamond"
+    case .eventInject: return "bolt.fill"
+    case .vote: return "checkmark.square"
+    case .scoreCalc: return "chart.bar"
+    case .discuss: return "bubble.left.and.bubble.right"
+    }
   }
 }

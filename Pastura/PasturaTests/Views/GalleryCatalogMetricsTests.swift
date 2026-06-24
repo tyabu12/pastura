@@ -28,7 +28,24 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogMetrics.artSheepSize == 26)
     #expect(GalleryCatalogMetrics.artClusterSpacing == 1)
     #expect(GalleryCatalogMetrics.artTileBorderWidth == 1)
-    #expect(GalleryCatalogMetrics.maxClusterSheep == 4)
+    #expect(GalleryCatalogMetrics.maxClusterSheep == 6)
+  }
+
+  @Test func clusterSheepSizeTiersUnchanged() {
+    // Sheep shrink as the count grows so 5–6 fit the 74pt tile in a 2×3 grid.
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 1) == 40)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 2) == 30)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 3) == 26)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 4) == 26)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 5) == 21)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 6) == 21)
+  }
+
+  @Test func signatureBadgeGeometryUnchanged() {
+    #expect(GalleryCatalogMetrics.badgeDiameter == 26)
+    #expect(GalleryCatalogMetrics.badgeGlyphSize == 15)
+    #expect(GalleryCatalogMetrics.badgeBorderWidth == 1)
+    #expect(GalleryCatalogMetrics.badgeOffset == 6)
   }
 
   @Test func cardChromeUnchanged() {
@@ -84,8 +101,12 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 1) == 1)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 3) == 3)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 4) == 4)
-    // Clamped to maxClusterSheep.
-    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 9) == 4)
+    // Exact through the real gallery max (5) and the clamp ceiling (6).
+    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 5) == 5)
+    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 6) == 6)
+    // Clamped to maxClusterSheep — the footer's "N agents" carries the exact
+    // count, so the tile may approximate beyond the ceiling.
+    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 9) == 6)
   }
 
   @Test func clusterSheepCountEmptyWhenUnknownOrNonPositive() {
@@ -94,5 +115,103 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: nil) == 0)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 0) == 0)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: -2) == 0)
+  }
+
+  // MARK: - signaturePhase (fixed priority derivation)
+
+  @Test func signaturePhaseNilOrEmptyYieldsNoBadge() {
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: nil) == nil)
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: []) == nil)
+  }
+
+  @Test func signaturePhaseScaffoldingOnlyFallsBackToDiscuss() {
+    // asch_conformity shape — only scaffolding phases present.
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(phases: ["speak_each", "summarize"]) == .discuss)
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["assign", "speak_all"]) == .discuss)
+  }
+
+  @Test func signaturePhaseUnknownKindsFallBackToDiscuss() {
+    // Unknown phase kinds (lenient [String] decode) contribute no signature;
+    // with nothing else present the badge falls back to discuss.
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["future_kind"]) == .discuss)
+  }
+
+  @Test func signaturePhaseIgnoresUnknownKindsAlongsideKnown() {
+    // A mix of unknown + known: the unknown is dropped by compactMap and the
+    // known phase still wins its priority slot.
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["future_kind", "vote"]) == .vote)
+  }
+
+  @Test func signaturePhasePicksHighestPriorityPresent() {
+    // oogiri: eliminate is top priority.
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(
+        phases: ["assign", "speak_all", "vote", "eliminate", "summarize"]) == .eliminate)
+    // detective: conditional beats vote / score_calc.
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(
+        phases: ["speak_each", "vote", "score_calc", "conditional"]) == .conditional)
+  }
+
+  @Test func signaturePhaseRanksEventInjectAboveVote() {
+    // hapning_ranyu shape — event_inject must win over the also-present vote
+    // (mechanic-salience: the disruption is the scenario's real hook).
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(
+        phases: ["event_inject", "speak_all", "vote", "score_calc", "summarize"]) == .eventInject)
+  }
+
+  @Test func signaturePhaseRanksVoteAboveScoreCalc() {
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["score_calc", "vote"]) == .vote)
+  }
+
+  @Test func signaturePhasePriorityOrderIsFixed() {
+    // The priority order is corpus-independent — pin it so a reorder is a
+    // deliberate, reviewed change (and so event_inject stays above vote).
+    #expect(
+      ScenarioSignaturePhase.priorityOrder == [
+        .eliminate, .choose, .conditional, .eventInject, .vote, .scoreCalc
+      ])
+  }
+
+  @Test func signaturePriorityOrderCoversEveryMappableCase() {
+    // Every case except the `discuss` fallback must appear in priorityOrder —
+    // so a newly-added mappable case can't silently fall through to discuss
+    // (it forces a deliberate priority placement instead).
+    let mappable = Set(ScenarioSignaturePhase.allCases).subtracting([.discuss])
+    #expect(Set(ScenarioSignaturePhase.priorityOrder) == mappable)
+    // No duplicates / no `discuss` snuck in.
+    #expect(ScenarioSignaturePhase.priorityOrder.count == mappable.count)
+    #expect(!ScenarioSignaturePhase.priorityOrder.contains(.discuss))
+  }
+
+  @Test func signatureMappingTracksPhaseTypeRawValues() {
+    // The Views-layer enum hardcodes phase raw-value literals (deliberate
+    // decoupling from PhaseType). Pin them against the real PhaseType raw
+    // values so the literals can't silently drift.
+    let mapped: [(PhaseType, ScenarioSignaturePhase)] = [
+      (.eliminate, .eliminate), (.choose, .choose), (.conditional, .conditional),
+      (.eventInject, .eventInject), (.vote, .vote), (.scoreCalc, .scoreCalc)
+    ]
+    for (phase, signature) in mapped {
+      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == signature)
+    }
+    // Scaffolding phases carry no headline → nil.
+    for phase in [PhaseType.assign, .speakAll, .speakEach, .summarize] {
+      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == nil)
+    }
+  }
+
+  // MARK: - signature glyph mapping (change-detector)
+
+  @Test func signatureGlyphSymbolsUnchanged() {
+    #expect(ScenarioSignaturePhase.eliminate.sfSymbolName == "xmark.circle")
+    #expect(ScenarioSignaturePhase.choose.sfSymbolName == "arrow.triangle.branch")
+    #expect(ScenarioSignaturePhase.conditional.sfSymbolName == "diamond")
+    #expect(ScenarioSignaturePhase.eventInject.sfSymbolName == "bolt.fill")
+    #expect(ScenarioSignaturePhase.vote.sfSymbolName == "checkmark.square")
+    #expect(ScenarioSignaturePhase.scoreCalc.sfSymbolName == "chart.bar")
+    #expect(ScenarioSignaturePhase.discuss.sfSymbolName == "bubble.left.and.bubble.right")
   }
 }

@@ -207,7 +207,8 @@ struct SharedScenariosListView: View {
       category: scenario.category.displayName,
       description: scenario.description,
       agentCount: scenario.agentCount,
-      rounds: scenario.rounds)
+      rounds: scenario.rounds,
+      signature: GalleryCatalogRowFormat.signaturePhase(phases: scenario.phases))
   }
 }
 

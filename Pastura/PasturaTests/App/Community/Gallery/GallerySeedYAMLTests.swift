@@ -275,6 +275,42 @@ import Testing
     }
   }
 
+  /// Pins the curation invariant that every `gallery.json` entry's `phases`
+  /// matches the corresponding YAML's ordered phase-type raw values. These
+  /// drive the Browse art-tile signature glyph (the client maps `phases` →
+  /// signature via a fixed priority order); a drifted or omitted array would
+  /// badge the wrong mechanic — or none. `#require` makes an un-populated entry
+  /// a loud failure, catching a future gallery addition that forgets the field
+  /// (mirrors `galleryAgentCountAndRoundsMatchYAML`).
+  @Test func galleryPhasesMatchYAML() throws {
+    let loader = ScenarioLoader()
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let indexURL = galleryDir.appendingPathComponent("gallery.json")
+    let indexData = try Data(contentsOf: indexURL)
+    let index = try JSONDecoder().decode(GalleryIndex.self, from: indexData)
+
+    #expect(!index.scenarios.isEmpty, "gallery.json has no scenarios")
+
+    for entry in index.scenarios {
+      let yamlPath =
+        galleryDir
+        .appendingPathComponent(entry.yamlURL.lastPathComponent)
+      let yaml = try String(contentsOf: yamlPath, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+
+      let phases = try #require(
+        entry.phases,
+        "gallery.json entry id=\(entry.id) is missing phases")
+      let yamlPhases = scenario.phases.map { $0.type.rawValue }
+      #expect(
+        phases == yamlPhases,
+        """
+        gallery.json entry id=\(entry.id) phases=\(phases) \
+        != yaml phase types=\(yamlPhases)
+        """)
+    }
+  }
+
   /// Resolve the repo root relative to this test file. `#filePath` expands
   /// at compile time to the absolute source path; we walk up until we find
   /// the directory that contains `docs/gallery`.

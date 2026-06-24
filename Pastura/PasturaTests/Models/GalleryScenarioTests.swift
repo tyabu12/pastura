@@ -150,6 +150,73 @@ import Testing
     #expect(scenario.rounds == nil)
   }
 
+  // MARK: - phases (optional, forward-compat)
+
+  @Test func decodeWithPhases() throws {
+    let json = """
+      {
+        "id": "oogiri_knockout_v1",
+        "title": "Oogiri",
+        "category": "creative",
+        "description": "desc",
+        "author": "tyabu12",
+        "recommended_model": "gemma-4-e2b-q4-k-m",
+        "estimated_inferences": 24,
+        "phases": ["assign", "speak_all", "vote", "eliminate", "summarize"],
+        "yaml_url": "https://example.com/oogiri.yaml",
+        "yaml_sha256": "abc123",
+        "added_at": "2026-06-13"
+      }
+      """
+    let scenario = try JSONDecoder().decode(GalleryScenario.self, from: Data(json.utf8))
+    #expect(scenario.phases == ["assign", "speak_all", "vote", "eliminate", "summarize"])
+  }
+
+  /// Forward-compat: a feed predating the `phases` key (or an older app
+  /// reading a newer feed) must decode with `phases == nil` — the signature
+  /// badge is then simply hidden. Same posture as `agentCount` / `rounds`.
+  @Test func decodeWithoutPhasesYieldsNil() throws {
+    let json = """
+      {
+        "id": "legacy_v1",
+        "title": "Legacy",
+        "category": "experimental",
+        "description": "desc",
+        "author": "tyabu12",
+        "recommended_model": "gemma-4-e2b-q4-k-m",
+        "estimated_inferences": 8,
+        "yaml_url": "https://example.com/legacy.yaml",
+        "yaml_sha256": "deadbeef",
+        "added_at": "2026-04-15"
+      }
+      """
+    let scenario = try JSONDecoder().decode(GalleryScenario.self, from: Data(json.utf8))
+    #expect(scenario.phases == nil)
+  }
+
+  /// The lenient `[String]` (not `[PhaseType]`) decode must pass an unknown
+  /// phase-type string through verbatim rather than throwing — a newer feed
+  /// adding a phase kind an older app doesn't know must still decode.
+  @Test func decodeWithUnknownPhaseStringPassesThrough() throws {
+    let json = """
+      {
+        "id": "future_v1",
+        "title": "Future",
+        "category": "experimental",
+        "description": "desc",
+        "author": "tyabu12",
+        "recommended_model": "gemma-4-e2b-q4-k-m",
+        "estimated_inferences": 5,
+        "phases": ["vote", "future_phase_kind"],
+        "yaml_url": "https://example.com/future.yaml",
+        "yaml_sha256": "deadbeef",
+        "added_at": "2026-04-15"
+      }
+      """
+    let scenario = try JSONDecoder().decode(GalleryScenario.self, from: Data(json.utf8))
+    #expect(scenario.phases == ["vote", "future_phase_kind"])
+  }
+
   // MARK: - GalleryCategory unknown raw value
 
   @Test func unknownCategoryThrows() {
