@@ -221,13 +221,30 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// Character-reveal rate forwarded from
-  /// ``ReplayPlaybackConfig/typingCharsPerSecond``. ``ModelDownloadHostView``
-  /// reads this when building each ``AgentOutputRow`` so the View's typing
-  /// animation and this VM's turn-dwell floor share one source of truth
-  /// (`nil` ⇒ instant text / no proportional dwell). No `@Observable`
-  /// bridging needed — `config` is immutable.
-  var typingCharsPerSecond: Double? { config.typingCharsPerSecond }
+  /// Character-reveal rate fed to each ``AgentOutputRow`` by
+  /// ``ModelDownloadHostView``. ``ReplayPlaybackConfig/typingCharsPerSecond``
+  /// is the **opt-in gate** (`nil` ⇒ instant text / no proportional dwell —
+  /// non-demo configs; non-nil ⇒ demo); when opted in, the *value* tracks the
+  /// runtime ``playbackSpeed`` so the demo's Speed menu drives typing the way
+  /// Sim does (`x0.5`→15 / `x1`→30 / `x1.5`→45 / `Max`→nil instant). Before
+  /// #791 this returned the fixed `config.typingCharsPerSecond` and ignored
+  /// the Speed menu, so the menu only changed turn dwell, not typing.
+  ///
+  /// `playbackSpeed` is a plain stored property on this `@Observable` VM, so
+  /// SwiftUI re-renders the host (and rebuilds the row with the new cps) when
+  /// the menu mutates it — no manual `@Observable` bridge needed.
+  ///
+  /// The turn-dwell floor (``typingFloorMs(for:)``) keeps reading the *fixed*
+  /// `config.typingCharsPerSecond` reference, not this speed-scaled value:
+  /// ``scaledDelay(for:floorMs:)`` already divides that floor by
+  /// ``PlaybackSpeed/multiplier``, and `charsPerSecond == 30 × multiplier`, so
+  /// `floorMs / multiplier` already equals the speed-scaled typing duration —
+  /// the dwell stays synced with typing at every speed.
+  var typingCharsPerSecond: Double? {
+    // `config.typingCharsPerSecond` gates demo (non-nil) vs non-demo (nil).
+    guard config.typingCharsPerSecond != nil else { return nil }
+    return playbackSpeed.charsPerSecond
+  }
 
   /// One rendered agent output suitable for `AgentOutputRow`.
   nonisolated struct AgentOutputEntry: Sendable, Equatable, Identifiable {
@@ -823,6 +840,16 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// (not `private`) so `ReplayViewModelTests+Pacing` can exercise it.
   func typingFloorMs(for event: SimulationEvent) -> Int {
     guard case .agentOutput(_, let output, let phaseType) = event else { return 0 }
+    // Uses the FIXED `config.typingCharsPerSecond` as the dwell reference
+    // (NOT the speed-scaled ``typingCharsPerSecond`` accessor). The
+    // dwell-vs-typing sync (see that accessor's doc) holds only because
+    // ``scaledDelay(for:floorMs:)`` divides this floor by
+    // ``PlaybackSpeed/multiplier`` AND `.demoDefault` seeds
+    // `config.typingCharsPerSecond` to exactly
+    // ``PlaybackSpeed/normal``'s `charsPerSecond` (30), with the speed
+    // buckets as linear multiples of 30. A future config seeding a
+    // non-30 cps while the buckets stay 15/30/45 would desync the floor
+    // from the actual typing rate — keep this reference == normal cps.
     guard let cps = config.typingCharsPerSecond else { return 0 }
     let segments = output.revealedSegments(
       for: phaseType, includeThought: showAllThoughts)
