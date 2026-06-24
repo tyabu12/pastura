@@ -33,7 +33,10 @@ struct RecordsCountPluralTests {
         return candidate
       }
     }
-    return url
+    // Walk-up failed (catalog relocated?) — return an obviously-bogus path so
+    // the downstream `Data(contentsOf:)` throws a self-explaining error rather
+    // than an opaque read at "/".
+    return URL(fileURLWithPath: "/Localizable.xcstrings-not-found-via-filePath-walkup")
   }
 
   /// The full `"%lld records"` catalog entry.
