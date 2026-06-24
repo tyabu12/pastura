@@ -126,6 +126,10 @@ struct HomeView: View {
           )
           .frame(maxWidth: .infinity)
           .padding(.top, 60)
+          // Anchor for the empty-inventory screenshot-tour capture
+          // (--ui-test-seed-empty-inventory, #811). The sibling error overlay
+          // below (viewModel.errorMessage) is a distinct surface — keep ids apart.
+          .accessibilityIdentifier("home.emptyState")
         } else {
           scenariosSection(viewModel: viewModel)
         }

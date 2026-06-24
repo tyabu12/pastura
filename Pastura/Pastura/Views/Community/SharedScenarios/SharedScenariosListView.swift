@@ -85,6 +85,10 @@ struct SharedScenariosListView: View {
       }
       .buttonStyle(PasturaPrimaryButtonStyle())
     }
+    // Anchor for the gallery offline / load-failure screenshot-tour capture
+    // (--ui-test-seed-gallery-offline → `.empty`, #811). Distinct from
+    // `errorState` below (the `.error` LoadState, currently unreachable).
+    .accessibilityIdentifier("sharedScenarios.galleryUnavailable")
   }
 
   private func errorState(message: String, viewModel: SharedScenariosViewModel) -> some View {
@@ -135,6 +139,11 @@ struct SharedScenariosListView: View {
           .padding(.horizontal, 17)
           .padding(.vertical, 14)
       }
+      // Anchor for the no-search-match (--ui-test-seed-empty-inventory + typed
+      // query) and gallery-empty (--ui-test-seed-empty-gallery → .galleryEmpty)
+      // screenshot-tour captures (#811). One anchor, two captures — only the
+      // emptyResultsMessage copy differs by EmptyReason.
+      .accessibilityIdentifier("sharedScenarios.emptyResultsCard")
     } else {
       // Spaced landscape catalog cards (tab-identity PR2, #777) — NOT a divided
       // `.grouped` band — so Browse reads as a card catalog, distinct from the

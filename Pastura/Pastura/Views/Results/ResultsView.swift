@@ -29,6 +29,9 @@ struct ResultsView: View {
             systemImage: "tray",
             description: Text(String(localized: "Run a simulation to see results here"))
           )
+          // Anchor for the empty-results screenshot-tour capture
+          // (plain --ui-test without --ui-test-seed-results, #811).
+          .accessibilityIdentifier("results.emptyState")
         } else if scope.isPushedDetail {
           // Pushed per-scenario detail keeps the grouped list — it is a single
           // section, not a tab root, so the timeline's rail + editorial header
