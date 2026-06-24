@@ -53,6 +53,9 @@ python3 "$SCRIPTS/append_digest.py" \
 grep -q "^## 2026-06-13$" "$TMP/digest.md" || fail "digest: section heading missing"
 grep -q "factory_20260613_test_ok" "$TMP/digest.md" || fail "digest: ok row missing"
 grep -q '設定は一貫、ボケの幅 \\| は狭め' "$TMP/digest.md" || fail "digest: pipe not escaped in comment"
+grep -q 'elimination / creative' "$TMP/digest.md" || fail "digest: axis column not rendered"
+# scenario without an axis renders the em-dash (backward-compat via cell())
+grep -q 'クラッシュ再現 | 大喜利 | – |' "$TMP/digest.md" || fail "digest: missing axis not em-dashed"
 grep -q "factory-digest:promotion" "$TMP/digest.md" || fail "digest: promotion marker lost"
 tail -1 "$TMP/digest.md" | grep -q "^Promotion:" || fail "digest: promotion line no longer last"
 
@@ -78,5 +81,29 @@ grep -q "factory-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sectio
 grep -q "factory-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
 grep -q "^## 2026-06-13$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
+
+# --- gallery_census.py ------------------------------------------------------
+C=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json)
+echo "$C" | grep -q "Suggested targets" || fail "census: suggested-targets section missing"
+# a known-RARE axis (branching, 1/4) must appear in the suggested mechanic line
+echo "$C" | grep "mechanic axes:" | grep -q "branching" || fail "census: rare axis not suggested"
+# a known-CROWDED axis (peer_vote, 3/4) must be flagged crowded
+echo "$C" | grep "peer_vote" | grep -q "crowded" || fail "census: crowded axis not flagged"
+# nullable/absent phases excluded from the axis denominator, reported
+echo "$C" | grep -q "1 skipped: no phases" || fail "census: null-phases row not skipped"
+# zero-entry valid category surfaced as rare (game_theory has no gallery entry)
+echo "$C" | grep "game_theory" | grep -q "rare" || fail "census: zero-count category not rare"
+# empty gallery must not crash the overnight cycle (exit 0, notice printed)
+echo '{"version":1,"scenarios":[]}' > "$TMP/empty.json"
+python3 "$SCRIPTS/gallery_census.py" "$TMP/empty.json" | grep -q "empty gallery" \
+  || fail "census: empty gallery not handled cleanly"
+# fallback: when no axis trips rare/crowded (all 2/4), still suggest 3 rarest
+F=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_balanced.json)
+echo "$F" | grep -q "avoid piling onto crowded" && fail "census: balanced should have no crowded axis"
+echo "$F" | grep "mechanic axes:" | grep -q "peer_vote" || fail "census: fallback rarest-3 targets missing"
+# unrecognized category drift surfaces on stderr (not silently absorbed)
+echo '{"version":1,"scenarios":[{"id":"x","category":"made_up_cat","phases":["vote"]}]}' > "$TMP/drift.json"
+python3 "$SCRIPTS/gallery_census.py" "$TMP/drift.json" 2>"$TMP/drift.err" >/dev/null
+grep -q "unrecognized categories" "$TMP/drift.err" || fail "census: category drift not warned"
 
 echo "ALL TESTS PASSED"
