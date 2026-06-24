@@ -95,4 +95,68 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 0) == 0)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: -2) == 0)
   }
+
+  // MARK: - signaturePhase (fixed priority derivation)
+
+  @Test func signaturePhaseNilOrEmptyYieldsNoBadge() {
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: nil) == nil)
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: []) == nil)
+  }
+
+  @Test func signaturePhaseScaffoldingOnlyFallsBackToDiscuss() {
+    // asch_conformity shape — only scaffolding phases present.
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(phases: ["speak_each", "summarize"]) == .discuss)
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["assign", "speak_all"]) == .discuss)
+  }
+
+  @Test func signaturePhaseUnknownKindsFallBackToDiscuss() {
+    // Unknown phase kinds (lenient [String] decode) contribute no signature;
+    // with nothing else present the badge falls back to discuss.
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["future_kind"]) == .discuss)
+  }
+
+  @Test func signaturePhasePicksHighestPriorityPresent() {
+    // oogiri: eliminate is top priority.
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(
+        phases: ["assign", "speak_all", "vote", "eliminate", "summarize"]) == .eliminate)
+    // detective: conditional beats vote / score_calc.
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(
+        phases: ["speak_each", "vote", "score_calc", "conditional"]) == .conditional)
+  }
+
+  @Test func signaturePhaseRanksEventInjectAboveVote() {
+    // hapning_ranyu shape — event_inject must win over the also-present vote
+    // (mechanic-salience: the disruption is the scenario's real hook).
+    #expect(
+      GalleryCatalogRowFormat.signaturePhase(
+        phases: ["event_inject", "speak_all", "vote", "score_calc", "summarize"]) == .eventInject)
+  }
+
+  @Test func signaturePhaseRanksVoteAboveScoreCalc() {
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["score_calc", "vote"]) == .vote)
+  }
+
+  @Test func signaturePhasePriorityOrderIsFixed() {
+    // The priority order is corpus-independent — pin it so a reorder is a
+    // deliberate, reviewed change (and so event_inject stays above vote).
+    #expect(
+      ScenarioSignaturePhase.priorityOrder == [
+        .eliminate, .choose, .conditional, .eventInject, .vote, .scoreCalc
+      ])
+  }
+
+  // MARK: - signature glyph mapping (change-detector)
+
+  @Test func signatureGlyphSymbolsUnchanged() {
+    #expect(ScenarioSignaturePhase.eliminate.sfSymbolName == "xmark.circle")
+    #expect(ScenarioSignaturePhase.choose.sfSymbolName == "arrow.triangle.branch")
+    #expect(ScenarioSignaturePhase.conditional.sfSymbolName == "diamond")
+    #expect(ScenarioSignaturePhase.eventInject.sfSymbolName == "bolt.fill")
+    #expect(ScenarioSignaturePhase.vote.sfSymbolName == "checkmark.square")
+    #expect(ScenarioSignaturePhase.scoreCalc.sfSymbolName == "chart.bar")
+    #expect(ScenarioSignaturePhase.discuss.sfSymbolName == "bubble.left.and.bubble.right")
+  }
 }
