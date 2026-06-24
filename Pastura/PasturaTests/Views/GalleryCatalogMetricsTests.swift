@@ -137,6 +137,12 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["future_kind"]) == .discuss)
   }
 
+  @Test func signaturePhaseIgnoresUnknownKindsAlongsideKnown() {
+    // A mix of unknown + known: the unknown is dropped by compactMap and the
+    // known phase still wins its priority slot.
+    #expect(GalleryCatalogRowFormat.signaturePhase(phases: ["future_kind", "vote"]) == .vote)
+  }
+
   @Test func signaturePhasePicksHighestPriorityPresent() {
     // oogiri: eliminate is top priority.
     #expect(
@@ -167,6 +173,34 @@ struct GalleryCatalogMetricsTests {
       ScenarioSignaturePhase.priorityOrder == [
         .eliminate, .choose, .conditional, .eventInject, .vote, .scoreCalc
       ])
+  }
+
+  @Test func signaturePriorityOrderCoversEveryMappableCase() {
+    // Every case except the `discuss` fallback must appear in priorityOrder —
+    // so a newly-added mappable case can't silently fall through to discuss
+    // (it forces a deliberate priority placement instead).
+    let mappable = Set(ScenarioSignaturePhase.allCases).subtracting([.discuss])
+    #expect(Set(ScenarioSignaturePhase.priorityOrder) == mappable)
+    // No duplicates / no `discuss` snuck in.
+    #expect(ScenarioSignaturePhase.priorityOrder.count == mappable.count)
+    #expect(!ScenarioSignaturePhase.priorityOrder.contains(.discuss))
+  }
+
+  @Test func signatureMappingTracksPhaseTypeRawValues() {
+    // The Views-layer enum hardcodes phase raw-value literals (deliberate
+    // decoupling from PhaseType). Pin them against the real PhaseType raw
+    // values so the literals can't silently drift.
+    let mapped: [(PhaseType, ScenarioSignaturePhase)] = [
+      (.eliminate, .eliminate), (.choose, .choose), (.conditional, .conditional),
+      (.eventInject, .eventInject), (.vote, .vote), (.scoreCalc, .scoreCalc)
+    ]
+    for (phase, signature) in mapped {
+      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == signature)
+    }
+    // Scaffolding phases carry no headline → nil.
+    for phase in [PhaseType.assign, .speakAll, .speakEach, .summarize] {
+      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == nil)
+    }
   }
 
   // MARK: - signature glyph mapping (change-detector)

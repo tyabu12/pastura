@@ -207,8 +207,11 @@ case "$YAML_ROUNDS" in ''|*[!0-9]*) echo "ERROR: YAML 'rounds' must be a positiv
 # phases: ordered list of phase-type raw values, a YAML-derived fact like
 # agents/rounds. Drives the Browse art-tile signature glyph; the Swift
 # GallerySeedYAMLTests.galleryPhasesMatchYAML pins it against this same order.
-# Emitted as a JSON array string for jq --argjson below.
-YAML_PHASES="$(python3 -c "import sys, yaml, json; print(json.dumps([p['type'] for p in yaml.safe_load(open(sys.argv[1]))['phases']]))" "$YAML_PATH")"
+# Emitted as a JSON array string for jq --argjson below. `|| { … }` turns a
+# malformed `phases:` (not a list, or a phase missing `type`) into a curated
+# error matching the agents/rounds style above, not a raw Python traceback.
+YAML_PHASES="$(python3 -c "import sys, yaml, json; print(json.dumps([p['type'] for p in yaml.safe_load(open(sys.argv[1]))['phases']]))" "$YAML_PATH")" \
+  || { echo "ERROR: YAML 'phases' must be a list of mappings each carrying a 'type' key" >&2; exit 1; }
 YAML_SHA="$(shasum -a 256 "$YAML_PATH" | awk '{print $1}')"
 YAML_SIZE="$(wc -c < "$YAML_PATH" | awk '{print $1}')"
 
