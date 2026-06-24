@@ -433,7 +433,7 @@ raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は�
 | 主題の固有名がタイトルの詳細 | `.large` | ScenarioDetail / GalleryScenarioDetail（シナリオ名） |
 | エディタ / フォーム / 汎用ラベルの詳細 | `.inline` | ScenarioEditor / ResultDetail |
 
-タブ root ルールは固有名/汎用ラベル軸を上書きする — Home のタイトル `"Pastura"` は固有名だが、タブ root なので `.inline`。4つのタブ root は各 View で明示的に `.inline` を指定する（`HomeView` / `SharedScenariosListView` / `ResultsView` / `SettingsView`）。`Shared Scenarios` / `Past Results` は push でも到達できる（③④で Home 経路が消えるまで）が、どちらも汎用ラベルなので push 版も `.inline` で一貫する。`.large` を明示しているのは固有名詳細の `ScenarioDetailView` のみ（他の large はデフォルト依存）。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
+タブ root ルールは固有名/汎用ラベル軸を上書きする — Home のタイトル `"Pastura"` は固有名だが、タブ root なので `.inline`。4つのタブ root は各 View で明示的に `.inline` を指定する（`HomeView` / `SharedScenariosListView` / `ResultsView` / `SettingsView`）。`Shared Scenarios` / `Past Results` は push でも到達できる（③④で Home 経路が消えるまで）が、どちらも汎用ラベルなので push 版も `.inline` で一貫する。`.large` を明示指定しているのは固有名詳細の `ScenarioDetailView` と `GalleryScenarioDetailView`（どちらもシナリオ名が主題の固有名で、上の表どおり `.large`）。後者は明示しないと `.inline` の Search タブ root から `.inline` を継承してしまうため、明示が必須。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
 
 ### 5.12 Simulation control bar — 円形主操作ボタン & 確認シート
 
@@ -495,7 +495,8 @@ Sim 画面に限った2つの例外的コンポーネント。Source: `Simulatio
 ## 8. アクセシビリティ
 
 - 本文の最小コントラスト比: 7:1（AAA）を目標に `--ink` と `--screen-bg` の組み合わせで達成
-- メタ情報は L3 コントラストで 4.5:1 以上
+- **判読が要るメタ情報**（DL 進捗・ステータス等、確実に読ませる必要があるもの）は § 2.4 の L3 コントラストプリセット（`--meta-base` #4A4E3D ≈ 8:1）で 4.5:1 以上を確保する
+- **`--muted`（#8A8A83）quietude 階層は意図的に sub-AA**（#FCFAF4 上で ≈ 3.3:1）。一覧キャプション（`provenance · N agents · N rounds`）・脚注・アンビエントなラベル（`DEMO中` など）に使う、§1 の「静謐・観察」を体現する控えめなティアで、上の 4.5:1 要件の対象外とする意図的な判断。これにより § 2.2（`--muted` をメタ情報・脚注に割り当て）と本節の整合を取る。判読が要る情報をこのティアに置かないこと（その場合は上の L3 プリセットへ）
 - DL 進捗は `role="status" aria-live="polite"` / SwiftUI は `.accessibilityAddTraits(.updatesFrequently)`
 - アバター・犬マークは `aria-hidden="true"` / `.accessibilityHidden(true)`（飾りだから）
 - タップ領域は 44pt 未満の要素（THINKING トグル等）でも 44pt 確保。SwiftUI では `.padding(.vertical, N).contentShape(Rectangle()).onTapGesture{...}.padding(.vertical, -N)` の **negative-padding トリック**で、視覚上のサイズを変えずヒット判定だけ拡張する（`.contentShape(Rectangle())` 単独では view 自身の bounds までしか広がらない）

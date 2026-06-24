@@ -35,4 +35,6 @@ row's idea (any status), it is a duplicate and must be dropped.
 
 | id | date | lens | screen | proposal | status | note |
 |----|------|------|--------|----------|--------|------|
-| _(empty — first run starts at UR-001)_ | | | | | | |
+| UR-001 | 2026-06-24 | L3 | 05-gallery-detail | GalleryScenarioDetail nav title `.inline`→`.large` per § 5.11 | done | Fixed: added `.navigationBarTitleDisplayMode(.large)`; § 5.11 prose reconciled (table already correct). |
+| UR-002 | 2026-06-24 | L1 | 01-home | List caption `--muted` ≈3.3:1 below § 8 4.5:1 | done | Resolved via § 8 carve-out: `--muted` quietude tier intentionally sub-AA for §1 voice; no code change (user kept muted over darkening). |
+| UR-003 | 2026-06-24 | L5 | 07-results | `"%lld records"` not plural-aware (renders "1 records") | proposed | Split to a follow-up PR: catalog's first plural entry — needs count-aware callsite + xcstringstool-sync verification + a new i18n.md plural rule. n=0 falls to `other` (en CLDR). |
