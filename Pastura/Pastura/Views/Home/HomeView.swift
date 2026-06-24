@@ -105,12 +105,12 @@ struct HomeView: View {
 
   @ViewBuilder
   private func scenarioList(viewModel: HomeViewModel) -> some View {
-    // Same host as the other browse screens (Shared Scenarios / Past Results /
-    // Settings): ScrollView + `PasturaSection`-style headers + `PasturaCard`
-    // grouped cards with `PasturaRowDivider` hairlines (#684 follow-up — Home
-    // dropped its bespoke `List`/`ScenarioCardSlice` rendering so the card form
-    // is shared, not re-implemented). Delete moved from List swipe to a
-    // long-press context menu (Apple's documented non-List alternative).
+    // Editorial Home layout (tab-identity PR3, 案C 中庸): a moss-gradient
+    // resume hero (`HomePausedCard`) over a dense edge-to-edge stack of compact
+    // icon rows (`HomeCompactScenarioRow`) — distinct from the catalog cards on
+    // Search and the timeline on Past Results, which keep the shared
+    // `PasturaCard`/`ScenarioSummaryRow` form. Delete stays a long-press context
+    // menu (Apple's documented non-List alternative).
     ScrollView {
       LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
         // The paused "resume" card sits above the scenario list (d3), shown
@@ -205,49 +205,43 @@ struct HomeView: View {
     }
   }
 
-  /// The paused "resume" card section: a ``PasturaSection``-style muted header
-  /// above ``HomePausedCard`` (which already draws its own ``PasturaCard``), at
-  /// the shared 16pt horizontal margin.
+  /// The paused "resume" hero section. ``HomePausedCard`` now renders the
+  /// moss-gradient hero — eyebrow ("Interrupted Scenario") included — and
+  /// carries its own screen-edge margin, so this section is just the hero. The
+  /// muted header that used to sit above it moved into the hero's eyebrow.
   @ViewBuilder
   private func pausedSection(_ summary: PausedScenarioSummary) -> some View {
-    VStack(alignment: .leading, spacing: 7) {
-      Text(String(localized: "Interrupted Scenario"))
-        .font(.subheadline)
-        .foregroundStyle(Color.muted)
-        .padding(.leading, PasturaCardMetrics.horizontalMargin)
-      HomePausedCard(summary: summary)
-    }
+    HomePausedCard(summary: summary)
   }
 
-  /// The unified scenario card — user scenarios first (deletable via long-press
-  /// context menu), then bundled presets (d3), as one ``PasturaCard`` with
-  /// ``PasturaRowDivider`` hairlines between every adjacent pair. Mirrors the
-  /// Shared Scenarios / Past Results card structure exactly.
+  /// The editorial compact scenario list (tab-identity PR3) — user scenarios
+  /// first (deletable via long-press context menu), then bundled presets, as a
+  /// dense edge-to-edge stack of ``HomeCompactScenarioRow`` with full-width
+  /// ``PasturaRowDivider`` hairlines between adjacent rows. Lighter than the
+  /// shared ``ScenarioSummaryRow`` card that Search / Past Results still use.
   @ViewBuilder
   private func scenariosSection(viewModel: HomeViewModel) -> some View {
     let rows = viewModel.userScenarios + viewModel.presets
     VStack(alignment: .leading, spacing: 7) {
       scenariosSectionHeader()
-      PasturaCard(style: .grouped) {
-        VStack(spacing: 0) {
-          ForEach(Array(rows.enumerated()), id: \.element.id) { index, scenario in
-            if index > 0 {
-              PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
-            }
-            scenarioRow(scenario, viewModel: viewModel)
+      VStack(spacing: 0) {
+        ForEach(Array(rows.enumerated()), id: \.element.id) { index, scenario in
+          if index > 0 {
+            PasturaRowDivider()
           }
+          scenarioRow(scenario, viewModel: viewModel)
         }
       }
     }
   }
 
-  /// One scenario row inside the grouped card. User scenarios (non-preset)
-  /// carry a destructive "Delete" in both a long-press context menu and a
-  /// VoiceOver-reachable accessibility action (swipe actions aren't reliably
-  /// surfaced to VoiceOver); presets are non-deletable, so they get neither.
+  /// One compact scenario row. User scenarios (non-preset) carry a destructive
+  /// "Delete" in both a long-press context menu and a VoiceOver-reachable
+  /// accessibility action (swipe actions aren't reliably surfaced to
+  /// VoiceOver); presets are non-deletable, so they get neither.
   @ViewBuilder
   private func scenarioRow(_ scenario: ScenarioRecord, viewModel: HomeViewModel) -> some View {
-    let row = HomeScenarioRow(
+    let row = HomeCompactScenarioRow(
       scenario: scenario,
       metadata: viewModel.rowMetadata[scenario.id],
       hasGalleryUpdate: !scenario.isPreset && viewModel.galleryUpdateBadges.contains(scenario.id))

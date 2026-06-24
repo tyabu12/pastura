@@ -65,4 +65,63 @@ nonisolated enum HomeScenarioRowFormat {
     guard let totalRounds, totalRounds > 0 else { return nil }
     return String(format: String(localized: "Round %lld / %lld"), currentRound, totalRounds)
   }
+
+  // MARK: - Compact row (案C — tab-identity PR3)
+
+  /// Leading provenance segment for the editorial compact row's caption — and
+  /// the single source of truth for ``usesDocIcon(isPreset:category:)`` so the
+  /// icon and the caption never disagree:
+  /// - **Preset** for bundled presets.
+  /// - the gallery **category** display name for gallery-installed scenarios
+  ///   (reuses ``categoryCaption(for:)``, #748).
+  /// - **Self-made** otherwise — a self-authored scenario with no resolvable
+  ///   category. A persisted-but-unmappable category degrades here too
+  ///   (``categoryCaption(for:)`` ⇒ nil), so a stale gallery row reads as
+  ///   self-made rather than showing a dropped token; an acceptable trade for
+  ///   one rare forward-compat case in exchange for icon/caption consistency.
+  static func provenanceCaption(isPreset: Bool, category: String?) -> String {
+    if isPreset { return String(localized: "Preset") }
+    if let categoryName = categoryCaption(for: category) { return categoryName }
+    return String(localized: "Self-made")
+  }
+
+  /// The compact row's caption as ordered, already-localized segments the
+  /// caller joins with `·`: `[provenance, "N agents"?, "N rounds"?]`. Provenance
+  /// is always present; the agent and round halves drop out when unknown so the
+  /// caller never renders a dangling separator (same guard shape as
+  /// ``ScenarioSummaryRowFormat/captionSegments(leading:trailing:)``).
+  ///
+  /// The count halves are built through `String(format: String(localized:), n)`
+  /// — **never** the bare `%lld …` catalog key, which would render the literal
+  /// `%lld` (`.claude/rules/i18n.md` § "Format-string pattern").
+  static func compactCaptionSegments(
+    isPreset: Bool, category: String?, agentCount: Int?, rounds: Int?
+  ) -> [String] {
+    var segments = [provenanceCaption(isPreset: isPreset, category: category)]
+    if let agentCount, agentCount > 0 {
+      segments.append(String(format: String(localized: "%lld agents"), agentCount))
+    }
+    if let roundsLabel = roundsLabel(rounds: rounds) {
+      segments.append(roundsLabel)
+    }
+    return segments
+  }
+
+  /// Description line limit for the compact row: a single truncated line at
+  /// normal Dynamic Type sizes (denser than the old Home row's two), but
+  /// unlimited so the text wraps at accessibility sizes — clipping to one line
+  /// at AX5 would drop almost all of it. `nil` means "no limit" to
+  /// SwiftUI's `.lineLimit(_:)`.
+  static func compactDescriptionLineLimit(isAccessibilitySize: Bool) -> Int? {
+    isAccessibilitySize ? nil : 1
+  }
+
+  /// Whether the compact row draws a document glyph instead of a sheep avatar
+  /// in its leading icon tile. Document only for self-authored scenarios (no
+  /// preset, no resolvable gallery category); presets and gallery-installed
+  /// scenarios show a sheep. Keyed on the same classification as
+  /// ``provenanceCaption(isPreset:category:)`` so icon and caption agree.
+  static func usesDocIcon(isPreset: Bool, category: String?) -> Bool {
+    !isPreset && categoryCaption(for: category) == nil
+  }
 }
