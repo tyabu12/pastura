@@ -173,8 +173,21 @@ unless it survives every test:
 
 - **Already by-design?** Does design-system.md or a `.claude/rules/` entry
   already prescribe the current behaviour deliberately?
-- **Already covered?** Does the design system already address this (so it's a
-  compliance gap to fix in code, not a *design* proposal)?
+- **Already covered — followed or violated?** Does the design system already
+  address this? Split on what the screen *actually does* — this test has two
+  opposite outcomes, and collapsing them is the bug that suppresses the
+  best findings:
+  - **Correctly follows the convention → drop.** Re-stating that a convention
+    exists, when the UI already obeys it, is noise.
+  - **Violates the convention → keep it as a *compliance gap*.** A verified
+    divergence from a spec-determined value is the highest-value,
+    highest-confidence finding — not a design proposal, but never a drop. (The
+    dogfood's UR-001 § 5.11 violation is exactly this; the literal "already
+    covered → drop" test would have suppressed it.) Route it to the
+    **compliance-gap bucket** (Step 6). It MUST cite the *specific* violated
+    anchor **and** the observed-vs-prescribed delta (the same before → after
+    rigor Step 3 demands) — a compliance gap that can't show the delta is a
+    re-derivation in disguise; drop it.
 - **Subjective preference?** Is this taste rather than a principle-grounded
   improvement?
 - **Out of scope?** Is it a Phase 3 feature? Check `docs/ROADMAP.md`
@@ -185,7 +198,9 @@ unless it survives every test:
   plausibly have already weighed and declined it, drop it (or note the
   counter-evidence honestly).
 
-Only survivors proceed.
+Only survivors proceed — *design proposals* and *compliance gaps* alike. Carry
+each survivor's **kind** (`design-proposal` | `compliance-gap`) forward to
+Steps 5–6.
 
 ## Step 5 — Dedup against the ledger
 
@@ -199,13 +214,25 @@ proposals this run" and append nothing.
 ## Step 6 — Write the digest + append the ledger
 
 1. **Digest** — write `docs/design/ui-refine/digests/YYYY-MM-DD-L<n>-<slug>.md`
-   (date from `date +%F`). Rank the survivors. For each: title, screen(s),
-   design-system anchor, before → after, **confidence**, and a
-   **counter-evidence** line (Output Contract rule 2). If there are no survivors,
-   record that explicitly.
-2. **Ledger** — append one row per surviving proposal to `ledger.md` with the
-   next `UR-NNN` id, today's date, the lens, the screen, a one-line concept
-   summary, status `proposed`, and the rationale in `note`. Keep ids ordered
+   (date from `date +%F`). Rank the survivors, grouped into two labeled sections
+   by kind (Step 4):
+   - **Compliance gaps** (spec violations — fix in code) — each cites the
+     violated anchor + the observed-vs-prescribed delta; its counter-evidence
+     line reframes to "maybe the convention itself is wrong / maybe this is an
+     intentional carve-out" (cf. UR-002, a real § 8 contrast finding that
+     resolved *as* an intentional carve-out — a violation candidate is not
+     automatically a defect).
+   - **Design proposals** (judgment) — each carries the design-system anchor,
+     a concrete before → after, **confidence**, and a **counter-evidence** line
+     (Output Contract rule 2).
+   Omit a section that is empty; if there are no survivors at all, record that
+   explicitly.
+2. **Ledger** — append one row per survivor to `ledger.md` with the next
+   `UR-NNN` id, today's date, the lens, the screen, a one-line concept summary,
+   status `proposed`, and the rationale in `note`. **Pin the kind in the row:** a
+   compliance gap prefixes its `note` with `[compliance-gap]` (a design proposal
+   needs no prefix), so the kind is visible to dedup (Step 5) and human triage —
+   a digest-only kind would bypass the linchpin dedup memory. Keep ids ordered
    (newest last). **Do not commit or push** — leave the change in the working
    tree for the human (Safety boundary).
 3. Report to the user: the digest path, the lens used, how many candidates were

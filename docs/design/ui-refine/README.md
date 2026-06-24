@@ -41,9 +41,13 @@ resource the whole brush-up family is built to protect:
    guideline) it advances, plus a concrete before → after. Vague "make it nicer"
    is rejected before it reaches the digest.
 5. **Adversarial self-filter** — a second pass tries to *reject* each candidate
-   (already by-design? design-system already covers it? subjective preference?
-   out of scope per the ROADMAP? would a maintainer say "considered, no"?). Only
-   survivors reach the digest.
+   (already by-design? subjective preference? out of scope per the ROADMAP?
+   would a maintainer say "considered, no"?). The "already covered" test splits
+   on what the UI *actually does*: a screen that **correctly follows** the
+   convention is noise → drop; a screen that **violates** a spec-determined value
+   is the highest-value finding → keep it as a **compliance gap** (a code-fix,
+   surfaced separately from judgment-based *design proposals*). Only survivors
+   reach the digest.
 
 This inherits the brush-up family's shared **Output Contract** (canonical text:
 [`.claude/skills/consistency-audit/SKILL.md`](../../../.claude/skills/consistency-audit/SKILL.md)
