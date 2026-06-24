@@ -112,6 +112,51 @@ struct EditablePhase: Identifiable, Sendable {
     // If not found in either branch, no-op.
   }
 
+  /// Reconciles `outputFields` to the canonical schema for the current
+  /// `type`, so the visual editor defaults authors onto the
+  /// ``ScenarioConventions`` convention — a phase no longer silently ships
+  /// without its `inner_thought` thought bubble (the #799 authoring gap).
+  ///
+  /// This is an editor **default**, not a validation requirement:
+  /// `inner_thought` stays optional by design (#760), and an author may still
+  /// delete a seeded field afterwards.
+  ///
+  /// Pass `oldType` = the phase type before this change (`nil` when seeding a
+  /// brand-new phase). Behavior:
+  /// - Adds the current type's canonical primary + thought field if absent.
+  /// - Removes a field only when it was `oldType`'s canonical primary/thought
+  ///   **and** is not canonical for the new type — so `speak→vote` drops
+  ///   `statement`/`inner_thought` and adds `vote`/`reason`, while
+  ///   `speak→choose` keeps the shared `inner_thought`.
+  /// - Preserves every non-canonical (author-added) field. Removed canonical
+  ///   keys carry only the `"string"` type-hint value, never author content,
+  ///   so the swap discards nothing meaningful.
+  /// - Idempotent: re-applying the same type is a no-op.
+  /// - Code phases (``ScenarioConventions`` returns `nil`) add nothing and, on
+  ///   switching in, drop the prior LLM type's canonical fields.
+  mutating func reconcileCanonicalOutputFields(from oldType: PhaseType?) {
+    let newCanonical = canonicalFieldNames(for: type)
+    if let oldType {
+      // Drop the previous type's canonical fields that no longer apply.
+      for key in canonicalFieldNames(for: oldType) where !newCanonical.contains(key) {
+        outputFields.removeValue(forKey: key)
+      }
+    }
+    // Seed the current type's canonical fields, leaving custom fields intact.
+    for field in newCanonical where outputFields[field] == nil {
+      outputFields[field] = "string"
+    }
+  }
+
+  /// The canonical primary + thought output field names for `type`
+  /// (empty for code phases that emit no LLM output).
+  private func canonicalFieldNames(for type: PhaseType) -> [String] {
+    [
+      ScenarioConventions.primaryField(for: type),
+      ScenarioConventions.thoughtField(for: type)
+    ].compactMap { $0 }
+  }
+
   func toPhase() -> Phase {
     let trimmedTarget = target.trimmingCharacters(in: .whitespacesAndNewlines)
     let trimmedCondition = condition.trimmingCharacters(in: .whitespacesAndNewlines)
