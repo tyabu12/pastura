@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Three concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, and required-check-safe path gating.
+Four concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, and the script unit-test suite that runs in CI only.
 
 ## Shell scripting gotchas (macOS GHA runners)
 
@@ -95,6 +95,30 @@ Load-bearing invariants when adding/changing such gating:
 3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
+
+## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
+
+`scripts/tests/*-test.sh` unit-test the **scripts themselves** (e.g.
+`gallery-scripts-test.sh` exercises `add-gallery-entry.sh` /
+`promote-factory-to-gallery.sh` against fixtures). They run **only** in the CI
+**"Shell gate tests"** job. The git pre-commit hook runs the *gate* scripts
+(`gallery-precommit-gate.sh` → `check-gallery-entry.sh`, blocklist, nav-map,
+scenario-editor-funnel), which validate inputs/outputs (SHA, schema, drift) but
+**never exercise a curation script's own field-extraction logic**. So a
+`scripts/` change can pass the local commit and every pre-commit gate yet still
+fail CI.
+
+**Apply:** when editing any `scripts/*.sh`, run the suite locally before pushing:
+
+```bash
+for t in scripts/tests/*-test.sh; do bash "$t" || echo "FAIL: $t"; done
+```
+
+Watch especially for test fixtures that lag a new required field: #788 (the
+art-tile PR that also added `phases:` extraction to `add-gallery-entry.sh`) made
+that extraction required, aborting every `gallery-scripts-test.sh` case whose
+fixture builder (`mk_factory` / `mk_gallery_yaml`) predated it. `check-gallery-entry.sh`
+never runs the extraction, so it was green locally, red in CI.
 
 ## Related
 

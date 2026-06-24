@@ -38,6 +38,9 @@ app. Fields:
       "author": "<github handle>",
       "recommended_model": "<model id>",     // must match a `ModelRegistry.catalog` id, e.g. "gemma-4-e2b-q4-k-m"
       "estimated_inferences": <int>,         // rough total LLM calls to complete
+      "agent_count": <int>,                  // optional; from YAML `agents:` — Browse row sheep cluster + footer
+      "rounds": <int>,                       // optional; from YAML `rounds:` — Browse footer
+      "phases": ["<phase_type>", ...],       // optional; ordered YAML phase types — Browse art-tile signature glyph
       "yaml_url": "<filename or absolute https URL>",  // resolved relative to gallery.json
       "yaml_sha256": "<lowercase hex>",      // SHA-256 of the YAML body
       "added_at": "YYYY-MM-DD"
@@ -278,6 +281,9 @@ In update mode:
 | (file body)     | `yaml_sha256`   | **Yes**     | Recomputed via `shasum -a 256` on every run — the whole point of `--update`.                                              |
 | `name:`         | `title`         | **Yes**     | `GallerySeedYAMLTests.galleryTitleMatchesYAMLName` enforces byte-equality; can't drift.                                   |
 | `description:`  | `description`   | **No**      | Curators commonly use `--description "shorter card summary"` to give the gallery card a tighter blurb than the YAML body. |
+| `agents:`       | `agent_count`   | **Yes**     | YAML-derived fact; `GallerySeedYAMLTests.galleryAgentCountAndRoundsMatchYAML` enforces equality.                          |
+| `rounds:`       | `rounds`        | **Yes**     | Same YAML-derived enforcement as `agent_count` (same test).                                                               |
+| `phases[].type` | `phases`        | **Yes**     | Ordered phase types; `GallerySeedYAMLTests.galleryPhasesMatchYAML` enforces equality.                                     |
 
 If you actually want the gallery `description` to re-sync from the
 YAML, pass it explicitly. One-liner that pulls the current YAML value:
