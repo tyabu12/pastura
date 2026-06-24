@@ -1014,11 +1014,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       resumingFrom: state, startRound: startRound
     ) {
       if case .agentOutput = event {
-        // no inter-event sleep — typing animation handles pacing
+        // Reveal is paced by AgentOutputRow's typing animation, not an
+        // inter-event sleep; the reading pause is applied AFTER dispatch
+        // (below) so a fully-revealed line gets a beat before the next event.
       } else if speed.interEventDelayMs > 0 {
         try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
       }
+
       handleEvent(event, scenario: scenario)
+
+      // VN-style reading pause after a committed utterance (Sim-only).
+      // resume() is live Sim (LLM generation from round K+1), so it gets the
+      // same beat as run() — not replay, which paces on its own clock.
+      if case .agentOutput = event {
+        await holdAfterAgentOutput()
+      }
     }
 
     await finalizeRun(llm: llm)
