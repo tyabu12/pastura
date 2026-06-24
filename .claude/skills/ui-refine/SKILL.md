@@ -77,10 +77,22 @@ file to triage-guardian's "keep in sync" set.
    `docs/design/ui-refine/` both exist).
 3. Confirm `docs/design/design-system.md` and `docs/design/ui-refine/ledger.md`
    exist (the anchor source and the dedup memory).
+4. Resolve the lens id early (the `lens:` arg, else `date +%u`) — Step 1's
+   capture path branches on it. If it resolves to **L4**, also require `ffmpeg`
+   (`brew install ffmpeg`): L4 captures motion via `scripts/motion-capture.sh`
+   instead of `ui-tour.sh` (Step 1). Full anchor resolution still happens in
+   Step 2; this is only the id needed to pick the capture path.
 
 If any check fails, **abort the cycle** — do not proceed against a partial setup.
 
-## Step 1 — Capture the current UI
+## Step 1 — Capture the current UI (lens-aware)
+
+The capture path branches on the lens id resolved in Step 0. **On any capture
+failure or timeout, ABORT the cycle** (both paths) — never critique against
+stale or missing artifacts; an empty / stale set produces hallucinated, flood-y
+proposals, defeating the anti-flood goal. Report the failure and stop.
+
+### Default lenses (L1–L3, L5–L7) — static screenshots
 
 Run the tour to refresh the screenshots:
 
@@ -91,15 +103,45 @@ scripts/ui-tour.sh
 This runs `ScreenshotTourTests` on the UDID-pinned simulator and writes the 8
 fixture-driven PNGs to `docs/design/screenshots/` (takes several minutes incl.
 the build; subject to the concurrent-session simulator gate per
-`.claude/rules/xcodebuild-cli.md`).
+`.claude/rules/xcodebuild-cli.md`). After it succeeds, confirm the expected PNGs
+are present and freshly written (`docs/design/screenshots/*.png`). The covered
+screens are listed in `docs/design/screenshots/README.md`.
 
-**On any ui-tour failure or timeout, ABORT the cycle.** Never critique against
-stale or missing screenshots — an empty / stale set produces hallucinated,
-flood-y proposals, defeating the anti-flood goal. Report the failure and stop.
+### L4 (Motion & feedback) — motion filmstrips
 
-After it succeeds, confirm the expected PNGs are present and freshly written
-(`docs/design/screenshots/*.png`). The covered screens are listed in
-`docs/design/screenshots/README.md`.
+Motion is a *time axis* a single screenshot can't show, so L4 captures
+filmstrips **instead of** static PNGs. Run `motion-capture.sh` (never alongside
+`ui-tour.sh` — see the concurrency invariant):
+
+```sh
+scripts/motion-capture.sh all   # launch variants: cold / warm / reduce-motion
+```
+
+This writes per-frame images + a tiled filmstrip under
+`docs/design/motion/<variant>/` (requires `ffmpeg`; takes a few minutes incl.
+the build). `all` covers the launch-animation surfaces (§ 6 transitions). The
+`demo` typing variant (`scripts/motion-capture.sh demo`, DL-time demo replay) is
+available when explicitly reviewing that surface, but is **not** part of the
+default L4 capture. The `screen:` arg has **no effect under L4** — motion
+artifacts are variant-indexed (`cold` / `warm` / `reduce-motion` / `demo`), not
+tour-screen-indexed; variant selection beyond the `all` default is out of scope.
+After it succeeds, confirm fresh frames are present under
+`docs/design/motion/<variant>/frames/`.
+
+**Concurrency invariant — never run `motion-capture.sh` and `ui-tour.sh` (or
+`xcodebuild test`) against the same simulator at once.** motion-capture mutates
+the sim's Reduce Motion setting and holds a video recorder, and the
+`sim-dest.sh` gate only sees `xcodebuild test`, not `simctl io`
+(`docs/design/motion/README.md` § "Don't run concurrently"). The L4 branch runs
+motion-capture **exclusively** — it does not also run ui-tour.
+
+**Coverage bound:** L4's § 5.5 DL-Progress-Dots and § 2.7 Interactive-States
+anchors are currently **uncapturable** — `--ui-test` bypasses the download flow
+and there is no interaction driver (`docs/design/motion/README.md` § Deferred).
+Until launch-arg seeding lands (README § "Known coverage limitations"), L4's
+motion critique is bounded to the launch (and explicit `demo`-typing) surfaces;
+do not hallucinate DL-dot / pressed-state findings from frames that don't show
+them.
 
 ## Step 2 — Pick today's lens
 
@@ -114,13 +156,17 @@ those are the principles a proposal under this lens must cite.
 
 ## Step 3 — Generate quota-capped proposals
 
-Read the relevant screenshots with vision (all 8, or the `screen:` arg subset),
-read the lens's anchor sections in `docs/design/design-system.md`, then generate
-candidates **strictly through today's lens** — do not drift into other lenses'
-concerns.
+Read the relevant capture artifacts with vision — the static screenshots (all 8,
+or the `screen:` arg subset) for default lenses, or the motion filmstrip frames
+under `docs/design/motion/<variant>/` for **L4** — read the lens's anchor
+sections in `docs/design/design-system.md`, then generate candidates **strictly
+through today's lens** — do not drift into other lenses' concerns.
 
-- **Quota: at most 1–2 candidates.** Force ranking: "if you could change one
-  thing under this lens, what and why." Quality via scarcity.
+- **Quota: at most 1–2 candidates — per run, total across both kinds**
+  (design proposals + compliance gaps), **not per bucket.** The two-section
+  digest (Step 6) groups survivors by kind; it does not raise the ceiling. Force
+  ranking: "if you could change one thing under this lens, what and why." Quality
+  via scarcity.
 - **Every candidate must carry:** the design-system anchor (or named HIG / WCAG
   guideline) it advances, the screen(s) it concerns, and a concrete
   **before → after** — not a vague "make it nicer." A candidate that can't name
@@ -133,8 +179,21 @@ unless it survives every test:
 
 - **Already by-design?** Does design-system.md or a `.claude/rules/` entry
   already prescribe the current behaviour deliberately?
-- **Already covered?** Does the design system already address this (so it's a
-  compliance gap to fix in code, not a *design* proposal)?
+- **Already covered — followed or violated?** Does the design system already
+  address this? Split on what the screen *actually does* — this test has two
+  opposite outcomes, and collapsing them is the bug that suppresses the
+  best findings:
+  - **Correctly follows the convention → drop.** Re-stating that a convention
+    exists, when the UI already obeys it, is noise.
+  - **Violates the convention → keep it as a *compliance gap*.** A verified
+    divergence from a spec-determined value is the highest-value,
+    highest-confidence finding — not a design proposal, but never a drop. (The
+    dogfood's UR-001 § 5.11 violation is exactly this; the literal "already
+    covered → drop" test would have suppressed it.) Route it to the
+    **compliance-gap bucket** (Step 6). It MUST cite the *specific* violated
+    anchor **and** the observed-vs-prescribed delta (the same before → after
+    rigor Step 3 demands) — a compliance gap that can't show the delta is a
+    re-derivation in disguise; drop it.
 - **Subjective preference?** Is this taste rather than a principle-grounded
   improvement?
 - **Out of scope?** Is it a Phase 3 feature? Check `docs/ROADMAP.md`
@@ -145,7 +204,9 @@ unless it survives every test:
   plausibly have already weighed and declined it, drop it (or note the
   counter-evidence honestly).
 
-Only survivors proceed.
+Only survivors proceed — *design proposals* and *compliance gaps* alike. Carry
+each survivor's **kind** (`design-proposal` | `compliance-gap`) forward to
+Steps 5–6.
 
 ## Step 5 — Dedup against the ledger
 
@@ -159,13 +220,25 @@ proposals this run" and append nothing.
 ## Step 6 — Write the digest + append the ledger
 
 1. **Digest** — write `docs/design/ui-refine/digests/YYYY-MM-DD-L<n>-<slug>.md`
-   (date from `date +%F`). Rank the survivors. For each: title, screen(s),
-   design-system anchor, before → after, **confidence**, and a
-   **counter-evidence** line (Output Contract rule 2). If there are no survivors,
-   record that explicitly.
-2. **Ledger** — append one row per surviving proposal to `ledger.md` with the
-   next `UR-NNN` id, today's date, the lens, the screen, a one-line concept
-   summary, status `proposed`, and the rationale in `note`. Keep ids ordered
+   (date from `date +%F`). Rank the survivors, grouped into two labeled sections
+   by kind (Step 4):
+   - **Compliance gaps** (spec violations — fix in code) — each cites the
+     violated anchor + the observed-vs-prescribed delta; its counter-evidence
+     line reframes to "maybe the convention itself is wrong / maybe this is an
+     intentional carve-out" (cf. UR-002, a real § 8 contrast finding that
+     resolved *as* an intentional carve-out — a violation candidate is not
+     automatically a defect).
+   - **Design proposals** (judgment) — each carries the design-system anchor,
+     a concrete before → after, **confidence**, and a **counter-evidence** line
+     (Output Contract rule 2).
+   Omit a section that is empty; if there are no survivors at all, record that
+   explicitly.
+2. **Ledger** — append one row per survivor to `ledger.md` with the next
+   `UR-NNN` id, today's date, the lens, the screen, a one-line concept summary,
+   status `proposed`, and the rationale in `note`. **Pin the kind in the row:** a
+   compliance gap prefixes its `note` with `[compliance-gap]` (a design proposal
+   needs no prefix), so the kind is visible to dedup (Step 5) and human triage —
+   a digest-only kind would bypass the linchpin dedup memory. Keep ids ordered
    (newest last). **Do not commit or push** — leave the change in the working
    tree for the human (Safety boundary).
 3. Report to the user: the digest path, the lens used, how many candidates were
