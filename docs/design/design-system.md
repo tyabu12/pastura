@@ -386,7 +386,7 @@ ToolbarItem(placement: .primaryAction) {
 |-----------------|------|------|
 | root NavigationStack に push されたビューの toolbar | **カスタム** (`PasturaBackButton` + `PasturaToolbarButtonStyle`) | iOS 26 の Liquid Glass 衝突を回避 |
 | Sheet / fullScreenCover 内の `NavigationStack` | システム標準 | sheet 内 NavigationStack は別 navigation context、現状 Liquid Glass の影響軽微（要観察） |
-| `.confirmationDialog` / `.alert` のボタン | システム標準 | カスタム化 API なし。中立色のまま |
+| `.confirmationDialog` / `.alert` のボタン | システム標準 | カスタム化 API なし（色は赤=`.destructive` か中立のみ）。**例外**: ボタンに意味的な配色（warning など）が要る確認だけ `.sheet` のカスタム確認ダイアログにする（§5.12） |
 
 > **Note**: sheet 内 NavigationStack toolbar item の Liquid Glass 適用が visual problem になった場合、本サブセクションを更新して例外条件を明記すること。現時点では sheet 経路は scope 外。
 
@@ -434,6 +434,14 @@ raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は�
 | エディタ / フォーム / 汎用ラベルの詳細 | `.inline` | ScenarioEditor / ResultDetail |
 
 タブ root ルールは固有名/汎用ラベル軸を上書きする — Home のタイトル `"Pastura"` は固有名だが、タブ root なので `.inline`。4つのタブ root は各 View で明示的に `.inline` を指定する（`HomeView` / `SharedScenariosListView` / `ResultsView` / `SettingsView`）。`Shared Scenarios` / `Past Results` は push でも到達できる（③④で Home 経路が消えるまで）が、どちらも汎用ラベルなので push 版も `.inline` で一貫する。`.large` を明示しているのは固有名詳細の `ScenarioDetailView` のみ（他の large はデフォルト依存）。SimulationView は GameHeader（§2.12）がタイトル行を所有する例外で、空タイトル + `.inline`。表示モードは toolbar の可視性 / back button / Liquid Glass opt-out（§5.8・navigation.md）とは直交。
+
+### 5.12 Simulation control bar — 円形主操作ボタン & 確認シート
+
+Sim 画面に限った2つの例外的コンポーネント。Source: `SimulationPlayButtonMetrics` / `SimulationLeaveSheet`（+`SimulationLeaveSheetTokens`）。両方の load-bearing token は `SimulationControlsTokenTests` で pin。
+
+**再生/停止ボタン（円形主操作）**: フロストのコントロールバー（§4.3）上の主操作。`mossDark` 塗り 34pt 円＋白グリフ（14pt）。素のグリフ（ink）だとバー上で唯一の塗り要素が「黒い塊」として浮いて読めたため、明示的な主操作コントロールにした。**円自身に影は付けない** — バーが既に単一の浮遊要素（§1「観察＝持ち上げない」/ §4.3「Sim で単一要素のみ」）なので二重持ち上げを避ける。disabled は `disabledText` 塗り（disabled は §8 コントラスト対象外）。
+
+**離脱確認シート（`SimulationLeaveSheet`）**: 実行中に戻る際の確認（keep-running 設定 OFF 時）。Pastura で唯一の独自確認ダイアログ — システム `.alert` の「全ボタン緑＝抑揚なし」を、`.sheet` で意味的な3段配色にする。主操作「一時停止して戻る」＝`PasturaPrimaryButtonStyle`（moss）、警戒「実行したまま戻る」＝§2.6 `warning`（琥珀、`warningSoft` 塗り＋`warningInk` 文字）、cancel「とどまる」＝中立（`inkSecondary`＋`rule`）。**警戒に `danger`（赤）を使わない** — 実行は継続・復帰可能で何も破壊しないため。赤は VoiceOver でも破壊操作として読み上げられ誤解を生む。`.confirmationDialog` は iOS 26 でポップオーバー誤アンカー（swiftui-traps）のため `.sheet`。ボタンは `lineLimit(nil)` で大きい Dynamic Type でも折り返す。
 
 ---
 
