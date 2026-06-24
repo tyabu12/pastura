@@ -84,6 +84,27 @@ journal. Pin this constraint before any Routine is wired up.
 4. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
    the promotion triggered.
 
+## Known coverage limitations
+
+The capture step (`scripts/ui-tour.sh`) renders the app under `--ui-test`, which
+seeds **populated** fixtures only — it surfaces no genuinely empty (zero
+scenarios / zero results / no-search-match) or error (gallery offline / load
+failure) state. That caps the **L5** (empty / error / edge) and **L6** (copy —
+the on-screen text *is* the UITest fixture) lenses: they can only critique the
+populated surfaces the tour happens to render. The motion path inherits a
+parallel gap — § 5.5 DL-Progress-Dots (motion timing in § 6) and the
+bubble-entrance animation are unreachable under `--ui-test`
+(`../motion/README.md` § Deferred).
+
+The real fix is a launch-argument path that seeds empty / error states into the
+tour (and a canned-response queue for the live-simulation surfaces) —
+app + `ScreenshotTourTests` work, **out of scope for the markdown-only skill
+iteration** and tracked as a separate follow-up. Until it lands, treat L5/L6
+(and L4's DL-dot / interactive-state anchors) as coverage-bounded: do not infer
+empty / error findings from fixtures that never show those states. This note is
+the durable home for the signal — the per-run digests that first recorded it are
+gitignored.
+
 ## Deferred next phases (NOT in this prototype)
 
 This prototype stops at "run by hand → produce a digest → human triages." Later,
