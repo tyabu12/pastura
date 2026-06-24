@@ -41,6 +41,13 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 6) == 21)
   }
 
+  @Test func signatureBadgeGeometryUnchanged() {
+    #expect(GalleryCatalogMetrics.badgeDiameter == 26)
+    #expect(GalleryCatalogMetrics.badgeGlyphSize == 15)
+    #expect(GalleryCatalogMetrics.badgeBorderWidth == 1)
+    #expect(GalleryCatalogMetrics.badgeOffset == 6)
+  }
+
   @Test func cardChromeUnchanged() {
     #expect(GalleryCatalogMetrics.cardSpacing == 13)
     #expect(GalleryCatalogMetrics.cardCornerRadius == 16)

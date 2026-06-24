@@ -28,6 +28,10 @@ struct GalleryCatalogRow: View {
     let description: String?
     let agentCount: Int?
     let rounds: Int?
+    /// Already-resolved signature phase for the art-tile glyph badge, or `nil`
+    /// for no badge. Resolved at the mapping boundary (the Model carries
+    /// display-ready values, never the raw `phases` array).
+    let signature: ScenarioSignaturePhase?
 
     init(
       title: String,
@@ -35,7 +39,8 @@ struct GalleryCatalogRow: View {
       category: String,
       description: String? = nil,
       agentCount: Int? = nil,
-      rounds: Int? = nil
+      rounds: Int? = nil,
+      signature: ScenarioSignaturePhase? = nil
     ) {
       self.title = title
       self.badge = badge
@@ -43,6 +48,7 @@ struct GalleryCatalogRow: View {
       self.description = description
       self.agentCount = agentCount
       self.rounds = rounds
+      self.signature = signature
     }
   }
 
@@ -52,7 +58,7 @@ struct GalleryCatalogRow: View {
     let shape = RoundedRectangle(
       cornerRadius: GalleryCatalogMetrics.cardCornerRadius, style: .continuous)
     return HStack(alignment: .top, spacing: GalleryCatalogMetrics.cardSpacing) {
-      ScenarioArtTile(agentCount: model.agentCount)
+      ScenarioArtTile(agentCount: model.agentCount, signature: model.signature)
       bodyColumn
     }
     .padding(GalleryCatalogMetrics.cardPadding)

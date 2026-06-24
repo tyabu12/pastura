@@ -67,6 +67,22 @@ nonisolated enum GalleryCatalogMetrics {
     }
   }
 
+  // MARK: Signature glyph badge
+
+  /// Diameter of the circular signature-phase badge that overhangs the tile's
+  /// bottom-trailing corner (lookbook 案A: 26pt circle on the 74pt tile).
+  static let badgeDiameter: CGFloat = 26
+
+  /// Point size of the SF Symbol glyph inside the badge.
+  static let badgeGlyphSize: CGFloat = 15
+
+  /// Hairline border width of the badge circle.
+  static let badgeBorderWidth: CGFloat = 1
+
+  /// Outward offset (both axes) so the badge overhangs the tile corner rather
+  /// than sitting flush inside it (lookbook `right:-6;bottom:-6`).
+  static let badgeOffset: CGFloat = 6
+
   // MARK: Card
 
   /// Horizontal gap between the art tile and the text body.
