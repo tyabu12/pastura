@@ -25,17 +25,8 @@ extension ModelDownloadHostView {
             ForEach(viewModel.chatItems) { item in
               switch item {
               case .agentOutput(let entry):
-                AgentOutputRow(
-                  agent: entry.agent,
-                  output: entry.output,
-                  phaseType: entry.phaseType,
-                  showAllThoughts: viewModel.showAllThoughts,
-                  isLatest: entry.id == lastAgentId,
-                  charsPerSecond: viewModel.typingCharsPerSecond,
-                  agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
-                )
-                .id(entry.id)
-                .transition(reduceMotion ? .identity : .opacity)
+                demoAgentRow(
+                  entry, lastAgentId: lastAgentId, proxy: proxy, viewModel: viewModel)
               case .demoBoundary(let id, let scenarioName):
                 DemoBoundaryRow(scenarioName: scenarioName)
                   .id(id)
@@ -68,6 +59,51 @@ extension ModelDownloadHostView {
     }
     .background(Color.screenBackground.ignoresSafeArea())
     .safeAreaInset(edge: .bottom, spacing: Spacing.l) { promoCardInset }
+  }
+
+  /// One agent bubble in the demo stream. Opts into ``growsWithReveal`` so
+  /// the bubble grows as characters surface (Sim-parity streaming feel,
+  /// #785), and wires scroll-follow through the in-scope `proxy`:
+  /// - ``AgentOutputRow/onRevealProgress`` raw-scrolls on every reveal tick
+  ///   so the growing text stays pinned to the bottom (it would otherwise
+  ///   type off-screen and jump into view at completion). No `withAnimation`
+  ///   — mirrors `SimulationView`'s per-token `streamingSnapshot` follow; the
+  ///   implicit 0.35s animation would compound across ~30 ticks/s into
+  ///   visible stutter. Idempotent once pinned.
+  /// - ``AgentOutputRow/onAnimatingChange`` animated-scrolls once typing
+  ///   finishes to settle the final position (e.g. the `▸ INNER VOICE`
+  ///   chevron pop-in). Mirrors Sim's `latestRowIsAnimating` gate.
+  ///
+  /// Both are guarded to the latest agent row — older rows snap
+  /// `visibleChars` once on appear (one tick) but must not steal the scroll.
+  private func demoAgentRow(
+    _ entry: ReplayViewModel.AgentOutputEntry,
+    lastAgentId: UUID?,
+    proxy: ScrollViewProxy,
+    viewModel: ReplayViewModel
+  ) -> some View {
+    AgentOutputRow(
+      agent: entry.agent,
+      output: entry.output,
+      phaseType: entry.phaseType,
+      showAllThoughts: viewModel.showAllThoughts,
+      isLatest: entry.id == lastAgentId,
+      charsPerSecond: viewModel.typingCharsPerSecond,
+      onAnimatingChange: { animating in
+        guard entry.id == lastAgentId, !animating else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+          proxy.scrollTo(entry.id, anchor: .bottom)
+        }
+      },
+      onRevealProgress: {
+        guard entry.id == lastAgentId else { return }
+        proxy.scrollTo(entry.id, anchor: .bottom)
+      },
+      growsWithReveal: true,
+      agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
+    )
+    .id(entry.id)
+    .transition(reduceMotion ? .identity : .opacity)
   }
 
   /// PromoCard lives in the bottom safe area (not a ZStack overlay) so the
