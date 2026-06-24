@@ -66,6 +66,24 @@ struct PhaseEditorSheet: View {
       }
       .navigationTitle(String(localized: "Edit Phase"))
       .navigationBarTitleDisplayMode(.inline)
+      .onAppear {
+        // Seed canonical output fields for a brand-new phase — `.onChange`
+        // below does not fire for the Picker's initial selection. Empty ==
+        // fresh: an existing LLM phase always carries its primary field
+        // (commit-time `ScenarioValidator`), and a code phase stays empty
+        // (canonical fields are nil). So an existing primary-only phase is
+        // NOT auto-backfilled with `inner_thought` on open — it stays
+        // optional (#760); only authoring a new phase or changing type seeds.
+        if phase.outputFields.isEmpty {
+          phase.reconcileCanonicalOutputFields(from: nil)
+        }
+      }
+      .onChange(of: phase.type) { oldType, _ in
+        // Swap the canonical fields to the new type, preserving custom fields
+        // (#802). Drives authors onto the convention so a phase doesn't ship
+        // without its `inner_thought` thought bubble (the #799 gap).
+        phase.reconcileCanonicalOutputFields(from: oldType)
+      }
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button(String(localized: "Cancel")) { dismiss() }
