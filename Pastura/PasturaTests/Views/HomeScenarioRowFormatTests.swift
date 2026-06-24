@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import Pastura
@@ -94,5 +95,87 @@ struct HomeScenarioRowFormatTests {
     #expect(
       HomeScenarioRowFormat.categoryCaption(for: GalleryCategory.gameTheory.rawValue)
         == GalleryCategory.gameTheory.displayName)
+  }
+
+  // MARK: - Compact-row provenance (案C — tab-identity PR3)
+
+  @Test func provenanceIsPresetForBundledPresets() {
+    #expect(
+      HomeScenarioRowFormat.provenanceCaption(isPreset: true, category: nil)
+        == String(localized: "Preset"))
+    // Preset wins even if a category somehow rides along.
+    #expect(
+      HomeScenarioRowFormat.provenanceCaption(
+        isPreset: true, category: GalleryCategory.gameTheory.rawValue)
+        == String(localized: "Preset"))
+  }
+
+  @Test func provenanceIsCategoryForGalleryInstalled() {
+    #expect(
+      HomeScenarioRowFormat.provenanceCaption(
+        isPreset: false, category: GalleryCategory.gameTheory.rawValue)
+        == GalleryCategory.gameTheory.displayName)
+  }
+
+  @Test func provenanceIsSelfMadeForAuthoredOrUnmappable() {
+    #expect(
+      HomeScenarioRowFormat.provenanceCaption(isPreset: false, category: nil)
+        == String(localized: "Self-made"))
+    // A persisted-but-unmappable category degrades to self-made, matching the
+    // doc icon (icon/caption consistency).
+    #expect(
+      HomeScenarioRowFormat.provenanceCaption(isPreset: false, category: "no_such_category")
+        == String(localized: "Self-made"))
+  }
+
+  // MARK: - Compact-row caption segments
+
+  @Test func compactCaptionAlwaysLeadsWithProvenance() {
+    let segments = HomeScenarioRowFormat.compactCaptionSegments(
+      isPreset: true, category: nil, agentCount: nil, rounds: nil)
+    #expect(segments == [String(localized: "Preset")])
+  }
+
+  @Test func compactCaptionInterpolatesCountsAsDigitsNotFormatLiteral() {
+    let segments = HomeScenarioRowFormat.compactCaptionSegments(
+      isPreset: true, category: nil, agentCount: 2, rounds: 10)
+    // Three present halves: provenance + agents + rounds.
+    #expect(segments.count == 3)
+    // Regression guard: the count halves must be String(format:)-substituted,
+    // never the bare "%lld agents" / "%lld rounds" catalog key.
+    #expect(segments.contains { $0.contains("2") })
+    #expect(segments.contains { $0.contains("10") })
+    #expect(segments.allSatisfy { !$0.contains("%lld") })
+  }
+
+  @Test func compactCaptionDropsUnknownCountHalves() {
+    // agentCount 0 / rounds nil ⇒ only provenance survives (no dangling dot).
+    let segments = HomeScenarioRowFormat.compactCaptionSegments(
+      isPreset: false, category: nil, agentCount: 0, rounds: nil)
+    #expect(segments == [String(localized: "Self-made")])
+  }
+
+  // MARK: - Compact-row description line limit
+
+  @Test func compactDescriptionLimitOneLineAtNormalSizes() {
+    #expect(HomeScenarioRowFormat.compactDescriptionLineLimit(isAccessibilitySize: false) == 1)
+  }
+
+  @Test func compactDescriptionLimitUnlimitedAtAccessibilitySizes() {
+    #expect(HomeScenarioRowFormat.compactDescriptionLineLimit(isAccessibilitySize: true) == nil)
+  }
+
+  // MARK: - Compact-row icon decision
+
+  @Test func usesDocIconOnlyForSelfAuthored() {
+    // Self-authored (no preset, no resolvable category) ⇒ doc glyph.
+    #expect(HomeScenarioRowFormat.usesDocIcon(isPreset: false, category: nil) == true)
+    #expect(
+      HomeScenarioRowFormat.usesDocIcon(isPreset: false, category: "no_such_category") == true)
+    // Presets and gallery-installed scenarios ⇒ sheep.
+    #expect(HomeScenarioRowFormat.usesDocIcon(isPreset: true, category: nil) == false)
+    #expect(
+      HomeScenarioRowFormat.usesDocIcon(
+        isPreset: false, category: GalleryCategory.gameTheory.rawValue) == false)
   }
 }

@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// The "resume" card for the most-recent paused run (ADR-016 P2 layout, P3
-/// resume). Mirrors the d3 layout — name / sheep · rounds / description /
-/// progress + Resume. A nil `rounds` hides the progress line (orphaned /
-/// name-only metadata).
+/// The "resume" **hero** for the most-recent paused run — the editorial focal
+/// element of the ホーム (Home) tab (tab-identity PR3, 案C 中庸; visual source
+/// `docs/design/tab-identity/lookbook.html`). A moss-gradient card carrying an
+/// eyebrow ("Interrupted Scenario") / scenario name / description / footer
+/// (Round X/Y progress + a prominent Resume button). A nil `rounds` hides the
+/// progress label (orphaned / name-only metadata). Geometry tokens live in
+/// ``HomeHeroLayout``.
 ///
 /// **P3 (#667)**: the Resume button pushes ``Route/resumeSimulation`` onto the
 /// current tab's stack (the Home tab — `@Environment(AppRouter.self)` resolves
@@ -22,17 +25,15 @@ struct HomePausedCard: View {
   }
 
   var body: some View {
-    // .grouped so the resume card reads as the same full-bleed band as the
-    // scenario list stacked beneath it on Home (#731).
-    PasturaCard(style: .grouped) {
-      VStack(alignment: .leading, spacing: 11) {
+    VStack(alignment: .leading, spacing: 0) {
+      VStack(alignment: .leading, spacing: HomeHeroLayout.contentSpacing) {
+        eyebrow
         Text(summary.name)
-          .font(.headline)
+          // Hero title — larger/bolder than a list row so the resume card is
+          // the screen's focal element. Semantic font (scales with Dynamic
+          // Type); not a HomeHeroLayout token (SwiftUI.Font isn't Equatable).
+          .font(.title3.weight(.bold))
           .foregroundStyle(Color.ink)
-        if HomeScenarioRowFormat.showsMetaLine(
-          agentCount: summary.agentCount, rounds: summary.rounds) {
-          HomeScenarioMetaLine(agentCount: summary.agentCount, rounds: summary.rounds)
-        }
         if let description = summary.description, !description.isEmpty {
           Text(description)
             .font(.subheadline)
@@ -43,12 +44,49 @@ struct HomePausedCard: View {
             )
             .truncationMode(.tail)
         }
-        // Shared 0.5pt hairline (not a raw `Divider`, ~1pt) so this intra-card
-        // rule matches the thinned separators in the list stacked beneath it.
-        PasturaRowDivider()
-        footer
       }
-      .padding(16)
+      footer
+        .padding(.top, HomeHeroLayout.footerTopSpacing)
+    }
+    .padding(.horizontal, HomeHeroLayout.horizontalPadding)
+    .padding(.vertical, HomeHeroLayout.verticalPadding)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    // Inline 135° moss gradient — no new design token (reuses Color.moss at the
+    // HomeHeroLayout opacity stops); the moss-soft hairline reads against the
+    // cream screen background.
+    .background(
+      LinearGradient(
+        colors: [
+          Color.moss.opacity(HomeHeroLayout.gradientStartOpacity),
+          Color.moss.opacity(HomeHeroLayout.gradientEndOpacity)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing),
+      in: RoundedRectangle(cornerRadius: HomeHeroLayout.cornerRadius, style: .continuous)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: HomeHeroLayout.cornerRadius, style: .continuous)
+        .strokeBorder(Color.mossSoft, lineWidth: HomeHeroLayout.borderWidth)
+    )
+    // The hero is an inset card (not full-bleed): it carries its own screen-edge
+    // margin so it reads as the focal element above the compact list.
+    .padding(.horizontal, PasturaCardMetrics.horizontalMargin)
+    .accessibilityElement(children: .contain)
+  }
+
+  /// The eyebrow: a moss-dark status dot + the uppercase mono "Interrupted
+  /// Scenario" label (reuses the existing catalog key — the muted section
+  /// header that used to carry it on Home is dropped now that it lives here).
+  private var eyebrow: some View {
+    HStack(spacing: 7) {
+      Circle()
+        .fill(Color.mossDark)
+        .frame(width: HomeHeroLayout.eyebrowDotSize, height: HomeHeroLayout.eyebrowDotSize)
+      Text(String(localized: "Interrupted Scenario"))
+        .font(.system(size: HomeHeroLayout.eyebrowFontSize, weight: .semibold, design: .monospaced))
+        .tracking(HomeHeroLayout.eyebrowTracking)
+        .textCase(.uppercase)
+        .foregroundStyle(Color.mossDark)
     }
   }
 
@@ -57,8 +95,8 @@ struct HomePausedCard: View {
       if let progress = HomeScenarioRowFormat.pausedProgressLabel(
         currentRound: summary.currentRound, totalRounds: summary.rounds) {
         Text(progress)
-          .font(.subheadline.weight(.semibold))
-          .foregroundStyle(Color.inkSecondary)
+          .font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))
+          .foregroundStyle(Color.mossInk)
       }
       Spacer()
       // Use the design-system primary style (mossDark + white label, AA pass),
