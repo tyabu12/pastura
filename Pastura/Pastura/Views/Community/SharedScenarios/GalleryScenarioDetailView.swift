@@ -33,6 +33,10 @@ struct GalleryScenarioDetailView: View {
       }
     }
     .navigationTitle(scenario.title)
+    // The scenario name is a proper-noun title, so it reads as a large
+    // heading like ScenarioDetail — not the `.inline` it would otherwise
+    // inherit from the `.inline` Search tab root (design-system § 5.11).
+    .navigationBarTitleDisplayMode(.large)
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
     .task {
