@@ -11,7 +11,10 @@ import UIKit
 /// renders inside a translucent "Liquid Glass" capsule. The capsule
 /// styling clashes with Pastura's flat / moss / frosted aesthetic
 /// (see `docs/design/design-system.md` §1). This component renders a
-/// plain chevron with no capsule, opting out via `.buttonStyle(.plain)`.
+/// plain chevron; the capsule is opted out at the `ToolbarItem` via
+/// `hidingPasturaSharedBackground()`. `.buttonStyle(.plain)` only styles
+/// the inner chevron content — it does NOT remove the capsule (see the
+/// `hidingPasturaSharedBackground()` doc-comment below for why).
 ///
 /// ## Usage
 ///
@@ -81,10 +84,10 @@ struct PasturaBackButton: View {
       Image(systemName: Self.iconName)
         .foregroundStyle(Self.tint)
     }
-    // `.plain` opts out of iOS 26's automatic Liquid Glass treatment
-    // for ToolbarItem buttons. Without this, iOS 26 wraps custom
-    // toolbar buttons in a glass capsule that defeats the purpose
-    // of the custom styling.
+    // `.plain` styles the inner chevron content (no button-level chrome).
+    // It does NOT remove the iOS 26 Liquid Glass capsule — that wraps at
+    // the ToolbarItem level and is opted out via
+    // `hidingPasturaSharedBackground()` (see its doc-comment below).
     .buttonStyle(.plain)
     .accessibilityLabel(Self.accessibilityLabel)
     .accessibilityIdentifier("pasturaBackButton")
