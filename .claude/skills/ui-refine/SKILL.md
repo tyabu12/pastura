@@ -1,6 +1,6 @@
 ---
 name: ui-refine
-description: Run one ui-refine cycle — capture the current app UI via ui-tour, critique it through today's rotating lens, adversarially filter the proposals against the proposal ledger and the design system, and write a ranked digest (files nothing, schedules nothing). Use when the user asks to run ui-refine, propose UI improvements, critique the current UI design, polish the UI, or run the UI design-refine pass.
+description: Run one ui-refine cycle — capture the current app UI via ui-tour, critique it through today's rotating lens, adversarially filter the proposals against the proposal ledger and the design system, and write a ranked digest (files no issues, schedules nothing). Use when the user asks to run ui-refine, propose UI improvements, critique the current UI design, polish the UI, or run the UI design-refine pass.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 

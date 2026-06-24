@@ -40,7 +40,7 @@ design system; the numbers are stable.
 Contrast ratios, Dynamic Type behaviour, VoiceOver labels/traits, tap-target
 size, Reduce Motion. Ask: would this fail for a low-vision, large-text, or
 VoiceOver user?
-- Anchors: § 8 アクセシビリティ; § 2.6 Meta Contrast Presets; § 2.9 Dark Mode;
+- Anchors: § 8 アクセシビリティ; § 2.4 Meta Contrast Presets; § 2.9 Dark Mode;
   WCAG SC 1.4.3 / 1.4.4 / 2.5.5.
 
 ### L2 — Information hierarchy & visual weight
