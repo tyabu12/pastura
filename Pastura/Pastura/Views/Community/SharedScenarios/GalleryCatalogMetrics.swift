@@ -27,8 +27,19 @@ nonisolated enum GalleryCatalogMetrics {
   /// Corner radius of the art tile.
   static let artTileCornerRadius: CGFloat = 13
 
-  /// Size of each ``SheepAvatar`` rendered in the tile's cluster.
+  /// Size of each ``SheepAvatar`` in the **3–4-sheep** (2×2) cluster — also the
+  /// base tier `clusterSheepSize(forCount:)` returns for that band.
   static let artSheepSize: CGFloat = 26
+
+  /// Sheep size for a **single**-agent tile (rendered large and centered).
+  static let clusterSheepSizeSolo: CGFloat = 40
+
+  /// Sheep size for a **2**-agent tile (one row of two).
+  static let clusterSheepSizePair: CGFloat = 30
+
+  /// Sheep size for a **5–6**-agent tile (2×3 grid — shrunk so three rows fit
+  /// the 74pt tile).
+  static let clusterSheepSizeDense: CGFloat = 21
 
   /// Gap between sheep in the 2-column cluster (both axes).
   static let artClusterSpacing: CGFloat = 1
@@ -37,8 +48,24 @@ nonisolated enum GalleryCatalogMetrics {
   /// thinner card hairline — the tile reads as a distinct framed thumbnail).
   static let artTileBorderWidth: CGFloat = 1
 
-  /// The most sheep the cluster ever draws, regardless of `agentCount`.
-  static let maxClusterSheep: Int = 4
+  /// The most sheep the cluster ever draws, regardless of `agentCount`. The
+  /// real gallery maxes at 5 agents; the ceiling is 6 as a safety valve for a
+  /// curator-authored 6-agent scenario — beyond it the footer's exact
+  /// "N agents" carries the count and the tile approximates.
+  static let maxClusterSheep: Int = 6
+
+  /// Per-sheep size for a cluster of `count` sheep, stepped so denser clusters
+  /// stay within the fixed 74pt tile: 1 → solo (large), 2 → pair, 3–4 → 2×2
+  /// base, 5–6 → dense (2×3). `count` is the already-clamped
+  /// ``GalleryCatalogRowFormat/clusterSheepCount(agentCount:)`` value.
+  static func clusterSheepSize(forCount count: Int) -> CGFloat {
+    switch count {
+    case ...1: return clusterSheepSizeSolo
+    case 2: return clusterSheepSizePair
+    case 3, 4: return artSheepSize
+    default: return clusterSheepSizeDense
+    }
+  }
 
   // MARK: Card
 

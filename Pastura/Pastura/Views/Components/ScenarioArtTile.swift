@@ -36,17 +36,19 @@ struct ScenarioArtTile: View {
   }
 
   /// A 2-column grid of up to ``GalleryCatalogMetrics/maxClusterSheep`` sheep,
-  /// sized by `agentCount`. Empty when the count is unknown / non-positive.
+  /// sized by `agentCount` (sheep shrink as the count grows so 5–6 fit the
+  /// fixed tile). Empty when the count is unknown / non-positive.
   @ViewBuilder private var cluster: some View {
     let count = GalleryCatalogRowFormat.clusterSheepCount(agentCount: agentCount)
     if count > 0 {
+      let sheepSize = GalleryCatalogMetrics.clusterSheepSize(forCount: count)
       VStack(spacing: GalleryCatalogMetrics.artClusterSpacing) {
         ForEach(Array(clusterRows(count: count).enumerated()), id: \.offset) { _, row in
           HStack(spacing: GalleryCatalogMetrics.artClusterSpacing) {
             ForEach(row, id: \.self) { index in
               SheepAvatar(
                 character: .forAgent("", position: index),
-                size: GalleryCatalogMetrics.artSheepSize)
+                size: sheepSize)
             }
           }
         }

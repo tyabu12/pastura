@@ -28,7 +28,17 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogMetrics.artSheepSize == 26)
     #expect(GalleryCatalogMetrics.artClusterSpacing == 1)
     #expect(GalleryCatalogMetrics.artTileBorderWidth == 1)
-    #expect(GalleryCatalogMetrics.maxClusterSheep == 4)
+    #expect(GalleryCatalogMetrics.maxClusterSheep == 6)
+  }
+
+  @Test func clusterSheepSizeTiersUnchanged() {
+    // Sheep shrink as the count grows so 5–6 fit the 74pt tile in a 2×3 grid.
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 1) == 40)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 2) == 30)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 3) == 26)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 4) == 26)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 5) == 21)
+    #expect(GalleryCatalogMetrics.clusterSheepSize(forCount: 6) == 21)
   }
 
   @Test func cardChromeUnchanged() {
@@ -84,8 +94,12 @@ struct GalleryCatalogMetricsTests {
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 1) == 1)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 3) == 3)
     #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 4) == 4)
-    // Clamped to maxClusterSheep.
-    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 9) == 4)
+    // Exact through the real gallery max (5) and the clamp ceiling (6).
+    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 5) == 5)
+    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 6) == 6)
+    // Clamped to maxClusterSheep — the footer's "N agents" carries the exact
+    // count, so the tile may approximate beyond the ceiling.
+    #expect(GalleryCatalogRowFormat.clusterSheepCount(agentCount: 9) == 6)
   }
 
   @Test func clusterSheepCountEmptyWhenUnknownOrNonPositive() {
