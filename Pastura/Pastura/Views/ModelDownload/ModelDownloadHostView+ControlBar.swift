@@ -57,6 +57,11 @@ extension ModelDownloadHostView {
   /// Scene-phase pause does **not** flip the icon — the UI is hidden
   /// during BG anyway, but the boundary is meaningful for the
   /// transient redraw frame on FG return.
+  ///
+  /// Filled `mossDark` circle + white glyph via the shared
+  /// ``SimulationPlayButtonMetrics``, keeping parity with
+  /// `SimulationView.controlBar` (#273). Always interactive (no disabled
+  /// state — PR 1b / #290), so only the `enabledFill` is used.
   @ViewBuilder
   private func pauseButton(viewModel: ReplayViewModel) -> some View {
     Button {
@@ -67,7 +72,13 @@ extension ModelDownloadHostView {
       }
     } label: {
       Image(systemName: viewModel.isUserPaused ? "play.fill" : "pause.fill")
-        .font(.title3)
+        .font(.system(size: SimulationPlayButtonMetrics.glyphPointSize, weight: .semibold))
+        .foregroundStyle(SimulationPlayButtonMetrics.glyphColor)
+        .frame(
+          width: SimulationPlayButtonMetrics.diameter,
+          height: SimulationPlayButtonMetrics.diameter
+        )
+        .background(SimulationPlayButtonMetrics.enabledFill, in: Circle())
     }
     .buttonStyle(.plain)
     .accessibilityLabel(

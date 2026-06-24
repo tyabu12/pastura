@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Layout + color tokens for ``SimulationView``'s control-bar play/pause
-/// button (`controlBar`).
+/// Layout + color tokens for the control-bar play/pause button, shared by
+/// ``SimulationView`` (`controlBar`) and the DL-time demo replay control bar
+/// (`ModelDownloadHostView.controlBar`) so the two stay in parity (#273).
 ///
 /// Extracted from the View so `SimulationControlsTokenTests` can act as a
 /// **change-detector tripwire** (ADR-009 § "Change-detector tripwire";
