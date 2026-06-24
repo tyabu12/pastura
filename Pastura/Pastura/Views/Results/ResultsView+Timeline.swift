@@ -44,7 +44,13 @@ extension ResultsView {
   /// the pre-timeline header so the familiar subtitle sits below the title and
   /// above the first date section. Aggregate root only (`timelineList`).
   private func recordCount(_ count: Int) -> some View {
-    Text(String(format: String(localized: "%lld records"), count))
+    // Plural-aware: the Int interpolation drives String-Catalog variant
+    // selection (en `one`/`other`), so n=1 reads "1 record". Must be the
+    // SwiftUI `Text("\(count)…")` form — the `String(localized: "…\(x)…")`
+    // form is blocked by the `form_a_localized_interpolation` SwiftLint rule,
+    // which can't tell an Int-plural count from a String-substitution hazard.
+    // See .claude/rules/i18n.md § "Plurals". Key stays "%lld records".
+    Text("\(count) records")
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
       .frame(maxWidth: .infinity, alignment: .center)
