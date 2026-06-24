@@ -38,7 +38,8 @@ Non-goals:
   place, never committed; bootstrapped by `append_digest.py` if absent)
 - Per-run timeout: `600` seconds (not the harness default 1800 — bounds a
   wedged run at 2 attempts × 600 s)
-- Helper scripts: `.claude/skills/scenario-factory/scripts/`
+- Helper scripts: `.claude/skills/scenario-factory/scripts/` (incl.
+  `gallery_census.py` — the Step 1.5 novelty census)
 
 ## Step 0 — Preflight
 
@@ -69,18 +70,48 @@ later be promoted into (§ Promotion):
 A new scenario that repeats a shipped preset/gallery premise, mechanics, or
 persona cast is a dedup miss even when the digest is clean.
 
+## Step 1.5 — Pick under-represented axes (novelty census)
+
+The gallery has skewed toward a `vote → score_calc → summarize` scoring
+spine (most entries share it) and `category: creative` — without a counter-
+force, every batch piles onto the crowded majority. Steer **toward the gaps**:
+
+```bash
+python3 .claude/skills/scenario-factory/scripts/gallery_census.py
+```
+
+The census is **deterministic and gallery-only** — it counts phase-*type*
+presence (does a scenario contain a `vote` phase at all?), not mechanical
+depth, and ranks 8 structural mechanic axes + the 6 categories by rarity.
+Read its `Suggested targets` block and **assign each of the 3 scenarios a
+DISTINCT under-represented axis** (a mechanic axis, a category, or both),
+avoiding the `crowded` ones. Valid categories: `social_psychology`,
+`game_theory`, `ethics`, `roleplay`, `creative`, `experimental` — the
+zero-entry ones (`game_theory` / `experimental`) are the rarest possible.
+
+Cross-night rotation is an **in-session reasoning step**, not the script:
+scan the digest's recent `axis` column (Step 5) and, if a suggested axis was
+already targeted in the last 1–2 nights but is **not yet promoted** to the
+gallery, rotate to the next gap so the same hole isn't refilled before
+promotion catches up.
+
 ## Step 2 — Generate 3 scenario YAMLs
 
 Write 3 files to `data/factory/scenarios/<DATE>/<id>.yaml` with
 `id: factory_<DATESTAMP>_<slug>` (snake_case slug, also the filename).
 
-Theme: the **oogiri / comedy family** (current factory focus). Use the
-bundled preset `Pastura/Pastura/Resources/Presets/bokete.yaml` as the
-schema and tone reference, but vary the *format*, not just the topics —
-e.g. constrained-form bokete (kigo / counting / forbidden-word rules),
-role-mismatch interviews, deadpan product pitches, escalating excuse
-battles. Each of the 3 scenarios should differ from the other 2 AND from
-digest history in premise or mechanics, not merely in topic strings.
+Theme: **driven by the per-scenario axis from Step 1.5**, not a fixed
+focus. The oogiri / comedy family is a strong default *tone* — use
+`Pastura/Pastura/Resources/Presets/bokete.yaml` as the schema/tone
+reference — but the assigned mechanic axis dictates the *format* (e.g.
+`elimination` → knockout bracket, `branching` → `conditional` divergent
+paths, `reactive_event` → `event_inject`, `scoring_free` → observation /
+discussion with no vote), and an assigned **category** axis may rotate the
+premise out of comedy entirely (a `game_theory` cooperation dilemma, an
+`experimental` social-psych setup à la the original asch/trolley seeds). A
+non-comedy scenario is judged on its own terms — see Step 4. Each of the 3
+must differ from the other 2 AND from digest history in premise or
+mechanics, not merely in topic strings.
 
 Schema requirements (ScenarioLoader — all required):
 
@@ -160,6 +191,15 @@ comment per scenario:
 | (c) breakdown_free | No format breaks, language drift, or nonsense loops | Frequent breakdowns |
 | (d) humor | Genuinely funny lines a human would quote | Flat or incoherent |
 
+**Category-aware (d):** humor is the right axis for a comedy-family
+scenario, but a scenario whose Step 1.5 axis rotated to a non-`creative`
+category (`game_theory` / `experimental` / `social_psychology` / `ethics`)
+should NOT be penalized for not being funny — that would teach the loop to
+avoid the diversity the census requested. For those, score (d) `null` (the
+digest renders `–`) and judge the scenario on (a)–(c) plus whether it
+delivers its category's intended payoff (a real dilemma, a believable
+experiment). Note this in the comment.
+
 Failed runs get **no scores** — record the status and the wrapper's
 `error` (skim the partial transcript only to classify the failure for
 the comment). The judge is a quality filter, not a safety screen.
@@ -167,9 +207,10 @@ the comment). The judge is a quality filter, not a safety screen.
 ## Step 5 — Append the digest
 
 1. Write the results JSON (schema documented in `append_digest.py`'s
-   docstring: date / model / notes / per-scenario id, name, theme, yaml,
-   run_log, status, attempts, duration_sec, scores, comment, error) to a
-   temp file.
+   docstring: date / model / notes / per-scenario id, name, theme, **axis**,
+   yaml, run_log, status, attempts, duration_sec, scores, comment, error) to
+   a temp file. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
+   `"elimination / creative"`) so cross-night rotation can read it back.
 2. ```bash
    python3 .claude/skills/scenario-factory/scripts/append_digest.py \
      --results /tmp/factory_results_<DATE>.json \

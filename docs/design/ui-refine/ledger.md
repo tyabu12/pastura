@@ -29,12 +29,21 @@ A new run appends rows with status `proposed`. The human later edits the
 *concept*, not the exact string** — if a new candidate restates an existing
 row's idea (any status), it is a duplicate and must be dropped.
 
+**Finding kind (orthogonal to `status`).** A survivor is either a *design
+proposal* (judgment) or a *compliance gap* — a verified divergence from a
+spec-determined value (SKILL § Step 4). Kind is **not** a `status` value:
+`status` is the lifecycle (`proposed`→`filed`→`done`), and a compliance gap
+moves through it like any other finding. Record the kind in the row by prefixing
+its `note` with `[compliance-gap]` (a design proposal needs no prefix), so the
+kind stays visible to dedup and human triage instead of living only in the
+gitignored digest.
+
 ## Ledger
 
 <!-- Append below. Keep newest-last so ids stay ordered. -->
 
 | id | date | lens | screen | proposal | status | note |
 |----|------|------|--------|----------|--------|------|
-| UR-001 | 2026-06-24 | L3 | 05-gallery-detail | GalleryScenarioDetail nav title `.inline`→`.large` per § 5.11 | done | Fixed: added `.navigationBarTitleDisplayMode(.large)`; § 5.11 prose reconciled (table already correct). |
+| UR-001 | 2026-06-24 | L3 | 05-gallery-detail | GalleryScenarioDetail nav title `.inline`→`.large` per § 5.11 | done | [compliance-gap] Fixed: added `.navigationBarTitleDisplayMode(.large)`; § 5.11 prose reconciled (table already correct). |
 | UR-002 | 2026-06-24 | L1 | 01-home | List caption `--muted` ≈3.3:1 below § 8 4.5:1 | done | Resolved via § 8 carve-out: `--muted` quietude tier intentionally sub-AA for §1 voice; no code change (user kept muted over darkening). |
-| UR-003 | 2026-06-24 | L5 | 07-results | `"%lld records"` not plural-aware (renders "1 records") | proposed | Split to a follow-up PR: catalog's first plural entry — needs count-aware callsite + xcstringstool-sync verification + a new i18n.md plural rule. n=0 falls to `other` (en CLDR). |
+| UR-003 | 2026-06-24 | L5 | 07-results | `"%lld records"` not plural-aware (renders "1 records") | proposed | [compliance-gap] Split to a follow-up PR: catalog's first plural entry — needs count-aware callsite + xcstringstool-sync verification + a new i18n.md plural rule. n=0 falls to `other` (en CLDR). |

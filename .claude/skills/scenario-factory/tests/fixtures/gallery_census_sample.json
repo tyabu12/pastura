@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-25T00:00:00Z",
+  "scenarios": [
+    {
+      "id": "vote_one_v1",
+      "title": "Vote one",
+      "category": "creative",
+      "phases": ["assign", "speak_all", "vote", "score_calc", "summarize"]
+    },
+    {
+      "id": "vote_two_v1",
+      "title": "Vote two",
+      "category": "creative",
+      "phases": ["assign", "speak_all", "vote", "score_calc", "summarize"]
+    },
+    {
+      "id": "vote_three_v1",
+      "title": "Vote three",
+      "category": "creative",
+      "phases": ["assign", "choose", "vote", "score_calc", "summarize"]
+    },
+    {
+      "id": "branch_one_v1",
+      "title": "Branch one",
+      "category": "roleplay",
+      "phases": ["speak_each", "conditional", "summarize"]
+    },
+    {
+      "id": "no_phases_v1",
+      "title": "No phases",
+      "category": "ethics",
+      "phases": null
+    }
+  ]
+}
