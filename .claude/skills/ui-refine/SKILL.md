@@ -122,7 +122,10 @@ This writes per-frame images + a tiled filmstrip under
 the build). `all` covers the launch-animation surfaces (§ 6 transitions). The
 `demo` typing variant (`scripts/motion-capture.sh demo`, DL-time demo replay) is
 available when explicitly reviewing that surface, but is **not** part of the
-default L4 capture. After it succeeds, confirm fresh frames are present under
+default L4 capture. The `screen:` arg has **no effect under L4** — motion
+artifacts are variant-indexed (`cold` / `warm` / `reduce-motion` / `demo`), not
+tour-screen-indexed; variant selection beyond the `all` default is out of scope.
+After it succeeds, confirm fresh frames are present under
 `docs/design/motion/<variant>/frames/`.
 
 **Concurrency invariant — never run `motion-capture.sh` and `ui-tour.sh` (or
@@ -159,8 +162,11 @@ under `docs/design/motion/<variant>/` for **L4** — read the lens's anchor
 sections in `docs/design/design-system.md`, then generate candidates **strictly
 through today's lens** — do not drift into other lenses' concerns.
 
-- **Quota: at most 1–2 candidates.** Force ranking: "if you could change one
-  thing under this lens, what and why." Quality via scarcity.
+- **Quota: at most 1–2 candidates — per run, total across both kinds**
+  (design proposals + compliance gaps), **not per bucket.** The two-section
+  digest (Step 6) groups survivors by kind; it does not raise the ceiling. Force
+  ranking: "if you could change one thing under this lens, what and why." Quality
+  via scarcity.
 - **Every candidate must carry:** the design-system anchor (or named HIG / WCAG
   guideline) it advances, the screen(s) it concerns, and a concrete
   **before → after** — not a vague "make it nicer." A candidate that can't name

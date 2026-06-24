@@ -91,3 +91,7 @@ If the catalog ever changes count, the weekday mapping breaks its 1:1 property �
 re-derive the selection rule (and update the table above) so it stays total and
 in-range for all of `date +%u` 1…7. Keeping it exactly seven is the simplest
 invariant.
+
+If **Motion** ever moves off **L4**, also update the capture-branch literals in
+`SKILL.md` Step 0/1/3 — the L4-only `motion-capture.sh` path keys off that
+number (the rest of the lenses share the static `ui-tour.sh` path).
