@@ -178,6 +178,7 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
 - **Commits:** Conventional Commits with emoji prefix, under 72 chars.
   `✨ feat:`, `🐛 fix:`, `♻️ refactor:` — add body when "why" isn't obvious.
 - **Small and focused** — one logical change per commit.
+- **Re-stage after a pre-commit hook rejection.** When the pre-commit hook (`swiftlint --strict`, `xcodebuild build`, …) rejects a commit, do not assume the previously-staged files survived — they can silently drop to "Changes not staged". Run `git status` and re-stage (`git add -u` or explicit paths) **before** retrying, or the retry commits a partial changeset and splits one logical change across two commits.
 - **Closing issues in multi-PR splits:** GitHub auto-closes on any `Closes #N` / `Fixes #N` match in the PR body, ignoring qualifiers like "partially" or "PR1 of 3". In non-final PRs of a split, reference without a close-directive keyword (`See #N`, `Part of #N`, `Relates to #N`). Only the final PR should carry `Closes #N`. If auto-close fires by accident on a non-final PR, recover immediately: `gh issue reopen <N> --comment "still tracking remaining scope: ..."`.
 
 ### Test Execution

@@ -15,6 +15,20 @@ Generated screen-graph overview:
 [`docs/design/navigation-map.md`](../../docs/design/navigation-map.md)
 (CI drift-guarded — regenerate via the script, never edit by hand).
 
+Regenerate in the **same commit** as any `Route` add/remove/rename,
+`NavigationLink(value:)` / `router.push` edge change, or callsite **file move**:
+`python3 scripts/generate-navigation-map.py` then `--self-test` then `--check`,
+staging both the map and the script. Both the pre-commit
+`navigation-map-precommit-gate.sh` and the CI "Navigation map drift guard" run
+`--check`, but the pre-commit gate is **trigger-scoped** — it fires only when the
+staged diff touches a nav-map input (`Views`/`App` `.swift`,
+`ScreenshotTourTests.swift`, the generator, or the map), so drift staged without
+one is caught only by CI. A callsite file move fires the guard even when the
+generated map is **byte-identical**: the script attributes each callsite to a
+screen via `FILE_TO_SCREEN`, so a moved `NavigationLink(value: Route.X)` fails
+with "navigation callsite found but file is not in FILE_TO_SCREEN" — fix by
+adding the new path to `FILE_TO_SCREEN`.
+
 ## Bottom-tab IA — `TabCoordinator` (load-bearing)
 
 The four-tab model (ADR-016) replaced the single root `NavigationStack`.
@@ -220,6 +234,10 @@ When reviewing changes that touch navigation:
       re-introduced on `TabCoordinator` (`hasUnsavedInFlightRun` /
       `pendingTabSwitch` were removed). `isSimulationOnTop` stays an any-tab
       fold (ADR-016 § Amendment 2026-06-18).
+- [ ] `Route` add/remove/rename, `NavigationLink`/`router.push` edge change, or
+      callsite **file move** regenerated `docs/design/navigation-map.md` in the
+      same commit (`generate-navigation-map.py --check`; new callsite file also
+      added to `FILE_TO_SCREEN`).
 
 ## Render-time hints — `RouteHint`
 
