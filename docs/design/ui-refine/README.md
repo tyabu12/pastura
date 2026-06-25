@@ -86,24 +86,25 @@ journal. Pin this constraint before any Routine is wired up.
 
 ## Known coverage limitations
 
-The capture step (`scripts/ui-tour.sh`) renders the app under `--ui-test`, which
-seeds **populated** fixtures only — it surfaces no genuinely empty (zero
-scenarios / zero results / no-search-match) or error (gallery offline / load
-failure) state. That caps the **L5** (empty / error / edge) and **L6** (copy —
-the on-screen text *is* the UITest fixture) lenses: they can only critique the
-populated surfaces the tour happens to render. The motion path inherits a
-parallel gap — § 5.5 DL-Progress-Dots (motion timing in § 6) and the
-bubble-entrance animation are unreachable under `--ui-test`
-(`../motion/README.md` § Deferred).
+The empty / error gap is now **closed** (#811). The capture step
+(`scripts/ui-tour.sh`) seeds the genuinely empty (zero scenarios / zero results /
+no-search-match) and the gallery offline / load-failure surfaces via
+`--ui-test-seed-empty-inventory` / `--ui-test-seed-empty-gallery` /
+`--ui-test-seed-gallery-offline`. Screens 10–14 in
+[`../screenshots/README.md`](../screenshots/README.md) render them, so the **L5**
+(empty / error / edge) and **L6** (copy — the on-screen text *is* the UITest
+fixture) lenses now have real empty/error copy to critique. One caveat: the
+gallery `.error` LoadState ("Error" + Retry) is **not** captured — it is
+unreachable dead code in `SharedScenariosViewModel` (never assigned), so the
+reachable `.empty` ("Gallery Unavailable") stands in for the offline /
+load-failure surface.
 
-The real fix is a launch-argument path that seeds empty / error states into the
-tour (and a canned-response queue for the live-simulation surfaces) —
-app + `ScreenshotTourTests` work, **out of scope for the markdown-only skill
-iteration** and tracked as a separate follow-up. Until it lands, treat L5/L6
-(and L4's DL-dot / interactive-state anchors) as coverage-bounded: do not infer
-empty / error findings from fixtures that never show those states. This note is
-the durable home for the signal — the per-run digests that first recorded it are
-gitignored.
+The motion path still inherits a parallel gap — § 5.5 DL-Progress-Dots (motion
+timing in § 6) and the bubble-entrance animation are unreachable under
+`--ui-test` (`../motion/README.md` § Deferred). Those live-simulation surfaces
+need a canned-response queue for `MockLLMService`, a distinct blocker that
+unblocks **L4** (DL-dot / interactive-state anchors), not L5/L6. Until it lands,
+still treat L4's DL-dot / interactive-state anchors as coverage-bounded.
 
 ## Deferred next phases (NOT in this prototype)
 

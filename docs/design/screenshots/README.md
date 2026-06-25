@@ -27,6 +27,17 @@ build. Review-only capture — no assertion against stored references
 | `06-settings.png` | Settings |
 | `07-results.png` | Past Results list (seeded fixture) |
 | `08-result-detail.png` | Result detail timeline (seeded fixture) |
+| `09-home-resume.png` | Home with the paused-run resume card |
+| `10-home-empty.png` | Home empty state (no local scenarios) |
+| `11-results-empty.png` | Past Results empty state (no results) |
+| `12-search-no-match.png` | Browse search with no matching query |
+| `13-gallery-empty.png` | Browse gallery loaded but empty ("No scenarios available yet") |
+| `14-gallery-offline.png` | Browse gallery offline / load failure ("Gallery Unavailable") |
+
+Rows 10–14 are the empty / error surfaces (#811) the ui-refine L5 (empty /
+error / edge) and L6 (copy) lenses critique — seeded via
+`--ui-test-seed-empty-inventory` / `--ui-test-seed-empty-gallery` /
+`--ui-test-seed-gallery-offline` (see `ScreenshotTourTests`).
 
 Content is fixture-driven (`StubScenarioSeeder` / `StubResultSeeder` /
 `StubGalleryService`), so layouts are representative but copy is test
