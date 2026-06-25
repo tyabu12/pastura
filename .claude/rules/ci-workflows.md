@@ -120,6 +120,36 @@ that extraction required, aborting every `gallery-scripts-test.sh` case whose
 fixture builder (`mk_factory` / `mk_gallery_yaml`) predated it. `check-gallery-entry.sh`
 never runs the extraction, so it was green locally, red in CI.
 
+## Rename / namespace-sweep completion gate — `git grep`, both forms
+
+For a rename or namespace-sweep "0 remaining" completion gate, use
+`git grep -nF '<literal>'` over tracked files — **not** a plain `rg` over the
+worktree — and run it for **both** the bare and the backslash-escaped form.
+
+Two failure modes a plain `rg '<pattern>'` gate hit on a bundle-id rebrand sweep:
+
+1. **Escaped-form blind spot.** A shell script (`scripts/analyze-streaming-diag.sh`)
+   contained `sed 's/.*\[com\.tyabu12\.Pastura...\]//'` — on disk that's
+   `com\.tyabu12` (backslash + dot = two chars), so the regex `com\.tyabu12`
+   (`com` + dot + `tyabu12`) did **not** match. The gate returned 0 while live
+   occurrences remained; caught only by code review. For regex-y patterns use a
+   backslash-tolerant form (`com[\\]?\.tyabu12`), or `-F` both literals.
+2. **`rg` traverses the worktree and can hang** (~tens of minutes) on a huge
+   `DerivedData/*.xcresult` or a symlink loop even with `--glob '!**/DerivedData/**'`.
+
+**Apply** — at sweep gates, run both forms tracked-only and repo-wide (no
+hand-picking dirs — a hand-picked `docs/ + scripts/` once missed
+`.claude/rules/xcodebuild-cli.md`):
+
+```bash
+git grep -nF 'com.tyabu12.Pastura'   # bare
+git grep -nF 'com\.tyabu12'          # backslash-escaped on-disk literal
+```
+
+`git grep` is tracked-only (fast, never descends into ignored/huge files) and
+repo-wide by default. Pairs with the "grep ALL instances before scoping"
+discipline.
+
 ## Related
 
 `.claude/rules/xcodebuild-cli.md` covers the agent-session analogue (`xcodebuild | tail` exit-code masking when invoked from Claude Code). The CI form here is `|| true` defeating `pipefail`; same root family.
