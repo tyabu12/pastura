@@ -105,6 +105,62 @@ final class ScreenshotTourTests: XCTestCase {
     app.launchArguments = ["--ui-test", "--ui-test-seed-paused"]
     app.launch()
     capture(app, name: "09-home-resume", anchorId: "home.resumeButton", timeout: 10)
+
+    // Empty / error surfaces (#811) — extracted to keep this body within the
+    // function_body_length budget.
+    captureEmptyAndErrorStates(app)
+  }
+
+  /// End-of-tour relaunches that seed the empty / error surfaces the ui-refine
+  /// L5 (empty/error/edge) and L6 (copy) lenses need (#811). Kept separate from
+  /// the populated linear walk so that walk stays undisturbed. `.error` is
+  /// intentionally absent — it is unreachable dead code in
+  /// `SharedScenariosViewModel`.
+  private func captureEmptyAndErrorStates(_ app: XCUIApplication) {
+    // Launch E — empty inventory: Home + Past Results empty, Browse no-match.
+    // --ui-test-seed-empty-inventory skips only the local-scenario base seed;
+    // the canary gallery and the empty Past Results (no results seed) come for
+    // free.
+    app.terminate()
+    app.launchArguments = ["--ui-test", "--ui-test-seed-empty-inventory"]
+    app.launch()
+    // Home empty ("No Scenarios"). Anchor on the empty-state container; the
+    // timeout covers HomeViewModel resolving to zero rows.
+    capture(app, name: "10-home-empty", anchorId: "home.emptyState", timeout: 10)
+    // Past Results empty ("No Results").
+    app.tabBars.buttons["History"].tap()
+    capture(app, name: "11-results-empty", anchorId: "results.emptyState", timeout: 10)
+    // Browse no-search-match — type a query that filters out the canary, then
+    // wait for the empty card AFTER the query commits (`.noMatchingQuery` copy).
+    app.tabBars.buttons["Browse"].tap()
+    let search = app.searchFields.firstMatch
+    XCTAssertTrue(search.waitForExistence(timeout: 10), "Browse search field missing.")
+    search.tap()
+    search.typeText("zzqqxx")
+    capture(
+      app, name: "12-search-no-match",
+      anchorId: "sharedScenarios.emptyResultsCard", timeout: 10)
+
+    // Launch F — gallery loaded but zero scenarios → "No scenarios available
+    // yet" (`.galleryEmpty` reason). Same card anchor as no-match; only the copy
+    // differs by EmptyReason.
+    app.terminate()
+    app.launchArguments = ["--ui-test", "--ui-test-seed-empty-gallery"]
+    app.launch()
+    app.tabBars.buttons["Browse"].tap()
+    capture(
+      app, name: "13-gallery-empty",
+      anchorId: "sharedScenarios.emptyResultsCard", timeout: 10)
+
+    // Launch G — gallery offline with no cache → `.empty` LoadState
+    // ("Gallery Unavailable" + Retry).
+    app.terminate()
+    app.launchArguments = ["--ui-test", "--ui-test-seed-gallery-offline"]
+    app.launch()
+    app.tabBars.buttons["Browse"].tap()
+    capture(
+      app, name: "14-gallery-offline",
+      anchorId: "sharedScenarios.galleryUnavailable", timeout: 10)
   }
 
   // MARK: - Helpers

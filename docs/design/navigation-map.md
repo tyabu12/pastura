@@ -57,3 +57,8 @@ tab-stack push.
 | 7 | `07-results.png` | `results.list` | tab |
 | 8 | `08-result-detail.png` | `resultDetail.timeline` | push |
 | 9 | `09-home-resume.png` | `home.resumeButton` | root |
+| 10 | `10-home-empty.png` | `home.emptyState` | root |
+| 11 | `11-results-empty.png` | `results.emptyState` | tab |
+| 12 | `12-search-no-match.png` | `sharedScenarios.emptyResultsCard` | tab |
+| 13 | `13-gallery-empty.png` | `sharedScenarios.emptyResultsCard` | tab |
+| 14 | `14-gallery-offline.png` | `sharedScenarios.galleryUnavailable` | tab |
