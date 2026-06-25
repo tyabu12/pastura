@@ -224,6 +224,30 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     return speed.simCharsPerSecond
   }
 
+  /// Opacity of a **past** (non-current) log row when current-utterance focus
+  /// is active. Dimming past rows during playback de-emphasises already-read
+  /// content so the eye settles on the line being revealed — the chat-log
+  /// analogue of a visual-novel "current line" stage. 0.65 keeps past rows
+  /// legible (light dim, not hidden). Change-detector pinned by tests.
+  static let pastFocusOpacity: Double = 0.65
+
+  /// Pure focus-opacity decision (extracted for deterministic unit testing per
+  /// `.claude/rules/view-testing.md`). Focus dimming applies **only while the
+  /// run is in flight** — once it ends (or pauses for review) every row returns
+  /// to full opacity so the completed log reads normally. The current row
+  /// (latest committed utterance, or the in-flight streaming row) stays full.
+  static func focusedOpacity(isRunning: Bool, isCurrent: Bool) -> Double {
+    guard isRunning else { return 1.0 }
+    return isCurrent ? 1.0 : pastFocusOpacity
+  }
+
+  /// Focus opacity for a committed log row, keyed on whether it is the latest
+  /// `.agentOutput`. The in-flight streaming row is always current — `SimulationView`
+  /// applies `focusedOpacity(isRunning:isCurrent: true)` to it directly.
+  func opacity(forEntryId entryId: UUID) -> Double {
+    Self.focusedOpacity(isRunning: isRunning, isCurrent: entryId == latestAgentOutputId)
+  }
+
   /// Read-only view of the runner's pause state. Views observe this to drive
   /// the pause-button label and "Paused" pill. **Mutation must go through
   /// ``pauseSimulation(reason:)`` / ``resumeSimulation()``** — those methods

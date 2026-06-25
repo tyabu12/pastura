@@ -413,6 +413,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.logEntries) { entry in
               logEntryView(entry, viewModel: viewModel)
+                // Current-utterance focus: dim past rows during playback so the
+                // eye settles on the line being revealed. Full opacity once the
+                // run ends. The latest .agentOutput stays current; see VM.
+                .opacity(viewModel.opacity(forEntryId: entry.id))
                 .id(entry.id)
             }
 
@@ -422,6 +426,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             // below stays visible. Rendered ABOVE the thinking indicators
             // so users never see "X is thinking..." and live tokens for
             // X at the same time.
+            //
+            // Current-utterance focus: this row is the in-flight current line,
+            // so it is intentionally NOT dimmed — it lives outside the
+            // logEntries ForEach (which applies `opacity(forEntryId:)`), so it
+            // stays full opacity without an explicit modifier.
             if let snapshot = viewModel.streamingSnapshot {
               AgentOutputRow(
                 agent: snapshot.agent,
