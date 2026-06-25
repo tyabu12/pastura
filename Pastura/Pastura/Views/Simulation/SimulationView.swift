@@ -429,7 +429,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 phaseType: snapshot.phaseType,
                 showAllThoughts: viewModel.showAllThoughts,
                 isLatest: false,
-                charsPerSecond: viewModel.speed.charsPerSecond,
+                charsPerSecond: viewModel.speed.simCharsPerSecond,
                 streamingPrimary: snapshot.primary,
                 streamingThought: snapshot.thought,
                 agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),

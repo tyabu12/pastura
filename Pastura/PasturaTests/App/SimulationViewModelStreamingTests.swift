@@ -197,7 +197,7 @@ struct SimulationViewModelStreamingTests {
     let committedId = try #require(sut.latestAgentOutputId)
     #expect(!sut.prerevealedAgentOutputIds.contains(committedId))
     #expect(
-      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
+      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.simCharsPerSecond)
   }
 
   @Test func agentOutputForDifferentAgentDoesNotMark() throws {
@@ -217,7 +217,7 @@ struct SimulationViewModelStreamingTests {
 
     let bobId = try #require(sut.latestAgentOutputId)
     #expect(!sut.prerevealedAgentOutputIds.contains(bobId))
-    #expect(sut.effectiveCharsPerSecond(forEntryId: bobId) == PlaybackSpeed.normal.charsPerSecond)
+    #expect(sut.effectiveCharsPerSecond(forEntryId: bobId) == PlaybackSpeed.normal.simCharsPerSecond)
   }
 
   @Test func parseRetryAfterStreamMarksOnlyRetryEntry() throws {
@@ -276,7 +276,7 @@ struct SimulationViewModelStreamingTests {
     let committedId = try #require(sut.latestAgentOutputId)
     #expect(sut.prerevealedAgentOutputIds.isEmpty)
     #expect(
-      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
+      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.simCharsPerSecond)
   }
 
   // MARK: - Reading-pause display length (drives PlaybackSpeed.readingDwell)

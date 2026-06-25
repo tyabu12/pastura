@@ -215,10 +215,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Returns `nil` when:
   /// - the entry was pre-revealed via streaming (`prerevealedAgentOutputIds`),
   ///   or
-  /// - the user has chosen `.instant` playback (`speed.charsPerSecond == nil`).
+  /// - the user has chosen `.instant` playback (`speed.simCharsPerSecond == nil`).
+  ///
+  /// Uses ``PlaybackSpeed/simCharsPerSecond`` (the live-Sim rate), NOT
+  /// ``PlaybackSpeed/charsPerSecond`` (which is the demo-replay rate).
   func effectiveCharsPerSecond(forEntryId entryId: UUID) -> Double? {
     if prerevealedAgentOutputIds.contains(entryId) { return nil }
-    return speed.charsPerSecond
+    return speed.simCharsPerSecond
   }
 
   /// Read-only view of the runner's pause state. Views observe this to drive
