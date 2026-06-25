@@ -19,8 +19,13 @@ import Foundation
 /// freely — no isolation friction for value-type enums.
 ///
 /// **Consumers — properties are NOT universally consumed:**
-/// - **Sim** (``SimulationViewModel``) uses ``charsPerSecond`` (typing
-///   animation) and ``interEventDelayMs`` (non-agent inter-event delay).
+/// - **Sim** (``SimulationViewModel``) uses ``simCharsPerSecond`` (typing
+///   animation — slower than ``charsPerSecond`` for read-along comprehension),
+///   ``readingDwell(displayLength:script:)`` (post-utterance reading pause),
+///   and ``interEventDelayMs`` (non-agent inter-event delay). It does NOT use
+///   ``charsPerSecond`` — that property is the demo-replay typing rate (see
+///   below), kept separate so the demo's `typingFloorMs` invariant
+///   (`== normal cps == 30`) is unaffected when the Sim rate changes.
 /// - **``ReplayViewModel``** (the replay *pacing* model) uses
 ///   ``multiplier`` to scale ``ReplayPlaybackConfig``'s `turnDelayMs` /
 ///   `codePhaseDelayMs`. It does **not** consume ``charsPerSecond`` (it
@@ -51,20 +56,46 @@ nonisolated public enum PlaybackSpeed:
 
   public var id: String { rawValue }
 
-  /// Characters revealed per second during typing animation.
-  /// `nil` means "render full text immediately" (`.instant`).
-  /// Consumed by Sim (``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``)
-  /// and — since #791, via ``ReplayViewModel/typingCharsPerSecond`` keyed on
-  /// the runtime ``ReplayViewModel/playbackSpeed`` — by the DL-time demo
-  /// replay screen. ``ReplayViewModel``'s turn-dwell floor
-  /// (``ReplayViewModel/typingFloorMs(for:)``) does NOT read this; it uses the
-  /// fixed `config` reference, then ``ReplayViewModel/scaledDelay(for:floorMs:)``
+  /// Characters revealed per second during the **DL-time demo replay**
+  /// typing animation. `nil` means "render full text immediately" (`.instant`).
+  ///
+  /// **Demo-replay only** (since the Sim split — the live Sim uses
+  /// ``simCharsPerSecond``). Consumed via ``ReplayViewModel/typingCharsPerSecond``
+  /// (keyed on the runtime ``ReplayViewModel/playbackSpeed``, #791) and seeded
+  /// into ``ReplayPlaybackConfig`` at `.normal`. ``ReplayViewModel``'s turn-dwell
+  /// floor (``ReplayViewModel/typingFloorMs(for:)``) does NOT read this; it uses
+  /// the fixed `config` reference, then ``ReplayViewModel/scaledDelay(for:floorMs:)``
   /// divides by ``multiplier`` (and `charsPerSecond == 30 × multiplier`, so the
-  /// dwell stays synced with the speed-scaled typing).
+  /// dwell stays synced with the speed-scaled typing). **Keep `.normal == 30`** —
+  /// that invariant is load-bearing for the demo floor; change the Sim rate via
+  /// ``simCharsPerSecond`` instead.
   public var charsPerSecond: Double? {
     switch self {
     case .slow: 15
     case .normal: 30
+    case .fast: 45
+    case .instant: nil
+    }
+  }
+
+  /// Characters revealed per second during the **live simulation** typing
+  /// animation. `nil` means "render full text immediately" (`.instant`).
+  ///
+  /// Split from ``charsPerSecond`` (which now serves only the demo replay) so
+  /// the live Sim can type slower — device testing found the demo-tier rates
+  /// too fast to read along with during an actual run, while the demo's
+  /// `typingFloorMs` invariant requires `charsPerSecond.normal == 30`.
+  /// `.normal` is anchored at a comfortable read-along pace; `.slow` is slower
+  /// still; **`.fast` deliberately matches ``charsPerSecond`` (45)** — the fast
+  /// tier is the "I want speed" escape hatch and should stay quick (do NOT
+  /// "simplify" this apparent duplication away). `.instant` stays `nil` so the
+  /// instant-snap invariant in ``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``
+  /// holds. Consumed by ``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``
+  /// (committed rows) and the in-flight streaming row in `SimulationView`.
+  public var simCharsPerSecond: Double? {
+    switch self {
+    case .slow: 6
+    case .normal: 10
     case .fast: 45
     case .instant: nil
     }

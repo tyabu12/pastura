@@ -72,16 +72,20 @@ import SwiftUI
 /// parent's item-count-driven anchor remains correct in practice. See the
 /// helper's doc-comment for the full rationale.
 ///
-/// **Streaming path:** the concat trick degenerates because the "final
-/// string" is the partial buffer and grows with each token. Layout
-/// stability is carried instead by a trio of modifiers: the outer VStack
-/// gets `.frame(maxWidth: .infinity, alignment: .leading)` +
-/// `.fixedSize(horizontal: false, vertical: true)` to stabilize the row's
-/// bounding box between token arrivals, and the primary text is tagged
-/// `.animation(nil, value: streamingPrimary)` to suppress SwiftUI's
-/// implicit animation on string growth. Applied unconditionally so the
-/// replay path inherits the same stability guarantees without a
-/// streaming-vs-replay branch.
+/// **Streaming path:** the live Sim in-flight row opts into
+/// ``growsWithReveal`` so the bubble lays out only the visible prefix and
+/// grows with the reveal counter — NOT the streaming buffer. This matters
+/// because the reveal types at ``PlaybackSpeed/simCharsPerSecond`` (slower
+/// than tokens arrive); reserving the hidden tail to the buffer made the
+/// bubble expand ahead of the typed text. Width stability is still carried
+/// by `.frame(maxWidth: .infinity, alignment: .leading)` +
+/// `.fixedSize(horizontal: false, vertical: true)`, and the primary text is
+/// tagged `.animation(nil, value: streamingPrimary)` to suppress SwiftUI's
+/// implicit animation on string growth (applied unconditionally). The parent
+/// follows the per-tick vertical growth via ``onRevealProgress`` (same as the
+/// demo grow path), since the streaming-snapshot change alone fires only per
+/// token — too coarse once the reveal is mid-character or catching up after
+/// the buffer is complete.
 ///
 /// ## Manual chevron tap — cancel-free target sync
 ///
@@ -114,10 +118,11 @@ struct AgentOutputRow: View {
   /// the start / end boundaries), this fires continuously through the
   /// reveal so a parent can follow the row's *growth* — e.g. keep the
   /// newest text scrolled into view while the bubble grows under
-  /// ``growsWithReveal``. Mirrors the role ``SimulationView`` gets for free
-  /// from `streamingSnapshot` changes; replay rows have no such
-  /// parent-observable signal because growth is driven internally by
-  /// `visibleChars`.
+  /// ``growsWithReveal``. Used by both grow-path callers: the demo replay
+  /// host and the live Sim streaming row. (The streaming-snapshot change
+  /// `SimulationView` also observes fires only per token, so it is too coarse
+  /// to follow per-character growth — or any growth after the buffer is
+  /// complete but the reveal is still catching up.)
   var onRevealProgress: (() -> Void)?
 
   /// Live streaming override for the primary text. When non-nil, replaces
@@ -786,15 +791,23 @@ extension AgentOutputRow {
   /// Whether `primaryView` / `thoughtBody` keep the hidden `.clear` tail
   /// that reserves the full layout from frame one (reflow-stable rendering).
   ///
-  /// `true` (default) everywhere except the demo opt-in: it is `false` only
-  /// when ``growsWithReveal`` is set AND this is an animating replay row
-  /// (`streamingPrimary == nil`, ``shouldAnimate``). In that one case the
-  /// tail is dropped so the bubble grows with the visible prefix. Folding in
-  /// ``shouldAnimate`` keeps non-latest / `.instant` demo rows reserving the
-  /// full layout (their `visibleChars` is snapped to target, so the tail is
-  /// empty anyway — but the guard makes the intent explicit and matches the
-  /// streaming exclusion). Internal for ``AgentOutputRowContractTests``.
+  /// `true` (default); `false` only when ``growsWithReveal`` is set AND the
+  /// row is animating (``shouldAnimate``) — then the tail is dropped so the
+  /// bubble grows with the visible prefix instead of pre-reserving the full
+  /// (or, for a streaming row, the *buffer*) height. Two opt-in callers:
+  /// the DL-time demo replay rows (#785) and the **live Sim streaming row**
+  /// (its reveal types at ``PlaybackSpeed/simCharsPerSecond`` — slower than
+  /// tokens arrive — so reserving to the streaming buffer made the bubble
+  /// outrun the typed text; the demo-proven grow path keeps box and text in
+  /// step). Both grow callers pass ``onRevealProgress`` for per-tick
+  /// scroll-follow, required once the bubble grows between (or after) token
+  /// arrivals.
+  ///
+  /// Folding in ``shouldAnimate`` keeps non-latest / `.instant` rows
+  /// reserving the full layout (their `visibleChars` is snapped to target, so
+  /// the tail is empty anyway — the guard makes the no-growth intent
+  /// explicit). Internal for ``AgentOutputRowContractTests``.
   var shouldReserveHiddenTail: Bool {
-    !(growsWithReveal && streamingPrimary == nil && shouldAnimate)
+    !(growsWithReveal && shouldAnimate)
   }
 }

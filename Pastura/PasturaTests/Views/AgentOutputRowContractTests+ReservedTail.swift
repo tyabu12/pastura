@@ -79,10 +79,12 @@ extension AgentOutputRowContractTests {
     #expect(row.shouldReserveHiddenTail)
   }
 
-  @Test func reservesHiddenTailWhenStreamingOverridePresent() {
-    // Streaming path (`streamingPrimary != nil`) keeps the concat trick even
-    // with the flag — the grow path is replay-only. Defensive: the demo host
-    // never sets a streaming override, but a future caller might combine them.
+  @Test func dropsHiddenTailForStreamingRowWithGrowsWithReveal() {
+    // The live Sim streaming row opts into `growsWithReveal` so the bubble
+    // grows with the typed prefix (simCharsPerSecond is slower than tokens
+    // arrive — reserving to the buffer made the box outrun the text). A
+    // streaming override animates (`shouldAnimate` true via streamingPrimary),
+    // so grows + animating → drop the tail.
     let row = AgentOutputRow(
       agent: "Bob",
       output: TurnOutput(fields: [:]),
@@ -93,15 +95,31 @@ extension AgentOutputRowContractTests {
       streamingPrimary: "partial",
       growsWithReveal: true
     )
+    #expect(!row.shouldReserveHiddenTail)
+  }
+
+  @Test func reservesHiddenTailForStreamingRowWithoutGrowsWithReveal() {
+    // Backward-compat: a streaming row that does NOT opt into growsWithReveal
+    // still reserves the buffer-sized tail. The relaxation requires the flag.
+    let row = AgentOutputRow(
+      agent: "Bob",
+      output: TurnOutput(fields: [:]),
+      phaseType: .speakAll,
+      showAllThoughts: false,
+      isLatest: false,
+      charsPerSecond: 45,
+      streamingPrimary: "partial"
+    )
     #expect(row.shouldReserveHiddenTail)
   }
 
   @Test func simAndResultsCallSitesReserveHiddenTail() {
-    // Guard: the production Sim log-row and Results turn-row call sites do
-    // NOT pass `growsWithReveal`, so they keep reflow-stable rendering. A
-    // future refactor that flips the flag on Sim would regress this (grow
-    // without Sim's scroll-follow). Mirrors the verbatim call sites pinned
-    // in the parent file's "Public initializer signatures" section.
+    // Guard: the production Sim *committed* log-row and Results turn-row call
+    // sites do NOT pass `growsWithReveal`, so they keep reflow-stable
+    // rendering. (The Sim *streaming* row DOES opt in — with its own
+    // onRevealProgress scroll-follow — so this guard is scoped to the
+    // committed/results rows, not streaming.) Mirrors the verbatim call sites
+    // pinned in the parent file's "Public initializer signatures" section.
     let simLogRow = AgentOutputRow(
       agent: "Alice",
       output: TurnOutput(fields: ["statement": "hi"]),

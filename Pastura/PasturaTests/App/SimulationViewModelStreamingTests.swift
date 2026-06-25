@@ -13,7 +13,9 @@ struct SimulationViewModelStreamingTests {
 
   // MARK: - Helpers
 
-  private func makeSUT(
+  // internal (not private) so sibling-file extensions
+  // (SimulationViewModelStreamingTests+Focus) can call it — see testing.md.
+  func makeSUT(
     contentFilter: ContentFilter = ContentFilter(blockedPatterns: [])
   ) throws -> (sut: SimulationViewModel, scenario: Scenario) {
     let db = try DatabaseManager.inMemory()
@@ -197,7 +199,8 @@ struct SimulationViewModelStreamingTests {
     let committedId = try #require(sut.latestAgentOutputId)
     #expect(!sut.prerevealedAgentOutputIds.contains(committedId))
     #expect(
-      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
+      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.simCharsPerSecond
+    )
   }
 
   @Test func agentOutputForDifferentAgentDoesNotMark() throws {
@@ -217,7 +220,8 @@ struct SimulationViewModelStreamingTests {
 
     let bobId = try #require(sut.latestAgentOutputId)
     #expect(!sut.prerevealedAgentOutputIds.contains(bobId))
-    #expect(sut.effectiveCharsPerSecond(forEntryId: bobId) == PlaybackSpeed.normal.charsPerSecond)
+    #expect(
+      sut.effectiveCharsPerSecond(forEntryId: bobId) == PlaybackSpeed.normal.simCharsPerSecond)
   }
 
   @Test func parseRetryAfterStreamMarksOnlyRetryEntry() throws {
@@ -276,34 +280,8 @@ struct SimulationViewModelStreamingTests {
     let committedId = try #require(sut.latestAgentOutputId)
     #expect(sut.prerevealedAgentOutputIds.isEmpty)
     #expect(
-      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
-  }
-
-  // MARK: - Reading-pause display length (drives PlaybackSpeed.readingDwell)
-
-  @Test func lastAgentOutputDisplayLengthCapturesPrimaryGraphemeCount() throws {
-    let (sut, scenario) = try makeSUT()
-    sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
-    let output = TurnOutput(fields: ["statement": "hello world"])
-    sut.handleEvent(
-      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
-      scenario: scenario)
-    // Primary text length only (thought excluded), grapheme count.
-    #expect(sut.lastAgentOutputDisplayLength == 11)
-  }
-
-  @Test func lastAgentOutputDisplayLengthCountsGraphemesNotUTF16() throws {
-    let (sut, scenario) = try makeSUT()
-    sut.handleEvent(
-      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
-    // Two thumbs-up are 2 graphemes but 4 UTF-16 code units — pins the
-    // grapheme-count reading-length proxy used by the VN reading pause.
-    let output = TurnOutput(fields: ["statement": "👍👍"])
-    sut.handleEvent(
-      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
-      scenario: scenario)
-    #expect(sut.lastAgentOutputDisplayLength == 2)
+      sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.simCharsPerSecond
+    )
   }
 
   /// `.instant` speed must bypass the streaming snapshot gate entirely.
