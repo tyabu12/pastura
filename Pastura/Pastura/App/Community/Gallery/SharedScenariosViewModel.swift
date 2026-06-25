@@ -22,8 +22,6 @@ final class SharedScenariosViewModel {
     case offlineWithCache
     /// First run with no cache and no network.
     case empty
-    /// Unexpected error, details in message.
-    case error(String)
   }
 
   /// The result of a `tryInstall` invocation.
