@@ -733,7 +733,18 @@ private struct RootView: View {
         // UI-test runs on the same simulator.
         FeatureFlags.setKeepRunningOnLeave(
           CommandLine.arguments.contains("--ui-test-keep-running"))
-        let gallery = StubGalleryService.uiTestPreset()
+        // Gallery sad-path captures for the ui-refine L5/L6 lenses (#811).
+        // --ui-test-seed-gallery-offline → `.empty` ("Gallery Unavailable");
+        // --ui-test-seed-empty-gallery → `.loaded` with a galleryEmpty card
+        // ("No scenarios available yet"). Plain --ui-test keeps the canary.
+        let gallery: StubGalleryService
+        if CommandLine.arguments.contains("--ui-test-seed-gallery-offline") {
+          gallery = StubGalleryService.uiTestOfflineGallery()
+        } else if CommandLine.arguments.contains("--ui-test-seed-empty-gallery") {
+          gallery = StubGalleryService.uiTestEmptyGallery()
+        } else {
+          gallery = StubGalleryService.uiTestPreset()
+        }
         let editorSeedYAML =
           CommandLine.arguments.contains("--ui-test-editor-seed-yaml")
           ? StubScenarioSeeder.editorSeedYAML : nil
@@ -742,7 +753,14 @@ private struct RootView: View {
           galleryService: gallery,
           uiTestEditorSeedYAML: editorSeedYAML
         )
-        try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
+        // Default-on base seed (1 Home row). --ui-test-seed-empty-inventory
+        // skips it so the Home/Past-Results empty states render for the
+        // screenshot tour (#811). The inversion is load-bearing: plain
+        // --ui-test (no arg) still seeds, so BackGestureTests / EditorReloadTests
+        // keep their deterministic "before" row.
+        if !CommandLine.arguments.contains("--ui-test-seed-empty-inventory") {
+          try await StubScenarioSeeder.seed(into: deps.scenarioRepository)
+        }
         // Rich Home fixture (presets + a gallery-sourced "shared" row) is
         // opt-in for the ui-tour Home captures. Also implied by
         // --ui-test-seed-paused, since the resume card reads its metadata from
