@@ -439,8 +439,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 showAllThoughts: viewModel.showAllThoughts,
                 isLatest: false,
                 charsPerSecond: viewModel.speed.simCharsPerSecond,
+                // Follow the per-tick vertical growth: the snapshot-change
+                // scroll below is per-token (too coarse for per-character
+                // growth, and silent once the buffer is complete but the
+                // reveal is still catching up at simCharsPerSecond).
+                onRevealProgress: { scrollToBottom(proxy) },
                 streamingPrimary: snapshot.primary,
                 streamingThought: snapshot.thought,
+                // Grow the bubble with the typed prefix, not the streaming
+                // buffer: the reveal types at simCharsPerSecond (slower than
+                // tokens arrive), so reserving the hidden tail to the buffer
+                // made the box expand ahead of the visible text.
+                growsWithReveal: true,
                 agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
                 debugRowID: "stream-\(snapshot.agent)"
               )
