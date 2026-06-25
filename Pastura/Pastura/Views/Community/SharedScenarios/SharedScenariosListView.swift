@@ -39,7 +39,7 @@ struct SharedScenariosListView: View {
     guard let viewModel else { return false }
     switch viewModel.state {
     case .loaded, .offlineWithCache: return true
-    case .idle, .loading, .empty, .error: return false
+    case .idle, .loading, .empty: return false
     }
   }
 
@@ -58,8 +58,6 @@ struct SharedScenariosListView: View {
       loadingView
     case .empty:
       emptyState(viewModel: viewModel)
-    case .error(let message):
-      errorState(message: message, viewModel: viewModel)
     case .loaded, .offlineWithCache:
       scenarioList(viewModel: viewModel)
     }
@@ -86,20 +84,8 @@ struct SharedScenariosListView: View {
       .buttonStyle(PasturaPrimaryButtonStyle())
     }
     // Anchor for the gallery offline / load-failure screenshot-tour capture
-    // (--ui-test-seed-gallery-offline → `.empty`, #811). Distinct from
-    // `errorState` below (the `.error` LoadState, currently unreachable).
+    // (--ui-test-seed-gallery-offline → `.empty`, #811).
     .accessibilityIdentifier("sharedScenarios.galleryUnavailable")
-  }
-
-  private func errorState(message: String, viewModel: SharedScenariosViewModel) -> some View {
-    ContentUnavailableView {
-      Label(String(localized: "Error"), systemImage: "exclamationmark.triangle")
-    } description: {
-      Text(message)
-    } actions: {
-      Button(String(localized: "Retry")) { Task { await viewModel.refresh() } }
-        .buttonStyle(PasturaPrimaryButtonStyle())
-    }
   }
 
   // MARK: - Scenario list
