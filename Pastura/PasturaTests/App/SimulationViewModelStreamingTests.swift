@@ -279,6 +279,33 @@ struct SimulationViewModelStreamingTests {
       sut.effectiveCharsPerSecond(forEntryId: committedId) == PlaybackSpeed.normal.charsPerSecond)
   }
 
+  // MARK: - Reading-pause display length (drives PlaybackSpeed.readingDwell)
+
+  @Test func lastAgentOutputDisplayLengthCapturesPrimaryGraphemeCount() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
+    let output = TurnOutput(fields: ["statement": "hello world"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+    // Primary text length only (thought excluded), grapheme count.
+    #expect(sut.lastAgentOutputDisplayLength == 11)
+  }
+
+  @Test func lastAgentOutputDisplayLengthCountsGraphemesNotUTF16() throws {
+    let (sut, scenario) = try makeSUT()
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
+    // Two thumbs-up are 2 graphemes but 4 UTF-16 code units — pins the
+    // grapheme-count reading-length proxy used by the VN reading pause.
+    let output = TurnOutput(fields: ["statement": "👍👍"])
+    sut.handleEvent(
+      .agentOutput(agent: "Alice", output: output, phaseType: .speakAll),
+      scenario: scenario)
+    #expect(sut.lastAgentOutputDisplayLength == 2)
+  }
+
   /// `.instant` speed must bypass the streaming snapshot gate entirely.
   /// Issue #133 PR#6; ADR-002 §11.2 Axis ③ (Choice 2 — event-layer).
   @Test func instantSpeedSkipsStreamingAndPreservesThinkingIndicator() throws {

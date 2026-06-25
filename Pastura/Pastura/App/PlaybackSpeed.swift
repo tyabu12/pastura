@@ -99,6 +99,70 @@ nonisolated public enum PlaybackSpeed:
     }
   }
 
+  /// Reading pause held AFTER an agent utterance has fully revealed, before
+  /// the next simulation event is consumed — the visual-novel "auto mode"
+  /// beat that lets the reader absorb a line instead of having it scroll
+  /// past. Scales with `displayLength` (longer line → longer pause), the
+  /// speed tier (slower tier → longer per-character pause), and the reading
+  /// `script` (dense CJK reads slower per grapheme → longer pause);
+  /// `.instant` returns `.zero` so Max playback keeps its no-gap behavior.
+  ///
+  /// **Calibration.** The per-character rates are anchored on Ren'Py's
+  /// auto-forward default (`afm_time = 15` ⇒ 60 ms per character of read
+  /// time; the de-facto VN-engine convention). `.normal` `.dense` == that
+  /// 60 ms/char; `.slow`/`.fast` scale it up/down, and `.sparse` (Latin)
+  /// is ~0.62× because Latin text carries less information per grapheme, so
+  /// the same character count needs less dwell. The split is deliberately
+  /// gentler than the raw reading-rate ratio (~0.4×) to bias toward
+  /// comprehension over speed.
+  ///
+  /// **Sim-only.** Like ``charsPerSecond`` and ``interEventDelayMs`` this is
+  /// a Sim-side pacing property: ``ReplayViewModel`` already paces turns via
+  /// ``multiplier`` × `turnDelayMs`/`codePhaseDelayMs` (with its own
+  /// typing-floor read pause) and must NOT route through this — see the
+  /// type-level "Consumers" note and the `multiplier` doc-comment's
+  /// replay-only contract.
+  ///
+  /// **`displayLength` is the grapheme count of the committed _primary_ text**
+  /// (``TurnOutput/primaryText(for:)`` — see the consumer in
+  /// ``SimulationViewModel``). Inner-thought text is intentionally excluded,
+  /// so thought-heavy turns are paced on their primary line only — an
+  /// accepted approximation; revisit (`+ thoughtLength` when shown) only if
+  /// manual QA shows under-pausing. Grapheme `.count` (not UTF-16) is the
+  /// right reading-length proxy for Japanese / emoji.
+  ///
+  /// Formula: `min(base + perChar · max(0, displayLength), cap)`. `base`/`cap`
+  /// are language-neutral (fixed settle beat / flow safeguard); only `perChar`
+  /// varies by `script`. The cap bounds how long a very long line can stall
+  /// playback (and the cancellation window).
+  ///
+  /// Adding this method widens the public API surface, so it is
+  /// SemVer-relevant per the type-level note above. Values are change-detector
+  /// pinned by ``PlaybackSpeedTests``.
+  public func readingDwell(displayLength: Int, script: ReadingScript) -> Duration {
+    let perCharMs: Double
+    let baseMs: Double
+    let capMs: Double
+    switch self {
+    case .slow:
+      perCharMs = script == .dense ? 80 : 50
+      baseMs = 400
+      capMs = 8000
+    case .normal:
+      // .dense == Ren'Py afm_time=15 (60 ms/char); .sparse ≈ 0.62×.
+      perCharMs = script == .dense ? 60 : 38
+      baseMs = 300
+      capMs = 6500
+    case .fast:
+      perCharMs = script == .dense ? 40 : 24
+      baseMs = 200
+      capMs = 5000
+    case .instant: return .zero
+    }
+    let clampedMs = min(baseMs + perCharMs * Double(max(0, displayLength)), capMs)
+    return .milliseconds(Int(clampedMs))
+  }
+
   /// User-facing label rendered via `Text(speed.label)`. Only `.instant`
   /// is wrapped in `String(localized:)` — the `x0.5`/`x1`/`x1.5` multiplier
   /// notation is universal across locales (Netflix / YouTube / Apple TV
@@ -113,5 +177,29 @@ nonisolated public enum PlaybackSpeed:
     case .fast: "x1.5"
     case .instant: String(localized: "Max")
     }
+  }
+}
+
+/// Reading-density class of the simulation's output language, used by
+/// ``PlaybackSpeed/readingDwell(displayLength:script:)`` to scale the
+/// per-character reading pause. Dense (CJK) scripts carry more information
+/// per grapheme and read slower per character, so they earn a longer dwell
+/// for the same character count.
+///
+/// **Why `nonisolated`:** consumed by ``PlaybackSpeed`` (a `nonisolated`
+/// value-type enum); a MainActor-defaulted enum would force friction on
+/// any `nonisolated` caller. Pure value type, no isolation needs.
+nonisolated public enum ReadingScript: Sendable {
+  /// CJK — high information density per grapheme (e.g. `ja`).
+  case dense
+  /// Latin and default (e.g. `en`).
+  case sparse
+
+  /// Maps a ``Scenario/engineLanguage`` value (the resolved output language)
+  /// to its reading-density class. Only `ja` is treated as dense today; every
+  /// other accepted language (`en`) and any unknown value falls back to
+  /// `.sparse`, the safer (shorter-dwell) default.
+  public static func resolve(engineLanguage: String) -> ReadingScript {
+    engineLanguage == "ja" ? .dense : .sparse
   }
 }

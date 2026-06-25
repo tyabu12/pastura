@@ -96,6 +96,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// row animates; earlier rows render full text immediately).
   private(set) var latestAgentOutputId: UUID?
 
+  /// Grapheme length of the most recently committed `.agentOutput` primary
+  /// text (inner-thought excluded), captured in
+  /// ``handleAgentOutput(agent:output:phaseType:)``. Drives the post-dispatch
+  /// reading pause (``holdAfterAgentOutput()``) via
+  /// ``PlaybackSpeed/readingDwell(displayLength:)``. Display-only — never
+  /// persisted; read only in the same consume-loop iteration it is written,
+  /// so it needs no cross-run reset.
+  private(set) var lastAgentOutputDisplayLength: Int = 0
+
   /// In-flight streaming snapshot for the currently-generating agent.
   ///
   /// Populated by ``SimulationEvent/agentOutputStream(agent:primary:thought:)``
@@ -781,16 +790,24 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation in AgentOutputRow; other events (phase/round separators,
     // code-phase results) get a small fixed delay so they stay on-screen
     // long enough to read. `.instant` skips both.
+    let readingScript = ReadingScript.resolve(engineLanguage: scenario.engineLanguage)
     for await event in runner.run(
       scenario: scenario, llm: llm, suspendController: controller
     ) {
       if case .agentOutput = event {
-        // no inter-event sleep — typing animation handles pacing
+        // Reveal is paced by AgentOutputRow's typing animation, not an
+        // inter-event sleep; the reading pause is applied AFTER dispatch
+        // (below) so a fully-revealed line gets a beat before the next event.
       } else if speed.interEventDelayMs > 0 {
         try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
       }
 
       handleEvent(event, scenario: scenario)
+
+      // VN-style reading pause after a committed utterance (Sim-only).
+      if case .agentOutput = event {
+        await holdAfterAgentOutput(script: readingScript)
+      }
     }
 
     await finalizeRun(llm: llm)
@@ -993,16 +1010,27 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // `.running` on a load failure with no easy restore to `.paused`.
     enqueueStatusWrite(.running)
 
+    let readingScript = ReadingScript.resolve(engineLanguage: scenario.engineLanguage)
     for await event in runner.run(
       scenario: scenario, llm: llm, suspendController: controller,
       resumingFrom: state, startRound: startRound
     ) {
       if case .agentOutput = event {
-        // no inter-event sleep — typing animation handles pacing
+        // Reveal is paced by AgentOutputRow's typing animation, not an
+        // inter-event sleep; the reading pause is applied AFTER dispatch
+        // (below) so a fully-revealed line gets a beat before the next event.
       } else if speed.interEventDelayMs > 0 {
         try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
       }
+
       handleEvent(event, scenario: scenario)
+
+      // VN-style reading pause after a committed utterance (Sim-only).
+      // resume() is live Sim (LLM generation from round K+1), so it gets the
+      // same beat as run() — not replay, which paces on its own clock.
+      if case .agentOutput = event {
+        await holdAfterAgentOutput(script: readingScript)
+      }
     }
 
     await finalizeRun(llm: llm)
@@ -1271,8 +1299,44 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // this id flips.
     latestAgentOutputId = entry.id
     if wasStreamed { prerevealedAgentOutputIds.insert(entry.id) }
+    // Reading-pause length: grapheme count of the committed (filtered) primary
+    // text. Thought is excluded — see ``PlaybackSpeed/readingDwell(displayLength:)``.
+    lastAgentOutputDisplayLength = (filtered.primaryText(for: phaseType) ?? "").count
     thinkingAgents.remove(agent)
     persistTurnRecord(agent: agent, output: output, phaseType: phaseType)
+  }
+
+  /// Reading-pause held after an agent utterance has been dispatched to the
+  /// log, before the consume loop pulls the next event — the visual-novel
+  /// "auto mode" beat for the **live Sim** (replay paces turns on its own
+  /// ``ReplayViewModel`` clock, so this is Sim-only; see
+  /// ``PlaybackSpeed/readingDwell(displayLength:)``).
+  ///
+  /// **Commit-timing caveat (streaming on vs off).** Under
+  /// ``FeatureFlags/realtimeStreamingEnabled`` (default on) the primary has
+  /// already streamed and the committed row snaps to full at `.agentOutput`
+  /// (`prerevealedAgentOutputIds`), so dispatch coincides with "fully
+  /// revealed" and this pause genuinely follows the read. Under the
+  /// streaming-off rollback path the committed row begins typing *after*
+  /// dispatch, so this pause overlaps that typing rather than following it —
+  /// an accepted degradation on the non-default path (still a net increase in
+  /// on-screen reading time, never a regression). The reveal-completion signal
+  /// lives in `AgentOutputRow` (`@State`) and is not observable here; fully
+  /// reconciling the off-path would need that signal lifted — out of scope for
+  /// this minimal reading-pause (tap-to-advance is the #801 follow-up).
+  ///
+  /// Reads `speed` at call time so a mid-run speed change applies on the next
+  /// pause; `.instant` yields `.zero` and is skipped. `script` is the run's
+  /// reading-density class (from `scenario.engineLanguage`) — passed in rather
+  /// than stored because it is constant for a run and the consume loop already
+  /// holds the scenario. `try?` swallows a teardown/cancel during the sleep,
+  /// matching the existing `interEventDelayMs` sleep; `readingDwell`'s per-tier
+  /// cap bounds the added cancellation window.
+  private func holdAfterAgentOutput(script: ReadingScript) async {
+    let dwell = speed.readingDwell(
+      displayLength: lastAgentOutputDisplayLength, script: script)
+    guard dwell > .zero else { return }
+    try? await Task.sleep(for: dwell)
   }
 
   /// Update the in-flight streaming snapshot from a partial-parser
