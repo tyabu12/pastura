@@ -125,7 +125,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Per-entry reveal-handoff seed: for a committed `.agentOutput` whose
   /// primary streamed live, the streaming row's `visibleChars` position at
   /// commit time. ``AgentOutputRow`` seeds its reveal from this value (via
-  /// ``streamingHandoffChars(forEntryId:)``) and CONTINUES typing at cps
+  /// ``handoffSeed(forEntryId:)``) and CONTINUES typing at cps
   /// from there — instead of snapping to full — so the unrevealed tail and
   /// `inner_thought` keep animating after commit (bug 2 / reveal-position
   /// handoff). Entries absent from the map (non-streamed rows, or a streamed
@@ -1419,8 +1419,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// `scenario.engineLanguage`) — passed in rather than stored because it is
   /// constant for a run and the consume loop already holds the scenario.
   /// `try?` swallows a teardown/cancel during the sleep, matching the existing
-  /// `interEventDelayMs` sleep; the sleep is cancellable, so even a long
-  /// typing-synced hold aborts promptly on pause / teardown.
+  /// `interEventDelayMs` sleep; **teardown** cancels the run task so the sleep
+  /// aborts promptly. **Pause** does not cancel the loop (it parks the suspend
+  /// controller), so an in-flight hold runs to completion before the loop
+  /// reaches the park point — benign (status is persisted synchronously in
+  /// `pauseSimulation`, and the displayed row keeps typing via its own task),
+  /// but since this path drops `readingDwell`'s per-tier cap a long line at a
+  /// slow cps can idle the loop for tens of seconds after a pause.
   private func holdAfterAgentOutput(script: ReadingScript) async {
     let dwell = speed.readingDwell(
       displayLength: lastAgentOutputDisplayLength, script: script)
