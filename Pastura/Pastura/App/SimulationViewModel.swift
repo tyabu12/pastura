@@ -122,19 +122,49 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// sequentially (ADR-002 §6).
   private(set) var streamingSnapshot: StreamingSnapshot?
 
-  /// Entry IDs whose primary text was already revealed live via
-  /// ``SimulationEvent/agentOutputStream(agent:primary:thought:)`` before
-  /// the committing ``SimulationEvent/agentOutput(agent:output:phaseType:)``
-  /// arrived. ``effectiveCharsPerSecond(forEntryId:)`` returns `nil` for
-  /// these so `AgentOutputRow` snaps to full instead of retyping content
-  /// the user already watched stream.
+  /// Per-entry reveal-handoff seed: for a committed `.agentOutput` whose
+  /// primary streamed live, the streaming row's `visibleChars` position at
+  /// commit time. ``AgentOutputRow`` seeds its reveal from this value (via
+  /// ``streamingHandoffChars(forEntryId:)``) and CONTINUES typing at cps
+  /// from there — instead of snapping to full — so the unrevealed tail and
+  /// `inner_thought` keep animating after commit (bug 2 / reveal-position
+  /// handoff). Entries absent from the map (non-streamed rows, or a streamed
+  /// row whose reveal had not started) seed at 0 and animate from the start.
   ///
   /// Side-set rather than a flag on `LogEntry.Kind` because this is a
   /// display-only concern — `LogEntry.Kind` sits next to the persistence /
   /// export boundary and should not grow display-layer fields. Reset per
   /// `run()`; never persisted. See #133 for the longer-term redesign of
   /// the streaming display path.
-  private(set) var prerevealedAgentOutputIds: Set<UUID> = []
+  private(set) var streamingHandoffChars: [UUID: Int] = [:]
+
+  /// The in-flight streaming row's latest reveal position (`visibleChars`),
+  /// reported via ``reportStreamingReveal(_:)`` on every reveal tick. At
+  /// commit it becomes the committed row's handoff seed
+  /// (``streamingHandoffChars``).
+  ///
+  /// `@ObservationIgnored`: written on every per-character tick of the live
+  /// row, and no view reads it, so routing it through `@Observable` would be
+  /// pure invalidation churn. Reset per run, per inference
+  /// (``SimulationEvent/inferenceStarted(agent:)``), and at each commit
+  /// boundary so one agent's reveal can never seed another agent's row.
+  @ObservationIgnored private var streamingRevealedChars: Int = 0
+
+  /// Reveal inputs of the just-committed row (handoff seed + decorated
+  /// primary / thought segments), captured in
+  /// ``handleAgentOutput(agent:output:phaseType:)`` so
+  /// ``holdAfterAgentOutput(script:)`` can size the typing-synced hold via
+  /// ``remainingTypingDurationMs(seed:primary:thought:charsPerSecond:)``.
+  /// Display-only; read in the same consume-loop iteration it is written.
+  @ObservationIgnored private var lastAgentOutputReveal: AgentOutputReveal?
+
+  /// The handoff seed + decorated reveal segments of a committed row. See
+  /// ``lastAgentOutputReveal``.
+  private struct AgentOutputReveal {
+    let seed: Int
+    let primary: String
+    let thought: String
+  }
 
   nonisolated struct StreamingSnapshot: Equatable, Sendable {
     let agent: String
@@ -205,23 +235,32 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Chars-per-second to use for the committed `AgentOutputRow` of `entryId`,
   /// or `nil` when the row must not animate.
   ///
-  /// Centralising this decision here (rather than inlining the conditional
-  /// in `SimulationView`) keeps the regression from #132-QA — committed
-  /// rows retyping text the user just watched stream — pinned at the VM
-  /// boundary where it can be unit-tested. The view has one call site,
-  /// and any future code that renders an `.agentOutput` entry must go
-  /// through this helper to get the display timing right.
-  ///
-  /// Returns `nil` when:
-  /// - the entry was pre-revealed via streaming (`prerevealedAgentOutputIds`),
-  ///   or
-  /// - the user has chosen `.instant` playback (`speed.simCharsPerSecond == nil`).
+  /// Returns `nil` only for `.instant` playback
+  /// (`speed.simCharsPerSecond == nil`) — every other speed animates. A row
+  /// whose primary streamed live is NOT snapped here; it animates from its
+  /// handoff seed (``handoffSeed(forEntryId:)``) and continues
+  /// typing the unrevealed tail at cps (reveal-position handoff, bug 2).
   ///
   /// Uses ``PlaybackSpeed/simCharsPerSecond`` (the live-Sim rate), NOT
   /// ``PlaybackSpeed/charsPerSecond`` (which is the demo-replay rate).
   func effectiveCharsPerSecond(forEntryId entryId: UUID) -> Double? {
-    if prerevealedAgentOutputIds.contains(entryId) { return nil }
-    return speed.simCharsPerSecond
+    speed.simCharsPerSecond
+  }
+
+  /// Reveal-handoff seed for the committed row of `entryId`: the
+  /// `visibleChars` position its streaming row reached at commit, or `0`
+  /// for a non-streamed row (animate from the start). ``AgentOutputRow``
+  /// reads this into `initialVisibleChars`.
+  func handoffSeed(forEntryId entryId: UUID) -> Int {
+    streamingHandoffChars[entryId] ?? 0
+  }
+
+  /// Report the in-flight streaming row's current reveal position
+  /// (`visibleChars`) so a later commit can hand it off to the committed row
+  /// (see ``streamingHandoffChars``). Called from the live streaming row on
+  /// every reveal tick; negative values are clamped to `0`.
+  func reportStreamingReveal(_ visibleChars: Int) {
+    streamingRevealedChars = max(0, visibleChars)
   }
 
   /// Opacity of a **past** (non-current) log row when current-utterance focus
@@ -719,7 +758,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // stale in-flight row under a brand-new scenario.
     latestAgentOutputId = nil
     streamingSnapshot = nil
-    prerevealedAgentOutputIds = []
+    streamingHandoffChars = [:]
+    streamingRevealedChars = 0
+    lastAgentOutputReveal = nil
     // ADR-010 §"Out of Scope" — language-mismatch surface state must reset
     // per run so a re-used VM does not inherit the previous run's toast
     // pending or accumulated count.
@@ -1154,8 +1195,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     case .inferenceStarted(let agent):
       thinkingAgents.insert(agent)
       // A new inference starts: any leftover snapshot from a previous
-      // attempt (parse retry, different agent) must not linger in the UI.
+      // attempt (parse retry, different agent) must not linger in the UI,
+      // and the streaming reveal counter restarts from zero so a stale
+      // position can't seed this inference's committed row.
       streamingSnapshot = nil
+      streamingRevealedChars = 0
       #if DEBUG
         inflightInferenceAttempts[agent, default: 0] += 1
         let attempt = inflightInferenceAttempts[agent] ?? 0
@@ -1307,16 +1351,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         )
       }
     }
-    // If snapshot was active for this agent the user has already watched
-    // the primary stream live, so the committed AgentOutputRow must not
-    // retype it (see `effectiveCharsPerSecond(forEntryId:)`).
+    // If a snapshot was active for this agent the user has already watched
+    // the primary stream live up to `streamingRevealedChars`. Hand that
+    // position off as the committed row's reveal seed so it continues typing
+    // the unrevealed tail at cps instead of snapping (see
+    // `handoffSeed(forEntryId:)` / `effectiveCharsPerSecond(forEntryId:)`).
     //
-    // Note: `contentFilter.filter(output)` above may rewrite the primary,
-    // so the committed snap can differ from what streamed. Acceptable:
-    // filter rewrites are rare and already surface via divergence
-    // telemetry; any transition UX on that edge belongs to the #133
-    // streaming-display redesign, not here.
+    // Note: `contentFilter.filter(output)` above may rewrite the primary, so
+    // the committed text can differ from what streamed; the seed is clamped
+    // to the committed length on the View side. Filter rewrites are rare and
+    // already surface via divergence telemetry; a filter-shrunk primary may
+    // early-reveal the thought section — accepted, and any further transition
+    // UX on that edge belongs to the #133 streaming-display redesign.
     let wasStreamed = streamingSnapshot?.agent == agent
+    let handoffSeed = wasStreamed ? streamingRevealedChars : 0
     streamingSnapshot = nil
     let entry = LogEntry(
       kind: .agentOutput(agent: agent, output: filtered, phaseType: phaseType))
@@ -1325,7 +1373,18 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation to only the latest row — older rows snap to full text when
     // this id flips.
     latestAgentOutputId = entry.id
-    if wasStreamed { prerevealedAgentOutputIds.insert(entry.id) }
+    if wasStreamed { streamingHandoffChars[entry.id] = handoffSeed }
+    // Capture the reveal inputs so `holdAfterAgentOutput` can hold the next
+    // turn until this row finishes typing from `handoffSeed` (bug 2). Uses
+    // the global `showAllThoughts` (the per-row chevron can drift it slightly
+    // mid-flight — accepted, same heuristic as ReplayViewModel's floor).
+    let segments = filtered.revealedSegments(
+      for: phaseType, includeThought: showAllThoughts)
+    lastAgentOutputReveal = AgentOutputReveal(
+      seed: handoffSeed, primary: segments.primary, thought: segments.thought)
+    // The reveal handoff has been recorded; clear the running counter so the
+    // next agent's row can never inherit this one's position.
+    streamingRevealedChars = 0
     // Reading-pause length: grapheme count of the committed (filtered) primary
     // text. Thought is excluded — see ``PlaybackSpeed/readingDwell(displayLength:)``.
     lastAgentOutputDisplayLength = (filtered.primaryText(for: phaseType) ?? "").count
@@ -1339,31 +1398,49 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// ``ReplayViewModel`` clock, so this is Sim-only; see
   /// ``PlaybackSpeed/readingDwell(displayLength:)``).
   ///
-  /// **Commit-timing caveat (streaming on vs off).** Under
-  /// ``FeatureFlags/realtimeStreamingEnabled`` (default on) the primary has
-  /// already streamed and the committed row snaps to full at `.agentOutput`
-  /// (`prerevealedAgentOutputIds`), so dispatch coincides with "fully
-  /// revealed" and this pause genuinely follows the read. Under the
-  /// streaming-off rollback path the committed row begins typing *after*
-  /// dispatch, so this pause overlaps that typing rather than following it —
-  /// an accepted degradation on the non-default path (still a net increase in
-  /// on-screen reading time, never a regression). The reveal-completion signal
-  /// lives in `AgentOutputRow` (`@State`) and is not observable here; fully
-  /// reconciling the off-path would need that signal lifted — out of scope for
-  /// this minimal reading-pause (tap-to-advance is the #801 follow-up).
+  /// **Typing-synced hold.** Since the reveal-position handoff (bug 2) the
+  /// committed row no longer snaps to full at `.agentOutput` — it continues
+  /// typing the unrevealed tail (and `inner_thought`) from its handoff seed
+  /// at cps. So this pause is `max(readingDwell, remainingTyping)`: when the
+  /// remaining typing outlasts the reading dwell (a long line at a slow cps,
+  /// whether it streamed or — on the streaming-off path — types from zero),
+  /// the next turn waits for the typing to finish. That makes the tail / the
+  /// thought reveal smoothly to completion instead of snapping when a fast
+  /// next inference commits and flips this row off `isLatest`. The remaining
+  /// typing is sized by ``remainingTypingDurationMs(seed:primary:thought:charsPerSecond:)``
+  /// from the segments captured at commit (``lastAgentOutputReveal``) — it
+  /// mirrors `AgentOutputRow`'s reveal loop exactly, so the two cannot drift.
+  /// On long lines this paces the whole Sim to the typing rate; the cost is
+  /// accepted (the user chose a slow cps for readability).
   ///
   /// Reads `speed` at call time so a mid-run speed change applies on the next
-  /// pause; `.instant` yields `.zero` and is skipped. `script` is the run's
-  /// reading-density class (from `scenario.engineLanguage`) — passed in rather
-  /// than stored because it is constant for a run and the consume loop already
-  /// holds the scenario. `try?` swallows a teardown/cancel during the sleep,
-  /// matching the existing `interEventDelayMs` sleep; `readingDwell`'s per-tier
-  /// cap bounds the added cancellation window.
+  /// pause; `.instant` yields `.zero` (no dwell, no typing) and is skipped.
+  /// `script` is the run's reading-density class (from
+  /// `scenario.engineLanguage`) — passed in rather than stored because it is
+  /// constant for a run and the consume loop already holds the scenario.
+  /// `try?` swallows a teardown/cancel during the sleep, matching the existing
+  /// `interEventDelayMs` sleep; the sleep is cancellable, so even a long
+  /// typing-synced hold aborts promptly on pause / teardown.
   private func holdAfterAgentOutput(script: ReadingScript) async {
     let dwell = speed.readingDwell(
       displayLength: lastAgentOutputDisplayLength, script: script)
-    guard dwell > .zero else { return }
-    try? await Task.sleep(for: dwell)
+    let hold = max(dwell, pendingTypingHold)
+    guard hold > .zero else { return }
+    try? await Task.sleep(for: hold)
+  }
+
+  /// Time the just-committed row still needs to type from its handoff seed —
+  /// `.zero` when nothing is pending or playback is `.instant`. Drives the
+  /// typing-synced portion of ``holdAfterAgentOutput(script:)``; exposed
+  /// (`internal`) so the hold decision is unit-testable without a wall-clock
+  /// sleep (view-testing rule 4).
+  var pendingTypingHold: Duration {
+    guard let reveal = lastAgentOutputReveal, let cps = speed.simCharsPerSecond
+    else { return .zero }
+    return .milliseconds(
+      remainingTypingDurationMs(
+        seed: reveal.seed, primary: reveal.primary, thought: reveal.thought,
+        charsPerSecond: cps))
   }
 
   /// Update the in-flight streaming snapshot from a partial-parser
