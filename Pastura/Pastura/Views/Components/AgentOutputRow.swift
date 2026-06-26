@@ -125,6 +125,16 @@ struct AgentOutputRow: View {
   /// complete but the reveal is still catching up.)
   var onRevealProgress: (() -> Void)?
 
+  /// Invoked on every reveal-counter tick with the current `visibleChars`.
+  /// The **live Sim streaming row** passes this so ``SimulationViewModel``
+  /// can record the reveal position and hand it off to the committed row at
+  /// commit (reveal-position handoff, bug 2 — see
+  /// ``SimulationViewModel/reportStreamingReveal(_:)``). Separate from
+  /// ``onRevealProgress`` (a count-free scroll-follow signal) so the demo
+  /// replay call site is untouched. Default `nil` — only the streaming row
+  /// wires it.
+  var onStreamingRevealProgress: ((Int) -> Void)?
+
   /// Live streaming override for the primary text. When non-nil, replaces
   /// the phase-derived value from `output` — used by ``SimulationView``
   /// for the in-flight agent row while token-by-token streaming grows
@@ -145,6 +155,18 @@ struct AgentOutputRow: View {
   /// it has no effect on non-animating rows. See the type doc-comment
   /// §"Reflow-stable rendering" for the trade-off.
   var growsWithReveal: Bool = false
+
+  /// Reveal-handoff seed: the `visibleChars` position to start the reveal
+  /// from instead of `0`. Set by the live Sim committed row to the position
+  /// its streaming row reached at commit (``SimulationViewModel/handoffSeed(forEntryId:)``),
+  /// so the row continues typing the unrevealed tail / `inner_thought`
+  /// rather than re-typing from the start or snapping to full (bug 2). Seeded
+  /// into the `visibleChars` `@State` at init (clamped to ``targetLength``)
+  /// so the first frame already shows the streamed prefix — no flicker. A
+  /// filter-shrunk committed primary can push the seed into the thought
+  /// region (early thought reveal); accepted (rare) — see the commit-site
+  /// note in ``SimulationViewModel``. Default `0`: animate from the start.
+  var initialVisibleChars: Int = 0
 
   /// Whether to prepend a sheep avatar column to this row. Defaults to
   /// true — production call sites all want the avatar. Pass `false` for
@@ -214,9 +236,11 @@ struct AgentOutputRow: View {
     charsPerSecond: Double? = nil,
     onAnimatingChange: ((Bool) -> Void)? = nil,
     onRevealProgress: (() -> Void)? = nil,
+    onStreamingRevealProgress: ((Int) -> Void)? = nil,
     streamingPrimary: String? = nil,
     streamingThought: String? = nil,
     growsWithReveal: Bool = false,
+    initialVisibleChars: Int = 0,
     showAvatar: Bool = true,
     agentPosition: Int? = nil,
     debugRowID: String? = nil
@@ -229,13 +253,27 @@ struct AgentOutputRow: View {
     self.charsPerSecond = charsPerSecond
     self.onAnimatingChange = onAnimatingChange
     self.onRevealProgress = onRevealProgress
+    self.onStreamingRevealProgress = onStreamingRevealProgress
     self.streamingPrimary = streamingPrimary
     self.streamingThought = streamingThought
     self.growsWithReveal = growsWithReveal
+    self.initialVisibleChars = initialVisibleChars
     self.showAvatar = showAvatar
     self.agentPosition = agentPosition
     self.debugRowID = debugRowID
     self._showInnerThought = State(initialValue: showAllThoughts)
+    // Seed the reveal counter from the handoff position so the first frame
+    // already shows the streamed prefix (no 0→seed flicker). `showInnerThought`
+    // is seeded from `showAllThoughts` above, so the target matches the body's
+    // initial render. Clamp keeps an over-long seed (filter-shrunk committed
+    // primary) from exceeding the reveal length. See ``revealTargetLength``.
+    self._visibleChars = State(
+      initialValue: Self.clampedInitialVisibleChars(
+        initialVisibleChars,
+        targetLength: Self.revealTargetLength(
+          output: output, phaseType: phaseType,
+          streamingPrimary: streamingPrimary, streamingThought: streamingThought,
+          showInnerThought: showAllThoughts)))
   }
 
   var body: some View {
@@ -330,7 +368,11 @@ struct AgentOutputRow: View {
     // keeps the newest text scrolled into view while a ``growsWithReveal``
     // bubble grows). Fires on every counter tick; only meaningful while
     // animating — older rows snap `visibleChars` once and never advance.
-    .onChange(of: visibleChars) { _, _ in onRevealProgress?() }
+    .onChange(of: visibleChars) { _, newValue in
+      onRevealProgress?()
+      // Report the position so the live Sim can hand it off at commit (bug 2).
+      onStreamingRevealProgress?(newValue)
+    }
     .onDisappear {
       #if DEBUG
         logDebugLifecycle(event: "onDisappear")
@@ -609,14 +651,6 @@ struct AgentOutputRow: View {
     }
   }
 
-  /// Returns the character at `index` in `text`, or nil if out of range.
-  /// O(index) because Swift's `String.Index` is not a constant-time offset,
-  /// but tolerable here (typical outputs are a few hundred chars).
-  private func characterAt(index: Int, in text: String) -> Character? {
-    guard index >= 0, index < text.count else { return nil }
-    return text[text.index(text.startIndex, offsetBy: index)]
-  }
-
   private func snapToFull() {
     animationTask?.cancel()
     visibleChars = targetLength
@@ -712,6 +746,16 @@ struct AgentOutputRow: View {
     }
   }
 
+}
+
+// MARK: - Pure helpers + derived lengths
+//
+// Extracted from the struct body (same file, so `private` members stay
+// reachable) to keep `AgentOutputRow` under swiftlint's `type_body_length`
+// cap. These are the unit-test-reachable pure-logic surface per ADR-009 —
+// `AgentOutputRowContractTests` exercises them without a SwiftUI host.
+extension AgentOutputRow {
+
   /// Extracts the primary display text.
   ///
   /// Live streaming rows pass ``streamingPrimary``; this takes precedence
@@ -720,7 +764,7 @@ struct AgentOutputRow: View {
   /// parsed fields. Completed rows (no streaming override) fall through
   /// to ``TurnOutput/primaryText(for:)`` — the canonical per-phase
   /// extraction, keyed by ``ScenarioConventions``.
-  private var primaryText: String? {
+  var primaryText: String? {
     // Decorate the streamed value with the same phase affordance the
     // committed path applies (vote → `→ <voted>`), so the arrow is present
     // from the first reveal tick instead of popping in at commit (#609).
@@ -739,18 +783,9 @@ struct AgentOutputRow: View {
   /// rather than inline (#609). The streaming override already carries the
   /// phase-appropriate field (``LLMCaller`` feeds the schema-derived thought
   /// key to ``PartialOutputExtractor``), so live + committed stay consistent.
-  private var resolvedThought: String? {
+  var resolvedThought: String? {
     streamingThought ?? output.secondaryText(for: phaseType)
   }
-}
-
-// MARK: - Pure helpers + derived lengths
-//
-// Extracted from the struct body (same file, so `private` members stay
-// reachable) to keep `AgentOutputRow` under swiftlint's `type_body_length`
-// cap. These are the unit-test-reachable pure-logic surface per ADR-009 —
-// `AgentOutputRowContractTests` exercises them without a SwiftUI host.
-extension AgentOutputRow {
 
   /// Per-row thought-toggle VoiceOver label. Singular form, intentionally
   /// distinct from the global toggle's plural "Hide / Show all thoughts"
@@ -771,9 +806,45 @@ extension AgentOutputRow {
   /// active typing extends the reveal in place; growth between taps with
   /// no task running is handled by ``handleThoughtVisibilityChange``.
   var targetLength: Int {
-    let primary = primaryText?.count ?? 0
-    let thought = showInnerThought ? (resolvedThought?.count ?? 0) : 0
+    Self.revealTargetLength(
+      output: output, phaseType: phaseType,
+      streamingPrimary: streamingPrimary, streamingThought: streamingThought,
+      showInnerThought: showInnerThought)
+  }
+
+  /// Pure form of ``targetLength`` over raw inputs, so `init` can size the
+  /// reveal-handoff seed clamp before `self` is available (and the two can
+  /// never drift — the instance property delegates here). Mirrors
+  /// ``primaryText`` / ``resolvedThought``: the streaming overrides win, the
+  /// vote arrow is applied to the primary, and the thought counts only when
+  /// shown.
+  static func revealTargetLength(
+    output: TurnOutput, phaseType: PhaseType,
+    streamingPrimary: String?, streamingThought: String?, showInnerThought: Bool
+  ) -> Int {
+    let primary =
+      (streamingPrimary.map { ScenarioConventions.decoratePrimary($0, for: phaseType) }
+      ?? output.primaryText(for: phaseType))?.count ?? 0
+    let thought =
+      showInnerThought
+      ? ((streamingThought ?? output.secondaryText(for: phaseType))?.count ?? 0) : 0
     return primary + thought
+  }
+
+  /// Clamp a reveal-handoff seed to `[0, targetLength]`. Seeds below zero
+  /// (none expected) start at the beginning; a seed past the row's reveal
+  /// length (e.g. a filter-shrunk committed primary vs. a longer streamed
+  /// one) clamps to fully-revealed rather than overshooting the counter.
+  static func clampedInitialVisibleChars(_ seed: Int, targetLength: Int) -> Int {
+    min(max(0, seed), max(0, targetLength))
+  }
+
+  /// Returns the character at `index` in `text`, or nil if out of range.
+  /// O(index) because Swift's `String.Index` is not a constant-time offset,
+  /// but tolerable here (typical outputs are a few hundred chars).
+  func characterAt(index: Int, in text: String) -> Character? {
+    guard index >= 0, index < text.count else { return nil }
+    return text[text.index(text.startIndex, offsetBy: index)]
   }
 
   /// Whether this row should run the character-reveal animation. The
