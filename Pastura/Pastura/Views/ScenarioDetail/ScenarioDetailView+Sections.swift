@@ -185,12 +185,19 @@ extension ScenarioDetailView {
         ? String(localized: "View in English")
         : String(localized: "View in Japanese")
       PasturaRowDivider()
-      NavigationLink(
-        value: Route.scenarioDetail(
-          scenarioId: sibling.id,
-          initialName: .init(sibling.name)
+      // `replaceTop` (not a push / `NavigationLink`): switching language is
+      // a same-screen-equivalent swap, so it replaces the current detail in
+      // place. A push would grow the stack on every ja⇄en toggle — the
+      // variants are distinct `scenarioId`s, so each is a distinct `Route`
+      // that `pushIfOnTop` can't dedupe. See AppRouter.replaceTop / #824.
+      Button {
+        router.replaceTop(
+          .scenarioDetail(
+            scenarioId: sibling.id,
+            initialName: .init(sibling.name)
+          )
         )
-      ) {
+      } label: {
         PasturaRowLabel(title: label, systemImage: "globe")
       }
       .buttonStyle(.plain)

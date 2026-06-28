@@ -16,7 +16,9 @@ struct ScenarioDetailView: View {
   // Programmatic push for the overflow-menu Edit / Use-as-Template actions:
   // a `NavigationLink` inside a `Menu` does not reliably push, so these go
   // through the current tab's router (navigation.md § "When to use what").
-  @Environment(AppRouter.self) private var router
+  // Not `private`: the sibling-file `+Sections.swift` extension reads it
+  // for the language-toggle `replaceTop` (private is file-scoped).
+  @Environment(AppRouter.self) var router
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
 
