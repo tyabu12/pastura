@@ -80,11 +80,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           .transition(.opacity)
       }
     }
-    // Animate ONLY the scrim's appear/disappear, keyed on its PRESENCE (a
-    // Bool) — not the label, not the full state. So awaitingScenario→
-    // loadingModel (presence stays true) swaps the label instantly with no
-    // transaction, and the baseLayer content swap underneath is never
-    // cross-faded. (#825, critic Axis 2.)
+    // Animate the scrim's appear/disappear, keyed on its PRESENCE (a Bool) —
+    // not the label, not the full state. Consequences (#825, critic Axis 2):
+    //   • awaitingScenario→loadingModel: presence stays true → NO transaction,
+    //     so the label swaps instantly and the baseLayer content swap
+    //     underneath (empty→simulationContent) is NOT cross-faded. ← the case
+    //     that matters; this is what keeps the handoff clean.
+    //   • loadingModel→running and running↔reloadingModel: baseLayer is
+    //     unchanged (simulationContent), so only the scrim fades — the live
+    //     log is never cross-faded.
+    //   • awaitingScenario→error/alreadyRunning (rare): presence flips AND the
+    //     baseLayer swaps, so that view fades in instead of swapping instantly.
+    //     Accepted — a terminal-state fade reads fine (arguably better).
     .animation(.default, value: displayState.scrimLabel != nil)
     // "Fill the bar" pattern (#312, ADR-008 §Amendment 2026-05-10).
     // The system nav bar stays in the layout (preserving swipe-back
