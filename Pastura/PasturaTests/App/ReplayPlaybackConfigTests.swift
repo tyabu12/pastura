@@ -24,6 +24,8 @@ struct ReplayPlaybackConfigTests {
         == PlaybackSpeed.normal.charsPerSecond)
     // Pins the concrete value so a future PlaybackSpeed.normal change is a
     // deliberate, reviewed edit rather than a silent demo-cadence shift.
-    #expect(ReplayPlaybackConfig.demoDefault.typingCharsPerSecond == 30)
+    // (Only the gate's nil-ness is load-bearing now; the seed value is the
+    // self-documenting x1 typing rate — unified with the Sim at #835.)
+    #expect(ReplayPlaybackConfig.demoDefault.typingCharsPerSecond == 10)
   }
 }

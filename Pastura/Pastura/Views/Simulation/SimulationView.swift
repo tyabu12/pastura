@@ -485,11 +485,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 phaseType: snapshot.phaseType,
                 showAllThoughts: viewModel.showAllThoughts,
                 isLatest: false,
-                charsPerSecond: viewModel.speed.simCharsPerSecond,
+                charsPerSecond: viewModel.speed.charsPerSecond,
                 // Follow the per-tick vertical growth: the snapshot-change
                 // scroll below is per-token (too coarse for per-character
                 // growth, and silent once the buffer is complete but the
-                // reveal is still catching up at simCharsPerSecond).
+                // reveal is still catching up at charsPerSecond).
                 onRevealProgress: { scrollToBottom(proxy) },
                 // Report the reveal position so the committed row can pick up
                 // where the stream left off (reveal-position handoff, bug 2).
@@ -497,7 +497,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 streamingPrimary: snapshot.primary,
                 streamingThought: snapshot.thought,
                 // Grow the bubble with the typed prefix, not the streaming
-                // buffer: the reveal types at simCharsPerSecond (slower than
+                // buffer: the reveal types at charsPerSecond (slower than
                 // tokens arrive), so reserving the hidden tail to the buffer
                 // made the box expand ahead of the visible text.
                 growsWithReveal: true,

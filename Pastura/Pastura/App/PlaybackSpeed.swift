@@ -19,8 +19,8 @@ import Foundation
 /// freely — no isolation friction for value-type enums.
 ///
 /// **Consumers — properties are NOT universally consumed:**
-/// - **Sim** (``SimulationViewModel``) uses ``simCharsPerSecond`` (typing
-///   animation — slower than ``charsPerSecond`` for read-along comprehension),
+/// - **Sim** (``SimulationViewModel``) uses ``charsPerSecond`` (typing
+///   animation — shared with the demo),
 ///   ``readingDwell(displayLength:script:)`` (post-utterance reading pause),
 ///   and ``interEventDelayMs`` (non-agent inter-event delay).
 /// - **``ReplayViewModel``** (the demo replay) uses ``charsPerSecond`` (the
@@ -55,43 +55,28 @@ nonisolated public enum PlaybackSpeed:
 
   public var id: String { rawValue }
 
-  /// Characters revealed per second during the **DL-time demo replay**
-  /// typing animation. `nil` means "render full text immediately" (`.instant`).
+  /// Characters revealed per second during the typing animation, for **both**
+  /// the live simulation and the DL-time demo replay. `nil` means "render full
+  /// text immediately" (`.instant`).
   ///
-  /// **Demo-replay only** (since the Sim split — the live Sim uses
-  /// ``simCharsPerSecond``). Consumed via ``ReplayViewModel/typingCharsPerSecond``
-  /// (keyed on the runtime ``ReplayViewModel/playbackSpeed``, #791) and seeded
-  /// into ``ReplayPlaybackConfig`` at `.normal`. ``ReplayViewModel``'s turn-dwell
-  /// floor (``ReplayViewModel/typingFloorMs(for:)``) does NOT read this; it uses
-  /// the fixed `config` reference, then ``ReplayViewModel/scaledDelay(for:floorMs:)``
-  /// divides by ``multiplier`` (and `charsPerSecond == 30 × multiplier`, so the
-  /// dwell stays synced with the speed-scaled typing). **Keep `.normal == 30`** —
-  /// that invariant is load-bearing for the demo floor; change the Sim rate via
-  /// ``simCharsPerSecond`` instead.
+  /// **Single source of truth.** The Sim reads it via
+  /// ``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)`` (committed
+  /// rows) and the in-flight streaming row in `SimulationView`; the demo reads
+  /// the speed-scaled value via ``ReplayViewModel/typingCharsPerSecond`` for
+  /// both the on-screen typing and its reading-dwell floor
+  /// (``ReplayViewModel/typingFloorMs(for:script:)``). Because there is one
+  /// property, the two surfaces cannot drift — tuning the rate here moves the
+  /// sim and the demo in lockstep.
+  ///
+  /// `.normal` is anchored at a comfortable read-along pace and `.slow` slower
+  /// still (device testing found faster rates too fast to follow during a run);
+  /// `.fast` is the "I want speed" escape hatch. `.instant` stays `nil` so the
+  /// instant-snap invariant in
+  /// ``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)`` holds. The
+  /// demo's turn-dwell floor no longer assumes any linear relationship between
+  /// these values and ``multiplier`` (see ``ReplayViewModel/scaledDelay(for:floorMs:)``),
+  /// so the tiers are free to be non-linear.
   public var charsPerSecond: Double? {
-    switch self {
-    case .slow: 15
-    case .normal: 30
-    case .fast: 45
-    case .instant: nil
-    }
-  }
-
-  /// Characters revealed per second during the **live simulation** typing
-  /// animation. `nil` means "render full text immediately" (`.instant`).
-  ///
-  /// Split from ``charsPerSecond`` (which now serves only the demo replay) so
-  /// the live Sim can type slower — device testing found the demo-tier rates
-  /// too fast to read along with during an actual run, while the demo's
-  /// `typingFloorMs` invariant requires `charsPerSecond.normal == 30`.
-  /// `.normal` is anchored at a comfortable read-along pace; `.slow` is slower
-  /// still; **`.fast` deliberately matches ``charsPerSecond`` (45)** — the fast
-  /// tier is the "I want speed" escape hatch and should stay quick (do NOT
-  /// "simplify" this apparent duplication away). `.instant` stays `nil` so the
-  /// instant-snap invariant in ``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``
-  /// holds. Consumed by ``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``
-  /// (committed rows) and the in-flight streaming row in `SimulationView`.
-  public var simCharsPerSecond: Double? {
     switch self {
     case .slow: 6
     case .normal: 10

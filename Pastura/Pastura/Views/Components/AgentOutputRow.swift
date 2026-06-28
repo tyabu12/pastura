@@ -75,7 +75,7 @@ import SwiftUI
 /// **Streaming path:** the live Sim in-flight row opts into
 /// ``growsWithReveal`` so the bubble lays out only the visible prefix and
 /// grows with the reveal counter — NOT the streaming buffer. This matters
-/// because the reveal types at ``PlaybackSpeed/simCharsPerSecond`` (slower
+/// because the reveal types at ``PlaybackSpeed/charsPerSecond`` (slower
 /// than tokens arrive); reserving the hidden tail to the buffer made the
 /// bubble expand ahead of the typed text. Width stability is still carried
 /// by `.frame(maxWidth: .infinity, alignment: .leading)` +
@@ -867,7 +867,7 @@ extension AgentOutputRow {
   /// bubble grows with the visible prefix instead of pre-reserving the full
   /// (or, for a streaming row, the *buffer*) height. Two opt-in callers:
   /// the DL-time demo replay rows (#785) and the **live Sim streaming row**
-  /// (its reveal types at ``PlaybackSpeed/simCharsPerSecond`` — slower than
+  /// (its reveal types at ``PlaybackSpeed/charsPerSecond`` — slower than
   /// tokens arrive — so reserving to the streaming buffer made the bubble
   /// outrun the typed text; the demo-proven grow path keeps box and text in
   /// step). Both grow callers pass ``onRevealProgress`` for per-tick

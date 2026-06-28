@@ -141,12 +141,14 @@ extension ReplayViewModelTests {
 
   // MARK: - typingCharsPerSecond tracks playbackSpeed (#791)
   //
-  // Before #791 the demo's typing cps was the fixed `config.typingCharsPerSecond`
-  // (30), so the Speed menu changed only turn dwell, not typing. These pin that
-  // the cps now follows the runtime `playbackSpeed` (Sim parity) on a demo
-  // (opt-in) config, and that a non-demo config (typingCharsPerSecond == nil)
-  // still opts out regardless of speed. Reverting the fix (returning
+  // Before #791 the demo's typing cps was the fixed `config.typingCharsPerSecond`,
+  // so the Speed menu changed only turn dwell, not typing. These pin that the cps
+  // now follows the runtime `playbackSpeed` (Sim parity) on a demo (opt-in)
+  // config, and that a non-demo config (typingCharsPerSecond == nil) still opts
+  // out regardless of speed. Reverting the fix (returning
   // `config.typingCharsPerSecond`) makes the .slow/.fast/.instant cases fail.
+  // The cps values are the unified ``PlaybackSpeed/charsPerSecond`` (#835),
+  // shared with the live Sim.
 
   @Test func typingCharsPerSecondTracksPlaybackSpeedOnDemoDefault() throws {
     let source = try YAMLReplaySource(
@@ -156,10 +158,10 @@ extension ReplayViewModelTests {
 
     viewModel.playbackSpeed = .slow
     #expect(viewModel.typingCharsPerSecond == PlaybackSpeed.slow.charsPerSecond)
-    #expect(viewModel.typingCharsPerSecond == 15)
+    #expect(viewModel.typingCharsPerSecond == 6)
 
     viewModel.playbackSpeed = .normal
-    #expect(viewModel.typingCharsPerSecond == 30)
+    #expect(viewModel.typingCharsPerSecond == 10)
 
     viewModel.playbackSpeed = .fast
     #expect(viewModel.typingCharsPerSecond == 45)

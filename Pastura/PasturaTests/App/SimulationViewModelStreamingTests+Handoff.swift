@@ -35,7 +35,7 @@ extension SimulationViewModelStreamingTests {
     #expect(sut.handoffSeed(forEntryId: committedId) == 3)
     #expect(
       sut.effectiveCharsPerSecond(forEntryId: committedId)
-        == PlaybackSpeed.normal.simCharsPerSecond)
+        == PlaybackSpeed.normal.charsPerSecond)
   }
 
   @Test func nonStreamedEntryHasZeroHandoffSeed() throws {
@@ -53,7 +53,7 @@ extension SimulationViewModelStreamingTests {
     #expect(sut.handoffSeed(forEntryId: committedId) == 0)
     #expect(
       sut.effectiveCharsPerSecond(forEntryId: committedId)
-        == PlaybackSpeed.normal.simCharsPerSecond)
+        == PlaybackSpeed.normal.charsPerSecond)
   }
 
   @Test func differentAgentCommitGetsZeroHandoff() throws {
@@ -76,7 +76,7 @@ extension SimulationViewModelStreamingTests {
     #expect(sut.handoffSeed(forEntryId: bobId) == 0)
     #expect(
       sut.effectiveCharsPerSecond(forEntryId: bobId)
-        == PlaybackSpeed.normal.simCharsPerSecond)
+        == PlaybackSpeed.normal.charsPerSecond)
   }
 
   @Test func parseRetryAfterStreamSeedsOnlyRetryEntry() throws {
@@ -175,7 +175,7 @@ extension SimulationViewModelStreamingTests {
     #expect(sut.handoffSeed(forEntryId: committedId) == 0)
     #expect(
       sut.effectiveCharsPerSecond(forEntryId: committedId)
-        == PlaybackSpeed.normal.simCharsPerSecond)
+        == PlaybackSpeed.normal.charsPerSecond)
   }
 
   /// `.instant` speed must bypass the streaming snapshot gate entirely.
@@ -204,7 +204,7 @@ extension SimulationViewModelStreamingTests {
     let committedId = try #require(sut.latestAgentOutputId)
     // No streaming row was ever set, so there is no handoff seed.
     #expect(sut.handoffSeed(forEntryId: committedId) == 0)
-    // `.instant.simCharsPerSecond` is nil by definition; pins the instant-snap
+    // `.instant.charsPerSecond` is nil by definition; pins the instant-snap
     // invariant (the only case where the committed row still snaps to full).
     #expect(sut.effectiveCharsPerSecond(forEntryId: committedId) == nil)
   }
@@ -227,7 +227,7 @@ extension SimulationViewModelStreamingTests {
         phaseType: .speakAll),
       scenario: scenario)
 
-    let cps = try #require(PlaybackSpeed.normal.simCharsPerSecond)
+    let cps = try #require(PlaybackSpeed.normal.charsPerSecond)
     let expected = remainingTypingDurationMs(
       seed: 6, primary: "hello world", thought: "", charsPerSecond: cps)
     #expect(expected > 0)  // sanity: there is unrevealed tail to type
