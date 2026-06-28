@@ -68,21 +68,31 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     subsystem: "app.pastura.Pastura", category: "SimulationView")
 
   var body: some View {
-    Group {
-      if let viewModel, scenario != nil {
-        simulationContent(viewModel: viewModel)
-      } else if alreadyRunning {
-        alreadyRunningView
-      } else if let loadError {
-        ContentUnavailableView(
-          String(localized: "Error"),
-          systemImage: "exclamationmark.triangle",
-          description: Text(loadError)
-        )
-      } else {
-        IdleFriendlyProgressView(String(localized: "Loading scenario..."))
+    ZStack {
+      baseLayer
+      if let label = displayState.scrimLabel {
+        // LOAD-BEARING: a SINGLE persistent scrim. This `if let` stays true
+        // across awaitingScenario→loadingModel, so SwiftUI keeps the SAME
+        // scrim view (and its spinner) alive instead of tearing one down and
+        // building another — that continuity is the whole point of #825. Do
+        // NOT split this back into per-phase overlays or add an `.id` here.
+        loadingScrim(label)
+          .transition(.opacity)
       }
     }
+    // Animate the scrim's appear/disappear, keyed on its PRESENCE (a Bool) —
+    // not the label, not the full state. Consequences (#825, critic Axis 2):
+    //   • awaitingScenario→loadingModel: presence stays true → NO transaction,
+    //     so the label swaps instantly and the baseLayer content swap
+    //     underneath (empty→simulationContent) is NOT cross-faded. ← the case
+    //     that matters; this is what keeps the handoff clean.
+    //   • loadingModel→running and running↔reloadingModel: baseLayer is
+    //     unchanged (simulationContent), so only the scrim fades — the live
+    //     log is never cross-faded.
+    //   • awaitingScenario→error/alreadyRunning (rare): presence flips AND the
+    //     baseLayer swaps, so that view fades in instead of swapping instantly.
+    //     Accepted — a terminal-state fade reads fine (arguably better).
+    .animation(.default, value: displayState.scrimLabel != nil)
     // "Fill the bar" pattern (#312, ADR-008 §Amendment 2026-05-10).
     // The system nav bar stays in the layout (preserving swipe-back
     // gesture and the chevron + back-button label that reads the
@@ -383,6 +393,43 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// Shown when a second run is attempted while a different run owns the
   /// session. Offers to return to the live run instead of starting a competing
   /// one (the single-run guard would refuse the start anyway).
+  /// Single source of truth for what the body renders, derived from the
+  /// view's @State / @Observable inputs. Reads `viewModel?.isLoadingModel` /
+  /// `isReloadingModel` so SwiftUI re-evaluates the body (and the scrim) when
+  /// those flip. See ``SimulationDisplayState`` for the precedence contract.
+  private var displayState: SimulationDisplayState {
+    SimulationDisplayState.resolve(
+      hasContent: viewModel != nil && scenario != nil,
+      isLoadingModel: viewModel?.isLoadingModel ?? false,
+      isReloadingModel: viewModel?.isReloadingModel ?? false,
+      alreadyRunning: alreadyRunning,
+      loadError: loadError)
+  }
+
+  /// The content layer behind the loading scrim. The scrim (mounted in `body`)
+  /// dims whatever this renders, so the awaitingScenario→content swap happens
+  /// out of sight. `loadingModel` / `reloadingModel` / `running` all share the
+  /// same `simulationContent` so it is never torn down across those (the BG
+  /// reload keeps the live log mounted under the dim, as before).
+  @ViewBuilder private var baseLayer: some View {
+    switch displayState {
+    case .loadingModel, .reloadingModel, .running:
+      // `displayState` guarantees content here (hasContent ⇒ viewModel != nil).
+      if let viewModel { simulationContent(viewModel: viewModel) }
+    case .error(let message):
+      ContentUnavailableView(
+        String(localized: "Error"),
+        systemImage: "exclamationmark.triangle",
+        description: Text(message)
+      )
+    case .alreadyRunning:
+      alreadyRunningView
+    case .awaitingScenario:
+      // Empty base — the scenario-loading scrim provides the only visual.
+      Color.clear
+    }
+  }
+
   private var alreadyRunningView: some View {
     ContentUnavailableView {
       Label(String(localized: "A simulation is already running"), systemImage: "waveform")
@@ -539,15 +586,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .presentationDetents([.medium])
         .deepLinkGated()
     }
-    .overlay {
-      // Initial load (run/resume) and BG GPU↔CPU reload are mutually
-      // exclusive in time; both surface the same "model busy" affordance.
-      if viewModel.isLoadingModel {
-        modelStatusOverlay(String(localized: "Loading model..."))
-      } else if viewModel.isReloadingModel {
-        modelStatusOverlay(String(localized: "Reloading model..."))
-      }
-    }
+    // The model-busy scrim (initial load + BG reload) now lives at `body`
+    // level as a single persistent overlay so the spinner stays continuous
+    // across the scenario→model load handoff — see `body` / `loadingScrim`. (#825)
     .overlay(alignment: LanguageDriftToastLayout.overlayAlignment) {
       languageDriftToast(viewModel: viewModel)
     }
@@ -618,26 +659,50 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// Dimmed centered overlay for a "model busy" wait — shared by the initial
-  /// load (`isLoadingModel`) and the BG GPU↔CPU reload (`isReloadingModel`),
-  /// parametrized only by the title. The subtitle is shared verbatim.
-  private func modelStatusOverlay(_ title: String) -> some View {
+  /// The single dimmed loading scrim, shown for scenario load, initial model
+  /// load, and BG GPU↔CPU reload — distinguished only by `label`. Mounted once
+  /// in `body` and kept alive across the scenario→model handoff.
+  ///
+  /// LOAD-BEARING ordering: `IdleFriendlyProgressView` is the FIRST child and
+  /// carries no `.id` — its stable structural identity is what keeps the
+  /// spinner from restarting when only `label` changes. The subtitle is the
+  /// conditional element (never the spinner), so toggling it never reshuffles
+  /// the progress view's position. (#825)
+  private func loadingScrim(_ label: SimulationDisplayState.ScrimLabel) -> some View {
     ZStack {
       Color.ink.opacity(0.4).ignoresSafeArea()
       VStack(spacing: 12) {
         IdleFriendlyProgressView()
           .scaleEffect(1.2)
-        Text(title)
+        Text(scrimTitle(label))
           .textStyle(Typography.titlePhase)
           .foregroundStyle(Color.ink)
-        Text(String(localized: "This can take a few seconds"))
-          .textStyle(Typography.metaValue)
-          .foregroundStyle(Color.muted)
+        if let subtitle = scrimSubtitle(label) {
+          Text(subtitle)
+            .textStyle(Typography.metaValue)
+            .foregroundStyle(Color.muted)
+        }
       }
       .padding(24)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
-    .transition(.opacity)
+  }
+
+  private func scrimTitle(_ label: SimulationDisplayState.ScrimLabel) -> String {
+    switch label {
+    case .scenario: String(localized: "Loading scenario...")
+    case .model: String(localized: "Loading model...")
+    case .reload: String(localized: "Reloading model...")
+    }
+  }
+
+  /// Scenario load is typically sub-second, so it omits the "few seconds"
+  /// subtitle (which would misrepresent the wait); model load / reload keep it.
+  private func scrimSubtitle(_ label: SimulationDisplayState.ScrimLabel) -> String? {
+    switch label {
+    case .scenario: nil
+    case .model, .reload: String(localized: "This can take a few seconds")
+    }
   }
 
   // MARK: - Header
