@@ -15,9 +15,8 @@ import SwiftUI
 /// — HomeView's pop-reload, `PasturaBackButton`, `ResultDetailView`'s
 /// post-delete pop — resolves to the router of the tab the view actually
 /// lives in. Injecting a single router above the `TabView` would collapse
-/// all four tabs' `pop()` onto one stack. The per-tab `TabNavigationStack`
-/// content is identical across the two OS branches below — only the tab
-/// *enumeration wrapper* differs.
+/// all four tabs' `pop()` onto one stack. Each tab wraps its
+/// `TabNavigationStack` in a structural `Tab`.
 ///
 /// ## Tab-reselect → pop-to-root (§2 corrected)
 ///
@@ -27,22 +26,21 @@ import SwiftUI
 /// selection `Binding`'s setter runs on re-tap); the path reset is
 /// performed by ``TabCoordinator/handleSelection(_:)``.
 ///
-/// ## OS branches (iOS 18+ structural `Tab` vs iOS 17 `.tabItem`)
+/// ## Structural `Tab` API
 ///
-/// iOS 18+ adopts the structural `Tab` API to future-proof the deprecated
-/// `.tabItem` (deprecated on iOS 18+) and to keep the iOS 26 search-role
-/// morph re-enableable behind a one-line `role:` change — though that morph
-/// is currently **deferred** (see the さがす-tab note below). iOS 17 keeps
-/// the closure-based `.tabItem` form; the new `Tab` builder cannot be mixed
-/// with `.tabItem` in one `TabView`, so the whole bar is branched.
+/// The bar uses the structural `Tab` API (iOS 18+; the minimum deployment
+/// target per ADR-019). It replaced `.tabItem` (deprecated on iOS 18+) and
+/// keeps the iOS 26 search-role morph re-enableable behind a one-line
+/// `role:` change — though that morph is currently **deferred** (see the
+/// さがす-tab note below).
 ///
 /// ADR-016 D1 keeps tabs **icon-only** (no text title). The structural
-/// `Tab` API has no icon-only titled initializer, so the modern branch
-/// uses the `label:`-closure form with a bare `Image` (no `Text`) to
-/// preserve that. Whether the iOS 26 Liquid Glass *floating* bar renders
-/// this cleanly icon-only is verified only on a real device (the simulator
-/// mis-renders the iOS 26 bar); if it cannot, the fallback is native
-/// labels (which would amend ADR-016 D1).
+/// `Tab` API has no icon-only titled initializer, so each tab uses the
+/// `label:`-closure form with a bare `Image` (no `Text`) to preserve that.
+/// Whether the iOS 26 Liquid Glass *floating* bar renders this cleanly
+/// icon-only is verified only on a real device (the simulator mis-renders
+/// the iOS 26 bar); if it cannot, the fallback is native labels (which
+/// would amend ADR-016 D1).
 ///
 /// The さがす tab is a **regular grouped tab**, not `Tab(role:.search)`:
 /// the iOS 26 search role separates it into a detached capsule that reads
@@ -54,17 +52,12 @@ struct RootTabView: View {
   @Bindable var coordinator: TabCoordinator
 
   var body: some View {
-    if #available(iOS 18.0, *) {
-      modernTabView
-    } else {
-      legacyTabView
-    }
+    tabView
   }
 
-  /// Shared selection binding — the same `AppTab` enum drives both
-  /// branches; only the per-tab plumbing (`Tab(value:)` vs `.tag()`)
-  /// differs. The setter routes through ``TabCoordinator/handleSelection(_:)``
-  /// so a re-tap pops the active tab to root (§2).
+  /// Selection binding whose setter routes through
+  /// ``TabCoordinator/handleSelection(_:)`` so a re-tap pops the active tab
+  /// to root (§2).
   private var selectionBinding: Binding<AppTab> {
     Binding(
       get: { coordinator.selectedTab },
@@ -72,10 +65,9 @@ struct RootTabView: View {
     )
   }
 
-  // MARK: - iOS 18+ (structural `Tab` API; grouped search tab, morph deferred)
+  // MARK: - Tab bar (structural `Tab` API; grouped search tab, morph deferred)
 
-  @available(iOS 18.0, *)
-  private var modernTabView: some View {
+  private var tabView: some View {
     TabView(selection: selectionBinding) {
       Tab(value: AppTab.home) {
         homeStack
@@ -105,26 +97,6 @@ struct RootTabView: View {
       } label: {
         tabIcon(.settings, label: String(localized: "Settings"))
       }
-    }
-    .tint(Color.moss)
-  }
-
-  // MARK: - iOS 17 fallback (closure-based `.tabItem`)
-
-  private var legacyTabView: some View {
-    TabView(selection: selectionBinding) {
-      homeStack
-        .tag(AppTab.home)
-        .tabItem { tabIcon(.home, label: String(localized: "Home")) }
-      searchStack
-        .tag(AppTab.search)
-        .tabItem { tabIcon(.search, label: String(localized: "Browse")) }
-      historyStack
-        .tag(AppTab.history)
-        .tabItem { tabIcon(.history, label: String(localized: "History")) }
-      settingsStack
-        .tag(AppTab.settings)
-        .tabItem { tabIcon(.settings, label: String(localized: "Settings")) }
     }
     .tint(Color.moss)
   }
@@ -176,8 +148,8 @@ extension RootTabView {
   /// does not exist and would render blank), so the さがす tab keeps the
   /// outline in both states and relies on the moss `.tint` alone to mark
   /// active. Pure + `internal` so the mapping is unit-tested. Drives all
-  /// four tabs on both OS branches (the さがす tab is a grouped regular tab,
-  /// not a search role, so it too maps through here).
+  /// four tabs (the さがす tab is a grouped regular tab, not a search role,
+  /// so it too maps through here).
   static func symbolName(for tab: AppTab, isActive: Bool) -> String {
     switch tab {
     case .home: return isActive ? "house.fill" : "house"
