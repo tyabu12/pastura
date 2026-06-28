@@ -179,6 +179,17 @@ struct ScenarioDetailView: View {
       // route in place), so the ScrollView keeps its prior offset — which
       // would leave the new variant's large title above the fold. Reset to
       // the top anchor so the swapped-in scenario reads from its title.
+      //
+      // Known limitation: `scrollTo(_:anchor: .top)` aligns the first
+      // content item with the viewport top, which sits one large-title's
+      // height *below* offset 0 — so the `.large` nav title collapses to
+      // inline after a switch (the fresh push still shows it large). It is
+      // visible and functional, just stylistically inconsistent with the
+      // first open. There is no iOS 17 API to scroll to the true top edge
+      // (offset 0, large title expanded).
+      // TODO: When the deployment target reaches iOS 18, replace this with
+      // `ScrollPosition.scrollTo(edge: .top)` (bound via `.scrollPosition`)
+      // to land at offset 0 so the large title re-expands on a swap.
       .onChange(of: scenarioId) {
         proxy.scrollTo(Self.scrollTopID, anchor: .top)
       }
