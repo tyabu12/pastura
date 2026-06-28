@@ -20,7 +20,16 @@ struct RouteResolver: View {
   var body: some View {
     switch route {
     case .scenarioDetail(let scenarioId, let initialName):
+      // `.id(scenarioId)` so a *same-depth* swap of the top route — the
+      // cross-language toggle via `AppRouter.replaceTop` — gives the leaf
+      // a fresh identity. Without it, NavigationStack keeps the leaf's
+      // identity by stack position across an in-place replace, so
+      // `ScenarioDetailView`'s load-once `.task` guard (viewModel != nil)
+      // never re-fires and the screen keeps showing the prior language.
+      // scenarioId is stable during ordinary push/pop, so this is inert
+      // except on a language switch — exactly when a rebuild is wanted.
       ScenarioDetailView(scenarioId: scenarioId, initialName: initialName.value)
+        .id(scenarioId)
     case .editor(let editingId, let templateYAML):
       ScenarioEditorHost(
         repository: dependencies.scenarioRepository,
