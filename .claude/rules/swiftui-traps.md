@@ -44,6 +44,33 @@ has no `.fill` variant, was the only tab where the symptom was
 diagnosable): the LOAD-BEARING comment in
 `Pastura/Pastura/App/RootTabView.swift` (`symbolName(for:isActive:)`).
 
+## NavigationStack in-place top-route replace (`AppRouter.replaceTop`)
+
+Replacing the **top route in place** in a `NavigationStack` path
+(`AppRouter.replaceTop`, used by the ScenarioDetail cross-language toggle)
+is NOT a push, and trips two **device-only** traps (neither reproduces in
+simulator reasoning). Why replace at all: ja/en variants are distinct
+`scenarioId`s = distinct `Route`s, so a plain push grows the stack
+unboundedly on repeated toggling and `pushIfOnTop` can't dedupe them —
+`replaceTop` keeps stack depth constant.
+
+1. **Leaf identity is reused by stack position, not by `Route` value.** A
+   load-once view (`.task { guard viewModel == nil }`) keeps showing the
+   PRIOR data after a swap — `.task` never re-fires. **Fix:** key the load
+   on the changing field — `.task(id: scenarioId)` (drop the guard; build
+   the new VM fully before assigning to avoid a ProgressView flash).
+2. **Scroll offset is restored by nav position.** Even `.id(scenarioId)` on
+   the leaf (full subtree rebuild) does NOT reset it. **Fix:**
+   `ScrollPosition.scrollTo(edge: .top)` (iOS 18+, bound via
+   `.scrollPosition(_:)`) — lands at true offset 0 so a `.large` nav title
+   re-expands. `ScrollViewReader.scrollTo(_:anchor:.top)` is NOT equivalent:
+   it aligns the first item one title-height below 0 and collapses the large
+   title to inline (#830).
+
+Reference impls: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
+`replaceTop` is a navigation-path mutator alongside `push`/`pop` — see
+`navigation.md` § AppRouter scope.
+
 ## Production-side-effecting service: inject at View boundary
 
 When introducing a **production-only side-effecting service** (LLM-output detector, telemetry analyzer, content-rewriting filter, on-the-fly classifier, A/B-flag injector), inject it at the **View boundary**, NOT as a default value on the VM's `init()` signature.
@@ -165,7 +192,7 @@ only changes how content renders *inside* the capsule — it does **not** remove
 capsule. The documented opt-out is `sharedBackgroundVisibility(.hidden)` on
 `ToolbarContent` (iOS 26+).
 
-Pastura wraps it for the iOS 17 deployment target as
+Pastura wraps it for its sub-iOS-26 deployment target (iOS 18, ADR-019) as
 `ToolbarContent.hidingPasturaSharedBackground()` (`PasturaBackButton.swift`) — apply to
 every `ToolbarItem` that wraps a custom Pastura control. Caveats:
 - **Real-device verification required**: the iOS 26 simulator suppresses the capsule even

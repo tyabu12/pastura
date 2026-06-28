@@ -53,7 +53,7 @@ dependency direction is preparation for a future SPM module split.
 
 - Swift 6.x
 - SwiftUI
-- iOS 17.0 minimum deployment target
+- iOS 18.0 minimum deployment target
 
 ### Libraries
 
@@ -88,7 +88,7 @@ time. The trade-offs are documented in
 ## Prerequisites
 
 - Swift 6 (Xcode that supports it; CI runs on `macos-26`)
-- iOS 17.0 deployment target
+- iOS 18.0 deployment target
 - iPhone with ~8 GB RAM for on-device LLM testing. `ModelRegistry.swift`
   declares a 6.5 GB `minRAM` floor; in practice that's iPhone 15 Pro,
   the iPhone 16 family (including 16e), or newer.
