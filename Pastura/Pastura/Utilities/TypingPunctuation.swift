@@ -81,3 +81,56 @@ nonisolated func typingDurationMs(
     (!primary.isEmpty && !thought.isEmpty) ? statementToThoughtPauseMs : 0
   return base + punctuation + boundary
 }
+
+/// Estimated wall-clock time (in milliseconds) the ``AgentOutputRow`` reveal
+/// animation still needs to type the portion of `primary` + `thought` AFTER
+/// `seed` graphemes have already surfaced — the live-Sim "reveal-position
+/// handoff" analogue of ``typingDurationMs(primary:thought:charsPerSecond:)``
+/// (which assumes a reveal starting from zero).
+///
+/// `seed` is a position in the combined `[primary][thought]` reveal space —
+/// the same space ``AgentOutputRow``'s `visibleChars` counts. The remaining
+/// segments are split at `seed` and delegated to
+/// ``typingDurationMs(primary:thought:charsPerSecond:)``, so the estimate stays
+/// exactly in step with the reveal loop:
+/// - the already-revealed prefix (and the punctuation pauses it already spent)
+///   is excluded by dropping the first `seed` graphemes, and
+/// - the ``statementToThoughtPauseMs`` boundary beat is counted only while the
+///   remaining primary is non-empty (i.e. the primary→thought boundary has not
+///   yet been crossed by the streaming reveal).
+///
+/// Used by ``SimulationViewModel`` to hold the next turn until the committed
+/// row has finished typing from its handoff seed, so a fast next inference
+/// cannot snap the tail / `inner_thought`.
+///
+/// `seed <= 0` yields the full ``typingDurationMs``; a `seed` at or past the
+/// end of the combined text yields `0` (nothing left to type). `charsPerSecond
+/// <= 0` yields `0` (delegated — mirrors the reveal loop's snap-to-full guard).
+/// Pure and dependency-free.
+///
+/// - Parameters:
+///   - seed: Graphemes already revealed in the combined `[primary][thought]`
+///     space (negative values are treated as `0`).
+///   - primary: The decorated primary text the row types first.
+///   - thought: The private-thought text typed after the primary (empty when
+///     the THINKING section is collapsed).
+///   - charsPerSecond: Reveal rate; `<= 0` disables the estimate.
+/// - Returns: Estimated remaining typing duration in milliseconds.
+nonisolated func remainingTypingDurationMs(
+  seed: Int, primary: String, thought: String, charsPerSecond: Double
+) -> Int {
+  let start = max(0, seed)
+  let primaryCount = primary.count
+  let remainingPrimary: String
+  let remainingThought: String
+  if start < primaryCount {
+    remainingPrimary = String(primary.dropFirst(start))
+    remainingThought = thought
+  } else {
+    remainingPrimary = ""
+    remainingThought = String(thought.dropFirst(start - primaryCount))
+  }
+  return typingDurationMs(
+    primary: remainingPrimary, thought: remainingThought,
+    charsPerSecond: charsPerSecond)
+}

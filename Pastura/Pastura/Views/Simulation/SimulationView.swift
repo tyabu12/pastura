@@ -412,7 +412,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         ScrollView {
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
             ForEach(viewModel.logEntries) { entry in
-              logEntryView(entry, viewModel: viewModel)
+              logEntryView(entry, viewModel: viewModel, proxy: proxy)
                 // Current-utterance focus: dim past rows during playback so the
                 // eye settles on the line being revealed. Full opacity once the
                 // run ends. The latest .agentOutput stays current; see VM.
@@ -444,6 +444,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 // growth, and silent once the buffer is complete but the
                 // reveal is still catching up at simCharsPerSecond).
                 onRevealProgress: { scrollToBottom(proxy) },
+                // Report the reveal position so the committed row can pick up
+                // where the stream left off (reveal-position handoff, bug 2).
+                onStreamingRevealProgress: { viewModel.reportStreamingReveal($0) },
                 streamingPrimary: snapshot.primary,
                 streamingThought: snapshot.thought,
                 // Grow the bubble with the typed prefix, not the streaming
@@ -725,7 +728,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // MARK: - Log Entries
 
   @ViewBuilder
-  private func logEntryView(_ entry: LogEntry, viewModel: SimulationViewModel) -> some View {
+  private func logEntryView(
+    _ entry: LogEntry, viewModel: SimulationViewModel, proxy: ScrollViewProxy
+  ) -> some View {
     switch entry.kind {
     case .agentOutput(let agent, let output, let phaseType):
       let isLatest = viewModel.latestAgentOutputId == entry.id
@@ -733,8 +738,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         agent: agent, output: output, phaseType: phaseType,
         showAllThoughts: viewModel.showAllThoughts,
         isLatest: isLatest,
-        // Display timing is a VM decision — rows whose primary was
-        // already revealed via streaming must not retype (returns nil).
+        // Display timing is a VM decision. A streamed row is NOT snapped —
+        // it animates from its handoff seed (see `initialVisibleChars`).
         charsPerSecond: viewModel.effectiveCharsPerSecond(forEntryId: entry.id),
         // Only the latest row drives the typing-state gate; older rows
         // never animate so their callbacks would be no-ops, but we guard
@@ -743,6 +748,20 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           guard isLatest else { return }
           latestRowIsAnimating = animating
         },
+        // Follow the latest row's growth while it types its tail / thought
+        // from the handoff seed (the bubble grows under `growsWithReveal`).
+        // Gated to the latest row so scrolling up through history never
+        // yanks back to the bottom.
+        onRevealProgress: {
+          if isLatest { scrollToBottom(proxy) }
+        },
+        // Grow the bubble with the revealed prefix so the handoff from the
+        // streaming row is seamless (self-gates: only the latest animating
+        // row grows; older rows reserve full layout via shouldReserveHiddenTail).
+        growsWithReveal: true,
+        // Continue typing from where the stream left off instead of snapping
+        // (reveal-position handoff, bug 2); 0 for a non-streamed row.
+        initialVisibleChars: viewModel.handoffSeed(forEntryId: entry.id),
         agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         debugRowID: entry.id.uuidString
       )
