@@ -1,13 +1,13 @@
 # Swift Isolation Rules
 
-**Scope**: `nonisolated` annotation traps under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` only. Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
+**Scope**: `nonisolated` annotation traps + the `nonisolated async` executor-inheritance trap under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (with `SWIFT_APPROACHABLE_CONCURRENCY = YES`). Patterns 1–5 are **compile-time annotation traps** (a diagnostic fires); Pattern 6 is a **silent runtime trap** (executor inheritance — no diagnostic, surfaces as a UI freeze). Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
 
 Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference traps in five specific patterns. The five share the same root cause (MainActor inference) but surface in two diagnostic forms:
 
 - **Conformance-site** (Pattern 1): `conformance of '<Type>' to protocol '<Protocol>' crosses into main actor-isolated code and can cause data races` — a previously-compiling type suddenly refusing to build.
 - **Use-site** (Patterns 2–5): fires at the test, generic collection, Sendable closure callsite, or conformance-lookup callsite — not the declaration. Patterns 2–4 surface as `Call to main actor-isolated <thing> in a synchronous nonisolated context`; Pattern 5 surfaces as `main actor-isolated conformance of '<Type>' to '<Protocol>' cannot be used in nonisolated context`.
 
-Easy to miss because the diagnostic doesn't point at the type definition.
+Easy to miss because the diagnostic doesn't point at the type definition. **Pattern 6 is the exception to this framing** — it produces *no diagnostic at all* (the code compiles and silently runs blocking work on the caller's MainActor executor). It is grouped here because it shares the root cause: a `nonisolated` member that fails to land off-main under default-MainActor isolation.
 
 ## Pattern 1 — Protocol-extension default impl + escaping closure
 
@@ -95,3 +95,49 @@ Pattern 2 (which says "auto-synth doesn't need the annotation").
 Reference: `Pastura/PasturaTests/Views/ModelRowAccessibilityTests.swift`
 carries `@MainActor` on the suite; `SheepAvatar.Character` keeps its
 default-MainActor isolation.
+
+## Pattern 6 — `nonisolated async` runs on the caller's executor (silent UI freeze)
+
+Under `SWIFT_APPROACHABLE_CONCURRENCY = YES` (which enables the
+`NonisolatedNonsendingByDefault` upcoming feature, SE-0461), a
+`nonisolated async` function does **not** hop to the global executor on
+its own — it runs on the **caller's** executor. So a `nonisolated async`
+method `await`-ed from a MainActor context runs **on the MainActor**, and
+any synchronous blocking work inside (a multi-second C call, heavy CPU)
+**freezes the UI**. The type-level `nonisolated` on the enclosing class
+does NOT save it: that annotation governs the *default isolation* of
+members, not which executor an `async` body runs on.
+
+Unlike Patterns 1–5 there is **no compiler diagnostic** — it builds clean
+and the freeze only shows on a real device. The same method is safe when
+reached from an already-off-main caller (e.g. inside an Engine `Task {}`
+producer), which is why a sibling `nonisolated async` can look fine while
+this one freezes.
+
+### Fix
+
+Mark the blocking `async` method `@concurrent` (the SE-0461 pairing
+attribute) to force its body onto the global concurrent executor
+regardless of caller.
+
+```swift
+nonisolated final class LlamaCppService: ... {
+  // Without @concurrent this runs on the MainActor caller
+  // (SimulationViewModel.run) and the synchronous multi-GB GGUF load
+  // freezes the UI on the scenario→simulation transition.
+  @concurrent private func loadModelInternal(...) async throws {
+    guard let model = llama_model_load_from_file(...) else { ... }  // blocking C call
+    _model = model  // nonisolated(unsafe) — no Sendable crossing
+  }
+}
+```
+
+Prefer `@concurrent` over wrapping the body in `Task.detached` when it
+touches non-`Sendable` state (e.g. C `OpaquePointer`s): `@concurrent` only
+changes the executor, so nothing crosses an isolation boundary, whereas
+returning a non-`Sendable` value out of a detached task is a Swift 6 error.
+`@concurrent` on a protocol witness does not change the protocol
+requirement's signature, so sibling conformances need no annotation.
+
+Reference: `Pastura/Pastura/LLM/LlamaCppService.swift` — `loadModelInternal`
+and `unloadModel` carry `@concurrent` (#822).
