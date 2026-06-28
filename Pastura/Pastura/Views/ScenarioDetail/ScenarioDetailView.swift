@@ -22,9 +22,9 @@ struct ScenarioDetailView: View {
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
 
-  /// Scroll anchor id for the content top — reset target on a
-  /// cross-language swap (see `scenarioContent`'s `.onChange`).
-  private static let scrollTopID = "scenarioDetail.top"
+  /// Drives the content scroll position so a cross-language swap can reset
+  /// to the top edge (see `scenarioContent`'s `.onChange`).
+  @State private var scrollPosition = ScrollPosition()
 
   var body: some View {
     Group {
@@ -145,54 +145,43 @@ struct ScenarioDetailView: View {
     scenario: Scenario,
     viewModel: ScenarioDetailViewModel
   ) -> some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
-          // Zero-height top anchor — target for the scroll-to-top on a
-          // cross-language swap (see `.onChange` below).
-          Color.clear.frame(height: 0).id(Self.scrollTopID)
-          galleryBannerSection(viewModel: viewModel)
-          summaryStrip(scenario: scenario, viewModel: viewModel)
-          contextSection(scenario: scenario)
-          personasSection(scenario: scenario)
-          phasesSection(scenario: scenario)
-          validationSection(viewModel: viewModel)
-          actionsSection(scenario: scenario, viewModel: viewModel)
-        }
-        .padding(.vertical, PasturaCardMetrics.interCardSpacing)
+    ScrollView {
+      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+        galleryBannerSection(viewModel: viewModel)
+        summaryStrip(scenario: scenario, viewModel: viewModel)
+        contextSection(scenario: scenario)
+        personasSection(scenario: scenario)
+        phasesSection(scenario: scenario)
+        validationSection(viewModel: viewModel)
+        actionsSection(scenario: scenario, viewModel: viewModel)
       }
-      .background(Color.screenBackground.ignoresSafeArea())
-      // Post-load anchor: this ScrollView only exists once the scenario
-      // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
-      // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
-      // applied after, its identifier scopes the inset's Run button too and
-      // overrides the button's own `scenarioDetail.runSimulationButton` id.
-      .accessibilityIdentifier("scenarioDetail.list")
-      // Primary CTA pinned to the bottom safe-area edge so the app's core
-      // action stays in the thumb zone regardless of scroll position; content
-      // scrolls under the band. The tab bar sits below this (focus mode hides
-      // the tab bar only during a run, ADR-017 — not here).
-      .safeAreaInset(edge: .bottom) {
-        runSimulationCTA(scenario: scenario, viewModel: viewModel)
-      }
-      // A cross-language toggle reuses this leaf (replaceTop swaps the top
-      // route in place), so the ScrollView keeps its prior offset — which
-      // would leave the new variant's large title above the fold. Reset to
-      // the top anchor so the swapped-in scenario reads from its title.
-      //
-      // Known limitation: `scrollTo(_:anchor: .top)` aligns the first
-      // content item with the viewport top, which sits one large-title's
-      // height *below* offset 0 — so the `.large` nav title collapses to
-      // inline after a switch (the fresh push still shows it large). It is
-      // visible and functional, just stylistically inconsistent with the
-      // first open. There is no iOS 17 API to scroll to the true top edge
-      // (offset 0, large title expanded).
-      // TODO: When the deployment target reaches iOS 18, replace this with
-      // `ScrollPosition.scrollTo(edge: .top)` (bound via `.scrollPosition`)
-      // to land at offset 0 so the large title re-expands on a swap (#830).
-      .onChange(of: scenarioId) {
-        proxy.scrollTo(Self.scrollTopID, anchor: .top)
-      }
+      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
+    }
+    .background(Color.screenBackground.ignoresSafeArea())
+    // Post-load anchor: this ScrollView only exists once the scenario
+    // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
+    // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
+    // applied after, its identifier scopes the inset's Run button too and
+    // overrides the button's own `scenarioDetail.runSimulationButton` id.
+    .accessibilityIdentifier("scenarioDetail.list")
+    // Primary CTA pinned to the bottom safe-area edge so the app's core
+    // action stays in the thumb zone regardless of scroll position; content
+    // scrolls under the band. The tab bar sits below this (focus mode hides
+    // the tab bar only during a run, ADR-017 — not here).
+    .safeAreaInset(edge: .bottom) {
+      runSimulationCTA(scenario: scenario, viewModel: viewModel)
+    }
+    .scrollPosition($scrollPosition)
+    // A cross-language toggle reuses this leaf (replaceTop swaps the top
+    // route in place), so the ScrollView keeps its prior offset — which
+    // would leave the new variant's large title above the fold. Reset to
+    // the top *edge* (offset 0) so the swapped-in scenario reads from its
+    // title and the `.large` nav title re-expands. `scrollTo(edge:)` lands
+    // at true offset 0 — unlike `ScrollViewReader.scrollTo(_:anchor:.top)`,
+    // which aligns the first item one title-height below 0 and collapses
+    // the large title to inline (#830).
+    .onChange(of: scenarioId) {
+      scrollPosition.scrollTo(edge: .top)
     }
   }
 
