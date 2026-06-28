@@ -189,7 +189,7 @@ struct ScenarioDetailView: View {
       // (offset 0, large title expanded).
       // TODO: When the deployment target reaches iOS 18, replace this with
       // `ScrollPosition.scrollTo(edge: .top)` (bound via `.scrollPosition`)
-      // to land at offset 0 so the large title re-expands on a swap.
+      // to land at offset 0 so the large title re-expands on a swap (#830).
       .onChange(of: scenarioId) {
         proxy.scrollTo(Self.scrollTopID, anchor: .top)
       }
