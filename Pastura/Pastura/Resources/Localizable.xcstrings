@@ -6478,6 +6478,7 @@
       }
     },
     "~%lld inferences" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
