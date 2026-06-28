@@ -29,7 +29,6 @@ flowchart TD
   scenarioDetail --> editor
   scenarioDetail --> galleryScenarioDetail
   scenarioDetail --> results
-  scenarioDetail --> scenarioDetail
   scenarioDetail --> simulation
   sharedScenarios --> galleryScenarioDetail
 ```

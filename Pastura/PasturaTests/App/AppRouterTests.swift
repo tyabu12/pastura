@@ -70,6 +70,43 @@ import Testing
     #expect(router.path == [.resultDetail(simulationId: ""), .scenarioDetail(scenarioId: "x")])
   }
 
+  // MARK: - replaceTop (same-screen-equivalent swap)
+
+  @Test func replaceTopSwapsTopWithoutChangingDepth() {
+    let router = AppRouter()
+    router.push(.results(scenarioId: "y"))
+    router.push(.scenarioDetail(scenarioId: "word_wolf"))
+
+    router.replaceTop(.scenarioDetail(scenarioId: "word_wolf_en"))
+
+    // The screen under the detail (results) is untouched; only the top swaps.
+    #expect(
+      router.path == [.results(scenarioId: "y"), .scenarioDetail(scenarioId: "word_wolf_en")])
+    #expect(router.path.count == 2)
+  }
+
+  @Test func replaceTopOnEmptyAppends() {
+    let router = AppRouter()
+    router.replaceTop(.scenarioDetail(scenarioId: "word_wolf"))
+    #expect(router.path == [.scenarioDetail(scenarioId: "word_wolf")])
+  }
+
+  @Test func replaceTopRoundTripKeepsDepthConstant() {
+    // The regression this fix targets: ja ⇄ en language toggling must NOT
+    // grow the stack. Each replaceTop swaps the top in place, so depth
+    // stays at the original push depth no matter how many times the user
+    // toggles.
+    let router = AppRouter()
+    router.push(.scenarioDetail(scenarioId: "word_wolf"))  // depth 1, the ja detail
+
+    router.replaceTop(.scenarioDetail(scenarioId: "word_wolf_en"))
+    router.replaceTop(.scenarioDetail(scenarioId: "word_wolf"))
+    router.replaceTop(.scenarioDetail(scenarioId: "word_wolf_en"))
+
+    #expect(router.path.count == 1)
+    #expect(router.path.last == .scenarioDetail(scenarioId: "word_wolf_en"))
+  }
+
   // MARK: - pushIfOnTop guard
 
   @Test func pushIfOnTopAppendsWhenExpectedMatches() {

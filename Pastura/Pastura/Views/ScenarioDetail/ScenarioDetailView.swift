@@ -16,9 +16,15 @@ struct ScenarioDetailView: View {
   // Programmatic push for the overflow-menu Edit / Use-as-Template actions:
   // a `NavigationLink` inside a `Menu` does not reliably push, so these go
   // through the current tab's router (navigation.md § "When to use what").
-  @Environment(AppRouter.self) private var router
+  // Not `private`: the sibling-file `+Sections.swift` extension reads it
+  // for the language-toggle `replaceTop` (private is file-scoped).
+  @Environment(AppRouter.self) var router
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
+
+  /// Scroll anchor id for the content top — reset target on a
+  /// cross-language swap (see `scenarioContent`'s `.onChange`).
+  private static let scrollTopID = "scenarioDetail.top"
 
   var body: some View {
     Group {
@@ -115,13 +121,17 @@ struct ScenarioDetailView: View {
       }
       Button(String(localized: "Cancel"), role: .cancel) {}
     }
-    .task {
-      // Defer assignment until `load()`, `refreshGalleryStatus()`, and
-      // `loadSibling()` all complete so the rendered sections don't
-      // pop in piecemeal — the gallery banner, the cross-language
-      // affordance, and the scenario content stabilise together.
-      // Guard prevents re-creation under `.task` re-fire.
-      guard viewModel == nil else { return }
+    // Keyed on `scenarioId` so the cross-language toggle reloads: tapping
+    // "View in English/Japanese" calls `AppRouter.replaceTop`, which swaps
+    // the top route in place — NavigationStack reuses this leaf by stack
+    // position, so a plain `.task` (load-once) would keep the prior
+    // language. `.task(id:)` re-fires when `scenarioId` changes; on first
+    // appear it also runs once. Building the new VM fully before assigning
+    // keeps the sections from popping in piecemeal — the gallery banner,
+    // the cross-language affordance, and the scenario content stabilise
+    // together (the old VM stays shown during the brief reload, no
+    // ProgressView flash).
+    .task(id: scenarioId) {
       let newViewModel = ScenarioDetailViewModel(
         repository: dependencies.scenarioRepository)
       await newViewModel.load(scenarioId: scenarioId)
@@ -135,31 +145,54 @@ struct ScenarioDetailView: View {
     scenario: Scenario,
     viewModel: ScenarioDetailViewModel
   ) -> some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
-        galleryBannerSection(viewModel: viewModel)
-        summaryStrip(scenario: scenario, viewModel: viewModel)
-        contextSection(scenario: scenario)
-        personasSection(scenario: scenario)
-        phasesSection(scenario: scenario)
-        validationSection(viewModel: viewModel)
-        actionsSection(scenario: scenario, viewModel: viewModel)
+    ScrollViewReader { proxy in
+      ScrollView {
+        VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
+          // Zero-height top anchor — target for the scroll-to-top on a
+          // cross-language swap (see `.onChange` below).
+          Color.clear.frame(height: 0).id(Self.scrollTopID)
+          galleryBannerSection(viewModel: viewModel)
+          summaryStrip(scenario: scenario, viewModel: viewModel)
+          contextSection(scenario: scenario)
+          personasSection(scenario: scenario)
+          phasesSection(scenario: scenario)
+          validationSection(viewModel: viewModel)
+          actionsSection(scenario: scenario, viewModel: viewModel)
+        }
+        .padding(.vertical, PasturaCardMetrics.interCardSpacing)
       }
-      .padding(.vertical, PasturaCardMetrics.interCardSpacing)
-    }
-    .background(Color.screenBackground.ignoresSafeArea())
-    // Post-load anchor: this ScrollView only exists once the scenario
-    // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
-    // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
-    // applied after, its identifier scopes the inset's Run button too and
-    // overrides the button's own `scenarioDetail.runSimulationButton` id.
-    .accessibilityIdentifier("scenarioDetail.list")
-    // Primary CTA pinned to the bottom safe-area edge so the app's core
-    // action stays in the thumb zone regardless of scroll position; content
-    // scrolls under the band. The tab bar sits below this (focus mode hides
-    // the tab bar only during a run, ADR-017 — not here).
-    .safeAreaInset(edge: .bottom) {
-      runSimulationCTA(scenario: scenario, viewModel: viewModel)
+      .background(Color.screenBackground.ignoresSafeArea())
+      // Post-load anchor: this ScrollView only exists once the scenario
+      // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
+      // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
+      // applied after, its identifier scopes the inset's Run button too and
+      // overrides the button's own `scenarioDetail.runSimulationButton` id.
+      .accessibilityIdentifier("scenarioDetail.list")
+      // Primary CTA pinned to the bottom safe-area edge so the app's core
+      // action stays in the thumb zone regardless of scroll position; content
+      // scrolls under the band. The tab bar sits below this (focus mode hides
+      // the tab bar only during a run, ADR-017 — not here).
+      .safeAreaInset(edge: .bottom) {
+        runSimulationCTA(scenario: scenario, viewModel: viewModel)
+      }
+      // A cross-language toggle reuses this leaf (replaceTop swaps the top
+      // route in place), so the ScrollView keeps its prior offset — which
+      // would leave the new variant's large title above the fold. Reset to
+      // the top anchor so the swapped-in scenario reads from its title.
+      //
+      // Known limitation: `scrollTo(_:anchor: .top)` aligns the first
+      // content item with the viewport top, which sits one large-title's
+      // height *below* offset 0 — so the `.large` nav title collapses to
+      // inline after a switch (the fresh push still shows it large). It is
+      // visible and functional, just stylistically inconsistent with the
+      // first open. There is no iOS 17 API to scroll to the true top edge
+      // (offset 0, large title expanded).
+      // TODO: When the deployment target reaches iOS 18, replace this with
+      // `ScrollPosition.scrollTo(edge: .top)` (bound via `.scrollPosition`)
+      // to land at offset 0 so the large title re-expands on a swap (#830).
+      .onChange(of: scenarioId) {
+        proxy.scrollTo(Self.scrollTopID, anchor: .top)
+      }
     }
   }
 
