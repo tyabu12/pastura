@@ -289,7 +289,15 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     try await loadModelInternal(gpuAcceleration: gpuAcceleration)
   }
 
-  private func loadModelInternal(gpuAcceleration: GPUAcceleration) async throws {
+  // `@concurrent`: the synchronous `llama_model_load_from_file` /
+  // `llama_init_from_model` calls below read a multi-GB GGUF and create the
+  // Metal context, blocking for seconds. This is a `nonisolated async` method,
+  // but under `SWIFT_APPROACHABLE_CONCURRENCY` (NonisolatedNonsendingByDefault)
+  // it would otherwise run on the *caller's* executor — and `loadModel()` is
+  // awaited from the MainActor `SimulationViewModel.run()`, so the load froze the
+  // UI on the scenario→simulation transition. `@concurrent` forces the body onto
+  // the global concurrent executor regardless of caller. (#822)
+  @concurrent private func loadModelInternal(gpuAcceleration: GPUAcceleration) async throws {
     await awaitGenerateIdle(caller: "loadModel")
 
     // llama_backend_init is internally ref-counted — safe to call multiple times
@@ -323,7 +331,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     loadedState.withLock { $0 = true }
   }
 
-  public func unloadModel() async throws {
+  // `@concurrent` for the same reason as `loadModelInternal`: `llama_free` /
+  // `llama_model_free` below release multi-GB buffers and would block the
+  // MainActor caller (`finalizeRun`, the memory-warning unload) under
+  // NonisolatedNonsendingByDefault. (#822)
+  @concurrent public func unloadModel() async throws {
     await awaitGenerateIdle(caller: "unloadModel")
 
     let wasLoaded = loadedState.withLock { loaded -> Bool in
