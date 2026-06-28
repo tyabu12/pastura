@@ -49,20 +49,20 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
   /// What the consumer does once playback has nothing left to play.
   public var onComplete: CompletionAction
 
-  /// Character-reveal rate (chars/second) for the demo replay's typing
-  /// animation, and the rate the pacing floor uses to estimate how long a
-  /// bubble takes to type. **Single source of truth** so the View
-  /// (``AgentOutputRow`` via ``ModelDownloadHostView``, through
-  /// ``ReplayViewModel/typingCharsPerSecond``) and the
-  /// ``ReplayViewModel`` turn-dwell floor read the same value and cannot
-  /// drift.
+  /// **Opt-in gate** for the demo replay's typing animation + proportional turn
+  /// dwell. Only its nil-ness is load-bearing: non-nil opts the source into
+  /// per-character reveal and the reading-dwell floor; `nil` keeps the flat
+  /// ``turnDelayMs`` / ``codePhaseDelayMs`` schedule and renders full text
+  /// immediately (matching ``PlaybackSpeed/charsPerSecond`` `nil == .instant`).
   ///
-  /// `nil` means "no proportional dwell" — the turn pacing stays on the
-  /// flat ``turnDelayMs`` / ``codePhaseDelayMs`` schedule and the View
-  /// renders full text immediately (matching ``PlaybackSpeed/charsPerSecond``
-  /// `nil == .instant`). Defaults to `nil` so existing configs and
-  /// timing-sensitive tests keep their legacy behaviour; only ``demoDefault``
-  /// opts in.
+  /// The stored *value* is no longer the floor's cps reference. Both the View
+  /// (``AgentOutputRow`` via ``ModelDownloadHostView``) and the turn-dwell floor
+  /// read ``ReplayViewModel/typingCharsPerSecond``, which resolves the live
+  /// speed-scaled ``PlaybackSpeed/charsPerSecond`` — the single source of truth
+  /// shared with the live Sim — so the two cannot drift regardless of this seed.
+  ///
+  /// Defaults to `nil` so existing configs and timing-sensitive tests keep their
+  /// legacy behaviour; only ``demoDefault`` opts in.
   public var typingCharsPerSecond: Double?
 
   public enum LoopBehaviour: Sendable, Equatable {
@@ -112,7 +112,9 @@ nonisolated public struct ReplayPlaybackConfig: Sendable, Equatable {
     playbackSpeed: .normal,
     loopBehaviour: .loop,
     onComplete: .awaitTransitionSignal,
-    // Opt the demo into proportional turn dwell at the Sim x1 cadence so a
-    // long bubble finishes typing before the next turn appears (no snap).
+    // Opt the demo into per-character typing + the reading-dwell floor. Any
+    // non-nil value works (only nil-ness gates); the floor reads the live
+    // speed-scaled cps, not this seed. `normal.charsPerSecond` is used as the
+    // self-documenting "x1 typing rate" marker.
     typingCharsPerSecond: PlaybackSpeed.normal.charsPerSecond)
 }

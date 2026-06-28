@@ -234,12 +234,12 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// SwiftUI re-renders the host (and rebuilds the row with the new cps) when
   /// the menu mutates it — no manual `@Observable` bridge needed.
   ///
-  /// The turn-dwell floor (``typingFloorMs(for:)``) keeps reading the *fixed*
-  /// `config.typingCharsPerSecond` reference, not this speed-scaled value:
-  /// ``scaledDelay(for:floorMs:)`` already divides that floor by
-  /// ``PlaybackSpeed/multiplier``, and `charsPerSecond == 30 × multiplier`, so
-  /// `floorMs / multiplier` already equals the speed-scaled typing duration —
-  /// the dwell stays synced with typing at every speed.
+  /// The turn-dwell floor (``typingFloorMs(for:script:)``) reads this **same**
+  /// speed-scaled value, so the floor is real wall-clock time at the current cps
+  /// rather than a fixed reference divided later. Typing animation, dwell floor,
+  /// and the live Sim (``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``)
+  /// all resolve from the one ``PlaybackSpeed/charsPerSecond`` source of truth,
+  /// so they cannot drift.
   var typingCharsPerSecond: Double? {
     // `config.typingCharsPerSecond` gates demo (non-nil) vs non-demo (nil).
     guard config.typingCharsPerSecond != nil else { return nil }
@@ -610,6 +610,11 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     sourceIndex: Int, startCursor: Int, firstSleepOverrideMs: Int?
   ) async {
     let plan = sources[sourceIndex].plannedEvents()
+    // Reading-density class for this source's dwell floor — constant for the
+    // whole source (language can't change mid-stream), resolved once like the
+    // Sim's per-run `script`.
+    let script = ReadingScript.resolve(
+      engineLanguage: sources[sourceIndex].scenario.engineLanguage)
     var cursor = startCursor
     var overrideMs = firstSleepOverrideMs
     // Typing-dwell floor owed by the previously-applied agent bubble (raw,
@@ -630,7 +635,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       apply(paced.event)
       // The floor for THIS bubble gates the delay before the NEXT event — the
       // window during which this bubble is typing on screen.
-      pendingFloorMs = typingFloorMs(for: paced.event)
+      pendingFloorMs = typingFloorMs(for: paced.event, script: script)
       cursor += 1
       // Only advance observable cursor if we're still playing (not
       // backgrounded mid-publish). Guards against a stale state
@@ -813,22 +818,38 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Pacing helpers
 
-  /// Extra dwell (ms) added on top of a bubble's typing duration so a fully
-  /// typed line lingers a beat before the next turn replaces the latest-row
-  /// animation. Tuned so a short turn's `max(turnDelayMs, typing + readPause)`
-  /// stays near the flat 1200ms rhythm while long bubbles extend past it.
-  private let typingReadPauseMs = 700
-
-  /// Proportional turn-dwell floor (raw ms, pre-speed) the *next* inter-event
-  /// delay must cover so the just-applied agent bubble finishes its
-  /// ``AgentOutputRow`` reveal animation before the next turn appears.
+  /// Proportional turn-dwell floor (raw ms, **real wall-clock at the current
+  /// speed**) the *next* inter-event delay must cover so the just-applied agent
+  /// bubble finishes its ``AgentOutputRow`` reveal — and is read for a beat —
+  /// before the next turn appears.
   ///
-  /// Returns 0 for non-agent events (nothing is typing) and when the config
-  /// opts out of proportional dwell (``ReplayPlaybackConfig/typingCharsPerSecond``
-  /// `== nil`). Otherwise estimates the reveal time via
-  /// ``TurnOutput/revealedSegments(for:includeThought:)`` +
-  /// ``typingDurationMs(primary:thought:charsPerSecond:)`` and adds
-  /// ``typingReadPauseMs``.
+  /// The floor is `typingMs + readingDwellMs` — the bubble types its whole line
+  /// over `typingMs`, then the reading dwell is an absorb beat held AFTER the
+  /// line is fully shown. This differs from the live Sim's
+  /// ``SimulationViewModel/holdAfterAgentOutput(script:)``, which uses
+  /// `max(dwell, remaining-tail-typing)`: there the line was already revealed
+  /// during live streaming *before* the hold begins, so the hold only needs the
+  /// dwell (the tail term is tiny). The demo has no streaming pre-reveal — the
+  /// entire reveal happens inside this floor window — so the dwell must be added
+  /// on top of the typing, not max-ed against it (a max would erase the reading
+  /// pause on any line whose typing already exceeds the dwell). Both terms are
+  /// computed at the *actual* speed-scaled cps / tier (the same
+  /// ``typingCharsPerSecond`` the row animates at), so the floor is already real
+  /// time and ``scaledDelay(for:floorMs:)`` must NOT divide it again by the
+  /// speed multiplier.
+  ///
+  /// Returns 0 for non-agent events (nothing is typing) and when there is no
+  /// proportional dwell — the config opts out
+  /// (``ReplayPlaybackConfig/typingCharsPerSecond`` `== nil`, non-demo) or
+  /// playback is `.instant`; both surface as a nil ``typingCharsPerSecond``.
+  ///
+  /// `script` is the current source's reading-density class (from
+  /// ``Scenario/engineLanguage``), resolved once per ``playSource(sourceIndex:startCursor:firstSleepOverrideMs:)``
+  /// entry and threaded in — constant within a source, exactly as the Sim passes
+  /// it to `holdAfterAgentOutput`. The reading dwell's `displayLength` is the
+  /// **primary** grapheme count only (thought excluded), matching the Sim's
+  /// `lastAgentOutputDisplayLength`; the thought, when shown, still counts toward
+  /// the typing term via ``TurnOutput/revealedSegments(for:includeThought:)``.
   ///
   /// The thought segment is gated on the global ``showAllThoughts``. NOTE:
   /// ``AgentOutputRow`` honours a *per-row* `showInnerThought` seeded from
@@ -838,42 +859,50 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// dwell, not a frame-exact contract (animation timing is code-review-gated
   /// per `.claude/rules/view-testing.md` rule 4, not asserted). `internal`
   /// (not `private`) so `ReplayViewModelTests+Pacing` can exercise it.
-  func typingFloorMs(for event: SimulationEvent) -> Int {
+  func typingFloorMs(for event: SimulationEvent, script: ReadingScript) -> Int {
     guard case .agentOutput(_, let output, let phaseType) = event else { return 0 }
-    // Uses the FIXED `config.typingCharsPerSecond` as the dwell reference
-    // (NOT the speed-scaled ``typingCharsPerSecond`` accessor). The
-    // dwell-vs-typing sync (see that accessor's doc) holds only because
-    // ``scaledDelay(for:floorMs:)`` divides this floor by
-    // ``PlaybackSpeed/multiplier`` AND `.demoDefault` seeds
-    // `config.typingCharsPerSecond` to exactly
-    // ``PlaybackSpeed/normal``'s `charsPerSecond` (30), with the speed
-    // buckets as linear multiples of 30. A future config seeding a
-    // non-30 cps while the buckets stay 15/30/45 would desync the floor
-    // from the actual typing rate — keep this reference == normal cps.
-    guard let cps = config.typingCharsPerSecond else { return 0 }
+    // Use the *actual* speed-scaled cps (the same value `AgentOutputRow`
+    // animates at) so the floor is real wall-clock time at the current speed —
+    // NOT a fixed reference divided later. A nil value covers both the opt-out
+    // config (non-demo) and `.instant` (no typing, no dwell).
+    guard let cps = typingCharsPerSecond else { return 0 }
     let segments = output.revealedSegments(
       for: phaseType, includeThought: showAllThoughts)
     let typing = typingDurationMs(
       primary: segments.primary, thought: segments.thought, charsPerSecond: cps)
+    // No text to type ⇒ no hold (an empty bubble shouldn't gate the next turn).
     guard typing > 0 else { return 0 }
-    return typing + typingReadPauseMs
+    let dwellMs = Self.milliseconds(
+      playbackSpeed.readingDwell(
+        displayLength: segments.primary.count, script: script))
+    return typing + dwellMs
+  }
+
+  /// Whole milliseconds of a `Duration` that carries only ms precision
+  /// (``PlaybackSpeed/readingDwell(displayLength:script:)`` builds it via
+  /// `.milliseconds`), so the round-trip back to `Int` ms is lossless.
+  private static func milliseconds(_ duration: Duration) -> Int {
+    let (seconds, attoseconds) = duration.components
+    return Int(seconds) * 1000 + Int(attoseconds / 1_000_000_000_000_000)
   }
 
   /// Per-event sleep in milliseconds. Reads ``playbackSpeed`` (the
   /// runtime-mutable VM state, not `config.playbackSpeed`) so a Speed
   /// Menu change reflects on the next call.
   ///
-  /// `.instant` short-circuits to 0ms before the multiplier division —
-  /// symmetric with the early-return in ``YAMLReplaySource``. The
-  /// `.infinity` sentinel on `.instant.multiplier` would arithmetically
-  /// produce 0 too, but explicit early-return avoids depending on
-  /// IEEE-754 division semantics.
+  /// `.instant` short-circuits to 0ms — symmetric with the early-return in
+  /// ``YAMLReplaySource``. The `.infinity` sentinel on `.instant.multiplier`
+  /// would arithmetically produce 0 too, but explicit early-return avoids
+  /// depending on IEEE-754 division semantics.
   ///
-  /// `floorMs` is the proportional turn-dwell floor (raw, pre-speed): the
-  /// time the previously-applied agent bubble still needs to finish typing
-  /// (see ``typingFloorMs(for:)``). The base delay is raised to at least the
-  /// floor *before* the speed division, so a long bubble holds the next turn
-  /// until it has typed out, while short turns keep the flat ``turnDelayMs``
+  /// The **structural base** (``ReplayPlaybackConfig/turnDelayMs`` /
+  /// `codePhaseDelayMs`) scales with ``PlaybackSpeed/multiplier``. `floorMs` —
+  /// the proportional turn-dwell floor from ``typingFloorMs(for:script:)`` — is
+  /// already real wall-clock time at the current cps, so it is **NOT** divided;
+  /// the result is `max(base / multiplier, floorMs)`. This mirrors the live Sim,
+  /// whose hold (`max(readingDwell, pendingTypingHold)`) scales neither term by
+  /// a multiplier. A long bubble therefore holds the next turn until it has
+  /// typed out + been read, while short turns keep the flat ``turnDelayMs``
   /// rhythm. `.instant` ignores the floor too (collapses to 0). `internal`
   /// (not `private`) so `ReplayViewModelTests+Pacing` can pin the arithmetic.
   func scaledDelay(for kind: PacedEvent.Kind, floorMs: Int = 0) -> Int {
@@ -888,7 +917,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case .lifecycle:
       base = 0
     }
-    return Int(Double(max(base, floorMs)) / speed)
+    return max(Int(Double(base) / speed), floorMs)
   }
 
   /// Computes the outstanding sleep in milliseconds given

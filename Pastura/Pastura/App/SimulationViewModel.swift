@@ -236,15 +236,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// or `nil` when the row must not animate.
   ///
   /// Returns `nil` only for `.instant` playback
-  /// (`speed.simCharsPerSecond == nil`) — every other speed animates. A row
+  /// (`speed.charsPerSecond == nil`) — every other speed animates. A row
   /// whose primary streamed live is NOT snapped here; it animates from its
   /// handoff seed (``handoffSeed(forEntryId:)``) and continues
   /// typing the unrevealed tail at cps (reveal-position handoff, bug 2).
   ///
-  /// Uses ``PlaybackSpeed/simCharsPerSecond`` (the live-Sim rate), NOT
-  /// ``PlaybackSpeed/charsPerSecond`` (which is the demo-replay rate).
+  /// Uses ``PlaybackSpeed/charsPerSecond`` — the single typing-rate source of
+  /// truth shared with the demo replay (``ReplayViewModel/typingCharsPerSecond``).
   func effectiveCharsPerSecond(forEntryId entryId: UUID) -> Double? {
-    speed.simCharsPerSecond
+    speed.charsPerSecond
   }
 
   /// Reveal-handoff seed for the committed row of `entryId`: the
@@ -1460,7 +1460,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// (`internal`) so the hold decision is unit-testable without a wall-clock
   /// sleep (view-testing rule 4).
   var pendingTypingHold: Duration {
-    guard let reveal = lastAgentOutputReveal, let cps = speed.simCharsPerSecond
+    guard let reveal = lastAgentOutputReveal, let cps = speed.charsPerSecond
     else { return .zero }
     return .milliseconds(
       remainingTypingDurationMs(

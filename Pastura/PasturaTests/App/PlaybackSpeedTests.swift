@@ -11,29 +11,18 @@ struct PlaybackSpeedTests {
   }
 
   @Test func charsPerSecondValues() {
-    // Demo-replay typing rate. `.normal == 30` is load-bearing for the demo's
-    // typingFloorMs invariant — do not retune here; the Sim uses simCharsPerSecond.
-    #expect(PlaybackSpeed.slow.charsPerSecond == 15)
-    #expect(PlaybackSpeed.normal.charsPerSecond == 30)
+    // The SINGLE typing-rate source of truth — shared by the live Sim
+    // (``SimulationViewModel/effectiveCharsPerSecond(forEntryId:)``) and the
+    // demo replay (``ReplayViewModel/typingCharsPerSecond``). Change-detector
+    // pin: a failure means a code-review-gated pacing rate drifted — confirm it
+    // was an intentional, reviewed change, then update the expected value.
+    // `.fast` is the speed escape hatch; `.instant` stays nil for the
+    // instant-snap invariant. cps tiers are intentionally non-linear (the demo
+    // floor no longer assumes linearity vs `multiplier`).
+    #expect(PlaybackSpeed.slow.charsPerSecond == 6)
+    #expect(PlaybackSpeed.normal.charsPerSecond == 10)
     #expect(PlaybackSpeed.fast.charsPerSecond == 45)
     #expect(PlaybackSpeed.instant.charsPerSecond == nil)
-  }
-
-  @Test func simCharsPerSecondValues() {
-    // Live-Sim typing rate — slower than charsPerSecond for read-along
-    // comprehension. `.fast` deliberately matches charsPerSecond (45); `.instant`
-    // stays nil for the instant-snap invariant. Change-detector pin.
-    #expect(PlaybackSpeed.slow.simCharsPerSecond == 6)
-    #expect(PlaybackSpeed.normal.simCharsPerSecond == 10)
-    #expect(PlaybackSpeed.fast.simCharsPerSecond == 45)
-    #expect(PlaybackSpeed.instant.simCharsPerSecond == nil)
-  }
-
-  @Test func simCharsPerSecondIsNotFasterThanDemoExceptFast() {
-    // Sim slow/normal are slower (smaller cps) than the demo tiers; fast parity.
-    #expect(PlaybackSpeed.slow.simCharsPerSecond! < PlaybackSpeed.slow.charsPerSecond!)
-    #expect(PlaybackSpeed.normal.simCharsPerSecond! < PlaybackSpeed.normal.charsPerSecond!)
-    #expect(PlaybackSpeed.fast.simCharsPerSecond == PlaybackSpeed.fast.charsPerSecond)
   }
 
   @Test func interEventDelayMsValues() {

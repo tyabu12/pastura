@@ -81,7 +81,7 @@ extension AgentOutputRowContractTests {
 
   @Test func dropsHiddenTailForStreamingRowWithGrowsWithReveal() {
     // The live Sim streaming row opts into `growsWithReveal` so the bubble
-    // grows with the typed prefix (simCharsPerSecond is slower than tokens
+    // grows with the typed prefix (charsPerSecond is slower than tokens
     // arrive — reserving to the buffer made the box outrun the text). A
     // streaming override animates (`shouldAnimate` true via streamingPrimary),
     // so grows + animating → drop the tail.
