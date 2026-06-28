@@ -22,24 +22,23 @@ import Foundation
 /// - **Sim** (``SimulationViewModel``) uses ``simCharsPerSecond`` (typing
 ///   animation — slower than ``charsPerSecond`` for read-along comprehension),
 ///   ``readingDwell(displayLength:script:)`` (post-utterance reading pause),
-///   and ``interEventDelayMs`` (non-agent inter-event delay). It does NOT use
-///   ``charsPerSecond`` — that property is the demo-replay typing rate (see
-///   below), kept separate so the demo's `typingFloorMs` invariant
-///   (`== normal cps == 30`) is unaffected when the Sim rate changes.
-/// - **``ReplayViewModel``** (the replay *pacing* model) uses
-///   ``multiplier`` to scale ``ReplayPlaybackConfig``'s `turnDelayMs` /
-///   `codePhaseDelayMs`. It does **not** consume ``charsPerSecond`` (it
-///   advances bubbles on its own sleep clock, not a per-character
-///   timeline) nor ``interEventDelayMs`` (its turn vs. codePhase
-///   distinction is richer than Sim's flat 120ms-or-zero gap). Don't
-///   extend replay pacing through the Sim-side properties; add a
-///   replay-side property here if a new pacing dimension is needed.
+///   and ``interEventDelayMs`` (non-agent inter-event delay).
+/// - **``ReplayViewModel``** (the demo replay) uses ``charsPerSecond`` (the
+///   demo typing rate, via ``ReplayViewModel/typingCharsPerSecond``),
+///   ``readingDwell(displayLength:script:)`` — the **same** length-scaled
+///   reading pause the Sim uses — to build its per-bubble turn-dwell floor
+///   (``ReplayViewModel/typingFloorMs(for:script:)``), and ``multiplier`` to
+///   scale the structural base delays (``ReplayPlaybackConfig``'s `turnDelayMs`
+///   / `codePhaseDelayMs`). It does **not** consume ``interEventDelayMs`` (its
+///   turn vs. codePhase distinction is richer than Sim's flat 120ms-or-zero
+///   gap). The dwell floor is real wall-clock at the live cps, so
+///   ``scaledDelay(for:floorMs:)`` scales only the base, never the floor.
 /// - **The DL-time demo replay _screen_** (``ModelDownloadHostView``)
 ///   renders ``ReplayViewModel``'s `chatItems` through ``AgentOutputRow``.
 ///   Its typing cps comes from ``ReplayViewModel/typingCharsPerSecond``,
 ///   which (since #791) tracks the runtime ``ReplayViewModel/playbackSpeed``
-///   — so the demo's Speed picker scales **both** typing cps (this property)
-///   and turn dwell (``multiplier``), matching Sim at every speed (not just
+///   — so the demo's Speed picker scales typing cps, reading dwell, AND the
+///   structural base delays together, matching Sim at every speed (not just
 ///   x1). ``ReplayPlaybackConfig/typingCharsPerSecond`` remains the opt-in
 ///   gate (demo non-nil vs non-demo nil).
 /// - ``.instant`` should be handled by an explicit early-return at
@@ -147,12 +146,13 @@ nonisolated public enum PlaybackSpeed:
   /// gentler than the raw reading-rate ratio (~0.4×) to bias toward
   /// comprehension over speed.
   ///
-  /// **Sim-only.** Like ``charsPerSecond`` and ``interEventDelayMs`` this is
-  /// a Sim-side pacing property: ``ReplayViewModel`` already paces turns via
-  /// ``multiplier`` × `turnDelayMs`/`codePhaseDelayMs` (with its own
-  /// typing-floor read pause) and must NOT route through this — see the
-  /// type-level "Consumers" note and the `multiplier` doc-comment's
-  /// replay-only contract.
+  /// **Shared by Sim and the demo replay.** The Sim sleeps this directly in
+  /// ``SimulationViewModel/holdAfterAgentOutput(script:)``; the demo folds it
+  /// into its per-bubble turn-dwell floor
+  /// (``ReplayViewModel/typingFloorMs(for:script:)``) as the `max(typing, dwell)`
+  /// reading beat, so both surfaces use the one length-scaled pause and cannot
+  /// drift. (``interEventDelayMs`` stays Sim-only; the demo's structural base
+  /// delays are scaled by ``multiplier`` instead.)
   ///
   /// **`displayLength` is the grapheme count of the committed _primary_ text**
   /// (``TurnOutput/primaryText(for:)`` — see the consumer in

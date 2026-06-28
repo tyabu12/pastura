@@ -41,9 +41,16 @@ extension ReplayViewModelTests {
       sources: [source], config: .demoDefault, contentFilter: ContentFilter())
   }
 
+  // The demo fixture is `language: ja` (`makeSource()`), so the run resolves to
+  // `.dense` reading density — pin it explicitly here so the next reader does
+  // not recompute the expected dwell against `.sparse`.
+  private static let demoScript: ReadingScript = .dense
+
   @Test func floorIsZeroForNonAgentEvent() throws {
     let viewModel = try Self.makeDemoPacedVM()
-    #expect(viewModel.typingFloorMs(for: .roundStarted(round: 1, totalRounds: 3)) == 0)
+    #expect(
+      viewModel.typingFloorMs(
+        for: .roundStarted(round: 1, totalRounds: 3), script: Self.demoScript) == 0)
   }
 
   @Test func floorIsZeroWhenConfigOptsOut() throws {
@@ -52,16 +59,27 @@ extension ReplayViewModelTests {
     let event = SimulationEvent.agentOutput(
       agent: "Alice", output: TurnOutput(fields: ["statement": "Hi."]),
       phaseType: .speakAll)
-    #expect(viewModel.typingFloorMs(for: event) == 0)
+    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 0)
   }
 
-  @Test func floorIsTypingDurationPlusReadPause() throws {
-    let viewModel = try Self.makeDemoPacedVM()
+  @Test func floorIsMaxOfTypingAndReadingDwell() throws {
+    let viewModel = try Self.makeDemoPacedVM()  // .normal speed, cps 30 here
     let event = SimulationEvent.agentOutput(
       agent: "Alice", output: TurnOutput(fields: ["statement": "Hi."]),
       phaseType: .speakAll)
-    // typingDurationMs("Hi.", "", 30) == 400; + typingReadPauseMs(700) == 1100.
-    #expect(viewModel.typingFloorMs(for: event) == 1100)
+    // typingDurationMs("Hi.", "", 30) == 400; readingDwell(len 3, dense, normal)
+    // == 300 + 60*3 == 480; floor == max(400, 480) == 480.
+    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 480)
+  }
+
+  @Test func floorUsesSparseDwellForLatinScript() throws {
+    let viewModel = try Self.makeDemoPacedVM()  // .normal speed, cps 30 here
+    let event = SimulationEvent.agentOutput(
+      agent: "Alice", output: TurnOutput(fields: ["statement": "Hi."]),
+      phaseType: .speakAll)
+    // Same cps (typing 400) but sparse dwell == 300 + 38*3 == 414;
+    // floor == max(400, 414) == 414. Confirms the dwell tracks the script.
+    #expect(viewModel.typingFloorMs(for: event, script: .sparse) == 414)
   }
 
   @Test func floorOmitsThoughtWhenThoughtsHidden() throws {
@@ -71,8 +89,8 @@ extension ReplayViewModelTests {
       agent: "Alice",
       output: TurnOutput(fields: ["statement": "Hi.", "inner_thought": "secret"]),
       phaseType: .speakAll)
-    // Thought segment excluded → same as the no-thought case (1100), not larger.
-    #expect(viewModel.typingFloorMs(for: event) == 1100)
+    // Thought excluded → same as the no-thought case (480), not larger.
+    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 480)
   }
 
   // MARK: - scaledDelay floor application
@@ -80,6 +98,15 @@ extension ReplayViewModelTests {
   @Test func scaledDelayTakesFloorWhenFloorExceedsBase() throws {
     let viewModel = try Self.makeDemoPacedVM()  // .normal speed (multiplier 1.0)
     // floor 5000 > turnDelayMs 1200 → 5000.
+    #expect(viewModel.scaledDelay(for: .turn, floorMs: 5000) == 5000)
+  }
+
+  @Test func scaledDelayHonorsRealTimeFloorAtFastSpeed() throws {
+    let viewModel = try Self.makeDemoPacedVM()
+    viewModel.playbackSpeed = .fast
+    // Structural base compresses (1200 / 1.5 == 800) but the floor is real
+    // wall-clock time at the current cps, so it is NOT divided → max(800, 5000)
+    // == 5000. (The old `max(base, floor)/multiplier` form yielded 3333.)
     #expect(viewModel.scaledDelay(for: .turn, floorMs: 5000) == 5000)
   }
 
