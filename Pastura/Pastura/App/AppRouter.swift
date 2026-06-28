@@ -34,8 +34,8 @@ final class AppRouter {
   ///
   /// **Do not mutate this array directly from outside `AppRouter` and
   /// the root `NavigationStack` binding** — go through `push(_:)` /
-  /// `pop()` / `popToRoot()` / `replacePath(_:)` so intent stays
-  /// auditable. The property is `var` only because `NavigationStack`
+  /// `pop()` / `popToRoot()` / `replaceTop(_:)` / `replacePath(_:)` so
+  /// intent stays auditable. The property is `var` only because `NavigationStack`
   /// requires a `Binding`.
   var path: [Route] = []
 
