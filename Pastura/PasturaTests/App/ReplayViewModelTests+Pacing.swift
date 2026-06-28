@@ -62,15 +62,16 @@ extension ReplayViewModelTests {
     #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 0)
   }
 
-  @Test func floorIsMaxOfTypingAndReadingDwell() throws {
+  @Test func floorIsTypingPlusReadingDwell() throws {
     let viewModel = try Self.makeDemoPacedVM()  // .normal speed, cps 10
     let event = SimulationEvent.agentOutput(
       agent: "Alice", output: TurnOutput(fields: ["statement": "abc"]),
       phaseType: .speakAll)
     // typingDurationMs("abc", "", 10) == 300 (no punctuation); readingDwell(len 3,
-    // dense, normal) == 300 + 60*3 == 480; floor == max(300, 480) == 480 (the
-    // reading dwell dominates this short line).
-    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 480)
+    // dense, normal) == 300 + 60*3 == 480; floor == typing + dwell == 780. The
+    // dwell is an absorb beat held AFTER the line types out (the demo reveals the
+    // whole line inside the floor window), not max-ed against typing.
+    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 780)
   }
 
   @Test func floorUsesSparseDwellForLatinScript() throws {
@@ -79,8 +80,8 @@ extension ReplayViewModelTests {
       agent: "Alice", output: TurnOutput(fields: ["statement": "abc"]),
       phaseType: .speakAll)
     // Same typing (300) but sparse dwell == 300 + 38*3 == 414;
-    // floor == max(300, 414) == 414. Confirms the dwell tracks the script.
-    #expect(viewModel.typingFloorMs(for: event, script: .sparse) == 414)
+    // floor == 300 + 414 == 714. Confirms the dwell tracks the script.
+    #expect(viewModel.typingFloorMs(for: event, script: .sparse) == 714)
   }
 
   @Test func floorOmitsThoughtWhenThoughtsHidden() throws {
@@ -90,9 +91,9 @@ extension ReplayViewModelTests {
       agent: "Alice",
       output: TurnOutput(fields: ["statement": "abc", "inner_thought": "secret"]),
       phaseType: .speakAll)
-    // Thought excluded → floor stays the no-thought dwell (480); including it
-    // would push typing to 1200 (9 chars + boundary beat) and dominate.
-    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 480)
+    // Thought excluded → typing stays 300, floor == 300 + dwell(480) == 780;
+    // including it would push typing to 1200 (9 chars + boundary beat) → 1680.
+    #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 780)
   }
 
   // MARK: - scaledDelay floor application

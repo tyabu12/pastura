@@ -823,13 +823,20 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// bubble finishes its ``AgentOutputRow`` reveal — and is read for a beat —
   /// before the next turn appears.
   ///
-  /// Mirrors the live Sim's
-  /// ``SimulationViewModel/holdAfterAgentOutput(script:)``: the floor is
-  /// `max(typingMs, readingDwellMs)`, NOT their sum, because the two overlap —
-  /// the reader reads the line as it types. Both terms are computed at the
-  /// *actual* speed-scaled cps / tier (the same ``typingCharsPerSecond`` the
-  /// row animates at), so the floor is already real time and ``scaledDelay(for:floorMs:)``
-  /// must NOT divide it again by the speed multiplier.
+  /// The floor is `typingMs + readingDwellMs` — the bubble types its whole line
+  /// over `typingMs`, then the reading dwell is an absorb beat held AFTER the
+  /// line is fully shown. This differs from the live Sim's
+  /// ``SimulationViewModel/holdAfterAgentOutput(script:)``, which uses
+  /// `max(dwell, remaining-tail-typing)`: there the line was already revealed
+  /// during live streaming *before* the hold begins, so the hold only needs the
+  /// dwell (the tail term is tiny). The demo has no streaming pre-reveal — the
+  /// entire reveal happens inside this floor window — so the dwell must be added
+  /// on top of the typing, not max-ed against it (a max would erase the reading
+  /// pause on any line whose typing already exceeds the dwell). Both terms are
+  /// computed at the *actual* speed-scaled cps / tier (the same
+  /// ``typingCharsPerSecond`` the row animates at), so the floor is already real
+  /// time and ``scaledDelay(for:floorMs:)`` must NOT divide it again by the
+  /// speed multiplier.
   ///
   /// Returns 0 for non-agent events (nothing is typing) and when there is no
   /// proportional dwell — the config opts out
@@ -863,12 +870,12 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       for: phaseType, includeThought: showAllThoughts)
     let typing = typingDurationMs(
       primary: segments.primary, thought: segments.thought, charsPerSecond: cps)
+    // No text to type ⇒ no hold (an empty bubble shouldn't gate the next turn).
+    guard typing > 0 else { return 0 }
     let dwellMs = Self.milliseconds(
       playbackSpeed.readingDwell(
         displayLength: segments.primary.count, script: script))
-    let floor = max(typing, dwellMs)
-    guard floor > 0 else { return 0 }
-    return floor
+    return typing + dwellMs
   }
 
   /// Whole milliseconds of a `Duration` that carries only ms precision

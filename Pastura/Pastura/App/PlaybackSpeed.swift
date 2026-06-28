@@ -132,12 +132,15 @@ nonisolated public enum PlaybackSpeed:
   /// comprehension over speed.
   ///
   /// **Shared by Sim and the demo replay.** The Sim sleeps this directly in
-  /// ``SimulationViewModel/holdAfterAgentOutput(script:)``; the demo folds it
-  /// into its per-bubble turn-dwell floor
-  /// (``ReplayViewModel/typingFloorMs(for:script:)``) as the `max(typing, dwell)`
-  /// reading beat, so both surfaces use the one length-scaled pause and cannot
-  /// drift. (``interEventDelayMs`` stays Sim-only; the demo's structural base
-  /// delays are scaled by ``multiplier`` instead.)
+  /// ``SimulationViewModel/holdAfterAgentOutput(script:)`` (as `max(dwell,
+  /// remaining-tail-typing)`, since its line was already revealed during
+  /// streaming); the demo adds it on top of the full typing time in its
+  /// per-bubble turn-dwell floor
+  /// (``ReplayViewModel/typingFloorMs(for:script:)`` `== typing + dwell`, since
+  /// the demo types the whole line inside the floor window). Both surfaces use
+  /// the one length-scaled pause and cannot drift. (``interEventDelayMs`` stays
+  /// Sim-only; the demo's structural base delays are scaled by ``multiplier``
+  /// instead.)
   ///
   /// **`displayLength` is the grapheme count of the committed _primary_ text**
   /// (``TurnOutput/primaryText(for:)`` — see the consumer in
