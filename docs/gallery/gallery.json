@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-27T00:00:00Z",
+  "updated_at": "2026-06-28T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -304,6 +304,47 @@
       "yaml_url": "uragiri_entaku_v1.yaml",
       "yaml_sha256": "79e07fb9b147be2f5aab0d5ec85acd2955fefe8c8ccfc9a499fbcf424f9c2925",
       "added_at": "2026-06-27"
+    },
+    {
+      "id": "yusha_kaiko_v1",
+      "title": "勇者パーティー 解雇会議",
+      "category": "roleplay",
+      "description": "冒険者ギルドの予算削減で、5人パーティーが毎ラウンド一人を解雇しなければならない。各メンバーが「自分こそ不可欠」と芸風全開で訴え、最も要らない者を投票で勝ち抜き脱落させる解雇バトル。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "speak_all",
+        "vote",
+        "score_calc",
+        "eliminate",
+        "summarize"
+      ],
+      "yaml_url": "yusha_kaiko_v1.yaml",
+      "yaml_sha256": "429e6bddb4de6b9995cff44ef9e2d5f8278d2f860a9643d4be49d631d9d31f08",
+      "added_at": "2026-06-28"
+    },
+    {
+      "id": "kasei_sanso_touban_v1",
+      "title": "火星コロニー 酸素当番",
+      "category": "game_theory",
+      "description": "火星コロニーの酸素装置が故障寸前。誰か一人が命がけの船外修理に出なければ全員が窒息するが、誰もが「自分以外の誰か」が行くことを願う——ボランティアのジレンマを体現する当番決め会議。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 30,
+      "agent_count": 5,
+      "rounds": 2,
+      "phases": [
+        "speak_all",
+        "vote",
+        "score_calc",
+        "conditional"
+      ],
+      "yaml_url": "kasei_sanso_touban_v1.yaml",
+      "yaml_sha256": "75acd176a810ce8a3d11da2dbd28be771f54f88524a8dcd1895fa613f4fef3a4",
+      "added_at": "2026-06-28"
     }
   ]
 }
