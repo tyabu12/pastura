@@ -71,6 +71,32 @@ final class AppRouter {
     path.removeAll()
   }
 
+  /// Replaces the **top** route in place, keeping stack depth constant.
+  ///
+  /// Use this for a *same-screen-equivalent* swap — e.g. a cross-language
+  /// toggle (View in English ⇄ View in Japanese) where the user is
+  /// conceptually staying on "the detail screen" but changing which
+  /// variant it shows. A plain `push` would grow the stack on every
+  /// toggle: the ja and en variants are distinct `scenarioId`s, so each
+  /// is a distinct `Route`, and `pushIfOnTop` can't dedupe them either
+  /// (it only guards re-pushing the *same* route). Replacing the top
+  /// keeps `Back` pointing at the screen the user entered the detail from.
+  ///
+  /// Implemented as a single subscript assignment rather than
+  /// `pop()` + `push(_:)` so `NavigationStack(path:)` observes **one**
+  /// mutation — the two-step form can render the intermediate (popped)
+  /// state for a frame, flashing the screen underneath.
+  ///
+  /// On an empty path this falls back to `push(_:)` (no top to replace).
+  /// Like `push` / `pop`, it operates on the current tab's stack.
+  func replaceTop(_ route: Route) {
+    guard !path.isEmpty else {
+      path.append(route)
+      return
+    }
+    path[path.count - 1] = route
+  }
+
   /// Replaces the entire path. Reserved for future state-restoration /
   /// deep-link entry points; prefer `push` / `pop` from view code.
   func replacePath(_ routes: [Route]) {
