@@ -110,7 +110,7 @@ Utilities/ → depends on nothing
 |--------------------|-------------------------------|-----------|
 | Language           | Swift                         | 6.x       |
 | UI                 | SwiftUI                       |           |
-| Min iOS            | 17.0                          |           |
+| Min iOS            | 18.0                          |           |
 | YAML parser        | Yams                          | 6.2.2     |
 | SQLite             | GRDB                          | 7.11.0    |
 | LLM (TestFlight)   | llama.cpp via mattt/llama.swift | pinned   |
