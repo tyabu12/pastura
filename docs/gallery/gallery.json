@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-24T00:00:00Z",
+  "updated_at": "2026-06-27T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -284,6 +284,26 @@
       "yaml_url": "chinwaza_saiyo_v1.yaml",
       "yaml_sha256": "f9b817d272b26bb10ff0a28e30df6ec00847f7912de96b96f811e5b7d861d08e",
       "added_at": "2026-06-21"
+    },
+    {
+      "id": "uragiri_entaku_v1",
+      "title": "裏切りの円卓",
+      "category": "game_theory",
+      "description": "最後の一人になるまで生き残る、同盟と裏切りのサバイバル。協力・裏切り・応報・執念・黒幕——5人が固有のゲーム理論戦略を抱え、毎ラウンド議論で同盟を組み、最も危険な相手を投票で追放する。早すぎる裏切りは自分が標的になり、遅すぎれば出し抜かれる。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 30,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_all",
+        "vote",
+        "eliminate",
+        "summarize"
+      ],
+      "yaml_url": "uragiri_entaku_v1.yaml",
+      "yaml_sha256": "79e07fb9b147be2f5aab0d5ec85acd2955fefe8c8ccfc9a499fbcf424f9c2925",
+      "added_at": "2026-06-27"
     }
   ]
 }
