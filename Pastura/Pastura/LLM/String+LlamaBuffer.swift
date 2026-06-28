@@ -10,8 +10,9 @@ extension String {
   /// `llama_chat_apply_template`, `llama_token_to_piece`).
   ///
   /// Uses `String(bytes:encoding:)` on the `Int8` slice reinterpreted as
-  /// `UInt8`, which is valid on iOS 17+ (unlike `String(validating:as:)`,
-  /// which requires iOS 18).
+  /// `UInt8`. (`String(validating:as:)` is also available now that iOS 18 is
+  /// the floor, but this path deliberately relies on the empty-string-on-
+  /// invalid-UTF-8 behavior documented below.)
   ///
   /// **Behavior on invalid UTF-8**: returns an empty string. This differs
   /// from `String(cString:)` which substitutes `U+FFFD` for invalid bytes.
