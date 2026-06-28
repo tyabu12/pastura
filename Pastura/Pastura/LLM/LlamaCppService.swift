@@ -255,6 +255,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// - Note: Any attached ``SuspendController`` is preserved across the
   ///   unload/load cycle via `defer`, matching ``reloadModel(gpuAcceleration:)``.
   public func loadModel() async throws {
+    // This wrapper is NOT `@concurrent`, so it runs on the MainActor caller
+    // (`SimulationViewModel.run()`). That is safe only because it delegates all
+    // blocking work to the `@concurrent` `unloadModel` / `loadModelInternal`.
+    // Do NOT add synchronous blocking work directly here — it would re-freeze the
+    // UI with no diagnostic (swift-isolation.md Pattern 6). (#822)
     let preservedController = suspendController
     defer { suspendController = preservedController }
     try await unloadModel()
@@ -283,6 +288,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   ///
   /// - Parameter gpuAcceleration: Desired GPU acceleration mode for the new load.
   public func reloadModel(gpuAcceleration: GPUAcceleration) async throws {
+    // See `loadModel()`: this wrapper runs on its caller's executor; keep all
+    // blocking work in the `@concurrent` internals it delegates to. (#822)
     let preservedController = suspendController
     defer { suspendController = preservedController }
     try await unloadModel()
