@@ -3568,6 +3568,16 @@
         }
       }
     },
+    "Loading model..." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルを読み込み中..."
+          }
+        }
+      }
+    },
     "Loading scenario..." : {
       "localizations" : {
         "ja" : {

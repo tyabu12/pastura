@@ -512,6 +512,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// on foreground return from a background simulation.
   var isReloadingModel = false
 
+  /// True while the LLM model is being loaded from disk at the start of a
+  /// run / resume (before the first `SimulationEvent`). Surfaced to the UI so
+  /// it can show a "Loading model..." overlay over the still-empty log — the
+  /// load reads a multi-GB GGUF + inits the Metal context and takes a few
+  /// seconds (HIG: show progress for waits of unquantifiable duration). The
+  /// initial-load sibling of ``isReloadingModel`` (GPU↔CPU switch). (#822)
+  /// `private(set)`: only mutated here in `run()` / `resume()` (same file).
+  private(set) var isLoadingModel = false
+
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
@@ -836,12 +845,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       codePhasePersistenceContinuation?.finish()
       backgroundManager?.completeTask(success: isCompleted)
       isRunning = false
+      // Safety net for the early-return / cancellation paths; the success path
+      // clears it explicitly below before the event stream so the overlay is
+      // gone while the log fills.
+      isLoadingModel = false
       currentLLM = nil
       suspendController = nil
       simulationActivityRegistry?.leave()
     }
 
     // Load LLM model
+    isLoadingModel = true
     do {
       try await llm.loadModel()
     } catch {
@@ -853,6 +867,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       await persistStatus(.failed)
       return
     }
+    isLoadingModel = false
 
     // Consume event stream. Agent outputs are paced by the per-row typing
     // animation in AgentOutputRow; other events (phase/round separators,
@@ -1052,6 +1067,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       codePhasePersistenceContinuation?.finish()
       backgroundManager?.completeTask(success: isCompleted)
       isRunning = false
+      // Mirror run()'s defer (matched-pair anchor): clear the load overlay on
+      // the early-return / cancellation paths.
+      isLoadingModel = false
       currentLLM = nil
       suspendController = nil
       simulationActivityRegistry?.leave()
@@ -1062,6 +1080,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // `.paused` (no status write below, since we return before `.running` is
     // enqueued) and present the run as paused in-memory so the user can retry
     // from the Home card.
+    isLoadingModel = true
     do {
       try await llm.loadModel()
     } catch {
@@ -1073,6 +1092,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       }
       return
     }
+    isLoadingModel = false
     // Model is up — flip the DB row `.paused` → `.running`. Gated on loadModel
     // success: writing `.running` before the load would strand the row as
     // `.running` on a load failure with no easy restore to `.paused`.

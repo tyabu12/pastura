@@ -540,8 +540,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .deepLinkGated()
     }
     .overlay {
-      if viewModel.isReloadingModel {
-        modelReloadingOverlay
+      // Initial load (run/resume) and BG GPU↔CPU reload are mutually
+      // exclusive in time; both surface the same "model busy" affordance.
+      if viewModel.isLoadingModel {
+        modelStatusOverlay(String(localized: "Loading model..."))
+      } else if viewModel.isReloadingModel {
+        modelStatusOverlay(String(localized: "Reloading model..."))
       }
     }
     .overlay(alignment: LanguageDriftToastLayout.overlayAlignment) {
@@ -614,13 +618,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  private var modelReloadingOverlay: some View {
+  /// Dimmed centered overlay for a "model busy" wait — shared by the initial
+  /// load (`isLoadingModel`) and the BG GPU↔CPU reload (`isReloadingModel`),
+  /// parametrized only by the title. The subtitle is shared verbatim.
+  private func modelStatusOverlay(_ title: String) -> some View {
     ZStack {
       Color.ink.opacity(0.4).ignoresSafeArea()
       VStack(spacing: 12) {
         IdleFriendlyProgressView()
           .scaleEffect(1.2)
-        Text(String(localized: "Reloading model..."))
+        Text(title)
           .textStyle(Typography.titlePhase)
           .foregroundStyle(Color.ink)
         Text(String(localized: "This can take a few seconds"))
