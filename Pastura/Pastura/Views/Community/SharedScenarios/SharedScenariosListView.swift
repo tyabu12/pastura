@@ -159,6 +159,8 @@ struct SharedScenariosListView: View {
         format: String(localized: "No scenarios match \"%@\"."), viewModel.searchQuery)
     case .emptyCategory:
       return String(localized: "No scenarios in this category.")
+    case .emptyLanguage:
+      return String(localized: "No scenarios in this language.")
     case .galleryEmpty:
       return String(localized: "No scenarios available yet.")
     }

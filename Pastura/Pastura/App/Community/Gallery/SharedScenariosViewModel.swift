@@ -60,7 +60,8 @@ final class SharedScenariosViewModel {
   /// unit-testable without the ViewModel (ADR-009).
   var visibleScenarios: [GalleryScenario] {
     GalleryScenarioSearch.filter(
-      allScenarios, category: selectedCategory, query: searchQuery)
+      allScenarios, category: selectedCategory, query: searchQuery,
+      language: nil)
   }
 
   /// Why ``visibleScenarios`` is empty — drives the empty-card copy. Only
@@ -68,7 +69,7 @@ final class SharedScenariosViewModel {
   var emptyReason: GalleryScenarioSearch.EmptyReason {
     GalleryScenarioSearch.emptyReason(
       allScenariosEmpty: allScenarios.isEmpty,
-      category: selectedCategory, query: searchQuery)
+      category: selectedCategory, query: searchQuery, language: nil)
   }
 
   private let galleryService: any GalleryService
