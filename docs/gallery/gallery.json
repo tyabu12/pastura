@@ -365,6 +365,28 @@
       "yaml_url": "anchoring_kantei_v1.yaml",
       "yaml_sha256": "928c584aa251be7334f94e5bb1860cf9d4ec2c92424b9ecede2ed14a958ece6d",
       "added_at": "2026-06-29"
+    },
+    {
+      "id": "seriffu_knockout_v1",
+      "title": "名セリフ早撃ち王座決定戦",
+      "category": "roleplay",
+      "description": "毎ラウンド変わるシチュエーションのお題に、芸風の異なる5人の役者が一言の名セリフで応戦する勝ち抜き戦。最も刺さらなかった役者が投票で脱落していく。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "eliminate",
+        "summarize"
+      ],
+      "yaml_url": "seriffu_knockout_v1.yaml",
+      "yaml_sha256": "6a97cb3827ace77ad7629de5fa4646fa78bfd424bee80068eb0ceee3cfd27d02",
+      "added_at": "2026-06-29"
     }
   ]
 }
