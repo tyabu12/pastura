@@ -45,20 +45,17 @@ extension PromoCard {
     let lastAnchor: Date?
   }
 
-  /// Slot copy (draft) from `docs/design/design-system.md` §7.
-  /// Final wording is gated on the copy pass per spec §2 decision 13.
-  ///
-  /// Intentionally NOT routed through `String(localized:)` — these
-  /// strings are listed under `docs/i18n/leak-detection.md`
-  /// § "Explicitly-deferred items" so the Tier 2 audit recognizes
-  /// them as a documented carve-out, not a wrap leak. When the copy
-  /// pass lands, wrap with English source strings and add ja
-  /// translations in the catalog at the same time.
+  /// Slot copy from `docs/design/design-system.md` §7. Localized via
+  /// `Localizable.xcstrings` (en source + ja translation). The copy pass
+  /// (spec §2 decision 13) has landed, so these are now routed through
+  /// `String(localized:)` rather than hardcoded.
   static func slotCopy(_ slot: Int) -> String {
     switch slot % 3 {
-    case 0: return "AIエージェントが、あなたのiPhoneの中で対話します"
-    case 1: return "少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ"
-    default: return "このアプリは広告もログインもなく、あなたの端末だけで静かに動きます"
+    case 0: return String(localized: "AI agents converse right inside your iPhone.")
+    case 1:
+      return String(localized: "Just a moment. Meanwhile, watch how the other agents behave.")
+    default:
+      return String(localized: "No ads, no sign-in. Pastura runs quietly on your device alone.")
     }
   }
 

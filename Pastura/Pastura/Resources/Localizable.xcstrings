@@ -1436,6 +1436,16 @@
         }
       }
     },
+    "AI agents converse right inside your iPhone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIエージェントが、あなたのiPhoneの中で対話します"
+          }
+        }
+      }
+    },
     "About %lld min left" : {
       "localizations" : {
         "ja" : {
@@ -3437,6 +3447,16 @@
         }
       }
     },
+    "Just a moment. Meanwhile, watch how the other agents behave." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ"
+          }
+        }
+      }
+    },
     "Just now" : {
       "localizations" : {
         "ja" : {
@@ -3873,6 +3893,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "カタログから有効なモデル記述子を解決できませんでした"
+          }
+        }
+      }
+    },
+    "No ads, no sign-in. Pastura runs quietly on your device alone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastura は広告もログインもなく、あなたの端末だけで静かに動きます"
           }
         }
       }
