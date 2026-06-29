@@ -387,6 +387,24 @@
       "yaml_url": "seriffu_knockout_v1.yaml",
       "yaml_sha256": "6a97cb3827ace77ad7629de5fa4646fa78bfd424bee80068eb0ceee3cfd27d02",
       "added_at": "2026-06-29"
+    },
+    {
+      "id": "zenin_sansei_ryokou_v1",
+      "title": "全員賛成、なのに誰も行きたくない社員旅行",
+      "category": "social_psychology",
+      "description": "部長が何気なく口にした「秘境12時間バスツアー」社員旅行案。本心では全員が乗り気でないのに「自分以外はみんな乗り気らしい」と互いに誤解し、誰も反対できないまま計画が膨らんでいく——アビリーンのパラドックス（多元的無知）を観察するシナリオ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 15,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_each",
+        "summarize"
+      ],
+      "yaml_url": "zenin_sansei_ryokou_v1.yaml",
+      "yaml_sha256": "b74d110e5b22385194208d5a9a0e531adf65d82b7dcfdf07041ad7bc85041d3b",
+      "added_at": "2026-06-29"
     }
   ]
 }
