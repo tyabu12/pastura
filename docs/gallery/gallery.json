@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-28T00:00:00Z",
+  "updated_at": "2026-06-29T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -345,6 +345,26 @@
       "yaml_url": "kasei_sanso_touban_v1.yaml",
       "yaml_sha256": "75acd176a810ce8a3d11da2dbd28be771f54f88524a8dcd1895fa613f4fef3a4",
       "added_at": "2026-06-28"
+    },
+    {
+      "id": "anchoring_kantei_v1",
+      "title": "アンカリング鑑定団",
+      "category": "experimental",
+      "description": "ナゾの日用品を5人の鑑定士が値踏みする鑑定ショー。最初の鑑定士が極端な金額を断言し、後続がその数字に引っ張られるか（アンカリング効果）を観察する社会心理実験。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 20,
+      "agent_count": 5,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_each",
+        "choose",
+        "summarize"
+      ],
+      "yaml_url": "anchoring_kantei_v1.yaml",
+      "yaml_sha256": "928c584aa251be7334f94e5bb1860cf9d4ec2c92424b9ecede2ed14a958ece6d",
+      "added_at": "2026-06-29"
     }
   ]
 }
