@@ -8,11 +8,11 @@ import Testing
 /// Asserts logic properties only, never rendered output
 /// (ADR-009 / `.claude/rules/view-testing.md`).
 ///
-/// `@MainActor` on the suite sidesteps swift-isolation Pattern 5: a
-/// nonisolated test calling `==` on the auto-synthesized `Equatable`
-/// `GalleryLanguageFilter` enum would otherwise fail the
-/// MainActor-isolated conformance-lookup check. Matches
-/// `SharedScenariosCategoryFilterTests`.
+/// `@MainActor` on the suite matches the `SharedScenariosCategoryFilterTests`
+/// precedent. It is not strictly load-bearing here: `GalleryLanguageFilter` is
+/// declared `nonisolated`, so its auto-synthesized `Equatable` conformance
+/// lookup is already nonisolated (swift-isolation Pattern 5 fires only for
+/// default-MainActor types). Harmless belt-and-suspenders.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct GalleryLanguageFilterTests {
