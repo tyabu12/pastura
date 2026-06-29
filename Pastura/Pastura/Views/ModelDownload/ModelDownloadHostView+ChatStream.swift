@@ -34,11 +34,13 @@ extension ModelDownloadHostView {
               }
             }
           }
-          // Screen-level gutters (20pt horizontal / 8pt top) match the
-          // reference HTML `.stream { padding: 8px 20px 16px }`. Intentional
-          // literals — these are container-level, not per-bubble.
+          // Screen-level gutters (20pt horizontal / 8pt vertical) mirror
+          // `SimulationView`'s chat-stream container padding so the
+          // last-bubble↔controlBar gap matches the live simulation — the
+          // bottom 8pt was previously missing, leaving the final message
+          // crowding the control bar. Container-level literals, not per-bubble.
           .padding(.horizontal, 20)
-          .padding(.top, 8)
+          .padding(.vertical, 8)
           .animation(
             reduceMotion ? nil : .easeOut(duration: 0.7),
             value: viewModel.chatItems.count)

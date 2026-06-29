@@ -473,13 +473,13 @@ Sim 画面に限った2つの例外的コンポーネント。Source: `Simulatio
 
 ### DL中プロモ文（3スロット）
 
-> **Note**: 以下のコピー・切替タイミングはいずれも **draft**。`docs/specs/demo-replay-spec.md` §2 decision 13 に従い、final wording は実装 PR の copy pass で確定する。タイミングは独立タイマー（`docs/specs/demo-replay-ui.md` の PromoCard rotation セクション参照）で駆動され、**DL 進捗とは無関係**。
+> **Note**: コピーは copy pass（`docs/specs/demo-replay-spec.md` §2 decision 13）で確定済み。`Localizable.xcstrings` に en ソース＋ja 翻訳として登録され、`PromoCard.slotCopy(_:)` が `String(localized:)` 経由で返す。**切替タイミング**は引き続き暫定で、独立タイマー（`docs/specs/demo-replay-ui.md` の PromoCard rotation セクション参照）で駆動され **DL 進捗とは無関係**。
 
-| スロット | 切替タイミング（暫定） | コピー（draft） |
-|---------|----------------------|----------------|
-| A | 0〜20 秒 | AIエージェントが、あなたのiPhoneの中で対話します |
-| B | 20〜40 秒 | 少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ |
-| C | 40〜60 秒 | このアプリは広告もログインもなく、あなたの端末だけで静かに動きます |
+| スロット | 切替タイミング（暫定） | en（ソース） | ja |
+|---------|----------------------|-------------|-----|
+| A | 0〜20 秒 | AI agents converse right inside your iPhone. | AIエージェントが、あなたのiPhoneの中で対話します |
+| B | 20〜40 秒 | Just a moment. Meanwhile, watch how the other agents behave. | 少しだけお待ちください。その間、他のエージェントたちの様子をどうぞ |
+| C | 40〜60 秒 | No ads, no sign-in. Pastura runs quietly on your device alone. | Pastura は広告もログインもなく、あなたの端末だけで静かに動きます |
 
 （60 秒経過後は A に戻り、DL 完了まで無限循環。BG 復帰時は位置継続。interval `20s` は実装 PR で調整）
 
