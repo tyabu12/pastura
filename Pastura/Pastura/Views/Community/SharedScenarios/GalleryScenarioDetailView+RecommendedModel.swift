@@ -99,7 +99,13 @@ extension GalleryScenarioDetailView {
 
   fileprivate func switchButton(isLocked: Bool) -> some View {
     Button {
-      modelManager.setActiveModel(scenario.recommendedModel)
+      // Route through the shared switch entry point so the active-model id
+      // and the LLM service stay in lockstep. Calling `setActiveModel` alone
+      // (the prior code) updated the id but left the next run on the old
+      // service — the #844 latent bug. `.switchAvailable` is only emitted for
+      // a downloaded recommended model, so the lookup is a defensive no-op.
+      guard let descriptor = ModelRegistry.lookup(id: scenario.recommendedModel) else { return }
+      dependencies.switchActiveModel(to: descriptor, using: modelManager)
     } label: {
       Text(String(localized: "Switch to recommended model"))
         .frame(maxWidth: .infinity)
