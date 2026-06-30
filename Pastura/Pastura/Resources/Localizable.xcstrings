@@ -1466,6 +1466,38 @@
         }
       }
     },
+    "Active model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中のモデル"
+          }
+        }
+      }
+    },
+    "Active model: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active model: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中のモデル: %@"
+          }
+        }
+      }
+    },
     "Add Persona" : {
       "localizations" : {
         "ja" : {
@@ -2594,6 +2626,22 @@
         }
       }
     },
+    "Downloading…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード中…"
+          }
+        }
+      }
+    },
     "Edit" : {
       "localizations" : {
         "ja" : {
@@ -3648,6 +3696,22 @@
         }
       }
     },
+    "Manage in Settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage in Settings"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定で管理"
+          }
+        }
+      }
+    },
     "Max" : {
       "localizations" : {
         "en" : {
@@ -3887,6 +3951,22 @@
         }
       }
     },
+    "No active model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No active model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中のモデルなし"
+          }
+        }
+      }
+    },
     "No active model descriptor resolvable from catalog" : {
       "localizations" : {
         "ja" : {
@@ -3913,6 +3993,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このラウンドにイベントなし"
+          }
+        }
+      }
+    },
+    "No model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルなし"
           }
         }
       }
@@ -5895,6 +5991,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "種類"
+          }
+        }
+      }
+    },
+    "Unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unavailable"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用不可"
           }
         }
       }
