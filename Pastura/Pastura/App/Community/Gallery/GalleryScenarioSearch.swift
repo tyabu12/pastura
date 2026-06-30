@@ -13,21 +13,24 @@ import Foundation
 /// (plus the search field) feed.
 nonisolated enum GalleryScenarioSearch {
 
-  /// Returns the scenarios matching both the category filter and the search
-  /// query.
+  /// Returns the scenarios matching the category filter, the language filter,
+  /// and the search query.
   ///
   /// - `category == nil` means "all categories" (no category narrowing).
+  /// - `language == nil` means "all languages" (no language narrowing).
   /// - A blank or whitespace-only `query` applies no text filter; otherwise
   ///   a scenario matches when the query is a substring of its `title` or
   ///   `description`. Matching uses `localizedStandardContains` — the
   ///   Finder-like case- and diacritic-insensitive comparison appropriate
   ///   for user-facing search.
   static func filter(
-    _ scenarios: [GalleryScenario], category: GalleryCategory?, query: String
+    _ scenarios: [GalleryScenario], category: GalleryCategory?, query: String,
+    language: String?
   ) -> [GalleryScenario] {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     return scenarios.filter { scenario in
       if let category, scenario.category != category { return false }
+      if let language, scenario.effectiveLanguage != language { return false }
       guard !trimmed.isEmpty else { return true }
       return scenario.title.localizedStandardContains(trimmed)
         || scenario.description.localizedStandardContains(trimmed)
@@ -47,6 +50,8 @@ nonisolated enum GalleryScenarioSearch {
     case noMatchingQuery
     /// A selected category contains no scenarios (no active query).
     case emptyCategory
+    /// A selected language contains no scenarios (no active query).
+    case emptyLanguage
     /// The gallery itself is empty (no query, no category narrowing).
     case galleryEmpty
   }
@@ -54,14 +59,16 @@ nonisolated enum GalleryScenarioSearch {
   /// Classifies why a filtered-empty Browse list is empty.
   ///
   /// Precedence: a genuinely empty gallery dominates (the user's
-  /// category/query is moot when there is nothing to filter), then a present
-  /// query, then a selected category.
+  /// language/category/query is moot when there is nothing to filter), then a
+  /// present query, then a selected language, then a selected category.
   static func emptyReason(
-    allScenariosEmpty: Bool, category: GalleryCategory?, query: String
+    allScenariosEmpty: Bool, category: GalleryCategory?, query: String,
+    language: String?
   ) -> EmptyReason {
     if allScenariosEmpty { return .galleryEmpty }
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     if !trimmed.isEmpty { return .noMatchingQuery }
+    if language != nil { return .emptyLanguage }
     if category != nil { return .emptyCategory }
     return .galleryEmpty
   }

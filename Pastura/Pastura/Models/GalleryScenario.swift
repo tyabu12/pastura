@@ -99,6 +99,34 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   /// required would break older installs reading a feed predating this key.
   public let phases: [String]?
 
+  /// ISO 639-1 language of this scenario's content (`"ja"` / `"en"`), as
+  /// declared at the top level of the backing YAML (ADR-010 D1) and
+  /// denormalized into the index so the Browse (さがす) tab can filter by
+  /// language **before** downloading any YAML.
+  ///
+  /// Optional + lenient decode (absent → `nil`) for the same forward-compat
+  /// reason as ``agentCount`` / ``rounds`` / ``phases``: an old cached
+  /// `gallery.json` on-device — or an older app reading a newer feed —
+  /// predates this key and must still decode. Read through
+  /// ``effectiveLanguage`` rather than this raw optional, which applies the
+  /// `"ja"` legacy default. A future contributor making this required would
+  /// break those older installs.
+  public let language: String?
+
+  /// The language to filter / group this entry by, defaulting an absent
+  /// ``language`` to `"ja"`.
+  ///
+  /// The default exists **only** as a safety net for legacy cached indices
+  /// that predate the `language` key — the launch gallery is entirely
+  /// Japanese. Every entry the curated feed ships populates `language`
+  /// explicitly (pinned by `GallerySeedYAMLTests`), so the default never
+  /// fires for current feed data. This is the index-side counterpart to
+  /// ADR-010 D2's "no silent `ja` fill" rule for *YAML* parsing: that rule
+  /// governs `ScenarioLoader`; this denormalized index field is a separate
+  /// distribution artifact whose only `nil` source is an outdated on-device
+  /// cache.
+  public var effectiveLanguage: String { language ?? "ja" }
+
   /// Remote URL from which the YAML definition can be fetched.
   public let yamlURL: URL
 
@@ -123,7 +151,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     addedAt: String,
     agentCount: Int? = nil,
     rounds: Int? = nil,
-    phases: [String]? = nil
+    phases: [String]? = nil,
+    language: String? = nil
   ) {
     self.id = id
     self.title = title
@@ -138,6 +167,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     self.agentCount = agentCount
     self.rounds = rounds
     self.phases = phases
+    self.language = language
   }
 
   // Explicit CodingKeys so the JSON snake_case ↔ Swift camelCase mapping is
@@ -154,6 +184,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     case agentCount = "agent_count"
     case rounds
     case phases
+    case language
     case yamlURL = "yaml_url"
     case yamlSHA256 = "yaml_sha256"
     case addedAt = "added_at"

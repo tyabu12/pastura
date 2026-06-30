@@ -311,6 +311,41 @@ import Testing
     }
   }
 
+  /// Pins the curation invariant that every `gallery.json` entry's `language`
+  /// matches the corresponding YAML's `language:` field. The index field is
+  /// what the Browse tab filters on **before** downloading any YAML (ADR-010);
+  /// a drifted or omitted value would silently mis-file an entry under the
+  /// wrong language chip — the exact drift this pins for Step D's `en`
+  /// additions. `#require` makes an un-populated entry a loud failure rather
+  /// than a silent skip (mirrors `galleryPhasesMatchYAML`).
+  @Test func galleryLanguageMatchesYAML() throws {
+    let loader = ScenarioLoader()
+    let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
+    let indexURL = galleryDir.appendingPathComponent("gallery.json")
+    let indexData = try Data(contentsOf: indexURL)
+    let index = try JSONDecoder().decode(GalleryIndex.self, from: indexData)
+
+    #expect(!index.scenarios.isEmpty, "gallery.json has no scenarios")
+
+    for entry in index.scenarios {
+      let yamlPath =
+        galleryDir
+        .appendingPathComponent(entry.yamlURL.lastPathComponent)
+      let yaml = try String(contentsOf: yamlPath, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+
+      let language = try #require(
+        entry.language,
+        "gallery.json entry id=\(entry.id) is missing language")
+      #expect(
+        language == scenario.language,
+        """
+        gallery.json entry id=\(entry.id) language=\(language) \
+        != yaml language=\(scenario.language)
+        """)
+    }
+  }
+
   /// Resolve the repo root relative to this test file. `#filePath` expands
   /// at compile time to the absolute source path; we walk up until we find
   /// the directory that contains `docs/gallery`.

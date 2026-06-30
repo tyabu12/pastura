@@ -46,8 +46,14 @@ final class SharedScenariosViewModel {
   /// `nil` means "all categories".
   var selectedCategory: GalleryCategory?
 
+  /// The selected language filter — `nil` means "all languages". Seeded once
+  /// on the first non-empty index load to the device language (or `.all` when
+  /// the feed carries no scenarios in that language; see ``apply(index:)``),
+  /// then user-driven via the language chips.
+  var selectedLanguage: String?
+
   /// The Browse-tab search field text. Blank / whitespace-only applies no
-  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:)``).
+  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:language:)``).
   var searchQuery: String = ""
 
   /// Rows keyed by `sourceId` for the subset of scenarios whose
@@ -55,12 +61,29 @@ final class SharedScenariosViewModel {
   /// after every load and save so UI bindings can read synchronously.
   private(set) var installedBySourceId: [String: ScenarioRecord] = [:]
 
-  /// Filtered view based on `selectedCategory` AND `searchQuery`. The actual
-  /// filtering lives in the pure ``GalleryScenarioSearch`` so it is
-  /// unit-testable without the ViewModel (ADR-009).
+  /// The distinct languages present in the loaded feed (via
+  /// ``GalleryScenario/effectiveLanguage``). Drives the language chip
+  /// options and ``shouldShowLanguageFilter``.
+  var availableLanguages: Set<String> {
+    Set(allScenarios.map(\.effectiveLanguage))
+  }
+
+  /// Whether to surface the language filter chip row at all. Hidden while the
+  /// feed carries a single language (today's all-Japanese gallery), so users
+  /// never see an always-empty "English" chip or a redundant 日本語 ≡ すべて
+  /// pair. Surfaces once a second language ships (ADR-010 Step D).
+  var shouldShowLanguageFilter: Bool {
+    availableLanguages.count > 1
+  }
+
+  /// Filtered view based on `selectedCategory`, `selectedLanguage`, AND
+  /// `searchQuery`. The actual filtering lives in the pure
+  /// ``GalleryScenarioSearch`` so it is unit-testable without the ViewModel
+  /// (ADR-009).
   var visibleScenarios: [GalleryScenario] {
     GalleryScenarioSearch.filter(
-      allScenarios, category: selectedCategory, query: searchQuery)
+      allScenarios, category: selectedCategory, query: searchQuery,
+      language: selectedLanguage)
   }
 
   /// Why ``visibleScenarios`` is empty — drives the empty-card copy. Only
@@ -68,16 +91,31 @@ final class SharedScenariosViewModel {
   var emptyReason: GalleryScenarioSearch.EmptyReason {
     GalleryScenarioSearch.emptyReason(
       allScenariosEmpty: allScenarios.isEmpty,
-      category: selectedCategory, query: searchQuery)
+      category: selectedCategory, query: searchQuery, language: selectedLanguage)
   }
 
   private let galleryService: any GalleryService
   private let repository: any ScenarioRepository
   private let loader = ScenarioLoader()
 
-  init(galleryService: any GalleryService, repository: any ScenarioRepository) {
+  /// Device-effective language used to seed ``selectedLanguage`` on first
+  /// load. Injected (rather than read from `Bundle.main` at the call site) so
+  /// tests can pin it deterministically — a live `Bundle.main` read would
+  /// make the seed depend on the CI runner locale (ADR-010 Alternative ι).
+  private let deviceLanguage: String
+
+  /// Guards the one-time initial-language seed in ``apply(index:)`` so a
+  /// later refresh (or the user's own chip taps) is never overwritten.
+  private var didSeedInitialLanguage = false
+
+  init(
+    galleryService: any GalleryService,
+    repository: any ScenarioRepository,
+    deviceLanguage: String = LocaleResolver.deviceDefault()
+  ) {
     self.galleryService = galleryService
     self.repository = repository
+    self.deviceLanguage = deviceLanguage
   }
 
   // MARK: - Loading
@@ -244,6 +282,20 @@ final class SharedScenariosViewModel {
   private func apply(index: GalleryIndex) {
     allScenarios = index.scenarios
     updatedAt = index.updatedAt
+    seedInitialLanguageIfNeeded()
+  }
+
+  /// Seeds ``selectedLanguage`` exactly once, on the first index load that
+  /// carries any scenarios. Defaults to the device language only when the
+  /// feed actually has scenarios in it; otherwise `.all` (`nil`) so the
+  /// Browse list is never empty for a language with no content — the
+  /// ADR-010 D6 fallback. Guarded by ``didSeedInitialLanguage`` so a later
+  /// network refresh (or the user's own chip selection) is preserved.
+  private func seedInitialLanguageIfNeeded() {
+    guard !didSeedInitialLanguage, !allScenarios.isEmpty else { return }
+    selectedLanguage = GalleryLanguageFilter.resolveDefault(
+      device: deviceLanguage, available: availableLanguages)
+    didSeedInitialLanguage = true
   }
 
   private func refreshInstalledSnapshot() async {
