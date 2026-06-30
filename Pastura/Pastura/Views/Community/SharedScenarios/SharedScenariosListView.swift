@@ -98,6 +98,15 @@ struct SharedScenariosListView: View {
         if case .offlineWithCache = viewModel.state {
           offlineBanner
         }
+        // Language filter leads the category row, and only once the feed
+        // carries ≥2 languages — dormant on today's all-Japanese gallery
+        // (ADR-010 Step D surfaces it). Default-filtered to the device
+        // language via the ViewModel seed.
+        if viewModel.shouldShowLanguageFilter {
+          languageChips(
+            available: viewModel.availableLanguages,
+            selection: $bindable.selectedLanguage)
+        }
         categoryChips(selection: $bindable.selectedCategory)
         scenariosCard(viewModel: viewModel)
         if let updated = viewModel.updatedAt {
@@ -159,6 +168,8 @@ struct SharedScenariosListView: View {
         format: String(localized: "No scenarios match \"%@\"."), viewModel.searchQuery)
     case .emptyCategory:
       return String(localized: "No scenarios in this category.")
+    case .emptyLanguage:
+      return String(localized: "No scenarios in this language.")
     case .galleryEmpty:
       return String(localized: "No scenarios available yet.")
     }

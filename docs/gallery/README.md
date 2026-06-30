@@ -41,6 +41,7 @@ app. Fields:
       "agent_count": <int>,                  // optional; from YAML `agents:` — Browse row sheep cluster + footer
       "rounds": <int>,                       // optional; from YAML `rounds:` — Browse footer
       "phases": ["<phase_type>", ...],       // optional; ordered YAML phase types — Browse art-tile signature glyph
+      "language": "ja | en",                 // ISO 639-1, mirrors the YAML `language:` — Browse language filter (ADR-010)
       "yaml_url": "<filename or absolute https URL>",  // resolved relative to gallery.json
       "yaml_sha256": "<lowercase hex>",      // SHA-256 of the YAML body
       "added_at": "YYYY-MM-DD"
@@ -75,9 +76,19 @@ Allowed values: `ja`, `en` (ADR-010 D1 mandatory rule;
 mirrors this for demo YAMLs). Missing or unknown values are
 rejected by ScenarioLoader as `scenarioValidationFailed`.
 
-Note: this is a property of the **YAML body**, not the `gallery.json`
-index entry above. The index does not duplicate language; the iOS
-app reads it from the downloaded YAML at install time.
+Note: `language` is a property of the **YAML body** AND is denormalized
+into the `gallery.json` index entry above. The index copy is required so
+the Browse (さがす) tab can filter by language **before** downloading any
+YAML — the in-app install-time read of the YAML body still happens, but it
+is too late for the pre-download list filter. The two MUST agree;
+`GallerySeedYAMLTests.galleryLanguageMatchesYAML` pins index ==
+YAML for every entry. (This complements — does not duplicate — ADR-010 D6's
+`ScenarioRecord.language` column, which serves the installed-row Home /
+Past Results consumer, a different surface that reads the local DB.)
+
+> Index `language` is currently backfilled by hand when adding an entry.
+> Teaching `scripts/add-gallery-entry.sh` to derive it from the YAML
+> `language:` is a Step D follow-up (alongside the `_en` sibling entries).
 
 ## Current entries
 
