@@ -74,6 +74,10 @@ struct HomeView: View {
         .accessibilityIdentifier("home.brandWordmark")
       }
       .hidingPasturaSharedBackground()
+      ToolbarItem(placement: .topBarTrailing) {
+        ActiveModelChip()
+      }
+      .hidingPasturaSharedBackground()
     }
     .task {
       // Defer assignment until both `loadScenarios()` and
