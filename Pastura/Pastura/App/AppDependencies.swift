@@ -188,6 +188,38 @@ final class AppDependencies: @unchecked Sendable {
     self.llmService = newService
   }
 
+  /// Switches the active model and regenerates the LLM service so the next
+  /// simulation run uses it. Single entry point for every switch site —
+  /// Settings → Models, the Home active-model chip, and the gallery
+  /// "switch to recommended model" affordance — so the
+  /// `setActiveModel` + `regenerateLLMService` pair can never drift apart.
+  /// (The gallery callsite previously called `setActiveModel` alone, leaving
+  /// the persisted active id updated but the next run still on the old
+  /// service — see #844.)
+  ///
+  /// On the simulator the on-device `LlamaCppService` does not exist (the
+  /// backend is a single fixed `OllamaService`), so only the persisted active
+  /// id is updated there — matching the prior simulator behaviour.
+  ///
+  /// - Important: Callers MUST ensure no simulation is in flight — gate on
+  ///   `simulationActivityRegistry.isActive == false`, mirroring the Settings
+  ///   switch affordance. See `regenerateLLMService(_:)` for the mid-run race
+  ///   this avoids; this method does NOT re-check.
+  @MainActor
+  func switchActiveModel(to descriptor: ModelDescriptor, using modelManager: ModelManager) {
+    modelManager.setActiveModel(descriptor.id)
+    #if !targetEnvironment(simulator)
+      let newService = LlamaCppService(
+        modelPath: modelManager.modelFileURL(for: descriptor).path,
+        stopSequence: descriptor.stopSequence,
+        modelIdentifier: descriptor.displayName,
+        systemPromptSuffix: descriptor.systemPromptSuffix,
+        assistantPrefix: descriptor.assistantPrefix
+      )
+      regenerateLLMService(newService)
+    #endif
+  }
+
   // MARK: - Private
 
   private static func databasePath() -> String {

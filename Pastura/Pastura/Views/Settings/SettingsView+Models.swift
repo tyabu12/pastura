@@ -176,20 +176,12 @@ import SwiftUI
       Task { await modelManager.cancelDownloadAndDelete(descriptor: descriptor) }
     }
 
-    /// Persists the new active id and rebuilds the `LlamaCppService`.
+    /// Persists the new active id and rebuilds the `LlamaCppService` via the
+    /// shared `AppDependencies.switchActiveModel(to:using:)` entry point.
     /// Only called from a `.ready` row (Menu action is hidden otherwise),
     /// so `modelFileURL` is guaranteed to point at an on-disk file.
     private func switchActive(to descriptor: ModelDescriptor) {
-      modelManager.setActiveModel(descriptor.id)
-      let modelPath = modelManager.modelFileURL(for: descriptor).path
-      let newService = LlamaCppService(
-        modelPath: modelPath,
-        stopSequence: descriptor.stopSequence,
-        modelIdentifier: descriptor.displayName,
-        systemPromptSuffix: descriptor.systemPromptSuffix,
-        assistantPrefix: descriptor.assistantPrefix
-      )
-      dependencies.regenerateLLMService(newService)
+      dependencies.switchActiveModel(to: descriptor, using: modelManager)
     }
   }
 #endif
