@@ -3937,6 +3937,16 @@
         }
       }
     },
+    "No scenarios in this language." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この言語のシナリオはありません。"
+          }
+        }
+      }
+    },
     "No scenarios match \"%@\"." : {
       "localizations" : {
         "ja" : {

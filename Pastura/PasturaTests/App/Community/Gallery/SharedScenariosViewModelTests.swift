@@ -9,7 +9,11 @@ import Testing
 
   // MARK: - Fixtures
 
-  private func makeRepo() throws -> GRDBScenarioRepository {
+  // Helpers are internal (not `private`) so the sibling-file language suite
+  // extension (`SharedScenariosViewModelTests+Language.swift`) can reuse them
+  // — `.claude/rules/testing.md` (a private member is invisible to
+  // same-type extensions in other files).
+  func makeRepo() throws -> GRDBScenarioRepository {
     let manager = try DatabaseManager.inMemory()
     return GRDBScenarioRepository(dbWriter: manager.dbWriter)
   }
@@ -41,14 +45,16 @@ import Testing
     URLSessionGalleryService.sha256Hex(sampleYAML.data(using: .utf8)!)
   }
 
-  private func makeGalleryScenario(
+  func makeGalleryScenario(
     id: String = "asch_v1",
-    hash: String? = nil
+    hash: String? = nil,
+    category: GalleryCategory = .socialPsychology,
+    language: String? = nil
   ) -> GalleryScenario {
     GalleryScenario(
       id: id,
       title: "Asch",
-      category: .socialPsychology,
+      category: category,
       description: "desc",
       author: "t",
       recommendedModel: ModelRegistry.gemma4E2B.id,
@@ -56,10 +62,11 @@ import Testing
       // swiftlint:disable:next force_unwrapping
       yamlURL: URL(string: "https://example.com/\(id).yaml")!,
       yamlSHA256: hash ?? Self.sampleYAMLHash,
-      addedAt: "2026-04-14")
+      addedAt: "2026-04-14",
+      language: language)
   }
 
-  private func makeIndex(_ scenarios: [GalleryScenario]) -> GalleryIndex {
+  func makeIndex(_ scenarios: [GalleryScenario]) -> GalleryIndex {
     GalleryIndex(version: 1, updatedAt: "2026-04-14T00:00:00Z", scenarios: scenarios)
   }
 
@@ -68,7 +75,7 @@ import Testing
   @Test func loadShowsCachedIndexBeforeNetwork() async throws {
     let repo = try makeRepo()
     let cachedIndex = makeIndex([makeGalleryScenario()])
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.cachedIndex = cachedIndex
     service.refreshResult = .success(nil)  // 304 unchanged
 
@@ -81,7 +88,7 @@ import Testing
 
   @Test func loadFallsBackToEmptyWhenNoCacheAndNetworkFails() async throws {
     let repo = try makeRepo()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.cachedIndex = nil
     service.refreshResult = .failure(GalleryServiceError.invalidResponse)
 
@@ -94,7 +101,7 @@ import Testing
 
   @Test func loadUsesOfflineStateWhenNetworkFailsAfterCacheLoaded() async throws {
     let repo = try makeRepo()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.cachedIndex = makeIndex([makeGalleryScenario()])
     service.refreshResult = .failure(GalleryServiceError.invalidResponse)
 
@@ -107,7 +114,7 @@ import Testing
 
   @Test func refreshAppliesFreshIndex() async throws {
     let repo = try makeRepo()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.cachedIndex = nil
     service.refreshResult = .success(makeIndex([makeGalleryScenario()]))
 
@@ -122,7 +129,7 @@ import Testing
 
   @Test func visibleScenariosFilterByCategory() async throws {
     let repo = try makeRepo()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     let first = makeGalleryScenario(id: "a")
     var second = makeGalleryScenario(id: "b")
     second = GalleryScenario(
@@ -153,7 +160,7 @@ import Testing
   @Test func tryInstallFreshReturnsInstalledAndSavesGalleryRecord() async throws {
     let repo = try makeRepo()
     let scenario = makeGalleryScenario()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
 
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
@@ -179,7 +186,7 @@ import Testing
         isPreset: false, createdAt: Date(), updatedAt: Date()))
 
     let scenario = makeGalleryScenario()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
 
     let outcome = await viewModel.tryInstall(scenario)
@@ -189,7 +196,7 @@ import Testing
   @Test func tryInstallSameGalleryRowReturnsUpdated() async throws {
     let repo = try makeRepo()
     let scenario = makeGalleryScenario()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
 
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
@@ -205,7 +212,7 @@ import Testing
     let repo = try makeRepo()
     // Claim a wrong hash in the gallery entry.
     let scenario = makeGalleryScenario(hash: String(repeating: "0", count: 64))
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
     service.mismatchMode = .rejectHash
 
@@ -220,7 +227,7 @@ import Testing
   @Test func tryInstallReportsNetworkError() async throws {
     let repo = try makeRepo()
     let scenario = makeGalleryScenario()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.yamlErrorFor = [scenario.yamlURL: GalleryServiceError.unexpectedStatus(500)]
 
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
@@ -239,7 +246,7 @@ import Testing
   @Test func installedAndUpdateFlagsReflectLocalState() async throws {
     let repo = try makeRepo()
     let scenario = makeGalleryScenario()
-    let service = MockGalleryService()
+    let service = StubVMGalleryService()
     service.yamlFor = [scenario.yamlURL: Self.sampleYAML]
 
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
@@ -257,10 +264,13 @@ import Testing
   }
 }
 
-// MARK: - MockGalleryService
+// MARK: - StubVMGalleryService
 
 /// Deterministic in-memory `GalleryService` for ViewModel tests.
-private final class MockGalleryService: GalleryService, @unchecked Sendable {
+///
+/// Internal (not `private`) so the sibling-file language suite extension can
+/// reuse it — a `private` file-scope type is invisible to other files.
+final class StubVMGalleryService: GalleryService, @unchecked Sendable {
   var cachedIndex: GalleryIndex?
   var refreshResult: Result<GalleryIndex?, Error> = .success(nil)
   var yamlFor: [URL: String] = [:]
