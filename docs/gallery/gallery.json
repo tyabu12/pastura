@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-29T00:00:00Z",
+  "updated_at": "2026-06-30T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -405,6 +405,25 @@
       "yaml_url": "zenin_sansei_ryokou_v1.yaml",
       "yaml_sha256": "b74d110e5b22385194208d5a9a0e531adf65d82b7dcfdf07041ad7bc85041d3b",
       "added_at": "2026-06-29"
+    },
+    {
+      "id": "kyoyu_gyojo_v1",
+      "title": "最後の漁場 乱獲の決断",
+      "category": "game_theory",
+      "description": "村が共有する漁場の魚が減っていく。控えめに獲れば資源は回復するが、誰か一人でも根こそぎ獲れば全員の取り分が枯れる。皆が「自分以外は控えめに」と願う——共有地の悲劇。建前の議論と裏腹に、各自がこっそり漁獲量を選ぶゲーム理論シナリオ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 30,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_each",
+        "choose",
+        "summarize"
+      ],
+      "yaml_url": "kyoyu_gyojo_v1.yaml",
+      "yaml_sha256": "a5793670872fca129637c088cf643ea92cf2dd0ca5b2c19dae1e69e39898da77",
+      "added_at": "2026-06-30"
     }
   ]
 }
