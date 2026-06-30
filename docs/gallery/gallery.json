@@ -379,6 +379,7 @@
         "choose",
         "summarize"
       ],
+      "language": "ja",
       "yaml_url": "anchoring_kantei_v1.yaml",
       "yaml_sha256": "928c584aa251be7334f94e5bb1860cf9d4ec2c92424b9ecede2ed14a958ece6d",
       "added_at": "2026-06-29"
@@ -401,6 +402,7 @@
         "eliminate",
         "summarize"
       ],
+      "language": "ja",
       "yaml_url": "seriffu_knockout_v1.yaml",
       "yaml_sha256": "6a97cb3827ace77ad7629de5fa4646fa78bfd424bee80068eb0ceee3cfd27d02",
       "added_at": "2026-06-29"
@@ -419,6 +421,7 @@
         "speak_each",
         "summarize"
       ],
+      "language": "ja",
       "yaml_url": "zenin_sansei_ryokou_v1.yaml",
       "yaml_sha256": "b74d110e5b22385194208d5a9a0e531adf65d82b7dcfdf07041ad7bc85041d3b",
       "added_at": "2026-06-29"
