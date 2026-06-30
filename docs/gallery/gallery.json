@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-28T00:00:00Z",
+  "updated_at": "2026-06-29T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -362,6 +362,66 @@
       "yaml_url": "kasei_sanso_touban_v1.yaml",
       "yaml_sha256": "75acd176a810ce8a3d11da2dbd28be771f54f88524a8dcd1895fa613f4fef3a4",
       "added_at": "2026-06-28"
+    },
+    {
+      "id": "anchoring_kantei_v1",
+      "title": "アンカリング鑑定団",
+      "category": "experimental",
+      "description": "ナゾの日用品を5人の鑑定士が値踏みする鑑定ショー。最初の鑑定士が極端な金額を断言し、後続がその数字に引っ張られるか（アンカリング効果）を観察する社会心理実験。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 20,
+      "agent_count": 5,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_each",
+        "choose",
+        "summarize"
+      ],
+      "yaml_url": "anchoring_kantei_v1.yaml",
+      "yaml_sha256": "928c584aa251be7334f94e5bb1860cf9d4ec2c92424b9ecede2ed14a958ece6d",
+      "added_at": "2026-06-29"
+    },
+    {
+      "id": "seriffu_knockout_v1",
+      "title": "名セリフ早撃ち王座決定戦",
+      "category": "roleplay",
+      "description": "毎ラウンド変わるシチュエーションのお題に、芸風の異なる5人の役者が一言の名セリフで応戦する勝ち抜き戦。最も刺さらなかった役者が投票で脱落していく。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "eliminate",
+        "summarize"
+      ],
+      "yaml_url": "seriffu_knockout_v1.yaml",
+      "yaml_sha256": "6a97cb3827ace77ad7629de5fa4646fa78bfd424bee80068eb0ceee3cfd27d02",
+      "added_at": "2026-06-29"
+    },
+    {
+      "id": "zenin_sansei_ryokou_v1",
+      "title": "全員賛成、なのに誰も行きたくない社員旅行",
+      "category": "social_psychology",
+      "description": "部長が何気なく口にした「秘境12時間バスツアー」社員旅行案。本心では全員が乗り気でないのに「自分以外はみんな乗り気らしい」と互いに誤解し、誰も反対できないまま計画が膨らんでいく——アビリーンのパラドックス（多元的無知）を観察するシナリオ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 15,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_each",
+        "summarize"
+      ],
+      "yaml_url": "zenin_sansei_ryokou_v1.yaml",
+      "yaml_sha256": "b74d110e5b22385194208d5a9a0e531adf65d82b7dcfdf07041ad7bc85041d3b",
+      "added_at": "2026-06-29"
     }
   ]
 }
