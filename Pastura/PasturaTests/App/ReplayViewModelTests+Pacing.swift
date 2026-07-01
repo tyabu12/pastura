@@ -96,6 +96,48 @@ extension ReplayViewModelTests {
     #expect(viewModel.typingFloorMs(for: event, script: Self.demoScript) == 780)
   }
 
+  // MARK: - introFloorMs (opening-card reveal reservation, #867)
+
+  /// `.demoDefault` opts into typing cps at `.normal`, and the premised source
+  /// has a non-empty `scenario.description`, so the opening card reserves a
+  /// positive reveal window before the first turn. (Exact value is not pinned —
+  /// the `typing + readingDwell` arithmetic is already value-pinned by the
+  /// `typingFloorMs` tests above; here only presence-of-a-floor matters.)
+  @Test func introFloorIsPositiveForPremiseAtNormalSpeed() throws {
+    let source = try Self.makeSourceWithPremise(config: .demoDefault)
+    let viewModel = ReplayViewModel(
+      sources: [source], config: .demoDefault, contentFilter: ContentFilter())
+    #expect(viewModel.introFloorMs(forSourceIndex: 0, script: Self.demoScript) > 0)
+  }
+
+  /// `.instant` → nil cps → no typing → no reveal floor (symmetric with
+  /// `typingFloorMs`'s opt-out path).
+  @Test func introFloorIsZeroAtInstantSpeed() throws {
+    let source = try Self.makeSourceWithPremise(config: .demoDefault)
+    let viewModel = ReplayViewModel(
+      sources: [source], config: .demoDefault, contentFilter: ContentFilter())
+    viewModel.playbackSpeed = .instant
+    #expect(viewModel.introFloorMs(forSourceIndex: 0, script: Self.demoScript) == 0)
+  }
+
+  /// Empty `scenario.description` → no card → no floor (the default fixture
+  /// scenario has `description: ''`).
+  @Test func introFloorIsZeroForEmptyDescription() throws {
+    let viewModel = try Self.makeDemoPacedVM()
+    #expect(viewModel.introFloorMs(forSourceIndex: 0, script: Self.demoScript) == 0)
+  }
+
+  /// Whitespace-only `scenario.description` → no card → no floor. Exercises the
+  /// *trimmed*-empty predicate (byte-identical to `ScenarioIntroCard.Model.init?`
+  /// via the shared `introPremise`), not just the fully-empty branch — so a
+  /// hidden card can never leave a phantom pre-first-bubble delay.
+  @Test func introFloorIsZeroForWhitespaceOnlyDescription() throws {
+    let source = try Self.makeSourceWithPremise(description: "   ", config: .demoDefault)
+    let viewModel = ReplayViewModel(
+      sources: [source], config: .demoDefault, contentFilter: ContentFilter())
+    #expect(viewModel.introFloorMs(forSourceIndex: 0, script: Self.demoScript) == 0)
+  }
+
   // MARK: - scaledDelay floor application
 
   @Test func scaledDelayTakesFloorWhenFloorExceedsBase() throws {
