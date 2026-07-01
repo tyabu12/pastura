@@ -191,6 +191,8 @@ runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/foo_v1.yaml \
 expect_ok "A1 add exits 0"
 runc "$R" jq -r '.scenarios[0] | "\(.id) \(.agent_count) \(.rounds)"' docs/gallery/gallery.json
 expect_out "foo_v1 5 3" "A1 entry agent_count/rounds from YAML scalars"
+runc "$R" jq -r '.scenarios[0].language' docs/gallery/gallery.json
+expect_out "ja" "A1 entry language derived from YAML language: scalar"
 
 # A2 — duplicate id rejected in add mode (reuses A1's repo state).
 runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/foo_v1.yaml \
@@ -227,6 +229,17 @@ runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/bar_v1.yaml \
   --description card --author tester --non-interactive
 expect_fail "A6 non-interactive missing category fails"
 expect_out "category is missing" "A6 missing-field message"
+
+# A7 — YAML missing `language:` rejected with a curated error (not a raw
+# Python KeyError). Strip the line portably (mirrors A3's sed-then-mv idiom).
+R="$(new_repo)"; mk_gallery_yaml "$R" nolang_v1 4 2
+grep -v '^language:' "$R/docs/gallery/nolang_v1.yaml" > "$R/docs/gallery/nolang_v1.yaml.t"
+mv "$R/docs/gallery/nolang_v1.yaml.t" "$R/docs/gallery/nolang_v1.yaml"
+runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/nolang_v1.yaml \
+  --category creative --recommended-model gemma-4-e2b-q4-k-m \
+  --estimated-inferences 8 --description card --author tester --non-interactive
+expect_fail "A7 missing language fails"
+expect_out "must be present and one of ja/en" "A7 missing-language message"
 
 # ================================ summary ================================
 
