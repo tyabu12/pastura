@@ -2118,6 +2118,16 @@
         }
       }
     },
+    "Copy & Edit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピーして編集"
+          }
+        }
+      }
+    },
     "Copy Gen Prompt" : {
       "localizations" : {
         "ja" : {
@@ -6171,16 +6181,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "投票先は `vote` フィールドで追加してください。"
-          }
-        }
-      }
-    },
-    "Use as Template" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "テンプレートとして使用"
           }
         }
       }
