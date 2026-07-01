@@ -960,6 +960,9 @@
         }
       }
     },
+    "%lld votes" : {
+
+    },
     "%lldm %llds" : {
       "localizations" : {
         "en" : {
@@ -2692,6 +2695,9 @@
         }
       }
     },
+    "Eliminated" : {
+
+    },
     "Else branch (condition false)" : {
       "localizations" : {
         "ja" : {
@@ -3088,6 +3094,12 @@
           }
         }
       }
+    },
+    "Final ranking" : {
+
+    },
+    "Final scores" : {
+
     },
     "Finish the current simulation before clearing results." : {
       "localizations" : {
@@ -4192,6 +4204,9 @@
           }
         }
       }
+    },
+    "Outcome" : {
+
     },
     "Output Fields" : {
       "localizations" : {
@@ -5475,6 +5490,9 @@
         }
       }
     },
+    "Shows the full scoreboard" : {
+
+    },
     "Simulating" : {
       "localizations" : {
         "ja" : {
@@ -5690,6 +5708,9 @@
           }
         }
       }
+    },
+    "Survived" : {
+
     },
     "Switch to recommended model" : {
       "localizations" : {
