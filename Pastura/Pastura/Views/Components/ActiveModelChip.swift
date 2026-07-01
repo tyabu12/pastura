@@ -48,23 +48,24 @@ struct ActiveModelChip: View {
         .foregroundStyle(Color.inkSecondary)
         .lineLimit(1)
         .truncationMode(.tail)
+      Spacer(minLength: 4)
       Image(systemName: "chevron.down")
         .font(.system(size: 9, weight: .semibold))
         .foregroundStyle(Color.muted)
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 5)
+    // Fixed width so switching models never resizes the chip. A variable
+    // width made the toolbar re-measure / animate the resize and clip the
+    // wider name for a frame on every switch (geometryGroup, fixedSize, and
+    // animation(nil) all failed to prevent it). A constant width removes the
+    // resize entirely. 150 fits the longest shipped short name ("Gemma 4
+    // E2B"); shorter names leave trailing space before the right-pinned
+    // chevron (reads as a dropdown field), and a future long id truncates
+    // with the tail ellipsis. Consistent 150 on SE-width still needs a glance
+    // in real-device QA (no simulator signal for nav-bar layout).
+    .frame(width: 150)
     .background(Capsule().fill(Color.mossDark.opacity(0.10)))
-    // Switching models changes the label width. Two things make that resize
-    // clip the wider name for a frame: the toolbar measures the item on a
-    // stale (narrower) pass, and the width change animates. `fixedSize` forces
-    // the chip to demand its intrinsic width up front (no stale narrow pass),
-    // and `.animation(nil, value:)` snaps the width change instead of
-    // interpolating it — together removing the transient clip.
-    // Trade-off: no maxWidth cap, so a future long model id would not truncate
-    // here; the shipped short names ("Gemma 4 E2B", "Qwen 3 4B") both fit.
-    .fixedSize(horizontal: true, vertical: false)
-    .animation(nil, value: presenter.chipLabel)
   }
 
   private var dotColor: Color {
