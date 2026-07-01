@@ -39,16 +39,17 @@ nonisolated struct ActiveModelChipPresenter: Equatable {
     /// mirrors `ModelSettingsRow.isSwitchLocked`. Non-selectable rows are
     /// disabled in the menu.
     let isSelectable: Bool
-    /// Trailing detail the view renders to the right of the name.
-    let detail: RowDetail
+    /// Trailing detail for a non-ready row (explains why it is disabled);
+    /// `nil` for a ready model — the switch menu shows just the name. Download
+    /// size is deliberately omitted: it informs the download decision (a
+    /// Settings-time concern), not the choice of which downloaded model to run.
+    let detail: RowDetail?
   }
 
-  /// Trailing per-row detail — a download size for ready models, or an
-  /// availability hint the view localizes for the rest. Kept at the presenter
-  /// level (not nested in `MenuRow`) to stay within SwiftLint's 1-level
-  /// nesting cap.
+  /// Trailing per-row detail for non-ready models — an availability hint the
+  /// view localizes. Kept at the presenter level (not nested in `MenuRow`) to
+  /// stay within SwiftLint's 1-level nesting cap.
   enum RowDetail: Equatable {
-    case size(Int64)
     case downloading
     case notDownloaded
     case unavailable
@@ -79,7 +80,7 @@ nonisolated struct ActiveModelChipPresenter: Equatable {
         name: descriptor.shortDisplayName ?? descriptor.displayName,
         isActive: descriptor.id == activeModelID,
         isSelectable: Self.isReady(modelState) && !isSimulationActive,
-        detail: Self.detail(for: modelState, fileSize: descriptor.fileSize)
+        detail: Self.detail(for: modelState)
       )
     }
   }
@@ -93,9 +94,9 @@ nonisolated struct ActiveModelChipPresenter: Equatable {
     }
   }
 
-  static func detail(for state: ModelState, fileSize: Int64) -> RowDetail {
+  static func detail(for state: ModelState) -> RowDetail? {
     switch state {
-    case .ready: .size(fileSize)
+    case .ready: nil
     case .downloading: .downloading
     case .notDownloaded: .notDownloaded
     case .checking, .error, .unsupportedDevice: .unavailable

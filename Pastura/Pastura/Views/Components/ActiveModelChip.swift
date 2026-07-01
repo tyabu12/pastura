@@ -102,12 +102,12 @@ struct ActiveModelChip: View {
   }
 
   private func rowLabel(_ row: ActiveModelChipPresenter.MenuRow) -> some View {
-    // Compose name + detail into one verbatim string so the runtime-
-    // interpolated value is never used as a catalog lookup key (the
-    // LocalizedStringKey interpolation fallback trap, i18n.md). `detailText`
-    // localizes its own half; `Label`/`Text` here take the String (verbatim)
-    // overloads.
-    let composed = "\(row.name) · \(detailText(row.detail))"
+    // Ready rows show just the name; non-ready rows append the localized
+    // availability hint. Compose into one verbatim string so the runtime value
+    // is never used as a catalog lookup key (the LocalizedStringKey
+    // interpolation fallback trap, i18n.md); `Label`/`Text` take the String
+    // (verbatim) overloads.
+    let composed = row.detail.map { "\(row.name) · \(detailText($0))" } ?? row.name
     return Group {
       if row.isActive {
         Label(composed, systemImage: "checkmark")
@@ -119,7 +119,6 @@ struct ActiveModelChip: View {
 
   private func detailText(_ detail: ActiveModelChipPresenter.RowDetail) -> String {
     switch detail {
-    case .size(let bytes): ModelSettingsRow.formattedFileSize(bytes)
     case .downloading: String(localized: "Downloading…")
     case .notDownloaded: String(localized: "Not downloaded")
     case .unavailable: String(localized: "Unavailable")

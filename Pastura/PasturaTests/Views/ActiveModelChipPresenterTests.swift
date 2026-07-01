@@ -56,7 +56,9 @@ struct ActiveModelChipPresenterTests {
     #expect(presenter.rows[1].isActive == false)
   }
 
-  @Test func rows_readyModelsAreSelectableAndCarrySize() {
+  @Test func rows_readyModelsAreSelectableWithNoDetail() {
+    // A downloaded (ready) row shows just the name — no trailing detail
+    // (download size is a Settings-time concern, not a switch-time one).
     let presenter = ActiveModelChipPresenter(
       activeDescriptor: gemma, activeState: .ready(modelPath: "/g"),
       catalog: [gemma, qwen],
@@ -64,8 +66,8 @@ struct ActiveModelChipPresenterTests {
       activeModelID: gemmaID, isSimulationActive: false)
     #expect(presenter.rows[0].isSelectable == true)
     #expect(presenter.rows[1].isSelectable == true)
-    #expect(presenter.rows[0].detail == .size(gemma.fileSize))
-    #expect(presenter.rows[1].detail == .size(qwen.fileSize))
+    #expect(presenter.rows[0].detail == nil)
+    #expect(presenter.rows[1].detail == nil)
   }
 
   @Test func rows_inFlightSimulationLocksEverySelection() {
