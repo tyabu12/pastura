@@ -30,13 +30,13 @@ struct SimulationViewModelIntroGateTests {
 
   @Test func beginIntroMarksPlayingIntro() throws {
     let sut = try makeSUT()
-    sut.beginIntro()
+    sut.beginIntro(revealBackstop: 60)
     #expect(sut.isPlayingIntro == true)
   }
 
   @Test func completeClearsPlayingIntro() throws {
     let sut = try makeSUT()
-    sut.beginIntro()
+    sut.beginIntro(revealBackstop: 60)
     sut.introRevealDidComplete()
     #expect(sut.isPlayingIntro == false)
   }
@@ -45,7 +45,7 @@ struct SimulationViewModelIntroGateTests {
   /// guarantees no `CheckedContinuation` double-resume trap).
   @Test func completeIsIdempotent() throws {
     let sut = try makeSUT()
-    sut.beginIntro()
+    sut.beginIntro(revealBackstop: 60)
     sut.introRevealDidComplete()
     sut.introRevealDidComplete()
     #expect(sut.isPlayingIntro == false)
@@ -65,7 +65,7 @@ struct SimulationViewModelIntroGateTests {
   /// already passed.
   @Test func awaitReturnsImmediatelyWhenCompletedBeforeAwait() async throws {
     let sut = try makeSUT()
-    sut.beginIntro()
+    sut.beginIntro(revealBackstop: 60)
     sut.introRevealDidComplete()
     await sut.awaitIntroReveal()  // must not hang
     #expect(sut.isPlayingIntro == false)
@@ -76,7 +76,7 @@ struct SimulationViewModelIntroGateTests {
   /// spawned waiter reaches its continuation suspension on the first yield.
   @Test func awaitSuspendsUntilCompletion() async throws {
     let sut = try makeSUT()
-    sut.beginIntro()
+    sut.beginIntro(revealBackstop: 60)
 
     var resumed = false
     let waiter = Task { @MainActor in

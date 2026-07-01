@@ -1089,8 +1089,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // Arm the intro gate iff an opening card will actually render — using the
       // SAME empty-premise guard the card uses (`ScenarioIntroCard.Model`), so
       // the VM never waits on a reveal that never happens (#853, critic Axis 4).
+      // Size the gate's last-resort backstop above the real reveal time
+      // (premise length ÷ the slowest playback speed + buffer) so it never
+      // clips a long premise typing at slow speed, yet still can't hang forever.
       let hasIntroCard = ScenarioIntroCard.Model(title: nil, premise: parsed.description) != nil
-      startOwnedRun(parsed, armIntro: hasIntroCard) { model in
+      let slowestCps = PlaybackSpeed.slow.charsPerSecond ?? 6
+      let introBackstop: TimeInterval? =
+        hasIntroCard ? Double(parsed.description.count) / slowestCps + 15 : nil
+      startOwnedRun(parsed, armIntroBackstop: introBackstop) { model in
         await model.run(
           scenario: parsed, llm: deps.llmService,
           scenarioCategorySnapshot: categorySnapshot)
@@ -1161,7 +1167,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// lifted.
   private func startOwnedRun(
     _ parsed: Scenario,
-    armIntro: Bool = false,
+    armIntroBackstop: TimeInterval? = nil,
     body: @escaping (SimulationViewModel) async -> Void
   ) {
     let session = dependencies.simulationSession
@@ -1185,8 +1191,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // `awaitIntroReveal()` (it first suspends at model load). Set here — not
       // in `run()` — so the View stays the single owner of the premise-card
       // predicate that both arms the gate and renders the card (#853).
-      if armIntro {
-        session.viewModel?.beginIntro()
+      if let armIntroBackstop {
+        session.viewModel?.beginIntro(revealBackstop: armIntroBackstop)
       }
     case .refusedLiveRunExists:
       // PR1: structurally unreachable — `onDisappear` → `session.end()` frees

@@ -556,14 +556,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Arms the intro gate at run start (View-driven, only when an opening card
   /// will be shown — the View owns the single premise-visibility predicate, so
   /// the gate can't wait for a card that never renders). Starts the backstop.
-  func beginIntro() {
+  ///
+  /// `revealBackstop` is a last-resort cap (should never fire): the caller sizes
+  /// it above the real reveal time (premise length ÷ slowest playback speed +
+  /// buffer) so a card that silently never signals can't freeze the run, without
+  /// clipping a long premise typing at the slow speed.
+  func beginIntro(revealBackstop: TimeInterval) {
     introGateArmed = true
     introRevealCompleted = false
     introTimeoutTask?.cancel()
     introTimeoutTask = Task { @MainActor [weak self] in
-      // Generous cap — longer than any plausible premise reveal (short
-      // descriptions, min 6 cps); only fires if the card silently never signals.
-      try? await Task.sleep(for: .seconds(60))
+      try? await Task.sleep(for: .seconds(revealBackstop))
       self?.introRevealDidComplete()
     }
   }
@@ -941,12 +944,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       currentLLM = nil
       suspendController = nil
       // Intro-gate teardown (#853): cancel the reveal backstop so it can't
-      // outlive the run. The gate's own cancellation handler already resumed
-      // any waiting `awaitIntroReveal()` on task-cancel (this defer runs only
-      // once `run()` returns, so it can't rescue a still-suspended gate — the
-      // cancellation handler / latch does that). No-op in resume() (unarmed).
+      // outlive the run, and disarm so `isPlayingIntro` settles to false on
+      // EVERY exit (normal / load-failure early-return / cancel — the last two
+      // never reach the reveal-complete latch, so without this the flag would
+      // linger until dealloc). The gate's own cancellation handler already
+      // resumed any waiting `awaitIntroReveal()` on task-cancel (this defer runs
+      // only once `run()` returns, so it can't rescue a still-suspended gate —
+      // the cancellation handler / latch does that). No-op in resume() (unarmed).
       introTimeoutTask?.cancel()
       introTimeoutTask = nil
+      introGateArmed = false
       simulationActivityRegistry?.leave()
     }
 
@@ -1178,12 +1185,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       currentLLM = nil
       suspendController = nil
       // Intro-gate teardown (#853): cancel the reveal backstop so it can't
-      // outlive the run. The gate's own cancellation handler already resumed
-      // any waiting `awaitIntroReveal()` on task-cancel (this defer runs only
-      // once `run()` returns, so it can't rescue a still-suspended gate — the
-      // cancellation handler / latch does that). No-op in resume() (unarmed).
+      // outlive the run, and disarm so `isPlayingIntro` settles to false on
+      // EVERY exit (normal / load-failure early-return / cancel — the last two
+      // never reach the reveal-complete latch, so without this the flag would
+      // linger until dealloc). The gate's own cancellation handler already
+      // resumed any waiting `awaitIntroReveal()` on task-cancel (this defer runs
+      // only once `run()` returns, so it can't rescue a still-suspended gate —
+      // the cancellation handler / latch does that). No-op in resume() (unarmed).
       introTimeoutTask?.cancel()
       introTimeoutTask = nil
+      introGateArmed = false
       simulationActivityRegistry?.leave()
     }
 
