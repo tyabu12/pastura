@@ -3810,16 +3810,6 @@
         }
       }
     },
-    "More" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "詳細"
-          }
-        }
-      }
-    },
     "Move to Else Branch" : {
       "localizations" : {
         "ja" : {

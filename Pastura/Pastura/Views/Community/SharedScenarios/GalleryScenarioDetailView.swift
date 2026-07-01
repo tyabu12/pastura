@@ -62,20 +62,19 @@ struct GalleryScenarioDetailView: View {
       }
       .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
-        Menu {
-          Button {
-            isReportSheetPresented = true
-          } label: {
-            Label(
-              String(localized: "Report this scenario"),
-              systemImage: "exclamationmark.bubble")
-          }
-          .accessibilityIdentifier("galleryDetail.reportMenuItem")
+        // Report is the only action, so surface it directly as an icon button
+        // rather than nesting it under an ellipsis menu. `.iconOnly` keeps the
+        // label text as the VoiceOver name.
+        Button {
+          isReportSheetPresented = true
         } label: {
-          Label(String(localized: "More"), systemImage: "ellipsis.circle")
+          Label(
+            String(localized: "Report this scenario"),
+            systemImage: "exclamationmark.bubble")
         }
-        .menuStyle(.button)
+        .labelStyle(.iconOnly)
         .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
+        .accessibilityIdentifier("galleryDetail.reportButton")
       }
       .hidingPasturaSharedBackground()
     }
@@ -117,17 +116,14 @@ struct GalleryScenarioDetailView: View {
   }
 
   private var headerCard: some View {
+    // The scenario title is already the `.large` navigation title, so the card
+    // carries only the description — no duplicate heading above it.
     PasturaSection {
-      VStack(alignment: .leading, spacing: 8) {
-        Text(scenario.title)
-          .font(.title2.bold())
-          .foregroundStyle(Color.ink)
-        Text(scenario.description)
-          .font(.body)
-          .foregroundStyle(Color.inkSecondary)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(17)
+      Text(scenario.description)
+        .font(.body)
+        .foregroundStyle(Color.inkSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(17)
     }
   }
 
