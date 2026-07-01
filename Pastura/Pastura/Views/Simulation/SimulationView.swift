@@ -55,6 +55,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
+  /// Latches the opening card's premise reveal to a single run (#853): once the
+  /// typewriter finishes, the card renders statically on any later re-mount
+  /// (e.g. scrolling back to the top) instead of re-typing.
+  @State private var introHasTyped = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
@@ -465,8 +469,17 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             // dims under the current-utterance opacity focus applied in the
             // ForEach below. Title is `nil`: the header already shows the name.
             // Hidden when the scenario has no description (Model init? → nil).
+            // The premise types in at the playback speed as the scene-setting
+            // beat; `introHasTyped` latches it to a single reveal so scrolling
+            // back to the top doesn't re-type (the card lives in this
+            // LazyVStack). `.instant` speed (`charsPerSecond == nil`) and
+            // Reduce Motion fall to the static path inside the card.
             if let introModel {
-              ScenarioIntroCard(model: introModel)
+              ScenarioIntroCard(
+                model: introModel,
+                charsPerSecond: introHasTyped ? nil : viewModel.speed.charsPerSecond,
+                onRevealComplete: { introHasTyped = true }
+              )
             }
 
             ForEach(viewModel.logEntries) { entry in
@@ -693,24 +706,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             .textStyle(Typography.metaValue)
             .foregroundStyle(Color.muted)
         }
-        // Case B (#853): turn the initial model-load wait into scene-setting
-        // by previewing the premise — the same text then appears (in the fuller
-        // card treatment) as the opening card once the scrim dissolves. This is
-        // a compact preview (centered, clamped), not a literal carry-over of the
-        // same element, so the handoff is a cross-fade between two treatments.
-        // Also a trailing conditional child (like the subtitle) — the spinner
-        // stays the first, id-less child so its structural identity, and the
-        // #825 no-restart guarantee, are intact. `.model` only: `.reload` is a
-        // mid-run backend switch where the viewer already has the context.
-        if label == .model, let premise = introModel?.premise {
-          Text(premise)
-            .textStyle(Typography.bodyBubble)
-            .foregroundStyle(Color.inkSecondary)
-            .multilineTextAlignment(.center)
-            .lineLimit(4)
-            .frame(maxWidth: 300)
-            .padding(.top, 4)
-        }
       }
       .padding(24)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -718,9 +713,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   /// Opening-card model for the current scenario, or `nil` when there is no
-  /// premise to show (#853). Single source consumed by both the log-top card
-  /// and the Case-B model-load scrim preview, so the two provably agree on
-  /// visibility. `title` is `nil`: the header already shows the scenario name.
+  /// premise to show (#853). `title` is `nil`: the header already shows the
+  /// scenario name, so the card would only restate it.
   private var introModel: ScenarioIntroCard.Model? {
     ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")
   }

@@ -6,17 +6,15 @@ import SwiftUI
 /// agent utterance with no scene-setting, which reads as disorienting on a
 /// first run. This card presents the scenario premise once, at the top of the
 /// chat stream, before the first agent turn — so the viewer knows *what this
-/// place is* before the curtain rises.
+/// place is* before the curtain rises. The premise types in at the playback
+/// speed (the reveal *is* the scene-setting beat), matching the log's
+/// typewriter feel.
 ///
 /// Presentation-only by design (ADR-009): it takes already-resolved
 /// ``Model`` strings, never the Engine/Data domain types, so both the live
 /// simulation (fed from `Scenario.description`) and — in a follow-up — the
 /// demo-replay screen (fed from the replay YAML `metadata.description`) can
 /// share it without a Views-layer dependency creeping into either source.
-///
-/// The card is **static and side-effect-free** (no `onAppear` / `task`): it
-/// sits inside the log's `LazyVStack`, so any lifecycle work would fire
-/// unpredictably as it scrolls off. All data is passed in.
 struct ScenarioIntroCard: View {
   /// Resolved, display-ready values for the opening card.
   ///
@@ -48,6 +46,29 @@ struct ScenarioIntroCard: View {
 
   let model: Model
 
+  /// Typewriter speed for the premise reveal, in characters/second. `nil`
+  /// renders the full premise at once (no animation) — the caller passes `nil`
+  /// once the premise has already been revealed (type-once) and at
+  /// `.instant` playback speed. Reduce Motion also forces the static path.
+  var charsPerSecond: Double?
+
+  /// Called once when the reveal animation finishes, so the caller can flip a
+  /// type-once latch and pass `charsPerSecond == nil` on any later re-mount
+  /// (the card lives in a `LazyVStack` and would otherwise re-type when the
+  /// user scrolls back to the top). Not called on the static path.
+  var onRevealComplete: (() -> Void)?
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  /// Number of leading premise characters currently revealed. Drives the
+  /// typewriter; the full string is always laid out (hidden tail) so the card
+  /// height never grows mid-reveal.
+  @State private var visibleChars: Int = 0
+
+  private var shouldType: Bool {
+    guard let cps = charsPerSecond, cps > 0, !reduceMotion else { return false }
+    return true
+  }
+
   var body: some View {
     PasturaCard {
       VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -57,28 +78,74 @@ struct ScenarioIntroCard: View {
             .textStyle(Typography.titlePhase)
             .foregroundStyle(Color.ink)
         }
-        Text(model.premise)
-          .textStyle(Typography.bodyBubble)
-          .foregroundStyle(Color.inkSecondary)
-          .fixedSize(horizontal: false, vertical: true)
+        premiseText
       }
       .padding(Spacing.m)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     // Combine into one VoiceOver element so the premise is read as a single
-    // "scene setting" announcement rather than icon + label + body fragments.
+    // "scene setting" announcement. The concatenated Text below always holds
+    // the full string (the unrevealed tail is only visually `.clear`), so
+    // VoiceOver announces the whole premise regardless of the reveal state.
     .accessibilityElement(children: .combine)
+    .task {
+      guard shouldType else {
+        visibleChars = model.premise.count
+        return
+      }
+      await revealPremise()
+    }
   }
 
-  /// Small "The premise" heading with a leading theatre-masks glyph — orients
-  /// the viewer that this block is the scene setup, not an agent speaking.
+  /// The premise text with a typewriter reveal. Rendered as
+  /// `Text(visible) + Text(hidden).foregroundStyle(.clear)` so the full string
+  /// is laid out from the first frame — line-wrap positions stay put and the
+  /// card height is stable as characters appear (same idiom as
+  /// `AgentOutputRow`'s replay path).
+  private var premiseText: some View {
+    let premise = model.premise
+    let clamped = min(max(visibleChars, 0), premise.count)
+    let splitIdx = premise.index(premise.startIndex, offsetBy: clamped)
+    let visible = premise[..<splitIdx]
+    let hidden = premise[splitIdx...]
+    return (Text(visible) + Text(hidden).foregroundStyle(.clear))
+      .textStyle(Typography.bodyBubble)
+      .foregroundStyle(Color.inkSecondary)
+      .fixedSize(horizontal: false, vertical: true)
+      // Freeze the implicit text-change animation so revealed glyphs don't
+      // cross-fade as the counter advances (matches AgentOutputRow).
+      .animation(nil, value: clamped)
+  }
+
+  /// Small "The premise" heading with a leading scroll glyph — orients the
+  /// viewer that this block is the scene setup / synopsis, not an agent
+  /// speaking.
   private var eyebrow: some View {
     HStack(spacing: Spacing.xxs) {
-      Image(systemName: "theatermasks")
+      Image(systemName: "scroll")
+        .accessibilityHidden(true)
       Text(String(localized: "The premise"))
     }
     .textStyle(Typography.captionName)
     .foregroundStyle(Color.moss)
+  }
+
+  /// Advances ``visibleChars`` from 0 to the full length at
+  /// ``charsPerSecond``, then signals ``onRevealComplete``. Cancelled cleanly
+  /// when the card leaves the hierarchy (the `.task` lifetime).
+  private func revealPremise() async {
+    let total = model.premise.count
+    visibleChars = 0
+    guard let cps = charsPerSecond, cps > 0 else {
+      visibleChars = total
+      return
+    }
+    while visibleChars < total {
+      try? await Task.sleep(for: .seconds(1.0 / cps))
+      if Task.isCancelled { return }
+      visibleChars += 1
+    }
+    onRevealComplete?()
   }
 }
 
@@ -88,13 +155,13 @@ struct ScenarioIntroCard: View {
       if let model = ScenarioIntroCard.Model(
         title: nil,
         premise: "5人の参加者に「お題」が配られるが、1人だけ違うお題を持つ少数派（ウルフ）。会話から少数派を見抜き、投票で当てるゲーム。") {
-        ScenarioIntroCard(model: model)
+        ScenarioIntroCard(model: model, charsPerSecond: 10)
       }
       if let model = ScenarioIntroCard.Model(
         title: "Prisoner's Dilemma",
         premise: "Five players choose to cooperate or betray in a round-robin of adjacent pairings."
       ) {
-        ScenarioIntroCard(model: model)
+        ScenarioIntroCard(model: model, charsPerSecond: nil)
       }
     }
     .padding(.horizontal, 20)
