@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-30T00:00:00Z",
+  "updated_at": "2026-07-01T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -445,6 +445,86 @@
       "yaml_url": "kyoyu_gyojo_v1.yaml",
       "yaml_sha256": "a5793670872fca129637c088cf643ea92cf2dd0ca5b2c19dae1e69e39898da77",
       "added_at": "2026-06-30"
+    },
+    {
+      "id": "asch_conformity_v1_en",
+      "title": "Asch Conformity Experiment",
+      "category": "social_psychology",
+      "description": "A recreation of the classic conformity experiment: four confederates and one real subject.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 10,
+      "agent_count": 5,
+      "rounds": 2,
+      "phases": [
+        "speak_each",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "asch_conformity_v1_en.yaml",
+      "yaml_sha256": "35b3484e0d3b6a9b5c90615f9cb101d70a5bbcac0ccd689bde10ed8eb2f18cfc",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "trolley_dilemma_v1_en",
+      "title": "The Trolley Problem",
+      "category": "ethics",
+      "description": "Four bystanders with differing ethical outlooks debate, then choose to act.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 12,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "speak_all",
+        "choose"
+      ],
+      "language": "en",
+      "yaml_url": "trolley_dilemma_v1_en.yaml",
+      "yaml_sha256": "57cfe1e023d9a2edcf0b2a1685f00fe6c4f78921d25d15f913086933ad7cba89",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "detective_scene_v1_en",
+      "title": "The Detective's Deduction",
+      "category": "roleplay",
+      "description": "A manor-murder deduction roleplay with four suspects and one detective; a split vote branches into a rebuttal round.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 15,
+      "agent_count": 5,
+      "rounds": 1,
+      "phases": [
+        "speak_each",
+        "vote",
+        "score_calc",
+        "conditional"
+      ],
+      "language": "en",
+      "yaml_url": "detective_scene_v1_en.yaml",
+      "yaml_sha256": "1862ed39acddb11c0a37cb2dd7ef599b50e4036727d2cceadd8d58964757c187",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "kasei_sanso_touban_v1_en",
+      "title": "Mars Colony — Oxygen Duty",
+      "category": "game_theory",
+      "description": "The Mars colony's oxygen unit is failing. Someone must make a deadly spacewalk repair, but everyone hopes it won't be them — a volunteer's-dilemma duty meeting.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 30,
+      "agent_count": 5,
+      "rounds": 2,
+      "phases": [
+        "speak_all",
+        "vote",
+        "score_calc",
+        "conditional"
+      ],
+      "language": "en",
+      "yaml_url": "kasei_sanso_touban_v1_en.yaml",
+      "yaml_sha256": "8c3e61d16a527984c0caf7cd7d720e20c5e3ba56cdf67049bd92fddcb0ef5c3f",
+      "added_at": "2026-07-01"
     }
   ]
 }
