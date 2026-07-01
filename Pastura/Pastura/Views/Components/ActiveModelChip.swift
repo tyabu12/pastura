@@ -55,9 +55,12 @@ struct ActiveModelChip: View {
     .padding(.horizontal, 10)
     .padding(.vertical, 5)
     // Cap the width so the trailing chip can't crowd the centered brand
-    // lockup; long model names truncate. SE-width / large Dynamic Type still
-    // needs real-device QA (no simulator signal for nav-bar layout).
-    .frame(maxWidth: 132)
+    // lockup; only genuinely long names truncate. 160 leaves ~113pt for the
+    // text — comfortably fits the shipped short names ("Gemma 4 E2B",
+    // "Qwen 3 4B") without truncation, while still bounding future long ids.
+    // SE-width / large Dynamic Type still needs real-device QA (no simulator
+    // signal for nav-bar layout).
+    .frame(maxWidth: 160)
     .background(Capsule().fill(Color.mossDark.opacity(0.10)))
   }
 
