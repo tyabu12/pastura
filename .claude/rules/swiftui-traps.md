@@ -139,11 +139,12 @@ blanket "id always leaks."
 ```swift
 ScrollView { … }
   .accessibilityIdentifier("scenarioDetail.list")   // BEFORE — scopes scroll content only
-  .safeAreaInset(edge: .bottom) { runCTA }            // inset keeps its own button id
+  .safeAreaInset(edge: .bottom) { actionBar }         // inset keeps its own button id
 ```
 
 Reference + inline rationale: `ScenarioDetailView.swift` (`scenarioDetail.list`
-just above its `.safeAreaInset`).
+just above its `.safeAreaInset` hosting `ScenarioDetailActionBar`, whose Run
+button carries `scenarioDetail.runSimulationButton`).
 
 **Diagnose** which id an element actually carries — instead of guessing —
 by exporting the a11y snapshot from the failing `.xcresult`:

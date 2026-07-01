@@ -5071,6 +5071,16 @@
         }
       }
     },
+    "Run" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行"
+          }
+        }
+      }
+    },
     "Run Simulation" : {
       "localizations" : {
         "ja" : {
