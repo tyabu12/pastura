@@ -521,6 +521,98 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// `private(set)`: only mutated here in `run()` / `resume()` (same file).
   private(set) var isLoadingModel = false
 
+  // MARK: Opening-card intro gate (#853)
+  //
+  // Coordinates the opening-card premise reveal with the run lifecycle so the
+  // premise types on a clean background WHILE the model loads, and the
+  // conversation only starts AFTER the reveal finishes. Three collaborators:
+  // the View arms the gate (``beginIntro()``) iff there is a premise card, the
+  // card signals completion (``introRevealDidComplete()``), and `run()` waits
+  // at ``awaitIntroReveal()`` between model load and engine start. All state is
+  // MainActor-isolated (the VM is `@MainActor`), so the latch + continuation
+  // handoff needs no lock and cannot double-resume across actors.
+
+  /// Set by the View at run start when an opening card will be shown, so `run()`
+  /// knows to wait for the reveal. Unarmed runs (no premise, or resume) skip the
+  /// wait entirely.
+  private var introGateArmed = false
+  /// Latch: the reveal has finished (or was released). Read by
+  /// ``awaitIntroReveal()`` so a completion that fires *before* the gate is
+  /// awaited (the common fast-reveal / slow-load case) is not missed.
+  private var introRevealCompleted = false
+  /// The suspended `run()` continuation, when the gate is awaited before the
+  /// reveal completes. Stored-then-nilled on first resume so a second resume
+  /// (timeout backstop / cancellation / late signal) can never trap.
+  private var introContinuation: CheckedContinuation<Void, Never>?
+  /// Last-resort backstop so a card that never signals can't freeze the run
+  /// forever. Cancelled on normal completion; should never fire in practice.
+  private var introTimeoutTask: Task<Void, Never>?
+
+  /// True while the opening-card premise is still revealing — armed but not yet
+  /// complete. Drives ``SimulationDisplayState`` to suppress the model-load
+  /// scrim so the premise types on a clean background (the load runs behind it).
+  var isPlayingIntro: Bool { introGateArmed && !introRevealCompleted }
+
+  /// Arms the intro gate at run start (View-driven, only when an opening card
+  /// will be shown — the View owns the single premise-visibility predicate, so
+  /// the gate can't wait for a card that never renders). Starts the backstop.
+  ///
+  /// `revealBackstop` is a last-resort cap (should never fire): the caller sizes
+  /// it above the real reveal time (premise length ÷ slowest playback speed +
+  /// buffer) so a card that silently never signals can't freeze the run, without
+  /// clipping a long premise typing at the slow speed.
+  func beginIntro(revealBackstop: TimeInterval) {
+    introGateArmed = true
+    introRevealCompleted = false
+    introTimeoutTask?.cancel()
+    introTimeoutTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .seconds(revealBackstop))
+      self?.introRevealDidComplete()
+    }
+  }
+
+  /// Signalled by the opening card when its reveal finishes (both the typed and
+  /// static paths). Idempotent: latches, clears ``isPlayingIntro``, cancels the
+  /// backstop, and resumes any waiting `run()`. Safe to call unarmed / twice.
+  func introRevealDidComplete() {
+    guard !introRevealCompleted else { return }
+    introRevealCompleted = true
+    introTimeoutTask?.cancel()
+    introTimeoutTask = nil
+    resumeIntroContinuation()
+  }
+
+  /// Resumes the stored `run()` continuation exactly once (store-then-nil).
+  private func resumeIntroContinuation() {
+    if let continuation = introContinuation {
+      introContinuation = nil
+      continuation.resume()
+    }
+  }
+
+  /// Awaited by `run()` between model load and engine start. Returns immediately
+  /// when the gate is unarmed or the reveal already completed; otherwise suspends
+  /// until ``introRevealDidComplete()`` fires. Cancellation-aware: a run torn
+  /// down mid-reveal (navigate-away) resumes promptly rather than stalling.
+  func awaitIntroReveal() async {
+    guard introGateArmed, !introRevealCompleted else { return }
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        // Re-check under MainActor: completion may have latched between the
+        // guard above and here (no real suspension in between, but cheap
+        // insurance) — resume at once rather than storing a stale continuation.
+        if introRevealCompleted {
+          continuation.resume()
+        } else {
+          introContinuation = continuation
+        }
+      }
+    } onCancel: {
+      // The cancel handler runs outside actor isolation; hop back to release.
+      Task { @MainActor [weak self] in self?.resumeIntroContinuation() }
+    }
+  }
+
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
@@ -810,7 +902,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// the YAML, so it is threaded in here rather than reached for from the
   /// repository (which would reintroduce the refetch-by-id drift the snapshot
   /// design deliberately avoids). `nil` for local / self-made scenarios.
-  func run(
+  func run(  // swiftlint:disable:this function_body_length
     scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil
   ) async {
     let controller = await prepareRunInfrastructure(llm: llm)
@@ -851,6 +943,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       isLoadingModel = false
       currentLLM = nil
       suspendController = nil
+      // Intro-gate teardown (#853): cancel the reveal backstop so it can't
+      // outlive the run, and disarm so `isPlayingIntro` settles to false on
+      // EVERY exit (normal / load-failure early-return / cancel — the last two
+      // never reach the reveal-complete latch, so without this the flag would
+      // linger until dealloc). The gate's own cancellation handler already
+      // resumed any waiting `awaitIntroReveal()` on task-cancel (this defer runs
+      // only once `run()` returns, so it can't rescue a still-suspended gate —
+      // the cancellation handler / latch does that). No-op in resume() (unarmed).
+      introTimeoutTask?.cancel()
+      introTimeoutTask = nil
+      introGateArmed = false
       simulationActivityRegistry?.leave()
     }
 
@@ -868,6 +971,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       return
     }
     isLoadingModel = false
+
+    // Opening-card intro gate (#853): the model has loaded (concurrently with
+    // the premise reveal, whose scrim was suppressed via `isPlayingIntro`); now
+    // wait for the reveal to finish before the conversation begins. LOAD-BEARING
+    // ORDERING: this MUST sit after `isLoadingModel = false` and BEFORE
+    // `runner.run(...)` is created below — the runner's producer Task starts at
+    // stream creation, so awaiting here (not after) keeps inference from running
+    // and buffering ahead during the reveal. No-op for unarmed runs.
+    await awaitIntroReveal()
 
     // Consume event stream. Agent outputs are paced by the per-row typing
     // animation in AgentOutputRow; other events (phase/round separators,
@@ -1072,6 +1184,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       isLoadingModel = false
       currentLLM = nil
       suspendController = nil
+      // Intro-gate teardown (#853): cancel the reveal backstop so it can't
+      // outlive the run, and disarm so `isPlayingIntro` settles to false on
+      // EVERY exit (normal / load-failure early-return / cancel — the last two
+      // never reach the reveal-complete latch, so without this the flag would
+      // linger until dealloc). The gate's own cancellation handler already
+      // resumed any waiting `awaitIntroReveal()` on task-cancel (this defer runs
+      // only once `run()` returns, so it can't rescue a still-suspended gate —
+      // the cancellation handler / latch does that). No-op in resume() (unarmed).
+      introTimeoutTask?.cancel()
+      introTimeoutTask = nil
+      introGateArmed = false
       simulationActivityRegistry?.leave()
     }
 
