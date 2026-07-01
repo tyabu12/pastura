@@ -525,6 +525,88 @@
       "yaml_url": "kasei_sanso_touban_v1_en.yaml",
       "yaml_sha256": "8c3e61d16a527984c0caf7cd7d720e20c5e3ba56cdf67049bd92fddcb0ef5c3f",
       "added_at": "2026-07-01"
+    },
+    {
+      "id": "uragiri_entaku_v1_en",
+      "title": "The Round Table of Betrayal",
+      "category": "game_theory",
+      "description": "A survival game of alliances and betrayal: five game-theory strategists vote out the most dangerous rival each round until one remains.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 30,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_all",
+        "vote",
+        "eliminate",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "uragiri_entaku_v1_en.yaml",
+      "yaml_sha256": "69640901f6d073b810ef82d2fdccec0814d8d4e8b0d05db608df8edaa38f0a03",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "yusha_kaiko_v1_en",
+      "title": "Hero Party — The Layoff Meeting",
+      "category": "roleplay",
+      "description": "Budget cuts force an RPG party to fire one member each round; each pleads their indispensability in full character and votes out the most expendable.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "speak_all",
+        "vote",
+        "score_calc",
+        "eliminate",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "yusha_kaiko_v1_en.yaml",
+      "yaml_sha256": "c2ca5e329c60cfe89d6b76ba909f7cee5fc4f87cce345cf17785649b18db2f9d",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "zenin_sansei_ryokou_v1_en",
+      "title": "Everyone Agreed, Yet No One Wants to Go",
+      "category": "social_psychology",
+      "description": "Nobody wants the 12-hour bus trip, but each assumes everyone else is keen and no one objects — an Abilene-paradox observation scenario (no voting).",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 15,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_each",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "zenin_sansei_ryokou_v1_en.yaml",
+      "yaml_sha256": "9544b7c72b33f794dcc7e6f870559748b7ca7d80c7f42e9c767be07ac21d2fbb",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "kyoyu_gyojo_v1_en",
+      "title": "The Last Fishing Ground — A Choice to Overfish",
+      "category": "game_theory",
+      "description": "A shared fishing ground is collapsing; behind the public debate, each fisher secretly chooses how much to catch — the tragedy of the commons.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 30,
+      "agent_count": 5,
+      "rounds": 3,
+      "phases": [
+        "speak_each",
+        "choose",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "kyoyu_gyojo_v1_en.yaml",
+      "yaml_sha256": "f79f78bb38132cdbcf0e6ed61fdf559b71528540f5551b398d77bc6eddbbf2c3",
+      "added_at": "2026-07-01"
     }
   ]
 }
