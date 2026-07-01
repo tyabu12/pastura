@@ -62,6 +62,12 @@ struct ActiveModelChip: View {
     // signal for nav-bar layout).
     .frame(maxWidth: 160)
     .background(Capsule().fill(Color.mossDark.opacity(0.10)))
+    // Switching models changes the label width; the toolbar animates that
+    // resize. Without geometryGroup the Text updates instantly while the
+    // Capsule/frame interpolate, so the still-narrow capsule clips the wider
+    // name for a frame or two before settling. geometryGroup makes the chip's
+    // geometry update as one unit, removing that transient clip (iOS 17+).
+    .geometryGroup()
   }
 
   private var dotColor: Color {
