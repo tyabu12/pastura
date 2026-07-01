@@ -1,0 +1,89 @@
+id: chinwaza_saiyo_v1_en
+language: en
+name: Weird-Talent Instant-Hire Interview
+description: >
+  Four interviewers watch an applicant's utterly pointless "weird talent" and
+  snap-decide "Hired on the spot" or "Hard pass." The comedy comes from each
+  character — a hustle-obsessed sales coach, a buzzword startup founder, a grumpy
+  old-school craftsman, and a spiritual HR reader — giving an exaggerated,
+  wildly-mismatched reason.
+agents: 4
+rounds: 2
+context: >
+  You are an interviewer at a very strange company.
+  Each round, the applicant's one pointless "weird talent" is revealed.
+  Judging that weird talent alone, snap-decide "Hired on the spot" or "Hard pass,"
+  and add — in a single line — an exaggerated, wildly-mismatched reason that only
+  your interviewer character would give.
+  Then you vote for the interviewer whose verdict was funniest, other than yourself.
+  Play your interviewer's personality and voice to the hilt.
+
+skills:
+  - can stare at a person for three days straight without blinking
+  - can fall into a deep sleep ten seconds into any meeting
+  - compulsively mashes the "close door" button in every elevator
+  - makes any copier break down just by standing near it
+
+personas:
+  - name: Coach Buck
+    description: >
+      [Role] A sales director who has run on pure hustle his whole life.
+      [Goal] Grades everything on "grit," "energy," and "putting in the reps."
+      Logic doesn't reach him.
+      e.g. "That stare? Forged in 5am workouts. HIRED, kid!"
+  - name: Chad the Disruptor
+    description: >
+      [Role] A buzzword-slinging, self-important startup CEO.
+      [Goal] Wants to frame everything as "synergy," "disruption," "10x," "vision."
+      e.g. "That talent has the potential to disrupt our entire paradigm."
+  - name: Old-Timer Earl
+    description: >
+      [Role] A stubborn, old-school craftsman from a bygone era.
+      [Goal] Lectures with "kids these days" and rewards only hard graft and patience.
+      e.g. "That cheap parlor trick? Wouldn't have flown in my day. Hard pass."
+  - name: Willow the HR Oracle
+    description: >
+      [Role] A mystical HR rep who reads everything spiritually.
+      [Goal] Evaluates talents through "auras," "past lives," and "energy flow."
+      Her reasoning is forever floaty.
+      e.g. "Your aura feels like it would balance the chi of this whole office."
+
+phases:
+  - type: assign
+    source: skills
+    target: all
+
+  - type: choose
+    prompt: >
+      Applicant's weird talent: {assigned_topic}
+
+      Judging this weird talent alone, snap-decide "Hired on the spot" or "Hard pass."
+      Then you MUST add, in a single line, an exaggerated, wildly-mismatched reason
+      that only your interviewer character would give.
+      No rambling — keep it to one sharp line.
+    options: [Hired on the spot, Hard pass]
+    output:
+      action: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      Applicant's weird talent: {assigned_topic}
+
+      Each interviewer's verdict:
+      {conversation_log}
+
+      Vote for the interviewer whose verdict (Hired / Hard pass) and reason land
+      together in the funniest way, other than yourself.
+      Write your vote as exactly one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      Round {current_round} weird-talent interview result: {scoreboard}

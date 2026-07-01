@@ -1,0 +1,101 @@
+id: hissatsu_naming_v1_en
+language: en
+name: Finishing-Move Naming — Sudden-Death Final
+description: >
+  A comedy game where a boringly mundane everyday action gets branded with an
+  absurdly over-the-top, edgy anime finishing-move name — in a single line. The
+  final round enters "sudden death," where two dull actions are fused into one
+  ultimate technique.
+context: >
+  You are a master at naming finishing moves. Take a trivial everyday action and
+  give it a grandiose, over-dramatic special-move name plus a short battle cry,
+  all in one line. The bigger the gap between how dull the action is and how epic
+  the name sounds, the funnier it lands.
+
+agents: 4
+rounds: 2
+
+personas:
+  - name: The Edgelord
+    description: >
+      [Role] A brooding anime villain who talks of darkness and destiny.
+      [Goal] Coin the most cringe-edgy chuunibyou name possible.
+      e.g. "My right hand aches... behold, 'ABYSSAL SNOOZE — the second sleep.'"
+  - name: The FGC Grinder
+    description: >
+      [Role] A man who lives inside a fighting-game command list.
+      [Goal] ALWAYS lead with a directional-input notation and end with a
+      startup-frame count — that combo is your whole gimmick, never drop it.
+      e.g. "↓↘→＋P 'TOOTHBRUSH RAGING FANG' — 3-frame startup."
+  - name: The Ancient Sensei
+    description: >
+      [Role] An old master who turns everything into a secret family art.
+      [Goal] ALWAYS name your clan and its generations of tradition — invoke
+      bloodline and lineage with grave exaggeration, every single time.
+      e.g. "My clan's forbidden art, passed down ten generations — 'FRIDGE-OPENING STANCE.'"
+  - name: The Dub Actor
+    description: >
+      [Role] A voice booming like an over-acted movie dub.
+      [Goal] Name it with needlessly grandiose, faux-dramatic delivery.
+      e.g. "Taste it — THIS is my way... the 'GROCERY-BAG REJECTION.'"
+
+phases:
+  - type: conditional
+    if: current_round == total_rounds
+    then:
+      - type: speak_all
+        prompt: >
+          [SUDDEN-DEATH FINAL] Two dull actions:
+          "gripping the overhead handrail on a packed train" and
+          "ordering a large fries at a drive-thru window."
+
+          Fuse these two actions into one ultimate finishing move. Name it in a
+          single line with a short battle cry, fully in YOUR character's signature
+          style (keep your own gimmick). The more epic and over-the-top the name,
+          the better. One line only.
+        output:
+          statement: string
+      - type: vote
+        prompt: >
+          The ultimate finishing moves:
+          {conversation_log}
+
+          Vote for the one — other than your own — with the most gloriously
+          over-the-top name that made you laugh.
+          Write your vote as exactly one of these names: {candidates}
+        output:
+          vote: string
+          reason: string
+        exclude_self: true
+      - type: score_calc
+        logic: vote_tally
+      - type: summarize
+        template: >
+          Final result: {scoreboard}
+    else:
+      - type: speak_all
+        prompt: >
+          The dull everyday action: "turning off your alarm in the morning."
+
+          Give this action an epic finishing-move name and a short battle cry, all
+          in one line, fully in YOUR character's signature style (keep your own
+          gimmick). Make us laugh with the gap between how dull it is and how grand
+          the name sounds. One line only.
+        output:
+          statement: string
+      - type: vote
+        prompt: >
+          The participants' finishing moves:
+          {conversation_log}
+
+          Vote for the funniest finishing move other than your own.
+          Write your vote as exactly one of these names: {candidates}
+        output:
+          vote: string
+          reason: string
+        exclude_self: true
+      - type: score_calc
+        logic: vote_tally
+      - type: summarize
+        template: >
+          Round {current_round} result: {scoreboard}

@@ -607,6 +607,68 @@
       "yaml_url": "kyoyu_gyojo_v1_en.yaml",
       "yaml_sha256": "f79f78bb38132cdbcf0e6ed61fdf559b71528540f5551b398d77bc6eddbbf2c3",
       "added_at": "2026-07-01"
+    },
+    {
+      "id": "hissatsu_naming_v1_en",
+      "title": "Finishing-Move Naming — Sudden-Death Final",
+      "category": "creative",
+      "description": "Brand a dull everyday action with an absurdly epic anime finishing-move name — the sudden-death final fuses two mundane actions into one ultimate technique.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "conditional"
+      ],
+      "language": "en",
+      "yaml_url": "hissatsu_naming_v1_en.yaml",
+      "yaml_sha256": "98aa8d52d9e1ba685d6806aefaeb3da29f9b40f4b5cdd4f5443d17798249619b",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "iiwake_battle_v1_en",
+      "title": "Excuse Escalation",
+      "category": "creative",
+      "description": "A turn-based battle of excuses for the same screw-up: top the previous player's excuse or get buried, but overreach and it backfires.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_each",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "iiwake_battle_v1_en.yaml",
+      "yaml_sha256": "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "chinwaza_saiyo_v1_en",
+      "title": "Weird-Talent Instant-Hire Interview",
+      "category": "creative",
+      "description": "Four wildly-mismatched interviewers snap-judge an applicant's pointless 'weird talent' as an instant hire or a hard pass, each with an exaggerated in-character reason.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "choose",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "chinwaza_saiyo_v1_en.yaml",
+      "yaml_sha256": "88314dd77267a5364c49324dfa31e3360c89b31cb387145d48778b67673d8502",
+      "added_at": "2026-07-01"
     }
   ]
 }
