@@ -669,6 +669,50 @@
       "yaml_url": "chinwaza_saiyo_v1_en.yaml",
       "yaml_sha256": "88314dd77267a5364c49324dfa31e3360c89b31cb387145d48778b67673d8502",
       "added_at": "2026-07-01"
+    },
+    {
+      "id": "chinkaitou_soudan_v1_en",
+      "title": "Advice Panel — The Terrible-Answer Room",
+      "category": "creative",
+      "description": "Four self-proclaimed experts fire back full-throttle terrible advice at silly little problems, each in their own signature style; everyone votes for the funniest answer.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "chinkaitou_soudan_v1_en.yaml",
+      "yaml_sha256": "5167afe4d545a6db738fb1c49603bc91bfe3a9965c65e7f8fa7406129796130d",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "tengoku_jigoku_v1_en",
+      "title": "Heaven or Hell — The Verdict Committee",
+      "category": "creative",
+      "description": "Four afterlife judges grandiosely rule 'Heaven' or 'Hell' over utterly trivial sins, each with a wildly disproportionate, weighty reason; everyone votes for the funniest verdict.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "choose",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "tengoku_jigoku_v1_en.yaml",
+      "yaml_sha256": "002300c367995638324977d5f6fdd1574ca539c7175d49bb26650e81f74cafcc",
+      "added_at": "2026-07-01"
     }
   ]
 }
