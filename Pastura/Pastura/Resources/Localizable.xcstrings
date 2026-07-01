@@ -5781,6 +5781,16 @@
         }
       }
     },
+    "The premise" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あらすじ"
+          }
+        }
+      }
+    },
     "Then branch (condition true)" : {
       "localizations" : {
         "ja" : {
