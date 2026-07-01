@@ -694,10 +694,33 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             .textStyle(Typography.metaValue)
             .foregroundStyle(Color.muted)
         }
+        // Case B (#853): turn the initial model-load wait into scene-setting
+        // by previewing the premise, which then stays as the opening card once
+        // the scrim dissolves. Also a trailing conditional child (like the
+        // subtitle) — the spinner stays the first, id-less child so its
+        // structural identity, and the #825 no-restart guarantee, are intact.
+        // `.model` only: `.reload` is a mid-run backend switch where the viewer
+        // already has the context.
+        if label == .model, let premise = scrimPremise() {
+          Text(premise)
+            .textStyle(Typography.bodyBubble)
+            .foregroundStyle(Color.inkSecondary)
+            .multilineTextAlignment(.center)
+            .lineLimit(4)
+            .frame(maxWidth: 300)
+            .padding(.top, 4)
+        }
       }
       .padding(24)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
+  }
+
+  /// The premise previewed in the initial model-load scrim (Case B, #853).
+  /// Routes through the same ``ScenarioIntroCard/Model`` empty-guard as the
+  /// opening card so the scrim and card agree on when there is nothing to show.
+  private func scrimPremise() -> String? {
+    ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")?.premise
   }
 
   private func scrimTitle(_ label: SimulationDisplayState.ScrimLabel) -> String {
