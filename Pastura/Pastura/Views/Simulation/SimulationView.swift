@@ -55,6 +55,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
+  /// Latches the opening card's premise reveal to a single run (#853): once the
+  /// typewriter *begins*, the card renders statically on any later re-mount
+  /// (e.g. scrolling back to the top) instead of re-typing — set at reveal
+  /// start so an interrupted reveal still latches.
+  @State private var introHasTyped = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
@@ -402,6 +407,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       hasContent: viewModel != nil && scenario != nil,
       isLoadingModel: viewModel?.isLoadingModel ?? false,
       isReloadingModel: viewModel?.isReloadingModel ?? false,
+      isPlayingIntro: viewModel?.isPlayingIntro ?? false,
       alreadyRunning: alreadyRunning,
       loadError: loadError)
   }
@@ -458,6 +464,32 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       ScrollViewReader { proxy in
         ScrollView {
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
+            // Opening card: the scenario premise, shown once above the first
+            // agent turn so a run no longer drops straight into ASSIGN / the
+            // first utterance (issue #853). Rendered as a fixed leading element
+            // — NOT injected into `logEntries` — so it never persists and never
+            // dims under the current-utterance opacity focus applied in the
+            // ForEach below. Title is `nil`: the header already shows the name.
+            // Hidden when the scenario has no description (Model init? → nil).
+            // The premise types in at the playback speed as the scene-setting
+            // beat; `introHasTyped` latches it to a single reveal so scrolling
+            // back to the top doesn't re-type (the card lives in this
+            // LazyVStack). `.instant` speed (`charsPerSecond == nil`) and
+            // Reduce Motion fall to the static path inside the card. Resume
+            // entries render statically (no typing, no gate) — the reveal beat
+            // is only for a fresh run's start. `onRevealComplete` releases the
+            // VM intro gate so the conversation starts after the reveal (#853).
+            if let introModel {
+              ScenarioIntroCard(
+                model: introModel,
+                charsPerSecond: (isResumeEntry || introHasTyped)
+                  ? nil : viewModel.speed.charsPerSecond,
+                leadIn: introLeadIn(for: viewModel.speed),
+                onRevealStarted: { introHasTyped = true },
+                onRevealComplete: { viewModel.introRevealDidComplete() }
+              )
+            }
+
             ForEach(viewModel.logEntries) { entry in
               logEntryView(entry, viewModel: viewModel, proxy: proxy)
                 // Current-utterance focus: dim past rows during playback so the
@@ -686,6 +718,32 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       .padding(24)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
+  }
+
+  /// Opening-card model for the current scenario, or `nil` when there is no
+  /// premise to show (#853). `title` is `nil`: the header already shows the
+  /// scenario name, so the card would only restate it.
+  private var introModel: ScenarioIntroCard.Model? {
+    ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")
+  }
+
+  /// `true` for the resume entry (a paused run being reopened). The opening card
+  /// renders statically on resume — the typed reveal + its conversation gate are
+  /// a fresh-run start beat only (#853).
+  private var isResumeEntry: Bool {
+    if case .resume = source { return true }
+    return false
+  }
+
+  /// A short "held breath" before the premise starts typing so the reveal
+  /// doesn't begin abruptly on mount (#853). Scaled inversely with playback
+  /// speed via `multiplier` (slow ⇒ longer, fast ⇒ shorter); `.instant`'s
+  /// infinite multiplier collapses it to `.zero`, matching its static reveal.
+  private func introLeadIn(for speed: PlaybackSpeed) -> Duration {
+    let baseSeconds = 0.45
+    let multiplier = speed.multiplier
+    guard multiplier.isFinite, multiplier > 0 else { return .zero }
+    return .seconds(baseSeconds / multiplier)
   }
 
   private func scrimTitle(_ label: SimulationDisplayState.ScrimLabel) -> String {
@@ -1040,7 +1098,17 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // the run snapshots it without a refetch-by-id — category is gallery
       // metadata not present in the parsed YAML. nil for local scenarios.
       let categorySnapshot = record.category
-      startOwnedRun(parsed) { model in
+      // Arm the intro gate iff an opening card will actually render — using the
+      // SAME empty-premise guard the card uses (`ScenarioIntroCard.Model`), so
+      // the VM never waits on a reveal that never happens (#853, critic Axis 4).
+      // Size the gate's last-resort backstop above the real reveal time
+      // (premise length ÷ the slowest playback speed + buffer) so it never
+      // clips a long premise typing at slow speed, yet still can't hang forever.
+      let hasIntroCard = ScenarioIntroCard.Model(title: nil, premise: parsed.description) != nil
+      let slowestCps = PlaybackSpeed.slow.charsPerSecond ?? 6
+      let introBackstop: TimeInterval? =
+        hasIntroCard ? Double(parsed.description.count) / slowestCps + 15 : nil
+      startOwnedRun(parsed, armIntroBackstop: introBackstop) { model in
         await model.run(
           scenario: parsed, llm: deps.llmService,
           scenarioCategorySnapshot: categorySnapshot)
@@ -1111,6 +1179,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// lifted.
   private func startOwnedRun(
     _ parsed: Scenario,
+    armIntroBackstop: TimeInterval? = nil,
     body: @escaping (SimulationViewModel) async -> Void
   ) {
     let session = dependencies.simulationSession
@@ -1130,6 +1199,13 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // half-projected frame.
       scenario = parsed
       viewModel = session.viewModel
+      // Arm the intro gate synchronously, before `run()` reaches
+      // `awaitIntroReveal()` (it first suspends at model load). Set here — not
+      // in `run()` — so the View stays the single owner of the premise-card
+      // predicate that both arms the gate and renders the card (#853).
+      if let armIntroBackstop {
+        session.viewModel?.beginIntro(revealBackstop: armIntroBackstop)
+      }
     case .refusedLiveRunExists:
       // PR1: structurally unreachable — `onDisappear` → `session.end()` frees
       // the slot before any second start. The "already running" + Return-to-run

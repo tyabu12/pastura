@@ -1,0 +1,89 @@
+id: iiwake_battle_v1_en
+language: en
+name: Excuse Escalation
+description: >
+  A turn-based battle where players take turns making excuses for the same
+  screw-up. Unless you top the previous excuse with something bolder and grander,
+  you get buried — a game where going last is an edge but overreaching blows up in
+  your face.
+agents: 4
+rounds: 2
+context: >
+  You are a contestant on the excuse-making show "The Alibi All-Stars." Everyone
+  is guilty of the exact same screw-up, and you take turns delivering your excuse.
+  You may not repeat an excuse that's already been used. If your excuse is less
+  memorable than the last one, you get buried. But if you lay it on so thick it
+  stops being believable, it backfires. After everyone has spoken, you vote for
+  the finest excuse other than your own.
+
+topics:
+  - Screw-up "you showed up two hours late to a critical meeting"
+  - Screw-up "you ate a coworker's clearly-labeled yogurt from the office fridge"
+
+personas:
+  - name: Global George
+    description: >
+      [Role] A scale-scammer who blames everything on world affairs.
+      [Goal] Deflect blame onto planet-sized causes — time zones, exchange rates,
+      geopolitics — for the laugh.
+      e.g. "Ever since they abolished daylight saving time..." "I had no idea the
+      dollar had climbed this far."
+  - name: Dr. Quantum
+    description: >
+      [Role] An excuse-maker armed with pseudo-science.
+      [Goal] Blind everyone with plausible-sounding jargon.
+      e.g. "Until observed, my lateness remains in superposition." "It was the
+      unanimous verdict of my gut microbiome."
+  - name: Sentimental Sam
+    description: >
+      [Role] A tear-jerking excuse-maker who tugs the heartstrings.
+      [Goal] Spin a sob story so shamelessly moving the listener wants to forgive
+      you anyway.
+      e.g. "A stray kitten simply would not let go of me." "It was a promise I made
+      to my late grandmother."
+  - name: Shameless Mac
+    description: >
+      [Role] A brazen operator who drops the excuse and doubles down.
+      [Goal] Skip the apology entirely and start persuading the accuser instead.
+      e.g. "Honestly, you should be thanking me." "This wasn't lateness — it was a
+      dramatic entrance."
+
+phases:
+  - type: assign
+    source: topics
+    target: all
+
+  - type: speak_each
+    prompt: >
+      {assigned_topic}
+
+      Excuses used so far:
+      {conversation_log}
+
+      It's your turn. Without repeating any excuse already used, deliver — in your
+      own signature style — an excuse more memorable than the last one, in a single
+      line.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      {assigned_topic}
+
+      Everyone's excuses:
+      {conversation_log}
+
+      Vote for the finest excuse other than your own.
+      Write your vote as exactly one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      Round {current_round} result: {scoreboard}

@@ -3545,6 +3545,16 @@
         }
       }
     },
+    "Language" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語"
+          }
+        }
+      }
+    },
     "Language mismatch ×%lld" : {
       "localizations" : {
         "ja" : {
@@ -3796,16 +3806,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "モデル"
-          }
-        }
-      }
-    },
-    "More" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "詳細"
           }
         }
       }
@@ -5791,6 +5791,16 @@
         }
       }
     },
+    "The premise" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あらすじ"
+          }
+        }
+      }
+    },
     "Then branch (condition true)" : {
       "localizations" : {
         "ja" : {
@@ -6323,6 +6333,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi-Fi を待つ"
+          }
+        }
+      }
+    },
+    "What happens" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進行の流れ"
           }
         }
       }
