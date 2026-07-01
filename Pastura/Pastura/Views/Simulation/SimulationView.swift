@@ -407,6 +407,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       hasContent: viewModel != nil && scenario != nil,
       isLoadingModel: viewModel?.isLoadingModel ?? false,
       isReloadingModel: viewModel?.isReloadingModel ?? false,
+      isPlayingIntro: viewModel?.isPlayingIntro ?? false,
       alreadyRunning: alreadyRunning,
       loadError: loadError)
   }
@@ -474,12 +475,17 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             // beat; `introHasTyped` latches it to a single reveal so scrolling
             // back to the top doesn't re-type (the card lives in this
             // LazyVStack). `.instant` speed (`charsPerSecond == nil`) and
-            // Reduce Motion fall to the static path inside the card.
+            // Reduce Motion fall to the static path inside the card. Resume
+            // entries render statically (no typing, no gate) — the reveal beat
+            // is only for a fresh run's start. `onRevealComplete` releases the
+            // VM intro gate so the conversation starts after the reveal (#853).
             if let introModel {
               ScenarioIntroCard(
                 model: introModel,
-                charsPerSecond: introHasTyped ? nil : viewModel.speed.charsPerSecond,
-                onRevealStarted: { introHasTyped = true }
+                charsPerSecond: (isResumeEntry || introHasTyped)
+                  ? nil : viewModel.speed.charsPerSecond,
+                onRevealStarted: { introHasTyped = true },
+                onRevealComplete: { viewModel.introRevealDidComplete() }
               )
             }
 
@@ -718,6 +724,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// scenario name, so the card would only restate it.
   private var introModel: ScenarioIntroCard.Model? {
     ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")
+  }
+
+  /// `true` for the resume entry (a paused run being reopened). The opening card
+  /// renders statically on resume — the typed reveal + its conversation gate are
+  /// a fresh-run start beat only (#853).
+  private var isResumeEntry: Bool {
+    if case .resume = source { return true }
+    return false
   }
 
   private func scrimTitle(_ label: SimulationDisplayState.ScrimLabel) -> String {
@@ -1072,7 +1086,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // the run snapshots it without a refetch-by-id — category is gallery
       // metadata not present in the parsed YAML. nil for local scenarios.
       let categorySnapshot = record.category
-      startOwnedRun(parsed) { model in
+      // Arm the intro gate iff an opening card will actually render — using the
+      // SAME empty-premise guard the card uses (`ScenarioIntroCard.Model`), so
+      // the VM never waits on a reveal that never happens (#853, critic Axis 4).
+      let hasIntroCard = ScenarioIntroCard.Model(title: nil, premise: parsed.description) != nil
+      startOwnedRun(parsed, armIntro: hasIntroCard) { model in
         await model.run(
           scenario: parsed, llm: deps.llmService,
           scenarioCategorySnapshot: categorySnapshot)
@@ -1143,6 +1161,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// lifted.
   private func startOwnedRun(
     _ parsed: Scenario,
+    armIntro: Bool = false,
     body: @escaping (SimulationViewModel) async -> Void
   ) {
     let session = dependencies.simulationSession
@@ -1162,6 +1181,13 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // half-projected frame.
       scenario = parsed
       viewModel = session.viewModel
+      // Arm the intro gate synchronously, before `run()` reaches
+      // `awaitIntroReveal()` (it first suspends at model load). Set here — not
+      // in `run()` — so the View stays the single owner of the premise-card
+      // predicate that both arms the gate and renders the card (#853).
+      if armIntro {
+        session.viewModel?.beginIntro()
+      }
     case .refusedLiveRunExists:
       // PR1: structurally unreachable — `onDisappear` → `session.end()` frees
       // the slot before any second start. The "already running" + Return-to-run

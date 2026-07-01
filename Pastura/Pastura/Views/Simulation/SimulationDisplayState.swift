@@ -51,8 +51,10 @@ nonisolated enum SimulationDisplayState: Equatable {
 
   /// Derives the display state from ``SimulationView``'s inputs, preserving the
   /// pre-existing body + overlay branch precedence exactly: content wins first
-  /// — within it `loadingModel` > `reloadingModel` > `running` — then
-  /// `alreadyRunning`, then `error`, then the scenario-loading fallback.
+  /// — within it `loadingModel` > `reloadingModel` > `running`, except
+  /// `isPlayingIntro` suppresses `loadingModel` (the opening-card reveal shows
+  /// on a clean background while the model loads, #853) — then `alreadyRunning`,
+  /// then `error`, then the scenario-loading fallback.
   ///
   /// `hasContent` is the View's `viewModel != nil && scenario != nil` gate
   /// collapsed to a single flag (they are only ever used together). Until both
@@ -65,15 +67,26 @@ nonisolated enum SimulationDisplayState: Equatable {
   /// `viewModel == nil` (both are assigned in `SimulationView.task` before
   /// `loadAndRun`), so the content-first ordering never masks them in practice.
   /// Do not "fix" the content-first precedence as if it could shadow those.
-  static func resolve(
+  ///
+  /// The six flat inputs ARE the precedence contract — this pure derivation is
+  /// the single testable place that orders them, so the `function_parameter_count`
+  /// disable is intentional: bundling into a struct would churn 14 call sites
+  /// (11 tests) for no readability gain over named arguments.
+  static func resolve(  // swiftlint:disable:this function_parameter_count
     hasContent: Bool,
     isLoadingModel: Bool,
     isReloadingModel: Bool,
+    isPlayingIntro: Bool,
     alreadyRunning: Bool,
     loadError: String?
   ) -> SimulationDisplayState {
     if hasContent {
-      if isLoadingModel { return .loadingModel }
+      // Opening-card intro (#853): while the premise is revealing, suppress the
+      // model-load scrim so the card types on a clean background — the model
+      // loads behind it. Scoped to `.loadingModel` only; the mid-run GPU↔CPU
+      // `.reloadingModel` scrim (ADR-003) stays independent (intro is a
+      // start-of-run beat that completes before any reload).
+      if isLoadingModel && !isPlayingIntro { return .loadingModel }
       if isReloadingModel { return .reloadingModel }
       return .running
     }

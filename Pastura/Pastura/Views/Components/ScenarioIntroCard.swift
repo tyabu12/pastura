@@ -62,6 +62,14 @@ struct ScenarioIntroCard: View {
   /// on the static path (nothing to latch — that path already shows full text).
   var onRevealStarted: (() -> Void)?
 
+  /// Called once when the premise is fully shown — the end of the typewriter on
+  /// the animated path, or immediately on the static path (instant speed /
+  /// Reduce Motion / an already-latched re-mount). The live simulation uses
+  /// this to gate the start of the conversation on the reveal finishing (#853).
+  /// NOT called when the reveal is cancelled mid-typing (early unmount) — the
+  /// run's own cancellation path releases its gate in that case.
+  var onRevealComplete: (() -> Void)?
+
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   /// Number of leading premise characters currently revealed. Drives the
   /// typewriter; the full string is always laid out (hidden tail) so the card
@@ -94,7 +102,10 @@ struct ScenarioIntroCard: View {
     .accessibilityElement(children: .combine)
     .task {
       guard shouldType else {
+        // Static path (instant / Reduce Motion / already-latched re-mount):
+        // full text at once, and the reveal is "complete" immediately.
         visibleChars = model.premise.count
+        onRevealComplete?()
         return
       }
       await revealPremise()
@@ -134,10 +145,11 @@ struct ScenarioIntroCard: View {
     .foregroundStyle(Color.moss)
   }
 
-  /// Advances ``visibleChars`` from 0 to the full length at
-  /// ``charsPerSecond``. Signals ``onRevealStarted`` up front (so the latch
-  /// holds even if the loop is cancelled mid-reveal), then advances. Cancelled
-  /// cleanly when the card leaves the hierarchy (the `.task` lifetime).
+  /// Advances ``visibleChars`` from 0 to the full length at ``charsPerSecond``.
+  /// Signals ``onRevealStarted`` up front (so the latch holds even if the loop
+  /// is cancelled mid-reveal), then ``onRevealComplete`` once the full string is
+  /// shown. Cancelled cleanly when the card leaves the hierarchy (the `.task`
+  /// lifetime) — the cancel path fires neither completion.
   private func revealPremise() async {
     let total = model.premise.count
     visibleChars = 0
@@ -151,9 +163,12 @@ struct ScenarioIntroCard: View {
     onRevealStarted?()
     while visibleChars < total {
       try? await Task.sleep(for: .seconds(1.0 / cps))
+      // Cancelled mid-reveal (early unmount): do NOT signal completion — the
+      // run's own cancellation path releases its intro gate.
       if Task.isCancelled { return }
       visibleChars += 1
     }
+    onRevealComplete?()
   }
 }
 
