@@ -54,20 +54,17 @@ struct ActiveModelChip: View {
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 5)
-    // Cap the width so the trailing chip can't crowd the centered brand
-    // lockup; only genuinely long names truncate. 160 leaves ~113pt for the
-    // text — comfortably fits the shipped short names ("Gemma 4 E2B",
-    // "Qwen 3 4B") without truncation, while still bounding future long ids.
-    // SE-width / large Dynamic Type still needs real-device QA (no simulator
-    // signal for nav-bar layout).
-    .frame(maxWidth: 160)
     .background(Capsule().fill(Color.mossDark.opacity(0.10)))
-    // Switching models changes the label width; the toolbar animates that
-    // resize. Without geometryGroup the Text updates instantly while the
-    // Capsule/frame interpolate, so the still-narrow capsule clips the wider
-    // name for a frame or two before settling. geometryGroup makes the chip's
-    // geometry update as one unit, removing that transient clip (iOS 17+).
-    .geometryGroup()
+    // Switching models changes the label width. Two things make that resize
+    // clip the wider name for a frame: the toolbar measures the item on a
+    // stale (narrower) pass, and the width change animates. `fixedSize` forces
+    // the chip to demand its intrinsic width up front (no stale narrow pass),
+    // and `.animation(nil, value:)` snaps the width change instead of
+    // interpolating it — together removing the transient clip.
+    // Trade-off: no maxWidth cap, so a future long model id would not truncate
+    // here; the shipped short names ("Gemma 4 E2B", "Qwen 3 4B") both fit.
+    .fixedSize(horizontal: true, vertical: false)
+    .animation(nil, value: presenter.chipLabel)
   }
 
   private var dotColor: Color {
