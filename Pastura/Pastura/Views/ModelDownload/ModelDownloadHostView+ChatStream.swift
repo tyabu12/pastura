@@ -127,6 +127,9 @@ extension ModelDownloadHostView {
   private func demoIntroCard(
     id: UUID, premise: String, viewModel: ReplayViewModel
   ) -> some View {
+    // Defensive re-guard: `appendIntroCard` already filtered empty premises
+    // with the identical predicate, so `Model.init?` never returns nil for an
+    // appended item — this `if let` is never the empty path in practice.
     if let model = ScenarioIntroCard.Model(title: nil, premise: premise) {
       ScenarioIntroCard(
         model: model,

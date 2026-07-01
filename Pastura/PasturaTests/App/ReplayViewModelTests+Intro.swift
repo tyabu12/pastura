@@ -155,6 +155,13 @@ extension ReplayViewModelTests {
       return
     }
     // The item immediately after the boundary is source 1's opening card.
+    // Bounds-guard the subscript so a regressed invariant records a clear
+    // failure instead of crashing the suite.
+    guard boundaryIndex + 1 < viewModel.chatItems.count else {
+      Issue.record(
+        "No item after the boundary at \(boundaryIndex); chatItems: \(viewModel.chatItems)")
+      return
+    }
     let afterBoundary = viewModel.chatItems[boundaryIndex + 1]
     guard case .scenarioIntro(_, let premise) = afterBoundary else {
       Issue.record("chatItems after boundary expected .scenarioIntro, got \(afterBoundary)")
