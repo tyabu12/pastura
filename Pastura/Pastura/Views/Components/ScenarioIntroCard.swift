@@ -52,11 +52,15 @@ struct ScenarioIntroCard: View {
   /// `.instant` playback speed. Reduce Motion also forces the static path.
   var charsPerSecond: Double?
 
-  /// Called once when the reveal animation finishes, so the caller can flip a
-  /// type-once latch and pass `charsPerSecond == nil` on any later re-mount
-  /// (the card lives in a `LazyVStack` and would otherwise re-type when the
-  /// user scrolls back to the top). Not called on the static path.
-  var onRevealComplete: (() -> Void)?
+  /// Called once when the reveal animation *begins* (not on completion), so the
+  /// caller can flip a type-once latch and pass `charsPerSecond == nil` on any
+  /// later re-mount (the card lives in a `LazyVStack` and would otherwise
+  /// re-type when the user scrolls back to the top). Fired at the start — not
+  /// the end — so a reveal *interrupted* by an early unmount (the `.task` is
+  /// cancelled mid-loop) still latches; the re-mounted card then renders the
+  /// full premise statically instead of restarting the typewriter. Not called
+  /// on the static path (nothing to latch — that path already shows full text).
+  var onRevealStarted: (() -> Void)?
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   /// Number of leading premise characters currently revealed. Drives the
@@ -131,8 +135,9 @@ struct ScenarioIntroCard: View {
   }
 
   /// Advances ``visibleChars`` from 0 to the full length at
-  /// ``charsPerSecond``, then signals ``onRevealComplete``. Cancelled cleanly
-  /// when the card leaves the hierarchy (the `.task` lifetime).
+  /// ``charsPerSecond``. Signals ``onRevealStarted`` up front (so the latch
+  /// holds even if the loop is cancelled mid-reveal), then advances. Cancelled
+  /// cleanly when the card leaves the hierarchy (the `.task` lifetime).
   private func revealPremise() async {
     let total = model.premise.count
     visibleChars = 0
@@ -140,12 +145,15 @@ struct ScenarioIntroCard: View {
       visibleChars = total
       return
     }
+    // Latch before typing: an early unmount cancels the loop below, but the run
+    // has already had its intro beat — a re-mount should show full text, not
+    // restart the typewriter.
+    onRevealStarted?()
     while visibleChars < total {
       try? await Task.sleep(for: .seconds(1.0 / cps))
       if Task.isCancelled { return }
       visibleChars += 1
     }
-    onRevealComplete?()
   }
 }
 

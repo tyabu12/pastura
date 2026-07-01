@@ -56,8 +56,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State var scenario: Scenario?
   @State private var showScoreboard = false
   /// Latches the opening card's premise reveal to a single run (#853): once the
-  /// typewriter finishes, the card renders statically on any later re-mount
-  /// (e.g. scrolling back to the top) instead of re-typing.
+  /// typewriter *begins*, the card renders statically on any later re-mount
+  /// (e.g. scrolling back to the top) instead of re-typing — set at reveal
+  /// start so an interrupted reveal still latches.
   @State private var introHasTyped = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -478,7 +479,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               ScenarioIntroCard(
                 model: introModel,
                 charsPerSecond: introHasTyped ? nil : viewModel.speed.charsPerSecond,
-                onRevealComplete: { introHasTyped = true }
+                onRevealStarted: { introHasTyped = true }
               )
             }
 
