@@ -241,6 +241,39 @@ runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/nolang_v1.yaml \
 expect_fail "A7 missing language fails"
 expect_out "must be present and one of ja/en" "A7 missing-language message"
 
+# ============================ check-gallery-entry ========================
+
+# C1 — check --all passes on a well-formed entry (index language present and
+# matching the YAML body). Built via add-gallery-entry (now auto-derives it).
+R="$(new_repo)"; mk_gallery_yaml "$R" cg_v1 4 2
+runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/cg_v1.yaml \
+  --category creative --recommended-model gemma-4-e2b-q4-k-m \
+  --estimated-inferences 8 --description card --author tester --non-interactive
+expect_ok "C1 add exits 0"
+runc "$R" bash scripts/check-gallery-entry.sh --all
+expect_ok "C1 check passes with valid language"
+
+# C2 — index language hand-stripped from gallery.json → check fails. This is
+# the README "Manual fallback" hand-edit path that add-gallery-entry never
+# touches; only this data-level gate (and the Swift test) catches it.
+jq '.scenarios[0] |= del(.language)' "$R/docs/gallery/gallery.json" > "$R/docs/gallery/gallery.json.t"
+mv "$R/docs/gallery/gallery.json.t" "$R/docs/gallery/gallery.json"
+runc "$R" bash scripts/check-gallery-entry.sh --all
+expect_fail "C2 missing index language fails"
+expect_out "language mismatch" "C2 missing-language gate message"
+
+# C3 — index language contradicts the YAML body (en vs ja) → check fails.
+R="$(new_repo)"; mk_gallery_yaml "$R" cg2_v1 4 2
+runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/cg2_v1.yaml \
+  --category creative --recommended-model gemma-4-e2b-q4-k-m \
+  --estimated-inferences 8 --description card --author tester --non-interactive
+expect_ok "C3 add exits 0"
+jq '.scenarios[0].language = "en"' "$R/docs/gallery/gallery.json" > "$R/docs/gallery/gallery.json.t"
+mv "$R/docs/gallery/gallery.json.t" "$R/docs/gallery/gallery.json"
+runc "$R" bash scripts/check-gallery-entry.sh --all
+expect_fail "C3 index != YAML language fails"
+expect_out "language mismatch" "C3 language-mismatch gate message"
+
 # ================================ summary ================================
 
 echo ""
