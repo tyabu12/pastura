@@ -484,6 +484,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 model: introModel,
                 charsPerSecond: (isResumeEntry || introHasTyped)
                   ? nil : viewModel.speed.charsPerSecond,
+                leadIn: introLeadIn(for: viewModel.speed),
                 onRevealStarted: { introHasTyped = true },
                 onRevealComplete: { viewModel.introRevealDidComplete() }
               )
@@ -732,6 +733,17 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   private var isResumeEntry: Bool {
     if case .resume = source { return true }
     return false
+  }
+
+  /// A short "held breath" before the premise starts typing so the reveal
+  /// doesn't begin abruptly on mount (#853). Scaled inversely with playback
+  /// speed via `multiplier` (slow ⇒ longer, fast ⇒ shorter); `.instant`'s
+  /// infinite multiplier collapses it to `.zero`, matching its static reveal.
+  private func introLeadIn(for speed: PlaybackSpeed) -> Duration {
+    let baseSeconds = 0.45
+    let multiplier = speed.multiplier
+    guard multiplier.isFinite, multiplier > 0 else { return .zero }
+    return .seconds(baseSeconds / multiplier)
   }
 
   private func scrimTitle(_ label: SimulationDisplayState.ScrimLabel) -> String {

@@ -52,6 +52,12 @@ struct ScenarioIntroCard: View {
   /// `.instant` playback speed. Reduce Motion also forces the static path.
   var charsPerSecond: Double?
 
+  /// A short "held breath" pause before the first character appears, so the
+  /// reveal doesn't start abruptly the instant the card mounts. During it the
+  /// eyebrow + empty (full-height) premise box are already shown. `.zero` skips
+  /// it (also the static path). Only applies to the animated reveal.
+  var leadIn: Duration = .zero
+
   /// Called once when the reveal animation *begins* (not on completion), so the
   /// caller can flip a type-once latch and pass `charsPerSecond == nil` on any
   /// later re-mount (the card lives in a `LazyVStack` and would otherwise
@@ -161,6 +167,12 @@ struct ScenarioIntroCard: View {
     // has already had its intro beat — a re-mount should show full text, not
     // restart the typewriter.
     onRevealStarted?()
+    // Held-breath pause before the first glyph (the eyebrow + empty premise box
+    // are already laid out). Cancellation-checked like the loop.
+    if leadIn > .zero {
+      try? await Task.sleep(for: leadIn)
+      if Task.isCancelled { return }
+    }
     while visibleChars < total {
       try? await Task.sleep(for: .seconds(1.0 / cps))
       // Cancelled mid-reveal (early unmount): do NOT signal completion — the
