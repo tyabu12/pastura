@@ -458,6 +458,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       ScrollViewReader { proxy in
         ScrollView {
           LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
+            // Opening card: the scenario premise, shown once above the first
+            // agent turn so a run no longer drops straight into ASSIGN / the
+            // first utterance (issue #853). Rendered as a fixed leading element
+            // — NOT injected into `logEntries` — so it never persists and never
+            // dims under the current-utterance opacity focus applied in the
+            // ForEach below. Title is `nil`: the header already shows the name.
+            // Hidden when the scenario has no description (Model init? → nil).
+            if let introModel = ScenarioIntroCard.Model(
+              title: nil, premise: scenario?.description ?? "") {
+              ScenarioIntroCard(model: introModel)
+            }
+
             ForEach(viewModel.logEntries) { entry in
               logEntryView(entry, viewModel: viewModel, proxy: proxy)
                 // Current-utterance focus: dim past rows during playback so the
