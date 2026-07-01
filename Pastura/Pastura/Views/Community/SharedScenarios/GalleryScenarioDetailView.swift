@@ -172,8 +172,10 @@ struct GalleryScenarioDetailView: View {
   private var whatHappensSection: some View {
     if let flow = GalleryScenarioDetailFormat.phaseFlow(phases: scenario.phases) {
       PasturaSection(String(localized: "What happens")) {
-        // `verbatim` — `flow` is a runtime-composed string; a plain `Text(flow)`
-        // would reinterpret it as a `LocalizedStringKey` and miss the catalog.
+        // `verbatim` documents intent: `flow` is a pre-composed string of
+        // already-localized `PhaseDisplayName` fragments, not a catalog key —
+        // and guards against a future string *literal* creeping in here and
+        // silently becoming a `LocalizedStringKey` lookup.
         Text(verbatim: flow)
           .font(.body)
           .foregroundStyle(Color.inkSecondary)
