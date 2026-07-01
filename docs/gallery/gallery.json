@@ -647,6 +647,28 @@
       "yaml_url": "iiwake_battle_v1_en.yaml",
       "yaml_sha256": "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3",
       "added_at": "2026-07-01"
+    },
+    {
+      "id": "chinwaza_saiyo_v1_en",
+      "title": "Weird-Talent Instant-Hire Interview",
+      "category": "creative",
+      "description": "Four wildly-mismatched interviewers snap-judge an applicant's pointless 'weird talent' as an instant hire or a hard pass, each with an exaggerated in-character reason.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "choose",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "chinwaza_saiyo_v1_en.yaml",
+      "yaml_sha256": "88314dd77267a5364c49324dfa31e3360c89b31cb387145d48778b67673d8502",
+      "added_at": "2026-07-01"
     }
   ]
 }
