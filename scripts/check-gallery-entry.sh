@@ -73,6 +73,13 @@ yaml_id() {
   python3 -c "import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))['id'])" "$1"
 }
 
+# Parse YAML top-level language via PyYAML (same robustness as yaml_id).
+# Prints the empty string when the key is absent/null so the caller can
+# distinguish "missing" from "present but out of range".
+yaml_language() {
+  python3 -c "import sys, yaml; print(yaml.safe_load(open(sys.argv[1])).get('language') or '')" "$1"
+}
+
 # Lowercase hex SHA-256 — matches URLSessionGalleryService's runtime
 # format and gallery.json.yaml_sha256. shasum is BSD perl on macOS and
 # perl-based on ubuntu — output format is identical (`<hex>  <file>`).
@@ -100,6 +107,7 @@ check_entry() {
   local yaml_path="$1"
   local expected_id="$2"
   local expected_sha="$3"
+  local expected_lang="$4"
 
   local actual_id
   actual_id="$(yaml_id "$yaml_path")"
@@ -121,6 +129,21 @@ check_entry() {
   size="$(file_size "$yaml_path")"
   if [ "$size" -gt "$MAX_BYTES" ]; then
     fail "size ${size} bytes exceeds 256 KiB cap (id=$expected_id, $yaml_path)"
+  fi
+  # Language: the index copy must be present, one of ja/en (ADR-010 D1), and
+  # equal to the YAML body's language. This is a data-level gate — it fires at
+  # pre-commit / the gallery-drift CI job, outside the iOS test suite, and so
+  # also covers the README "Manual fallback" hand-edit path that
+  # add-gallery-entry.sh's auto-derivation never touches. Mirrors the Swift
+  # GallerySeedYAMLTests.galleryLanguageMatchesYAML pin (#848).
+  local actual_lang
+  actual_lang="$(yaml_language "$yaml_path")"
+  case "$actual_lang" in
+    ja|en) ;;
+    *) fail "YAML 'language' must be present and one of ja/en — got '$actual_lang' (id=$expected_id, $yaml_path)" ;;
+  esac
+  if [ "$expected_lang" != "$actual_lang" ]; then
+    fail "language mismatch for id=$expected_id — gallery.json='${expected_lang:-<missing>}' but YAML='$actual_lang' ($yaml_path)"
   fi
 }
 
@@ -145,14 +168,14 @@ fi
 
 if [ "$MODE" = "--all" ]; then
   check_id_uniqueness
-  while IFS=$'\t' read -r entry_id entry_url entry_sha; do
+  while IFS=$'\t' read -r entry_id entry_url entry_sha entry_lang; do
     yaml_path="$GALLERY_DIR/$(basename "$entry_url")"
     if [ ! -f "$yaml_path" ]; then
       fail "yaml file missing for id=$entry_id — expected $yaml_path"
       continue
     fi
-    check_entry "$yaml_path" "$entry_id" "$entry_sha"
-  done < <(jq -r '.scenarios[] | [.id, .yaml_url, .yaml_sha256] | @tsv' "$GALLERY_JSON")
+    check_entry "$yaml_path" "$entry_id" "$entry_sha" "$entry_lang"
+  done < <(jq -r '.scenarios[] | [.id, .yaml_url, .yaml_sha256, (.language // "")] | @tsv' "$GALLERY_JSON")
 else
   yaml_path="$MODE"
   if [ ! -f "$yaml_path" ]; then
@@ -168,7 +191,8 @@ else
   else
     expected_id="$(echo "$entry_json" | jq -r '.id')"
     expected_sha="$(echo "$entry_json" | jq -r '.yaml_sha256')"
-    check_entry "$yaml_path" "$expected_id" "$expected_sha"
+    expected_lang="$(echo "$entry_json" | jq -r '.language // ""')"
+    check_entry "$yaml_path" "$expected_id" "$expected_sha" "$expected_lang"
   fi
   check_id_uniqueness
 fi

@@ -80,15 +80,16 @@ Note: `language` is a property of the **YAML body** AND is denormalized
 into the `gallery.json` index entry above. The index copy is required so
 the Browse (さがす) tab can filter by language **before** downloading any
 YAML — the in-app install-time read of the YAML body still happens, but it
-is too late for the pre-download list filter. The two MUST agree;
-`GallerySeedYAMLTests.galleryLanguageMatchesYAML` pins index ==
-YAML for every entry. (This complements — does not duplicate — ADR-010 D6's
+is too late for the pre-download list filter. The two MUST agree, and three
+layers enforce it: `scripts/add-gallery-entry.sh` **auto-derives** the index
+`language` from the YAML `language:` scalar (so entries added through the
+script are always in sync), `scripts/check-gallery-entry.sh --all` (pre-commit
++ CI gallery-drift gate) rejects any index entry whose `language` is missing,
+out of range, or ≠ the YAML — covering hand-edits the script never touches —
+and `GallerySeedYAMLTests.galleryLanguageMatchesYAML` pins index == YAML in
+the iOS suite. (This complements — does not duplicate — ADR-010 D6's
 `ScenarioRecord.language` column, which serves the installed-row Home /
 Past Results consumer, a different surface that reads the local DB.)
-
-> Index `language` is currently backfilled by hand when adding an entry.
-> Teaching `scripts/add-gallery-entry.sh` to derive it from the YAML
-> `language:` is a Step D follow-up (alongside the `_en` sibling entries).
 
 ## Current entries
 
@@ -282,8 +283,9 @@ In update mode:
   *No change needed* — `updated_at` is **not** bumped, so re-running
   is free.
 - The confirmation prompt shows an old → new diff for changed fields
-  only, with `(from YAML)` source labels on `title` / `yaml_sha256` so
-  you can tell YAML-driven changes from flag-driven ones.
+  only, with `(from YAML)` source labels on YAML-derived fields
+  (`title` / `agent_count` / `rounds` / `phases` / `language` /
+  `yaml_sha256`) so you can tell YAML-driven changes from flag-driven ones.
 
 ### What auto-syncs from YAML on `--update`?
 
@@ -295,6 +297,7 @@ In update mode:
 | `agents:`       | `agent_count`   | **Yes**     | YAML-derived fact; `GallerySeedYAMLTests.galleryAgentCountAndRoundsMatchYAML` enforces equality.                          |
 | `rounds:`       | `rounds`        | **Yes**     | Same YAML-derived enforcement as `agent_count` (same test).                                                               |
 | `phases[].type` | `phases`        | **Yes**     | Ordered phase types; `GallerySeedYAMLTests.galleryPhasesMatchYAML` enforces equality.                                     |
+| `language:`     | `language`      | **Yes**     | ISO 639-1 (ja/en); `GallerySeedYAMLTests.galleryLanguageMatchesYAML` + `check-gallery-entry.sh` enforce equality.         |
 
 If you actually want the gallery `description` to re-sync from the
 YAML, pass it explicitly. One-liner that pulls the current YAML value:
