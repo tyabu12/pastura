@@ -62,20 +62,19 @@ struct GalleryScenarioDetailView: View {
       }
       .hidingPasturaSharedBackground()
       ToolbarItem(placement: .primaryAction) {
-        Menu {
-          Button {
-            isReportSheetPresented = true
-          } label: {
-            Label(
-              String(localized: "Report this scenario"),
-              systemImage: "exclamationmark.bubble")
-          }
-          .accessibilityIdentifier("galleryDetail.reportMenuItem")
+        // Report is the only action, so surface it directly as an icon button
+        // rather than nesting it under an ellipsis menu. `.iconOnly` keeps the
+        // label text as the VoiceOver name.
+        Button {
+          isReportSheetPresented = true
         } label: {
-          Label(String(localized: "More"), systemImage: "ellipsis.circle")
+          Label(
+            String(localized: "Report this scenario"),
+            systemImage: "exclamationmark.bubble")
         }
-        .menuStyle(.button)
+        .labelStyle(.iconOnly)
         .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
+        .accessibilityIdentifier("galleryDetail.reportButton")
       }
       .hidingPasturaSharedBackground()
     }
@@ -94,6 +93,7 @@ struct GalleryScenarioDetailView: View {
       VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
         if wasOpenedFromDeepLink { deepLinkBanner }
         headerCard
+        whatHappensSection
         detailsCard
         recommendedModelSection
         actionFooter(viewModel: viewModel)
@@ -116,37 +116,71 @@ struct GalleryScenarioDetailView: View {
   }
 
   private var headerCard: some View {
+    // The scenario title is already the `.large` navigation title, so the card
+    // carries only the description — no duplicate heading above it.
     PasturaSection {
-      VStack(alignment: .leading, spacing: 8) {
-        Text(scenario.title)
-          .font(.title2.bold())
-          .foregroundStyle(Color.ink)
-        Text(scenario.description)
-          .font(.body)
-          .foregroundStyle(Color.inkSecondary)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(17)
+      Text(scenario.description)
+        .font(.body)
+        .foregroundStyle(Color.inkSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(17)
     }
+  }
+
+  /// Ordered detail rows. Agents / Rounds / Language are omitted entirely when
+  /// their backing value is absent (older-feed forward-compat), mirroring the
+  /// "never fabricate unknown data" posture of `GalleryCatalogRowFormat`.
+  private var detailRows: [(label: String, value: String)] {
+    var rows: [(label: String, value: String)] = [
+      (String(localized: "Category"), scenario.category.displayName)
+    ]
+    if let agentCount = scenario.agentCount {
+      rows.append((String(localized: "Agents"), "\(agentCount)"))
+    }
+    if let rounds = scenario.rounds {
+      rows.append((String(localized: "Rounds"), "\(rounds)"))
+    }
+    rows.append(
+      (
+        String(localized: "Recommended model"),
+        ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
+          ?? String(format: String(localized: "Unknown model (%@)"), scenario.recommendedModel)
+      ))
+    rows.append((String(localized: "Est. inferences"), "\(scenario.estimatedInferences)"))
+    if let language = GalleryScenarioDetailFormat.languageLabel(code: scenario.language) {
+      rows.append((String(localized: "Language"), language))
+    }
+    rows.append((String(localized: "Author"), scenario.author))
+    rows.append((String(localized: "Added"), scenario.addedAt))
+    return rows
   }
 
   private var detailsCard: some View {
     PasturaSection(String(localized: "Details")) {
       VStack(spacing: 0) {
-        detailRow(String(localized: "Category"), value: scenario.category.displayName)
-        PasturaRowDivider()
-        detailRow(String(localized: "Author"), value: scenario.author)
-        PasturaRowDivider()
-        detailRow(
-          String(localized: "Recommended model"),
-          value: ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
-            ?? String(
-              format: String(localized: "Unknown model (%@)"), scenario.recommendedModel))
-        PasturaRowDivider()
-        detailRow(
-          String(localized: "Est. inferences"), value: "\(scenario.estimatedInferences)")
-        PasturaRowDivider()
-        detailRow(String(localized: "Added"), value: scenario.addedAt)
+        ForEach(Array(detailRows.enumerated()), id: \.offset) { index, row in
+          if index > 0 { PasturaRowDivider() }
+          detailRow(row.label, value: row.value)
+        }
+      }
+    }
+  }
+
+  /// "What happens" — the scenario's phase sequence as an arrow flow. Hidden
+  /// when the mapped flow is empty (no phases, or all unknown kinds).
+  @ViewBuilder
+  private var whatHappensSection: some View {
+    if let flow = GalleryScenarioDetailFormat.phaseFlow(phases: scenario.phases) {
+      PasturaSection(String(localized: "What happens")) {
+        // `verbatim` documents intent: `flow` is a pre-composed string of
+        // already-localized `PhaseDisplayName` fragments, not a catalog key —
+        // and guards against a future string *literal* creeping in here and
+        // silently becoming a `LocalizedStringKey` lookup.
+        Text(verbatim: flow)
+          .font(.body)
+          .foregroundStyle(Color.inkSecondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(17)
       }
     }
   }
