@@ -105,10 +105,12 @@ source of truth). Adding new entries follows the workflow in
 | `kinoko_takenoko_v1` | きのこの山 vs たけのこの里 | `ja` | creative | 2026-04-29 |
 
 Per-language sibling entries (e.g., `asch_conformity_v1_en` with
-`language: en`) ship in ADR-010 Step D alongside the bundled English
-presets; the `language` column will gain `en` rows then. Cross-language
-canonical grouping uses `ScenarioRecord.sourceId` per ADR-010 D4 — out
-of scope for this README.
+`language: en`) ship independently of the bundled English presets — the
+gallery is a separate distribution surface. The first en batch (universal
+scenarios) lands via #850; once `gallery.json` carries ≥2 languages the
+Browse (さがす) language-filter chip row auto-un-dormants (ADR-010 D6 /
+#843). Cross-language canonical grouping uses `ScenarioRecord.sourceId`
+per ADR-010 D4 — out of scope for this README.
 
 ## Curation Rules
 
