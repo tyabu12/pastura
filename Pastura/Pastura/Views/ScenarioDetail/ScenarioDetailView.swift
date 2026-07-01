@@ -64,12 +64,24 @@ struct ScenarioDetailView: View {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
-      // Low-frequency scenario-management actions (edit / clone / delete)
-      // live in a `⋯` overflow menu rather than a pinned top-right slot —
-      // the prime real estate is reserved for the primary Run CTA (now a
-      // bottom-pinned button). Mirrors `ResultDetailView`'s ellipsis idiom.
+      // Trailing actions: the primary Run CTA sits at the trailing edge —
+      // the prime slot for the app's core action — with the low-frequency
+      // `⋯` overflow menu (edit / clone / delete) to its LEFT. This reverses
+      // the earlier layout that pinned Run as a bottom `.safeAreaInset`
+      // button: the InFlightSimulationIndicator "return to run" pill is a
+      // bottom-aligned `RootTabView` overlay shown while a run is
+      // parked-away, so it collided with a bottom-pinned Run CTA here.
+      // Moving Run into the toolbar frees the bottom edge for that pill.
+      //
+      // Two SEPARATE `ToolbarItem`s (not one HStack): a single `ToolbarItem`
+      // renders only one control, so an HStack of {Menu, Button} drops the
+      // Button entirely (verified — the Run button vanished from the a11y
+      // tree). Declaration order `[⋯]` then `[Run]` places Run at the
+      // trailing edge; the system's inter-item spacing separates the two so
+      // a stray tap doesn't land on the ⋯ menu (which holds the destructive
+      // Delete). They gate on independent optionals (`record` vs `scenario`).
       if let record = viewModel?.record {
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .topBarTrailing) {
           Menu {
             // Read-only sources (preset / installed gallery copy) get a
             // clone-as-template action; user scenarios get direct edit.
@@ -100,6 +112,37 @@ struct ScenarioDetailView: View {
             Image(systemName: "ellipsis.circle")
           }
           .accessibilityIdentifier("scenarioDetail.actionsMenu")
+        }
+        .hidingPasturaSharedBackground()
+      }
+      if let viewModel, let scenario = viewModel.scenario {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button {
+            // Synchronous tap → plain `push` onto the current tab's stack
+            // (navigation.md § "When to use what"). A `NavigationLink` in a
+            // toolbar has no precedent here and the file's `Menu`-push
+            // caveat (see the `router` doc-comment above) argues against it.
+            // `initialName` feeds SimulationView's nav title from the first
+            // frame; identity-neutral via `RouteHint` (ADR-008).
+            router.push(
+              .simulation(
+                scenarioId: scenarioId,
+                initialName: .init(scenario.name)))
+          } label: {
+            Label(String(localized: "Run"), systemImage: "play.fill")
+              // Toolbar `Label`s default to icon-only; force the "実行" text
+              // to render beside the ▶ (the approved [▶ Run] treatment, not
+              // an ambiguous icon-only button).
+              .labelStyle(.titleAndIcon)
+          }
+          .buttonStyle(PasturaToolbarButtonStyle(variant: .primary))
+          .disabled(!viewModel.canRun)
+          // `PasturaToolbarButtonStyle` doesn't dim on `.disabled`, so the
+          // not-runnable state is signalled explicitly (mirrors the old
+          // bottom CTA's `.opacity(0.4)`).
+          .opacity(viewModel.canRun ? 1 : 0.4)
+          .accessibilityLabel(String(localized: "Run Simulation"))
+          .accessibilityIdentifier("scenarioDetail.runSimulationButton")
         }
         .hidingPasturaSharedBackground()
       }
@@ -160,17 +203,10 @@ struct ScenarioDetailView: View {
     .background(Color.screenBackground.ignoresSafeArea())
     // Post-load anchor: this ScrollView only exists once the scenario
     // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
-    // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
-    // applied after, its identifier scopes the inset's Run button too and
-    // overrides the button's own `scenarioDetail.runSimulationButton` id.
+    // can wait on it instead of sleeping. (The primary Run CTA now lives in
+    // the toolbar, so the earlier "must precede `.safeAreaInset`" id-scoping
+    // constraint no longer applies.)
     .accessibilityIdentifier("scenarioDetail.list")
-    // Primary CTA pinned to the bottom safe-area edge so the app's core
-    // action stays in the thumb zone regardless of scroll position; content
-    // scrolls under the band. The tab bar sits below this (focus mode hides
-    // the tab bar only during a run, ADR-017 — not here).
-    .safeAreaInset(edge: .bottom) {
-      runSimulationCTA(scenario: scenario, viewModel: viewModel)
-    }
     .scrollPosition($scrollPosition)
     // A cross-language toggle reuses this leaf (replaceTop swaps the top
     // route in place), so the ScrollView keeps its prior offset — which
@@ -185,42 +221,4 @@ struct ScenarioDetailView: View {
     }
   }
 
-  /// Bottom-pinned primary call-to-action. Uses `PasturaPrimaryButtonStyle`
-  /// in its `.compact` size — a centred, content-width pill rather than a
-  /// full-width slab, keeping design-system §1's restrained "static, observed"
-  /// voice (the full-width mossDark bar read as too dominant on device). Stays
-  /// a `NavigationLink` pushing onto the current tab's stack (no
-  /// `navigationDestination(item:)` — navigation.md).
-  private func runSimulationCTA(
-    scenario: Scenario, viewModel: ScenarioDetailViewModel
-  ) -> some View {
-    // initialName supplies the scenario name to SimulationView's
-    // navigationTitle from the first frame, before loadAndRun() re-parses
-    // the YAML. Identity-neutral via RouteHint (ADR-008).
-    NavigationLink(
-      value: Route.simulation(
-        scenarioId: scenarioId,
-        initialName: .init(scenario.name)
-      )
-    ) {
-      Label(String(localized: "Run Simulation"), systemImage: "play.fill")
-    }
-    .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
-    .disabled(!viewModel.canRun)
-    .opacity(viewModel.canRun ? 1 : 0.4)
-    .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-    // Intrinsic-width pill centred in the full-width band (no label
-    // `.frame(maxWidth:)`); the outer frame spans the band so the hairline
-    // background reaches both edges.
-    .frame(maxWidth: .infinity)
-    .padding(.vertical, 12)
-    // Opaque band + top hairline so scroll content reads as passing *under*
-    // a distinct footer, not blending into the last card. If device QA shows
-    // a colour seam against the tab bar, bleed the band background down with
-    // `.ignoresSafeArea(.container, edges: .bottom)` (background only).
-    .background(alignment: .top) {
-      Color.screenBackground
-        .overlay(alignment: .top) { Color.rule.frame(height: 0.5) }
-    }
-  }
 }

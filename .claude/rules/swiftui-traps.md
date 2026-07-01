@@ -138,12 +138,17 @@ blanket "id always leaks."
 
 ```swift
 ScrollView { … }
-  .accessibilityIdentifier("scenarioDetail.list")   // BEFORE — scopes scroll content only
-  .safeAreaInset(edge: .bottom) { runCTA }            // inset keeps its own button id
+  .accessibilityIdentifier("myScreen.list")   // BEFORE — scopes scroll content only
+  .safeAreaInset(edge: .bottom) { footerButton }  // inset keeps its own button id
 ```
 
-Reference + inline rationale: `ScenarioDetailView.swift` (`scenarioDetail.list`
-just above its `.safeAreaInset`).
+The motivating instance — `ScenarioDetailView`'s bottom Run CTA under
+`scenarioDetail.list` — was moved into the toolbar (#851), so no live
+in-repo case of this exact bottom-inset-plus-button-id shape remains; the
+trap still applies to any future bottom-`safeAreaInset` that hosts an
+id'd control. The other live bottom-`.safeAreaInset` user
+(`ModelDownloadHostView+ChatStream.swift`, `promoCardInset`) doesn't hit
+it because its inset content carries no competing button id.
 
 **Diagnose** which id an element actually carries — instead of guessing —
 by exporting the a11y snapshot from the failing `.xcresult`:
