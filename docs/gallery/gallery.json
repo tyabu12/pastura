@@ -441,6 +441,7 @@
         "choose",
         "summarize"
       ],
+      "language": "ja",
       "yaml_url": "kyoyu_gyojo_v1.yaml",
       "yaml_sha256": "a5793670872fca129637c088cf643ea92cf2dd0ca5b2c19dae1e69e39898da77",
       "added_at": "2026-06-30"
