@@ -465,8 +465,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             // dims under the current-utterance opacity focus applied in the
             // ForEach below. Title is `nil`: the header already shows the name.
             // Hidden when the scenario has no description (Model init? → nil).
-            if let introModel = ScenarioIntroCard.Model(
-              title: nil, premise: scenario?.description ?? "") {
+            if let introModel {
               ScenarioIntroCard(model: introModel)
             }
 
@@ -695,13 +694,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             .foregroundStyle(Color.muted)
         }
         // Case B (#853): turn the initial model-load wait into scene-setting
-        // by previewing the premise, which then stays as the opening card once
-        // the scrim dissolves. Also a trailing conditional child (like the
-        // subtitle) — the spinner stays the first, id-less child so its
-        // structural identity, and the #825 no-restart guarantee, are intact.
-        // `.model` only: `.reload` is a mid-run backend switch where the viewer
-        // already has the context.
-        if label == .model, let premise = scrimPremise() {
+        // by previewing the premise — the same text then appears (in the fuller
+        // card treatment) as the opening card once the scrim dissolves. This is
+        // a compact preview (centered, clamped), not a literal carry-over of the
+        // same element, so the handoff is a cross-fade between two treatments.
+        // Also a trailing conditional child (like the subtitle) — the spinner
+        // stays the first, id-less child so its structural identity, and the
+        // #825 no-restart guarantee, are intact. `.model` only: `.reload` is a
+        // mid-run backend switch where the viewer already has the context.
+        if label == .model, let premise = introModel?.premise {
           Text(premise)
             .textStyle(Typography.bodyBubble)
             .foregroundStyle(Color.inkSecondary)
@@ -716,11 +717,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// The premise previewed in the initial model-load scrim (Case B, #853).
-  /// Routes through the same ``ScenarioIntroCard/Model`` empty-guard as the
-  /// opening card so the scrim and card agree on when there is nothing to show.
-  private func scrimPremise() -> String? {
-    ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")?.premise
+  /// Opening-card model for the current scenario, or `nil` when there is no
+  /// premise to show (#853). Single source consumed by both the log-top card
+  /// and the Case-B model-load scrim preview, so the two provably agree on
+  /// visibility. `title` is `nil`: the header already shows the scenario name.
+  private var introModel: ScenarioIntroCard.Model? {
+    ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")
   }
 
   private func scrimTitle(_ label: SimulationDisplayState.ScrimLabel) -> String {
