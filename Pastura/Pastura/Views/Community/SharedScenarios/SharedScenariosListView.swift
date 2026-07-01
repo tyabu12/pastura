@@ -34,6 +34,10 @@ struct SharedScenariosListView: View {
         ToolbarItem(placement: .topBarTrailing) {
           languageMenu(viewModel: viewModel)
         }
+        // Opt out of the iOS 26 Liquid Glass toolbar capsule so the chip draws
+        // its own soft moss capsule, matching the Home `ActiveModelChip`
+        // (swiftui-traps § Liquid Glass toolbar capsule).
+        .hidingPasturaSharedBackground()
       }
     }
     .task {

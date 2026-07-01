@@ -30,20 +30,32 @@ extension SharedScenariosListView {
       Divider()
       languageButton(title: String(localized: "All"), code: nil, viewModel: viewModel)
     } label: {
-      HStack(spacing: 4) {
+      // Mirror the Home `ActiveModelChip` so the two nav-bar chips read as one
+      // family: a soft moss capsule (not the iOS 26 Liquid Glass one — the
+      // toolbar item opts out via `hidingPasturaSharedBackground()` at the call
+      // site), size-13 semibold label, small trailing chevron.
+      HStack(spacing: 5) {
         Text(languageMenuLabel(viewModel: viewModel))
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(Color.inkSecondary)
+          .lineLimit(1)
+          .truncationMode(.tail)
+        Spacer(minLength: 4)
         Image(systemName: "chevron.down")
-          .font(.caption2)
+          .font(.system(size: 9, weight: .semibold))
+          .foregroundStyle(Color.muted)
           // Decorative — the Menu's own accessibilityLabel/Value carry meaning.
           .accessibilityHidden(true)
       }
+      .padding(.horizontal, 10)
+      .padding(.vertical, 5)
+      // Fixed width so switching language never re-measures the toolbar item:
+      // variable-width nav-bar items clip their content for a frame on width
+      // change (swiftui-traps § toolbar variable-width clip; ActiveModelChip
+      // pins its width for the same reason). Sized to fit "English".
+      .frame(width: 104)
+      .background(Capsule().fill(Color.mossDark.opacity(0.10)))
     }
-    // Intentionally keep the default iOS 26 Liquid Glass toolbar capsule (no
-    // `hidingPasturaSharedBackground()`): unlike a bare back chevron, this is a
-    // standard interactive Menu where the capsule reads as a tappable control.
-    // The simulator suppresses the capsule regardless, so verify the capsule +
-    // label legibility on a real iOS 26 device (swiftui-traps § Liquid Glass
-    // toolbar capsule).
     .accessibilityLabel(String(localized: "Language filter"))
     .accessibilityValue(languageMenuLabel(viewModel: viewModel))
   }
