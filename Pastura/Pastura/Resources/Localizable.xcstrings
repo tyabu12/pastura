@@ -961,7 +961,14 @@
       }
     },
     "%lld votes" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 票"
+          }
+        }
+      }
     },
     "%lldm %llds" : {
       "localizations" : {
@@ -2696,7 +2703,14 @@
       }
     },
     "Eliminated" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脱落"
+          }
+        }
+      }
     },
     "Else branch (condition false)" : {
       "localizations" : {
@@ -3096,10 +3110,24 @@
       }
     },
     "Final ranking" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終ランキング"
+          }
+        }
+      }
     },
     "Final scores" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終スコア"
+          }
+        }
+      }
     },
     "Finish the current simulation before clearing results." : {
       "localizations" : {
@@ -4206,7 +4234,14 @@
       }
     },
     "Outcome" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果"
+          }
+        }
+      }
     },
     "Output Fields" : {
       "localizations" : {
@@ -5491,7 +5526,14 @@
       }
     },
     "Shows the full scoreboard" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコアボード全体を表示"
+          }
+        }
+      }
     },
     "Simulating" : {
       "localizations" : {
@@ -5710,7 +5752,14 @@
       }
     },
     "Survived" : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生存"
+          }
+        }
+      }
     },
     "Switch to recommended model" : {
       "localizations" : {
