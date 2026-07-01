@@ -39,9 +39,14 @@ struct ScenarioDetailActionBar: View {
         }
       }
     }
-    .padding(.top, Spacing.xxs)
     .frame(maxWidth: .infinity)
+    .padding(.vertical, Spacing.xs)
     .pasturaBottomActionBarSurface()
+    // Inset from the screen edges + float above the bottom so the bar reads as
+    // the same detached rounded capsule the native iOS 26 tab bar uses on Home
+    // (not a full-width edge-to-edge band).
+    .padding(.horizontal, Spacing.l)
+    .padding(.bottom, Spacing.xs)
   }
 
   /// Primary. Tap-driven push → `NavigationLink(value:)` (navigation.md);
@@ -116,15 +121,15 @@ struct ScenarioDetailActionBar: View {
 }
 
 extension View {
-  /// Bottom-bar surface: iOS 26 Liquid Glass (continuity with the native tab
-  /// bar this replaces), `.regularMaterial` + top hairline on iOS 18–25.
+  /// Bottom-bar surface: a rounded **capsule** matching the native iOS 26
+  /// floating tab bar on Home — Liquid Glass on iOS 26, `.regularMaterial` in a
+  /// Capsule on iOS 18–25.
   @ViewBuilder
   fileprivate func pasturaBottomActionBarSurface() -> some View {
     if #available(iOS 26.0, *) {
-      glassEffect(.regular, in: .rect)
+      glassEffect(.regular, in: .capsule)
     } else {
-      background(.regularMaterial)
-        .overlay(alignment: .top) { Color.rule.frame(height: 0.5) }
+      background(.regularMaterial, in: Capsule())
     }
   }
 }
