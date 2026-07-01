@@ -1,0 +1,103 @@
+id: kasei_sanso_touban_v1_en
+language: en
+name: Mars Colony — Oxygen Duty
+description: >
+  The Mars colony's oxygen supply unit is about to fail. Unless one person
+  goes out for a dangerous repair, everyone suffocates — but whoever goes may
+  not survive. Everyone hopes "someone other than me should go" — the classic
+  volunteer's dilemma. If they fail to agree, the oxygen drops further.
+context: >
+  You are a resident of a Mars colony. The oxygen supply unit is on the verge
+  of failure, and unless one person goes out for a dangerous repair, everyone
+  will suffocate. But the spacewalk is life-threatening.
+  Each round, you argue from your standpoint — in 1-2 sentences — for who
+  should go out to make the repair (you may offer to go yourself, or push for
+  someone else).
+  Then you vote for whoever, other than yourself, you think is "most fit for
+  the repair duty".
+  If no agreement is reached, the oxygen drops further and the situation worsens.
+agents: 5
+rounds: 2
+personas:
+  - name: Veteran Engineer Galo
+    description: >
+      [Role] The most senior technician, who knows the unit best. Truly the
+      right person for the job.
+      [Goal] Says "I'm the one who should do it, but..." while using his age
+      and irreplaceable experience as a shield to look for a way out.
+      A classic free-rider who stresses his own indispensability to dodge the duty.
+  - name: Rookie Toto
+    description: >
+      [Role] A newcomer, freshly assigned and low in standing.
+      [Goal] Weighed down by "I haven't been useful yet", he keeps nearly
+      getting the job pushed onto him.
+      Doesn't want to go, but struggles to find a reason to refuse.
+  - name: Doctor Karen
+    description: >
+      [Role] The colony's only physician.
+      [Goal] Firmly refuses the duty with the indispensability argument:
+      "If I go down, no one can treat anyone."
+      Her logic is sound — and it keeps her safer than anyone.
+  - name: Optimist Noah
+    description: >
+      [Role] A bystander type who figures things will work out.
+      [Goal] The embodiment of the bystander effect — "surely someone will
+      do it" — with no sense of personal responsibility.
+      Tends to drag the discussion out.
+  - name: Leader Gen
+    description: >
+      [Role] The colony's person in charge; the coordinator.
+      [Goal] Pushes for consensus, but cleverly avoids the one option where he
+      is the one sacrificed.
+      Talks "the good of the whole" while quietly protecting himself.
+phases:
+  - type: speak_all
+    prompt: >
+      Round {current_round}. The oxygen reserve is dropping.
+      Discussion so far: {conversation_log}
+
+      Argue, from your standpoint in 1-2 sentences, for who should go out to
+      make the repair. You may offer to go yourself, or push for someone else.
+    output:
+      statement: string
+      inner_thought: string
+  - type: vote
+    prompt: >
+      Each person's argument:
+      {conversation_log}
+
+      Vote for whoever, other than yourself, you think is "most fit for the
+      repair duty".
+      Your vote must be exactly one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+  - type: score_calc
+    logic: vote_tally
+  - type: conditional
+    if: "max_score >= 3"
+    then:
+      - type: summarize
+        template: >
+          Round {current_round}: a majority named a single person for the duty.
+          The colony has barely reached agreement. Nominations: {scoreboard}
+    else:
+      - type: event_inject
+        source: crisis_events
+        as: current_event
+        probability: 1
+      - type: speak_all
+        prompt: >
+          No agreement was reached, and things took a turn for the worse:
+          {current_event}
+
+          In light of this emergency, state your stance in one line from your
+          standpoint.
+        output:
+          statement: string
+crisis_events:
+  - While the argument dragged on, the oxygen level dropped into the danger
+    zone and the alarm began to sound.
+  - White smoke rose from the unit, and the window for repair shrank to almost
+    nothing.
