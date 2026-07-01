@@ -3545,6 +3545,16 @@
         }
       }
     },
+    "Language filter" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語フィルター"
+          }
+        }
+      }
+    },
     "Language mismatch ×%lld" : {
       "localizations" : {
         "ja" : {

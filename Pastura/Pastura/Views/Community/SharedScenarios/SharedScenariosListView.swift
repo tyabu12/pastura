@@ -25,6 +25,17 @@ struct SharedScenariosListView: View {
     // across `state` transitions. Gated to the loaded states: searching the
     // loading / network-unavailable / error screens is meaningless.
     .modifier(GallerySearchable(enabled: isSearchEnabled, text: searchQueryBinding))
+    // The language filter lives in the nav bar (quiet, rarely touched) rather
+    // than in a scroll-content chip row. Gated on ≥2 feed languages; the whole
+    // toolbar item is absent while the gallery is single-language, so the
+    // search drawer keeps the bar to itself.
+    .toolbar {
+      if let viewModel, viewModel.shouldShowLanguageFilter {
+        ToolbarItem(placement: .topBarTrailing) {
+          languageMenu(viewModel: viewModel)
+        }
+      }
+    }
     .task {
       let newViewModel = SharedScenariosViewModel(
         galleryService: dependencies.galleryService,
@@ -97,15 +108,6 @@ struct SharedScenariosListView: View {
       VStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
         if case .offlineWithCache = viewModel.state {
           offlineBanner
-        }
-        // Language filter leads the category row, and only once the feed
-        // carries ≥2 languages — dormant on today's all-Japanese gallery
-        // (ADR-010 Step D surfaces it). Default-filtered to the device
-        // language via the ViewModel seed.
-        if viewModel.shouldShowLanguageFilter {
-          languageChips(
-            available: viewModel.availableLanguages,
-            selection: $bindable.selectedLanguage)
         }
         categoryChips(selection: $bindable.selectedCategory)
         scenariosCard(viewModel: viewModel)

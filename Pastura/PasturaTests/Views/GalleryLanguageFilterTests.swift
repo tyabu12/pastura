@@ -2,8 +2,8 @@ import Testing
 
 @testable import Pastura
 
-/// Unit tests for `GalleryLanguageFilter` — the Browse tab's language-chip
-/// filter projection. Covers the chip-options ordering, the option →
+/// Unit tests for `GalleryLanguageFilter` — the Browse tab's language-menu
+/// filter projection. Covers the option ordering, the option →
 /// `selectedLanguage` mapping, and the device-default resolution.
 /// Asserts logic properties only, never rendered output
 /// (ADR-009 / `.claude/rules/view-testing.md`).

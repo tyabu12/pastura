@@ -49,7 +49,7 @@ final class SharedScenariosViewModel {
   /// The selected language filter — `nil` means "all languages". Seeded once
   /// on the first non-empty index load to the device language (or `.all` when
   /// the feed carries no scenarios in that language; see ``apply(index:)``),
-  /// then user-driven via the language chips.
+  /// then user-driven via the language menu.
   var selectedLanguage: String?
 
   /// The Browse-tab search field text. Blank / whitespace-only applies no
@@ -62,16 +62,16 @@ final class SharedScenariosViewModel {
   private(set) var installedBySourceId: [String: ScenarioRecord] = [:]
 
   /// The distinct languages present in the loaded feed (via
-  /// ``GalleryScenario/effectiveLanguage``). Drives the language chip
+  /// ``GalleryScenario/effectiveLanguage``). Drives the language menu
   /// options and ``shouldShowLanguageFilter``.
   var availableLanguages: Set<String> {
     Set(allScenarios.map(\.effectiveLanguage))
   }
 
-  /// Whether to surface the language filter chip row at all. Hidden while the
-  /// feed carries a single language (today's all-Japanese gallery), so users
-  /// never see an always-empty "English" chip or a redundant 日本語 ≡ すべて
-  /// pair. Surfaces once a second language ships (ADR-010 Step D).
+  /// Whether to surface the language filter menu at all. Hidden while the
+  /// feed carries a single language, so users never see an always-empty
+  /// "English" option or a redundant 日本語 ≡ すべて pair. Surfaces once a
+  /// second language ships (ADR-010 Step D).
   var shouldShowLanguageFilter: Bool {
     availableLanguages.count > 1
   }

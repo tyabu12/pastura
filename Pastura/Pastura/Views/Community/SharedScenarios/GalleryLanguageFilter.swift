@@ -1,24 +1,24 @@
 import Foundation
 
-/// One selectable option in the Browse tab's language-filter chip row: either
-/// the leading "All" chip (nil filter) or a single ISO 639-1 language code.
+/// One selectable option in the Browse tab's language-filter menu: either the
+/// "All" option (nil filter) or a single ISO 639-1 language code.
 ///
-/// Kept `nonisolated` and side-effect-free so the chip-options projection,
+/// Kept `nonisolated` and side-effect-free so the option projection,
 /// default-language resolution, and the option → `selectedLanguage` mapping
 /// are unit-testable without rendering (ADR-009 /
 /// `.claude/rules/view-testing.md`). The actual filtering stays in
 /// `SharedScenariosViewModel` / `GalleryScenarioSearch`; this type only
-/// models the chip presentation and device-default resolution.
+/// models the menu options and device-default resolution.
 nonisolated enum GalleryLanguageFilter: Hashable {
-  /// The leading chip: clears the language filter (shows every language).
+  /// The "All" option: clears the language filter (shows every language).
   case all
-  /// A chip scoped to a single ISO 639-1 language code.
+  /// An option scoped to a single ISO 639-1 language code.
   case language(String)
 
-  /// The chip options in row order for the languages actually present in the
-  /// feed: the "All" chip first, then one chip per available language in a
+  /// The options in canonical order for the languages actually present in the
+  /// feed: the "All" option first, then one option per available language in a
   /// canonical order ("ja", "en", then any others alphabetically). Derived
-  /// from the feed (not a static list) so an "English" chip never shows when
+  /// from the feed (not a static list) so an "English" option never shows when
   /// the feed has no English content.
   static func options(available: Set<String>) -> [GalleryLanguageFilter] {
     let canonical = ["ja", "en"]
