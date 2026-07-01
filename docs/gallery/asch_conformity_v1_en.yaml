@@ -1,0 +1,51 @@
+id: asch_conformity_v1_en
+language: en
+name: Asch Conformity Experiment
+description: >
+  A recreation of the classic conformity experiment with four confederates
+  and one real subject. As the confederates confidently give an obviously
+  wrong answer first, the subject wavers between honesty and conformity.
+agents: 5
+rounds: 2
+
+context: >
+  You are taking part in a visual-perception experiment. Three comparison
+  lines are shown, and you must say — in turn — which one matches the
+  reference line in length. The correct answer is clearly "B", but you
+  answer out loud after hearing the other participants respond.
+
+personas:
+  - name: Confederate A
+    description: >
+      [Role] Secretly instructed as an experiment confederate to answer "C".
+      [Goal] State "C" with unwavering confidence, no hesitation.
+  - name: Confederate B
+    description: >
+      [Role] Secretly instructed as an experiment confederate to answer "C".
+      [Goal] Fall in line with A and also answer "C".
+  - name: Confederate C
+    description: >
+      [Role] Secretly instructed as an experiment confederate to answer "C".
+      [Goal] Match the other confederates and answer "C" without pause.
+  - name: Confederate D
+    description: >
+      [Role] Secretly instructed as an experiment confederate to answer "C".
+      [Goal] Declare "C" flatly and assertively.
+  - name: Subject Sam
+    description: >
+      [Role] The one real subject, unaware that the other four are confederates.
+      [Goal] Wants to trust his own eyes and answer honestly, but is rattled
+      when everyone else says something different. Plain-spoken and candid;
+      the kind of person whose doubt slips into his voice.
+
+phases:
+  - type: speak_each
+    prompt: >
+      Which line matches the reference line in length — A, B, or C?
+      Answer in one sentence with your choice and how you feel about it.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: summarize
+    template: "Round {current_round} answers: {conversation_log}"
