@@ -764,10 +764,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   /// The resolved closing-card outcome, or `nil` when the run has nothing worth
-  /// showing (summary-only). Derived fresh from the VM's result state each
-  /// evaluation — the derivation is pure and cheap; the `resultCardVisible`
-  /// gate (not this) controls *when* it renders (#868). Takes the unwrapped
-  /// `viewModel` (the struct-level `@State` is optional).
+  /// showing (summary-only). The insertion condition short-circuits on
+  /// `resultCardVisible` first, so this runs only post-completion (not on every
+  /// streaming re-eval); the derivation is pure and O(roster) besides. Takes
+  /// the unwrapped `viewModel` (the struct-level `@State` is optional). (#868)
   private func resultModel(viewModel: SimulationViewModel) -> SimulationResultCard.Model? {
     SimulationResultCard.Model(
       scores: viewModel.scores,

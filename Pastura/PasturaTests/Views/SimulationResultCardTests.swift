@@ -131,6 +131,23 @@ struct SimulationResultCardTests {
     #expect(survivors == ["Alice", "Carol"])
   }
 
+  @Test("An elimination not surfaced by a top-level phase still classifies as survival")
+  func eliminationNestedUnderConditional() {
+    // The eliminate phase can be nested inside a `.conditional` (depth-1 rule),
+    // so `phaseTypes` — which scans only top-level phases — would miss it. The
+    // ground-truth `eliminated` dict must still drive survival framing.
+    let model = SimulationResultCard.Model(
+      scores: ["Alice": 0, "Bob": 0, "Carol": 0],
+      eliminated: ["Carol": true],
+      voteResults: [:],
+      eliminationVotes: ["Carol": 3],
+      phases: [Phase(type: .conditional)])
+    #expect(model?.framing == .survival)
+    let carol = model?.entries.first { $0.name == "Carol" }
+    #expect(carol?.isEliminated == true)
+    #expect(carol?.primaryValue == 3)
+  }
+
   // MARK: - Vote-only ranking (popularity vote, eliminates nobody)
 
   @Test("Vote-only scenario ranks by votes and is NOT mislabeled as survival")

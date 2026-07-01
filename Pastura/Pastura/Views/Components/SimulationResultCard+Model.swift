@@ -60,9 +60,12 @@ extension SimulationResultCard {
       // key set is the full roster; prefer scores, fall back to eliminated.
       let roster = scores.isEmpty ? Array(eliminated.keys) : Array(scores.keys)
 
-      // 1. Survival — an elimination phase makes "who's left" the outcome, even
-      //    when scores are also present.
-      if phaseTypes.contains(.eliminate) {
+      // 1. Survival — an elimination makes "who's left" the outcome, even when
+      //    scores are also present. OR the ground-truth `eliminated` signal so
+      //    a scenario that nests its eliminate phase inside a `.conditional`
+      //    (the depth-1 rule permits it; `phaseTypes` scans only top-level
+      //    phases) still classifies as survival rather than falling through.
+      if phaseTypes.contains(.eliminate) || eliminated.values.contains(true) {
         guard !roster.isEmpty else { return nil }
         return (
           .survival,
