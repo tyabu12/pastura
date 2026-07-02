@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// Displays a phase type as a moss / ink-secondary capsule badge.
+/// Displays a phase type as a moss / ink-secondary capsule badge: a leading
+/// `PhaseGlyph` SF Symbol + the phase `rawValue`.
 ///
-/// Used inline within an `AgentOutputRow` name row and standalone as a
-/// `phaseStarted` log entry in `SimulationView`. The capsule shape + tag
-/// typography carries the "this is a phase marker" semantic; color
-/// distinguishes LLM-driven phases (moss, the only brand accent) from
-/// code-driven phases (ink-secondary, muted neutral).
+/// Used inline within an `AgentOutputRow` name row, standalone as a
+/// `phaseStarted` log entry in `SimulationView`, and in the visual editor's
+/// `PhaseBlockRow`. The capsule shape + tag typography carries the "this is a
+/// phase marker" semantic; color distinguishes LLM-driven phases (moss, the
+/// only brand accent) from code-driven phases (ink-secondary, muted neutral).
+/// Glyph vocabulary is the shared `PhaseGlyph` SSOT (#860).
 struct PhaseTypeLabel: View {
   let phaseType: PhaseType
 
@@ -14,7 +16,7 @@ struct PhaseTypeLabel: View {
     HStack(spacing: 4) {
       // Phase glyph from the shared `PhaseGlyph` SSOT (#860) — the same
       // symbol vocabulary the gallery "What happens" steps use, so one
-      // visual language reads across Sim / Editor / detail. Decorative:
+      // visual language reads across Sim and the Editor. Decorative:
       // the adjacent rawValue Text carries the phase identity, so hide the
       // glyph from VoiceOver rather than announce the raw symbol name.
       Image(systemName: PhaseGlyph.symbolName(for: phaseType))
