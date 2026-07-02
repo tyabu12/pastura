@@ -112,7 +112,7 @@ Utilities/ → depends on nothing
 | UI                 | SwiftUI                       |           |
 | Min iOS            | 18.0                          |           |
 | YAML parser        | Yams                          | 6.2.2     |
-| SQLite             | GRDB                          | 7.11.0    |
+| SQLite             | GRDB                          | 7.11.1    |
 | LLM (TestFlight)   | llama.cpp via mattt/llama.swift | pinned   |
 | LLM (target)       | LiteRT-LM iOS SDK (planned)  |           |
 | LLM (dev)          | Ollama via OpenAI-compat API  |           |
