@@ -5,7 +5,7 @@ import UIKit
 
 /// Unit coverage of ``PhaseGlyph``, the single source of truth for the
 /// `PhaseType` → SF Symbol mapping used by the shared-scenario "What
-/// happens" phase-flow surface.
+/// happens" phase-step surface.
 ///
 /// `@MainActor`: ``PhaseGlyph`` sits at the default (MainActor) isolation
 /// (mirroring ``PhaseDisplayName``, swift-isolation.md Pattern 5), and

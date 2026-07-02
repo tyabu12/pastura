@@ -199,7 +199,7 @@ struct GalleryScenarioDetailView: View {
         .foregroundStyle(Color.mossDark)
         .frame(width: 22, alignment: .center)
         .accessibilityHidden(true)
-      Text(label)
+      Text(verbatim: label)
         .foregroundStyle(Color.ink)
       Spacer(minLength: 0)
     }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Single source of truth for the `PhaseType` → SF Symbol mapping used by
-/// the shared-scenario detail screen's "What happens" phase-flow surface.
+/// the shared-scenario detail screen's "What happens" phase-step surface.
 ///
 /// 6 of the 10 kinds intentionally reuse the Browse art-tile glyphs
 /// (``ScenarioSignaturePhase/sfSymbolName`` in `GalleryCatalogRow.swift`) to

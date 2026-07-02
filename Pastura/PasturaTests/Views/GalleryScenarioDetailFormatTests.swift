@@ -4,7 +4,7 @@ import Testing
 
 /// Unit coverage of the pure ``GalleryScenarioDetailFormat`` helpers backing
 /// the shared-scenario detail screen's enriched metadata rows and the
-/// "What happens" phase flow (view-testing.md rule 1 — logic extracted from
+/// "What happens" phase step (view-testing.md rule 1 — logic extracted from
 /// the View so it is testable without rendering).
 ///
 /// `@MainActor`: ``GalleryScenarioDetailFormat`` sits at the default (MainActor)
