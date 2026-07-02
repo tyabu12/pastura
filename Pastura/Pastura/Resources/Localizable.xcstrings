@@ -6295,12 +6295,12 @@
         }
       }
     },
-    "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}" : {
+    "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned}, {assigned_word}, {current_event}" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "変数: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
+            "value" : "変数: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned}, {assigned_word}, {current_event}"
           }
         }
       }

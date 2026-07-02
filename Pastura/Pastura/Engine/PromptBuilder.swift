@@ -19,6 +19,29 @@ nonisolated struct PromptBuilder: Sendable {
     return result
   }
 
+  /// Injects the current speaker's `assign`-phase value under the canonical
+  /// `{assigned}` key and its backward-compat alias `{assigned_word}`.
+  ///
+  /// `AssignHandler` stores each agent's value under a per-persona key
+  /// `assigned_<name>`; this reads that back for the speaker so per-persona
+  /// prompt templates resolve (#890 — before this, `{assigned_word}` leaked
+  /// literally and Word Wolf's secret-word mechanic never worked).
+  ///
+  /// Missing assignment resolves to empty string (not a literal placeholder),
+  /// matching `EventInjectHandler`'s miss posture for assign-less scenarios.
+  ///
+  /// - Note: reads from the passed `variables` copy (seeded from
+  ///   `state.variables`), so a persona literally named `word` would produce
+  ///   key `assigned_word` that collides with this alias — the alias then
+  ///   reflects the current speaker's value, not that persona's assignment.
+  ///   Contrived and absent from all bundled presets; the `assigned_` prefix
+  ///   is effectively a reserved namespace.
+  func injectAssigned(into variables: inout [String: String], personaName: String) {
+    let mine = variables["assigned_\(personaName)"] ?? ""
+    variables["assigned"] = mine
+    variables["assigned_word"] = mine
+  }
+
   // MARK: - Scoreboard
 
   /// Serializes a score dictionary into a compact JSON-like string for template injection.
