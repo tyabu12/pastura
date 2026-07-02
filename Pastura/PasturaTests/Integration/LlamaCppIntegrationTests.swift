@@ -380,14 +380,21 @@ struct LlamaCppIntegrationTests {
       let parsed = try JSONResponseParser().parse(
         result, expectedKeys: Set(schema.fields.map(\.name)))
       #expect(parsed.0.fields["statement"] != nil)
-    } catch LLMError.generationFailed(let description) {
+    } catch LLMError.samplerCrashCaught(let description) {
       // The SafeSampler bridge caught a C++ exception and surfaced it as
-      // `.generationFailed`. The test passes — process did NOT crash.
-      // Log the description so the developer running this on device can
-      // tell whether the catch fired vs. plain generation failure.
+      // the retryable `.samplerCrashCaught` (#885). The test passes —
+      // process did NOT crash. `description` is the raw caught `what()`
+      // (the "Sampler crash caught:" prefix now lives in
+      // `LLMError.errorDescription`, not the associated value).
       #expect(
-        description.contains("Sampler crash caught"),
-        "unexpected generation failure (not from SafeSampler): \(description)")
+        !description.isEmpty,
+        "SafeSampler caught a crash but surfaced an empty what(): \(description)")
+    } catch LLMError.generationFailed(let description) {
+      // A non-sampler generation failure (e.g. genuine backend error) is
+      // still acceptable here — the point of this test is that the
+      // process did not crash. Kept as a distinct arm so a sampler crash
+      // that regressed back to `.generationFailed` would surface loudly.
+      Issue.record("generation failed without a caught sampler crash: \(description)")
     }
   }
 }

@@ -138,7 +138,7 @@ extension LlamaCppService {
   /// Catch path (both branches): the grammar `accept_token`
   /// `std::runtime_error` (#334 / #366 / #371) surfaces as
   /// ``SafeSampler/Outcome/errorMessage`` and is routed through
-  /// ``handleSamplerCatch(_:mode:)`` (diagnostic + `LLMError.generationFailed`).
+  /// ``handleSamplerCatch(_:mode:)`` (diagnostic + `LLMError.samplerCrashCaught`).
   /// See `LLM/SafeSampler/SafeSampler.h` for the catch scope. The grammar
   /// `apply` does not throw `std::exception` (only `GGML_ASSERT` /
   /// `GGML_ABORT` signals), so the Swift-side `apply` here loses no coverage.
@@ -235,10 +235,14 @@ extension LlamaCppService {
   ///   2. Emit a `samplerCrashCaught` structured line on
   ///      `category:StreamingDiag` (always-on; see `samplerCatchDiagLogger`)
   ///      so the analyzer pipeline can aggregate occurrence rates across builds.
-  ///   3. Throw `LLMError.generationFailed`. Per `LLMCaller.swift:88-94`,
-  ///      `.generationFailed` exits the retry loop immediately — sampler
-  ///      crashes appear deterministic per (model, prompt, schema), so a 3×
-  ///      retry storm would just multiply latency without improving recovery.
+  ///   3. Throw `LLMError.samplerCrashCaught`. `LLMCaller` routes this
+  ///      case through its existing retry budget (#885): the crash is
+  ///      sampling noise (the model continuing past the completed object
+  ///      with a token outside the grammar's ASCII trailing set), not
+  ///      deterministic per (model, prompt, schema), so a fresh
+  ///      inference usually recovers. The diagnostic above fires once
+  ///      per **attempt** so occurrence rates stay accurate across the
+  ///      (bounded) retries.
   private func handleSamplerCatch(_ errorMessage: String?, mode: String) throws {
     guard let errorMessage else { return }
     let truncated = String(errorMessage.prefix(160))
@@ -253,9 +257,11 @@ extension LlamaCppService {
       mode=\(mode, privacy: .public) \
       model=\(self.modelIdentifier, privacy: .public)
       """)
-    throw LLMError.generationFailed(
-      description: String(
-        format: String(localized: "Sampler crash caught: %@"), truncated))
+    // Retryable, not fail-fast: the raw `what()` rides in the associated
+    // value and `LLMCaller` re-runs the inference through its retry
+    // budget (#885). `LLMError.errorDescription` formats it for display
+    // via the same "Sampler crash caught: %@" catalog key.
+    throw LLMError.samplerCrashCaught(description: truncated)
   }
 
   /// Call `llama_sampler_init_grammar` with stderr redirected to a `Pipe`
