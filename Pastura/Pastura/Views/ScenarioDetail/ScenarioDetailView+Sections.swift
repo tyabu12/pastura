@@ -149,10 +149,10 @@ extension ScenarioDetailView {
   ) -> some View {
     PasturaSection {
       VStack(spacing: 0) {
-        // Run Simulation is the bottom-pinned primary CTA (see
-        // ScenarioDetailView.runSimulationCTA); this section holds the
-        // secondary affordances. Past Results is the first row, so no
-        // leading divider.
+        // Run Simulation is the primary action in the contextual bottom action
+        // bar (see ScenarioDetailActionBar, hosted via ScenarioDetailView's
+        // .safeAreaInset); this section holds the secondary affordances. Past
+        // Results is the first row, so no leading divider.
         NavigationLink(value: Route.results(scenarioId: scenarioId)) {
           PasturaRowLabel(
             title: String(localized: "Past Results"),

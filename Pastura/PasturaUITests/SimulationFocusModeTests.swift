@@ -5,6 +5,13 @@ import XCTest
 /// tab-switching mid-run is structurally impossible — the bug #646 set out to
 /// fix (tab switch → view teardown → reset) can no longer be triggered.
 ///
+/// Note (ADR-016 § Amendment 2026-07-01): `ScenarioDetailView` — the screen
+/// the run is launched from — now ALSO hides the tab bar (contextual bottom
+/// action bar). So popping the sim lands back on a still-hidden screen; the
+/// bar only restores after popping *past* ScenarioDetail to a tab-bar-showing
+/// screen (here GalleryScenarioDetail). This test therefore pops twice to
+/// prove the hide is not sticky.
+///
 /// This UI test guards the **simulator-observable** mechanism only: the bar
 /// disappears on push and restores on pop. The iOS-26 restore-on-pop *visual*
 /// (Liquid Glass flicker / half-render / stuck-hidden) is NOT validated here —
@@ -35,9 +42,52 @@ final class SimulationFocusModeTests: XCTestCase {
       app.navigationBars["Pastura"].waitForExistence(timeout: 10),
       "Home did not appear within 10s.")
 
-    // Reach SimulationView via the proven gallery-install → Run Simulation flow
-    // (mirrors NavigationRegressionTests — the path known to start a sim under
-    // the `--ui-test` harness).
+    // Reach a running SimulationView (Home → Browse → gallery → install →
+    // ScenarioDetail → Run). Returns the Browse tab-bar button as the
+    // tab-bar-visible sentinel.
+    let browseTab = reachRunningSimulation(app)
+
+    // Focus mode: the tab bar must disappear while the sim is on top. The hide
+    // is unconditional on SimulationView, so it holds regardless of whether the
+    // (mock) run has already completed.
+    let tabBarGone = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == false"),
+      object: browseTab)
+    wait(for: [tabBarGone], timeout: 5)
+
+    // Pop via the interactive edge-swipe — it bypasses the back-button
+    // confirm-on-leave dialog by design, so this is robust to the mock run's
+    // completion timing. Coordinate-based drag is required;
+    // swipeRight() does not trigger interactivePopGestureRecognizer on iOS 17+
+    // (mirrors BackGestureTests).
+    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
+    let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+    start.press(forDuration: 0.15, thenDragTo: end)
+
+    // Popping the sim lands on ScenarioDetail, which ALSO hides the tab bar
+    // (contextual action bar, ADR-016 § Amendment 2026-07-01) — so the bar is
+    // still gone here. Pop once more to leave the run-focused screens and reach
+    // GalleryScenarioDetail, where the tab bar restores.
+    let backOnDetail = app.scrollViews["scenarioDetail.list"]
+    XCTAssertTrue(
+      backOnDetail.waitForExistence(timeout: 5),
+      "Popping the simulation did not return to ScenarioDetail.")
+    start.press(forDuration: 0.15, thenDragTo: end)
+
+    // The tab bar must restore once past the run-focused screens.
+    XCTAssertTrue(
+      browseTab.waitForExistence(timeout: 5),
+      "Tab bar did not restore after leaving the run-focused screens — the"
+        + " focus-mode / ScenarioDetail tab-bar hide did not reverse.")
+  }
+
+  /// Navigates the `--ui-test` harness Home → Browse → gallery → install →
+  /// ScenarioDetail → Run and waits for SimulationView. Mirrors the path in
+  /// `NavigationRegressionTests` (the flow known to start a sim under the
+  /// harness). Returns the Browse tab-bar button — the tab-bar-visible sentinel
+  /// the caller uses for its focus-mode assertions.
+  @discardableResult
+  private func reachRunningSimulation(_ app: XCUIApplication) -> XCUIElement {
     let browseTab = app.tabBars.buttons["Browse"]
     XCTAssertTrue(browseTab.waitForExistence(timeout: 5), "Browse tab missing.")
     browseTab.tap()
@@ -73,33 +123,10 @@ final class SimulationFocusModeTests: XCTestCase {
     runSimulation.tap()
 
     // SimulationView is now on top. Anchor on the always-rendered meta-row inset
-    // (present from first frame, before any inference) — same anchor as
-    // NavigationRegressionTests.
+    // (present from first frame, before any inference).
     XCTAssertTrue(
       app.descendants(matching: .any)["simulation.header.meta"].waitForExistence(timeout: 10),
       "SimulationView did not appear.")
-
-    // Focus mode: the tab bar must disappear while the sim is on top. The hide
-    // is unconditional on SimulationView, so it holds regardless of whether the
-    // (mock) run has already completed.
-    let tabBarGone = XCTNSPredicateExpectation(
-      predicate: NSPredicate(format: "exists == false"),
-      object: browseTab)
-    wait(for: [tabBarGone], timeout: 5)
-
-    // Pop via the interactive edge-swipe — it bypasses the back-button
-    // confirm-on-leave dialog by design, so this is robust to the mock run's
-    // completion timing. Coordinate-based drag is required;
-    // swipeRight() does not trigger interactivePopGestureRecognizer on iOS 17+
-    // (mirrors BackGestureTests).
-    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
-    let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-    start.press(forDuration: 0.15, thenDragTo: end)
-
-    // The tab bar must restore once the simulation is popped.
-    XCTAssertTrue(
-      browseTab.waitForExistence(timeout: 5),
-      "Tab bar did not restore after popping the simulation — focus-mode tab-bar"
-        + " hide did not reverse on pop.")
+    return browseTab
   }
 }

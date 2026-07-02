@@ -52,6 +52,11 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
     .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
+    // Hide the tab bar so the editor's tab-bar state is consistent regardless
+    // of entry path (reached from ScenarioDetail — which already hides it —
+    // and from Home's "new scenario"). Editing is a focused task; tab-switching
+    // mid-edit isn't a real use case. See ADR-016 § contextual action bar.
+    .toolbar(.hidden, for: .tabBar)
     .toolbar { toolbarContent }
     .sheet(isPresented: $showNewPersonaSheet) {
       PersonaEditorSheet(name: "", description: "") { name, description in

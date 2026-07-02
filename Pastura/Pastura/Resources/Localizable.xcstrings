@@ -960,6 +960,16 @@
         }
       }
     },
+    "%lld votes" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 票"
+          }
+        }
+      }
+    },
     "%lldm %llds" : {
       "localizations" : {
         "en" : {
@@ -2118,6 +2128,16 @@
         }
       }
     },
+    "Copy & Edit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピーして編集"
+          }
+        }
+      }
+    },
     "Copy Gen Prompt" : {
       "localizations" : {
         "ja" : {
@@ -2692,6 +2712,16 @@
         }
       }
     },
+    "Eliminated" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脱落"
+          }
+        }
+      }
+    },
     "Else branch (condition false)" : {
       "localizations" : {
         "ja" : {
@@ -3085,6 +3115,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオ名で絞り込む"
+          }
+        }
+      }
+    },
+    "Final ranking" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終ランキング"
+          }
+        }
+      }
+    },
+    "Final scores" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終スコア"
           }
         }
       }
@@ -4193,6 +4243,16 @@
         }
       }
     },
+    "Outcome" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果"
+          }
+        }
+      }
+    },
     "Output Fields" : {
       "localizations" : {
         "ja" : {
@@ -5071,6 +5131,16 @@
         }
       }
     },
+    "Run" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行"
+          }
+        }
+      }
+    },
     "Run Simulation" : {
       "localizations" : {
         "ja" : {
@@ -5475,6 +5545,16 @@
         }
       }
     },
+    "Shows the full scoreboard" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコアボード全体を表示"
+          }
+        }
+      }
+    },
     "Simulating" : {
       "localizations" : {
         "ja" : {
@@ -5687,6 +5767,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要約"
+          }
+        }
+      }
+    },
+    "Survived" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生存"
           }
         }
       }
@@ -6161,16 +6251,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "投票先は `vote` フィールドで追加してください。"
-          }
-        }
-      }
-    },
-    "Use as Template" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "テンプレートとして使用"
           }
         }
       }
