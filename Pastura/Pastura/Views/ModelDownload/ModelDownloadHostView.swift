@@ -90,6 +90,16 @@ struct ModelDownloadHostView: View {
   // Internal (not `private`) so `+ChatStream.swift`'s `agentPosition`
   // / `promoCardInset` and `currentPresetName` can read it.
   @State var sources: [any ReplaySource] = []
+  // Type-once latch for opening cards (#867), keyed by `ChatItem.scenarioIntro`
+  // id. Generalizes the live Sim's single `introHasTyped` Bool to the demo's
+  // many cards (one per rotated segment): the card lives in a `LazyVStack`, so
+  // scrolling an already-typed card back into view must render it statically
+  // (`charsPerSecond: nil`) instead of re-typing. Internal (not `private`) so
+  // the sibling `+ChatStream.swift` extension can read/insert. Never cleared —
+  // on `.loop` wrap `chatItems` is wiped and each re-shown card gets a fresh
+  // UUID (so it re-reveals, intended), leaving only stale UUIDs here; the
+  // ~16 B/entry growth over a download's lifetime is negligible.
+  @State var typedIntroIds: Set<UUID> = []
   @State private var isShowingCancelConfirmation: Bool = false
   // Thought-visibility (`▸ THINKING` expanded) now lives on `ReplayViewModel`
   // (`showAllThoughts`) so the pacing floor can read it; the control bar binds

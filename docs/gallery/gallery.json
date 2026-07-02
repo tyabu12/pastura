@@ -713,6 +713,50 @@
       "yaml_url": "tengoku_jigoku_v1_en.yaml",
       "yaml_sha256": "002300c367995638324977d5f6fdd1574ca539c7175d49bb26650e81f74cafcc",
       "added_at": "2026-07-01"
+    },
+    {
+      "id": "chin_jimaku_v1_en",
+      "title": "Terrible Movie Subtitles",
+      "category": "creative",
+      "description": "Four hopeless subtitle translators slap absurd English subtitles onto a famous movie line, each in their own terrible style; everyone votes for the funniest.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "chin_jimaku_v1_en.yaml",
+      "yaml_sha256": "c5b2bb7b2dd0a2c5f380de4216dc6c86f39cd279921f0b3575c7ecaba9783c21",
+      "added_at": "2026-07-01"
+    },
+    {
+      "id": "shachiku_senryu_v1_en",
+      "title": "Cubicle Limerick Battle",
+      "category": "creative",
+      "description": "A verse-battle where each player answers an office-life prompt with one limerick, judged on both the humor and the craft of landing a real AABBA verse.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "shachiku_senryu_v1_en.yaml",
+      "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2",
+      "added_at": "2026-07-01"
     }
   ]
 }

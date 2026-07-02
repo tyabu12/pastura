@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Displays scenario metadata, personas, phases, and a launch button.
+/// Displays scenario metadata, personas, phases, and a contextual bottom
+/// action bar (Run / Edit·Template / Delete) that replaces the tab bar.
 struct ScenarioDetailView: View {
   let scenarioId: String
   /// Render-time hint for the navigation title — supplied by callers
@@ -13,11 +14,10 @@ struct ScenarioDetailView: View {
 
   @Environment(AppDependencies.self) private var dependencies
   @Environment(\.dismiss) private var dismiss
-  // Programmatic push for the overflow-menu Edit / Use-as-Template actions:
-  // a `NavigationLink` inside a `Menu` does not reliably push, so these go
-  // through the current tab's router (navigation.md § "When to use what").
-  // Not `private`: the sibling-file `+Sections.swift` extension reads it
-  // for the language-toggle `replaceTop` (private is file-scoped).
+  // Not `private`: the sibling-file `+Sections.swift` extension reads it for
+  // the language-toggle `replaceTop` (private is file-scoped). The bottom
+  // action bar navigates via its own `NavigationLink`s, so it doesn't need
+  // this router.
   @Environment(AppRouter.self) var router
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
@@ -59,50 +59,20 @@ struct ScenarioDetailView: View {
     // which mounts an invisible probe to reinstall the gesture.
     .navigationBarBackButtonHidden(true)
     .preservesPasturaSwipeBackGesture()
+    // Replace the tab bar with a contextual bottom action bar
+    // (`scenarioContent`'s `.safeAreaInset` → `ScenarioDetailActionBar`):
+    // tab-bar-style Run / Edit·Template / Delete with iOS 26 Liquid Glass, so
+    // the tab bar reads as "changing" into these actions. Tab-switching to
+    // other sections isn't a real use case from a scenario detail. Precedent
+    // for the hide: SimulationView focus mode (ADR-017), different rationale
+    // (ADR-016 § contextual action bar). (A native `.bottomBar` renders
+    // icon-only on iOS 26 with no icon-over-label form — hence the custom bar.)
+    .toolbar(.hidden, for: .tabBar)
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
-      // Low-frequency scenario-management actions (edit / clone / delete)
-      // live in a `⋯` overflow menu rather than a pinned top-right slot —
-      // the prime real estate is reserved for the primary Run CTA (now a
-      // bottom-pinned button). Mirrors `ResultDetailView`'s ellipsis idiom.
-      if let record = viewModel?.record {
-        ToolbarItem(placement: .primaryAction) {
-          Menu {
-            // Read-only sources (preset / installed gallery copy) get a
-            // clone-as-template action; user scenarios get direct edit.
-            if record.isPreset || (viewModel?.isGallerySourced ?? false) {
-              Button {
-                router.push(.editor(templateYAML: record.yamlDefinition))
-              } label: {
-                Label(String(localized: "Use as Template"), systemImage: "doc.on.doc")
-              }
-            } else {
-              Button {
-                router.push(.editor(editingId: scenarioId))
-              } label: {
-                Label(String(localized: "Edit"), systemImage: "pencil")
-              }
-            }
-            // Delete is gated EXACTLY as the prior toolbar button (`!isPreset`),
-            // so an installed gallery copy (`isPreset == false`) stays deletable
-            // — gallery read-only blocks edit/overwrite, not deleting the copy.
-            if !record.isPreset {
-              Button(role: .destructive) {
-                showDeleteConfirm = true
-              } label: {
-                Label(String(localized: "Delete"), systemImage: "trash")
-              }
-            }
-          } label: {
-            Image(systemName: "ellipsis.circle")
-          }
-          .accessibilityIdentifier("scenarioDetail.actionsMenu")
-        }
-        .hidingPasturaSharedBackground()
-      }
     }
     // `.alert` (not `.confirmationDialog`): iOS 26 renders a body-attached
     // confirmationDialog as a popover whose arrow anchors to the body
@@ -162,14 +132,18 @@ struct ScenarioDetailView: View {
     // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
     // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:
     // applied after, its identifier scopes the inset's Run button too and
-    // overrides the button's own `scenarioDetail.runSimulationButton` id.
+    // overrides the button's own `scenarioDetail.runSimulationButton` id
+    // (id-scope trap, swiftui-traps.md).
     .accessibilityIdentifier("scenarioDetail.list")
-    // Primary CTA pinned to the bottom safe-area edge so the app's core
-    // action stays in the thumb zone regardless of scroll position; content
-    // scrolls under the band. The tab bar sits below this (focus mode hides
-    // the tab bar only during a run, ADR-017 — not here).
+    // Contextual bottom action bar (replaces the tab bar — see `body`).
     .safeAreaInset(edge: .bottom) {
-      runSimulationCTA(scenario: scenario, viewModel: viewModel)
+      ScenarioDetailActionBar(
+        scenarioId: scenarioId,
+        scenarioName: scenario.name,
+        canRun: viewModel.canRun,
+        record: viewModel.record,
+        isGallerySourced: viewModel.isGallerySourced,
+        onDelete: { showDeleteConfirm = true })
     }
     .scrollPosition($scrollPosition)
     // A cross-language toggle reuses this leaf (replaceTop swaps the top
@@ -185,42 +159,4 @@ struct ScenarioDetailView: View {
     }
   }
 
-  /// Bottom-pinned primary call-to-action. Uses `PasturaPrimaryButtonStyle`
-  /// in its `.compact` size — a centred, content-width pill rather than a
-  /// full-width slab, keeping design-system §1's restrained "static, observed"
-  /// voice (the full-width mossDark bar read as too dominant on device). Stays
-  /// a `NavigationLink` pushing onto the current tab's stack (no
-  /// `navigationDestination(item:)` — navigation.md).
-  private func runSimulationCTA(
-    scenario: Scenario, viewModel: ScenarioDetailViewModel
-  ) -> some View {
-    // initialName supplies the scenario name to SimulationView's
-    // navigationTitle from the first frame, before loadAndRun() re-parses
-    // the YAML. Identity-neutral via RouteHint (ADR-008).
-    NavigationLink(
-      value: Route.simulation(
-        scenarioId: scenarioId,
-        initialName: .init(scenario.name)
-      )
-    ) {
-      Label(String(localized: "Run Simulation"), systemImage: "play.fill")
-    }
-    .buttonStyle(PasturaPrimaryButtonStyle(size: .compact))
-    .disabled(!viewModel.canRun)
-    .opacity(viewModel.canRun ? 1 : 0.4)
-    .accessibilityIdentifier("scenarioDetail.runSimulationButton")
-    // Intrinsic-width pill centred in the full-width band (no label
-    // `.frame(maxWidth:)`); the outer frame spans the band so the hairline
-    // background reaches both edges.
-    .frame(maxWidth: .infinity)
-    .padding(.vertical, 12)
-    // Opaque band + top hairline so scroll content reads as passing *under*
-    // a distinct footer, not blending into the last card. If device QA shows
-    // a colour seam against the tab bar, bleed the band background down with
-    // `.ignoresSafeArea(.container, edges: .bottom)` (background only).
-    .background(alignment: .top) {
-      Color.screenBackground
-        .overlay(alignment: .top) { Color.rule.frame(height: 0.5) }
-    }
-  }
 }
