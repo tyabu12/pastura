@@ -123,6 +123,10 @@ nonisolated struct PromptBuilder: Sendable {
   /// base block were added in #194 PR#a Item 3 (A3 prompt hardening) to
   /// reduce Hyp A (JSON parse retry) frequency by reinforcing structural
   /// validity at the source on Gemma 4 E2B Q4_K_M.
+  ///
+  /// The brevity rule (#877) is a soft cap on the primary statement field
+  /// only — inner_thought is intentionally unconstrained. Wording is
+  /// harness-A/B-tuned; keep ja/en scope-parallel when editing.
   private func buildAnswerRules(
     scenario: Scenario,
     persona: Persona,
@@ -136,6 +140,7 @@ nonisolated struct PromptBuilder: Sendable {
         ## 回答ルール（厳守）
         - 必ず日本語で回答すること
         - 全フィールドに必ず文章を書くこと（空欄「...」は禁止）
+        - 発言（statement などの本文フィールド）は3文以内で簡潔に書くこと（長い独白は禁止）
         - JSONは必ず1行で書くこと（改行を入れない）
         - JSON以外のテキストやコードブロック(```)は書かないこと
         - JSONに構文エラーがあると失敗扱いになる（カッコ・引用符・カンマを正しく閉じること）
@@ -145,6 +150,7 @@ nonisolated struct PromptBuilder: Sendable {
         ## Response Rules (strict)
         - Respond in English only.
         - Every field must contain a sentence (no empty "..." values).
+        - Keep your statement (the main text field) concise: at most 3 sentences, no long monologues.
         - The JSON output must be a single line (no newlines).
         - Do not include any text or code fences (```) outside the JSON.
         - JSON syntax errors are treated as failure: close every bracket, quote, and comma correctly.
