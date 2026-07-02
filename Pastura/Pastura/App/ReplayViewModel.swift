@@ -270,7 +270,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   /// Heterogeneous chat-stream item — an agent's rendered output, a
   /// demo-boundary marker inserted between sources during rotation (#208),
-  /// or a scenario-intro opening card at each segment's head (#867). Used by
+  /// a scenario-intro opening card at each segment's head (#867), or a
+  /// final-ranking closing card at each segment's tail (#868). Used by
   /// the host view's `ForEach` to dispatch on case.
   ///
   /// `.scenarioIntro` carries the source's premise (`scenario.description`) as
@@ -279,6 +280,13 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// the same accumulate-across-rotation timeline as `.agentOutput` /
   /// `.demoBoundary`; on rotation the order is boundary → intro card.
   ///
+  /// `.simulationResult` carries an already-resolved
+  /// ``SimulationResultCard/Model`` (plain value type, no domain type crosses
+  /// into the View), appended at a segment's tail by
+  /// ``concludeSource(sourceIndex:)`` — the demo mirror of the live sim's
+  /// closing card. It rides the same timeline; on rotation the order is
+  /// result card → boundary → intro card.
+  ///
   /// `id` is projected from the inner payload so SwiftUI's
   /// `ForEach`/`scrollTo(_:anchor:)` keep working identically to the
   /// pre-#208 `AgentOutputEntry`-only timeline.
@@ -286,12 +294,14 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case agentOutput(AgentOutputEntry)
     case demoBoundary(id: UUID, scenarioName: String)
     case scenarioIntro(id: UUID, premise: String)
+    case simulationResult(id: UUID, model: SimulationResultCard.Model)
 
     var id: UUID {
       switch self {
       case .agentOutput(let entry): return entry.id
       case .demoBoundary(let id, _): return id
       case .scenarioIntro(let id, _): return id
+      case .simulationResult(let id, _): return id
       }
     }
   }

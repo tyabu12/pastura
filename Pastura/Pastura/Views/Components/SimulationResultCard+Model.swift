@@ -11,7 +11,12 @@ extension SimulationResultCard {
   /// keep `SimulationResultCard`'s type body under swiftlint's limit; declared
   /// `nonisolated` so the pure derivation runs off the MainActor and is
   /// unit-testable from a nonisolated test.
-  nonisolated struct Model: Equatable {
+  ///
+  /// `Sendable` is explicit (not left to implicit synthesis) because this Model
+  /// is carried as a payload on ``ReplayViewModel/ChatItem``, whose own
+  /// `Sendable` conformance requires every associated value to be `Sendable`
+  /// (#884). `Framing` / `Entry` are `Sendable` value types.
+  nonisolated struct Model: Equatable, Sendable {
     let framing: Framing
     let entries: [Entry]
 
