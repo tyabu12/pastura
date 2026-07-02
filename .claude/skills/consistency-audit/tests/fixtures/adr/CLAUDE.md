@@ -1,6 +1,6 @@
 # ADR-reference fixture
 
-Exercises the dangling_adr detector: two references fire, three stay silent.
+Exercises the dangling_adr detector: two references fire, four stay silent.
 Prose avoids the shared per-line marker words except on the two lines that
 intentionally carry a marker.
 
@@ -14,9 +14,9 @@ intentionally carry a marker.
 ## Must fire
 
 - A dangling mention of ADR-099 with no matching file is a finding.
-- A plain-body mention of ADR-005 is a finding — it shows up only inside the
-  ADR-006 row's description cell, and first-cell keying keys on 006, so a bare
-  mention in a description cannot silence a different number.
+- A plain-body mention of ADR-005 is a finding — first-cell keying reserves
+  006 alone, so ADR-005 also appearing in the ADR-006 row's description cell
+  (itself guard-skipped) never neutralizes this plain-body mention.
 
 ## Must NOT fire
 

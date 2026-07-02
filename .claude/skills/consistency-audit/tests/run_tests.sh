@@ -1,8 +1,9 @@
 #!/bin/bash
 # Self-test for the consistency-audit detector. No Swift toolchain or network
-# needed — exercises the three fixture repos (clean / drift / judgment)
-# against audit_docs.py, including the must-NOT-fire regression set and the
-# Package.resolved version-vs-revision trap.
+# needed — exercises the fixture repos (clean / drift / judgment / boundary /
+# adr) against audit_docs.py, including the must-NOT-fire regression set, the
+# Package.resolved version-vs-revision trap, and the dangling-ADR reserved-set
+# / first-cell-keying guards.
 #
 # usage: bash .claude/skills/consistency-audit/tests/run_tests.sh
 # requires: python3, jq
