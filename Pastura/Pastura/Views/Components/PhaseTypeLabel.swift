@@ -2,16 +2,21 @@ import SwiftUI
 
 /// Displays a phase type as a moss / ink-secondary capsule badge.
 ///
-/// Used inline within an `AgentOutputRow` name row and standalone as a
-/// `phaseStarted` log entry in `SimulationView`. The capsule shape + tag
-/// typography carries the "this is a phase marker" semantic; color
-/// distinguishes LLM-driven phases (moss, the only brand accent) from
-/// code-driven phases (ink-secondary, muted neutral).
+/// Used inline within an `AgentOutputRow` name row, in the editor's
+/// `PhaseBlockRow`, and standalone as a `phaseStarted` log entry in
+/// `SimulationView`. The capsule shape + tag typography carries the
+/// "this is a phase marker" semantic; color distinguishes LLM-driven
+/// phases (moss, the only brand accent) from code-driven phases
+/// (ink-secondary, muted neutral).
+///
+/// The text is the localized `PhaseDisplayName.label(for:)` — the shared
+/// human-readable source of truth — never the snake_case `rawValue`
+/// (#882: raw `speak_all` etc. must not surface in the UI).
 struct PhaseTypeLabel: View {
   let phaseType: PhaseType
 
   var body: some View {
-    Text(phaseType.rawValue)
+    Text(PhaseDisplayName.label(for: phaseType))
       .textStyle(Typography.tagPhase)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)

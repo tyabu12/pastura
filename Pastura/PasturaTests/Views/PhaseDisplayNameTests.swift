@@ -34,4 +34,17 @@ struct PhaseDisplayNameTests {
     let labels = Set(PhaseType.allCases.map { PhaseDisplayName.label(for: $0) })
     #expect(labels.count == PhaseType.allCases.count)
   }
+
+  @Test func everyPhaseLabelIsSnakeCaseFree() {
+    // #882: `PhaseTypeLabel` now renders this label instead of the
+    // snake_case `rawValue`, so no phase-marker badge may surface a raw
+    // `speak_all`-style token. Guarding the mapping (never `==` rawValue,
+    // never contains `_`) is the ADR-009-compatible way to pin "no
+    // snake_case in the UI" without rendering the view.
+    for phase in PhaseType.allCases {
+      let label = PhaseDisplayName.label(for: phase)
+      #expect(!label.contains("_"), "\(phase) label \"\(label)\" leaks snake_case")
+      #expect(label != phase.rawValue, "\(phase) label must differ from rawValue")
+    }
+  }
 }
