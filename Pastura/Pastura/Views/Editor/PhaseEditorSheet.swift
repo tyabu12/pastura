@@ -190,7 +190,7 @@ struct PhaseEditorSheet: View {
         Text(
           String(
             localized:
-              "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned_word}, {current_event}"
+              "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned}, {assigned_word}, {current_event}"
           )
         )
         .font(.caption)
