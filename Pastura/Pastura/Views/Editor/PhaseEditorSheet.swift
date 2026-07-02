@@ -160,7 +160,7 @@ struct PhaseEditorSheet: View {
       Picker(String(localized: "Type"), selection: $phase.type) {
         ForEach(availableTypes, id: \.self) { type in
           HStack {
-            Text(type.rawValue)
+            Label(type.rawValue, systemImage: PhaseGlyph.symbolName(for: type))
             if type.requiresLLM {
               // `info` here is a quiet category badge for LLM-required phase types,
               // not a notification — see design-system §2.6 for the alert-family scope.
