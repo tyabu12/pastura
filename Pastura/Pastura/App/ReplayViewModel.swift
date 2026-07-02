@@ -199,6 +199,11 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// - On `.stopAfterLast` terminal (both `.awaitTransitionSignal` and
   ///   `.stopPlayback`), `chatItems` is left untouched — the last source's
   ///   bubbles remain on screen through the hold/idle state.
+  ///
+  /// At each segment's head (`start()` and every rotation, after any boundary
+  /// marker / wrap wipe), a ``ChatItem/scenarioIntro`` opening card is appended
+  /// when the source's premise is non-empty (#867) — see
+  /// ``appendIntroCard(forSourceIndex:)``.
   private(set) var chatItems: [ChatItem] = []
 
   /// Derived projection over ``chatItems`` exposing only agent outputs.
@@ -263,9 +268,16 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// Heterogeneous chat-stream item — either an agent's rendered output
-  /// or a demo-boundary marker inserted between sources during rotation
-  /// (#208). Used by the host view's `ForEach` to dispatch on case.
+  /// Heterogeneous chat-stream item — an agent's rendered output, a
+  /// demo-boundary marker inserted between sources during rotation (#208),
+  /// or a scenario-intro opening card at each segment's head (#867). Used by
+  /// the host view's `ForEach` to dispatch on case.
+  ///
+  /// `.scenarioIntro` carries the source's premise (`scenario.description`) as
+  /// a plain string — the host feeds it to the presentation-only
+  /// ``ScenarioIntroCard`` (no domain type crosses into the View). It rides
+  /// the same accumulate-across-rotation timeline as `.agentOutput` /
+  /// `.demoBoundary`; on rotation the order is boundary → intro card.
   ///
   /// `id` is projected from the inner payload so SwiftUI's
   /// `ForEach`/`scrollTo(_:anchor:)` keep working identically to the
@@ -273,11 +285,13 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   nonisolated enum ChatItem: Sendable, Equatable, Identifiable {
     case agentOutput(AgentOutputEntry)
     case demoBoundary(id: UUID, scenarioName: String)
+    case scenarioIntro(id: UUID, premise: String)
 
     var id: UUID {
       switch self {
       case .agentOutput(let entry): return entry.id
       case .demoBoundary(let id, _): return id
+      case .scenarioIntro(let id, _): return id
       }
     }
   }
@@ -440,6 +454,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     guard !sources.isEmpty else { return }
     let startIndex = 0
     chatItems = []
+    appendIntroCard(forSourceIndex: startIndex)
     resetPerDemoState(forSourceIndex: startIndex)
     state = .playing(sourceIndex: startIndex, eventCursor: 0)
     launchPlayback(sourceIndex: startIndex, startCursor: 0, firstSleepOverrideMs: nil)
@@ -618,13 +633,23 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     var cursor = startCursor
     var overrideMs = firstSleepOverrideMs
     // Typing-dwell floor owed by the previously-applied agent bubble (raw,
-    // pre-speed). A LOCAL var — seeded 0 on each `playSource` entry — so it
+    // pre-speed). A LOCAL var — seeded on each `playSource` entry — so it
     // never leaks across a source rotation (`advanceAfterSource` re-enters
     // with a fresh call) or a resume-from-background restart (which supplies
     // `firstSleepOverrideMs`). The resume override bypasses the floor for the
     // single restarted event, which is correct: its remaining sleep was
     // already computed with the floor folded in before backgrounding.
-    var pendingFloorMs = 0
+    //
+    // On a FRESH source entry (not a resume — resume passes
+    // `firstSleepOverrideMs` and never re-types the already-revealed card) the
+    // segment opens with a ``ScenarioIntroCard`` appended by `start()` /
+    // `advanceAfterSource`. Seed the floor with the card's reveal time so the
+    // first event's pre-yield delay covers the premise typing out — the demo's
+    // substitute for the live Sim's `introRevealDidComplete()` conversation
+    // gate (the demo is time-driven, with no LLM to gate).
+    var pendingFloorMs =
+      (firstSleepOverrideMs == nil && startCursor == 0)
+      ? introFloorMs(forSourceIndex: sourceIndex, script: script) : 0
     while cursor < plan.count {
       if Task.isCancelled { return }
       let paced = plan[cursor]
@@ -698,6 +723,10 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
             id: UUID(),
             scenarioName: sources[nextIndex].scenario.name))
       }
+      // Intro card at the new segment's head, AFTER the boundary append / wrap
+      // wipe (order is always boundary → intro card) and before
+      // `resetPerDemoState`.
+      appendIntroCard(forSourceIndex: nextIndex)
       resetPerDemoState(forSourceIndex: nextIndex)
       if case .playing = state {
         state = .playing(sourceIndex: nextIndex, eventCursor: 0)
@@ -713,6 +742,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         .demoBoundary(
           id: UUID(),
           scenarioName: sources[nextIndex].scenario.name))
+      appendIntroCard(forSourceIndex: nextIndex)
       resetPerDemoState(forSourceIndex: nextIndex)
       if case .playing = state {
         state = .playing(sourceIndex: nextIndex, eventCursor: 0)
@@ -766,6 +796,45 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       if case .phaseStarted = paced.event { return true }
       return false
     }.count
+  }
+
+  // MARK: - Opening card (scenario intro)
+
+  /// Verbatim premise for the source's opening ``ScenarioIntroCard``, or `nil`
+  /// when it has no visible content.
+  ///
+  /// The emptiness predicate is byte-identical to
+  /// ``ScenarioIntroCard/Model/init(title:premise:)`` — trim whitespace for
+  /// the *check* but return the description **verbatim** (demo descriptions
+  /// carry stray internal spaces that must not be mutated, and the pacing
+  /// floor counts `premise.count`). Sharing this one predicate between the
+  /// card's visibility (``appendIntroCard(forSourceIndex:)``) and its pacing
+  /// reservation (``introFloorMs(forSourceIndex:script:)``) is what prevents
+  /// the two from drifting — a whitespace-only description yields no card AND
+  /// no phantom pre-first-bubble delay.
+  ///
+  /// premise = the SHA-verified bundled preset's `scenario.description`
+  /// (equivalent to the demo YAML `metadata.description` by the drift guard;
+  /// `scenario.name` is likewise already reused by the demo-boundary marker),
+  /// so there is no YAML-metadata re-parse.
+  private func introPremise(forSourceIndex sourceIndex: Int) -> String? {
+    let description = sources[sourceIndex].scenario.description
+    guard !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else { return nil }
+    return description
+  }
+
+  /// Appends a ``ChatItem/scenarioIntro`` opening card for the source at
+  /// `sourceIndex`, or does nothing when the premise has no visible content
+  /// (see ``introPremise(forSourceIndex:)``) — so no empty card enters the
+  /// stream, mirroring the card's own `Model.init?` guard.
+  ///
+  /// Called at each segment's head: `start()` (source 0) and every
+  /// ``advanceAfterSource(currentIndex:)`` rotation (after the demo-boundary
+  /// append / wrap wipe, so the on-screen order is boundary → intro card).
+  private func appendIntroCard(forSourceIndex sourceIndex: Int) {
+    guard let premise = introPremise(forSourceIndex: sourceIndex) else { return }
+    chatItems.append(.scenarioIntro(id: UUID(), premise: premise))
   }
 
   // MARK: - Render-time state updates
@@ -875,6 +944,36 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     let dwellMs = Self.milliseconds(
       playbackSpeed.readingDwell(
         displayLength: segments.primary.count, script: script))
+    return typing + dwellMs
+  }
+
+  /// Reveal-time floor (raw ms, real wall-clock at the current speed) that the
+  /// FIRST inter-event delay of a source must cover so its opening
+  /// ``ScenarioIntroCard`` types its premise — and is held for a reading beat —
+  /// before the source's first agent turn appears. Seeded into `pendingFloorMs`
+  /// on fresh source entry in
+  /// ``playSource(sourceIndex:startCursor:firstSleepOverrideMs:)``; this pacing
+  /// floor is the demo's substitute for the live Sim's conversation gate
+  /// (`introRevealDidComplete()`), which has no analogue in a time-driven replay.
+  ///
+  /// Structure mirrors ``typingFloorMs(for:script:)`` — `typing + readingDwell`,
+  /// both at the speed-scaled ``typingCharsPerSecond`` the card actually animates
+  /// at, so the floor is already real time and ``scaledDelay(for:floorMs:)`` must
+  /// NOT divide it again. Returns 0 when there is no card to reveal (trimmed-empty
+  /// premise — same ``introPremise(forSourceIndex:)`` predicate the card's
+  /// visibility uses, so a hidden card never leaves a phantom delay) or no
+  /// proportional typing (opt-out config / `.instant` → nil cps). The intro card
+  /// has no thought segment, so `thought` is empty and `displayLength` is the
+  /// whole premise grapheme count.
+  ///
+  /// `internal` (not `private`) so `ReplayViewModelTests+Pacing` can exercise it.
+  func introFloorMs(forSourceIndex sourceIndex: Int, script: ReadingScript) -> Int {
+    guard let premise = introPremise(forSourceIndex: sourceIndex) else { return 0 }
+    guard let cps = typingCharsPerSecond else { return 0 }
+    let typing = typingDurationMs(primary: premise, thought: "", charsPerSecond: cps)
+    guard typing > 0 else { return 0 }
+    let dwellMs = Self.milliseconds(
+      playbackSpeed.readingDwell(displayLength: premise.count, script: script))
     return typing + dwellMs
   }
 

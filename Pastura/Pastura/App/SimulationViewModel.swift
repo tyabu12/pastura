@@ -43,6 +43,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private(set) var logEntries: [LogEntry] = []
   private(set) var scores: [String: Int] = [:]
   private(set) var eliminated: [String: Bool] = [:]
+  /// Latest vote-phase tallies (target name → votes received), from the most
+  /// recent `.voteResults` event. Feeds the final-ranking card's ranking of a
+  /// vote-only ("popularity vote") scenario that eliminates nobody (#868).
+  private(set) var voteResults: [String: Int] = [:]
+  /// Per-agent vote count captured at the moment of each agent's elimination,
+  /// from `.elimination` events. Round-correct — an agent eliminated in an
+  /// earlier round keeps its own count, which a last-wins tally would drop.
+  /// Feeds the final-ranking card's survival framing (#868).
+  private(set) var eliminationVotes: [String: Int] = [:]
   private(set) var currentRound = 0
   private(set) var totalRounds = 0
   private(set) var thinkingAgents: Set<String> = []
@@ -853,6 +862,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     statusWriteTask = nil
     errorMessage = nil
     logEntries = []
+    // Result accumulators for the final-ranking card (#868) — reset per run so
+    // a re-used VM instance does not inherit the previous simulation's tallies.
+    // The resume path re-seeds these below from the checkpoint / replayed log.
+    voteResults = [:]
+    eliminationVotes = [:]
     // Latent: a second run on the same VM instance would otherwise inherit
     // these from the previous simulation — `latestAgentOutputId` points at a
     // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
@@ -1158,11 +1172,24 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // log entries — those are display-only; see ResumeLogReplayMapper).
     scores = state.scores
     eliminated = state.eliminated
+    // Re-seed the final-ranking card's vote-only tallies from the checkpoint
+    // (#868); `SimulationState` persists `voteResults` but not the per-agent
+    // elimination counts, so those are rebuilt from the replayed log below.
+    voteResults = state.voteResults
     currentRound = completedRound
     turnSequence = reseedValue
     let items = ResultDetailTimelineBuilder.build(turns: history.0, events: history.1)
     logEntries = ResumeLogReplayMapper.map(
       items: items, totalRounds: scenario.rounds, contentFilter: contentFilter)
+    // Rebuild per-agent elimination counts from the replayed log so a run
+    // resumed after an earlier-round elimination still shows that agent's own
+    // vote count in the survival framing (#868). Not persisted in state, and
+    // the replay does not route through `handleElimination`.
+    for entry in logEntries {
+      if case .elimination(let agent, let voteCount) = entry.kind {
+        eliminationVotes[agent] = voteCount
+      }
+    }
 
     lifecycleLogger.info(
       "resume() entered: simId=\(simId, privacy: .public), startRound=\(startRound)")
@@ -1405,6 +1432,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
           payload: .summary(text: text))
       }
     case .voteResults(let votes, let tallies):
+      // Keep the latest tallies for the final-ranking card's vote-only
+      // ranking (#868); last-wins matches `scores`' full-replace semantics.
+      voteResults = tallies
       logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
       persistCodePhaseEvent(
         phaseType: currentPhaseType?.rawValue ?? PhaseType.vote.rawValue,
@@ -1701,6 +1731,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   private func handleElimination(agent: String, voteCount: Int) {
     eliminated[agent] = true
+    // Capture the count at elimination time so the final-ranking card's
+    // survival framing shows each eliminated agent's own round tally (#868).
+    eliminationVotes[agent] = voteCount
     logEntries.append(LogEntry(kind: .elimination(agent: agent, voteCount: voteCount)))
   }
 
