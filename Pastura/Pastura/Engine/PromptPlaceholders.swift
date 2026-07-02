@@ -19,12 +19,12 @@ import Foundation
 ///   (#862) needs per-phase-availability modeling and is out of scope.
 ///   Do not over-trust a green result as "every placeholder resolves in
 ///   every phase it appears in".
-nonisolated public enum PromptPlaceholders {
+nonisolated enum PromptPlaceholders {
   /// Every placeholder name a handler can inject into a prompt at run time.
   ///
   /// When a new handler placeholder is added, extend this set in the same
   /// change so the coverage guard stays authoritative.
-  public static let engineSupplied: Set<String> = [
+  static let engineSupplied: Set<String> = [
     "scoreboard",  // SpeakAll/SpeakEach/Vote/Choose/Summarize
     "conversation_log",  // SpeakAll/SpeakEach/Vote/Choose/Summarize
     "current_round",  // SimulationRunner (per-round)
