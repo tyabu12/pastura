@@ -31,6 +31,8 @@ extension ModelDownloadHostView {
                 DemoBoundaryRow(scenarioName: scenarioName)
                   .id(id)
                   .transition(reduceMotion ? .identity : .opacity)
+              case .scenarioIntro(let id, let premise):
+                demoIntroCard(id: id, premise: premise, viewModel: viewModel)
               }
             }
           }
@@ -106,6 +108,38 @@ extension ModelDownloadHostView {
     )
     .id(entry.id)
     .transition(reduceMotion ? .identity : .opacity)
+  }
+
+  /// One opening card (``ScenarioIntroCard``) at a demo segment's head (#867),
+  /// reusing the live Sim's presentation-only component. `title` is `nil` — the
+  /// ``GameHeader`` already names the current demo, matching the Sim's rationale.
+  ///
+  /// The premise types at the playback-scaled ``ReplayViewModel/typingCharsPerSecond``
+  /// (the same source ``demoAgentRow`` uses), unless this card has already typed
+  /// (``typedIntroIds``) — then it renders statically so a scroll-back in the
+  /// `LazyVStack` doesn't re-type. There is deliberately **no** `onRevealComplete`
+  /// gate: the demo is time-driven, so the first turn is held back by
+  /// ``ReplayViewModel/introFloorMs(forSourceIndex:script:)`` rather than a
+  /// reveal-completion callback (the live Sim's conversation-gate has no analogue
+  /// here). `leadIn` is `.zero` — on rotation the `DemoBoundaryRow` already
+  /// supplies the transition beat.
+  @ViewBuilder
+  private func demoIntroCard(
+    id: UUID, premise: String, viewModel: ReplayViewModel
+  ) -> some View {
+    // Defensive re-guard: `appendIntroCard` already filtered empty premises
+    // with the identical predicate, so `Model.init?` never returns nil for an
+    // appended item — this `if let` is never the empty path in practice.
+    if let model = ScenarioIntroCard.Model(title: nil, premise: premise) {
+      ScenarioIntroCard(
+        model: model,
+        charsPerSecond: typedIntroIds.contains(id) ? nil : viewModel.typingCharsPerSecond,
+        leadIn: .zero,
+        onRevealStarted: { typedIntroIds.insert(id) }
+      )
+      .id(id)
+      .transition(reduceMotion ? .identity : .opacity)
+    }
   }
 
   /// PromoCard lives in the bottom safe area (not a ZStack overlay) so the
