@@ -120,6 +120,25 @@ that extraction required, aborting every `gallery-scripts-test.sh` case whose
 fixture builder (`mk_factory` / `mk_gallery_yaml`) predated it. `check-gallery-entry.sh`
 never runs the extraction, so it was green locally, red in CI.
 
+### Skill-local harnesses are NOT auto-wired — each needs a `scripts/tests/` shim
+
+The Shell-gate glob is `scripts/tests/*-test.sh` **only**, so a skill's own
+self-test at `.claude/skills/<skill>/tests/run_tests.sh` runs **nowhere** in CI
+by default — silent zero coverage (the #888 / #891 gap). Wire each one with a
+thin shim `scripts/tests/<skill>-test.sh` that delegates:
+
+```bash
+set -euo pipefail
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+bash "$REPO_ROOT/.claude/skills/<skill>/tests/run_tests.sh"
+```
+
+`scripts/tests/skill-harness-wiring-test.sh` enforces this — it fails the
+Shell-gate job when any harness lacks a shim, and the shim's delegation must be
+a **live** `bash …/run_tests.sh` line (a path named only in a header comment
+does not count). Keep the harness ubuntu-runnable (python3 + jq + git, no Swift,
+no network) since the Shell-gate runner has no Xcode.
+
 ## Rename / namespace-sweep completion gate — `git grep`, both forms
 
 For a rename or namespace-sweep "0 remaining" completion gate, use
