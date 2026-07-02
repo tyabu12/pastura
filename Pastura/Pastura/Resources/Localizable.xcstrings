@@ -960,6 +960,16 @@
         }
       }
     },
+    "%lld votes" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 票"
+          }
+        }
+      }
+    },
     "%lldm %llds" : {
       "localizations" : {
         "en" : {
@@ -2702,6 +2712,16 @@
         }
       }
     },
+    "Eliminated" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脱落"
+          }
+        }
+      }
+    },
     "Else branch (condition false)" : {
       "localizations" : {
         "ja" : {
@@ -3095,6 +3115,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオ名で絞り込む"
+          }
+        }
+      }
+    },
+    "Final ranking" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終ランキング"
+          }
+        }
+      }
+    },
+    "Final scores" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終スコア"
           }
         }
       }
@@ -4199,6 +4239,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選択肢"
+          }
+        }
+      }
+    },
+    "Outcome" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果"
           }
         }
       }
@@ -5495,6 +5545,16 @@
         }
       }
     },
+    "Shows the full scoreboard" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スコアボード全体を表示"
+          }
+        }
+      }
+    },
     "Simulating" : {
       "localizations" : {
         "ja" : {
@@ -5707,6 +5767,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要約"
+          }
+        }
+      }
+    },
+    "Survived" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生存"
           }
         }
       }
