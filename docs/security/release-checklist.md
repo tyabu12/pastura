@@ -6,8 +6,8 @@ outside the codebase. Four sections:
 1. [GitHub repository settings](#1-github-repository-settings).
    One-time configuration kept current; commands are idempotent.
 2. [iOS pre-submission audit](#2-ios-pre-submission-audit).
-   Runs on the eve of an App Store submission (Phase 3, requires Apple
-   Developer Program registration).
+   Runs on the eve of an App Store submission (the Phase 2 exit gate —
+   see `docs/ROADMAP.md`).
 3. [Recurring review](#3-recurring-review). Periodic operator tasks.
 4. [Release execution](#4-release-execution-testflight). How a build
    actually reaches TestFlight (the automated pipeline + its one-time
@@ -74,8 +74,7 @@ the field stays `disabled` on subsequent GET.
 
 All of the above will stay `disabled` on Pastura's current free plan;
 that is expected, not a regression. Track Secret Protection adoption
-as a paid-plan consideration alongside Apple Developer Program
-registration (see § 2 below).
+as a paid-plan consideration.
 
 ### Branch protection
 
@@ -101,10 +100,10 @@ external-tester submission. Many items are confirmed continuously by
 CI (SwiftLint, the i18n leak audit, the no-force-unwrap rule), but the
 release pass cross-checks them.
 
-> Phase note: Pastura's Apple Developer Program registration is not yet
-> in place at the time of writing. This section is dormant until that
-> registration unlocks Phase 3 release work. See
-> `project_pastura_distribution_status.md` for context.
+> Phase note: Apple Developer Program registration completed 2026-06-07.
+> This section is live for the first App Store submission — the Phase 2
+> exit gate (`docs/ROADMAP.md` § "Phase 2 → Phase 3 Go Criteria").
+> ASC-side manual gates are tracked in #233.
 
 ### 2.1 Privacy Manifest
 
@@ -143,13 +142,16 @@ Confirm no API keys, credentials, or auth tokens are embedded in
 
 ### 2.4 Network destinations
 
-Pastura's only outbound network is the model download. Cross-check:
+Pastura's outbound network is limited to the model download
+(`huggingface.co`) and the Shared Scenarios gallery fetch
+(`raw.githubusercontent.com`; see
+`App/Community/Gallery/URLSessionGalleryService.swift`). Cross-check:
 
 * `App/ModelRegistry.swift` URLs are HTTPS and point to known publishers
-  (Hugging Face, Kaggle).
+  (Hugging Face).
 * `Info.plist` does not declare any `NSAppTransportSecurity` overrides.
 * The privacy policy at `web/src/pages/legal/privacy-policy.astro` accurately reflects
-  the model-download host list.
+  both hosts (model download + gallery fetch).
 
 ### 2.5 Account deletion
 
