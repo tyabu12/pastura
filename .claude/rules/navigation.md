@@ -79,6 +79,21 @@ Key invariants:
   (the sim route was popped on leave), guarded against a duplicate when
   already on top. This re-consumes the `isSimulationOnTop` fold — do not
   delete it.
+- **Contextual bottom action bar on ScenarioDetail (#856, ADR-016 § Amendment
+  2026-07-01).** `ScenarioDetailView` and `ScenarioEditorView` hide the tab bar
+  (`.toolbar(.hidden, for: .tabBar)`) and replace it with a contextual bottom
+  action bar (`ScenarioDetailActionBar` in a `.safeAreaInset`: Run /
+  Edit·Template / Delete, tab-bar-style icon-over-label) — tab-switching to
+  other sections isn't a real use case from a scenario detail / editor. Same
+  **API** as focus mode (#646) for the hide but a **different rationale**
+  (contextual actions, not run-protection): `isSimulationOnTop` and the
+  focus-mode machinery are untouched. Editor hides its own tab bar so its state
+  is consistent regardless of entry (ScenarioDetail vs Home "new scenario").
+  The bar applies `glassEffect` (iOS 26+) so it reads as a continuation of the
+  native tab bar it replaces; the glass rendering + the `InFlightSimulationIndicator`
+  pill's clearance against it are real-device QA gates. Bar items are tap-driven
+  `NavigationLink`s (a custom bar, not a native `.bottomBar` — the latter is
+  icon-only on iOS 26).
 
 ## When to use what
 
