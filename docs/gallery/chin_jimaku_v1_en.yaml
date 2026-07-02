@@ -1,0 +1,86 @@
+id: chin_jimaku_v1_en
+language: en
+name: Terrible Movie Subtitles
+agents: 4
+rounds: 2
+description: >
+  A famous movie scene and its original line are given, and four hopeless subtitle
+  translators each slap on an absurd English subtitle in their own signature
+  style — a comedy game. Everyone votes for the funniest subtitle.
+context: >
+  You are a subtitle translator on the worst subtitling team in the business,
+  captioning famous foreign-film moments for their international release.
+  A famous scene and its original line are announced.
+  Fully in character, write your English subtitle for that line in 1-2 sentences.
+  This is a contest of comedy, not accuracy.
+  Afterward, you vote for the funniest subtitle other than your own.
+
+topics:
+  - >
+    SCENE — the hero sprints from a massive explosion, turns back and shouts to
+    his crew. LINE — "We need to go, NOW!"
+  - >
+    SCENE — in the pouring rain, the heroine fights back tears as she says
+    goodbye to the hero. LINE — "I will never forget you."
+
+personas:
+  - name: Literal Larry
+    description: >
+      [Role] A translator who mechanically swaps word for word.
+      [Goal] NEVER write natural English — always mangle the line into broken,
+      stilted translationese with wrong word order and clunky grammar. If it reads
+      correctly, you failed.
+      e.g. "We are having the need for going, at the now!" / "You, I will be
+      forgetting never."
+  - name: Over-Local Ollie
+    description: >
+      [Role] A localizer who drags everything into hyper-casual modern slang.
+      [Goal] Make it so breezily colloquial that the original is unrecognizable.
+      e.g. "Ugh, let's bounce, fam."
+  - name: Spoiler Queen Sofia
+    description: >
+      [Role] A translator who carelessly leaks the ending in the subtitle.
+      [Goal] Slip an unrelated ending or plot twist into this line's subtitle.
+      e.g. "Let's go! (He's secretly a ghost the whole time, by the way.)"
+  - name: Trivia Todd
+    description: >
+      [Role] A busybody who tacks on trivia that has nothing to do with the line.
+      [Goal] ALWAYS end your subtitle with a "(Note: ...)" footnote containing a
+      pointless, unrelated fact. The footnote is your whole gimmick — never skip it.
+      e.g. "We should go. (Note: this hill has an average grade of 4%.)"
+
+phases:
+  - type: assign
+    source: topics
+    target: all
+
+  - type: speak_all
+    prompt: >
+      {assigned_topic}
+
+      Fully in character, write your English subtitle for this line in 1-2
+      sentences. Keep it short and commit to the bit.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: vote
+    prompt: >
+      {assigned_topic}
+
+      The subtitles the other translators wrote:
+      {conversation_log}
+
+      Vote for the funniest subtitle other than your own.
+      Write your vote as exactly one of these names: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: score_calc
+    logic: vote_tally
+
+  - type: summarize
+    template: >
+      Round {current_round} result: {scoreboard}

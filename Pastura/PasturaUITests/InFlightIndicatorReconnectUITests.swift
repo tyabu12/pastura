@@ -58,10 +58,6 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
     // StubScenarioSeeder on every `--ui-test` launch, so tapping its Home row
     // lands directly on the run-capable ScenarioDetailView — skipping the
     // Browse → gallery → Try-install reach (~70s, the dominant ui-test cost).
-    // `browseTab` is declared here only as the "tab bar restored" sentinel used
-    // after the park below; it is never tapped (Home is the default tab).
-    let browseTab = app.tabBars.buttons["Browse"]
-
     let homeRow = app.buttons["home.scenarioListCell.ui_test_home_seed"]
     XCTAssertTrue(homeRow.waitForExistence(timeout: 5), "Home seed scenario row missing.")
     homeRow.tap()
@@ -99,8 +95,17 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
     let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
     start.press(forDuration: 0.15, thenDragTo: end)
 
-    // The tab bar restores (left the sim) and the in-flight indicator appears.
-    XCTAssertTrue(browseTab.waitForExistence(timeout: 5), "Tab bar did not restore after leaving.")
+    // Confirm the swipe-back actually popped to ScenarioDetail (its ScrollView
+    // is the sentinel), so a failure to pop can't silently pass on a lingering
+    // indicator.
+    XCTAssertTrue(
+      app.scrollViews["scenarioDetail.list"].waitForExistence(timeout: 5),
+      "Leaving the sim did not return to ScenarioDetail.")
+
+    // ScenarioDetail hides the tab bar (contextual action bar, ADR-016
+    // § Amendment 2026-07-01), so the tab bar stays hidden here — but the
+    // in-flight indicator (a RootTabView overlay, independent of the tab bar)
+    // surfaces once the sim is no longer on top.
     let indicator = app.buttons["inFlightSimulationIndicator"]
     XCTAssertTrue(
       indicator.waitForExistence(timeout: 5),

@@ -60,6 +60,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// (e.g. scrolling back to the top) instead of re-typing — set at reveal
   /// start so an interrupted reveal still latches.
   @State private var introHasTyped = false
+  /// Drives the final-ranking card's animated insertion at run completion
+  /// (#868). Mirrors `viewModel.isCompleted`, but flipped inside `withAnimation`
+  /// so the card fades/slides in — `isCompleted` is set on the VM outside any
+  /// animation transaction, so gating the card on it directly would pop it in.
+  @State private var resultCardVisible = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
@@ -554,6 +559,25 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               }
             }
 
+            // Closing card: the settled outcome (final ranking / survival /
+            // scores), shown once at completion so the result reads as the
+            // terminal payoff instead of another 9pt-mono log row (#868).
+            // Mirror of the opening card — a fixed trailing element, NOT a
+            // logEntry, so it never dims under the current-utterance focus.
+            // `resultCardVisible` is the timing gate (animated at completion);
+            // `resultModel != nil` is the content gate (nil = summary-only run,
+            // no card). Tap opens the full scoreboard only when real scores
+            // exist — a vote-only outcome shows everything inline and a
+            // scoreboard would render misleading "0 pts" rows.
+            if resultCardVisible, let resultModel = resultModel(viewModel: viewModel) {
+              SimulationResultCard(
+                model: resultModel,
+                onTap: hasRankableScores(viewModel: viewModel)
+                  ? { showScoreboard = true } : nil
+              )
+              .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             // Bottom sentinel: scrollTo target that stays below every other
             // section (log entries, thinking indicators). Scrolling here
             // reliably reveals whatever just appeared last — anchoring to
@@ -572,6 +596,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         }
         .onChange(of: viewModel.logEntries.count) { _, _ in
           scrollToBottom(proxy)
+        }
+        .onChange(of: viewModel.isCompleted) { _, done in
+          // The no-drift completion path appends no logEntry (the count-driven
+          // scroll above never fires), so drive the closing card's animated
+          // reveal + a scroll here (#868).
+          withAnimation(.easeOut(duration: 0.35)) { resultCardVisible = done }
+          if done { scrollToBottom(proxy) }
+        }
+        .onAppear {
+          // Mounting onto an already-completed run (no isCompleted transition
+          // to observe) — show the card without the entrance animation.
+          if viewModel.isCompleted { resultCardVisible = true }
         }
         .onChange(of: viewModel.thinkingAgents) { _, _ in
           // New or cleared thinking agent — when the sentinel is currently
@@ -725,6 +761,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// scenario name, so the card would only restate it.
   private var introModel: ScenarioIntroCard.Model? {
     ScenarioIntroCard.Model(title: nil, premise: scenario?.description ?? "")
+  }
+
+  /// The resolved closing-card outcome, or `nil` when the run has nothing worth
+  /// showing (summary-only). The insertion condition short-circuits on
+  /// `resultCardVisible` first, so this runs only post-completion (not on every
+  /// streaming re-eval); the derivation is pure and O(roster) besides. Takes
+  /// the unwrapped `viewModel` (the struct-level `@State` is optional). (#868)
+  private func resultModel(viewModel: SimulationViewModel) -> SimulationResultCard.Model? {
+    SimulationResultCard.Model(
+      scores: viewModel.scores,
+      eliminated: viewModel.eliminated,
+      voteResults: viewModel.voteResults,
+      eliminationVotes: viewModel.eliminationVotes,
+      phases: scenario?.phases ?? [])
+  }
+
+  /// Whether any real score exists — gates the closing card's tap-to-scoreboard
+  /// affordance (the `ScoreboardSheet` is score-centric; a vote-only outcome
+  /// would render misleading all-zero rows).
+  private func hasRankableScores(viewModel: SimulationViewModel) -> Bool {
+    viewModel.scores.values.contains { $0 != 0 }
   }
 
   /// `true` for the resume entry (a paused run being reopened). The opening card
