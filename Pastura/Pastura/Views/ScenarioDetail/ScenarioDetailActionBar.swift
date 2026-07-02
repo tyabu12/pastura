@@ -3,9 +3,10 @@ import SwiftUI
 /// Bottom contextual action bar for ``ScenarioDetailView`` — replaces the tab
 /// bar on the scenario-detail screen (ADR-016 § Amendment / contextual bottom
 /// action bar). Two **detached** rounded-capsule elements (icon over label):
-/// a moss **Run** capsule (the emphasized primary, echoing the tab bar's
-/// selected-pill treatment) and a separate neutral capsule grouping the
-/// secondary **Copy & Edit** / **Delete** actions.
+/// a **Run** capsule (the emphasized primary — emphasis comes from its
+/// detachment + moss-coloured content, on a plain Liquid Glass background) and
+/// a separate capsule grouping the secondary **Copy & Edit** / **Delete**
+/// actions.
 ///
 /// Why custom (not a native `.bottomBar`): iOS 26's `.bottomBar` renders
 /// **icon-only** (the design language moved from text to symbols) and offers no
@@ -44,10 +45,12 @@ struct ScenarioDetailActionBar: View {
     .padding(.bottom, Spacing.xs)
   }
 
-  /// Primary — a **separate** moss capsule so Run reads as the emphasized
-  /// action, distinct from the secondary group. Tap-driven `NavigationLink`
-  /// (navigation.md); `initialName` feeds SimulationView's title from the first
-  /// frame (identity-neutral via `RouteHint`, ADR-008).
+  /// Primary — a **separate** capsule (plain Liquid Glass; moss-coloured
+  /// content) so Run reads as the emphasized action, distinct from the
+  /// secondary group, without a tinted background that could read as a pressed
+  /// state. Tap-driven `NavigationLink` (navigation.md); `initialName` feeds
+  /// SimulationView's title from the first frame (identity-neutral via
+  /// `RouteHint`, ADR-008).
   private var runCapsule: some View {
     NavigationLink(
       value: Route.simulation(
@@ -63,7 +66,7 @@ struct ScenarioDetailActionBar: View {
     .accessibilityLabel(String(localized: "Run Simulation"))
     .accessibilityIdentifier("scenarioDetail.runSimulationButton")
     .frame(maxWidth: .infinity)
-    .pasturaActionCapsule(tint: Color.mossDark)
+    .pasturaActionCapsule()
   }
 
   /// Secondary actions in their own neutral glass capsule.
@@ -75,7 +78,7 @@ struct ScenarioDetailActionBar: View {
       }
     }
     .frame(maxWidth: .infinity)
-    .pasturaActionCapsule(tint: nil)
+    .pasturaActionCapsule()
   }
 
   /// Read-only sources (preset / installed gallery copy) get **Copy & Edit**
@@ -132,18 +135,12 @@ struct ScenarioDetailActionBar: View {
 
 extension View {
   /// Rounded **capsule** surface matching the native iOS 26 floating tab bar:
-  /// Liquid Glass on iOS 26 (optionally `tint`-ed for the primary Run capsule),
-  /// a soft-tint / `.regularMaterial` Capsule on iOS 18–25.
+  /// plain Liquid Glass on iOS 26, `.regularMaterial` Capsule on iOS 18–25.
+  /// (No tint — a coloured background read as a pressed state on device.)
   @ViewBuilder
-  fileprivate func pasturaActionCapsule(tint: Color?) -> some View {
+  fileprivate func pasturaActionCapsule() -> some View {
     if #available(iOS 26.0, *) {
-      if let tint {
-        glassEffect(.regular.tint(tint.opacity(0.18)), in: .capsule)
-      } else {
-        glassEffect(.regular, in: .capsule)
-      }
-    } else if let tint {
-      background(tint.opacity(0.14), in: Capsule())
+      glassEffect(.regular, in: .capsule)
     } else {
       background(.regularMaterial, in: Capsule())
     }
