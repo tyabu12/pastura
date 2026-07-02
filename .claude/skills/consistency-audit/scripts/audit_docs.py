@@ -17,16 +17,23 @@ Two finding classes:
                    section.
 
 Conservatism is deliberate: false positives poison the queue, so each detector
-prefers a miss over a wrong flag. v1 ships only the three detectors proven to
-fire zero false positives on the current repo (dependency_version, min_ios,
-dead_link). Detectors that flood until their FP sources are designed out are
-intentionally deferred — see the SKILL's "Deferred detectors" note:
+prefers a miss over a wrong flag. Every shipped detector fires zero false
+positives on the current repo: dependency_version, min_ios, dead_link
+(needs_judgment), and dangling_adr (needs_judgment). Detectors that flood until
+their FP sources are designed out are intentionally deferred — see the SKILL's
+"Deferred detectors" note:
   - file:line citation checks   (docs cite source-root-relative paths, GitHub
                                  org/repo slugs, and property accessors that a
                                  naive repo-root existence check misreads)
-  - ADR-missing reference checks (reserved/not-yet-written ADRs like ADR-006
-                                 are referenced from lines without the marker)
   - broken-anchor / `§"..."`    (fragile GitHub-slug matching; ambiguous target)
+
+The dangling_adr detector neutralizes intentionally-absent ADRs via a canonical
+reserved set parsed from CLAUDE.md's Reference Documents table (not a per-line
+marker) — see load_reserved_adrs. Its blind spots are conservative by design: a
+reserved row must exist in the table before an absent ADR is referenced, else
+the reference is flagged (an issue, never an auto-fix); an inline "ADR-NNN
+(reserved / not yet written)" reference is skipped by the shared reserved-line
+guard even without a table row.
 
 usage:
   audit_docs.py [--repo-root DIR] [--fix]
@@ -62,6 +69,13 @@ MINIOS_LABEL = re.compile(r"(?i)min(?:imum)?\s+ios")
 MD_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 RESERVED = re.compile(r"(?i)reserved|not[\s-]?yet[\s-]?written")
 FENCE = re.compile(r"^\s*(```|~~~)")
+# Repo convention: ADRs are always ADR-NNN (three digits). Word-bounded so a
+# longer token can't produce a spurious match.
+ADR_REF = re.compile(r"\bADR-(\d{3})\b")
+# The reserved *subject* is the ADR in a Reference-Documents row's first cell
+# (`docs/decisions/ADR-NNN.md`), never a bare ADR-NNN elsewhere in the row —
+# so "see ADR-005 §7.5" inside the ADR-006 reservation row cannot reserve 005.
+RESERVED_ADR_CELL = re.compile(r"docs/decisions/ADR-(\d{3})\.md")
 
 EXCLUDE_PARTS = {".git", "DerivedData", "node_modules"}
 
@@ -118,8 +132,30 @@ def load_min_ios(path: Path) -> str | None:
     return vals.pop() if len(vals) == 1 else None
 
 
+def load_reserved_adrs(claude_md: Path) -> set[str]:
+    """Canonical set of intentionally-absent ADR numbers, parsed from
+    CLAUDE.md's Reference Documents table. A row reserves its subject ADR when
+    it is a table row (`|`-delimited) carrying a reserved / not-yet-written
+    marker AND a `docs/decisions/ADR-NNN.md` first-cell path — keyed on that
+    cell so a bare ADR reference in the description can't reserve the wrong
+    number. Absent/unreadable CLAUDE.md yields the empty set (fail-open: every
+    referenced-but-missing ADR would then be flagged, never silently absorbed)."""
+    try:
+        lines = claude_md.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return set()
+    reserved: set[str] = set()
+    for line in lines:
+        if "|" not in line or not RESERVED.search(line):
+            continue
+        m = RESERVED_ADR_CELL.search(line)
+        if m:
+            reserved.add(m.group(1))
+    return reserved
+
+
 def scan_doc(path: Path, root: Path, resolved: dict[str, str],
-             min_ios: str | None):
+             min_ios: str | None, reserved_adrs: set[str]):
     """Return (auto_fixable, judgment) finding lists for one doc file."""
     rel = os.path.relpath(path, root).replace(os.sep, "/")
     try:
@@ -199,7 +235,44 @@ def scan_doc(path: Path, root: Path, resolved: dict[str, str],
                 judg.append({"type": "dead_link", "target": target,
                              "key": str(tgt), "file": rel, "line": lineno})
 
+        # --- needs_judgment: dangling ADR references ---
+        # A referenced ADR-NNN with no docs/decisions/ADR-NNN.md and no reserved
+        # row is a dead decision reference (a typo, a renumber, or a forthcoming
+        # ADR whose reservation was never recorded). Never auto-fixed — which of
+        # those it is needs a human.
+        for m in ADR_REF.finditer(line):
+            nnn = m.group(1)
+            if nnn in reserved_adrs:
+                continue
+            if (root / "docs" / "decisions" / f"ADR-{nnn}.md").exists():
+                continue
+            adr = f"ADR-{nnn}"
+            judg.append({
+                "type": "dangling_adr", "adr": adr,
+                # target mirrors the ADR id so this rides the shared
+                # dedup_judgment (type, key) grouping and the SKILL Step 4
+                # `<target> in:title` cross-run dedup unchanged.
+                "target": adr, "key": adr,
+                "confidence": "medium",
+                "counter_evidence": (
+                    f"{adr} may be a forthcoming ADR whose reserved row has not "
+                    "yet been added to CLAUDE.md's Reference Documents table, or "
+                    "a renamed / renumbered ADR — only a human knows the "
+                    "intended target."),
+                "suggested_action": (
+                    f"Resolve one of: write docs/decisions/{adr}.md; fix the "
+                    "reference number if it is a typo; or record a reserved row "
+                    "for it in CLAUDE.md's Reference Documents table."),
+                "file": rel, "line": lineno})
+
     return auto, judg
+
+
+# Per-occurrence keys are collapsed into `locations`; every other scalar on a
+# finding (target, adr, confidence, ...) carries through from the first
+# occurrence. Keeps dead_link's output exactly {type, target, locations} while
+# letting dangling_adr surface its judgment scalars.
+_PER_OCCURRENCE = {"file", "line", "key"}
 
 
 def dedup_judgment(items: list[dict]) -> list[dict]:
@@ -208,8 +281,11 @@ def dedup_judgment(items: list[dict]) -> list[dict]:
     grouped: dict[tuple[str, str], dict] = {}
     for it in items:
         gk = (it["type"], it["key"])
-        g = grouped.setdefault(gk, {
-            "type": it["type"], "target": it["target"], "locations": []})
+        g = grouped.get(gk)
+        if g is None:
+            g = {k: v for k, v in it.items() if k not in _PER_OCCURRENCE}
+            g["locations"] = []
+            grouped[gk] = g
         g["locations"].append({"file": it["file"], "line": it["line"]})
     return list(grouped.values())
 
@@ -266,11 +342,12 @@ def main() -> int:
                     else root / DEFAULT_PBXPROJ)
     resolved = load_resolved(resolved_path)
     min_ios = load_min_ios(pbxproj_path)
+    reserved_adrs = load_reserved_adrs(root / "CLAUDE.md")
 
     auto: list[dict] = []
     judg: list[dict] = []
     for doc in discover_docs(root):
-        a, j = scan_doc(doc, root, resolved, min_ios)
+        a, j = scan_doc(doc, root, resolved, min_ios, reserved_adrs)
         auto.extend(a)
         judg.extend(j)
 

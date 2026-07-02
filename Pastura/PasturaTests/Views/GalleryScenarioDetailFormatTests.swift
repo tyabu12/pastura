@@ -4,7 +4,7 @@ import Testing
 
 /// Unit coverage of the pure ``GalleryScenarioDetailFormat`` helpers backing
 /// the shared-scenario detail screen's enriched metadata rows and the
-/// "What happens" phase flow (view-testing.md rule 1 — logic extracted from
+/// "What happens" phase step (view-testing.md rule 1 — logic extracted from
 /// the View so it is testable without rendering).
 ///
 /// `@MainActor`: ``GalleryScenarioDetailFormat`` sits at the default (MainActor)
@@ -16,38 +16,30 @@ import Testing
 @MainActor
 struct GalleryScenarioDetailFormatTests {
 
-  // MARK: - phaseFlow
+  // MARK: - phaseSteps
 
-  @Test func phaseFlowJoinsLabelsInOrder() {
-    #expect(
-      GalleryScenarioDetailFormat.phaseFlow(phases: ["speak_each", "summarize"])
-        == "Speak Each → Summarize")
+  @Test func phaseStepsProducesGlyphAndLabelInOrder() {
+    let steps = GalleryScenarioDetailFormat.phaseSteps(phases: ["speak_each", "summarize"])
+    #expect(steps.map(\.symbol) == ["bubble.left", "list.bullet.rectangle"])
+    #expect(steps.map(\.label) == ["Speak Each", "Summarize"])
   }
 
-  @Test func phaseFlowPreservesGivenOrder() {
-    #expect(
-      GalleryScenarioDetailFormat.phaseFlow(phases: ["summarize", "vote", "assign"])
-        == "Summarize → Vote → Assign")
+  @Test func phaseStepsSkipsUnknownKinds() {
+    let steps = GalleryScenarioDetailFormat.phaseSteps(phases: ["vote", "bogus_kind", "assign"])
+    #expect(steps.map(\.symbol) == ["checkmark.square", "tag"])
+    #expect(steps.map(\.label) == ["Vote", "Assign"])
   }
 
-  @Test func phaseFlowNilWhenAbsent() {
-    #expect(GalleryScenarioDetailFormat.phaseFlow(phases: nil) == nil)
+  @Test func phaseStepsEmptyWhenAbsent() {
+    #expect(GalleryScenarioDetailFormat.phaseSteps(phases: nil).isEmpty)
   }
 
-  @Test func phaseFlowNilWhenEmpty() {
-    #expect(GalleryScenarioDetailFormat.phaseFlow(phases: []) == nil)
+  @Test func phaseStepsEmptyWhenEmpty() {
+    #expect(GalleryScenarioDetailFormat.phaseSteps(phases: []).isEmpty)
   }
 
-  @Test func phaseFlowSkipsUnknownKinds() {
-    // A feed newer than this build carries a phase kind we don't know — it is
-    // skipped, and the known ones still render.
-    #expect(
-      GalleryScenarioDetailFormat.phaseFlow(phases: ["future_kind", "vote"]) == "Vote")
-  }
-
-  @Test func phaseFlowNilWhenAllUnknown() {
-    // Non-empty but every entry maps away → section hidden, not an empty box.
-    #expect(GalleryScenarioDetailFormat.phaseFlow(phases: ["future_kind", "another"]) == nil)
+  @Test func phaseStepsEmptyWhenAllUnknown() {
+    #expect(GalleryScenarioDetailFormat.phaseSteps(phases: ["nope", "nada"]).isEmpty)
   }
 
   // MARK: - languageLabel

@@ -1,8 +1,9 @@
 #!/bin/bash
 # Self-test for the consistency-audit detector. No Swift toolchain or network
-# needed — exercises the three fixture repos (clean / drift / judgment)
-# against audit_docs.py, including the must-NOT-fire regression set and the
-# Package.resolved version-vs-revision trap.
+# needed — exercises the fixture repos (clean / drift / judgment / boundary /
+# adr) against audit_docs.py, including the must-NOT-fire regression set, the
+# Package.resolved version-vs-revision trap, and the dangling-ADR reserved-set
+# / first-cell-keying guards.
 #
 # usage: bash .claude/skills/consistency-audit/tests/run_tests.sh
 # requires: python3, jq
@@ -80,5 +81,35 @@ OUT=$(python3 "$AUDIT" --repo-root fixtures/judgment)
   || fail "judgment: both findings should be dead_link"
 echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="docs/missing-a.md")' >/dev/null \
   || fail "judgment: missing-a.md dead link not found"
+# dead_link's post-dedup shape must stay exactly {type, target, locations} —
+# genericizing dedup_judgment for dangling_adr must not leak the ADR-only
+# scalars (adr / confidence / ...) onto a dead_link finding.
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dead_link") | select(has("adr") or has("confidence") or has("key") or has("file") or has("line"))' >/dev/null \
+  && fail "judgment: dead_link finding leaked a non-dead_link/per-occurrence key" || true
+echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dead_link") | (has("target") and has("locations"))] | all' >/dev/null \
+  || fail "judgment: a dead_link finding is missing target/locations"
+
+# --- adr fixture: dangling ADR flagged; reserved / existing / fenced silent --
+# ADR-099 (no file, no reserved row) and ADR-005 (only in the ADR-006 row's
+# description — first-cell keying reserves 006, not 005) fire; ADR-006 (reserved
+# set), ADR-001 (existing file), ADR-098 (inline marker) and ADR-097 (fenced)
+# stay silent.
+OUT=$(python3 "$AUDIT" --repo-root fixtures/adr)
+[ "$(af_len "$OUT")" -eq 0 ] || fail "adr: auto_fixable should be empty: $(echo "$OUT" | jq -c .auto_fixable)"
+DAD_LEN=$(echo "$OUT" | jq '[.needs_judgment[] | select(.type=="dangling_adr")] | length')
+[ "$DAD_LEN" -eq 2 ] || fail "adr: expected 2 dangling_adr, got $DAD_LEN: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="dangling_adr").adr]')"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dangling_adr" and .adr=="ADR-099")' >/dev/null \
+  || fail "adr: dangling ADR-099 not flagged"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dangling_adr" and .adr=="ADR-005")' >/dev/null \
+  || fail "adr: ADR-005 (first-cell-keying regression) not flagged"
+# the must-NOT-fire set: reserved subject, existing file, inline-marked, fenced.
+for silent in ADR-006 ADR-001 ADR-098 ADR-097; do
+  echo "$OUT" | jq -e ".needs_judgment[] | select(.type==\"dangling_adr\" and .adr==\"$silent\")" >/dev/null \
+    && fail "adr: $silent should NOT be flagged" || true
+done
+# every dangling_adr finding carries the detector-authored judgment scalars +
+# a target aliasing the ADR id (Step 4 `<target> in:title` dedup depends on it).
+echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dangling_adr") | (has("adr") and has("target") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target==.adr))] | all' >/dev/null \
+  || fail "adr: a dangling_adr finding is missing its judgment scalars or target!=adr"
 
 echo "ALL TESTS PASSED"
