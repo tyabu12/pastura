@@ -136,6 +136,31 @@ struct SummarizeHandlerTests {
     #expect(summaries[0] == "Votes: {vote_results}")
   }
 
+  @Test func expandsConversationLogInSimplePath() async throws {
+    let mock = MockLLMService(responses: [])
+    let scenario = makeTestScenario(
+      phases: [Phase(type: .summarize, template: "Log:\n{conversation_log}")]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    state.conversationLog = [
+      ConversationEntry(agentName: "Alice", content: "hello", phaseType: .speakEach, round: 1)
+    ]
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let summaries = collector.events.compactMap { event -> String? in
+      if case .summary(let text) = event { return text }
+      return nil
+    }
+    #expect(summaries.count == 1)
+    // formatConversationLog renders "  agentName: content"; the placeholder must
+    // not survive literally (regression for #862).
+    #expect(summaries[0] == "Log:\n  Alice: hello")
+  }
+
   // MARK: - Pair path: derived variables
 
   @Test func expandsScoreboardInPairPath() async throws {
@@ -189,6 +214,34 @@ struct SummarizeHandlerTests {
     }
     #expect(summaries.count == 1)
     #expect(summaries[0] == "Alice(cooperate)")
+  }
+
+  @Test func expandsConversationLogInPairPath() async throws {
+    // Template carries both {agent1} and {conversation_log} with non-empty
+    // pairings so the L21 gate routes into the per-pairing loop path (#862).
+    let mock = MockLLMService(responses: [])
+    let scenario = makeTestScenario(
+      phases: [Phase(type: .summarize, template: "{agent1} log:\n{conversation_log}")]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    state.pairings = [
+      Pairing(agent1: "Alice", agent2: "Bob", action1: "cooperate", action2: "betray")
+    ]
+    state.conversationLog = [
+      ConversationEntry(agentName: "Bob", content: "hi", phaseType: .speakEach, round: 1)
+    ]
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let summaries = collector.events.compactMap { event -> String? in
+      if case .summary(let text) = event { return text }
+      return nil
+    }
+    #expect(summaries.count == 1)
+    #expect(summaries[0] == "Alice log:\n  Bob: hi")
   }
 
   // MARK: - simulationLanguage override (ADR-010 Step E)
