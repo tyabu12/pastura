@@ -5,12 +5,36 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Daily green-main canary. main's ui-test runs on macos-26, which is most
+  # reliable in the low-GitHub-load window (peak load ≈ UTC 12:00-20:00 =
+  # JST 21:00-05:00 — the "JST night"). 01:11 UTC = 10:11 JST sits in the
+  # low-load trough, and is off the top of the hour where scheduled runs are
+  # most delayed. Purpose is high-signal, not flake-hunting: a red run in this
+  # low-noise JST-morning window points at a real regression on main, not infra
+  # noise (empirically JST 07:00-09:00 ui-test was 20/20 across push/PR runs;
+  # the morning trough carries into the 10:xx slot).
+  # NOTE: GitHub auto-disables a scheduled workflow after 60 days of *no
+  # repository activity* — harmless for an active repo, but that is the silent
+  # failure mode if the daily ever stops firing.
+  schedule:
+    - cron: '11 1 * * *'
+  # Manual trigger for an on-demand full main run (a human dispatched it and is
+  # watching, so — unlike `schedule` — it is intentionally NOT auto-retried by
+  # ci-retry.yml).
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A scheduled (or workflow_dispatch) run on main shares main's `github.ref`
+  # with a push to main, so a plain `ci-${{ github.ref }}` group would let a
+  # concurrent push cancel the daily run (or vice versa). Suffix the group with
+  # the run id for `schedule` only, giving each daily run its own group so it is
+  # never cancelled. push / pull_request / workflow_dispatch keep the empty
+  # suffix and their per-ref mutual-cancellation (a manual dispatch on main thus
+  # shares push's group — harmless, since a push is itself a full main run).
+  group: ci-${{ github.ref }}-${{ github.event_name == 'schedule' && github.run_id || '' }}
   cancel-in-progress: true
 
 jobs:

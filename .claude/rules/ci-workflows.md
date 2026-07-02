@@ -96,6 +96,23 @@ Load-bearing invariants when adding/changing such gating:
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
 
+## `ci.yml` fires on four event shapes — enumerate all when editing an `if:`
+
+`ci.yml` triggers are `push`(main) / `pull_request`(main) / `schedule`(daily
+`cron: '11 1 * * *'` = 10:11 JST green-main canary) / `workflow_dispatch`. Both
+`schedule` and `workflow_dispatch` are non-`pull_request`, so the `changes`
+classifier short-circuits them to `ios=true` (invariant 2) — the daily is a
+**full** CI run (all macOS jobs + drift guards), not ui-test-only. The
+event-gated tail jobs stay correct because they name their event explicitly:
+`coverage` (`event == 'push'`) and `pr-comment` (`event == 'pull_request'`) both
+skip on schedule/dispatch. When adding a new job or `if:`, enumerate all four
+shapes — a guard written only for push/PR silently mis-handles the daily run.
+
+`ci-retry.yml` auto-retries the `schedule` arm with the **same** attempt budget
+as `main push` (< 3), so a ui-test flake on the daily does not surface as a
+false red; `workflow_dispatch` is intentionally **not** retried (human-initiated
+and watched).
+
 ## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
 
 `scripts/tests/*-test.sh` unit-test the **scripts themselves** (e.g.
