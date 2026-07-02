@@ -242,7 +242,15 @@ struct ModelDownloadHostView: View {
   // loads bundled demos. The `stateView` dispatcher handles routing.
   private func initialLoad() async {
     Self.logger.notice("initialLoad: starting (descriptor=\(descriptor.id, privacy: .public))")
-    let loaded = BundledDemoReplaySource.loadAll()
+    // Randomize the demo order on each load so the looped rotation
+    // isn't a fixed sequence (advanceAfterSource wraps via `% sources.count`,
+    // preserving whatever order this array holds). Shuffle exactly ONCE into
+    // the shared `loaded` binding — `sources` and the VM's copy must agree
+    // on order because `currentPresetName(viewModel:)` resolves the header
+    // name via `sources[viewModel.currentSourceIndex]`; two separate
+    // `.shuffled()` calls would desync them. `loadAll()` itself stays
+    // deterministic so order-sensitive tests keep passing.
+    let loaded = BundledDemoReplaySource.loadAll().shuffled()
     Self.logger.notice(
       "initialLoad: loaded \(loaded.count, privacy: .public) sources")
     sources = loaded

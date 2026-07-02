@@ -32,6 +32,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
         variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["conversation_log"] = promptBuilder.formatConversationLog(
           state.conversationLog, language: context.scenario.engineLanguage)
+        promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
         let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
         let output = try await llmCaller.call(
