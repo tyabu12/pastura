@@ -47,6 +47,7 @@ nonisolated struct VoteHandler: PhaseHandler {
       variables["conversation_log"] = promptBuilder.formatConversationLog(
         state.conversationLog, language: context.scenario.engineLanguage)
       variables["candidates"] = candidates.joined(separator: ", ")
+      promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       let output = try await llmCaller.call(
