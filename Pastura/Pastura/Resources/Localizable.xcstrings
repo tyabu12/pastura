@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "" : {
-
-    },
     "\n  - 💭 _%@_" : {
       "localizations" : {
         "en" : {
@@ -49,457 +46,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "  %1$@: %2$lld 票"
-          }
-        }
-      }
-    },
-    "_(empty)_" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_(empty)_"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_(なし)_"
-          }
-        }
-      }
-    },
-    "_No roster data._" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_No roster data._"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_ロスターデータなし_"
-          }
-        }
-      }
-    },
-    "_No score data._" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_No score data._"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_スコアデータなし_"
-          }
-        }
-      }
-    },
-    "_No turns recorded._" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_No turns recorded._"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "_ターン記録なし_"
-          }
-        }
-      }
-    },
-    "- _(code phase — no agent output)_" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- _(code phase — no agent output)_"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- _(コードフェーズ — エージェント出力なし)_"
-          }
-        }
-      }
-    },
-    "- **%@** (%@) ↔ **%@** (%@)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%1$@** (%2$@) ↔ **%3$@** (%4$@)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%@** (%@) ↔ **%@** (%@)"
-          }
-        }
-      }
-    },
-    "- **%@** was assigned: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%1$@** was assigned: %2$@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%@** に割り当て: %@"
-          }
-        }
-      }
-    },
-    "- **%@** was eliminated (%lld votes)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%1$@** was eliminated (%2$lld votes)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%@** が脱落 (%lld 票)"
-          }
-        }
-      }
-    },
-    "- **%@**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%1$@**: %2$@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **%@**: %@"
-          }
-        }
-      }
-    },
-    "- **Backend**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Backend**: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **バックエンド**: %@"
-          }
-        }
-      }
-    },
-    "- **Device**: %@ / %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Device**: %1$@ / %2$@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **デバイス**: %@ / %@"
-          }
-        }
-      }
-    },
-    "- **Duration**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Duration**: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **所要時間**: %@"
-          }
-        }
-      }
-    },
-    "- **Ended**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Ended**: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **終了**: %@"
-          }
-        }
-      }
-    },
-    "- **Inference count**: %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Inference count**: %lld"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **推論回数**: %lld"
-          }
-        }
-      }
-    },
-    "- **Model**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Model**: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **モデル**: %@"
-          }
-        }
-      }
-    },
-    "- **Scenario**: %@ (`%@`)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Scenario**: %1$@ (`%2$@`)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **シナリオ**: %@ (`%@`)"
-          }
-        }
-      }
-    },
-    "- **Started**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Started**: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **開始**: %@"
-          }
-        }
-      }
-    },
-    "- **Status**: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **Status**: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- **ステータス**: %@"
-          }
-        }
-      }
-    },
-    "- 🎲 Event: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- 🎲 Event: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- 🎲 イベント: %@"
-          }
-        }
-      }
-    },
-    "- 🎲 No event this round" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- 🎲 No event this round"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- 🎲 このラウンドはイベントなし"
-          }
-        }
-      }
-    },
-    "- Scores — %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- Scores — %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- スコア — %@"
-          }
-        }
-      }
-    },
-    "- Tallies:" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- Tallies:"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- 集計:"
-          }
-        }
-      }
-    },
-    "- Votes:" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- Votes:"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "- 投票:"
-          }
-        }
-      }
-    },
-    ", " : {
-      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "、"
-          }
-        }
-      }
-    },
-    "·" : {
-
-    },
-    "“%@” will be deleted. Past simulation results are kept and stay viewable." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「%@」を削除します。過去のシミュレーション結果は残り、引き続き閲覧できます。"
-          }
-        }
-      }
-    },
-    "(no condition)" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "（条件なし）"
-          }
-        }
-      }
-    },
-    "(unknown)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(unknown)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(不明)"
-          }
-        }
-      }
-    },
-    "(unnamed)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(unnamed)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(無名)"
-          }
-        }
-      }
-    },
-    "(unreadable payload)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(unreadable payload)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(ペイロード解読不可)"
           }
         }
       }
@@ -664,22 +210,6 @@
         }
       }
     },
-    "%@ (%@) ↔ %@ (%@)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ (%2$@) ↔ %3$@ (%4$@)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ (%@) ↔ %@ (%@)"
-          }
-        }
-      }
-    },
     "%@ (%@) requires field '%@' in output." : {
       "localizations" : {
         "en" : {
@@ -712,6 +242,22 @@
         }
       }
     },
+    "%@ (%@) ↔ %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) ↔ %3$@ (%4$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (%@) ↔ %@ (%@)"
+          }
+        }
+      }
+    },
     "%@ (%lld)" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -725,56 +271,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ (%2$lld)"
-          }
-        }
-      }
-    },
-    "%@ → %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ → %2$@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ → %2$@"
-          }
-        }
-      }
-    },
-    "%@ → then:%lld else:%lld" : {
-      "comment" : "Conditional phase summary in scenario editor; condition expr / then-branch count / else-branch count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ → then:%2$lld else:%3$lld"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ → then:%2$lld else:%3$lld"
-          }
-        }
-      }
-    },
-    "%@ × %@" : {
-      "comment" : "Event-inject phase summary in scenario editor; first arg is YAML source key name, second arg is probability (e.g. 0.5).",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ × %2$@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ × %2$@"
           }
         }
       }
@@ -991,18 +487,68 @@
         }
       }
     },
-    "%@: '%@' must be an array of phase objects" : {
+    "%@ × %@" : {
+      "comment" : "Event-inject phase summary in scenario editor; first arg is YAML source key name, second arg is probability (e.g. 0.5).",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@: '%2$@' must be an array of phase objects"
+            "value" : "%1$@ × %2$@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@: '%2$@' はフェーズオブジェクトの配列である必要があります"
+            "value" : "%1$@ × %2$@"
+          }
+        }
+      }
+    },
+    "%@ → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@"
+          }
+        }
+      }
+    },
+    "%@ → then:%lld else:%lld" : {
+      "comment" : "Conditional phase summary in scenario editor; condition expr / then-branch count / else-branch count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → then:%2$lld else:%3$lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → then:%2$lld else:%3$lld"
+          }
+        }
+      }
+    },
+    "%@(%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@(%2$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@(%2$@)"
           }
         }
       }
@@ -1019,6 +565,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: %2$lld"
+          }
+        }
+      }
+    },
+    "%@: '%@' must be an array of phase objects" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: '%2$@' must be an array of phase objects"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: '%2$@' はフェーズオブジェクトの配列である必要があります"
           }
         }
       }
@@ -1279,22 +841,6 @@
         }
       }
     },
-    "%@(%@)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@(%2$@)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@(%2$@)"
-          }
-        }
-      }
-    },
     "%lld agents" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1446,23 +992,376 @@
         }
       }
     },
-    "↳ sub-phase" : {
+    "(no condition)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "↳ サブフェーズ"
+            "value" : "（条件なし）"
           }
         }
       }
     },
-    "~%lld inferences" : {
-      "extractionState" : "stale",
+    "(unknown)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(unknown)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(不明)"
+          }
+        }
+      }
+    },
+    "(unnamed)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(unnamed)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(無名)"
+          }
+        }
+      }
+    },
+    "(unreadable payload)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(unreadable payload)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(ペイロード解読不可)"
+          }
+        }
+      }
+    },
+    ", " : {
+      "comment" : "VoiceOver list separator inside GameHeader's combined accessibility label.",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "~%lld 回の推論"
+            "value" : "、"
+          }
+        }
+      }
+    },
+    "- **%@** (%@) ↔ **%@** (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@** (%2$@) ↔ **%3$@** (%4$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@** (%@) ↔ **%@** (%@)"
+          }
+        }
+      }
+    },
+    "- **%@** was assigned: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@** was assigned: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@** に割り当て: %@"
+          }
+        }
+      }
+    },
+    "- **%@** was eliminated (%lld votes)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@** was eliminated (%2$lld votes)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@** が脱落 (%lld 票)"
+          }
+        }
+      }
+    },
+    "- **%@**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%1$@**: %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **%@**: %@"
+          }
+        }
+      }
+    },
+    "- **Backend**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Backend**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **バックエンド**: %@"
+          }
+        }
+      }
+    },
+    "- **Device**: %@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Device**: %1$@ / %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **デバイス**: %@ / %@"
+          }
+        }
+      }
+    },
+    "- **Duration**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Duration**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **所要時間**: %@"
+          }
+        }
+      }
+    },
+    "- **Ended**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Ended**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **終了**: %@"
+          }
+        }
+      }
+    },
+    "- **Inference count**: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Inference count**: %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **推論回数**: %lld"
+          }
+        }
+      }
+    },
+    "- **Model**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Model**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **モデル**: %@"
+          }
+        }
+      }
+    },
+    "- **Scenario**: %@ (`%@`)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Scenario**: %1$@ (`%2$@`)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **シナリオ**: %@ (`%@`)"
+          }
+        }
+      }
+    },
+    "- **Started**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Started**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **開始**: %@"
+          }
+        }
+      }
+    },
+    "- **Status**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **Status**: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- **ステータス**: %@"
+          }
+        }
+      }
+    },
+    "- Scores — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- Scores — %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- スコア — %@"
+          }
+        }
+      }
+    },
+    "- Tallies:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- Tallies:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 集計:"
+          }
+        }
+      }
+    },
+    "- Votes:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- Votes:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 投票:"
+          }
+        }
+      }
+    },
+    "- _(code phase — no agent output)_" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- _(code phase — no agent output)_"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- _(コードフェーズ — エージェント出力なし)_"
+          }
+        }
+      }
+    },
+    "- 🎲 Event: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 Event: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 イベント: %@"
+          }
+        }
+      }
+    },
+    "- 🎲 No event this round" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 No event this round"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🎲 このラウンドはイベントなし"
           }
         }
       }
@@ -1527,28 +1426,32 @@
         }
       }
     },
+    "AI Models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI モデル"
+          }
+        }
+      }
+    },
+    "AI agents converse right inside your iPhone." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIエージェントが、あなたのiPhoneの中で対話します"
+          }
+        }
+      }
+    },
     "About %lld min left" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "残り約 %lld 分"
-          }
-        }
-      }
-    },
-    "active" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "active"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "アクティブ"
           }
         }
       }
@@ -1693,22 +1596,6 @@
         }
       }
     },
-    "agents (%lld) does not match personas count (%lld)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "agents (%1$lld) does not match personas count (%2$lld)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "agents (%1$lld) が personas の数 (%2$lld) と一致しません"
-          }
-        }
-      }
-    },
     "Agents run entirely on your device." : {
       "localizations" : {
         "ja" : {
@@ -1725,26 +1612,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "エージェントが順番に発言（コンテキストを累積）"
-          }
-        }
-      }
-    },
-    "AI agents converse right inside your iPhone." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AIエージェントが、あなたのiPhoneの中で対話します"
-          }
-        }
-      }
-    },
-    "AI Models" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI モデル"
           }
         }
       }
@@ -2271,22 +2138,22 @@
         }
       }
     },
-    "Could not check local scenarios: %@" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ローカルシナリオの確認に失敗しました: %@"
-          }
-        }
-      }
-    },
     "Could Not Reach Gallery" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ギャラリーに接続できませんでした"
+          }
+        }
+      }
+    },
+    "Could not check local scenarios: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルシナリオの確認に失敗しました: %@"
           }
         }
       }
@@ -2341,8 +2208,26 @@
         }
       }
     },
-    "current_event" : {
-
+    "DL" : {
+      "comment" : "Status abbreviation in PromoCard meta row. Intentionally identical en/ja — kept short to fit the dot-progress strip.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DL"
+          }
+        }
+      }
+    },
+    "Database Needs Recovery" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースの復旧が必要です"
+          }
+        }
+      }
     },
     "Database error: %@" : {
       "localizations" : {
@@ -2360,16 +2245,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "データベースのマイグレーションに失敗しました:\n%@"
-          }
-        }
-      }
-    },
-    "Database Needs Recovery" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "データベースの復旧が必要です"
           }
         }
       }
@@ -2430,22 +2305,22 @@
         }
       }
     },
-    "Delete failed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "削除に失敗しました"
-          }
-        }
-      }
-    },
     "Delete Scenario?" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオを削除しますか？"
+          }
+        }
+      }
+    },
+    "Delete failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除に失敗しました"
           }
         }
       }
@@ -2553,33 +2428,12 @@
         }
       }
     },
-    "disabled" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無効"
-          }
-        }
-      }
-    },
     "Distribute info to agents (code)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "エージェントへ情報を配布（コード）"
-          }
-        }
-      }
-    },
-    "DL" : {
-      "comment" : "Status abbreviation in PromoCard meta row. Intentionally identical en/ja — kept short to fit the dot-progress strip.",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DL"
           }
         }
       }
@@ -2627,6 +2481,16 @@
         }
       }
     },
+    "Download Failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロードに失敗"
+          }
+        }
+      }
+    },
     "Download anyway" : {
       "localizations" : {
         "ja" : {
@@ -2643,16 +2507,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロードに失敗しました"
-          }
-        }
-      }
-    },
-    "Download Failed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ダウンロードに失敗"
           }
         }
       }
@@ -2703,22 +2557,6 @@
         }
       }
     },
-    "Downloaded · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Downloaded · %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ダウンロード済み · %@"
-          }
-        }
-      }
-    },
     "Downloaded file size mismatch (expected %lld, got %lld)" : {
       "localizations" : {
         "en" : {
@@ -2748,6 +2586,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロード済みモデル · %@"
+          }
+        }
+      }
+    },
+    "Downloaded · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloaded · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード済み · %@"
           }
         }
       }
@@ -2794,16 +2648,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロード中…"
-          }
-        }
-      }
-    },
-    "e.g. max_score >= 10 && active_count > 1" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "例: max_score >= 10 && active_count > 1"
           }
         }
       }
@@ -2858,38 +2702,12 @@
         }
       }
     },
-    "eliminated" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "eliminated"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "脱落"
-          }
-        }
-      }
-    },
     "Else branch (condition false)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Else ブランチ（条件が false）"
-          }
-        }
-      }
-    },
-    "enabled" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有効"
           }
         }
       }
@@ -2934,7 +2752,7 @@
         }
       }
     },
-    "Est. inferences" : {
+    "Est. Inferences" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2944,7 +2762,7 @@
         }
       }
     },
-    "Est. Inferences" : {
+    "Est. inferences" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -3347,12 +3165,38 @@
         }
       }
     },
+    "GBNF grammar parse failed: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GBNF grammar parse failed: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GBNF 文法の解析に失敗しました: %@"
+          }
+        }
+      }
+    },
     "Gallery Cache Corrupted" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ギャラリーキャッシュが破損しています"
+          }
+        }
+      }
+    },
+    "Gallery Unavailable" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ギャラリーが利用できません"
           }
         }
       }
@@ -3433,38 +3277,12 @@
         }
       }
     },
-    "Gallery Unavailable" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ギャラリーが利用できません"
-          }
-        }
-      }
-    },
     "Game Theory" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ゲーム理論"
-          }
-        }
-      }
-    },
-    "GBNF grammar parse failed: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GBNF grammar parse failed: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GBNF 文法の解析に失敗しました: %@"
           }
         }
       }
@@ -3545,6 +3363,16 @@
         }
       }
     },
+    "INNER VOICE" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心の声"
+          }
+        }
+      }
+    },
     "Inference was suspended and will retry" : {
       "localizations" : {
         "ja" : {
@@ -3585,16 +3413,6 @@
         }
       }
     },
-    "INNER VOICE" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "心の声"
-          }
-        }
-      }
-    },
     "Installed" : {
       "localizations" : {
         "ja" : {
@@ -3631,16 +3449,6 @@
         }
       }
     },
-    "Invalid grammar for constrained decoding: %@" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "制約付きデコードの文法が不正です: %@"
-          }
-        }
-      }
-    },
     "Invalid LLM response: %@" : {
       "localizations" : {
         "ja" : {
@@ -3667,12 +3475,12 @@
         }
       }
     },
-    "Japanese" : {
+    "Invalid grammar for constrained decoding: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日本語"
+            "value" : "制約付きデコードの文法が不正です: %@"
           }
         }
       }
@@ -3683,6 +3491,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "JSON 解析に失敗しました: %@"
+          }
+        }
+      }
+    },
+    "Japanese" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日本語"
           }
         }
       }
@@ -3713,6 +3531,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "画面を離れても実行を続ける"
+          }
+        }
+      }
+    },
+    "LLM" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LLM"
+          }
+        }
+      }
+    },
+    "LLM returned invalid output after retries. Try again or check model health." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行しても LLM の出力が不正でした。再度実行するか、モデルの状態を確認してください。"
           }
         }
       }
@@ -3804,42 +3642,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ライセンス"
-          }
-        }
-      }
-    },
-    "llama_decode failed (error %lld)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "llama_decode failed (error %lld)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "llama_decode に失敗しました（エラー %lld）"
-          }
-        }
-      }
-    },
-    "LLM" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LLM"
-          }
-        }
-      }
-    },
-    "LLM returned invalid output after retries. Try again or check model health." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再試行しても LLM の出力が不正でした。再度実行するか、モデルの状態を確認してください。"
           }
         }
       }
@@ -3962,6 +3764,16 @@
         }
       }
     },
+    "Model Setup" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルセットアップ"
+          }
+        }
+      }
+    },
     "Model generated no output tokens" : {
       "localizations" : {
         "en" : {
@@ -3994,16 +3806,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "モデルが読み込まれていません"
-          }
-        }
-      }
-    },
-    "Model Setup" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "モデルセットアップ"
           }
         }
       }
@@ -4079,16 +3881,6 @@
         }
       }
     },
-    "New option" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい選択肢"
-          }
-        }
-      }
-    },
     "New Persona" : {
       "localizations" : {
         "ja" : {
@@ -4109,12 +3901,52 @@
         }
       }
     },
+    "New option" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい選択肢"
+          }
+        }
+      }
+    },
     "Next demo: %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "次のデモ: %@"
+          }
+        }
+      }
+    },
+    "No Data" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データなし"
+          }
+        }
+      }
+    },
+    "No Results" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果なし"
+          }
+        }
+      }
+    },
+    "No Scenarios" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオがありません"
           }
         }
       }
@@ -4165,16 +3997,6 @@
         }
       }
     },
-    "No Data" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "データなし"
-          }
-        }
-      }
-    },
     "No event this round" : {
       "localizations" : {
         "ja" : {
@@ -4197,26 +4019,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "モデルなし"
-          }
-        }
-      }
-    },
-    "No Results" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "結果なし"
-          }
-        }
-      }
-    },
-    "No Scenarios" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオがありません"
           }
         }
       }
@@ -4301,16 +4103,6 @@
         }
       }
     },
-    "Offline — showing cached content" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "オフライン — キャッシュされたコンテンツを表示しています"
-          }
-        }
-      }
-    },
     "OK" : {
       "localizations" : {
         "ja" : {
@@ -4321,22 +4113,12 @@
         }
       }
     },
-    "Open local copy" : {
+    "Offline — showing cached content" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ローカルコピーを開く"
-          }
-        }
-      }
-    },
-    "Open on GitHub" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub で開く"
+            "value" : "オフライン — キャッシュされたコンテンツを表示しています"
           }
         }
       }
@@ -4357,6 +4139,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共有シナリオを開いて更新してから、もう一度リンクを試してください。"
+          }
+        }
+      }
+    },
+    "Open local copy" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルコピーを開く"
+          }
+        }
+      }
+    },
+    "Open on GitHub" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub で開く"
           }
         }
       }
@@ -4401,6 +4203,16 @@
         }
       }
     },
+    "Output Fields" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出力フィールド"
+          }
+        }
+      }
+    },
     "Output drifted from expected %@ for %@" : {
       "localizations" : {
         "en" : {
@@ -4433,16 +4245,6 @@
         }
       }
     },
-    "Output Fields" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "出力フィールド"
-          }
-        }
-      }
-    },
     "Overview" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4450,6 +4252,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "概要"
+          }
+        }
+      }
+    },
+    "PASTURA · SETUP" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PASTURA · セットアップ"
           }
         }
       }
@@ -4470,19 +4282,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "過去の結果"
-          }
-        }
-      }
-    },
-    "Pastura" : {
-
-    },
-    "PASTURA · SETUP" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PASTURA · セットアップ"
           }
         }
       }
@@ -4634,16 +4433,6 @@
         }
       }
     },
-    "Persona '%@' description contains a term that is not allowed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ペルソナ '%@' の説明に許可されていない用語が含まれています"
-          }
-        }
-      }
-    },
     "Persona %lld description contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {
@@ -4660,6 +4449,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ペルソナ %lld の名前に許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Persona '%@' description contains a term that is not allowed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペルソナ '%@' の説明に許可されていない用語が含まれています"
           }
         }
       }
@@ -4919,16 +4718,6 @@
         }
       }
     },
-    "Recommended model" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "推奨モデル"
-          }
-        }
-      }
-    },
     "Recommended Scenarios" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4936,6 +4725,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "おすすめのシナリオ"
+          }
+        }
+      }
+    },
+    "Recommended model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推奨モデル"
           }
         }
       }
@@ -4967,7 +4766,6 @@
       }
     },
     "Recovery requires an active model" : {
-      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -5230,6 +5028,16 @@
         }
       }
     },
+    "Round Robin" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンドロビン"
+          }
+        }
+      }
+    },
     "Round count (%lld) exceeds maximum of 30" : {
       "localizations" : {
         "en" : {
@@ -5242,16 +5050,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ラウンド数 (%lld) が最大値の30を超えています"
-          }
-        }
-      }
-    },
-    "Round Robin" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ラウンドロビン"
           }
         }
       }
@@ -5293,22 +5091,22 @@
         }
       }
     },
-    "Run a simulation to see results here" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シミュレーションを実行すると、ここに結果が表示されます"
-          }
-        }
-      }
-    },
     "Run Simulation" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "シミュレーション実行"
+          }
+        }
+      }
+    },
+    "Run a simulation to see results here" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シミュレーションを実行すると、ここに結果が表示されます"
           }
         }
       }
@@ -5335,6 +5133,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "バックグラウンドで実行中"
+          }
+        }
+      }
+    },
+    "STORAGE" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ストレージ"
           }
         }
       }
@@ -5399,16 +5207,6 @@
         }
       }
     },
-    "Scenario description contains a term that is not allowed" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオの説明に許可されていない用語が含まれています"
-          }
-        }
-      }
-    },
     "Scenario ID" : {
       "localizations" : {
         "ja" : {
@@ -5425,6 +5223,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオ ID は必須です"
+          }
+        }
+      }
+    },
+    "Scenario Not Found" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオが見つかりません"
+          }
+        }
+      }
+    },
+    "Scenario description contains a term that is not allowed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオの説明に許可されていない用語が含まれています"
           }
         }
       }
@@ -5459,16 +5277,6 @@
         }
       }
     },
-    "Scenario Not Found" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "シナリオが見つかりません"
-          }
-        }
-      }
-    },
     "Scenario: field 'language' must be one of {%@}, got '%@'" : {
       "localizations" : {
         "en" : {
@@ -5485,22 +5293,6 @@
         }
       }
     },
-    "Scenario: field 'simulation_language' must be one of {%@} or absent, got '%@'" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scenario: field 'simulation_language' must be one of {%1$@} or absent, got '%2$@'"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scenario: フィールド 'simulation_language' は {%1$@} のいずれか、または省略可能である必要がありますが、'%2$@' が指定されました"
-          }
-        }
-      }
-    },
     "Scenario: field 'simulationLanguage' must be one of {%@} or nil, got '%@'" : {
       "localizations" : {
         "en" : {
@@ -5513,6 +5305,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scenario: フィールド 'simulationLanguage' は {%1$@} のいずれか、または nil である必要がありますが、'%2$@' が指定されました"
+          }
+        }
+      }
+    },
+    "Scenario: field 'simulation_language' must be one of {%@} or absent, got '%@'" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: field 'simulation_language' must be one of {%1$@} or absent, got '%2$@'"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scenario: フィールド 'simulation_language' は {%1$@} のいずれか、または省略可能である必要がありますが、'%2$@' が指定されました"
           }
         }
       }
@@ -5843,16 +5651,6 @@
         }
       }
     },
-    "STORAGE" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ストレージ"
-          }
-        }
-      }
-    },
     "Storage is getting large. Consider clearing old runs to free space." : {
       "localizations" : {
         "ja" : {
@@ -6023,6 +5821,26 @@
         }
       }
     },
+    "This Month" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今月"
+          }
+        }
+      }
+    },
+    "This Week" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今週"
+          }
+        }
+      }
+    },
     "This can take a few seconds" : {
       "localizations" : {
         "ja" : {
@@ -6073,32 +5891,6 @@
         }
       }
     },
-    "this model" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "this model"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このモデル"
-          }
-        }
-      }
-    },
-    "This Month" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今月"
-          }
-        }
-      }
-    },
     "This permanently removes every past run and its conversation log. This can't be undone." : {
       "localizations" : {
         "ja" : {
@@ -6129,22 +5921,22 @@
         }
       }
     },
-    "This Week" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今週"
-          }
-        }
-      }
-    },
     "Today" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日"
+          }
+        }
+      }
+    },
+    "Top-level YAML key" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップレベルの YAML キー"
           }
         }
       }
@@ -6209,16 +6001,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "トップレベルフィールド '%@': 混在型の配列はサポートされていません。純粋な [String] または [[String: String]] を使用してください。"
-          }
-        }
-      }
-    },
-    "Top-level YAML key" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "トップレベルの YAML キー"
           }
         }
       }
@@ -6545,16 +6327,6 @@
         }
       }
     },
-    "vs" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "vs"
-          }
-        }
-      }
-    },
     "Wait for Wi-Fi" : {
       "localizations" : {
         "ja" : {
@@ -6699,6 +6471,221 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このデバイスに複数のモデルを保持できます。メモリに読み込まれるのは使用中のモデルだけです。"
+          }
+        }
+      }
+    },
+    "_(empty)_" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_(empty)_"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_(なし)_"
+          }
+        }
+      }
+    },
+    "_No roster data._" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_No roster data._"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_ロスターデータなし_"
+          }
+        }
+      }
+    },
+    "_No score data._" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_No score data._"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_スコアデータなし_"
+          }
+        }
+      }
+    },
+    "_No turns recorded._" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_No turns recorded._"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "_ターン記録なし_"
+          }
+        }
+      }
+    },
+    "active" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "active"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクティブ"
+          }
+        }
+      }
+    },
+    "agents (%lld) does not match personas count (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "agents (%1$lld) does not match personas count (%2$lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "agents (%1$lld) が personas の数 (%2$lld) と一致しません"
+          }
+        }
+      }
+    },
+    "disabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無効"
+          }
+        }
+      }
+    },
+    "e.g. max_score >= 10 && active_count > 1" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例: max_score >= 10 && active_count > 1"
+          }
+        }
+      }
+    },
+    "eliminated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eliminated"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脱落"
+          }
+        }
+      }
+    },
+    "enabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効"
+          }
+        }
+      }
+    },
+    "llama_decode failed (error %lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "llama_decode failed (error %lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "llama_decode に失敗しました（エラー %lld）"
+          }
+        }
+      }
+    },
+    "this model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このモデル"
+          }
+        }
+      }
+    },
+    "vs" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vs"
+          }
+        }
+      }
+    },
+    "~%lld inferences" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%lld 回の推論"
+          }
+        }
+      }
+    },
+    "“%@” will be deleted. Past simulation results are kept and stay viewable." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」を削除します。過去のシミュレーション結果は残り、引き続き閲覧できます。"
+          }
+        }
+      }
+    },
+    "↳ sub-phase" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "↳ サブフェーズ"
           }
         }
       }
