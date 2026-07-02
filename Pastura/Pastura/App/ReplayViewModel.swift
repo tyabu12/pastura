@@ -141,6 +141,44 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// ``totalPhaseCount``.
   private var cachedTotalPhaseCount: Int = 0
 
+  // MARK: - Closing-card accumulators (#884)
+  //
+  // Mirror of the live ``SimulationViewModel`` result state. These are the
+  // inputs ``concludeSource(sourceIndex:)`` feeds to
+  // ``SimulationResultCard/Model/init(scores:eliminated:voteResults:eliminationVotes:phases:)``
+  // at each segment's tail. Plain `private var` (no `@Observable` bridge): the
+  // demo has no live scoreboard, so nothing renders these directly — they are
+  // snapshotted into a static ``ChatItem/simulationResult`` card. Seeded /
+  // reset per source in ``resetPerDemoState(forSourceIndex:)``.
+
+  /// Agent → cumulative score. Full-replaced on each `.scoreUpdate`, matching
+  /// ``SimulationViewModel/scores`` semantics. Seeded all-`0` from the source's
+  /// personas so "are there scores worth ranking" is decided by *any non-zero*
+  /// value, not `!isEmpty` (see the resolver's doc-comment).
+  private var scores: [String: Int] = [:]
+
+  /// Agent → eliminated flag. Seeded all-`false`; set `true` on `.elimination`.
+  private var eliminated: [String: Bool] = [:]
+
+  /// Latest `.voteResults` tallies (agent → votes received). Ranks a vote-only
+  /// "popularity vote" that eliminates nobody (#868).
+  private var voteResults: [String: Int] = [:]
+
+  /// Per-agent vote count captured at the moment of each agent's elimination.
+  /// Round-correct — an agent eliminated in an earlier round keeps its own
+  /// count, which a last-wins tally would drop.
+  private var eliminationVotes: [String: Int] = [:]
+
+  /// Whether the current source's closing card has already been appended.
+  /// Single Bool (NOT a `Set<Int>` keyed by source index): under the default
+  /// `.loop` config the same index recurs every cycle, so a keyed set that is
+  /// never cleared would append the card in cycle 1 only, then silently skip
+  /// forever. Cleared on every fresh source entry in
+  /// ``resetPerDemoState(forSourceIndex:)`` (which fires from `start()` and both
+  /// rotation arms, but NOT on resume) — so it re-arms each loop cycle while
+  /// still guarding against a resume-driven double append (#884).
+  private var resultCardAppendedForCurrentSource = false
+
   /// User-selectable playback speed. Initialized from
   /// ``ReplayPlaybackConfig/playbackSpeed`` and writable at runtime
   /// (Demo controlBar's Speed Menu assigns to it directly, mirroring
@@ -270,7 +308,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
   /// Heterogeneous chat-stream item — an agent's rendered output, a
   /// demo-boundary marker inserted between sources during rotation (#208),
-  /// or a scenario-intro opening card at each segment's head (#867). Used by
+  /// a scenario-intro opening card at each segment's head (#867), or a
+  /// final-ranking closing card at each segment's tail (#868). Used by
   /// the host view's `ForEach` to dispatch on case.
   ///
   /// `.scenarioIntro` carries the source's premise (`scenario.description`) as
@@ -279,6 +318,13 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// the same accumulate-across-rotation timeline as `.agentOutput` /
   /// `.demoBoundary`; on rotation the order is boundary → intro card.
   ///
+  /// `.simulationResult` carries an already-resolved
+  /// ``SimulationResultCard/Model`` (plain value type, no domain type crosses
+  /// into the View), appended at a segment's tail by
+  /// ``concludeSource(sourceIndex:)`` — the demo mirror of the live sim's
+  /// closing card. It rides the same timeline; on rotation the order is
+  /// result card → boundary → intro card.
+  ///
   /// `id` is projected from the inner payload so SwiftUI's
   /// `ForEach`/`scrollTo(_:anchor:)` keep working identically to the
   /// pre-#208 `AgentOutputEntry`-only timeline.
@@ -286,12 +332,14 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case agentOutput(AgentOutputEntry)
     case demoBoundary(id: UUID, scenarioName: String)
     case scenarioIntro(id: UUID, premise: String)
+    case simulationResult(id: UUID, model: SimulationResultCard.Model)
 
     var id: UUID {
       switch self {
       case .agentOutput(let entry): return entry.id
       case .demoBoundary(let id, _): return id
       case .scenarioIntro(let id, _): return id
+      case .simulationResult(let id, _): return id
       }
     }
   }
@@ -607,6 +655,12 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         firstSleepOverrideMs: overrideMs)
       overrideMs = nil
       if Task.isCancelled { return }
+      // Segment tail: append the closing card (if the outcome resolves) and,
+      // on a `.loop` wrap only, hold it briefly BEFORE `advanceAfterSource`
+      // wipes `chatItems` — otherwise the last source's card would be
+      // appended-then-wiped in the same synchronous call and never seen.
+      await concludeSource(sourceIndex: sourceIndex)
+      if Task.isCancelled { return }
       switch advanceAfterSource(currentIndex: sourceIndex) {
       case .continue(let nextIndex):
         sourceIndex = nextIndex
@@ -785,6 +839,17 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     currentTotalRounds = nil
     phaseProgress = 0
     cachedTotalPhaseCount = Self.countPhases(in: sources[sourceIndex])
+    // Closing-card state (#884). Seed scores/eliminated from the roster (all
+    // `0` / `false`) — mirroring the live VM's run-start seed — so the resolver
+    // sees the full roster and `hasScores` keys off any non-zero value. Reset
+    // the vote maps and re-arm the append latch for this fresh source entry.
+    scores = Dictionary(
+      uniqueKeysWithValues: sources[sourceIndex].scenario.personas.map { ($0.name, 0) })
+    eliminated = Dictionary(
+      uniqueKeysWithValues: sources[sourceIndex].scenario.personas.map { ($0.name, false) })
+    voteResults = [:]
+    eliminationVotes = [:]
+    resultCardAppendedForCurrentSource = false
   }
 
   /// Pre-computes the number of `.phaseStarted` events in a source's
@@ -837,6 +902,59 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     chatItems.append(.scenarioIntro(id: UUID(), premise: premise))
   }
 
+  // MARK: - Closing card (simulation result)
+
+  /// Appends the source's closing ``ChatItem/simulationResult`` card at its
+  /// segment tail (when the outcome resolves to something worth showing), then
+  /// — on a `.loop` wrap only — holds it for a reading beat before the caller's
+  /// ``advanceAfterSource(currentIndex:)`` wipes `chatItems`. The demo mirror
+  /// of the live sim's closing card (#868), carried inline on the `chatItems`
+  /// timeline so it accumulates in scroll history across rotation.
+  ///
+  /// Called from ``runPlayback(sourceIndex:startCursor:firstSleepOverrideMs:)``
+  /// after each source's plan drains, before rotation.
+  ///
+  /// **Idempotent** via ``resultCardAppendedForCurrentSource``: a resume that
+  /// re-enters after `playSource` has already drained (cursor at `plan.count`)
+  /// re-invokes this, but the latch skips the duplicate append. The wrap hold
+  /// intentionally re-runs on such a resume — re-showing the just-missed card
+  /// for a beat reads better than a flash-wipe, and threading the remaining
+  /// delay through here for a beat nobody perceives is not worth the plumbing.
+  ///
+  /// **Visibility guard**: the resolver returns `nil` for a summary-only
+  /// segment (no scores / votes / eliminations), so no empty card enters the
+  /// stream — mirroring ``appendIntroCard(forSourceIndex:)``'s empty-premise
+  /// skip.
+  private func concludeSource(sourceIndex: Int) async {
+    // A `downloadComplete()` landing in the gap between `playSource` returning
+    // and here already set `.transitioning` and cancelled the task; don't
+    // append a card into a torn-down VM. The `Task.isCancelled` check catches
+    // that today (every `.transitioning` transition also cancels); the
+    // `case .playing` guard is belt-and-suspenders against a future refactor
+    // that sets `.transitioning` without cancelling.
+    if Task.isCancelled { return }
+    guard case .playing = state else { return }
+    if !resultCardAppendedForCurrentSource,
+      let model = SimulationResultCard.Model(
+        scores: scores, eliminated: eliminated, voteResults: voteResults,
+        eliminationVotes: eliminationVotes,
+        phases: sources[sourceIndex].scenario.phases) {
+      chatItems.append(.simulationResult(id: UUID(), model: model))
+      resultCardAppendedForCurrentSource = true
+    }
+    // Hold only when the upcoming rotation will WIPE the card (loop wrap).
+    // Mid-cycle cards ride the next segment's intro-floor dwell for free;
+    // terminal cards (`.stopAfterLast`) stay on screen. `scaledDelay(for:
+    // .turn)` gives one speed-scaled turn beat (`.instant` → 0), so no bespoke
+    // pacing constant is introduced. Card look + hold feel are device-QA gated
+    // (ADR-009 / `.claude/rules/view-testing.md` rule 4).
+    let isLoopWrap =
+      config.loopBehaviour == .loop && sourceIndex == sources.count - 1
+    if resultCardAppendedForCurrentSource, isLoopWrap {
+      await sleepOrYield(milliseconds: scaledDelay(for: .turn))
+    }
+  }
+
   // MARK: - Render-time state updates
 
   /// Applies `event` to observable state with narrow ContentFilter
@@ -861,13 +979,30 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         .agentOutput(
           AgentOutputEntry(agent: agent, output: filtered, phaseType: phaseType)))
 
-    case .summary, .scoreUpdate, .elimination, .voteResults,
-      .pairingResult, .assignment, .eventInjected:
-      // Code-phase events currently have no observable state surface
-      // in PR1 — the host view's scoreboard / results strip is the
-      // PR2 concern. ContentFilter is still applied in a follow-up
-      // commit when those surfaces land. For now these events update
-      // nothing visible; rendering them is a no-op here.
+    case .scoreUpdate(let newScores):
+      // Full-replace, matching ``SimulationViewModel/handleScoreUpdate``.
+      // Feeds the closing card's ranking (#884). No ContentFilter — the keys
+      // are persona names (structured identifiers); filtering could corrupt a
+      // name that happens to contain a blocklist substring (see header §
+      // "ContentFilter scope").
+      scores = newScores
+
+    case .voteResults(_, let tallies):
+      // Keep the latest tallies for the closing card's vote-only ranking.
+      // Last-wins matches `scores`' full-replace semantics. `votes` (who voted
+      // for whom) has no closing-card surface, so it is dropped here.
+      voteResults = tallies
+
+    case .elimination(let agent, let voteCount):
+      // Capture the count at elimination time so the card's survival framing
+      // shows each eliminated agent's own round tally (#884).
+      eliminated[agent] = true
+      eliminationVotes[agent] = voteCount
+
+    case .summary, .pairingResult, .assignment, .eventInjected:
+      // No closing-card surface: `.pairingResult` / `.assignment` feed scores
+      // via a later `.scoreUpdate`; `.summary` / `.eventInjected` are narrative
+      // only. Nothing visible updates here; rendering them is a no-op.
       return
 
     case .roundCompleted, .phaseCompleted, .simulationCompleted,

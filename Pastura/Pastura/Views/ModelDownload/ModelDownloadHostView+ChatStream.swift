@@ -33,6 +33,8 @@ extension ModelDownloadHostView {
                   .transition(reduceMotion ? .identity : .opacity)
               case .scenarioIntro(let id, let premise):
                 demoIntroCard(id: id, premise: premise, viewModel: viewModel)
+              case .simulationResult(let id, let model):
+                demoResultCard(id: id, model: model)
               }
             }
           }
@@ -140,6 +142,25 @@ extension ModelDownloadHostView {
       .id(id)
       .transition(reduceMotion ? .identity : .opacity)
     }
+  }
+
+  /// One closing card (``SimulationResultCard``) at a demo segment's tail
+  /// (#868), reusing the live sim's presentation-only component. The demo
+  /// mirror of the live sim's closing card — but carried inline in the
+  /// `chatItems` timeline (so it accumulates in scroll history across demo
+  /// rotation) rather than as a fixed trailing View element the way
+  /// ``SimulationView`` renders it.
+  ///
+  /// `onTap` is `nil`: the demo host has no `ScoreboardSheet`, so the card is
+  /// display-only here (an intentional asymmetry with the live sim's
+  /// tap-to-scoreboard affordance — the demo is a passive preview). The card
+  /// is static (no typewriter reveal), so — unlike ``demoIntroCard`` — it
+  /// needs no `typedIntroIds`-style latch.
+  @ViewBuilder
+  private func demoResultCard(id: UUID, model: SimulationResultCard.Model) -> some View {
+    SimulationResultCard(model: model, onTap: nil)
+      .id(id)
+      .transition(reduceMotion ? .identity : .opacity)
   }
 
   /// PromoCard lives in the bottom safe area (not a ZStack overlay) so the
