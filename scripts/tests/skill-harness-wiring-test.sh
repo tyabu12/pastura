@@ -25,8 +25,7 @@ set -euo pipefail
 # while silently exiting 0 under CI. `[ -e ] || continue` guards the glob's
 # literal-string fallback when zero harnesses match.
 scan() {
-  root="$1"
-  rc=0
+  local root="$1" rc=0 harness skill shim
   for harness in "$root"/.claude/skills/*/tests/run_tests.sh; do
     [ -e "$harness" ] || continue
     skill=$(basename "$(dirname "$(dirname "$harness")")")
@@ -36,6 +35,10 @@ scan() {
       rc=1
       continue
     fi
+    # The `bash` prefix is deliberate — every shim delegates via a plain
+    # `bash …/run_tests.sh` line. A future author switching to `exec bash …`
+    # or `"$BASH" …` would be flagged as a gap; keep the plain form or widen
+    # this regex intentionally.
     if ! grep -Eq "^[[:space:]]*bash[^#]*${skill}/tests/run_tests\.sh" "$shim"; then
       echo "  gap: scripts/tests/${skill}-test.sh has no live 'bash …/${skill}/tests/run_tests.sh' delegation line" >&2
       rc=1
