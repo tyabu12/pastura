@@ -166,23 +166,45 @@ struct GalleryScenarioDetailView: View {
     }
   }
 
-  /// "What happens" — the scenario's phase sequence as an arrow flow. Hidden
-  /// when the mapped flow is empty (no phases, or all unknown kinds).
+  /// "What happens" — the scenario's phase sequence as a numbered vertical
+  /// step list (number + glyph + label per row). Hidden when no phases map
+  /// (absent, empty, or all-unknown kinds).
   @ViewBuilder
   private var whatHappensSection: some View {
-    if let flow = GalleryScenarioDetailFormat.phaseFlow(phases: scenario.phases) {
+    let steps = GalleryScenarioDetailFormat.phaseSteps(phases: scenario.phases)
+    if !steps.isEmpty {
       PasturaSection(String(localized: "What happens")) {
-        // `verbatim` documents intent: `flow` is a pre-composed string of
-        // already-localized `PhaseDisplayName` fragments, not a catalog key —
-        // and guards against a future string *literal* creeping in here and
-        // silently becoming a `LocalizedStringKey` lookup.
-        Text(verbatim: flow)
-          .font(.body)
-          .foregroundStyle(Color.inkSecondary)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(17)
+        VStack(spacing: 0) {
+          // `enumerated().offset` id (mirroring `detailsCard`) keeps rows
+          // stable when a scenario repeats a phase kind (e.g. two speak_each).
+          ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+            if index > 0 { PasturaRowDivider() }
+            phaseStepRow(number: index + 1, symbol: step.symbol, label: step.label)
+          }
+        }
       }
     }
+  }
+
+  /// One "What happens" step: 1-based number + phase glyph + localized label.
+  private func phaseStepRow(number: Int, symbol: String, label: String) -> some View {
+    HStack(spacing: 12) {
+      Text(number, format: .number)
+        .foregroundStyle(Color.muted)
+        .monospacedDigit()
+        .frame(minWidth: 16, alignment: .trailing)
+      // Decorative: the adjacent label carries the phase identity, so the
+      // glyph is hidden from VoiceOver to avoid announcing the raw symbol name.
+      Image(systemName: symbol)
+        .foregroundStyle(Color.mossDark)
+        .frame(width: 22, alignment: .center)
+        .accessibilityHidden(true)
+      Text(label)
+        .foregroundStyle(Color.ink)
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, 17)
+    .padding(.vertical, 14)
   }
 
   private func actionFooter(viewModel: SharedScenariosViewModel) -> some View {

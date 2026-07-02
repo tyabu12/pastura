@@ -16,40 +16,6 @@ import Testing
 @MainActor
 struct GalleryScenarioDetailFormatTests {
 
-  // MARK: - phaseFlow
-
-  @Test func phaseFlowJoinsLabelsInOrder() {
-    #expect(
-      GalleryScenarioDetailFormat.phaseFlow(phases: ["speak_each", "summarize"])
-        == "Speak Each → Summarize")
-  }
-
-  @Test func phaseFlowPreservesGivenOrder() {
-    #expect(
-      GalleryScenarioDetailFormat.phaseFlow(phases: ["summarize", "vote", "assign"])
-        == "Summarize → Vote → Assign")
-  }
-
-  @Test func phaseFlowNilWhenAbsent() {
-    #expect(GalleryScenarioDetailFormat.phaseFlow(phases: nil) == nil)
-  }
-
-  @Test func phaseFlowNilWhenEmpty() {
-    #expect(GalleryScenarioDetailFormat.phaseFlow(phases: []) == nil)
-  }
-
-  @Test func phaseFlowSkipsUnknownKinds() {
-    // A feed newer than this build carries a phase kind we don't know — it is
-    // skipped, and the known ones still render.
-    #expect(
-      GalleryScenarioDetailFormat.phaseFlow(phases: ["future_kind", "vote"]) == "Vote")
-  }
-
-  @Test func phaseFlowNilWhenAllUnknown() {
-    // Non-empty but every entry maps away → section hidden, not an empty box.
-    #expect(GalleryScenarioDetailFormat.phaseFlow(phases: ["future_kind", "another"]) == nil)
-  }
-
   // MARK: - phaseSteps
 
   @Test func phaseStepsProducesGlyphAndLabelInOrder() {

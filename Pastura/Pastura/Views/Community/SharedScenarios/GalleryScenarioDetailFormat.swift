@@ -1,39 +1,18 @@
 import Foundation
 
 /// Pure presentation helpers for ``GalleryScenarioDetailView``'s enriched
-/// metadata rows and the "What happens" phase-flow section.
+/// metadata rows and the "What happens" phase-step section.
 ///
 /// Extracted from the View so the mapping / hide-when-empty logic is
 /// unit-testable without rendering (`.claude/rules/view-testing.md` rule 1).
 ///
 /// Left at the default (MainActor) isolation — **not** `nonisolated` — because
-/// ``phaseFlow(phases:)`` composes ``PhaseDisplayName/label(for:)``, a
-/// MainActor View-layer helper; a `nonisolated` enum passing that function
-/// value would drop the `@MainActor` (swift-isolation.md Pattern 5). The test
-/// suite is therefore `@MainActor`; MainActor can still call these directly.
+/// ``phaseSteps(phases:)`` composes ``PhaseDisplayName/label(for:)`` and
+/// ``PhaseGlyph/symbolName(for:)``, MainActor View-layer helpers; a
+/// `nonisolated` enum passing those function values would drop the
+/// `@MainActor` (swift-isolation.md Pattern 5). The test suite is therefore
+/// `@MainActor`; MainActor can still call these directly.
 enum GalleryScenarioDetailFormat {
-
-  /// Separator drawn between consecutive phase labels in the flow.
-  static let phaseSeparator = " → "
-
-  /// Ordered, human-readable phase flow for the "What happens" section,
-  /// derived from a gallery entry's `phases` raw strings (e.g.
-  /// `"Speak Each → Summarize"`).
-  ///
-  /// Each raw value is mapped through ``PhaseType`` → ``PhaseDisplayName``;
-  /// unknown kinds (a feed newer than this build knows) are skipped, mirroring
-  /// the lenient forward-compat posture of ``GalleryScenario/phases``. Returns
-  /// `nil` — so the caller hides the section — when `phases` is absent / empty
-  /// **or** every entry mapped away (all-unknown), so no empty section renders.
-  static func phaseFlow(phases: [String]?) -> String? {
-    guard let phases else { return nil }
-    let labels =
-      phases
-      .compactMap { PhaseType(rawValue: $0) }
-      .map(PhaseDisplayName.label(for:))
-    guard !labels.isEmpty else { return nil }
-    return labels.joined(separator: phaseSeparator)
-  }
 
   /// Ordered glyph + label steps for the "What happens" section, one per
   /// phase, derived from a gallery entry's `phases` raw strings.
@@ -41,7 +20,7 @@ enum GalleryScenarioDetailFormat {
   /// Each raw value is mapped through ``PhaseType`` → (``PhaseGlyph``,
   /// ``PhaseDisplayName``); unknown kinds (a feed newer than this build knows)
   /// are skipped, mirroring the lenient forward-compat posture of
-  /// ``phaseFlow(phases:)``. Returns `[]` — never `nil` — when `phases` is
+  /// ``GalleryScenario/phases``. Returns `[]` — never `nil` — when `phases` is
   /// absent / empty **or** every entry mapped away (all-unknown), so the
   /// caller can hide the section on `.isEmpty` without an extra optional.
   static func phaseSteps(phases: [String]?) -> [(symbol: String, label: String)] {
