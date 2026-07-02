@@ -91,27 +91,10 @@ So gate at the **job** level: a cheap detection job classifies the diff and emit
 Load-bearing invariants when adding/changing such gating:
 
 1. **Conservative by inversion.** Default to running the full suite on any ambiguity — empty / unresolvable / API-errored file list ⇒ run. A *false skip* (a broken build merged because the gate wrongly skipped) is the worst case. Reuse `scripts/precommit-gate-classify.sh` so CI and the pre-commit hook classify identically (#625); note it emits `""` (not a token) on empty input, so the fail-safe lives in the job's bash, not the script. Extend the same posture to the *gated* jobs: write the gate as `if: ${{ !cancelled() && needs.<classifier>.outputs.<flag> != 'false' }}` (run UNLESS explicitly classified out), not `== 'true'`. `!cancelled()` drops the implicit needs-success gate, so a *failed* classifier job (empty output) runs the suite instead of failed-dependency-skipping the required check — a `== 'true'` gate would false-skip there.
-2. **Gate PRs only; `main`/push runs unconditionally.** The classifier short-circuits every non-`pull_request` event to `ios=true`, so a merge to `main` always runs the full suite — stability on the integration branch outweighs the marginal saving, and it sidesteps any push-event diffing edge cases. The optimization spares redundant *PR* runs, not `main`.
+2. **Gate PRs only; `main`/push runs unconditionally.** The classifier short-circuits every non-`pull_request` event to `ios=true`, so a merge to `main` always runs the full suite — stability on the integration branch outweighs the marginal saving, and it sidesteps any push-event diffing edge cases. The optimization spares redundant *PR* runs, not `main`. That non-PR set is `push` **plus** the daily `schedule` + `workflow_dispatch` canary, so `ci.yml` fires on four event shapes — enumerate all four when adding a job `if:` (a push/PR-only guard silently mis-handles the daily); the schedule/dispatch/concurrency mechanics live in ci.yml's `on:`/`concurrency` comments.
 3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
-
-## `ci.yml` fires on four event shapes — enumerate all when editing an `if:`
-
-`ci.yml` triggers are `push`(main) / `pull_request`(main) / `schedule`(daily
-`cron: '11 1 * * *'` = 10:11 JST green-main canary) / `workflow_dispatch`. Both
-`schedule` and `workflow_dispatch` are non-`pull_request`, so the `changes`
-classifier short-circuits them to `ios=true` (invariant 2) — the daily is a
-**full** CI run (all macOS jobs + drift guards), not ui-test-only. The
-event-gated tail jobs stay correct because they name their event explicitly:
-`coverage` (`event == 'push'`) and `pr-comment` (`event == 'pull_request'`) both
-skip on schedule/dispatch. When adding a new job or `if:`, enumerate all four
-shapes — a guard written only for push/PR silently mis-handles the daily run.
-
-`ci-retry.yml` auto-retries the `schedule` arm with the **same** attempt budget
-as `main push` (< 3), so a ui-test flake on the daily does not surface as a
-false red; `workflow_dispatch` is intentionally **not** retried (human-initiated
-and watched).
 
 ## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
 
