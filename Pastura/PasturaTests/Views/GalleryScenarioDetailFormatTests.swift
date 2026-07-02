@@ -50,6 +50,32 @@ struct GalleryScenarioDetailFormatTests {
     #expect(GalleryScenarioDetailFormat.phaseFlow(phases: ["future_kind", "another"]) == nil)
   }
 
+  // MARK: - phaseSteps
+
+  @Test func phaseStepsProducesGlyphAndLabelInOrder() {
+    let steps = GalleryScenarioDetailFormat.phaseSteps(phases: ["speak_each", "summarize"])
+    #expect(steps.map(\.symbol) == ["bubble.left", "list.bullet.rectangle"])
+    #expect(steps.map(\.label) == ["Speak Each", "Summarize"])
+  }
+
+  @Test func phaseStepsSkipsUnknownKinds() {
+    let steps = GalleryScenarioDetailFormat.phaseSteps(phases: ["vote", "bogus_kind", "assign"])
+    #expect(steps.map(\.symbol) == ["checkmark.square", "tag"])
+    #expect(steps.map(\.label) == ["Vote", "Assign"])
+  }
+
+  @Test func phaseStepsEmptyWhenAbsent() {
+    #expect(GalleryScenarioDetailFormat.phaseSteps(phases: nil).isEmpty)
+  }
+
+  @Test func phaseStepsEmptyWhenEmpty() {
+    #expect(GalleryScenarioDetailFormat.phaseSteps(phases: []).isEmpty)
+  }
+
+  @Test func phaseStepsEmptyWhenAllUnknown() {
+    #expect(GalleryScenarioDetailFormat.phaseSteps(phases: ["nope", "nada"]).isEmpty)
+  }
+
   // MARK: - languageLabel
 
   @Test func languageLabelMapsLaunchLanguages() {

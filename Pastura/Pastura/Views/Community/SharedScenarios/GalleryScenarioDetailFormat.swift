@@ -35,6 +35,23 @@ enum GalleryScenarioDetailFormat {
     return labels.joined(separator: phaseSeparator)
   }
 
+  /// Ordered glyph + label steps for the "What happens" section, one per
+  /// phase, derived from a gallery entry's `phases` raw strings.
+  ///
+  /// Each raw value is mapped through ``PhaseType`` → (``PhaseGlyph``,
+  /// ``PhaseDisplayName``); unknown kinds (a feed newer than this build knows)
+  /// are skipped, mirroring the lenient forward-compat posture of
+  /// ``phaseFlow(phases:)``. Returns `[]` — never `nil` — when `phases` is
+  /// absent / empty **or** every entry mapped away (all-unknown), so the
+  /// caller can hide the section on `.isEmpty` without an extra optional.
+  static func phaseSteps(phases: [String]?) -> [(symbol: String, label: String)] {
+    guard let phases else { return [] }
+    return
+      phases
+      .compactMap { PhaseType(rawValue: $0) }
+      .map { (symbol: PhaseGlyph.symbolName(for: $0), label: PhaseDisplayName.label(for: $0)) }
+  }
+
   /// Localized language name for a gallery entry's raw ISO 639-1 `language`
   /// code, or `nil` when absent / unrecognized so the Language row is hidden.
   ///
