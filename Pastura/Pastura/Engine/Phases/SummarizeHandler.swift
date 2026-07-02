@@ -18,6 +18,10 @@ nonisolated struct SummarizeHandler: PhaseHandler {
         ja: "ラウンド {current_round} 完了",
         en: "Round {current_round} complete")
 
+    // Invariant across pairings — formatted once, injected per-iteration below.
+    let conversationLog = promptBuilder.formatConversationLog(
+      state.conversationLog, language: context.scenario.engineLanguage)
+
     if !state.pairings.isEmpty && template.contains("{agent1}") {
       // Expand template per pairing
       var lines: [String] = []
@@ -36,6 +40,7 @@ nonisolated struct SummarizeHandler: PhaseHandler {
         variables["score2"] = "\(state.scores[pairing.agent2] ?? 0)"
         variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["current_round"] = "\(state.currentRound)"
+        variables["conversation_log"] = conversationLog
         lines.append(promptBuilder.expandTemplate(template, variables: variables))
       }
       context.emitter(.summary(text: lines.joined(separator: "\n")))
@@ -44,6 +49,7 @@ nonisolated struct SummarizeHandler: PhaseHandler {
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["current_round"] = "\(state.currentRound)"
+      variables["conversation_log"] = conversationLog
       let text = promptBuilder.expandTemplate(template, variables: variables)
       context.emitter(.summary(text: text))
     }

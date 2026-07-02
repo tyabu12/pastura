@@ -24,12 +24,15 @@ safe to run unattended.
   once an operator is confident, a *separate* `/schedule` routine invokes
   `/consistency-audit` (see "Scheduling" below). The unattended command set
   (`git switch -c audit/*`, the skill's `python3` scripts, `git push`,
-  `gh pr create --draft`) is now allowlisted so a routine run does not block on
-  those prompts. `git commit` is allowlisted too — since #411 the commit-time
-  gate moved to the git pre-commit hook (`swiftlint --strict` + build), so
-  there is no per-commit prompt. (`gh issue create` is likewise
-  NOT allowlisted — Step 4 is unreachable while all needs_judgment detectors
-  are deferred; a future detector author re-allowlists it deliberately.)
+  `gh pr create --draft`, `gh issue create`) is allowlisted so a routine run
+  does not block on those prompts. `git commit` is allowlisted too — since #411
+  the commit-time gate moved to the git pre-commit hook (`swiftlint --strict` +
+  build), so there is no per-commit prompt. (`gh issue create` was allowlisted
+  with the dangling-ADR detector (#876), which can file Step 4 issues — as can
+  the always-live `dead_link` detector. It is exercised only when a
+  needs_judgment finding actually fires; on a clean `main` both detectors are
+  designed to report zero, so Step 4 stays quiet by construction, not because
+  it is unreachable.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
@@ -183,10 +186,13 @@ Only if `auto_fixable` is non-empty AND Step 2 found no open `audit/*` PR:
 
 ## Step 4 — needs_judgment → issues
 
-For each `needs_judgment` finding (already deduped by target):
+For each `needs_judgment` finding (already deduped by `target`):
 
 1. **Dedup across runs:** search open issues for the target; skip if one
-   exists. `gh issue list --state open --search "<target> in:title"`.
+   exists. `gh issue list --state open --search "<target> in:title"`. Every
+   finding carries a `target` for this — for `dead_link` it is the link path,
+   for `dangling_adr` it is the ADR id (`ADR-099`), so embed `target` in the
+   issue title verbatim.
 2. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
@@ -194,6 +200,11 @@ For each `needs_judgment` finding (already deduped by target):
      intentionally-absent path, a generated artifact, or a moved file whose
      correct new location only a human knows.
    - **Suggested action**, explicitly left for a human to decide.
+
+   Some detectors pre-author these fields. A `dangling_adr` finding already
+   carries `confidence`, `counter_evidence`, and `suggested_action` on the JSON
+   — use them verbatim rather than re-deriving. `dead_link` does not, so author
+   its confidence / counter-evidence at filing time as before.
 
 Never auto-fix these — the whole point is the fix needs judgment.
 
@@ -230,9 +241,6 @@ enabling. Each floods the reference-dense repo today:
   slugs (`mattt/llama.swift`), external paths (`src/llama-grammar.cpp`), and
   property accessors (`TurnOutput.primaryText`). A repo-root existence check
   misreads all of these. Needs source-root resolution + a non-file exclusion.
-- **ADR-missing reference checks** — reserved/not-yet-written ADRs (ADR-006)
-  are referenced from ~20 lines that lack the marker. Needs a canonical
-  reserved-ADR set parsed from the ADR index, not a per-line marker.
 - **broken-anchor / `§"..."` cross-refs** — GitHub-slug anchor matching is
   fragile on emoji headings and duplicate-heading suffixes; bare `§"..."` prose
   refs have no unambiguous target. Needs a verified slug normalizer + a target
