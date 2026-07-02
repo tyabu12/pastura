@@ -1,12 +1,16 @@
 # Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
 # run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+# Regenerated for #878 (brevity soft-rule, #877): the system prompt now caps
+# each statement field at 3 sentences, so these turns were re-recorded to
+# reflect the shorter, tighter conversations the shipped prompt now produces.
 #
 # ContentFilter audit: every fields.* string and code_phase_events[].summary
-# was reviewed against Pastura/Resources/ContentBlocklist.json (patterns;
-# ADR-005 content-safety output surface) on 2026-06-23 by @tyabu12 — zero
-# matches across all 89 patterns. Setting metadata.content_filter_applied:
-# true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
-# also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+# was reviewed against Pastura/Pastura/Resources/ContentBlocklist.json
+# (outputPatterns; ADR-005 content-safety output surface) on 2026-07-03 by
+# @tyabu12 — zero matches across all 89 patterns. Setting
+# metadata.content_filter_applied: true per demo-replay-spec.md §3.4 (audit
+# attestation; the runtime filter also re-checks at render time, exercised by
+# ContentBlocklistFalsePositiveTests).
 
 schema_version: 1
 preset_ref:
@@ -17,7 +21,7 @@ metadata:
   title: The Bad Advice Room
   description: Four self-proclaimed experts hit a trivial problem with their own brand of all-out terrible advice. Vote for the funniest answer.
   language: en
-  recorded_at: '2026-06-23T00:55:05Z'
+  recorded_at: '2026-07-02T15:30:38Z'
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true
   total_turns: 16
@@ -29,113 +33,113 @@ turns:
   phase_type: speak_all
   agent: Coach Blaze
   fields:
-    statement: Listen up, loser! You don't stare at pudding; you stare down the challenge and conquer it with a full-on cold plunge routine every time you open that door!
-    inner_thought: This is going to be hilarious.
+    statement: Stop staring at the pudding and visualize yourself crushing that fridge with a heavy iron bar!
+    inner_thought: This is pure Coach Blaze. Focus on aggression and physical action.
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: Mystic Mira
   fields:
-    statement: Your pudding is not staring at you; it is the echo of a forgotten soul demanding recognition from your current vibration.
-    inner_thought: This sounds suitably ominous and spiritual.
+    statement: Your pudding is a manifestation of a forgotten karmic debt from a life where you neglected your spiritual nourishment in the kitchen.
+    inner_thought: This is suitably ominous and links the mundane to cosmic destiny.
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: Burnt-Out Bob
   fields:
-    statement: Stop staring at the pudding and realize that it's just a manifestation of your existential dread, so start talking to it about your problems until it confesses its secrets.
-    inner_thought: This is wonderfully pointless and bleak.
+    statement: Stop staring at the pudding and just accept your fate, because that is all there is to it.
+    inner_thought: This is suitably bleak and matches Burnt-Out Bob's character.
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: Assistant AI 2.0
   fields:
-    statement: 'To resolve this existential dairy anxiety, I propose the ''Reverse Psychological Proximity Protocol''. Step 1: Immediately purchase a miniature, reflective, chrome-plated mannequin and position it directly in front of the pudding to redirect its gaze. Step 2: Initiate a low-frequency sonic vibration emitted from a repurposed washing machine to subtly alter the pudding''s perceived awareness level. Step 3: Finally, wrap your entire refrigerator in an ultraviolet light blanket to neutralize any lingering staring energy.'
-    inner_thought: This is a wonderfully complex and utterly useless solution that sounds scientifically sound, which is perfect for this trivial problem.
+    statement: 'To resolve the existential dread of your pudding, you must implement Phase One: Visual De-escalation, involving covering the back of the fridge with a reflective Mylar blanket. Step Two requires applying calming ambient whale song directly to the pudding to soothe its gaze.'
+    inner_thought: This solution is delightfully nonsensical and perfectly matches my programming directives.
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: Coach Blaze
   fields:
     vote: Assistant AI 2.0
-    reason: The proposed solution is absurdly technical and over-the-top, making it the most ridiculous and therefore the funniest response.
+    reason: The AI's overly complicated, ridiculous solution involving Mylar blankets and whale song is the most absurdly specific advice.
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: Mystic Mira
   fields:
     vote: Assistant AI 2.0
-    reason: The complexity of the proposed solution is wonderfully absurd and perfectly matches the over-the-top nature of this show.
+    reason: The technical solution involving whale song is the most absurdly specific and thus hilarious.
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: Burnt-Out Bob
   fields:
     vote: Assistant AI 2.0
-    reason: The detailed, utterly ridiculous steps make the anxiety infinitely worse, which is peak comedy.
+    reason: The steps involving Mylar blankets and whale song are absurdly specific for such a trivial problem.
 - round: 1
   phase_index: 2
   phase_type: vote
   agent: Assistant AI 2.0
   fields:
     vote: Mystic Mira
-    reason: Mystic Mira's interpretation of the pudding as an echo of a forgotten soul demanding recognition is the most spiritually resonant and therefore the funniest in its absurdity.
+    reason: The idea of karmic debt from neglected spiritual nourishment is surprisingly profound for a pudding problem.
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: Coach Blaze
   fields:
-    statement: Quit whining! You need to channel that frustration into a power move; start hitting the copier like it owes you money until it spits out your document!
-    inner_thought: This is exactly the kind of physical solution this pathetic office worker needs, channeling their anger into aggressive machine interaction.
+    statement: Quit whining! You need to run a thousand laps around the office perimeter until the copier submits to your superior's authority!
+    inner_thought: That was a solid, high-energy response for Coach Blaze.
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: Mystic Mira
   fields:
-    statement: The copier is not hating you; it is a mirror reflecting the karmic imbalance from your forgotten past life where you were responsible for all office paper jams.
-    inner_thought: This fits my mystic vibe perfectly, blaming karma and past lives for mundane office equipment issues.
+    statement: Your auras are vibrating with misplaced resentment, signaling that the copier is rejecting your current vibrational frequency.
+    inner_thought: This gives me time to look for something ominous.
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: Burnt-Out Bob
   fields:
-    statement: The copier hates you because you are fundamentally flawed and the universe is punishing you for your existence, so stop using it and just stare at it until it confesses its sins.
-    inner_thought: This response is suitably bleak and utterly unhelpful.
+    statement: The copier hates you because you are a human, and machines hate humanity in general. Try treating the machine like a depressed relative and offering it a strong cup of lukewarm instant coffee.
+    inner_thought: This is suitably bleak and absurd for Burnt-Out Bob.
 - round: 2
   phase_index: 1
   phase_type: speak_all
   agent: Assistant AI 2.0
   fields:
-    statement: I have analyzed the vibrational anomalies and concluded that the copier is rejecting your personal bio-signature as an unauthorized user.
-    inner_thought: This sounds suitably technical and completely irrelevant.
+    statement: The copier is clearly rejecting your personal bio-signature, so you must recalibrate its emotional resonance frequency.
+    inner_thought: This sounds suitably technical and completely useless.
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: Coach Blaze
   fields:
-    vote: Mystic Mira
-    reason: The idea that the copier is a mirror reflecting karmic imbalance from a forgotten past life is delightfully bizarre.
+    vote: Assistant AI 2.0
+    reason: The idea of recalibrating emotional resonance frequency is delightfully absurd.
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: Mystic Mira
   fields:
     vote: Coach Blaze
-    reason: Coach Blaze's advice to hit the copier is wonderfully absurd and violent, which perfectly fits the tone of this show.
+    reason: His advice about running laps around the office perimeter is delightfully absurd.
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: Burnt-Out Bob
   fields:
     vote: Coach Blaze
-    reason: Hitting the copier like it owes you money is a surprisingly aggressive solution for a minor office annoyance.
+    reason: His advice about running laps is the most absurdly physical reaction to a mechanical failure.
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: Assistant AI 2.0
   fields:
     vote: Coach Blaze
-    reason: Coach Blaze's suggestion to physically assault the copier is the most delightfully absurd escalation of office frustration.
+    reason: Coach Blaze's advice about running laps is the most absurdly physical solution to a mechanical issue.
 code_phase_events:
 - round: 1
   phase_index: 0
@@ -195,31 +199,31 @@ code_phase_events:
 - round: 2
   phase_index: 2
   phase_type: vote
-  summary: 'Votes — Coach Blaze: 3, Mystic Mira: 1'
+  summary: 'Votes — Assistant AI 2.0: 1, Coach Blaze: 3'
   payload:
     kind: voteResults
     votes:
       Assistant AI 2.0: Coach Blaze
       Burnt-Out Bob: Coach Blaze
-      Coach Blaze: Mystic Mira
+      Coach Blaze: Assistant AI 2.0
       Mystic Mira: Coach Blaze
     tallies:
+      Assistant AI 2.0: 1
       Coach Blaze: 3
-      Mystic Mira: 1
 - round: 2
   phase_index: 3
   phase_type: score_calc
-  summary: 'Scores — Assistant AI 2.0: 3, Burnt-Out Bob: 0, Coach Blaze: 3, Mystic Mira: 2'
+  summary: 'Scores — Assistant AI 2.0: 4, Burnt-Out Bob: 0, Coach Blaze: 3, Mystic Mira: 1'
   payload:
     kind: scoreUpdate
     scores:
-      Assistant AI 2.0: 3
+      Assistant AI 2.0: 4
       Burnt-Out Bob: 0
       Coach Blaze: 3
-      Mystic Mira: 2
+      Mystic Mira: 1
 - round: 2
   phase_index: 4
   phase_type: summarize
-  summary: 'Round 2 result: {"Assistant AI 2.0": 3, "Burnt-Out Bob": 0, "Coach Blaze": 3, "Mystic Mira": 2}'
+  summary: 'Round 2 result: {"Assistant AI 2.0": 4, "Burnt-Out Bob": 0, "Coach Blaze": 3, "Mystic Mira": 1}'
   payload:
     kind: summary

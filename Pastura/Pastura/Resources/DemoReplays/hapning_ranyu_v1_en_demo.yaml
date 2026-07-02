@@ -1,16 +1,16 @@
 # Demo replay for the DL-time loop (#764), recaptured from a pastura-harness
 # run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
-# Regenerated for #798: the backing preset's speak_all phase now declares
-# inner_thought in its output schema (parity with the other two demos), so
-# the captured turns carry inner_thought and the DL-demo renders thought
-# bubbles. preset_ref.yaml_sha256 updated to match the edited preset bytes.
+# Regenerated for #878 (brevity soft-rule, #877): the system prompt now caps
+# each statement field at 3 sentences, so these turns were re-recorded to
+# reflect the shorter, tighter conversations the shipped prompt now produces.
 #
 # ContentFilter audit: every fields.* string and code_phase_events[].summary
 # was reviewed against Pastura/Pastura/Resources/ContentBlocklist.json
-# (patterns; ADR-005 content-safety output surface) on 2026-06-24 by @tyabu12
-# — zero matches across all 89 patterns. Setting metadata.content_filter_applied:
-# true per demo-replay-spec.md §3.4 (audit attestation; the runtime filter
-# also re-checks at render time, exercised by ContentBlocklistFalsePositiveTests).
+# (outputPatterns; ADR-005 content-safety output surface) on 2026-07-03 by
+# @tyabu12 — zero matches across all 89 patterns. Setting
+# metadata.content_filter_applied: true per demo-replay-spec.md §3.4 (audit
+# attestation; the runtime filter also re-checks at render time, exercised by
+# ContentBlocklistFalsePositiveTests).
 
 schema_version: 1
 preset_ref:
@@ -21,7 +21,7 @@ metadata:
   title: Crash the Stage
   description: Every time the comedians try to land a bit, an unpredictable disaster crashes the venue. An improv game about turning whatever just fell out of the sky into a one-line laugh.
   language: en
-  recorded_at: '2026-06-24T14:20:47Z'
+  recorded_at: '2026-07-02T15:38:44Z'
   recorded_with_model: gemma4_e2b_q4km
   content_filter_applied: true
   total_turns: 16
@@ -33,187 +33,187 @@ turns:
   phase_type: speak_all
   agent: Steady Eddie
   fields:
-    statement: Well, at least I don't need a parachute when the ceiling starts serving me a game of pinball.
-    inner_thought: The ping-pong rain is just an unexpected, slightly annoying accessory to my routine.
+    statement: Well, at least now I can see exactly how much time I have left before I pass out.
+    inner_thought: This acknowledges the darkness while framing it as a personal timer.
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: Bandwagon Benny
   fields:
-    statement: These aren't just ping-pong balls, folks, this is the complimentary confetti for my next act!
-    inner_thought: I need to embrace the absurdity of the falling plastic spheres and make it sound like a planned spectacle.
+    statement: Well, this blackout is perfect because now I can finally see the hilarious shadow puppet of my own panic!
+    inner_thought: I need to embrace the darkness and turn the sudden lack of light into a spotlight for my own exaggerated fear.
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: Professor Cosmo
   fields:
-    statement: The celestial spheres have merely decided to test our adherence to Newtonian physics with a flurry of miniature, spherical anarchy.
-    inner_thought: This frames the ping-pong as a deliberate cosmic test.
+    statement: The sudden void of darkness reveals the true, unlit tapestry of our collective insignificance under the indifferent gaze of the universe.
+    inner_thought: This leans into the pretentious nature of Professor Cosmo and frames the blackout as a profound existential moment.
 - round: 1
   phase_index: 1
   phase_type: speak_all
   agent: Panicky Penny
   fields:
-    statement: Ping-pong balls! I'm going to get ping-ponged into the emergency exit!
-    inner_thought: Oh no, I'm going to be physically assaulted by plastic spheres!
+    statement: Oh no, is this the end of my career because I can't see my spotlight?
+    inner_thought: I panicked about losing my visibility in the dark.
 - round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Steady Eddie
+  fields:
+    vote: Bandwagon Benny
+    reason: Bandwagon Benny's line perfectly turns the panic of the blackout into a visual, relatable joke about shadow puppets.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Bandwagon Benny
+  fields:
+    vote: Professor Cosmo
+    reason: Professor Cosmo's philosophical take on the darkness was perfectly absurd and elevated the simple blackout into a profound joke.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Professor Cosmo
+  fields:
+    vote: Bandwagon Benny
+    reason: The idea of seeing one's own panic as a shadow puppet is a perfect, self-aware comedic deflation of the blackout disaster.
+- round: 1
+  phase_index: 2
+  phase_type: vote
+  agent: Panicky Penny
+  fields:
+    vote: Bandwagon Benny
+    reason: Bandwagon Benny's line perfectly embraces the chaos by turning the blackout into a self-aware, panicked moment.
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Steady Eddie
+  fields:
+    statement: Well, at least my costume won't get sticky, which is a major win.
+    inner_thought: The ping-pong rain is annoying, but I need to pivot to something mundane and self-preserving.
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Bandwagon Benny
+  fields:
+    statement: These aren't just ping-pong balls, folks; these are the emergency supply of props I was saving for my next act.
+    inner_thought: I need to make it clear that this is part of my plan, not a disaster.
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Professor Cosmo
+  fields:
+    statement: The ping-pong balls are merely the universe reminding us that even the most trivial pursuits can achieve spectacular, chaotic trajectories.
+    inner_thought: This frames the random rain as a commentary on the absurdity of human endeavor.
+- round: 2
+  phase_index: 1
+  phase_type: speak_all
+  agent: Panicky Penny
+  fields:
+    statement: Oh my goodness, are these ping-pong balls going to land in my wig?
+    inner_thought: I am completely freaking out about getting hit by miniature plastic balls.
+- round: 2
   phase_index: 2
   phase_type: vote
   agent: Steady Eddie
   fields:
     vote: Professor Cosmo
-    reason: The description of miniature, spherical anarchy perfectly frames the absurdity of ping-pong balls as a violation of physics.
-- round: 1
+    reason: Professor Cosmo's line elegantly frames the absurdity as a philosophical observation, which elevates the simple disaster into high comedy.
+- round: 2
   phase_index: 2
   phase_type: vote
   agent: Bandwagon Benny
   fields:
     vote: Professor Cosmo
-    reason: Professor Cosmo's sophisticated explanation of the physics behind the ping-pong balls made the random chaos sound hilariously intellectual.
-- round: 1
-  phase_index: 2
-  phase_type: vote
-  agent: Professor Cosmo
-  fields:
-    vote: Bandwagon Benny
-    reason: Bandwagon Benny's framing the disaster as complimentary confetti elevates a mundane event into an absurdly celebratory spectacle.
-- round: 1
-  phase_index: 2
-  phase_type: vote
-  agent: Panicky Penny
-  fields:
-    vote: Bandwagon Benny
-    reason: Bandwagon Benny's attempt to frame the disaster as promotional material is a perfect example of turning chaos into an unexpected punchline.
-- round: 2
-  phase_index: 1
-  phase_type: speak_all
-  agent: Steady Eddie
-  fields:
-    statement: A blackout? Finally my face is marked down to list price.
-    inner_thought: This takes the existential dread of darkness and frames it as a bizarre bargain.
-- round: 2
-  phase_index: 1
-  phase_type: speak_all
-  agent: Bandwagon Benny
-  fields:
-    statement: This blackout is just my cue to start juggling the empty water bottles!
-    inner_thought: The darkness means I can finally perform my signature, disastrous act.
-- round: 2
-  phase_index: 1
-  phase_type: speak_all
-  agent: Professor Cosmo
-  fields:
-    statement: The void of darkness is simply the universe reminding us that true enlightenment exists beyond mere visual perception.
-    inner_thought: This blackout was a perfect opportunity to elevate a simple power outage into a profound philosophical statement about sensory limitations.
-- round: 2
-  phase_index: 1
-  phase_type: speak_all
-  agent: Panicky Penny
-  fields:
-    statement: Oh no, is this the audition for the emergency candle-lighting competition?
-    inner_thought: I'm totally going to trip over my own feet in this pitch black!
-- round: 2
-  phase_index: 2
-  phase_type: vote
-  agent: Steady Eddie
-  fields:
-    vote: Panicky Penny
-    reason: The idea of an emergency candle-lighting competition immediately escalates the mundane blackout into a ridiculous, high-stakes event.
-- round: 2
-  phase_index: 2
-  phase_type: vote
-  agent: Bandwagon Benny
-  fields:
-    vote: Panicky Penny
-    reason: The idea of an emergency candle-lighting competition perfectly escalates the mundane disaster into a competitive, absurd scenario.
+    reason: Professor Cosmo's philosophical take on the ping-pong balls being chaotic trajectories is the most absurd and elevated way to spin the disaster into comedy.
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: Professor Cosmo
   fields:
     vote: Bandwagon Benny
-    reason: The idea of using a sudden blackout as an opportunity to start juggling empty water bottles is a wonderfully absurd and misplaced attempt at action that perfectly captures the chaotic spirit of improv-disaster.
+    reason: Bandwagon Benny's line successfully reframed the mundane props as an essential, high-stakes resource.
 - round: 2
   phase_index: 2
   phase_type: vote
   agent: Panicky Penny
   fields:
-    vote: Bandwagon Benny
-    reason: Juggling empty water bottles in the dark is a perfectly absurd and frantic reaction to a simple blackout.
+    vote: Professor Cosmo
+    reason: The Professor's intellectual take on the chaotic trajectory of the balls is the most absurd and elevates the simple mess into high-concept comedy.
 code_phase_events:
 - round: 1
-  phase_index: 0
-  phase_type: event_inject
-  summary: 'Event: for no reason, a torrent of ping-pong balls rains down from the ceiling'
-  payload:
-    kind: eventInjected
-    event: for no reason, a torrent of ping-pong balls rains down from the ceiling
-- round: 1
-  phase_index: 2
-  phase_type: vote
-  summary: 'Votes — Bandwagon Benny: 2, Professor Cosmo: 2'
-  payload:
-    kind: voteResults
-    votes:
-      Bandwagon Benny: Professor Cosmo
-      Panicky Penny: Bandwagon Benny
-      Professor Cosmo: Bandwagon Benny
-      Steady Eddie: Professor Cosmo
-    tallies:
-      Bandwagon Benny: 2
-      Professor Cosmo: 2
-- round: 1
-  phase_index: 3
-  phase_type: score_calc
-  summary: 'Scores — Bandwagon Benny: 2, Panicky Penny: 0, Professor Cosmo: 2, Steady Eddie: 0'
-  payload:
-    kind: scoreUpdate
-    scores:
-      Bandwagon Benny: 2
-      Panicky Penny: 0
-      Professor Cosmo: 2
-      Steady Eddie: 0
-- round: 1
-  phase_index: 4
-  phase_type: summarize
-  summary: 'Round 1 result: {"Bandwagon Benny": 2, "Panicky Penny": 0, "Professor Cosmo": 2, "Steady Eddie": 0}'
-  payload:
-    kind: summary
-- round: 2
   phase_index: 0
   phase_type: event_inject
   summary: 'Event: a sudden blackout plunges the venue into darkness and no one can see anyone''s face'
   payload:
     kind: eventInjected
     event: a sudden blackout plunges the venue into darkness and no one can see anyone's face
-- round: 2
+- round: 1
   phase_index: 2
   phase_type: vote
-  summary: 'Votes — Bandwagon Benny: 2, Panicky Penny: 2'
+  summary: 'Votes — Bandwagon Benny: 3, Professor Cosmo: 1'
   payload:
     kind: voteResults
     votes:
-      Bandwagon Benny: Panicky Penny
+      Bandwagon Benny: Professor Cosmo
       Panicky Penny: Bandwagon Benny
       Professor Cosmo: Bandwagon Benny
-      Steady Eddie: Panicky Penny
+      Steady Eddie: Bandwagon Benny
     tallies:
-      Bandwagon Benny: 2
-      Panicky Penny: 2
+      Bandwagon Benny: 3
+      Professor Cosmo: 1
+- round: 1
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Bandwagon Benny: 3, Panicky Penny: 0, Professor Cosmo: 1, Steady Eddie: 0'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Bandwagon Benny: 3
+      Panicky Penny: 0
+      Professor Cosmo: 1
+      Steady Eddie: 0
+- round: 1
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 1 result: {"Bandwagon Benny": 3, "Panicky Penny": 0, "Professor Cosmo": 1, "Steady Eddie": 0}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 0
+  phase_type: event_inject
+  summary: 'Event: for no reason, a torrent of ping-pong balls rains down from the ceiling'
+  payload:
+    kind: eventInjected
+    event: for no reason, a torrent of ping-pong balls rains down from the ceiling
+- round: 2
+  phase_index: 2
+  phase_type: vote
+  summary: 'Votes — Bandwagon Benny: 1, Professor Cosmo: 3'
+  payload:
+    kind: voteResults
+    votes:
+      Bandwagon Benny: Professor Cosmo
+      Panicky Penny: Professor Cosmo
+      Professor Cosmo: Bandwagon Benny
+      Steady Eddie: Professor Cosmo
+    tallies:
+      Bandwagon Benny: 1
+      Professor Cosmo: 3
 - round: 2
   phase_index: 3
   phase_type: score_calc
-  summary: 'Scores — Bandwagon Benny: 4, Panicky Penny: 2, Professor Cosmo: 2, Steady Eddie: 0'
+  summary: 'Scores — Bandwagon Benny: 4, Panicky Penny: 0, Professor Cosmo: 4, Steady Eddie: 0'
   payload:
     kind: scoreUpdate
     scores:
       Bandwagon Benny: 4
-      Panicky Penny: 2
-      Professor Cosmo: 2
+      Panicky Penny: 0
+      Professor Cosmo: 4
       Steady Eddie: 0
 - round: 2
   phase_index: 4
   phase_type: summarize
-  summary: 'Round 2 result: {"Bandwagon Benny": 4, "Panicky Penny": 2, "Professor Cosmo": 2, "Steady Eddie": 0}'
+  summary: 'Round 2 result: {"Bandwagon Benny": 4, "Panicky Penny": 0, "Professor Cosmo": 4, "Steady Eddie": 0}'
   payload:
     kind: summary
