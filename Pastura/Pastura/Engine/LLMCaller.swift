@@ -13,7 +13,8 @@ import os
 /// wrap — this caller handles both shapes uniformly.
 nonisolated struct LLMCaller: Sendable {
 
-  private static let maxRetries = 2
+  // `internal` so the sibling `LLMCaller+StreamFailure` extension can read it.
+  static let maxRetries = 2
   private let parser = JSONResponseParser()
   private let extractor = PartialOutputExtractor()
   private let logger = Logger(subsystem: "app.pastura.Pastura", category: "LLMCaller")
@@ -86,22 +87,23 @@ nonisolated struct LLMCaller: Sendable {
           controller: suspendController, agentName: agentName,
           emitter: emitter)
       } catch {
-        let seconds = elapsedSeconds(since: startTime)
         // Tokens are unknown on failure — the backend didn't complete generation.
-        emitter(
-          .inferenceCompleted(
-            agent: agentName, durationSeconds: seconds, tokenCount: nil))
+        emitInferenceCompleted(agent: agentName, since: startTime, tokens: nil, emitter: emitter)
+        // A caught sampler crash is retryable sampling noise (#885); every
+        // other throw aborts. See `shouldRetryStreamFailure`. On exhaustion
+        // the caught what() still surfaces via `readableDescription`.
+        if shouldRetryStreamFailure(error, agent: agentName, attempt: attempt) {
+          continue
+        }
         throw SimulationError.llmGenerationFailed(description: readableDescription(error))
       }
 
-      let seconds = elapsedSeconds(since: startTime)
       // Retry inferences contribute to tok/s averages — this reflects real
       // device throughput (the "what did I observe" metric), not net-productive
       // throughput. Retries are rare in practice.
-      emitter(
-        .inferenceCompleted(
-          agent: agentName, durationSeconds: seconds,
-          tokenCount: streamResult.completionTokens))
+      emitInferenceCompleted(
+        agent: agentName, since: startTime,
+        tokens: streamResult.completionTokens, emitter: emitter)
 
       let raw = streamResult.rawText
 
@@ -181,7 +183,10 @@ nonisolated struct LLMCaller: Sendable {
   /// `scripts/analyze-streaming-diag.sh`. Field order
   /// `agent=… attempt=… cause=…` is load-bearing — analyzer regex
   /// expects `cause=` to be the last token (#194 PR#a Item 4).
-  private func emitRetryCause(agent: String, attempt: Int, cause: String) {
+  ///
+  /// `internal` (not `private`) so the sibling `LLMCaller+StreamFailure`
+  /// extension can emit the `sampler_crash` cause (#885).
+  func emitRetryCause(agent: String, attempt: Int, cause: String) {
     diagLogger.info(
       "retryCause agent=\(agent, privacy: .public) attempt=\(attempt) cause=\(cause, privacy: .public)"
     )
@@ -392,9 +397,4 @@ nonisolated struct LLMCaller: Sendable {
     }
   }
 
-  private func elapsedSeconds(since start: ContinuousClock.Instant) -> Double {
-    let duration = ContinuousClock.now - start
-    return Double(duration.components.seconds)
-      + Double(duration.components.attoseconds) / 1e18
-  }
 }
