@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-01T00:00:00Z",
+  "updated_at": "2026-07-03T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -757,6 +757,52 @@
       "yaml_url": "shachiku_senryu_v1_en.yaml",
       "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2",
       "added_at": "2026-07-01"
+    },
+    {
+      "id": "shazai_master_v1",
+      "title": "謝罪マスター選手権",
+      "category": "roleplay",
+      "description": "5人の謝罪芸人が、毎ラウンド変わる不祥事のお題に全力の謝罪会見コメントで応戦する勝ち抜き戦。号泣・逆ギレ・論点そらし・責任転嫁・過剰卑屈——最も誠意のない謝罪が毎ラウンド脱落する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "eliminate",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "shazai_master_v1.yaml",
+      "yaml_sha256": "241b8b807be66aa4c37e01971cb7b6187e9e2b1d8ce4b3d7928d8d2c5b865058",
+      "added_at": "2026-07-03"
+    },
+    {
+      "id": "shazai_master_v1_en",
+      "title": "Apology Master Championship",
+      "category": "roleplay",
+      "description": "A last-one-standing showdown where five apology performers meet a rotating scandal prompt with an all-out crisis-apology press conference. Sobbing, backlash, topic-dodging, blame-shifting, and groveling — the least sincere apology is voted out each round.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "eliminate",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "shazai_master_v1_en.yaml",
+      "yaml_sha256": "b50e9539ef0c5b71332af1fc308fb6a5aff5ad35a62b48427e94d7203f9b91fc",
+      "added_at": "2026-07-03"
     }
   ]
 }
