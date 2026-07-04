@@ -280,3 +280,24 @@ the same badge renders fine in a `LazyVStack` (Sim conversation) or `List`/`Form
    struct → `.compositingGroup()` on the row → `LazyVStack` → drop the enumerated-`\.offset`
    `ForEach` shape → bisect the container `.background(...ignoresSafeArea())` half the fault
    stack names → `.geometryGroup()`. See #901 for the full diagnostic write-up.
+
+## Re-projection resets `@State` — put run-scoped display state on the VM
+
+Re-projecting an **already-running** `@Observable` VM into a **fresh** `View`
+instance (ADR-017 Phase B "keep running": `SimulationSession.adoptIfMatching`
+re-mounts `SimulationView` onto the parked run, source unchanged) resets
+**every** `@State` in that view and its rows. Adopt rescues the *VM*; the fresh
+view instance is what clears the `@State`. Any "already shown / revealed /
+animated" latch that lives only in per-View or per-row `@State` therefore
+**replays** on return — the user re-watches content they already saw.
+
+**Apply**: run-scoped display state that must survive a return-to-run belongs on
+the **surviving VM**, not View/row `@State`; read it back through a VM property /
+method so re-projection restores it. Distinct from the fresh-VM `.resume` path
+(guarded separately via `isResumeEntry` / `effectiveCharsPerSecond`) — the trap
+is specific to re-projecting an already-running VM.
+
+Reference: #934 — the premise card + latest conversation row re-typed from View
+`introHasTyped` / row `visibleChars` `@State`; moved to
+`SimulationViewModel.introRevealHasBegun` / `latestRowRevealCompleted` (see the
+adopt early-return comment in `SimulationView`).
