@@ -55,6 +55,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
+  /// The persona shown when the user taps an agent's avatar / name in the
+  /// log (#942). Resolved from ``scenario`` via ``personaItem(for:)`` — `nil`
+  /// (no scenario yet, or an unmatched name) simply doesn't present.
+  @State private var selectedPersona: PersonaSheetItem?
   /// Drives the final-ranking card's animated insertion at run completion
   /// (#868). Mirrors `viewModel.isCompleted`, but flipped inside `withAnimation`
   /// so the card fades/slides in — `isCompleted` is set on the VM outside any
@@ -563,7 +567,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 // made the box expand ahead of the visible text.
                 growsWithReveal: true,
                 agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
-                debugRowID: "stream-\(snapshot.agent)"
+                debugRowID: "stream-\(snapshot.agent)",
+                onAvatarTap: { selectedPersona = personaItem(for: $0) }
               )
               .id("streaming-\(snapshot.agent)")
             }
@@ -680,6 +685,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .sheet(isPresented: $showScoreboard) {
       ScoreboardSheet(scores: viewModel.scores, eliminated: viewModel.eliminated)
         .presentationDetents([.medium])
+        .deepLinkGated()
+    }
+    .sheet(item: $selectedPersona) { item in
+      PersonaDetailSheet(persona: item.persona, position: item.position)
         .deepLinkGated()
     }
     // The model-busy scrim (initial load + BG reload) now lives at `body`
@@ -968,6 +977,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   // MARK: - Log Entries
 
+  /// Resolves a tapped agent name to its persona for the detail sheet
+  /// (#942). Returns `nil` — so the sheet does not present — when the
+  /// scenario hasn't loaded yet or no persona matches the name.
+  private func personaItem(for agent: String) -> PersonaSheetItem? {
+    guard let scenario, let persona = scenario.persona(named: agent) else { return nil }
+    return PersonaSheetItem(
+      persona: persona,
+      position: scenario.personas.firstIndex { $0.name == agent })
+  }
+
   @ViewBuilder
   private func logEntryView(
     _ entry: LogEntry, viewModel: SimulationViewModel, proxy: ScrollViewProxy
@@ -1010,7 +1029,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         // (reveal-position handoff, bug 2); 0 for a non-streamed row.
         initialVisibleChars: viewModel.handoffSeed(forEntryId: entry.id),
         agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
-        debugRowID: entry.id.uuidString
+        debugRowID: entry.id.uuidString,
+        onAvatarTap: { selectedPersona = personaItem(for: $0) }
       )
     case .phaseStarted(let phaseType):
       // LLM phases (speak / vote / choose) become full-width separators
