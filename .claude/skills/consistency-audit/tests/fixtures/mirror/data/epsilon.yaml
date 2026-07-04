@@ -1,0 +1,9 @@
+id: epsilon
+name: Epsilon
+note: |
+  ```
+  code sample inside
+  ```
+agents: 1
+rounds: 1
+phase: assign
