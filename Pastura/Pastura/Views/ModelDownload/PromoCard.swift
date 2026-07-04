@@ -75,8 +75,13 @@ struct PromoCard: View {
       bodyRow
     }
     .background(cardBackground)
-    .clipShape(RoundedRectangle(cornerRadius: Radius.promo))
+    // `leftAccent` is overlaid BEFORE the clip so the card's rounded corner
+    // trims the 3pt bar's top/bottom to follow the curve. Overlaying after
+    // the clip (the prior form) left the bar unclipped, and its own
+    // `UnevenRoundedRectangle(radius: Radius.promo)` self-clip can't round
+    // inside a 3pt-wide frame — so the square ends poked past the corners.
     .overlay(alignment: .leading) { leftAccent }
+    .clipShape(RoundedRectangle(cornerRadius: Radius.promo))
     .overlay {
       RoundedRectangle(cornerRadius: Radius.promo)
         .strokeBorder(Color.promoBorder, lineWidth: 1)
@@ -289,13 +294,11 @@ struct PromoCard: View {
   }
 
   private var leftAccent: some View {
+    // Plain full-height 3pt bar — the card's `.clipShape` (applied after this
+    // overlay in `body`) rounds its ends to the corner curve. No self-clip.
     Rectangle()
       .fill(Color.moss)
       .frame(width: 3)
-      .clipShape(
-        UnevenRoundedRectangle(
-          topLeadingRadius: Radius.promo,
-          bottomLeadingRadius: Radius.promo))
   }
 
   // MARK: - Behavior
