@@ -37,7 +37,7 @@ struct PersonaSheetItem: Identifiable {
 /// conversation the user tapped from stays partly visible behind it.
 struct PersonaDetailSheet: View {
   let persona: Persona
-  var position: Int?
+  let position: Int?
 
   @Environment(\.dismiss) private var dismiss
 
