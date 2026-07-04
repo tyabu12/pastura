@@ -38,9 +38,11 @@ struct GBNFGrammarBuilderTests {
     //      `init_grammar` returned NULL at parse time (top-level
     //      Kleene star on a char class seems to trip llama.cpp's
     //      grammar parser — same symptom as `ws ::= [ \t\n]*`).
-    // Final shape: `"}" trailing` with `trailing ::= ([^"\\] trailing)?`
-    // — recursive form parses cleanly AND accepts arbitrary trailing
-    // bytes. See in-code comments on `rootRule` and
+    // Final shape: `"}" trailing` with a BOUNDED chain
+    // `trailing ::= ([\t\n\r -~] trailing1)?` … `trailing15 ::= ([\t\n\r -~])?`
+    // — recursive positive-class form parses cleanly AND caps trailing
+    // bytes at 16 so the model can't emit unbounded fabricated follow-on
+    // objects (#907). See in-code comments on `rootRule` and
     // `sharedTrailingProduction` for the full rationale.
     let schema = OutputSchema(fields: [
       .init(name: "statement", kind: .string)
@@ -50,12 +52,32 @@ struct GBNFGrammarBuilderTests {
     #expect(
       rootLine.hasSuffix(#""}" trailing"#),
       "root must end with trailing rule reference, got: \(rootLine)")
-    // Trailing rule must itself be defined in the grammar with the
-    // positive-class recursive form (negation + recursion triggered
-    // parse-time NULL — see rationale in `sharedTrailingProduction`).
+    // The head link references `trailing1` (bounded chain), NOT itself —
+    // the unbounded self-reference invited fabricated follow-on objects.
     #expect(
-      grammar.contains(#"trailing ::= ([\t\n\r -~] trailing)?"#),
-      "grammar must define `trailing` in recursive + positive-class form")
+      grammar.contains(#"trailing ::= ([\t\n\r -~] trailing1)?"#),
+      "grammar must define `trailing` as the head of a bounded chain")
+    #expect(
+      !grammar.contains(#"trailing ::= ([\t\n\r -~] trailing)?"#),
+      "grammar must NOT contain the unbounded self-referential trailing rule")
+  }
+
+  @Test("trailing chain is bounded to 16 links, terminal link has no self-ref")
+  func trailingChainIsBounded() throws {
+    let schema = OutputSchema(fields: [
+      .init(name: "statement", kind: .string)
+    ])
+    let grammar = try builder.build(from: schema)
+    let trailingRules = grammar.components(separatedBy: "\n")
+      .filter { $0.hasPrefix("trailing") && $0.contains("::=") }
+    // 16 rules total: `trailing` head + `trailing1` … `trailing15`.
+    #expect(trailingRules.count == 16, "expected 16 trailing rules, got \(trailingRules.count)")
+    // Terminal link caps the recursion — accepts one byte, references nothing.
+    #expect(
+      grammar.contains(#"trailing15 ::= ([\t\n\r -~])?"#),
+      "terminal link `trailing15` must have no self/next reference")
+    // No trailing rule references a `trailing16` (off-by-one guard).
+    #expect(!grammar.contains("trailing16"))
   }
 
   @Test("ws production allows space / tab / newline (recursive form)")
@@ -309,7 +331,22 @@ struct GBNFGrammarBuilderTests {
   private static let sharedTail = """
     string ::= "\\"" ( [^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )* "\\""
     ws ::= ([ \\t\\n] ws)?
-    trailing ::= ([\\t\\n\\r -~] trailing)?
+    trailing ::= ([\\t\\n\\r -~] trailing1)?
+    trailing1 ::= ([\\t\\n\\r -~] trailing2)?
+    trailing2 ::= ([\\t\\n\\r -~] trailing3)?
+    trailing3 ::= ([\\t\\n\\r -~] trailing4)?
+    trailing4 ::= ([\\t\\n\\r -~] trailing5)?
+    trailing5 ::= ([\\t\\n\\r -~] trailing6)?
+    trailing6 ::= ([\\t\\n\\r -~] trailing7)?
+    trailing7 ::= ([\\t\\n\\r -~] trailing8)?
+    trailing8 ::= ([\\t\\n\\r -~] trailing9)?
+    trailing9 ::= ([\\t\\n\\r -~] trailing10)?
+    trailing10 ::= ([\\t\\n\\r -~] trailing11)?
+    trailing11 ::= ([\\t\\n\\r -~] trailing12)?
+    trailing12 ::= ([\\t\\n\\r -~] trailing13)?
+    trailing13 ::= ([\\t\\n\\r -~] trailing14)?
+    trailing14 ::= ([\\t\\n\\r -~] trailing15)?
+    trailing15 ::= ([\\t\\n\\r -~])?
     """
 
   // Choose phase: `action` is a `.choice` field, grammar-equivalent to

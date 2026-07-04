@@ -42,6 +42,18 @@ struct OutputSchemaTests {
     #expect(schema.fields.map(\.name) == ["action", "inner_thought"])
   }
 
+  @Test("reflect note is a plain-string primary field")
+  func reflectNoteIsStringPrimary() throws {
+    let schema = try #require(
+      OutputSchema.from(
+        phase: Phase(
+          type: .reflect, prompt: "…",
+          outputSchema: ["note": "string"])))
+    #expect(schema.fields.map(\.name) == ["note"])
+    let noteField = try #require(schema.fields.first { $0.name == "note" })
+    #expect(noteField.kind == .string)
+  }
+
   @Test("input order swap yields identical field order (stability)")
   func inputOrderSwapIsStable() throws {
     let forward = try #require(

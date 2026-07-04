@@ -23,7 +23,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   /// Standard fields that are mapped to `Scenario` properties (not collected as extraData).
   private static let standardKeys: Set<String> = [
     "id", "name", "description", "language", "simulation_language",
-    "agents", "rounds", "context", "personas", "phases"
+    "agents", "rounds", "context", "personas", "phases", "log_window"
   ]
 
   // MARK: - Loading
@@ -72,6 +72,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   /// - `speak_all`: agentCount
   /// - `speak_each`: agentCount × subRounds
   /// - `vote`: agentCount
+  /// - `reflect`: agentCount
   /// - `choose`: agentCount × 2 (round_robin) or agentCount (individual)
   /// - `conditional`: `max(sum(thenPhases), sum(elsePhases))` — only one branch
   ///   runs per invocation, so `max` matches execution semantics. Using `sum`
@@ -91,7 +92,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return agents
     case .speakEach:
       return agents * (phase.subRounds ?? 1)
-    case .vote:
+    case .vote, .reflect:
       return agents
     case .choose:
       return phase.pairing == .roundRobin ? agents * 2 : agents
@@ -210,6 +211,10 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     let agentCount: Int = try parseRequired(dict, key: "agents", label: "Scenario")
     let rounds: Int = try parseRequired(dict, key: "rounds", label: "Scenario")
     let context: String = try parseRequired(dict, key: "context", label: "Scenario")
+    // Optional prompt-side conversation-log cap (#907). Strict-Int parse
+    // (mirrors `agents`/`rounds`): a quoted number or other type errors rather
+    // than silently coercing. The `≥ 1` bound is enforced by ScenarioValidator.
+    let logWindow: Int? = try parseOptional(dict, key: "log_window", label: "Scenario")
 
     let personasRaw: [[String: Any]] = try parseRequired(
       dict, key: "personas", label: "Scenario")
@@ -234,7 +239,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       language: language,
       simulationLanguage: simulationLanguage,
       agentCount: agentCount, rounds: rounds, context: context,
-      personas: personas, phases: phases, extraData: extraData
+      personas: personas, phases: phases, logWindow: logWindow, extraData: extraData
     )
   }
 

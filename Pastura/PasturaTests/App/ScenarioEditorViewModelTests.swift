@@ -336,6 +336,44 @@ struct ScenarioEditorViewModelTests {
     #expect(reloaded.extraData["topics"] == .array(["Photo A", "Photo B", "Photo C"]))
   }
 
+  /// A `log_window` set in YAML has no Visual UI, so `editorLogWindow` must be
+  /// carried through `buildScenario()` on a visual-mode save — same pattern as
+  /// `carriedExtraData` / `editorSimulationLanguage` (#907).
+  @Test func visualModeSavePreservesLogWindow() async throws {
+    let (sut, repo) = try makeSUTWithRepo()
+    let yaml = """
+      id: lw_visual_save_test
+      language: ja
+      name: LW Visual Save Test
+      description: Tests log_window survival on visual-mode save
+      agents: 2
+      rounds: 1
+      log_window: 5
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: speak_all
+          prompt: "Say something"
+          output:
+            statement: string
+      """
+    sut.loadFromTemplate(yaml: yaml)
+    #expect(sut.editorMode == .visual)
+    #expect(sut.editorLogWindow == 5)
+
+    let success = await sut.save()
+
+    #expect(success)
+    let savedId = try #require(sut.savedScenarioId)
+    let record = try repo.fetchById(savedId)
+    let reloaded = try ScenarioLoader().load(yaml: record?.yamlDefinition ?? "")
+    #expect(reloaded.logWindow == 5)
+  }
+
   @Test func saveSurfacesSourceNotFoundValidationMessage() async throws {
     let sut = try makeSUT()
     // YAML with an `assign` phase referencing a non-existent `topics` source.

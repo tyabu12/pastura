@@ -199,6 +199,95 @@ extension PromptBuilderTests {
   // `inner_thought` — alphabetical would invert this and break
   // PartialOutputExtractor's streaming UX (user sees nothing until
   // inner_thought finishes). Source of truth: OutputSchema.fields.
+  // MARK: - Reflect private-notes injection (#907)
+
+  // The agent's own prior-round memo is surfaced in the system prompt
+  // (invisible to other participants) so subsequent LLM calls are
+  // grounded in what the agent privately concluded.
+  @Test func systemPromptContainsPrivateNotesSectionWhenSet() {
+    let scenario = makeScenario()
+    let phase = Phase(type: .speakAll, prompt: "Speak!", outputSchema: ["statement": "string"])
+    var state = SimulationState.initial(for: scenario)
+    state.variables["notes_Alice"] = "I suspect Bob is the wolf."
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("あなたの内心メモ"))
+    #expect(prompt.contains("I suspect Bob is the wolf."))
+  }
+
+  @Test func systemPromptOmitsPrivateNotesSectionWhenUnset() {
+    let scenario = makeScenario()
+    let phase = Phase(type: .speakAll, prompt: "Speak!", outputSchema: ["statement": "string"])
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(!prompt.contains("あなたの内心メモ"))
+  }
+
+  @Test func systemPromptPrivateNotesSectionEnHeader() {
+    let scenario = makeScenario(language: "en")
+    let phase = Phase(type: .speakAll, prompt: "Speak!", outputSchema: ["statement": "string"])
+    var state = SimulationState.initial(for: scenario)
+    state.variables["notes_Alice"] = "Bob seems nervous."
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("Your Private Notes"))
+    #expect(prompt.contains("Bob seems nervous."))
+  }
+
+  @Test func injectNotesSetsMyNotesFromNamespacedKey() {
+    var variables = ["notes_Alice": "remember the clue"]
+    builder.injectNotes(into: &variables, personaName: "Alice")
+    #expect(variables["my_notes"] == "remember the clue")
+  }
+
+  @Test func injectNotesSetsEmptyStringOnMiss() {
+    var variables: [String: String] = [:]
+    builder.injectNotes(into: &variables, personaName: "Alice")
+    #expect(variables["my_notes"] == "")
+  }
+
+  // The reflect-specific brevity rule caps the note at 2 sentences, matching
+  // the #877 constraint family. It must appear ONLY for reflect phases.
+  @Test func reflectAnswerRulesIncludeTwoSentenceBrevityJa() {
+    let scenario = makeScenario()
+    let phase = Phase(type: .reflect, prompt: "Reflect!", outputSchema: ["note": "string"])
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("2文以内"))
+  }
+
+  @Test func reflectAnswerRulesIncludeTwoSentenceBrevityEn() {
+    let scenario = makeScenario(language: "en")
+    let phase = Phase(type: .reflect, prompt: "Reflect!", outputSchema: ["note": "string"])
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("at most 2 sentences"))
+  }
+
+  @Test func nonReflectPhaseOmitsTwoSentenceBrevityRule() {
+    let scenario = makeScenario()
+    let phase = Phase(type: .speakAll, prompt: "Speak!", outputSchema: ["statement": "string"])
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(!prompt.contains("2文以内"))
+  }
+
   @Test func systemPromptExampleUsesPrimaryFirstOrder() {
     let scenario = makeScenario()
     let phase = Phase(

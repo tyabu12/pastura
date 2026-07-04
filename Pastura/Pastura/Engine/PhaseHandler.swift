@@ -26,9 +26,9 @@ nonisolated public struct PhaseContext: Sendable {
 
   /// The path identifying this handler's position in the scenario. Top-level
   /// handlers run with `[K]`; sub-phases inside a conditional run with
-  /// `[K, N]`. Handlers that dispatch nested sub-phases (conditional today,
-  /// event_inject / reflect tomorrow) must append the sub-phase index when
-  /// constructing lifecycle events for the inner work.
+  /// `[K, N]`. Handlers that dispatch nested sub-phases (conditional today)
+  /// must append the sub-phase index when constructing lifecycle events for
+  /// the inner work.
   public let phasePath: [Int]
 
   /// Optional language detector used by ``LLMCaller`` for ADR-010 Step E PR2

@@ -55,6 +55,41 @@ struct PromptBuilderTests {
     #expect(result.contains("Bob: Hi there!"))
   }
 
+  // MARK: - Conversation Log Window (#907)
+
+  private var threeEntries: [ConversationEntry] {
+    [
+      ConversationEntry(agentName: "Alice", content: "one", phaseType: .speakAll, round: 1),
+      ConversationEntry(agentName: "Bob", content: "two", phaseType: .speakAll, round: 1),
+      ConversationEntry(agentName: "Charlie", content: "three", phaseType: .speakAll, round: 1)
+    ]
+  }
+
+  @Test func windowKeepsOnlyLastNEntries() {
+    let result = builder.formatConversationLog(threeEntries, language: "en", window: 2)
+    #expect(!result.contains("Alice: one"))
+    #expect(result.contains("Bob: two"))
+    #expect(result.contains("Charlie: three"))
+  }
+
+  @Test func windowLargerThanCountKeepsAll() {
+    let result = builder.formatConversationLog(threeEntries, language: "en", window: 10)
+    #expect(result.contains("Alice: one"))
+    #expect(result.contains("Bob: two"))
+    #expect(result.contains("Charlie: three"))
+  }
+
+  @Test func nilWindowKeepsAll() {
+    let result = builder.formatConversationLog(threeEntries, language: "en", window: nil)
+    #expect(result.contains("Alice: one"))
+    #expect(result.contains("Charlie: three"))
+  }
+
+  @Test func windowWithEmptyLogYieldsPlaceholder() {
+    let result = builder.formatConversationLog([], language: "en", window: 2)
+    #expect(result == "(none yet)")
+  }
+
   // MARK: - Get Main Field
 
   /// Speak phases route the canonical `statement` field into the
