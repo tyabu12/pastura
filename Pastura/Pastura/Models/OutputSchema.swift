@@ -36,9 +36,10 @@ nonisolated public struct OutputSchema: Codable, Sendable, Equatable {
   ///
   /// Matches the canonical fields advertised by
   /// ``ScenarioConventions/primaryField(for:)`` (one canonical field per
-  /// LLM phase: speak → `statement`, choose → `action`, vote → `vote`).
+  /// LLM phase: speak → `statement`, choose → `action`, vote → `vote`,
+  /// reflect → `note`).
   public static let knownPrimaryKeys: [String] = [
-    "statement", "action", "vote"
+    "statement", "action", "vote", "note"
   ]
 
   /// Known secondary-output field names (reasoning / justification).

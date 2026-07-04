@@ -25,10 +25,11 @@ struct PhaseEditorSheet: View {
   let onSave: (EditablePhase) -> Void
 
   /// Phase types selectable in the picker. Call sites pass
-  /// `PhaseType.allCases.filter { $0 != .conditional }` when opening the
-  /// sheet for a nested sub-phase of a conditional — this is how the
-  /// depth-1 rule is enforced at the UI layer. The validator and loader
-  /// have the same check as a safety net.
+  /// `PhaseType.allCases.filter { $0 != .conditional && $0 != .reflect }` when
+  /// opening the sheet for a nested sub-phase of a conditional — this is how
+  /// the depth-1 rule (and the "no reflect inside a conditional" rule) is
+  /// enforced at the UI layer. The validator and loader have the same checks
+  /// as a safety net.
   var availableTypes: [PhaseType] = PhaseType.allCases
 
   /// Content validator for the Save-tap inline check (#261). Default-
@@ -99,17 +100,18 @@ struct PhaseEditorSheet: View {
         }
       }
       .sheet(item: $editingSubPhase) { context in
-        // Nested editor — filter `.conditional` out of the picker so the
-        // depth-1 rule is enforced at the UI layer (the validator + loader
-        // also reject nested conditional as defense in depth). The
-        // validator is forwarded so nested Save runs against the same
-        // blocklist instance the outer sheet uses (#261).
+        // Nested editor — filter `.conditional` (depth-1 rule) and `.reflect`
+        // (not supported inside a conditional in v1) out of the picker so both
+        // rules are enforced at the UI layer (the validator + loader also
+        // reject them as defense in depth). The validator is forwarded so
+        // nested Save runs against the same blocklist instance the outer sheet
+        // uses (#261).
         PhaseEditorSheet(
           phase: context.phase,
           onSave: { edited in
             writeBackSubPhase(edited, context: context)
           },
-          availableTypes: PhaseType.allCases.filter { $0 != .conditional },
+          availableTypes: PhaseType.allCases.filter { $0 != .conditional && $0 != .reflect },
           validator: validator
         )
         .deepLinkGated()
@@ -218,7 +220,9 @@ struct PhaseEditorSheet: View {
       assignSection
     case .summarize:
       summarizeSection
-    case .speakAll, .eliminate:
+    case .speakAll, .reflect, .eliminate:
+      // reflect is a prompt-based LLM phase with no extra config beyond the
+      // shared prompt + output-fields sections (like speak_all).
       EmptyView()
     case .conditional:
       conditionalSection
@@ -373,6 +377,8 @@ struct PhaseEditorSheet: View {
     case .speakEach: return String(localized: "Agents speak in turn (accumulating context)")
     case .vote: return String(localized: "All agents vote for one agent")
     case .choose: return String(localized: "Choose from predefined options")
+    case .reflect:
+      return String(localized: "Each agent privately updates a short memo about the situation.")
     case .scoreCalc: return String(localized: "Calculate scores (code, no LLM)")
     case .assign: return String(localized: "Distribute info to agents (code)")
     case .eliminate: return String(localized: "Remove most-voted agent (code)")

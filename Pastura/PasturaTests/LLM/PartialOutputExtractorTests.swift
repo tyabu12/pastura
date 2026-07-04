@@ -58,6 +58,15 @@ struct PartialOutputExtractorTests {
     }
   }
 
+  @Test func reflectNoteStreamsAsPrimary() {
+    // reflect's canonical primary field is `note`; a partial reflect JSON must
+    // yield a live primary snapshot as it types in.
+    let partial = extractor.extract(from: #"{"note":"I should keep quiet abo"#)
+    #expect(partial.primary == "I should keep quiet abo")
+    let complete = extractor.extract(from: #"{"note":"I should keep quiet."}"#)
+    #expect(complete.primary == "I should keep quiet.")
+  }
+
   // MARK: - Thought
 
   @Test func thoughtResolvesAfterPrimary() {

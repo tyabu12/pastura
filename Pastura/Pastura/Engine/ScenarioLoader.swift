@@ -72,6 +72,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   /// - `speak_all`: agentCount
   /// - `speak_each`: agentCount × subRounds
   /// - `vote`: agentCount
+  /// - `reflect`: agentCount
   /// - `choose`: agentCount × 2 (round_robin) or agentCount (individual)
   /// - `conditional`: `max(sum(thenPhases), sum(elsePhases))` — only one branch
   ///   runs per invocation, so `max` matches execution semantics. Using `sum`
@@ -91,7 +92,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return agents
     case .speakEach:
       return agents * (phase.subRounds ?? 1)
-    case .vote:
+    case .vote, .reflect:
       return agents
     case .choose:
       return phase.pairing == .roundRobin ? agents * 2 : agents

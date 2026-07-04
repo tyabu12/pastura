@@ -87,6 +87,17 @@ struct ScenarioValidatorTests {
     #expect(result.estimatedInferences == 20)
   }
 
+  @Test func reflectPhaseAddsAgentCountPerRound() throws {
+    // reflect costs one inference per agent per round (like speak_all / vote).
+    // 5 agents × (speak_all + reflect) × 2 rounds = 20.
+    let scenario = makeScenario(
+      agents: 5, rounds: 2,
+      phases: [Phase(type: .speakAll), Phase(type: .reflect)]
+    )
+    let result = try validator.validate(scenario)
+    #expect(result.estimatedInferences == 20)
+  }
+
   @Test func rejectsPersonaCountMismatch() {
     // Constructed directly because makeScenario auto-generates matching personas
     let scenario = Scenario(

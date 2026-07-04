@@ -21,6 +21,10 @@ struct ScenarioConventionsTests {
     #expect(ScenarioConventions.primaryField(for: .vote) == "vote")
   }
 
+  @Test func primaryFieldForReflectReturnsNote() {
+    #expect(ScenarioConventions.primaryField(for: .reflect) == "note")
+  }
+
   /// Code phases emit no LLM output — `nil` is the contract for callers that
   /// need to distinguish "no primary field expected" from "primary field
   /// missing".
@@ -41,7 +45,7 @@ struct ScenarioConventionsTests {
   /// `nil` (code phases). Compiler exhaustiveness already catches a *missing*
   /// case in `primaryField(for:)`; this test catches a *wrong* classification.
   @Test func everyPhaseTypeMapsToCanonicalSetOrNil() {
-    let canonical: Set<String> = ["statement", "action", "vote"]
+    let canonical: Set<String> = ["statement", "action", "vote", "note"]
     for phaseType in PhaseType.allCases {
       let field = ScenarioConventions.primaryField(for: phaseType)
       if let field {
@@ -67,6 +71,12 @@ struct ScenarioConventionsTests {
     #expect(ScenarioConventions.thoughtField(for: .speakAll) == "inner_thought")
     #expect(ScenarioConventions.thoughtField(for: .speakEach) == "inner_thought")
     #expect(ScenarioConventions.thoughtField(for: .choose) == "inner_thought")
+  }
+
+  /// Reflect has no secondary thought field: its canonical `note` output *is*
+  /// the agent's private reasoning (single-field `{ note }` schema).
+  @Test func thoughtFieldForReflectReturnsNil() {
+    #expect(ScenarioConventions.thoughtField(for: .reflect) == nil)
   }
 
   /// Code phases emit no LLM output, so they have no private-thought field.

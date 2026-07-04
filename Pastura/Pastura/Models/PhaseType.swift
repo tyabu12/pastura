@@ -2,16 +2,17 @@ import Foundation
 
 /// The type of a simulation phase, determining how it is processed.
 ///
-/// LLM phases (`speakAll`, `speakEach`, `vote`, `choose`) require LLM inference.
-/// Code phases (`scoreCalc`, `assign`, `eliminate`, `summarize`, `eventInject`)
-/// are processed deterministically by the engine. `conditional` is a
-/// control-flow phase: the handler itself does no inference, but its
-/// sub-phases may be of any type.
+/// LLM phases (`speakAll`, `speakEach`, `vote`, `choose`, `reflect`) require
+/// LLM inference. Code phases (`scoreCalc`, `assign`, `eliminate`,
+/// `summarize`, `eventInject`) are processed deterministically by the engine.
+/// `conditional` is a control-flow phase: the handler itself does no
+/// inference, but its sub-phases may be of any type.
 nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   case speakAll = "speak_all"
   case speakEach = "speak_each"
   case vote
   case choose
+  case reflect
   case scoreCalc = "score_calc"
   case assign
   case eliminate
@@ -32,9 +33,13 @@ nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   /// scenario `extraData` and writes it into `state.variables` — no LLM
   /// call. Subsequent prompt phases reference the injected value via the
   /// `as:` variable name (default `current_event`).
+  ///
+  /// `reflect` returns `true`: each agent runs an LLM inference to privately
+  /// update a short note about the situation (canonical `note` output field),
+  /// so it costs one inference per agent per round like `speakAll` / `vote`.
   public var requiresLLM: Bool {
     switch self {
-    case .speakAll, .speakEach, .vote, .choose:
+    case .speakAll, .speakEach, .vote, .choose, .reflect:
       return true
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return false

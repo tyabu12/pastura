@@ -102,6 +102,34 @@ extension ScenarioValidatorTests {
     }
   }
 
+  // MARK: - Reflect (canonical: note, no secondary field)
+
+  @Test func validateForCommit_acceptsReflectWithNote() throws {
+    let phase = Phase(
+      type: .reflect, prompt: "Reflect.",
+      outputSchema: ["note": "string"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    _ = try validator.validateForCommit(scenario)
+  }
+
+  @Test func validateForCommit_rejectsReflectWithoutNote() {
+    let phase = Phase(
+      type: .reflect, prompt: "Reflect.",
+      outputSchema: ["memo": "string"])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
+  @Test func validateForCommit_rejectsReflectWithMissingOutputSchema() {
+    let phase = Phase(type: .reflect, prompt: "Reflect.")
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [phase])
+    #expect(throws: SimulationError.self) {
+      try validator.validateForCommit(scenario)
+    }
+  }
+
   // MARK: - Code phases (no canonical field — exempt)
 
   @Test func validateForCommit_acceptsCodePhases() throws {

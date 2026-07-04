@@ -381,6 +381,22 @@
         }
       }
     },
+    "%@ is a reflect phase, which is not allowed inside a conditional." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is a reflect phase, which is not allowed inside a conditional."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は reflect フェーズであり、conditional の中では許可されていません。"
+          }
+        }
+      }
+    },
     "%@ is another conditional, which is not allowed (depth-1 rule)." : {
       "localizations" : {
         "en" : {
@@ -2662,6 +2678,22 @@
         }
       }
     },
+    "Each agent privately updates a short memo about the situation." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each agent privately updates a short memo about the situation."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各エージェントが状況について短い内心メモを更新します。"
+          }
+        }
+      }
+    },
     "Edit" : {
       "localizations" : {
         "ja" : {
@@ -4835,6 +4867,22 @@
         }
       }
     },
+    "Reflect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reflect"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ふりかえり"
+          }
+        }
+      }
+    },
     "Reloading model..." : {
       "localizations" : {
         "ja" : {
@@ -6219,6 +6267,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選択結果は `action` フィールドで追加してください。値はこの phase の options に制限されます。"
+          }
+        }
+      }
+    },
+    "Use `note` for the agent's private memo. This is the reflect phase's only output field." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use `note` for the agent's private memo. This is the reflect phase's only output field."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの内心メモには `note` を使います。reflect フェーズの唯一の出力フィールドです。"
           }
         }
       }

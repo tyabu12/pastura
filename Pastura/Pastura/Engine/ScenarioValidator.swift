@@ -116,7 +116,7 @@ nonisolated struct ScenarioValidator: Sendable {
           phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
       case .conditional:
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
-      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
+      case .speakAll, .speakEach, .vote, .choose, .reflect, .scoreCalc, .eliminate, .summarize:
         break
       case .eventInject:
         try validateEventInjectShape(
@@ -185,12 +185,13 @@ nonisolated struct ScenarioValidator: Sendable {
 
   /// Recursively validates each sub-phase in a conditional branch.
   ///
-  /// Rejects nested `.conditional` (depth-1 rule) and applies the same
-  /// semantic checks we run at the top level — e.g., an `assign` phase
-  /// with mismatched target/source shape still errors when buried inside
-  /// a `then:` or `else:` branch. `event_inject` is allowed inside a
-  /// branch (consistent with assign / score_calc) and gets the same
-  /// shape-check it would receive at the top level.
+  /// Rejects nested `.conditional` (depth-1 rule) and `.reflect` (not
+  /// supported inside a branch in v1), and applies the same semantic checks
+  /// we run at the top level — e.g., an `assign` phase with mismatched
+  /// target/source shape still errors when buried inside a `then:` or
+  /// `else:` branch. `event_inject` is allowed inside a branch (consistent
+  /// with assign / score_calc) and gets the same shape-check it would
+  /// receive at the top level.
   private func validateBranch(
     _ phases: [Phase], parentLabel: String, branchLabel: String, scenario: Scenario
   ) throws {
@@ -200,6 +201,14 @@ nonisolated struct ScenarioValidator: Sendable {
       if subPhase.type == .conditional {
         throw validationError(
           String(localized: "%@ is another conditional, which is not allowed (depth-1 rule)."),
+          subLabel)
+      }
+      // `reflect` is not supported inside a conditional branch in v1. Reject
+      // at load-time validation (mirroring the nested-conditional rule above)
+      // so it fails here rather than at `ConditionalHandler` dispatch.
+      if subPhase.type == .reflect {
+        throw validationError(
+          String(localized: "%@ is a reflect phase, which is not allowed inside a conditional."),
           subLabel)
       }
       if subPhase.type == .assign {
