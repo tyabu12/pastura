@@ -21,6 +21,9 @@ struct LogEntry: Identifiable {
     case scoreUpdate(scores: [String: Int])
     case elimination(agent: String, voteCount: Int)
     case assignment(agent: String, value: String)
+    /// The round's shared お題 assigned to every agent (`assign` target: all,
+    /// #939). One line, no agent attribution.
+    case sharedAssignment(value: String)
     case summary(text: String)
     case voteResults(votes: [String: String], tallies: [String: Int])
     case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
@@ -1549,6 +1552,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       persistCodePhaseEvent(
         phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
         payload: .assignment(agent: agent, value: value))
+    case .sharedAssignment(let value):
+      handleSharedAssignment(value: value)
     case .summary(let text):
       logEntries.append(LogEntry(kind: .summary(text: text)))
       // `.summary` also fires for validator warnings (before the first round
@@ -1860,6 +1865,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private func handleScoreUpdate(scores newScores: [String: Int]) {
     scores = newScores
     logEntries.append(LogEntry(kind: .scoreUpdate(scores: newScores)))
+  }
+
+  private func handleSharedAssignment(value: String) {
+    // Shared お題 assigned to every agent (`assign` target: all, #939). One
+    // line, no agent attribution. Deliberately NOT written to
+    // `predictionAssignments`: that is word-wolf per-agent ground truth (#915),
+    // and a shared topic has no minority holder to derive a wolf from.
+    logEntries.append(LogEntry(kind: .sharedAssignment(value: value)))
+    persistCodePhaseEvent(
+      phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
+      payload: .sharedAssignment(value: value))
   }
 
   private func handleElimination(agent: String, voteCount: Int) {

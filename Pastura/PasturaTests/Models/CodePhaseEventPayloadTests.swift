@@ -48,6 +48,30 @@ struct CodePhaseEventPayloadTests {
     #expect(try roundTrip(original) == original)
   }
 
+  @Test func sharedAssignmentRoundTrip() throws {
+    let original = CodePhaseEventPayload.sharedAssignment(
+      value: "やらかし「大事な会議に2時間遅刻した」")
+    #expect(try roundTrip(original) == original)
+  }
+
+  @Test func sharedAssignmentIsDistinctFromAssignment() {
+    // The two assign shapes must not compare equal — they render differently
+    // (one topic line vs per-agent lines) and must persist as distinct kinds.
+    let shared = CodePhaseEventPayload.sharedAssignment(value: "topic")
+    let perAgent = CodePhaseEventPayload.assignment(agent: "topic", value: "topic")
+    #expect(shared != perAgent)
+  }
+
+  @Test func legacyAssignmentJSONStillDecodes() throws {
+    // Backward-compat guard (#939): rows persisted before `.sharedAssignment`
+    // existed carry `{"assignment":{...}}` and must keep decoding as
+    // `.assignment` — the additive case must not shadow or break them.
+    let legacy = #"{"assignment":{"agent":"Alice","value":"wolf"}}"#
+    let data = try #require(legacy.data(using: .utf8))
+    let decoded = try JSONDecoder().decode(CodePhaseEventPayload.self, from: data)
+    #expect(decoded == .assignment(agent: "Alice", value: "wolf"))
+  }
+
   @Test func eventInjectedHitRoundTrip() throws {
     let original = CodePhaseEventPayload.eventInjected(event: "突然停電が起きた")
     #expect(try roundTrip(original) == original)

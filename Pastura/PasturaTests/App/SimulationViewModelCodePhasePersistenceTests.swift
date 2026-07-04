@@ -90,6 +90,40 @@ struct SimulationViewModelCodePhasePersistenceTests {
         .pairingResult(agent1: "A", action1: "c", agent2: "B", action2: "d")))
   }
 
+  @Test func sharedAssignmentPersistsOneTopicLineAndOneLogEntry() async throws {
+    // Guards the silent `handleOutputEvent` gap (#939): `.sharedAssignment` has
+    // a `default: break`-adjacent explicit arm that must persist exactly ONE
+    // `.sharedAssignment` payload and append exactly ONE `.sharedAssignment`
+    // LogEntry — and must NOT emit a per-agent `.assignment` (the shape the old
+    // assignAll produced). A missed arm compiles clean and drops the event.
+    let sut = try makeSUT()
+    sut.model.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: sut.scenario)
+    sut.model.handleEvent(
+      .sharedAssignment(value: "やらかし「大事な会議に2時間遅刻した」"),
+      scenario: sut.scenario)
+
+    await sut.model.finishPersistenceForTest()
+
+    let records = try sut.codeRepo.fetchBySimulationId(sut.simId)
+    #expect(records.count == 1)
+    let payloads = try records.map { try decodePayload($0.payloadJSON) }
+    #expect(
+      payloads == [.sharedAssignment(value: "やらかし「大事な会議に2時間遅刻した」")])
+    #expect(records.first?.phaseType == "assign")
+
+    // Exactly one shared-assignment LogEntry, and no per-agent assignment line.
+    let sharedEntries = sut.model.logEntries.filter {
+      if case .sharedAssignment = $0.kind { return true }
+      return false
+    }
+    #expect(sharedEntries.count == 1)
+    let perAgentEntries = sut.model.logEntries.filter {
+      if case .assignment = $0.kind { return true }
+      return false
+    }
+    #expect(perAgentEntries.isEmpty)
+  }
+
   // MARK: - Shared sequence number across tables
 
   @Test func interleavedAgentAndCodeEventsHaveStrictlyMonotonicSequence() async throws {

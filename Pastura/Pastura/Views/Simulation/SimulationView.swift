@@ -1065,6 +1065,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       eliminationEntry(agent: agent, voteCount: voteCount)
     case .assignment(let agent, let value):
       assignmentEntry(agent: agent, value: value)
+    case .sharedAssignment(let value):
+      sharedAssignmentEntry(value: value)
     case .summary(let text):
       summaryEntry(text: text)
     case .voteResults(_, let tallies):

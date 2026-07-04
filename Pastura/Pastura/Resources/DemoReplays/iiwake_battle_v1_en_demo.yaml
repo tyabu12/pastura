@@ -144,10 +144,9 @@ code_phase_events:
 - round: 1
   phase_index: 0
   phase_type: assign
-  summary: 'Globe-Trotter Gary assigned: Your blunder: you showed up two hours late to an important meeting.'
+  summary: 'Your blunder: you showed up two hours late to an important meeting.'
   payload:
-    kind: assignment
-    agent: Globe-Trotter Gary
+    kind: sharedAssignment
     value: 'Your blunder: you showed up two hours late to an important meeting.'
 - round: 1
   phase_index: 2
@@ -184,10 +183,9 @@ code_phase_events:
 - round: 2
   phase_index: 0
   phase_type: assign
-  summary: 'Globe-Trotter Gary assigned: Your blunder: you ate the pudding your coworker left on their desk.'
+  summary: 'Your blunder: you ate the pudding your coworker left on their desk.'
   payload:
-    kind: assignment
-    agent: Globe-Trotter Gary
+    kind: sharedAssignment
     value: 'Your blunder: you ate the pudding your coworker left on their desk.'
 - round: 2
   phase_index: 2

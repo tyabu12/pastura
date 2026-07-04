@@ -28,6 +28,34 @@ extension SimulationView {
       .foregroundStyle(Color.muted)
   }
 
+  // Shared お題 assigned to every agent (`assign` target: all, #939). Styled as
+  // the round's *premise* — a moss accent rule + clipboard icon + body-weight
+  // ink text — NOT the muted 9pt meta style of glanceable result lines, since
+  // every agent responds to this お題 (it is the round's context, not a
+  // progress readout). The value is self-framing (e.g. `やらかし「…」`,
+  // `Your blunder: …`) so no "Topic:" label is added; the accent rule + icon
+  // carry the framing visually. `Text(verbatim:)` — dynamic content, not a
+  // `LocalizedStringKey`, must not be looked up in the catalog.
+  // The live entry renders the value RAW (no ContentFilter) — parity with
+  // `assignmentEntry`; past-results / demo-replay filter it at render time
+  // instead (see the `ReplayViewModel.apply` "the live VM appends raw" note).
+  func sharedAssignmentEntry(value: String) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 9) {
+      Image(systemName: "list.clipboard")
+        .foregroundStyle(Color.mossDark)
+      Text(verbatim: value)
+        .textStyle(Typography.bodyBubble)
+        .foregroundStyle(Color.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .padding(.leading, 11)
+    .overlay(alignment: .leading) {
+      RoundedRectangle(cornerRadius: 1.5)
+        .fill(Color.moss)
+        .frame(width: 3)
+    }
+  }
+
   func summaryEntry(text: String) -> some View {
     Text(text)
       .textStyle(Typography.bodyBubble)

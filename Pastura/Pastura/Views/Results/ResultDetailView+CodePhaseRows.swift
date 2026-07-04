@@ -36,6 +36,8 @@ extension ResultDetailView {
       pairingRow(agent1: agent1, action1: action1, agent2: agent2, action2: action2)
     case .assignment(let agent, let value):
       assignmentRow(agent: agent, value: value)
+    case .sharedAssignment(let value):
+      sharedAssignmentRow(value: value)
     case .eventInjected(let event):
       eventInjectedRow(event: event)
     }
@@ -118,6 +120,28 @@ extension ResultDetailView {
     Text(String(format: String(localized: "%@ assigned: %@"), filtered(agent), filtered(value)))
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
+  }
+
+  // Shared お題 assigned to every agent (#939). Mirrors
+  // `SimulationView.sharedAssignmentEntry`: the round's premise gets a moss
+  // accent rule + clipboard icon + body-weight ink text (not the muted 9pt meta
+  // of glanceable result lines), no "Topic:" label (the value is self-framing).
+  // `Text(verbatim:)` — dynamic content, not a `LocalizedStringKey`; the value
+  // is `filtered` here (past-results filter at render time).
+  private func sharedAssignmentRow(value: String) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 9) {
+      Image(systemName: "list.clipboard").foregroundStyle(Color.mossDark)
+      Text(verbatim: filtered(value))
+        .textStyle(Typography.bodyBubble)
+        .foregroundStyle(Color.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .padding(.leading, 11)
+    .overlay(alignment: .leading) {
+      RoundedRectangle(cornerRadius: 1.5)
+        .fill(Color.moss)
+        .frame(width: 3)
+    }
   }
 
   // The miss case (`event == nil`) renders an explicit "no event"

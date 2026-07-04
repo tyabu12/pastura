@@ -13,9 +13,10 @@ discriminators match `YAMLReplaySource.decodePayloadStanza`.
 
 Mapping:
   - `agent_output`  -> `turns[]`            (statement/inner_thought or vote/reason)
-  - `assignment`    -> one `assignment` code-phase event per round (scene-setter;
-                       deduped — every agent gets the same topic, so only the
-                       first is emitted to set the scene without N identical rows)
+  - `shared_assignment` -> one `sharedAssignment` code-phase event (assign
+                       target: all — the round's shared お題; value only, no agent)
+  - `assignment`    -> one `assignment` code-phase event per agent (assign
+                       target: random_one — word wolf, each agent's own secret)
   - `vote_results`  -> `voteResults`
   - `score_update`  -> `scoreUpdate`
   - `elimination`   -> `elimination`
@@ -139,7 +140,6 @@ def main():
 
     turns, code = [], []
     round_no, phase_idx, phase_type_cur = 0, 0, ""
-    scene_set_rounds = set()  # rounds whose assignment scene-setter is already emitted
     for l in lines:
         if l.get("type") != "event":
             continue
@@ -163,12 +163,21 @@ def main():
                 "agent": l["agent"],
                 "fields": ordered_fields(l["fields"]),
             })
+        elif e == "shared_assignment":
+            # Shared お題 for the whole round (assign target: all, #939). The
+            # harness emits ONE per round, so no dedup — value only, no agent.
+            value = l.get("value", "")
+            code.append({
+                "round": round_no,
+                "phase_index": phase_idx,
+                "phase_type": phase_type_cur,
+                "summary": value,
+                "payload": {"kind": "sharedAssignment", "value": value},
+            })
         elif e == "assignment":
-            # Scene-setter: every agent gets the same topic, so emit only the
-            # first assignment of each round to set the scene (the topic/お題).
-            if round_no in scene_set_rounds:
-                continue
-            scene_set_rounds.add(round_no)
+            # Per-agent assignment (assign target: random_one — word wolf). Each
+            # agent gets a DIFFERENT secret, so emit one line per agent (#939);
+            # deduping here would collapse the wolf/villager split to one word.
             agent, value = l.get("agent", ""), l.get("value", "")
             code.append({
                 "round": round_no,

@@ -45,3 +45,9 @@ Current inventory (each has an `_en` sibling — see i18n below):
   a closed set.
 - **ja/en parity**: keep the `_en` sibling structurally in sync (same phases,
   agent count, topic/word count); wording is localized, mechanics are not.
+- **`assign` with `target: all` — self-framing topic values (#939).** The shared
+  お題 renders as one line with the value **verbatim** and no "Topic:"/"お題:"
+  label (`SimulationEvent.sharedAssignment`), so each `source:`/`topics` entry
+  must read as a complete self-framing statement (e.g. `やらかし「…」`,
+  `Your blunder: …`, `お悩み:「…」`, `Problem: …`) — a bare noun would render
+  contextless.

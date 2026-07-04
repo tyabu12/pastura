@@ -144,12 +144,11 @@ code_phase_events:
 - round: 1
   phase_index: 0
   phase_type: assign
-  summary: 'Coach Blaze assigned: Problem: "Every time I open the fridge, the pudding at the very back feels like it''s staring right at me, and I can''t sleep at night. What should I do?"
+  summary: 'Problem: "Every time I open the fridge, the pudding at the very back feels like it''s staring right at me, and I can''t sleep at night. What should I do?"
 
     '
   payload:
-    kind: assignment
-    agent: Coach Blaze
+    kind: sharedAssignment
     value: 'Problem: "Every time I open the fridge, the pudding at the very back feels like it''s staring right at me, and I can''t sleep at night. What should I do?"
 
       '
@@ -187,12 +186,11 @@ code_phase_events:
 - round: 2
   phase_index: 0
   phase_type: assign
-  summary: 'Coach Blaze assigned: Problem: "The office copier jams without fail, but only when I''m the one using it. Does the machine hate me?"
+  summary: 'Problem: "The office copier jams without fail, but only when I''m the one using it. Does the machine hate me?"
 
     '
   payload:
-    kind: assignment
-    agent: Coach Blaze
+    kind: sharedAssignment
     value: 'Problem: "The office copier jams without fail, but only when I''m the one using it. Does the machine hate me?"
 
       '

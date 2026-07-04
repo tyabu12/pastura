@@ -396,6 +396,11 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
       return String(
         format: String(localized: "- **%@** was assigned: %@"),
         agent, value)
+    case .sharedAssignment(let value):
+      // Shared お題 (#939) — value only, self-framing. No String(localized:)
+      // wrap: the line carries no translatable words, only the 📋 marker and
+      // the verbatim value, so it spawns no catalog key.
+      return "- 📋 \(value)"
     case .eventInjected(let event):
       // Past results need to surface the miss explicitly so a reader
       // can tell whether the phase ran at all.

@@ -188,6 +188,34 @@ struct YAMLReplayRoundTripTests {
     #expect(replayed[5] == .summary(text: "Bob wins."))
   }
 
+  @Test func sharedAssignmentPayloadRoundTrips() async throws {
+    // Guards the demo-decode silent gap (#939): `decodePayloadStanza` is a
+    // string-keyed switch with `default: return nil`, so a missing
+    // `case "sharedAssignment"` would silently drop the topic line with no
+    // compiler help. Exercises exporter (`kind: sharedAssignment` / value) →
+    // source decode end-to-end.
+    let events = [
+      makeCodeEvent(
+        seq: 3, phase: "assign",
+        payload: .sharedAssignment(value: "やらかし「大事な会議に2時間遅刻した」"))
+    ]
+    let exported = try exporter().export(
+      .init(
+        simulation: simulation, scenario: scenarioRecord,
+        turns: [], codePhaseEvents: events))
+
+    let scenario = try ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition)
+    let source = try YAMLReplaySource(
+      yaml: exported.text, scenario: scenario, config: fastConfig)
+
+    var replayed: [SimulationEvent] = []
+    for await event in source.events() { replayed.append(event) }
+
+    #expect(replayed.count == 1)
+    #expect(
+      replayed[0] == .sharedAssignment(value: "やらかし「大事な会議に2時間遅刻した」"))
+  }
+
   @Test func eventInjectedPayloadRoundTripsHitAndMiss() async throws {
     // Two event_inject events: one hit (event != nil), one miss (event == nil).
     // The miss case is meaningful — past-results timelines need to

@@ -73,7 +73,11 @@ struct AssignHandlerTests {
     }
   }
 
-  @Test func emitsAssignmentEvents() async throws {
+  @Test func emitsSingleSharedAssignmentForAll() async throws {
+    // assignAll (target: all) gives every agent the SAME お題, so it emits ONE
+    // `.sharedAssignment` for the round — never N per-agent `.assignment` events
+    // (#939). This guards the Engine emit shape against a regression back to
+    // per-agent events.
     let mock = MockLLMService(responses: [])
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
@@ -87,12 +91,53 @@ struct AssignHandlerTests {
     let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
     try await handler.execute(context: context, state: &state)
 
-    let assignments = collector.events.compactMap { event -> String? in
+    let sharedValues = collector.events.compactMap { event -> String? in
+      if case .sharedAssignment(let value) = event { return value }
+      return nil
+    }
+    #expect(sharedValues == ["Topic"])
+
+    // No per-agent `.assignment` events for the shared case.
+    let perAgent = collector.events.filter {
+      if case .assignment = $0 { return true }
+      return false
+    }
+    #expect(perAgent.isEmpty)
+  }
+
+  @Test func emitsPerAgentAssignmentsForWordwolf() async throws {
+    // Word wolf (target: random_one) gives each agent a DIFFERENT secret, so it
+    // keeps emitting one `.assignment` per agent — the counterpart to the
+    // single-shared shape above (#939).
+    let mock = MockLLMService(responses: [])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob", "Charlie"],
+      phases: [Phase(type: .assign, source: "words", target: .randomOne)],
+      extraData: [
+        "words": .arrayOfDictionaries([
+          ["majority": "りんご", "minority": "みかん"]
+        ])
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let perAgent = collector.events.compactMap { event -> String? in
       if case .assignment(let agent, _) = event { return agent }
       return nil
     }
-    #expect(assignments.count == 2)
-    #expect(assignments.contains("Alice"))
-    #expect(assignments.contains("Bob"))
+    #expect(perAgent.count == 3)
+    #expect(Set(perAgent) == ["Alice", "Bob", "Charlie"])
+
+    // No shared-assignment event for the per-agent word-wolf case.
+    let shared = collector.events.filter {
+      if case .sharedAssignment = $0 { return true }
+      return false
+    }
+    #expect(shared.isEmpty)
   }
 }
