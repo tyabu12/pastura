@@ -26,6 +26,7 @@ includes them.
 | speak_each   | LLM        | Agents speak in turn (accumulating)  |
 | vote         | LLM        | All agents vote for one agent        |
 | choose       | LLM        | Choose from options                  |
+| reflect      | LLM        | Each agent privately updates a short memo (`note`) |
 | score_calc   | Code       | Calculate scores                     |
 | assign       | Code       | Distribute info to agents            |
 | eliminate    | Code       | Remove most-voted agent              |
@@ -37,6 +38,16 @@ includes them.
 assign / score_calc nesting) — `ConditionalHandler.subHandlers` includes
 it, and `ScenarioValidator.validateBranch` runs the same shape-check it
 applies at the top level.
+
+`reflect` is an LLM phase: each non-eliminated agent makes one call
+producing `{ note }` — a private memo stored under the reserved
+`notes_<name>` key in `state.variables` and surfaced back to only that
+agent (system-prompt section + `{my_notes}` template variable). Notes
+never enter the conversation log or `lastOutputs`; the canonical `note`
+output is itself the private reasoning, so reflect declares no secondary
+thought field. `reflect` is NOT allowed inside `conditional` branches —
+`ScenarioValidator.validateBranch` rejects it at load time and
+`ConditionalHandler.subHandlers` omits it.
 
 ### PhaseHandler Protocol
 
@@ -61,8 +72,8 @@ the only mutable argument. Handlers are registered in PhaseDispatcher as a
 [PhaseType: PhaseHandler] dictionary.
 
 `phasePath` identifies the handler's position in the scenario. Top-level
-handlers get `[K]`; handlers that dispatch sub-phases (conditional today,
-event_inject / reflect later) append the sub-phase index so inner lifecycle
+handlers get `[K]`; handlers that dispatch sub-phases (conditional today)
+append the sub-phase index so inner lifecycle
 events can be attributed to their enclosing branch. `pauseCheck` is a narrow
 bridge onto `SimulationRunner.checkPaused`; handlers running sub-phases
 must call it between each one so the user's pause request is honored at
@@ -89,6 +100,7 @@ Cancellation uses standard Swift `Task` cancellation.
 | agents           | ≥ 2     | Error if below      |
 | agents           | ≤ 10    | Error if exceeded   |
 | rounds           | ≤ 30    | Error if exceeded   |
+| log_window       | ≥ 1     | Error if below (when present) |
 | est. inferences  | > 50    | Warning displayed   |
 | est. inferences  | > 100   | Error, block run    |
 
@@ -115,6 +127,7 @@ See `ScenarioValidator` for the gate; #665 for the boundary rationale.
 speak_all:  agentCount per round
 speak_each: agentCount × subRounds per round
 vote:       agentCount per round
+reflect:    agentCount per round
 choose:     agentCount × 2 for round_robin (N adjacent pairs, 2 calls each)
             agentCount for individual (no pairing)
 score_calc/assign/eliminate/summarize/event_inject: 0 (code phases)
@@ -129,6 +142,17 @@ The same `max` reduction is used for BOTH the >50 warning and the >100
 hard cap (see `ScenarioLoader.estimatePhase`). Using `sum(both)` anywhere
 would over-count by construction — a rarely-taken expensive branch would
 reject scenarios that in practice spend ≤ `max` inferences per round.
+
+### Conversation-Log Window (`log_window`)
+
+Scenario-level opt-in (`log_window: N`, N ≥ 1; absent = full log). Trims
+the conversation log passed to LLM prompts to the last N entries
+(`PromptBuilder.formatConversationLog(window:)`, threaded by all five LLM
+handlers from `scenario.logWindow`). **Prompt-side only** — TurnRecord
+persistence, replay, and export keep the full log. Interaction: the
+window truncates the same log the #911 speak_each address rule reads, so
+keep N ≥ agentCount for accumulating (speak_each) scenarios or same-round
+earlier speakers vanish from the addressee pool.
 
 ### Pairing Data Flow (choose phase)
 
@@ -188,6 +212,14 @@ Port directly from Python prototype `parse_json_response()`. Must handle:
    pipeline still fires on a genuinely-unclosed object. (#751 sub-class 1)
 4. All values normalized to String in TurnOutput
 
+**Schema-guarded multi-object salvage (#907).** When the happy-path parse
+fails AND `expectedKeys` is non-empty, `parse(_:expectedKeys:)` re-extracts
+the first balanced object with `allowObjectResidue: true` (overriding the
+#751 refusal) and accepts it only if it carries ALL expected keys with
+content — repairKind `multi_object_salvage`. The schema-less path
+(`parse(_:)`) keeps the #751 refusal verbatim. Single-field grammars made
+the multi-object shape dominant, so retrying that span never converges.
+
 ### Retry Policy
 
 Max 2 retries. Retry on:
@@ -198,6 +230,25 @@ Max 2 retries. Retry on:
 position-0 suspected) exhausts the retry budget. It is inference-side, not
 parser-recoverable — root-cause on-device per the issue before adding any
 retry-budget change. Tracked under #751.
+
+**Grammar-accept crash after object completion → graceful stop (#907).** For
+single-field grammars (e.g. `reflect`'s `{ note }`) Gemma 4 E2B frequently
+completes the JSON object then keeps generating, tripping the caught
+grammar-accept crash (`LLMError.samplerCrashCaught`). The generation loops
+(`LlamaCppService.runGeneration` / `runStreamGeneration`) now catch it as
+end-of-generation (like an EOG break) instead of failing — the completed
+object is already in the accumulated text, so the parser's balanced-brace
+scan recovers it. An incomplete object still fails parse and consumes the
+retry budget as before. `LLMCaller`'s retry routing on this error stays as
+defense in depth for any other surfacer (#885). The `samplerCrashCaught`
+diagnostic still fires once per catch for occurrence-rate telemetry.
+
+`GBNFGrammarBuilder`'s `trailing` production is a BOUNDED chain
+(`trailingByteBudget` = 16 links) rather than an unbounded self-reference:
+the unbounded form accepted unlimited printable ASCII after the close,
+inviting the fabricated follow-on objects behind the salvage above (#907).
+Overflow past the budget lands on this catch-as-EOS path — benign, the
+object is already complete.
 
 ## Content Filter
 
@@ -227,8 +278,8 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
     case roundCompleted(round: Int, scores: [String: Int])
 
     // Phase lifecycle. `phasePath` is `[K]` for top-level phase K; nested
-    // sub-phases carry `[K, N]` so future phase types with sub-phases
-    // (conditional / event_inject / reflect) share one identifier shape.
+    // sub-phases carry `[K, N]` so future phase types with nested
+    // sub-phases share one identifier shape.
     case phaseStarted(phaseType: PhaseType, phasePath: [Int])
     case phaseCompleted(phaseType: PhaseType, phasePath: [Int])
 

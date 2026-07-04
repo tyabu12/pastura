@@ -143,6 +143,10 @@ extension LlamaCppService {
   /// `apply` does not throw `std::exception` (only `GGML_ASSERT` /
   /// `GGML_ABORT` signals), so the Swift-side `apply` here loses no coverage.
   ///
+  /// The generation loops catch the thrown `LLMError.samplerCrashCaught` as
+  /// end-of-generation (`nextContentTokenOrStop`, #907); the diagnostic
+  /// still fires once per catch for occurrence-rate telemetry.
+  ///
   /// - Parameters:
   ///   - vocab: model vocab pointer, for EOG classification.
   ///   - candidates: caller-owned, `n_vocab`-sized scratch buffer reused
@@ -235,14 +239,21 @@ extension LlamaCppService {
   ///   2. Emit a `samplerCrashCaught` structured line on
   ///      `category:StreamingDiag` (always-on; see `samplerCatchDiagLogger`)
   ///      so the analyzer pipeline can aggregate occurrence rates across builds.
-  ///   3. Throw `LLMError.samplerCrashCaught`. `LLMCaller` routes this
-  ///      case through its existing retry budget (#885): the crash is
-  ///      sampling noise (the model continuing past the completed object
-  ///      with a token outside the grammar's ASCII trailing set), not
-  ///      deterministic per (model, prompt, schema), so a fresh
-  ///      inference usually recovers. The diagnostic above fires once
-  ///      per **attempt** so occurrence rates stay accurate across the
-  ///      (bounded) retries.
+  ///      This line MUST keep firing once per catch — it is the
+  ///      occurrence-rate telemetry — regardless of how callers handle the
+  ///      thrown error.
+  ///   3. Throw `LLMError.samplerCrashCaught`. As of #907 the generation
+  ///      loops (`runGeneration` / `runStreamGeneration`) catch this error
+  ///      and end generation gracefully instead of failing: the crash's
+  ///      common trigger is the model continuing past a completed JSON
+  ///      object with a token outside the grammar's ASCII trailing set, so
+  ///      the completed object is already in the accumulated text — the
+  ///      completed-object case wins outright, and the incomplete case
+  ///      falls through to the parser's parse-failure retry (`LLMCaller`).
+  ///      `LLMCaller` still routes the error through its retry budget (#885)
+  ///      as defense in depth for any other surfacer, but the loops now
+  ///      intercept the common case. The diagnostic above fires once per
+  ///      catch so occurrence rates stay accurate.
   private func handleSamplerCatch(_ errorMessage: String?, mode: String) throws {
     guard let errorMessage else { return }
     let truncated = String(errorMessage.prefix(160))
@@ -257,10 +268,12 @@ extension LlamaCppService {
       mode=\(mode, privacy: .public) \
       model=\(self.modelIdentifier, privacy: .public)
       """)
-    // Retryable, not fail-fast: the raw `what()` rides in the associated
-    // value and `LLMCaller` re-runs the inference through its retry
-    // budget (#885). `LLMError.errorDescription` formats it for display
-    // via the same "Sampler crash caught: %@" catalog key.
+    // Graceful stop, not fail-fast: the generation loops catch this and
+    // end generation (the completed-object case wins; #907). The raw
+    // `what()` rides in the associated value so any OTHER surfacer still
+    // gets `LLMCaller`'s retry budget (#885) as defense in depth, and
+    // `LLMError.errorDescription` formats it for display via the same
+    // "Sampler crash caught: %@" catalog key.
     throw LLMError.samplerCrashCaught(description: truncated)
   }
 

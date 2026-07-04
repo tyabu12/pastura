@@ -30,6 +30,8 @@ struct PhaseDispatcherTests {
         #expect(try dispatcher.handler(for: phaseType) is ConditionalHandler)
       case .eventInject:
         #expect(try dispatcher.handler(for: phaseType) is EventInjectHandler)
+      case .reflect:
+        #expect(try dispatcher.handler(for: phaseType) is ReflectHandler)
       }
     }
   }

@@ -73,6 +73,40 @@ struct SpeakAllHandlerTests {
     #expect(agentOutputs == ["Alice", "Bob"])
   }
 
+  /// The user prompt's `{conversation_log}` expansion honors
+  /// `scenario.logWindow` — only the last N prior entries reach the LLM (#907).
+  @Test func userPromptRespectsLogWindow() async throws {
+    let mock = MockLLMService(responses: [#"{"statement": "reply"}"#])
+    try await mock.loadModel()
+
+    let scenario = Scenario(
+      id: "lw", name: "LW", description: "log window handler test",
+      language: "en", agentCount: 1, rounds: 1, context: "Context",
+      personas: [Persona(name: "Alice", description: "A")],
+      phases: [
+        Phase(
+          type: .speakAll, prompt: "Log: {conversation_log}",
+          outputSchema: ["statement": "string"])
+      ],
+      logWindow: 2)
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 2
+    state.conversationLog = [
+      ConversationEntry(agentName: "Alice", content: "oldest", phaseType: .speakAll, round: 1),
+      ConversationEntry(agentName: "Bob", content: "middle", phaseType: .speakAll, round: 1),
+      ConversationEntry(agentName: "Carol", content: "newest", phaseType: .speakAll, round: 1)
+    ]
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    let userPrompt = try #require(mock.capturedPrompts.first).user
+    #expect(!userPrompt.contains("oldest"))
+    #expect(userPrompt.contains("middle"))
+    #expect(userPrompt.contains("newest"))
+  }
+
   @Test func updatesConversationLog() async throws {
     let mock = MockLLMService(responses: [
       #"{"statement": "Alice says hi"}"#,

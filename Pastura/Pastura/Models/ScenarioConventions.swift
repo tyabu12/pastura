@@ -10,6 +10,7 @@ import Foundation
 /// | `.speakAll`, `.speakEach` | `statement` |
 /// | `.choose` | `action` |
 /// | `.vote` | `vote` |
+/// | `.reflect` | `note` |
 ///
 /// Speak phases route the canonical field's value into the conversation log
 /// (read by ``PromptBuilder``) and into the agent's primary display text
@@ -35,7 +36,8 @@ nonisolated public enum ScenarioConventions {
   /// output.
   ///
   /// Speak phases return `"statement"`, choose returns `"action"`, vote
-  /// returns `"vote"`. All other phase types return `nil`.
+  /// returns `"vote"`, reflect returns `"note"`. All other phase types return
+  /// `nil`.
   public static func primaryField(for phaseType: PhaseType) -> String? {
     switch phaseType {
     case .speakAll, .speakEach:
@@ -44,6 +46,8 @@ nonisolated public enum ScenarioConventions {
       return "action"
     case .vote:
       return "vote"
+    case .reflect:
+      return "note"
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return nil
     }
@@ -52,7 +56,10 @@ nonisolated public enum ScenarioConventions {
   /// Returns the private-thought (secondary) output field name expected on
   /// `output:` for the given LLM phase, or `nil` for code phases.
   ///
-  /// Vote returns `"reason"`; every other LLM phase returns `"inner_thought"`.
+  /// Vote returns `"reason"`; `reflect` returns `nil` (its canonical `note`
+  /// output *is* the agent's private reasoning, so there is no separate
+  /// secondary thought field — a reflect note is authored as a single-field
+  /// `{ note }` schema); every other LLM phase returns `"inner_thought"`.
   /// Both fields are display-only private reasoning (never routed into the
   /// conversation log, so invisible to other agents) — `reason` is simply the
   /// vote-phase spelling of the same concept (vote schemas author
@@ -79,7 +86,9 @@ nonisolated public enum ScenarioConventions {
       return "reason"
     case .speakAll, .speakEach, .choose:
       return "inner_thought"
-    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+    // `.reflect`'s canonical `note` output is itself the private reasoning, so
+    // it declares no secondary thought field (single-field `{ note }` schema).
+    case .reflect, .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return nil
     }
   }

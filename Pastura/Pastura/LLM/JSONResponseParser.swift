@@ -57,9 +57,17 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// 4. Extract the first balanced `{...}` object (string-aware), discarding
   ///    any trailing content after its matching close brace
   /// 5. Try `JSONSerialization` on the cleaned text
-  /// 6. On failure: apply the two-step repair pipeline
-  ///    (`unclosed_string` → `unclosed_brace`), retry parse, and reject
-  ///    the result if `expectedKeys` are not all present and non-empty
+  /// 6. On failure with non-empty `expectedKeys`: attempt schema-guarded
+  ///    multi-object salvage (see below) before the repair pipeline
+  /// 7. On failure: two-step repair (`unclosed_string` → `unclosed_brace`),
+  ///    retry parse, reject if `expectedKeys` not all present + non-empty
+  ///
+  /// Schema-guarded multi-object salvage (#907): on happy-path failure with a
+  /// non-empty schema, the first balanced object is re-extracted ignoring the
+  /// #751 object-like-residue refusal and accepted only with ALL `expectedKeys`
+  /// present and non-empty (see `extractFirstJSONObject`'s `allowObjectResidue`).
+  /// The schema-less path keeps the #751 refusal verbatim; single-field
+  /// grammars made the multi-object shape dominant, so retrying cannot converge.
   ///
   /// Repair order rationale: unclosed-string runs first because closing
   /// the string changes the subsequent brace-balance computation.
@@ -87,6 +95,16 @@ nonisolated public struct JSONResponseParser: Sendable {
     // Try as-is — happy path, no repair needed.
     if let output = tryParse(cleaned, originalText: text) {
       return (output, nil)
+    }
+
+    // Schema-guarded multi-object salvage (#907) — recovers a complete-but-
+    // followed-by-junk first object before the repair pipeline runs.
+    if !expectedKeys.isEmpty {
+      let salvaged = applyCleanupPipeline(text, allowObjectResidue: true)
+      if let output = tryParse(salvaged, originalText: text),
+        hasAllExpectedKeys(output, expectedKeys: expectedKeys) {
+        return (output, "multi_object_salvage")
+      }
     }
 
     // Repair pipeline. Each repair operates on the *current* repaired text
@@ -132,11 +150,7 @@ nonisolated public struct JSONResponseParser: Sendable {
     // Non-empty `expectedKeys` typically comes from `phase.outputSchema?.keys`
     // at the handler call site (passed via `LLMCaller`).
     if !expectedKeys.isEmpty {
-      let allPresent = expectedKeys.allSatisfy { key in
-        guard let value = output.fields[key], !value.isEmpty else { return false }
-        return true
-      }
-      guard allPresent else {
+      guard hasAllExpectedKeys(output, expectedKeys: expectedKeys) else {
         throw LLMError.invalidResponse(raw: text)
       }
     }
@@ -146,7 +160,19 @@ nonisolated public struct JSONResponseParser: Sendable {
 
   // MARK: - Internal helpers
 
-  private func applyCleanupPipeline(_ text: String) -> String {
+  /// True when every `expectedKeys` entry is present with a non-empty value.
+  private func hasAllExpectedKeys(
+    _ output: TurnOutput, expectedKeys: Set<String>
+  ) -> Bool {
+    expectedKeys.allSatisfy { key in
+      guard let value = output.fields[key], !value.isEmpty else { return false }
+      return true
+    }
+  }
+
+  private func applyCleanupPipeline(
+    _ text: String, allowObjectResidue: Bool = false
+  ) -> String {
     var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
     cleaned = stripThinkingTags(cleaned)
     cleaned = truncateAtChatTemplateToken(cleaned)
@@ -159,8 +185,10 @@ nonisolated public struct JSONResponseParser: Sendable {
     // an identity transform for an already-clean object; for trailing garbage
     // it trims back to the first complete object, and for an object-like
     // trailing residue (`{…}{…}`) it returns the input unchanged so the
-    // multi-object span throws (see `extractFirstJSONObject`, #751 hybrid).
-    cleaned = extractFirstJSONObject(cleaned)
+    // multi-object span throws (see `extractFirstJSONObject`, #751 hybrid) —
+    // UNLESS `allowObjectResidue` is set for the schema-guarded salvage path
+    // (#907), which salvages the first object instead.
+    cleaned = extractFirstJSONObject(cleaned, allowObjectResidue: allowObjectResidue)
     return cleaned
   }
 
@@ -296,15 +324,20 @@ nonisolated public struct JSONResponseParser: Sendable {
   ///   it and keep the complete first object.
   /// - A trailing **object-like** residue (`{…}{…}`, the post-close text
   ///   starts with `{`) signals the generation re-rolled a whole second
-  ///   answer — a stronger instability signal. Return the input unchanged so
-  ///   `JSONSerialization` rejects the multi-object span → the inference is
-  ///   re-tried for a cleaner sample, rather than silently salvaging a
-  ///   possibly off-persona first object.
+  ///   answer. By default (schema-less path) return the input unchanged so
+  ///   `JSONSerialization` rejects the multi-object span → re-try for a
+  ///   cleaner sample, rather than salvaging a possibly off-persona first
+  ///   object. `allowObjectResidue` overrides that: the first object is
+  ///   salvaged anyway. Only the schema-guarded salvage path
+  ///   (`parse(_:expectedKeys:)`, #907) passes `true`, and it additionally
+  ///   requires all expected keys with content.
   ///
   /// Also returns the input unchanged when no `{` exists or the braces never
   /// balance (unclosed object) so the downstream repair pipeline
   /// (`closeUnclosedBraces`) can still fire.
-  private func extractFirstJSONObject(_ text: String) -> String {
+  private func extractFirstJSONObject(
+    _ text: String, allowObjectResidue: Bool = false
+  ) -> String {
     let chars = Array(text)
     let machine = StringStateMachine(text)
     guard
@@ -323,9 +356,10 @@ nonisolated public struct JSONResponseParser: Sendable {
       case "}":
         balance -= 1
         if balance == 0 {
-          // Object-like trailing residue → defer to multi-object throw.
+          // Object-like trailing residue → defer to multi-object throw,
+          // unless the schema-guarded salvage path opts in (#907).
           let residue = chars[(i + 1)...].drop(while: { $0.isWhitespace })
-          if residue.first == "{" {
+          if residue.first == "{" && !allowObjectResidue {
             return text
           }
           return String(chars[start...i])

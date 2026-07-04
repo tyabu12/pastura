@@ -89,9 +89,9 @@ nonisolated struct LLMCaller: Sendable {
       } catch {
         // Tokens are unknown on failure — the backend didn't complete generation.
         emitInferenceCompleted(agent: agentName, since: startTime, tokens: nil, emitter: emitter)
-        // A caught sampler crash is retryable sampling noise (#885); every
-        // other throw aborts. See `shouldRetryStreamFailure`. On exhaustion
-        // the caught what() still surfaces via `readableDescription`.
+        // The generation loops intercept the common sampler-crash case as
+        // end-of-generation (#907); this retry is defense in depth (#885).
+        // Other throws abort. See `shouldRetryStreamFailure`.
         if shouldRetryStreamFailure(error, agent: agentName, attempt: attempt) {
           continue
         }

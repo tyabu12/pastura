@@ -284,6 +284,34 @@ struct ScenarioSerializerTests {
     #expect(reloaded.phases[0].probability == 1.0)
   }
 
+  // MARK: - log_window (#907)
+
+  @Test func serializesLogWindowWhenSet() throws {
+    let scenario = makeLogWindowScenario(logWindow: 5)
+    let yaml = serializer.serialize(scenario)
+    #expect(yaml.contains("log_window: 5"))
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.logWindow == 5)
+  }
+
+  @Test func omitsLogWindowWhenNil() throws {
+    let scenario = makeLogWindowScenario(logWindow: nil)
+    let yaml = serializer.serialize(scenario)
+    #expect(!yaml.contains("log_window"))
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.logWindow == nil)
+  }
+
+  private func makeLogWindowScenario(logWindow: Int?) -> Scenario {
+    Scenario(
+      id: "lw_test", name: "LW", description: "Log window round-trip",
+      language: "ja", agentCount: 2, rounds: 1, context: "Context",
+      personas: [Persona(name: "Alice", description: "A"), Persona(name: "Bob", description: "B")],
+      phases: [Phase(type: .speakAll, prompt: "Go", outputSchema: ["statement": "string"])],
+      logWindow: logWindow
+    )
+  }
+
   // MARK: - Helpers
 
   private func assertRoundTrip(presetNamed name: String) throws {

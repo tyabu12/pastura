@@ -61,6 +61,11 @@ extension PhaseEditorSheet {
       )
     case .vote:
       return String(localized: "Use `vote` for the target name.")
+    case .reflect:
+      return String(
+        localized:
+          "Use `note` for the agent's private memo. This is the reflect phase's only output field."
+      )
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return nil
     }

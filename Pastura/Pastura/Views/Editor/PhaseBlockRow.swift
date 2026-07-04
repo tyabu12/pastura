@@ -33,7 +33,7 @@ struct PhaseBlockRow: View {
   /// A brief human-readable summary of the phase content.
   private var summary: String {
     switch phase.type {
-    case .speakAll, .speakEach, .vote, .choose:
+    case .speakAll, .speakEach, .vote, .choose, .reflect:
       return phase.prompt.prefix(50).trimmingCharacters(in: .whitespacesAndNewlines)
     case .scoreCalc:
       return phase.logic?.rawValue ?? "—"
