@@ -38,14 +38,22 @@ extension ModelDownloadHostView {
         .textStyle(Typography.metaValue)
         .foregroundStyle(Color.muted)
     case .sharedAssignment(let value):
-      // Mirrors `SimulationView.sharedAssignmentEntry` (#939): clipboard icon +
-      // verbatim value, no label. `Text(verbatim:)` — dynamic content, not a key.
-      HStack(spacing: 4) {
+      // Mirrors `SimulationView.sharedAssignmentEntry` (#939): the round's
+      // premise gets a moss accent rule + clipboard icon + body-weight ink text,
+      // no "Topic:" label. `Text(verbatim:)` — dynamic content, not a key.
+      HStack(alignment: .firstTextBaseline, spacing: 9) {
         Image(systemName: "list.clipboard")
-          .foregroundStyle(Color.inkSecondary)
+          .foregroundStyle(Color.mossDark)
         Text(verbatim: value)
-          .textStyle(Typography.metaValue)
-          .foregroundStyle(Color.muted)
+          .textStyle(Typography.bodyBubble)
+          .foregroundStyle(Color.ink)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .padding(.leading, 11)
+      .overlay(alignment: .leading) {
+        RoundedRectangle(cornerRadius: 1.5)
+          .fill(Color.moss)
+          .frame(width: 3)
       }
     case .summary(let text):
       // Mirrors `SimulationView.summaryEntry`.

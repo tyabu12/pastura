@@ -123,15 +123,24 @@ extension ResultDetailView {
   }
 
   // Shared お題 assigned to every agent (#939). Mirrors
-  // `SimulationView.sharedAssignmentEntry`: clipboard icon + verbatim value, no
-  // "Topic:" label (the value is self-framing). `Text(verbatim:)` — the value
-  // is dynamic content, not a `LocalizedStringKey`.
+  // `SimulationView.sharedAssignmentEntry`: the round's premise gets a moss
+  // accent rule + clipboard icon + body-weight ink text (not the muted 9pt meta
+  // of glanceable result lines), no "Topic:" label (the value is self-framing).
+  // `Text(verbatim:)` — dynamic content, not a `LocalizedStringKey`; the value
+  // is `filtered` here (past-results filter at render time).
   private func sharedAssignmentRow(value: String) -> some View {
-    HStack(spacing: 4) {
-      Image(systemName: "list.clipboard").foregroundStyle(Color.inkSecondary)
+    HStack(alignment: .firstTextBaseline, spacing: 9) {
+      Image(systemName: "list.clipboard").foregroundStyle(Color.mossDark)
       Text(verbatim: filtered(value))
-        .textStyle(Typography.metaValue)
-        .foregroundStyle(Color.muted)
+        .textStyle(Typography.bodyBubble)
+        .foregroundStyle(Color.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .padding(.leading, 11)
+    .overlay(alignment: .leading) {
+      RoundedRectangle(cornerRadius: 1.5)
+        .fill(Color.moss)
+        .frame(width: 3)
     }
   }
 
