@@ -145,6 +145,22 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // `.simulation` and `.resumeSimulation` routes (both render SimulationView).
     // See ADR-017; opt-in cross-screen continuation is deferred to Phase B.
     .toolbar(.hidden, for: .tabBar)
+    .onAppear { viewModel?.setViewVisible(true) }
+    // Viewer-prediction sheet (#915). The binding's nil-set path (interactive
+    // dismiss, blocked below) routes to a skip; normal resolution is driven by
+    // the sheet's `onResolve`, which clears `predictionPrompt` in the VM.
+    .sheet(
+      item: Binding(
+        get: { viewModel?.predictionPrompt },
+        set: { if $0 == nil { viewModel?.resolvePrediction(.skipped) } })
+    ) { prompt in
+      ViewerPredictionSheet(
+        question: prompt.question,
+        candidates: prompt.candidates,
+        onResolve: { viewModel?.resolvePrediction($0) }
+      )
+      .presentationDetents([.medium, .large])
+    }
     .task {
       // Phase B (ADR-017): reconnect to a run the app-level session still owns
       // instead of starting a fresh one. Under "keep running" the run survives
@@ -187,6 +203,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // `.paused`). Ownership-guarded so a view that never owned the live run
     // doesn't tear one down. See `disappearAction(...)`.
     .onDisappear {
+      // Leaving the screen resolves any pending prediction sheet as a skip so
+      // it doesn't resurface stale on return (#915).
+      viewModel?.setViewVisible(false)
       let session = dependencies.simulationSession
       switch Self.disappearAction(
         leaveHandled: leaveHandled,
@@ -1220,6 +1239,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       turnRepository: deps.turnRepository,
       codePhaseEventRepository: deps.codePhaseEventRepository,
       scenarioRepository: deps.scenarioRepository,
+      predictionRepository: deps.predictionRepository,
       backgroundManager: deps.backgroundManager,
       simulationActivityRegistry: deps.simulationActivityRegistry
     )
