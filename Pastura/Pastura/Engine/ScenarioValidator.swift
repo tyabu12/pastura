@@ -124,7 +124,9 @@ nonisolated struct ScenarioValidator: Sendable {
           phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
       case .conditional:
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
-      case .speakAll, .speakEach, .vote, .choose, .reflect, .scoreCalc, .eliminate, .summarize:
+      case .reflect:
+        try validateReflectShape(phase, label: "Phase \(index + 1)")
+      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
       case .eventInject:
         try validateEventInjectShape(
@@ -247,6 +249,23 @@ nonisolated struct ScenarioValidator: Sendable {
   ///   (`< 0` never fires, `>= 1.0` always fires), but a curator who
   ///   wrote `probability: 1.5` almost certainly mistyped — surfacing
   ///   it early is friendlier than silent over-fire.
+  /// Requires reflect phases to declare the canonical `note` output at the
+  /// RUN gate (`validate`), not just the commit gate.
+  ///
+  /// Other LLM phases run schema-less in degraded-but-visible form (their
+  /// primary text lands in the conversation log as empty prose), but a
+  /// reflect phase without `note` is a pure no-op inference — it burns one
+  /// call per agent per round and stores nothing, with no user-visible
+  /// symptom to debug from. Failing fast at the run gate is friendlier.
+  /// Reuses the commit-gate message so both gates read identically.
+  private func validateReflectShape(_ phase: Phase, label: String) throws {
+    if (phase.outputSchema ?? [:])["note"] == nil {
+      throw validationError(
+        String(localized: "%@ (%@) requires field '%@' in output."),
+        label, phase.type.rawValue, "note")
+    }
+  }
+
   private func validateEventInjectShape(
     _ phase: Phase, label: String, scenario: Scenario
   ) throws {

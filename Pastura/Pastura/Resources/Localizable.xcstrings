@@ -2678,18 +2678,18 @@
         }
       }
     },
-    "Each agent privately updates a short memo about the situation." : {
+    "Each agent privately updates a short memo about the situation" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each agent privately updates a short memo about the situation."
+            "value" : "Each agent privately updates a short memo about the situation"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "各エージェントが状況について短い内心メモを更新します。"
+            "value" : "各エージェントが状況について短い内心メモを更新"
           }
         }
       }

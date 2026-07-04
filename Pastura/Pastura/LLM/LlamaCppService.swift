@@ -604,7 +604,7 @@ extension LlamaCppService {
   ///    and consuming the retry budget. An incomplete object still fails
   ///    parse and retries as before. All other errors propagate. See
   ///    ``handleSamplerCatch(_:mode:)``.
-  func nextContentTokenOrStop(
+  fileprivate func nextContentTokenOrStop(
     sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
     vocab: OpaquePointer?,
     candidates: UnsafeMutableBufferPointer<llama_token_data>?,

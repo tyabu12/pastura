@@ -378,7 +378,7 @@ struct PhaseEditorSheet: View {
     case .vote: return String(localized: "All agents vote for one agent")
     case .choose: return String(localized: "Choose from predefined options")
     case .reflect:
-      return String(localized: "Each agent privately updates a short memo about the situation.")
+      return String(localized: "Each agent privately updates a short memo about the situation")
     case .scoreCalc: return String(localized: "Calculate scores (code, no LLM)")
     case .assign: return String(localized: "Distribute info to agents (code)")
     case .eliminate: return String(localized: "Remove most-voted agent (code)")

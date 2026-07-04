@@ -52,6 +52,11 @@ nonisolated struct PromptBuilder: Sendable {
   ///
   /// Missing note resolves to empty string (not a literal placeholder), matching
   /// `injectAssigned`'s miss posture.
+  ///
+  /// - Note: the privacy guarantee covers the conversation-log, system-prompt,
+  ///   and `{my_notes}` paths. Raw `notes_<other>` keys remain resolvable by a
+  ///   template that hand-references them (`{notes_Bob}`) — same exposure as
+  ///   the `assigned_` namespace, accepted for pattern consistency.
   func injectNotes(into variables: inout [String: String], personaName: String) {
     variables["my_notes"] = variables["notes_\(personaName)"] ?? ""
   }

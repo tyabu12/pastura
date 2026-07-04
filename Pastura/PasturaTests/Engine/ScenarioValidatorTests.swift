@@ -113,10 +113,33 @@ struct ScenarioValidatorTests {
     // 5 agents × (speak_all + reflect) × 2 rounds = 20.
     let scenario = makeScenario(
       agents: 5, rounds: 2,
-      phases: [Phase(type: .speakAll), Phase(type: .reflect)]
+      phases: [Phase(type: .speakAll), Phase(type: .reflect, outputSchema: ["note": "string"])]
     )
     let result = try validator.validate(scenario)
     #expect(result.estimatedInferences == 20)
+  }
+
+  @Test func rejectsReflectWithoutNoteOutputAtRunGate() {
+    // Run-gate strictness beyond sibling LLM phases: a schema-less reflect is
+    // a pure no-op inference (nothing stored, no visible symptom), so
+    // `validate` — not just `validateForCommit` — requires the `note` field.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .reflect)]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func acceptsReflectWithExtraOutputFieldAlongsideNote() throws {
+    // Only `note` presence is required at the run gate; additional fields
+    // (unusual but legal) do not trip it.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .reflect, outputSchema: ["note": "string", "mood": "string"])]
+    )
+    _ = try validator.validate(scenario)
   }
 
   @Test func rejectsPersonaCountMismatch() {
