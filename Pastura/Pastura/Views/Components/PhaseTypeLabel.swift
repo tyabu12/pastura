@@ -1,14 +1,19 @@
 import SwiftUI
 
 /// Displays a phase type as a moss / ink-secondary capsule badge: a leading
-/// `PhaseGlyph` SF Symbol + the phase `rawValue`.
+/// `PhaseGlyph` SF Symbol + the localized phase display name.
 ///
-/// Used inline within an `AgentOutputRow` name row, standalone as a
-/// `phaseStarted` log entry in `SimulationView`, and in the visual editor's
-/// `PhaseBlockRow`. The capsule shape + tag typography carries the "this is a
-/// phase marker" semantic; color distinguishes LLM-driven phases (moss, the
-/// only brand accent) from code-driven phases (ink-secondary, muted neutral).
-/// Glyph vocabulary is the shared `PhaseGlyph` SSOT (#860).
+/// Used inline within an `AgentOutputRow` name row, in the editor's
+/// `PhaseBlockRow`, and standalone as a `phaseStarted` log entry in
+/// `SimulationView`. The capsule shape + tag typography carries the
+/// "this is a phase marker" semantic; color distinguishes LLM-driven
+/// phases (moss, the only brand accent) from code-driven phases
+/// (ink-secondary, muted neutral). Glyph vocabulary is the shared
+/// `PhaseGlyph` SSOT (#860).
+///
+/// The text is the localized `PhaseDisplayName.label(for:)` — the shared
+/// human-readable source of truth — never the snake_case `rawValue`
+/// (#882: raw `speak_all` etc. must not surface in the UI).
 struct PhaseTypeLabel: View {
   let phaseType: PhaseType
 
@@ -17,12 +22,12 @@ struct PhaseTypeLabel: View {
       // Phase glyph from the shared `PhaseGlyph` SSOT (#860) — the same
       // symbol vocabulary the gallery "What happens" steps use, so one
       // visual language reads across Sim and the Editor. Decorative:
-      // the adjacent rawValue Text carries the phase identity, so hide the
-      // glyph from VoiceOver rather than announce the raw symbol name.
+      // the adjacent display-name Text carries the phase identity, so hide
+      // the glyph from VoiceOver rather than announce the raw symbol name.
       Image(systemName: PhaseGlyph.symbolName(for: phaseType))
         .imageScale(.small)
         .accessibilityHidden(true)
-      Text(phaseType.rawValue)
+      Text(PhaseDisplayName.label(for: phaseType))
     }
     .textStyle(Typography.tagPhase)
     .padding(.horizontal, 8)

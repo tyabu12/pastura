@@ -109,16 +109,7 @@ extension ScenarioDetailView {
             Text(verbatim: "\(index + 1).")
               .foregroundStyle(Color.muted)
               .monospacedDigit()
-            Text(phase.type.rawValue)
-              .font(.subheadline.monospaced())
-              .foregroundStyle(Color.ink)
-            if phase.type.requiresLLM {
-              // `info` here is a quiet category badge for LLM-required phases, not a
-              // notification — see design-system §2.6 for the alert-family scope.
-              Image(systemName: "brain")
-                .font(.caption)
-                .foregroundStyle(Color.info)
-            }
+            PhaseTypeLabel(phaseType: phase.type)
             Spacer(minLength: 0)
           }
           .padding(.horizontal, 17)
