@@ -1,0 +1,20 @@
+id: gamma
+name: Gamma scenario
+agents: 5
+rounds: 3
+context: a long context line for gamma
+personas:
+  - name: P1
+    role: r1
+  - name: P2
+    role: r2
+  - name: P3
+    role: r3
+  - name: P4
+    role: r4
+  - name: P5
+    role: r5
+phases:
+  - type: speak_all
+  - type: vote
+  - type: score_calc

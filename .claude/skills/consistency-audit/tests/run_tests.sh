@@ -112,4 +112,44 @@ done
 echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dangling_adr") | (has("adr") and has("target") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target==.adr))] | all' >/dev/null \
   || fail "adr: a dangling_adr finding is missing its judgment scalars or target!=adr"
 
+# --- mirror fixture: inverted embedded-source-mirror detector --------------
+# FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /
+# epsilon tilde-fenced-with-backtick-content); SILENT on identical (beta),
+# abridged excerpt (gamma), unattributable (zeta / no-id first line), and
+# coincidental-id-with-unrelated-content (alpha). Coexistence: dependency_version,
+# dead_link, and dangling_adr must still fire around a mirror block in the same
+# file (the fence-loop restructure must not disturb them).
+OUT=$(python3 "$AUDIT" --repo-root fixtures/mirror \
+  --package-resolved fixtures/mirror/Package.resolved)
+[ "$(af_len "$OUT")" -eq 1 ] || fail "mirror: expected 1 auto_fixable (Yams), got $(af_len "$OUT")"
+echo "$OUT" | jq -e '.auto_fixable[] | select(.dependency=="Yams" and .expected=="6.2.2")' >/dev/null \
+  || fail "mirror: dependency_version did not fire beside a mirror block"
+[ "$(echo "$OUT" | jq '[.needs_judgment[]|select(.type=="dead_link")]|length')" -eq 1 ] \
+  || fail "mirror: dead_link did not fire beside a mirror block"
+[ "$(echo "$OUT" | jq '[.needs_judgment[]|select(.type=="dangling_adr")]|length')" -eq 1 ] \
+  || fail "mirror: dangling_adr did not fire beside a mirror block"
+# exactly four mirror findings: mirrors.md's three FIRE blocks + coexist's one
+MIR=$(echo "$OUT" | jq '[.needs_judgment[]|select(.type=="embedded_source_mirror")]|length')
+[ "$MIR" -eq 4 ] || fail "mirror: expected 4 embedded_source_mirror, got $MIR: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="embedded_source_mirror").target]')"
+for want in "docs/mirrors.md::data/alpha.yaml" "docs/mirrors.md::data/delta.yaml" \
+            "docs/mirrors.md::data/epsilon.yaml" "docs/coexist.md::data/alpha.yaml"; do
+  echo "$OUT" | jq -e --arg t "$want" '.needs_judgment[]|select(.type=="embedded_source_mirror" and .target==$t)' >/dev/null \
+    || fail "mirror: expected mirror finding for $want"
+done
+# the SILENT set must produce no mirror finding
+for bad in "beta.yaml" "gamma.yaml" "zeta.yaml"; do
+  echo "$OUT" | jq -e --arg b "$bad" '.needs_judgment[]|select(.type=="embedded_source_mirror" and (.target|contains($b)))' >/dev/null \
+    && fail "mirror: $bad should be silent (identical / abridged / unattributable)" || true
+done
+# the coincidental-id block must not add a second location to the alpha finding
+ALOC=$(echo "$OUT" | jq '[.needs_judgment[]|select(.type=="embedded_source_mirror" and .target=="docs/mirrors.md::data/alpha.yaml")|.locations|length][0]')
+[ "$ALOC" -eq 1 ] || fail "mirror: mirrors.md alpha should have exactly 1 location (coincidental block leaked in?), got $ALOC"
+# a mirror finding carries only paths + judgment scalars, never block/source text
+# (it becomes a public GitHub issue body) — the allowed key set is closed.
+if echo "$OUT" | jq -e '.needs_judgment[]|select(.type=="embedded_source_mirror")|(keys - ["confidence","counter_evidence","locations","source","suggested_action","target","type"])|length>0' >/dev/null; then
+  fail "mirror: an embedded_source_mirror finding leaked an unexpected key (content leak?)"
+fi
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="embedded_source_mirror")|(has("confidence") and has("counter_evidence") and has("suggested_action") and has("source") and (.target==.source|not))]|all' >/dev/null \
+  || fail "mirror: a mirror finding is missing its pre-authored judgment scalars"
+
 echo "ALL TESTS PASSED"

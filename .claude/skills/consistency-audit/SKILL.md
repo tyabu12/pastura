@@ -191,8 +191,10 @@ For each `needs_judgment` finding (already deduped by `target`):
 1. **Dedup across runs:** search open issues for the target; skip if one
    exists. `gh issue list --state open --search "<target> in:title"`. Every
    finding carries a `target` for this — for `dead_link` it is the link path,
-   for `dangling_adr` it is the ADR id (`ADR-099`), so embed `target` in the
-   issue title verbatim.
+   for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
+   it is the `<docfile>::<sourcepath>` composite (so the same source mirrored in
+   two docs files two distinct issues) — embed `target` in the issue title
+   verbatim.
 2. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
@@ -201,10 +203,12 @@ For each `needs_judgment` finding (already deduped by `target`):
      correct new location only a human knows.
    - **Suggested action**, explicitly left for a human to decide.
 
-   Some detectors pre-author these fields. A `dangling_adr` finding already
-   carries `confidence`, `counter_evidence`, and `suggested_action` on the JSON
-   — use them verbatim rather than re-deriving. `dead_link` does not, so author
-   its confidence / counter-evidence at filing time as before.
+   Some detectors pre-author these fields. `dangling_adr` and
+   `embedded_source_mirror` findings already carry `confidence`,
+   `counter_evidence`, and `suggested_action` on the JSON — use them verbatim
+   rather than re-deriving (`embedded_source_mirror` also carries `source`, the
+   real file the block drifted from). `dead_link` does not, so author its
+   confidence / counter-evidence at filing time as before.
 
 Never auto-fix these — the whole point is the fix needs judgment.
 
