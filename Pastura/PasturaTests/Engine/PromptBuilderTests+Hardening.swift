@@ -64,6 +64,76 @@ extension PromptBuilderTests {
     #expect(prompt.contains("at most 3 sentences"))
   }
 
+  // Address rule (#911, harness-A/B-tuned): turn-based speak_each otherwise
+  // produces parallel monologues (0 % cross-reference at baseline). The rule
+  // lifted word_wolf address-rate to ~0.2–0.33 in BOTH ja and en with no
+  // agreement-formulae collapse. Scoped to speak_each ONLY.
+  @Test func systemPromptIncludesAddressRuleForSpeakEachJa() {
+    let scenario = makeScenario()
+    let phase = Phase(
+      type: .speakEach,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("必ず触れてから"))
+  }
+
+  @Test func systemPromptIncludesAddressRuleForSpeakEachEn() {
+    let scenario = makeScenario(language: "en")
+    let phase = Phase(
+      type: .speakEach,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(prompt.contains("refer to one of their statements"))
+  }
+
+  // Load-bearing scope guard: the A/B showed the address rule is inert on
+  // speak_all (simultaneous broadcast framing dominates) and mildly harmful
+  // there (parse-failure + boke-copying), so `buildAnswerRules` must NOT
+  // append it for .speakAll. If this fails, the scope guard regressed (#911).
+  @Test func systemPromptOmitsAddressRuleForSpeakAll() {
+    let scenario = makeScenario()
+    let phase = Phase(
+      type: .speakAll,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(!prompt.contains("必ず触れてから"))
+  }
+
+  // The scope guard is language-independent (a `phase.type` check ahead of
+  // pickLanguage), so speak_all omits the rule in en as well as ja.
+  @Test func systemPromptOmitsAddressRuleForSpeakAllEn() {
+    let scenario = makeScenario(language: "en")
+    let phase = Phase(
+      type: .speakAll,
+      prompt: "Speak!",
+      outputSchema: ["statement": "string"]
+    )
+    let state = SimulationState.initial(for: scenario)
+
+    let prompt = builder.buildSystemPrompt(
+      scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
+    )
+    #expect(!prompt.contains("refer to one of their statements"))
+  }
+
   // Placeholder example must appear when outputSchema is set, AND must
   // use placeholder syntax (`<ここに...>`) — concrete Japanese values
   // would risk Gemma 2B parroting the demonstrated content (round 2

@@ -180,6 +180,11 @@ nonisolated struct PromptBuilder: Sendable {
         - Output exactly one object starting with { and ending with }, with no surrounding text.
         """)
 
+    // Turn-based speak_each gets the #911 address rule (see `addressRule`).
+    if phase.type == .speakEach {
+      rules += addressRule(language: language)
+    }
+
     if phase.type == .choose, let options = phase.options {
       let optionsList = options.joined(separator: ", ")
       rules += pickLanguage(
@@ -205,6 +210,26 @@ nonisolated struct PromptBuilder: Sendable {
     }
 
     return rules
+  }
+
+  /// The #911 address rule appended for turn-based `speak_each` phases only.
+  ///
+  /// speak_each otherwise produces parallel monologues (0 % cross-reference at
+  /// baseline); a harness A/B on Gemma 4 E2B lifted word_wolf address-rate to
+  /// ~0.27 (ja) / ~0.18 (en) with no agreement-formulae collapse. It is NOT
+  /// appended for `speak_all`: the A/B showed it inert there (simultaneous
+  /// broadcast framing dominates, e.g. prisoners' "全員に向けて宣言") and mildly
+  /// harmful (parse failures + bokete boke-copying). The "反論でも疑問でもよい"
+  /// clause blocks the agreement-formulae collapse mode. Keep ja/en
+  /// scope-parallel; wording is harness-A/B-tuned.
+  private func addressRule(language: String) -> String {
+    pickLanguage(
+      language,
+      ja:
+        "\n- これまでの会話に他の誰かの発言があれば、そのうち1人の発言に必ず触れてから自分の意見を述べること（同意でも反論でも疑問でもよい）。まだ誰も発言していなければ自由に話してよい",
+      en:
+        "\n- If anyone has spoken earlier in the conversation, refer to one of their statements before giving your own opinion (agreement, disagreement, or a question all count). If no one has spoken yet, speak freely."
+    )
   }
 
   /// Render the `## 出力フォーマット（JSON）` / `## Output Format (JSON)`
