@@ -35,16 +35,30 @@ nonisolated struct EventReactivePayoffLogic: Sendable {
       emitter(.scoreUpdate(scores: state.scores))
       return
     }
+    let normalizedFavored = Self.normalize(favored)
 
     // `state.scores[name] != nil` gates out non-agent outputs; scores are
     // seeded for every agent at `SimulationState.initial`, so a live agent
     // is always present.
     for (name, output) in state.lastOutputs where state.scores[name] != nil {
-      if output.fields["action"] == favored {
+      guard let action = output.fields["action"] else { continue }
+      if Self.normalize(action) == normalizedFavored {
         state.scores[name, default: 0] += Self.matchReward
       }
     }
 
     emitter(.scoreUpdate(scores: state.scores))
+  }
+
+  /// Trim + case-fold for the action↔favored comparison. The individual
+  /// (non-round-robin) `choose` path stores the LLM's raw `action` into
+  /// `lastOutputs` without `ChooseHandler.validateAction` canonicalization,
+  /// and `choose` no longer grammar-constrains the value to the option set
+  /// (#597/#599). So the model may emit `"Betray"` / `" betray"` for a
+  /// `favors: betray` round; exact `==` would under-reward a correct read.
+  /// Curated `favors` values conventionally match the option casing, so
+  /// symmetric fold-both-sides never over-matches.
+  private static func normalize(_ value: String) -> String {
+    value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
   }
 }
