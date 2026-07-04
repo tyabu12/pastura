@@ -364,6 +364,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case scenarioIntro(id: UUID, premise: String)
     case simulationResult(id: UUID, model: SimulationResultCard.Model)
     case codePhaseLine(id: UUID, line: CodePhaseLine)
+    case roundSeparator(id: UUID, round: Int, totalRounds: Int)
+    case phaseSeparator(id: UUID, phaseType: PhaseType)
 
     var id: UUID {
       switch self {
@@ -372,6 +374,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       case .scenarioIntro(let id, _): return id
       case .simulationResult(let id, _): return id
       case .codePhaseLine(let id, _): return id
+      case .roundSeparator(let id, _, _): return id
+      case .phaseSeparator(let id, _): return id
       }
     }
   }
@@ -1021,21 +1025,30 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// for the subset of events ``YAMLReplaySource/plannedEvents()``
   /// can emit — see the sync-risk note in this file's header.
   ///
-  /// The `cyclomatic_complexity` waiver matches the live VM's `handleEvent`:
-  /// restoring the per-event code-phase lines (#932) split one combined case
-  /// into individual arms, one over the default bound — a flat dispatch, not
-  /// nested logic.
-  private func apply(_ event: SimulationEvent) {  // swiftlint:disable:this cyclomatic_complexity
+  /// The `cyclomatic_complexity` / `function_body_length` waivers match the
+  /// live VM's `handleEvent`: restoring the per-event code-phase lines and the
+  /// lifecycle chapter separators (#932) split combined cases into individual
+  /// arms — a flat dispatch, not nested logic.
+  private func apply(_ event: SimulationEvent) {  // swiftlint:disable:this cyclomatic_complexity function_body_length
     switch event {
     case .roundStarted(let round, let totalRounds):
       currentRound = round
       currentTotalRounds = totalRounds
+      // Inline round separator so the demo transcript chunks by round like the
+      // live sim (#932 follow-up). The GameHeader also carries round position,
+      // but the separator marks WHERE in the scroll history each round begins.
+      chatItems.append(
+        .roundSeparator(id: UUID(), round: round, totalRounds: totalRounds))
 
     case .phaseStarted(let phaseType, _):
       currentPhase = phaseType
       // Increment pseudo-ROUND counter. Survives pause/resume; reset
       // only on source rotation via ``resetPerDemoState(forSourceIndex:)``.
       phaseProgress += 1
+      // Inline phase separator, mirroring the live sim: LLM phases render a
+      // full-width chapter rule, code phases an inline badge (the host view
+      // dispatches on `phaseType.requiresLLM`).
+      chatItems.append(.phaseSeparator(id: UUID(), phaseType: phaseType))
 
     case .agentOutput(let agent, let output, let phaseType):
       let filtered = contentFilter.filter(output)

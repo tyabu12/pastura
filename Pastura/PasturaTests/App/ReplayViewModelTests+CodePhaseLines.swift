@@ -237,6 +237,73 @@ extension ReplayViewModelTests {
     #expect(value.contains("XXX"))
   }
 
+  // MARK: - Lifecycle chapter separators (#932 follow-up)
+
+  /// `.roundStarted` appends an inline round separator carrying the round pair,
+  /// mirroring the live sim's `roundSeparator`.
+  @Test func roundStartedAppendsRoundSeparator() async throws {
+    let viewModel = try Self.makeVM()  // threeTurnYAML: round 1 / total 1
+    viewModel.start()
+    await Self.waitForState(viewModel) { _ in
+      viewModel.chatItems.contains {
+        if case .roundSeparator = $0 { return true }
+        return false
+      }
+    }
+    #expect(
+      viewModel.chatItems.contains {
+        if case .roundSeparator(_, let round, let total) = $0 {
+          return round == 1 && total == 1
+        }
+        return false
+      })
+  }
+
+  /// `.phaseStarted` appends an inline phase separator carrying the phase type,
+  /// mirroring the live sim's `phaseSeparator` / inline badge dispatch.
+  @Test func phaseStartedAppendsPhaseSeparator() async throws {
+    let viewModel = try Self.makeVM()  // threeTurnYAML: speak_all
+    viewModel.start()
+    await Self.waitForState(viewModel) { _ in
+      viewModel.chatItems.contains {
+        if case .phaseSeparator = $0 { return true }
+        return false
+      }
+    }
+    #expect(
+      viewModel.chatItems.contains {
+        if case .phaseSeparator(_, let phaseType) = $0 { return phaseType == .speakAll }
+        return false
+      })
+  }
+
+  /// Chapter order at a source head: round separator → phase separator → the
+  /// round's first agent turn (no intro card here — the default fixture's
+  /// `description` is empty).
+  @Test func separatorsPrecedeFirstTurn() async throws {
+    let viewModel = try Self.makeVM()
+    viewModel.start()
+    await Self.waitForState(viewModel) { _ in !viewModel.agentOutputs.isEmpty }
+    let roundIndex = viewModel.chatItems.firstIndex {
+      if case .roundSeparator = $0 { return true }
+      return false
+    }
+    let phaseIndex = viewModel.chatItems.firstIndex {
+      if case .phaseSeparator = $0 { return true }
+      return false
+    }
+    let turnIndex = viewModel.chatItems.firstIndex {
+      if case .agentOutput = $0 { return true }
+      return false
+    }
+    guard let roundIndex, let phaseIndex, let turnIndex else {
+      Issue.record("Missing a separator or turn in \(viewModel.chatItems)")
+      return
+    }
+    #expect(roundIndex < phaseIndex)
+    #expect(phaseIndex < turnIndex)
+  }
+
   @Test func filtersSummaryText() async throws {
     let yaml = """
       schema_version: 1

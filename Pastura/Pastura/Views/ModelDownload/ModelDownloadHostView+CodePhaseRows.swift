@@ -118,4 +118,45 @@ extension ModelDownloadHostView {
         .foregroundStyle(Color.muted)
     }
   }
+
+  // MARK: - Lifecycle chapter separators (#932 follow-up)
+
+  /// Full-width round separator, mirroring `SimulationView.roundSeparator`.
+  /// Reuses the `"Round %lld / %lld"` key already wired into `GameHeader` so the
+  /// separator label and header label stay translation-aligned.
+  func demoRoundSeparator(id: UUID, round: Int, totalRounds: Int) -> some View {
+    HStack {
+      Rectangle().fill(Color.rule).frame(height: 1)
+      Text(String(format: String(localized: "Round %lld / %lld"), round, totalRounds))
+        .textStyle(Typography.metaLabel)
+        .foregroundStyle(Color.inkSecondary)
+      Rectangle().fill(Color.rule).frame(height: 1)
+    }
+    .padding(.vertical, 4)
+    .id(id)
+    .transition(reduceMotion ? .identity : .opacity)
+  }
+
+  /// Phase separator, mirroring the live sim's `.phaseStarted` dispatch: LLM
+  /// phases (speak / vote / choose) get a full-width chapter rule around a
+  /// `PhaseTypeLabel`; code phases (assign / score_calc / summarize) keep the
+  /// inline badge to avoid over-chunking code-phase-heavy scenarios (#882).
+  @ViewBuilder
+  func demoPhaseSeparator(id: UUID, phaseType: PhaseType) -> some View {
+    Group {
+      if phaseType.requiresLLM {
+        HStack {
+          Rectangle().fill(Color.rule).frame(height: 1)
+          PhaseTypeLabel(phaseType: phaseType)
+          Rectangle().fill(Color.rule).frame(height: 1)
+        }
+        .padding(.vertical, 4)
+      } else {
+        PhaseTypeLabel(phaseType: phaseType)
+          .padding(.top, 4)
+      }
+    }
+    .id(id)
+    .transition(reduceMotion ? .identity : .opacity)
+  }
 }
