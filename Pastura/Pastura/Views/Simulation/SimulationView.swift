@@ -988,8 +988,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         debugRowID: entry.id.uuidString
       )
     case .phaseStarted(let phaseType):
-      PhaseTypeLabel(phaseType: phaseType)
-        .padding(.top, 4)
+      // LLM phases (speak / vote / choose) become full-width separators
+      // so the transcript chunks into phase "chapters" (#882); code
+      // phases keep the inline badge to avoid over-chunking
+      // code-phase-heavy scenarios.
+      if phaseType.requiresLLM {
+        phaseSeparator(phaseType)
+      } else {
+        PhaseTypeLabel(phaseType: phaseType)
+          .padding(.top, 4)
+      }
     case .roundStarted(let round, let total):
       // Reuses the `Round %lld / %lld` key already wired into GameHeader
       // so the round-separator label and header label stay translation-aligned.
