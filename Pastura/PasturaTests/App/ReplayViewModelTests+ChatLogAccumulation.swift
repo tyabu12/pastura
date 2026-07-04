@@ -147,8 +147,11 @@ extension ReplayViewModelTests {
     #expect(
       boundaryCount == 0,
       "Loop wrap must wipe boundaries, got \(viewModel.chatItems)")
+    // Source 0's fresh replay contributes at most its two lifecycle separators
+    // + one agent turn (#932 follow-up) — well under the pre-wrap 7-item stream,
+    // proving the wipe happened.
     #expect(
-      viewModel.chatItems.count <= 1,
+      viewModel.chatItems.count <= 3,
       "Loop wrap must wipe accumulator, got count=\(viewModel.chatItems.count)")
   }
 
@@ -168,7 +171,9 @@ extension ReplayViewModelTests {
     }
     let preBackgroundCount = viewModel.chatItems.count
     let preBackgroundIds = viewModel.chatItems.map(\.id)
-    #expect(preBackgroundCount == 3)
+    // 2 sources × [roundSeparator, phaseSeparator, agentOutput] + 1 boundary
+    // = 7 items (#932 follow-up added the lifecycle separators).
+    #expect(preBackgroundCount == 7)
 
     viewModel.onBackground()
     if case .paused(_, _, _, .scenePhase) = viewModel.state {
@@ -197,7 +202,8 @@ extension ReplayViewModelTests {
       state == .idle
     }
     #expect(
-      viewModel.chatItems.count == 3, "Prior run must hold both demos + boundary")
+      viewModel.chatItems.count == 7,
+      "Prior run must hold both demos' separators + turns + boundary")
 
     viewModel.start()
     // Synchronous post-start: `start()` body wipes chatItems before

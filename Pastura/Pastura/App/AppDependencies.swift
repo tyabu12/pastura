@@ -18,6 +18,7 @@ final class AppDependencies: @unchecked Sendable {
   let simulationRepository: any SimulationRepository
   let turnRepository: any TurnRepository
   let codePhaseEventRepository: any CodePhaseEventRepository
+  let predictionRepository: any PredictionRepository
 
   /// The LLM service used for simulation execution.
   ///
@@ -83,6 +84,7 @@ final class AppDependencies: @unchecked Sendable {
     self.simulationRepository = GRDBSimulationRepository(dbWriter: writer)
     self.turnRepository = GRDBTurnRepository(dbWriter: writer)
     self.codePhaseEventRepository = GRDBCodePhaseEventRepository(dbWriter: writer)
+    self.predictionRepository = GRDBPredictionRepository(dbWriter: writer)
     if let llmService {
       self.llmService = llmService
     } else {

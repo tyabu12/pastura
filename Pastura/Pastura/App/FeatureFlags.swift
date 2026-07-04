@@ -26,6 +26,7 @@ nonisolated enum FeatureFlags {
   private static let realtimeStreamingKey = "realtimeStreamingEnabled"
   private static let backgroundContinuationKey = "backgroundContinuationEnabled"
   private static let keepRunningOnLeaveKey = "keepRunningOnLeaveEnabled"
+  private static let viewerPredictionKey = "viewerPredictionEnabled"
 
   // MARK: - Read accessors
 
@@ -127,12 +128,32 @@ nonisolated enum FeatureFlags {
     defaultsReadBool(key: keepRunningOnLeaveKey, default: false)
   }
 
+  /// Whether the viewer-prediction sheet interrupts the first vote reveal to
+  /// ask the viewer to predict the outcome ("who is the wolf?" / "who is #1?";
+  /// #915). Gates the `SimulationViewModel` interception; when `false`, runs
+  /// play straight through with no prediction and no DB writes.
+  ///
+  /// **Opt-out flag — defaults to `true`.** It is the headline
+  /// experience-changer from the #906 interestingness umbrella, so it ships
+  /// enabled for discoverability; the sheet is skippable and time-boxed, so
+  /// "watch only" viewers are not obstructed. User-facing: the Settings toggle
+  /// writes it via ``setViewerPredictionEnabled(_:)``.
+  static var viewerPredictionEnabled: Bool {
+    defaultsReadBool(key: viewerPredictionKey, default: true)
+  }
+
   // MARK: - Write accessors
 
   /// Persists the user's choice for ``keepRunningOnLeaveEnabled`` (Settings
   /// toggle). Read on demand (no caching), so the next leave honours it.
   static func setKeepRunningOnLeave(_ enabled: Bool) {
     UserDefaults.standard.set(enabled, forKey: keepRunningOnLeaveKey)
+  }
+
+  /// Persists the user's choice for ``viewerPredictionEnabled`` (Settings
+  /// toggle). Read on demand (no caching), so the next run honours it.
+  static func setViewerPredictionEnabled(_ enabled: Bool) {
+    UserDefaults.standard.set(enabled, forKey: viewerPredictionKey)
   }
 
   // MARK: - Helpers

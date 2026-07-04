@@ -93,4 +93,33 @@ struct SimulationViewModelIntroGateTests {
     #expect(resumed == true)
     #expect(sut.isPlayingIntro == false)
   }
+
+  // MARK: - Premise reveal-begun latch (#934, ADR-017 Phase B adopt path)
+
+  /// The latch starts false so a genuinely fresh run's premise types.
+  @Test func introRevealHasBegunStartsFalse() throws {
+    let sut = try makeSUT()
+    #expect(sut.introRevealHasBegun == false)
+  }
+
+  /// The card's `onRevealStarted` latches it — so a later View re-projection
+  /// (adopt / keep-running return) renders the premise static, not re-typed.
+  @Test func markIntroRevealBeganLatchesAcrossReprojection() throws {
+    let sut = try makeSUT()
+    sut.markIntroRevealBegan()
+    #expect(sut.introRevealHasBegun == true)
+    // Idempotent — a re-mounted card firing again keeps it latched.
+    sut.markIntroRevealBegan()
+    #expect(sut.introRevealHasBegun == true)
+  }
+
+  /// A brand-new run re-arms the gate and clears the begun-latch so its own
+  /// premise types from scratch.
+  @Test func beginIntroResetsRevealBegunLatch() throws {
+    let sut = try makeSUT()
+    sut.markIntroRevealBegan()
+    #expect(sut.introRevealHasBegun == true)
+    sut.beginIntro(revealBackstop: 60)
+    #expect(sut.introRevealHasBegun == false)
+  }
 }

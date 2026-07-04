@@ -35,6 +35,12 @@ extension ModelDownloadHostView {
                 demoIntroCard(id: id, premise: premise, viewModel: viewModel)
               case .simulationResult(let id, let model):
                 demoResultCard(id: id, model: model)
+              case .codePhaseLine(let id, let line):
+                demoCodePhaseRow(id: id, line: line)
+              case .roundSeparator(let id, let round, let total):
+                demoRoundSeparator(id: id, round: round, totalRounds: total)
+              case .phaseSeparator(let id, let phaseType):
+                demoPhaseSeparator(id: id, phaseType: phaseType)
               }
             }
           }

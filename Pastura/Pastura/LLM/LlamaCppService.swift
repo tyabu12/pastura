@@ -233,7 +233,16 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   deinit {
     // Safety net: free C resources if still loaded.
     if loadedState.withLock({ $0 }) {
-      if let ctx = _context { llama_free(ctx) }
+      if let ctx = _context {
+        // Same UAF guard as `unloadModel`: drain in-flight Metal
+        // command-buffer completions before freeing the context, else an
+        // async completion can reference already-freed buffers (#928).
+        // `deinit` cannot `await awaitGenerateIdle`, so it has no other
+        // drain — low-probability (unloadModel normally clears
+        // `loadedState` first) but the identical pattern, closed symmetrically.
+        llama_synchronize(ctx)
+        llama_free(ctx)
+      }
       if let mdl = _model { llama_model_free(mdl) }
       llama_backend_free()
     }
@@ -354,7 +363,24 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
     guard wasLoaded else { return }
 
     // Free C resources
-    if let ctx = _context { llama_free(ctx) }
+    if let ctx = _context {
+      // Drain in-flight GPU work + Metal command-buffer completions BEFORE
+      // freeing. `awaitGenerateIdle` above clears the Swift-level
+      // `generatingGuard`, but that does NOT wait for the last decode's
+      // async command-buffer completion notification (dispatched on
+      // `com.Metal.CompletionQueueDispatch`). Without this barrier, that
+      // completion can fire after `llama_free` has released the Metal
+      // buffers / residency sets it references → EXC_BAD_ACCESS
+      // (use-after-free). Most visible when a run is interrupted mid-decode,
+      // where teardown immediately follows the last (unsynchronized) decode.
+      // Trade-off: `llama_synchronize` is a bounded wait once in-flight
+      // buffers drain, but a wedged / GPU-denied context (the #680 failure
+      // family, same trigger path) could block here — accepted, since a
+      // recoverable hang beats a use-after-free crash.
+      // (#928; shares the unload-on-interrupt trigger with #680.)
+      llama_synchronize(ctx)
+      llama_free(ctx)
+    }
     if let mdl = _model { llama_model_free(mdl) }
     _context = nil
     _model = nil

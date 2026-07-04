@@ -894,6 +894,16 @@
         }
       }
     },
+    "%lld in a row" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連続 %lld"
+          }
+        }
+      }
+    },
     "%lld minutes ago" : {
       "localizations" : {
         "ja" : {
@@ -955,6 +965,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld ラウンド"
+          }
+        }
+      }
+    },
+    "%lld s left" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り %lld 秒"
           }
         }
       }
@@ -1789,6 +1809,16 @@
         }
       }
     },
+    "Before the votes are revealed, guess the outcome and track your streak. You can always skip." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票結果が公開される前に結果を予想して、連続的中を記録しよう。いつでもスキップできます。"
+          }
+        }
+      }
+    },
     "Branch on state (code, then/else sub-phases)" : {
       "localizations" : {
         "ja" : {
@@ -2160,6 +2190,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "生成プロンプトをコピー"
+          }
+        }
+      }
+    },
+    "Correct!" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "的中！"
           }
         }
       }
@@ -3804,6 +3844,16 @@
         }
       }
     },
+    "Make your prediction" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予想してみよう"
+          }
+        }
+      }
+    },
     "Manage in Settings" : {
       "localizations" : {
         "en" : {
@@ -3848,6 +3898,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "メモリ不足のため一時停止しました。再開して続行できます。"
+          }
+        }
+      }
+    },
+    "Missed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外れ"
           }
         }
       }
@@ -4689,6 +4749,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロード中はアプリを開いたままにしてください。"
+          }
+        }
+      }
+    },
+    "Predict the outcome" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果を予想する"
           }
         }
       }
@@ -5659,6 +5729,16 @@
         }
       }
     },
+    "Skip" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキップ"
+          }
+        }
+      }
+    },
     "Social Psychology" : {
       "localizations" : {
         "ja" : {
@@ -6493,6 +6573,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "進行の流れ"
+          }
+        }
+      }
+    },
+    "Who do you think the wolf is?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウルフは誰だと思う？"
+          }
+        }
+      }
+    },
+    "Who do you think will get the most votes?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誰が一番票を集めると思う？"
           }
         }
       }

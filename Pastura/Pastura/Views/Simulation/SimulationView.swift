@@ -55,11 +55,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // Accessed from SimulationView+Background.swift extension for the toggle subtitle.
   @State var scenario: Scenario?
   @State private var showScoreboard = false
-  /// Latches the opening card's premise reveal to a single run (#853): once the
-  /// typewriter *begins*, the card renders statically on any later re-mount
-  /// (e.g. scrolling back to the top) instead of re-typing — set at reveal
-  /// start so an interrupted reveal still latches.
-  @State private var introHasTyped = false
   /// Drives the final-ranking card's animated insertion at run completion
   /// (#868). Mirrors `viewModel.isCompleted`, but flipped inside `withAnimation`
   /// so the card fades/slides in — `isCompleted` is set on the VM outside any
@@ -145,6 +140,22 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // `.simulation` and `.resumeSimulation` routes (both render SimulationView).
     // See ADR-017; opt-in cross-screen continuation is deferred to Phase B.
     .toolbar(.hidden, for: .tabBar)
+    .onAppear { viewModel?.setViewVisible(true) }
+    // Viewer-prediction sheet (#915). The binding's nil-set path (interactive
+    // dismiss, blocked below) routes to a skip; normal resolution is driven by
+    // the sheet's `onResolve`, which clears `predictionPrompt` in the VM.
+    .sheet(
+      item: Binding(
+        get: { viewModel?.predictionPrompt },
+        set: { if $0 == nil { viewModel?.resolvePrediction(.skipped) } })
+    ) { prompt in
+      ViewerPredictionSheet(
+        question: prompt.question,
+        candidates: prompt.candidates,
+        onResolve: { viewModel?.resolvePrediction($0) }
+      )
+      .presentationDetents([.medium, .large])
+    }
     .task {
       // Phase B (ADR-017): reconnect to a run the app-level session still owns
       // instead of starting a fresh one. Under "keep running" the run survives
@@ -155,6 +166,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       if let adopted = session.adoptIfMatching(source: source) {
         viewModel = adopted
         scenario = session.scenario
+        // Deliberately NO reveal-state reset here: the adopted VM carries
+        // `introRevealHasBegun` / `latestRowRevealCompleted` from the original
+        // mount, and that survival is exactly what keeps the premise + latest
+        // row from re-typing on this re-projection (#934). `beginIntro` /
+        // `run()`'s reset run only on a fresh start, which this path bypasses.
         // Returning to the screen clears the view-hide park; if no other reason
         // holds (app-background / user-pause), the parked generate resumes.
         session.requestResume(reason: .viewHide)
@@ -187,6 +203,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // `.paused`). Ownership-guarded so a view that never owned the live run
     // doesn't tear one down. See `disappearAction(...)`.
     .onDisappear {
+      // Leaving the screen resolves any pending prediction sheet as a skip so
+      // it doesn't resurface stale on return (#915).
+      viewModel?.setViewVisible(false)
       let session = dependencies.simulationSession
       switch Self.disappearAction(
         leaveHandled: leaveHandled,
@@ -477,20 +496,25 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             // ForEach below. Title is `nil`: the header already shows the name.
             // Hidden when the scenario has no description (Model init? → nil).
             // The premise types in at the playback speed as the scene-setting
-            // beat; `introHasTyped` latches it to a single reveal so scrolling
-            // back to the top doesn't re-type (the card lives in this
-            // LazyVStack). `.instant` speed (`charsPerSecond == nil`) and
-            // Reduce Motion fall to the static path inside the card. Resume
-            // entries render statically (no typing, no gate) — the reveal beat
-            // is only for a fresh run's start. `onRevealComplete` releases the
-            // VM intro gate so the conversation starts after the reveal (#853).
+            // beat; `viewModel.introRevealHasBegun` latches it to a single
+            // reveal so scrolling back to the top doesn't re-type (the card
+            // lives in this LazyVStack). The latch lives on the VM (not View
+            // `@State`) so it survives an ADR-017 Phase B adopt re-projection —
+            // returning to a parked run must not re-type the premise (#934).
+            // `.instant` speed (`charsPerSecond == nil`) and Reduce Motion fall
+            // to the static path inside the card. Resume entries render
+            // statically (no typing, no gate) — the reveal beat is only for a
+            // fresh run's start. `onRevealComplete` releases the VM intro gate
+            // so the conversation starts after the reveal (#853).
             if let introModel {
               ScenarioIntroCard(
                 model: introModel,
-                charsPerSecond: (isResumeEntry || introHasTyped)
-                  ? nil : viewModel.speed.charsPerSecond,
+                charsPerSecond: Self.premiseCharsPerSecond(
+                  isResumeEntry: isResumeEntry,
+                  introRevealHasBegun: viewModel.introRevealHasBegun,
+                  speedCharsPerSecond: viewModel.speed.charsPerSecond),
                 leadIn: introLeadIn(for: viewModel.speed),
-                onRevealStarted: { introHasTyped = true },
+                onRevealStarted: { viewModel.markIntroRevealBegan() },
                 onRevealComplete: { viewModel.introRevealDidComplete() }
               )
             }
@@ -577,6 +601,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               )
               .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+
+            // Viewer-prediction reward (#915): hit/miss + streak, shown with the
+            // result card when the run had an answered prediction.
+            predictionOutcomeBadge(viewModel: viewModel)
 
             // Bottom sentinel: scrollTo target that stays below every other
             // section (log entries, thinking indicators). Scrolling here
@@ -777,6 +805,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       phases: scenario?.phases ?? [])
   }
 
+  /// The viewer-prediction reward badge, shown with the result card once the
+  /// run completes and only when the run had an answered prediction (#915).
+  /// Extracted from the timeline body to keep its cyclomatic complexity in
+  /// budget.
+  @ViewBuilder
+  private func predictionOutcomeBadge(viewModel: SimulationViewModel) -> some View {
+    if resultCardVisible, let outcome = viewModel.predictionOutcome {
+      PredictionOutcomeBadge(isHit: outcome.isHit, streak: outcome.streak)
+        .transition(.opacity)
+    }
+  }
+
   /// Whether any real score exists — gates the closing card's tap-to-scoreboard
   /// affordance (the `ScoreboardSheet` is score-centric; a vote-only outcome
   /// would render misleading all-zero rows).
@@ -790,6 +830,20 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   private var isResumeEntry: Bool {
     if case .resume = source { return true }
     return false
+  }
+
+  /// Typing speed for the opening premise card, or `nil` for the static (no
+  /// typing) path. Pure so the reveal-gate logic is unit-tested (ADR-009):
+  /// - Resume entries (`isResumeEntry`) never re-play the reveal beat.
+  /// - Once the reveal has begun (`introRevealHasBegun`, a VM latch that
+  ///   survives an ADR-017 Phase B adopt re-projection), the card is static so
+  ///   returning to a parked run doesn't re-type the premise (#934).
+  /// - Otherwise it types at the playback speed (`.instant` passes `nil` here,
+  ///   collapsing to the static path).
+  static func premiseCharsPerSecond(
+    isResumeEntry: Bool, introRevealHasBegun: Bool, speedCharsPerSecond: Double?
+  ) -> Double? {
+    (isResumeEntry || introRevealHasBegun) ? nil : speedCharsPerSecond
   }
 
   /// A short "held breath" before the premise starts typing so the reveal
@@ -941,6 +995,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         // yanks back to the bottom.
         onRevealProgress: {
           if isLatest { scrollToBottom(proxy) }
+        },
+        // Record the latest row's reveal completion on the VM so an ADR-017
+        // Phase B adopt re-projection renders it static instead of re-typing
+        // (#934). Guarded to the latest row; the VM re-guards on entry id.
+        onRevealCompleted: {
+          if isLatest { viewModel.markLatestRowRevealCompleted(entryId: entry.id) }
         },
         // Grow the bubble with the revealed prefix so the handoff from the
         // streaming row is seamless (self-gates: only the latest animating
@@ -1228,6 +1288,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       turnRepository: deps.turnRepository,
       codePhaseEventRepository: deps.codePhaseEventRepository,
       scenarioRepository: deps.scenarioRepository,
+      predictionRepository: deps.predictionRepository,
       backgroundManager: deps.backgroundManager,
       simulationActivityRegistry: deps.simulationActivityRegistry
     )
