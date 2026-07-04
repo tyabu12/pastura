@@ -89,7 +89,13 @@ nonisolated struct AssignHandler: PhaseHandler {
     state.variables["assigned_topic"] = item
     for persona in active {
       state.variables["assigned_\(persona.name)"] = item
-      emitter(.assignment(agent: persona.name, value: item))
     }
+    // Every agent got the SAME item, so emit one shared-topic event for the
+    // whole round — N per-agent `.assignment` events would misleadingly read
+    // as N different assignments (#939). The per-persona `assigned_<name>`
+    // variables above are still set so prompt expansion has each agent's copy.
+    // `assignRandomOne` keeps per-agent `.assignment` (each gets a different
+    // secret).
+    emitter(.sharedAssignment(value: item))
   }
 }

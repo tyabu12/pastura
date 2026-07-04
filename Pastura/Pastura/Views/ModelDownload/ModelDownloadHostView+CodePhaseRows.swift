@@ -37,6 +37,16 @@ extension ModelDownloadHostView {
       Text(String(format: String(localized: "%@ assigned: %@"), agent, value))
         .textStyle(Typography.metaValue)
         .foregroundStyle(Color.muted)
+    case .sharedAssignment(let value):
+      // Mirrors `SimulationView.sharedAssignmentEntry` (#939): clipboard icon +
+      // verbatim value, no label. `Text(verbatim:)` — dynamic content, not a key.
+      HStack(spacing: 4) {
+        Image(systemName: "list.clipboard")
+          .foregroundStyle(Color.inkSecondary)
+        Text(verbatim: value)
+          .textStyle(Typography.metaValue)
+          .foregroundStyle(Color.muted)
+      }
     case .summary(let text):
       // Mirrors `SimulationView.summaryEntry`.
       Text(text)

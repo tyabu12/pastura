@@ -34,6 +34,14 @@ nonisolated public enum CodePhaseEventPayload: Codable, Sendable, Equatable {
   /// (e.g., wolf/villager role in Word Wolf).
   case assignment(agent: String, value: String)
 
+  /// A shared value assigned to *all* agents by an `assign` phase with
+  /// `target: all` (e.g. the round's お題). Rendered as one topic line with
+  /// no agent attribution, distinct from the per-agent
+  /// ``assignment(agent:value:)`` (word wolf). Additive case — old
+  /// `.assignment` rows keep decoding, so no data migration is required
+  /// (see the type-level wire-format note). See #939.
+  case sharedAssignment(value: String)
+
   /// An `event_inject` phase rolled its probability and either selected
   /// a random event string (`event != nil`) or missed (`event == nil`).
   /// The miss case persists explicitly so past-results timelines can

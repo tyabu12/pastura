@@ -52,6 +52,12 @@ package enum EventLineMapper {
     case .assignment(let agent, let value):
       return EventLine(
         t: t, attempt: attempt, event: "assignment", agent: agent, value: value)
+    case .sharedAssignment(let value):
+      // Shared お題 for the whole round (#939) — distinct event name so
+      // `jsonl_to_demo_replay.py` can tell it apart from per-agent `assignment`
+      // (word wolf).
+      return EventLine(
+        t: t, attempt: attempt, event: "shared_assignment", value: value)
     case .summary(let text):
       return EventLine(t: t, attempt: attempt, event: "summary", value: text)
     case .voteResults(let votes, let tallies):
@@ -102,7 +108,7 @@ package enum EventLineMapper {
       return nil
     case .roundStarted, .roundCompleted, .phaseStarted, .phaseCompleted,
       .agentOutput, .agentOutputStream, .scoreUpdate, .elimination,
-      .assignment, .summary, .voteResults, .pairingResult,
+      .assignment, .sharedAssignment, .summary, .voteResults, .pairingResult,
       .conditionalEvaluated, .eventInjected:
       // Handled by the earlier tiers; unreachable here. Listed explicitly
       // (no `default:`) so a NEW SimulationEvent case breaks compilation in

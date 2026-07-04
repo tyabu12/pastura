@@ -68,6 +68,8 @@ enum ResumeLogReplayMapper {
         agent1: agent1, action1: action1, agent2: agent2, action2: action2)
     case .assignment(let agent, let value):
       return .assignment(agent: agent, value: value)
+    case .sharedAssignment(let value):
+      return .sharedAssignment(value: value)
     case .eventInjected(let event):
       return .eventInjected(event: event)
     }

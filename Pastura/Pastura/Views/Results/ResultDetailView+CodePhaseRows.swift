@@ -36,6 +36,8 @@ extension ResultDetailView {
       pairingRow(agent1: agent1, action1: action1, agent2: agent2, action2: action2)
     case .assignment(let agent, let value):
       assignmentRow(agent: agent, value: value)
+    case .sharedAssignment(let value):
+      sharedAssignmentRow(value: value)
     case .eventInjected(let event):
       eventInjectedRow(event: event)
     }
@@ -118,6 +120,19 @@ extension ResultDetailView {
     Text(String(format: String(localized: "%@ assigned: %@"), filtered(agent), filtered(value)))
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)
+  }
+
+  // Shared お題 assigned to every agent (#939). Mirrors
+  // `SimulationView.sharedAssignmentEntry`: clipboard icon + verbatim value, no
+  // "Topic:" label (the value is self-framing). `Text(verbatim:)` — the value
+  // is dynamic content, not a `LocalizedStringKey`.
+  private func sharedAssignmentRow(value: String) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: "list.clipboard").foregroundStyle(Color.inkSecondary)
+      Text(verbatim: filtered(value))
+        .textStyle(Typography.metaValue)
+        .foregroundStyle(Color.muted)
+    }
   }
 
   // The miss case (`event == nil`) renders an explicit "no event"

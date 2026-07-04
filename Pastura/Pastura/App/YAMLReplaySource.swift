@@ -411,6 +411,7 @@ extension YAMLReplaySource {
     case "voteResults": return try decodeVoteResults(payload)
     case "pairingResult": return try decodePairingResult(payload)
     case "assignment": return try decodeAssignment(payload)
+    case "sharedAssignment": return decodeSharedAssignment(payload)
     case "eventInjected": return decodeEventInjected(payload)
     default: return nil
     }
@@ -464,6 +465,17 @@ extension YAMLReplaySource {
     }
     let value = payload["value"] as? String ?? ""
     return .assignment(agent: agent, value: value)
+  }
+
+  /// Decodes a shared-assignment payload (#939) — the round's お題 assigned to
+  /// every agent, carrying no agent attribution. A missing `value` (legacy /
+  /// hand-written replays) maps to the empty string, mirroring the lenient
+  /// `value` handling in ``decodeAssignment(_:)``.
+  private static func decodeSharedAssignment(
+    _ payload: [String: Any]
+  ) -> SimulationEvent {
+    let value = payload["value"] as? String ?? ""
+    return .sharedAssignment(value: value)
   }
 
   /// Decodes an `event_inject` payload. The miss case (`event: null`)

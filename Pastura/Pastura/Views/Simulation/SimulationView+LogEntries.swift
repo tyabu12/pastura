@@ -28,6 +28,21 @@ extension SimulationView {
       .foregroundStyle(Color.muted)
   }
 
+  // Shared お題 assigned to every agent (`assign` target: all, #939). The
+  // clipboard icon disambiguates a topic line from an agent statement, and the
+  // value is self-framing (e.g. `やらかし「…」`, `Your blunder: …`) so no
+  // "Topic:" label is added. `Text(verbatim:)` — the value is dynamic content,
+  // not a `LocalizedStringKey`, and must not be looked up in the catalog.
+  func sharedAssignmentEntry(value: String) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: "list.clipboard")
+        .foregroundStyle(Color.inkSecondary)
+      Text(verbatim: value)
+        .textStyle(Typography.metaValue)
+        .foregroundStyle(Color.muted)
+    }
+  }
+
   func summaryEntry(text: String) -> some View {
     Text(text)
       .textStyle(Typography.bodyBubble)

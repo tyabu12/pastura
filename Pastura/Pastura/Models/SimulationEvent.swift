@@ -69,6 +69,15 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// Data has been assigned to an agent (from `assign` phase).
   case assignment(agent: String, value: String)
 
+  /// The same shared value was assigned to *every* agent (from an `assign`
+  /// phase with `target: all`, e.g. the round's お題). Emitted once per round,
+  /// carrying no agent attribution, so consumers render a single topic line
+  /// rather than N identical `assignment` lines. Distinct from the per-agent
+  /// ``assignment(agent:value:)`` (word wolf, `target: random_one`), which
+  /// stays one event per agent because each agent gets a different secret.
+  /// See #939.
+  case sharedAssignment(value: String)
+
   /// A summary text was generated (from `summarize` phase).
   case summary(text: String)
 
