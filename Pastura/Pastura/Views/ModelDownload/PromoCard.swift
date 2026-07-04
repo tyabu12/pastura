@@ -11,11 +11,13 @@ import SwiftUI
 /// 3. Inline retry affordance when `.error` arrives *after* replay has
 ///    started, per ADR-007 §3.3 (b) — the progress area swaps to an
 ///    error message + retry button while the body copy keeps rotating.
-/// 4. Optional inline Cancel: when `onCancel` is non-nil, a small `X`
-///    sits on the trailing edge of the progress / retry row. The card
-///    is the natural home for it because the action targets the DL
-///    that the card is rendering — colocating destructive intent with
-///    its target. The host owns the confirmation dialog.
+/// 4. Optional Cancel: when `onCancel` is non-nil, a full-width "Stop
+///    download" link sits at the card's bottom edge. The card is the
+///    natural home for it because the action targets the DL that the
+///    card is rendering. Its own fixed-geometry row (not the
+///    per-progress-rebuilt meta row) keeps the tap target stable — the
+///    former trailing chip could drop a first tap under that churn. The
+///    host owns the confirmation dialog.
 struct PromoCard: View {
 
   let modelState: ModelState
@@ -28,8 +30,8 @@ struct PromoCard: View {
   /// or over-reported for any non-Gemma model.
   let totalBytes: Int64
   let onRetry: () -> Void
-  /// When set, renders a small `X` button at the trailing edge of the
-  /// progress / retry row. When `nil`, no cancel affordance is shown
+  /// When set, renders a full-width "Stop download" link at the card's
+  /// bottom edge. When `nil`, no cancel affordance is shown
   /// (first-launch DL is uncancellable per the slot's contract).
   let onCancel: (() -> Void)?
 
@@ -73,6 +75,9 @@ struct PromoCard: View {
     VStack(alignment: .leading, spacing: 0) {
       metaRow
       bodyRow
+      if let onCancel {
+        cancelLinkRow(action: onCancel)
+      }
     }
     .background(cardBackground)
     // `leftAccent` is overlaid BEFORE the clip so the card's rounded corner
@@ -168,10 +173,6 @@ struct PromoCard: View {
           .foregroundStyle(Color.metaBaseL3)
 
         Spacer(minLength: 0)
-
-        if let onCancel {
-          cancelButton(action: onCancel)
-        }
       }
 
       if pct < 100, let etaText = Self.formatEta(minutes: etaMinutes) {
@@ -188,33 +189,28 @@ struct PromoCard: View {
     .accessibilityAddTraits(.updatesFrequently)
   }
 
-  /// Trailing-edge "Cancel" button for the progress / retry row
-  /// (renders as "キャンセル" via the existing "Cancel" xcstrings ja key).
-  /// Neutral styling — `inkSecondary` text + `rule` 1pt border + clear
-  /// fill — per `design-system.md` §2.6 "Cancel ボタンは赤くしない".
-  /// The pastoral voice rejects red here; `danger` is reserved for
-  /// the destructive-confirmation primary button instead.
-  ///
-  /// Tap target meets the HIG floor by stretching the button frame
-  /// past the visible bordered chip via padding + `contentShape`,
-  /// so the surrounding content area registers taps without inflating
-  /// the visible chrome.
-  private func cancelButton(action: @escaping () -> Void) -> some View {
+  /// Full-width "Stop download" link at the card's bottom edge, shown only
+  /// when `onCancel` is set. Replaces the former trailing-edge chip: living
+  /// in its own fixed-geometry row — not the meta row that rebuilds on every
+  /// progress update — keeps the hit region stable, and the full-width target
+  /// is easier to hit. Neutral styling (`inkSecondary` text, `rule` hairline
+  /// divider, no fill) per `design-system.md` §2.6 "Cancel ボタンは赤くしない";
+  /// the visible text is self-describing, so no separate accessibility label.
+  private func cancelLinkRow(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Text(String(localized: "Cancel"))
+      Text(String(localized: "Stop download"))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .overlay {
-          RoundedRectangle(cornerRadius: Radius.button)
-            .strokeBorder(Color.rule, lineWidth: 1)
-        }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
         .contentShape(Rectangle())
+        .overlay(alignment: .top) {
+          Rectangle()
+            .fill(Color.rule)
+            .frame(height: 1)
+        }
     }
     .buttonStyle(.plain)
-    .accessibilityLabel(String(localized: "Cancel download"))
   }
 
   @ViewBuilder
@@ -241,9 +237,6 @@ struct PromoCard: View {
               .fill(Color.moss))
       }
       .buttonStyle(.plain)
-      if let onCancel {
-        cancelButton(action: onCancel)
-      }
     }
     .padding(.horizontal, 14)
     .padding(.top, 8)

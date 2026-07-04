@@ -5865,6 +5865,16 @@
         }
       }
     },
+    "Stop download" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロードを中止"
+          }
+        }
+      }
+    },
     "Stop downloading?" : {
       "localizations" : {
         "ja" : {
