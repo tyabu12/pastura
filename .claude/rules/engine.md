@@ -212,6 +212,14 @@ Port directly from Python prototype `parse_json_response()`. Must handle:
    pipeline still fires on a genuinely-unclosed object. (#751 sub-class 1)
 4. All values normalized to String in TurnOutput
 
+**Schema-guarded multi-object salvage (#907).** When the happy-path parse
+fails AND `expectedKeys` is non-empty, `parse(_:expectedKeys:)` re-extracts
+the first balanced object with `allowObjectResidue: true` (overriding the
+#751 refusal) and accepts it only if it carries ALL expected keys with
+content — repairKind `multi_object_salvage`. The schema-less path
+(`parse(_:)`) keeps the #751 refusal verbatim. Single-field grammars made
+the multi-object shape dominant, so retrying that span never converges.
+
 ### Retry Policy
 
 Max 2 retries. Retry on:
@@ -234,6 +242,13 @@ scan recovers it. An incomplete object still fails parse and consumes the
 retry budget as before. `LLMCaller`'s retry routing on this error stays as
 defense in depth for any other surfacer (#885). The `samplerCrashCaught`
 diagnostic still fires once per catch for occurrence-rate telemetry.
+
+`GBNFGrammarBuilder`'s `trailing` production is a BOUNDED chain
+(`trailingByteBudget` = 16 links) rather than an unbounded self-reference:
+the unbounded form accepted unlimited printable ASCII after the close,
+inviting the fabricated follow-on objects behind the salvage above (#907).
+Overflow past the budget lands on this catch-as-EOS path — benign, the
+object is already complete.
 
 ## Content Filter
 

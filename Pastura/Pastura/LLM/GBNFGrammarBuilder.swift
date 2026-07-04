@@ -93,11 +93,19 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
     // like `}: ` (token 7493) — `}` closes the object but the
     // trailing bytes in the same token have no grammar home.
     //
-    // The `trailing` rule uses recursive `(byte trailing)?` form
-    // instead of inline `[^"\\]*` because llama.cpp's grammar parser
+    // The `trailing` rule is a BOUNDED chain (depth
+    // `trailingByteBudget`) of `(byte trailingN)?` productions rather
+    // than an unbounded self-reference. Recursive `(byte trailingN)?`
+    // form (not inline `[^"\\]*`) because llama.cpp's grammar parser
     // intermittently rejects Kleene-star on top-level char classes
     // (same symptom that made us switch `ws` to its recursive form
-    // earlier in this PR).
+    // earlier in this PR). The previous UNBOUNDED form absorbed
+    // unlimited printable ASCII after the close — inviting the model to
+    // emit fabricated follow-on objects that then tripped the parser's
+    // multi-object refusal (#907). The bound caps residue at
+    // `trailingByteBudget` bytes; overflow lands on the catch-as-EOS
+    // path (the prior commit) — a benign stop after the object is
+    // already complete, not the old hard failure.
     parts.append("trailing")
     return "root ::= \(parts.joined(separator: " "))"
   }
@@ -156,16 +164,26 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   // hedge.
   private static let sharedWhitespaceProduction = #"ws ::= ([ \t\n] ws)?"#
 
+  /// Max bytes the bounded `trailing` chain absorbs after the closing `}`.
+  /// Covers any single BPE-merged close token's residue (`}: `, token 7493)
+  /// with margin; overflow past this budget lands on the catch-as-EOS path
+  /// (#907) — a benign stop once the object is already complete.
+  private static let trailingByteBudget = 16
+
   // Trailing rule used after the closing `}` to tolerate BPE-merged
-  // tokens whose tail continues past the object boundary. Recursive
-  // form + positive char class.
+  // tokens whose tail continues past the object boundary. BOUNDED
+  // recursive chain (`trailingByteBudget` links) + positive char class.
   //
-  // History (all returned NULL from `llama_sampler_init_grammar`):
+  // History (all returned NULL from `llama_sampler_init_grammar` unless
+  // noted):
   //   1. `ws` reuse (`"}" ws` at top level)           — OK parse, crash on `}: ` accept
   //   2. inline `[^\x00]*`                             — parse NULL
   //   3. inline `[^"\\]*`                              — parse NULL
   //   4. recursive `trailing ::= ([^"\\] trailing)?`   — parse NULL
-  //   5. recursive + positive class (this commit)      — trying
+  //   5. recursive + positive class (unbounded)        — parsed OK, but the
+  //      unlimited printable-ASCII acceptance let the model emit fabricated
+  //      follow-on objects that tripped the multi-object refusal (#907)
+  //   6. bounded chain + positive class (this commit)  — caps residue
   //
   // Hypothesis: llama.cpp's grammar parser has an edge case with
   // negated char classes when used in a recursive rule (theory 4),
@@ -179,5 +197,22 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   // post-`}` bytes would still cause an accept-time crash, but the
   // model is trained to emit EOS immediately after a closed object
   // so that path is practically unreachable.
-  private static let sharedTrailingProduction = #"trailing ::= ([\t\n\r -~] trailing)?"#
+  //
+  // Emits, e.g. for budget 16:
+  //   trailing   ::= ([\t\n\r -~] trailing1)?
+  //   trailing1  ::= ([\t\n\r -~] trailing2)?
+  //   …
+  //   trailing15 ::= ([\t\n\r -~])?
+  // The terminal link omits the self-reference, capping the chain.
+  private static var sharedTrailingProduction: String {
+    (0..<trailingByteBudget).map { depth in
+      let ruleName = depth == 0 ? "trailing" : "trailing\(depth)"
+      if depth == trailingByteBudget - 1 {
+        // Terminal link — no next-reference, bounds the chain length.
+        return #"\#(ruleName) ::= ([\t\n\r -~])?"#
+      }
+      return #"\#(ruleName) ::= ([\t\n\r -~] trailing\#(depth + 1))?"#
+    }
+    .joined(separator: "\n")
+  }
 }
