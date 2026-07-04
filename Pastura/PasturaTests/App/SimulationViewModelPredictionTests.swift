@@ -201,4 +201,26 @@ struct SimulationViewModelPredictionTests {
     #expect(env.sut.predictionPrompt == nil)
     #expect(try env.repo.fetchBySimulationId("sim1") == nil)
   }
+
+  @Test func firstVoteWhileNotVisibleConsumesTheOpportunity() async throws {
+    // The first vote latches even when not presentable (parked), so a later
+    // visible vote in the same run is NOT asked — strict "first vote" contract.
+    // If the latch were set AFTER the visibility check, the second vote below
+    // would present the sheet and this test would fail.
+    FeatureFlags.setViewerPredictionEnabled(true)
+    defer { UserDefaults.standard.removeObject(forKey: Self.flagKey) }
+    let env = try makeEnv(phases: wolfPhases)
+    feedWolfAssignments(env.sut, scenario: env.scenario)
+
+    env.sut.setViewVisible(false)
+    await env.sut.interceptFirstVoteIfNeeded(
+      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
+
+    env.sut.setViewVisible(true)
+    await env.sut.interceptFirstVoteIfNeeded(
+      event: .voteResults(votes: [:], tallies: ["Bob": 3]), scenario: env.scenario)
+
+    #expect(env.sut.predictionPrompt == nil)
+    #expect(try env.repo.fetchBySimulationId("sim1") == nil)
+  }
 }

@@ -23,7 +23,7 @@ nonisolated public struct PredictionRecord: Codable, Sendable, Equatable,
   public var id: String
   public var simulationId: String
   /// Which question was asked. Stored as a raw string for forward compat;
-  /// the typed vocabulary is `ViewerPredictionQuestion.Kind` ("wolf" /
+  /// the typed vocabulary is `ViewerPredictionLogic.Question` ("wolf" /
   /// "topVote").
   public var questionKind: String
   /// The agent the viewer picked.

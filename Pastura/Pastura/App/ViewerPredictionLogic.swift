@@ -61,6 +61,7 @@ nonisolated enum ViewerPredictionLogic {
     RankingOrder.leader(values: tallies, among: roster)
   }
 
+  /// Whether the viewer's pick matched the ground-truth agent.
   static func isHit(predicted: String, actual: String) -> Bool {
     predicted == actual
   }

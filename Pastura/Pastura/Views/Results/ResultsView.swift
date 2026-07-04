@@ -91,7 +91,10 @@ struct ResultsView: View {
   /// Batch-fetches prediction outcomes for the rendered rows off-main. Absent
   /// rows simply have no badge; a fetch failure leaves the map unchanged.
   private func refreshPredictions(ids: [String]) async {
-    guard !ids.isEmpty else { return }
+    guard !ids.isEmpty else {
+      predictionsByRun = [:]
+      return
+    }
     let repository = dependencies.predictionRepository
     let fetched = try? await Task.detached {
       try repository.fetchBySimulationIds(ids)

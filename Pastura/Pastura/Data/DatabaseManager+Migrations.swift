@@ -92,10 +92,15 @@ nonisolated extension DatabaseManager {
         t.column("createdAt", .datetime).notNull()
       }
 
+      // Unique: at most one answered prediction per run (the App layer's
+      // once-per-run latch is the primary guard; the unique constraint makes a
+      // stray double-insert throw at the DB boundary rather than silently
+      // corrupt a streak/badge).
       try db.create(
         index: "idx_prediction_records_simulation",
         on: "prediction_records",
-        columns: ["simulationId"])
+        columns: ["simulationId"],
+        options: [.unique])
     }
   }
 

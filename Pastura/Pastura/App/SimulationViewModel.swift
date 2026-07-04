@@ -860,6 +860,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       "cancelSimulation called by \(caller, privacy: .public): isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
     )
     runTask?.cancel()
+    // Defensive: if the run loop is suspended awaiting the prediction sheet
+    // (a `Never` continuation that ignores task cancellation), resolve it so
+    // the loop can unwind rather than leaking the continuation (#915). Normally
+    // unreachable — the modal covers the stop button — but cheap insurance.
+    resolvePrediction(.skipped)
     isCancelled = true
     // User-initiated cancel supersedes a prior pause: clear the survival flag
     // so the terminal ladder writes `.cancelled` (its `isCancelled` branch
@@ -1996,12 +2001,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Viewer prediction (#915)
 
-  /// If `event` is the first vote reveal of a fresh run and the feature is
-  /// enabled + the view is visible + foregrounded, pauses the loop to present
-  /// the prediction sheet, scores the answer against the reveal-moment ground
-  /// truth, and persists it (answered predictions only). Fires at most once per
-  /// run via the `hasAttemptedPrediction` latch (set even on skip), so no DB
-  /// round-trip is needed and a multi-vote scenario is not re-asked.
+  /// On the first vote reveal of a fresh run with the feature enabled, latches
+  /// the run's single prediction opportunity, then — if the sim screen is
+  /// foreground-visible — pauses the loop to present the sheet, scores the answer
+  /// against the reveal-moment ground truth, and persists it (answered
+  /// predictions only). The latch is set BEFORE the visibility check (set even
+  /// on skip / not-presentable), so it fires at most once per run with no DB
+  /// round-trip and a multi-vote scenario is never re-asked on a later vote.
   ///
   /// Internal (not `private`) so it can be driven directly from a unit test
   /// (ADR-009 / `.claude/rules/view-testing.md`) without spinning the full
@@ -2014,13 +2020,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     guard
       !hasAttemptedPrediction,
       FeatureFlags.viewerPredictionEnabled,
-      isViewVisible, !isAppBackgrounded,
       let predictionRepository,
       let simId = simulationId,
       let question = ViewerPredictionLogic.question(for: scenario.phases)
     else { return }
 
+    // This first vote consumes the run's single prediction opportunity — latch
+    // BEFORE the visibility check so that if we can't present now (parked /
+    // backgrounded), a later vote in the same run is skipped too rather than
+    // asked, keeping the "first vote" contract strict.
     hasAttemptedPrediction = true
+
+    // Present only when the sim screen is foreground-visible; a parked
+    // (ADR-017 Phase B) or backgrounded run skips this run's prediction.
+    guard isViewVisible, !isAppBackgrounded else { return }
 
     let candidates = activePredictionCandidates(scenario: scenario)
     // Need at least two agents to make a prediction meaningful.
