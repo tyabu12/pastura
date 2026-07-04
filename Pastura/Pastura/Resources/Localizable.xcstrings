@@ -1773,6 +1773,16 @@
         }
       }
     },
+    "Before the votes are revealed, guess the outcome and track your streak. You can always skip." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票結果が公開される前に結果を予想して、連続的中を記録しよう。いつでもスキップできます。"
+          }
+        }
+      }
+    },
     "Branch on state (code, then/else sub-phases)" : {
       "localizations" : {
         "ja" : {
@@ -4641,6 +4651,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロード中はアプリを開いたままにしてください。"
+          }
+        }
+      }
+    },
+    "Predict the outcome" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果を予想する"
           }
         }
       }
