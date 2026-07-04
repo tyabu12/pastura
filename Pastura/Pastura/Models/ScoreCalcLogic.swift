@@ -14,4 +14,11 @@ nonisolated public enum ScoreCalcLogic: String, Codable, Sendable, CaseIterable 
 
   /// Check if the most-voted agent matches the minority (word wolf) agent.
   case wordwolfJudge = "wordwolf_judge"
+
+  /// Reward agents whose last `choose` action matched the injected event's
+  /// favored action. Deterministic, code-enforced event-conditional scoring
+  /// for `choose` games — decouples "who read the event best" from an LLM
+  /// peer vote (the local judge's conservative prior never credits a bold
+  /// read). See `EventReactivePayoffLogic` and #931.
+  case eventReactive = "event_reactive"
 }

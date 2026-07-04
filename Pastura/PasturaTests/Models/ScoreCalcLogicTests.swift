@@ -9,10 +9,11 @@ struct ScoreCalcLogicTests {
     #expect(ScoreCalcLogic.prisonersDilemma.rawValue == "prisoners_dilemma")
     #expect(ScoreCalcLogic.voteTally.rawValue == "vote_tally")
     #expect(ScoreCalcLogic.wordwolfJudge.rawValue == "wordwolf_judge")
+    #expect(ScoreCalcLogic.eventReactive.rawValue == "event_reactive")
   }
 
   @Test func allCasesCount() {
-    #expect(ScoreCalcLogic.allCases.count == 3)
+    #expect(ScoreCalcLogic.allCases.count == 4)
   }
 
   @Test func roundTripCodable() throws {
