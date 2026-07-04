@@ -251,3 +251,32 @@ then `return EditorView(viewModel: vm)`) gets a **fresh instance on every `body`
 re-evaluation**, silently wiping user state — because `@Bindable`/`@Observable` references
 observe but do not own. Retain it with `@State` in a host view that creates the VM once
 (`.task { guard viewModel == nil ... }`), rendering a `ProgressView` until it exists.
+
+## iOS 26 AttributeGraph crash — ForEach + glyph in a plain-ScrollView card
+
+Adding an **unconditional** subview (an `Image`/glyph, a `.background(_, in: Capsule())`
+badge like `PhaseTypeLabel`) to a `ForEach` that renders inside a plain **`ScrollView` →
+eager `VStack`** (custom card, NOT `List`/`Form`/`LazyVStack`) under a `NavigationStack`
+with a `.large` title + `.safeAreaInset` + a `.background(...ignoresSafeArea())` can crash
+on iOS 26 with `EXC_BAD_ACCESS` the instant the screen appears — a pure-SwiftUI fault stack
+(`ForEachChild.updateValue → PairPreferenceCombiner → ContainerBackgroundKeys.NavigationKey
+→ AttributeGraph`), no app frame. A row with a *conditional* extra subview survives;
+the same badge renders fine in a `LazyVStack` (Sim conversation) or `List`/`Form` (editor).
+
+**Two load-bearing lessons — the crash itself is now secondary:**
+
+1. **Render crashes are invisible to `xcodebuild build` + the full unit suite** (both stay
+   green). Only a UI test that navigates in and renders catches them. For a View-tree change
+   on a screen the UI tests exercise, run at least one navigating UI test (cheapest that
+   lands on ScenarioDetail: `PasturaUITests/BackGestureTests/testBackGestureFromScenarioDetailReturnsToHome`).
+   Diagnose from `~/Library/Logs/DiagnosticReports/Pastura-*.ips` frames, not the XCUITest
+   assertion message.
+2. **These AttributeGraph crashes can be OS-build-specific and self-resolve.** This one
+   (`ScenarioDetailView.phasesSection`, #901) was real on iOS 26.5 on 2026-07-03 but no
+   longer reproduced on iOS 26.5 (23F77) — sim OR real device — on 2026-07-04, so the glyph
+   shipped with **no** code workaround. Before investing in a workaround, confirm the repro
+   on the **exact OS build AND a real device** (the sim misleads both ways). If one does
+   resurface, the candidate workarounds, in order: extract the row into a concrete `View`
+   struct → `.compositingGroup()` on the row → `LazyVStack` → drop the enumerated-`\.offset`
+   `ForEach` shape → bisect the container `.background(...ignoresSafeArea())` half the fault
+   stack names → `.geometryGroup()`. See #901 for the full diagnostic write-up.
