@@ -35,6 +35,8 @@ extension ModelDownloadHostView {
                 demoIntroCard(id: id, premise: premise, viewModel: viewModel)
               case .simulationResult(let id, let model):
                 demoResultCard(id: id, model: model)
+              case .codePhaseLine(let id, let line):
+                demoCodePhaseRow(id: id, line: line)
               }
             }
           }
