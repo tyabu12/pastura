@@ -125,6 +125,16 @@ struct AgentOutputRow: View {
   /// complete but the reveal is still catching up.)
   var onRevealProgress: (() -> Void)?
 
+  /// Invoked ONCE when the typewriter reveal reaches the full target length by
+  /// running to completion — NOT when it is cancelled mid-reveal (early unmount)
+  /// or snaps to full without animating. The live Sim latest row wires this so
+  /// ``SimulationViewModel`` can record that the row finished revealing, so a
+  /// later View re-projection (ADR-017 Phase B adopt / keep-running return)
+  /// renders it static instead of re-typing (#934). Fired from the animation
+  /// `Task` after its loop exits un-cancelled — deliberately NOT from the
+  /// `defer` (which also runs on cancellation).
+  var onRevealCompleted: (() -> Void)?
+
   /// Invoked on every reveal-counter tick with the current `visibleChars`.
   /// The **live Sim streaming row** passes this so ``SimulationViewModel``
   /// can record the reveal position and hand it off to the committed row at
@@ -236,6 +246,7 @@ struct AgentOutputRow: View {
     charsPerSecond: Double? = nil,
     onAnimatingChange: ((Bool) -> Void)? = nil,
     onRevealProgress: (() -> Void)? = nil,
+    onRevealCompleted: (() -> Void)? = nil,
     onStreamingRevealProgress: ((Int) -> Void)? = nil,
     streamingPrimary: String? = nil,
     streamingThought: String? = nil,
@@ -253,6 +264,7 @@ struct AgentOutputRow: View {
     self.charsPerSecond = charsPerSecond
     self.onAnimatingChange = onAnimatingChange
     self.onRevealProgress = onRevealProgress
+    self.onRevealCompleted = onRevealCompleted
     self.onStreamingRevealProgress = onStreamingRevealProgress
     self.streamingPrimary = streamingPrimary
     self.streamingThought = streamingThought
@@ -648,12 +660,15 @@ struct AgentOutputRow: View {
           if Task.isCancelled { return }
         }
       }
+      // Natural completion: the loop exited because the reveal reached the
+      // target, NOT via a cancellation `return` above. Record it so a later
+      // View re-projection (ADR-017 Phase B adopt) renders this row static
+      // instead of re-typing (#934). Deliberately here, not in the `defer` —
+      // the `defer` also runs on the cancellation paths.
+      if !Task.isCancelled && visibleChars >= targetLength {
+        onRevealCompleted?()
+      }
     }
-  }
-
-  private func snapToFull() {
-    animationTask?.cancel()
-    visibleChars = targetLength
   }
 
   /// React to a mid-stream primary / thought update.
@@ -845,6 +860,12 @@ extension AgentOutputRow {
   func characterAt(index: Int, in text: String) -> Character? {
     guard index >= 0, index < text.count else { return nil }
     return text[text.index(text.startIndex, offsetBy: index)]
+  }
+
+  /// Cancel any in-flight reveal and jump straight to the full text.
+  func snapToFull() {
+    animationTask?.cancel()
+    visibleChars = targetLength
   }
 
   /// Whether this row should run the character-reveal animation. The

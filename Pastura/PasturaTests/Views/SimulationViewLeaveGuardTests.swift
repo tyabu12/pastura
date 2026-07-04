@@ -114,4 +114,36 @@ struct SimulationViewLeaveGuardTests {
       SimulationView.disappearAction(
         leaveHandled: false, owns: true, keepRunningEnabled: false, isGuarded: true) == .end)
   }
+
+  // MARK: - Premise reveal gate (#934, ADR-017 Phase B adopt path)
+
+  @Test func premiseTypesOnFreshRunFirstReveal() {
+    // Not a resume, reveal not yet begun → types at the playback speed.
+    #expect(
+      SimulationView.premiseCharsPerSecond(
+        isResumeEntry: false, introRevealHasBegun: false, speedCharsPerSecond: 30) == 30)
+  }
+
+  @Test func premiseStaticOnceRevealHasBegun() {
+    // The VM latch survives an adopt re-projection, so a returning parked run
+    // renders the premise static instead of re-typing (#934).
+    #expect(
+      SimulationView.premiseCharsPerSecond(
+        isResumeEntry: false, introRevealHasBegun: true, speedCharsPerSecond: 30) == nil)
+  }
+
+  @Test func premiseStaticOnResumeEntry() {
+    // The checkpoint `.resume` path never plays the reveal beat, regardless of
+    // the latch.
+    #expect(
+      SimulationView.premiseCharsPerSecond(
+        isResumeEntry: true, introRevealHasBegun: false, speedCharsPerSecond: 30) == nil)
+  }
+
+  @Test func premiseStaticAtInstantSpeed() {
+    // `.instant` passes `nil` cps → static even on a fresh first reveal.
+    #expect(
+      SimulationView.premiseCharsPerSecond(
+        isResumeEntry: false, introRevealHasBegun: false, speedCharsPerSecond: nil) == nil)
+  }
 }
