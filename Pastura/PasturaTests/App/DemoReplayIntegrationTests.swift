@@ -187,17 +187,18 @@ struct DemoReplayIntegrationTests {
     } else {
       Issue.record("Expected held .playing(1, _), got \(viewModel.state)")
     }
-    // Per #208, rotation accumulates instead of wiping. After both
-    // demos play, chatItems = source 0's 3 turns (Alice / Bob / Carol,
-    // with Bob filtered) + boundary marker + source 1's 2 turns
-    // (Alice / Bob) = 6 items. The compat-shim agentOutputs filters
-    // out the boundary and surfaces all 5 agent turns.
-    #expect(viewModel.chatItems.count == 6)
-    if case .demoBoundary(_, let scenarioName) = viewModel.chatItems[3] {
+    // Per #208, rotation accumulates instead of wiping. Each single-phase,
+    // single-round source now also contributes a round + phase separator
+    // (#932 follow-up): source 0 = [roundSep, phaseSep, Alice, Bob, Carol]
+    // (5), a boundary marker, then source 1 = [roundSep, phaseSep, Alice, Bob]
+    // (4) = 10 items. The compat-shim agentOutputs filters out separators +
+    // boundary and surfaces all 5 agent turns.
+    #expect(viewModel.chatItems.count == 10)
+    if case .demoBoundary(_, let scenarioName) = viewModel.chatItems[5] {
       #expect(scenarioName == "Prisoner's Dilemma")
     } else {
       Issue.record(
-        "chatItems[3] expected .demoBoundary, got \(viewModel.chatItems[3])")
+        "chatItems[5] expected .demoBoundary, got \(viewModel.chatItems[5])")
     }
     #expect(viewModel.agentOutputs.count == 5)
     #expect(viewModel.agentOutputs[0].agent == "Alice")  // word_wolf

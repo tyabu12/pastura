@@ -38,15 +38,36 @@ import Foundation
 /// `.agentOutputStream` is not emitted by replay (spec §4.7) so is not
 /// in scope.
 ///
+/// **Intentional divergence from the live VM (#932).** The live
+/// ``SimulationViewModel/handleEvent(_:)`` appends `.assignment` /
+/// `.summary` **raw** — its ContentFilter touches only `.agentOutput`.
+/// The demo replay, an App-Store-review-visible DL-time surface, applies
+/// the render-time filter to `.assignment.value` / `.summary.text` /
+/// `.pairingResult.action1/2` as ADR-005 defense-in-depth, matching how it
+/// already filters `.agentOutput`. Demo content is curated
+/// (`content_filter_applied: true` attestation), so the filter fires on
+/// nothing and there is no visible delta from the live lines — the two are
+/// pixel-identical in practice; the divergence is purely a belt-and-suspenders
+/// re-check on the untrusted-at-runtime path.
+///
 /// **Sync-risk with ``SimulationViewModel``:** The live VM's
 /// `handleEvent` (see `SimulationViewModel.swift`) is the canonical
 /// event→view-state transform. Events that `YAMLReplaySource.plannedEvents()`
 /// can currently emit — `.roundStarted`, `.phaseStarted`, `.agentOutput`,
 /// `.scoreUpdate`, `.elimination`, `.summary`, `.voteResults`,
-/// `.pairingResult`, `.assignment` — should mirror the live VM's
-/// filtering and state-update rules. When the live VM adds filtering
-/// to a new case, check whether ``YAMLReplaySource/plannedEvents()``
+/// `.pairingResult`, `.assignment`, `.eventInjected` — should mirror the
+/// live VM's filtering and state-update rules. When the live VM adds
+/// filtering to a new case, check whether ``YAMLReplaySource/plannedEvents()``
 /// can emit it; if yes, mirror the filter here; if no, leave alone.
+///
+/// **Visible-line mapping (#932).** The code-phase events
+/// (`.assignment`, `.summary`, `.voteResults`, `.scoreUpdate`,
+/// `.elimination`, `.pairingResult`, `.eventInjected`) each append a
+/// ``ChatItem/codePhaseLine`` for inline rendering — the demo mirror of
+/// the live ``SimulationView``'s `secondaryLogEntryView`. The three that
+/// also feed the closing card (`.scoreUpdate` / `.voteResults` /
+/// `.elimination`) STILL update their accumulators (#868/#884) in addition
+/// to appending — the two surfaces are independent.
 @Observable
 @MainActor
 final class ReplayViewModel {  // swiftlint:disable:this type_body_length
@@ -325,6 +346,15 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// closing card. It rides the same timeline; on rotation the order is
   /// result card → boundary → intro card.
   ///
+  /// `.codePhaseLine` carries an inline referee/narrator line (the per-round
+  /// assignment お題, round summary, injected event, vote tally, score
+  /// update, elimination, or pairing result) — the demo mirror of the live
+  /// simulation's inline log entries (`SimulationView`'s
+  /// `secondaryLogEntryView`). Restored in #932: these events were previously
+  /// dropped by ``apply(_:)``, so assign-based demos lost the お題 that grounds
+  /// every agent response. Appended inline during playback in publish order,
+  /// alongside `.agentOutput`.
+  ///
   /// `id` is projected from the inner payload so SwiftUI's
   /// `ForEach`/`scrollTo(_:anchor:)` keep working identically to the
   /// pre-#208 `AgentOutputEntry`-only timeline.
@@ -333,6 +363,9 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case demoBoundary(id: UUID, scenarioName: String)
     case scenarioIntro(id: UUID, premise: String)
     case simulationResult(id: UUID, model: SimulationResultCard.Model)
+    case codePhaseLine(id: UUID, line: CodePhaseLine)
+    case roundSeparator(id: UUID, round: Int, totalRounds: Int)
+    case phaseSeparator(id: UUID, phaseType: PhaseType)
 
     var id: UUID {
       switch self {
@@ -340,8 +373,32 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       case .demoBoundary(let id, _): return id
       case .scenarioIntro(let id, _): return id
       case .simulationResult(let id, _): return id
+      case .codePhaseLine(let id, _): return id
+      case .roundSeparator(let id, _, _): return id
+      case .phaseSeparator(let id, _): return id
       }
     }
+  }
+
+  /// An inline code-phase narration line rendered in the demo chat stream —
+  /// the demo counterpart of the live simulation's `LogEntry` render kinds
+  /// (`SimulationView+LogEntries.swift`). One variant per code-phase event
+  /// ``apply(_:)`` can surface. The host view (`ModelDownloadHostView`) maps
+  /// each variant to a row using the SAME design tokens and localized keys as
+  /// the live helpers, so the two chat streams stay visually unified (#273).
+  ///
+  /// Structured identifiers (persona names in `voteResults` / `scoreUpdate` /
+  /// `elimination` / `pairingResult`) are carried verbatim — never
+  /// ContentFilter-rewritten (see ``apply(_:)`` and the header §"ContentFilter
+  /// scope"). `assignment.value` / `summary.text` arrive already-filtered.
+  nonisolated enum CodePhaseLine: Sendable, Equatable {
+    case assignment(agent: String, value: String)
+    case summary(text: String)
+    case voteResults(tallies: [String: Int])
+    case scoreUpdate(scores: [String: Int])
+    case elimination(agent: String, voteCount: Int)
+    case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
+    case eventInjected(event: String?)
   }
 
   // MARK: - Dependencies
@@ -712,9 +769,15 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       await sleepOrYield(milliseconds: delayMs)
       if Task.isCancelled { return }
       apply(paced.event)
-      // The floor for THIS bubble gates the delay before the NEXT event — the
-      // window during which this bubble is typing on screen.
-      pendingFloorMs = typingFloorMs(for: paced.event, script: script)
+      // The floor for THIS event gates the delay before the NEXT event — the
+      // window during which this line stays on screen. Agent bubbles reserve
+      // typing + reading time; text-carrying code-phase lines (#932) reserve a
+      // reading beat so the お題 / summary can be read before the round's turns
+      // arrive (they render instantly, so no typing term). Exactly one term is
+      // non-zero per event, so `max` just selects the applicable floor.
+      pendingFloorMs = max(
+        typingFloorMs(for: paced.event, script: script),
+        codePhaseFloorMs(for: paced.event, script: script))
       cursor += 1
       // Only advance observable cursor if we're still playing (not
       // backgrounded mid-publish). Guards against a stale state
@@ -961,17 +1024,31 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// scope. Mirror of the live ``SimulationViewModel/handleEvent(_:)``
   /// for the subset of events ``YAMLReplaySource/plannedEvents()``
   /// can emit — see the sync-risk note in this file's header.
-  private func apply(_ event: SimulationEvent) {
+  ///
+  /// The `cyclomatic_complexity` / `function_body_length` waivers match the
+  /// live VM's `handleEvent`: restoring the per-event code-phase lines and the
+  /// lifecycle chapter separators (#932) split combined cases into individual
+  /// arms — a flat dispatch, not nested logic.
+  private func apply(_ event: SimulationEvent) {  // swiftlint:disable:this cyclomatic_complexity function_body_length
     switch event {
     case .roundStarted(let round, let totalRounds):
       currentRound = round
       currentTotalRounds = totalRounds
+      // Inline round separator so the demo transcript chunks by round like the
+      // live sim (#932 follow-up). The GameHeader also carries round position,
+      // but the separator marks WHERE in the scroll history each round begins.
+      chatItems.append(
+        .roundSeparator(id: UUID(), round: round, totalRounds: totalRounds))
 
     case .phaseStarted(let phaseType, _):
       currentPhase = phaseType
       // Increment pseudo-ROUND counter. Survives pause/resume; reset
       // only on source rotation via ``resetPerDemoState(forSourceIndex:)``.
       phaseProgress += 1
+      // Inline phase separator, mirroring the live sim: LLM phases render a
+      // full-width chapter rule, code phases an inline badge (the host view
+      // dispatches on `phaseType.requiresLLM`).
+      chatItems.append(.phaseSeparator(id: UUID(), phaseType: phaseType))
 
     case .agentOutput(let agent, let output, let phaseType):
       let filtered = contentFilter.filter(output)
@@ -981,29 +1058,65 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
 
     case .scoreUpdate(let newScores):
       // Full-replace, matching ``SimulationViewModel/handleScoreUpdate``.
-      // Feeds the closing card's ranking (#884). No ContentFilter — the keys
-      // are persona names (structured identifiers); filtering could corrupt a
-      // name that happens to contain a blocklist substring (see header §
-      // "ContentFilter scope").
+      // Feeds the closing card's ranking (#884) AND renders an inline score
+      // summary line (#932). No ContentFilter — the keys are persona names
+      // (structured identifiers); filtering could corrupt a name that happens
+      // to contain a blocklist substring (see header § "ContentFilter scope").
       scores = newScores
+      chatItems.append(
+        .codePhaseLine(id: UUID(), line: .scoreUpdate(scores: newScores)))
 
     case .voteResults(_, let tallies):
-      // Keep the latest tallies for the closing card's vote-only ranking.
-      // Last-wins matches `scores`' full-replace semantics. `votes` (who voted
-      // for whom) has no closing-card surface, so it is dropped here.
+      // Keep the latest tallies for the closing card's vote-only ranking AND
+      // render an inline tally line (#932). Last-wins matches `scores`'
+      // full-replace semantics. `votes` (who voted for whom) has no visible
+      // surface, so it is dropped here.
       voteResults = tallies
+      chatItems.append(
+        .codePhaseLine(id: UUID(), line: .voteResults(tallies: tallies)))
 
     case .elimination(let agent, let voteCount):
       // Capture the count at elimination time so the card's survival framing
-      // shows each eliminated agent's own round tally (#884).
+      // shows each eliminated agent's own round tally (#884) AND render an
+      // inline elimination line (#932). Structured identifiers — unfiltered.
       eliminated[agent] = true
       eliminationVotes[agent] = voteCount
+      chatItems.append(
+        .codePhaseLine(id: UUID(), line: .elimination(agent: agent, voteCount: voteCount)))
 
-    case .summary, .pairingResult, .assignment, .eventInjected:
-      // No closing-card surface: `.pairingResult` / `.assignment` feed scores
-      // via a later `.scoreUpdate`; `.summary` / `.eventInjected` are narrative
-      // only. Nothing visible updates here; rendering them is a no-op.
-      return
+    case .assignment(let agent, let value):
+      // The per-round お題 that grounds every agent response (#932) — the
+      // reported bug was this being a silent no-op. Render-time ContentFilter
+      // on the value per the header § "ContentFilter scope" (defense-in-depth;
+      // the live VM appends raw). The agent name is a structured identifier,
+      // passed through unfiltered.
+      chatItems.append(
+        .codePhaseLine(
+          id: UUID(),
+          line: .assignment(agent: agent, value: contentFilter.filter(value))))
+
+    case .summary(let text):
+      // Round summary / narrator line (#932). Filtered per the header scope.
+      chatItems.append(
+        .codePhaseLine(id: UUID(), line: .summary(text: contentFilter.filter(text))))
+
+    case .pairingResult(let agent1, let act1, let agent2, let act2):
+      // `choose`-phase pairing (#932). Filter the chosen actions (LLM text)
+      // per the header scope; agent names are structured identifiers.
+      chatItems.append(
+        .codePhaseLine(
+          id: UUID(),
+          line: .pairingResult(
+            agent1: agent1, action1: contentFilter.filter(act1),
+            agent2: agent2, action2: contentFilter.filter(act2))))
+
+    case .eventInjected(let event):
+      // Injected-event narration (#932). `nil` = the probabilistic phase's
+      // miss; the render arm shows an explicit "no event" marker (mirrors the
+      // live `eventInjectedEntry`). Filter the hit text per the header scope.
+      chatItems.append(
+        .codePhaseLine(
+          id: UUID(), line: .eventInjected(event: event.map(contentFilter.filter))))
 
     case .roundCompleted, .phaseCompleted, .simulationCompleted,
       .roundCheckpoint, .simulationPaused, .conditionalEvaluated,
@@ -1110,6 +1223,39 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     let dwellMs = Self.milliseconds(
       playbackSpeed.readingDwell(displayLength: premise.count, script: script))
     return typing + dwellMs
+  }
+
+  /// Reading-dwell floor (raw ms, real wall-clock at the current speed) that
+  /// the inter-event delay after a text-carrying code-phase line
+  /// (``CodePhaseLine/assignment`` / ``CodePhaseLine/summary`` / a non-nil
+  /// ``CodePhaseLine/eventInjected``) must cover so the line can be read before
+  /// the next event lands. These lines render instantly (no typing animation,
+  /// unlike ``AgentOutputRow``), so the floor is a pure reading dwell — no
+  /// typing term. It is the demo's substitute for the seconds-apart pacing the
+  /// live LLM-driven sim gets for free; without it the context-critical お題 can
+  /// flash and be buried by the round's first turn on fast playback (#932).
+  ///
+  /// Returns 0 for non-text code-phase events (votes / scores / eliminations /
+  /// pairings are glanceable and re-surfaced on the closing card) and when
+  /// there is no proportional dwell (opt-out config / `.instant` → nil cps),
+  /// gated on the same ``typingCharsPerSecond`` nil-check as
+  /// ``introFloorMs(forSourceIndex:script:)`` so `.instant` stays instant.
+  /// Uses the raw (pre-filter) event text; curated demo content means the
+  /// ContentFilter is a no-op, and the floor is a lower-bound estimate anyway
+  /// (see ``typingFloorMs(for:script:)``). `internal` (not `private`) so
+  /// `ReplayViewModelTests+Pacing` can exercise it.
+  func codePhaseFloorMs(for event: SimulationEvent, script: ReadingScript) -> Int {
+    guard typingCharsPerSecond != nil else { return 0 }
+    let text: String
+    switch event {
+    case .assignment(_, let value): text = value
+    case .summary(let summaryText): text = summaryText
+    case .eventInjected(let injected): text = injected ?? ""
+    default: return 0
+    }
+    guard !text.isEmpty else { return 0 }
+    return Self.milliseconds(
+      playbackSpeed.readingDwell(displayLength: text.count, script: script))
   }
 
   /// Whole milliseconds of a `Duration` that carries only ms precision
