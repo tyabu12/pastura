@@ -45,6 +45,11 @@ struct SettingsView: View {
   /// flag stays the single source of truth.
   @State private var keepRunningOnLeave = FeatureFlags.keepRunningOnLeaveEnabled
 
+  /// Opt-out: show the viewer-prediction sheet before the first vote reveal
+  /// (#915). Mirrors the `FeatureFlags` value at init and persists every flip
+  /// via its setter, so the flag stays the single source of truth.
+  @State private var viewerPredictionEnabled = FeatureFlags.viewerPredictionEnabled
+
   /// Bound to `.reportSheet(isPresented:context:)` for the "Send a
   /// content report" row inside the Legal section. The sheet reuses
   /// `ReportSheet` with `context: .general` (Settings has no
@@ -180,6 +185,9 @@ struct SettingsView: View {
     .onChange(of: keepRunningOnLeave) { _, newValue in
       FeatureFlags.setKeepRunningOnLeave(newValue)
     }
+    .onChange(of: viewerPredictionEnabled) { _, newValue in
+      FeatureFlags.setViewerPredictionEnabled(newValue)
+    }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
     .reportSheet(isPresented: $isReportSheetPresented, context: .general)
@@ -299,8 +307,8 @@ struct SettingsView: View {
     #endif
   }
 
-  /// Opt-in toggle to keep a run alive (parked in memory) when leaving its
-  /// screen instead of pausing it (ADR-017 Phase B, #682). Label-closure form
+  /// Simulation-behaviour toggles: keep-running-on-leave (opt-in, ADR-017
+  /// Phase B, #682) and viewer prediction (opt-out, #915). Label-closure form
   /// per the i18n convenience-init convention (`.claude/rules/i18n.md`).
   private var simulationSection: some View {
     PasturaSection(String(localized: "Simulation"), style: .grouped) {
@@ -322,6 +330,25 @@ struct SettingsView: View {
       .padding(.horizontal, 17)
       .padding(.vertical, 13)
       .accessibilityIdentifier("settings.keepRunningOnLeaveToggle")
+
+      Toggle(isOn: $viewerPredictionEnabled) {
+        VStack(alignment: .leading, spacing: 3) {
+          Text(String(localized: "Predict the outcome"))
+            .foregroundStyle(Color.ink)
+          Text(
+            String(
+              localized:
+                "Before the votes are revealed, guess the outcome and track your streak. You can always skip."
+            )
+          )
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+        }
+      }
+      .tint(Color.link)
+      .padding(.horizontal, 17)
+      .padding(.vertical, 13)
+      .accessibilityIdentifier("settings.viewerPredictionToggle")
     }
   }
 }

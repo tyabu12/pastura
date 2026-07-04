@@ -71,6 +71,37 @@ nonisolated extension DatabaseManager {
     registerV8(&migrator)
     registerV9(&migrator)
     registerV10(&migrator)
+    registerV11(&migrator)
+  }
+
+  private static func registerV11(_ migrator: inout DatabaseMigrator) {
+    // Viewer-prediction outcomes (#915). One row per *answered* prediction,
+    // keyed to its run; skipped predictions leave no row (see
+    // `PredictionRecord`). Cascade-delete with the parent run so purging a
+    // simulation drops its prediction. The `simulations` row is created at
+    // run-start (before the first vote), so the FK is satisfied at insert.
+    migrator.registerMigration("v11_createPredictionRecordsTable") { db in
+      try db.create(table: "prediction_records") { t in
+        t.primaryKey("id", .text)
+        t.column("simulationId", .text).notNull()
+          .references("simulations", onDelete: .cascade)
+        t.column("questionKind", .text).notNull()
+        t.column("predictedAgent", .text).notNull()
+        t.column("actualAgent", .text).notNull()
+        t.column("isHit", .boolean).notNull()
+        t.column("createdAt", .datetime).notNull()
+      }
+
+      // Unique: at most one answered prediction per run (the App layer's
+      // once-per-run latch is the primary guard; the unique constraint makes a
+      // stray double-insert throw at the DB boundary rather than silently
+      // corrupt a streak/badge).
+      try db.create(
+        index: "idx_prediction_records_simulation",
+        on: "prediction_records",
+        columns: ["simulationId"],
+        options: [.unique])
+    }
   }
 
   private static func registerV9(_ migrator: inout DatabaseMigrator) {

@@ -97,6 +97,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | DL-time demo replay                      | Medium   | Done        | Bundled YAML replays during model download — end-to-end: spec + ADR-007 (#153), VM + Source (#186), host view + UI components (#197), wire into `.needsModelDownload` (#200), bundled YAMLs + CI drift guard (#205). |
 | Multi-model support (Qwen / E4B / other) | Medium   | Done        | Dual-model catalog shipped (Gemma 4 E2B + Qwen 3 4B Q4_K_M) via the `ModelDescriptor` / `ModelRegistry` abstraction over `LLMService` (ADR-001 §7 / ADR-002): plumbing — descriptor, multi-model storage, sequential download, legacy Gemma file auto-recognition (#206); UI — first-run model picker (`AppState.needsModelSelection`), Settings → Models active-model switch + delete, race-prevention via `SimulationActivityRegistry` (#218). Tracking issue #203. E4B and additional models remain forward-looking; add a new `ModelDescriptor` entry to `ModelRegistry` when a model is approved for shipment. |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
+| Viewer prediction (視聴者予想)             | Low      | In progress | Pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking. Engagement mechanic from the #906 interestingness umbrella; Engine-untouched (App/ViewModel event buffering, ground truth scored at the reveal moment) (#915). |
 
 ### Technical Debt to Address
 - Evaluate SPM module split (if file count > 100)

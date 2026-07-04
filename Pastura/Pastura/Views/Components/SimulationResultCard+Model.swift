@@ -111,10 +111,11 @@ extension SimulationResultCard {
       roster: [String], value: (String) -> Int, eliminated: [String: Bool],
       valueKind: ValueKind
     ) -> [Entry] {
+      // Shared with `ViewerPredictionLogic.topVote` via `RankingOrder` so the
+      // card's displayed #1 and the prediction's scored #1 never diverge (#915).
       let sorted = roster.sorted { lhs, rhs in
-        let lhsValue = value(lhs)
-        let rhsValue = value(rhs)
-        return lhsValue != rhsValue ? lhsValue > rhsValue : lhs < rhs
+        RankingOrder.isOrderedBefore(
+          lhsName: lhs, lhsValue: value(lhs), rhsName: rhs, rhsValue: value(rhs))
       }
       return sorted.enumerated().map { index, name in
         Entry(
