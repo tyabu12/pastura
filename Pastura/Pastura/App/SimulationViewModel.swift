@@ -32,6 +32,21 @@ struct LogEntry: Identifiable {
   }
 }
 
+/// Presentation model for the viewer-prediction sheet (#915), wrapping the
+/// question and choosable roster with a stable identity for `.sheet(item:)`.
+struct ViewerPredictionPrompt: Identifiable {
+  let id = UUID()
+  let question: ViewerPredictionLogic.Question
+  let candidates: [String]
+}
+
+/// The scored result of this run's viewer prediction (#915), shown alongside
+/// the final result card. `streak` is the consecutive-hit count as of this run.
+struct PredictionOutcome: Equatable, Sendable {
+  let isHit: Bool
+  let streak: Int
+}
+
 /// ViewModel for the live simulation execution screen.
 ///
 /// Consumes `AsyncStream<SimulationEvent>` from `SimulationRunner`, applies
@@ -460,6 +475,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private let turnRepository: any TurnRepository
   private let codePhaseEventRepository: (any CodePhaseEventRepository)?
   private let scenarioRepository: (any ScenarioRepository)?
+  // Viewer-prediction store (#915). Optional + nil-defaulted so fixture-driven
+  // tests (which construct the VM without it) never write predictions; the gate
+  // in `interceptFirstVoteIfNeeded` also requires a visible view, so tests are
+  // doubly insulated. Production wires it at the `SimulationView` boundary.
+  private let predictionRepository: (any PredictionRepository)?
   // Guards model-switch UI while inference is running. Optional to keep
   // the existing test fixtures (which don't need the guard) unchanged.
   private let simulationActivityRegistry: SimulationActivityRegistry?
@@ -469,6 +489,41 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // routine state transitions and `error` for unexpected paths so device logs
   // stay readable.
   let lifecycleLogger = Logger(subsystem: "app.pastura.Pastura", category: "SimulationVM")
+
+  // MARK: - Viewer prediction (#915)
+
+  /// Drives `.sheet(item:)` for the prediction prompt; non-nil while the sheet
+  /// is up. Set from the run loop's interception, cleared on resolution.
+  private(set) var predictionPrompt: ViewerPredictionPrompt?
+
+  /// This run's scored prediction result (hit/miss + streak), shown next to the
+  /// final result card. `nil` when the run had no answered prediction. Reset
+  /// per run.
+  private(set) var predictionOutcome: PredictionOutcome?
+
+  /// A pick captured at vote-phase start, awaiting the tally to be scored at
+  /// `.voteResults`. Reset per run.
+  private var pendingPrediction: PendingPrediction?
+
+  /// Whether `SimulationView` is currently on screen. Gates the prediction
+  /// sheet so a navigated-away (ADR-017 Phase B park) run never presents a
+  /// modal (scene-background is handled separately by `isAppBackgrounded`).
+  /// Defaults to `true` because the VM is only ever constructed by the
+  /// on-screen `SimulationView`; the view corrects it via
+  /// `setViewVisible(_:)` on appear/disappear.
+  private(set) var isViewVisible = true
+
+  /// Accumulated `.assignment` events (agent → assigned value), used to derive
+  /// the wolf ground-truth at the first vote reveal. Reset per run.
+  private var predictionAssignments: [String: String] = [:]
+
+  /// Latch: set once the prediction has been offered this run (answered OR
+  /// skipped), so it fires at most once with no DB round-trip. Reset per run.
+  private var hasAttemptedPrediction = false
+
+  /// Suspends the run loop while the prediction sheet awaits the viewer's
+  /// answer; resumed exactly once by `resolvePrediction`.
+  private var predictionContinuation: CheckedContinuation<ViewerPredictionSheet.Resolution, Never>?
 
   #if DEBUG
     // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
@@ -697,6 +752,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     turnRepository: any TurnRepository,
     codePhaseEventRepository: (any CodePhaseEventRepository)? = nil,
     scenarioRepository: (any ScenarioRepository)? = nil,
+    predictionRepository: (any PredictionRepository)? = nil,
     backgroundManager: BackgroundSimulationManager? = nil,
     simulationActivityRegistry: SimulationActivityRegistry? = nil
   ) {
@@ -706,6 +762,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     self.turnRepository = turnRepository
     self.codePhaseEventRepository = codePhaseEventRepository
     self.scenarioRepository = scenarioRepository
+    self.predictionRepository = predictionRepository
     self.backgroundManager = backgroundManager
     self.simulationActivityRegistry = simulationActivityRegistry
   }
@@ -807,6 +864,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       "cancelSimulation called by \(caller, privacy: .public): isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
     )
     runTask?.cancel()
+    // Defensive: if the run loop is suspended awaiting the prediction sheet
+    // (a `Never` continuation that ignores task cancellation), resolve it so
+    // the loop can unwind rather than leaking the continuation (#915). Normally
+    // unreachable — the modal covers the stop button — but cheap insurance.
+    resolvePrediction(.skipped)
     isCancelled = true
     // User-initiated cancel supersedes a prior pause: clear the survival flag
     // so the terminal ladder writes `.cancelled` (its `isCancelled` branch
@@ -867,6 +929,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // The resume path re-seeds these below from the checkpoint / replayed log.
     voteResults = [:]
     eliminationVotes = [:]
+    // Viewer-prediction accumulators (#915) — reset so a re-used VM does not
+    // inherit the previous run's assignments or the once-per-run latch.
+    predictionAssignments = [:]
+    hasAttemptedPrediction = false
+    predictionPrompt = nil
+    predictionOutcome = nil
+    pendingPrediction = nil
     // Latent: a second run on the same VM instance would otherwise inherit
     // these from the previous simulation — `latestAgentOutputId` points at a
     // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
@@ -1010,6 +1079,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       } else if speed.interEventDelayMs > 0 {
         try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
       }
+
+      // Viewer prediction (#915): present the sheet at the first vote-phase
+      // START (before any vote is shown, so the outcome isn't spoiled) and score
+      // the captured pick when the tally arrives. `run()` only (a resumed run
+      // never asks). The unbounded AsyncStream buffers ahead during the wait
+      // (accepted trade-off), so the producer never deadlocks.
+      await handleViewerPredictionEvent(event: event, scenario: scenario)
 
       handleEvent(event, scenario: scenario)
 
@@ -1416,6 +1492,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         phaseType: currentPhaseType?.rawValue ?? PhaseType.eliminate.rawValue,
         payload: .elimination(agent: agent, voteCount: voteCount))
     case .assignment(let agent, let value):
+      // Accumulate for the wolf ground-truth derivation at the first vote
+      // reveal (#915). Assign phases run before any vote, so this is populated
+      // by the time the prediction is scored.
+      predictionAssignments[agent] = value
       logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
       persistCodePhaseEvent(
         phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
@@ -1921,6 +2001,170 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       lifecycleLogger.error(
         "Failed to encode code-phase payload: \(String(describing: error), privacy: .public)")
     }
+  }
+
+  // MARK: - Viewer prediction (#915)
+
+  /// A prediction captured at vote-phase start, awaiting the tally to score it.
+  private struct PendingPrediction {
+    let question: ViewerPredictionLogic.Question
+    let picked: String
+    /// Roster captured at prompt time — the `topVote` scoring ranks over this.
+    let candidates: [String]
+  }
+
+  /// Drives the viewer-prediction feature off the run loop (#915). Two events
+  /// matter, and interception happens BEFORE the votes are shown so the outcome
+  /// isn't spoiled:
+  ///
+  /// - **`.phaseStarted(.vote)`** — the first vote phase of a fresh run. Latches
+  ///   the run's single prediction opportunity, then (if foreground-visible)
+  ///   pauses the loop to present the sheet and captures the pick into
+  ///   `pendingPrediction`. This fires *before* any agent casts a vote
+  ///   (`SimulationRunner` emits `phaseStarted` before the handler runs), so the
+  ///   individual votes don't leak the answer.
+  /// - **`.voteResults`** — the tally. Scores the captured pick against the
+  ///   reveal-moment ground truth (wolf from `.assignment` events; `#1` from
+  ///   these tallies) and persists it (answered predictions only).
+  ///
+  /// The latch is set BEFORE the visibility check (even on skip / not-presentable)
+  /// so a parked/backgrounded first vote consumes the opportunity and a later
+  /// vote is never asked. `run()` only — a resumed run never asks.
+  ///
+  /// Internal (not `private`) so a unit test can drive it directly (ADR-009 /
+  /// `.claude/rules/view-testing.md`): feed `.phaseStarted(.vote)` (resolving the
+  /// sheet by polling `predictionPrompt`), then `.voteResults`.
+  func handleViewerPredictionEvent(
+    event: SimulationEvent, scenario: Scenario
+  ) async {
+    switch event {
+    case .phaseStarted(let phaseType, _) where phaseType == .vote:
+      await presentPredictionAtVoteStart(scenario: scenario)
+    case .voteResults(_, let tallies):
+      await scorePendingPrediction(tallies: tallies)
+    default:
+      break
+    }
+  }
+
+  private func presentPredictionAtVoteStart(scenario: Scenario) async {
+    guard
+      !hasAttemptedPrediction,
+      FeatureFlags.viewerPredictionEnabled,
+      predictionRepository != nil,
+      simulationId != nil,
+      let question = ViewerPredictionLogic.question(for: scenario.phases)
+    else { return }
+
+    // Latch BEFORE the visibility check so a parked/backgrounded first vote
+    // still consumes the run's one opportunity (a later vote is never asked).
+    hasAttemptedPrediction = true
+
+    // Present only when the sim screen is foreground-visible; a parked
+    // (ADR-017 Phase B) or backgrounded run skips this run's prediction.
+    guard isViewVisible, !isAppBackgrounded else { return }
+
+    let candidates = activePredictionCandidates(scenario: scenario)
+    // Need at least two agents to make a prediction meaningful.
+    guard candidates.count >= 2 else { return }
+
+    let resolution = await presentPrediction(
+      ViewerPredictionPrompt(question: question, candidates: candidates))
+
+    // Skip / timeout / navigate-away leave no pending pick and no row.
+    guard case .predicted(let picked) = resolution else { return }
+    pendingPrediction = PendingPrediction(
+      question: question, picked: picked, candidates: candidates)
+  }
+
+  private func scorePendingPrediction(tallies: [String: Int]) async {
+    guard
+      let pending = pendingPrediction,
+      let predictionRepository,
+      let simId = simulationId
+    else { return }
+    pendingPrediction = nil
+
+    let actual: String? = {
+      switch pending.question {
+      case .wolf:
+        return ViewerPredictionLogic.wolf(from: predictionAssignments)
+      case .topVote:
+        return ViewerPredictionLogic.topVote(
+          tallies: tallies, roster: pending.candidates)
+      }
+    }()
+    // Ground truth not uniquely derivable (e.g. an ambiguous minority) → leave
+    // the run unscored rather than record a coin-flip.
+    guard let actual else { return }
+
+    let streak = await persistPrediction(
+      repository: predictionRepository, simulationId: simId,
+      question: pending.question, predicted: pending.picked, actual: actual)
+    predictionOutcome = PredictionOutcome(
+      isHit: ViewerPredictionLogic.isHit(predicted: pending.picked, actual: actual),
+      streak: streak)
+  }
+
+  /// Active (non-eliminated) agent names — the choosable roster. At the first
+  /// vote nobody is eliminated yet, so this is the full cast.
+  private func activePredictionCandidates(scenario: Scenario) -> [String] {
+    scenario.personas.map(\.name).filter { !(eliminated[$0] ?? false) }
+  }
+
+  /// Presents the sheet and suspends until the viewer resolves it.
+  private func presentPrediction(
+    _ prompt: ViewerPredictionPrompt
+  ) async -> ViewerPredictionSheet.Resolution {
+    await withCheckedContinuation { continuation in
+      predictionContinuation = continuation
+      predictionPrompt = prompt
+    }
+  }
+
+  /// Resolves a pending prediction sheet exactly once — called by the sheet's
+  /// `onResolve` and by `setViewVisible(false)` (navigate-away safety net). A
+  /// no-op when nothing is pending.
+  func resolvePrediction(_ resolution: ViewerPredictionSheet.Resolution) {
+    guard let continuation = predictionContinuation else { return }
+    predictionContinuation = nil
+    predictionPrompt = nil
+    continuation.resume(returning: resolution)
+  }
+
+  /// Mirrors `SimulationView`'s on-screen state. Leaving the screen mid-sheet
+  /// resolves it as a skip so no phantom sheet resurfaces on return.
+  func setViewVisible(_ visible: Bool) {
+    isViewVisible = visible
+    if !visible { resolvePrediction(.skipped) }
+  }
+
+  /// Writes an answered prediction off-main and returns the resulting
+  /// consecutive-hit streak (0 on write failure). Awaited so the row exists and
+  /// the streak is known before the run completes and the card renders.
+  private func persistPrediction(
+    repository: any PredictionRepository, simulationId: String,
+    question: ViewerPredictionLogic.Question, predicted: String, actual: String
+  ) async -> Int {
+    let record = PredictionRecord(
+      id: UUID().uuidString,
+      simulationId: simulationId,
+      questionKind: question.rawValue,
+      predictedAgent: predicted,
+      actualAgent: actual,
+      isHit: ViewerPredictionLogic.isHit(predicted: predicted, actual: actual),
+      createdAt: Date())
+    let logger = lifecycleLogger
+    return await Task.detached {
+      do {
+        try repository.save(record)
+        return (try? repository.currentStreak()) ?? 0
+      } catch {
+        logger.error(
+          "Failed to persist prediction: \(String(describing: error), privacy: .public)")
+        return 0
+      }
+    }.value
   }
 
   // MARK: - Test Seams

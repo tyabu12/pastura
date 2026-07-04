@@ -145,6 +145,22 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // `.simulation` and `.resumeSimulation` routes (both render SimulationView).
     // See ADR-017; opt-in cross-screen continuation is deferred to Phase B.
     .toolbar(.hidden, for: .tabBar)
+    .onAppear { viewModel?.setViewVisible(true) }
+    // Viewer-prediction sheet (#915). The binding's nil-set path (interactive
+    // dismiss, blocked below) routes to a skip; normal resolution is driven by
+    // the sheet's `onResolve`, which clears `predictionPrompt` in the VM.
+    .sheet(
+      item: Binding(
+        get: { viewModel?.predictionPrompt },
+        set: { if $0 == nil { viewModel?.resolvePrediction(.skipped) } })
+    ) { prompt in
+      ViewerPredictionSheet(
+        question: prompt.question,
+        candidates: prompt.candidates,
+        onResolve: { viewModel?.resolvePrediction($0) }
+      )
+      .presentationDetents([.medium, .large])
+    }
     .task {
       // Phase B (ADR-017): reconnect to a run the app-level session still owns
       // instead of starting a fresh one. Under "keep running" the run survives
@@ -187,6 +203,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     // `.paused`). Ownership-guarded so a view that never owned the live run
     // doesn't tear one down. See `disappearAction(...)`.
     .onDisappear {
+      // Leaving the screen resolves any pending prediction sheet as a skip so
+      // it doesn't resurface stale on return (#915).
+      viewModel?.setViewVisible(false)
       let session = dependencies.simulationSession
       switch Self.disappearAction(
         leaveHandled: leaveHandled,
@@ -578,6 +597,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
+            // Viewer-prediction reward (#915): hit/miss + streak, shown with the
+            // result card when the run had an answered prediction.
+            predictionOutcomeBadge(viewModel: viewModel)
+
             // Bottom sentinel: scrollTo target that stays below every other
             // section (log entries, thinking indicators). Scrolling here
             // reliably reveals whatever just appeared last — anchoring to
@@ -775,6 +798,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       voteResults: viewModel.voteResults,
       eliminationVotes: viewModel.eliminationVotes,
       phases: scenario?.phases ?? [])
+  }
+
+  /// The viewer-prediction reward badge, shown with the result card once the
+  /// run completes and only when the run had an answered prediction (#915).
+  /// Extracted from the timeline body to keep its cyclomatic complexity in
+  /// budget.
+  @ViewBuilder
+  private func predictionOutcomeBadge(viewModel: SimulationViewModel) -> some View {
+    if resultCardVisible, let outcome = viewModel.predictionOutcome {
+      PredictionOutcomeBadge(isHit: outcome.isHit, streak: outcome.streak)
+        .transition(.opacity)
+    }
   }
 
   /// Whether any real score exists — gates the closing card's tap-to-scoreboard
@@ -1228,6 +1263,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       turnRepository: deps.turnRepository,
       codePhaseEventRepository: deps.codePhaseEventRepository,
       scenarioRepository: deps.scenarioRepository,
+      predictionRepository: deps.predictionRepository,
       backgroundManager: deps.backgroundManager,
       simulationActivityRegistry: deps.simulationActivityRegistry
     )
