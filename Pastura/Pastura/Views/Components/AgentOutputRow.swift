@@ -196,6 +196,21 @@ struct AgentOutputRow: View {
   /// `AgentOutputRow+Diagnostic.swift` for the consumers.
   var debugRowID: String?
 
+  /// Invoked with the agent's display name when the user taps this row's
+  /// avatar or name to inspect the agent's persona. `nil` (default) keeps
+  /// the avatar + name **decorative and non-interactive** — the pre-existing
+  /// behavior for every call site that does not opt in. The three chat
+  /// surfaces pass it only when a persona is actually resolvable (Past
+  /// Results degrades to `nil` for pre-snapshot / unparseable runs). When
+  /// non-nil: the avatar becomes a **sighted-only** tap target (it stays
+  /// `.accessibilityHidden` — identity is carried by the name, and
+  /// `SheepAvatar`'s color-slot label must not surface as a button), and the
+  /// name `Text` gains a VoiceOver `.isButton` action, so both pointer and
+  /// assistive users reach the persona sheet. Tap handling is attached to the
+  /// leaf avatar / name views only — never by wrapping the row in a container
+  /// (that would flush the load-bearing `@State`; see the `body` note).
+  var onAvatarTap: ((String) -> Void)?
+
   /// Per-row thought visibility. Default `false` only when no init value
   /// is provided; the custom init below seeds this from `showAllThoughts`
   /// so a row constructed in "auto-expand" mode starts expanded, and a
@@ -254,7 +269,8 @@ struct AgentOutputRow: View {
     initialVisibleChars: Int = 0,
     showAvatar: Bool = true,
     agentPosition: Int? = nil,
-    debugRowID: String? = nil
+    debugRowID: String? = nil,
+    onAvatarTap: ((String) -> Void)? = nil
   ) {
     self.agent = agent
     self.output = output
@@ -273,6 +289,7 @@ struct AgentOutputRow: View {
     self.showAvatar = showAvatar
     self.agentPosition = agentPosition
     self.debugRowID = debugRowID
+    self.onAvatarTap = onAvatarTap
     self._showInnerThought = State(initialValue: showAllThoughts)
     // Seed the reveal counter from the handoff position so the first frame
     // already shows the streamed prefix (no 0→seed flicker). `showInnerThought`
@@ -302,16 +319,14 @@ struct AgentOutputRow: View {
     // avatar column would have been.
     HStack(alignment: .top, spacing: showAvatar ? ChatBubbleLayout.avatarTextGap : 0) {
       if showAvatar {
-        AvatarSlot(agentName: agent, position: agentPosition)
+        avatarColumn
       }
       VStack(alignment: .leading, spacing: 6) {
         // Agent name + phase. Caption size + ink-secondary matches
         // `design-system.md` §3.2 `caption/name` and reference HTML
         // `.b-name { font-size: 10.5px; color: #7a7e68 }`.
         HStack(alignment: .firstTextBaseline) {
-          Text(agent)
-            .textStyle(Typography.captionName)
-            .foregroundStyle(Color.inkSecondary)
+          nameLabel
           PhaseTypeLabel(phaseType: phaseType)
           Spacer()
         }

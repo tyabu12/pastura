@@ -4591,6 +4591,16 @@
         }
       }
     },
+    "Persona" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペルソナ"
+          }
+        }
+      }
+    },
     "Persona %lld description contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {
@@ -5685,6 +5695,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "スコアボード全体を表示"
+          }
+        }
+      }
+    },
+    "Shows this agent's persona" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントのペルソナを表示します"
           }
         }
       }
