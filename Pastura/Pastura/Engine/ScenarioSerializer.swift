@@ -34,6 +34,11 @@ nonisolated struct ScenarioSerializer: Sendable {
     lines.append(yamlReadableBlockScalar("description", scenario.description))
     lines.append("agents: \(scenario.agentCount)")
     lines.append("rounds: \(scenario.rounds)")
+    // Optional prompt-side conversation-log cap (#907); omit the key when nil
+    // so scenarios without a window round-trip unchanged.
+    if let logWindow = scenario.logWindow {
+      lines.append("log_window: \(logWindow)")
+    }
     lines.append(yamlBlockScalar("context", scenario.context))
 
     // Extra data (top-level, before personas/phases)

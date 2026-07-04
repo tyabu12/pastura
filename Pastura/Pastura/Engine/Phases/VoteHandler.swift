@@ -34,18 +34,14 @@ nonisolated struct VoteHandler: PhaseHandler {
         scenario: context.scenario, persona: persona, phase: context.phase, state: state
       )
 
-      let candidates = context.scenario.personas
-        .map(\.name)
-        .filter { name in
-          if excludeSelf && name == persona.name { return false }
-          if state.eliminated[name] == true { return false }
-          return true
-        }
+      let candidates = voteCandidates(
+        scenario: context.scenario, voter: persona, excludeSelf: excludeSelf, state: state)
 
       var variables = state.variables
       variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
       variables["conversation_log"] = promptBuilder.formatConversationLog(
-        state.conversationLog, language: context.scenario.engineLanguage)
+        state.conversationLog, language: context.scenario.engineLanguage,
+        window: context.scenario.logWindow)
       variables["candidates"] = candidates.joined(separator: ", ")
       promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
       promptBuilder.injectNotes(into: &variables, personaName: persona.name)
@@ -84,5 +80,20 @@ nonisolated struct VoteHandler: PhaseHandler {
     state.variables["vote_results"] = promptBuilder.formatScoreboard(tallies)
 
     context.emitter(.voteResults(votes: votes, tallies: tallies))
+  }
+
+  /// The valid vote targets for `voter`: all personas minus self (under
+  /// `exclude_self`) and any eliminated agent. Extracted from `execute` to keep
+  /// that method under the `function_body_length` cap.
+  private func voteCandidates(
+    scenario: Scenario, voter: Persona, excludeSelf: Bool, state: SimulationState
+  ) -> [String] {
+    scenario.personas
+      .map(\.name)
+      .filter { name in
+        if excludeSelf && name == voter.name { return false }
+        if state.eliminated[name] == true { return false }
+        return true
+      }
   }
 }

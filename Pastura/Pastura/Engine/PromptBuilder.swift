@@ -75,11 +75,21 @@ nonisolated struct PromptBuilder: Sendable {
   /// chosen via the effective Engine language (callers pass
   /// `scenario.engineLanguage`, ADR-010 D5 / D6 row 1). ADR-010 D7
   /// Translation Table.
-  func formatConversationLog(_ entries: [ConversationEntry], language: String) -> String {
+  ///
+  /// - Parameter window: Optional cap (`scenario.logWindow`, #907). When
+  ///   non-nil, only the last `window` entries are formatted — a prompt-side
+  ///   trim; the full log is untouched in persistence. `nil` keeps every entry.
+  ///   For any `window ≥ 1` (the validator's floor) the trimmed slice is
+  ///   non-empty whenever `entries` is, so the empty-log placeholder still only
+  ///   fires on a genuinely empty log.
+  func formatConversationLog(
+    _ entries: [ConversationEntry], language: String, window: Int? = nil
+  ) -> String {
     if entries.isEmpty {
       return pickLanguage(language, ja: "（まだなし）", en: "(none yet)")
     }
-    return entries.map { "  \($0.agentName): \($0.content)" }.joined(separator: "\n")
+    let windowed = window.map { Array(entries.suffix($0)) } ?? entries
+    return windowed.map { "  \($0.agentName): \($0.content)" }.joined(separator: "\n")
   }
 
   // MARK: - Main Field Detection

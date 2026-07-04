@@ -31,7 +31,8 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
         var variables = state.variables
         variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["conversation_log"] = promptBuilder.formatConversationLog(
-          state.conversationLog, language: context.scenario.engineLanguage)
+          state.conversationLog, language: context.scenario.engineLanguage,
+          window: context.scenario.logWindow)
         promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
         promptBuilder.injectNotes(into: &variables, personaName: persona.name)
         let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)

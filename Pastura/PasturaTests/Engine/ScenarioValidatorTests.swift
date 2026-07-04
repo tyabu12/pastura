@@ -52,6 +52,27 @@ struct ScenarioValidatorTests {
     }
   }
 
+  // MARK: - log_window (#907)
+
+  @Test func rejectsZeroLogWindow() {
+    let scenario = makeLogWindowScenario(logWindow: 0)
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func acceptsLogWindowOfOne() throws {
+    let scenario = makeLogWindowScenario(logWindow: 1)
+    let result = try validator.validate(scenario)
+    #expect(result.warnings.isEmpty)
+  }
+
+  @Test func acceptsNilLogWindow() throws {
+    let scenario = makeLogWindowScenario(logWindow: nil)
+    let result = try validator.validate(scenario)
+    #expect(result.warnings.isEmpty)
+  }
+
   @Test func warnsWhenInferencesExceed50() throws {
     // 10 agents × (speak_all + vote) × 3 rounds = 60
     let scenario = makeScenario(
@@ -414,6 +435,17 @@ struct ScenarioValidatorTests {
       agentCount: agents, rounds: rounds, context: "Context",
       personas: (0..<agents).map { Persona(name: "A\($0)", description: "D") },
       phases: phases
+    )
+  }
+
+  private func makeLogWindowScenario(logWindow: Int?) -> Scenario {
+    Scenario(
+      id: "test", name: "Test", description: "Test",
+      language: "ja",
+      agentCount: 2, rounds: 1, context: "Context",
+      personas: [Persona(name: "A", description: "D"), Persona(name: "B", description: "D")],
+      phases: [Phase(type: .speakAll)],
+      logWindow: logWindow
     )
   }
 

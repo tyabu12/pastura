@@ -117,6 +117,9 @@ nonisolated public struct ScenarioYAMLPatcher: Sendable {
       && tryEdit(
         base.rounds != visual.rounds, root["rounds"]?.scalar, String(visual.rounds), &edits)
       && tryEdit(
+        base.logWindow != visual.logWindow, root["log_window"]?.scalar,
+        visual.logWindow.map(String.init), &edits)
+      && tryEdit(
         base.context != visual.context, root["context"]?.scalar, quote(visual.context), &edits)
   }
 

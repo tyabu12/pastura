@@ -3768,6 +3768,22 @@
         }
       }
     },
+    "Log window (%lld) must be at least 1" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log window (%lld) must be at least 1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会話ログの表示件数 (%lld) は1以上にしてください"
+          }
+        }
+      }
+    },
     "Logic" : {
       "localizations" : {
         "ja" : {

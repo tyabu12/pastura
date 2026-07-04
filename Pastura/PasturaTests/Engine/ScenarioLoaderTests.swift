@@ -42,6 +42,64 @@ struct ScenarioLoaderTests {
     #expect(scenario.phases.count == 1)
   }
 
+  // MARK: - log_window (#907)
+
+  @Test func parsesLogWindow() throws {
+    let yaml = """
+      id: lw_test
+      language: ja
+      name: LW
+      description: log window test
+      agents: 2
+      rounds: 1
+      log_window: 5
+      context: Context
+      personas:
+        - name: Alice
+          description: A
+        - name: Bob
+          description: B
+      phases:
+        - type: speak_all
+          prompt: Go
+          output:
+            statement: string
+      """
+    let scenario = try loader.load(yaml: yaml)
+    #expect(scenario.logWindow == 5)
+  }
+
+  @Test func absentLogWindowIsNil() throws {
+    let scenario = try loader.load(yaml: makeMinimalYAML())
+    #expect(scenario.logWindow == nil)
+  }
+
+  @Test func rejectsNonIntLogWindow() {
+    let yaml = """
+      id: lw_bad
+      language: ja
+      name: LW
+      description: log window test
+      agents: 2
+      rounds: 1
+      log_window: "five"
+      context: Context
+      personas:
+        - name: Alice
+          description: A
+        - name: Bob
+          description: B
+      phases:
+        - type: speak_all
+          prompt: Go
+          output:
+            statement: string
+      """
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+  }
+
   @Test func parsesPersonasCorrectly() throws {
     let scenario = try loader.load(yaml: makeMinimalYAML())
     #expect(scenario.personas[0].name == "Alice")

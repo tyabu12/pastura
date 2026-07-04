@@ -63,6 +63,14 @@ nonisolated struct ScenarioValidator: Sendable {
         String(localized: "Round count (%lld) exceeds maximum of 30"), scenario.rounds)
     }
 
+    // Conversation-log window (#907): a prompt-side cap that must keep at least
+    // one entry when set. `nil` means "no window" (full log); `0` or negative
+    // would silently strip the whole log, so reject it as a misconfiguration.
+    if let logWindow = scenario.logWindow, logWindow < 1 {
+      throw validationError(
+        String(localized: "Log window (%lld) must be at least 1"), logWindow)
+    }
+
     // Inference count estimation
     let estimated = ScenarioLoader.estimateInferenceCount(scenario)
 
