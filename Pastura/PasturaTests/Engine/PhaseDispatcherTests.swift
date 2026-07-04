@@ -31,11 +31,7 @@ struct PhaseDispatcherTests {
       case .eventInject:
         #expect(try dispatcher.handler(for: phaseType) is EventInjectHandler)
       case .reflect:
-        // ReflectHandler is added in a follow-up (issue #907, item 2). Until
-        // then no handler is registered, so dispatch throws.
-        #expect(throws: SimulationError.self) {
-          try dispatcher.handler(for: phaseType)
-        }
+        #expect(try dispatcher.handler(for: phaseType) is ReflectHandler)
       }
     }
   }

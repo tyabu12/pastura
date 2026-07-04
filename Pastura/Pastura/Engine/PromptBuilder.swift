@@ -42,6 +42,20 @@ nonisolated struct PromptBuilder: Sendable {
     variables["assigned_word"] = mine
   }
 
+  /// Injects the current speaker's `reflect`-phase memo under the `{my_notes}`
+  /// key.
+  ///
+  /// ``ReflectHandler`` stores each agent's private note under a per-persona
+  /// key `notes_<name>` (#907); this reads that back for the speaker so custom
+  /// user-prompt templates can reference `{my_notes}`. The `notes_` prefix is a
+  /// reserved namespace, mirroring `assigned_` (see ``injectAssigned(into:personaName:)``).
+  ///
+  /// Missing note resolves to empty string (not a literal placeholder), matching
+  /// `injectAssigned`'s miss posture.
+  func injectNotes(into variables: inout [String: String], personaName: String) {
+    variables["my_notes"] = variables["notes_\(personaName)"] ?? ""
+  }
+
   // MARK: - Scoreboard
 
   /// Serializes a score dictionary into a compact JSON-like string for template injection.
@@ -127,6 +141,21 @@ nonisolated struct PromptBuilder: Sendable {
       \(persona.description)
       """)
 
+    // Private reflect memo (#907): surface the agent's own prior-round note back
+    // to itself only. Other agents never see it (it is not in the conversation
+    // log), so the header stresses its privacy.
+    if let note = state.variables["notes_\(persona.name)"], !note.isEmpty {
+      let notesHeader = pickLanguage(
+        language,
+        ja: "## あなたの内心メモ（他の参加者には見えません）",
+        en: "## Your Private Notes (invisible to other participants)")
+      sections.append(
+        """
+        \(notesHeader)
+        \(note)
+        """)
+    }
+
     sections.append(
       buildAnswerRules(scenario: scenario, persona: persona, phase: phase, state: state))
 
@@ -185,6 +214,11 @@ nonisolated struct PromptBuilder: Sendable {
       rules += addressRule(language: language)
     }
 
+    // Reflect notes get a tighter 2-sentence cap (see `reflectBrevityRule`).
+    if phase.type == .reflect {
+      rules += reflectBrevityRule(language: language)
+    }
+
     if phase.type == .choose, let options = phase.options {
       let optionsList = options.joined(separator: ", ")
       rules += pickLanguage(
@@ -194,22 +228,42 @@ nonisolated struct PromptBuilder: Sendable {
     }
 
     if phase.type == .vote {
-      let excludeSelf = phase.excludeSelf ?? true
-      let candidates = scenario.personas
-        .map(\.name)
-        .filter { name in
-          if excludeSelf && name == persona.name { return false }
-          if state.eliminated[name] == true { return false }
-          return true
-        }
-      let candidatesList = candidates.joined(separator: ", ")
-      rules += pickLanguage(
-        language,
-        ja: "\n- voteフィールドは必ず次の名前のいずれかを正確に書くこと: \(candidatesList)",
-        en: "\n- The vote field must be exactly one of these names: \(candidatesList)")
+      rules += voteCandidateRule(scenario: scenario, persona: persona, phase: phase, state: state)
     }
 
     return rules
+  }
+
+  /// The `vote` candidate-list constraint appended for vote phases only.
+  /// Lists the valid vote targets (excluding self under `exclude_self` and
+  /// any eliminated agent). Extracted from `buildAnswerRules` to keep that
+  /// function under the `function_body_length` cap.
+  private func voteCandidateRule(
+    scenario: Scenario, persona: Persona, phase: Phase, state: SimulationState
+  ) -> String {
+    let excludeSelf = phase.excludeSelf ?? true
+    let candidates = scenario.personas
+      .map(\.name)
+      .filter { name in
+        if excludeSelf && name == persona.name { return false }
+        if state.eliminated[name] == true { return false }
+        return true
+      }
+    let candidatesList = candidates.joined(separator: ", ")
+    return pickLanguage(
+      scenario.engineLanguage,
+      ja: "\n- voteフィールドは必ず次の名前のいずれかを正確に書くこと: \(candidatesList)",
+      en: "\n- The vote field must be exactly one of these names: \(candidatesList)")
+  }
+
+  /// The #907 brevity rule appended for `reflect` phases only. Caps the private
+  /// note at 2 sentences — same constraint family as the #877 statement brevity
+  /// rule. Keep ja/en scope-parallel when editing.
+  private func reflectBrevityRule(language: String) -> String {
+    pickLanguage(
+      language,
+      ja: "\n- メモ（note）は2文以内で簡潔に書くこと（長文・箇条書きの羅列は禁止）",
+      en: "\n- Keep your note to at most 2 sentences (no long paragraphs or bullet lists).")
   }
 
   /// The #911 address rule appended for turn-based `speak_each` phases only.
