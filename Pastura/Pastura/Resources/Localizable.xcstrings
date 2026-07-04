@@ -943,6 +943,16 @@
         }
       }
     },
+    "%lld s left" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り %lld 秒"
+          }
+        }
+      }
+    },
     "%lld steps" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3766,6 +3776,16 @@
         }
       }
     },
+    "Make your prediction" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予想してみよう"
+          }
+        }
+      }
+    },
     "Manage in Settings" : {
       "localizations" : {
         "en" : {
@@ -5615,6 +5635,16 @@
         }
       }
     },
+    "Skip" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキップ"
+          }
+        }
+      }
+    },
     "Social Psychology" : {
       "localizations" : {
         "ja" : {
@@ -6433,6 +6463,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "進行の流れ"
+          }
+        }
+      }
+    },
+    "Who do you think the wolf is?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウルフは誰だと思う？"
+          }
+        }
+      }
+    },
+    "Who do you think will get the most votes?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誰が一番票を集めると思う？"
           }
         }
       }
