@@ -9,6 +9,10 @@ import Testing
 /// scoring, and persistence. The pure decision logic is covered separately in
 /// `ViewerPredictionLogicTests`; these tests pin the VM wiring around it.
 ///
+/// The prediction is presented at the first `.phaseStarted(.vote)` (before any
+/// vote is shown, so the outcome isn't spoiled) and scored at the subsequent
+/// `.voteResults`, so each test drives those two events in order.
+///
 /// Serialized + `@MainActor`: the tests toggle the process-global
 /// `viewerPredictionEnabled` default and exercise MainActor VM state. Each
 /// test removes the key so the suite leaves no residue.
@@ -60,12 +64,35 @@ struct SimulationViewModelPredictionTests {
   }
 
   /// Resolves the sheet once it appears — run concurrently with the awaited
-  /// interception.
+  /// vote-phase-start interception.
   private func autoResolve(
     _ sut: SimulationViewModel, with resolution: ViewerPredictionSheet.Resolution
   ) async {
     while sut.predictionPrompt == nil { await Task.yield() }
     sut.resolvePrediction(resolution)
+  }
+
+  private let votePhaseStart = SimulationEvent.phaseStarted(
+    phaseType: .vote, phasePath: [])
+
+  /// Drives the vote-phase-start prompt (auto-resolving with `resolution` if the
+  /// sheet is expected to appear), then delivers the tally to score it.
+  private func runPrediction(
+    _ env: Env,
+    resolve resolution: ViewerPredictionSheet.Resolution?,
+    tallies: [String: Int]
+  ) async {
+    if let resolution {
+      async let resolver: Void = autoResolve(env.sut, with: resolution)
+      await env.sut.handleViewerPredictionEvent(
+        event: votePhaseStart, scenario: env.scenario)
+      await resolver
+    } else {
+      await env.sut.handleViewerPredictionEvent(
+        event: votePhaseStart, scenario: env.scenario)
+    }
+    await env.sut.handleViewerPredictionEvent(
+      event: .voteResults(votes: [:], tallies: tallies), scenario: env.scenario)
   }
 
   private var wolfPhases: [Phase] {
@@ -79,10 +106,7 @@ struct SimulationViewModelPredictionTests {
     let env = try makeEnv(phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
-    async let resolver: Void = autoResolve(env.sut, with: .predicted("Eve"))
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
-    await resolver
+    await runPrediction(env, resolve: .predicted("Eve"), tallies: [:])
 
     let record = try env.repo.fetchBySimulationId("sim1")
     #expect(record?.isHit == true)
@@ -100,10 +124,7 @@ struct SimulationViewModelPredictionTests {
     let env = try makeEnv(phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
-    async let resolver: Void = autoResolve(env.sut, with: .predicted("Alice"))
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
-    await resolver
+    await runPrediction(env, resolve: .predicted("Alice"), tallies: [:])
 
     let record = try env.repo.fetchBySimulationId("sim1")
     #expect(record?.isHit == false)
@@ -117,11 +138,7 @@ struct SimulationViewModelPredictionTests {
     defer { UserDefaults.standard.removeObject(forKey: Self.flagKey) }
     let env = try makeEnv(phases: votePhases)
 
-    async let resolver: Void = autoResolve(env.sut, with: .predicted("Bob"))
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: ["Bob": 3, "Alice": 1]),
-      scenario: env.scenario)
-    await resolver
+    await runPrediction(env, resolve: .predicted("Bob"), tallies: ["Bob": 3, "Alice": 1])
 
     let record = try env.repo.fetchBySimulationId("sim1")
     #expect(record?.isHit == true)
@@ -135,10 +152,7 @@ struct SimulationViewModelPredictionTests {
     let env = try makeEnv(phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
-    async let resolver: Void = autoResolve(env.sut, with: .skipped)
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
-    await resolver
+    await runPrediction(env, resolve: .skipped, tallies: [:])
 
     #expect(try env.repo.fetchBySimulationId("sim1") == nil)
     #expect(env.sut.predictionOutcome == nil)
@@ -150,14 +164,11 @@ struct SimulationViewModelPredictionTests {
     let env = try makeEnv(phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
-    async let resolver: Void = autoResolve(env.sut, with: .predicted("Eve"))
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
-    await resolver
+    await runPrediction(env, resolve: .predicted("Eve"), tallies: [:])
 
-    // A second vote in the same run must not re-arm the sheet.
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: ["Bob": 5]), scenario: env.scenario)
+    // A second vote phase in the same run must not re-arm the sheet.
+    await env.sut.handleViewerPredictionEvent(
+      event: votePhaseStart, scenario: env.scenario)
     #expect(env.sut.predictionPrompt == nil)
     // Still exactly the first (wolf) record — the second vote wrote nothing.
     #expect(try env.repo.fetchBySimulationId("sim1")?.questionKind == "wolf")
@@ -169,8 +180,7 @@ struct SimulationViewModelPredictionTests {
     let env = try makeEnv(phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
+    await runPrediction(env, resolve: nil, tallies: [:])
 
     #expect(env.sut.predictionPrompt == nil)
     #expect(try env.repo.fetchBySimulationId("sim1") == nil)
@@ -182,8 +192,8 @@ struct SimulationViewModelPredictionTests {
     let env = try makeEnv(predictionRepo: false, phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
+    await env.sut.handleViewerPredictionEvent(
+      event: votePhaseStart, scenario: env.scenario)
 
     #expect(env.sut.predictionPrompt == nil)
   }
@@ -195,30 +205,29 @@ struct SimulationViewModelPredictionTests {
     feedWolfAssignments(env.sut, scenario: env.scenario)
     env.sut.setViewVisible(false)
 
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
+    await runPrediction(env, resolve: nil, tallies: [:])
 
     #expect(env.sut.predictionPrompt == nil)
     #expect(try env.repo.fetchBySimulationId("sim1") == nil)
   }
 
   @Test func firstVoteWhileNotVisibleConsumesTheOpportunity() async throws {
-    // The first vote latches even when not presentable (parked), so a later
-    // visible vote in the same run is NOT asked — strict "first vote" contract.
-    // If the latch were set AFTER the visibility check, the second vote below
-    // would present the sheet and this test would fail.
+    // The first vote phase latches even when not presentable (parked), so a
+    // later visible vote in the same run is NOT asked — strict "first vote"
+    // contract. If the latch were set AFTER the visibility check, the second
+    // vote-start below would present the sheet and this test would fail.
     FeatureFlags.setViewerPredictionEnabled(true)
     defer { UserDefaults.standard.removeObject(forKey: Self.flagKey) }
     let env = try makeEnv(phases: wolfPhases)
     feedWolfAssignments(env.sut, scenario: env.scenario)
 
     env.sut.setViewVisible(false)
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: [:]), scenario: env.scenario)
+    await env.sut.handleViewerPredictionEvent(
+      event: votePhaseStart, scenario: env.scenario)
 
     env.sut.setViewVisible(true)
-    await env.sut.interceptFirstVoteIfNeeded(
-      event: .voteResults(votes: [:], tallies: ["Bob": 3]), scenario: env.scenario)
+    await env.sut.handleViewerPredictionEvent(
+      event: votePhaseStart, scenario: env.scenario)
 
     #expect(env.sut.predictionPrompt == nil)
     #expect(try env.repo.fetchBySimulationId("sim1") == nil)

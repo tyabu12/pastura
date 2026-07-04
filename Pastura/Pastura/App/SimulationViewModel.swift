@@ -501,6 +501,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// per run.
   private(set) var predictionOutcome: PredictionOutcome?
 
+  /// A pick captured at vote-phase start, awaiting the tally to be scored at
+  /// `.voteResults`. Reset per run.
+  private var pendingPrediction: PendingPrediction?
+
   /// Whether `SimulationView` is currently on screen. Gates the prediction
   /// sheet so a navigated-away (ADR-017 Phase B park) run never presents a
   /// modal (scene-background is handled separately by `isAppBackgrounded`).
@@ -931,6 +935,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     hasAttemptedPrediction = false
     predictionPrompt = nil
     predictionOutcome = nil
+    pendingPrediction = nil
     // Latent: a second run on the same VM instance would otherwise inherit
     // these from the previous simulation — `latestAgentOutputId` points at a
     // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
@@ -1075,13 +1080,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         try? await Task.sleep(for: .milliseconds(speed.interEventDelayMs))
       }
 
-      // Viewer prediction (#915): before the FIRST vote reveal is committed,
-      // pause the loop to ask the viewer to predict the outcome — scored + saved
-      // here from the tallies/assignments already in hand, then the normal
-      // `handleEvent` below commits `voteResults`. `run()` only (a resumed run
+      // Viewer prediction (#915): present the sheet at the first vote-phase
+      // START (before any vote is shown, so the outcome isn't spoiled) and score
+      // the captured pick when the tally arrives. `run()` only (a resumed run
       // never asks). The unbounded AsyncStream buffers ahead during the wait
       // (accepted trade-off), so the producer never deadlocks.
-      await interceptFirstVoteIfNeeded(event: event, scenario: scenario)
+      await handleViewerPredictionEvent(event: event, scenario: scenario)
 
       handleEvent(event, scenario: scenario)
 
@@ -2001,34 +2005,59 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   // MARK: - Viewer prediction (#915)
 
-  /// On the first vote reveal of a fresh run with the feature enabled, latches
-  /// the run's single prediction opportunity, then — if the sim screen is
-  /// foreground-visible — pauses the loop to present the sheet, scores the answer
-  /// against the reveal-moment ground truth, and persists it (answered
-  /// predictions only). The latch is set BEFORE the visibility check (set even
-  /// on skip / not-presentable), so it fires at most once per run with no DB
-  /// round-trip and a multi-vote scenario is never re-asked on a later vote.
+  /// A prediction captured at vote-phase start, awaiting the tally to score it.
+  private struct PendingPrediction {
+    let question: ViewerPredictionLogic.Question
+    let picked: String
+    /// Roster captured at prompt time — the `topVote` scoring ranks over this.
+    let candidates: [String]
+  }
+
+  /// Drives the viewer-prediction feature off the run loop (#915). Two events
+  /// matter, and interception happens BEFORE the votes are shown so the outcome
+  /// isn't spoiled:
   ///
-  /// Internal (not `private`) so it can be driven directly from a unit test
-  /// (ADR-009 / `.claude/rules/view-testing.md`) without spinning the full
-  /// run loop; the test resolves the sheet by polling `predictionPrompt` and
-  /// calling `resolvePrediction`.
-  func interceptFirstVoteIfNeeded(
+  /// - **`.phaseStarted(.vote)`** — the first vote phase of a fresh run. Latches
+  ///   the run's single prediction opportunity, then (if foreground-visible)
+  ///   pauses the loop to present the sheet and captures the pick into
+  ///   `pendingPrediction`. This fires *before* any agent casts a vote
+  ///   (`SimulationRunner` emits `phaseStarted` before the handler runs), so the
+  ///   individual votes don't leak the answer.
+  /// - **`.voteResults`** — the tally. Scores the captured pick against the
+  ///   reveal-moment ground truth (wolf from `.assignment` events; `#1` from
+  ///   these tallies) and persists it (answered predictions only).
+  ///
+  /// The latch is set BEFORE the visibility check (even on skip / not-presentable)
+  /// so a parked/backgrounded first vote consumes the opportunity and a later
+  /// vote is never asked. `run()` only — a resumed run never asks.
+  ///
+  /// Internal (not `private`) so a unit test can drive it directly (ADR-009 /
+  /// `.claude/rules/view-testing.md`): feed `.phaseStarted(.vote)` (resolving the
+  /// sheet by polling `predictionPrompt`), then `.voteResults`.
+  func handleViewerPredictionEvent(
     event: SimulationEvent, scenario: Scenario
   ) async {
-    guard case .voteResults(_, let tallies) = event else { return }
+    switch event {
+    case .phaseStarted(let phaseType, _) where phaseType == .vote:
+      await presentPredictionAtVoteStart(scenario: scenario)
+    case .voteResults(_, let tallies):
+      await scorePendingPrediction(tallies: tallies)
+    default:
+      break
+    }
+  }
+
+  private func presentPredictionAtVoteStart(scenario: Scenario) async {
     guard
       !hasAttemptedPrediction,
       FeatureFlags.viewerPredictionEnabled,
-      let predictionRepository,
-      let simId = simulationId,
+      predictionRepository != nil,
+      simulationId != nil,
       let question = ViewerPredictionLogic.question(for: scenario.phases)
     else { return }
 
-    // This first vote consumes the run's single prediction opportunity — latch
-    // BEFORE the visibility check so that if we can't present now (parked /
-    // backgrounded), a later vote in the same run is skipped too rather than
-    // asked, keeping the "first vote" contract strict.
+    // Latch BEFORE the visibility check so a parked/backgrounded first vote
+    // still consumes the run's one opportunity (a later vote is never asked).
     hasAttemptedPrediction = true
 
     // Present only when the sim screen is foreground-visible; a parked
@@ -2042,15 +2071,27 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     let resolution = await presentPrediction(
       ViewerPredictionPrompt(question: question, candidates: candidates))
 
-    // Skip / timeout / navigate-away leave no row (see `PredictionRecord`).
+    // Skip / timeout / navigate-away leave no pending pick and no row.
     guard case .predicted(let picked) = resolution else { return }
+    pendingPrediction = PendingPrediction(
+      question: question, picked: picked, candidates: candidates)
+  }
+
+  private func scorePendingPrediction(tallies: [String: Int]) async {
+    guard
+      let pending = pendingPrediction,
+      let predictionRepository,
+      let simId = simulationId
+    else { return }
+    pendingPrediction = nil
 
     let actual: String? = {
-      switch question {
+      switch pending.question {
       case .wolf:
         return ViewerPredictionLogic.wolf(from: predictionAssignments)
       case .topVote:
-        return ViewerPredictionLogic.topVote(tallies: tallies, roster: candidates)
+        return ViewerPredictionLogic.topVote(
+          tallies: tallies, roster: pending.candidates)
       }
     }()
     // Ground truth not uniquely derivable (e.g. an ambiguous minority) → leave
@@ -2059,9 +2100,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
     let streak = await persistPrediction(
       repository: predictionRepository, simulationId: simId,
-      question: question, predicted: picked, actual: actual)
+      question: pending.question, predicted: pending.picked, actual: actual)
     predictionOutcome = PredictionOutcome(
-      isHit: ViewerPredictionLogic.isHit(predicted: picked, actual: actual),
+      isHit: ViewerPredictionLogic.isHit(predicted: pending.picked, actual: actual),
       streak: streak)
   }
 
