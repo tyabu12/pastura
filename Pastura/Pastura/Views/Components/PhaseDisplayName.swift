@@ -17,11 +17,10 @@ import Foundation
 /// text (e.g. "All agents speak simultaneously"), see
 /// `PhaseEditorSheet.phaseTypeDescription` — that surface is
 /// intentionally separate (sentence form vs compact label) and the
-/// two should not be merged. The third phase-label surface,
-/// `PhaseTypeLabel` in `Views/Components/`, renders
-/// `PhaseType.rawValue` ("speak_all", etc.) as a moss/ink capsule
-/// badge for inline log markers; it is also intentionally separate
-/// (raw-value debug-style tag vs localized header label).
+/// two should not be merged. `PhaseTypeLabel` in `Views/Components/`
+/// (the moss/ink capsule badge) now renders **this** label rather than
+/// `PhaseType.rawValue`, so its inline log markers and phase-boundary
+/// separators stay snake_case-free and localized (#882).
 public enum PhaseDisplayName {
 
   /// Compact display label for `phase`. The English source string is
