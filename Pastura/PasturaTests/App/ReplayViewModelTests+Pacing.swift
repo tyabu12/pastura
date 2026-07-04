@@ -138,6 +138,48 @@ extension ReplayViewModelTests {
     #expect(viewModel.introFloorMs(forSourceIndex: 0, script: Self.demoScript) == 0)
   }
 
+  // MARK: - codePhaseFloorMs (reading reservation for narration lines, #932)
+
+  /// Structured/glanceable code-phase events (votes, scores, eliminations,
+  /// pairings) reserve no reading beat — they are covered by the closing card.
+  @Test func codePhaseFloorIsZeroForNonTextEvent() throws {
+    let viewModel = try Self.makeDemoPacedVM()
+    #expect(
+      viewModel.codePhaseFloorMs(
+        for: .voteResults(votes: [:], tallies: ["Alice": 2]), script: Self.demoScript) == 0)
+  }
+
+  /// A text-carrying assignment お題 reserves a pure reading dwell (no typing
+  /// term — code-phase lines render instantly). `readingDwell(len 3, dense,
+  /// normal) == 480` per `floorIsTypingPlusReadingDwell` above.
+  @Test func codePhaseFloorIsReadingDwellForAssignment() throws {
+    let viewModel = try Self.makeDemoPacedVM()  // .normal speed, cps 10
+    #expect(
+      viewModel.codePhaseFloorMs(
+        for: .assignment(agent: "Alice", value: "abc"), script: Self.demoScript) == 480)
+  }
+
+  /// `.instant` → nil cps → no reading floor (symmetric with `introFloorMs` /
+  /// `typingFloorMs` opt-out).
+  @Test func codePhaseFloorIsZeroAtInstantSpeed() throws {
+    let viewModel = try Self.makeDemoPacedVM()
+    viewModel.playbackSpeed = .instant
+    #expect(
+      viewModel.codePhaseFloorMs(
+        for: .assignment(agent: "Alice", value: "abc"), script: Self.demoScript) == 0)
+  }
+
+  /// No text ⇒ no floor: an empty summary and an `eventInjected` miss (`nil`)
+  /// both leave no phantom pre-next-event delay.
+  @Test func codePhaseFloorIsZeroForEmptyText() throws {
+    let viewModel = try Self.makeDemoPacedVM()
+    #expect(
+      viewModel.codePhaseFloorMs(for: .summary(text: ""), script: Self.demoScript) == 0)
+    #expect(
+      viewModel.codePhaseFloorMs(
+        for: .eventInjected(event: nil), script: Self.demoScript) == 0)
+  }
+
   // MARK: - scaledDelay floor application
 
   @Test func scaledDelayTakesFloorWhenFloorExceedsBase() throws {

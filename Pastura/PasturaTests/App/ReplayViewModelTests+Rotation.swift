@@ -94,9 +94,12 @@ extension ReplayViewModelTests {
     // `.playing(1, 3)`.
     //
     // Per #208, mid-cycle rotation no longer wipes the chat stream.
-    // chatItems is now: source 0's 1 agent output, a boundary marker
-    // carrying source 1's scenario name, then source 1's 1 agent
-    // output. The compat-shim `agentOutputs` filters out the boundary.
+    // Each source now also contributes lifecycle chapter separators
+    // (#932 follow-up): per source = [roundSeparator, phaseSeparator,
+    // agentOutput]. So the full stream is 3 + boundary + 3 = 7 items:
+    // source 0's separators + turn, a boundary carrying source 1's name,
+    // then source 1's separators + turn. The compat-shim `agentOutputs`
+    // filters to just the two turns.
     let sources = try Self.makeTwoSources()
     let viewModel = ReplayViewModel(
       sources: sources, config: Self.holdConfig,
@@ -111,29 +114,32 @@ extension ReplayViewModelTests {
       }
       return false
     }
-    #expect(viewModel.chatItems.count == 3)
-    if case .agentOutput(let entry) = viewModel.chatItems[0] {
-      #expect(entry.output.statement == "demo 1 alice")
-    } else {
-      Issue.record(
-        "chatItems[0] expected .agentOutput, got \(viewModel.chatItems[0])")
+    #expect(viewModel.chatItems.count == 7)
+    // Exactly one boundary, carrying source 1's scenario name (both fixture
+    // sources use `makeScenario()` → name "Test").
+    let boundaryIndex = viewModel.chatItems.firstIndex {
+      if case .demoBoundary = $0 { return true }
+      return false
     }
-    if case .demoBoundary(_, let scenarioName) = viewModel.chatItems[1] {
-      // Both fixture sources are built from `makeScenario()` (name
-      // "Test"); the marker reads `sources[nextIndex].scenario.name`,
-      // which here is source 1's scenario.
+    guard let boundaryIndex else {
+      Issue.record("Expected a .demoBoundary, got \(viewModel.chatItems)")
+      return
+    }
+    if case .demoBoundary(_, let scenarioName) = viewModel.chatItems[boundaryIndex] {
       #expect(scenarioName == "Test")
-    } else {
-      Issue.record(
-        "chatItems[1] expected .demoBoundary, got \(viewModel.chatItems[1])")
     }
-    if case .agentOutput(let entry) = viewModel.chatItems[2] {
-      #expect(entry.output.statement == "demo 2 bob")
-    } else {
-      Issue.record(
-        "chatItems[2] expected .agentOutput, got \(viewModel.chatItems[2])")
+    // Alice's turn precedes the boundary; Bob's follows it.
+    let aliceIndex = viewModel.chatItems.firstIndex {
+      if case .agentOutput(let entry) = $0 { return entry.output.statement == "demo 1 alice" }
+      return false
     }
-    // Compat-shim view: boundary filtered out, both turns visible.
+    let bobIndex = viewModel.chatItems.firstIndex {
+      if case .agentOutput(let entry) = $0 { return entry.output.statement == "demo 2 bob" }
+      return false
+    }
+    #expect(aliceIndex.map { $0 < boundaryIndex } == true)
+    #expect(bobIndex.map { $0 > boundaryIndex } == true)
+    // Compat-shim view: separators + boundary filtered out, both turns visible.
     #expect(viewModel.agentOutputs.count == 2)
     #expect(viewModel.agentOutputs[0].output.statement == "demo 1 alice")
     #expect(viewModel.agentOutputs[1].output.statement == "demo 2 bob")
