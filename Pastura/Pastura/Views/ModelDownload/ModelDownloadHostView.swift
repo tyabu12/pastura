@@ -91,7 +91,8 @@ struct ModelDownloadHostView: View {
   // / `promoCardInset` and `currentPresetName` can read it.
   @State var sources: [any ReplaySource] = []
   // Type-once latch for opening cards (#867), keyed by `ChatItem.scenarioIntro`
-  // id. Generalizes the live Sim's single `introHasTyped` Bool to the demo's
+  // id. Generalizes the live Sim's single reveal latch
+  // (`SimulationViewModel.introRevealHasBegun`) to the demo's
   // many cards (one per rotated segment): the card lives in a `LazyVStack`, so
   // scrolling an already-typed card back into view must render it statically
   // (`charsPerSecond: nil`) instead of re-typing. Internal (not `private`) so
