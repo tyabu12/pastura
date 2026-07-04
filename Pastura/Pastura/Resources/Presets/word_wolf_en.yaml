@@ -93,6 +93,19 @@ phases:
       inner_thought: string
     rounds: 2
 
+  - type: reflect
+    prompt: >
+      Your topic: {assigned_word}
+
+      Conversation so far:
+      {conversation_log}
+
+      Based on the clues so far, update your private notes: who seems
+      suspicious, whether you seem to be in the majority or the minority,
+      and how you plan to act before the vote.
+    output:
+      note: string
+
   - type: event_inject
     source: mid_game_announcements
     probability: 0.5
