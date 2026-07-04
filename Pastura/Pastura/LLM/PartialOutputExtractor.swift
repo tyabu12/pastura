@@ -12,7 +12,7 @@ import Foundation
 nonisolated public struct PartialSnapshot: Sendable, Equatable {
   /// Currently-visible value of the first primary key present in the
   /// buffer (one of `PartialOutputExtractor.primaryKeys` —
-  /// `statement` / `action` / `vote`, matching
+  /// `statement` / `action` / `vote` / `note`, matching
   /// ``ScenarioConventions/primaryField(for:)``). `nil` while the
   /// extractor is waiting for that key's opening quote.
   public let primary: String?
@@ -52,11 +52,12 @@ nonisolated public struct PartialOutputExtractor: Sendable {
   ///
   /// Matches the canonical fields advertised by
   /// ``ScenarioConventions/primaryField(for:)`` (one canonical field per
-  /// LLM phase: speak → `statement`, choose → `action`, vote → `vote`)
-  /// and is kept consistent with ``OutputSchema/knownPrimaryKeys`` —
-  /// verified by `OutputSchemaTests.primaryKeySuperset`.
+  /// LLM phase: speak → `statement`, choose → `action`, vote → `vote`,
+  /// reflect → `note`) and is kept consistent with
+  /// ``OutputSchema/knownPrimaryKeys`` — verified by
+  /// `OutputSchemaTests.primaryKeySuperset`.
   public static let primaryKeys = [
-    "statement", "action", "vote"
+    "statement", "action", "vote", "note"
   ]
   public static let thoughtKey = "inner_thought"
 

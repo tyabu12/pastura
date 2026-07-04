@@ -23,13 +23,15 @@ nonisolated extension LLMCaller {
   /// Whether a failed inference stream should be retried, emitting the
   /// `retryCause` diagnostic as a side effect when it should.
   ///
-  /// A caught sampler crash (``LLMError/samplerCrashCaught``) is sampling
-  /// noise, not a deterministic per-(model, prompt, schema) defect (#885):
-  /// the model continued past the completed JSON object with a token
-  /// (often CJK) outside the grammar's ASCII trailing set, so a fresh
-  /// inference of the same inputs usually succeeds — it is retried while
-  /// budget remains. Every **other** throw returns `false` and keeps the
-  /// immediate abort: `.suspended` is already absorbed upstream in
+  /// A caught sampler crash (``LLMError/samplerCrashCaught``) is retried
+  /// while budget remains. As of #907 the generation loops intercept the
+  /// common case (post-object-completion continuation) as end-of-generation,
+  /// so this rarely fires; it remains defense in depth for any other
+  /// surfacer of the error (#885) — the trigger is sampling noise, not a
+  /// deterministic per-(model, prompt, schema) defect, so a fresh inference
+  /// of the same inputs usually succeeds. Every **other** throw returns
+  /// `false` and keeps the immediate abort: `.suspended` is absorbed
+  /// upstream in
   /// `consumeStreamWithSuspendRetry`, cancellation must propagate, and
   /// `.invalidGrammar` is a fail-fast engineering bug (its doc-comment
   /// rejects the 3× retry charade).

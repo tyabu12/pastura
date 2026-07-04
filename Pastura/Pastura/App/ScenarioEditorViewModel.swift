@@ -65,6 +65,11 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   var editorSimulationLanguage: String?
   var agentCount: Int = 2
   var rounds: Int = 1
+  /// Optional prompt-side conversation-log window (#907). No Visual UI yet —
+  /// carry-through only, so a value set in YAML mode (`log_window:`) survives a
+  /// visual-mode save instead of being silently dropped. Mirrors
+  /// `editorSimulationLanguage`.
+  var editorLogWindow: Int?
   var context: String = ""
   var personas: [EditablePersona] = []
   var phases: [EditablePhase] = []
@@ -453,6 +458,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       context: context,
       personas: personas.map { $0.toPersona() },
       phases: phases.map { $0.toPhase() },
+      logWindow: editorLogWindow,
       extraData: carriedExtraData
     )
   }
@@ -466,6 +472,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
     editorSimulationLanguage = scenario.simulationLanguage
     agentCount = scenario.agentCount
     rounds = scenario.rounds
+    editorLogWindow = scenario.logWindow
     context = scenario.context
     personas = scenario.personas.map { EditablePersona(from: $0) }
     phases = scenario.phases.map { EditablePhase(from: $0) }

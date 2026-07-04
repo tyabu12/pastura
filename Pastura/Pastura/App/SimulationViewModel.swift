@@ -641,8 +641,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// Latch: the opening-card premise reveal has BEGUN (or already run) for this
   /// run. Read by `SimulationView`'s premise-card `charsPerSecond` guard so the
   /// card renders static on the ADR-017 Phase B adopt path: when a parked run is
-  /// re-projected into a fresh `SimulationView`, the view's `introHasTyped`
-  /// `@State` would reset and re-type the premise. Living on the surviving VM,
+  /// re-projected into a fresh `SimulationView`, that view's per-`@State` reveal
+  /// latch would reset and re-type the premise. Living on the surviving VM,
   /// this latch survives re-projection. Set on the animated reveal's start
   /// (`onRevealStarted` → ``markIntroRevealBegan()``); reset per `beginIntro`.
   private(set) var introRevealHasBegun = false

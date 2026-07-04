@@ -63,6 +63,14 @@ nonisolated struct ScenarioValidator: Sendable {
         String(localized: "Round count (%lld) exceeds maximum of 30"), scenario.rounds)
     }
 
+    // Conversation-log window (#907): a prompt-side cap that must keep at least
+    // one entry when set. `nil` means "no window" (full log); `0` or negative
+    // would silently strip the whole log, so reject it as a misconfiguration.
+    if let logWindow = scenario.logWindow, logWindow < 1 {
+      throw validationError(
+        String(localized: "Log window (%lld) must be at least 1"), logWindow)
+    }
+
     // Inference count estimation
     let estimated = ScenarioLoader.estimateInferenceCount(scenario)
 
@@ -116,6 +124,8 @@ nonisolated struct ScenarioValidator: Sendable {
           phase, label: "Phase \(index + 1) (assign)", scenario: scenario)
       case .conditional:
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
+      case .reflect:
+        try validateReflectShape(phase, label: "Phase \(index + 1)")
       case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
       case .eventInject:
@@ -185,12 +195,13 @@ nonisolated struct ScenarioValidator: Sendable {
 
   /// Recursively validates each sub-phase in a conditional branch.
   ///
-  /// Rejects nested `.conditional` (depth-1 rule) and applies the same
-  /// semantic checks we run at the top level — e.g., an `assign` phase
-  /// with mismatched target/source shape still errors when buried inside
-  /// a `then:` or `else:` branch. `event_inject` is allowed inside a
-  /// branch (consistent with assign / score_calc) and gets the same
-  /// shape-check it would receive at the top level.
+  /// Rejects nested `.conditional` (depth-1 rule) and `.reflect` (not
+  /// supported inside a branch in v1), and applies the same semantic checks
+  /// we run at the top level — e.g., an `assign` phase with mismatched
+  /// target/source shape still errors when buried inside a `then:` or
+  /// `else:` branch. `event_inject` is allowed inside a branch (consistent
+  /// with assign / score_calc) and gets the same shape-check it would
+  /// receive at the top level.
   private func validateBranch(
     _ phases: [Phase], parentLabel: String, branchLabel: String, scenario: Scenario
   ) throws {
@@ -200,6 +211,14 @@ nonisolated struct ScenarioValidator: Sendable {
       if subPhase.type == .conditional {
         throw validationError(
           String(localized: "%@ is another conditional, which is not allowed (depth-1 rule)."),
+          subLabel)
+      }
+      // `reflect` is not supported inside a conditional branch in v1. Reject
+      // at load-time validation (mirroring the nested-conditional rule above)
+      // so it fails here rather than at `ConditionalHandler` dispatch.
+      if subPhase.type == .reflect {
+        throw validationError(
+          String(localized: "%@ is a reflect phase, which is not allowed inside a conditional."),
           subLabel)
       }
       if subPhase.type == .assign {
@@ -230,6 +249,23 @@ nonisolated struct ScenarioValidator: Sendable {
   ///   (`< 0` never fires, `>= 1.0` always fires), but a curator who
   ///   wrote `probability: 1.5` almost certainly mistyped — surfacing
   ///   it early is friendlier than silent over-fire.
+  /// Requires reflect phases to declare the canonical `note` output at the
+  /// RUN gate (`validate`), not just the commit gate.
+  ///
+  /// Other LLM phases run schema-less in degraded-but-visible form (their
+  /// primary text lands in the conversation log as empty prose), but a
+  /// reflect phase without `note` is a pure no-op inference — it burns one
+  /// call per agent per round and stores nothing, with no user-visible
+  /// symptom to debug from. Failing fast at the run gate is friendlier.
+  /// Reuses the commit-gate message so both gates read identically.
+  private func validateReflectShape(_ phase: Phase, label: String) throws {
+    if (phase.outputSchema ?? [:])["note"] == nil {
+      throw validationError(
+        String(localized: "%@ (%@) requires field '%@' in output."),
+        label, phase.type.rawValue, "note")
+    }
+  }
+
   private func validateEventInjectShape(
     _ phase: Phase, label: String, scenario: Scenario
   ) throws {

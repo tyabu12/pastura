@@ -9,6 +9,7 @@ import Testing
 /// updates, fallback parity for out-of-scope edits, semantic equivalence of the
 /// patched output, and corruption resistance on the documented edge cases.
 @Suite(.timeLimit(.minutes(1)))
+// swiftlint:disable:next type_body_length
 struct ScenarioYAMLPatcherTests {
 
   let patcher = ScenarioYAMLPatcher()
@@ -99,6 +100,43 @@ struct ScenarioYAMLPatcherTests {
     #expect(out.contains("rounds: 7"))
     #expect(out.contains("# A friendly scenario"))
     #expect(try loader.load(yaml: out) == visual)
+  }
+
+  @Test func logWindowScalarUpdateCarriesNewValue() throws {
+    let lwBase = """
+      # scenario with a log window
+      id: lw_demo
+      language: en
+      name: LW Demo
+      description: A test scenario
+      agents: 2
+      rounds: 3
+      log_window: 5  # keep last five
+      context: Shared context.
+      personas:
+        - name: Alice
+          description: An agent
+        - name: Bob
+          description: Another agent
+      phases:
+        - type: speak_all
+          prompt: Speak.
+          output:
+            statement: string
+      """
+    let baseScenario = try loader.load(yaml: lwBase)
+    let visual = Scenario(
+      id: baseScenario.id, name: baseScenario.name, description: baseScenario.description,
+      language: baseScenario.language, simulationLanguage: baseScenario.simulationLanguage,
+      agentCount: baseScenario.agentCount, rounds: baseScenario.rounds,
+      context: baseScenario.context, personas: baseScenario.personas,
+      phases: baseScenario.phases, logWindow: 3, extraData: baseScenario.extraData)
+    let out = patcher.patch(visual: visual, base: lwBase)
+
+    // Semantics: the reparse carries the new value (surgical or fallback).
+    #expect(try loader.load(yaml: out).logWindow == 3)
+    // This is an in-scope inline-scalar edit, so the comment is preserved too.
+    #expect(out.contains("# keep last five"))
   }
 
   // MARK: - Fallback parity

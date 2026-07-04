@@ -37,6 +37,14 @@ struct EditablePhaseTests {
     #expect(sut.outputFields == ["action": "string", "inner_thought": "string"])
   }
 
+  @Test func seedReflectAddsNoteOnly() {
+    // reflect's canonical primary is `note` and it has no secondary thought
+    // field, so seeding adds exactly `{ note }`.
+    var sut = EditablePhase(type: .reflect)
+    sut.reconcileCanonicalOutputFields(from: nil)
+    #expect(sut.outputFields == ["note": "string"])
+  }
+
   @Test func seedCodePhaseAddsNothing() {
     for type in [PhaseType.scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject] {
       var sut = EditablePhase(type: type)

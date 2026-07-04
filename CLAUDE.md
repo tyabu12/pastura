@@ -21,6 +21,7 @@ Phase 2 progress:
 - **Launch animation** — cold "Pastoral Drift" + warm "Breath" hybrid; per-scene `LaunchPhaseCoordinator` + Reduce Motion fallback (#412/#415)
 - **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667, confirm-on-leave pause for in-flight runs #673)
 - **Viewer prediction** — pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking; Engine-untouched App/ViewModel event buffering, ground truth scored at the reveal moment (#906 umbrella / #915)
+- **Reflect phase + log window** — per-agent private memo (`reflect` LLM phase, reserved `notes_<name>` namespace, own-prompt re-injection) + opt-in `log_window` prompt-side log trimming; presets unchanged pending per-scenario tuning (#906 umbrella / #907)
 
 ## Language Rules
 

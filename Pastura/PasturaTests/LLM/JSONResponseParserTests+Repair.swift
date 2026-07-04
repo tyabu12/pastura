@@ -177,6 +177,52 @@ extension JSONResponseParserTests {
     }
   }
 
+  // MARK: - Schema-guarded multi-object salvage (#907)
+
+  // Reflect's `{ note }` failure shape: the model completes a schema-valid
+  // first object then keeps emitting fabricated ASCII-only objects. With a
+  // non-empty schema the salvage extracts the first object (ignoring the
+  // #751 object-like-residue refusal) and reports `multi_object_salvage`.
+  @Test func salvagesFirstObjectWhenSchemaGuardPasses() throws {
+    let (output, kind) = try parser.parse(
+      #"{"note": "watch Alice"}{"vote_strategy": "fabricated"}"#,
+      expectedKeys: ["note"])
+    #expect(output.fields["note"] == "watch Alice")
+    #expect(kind == "multi_object_salvage")
+  }
+
+  // Posture pin (#751): the SAME multi-object raw with an EMPTY schema keeps
+  // the refusal — no salvage, the concatenated span fails to parse → throw.
+  @Test func multiObjectStillThrowsWithoutSchema() {
+    #expect(throws: LLMError.self) {
+      _ = try parser.parse(
+        #"{"note": "watch Alice"}{"vote_strategy": "fabricated"}"#,
+        expectedKeys: [])
+    }
+  }
+
+  // Salvage only fires when the FIRST object carries all expected keys with
+  // content. First object missing the required key → fall through to the
+  // repair pipeline, which can't salvage the balanced multi-object span →
+  // throw (no off-schema fabrication).
+  @Test func multiObjectThrowsWhenFirstObjectMissingExpectedKey() {
+    #expect(throws: LLMError.self) {
+      _ = try parser.parse(
+        #"{"statement": "hi"}{"note": "too late"}"#,
+        expectedKeys: ["note"])
+    }
+  }
+
+  // First object present-but-empty for the required key → salvage rejects it
+  // (empty value fails the schema guard) → fall through → throw.
+  @Test func multiObjectThrowsWhenFirstObjectHasEmptyExpectedKey() {
+    #expect(throws: LLMError.self) {
+      _ = try parser.parse(
+        #"{"note": ""}{"note": "later"}"#,
+        expectedKeys: ["note"])
+    }
+  }
+
   // Fully empty / unparseable → throw, no fake fabrication.
   @Test func throwsOnFullyMalformedInput() {
     #expect(throws: LLMError.self) {

@@ -18,7 +18,8 @@ nonisolated struct PhaseDispatcher: Sendable {
       .eliminate: EliminateHandler(),
       .summarize: SummarizeHandler(),
       .conditional: ConditionalHandler(),
-      .eventInject: EventInjectHandler()
+      .eventInject: EventInjectHandler(),
+      .reflect: ReflectHandler()
     ]
   }
 

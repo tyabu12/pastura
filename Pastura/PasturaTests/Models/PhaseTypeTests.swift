@@ -16,10 +16,11 @@ struct PhaseTypeTests {
     #expect(PhaseType.summarize.rawValue == "summarize")
     #expect(PhaseType.conditional.rawValue == "conditional")
     #expect(PhaseType.eventInject.rawValue == "event_inject")
+    #expect(PhaseType.reflect.rawValue == "reflect")
   }
 
   @Test func allCasesCount() {
-    #expect(PhaseType.allCases.count == 10)
+    #expect(PhaseType.allCases.count == 11)
   }
 
   @Test func llmPhasesRequireLLM() {
@@ -27,6 +28,8 @@ struct PhaseTypeTests {
     #expect(PhaseType.speakEach.requiresLLM)
     #expect(PhaseType.vote.requiresLLM)
     #expect(PhaseType.choose.requiresLLM)
+    // reflect is an LLM phase: each agent privately updates a `note`.
+    #expect(PhaseType.reflect.requiresLLM)
   }
 
   @Test func codePhasesDoNotRequireLLM() {

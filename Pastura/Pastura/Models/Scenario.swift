@@ -77,6 +77,17 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
   /// Number of rounds to execute.
   public let rounds: Int
 
+  /// Optional cap on how many recent conversation-log entries reach each LLM
+  /// prompt.
+  ///
+  /// `nil` (the default, and every current scenario) means the full log is
+  /// injected. When set (must be `≥ 1`, enforced by ``ScenarioValidator``),
+  /// only the last N ``ConversationEntry`` values are formatted into a prompt
+  /// via `PromptBuilder.formatConversationLog(_:language:window:)`. This is a
+  /// **prompt-side window only** — `TurnRecord` persistence, replay, and
+  /// export all keep the complete log. YAML key: `log_window` (#907).
+  public let logWindow: Int?
+
   /// Shared context injected into every agent's system prompt.
   public let context: String
 
@@ -105,6 +116,7 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     context: String,
     personas: [Persona],
     phases: [Phase],
+    logWindow: Int? = nil,
     extraData: [String: AnyCodableValue] = [:]
   ) {
     self.id = id
@@ -117,6 +129,7 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     self.context = context
     self.personas = personas
     self.phases = phases
+    self.logWindow = logWindow
     self.extraData = extraData
   }
 }

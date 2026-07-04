@@ -45,14 +45,17 @@ nonisolated public enum LLMError: Error, Sendable, Equatable {
   /// stack …` and was caught instead of aborting the process. The
   /// stored `description` is the caught `what()` detail.
   ///
-  /// **Retryable** — unlike ``generationFailed`` / ``invalidGrammar``,
-  /// this case is routed through ``LLMCaller``'s existing retry budget
-  /// (#885). The trigger is sampling noise, not a deterministic
-  /// per-(model, prompt, schema) defect: the model continues past the
-  /// completed JSON object with a token (often CJK) outside the
-  /// grammar's ASCII trailing production, so a fresh inference of the
-  /// same inputs usually succeeds. On budget exhaustion the `what()`
-  /// detail survives into the user-visible error.
+  /// **Handled as end-of-generation (#907)** — the generation loops
+  /// (`runGeneration` / `runStreamGeneration`) catch this error and end
+  /// generation gracefully rather than failing. The common trigger is the
+  /// model continuing past the completed JSON object with a token (often
+  /// CJK) outside the grammar's ASCII trailing production, so the completed
+  /// object is already in the accumulated text; the completed-object case
+  /// wins and the incomplete case falls through to the parser's
+  /// parse-failure retry. ``LLMCaller`` still routes this case through its
+  /// retry budget (#885) as defense in depth for any other surfacer of the
+  /// error; on budget exhaustion the `what()` detail survives into the
+  /// user-visible error.
   case samplerCrashCaught(description: String)
 }
 
