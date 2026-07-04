@@ -33,6 +33,9 @@ extension SimulationView {
   // value is self-framing (e.g. `やらかし「…」`, `Your blunder: …`) so no
   // "Topic:" label is added. `Text(verbatim:)` — the value is dynamic content,
   // not a `LocalizedStringKey`, and must not be looked up in the catalog.
+  // The live entry renders the value RAW (no ContentFilter) — parity with
+  // `assignmentEntry`; past-results / demo-replay filter it at render time
+  // instead (see the `ReplayViewModel.apply` "the live VM appends raw" note).
   func sharedAssignmentEntry(value: String) -> some View {
     HStack(spacing: 4) {
       Image(systemName: "list.clipboard")
