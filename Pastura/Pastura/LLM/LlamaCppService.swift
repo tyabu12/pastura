@@ -532,11 +532,14 @@ extension LlamaCppService {
         throw LLMError.suspended
       }
 
-      let newTokenId = try safeSample(
-        sampler: sampler, context: context, vocab: vocab,
-        candidates: candidateBuffer, mode: "non-stream")
-
-      if llama_vocab_is_eog(vocab, newTokenId) { break }
+      // `nil` ends generation (EOG token OR a caught #907 grammar-accept
+      // crash — a post-object-completion continuation) with no token
+      // appended, exactly as an EOG break did before.
+      guard
+        let newTokenId = try nextContentTokenOrStop(
+          sampler: sampler, context: context, vocab: vocab,
+          candidates: candidateBuffer, mode: "non-stream")
+      else { break }
 
       generatedTokens += 1
       outputText += decodePiece(vocab: vocab, token: newTokenId)
@@ -584,6 +587,38 @@ extension LlamaCppService {
     #endif
 
     return GenerationResult(text: outputText, completionTokens: generatedTokens)
+  }
+
+  /// Sample the next content token, or `nil` when generation should stop.
+  ///
+  /// Two stop conditions both return `nil` and both leave the accumulated
+  /// output untouched (no token appended), so the token loops handle them
+  /// with a single `guard … else { break }`:
+  /// 1. an EOG token (normal end), and
+  /// 2. a caught grammar-accept crash (``LLMError/samplerCrashCaught``) —
+  ///    the #907 post-object-completion continuation. For single-field
+  ///    grammars the model often finishes the JSON object then keeps
+  ///    generating a token outside the grammar's trailing production; the
+  ///    completed object is already accumulated, so ending here (like EOG)
+  ///    lets the parser recover it instead of failing the whole inference
+  ///    and consuming the retry budget. An incomplete object still fails
+  ///    parse and retries as before. All other errors propagate. See
+  ///    ``handleSamplerCatch(_:mode:)``.
+  func nextContentTokenOrStop(
+    sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
+    vocab: OpaquePointer?,
+    candidates: UnsafeMutableBufferPointer<llama_token_data>?,
+    mode: String
+  ) throws -> Int32? {
+    let token: Int32
+    do {
+      token = try safeSample(
+        sampler: sampler, context: context, vocab: vocab,
+        candidates: candidates, mode: mode)
+    } catch LLMError.samplerCrashCaught {
+      return nil
+    }
+    return llama_vocab_is_eog(vocab, token) ? nil : token
   }
 }
 
@@ -698,10 +733,14 @@ extension LlamaCppService {
         throw LLMError.suspended
       }
 
-      let newTokenId = try safeSample(
-        sampler: sampler, context: context, vocab: vocab,
-        candidates: candidateBuffer, mode: "stream")
-      if llama_vocab_is_eog(vocab, newTokenId) { break }
+      // `nil` ends generation (EOG token OR a caught #907 grammar-accept
+      // crash) with no token appended. Breaking here — not throwing — still
+      // runs the post-loop held-back flush below, matching the EOG break.
+      guard
+        let newTokenId = try nextContentTokenOrStop(
+          sampler: sampler, context: context, vocab: vocab,
+          candidates: candidateBuffer, mode: "stream")
+      else { break }
 
       generatedTokens += 1
       let pieceBytes = decodePieceRaw(vocab: vocab, token: newTokenId)

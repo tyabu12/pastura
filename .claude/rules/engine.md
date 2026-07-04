@@ -223,6 +223,18 @@ position-0 suspected) exhausts the retry budget. It is inference-side, not
 parser-recoverable — root-cause on-device per the issue before adding any
 retry-budget change. Tracked under #751.
 
+**Grammar-accept crash after object completion → graceful stop (#907).** For
+single-field grammars (e.g. `reflect`'s `{ note }`) Gemma 4 E2B frequently
+completes the JSON object then keeps generating, tripping the caught
+grammar-accept crash (`LLMError.samplerCrashCaught`). The generation loops
+(`LlamaCppService.runGeneration` / `runStreamGeneration`) now catch it as
+end-of-generation (like an EOG break) instead of failing — the completed
+object is already in the accumulated text, so the parser's balanced-brace
+scan recovers it. An incomplete object still fails parse and consumes the
+retry budget as before. `LLMCaller`'s retry routing on this error stays as
+defense in depth for any other surfacer (#885). The `samplerCrashCaught`
+diagnostic still fires once per catch for occurrence-rate telemetry.
+
 ## Content Filter
 
 Applied BETWEEN Engine output and UI display (not inside Engine).
