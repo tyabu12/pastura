@@ -132,4 +132,16 @@ nonisolated public struct Scenario: Codable, Sendable, Equatable {
     self.logWindow = logWindow
     self.extraData = extraData
   }
+
+  /// Returns the persona whose ``Persona/name`` equals `name`, or `nil` when
+  /// no persona matches.
+  ///
+  /// The chat surfaces (Simulation / Demo / Past Results) call this to
+  /// resolve a tapped agent's display name to its persona for the
+  /// persona-detail sheet (#942). On the (unexpected) duplicate-name case the
+  /// **first** persona in ``personas`` order wins; a blank or unmatched name
+  /// returns `nil`, which the call sites treat as "not tappable".
+  public func persona(named name: String) -> Persona? {
+    personas.first { $0.name == name }
+  }
 }

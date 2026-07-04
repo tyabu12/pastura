@@ -112,7 +112,8 @@ extension ModelDownloadHostView {
         proxy.scrollTo(entry.id, anchor: .bottom)
       },
       growsWithReveal: true,
-      agentPosition: agentPosition(for: entry.agent, viewModel: viewModel)
+      agentPosition: agentPosition(for: entry.agent, viewModel: viewModel),
+      onAvatarTap: { selectedPersona = personaItem(for: $0, viewModel: viewModel) }
     )
     .id(entry.id)
     .transition(reduceMotion ? .identity : .opacity)
@@ -195,5 +196,23 @@ extension ModelDownloadHostView {
       sourceIndex < sources.count
     else { return nil }
     return sources[sourceIndex].scenario.personas.firstIndex(where: { $0.name == agentName })
+  }
+
+  /// Resolves a tapped agent name to its persona for the detail sheet
+  /// (#942), reading the active source's scenario directly (the same
+  /// `sources` the host already holds — no `ReplayViewModel` accessor
+  /// needed). Returns `nil` — so the sheet does not present — when no source
+  /// is active or no persona matches the name.
+  private func personaItem(
+    for agentName: String, viewModel: ReplayViewModel
+  ) -> PersonaSheetItem? {
+    guard let sourceIndex = viewModel.currentSourceIndex,
+      sourceIndex < sources.count
+    else { return nil }
+    let scenario = sources[sourceIndex].scenario
+    guard let persona = scenario.persona(named: agentName) else { return nil }
+    return PersonaSheetItem(
+      persona: persona,
+      position: scenario.personas.firstIndex { $0.name == agentName })
   }
 }

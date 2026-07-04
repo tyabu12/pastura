@@ -90,6 +90,11 @@ struct ModelDownloadHostView: View {
   // Internal (not `private`) so `+ChatStream.swift`'s `agentPosition`
   // / `promoCardInset` and `currentPresetName` can read it.
   @State var sources: [any ReplaySource] = []
+  /// The persona shown when the viewer taps an agent's avatar / name in the
+  /// demo stream (#942). Resolved from the active source's scenario via
+  /// ``personaItem(for:viewModel:)`` — `nil` (no active source, or an
+  /// unmatched name) simply doesn't present.
+  @State var selectedPersona: PersonaSheetItem?
   // Type-once latch for opening cards (#867), keyed by `ChatItem.scenarioIntro`
   // id. Generalizes the live Sim's single reveal latch
   // (`SimulationViewModel.introRevealHasBegun`) to the demo's
@@ -150,6 +155,9 @@ struct ModelDownloadHostView: View {
             localized:
               "The partial download will be deleted. Resuming later means starting over from the beginning."
           ))
+      }
+      .sheet(item: $selectedPersona) { item in
+        PersonaDetailSheet(persona: item.persona, position: item.position)
       }
   }
 

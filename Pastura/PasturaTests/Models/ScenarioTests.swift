@@ -42,4 +42,36 @@ struct ScenarioTests {
   @Test func acceptedLanguagesPinsJaAndEn() {
     #expect(Scenario.acceptedLanguages == ["ja", "en"])
   }
+
+  // MARK: - persona(named:) resolution (persona-detail sheet, #942)
+
+  @Test func personaNamedReturnsMatchingPersona() {
+    let scenario = ScenarioFixture.make(personas: [
+      Persona(name: "Alice", description: "Curious café clerk"),
+      Persona(name: "Bob", description: "Level-headed mediator")
+    ])
+    #expect(scenario.persona(named: "Bob")?.description == "Level-headed mediator")
+  }
+
+  @Test func personaNamedReturnsNilForUnknownName() {
+    let scenario = ScenarioFixture.make()
+    #expect(scenario.persona(named: "Nobody") == nil)
+  }
+
+  @Test func personaNamedReturnsNilForBlankName() {
+    // The tapped agent name is always non-blank in practice, but a defensive
+    // empty lookup must not match a real persona.
+    let scenario = ScenarioFixture.make()
+    #expect(scenario.persona(named: "") == nil)
+  }
+
+  @Test func personaNamedFirstMatchWinsOnDuplicateNames() {
+    // Scenarios shouldn't ship duplicate names, but resolution must be
+    // deterministic (first in declared order) if one slips through.
+    let scenario = ScenarioFixture.make(personas: [
+      Persona(name: "Alice", description: "first"),
+      Persona(name: "Alice", description: "second")
+    ])
+    #expect(scenario.persona(named: "Alice")?.description == "first")
+  }
 }

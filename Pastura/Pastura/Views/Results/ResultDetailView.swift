@@ -27,6 +27,14 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   /// that case `AgentOutputRow` falls back to name-based avatar
   /// resolution.
   @State private var agentOrder: [String] = []
+  /// Personas in scenario-declared order, decoded from the run's scenario
+  /// snapshot alongside ``agentOrder``. Drives the tap-to-view-persona sheet
+  /// (#942). Empty for runs whose scenario YAML couldn't be decoded (pre-v7
+  /// deleted scenario, YAML drift) — in that case the turn rows stay
+  /// non-tappable (``turnRow`` passes `onAvatarTap: nil`).
+  @State private var personas: [Persona] = []
+  /// The persona shown when the user taps an agent's avatar / name (#942).
+  @State private var selectedPersona: PersonaSheetItem?
   @State private var isLoading = true
   @State private var showAllThoughts = true
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -145,6 +153,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     .sheet(item: $yamlExportPayload) { payload in
       ShareSheet(activityItems: [payload.text, payload.fileURL])
     }
+    .sheet(item: $selectedPersona) { item in
+      PersonaDetailSheet(persona: item.persona, position: item.position)
+    }
     .alert(
       String(localized: "Export failed"),
       isPresented: Binding(
@@ -205,45 +216,14 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     .accessibilityIdentifier("resultDetail.timeline")
   }
 
-  /// Wraps a row with a leading indent and "↳ sub-phase" caption when the
-  /// item's `phasePath` depth is greater than 1 (i.e. it lives inside a
-  /// conditional branch). Top-level items (depth ≤ 1) pass through unchanged.
-  @ViewBuilder
-  private func subPhaseWrapper<Content: View>(
-    item: ResultDetailTimelineBuilder.Item,
-    @ViewBuilder content: () -> Content
-  ) -> some View {
-    if (item.phasePath?.count ?? 0) > 1 {
-      VStack(alignment: .leading, spacing: 2) {
-        // `metaLabel` (9pt semibold mono, mixed case) — `tagPhase`
-        // would force "↳ SUB-PHASE" UPPER which reads shouty for a
-        // prose-like marker. tagPhase stays for one-word phase tags
-        // (WORD WOLF). See design-system §3.2.
-        Text(String(localized: "↳ sub-phase"))
-          .textStyle(Typography.metaLabel)
-          .foregroundStyle(Color.muted)
-          .padding(.leading, 32)
-        content()
-          .padding(.leading, 16)
-      }
-    } else {
-      content()
-    }
-  }
-
-  private func roundSeparator(_ round: Int) -> some View {
-    HStack {
-      Rectangle().fill(Color.rule).frame(height: 1)
-      // `metaLabel` keeps "Round N" mixed case — tagPhase would
-      // upper-case to "ROUND N" which reads shouty for a prose
-      // marker. tagPhase stays reserved for one-word phase tags
-      // (WORD WOLF). See design-system §3.2.
-      Text(String(format: String(localized: "Round %lld"), round))
-        .textStyle(Typography.metaLabel)
-        .foregroundStyle(Color.inkSecondary)
-      Rectangle().fill(Color.rule).frame(height: 1)
-    }
-    .padding(.vertical, 4)
+  /// Resolves a tapped agent name to its persona for the detail sheet
+  /// (#942). Only reached when ``personas`` is non-empty (``turnRow`` gates
+  /// the tap out otherwise); returns `nil` defensively for an unmatched name.
+  private func personaItem(for agentName: String) -> PersonaSheetItem? {
+    guard let persona = personas.first(where: { $0.name == agentName }) else { return nil }
+    return PersonaSheetItem(
+      persona: persona,
+      position: agentOrder.firstIndex(of: agentName))
   }
 
   @ViewBuilder
@@ -255,7 +235,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         output: output,
         phaseType: phaseType,
         showAllThoughts: showAllThoughts,
-        agentPosition: agentOrder.firstIndex(of: agentName)
+        agentPosition: agentOrder.firstIndex(of: agentName),
+        // Gate at the run level, not per-tap: a run whose scenario couldn't
+        // be decoded (pre-v7 deleted scenario, YAML drift) has no personas,
+        // so the rows stay non-tappable rather than showing a dead affordance.
+        onAvatarTap: personas.isEmpty ? nil : { selectedPersona = personaItem(for: $0) }
       )
     } else {
       // Pre-#92 fallback: TurnRecord without agentName. Newer code phases
@@ -295,6 +279,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     /// on every turn row is an O(1) cache hit. Empty when YAML decode
     /// fails — turnRow falls back to name-based avatar resolution.
     let agentOrder: [String]
+    /// Personas in scenario-declared order (parallel to ``agentOrder``),
+    /// decoded from the same parse. Empty on decode failure — drives the
+    /// tap-to-view-persona degrade (#942).
+    let personas: [Persona]
   }
 
   private func loadData() async {
@@ -322,15 +310,19 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         // degradation: past results with unparseable scenarios still
         // render, just with name-based avatars.
         let agentOrder: [String]
+        let personas: [Persona]
         if let scenarioRecord = scenario,
           let parsed = try? ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition) {
           agentOrder = parsed.personas.map(\.name)
+          personas = parsed.personas
         } else {
           agentOrder = []
+          personas = []
         }
         return LoadedData(
           turns: turns, events: events, items: items,
-          simulation: sim, scenario: scenario, agentOrder: agentOrder)
+          simulation: sim, scenario: scenario, agentOrder: agentOrder,
+          personas: personas)
       }
       self.turns = fetched.turns
       self.events = fetched.events
@@ -338,6 +330,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       self.simulation = fetched.simulation
       self.scenario = fetched.scenario
       self.agentOrder = fetched.agentOrder
+      self.personas = fetched.personas
     } catch {
       self.turns = []
       self.events = []
