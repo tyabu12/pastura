@@ -120,6 +120,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// row animates; earlier rows render full text immediately).
   private(set) var latestAgentOutputId: UUID?
 
+  /// Whether the current ``latestAgentOutputId`` row has already finished its
+  /// typewriter reveal. Load-bearing for the ADR-017 Phase B "keep running"
+  /// adopt path: when a parked run is re-projected into a fresh `SimulationView`
+  /// (`SimulationSession.adoptIfMatching`), the row's per-view `visibleChars`
+  /// `@State` resets to its handoff seed and would re-type — even though the
+  /// user already watched it reveal. This flag lives on the surviving VM so the
+  /// re-projection restores it: ``effectiveCharsPerSecond(forEntryId:)`` returns
+  /// `nil` (static) for a completed latest row. Reset to `false` when a newer
+  /// row commits (it becomes the latest and hasn't revealed yet) and per `run()`.
+  private(set) var latestRowRevealCompleted = false
+
   /// Grapheme length of the most recently committed `.agentOutput` primary
   /// text (inner-thought excluded), captured in
   /// ``handleAgentOutput(agent:output:phaseType:)``. Drives the post-dispatch
@@ -267,8 +278,27 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   ///
   /// Uses ``PlaybackSpeed/charsPerSecond`` — the single typing-rate source of
   /// truth shared with the demo replay (``ReplayViewModel/typingCharsPerSecond``).
+  ///
+  /// Returns `nil` for the **latest** row once its reveal has completed
+  /// (``latestRowRevealCompleted``), so a fresh `AgentOutputRow` mount on the
+  /// ADR-017 Phase B adopt path snaps to full instead of re-typing. NOTE: this
+  /// makes the return value intentionally NON-constant across a row's lifetime
+  /// (it flips real-cps → `nil` at completion). `AgentOutputRow` tolerates that
+  /// because it starts its reveal in `.onAppear` and has no `.onChange(of:
+  /// charsPerSecond)` — do NOT add one, or a completed latest row would restart.
   func effectiveCharsPerSecond(forEntryId entryId: UUID) -> Double? {
-    speed.charsPerSecond
+    if entryId == latestAgentOutputId, latestRowRevealCompleted { return nil }
+    return speed.charsPerSecond
+  }
+
+  /// Records that the latest committed row has finished its typewriter reveal,
+  /// so a later View re-projection (adopt / keep-running return, ADR-017
+  /// Phase B) renders it static instead of re-typing. Guarded to the current
+  /// ``latestAgentOutputId`` — a stale completion from a row that is no longer
+  /// latest is ignored (that row already snaps to full via `isLatest == false`).
+  func markLatestRowRevealCompleted(entryId: UUID) {
+    guard entryId == latestAgentOutputId else { return }
+    latestRowRevealCompleted = true
   }
 
   /// Reveal-handoff seed for the committed row of `entryId`: the
@@ -604,6 +634,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// ``awaitIntroReveal()`` so a completion that fires *before* the gate is
   /// awaited (the common fast-reveal / slow-load case) is not missed.
   private var introRevealCompleted = false
+
+  /// Latch: the opening-card premise reveal has BEGUN (or already run) for this
+  /// run. Read by `SimulationView`'s premise-card `charsPerSecond` guard so the
+  /// card renders static on the ADR-017 Phase B adopt path: when a parked run is
+  /// re-projected into a fresh `SimulationView`, the view's `introHasTyped`
+  /// `@State` would reset and re-type the premise. Living on the surviving VM,
+  /// this latch survives re-projection. Set on the animated reveal's start
+  /// (`onRevealStarted` → ``markIntroRevealBegan()``); reset per `beginIntro`.
+  private(set) var introRevealHasBegun = false
   /// The suspended `run()` continuation, when the gate is awaited before the
   /// reveal completes. Stored-then-nilled on first resume so a second resume
   /// (timeout backstop / cancellation / late signal) can never trap.
@@ -628,6 +667,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   func beginIntro(revealBackstop: TimeInterval) {
     introGateArmed = true
     introRevealCompleted = false
+    introRevealHasBegun = false
     introTimeoutTask?.cancel()
     introTimeoutTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .seconds(revealBackstop))
@@ -644,6 +684,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     introTimeoutTask?.cancel()
     introTimeoutTask = nil
     resumeIntroContinuation()
+  }
+
+  /// Signalled by the opening card when its typewriter reveal *starts* (only the
+  /// animated path fires it, per `ScenarioIntroCard.onRevealStarted`). Latches
+  /// ``introRevealHasBegun`` so a later View re-projection (ADR-017 Phase B
+  /// adopt) renders the premise static instead of re-typing.
+  func markIntroRevealBegan() {
+    introRevealHasBegun = true
   }
 
   /// Resumes the stored `run()` continuation exactly once (store-then-nil).
@@ -941,6 +989,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
     // stale in-flight row under a brand-new scenario.
     latestAgentOutputId = nil
+    latestRowRevealCompleted = false
     streamingSnapshot = nil
     streamingHandoffChars = [:]
     streamingRevealedChars = 0
@@ -1626,6 +1675,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation to only the latest row — older rows snap to full text when
     // this id flips.
     latestAgentOutputId = entry.id
+    // The new latest row has not revealed yet — clear the completion latch so
+    // an adopt re-projection mid-reveal doesn't wrongly treat it as static
+    // (ADR-017 Phase B; see ``latestRowRevealCompleted``).
+    latestRowRevealCompleted = false
     if wasStreamed { streamingHandoffChars[entry.id] = handoffSeed }
     // Capture the reveal inputs so `holdAfterAgentOutput` can hold the next
     // turn until this row finishes typing from `handoffSeed` (bug 2). Uses
