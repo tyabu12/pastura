@@ -310,11 +310,22 @@ struct PromoCard: View {
       lastAnchor: lastForegroundAnchor,
       now: now,
       slotDuration: Self.slotDuration)
+    // Guard every write: `computeSlotState` returns `foregroundElapsed` /
+    // `lastAnchor` UNCHANGED on non-slot-advancing ticks (19 of every 20 —
+    // the accumulation rides on the live `now − anchor` inflight term, not on
+    // growing `foregroundElapsed`). A `@State` write invalidates `body` even
+    // when the value is equal, so writing these unconditionally re-rendered
+    // the whole card every second — churn that could drop the first tap on a
+    // control living in the re-laid-out subtree. Assign only on real change.
     if next.slot != currentSlot {
       currentSlot = next.slot
     }
-    foregroundElapsed = next.foregroundElapsed
-    lastForegroundAnchor = next.lastAnchor
+    if next.foregroundElapsed != foregroundElapsed {
+      foregroundElapsed = next.foregroundElapsed
+    }
+    if next.lastAnchor != lastForegroundAnchor {
+      lastForegroundAnchor = next.lastAnchor
+    }
   }
 
   private func handleScenePhase(_ phase: ScenePhase) {
