@@ -249,4 +249,71 @@ struct LLMCallerTests {
 
     #expect(result.rawText == raw)
   }
+
+  // MARK: - Sampler crash retry (#885)
+
+  @Test func samplerCrashRetriesAndRecovers() async throws {
+    // A caught sampler crash on the first attempt must NOT abort the run:
+    // LLMCaller re-runs the inference and the second attempt succeeds.
+    // Fails on revert — the pre-#885 catch rethrew the crash immediately.
+    let mock = MockLLMService(responses: [#"{"statement": "recovered"}"#])
+    try await mock.loadModel()
+    mock.throwErrorOnNextGenerate(
+      .samplerCrashCaught(
+        description: "Unexpected empty grammar stack after accepting piece: この (8978)"))
+
+    let collector = EventCollector()
+    let result = try await caller.call(
+      llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      suspendController: SuspendController(),
+      emitter: collector.emit
+    )
+
+    #expect(result.statement == "recovered")
+    // The crash attempt consumed no response; only the successful retry did.
+    #expect(mock.generateCallCount == 1)
+  }
+
+  @Test func samplerCrashExhaustionCarriesWhatDetail() async throws {
+    // Crash on all attempts (0...maxRetries) → the run fails, but the
+    // final user-visible error must carry the caught `what()` detail.
+    let what = "Unexpected empty grammar stack after accepting piece: この (8978)"
+    let mock = MockLLMService(responses: [#"{"statement": "never reached"}"#])
+    try await mock.loadModel()
+    mock.throwErrorOnNextGenerate(.samplerCrashCaught(description: what), count: 3)
+
+    let collector = EventCollector()
+    do {
+      _ = try await caller.call(
+        llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        suspendController: SuspendController(),
+        emitter: collector.emit)
+      Issue.record("expected the run to fail after sampler-crash exhaustion")
+    } catch let SimulationError.llmGenerationFailed(description) {
+      #expect(description.contains(what))
+      #expect(description.contains("Sampler crash caught"))
+    }
+    // The valid response was never consumed — all attempts crashed.
+    #expect(mock.generateCallCount == 0)
+  }
+
+  @Test func nonSamplerErrorIsNotRetried() async throws {
+    // `.invalidGrammar` (and any non-sampler backend throw) stays
+    // fail-fast: LLMCaller must NOT retry it into the following valid
+    // response. Guards the "only samplerCrashCaught is retryable"
+    // contract, so cancellation / suspension can't be swallowed either.
+    let mock = MockLLMService(responses: [#"{"statement": "should not be reached"}"#])
+    try await mock.loadModel()
+    mock.throwErrorOnNextGenerate(.invalidGrammar(description: "boom"))
+
+    let collector = EventCollector()
+    await #expect(throws: SimulationError.self) {
+      try await caller.call(
+        llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        suspendController: SuspendController(),
+        emitter: collector.emit)
+    }
+    // No retry → the valid response was never consumed.
+    #expect(mock.generateCallCount == 0)
+  }
 }

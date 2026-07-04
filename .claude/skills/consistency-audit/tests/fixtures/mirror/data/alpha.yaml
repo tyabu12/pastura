@@ -1,0 +1,10 @@
+id: alpha
+name: Alpha scenario
+agents: 3
+rounds: 2
+personas:
+  - name: One
+    role: leader
+  - name: Two
+    role: follower
+phase: speak_all

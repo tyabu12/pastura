@@ -39,6 +39,21 @@ nonisolated public enum LLMError: Error, Sendable, Equatable {
   /// as a single clear error instead of 3× flaky-inference retries
   /// (#194 PR#b Item 4 / critic Axis 11).
   case invalidGrammar(description: String)
+
+  /// A C++ sampler crash caught by the SafeSampler bridge (PR #463):
+  /// `llama_grammar_accept_token` threw `Unexpected empty grammar
+  /// stack …` and was caught instead of aborting the process. The
+  /// stored `description` is the caught `what()` detail.
+  ///
+  /// **Retryable** — unlike ``generationFailed`` / ``invalidGrammar``,
+  /// this case is routed through ``LLMCaller``'s existing retry budget
+  /// (#885). The trigger is sampling noise, not a deterministic
+  /// per-(model, prompt, schema) defect: the model continues past the
+  /// completed JSON object with a token (often CJK) outside the
+  /// grammar's ASCII trailing production, so a fresh inference of the
+  /// same inputs usually succeeds. On budget exhaustion the `what()`
+  /// detail survives into the user-visible error.
+  case samplerCrashCaught(description: String)
 }
 
 /// Provides human-readable descriptions so UI alert handlers can show
@@ -62,6 +77,11 @@ extension LLMError: LocalizedError {
     case .invalidGrammar(let description):
       return String(
         format: String(localized: "Invalid grammar for constrained decoding: %@"), description)
+    case .samplerCrashCaught(let description):
+      // Reuses the existing "Sampler crash caught: %@" catalog key
+      // (formerly formatted at the `handleSamplerCatch` callsite) so
+      // no new key is introduced — only the throw site moved.
+      return String(format: String(localized: "Sampler crash caught: %@"), description)
     }
   }
 }

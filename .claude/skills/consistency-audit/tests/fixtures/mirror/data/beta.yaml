@@ -1,0 +1,10 @@
+id: beta
+name: Beta scenario
+agents: 4
+rounds: 1
+personas:
+  - name: Alice
+    role: host
+  - name: Bob
+    role: guest
+phase: vote

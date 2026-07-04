@@ -1,0 +1,10 @@
+id: delta
+name: Delta scenario
+agents: 2
+rounds: 5
+personas:
+  - name: X
+    role: a
+  - name: Y
+    role: b
+phase: choose

@@ -42,6 +42,12 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     var streamCallIndex: Int = 0
     /// Signal-blocked gate for the UI-test hold — see ``blockGenerateUntilSignal()``.
     var blockGate: BlockGate = .disabled
+    /// FIFO of errors to throw on upcoming generate / generateStream calls,
+    /// one per call, before the configured responses resume. Lets tests
+    /// deterministically inject a retryable backend throw (e.g.
+    /// ``LLMError/samplerCrashCaught(description:)``) on specific attempts.
+    /// Independent from ``pendingSuspendCount`` (which is `.suspended`-only).
+    var pendingGenerateErrors: [LLMError] = []
   }
 
   // `internal` (not `private`) so the block-gate sibling file
@@ -92,6 +98,11 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       // LlamaCppService's cooperative check.
       if mutableState.controller?.isSuspendRequested() == true {
         throw LLMError.suspended
+      }
+      // Drain a scheduled backend error (e.g. a caught sampler crash) so
+      // tests can inject a retryable throw on specific attempts.
+      if !mutableState.pendingGenerateErrors.isEmpty {
+        throw mutableState.pendingGenerateErrors.removeFirst()
       }
       guard mutableState.callIndex < mutableState.responses.count else {
         throw LLMError.generationFailed(
@@ -205,6 +216,13 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       if mutableState.controller?.isSuspendRequested() == true {
         throw LLMError.suspended
       }
+      // Drain a scheduled backend error before any stream chunks — fires
+      // in both wrap and explicit-chunk modes (LLMCaller uses the stream
+      // path). Wrap mode throws here before `generate()` is reached, so a
+      // single scheduled error is never double-consumed.
+      if !mutableState.pendingGenerateErrors.isEmpty {
+        throw mutableState.pendingGenerateErrors.removeFirst()
+      }
       guard let chunks = mutableState.streamChunks else { return nil }
       guard mutableState.streamCallIndex < chunks.count else {
         throw LLMError.generationFailed(
@@ -248,6 +266,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       locked.capturedPrompts = []
       locked.capturedSchemas = []
       locked.pendingSuspendCount = 0
+      locked.pendingGenerateErrors = []
     }
   }
 
@@ -289,5 +308,24 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   ///   `awaitResume()` actually blocks).
   public func throwSuspendedOnNextGenerate() {
     state.withLock { $0.pendingSuspendCount += 1 }
+  }
+
+  /// Schedule `error` to be thrown on each of the next `count` generate /
+  /// generateStream calls (FIFO), before the configured responses resume.
+  ///
+  /// Unlike ``throwSuspendedOnNextGenerate()`` (which is `.suspended`-only
+  /// and absorbed transparently by the suspend-retry loop), this injects an
+  /// arbitrary backend throw — e.g. a caught sampler crash
+  /// (``LLMError/samplerCrashCaught(description:)``) that `LLMCaller` should
+  /// route through its retry budget, or a fail-fast case whose non-retry
+  /// the test wants to pin.
+  ///
+  /// - Parameters:
+  ///   - error: The error to throw.
+  ///   - count: How many upcoming calls should throw it (default 1).
+  public func throwErrorOnNextGenerate(_ error: LLMError, count: Int = 1) {
+    state.withLock { locked in
+      for _ in 0..<max(0, count) { locked.pendingGenerateErrors.append(error) }
+    }
   }
 }
