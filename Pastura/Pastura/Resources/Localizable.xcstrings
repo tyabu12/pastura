@@ -878,6 +878,16 @@
         }
       }
     },
+    "%lld in a row" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連続 %lld"
+          }
+        }
+      }
+    },
     "%lld minutes ago" : {
       "localizations" : {
         "ja" : {
@@ -2164,6 +2174,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "生成プロンプトをコピー"
+          }
+        }
+      }
+    },
+    "Correct!" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "的中！"
           }
         }
       }
@@ -3830,6 +3850,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "メモリ不足のため一時停止しました。再開して続行できます。"
+          }
+        }
+      }
+    },
+    "Missed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外れ"
           }
         }
       }

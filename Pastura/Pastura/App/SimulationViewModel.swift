@@ -40,6 +40,13 @@ struct ViewerPredictionPrompt: Identifiable {
   let candidates: [String]
 }
 
+/// The scored result of this run's viewer prediction (#915), shown alongside
+/// the final result card. `streak` is the consecutive-hit count as of this run.
+struct PredictionOutcome: Equatable, Sendable {
+  let isHit: Bool
+  let streak: Int
+}
+
 /// ViewModel for the live simulation execution screen.
 ///
 /// Consumes `AsyncStream<SimulationEvent>` from `SimulationRunner`, applies
@@ -489,6 +496,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// is up. Set from the run loop's interception, cleared on resolution.
   private(set) var predictionPrompt: ViewerPredictionPrompt?
 
+  /// This run's scored prediction result (hit/miss + streak), shown next to the
+  /// final result card. `nil` when the run had no answered prediction. Reset
+  /// per run.
+  private(set) var predictionOutcome: PredictionOutcome?
+
   /// Whether `SimulationView` is currently on screen. Gates the prediction
   /// sheet so a navigated-away (ADR-017 Phase B park) run never presents a
   /// modal (scene-background is handled separately by `isAppBackgrounded`).
@@ -913,6 +925,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     predictionAssignments = [:]
     hasAttemptedPrediction = false
     predictionPrompt = nil
+    predictionOutcome = nil
     // Latent: a second run on the same VM instance would otherwise inherit
     // these from the previous simulation — `latestAgentOutputId` points at a
     // UUID no longer in `logEntries`, and `streamingSnapshot` could render a
@@ -2031,9 +2044,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // the run unscored rather than record a coin-flip.
     guard let actual else { return }
 
-    await persistPrediction(
+    let streak = await persistPrediction(
       repository: predictionRepository, simulationId: simId,
       question: question, predicted: picked, actual: actual)
+    predictionOutcome = PredictionOutcome(
+      isHit: ViewerPredictionLogic.isHit(predicted: picked, actual: actual),
+      streak: streak)
   }
 
   /// Active (non-eliminated) agent names — the choosable roster. At the first
@@ -2069,12 +2085,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     if !visible { resolvePrediction(.skipped) }
   }
 
-  /// Writes an answered prediction off-main and awaits it, so the row exists
-  /// before the run completes and the result card reads it back.
+  /// Writes an answered prediction off-main and returns the resulting
+  /// consecutive-hit streak (0 on write failure). Awaited so the row exists and
+  /// the streak is known before the run completes and the card renders.
   private func persistPrediction(
     repository: any PredictionRepository, simulationId: String,
     question: ViewerPredictionLogic.Question, predicted: String, actual: String
-  ) async {
+  ) async -> Int {
     let record = PredictionRecord(
       id: UUID().uuidString,
       simulationId: simulationId,
@@ -2084,12 +2101,14 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       isHit: ViewerPredictionLogic.isHit(predicted: predicted, actual: actual),
       createdAt: Date())
     let logger = lifecycleLogger
-    await Task.detached {
+    return await Task.detached {
       do {
         try repository.save(record)
+        return (try? repository.currentStreak()) ?? 0
       } catch {
         logger.error(
           "Failed to persist prediction: \(String(describing: error), privacy: .public)")
+        return 0
       }
     }.value
   }

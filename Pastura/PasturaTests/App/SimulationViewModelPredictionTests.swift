@@ -89,6 +89,9 @@ struct SimulationViewModelPredictionTests {
     #expect(record?.predictedAgent == "Eve")
     #expect(record?.actualAgent == "Eve")
     #expect(record?.questionKind == "wolf")
+    // The end-of-run reward surface (#915) reflects the same result + streak.
+    #expect(env.sut.predictionOutcome?.isHit == true)
+    #expect(env.sut.predictionOutcome?.streak == 1)
   }
 
   @Test func wolfWrongGuessPersistsMiss() async throws {
@@ -106,6 +109,7 @@ struct SimulationViewModelPredictionTests {
     #expect(record?.isHit == false)
     #expect(record?.predictedAgent == "Alice")
     #expect(record?.actualAgent == "Eve")
+    #expect(env.sut.predictionOutcome?.isHit == false)
   }
 
   @Test func topVoteScoresAgainstTallyLeader() async throws {
@@ -137,6 +141,7 @@ struct SimulationViewModelPredictionTests {
     await resolver
 
     #expect(try env.repo.fetchBySimulationId("sim1") == nil)
+    #expect(env.sut.predictionOutcome == nil)
   }
 
   @Test func latchPreventsSecondAsk() async throws {

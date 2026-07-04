@@ -17,9 +17,14 @@ struct ResultsView: View {
   /// ``AggregateSearchable``). Pushed into SQL via `applyFilter` so it reaches
   /// runs not yet on a loaded page.
   @State private var searchText = ""
+  /// Viewer-prediction outcomes for the currently-rendered rows, keyed by run
+  /// id (#915). Refetched whenever the visible run-id set changes (new page /
+  /// filter), so it always matches what's on screen.
+  @State private var predictionsByRun: [String: PredictionRecord] = [:]
 
   var body: some View {
-    Group {
+    let runIds = viewModel?.sections.flatMap { $0.rows.map(\.id) } ?? []
+    return Group {
       if let viewModel {
         if viewModel.isLoading {
           ProgressView(String(localized: "Loading..."))
@@ -79,6 +84,19 @@ struct ResultsView: View {
       guard didInitialLoad, let viewModel else { return }
       Task { await viewModel.refreshOnReappear(scope: scope) }
     }
+    // Reload prediction badges whenever the visible run set changes.
+    .task(id: runIds) { await refreshPredictions(ids: runIds) }
+  }
+
+  /// Batch-fetches prediction outcomes for the rendered rows off-main. Absent
+  /// rows simply have no badge; a fetch failure leaves the map unchanged.
+  private func refreshPredictions(ids: [String]) async {
+    guard !ids.isEmpty else { return }
+    let repository = dependencies.predictionRepository
+    let fetched = try? await Task.detached {
+      try repository.fetchBySimulationIds(ids)
+    }.value
+    if let fetched { predictionsByRun = fetched }
   }
 
   private func resultsList(viewModel: ResultsViewModel) -> some View {
@@ -217,14 +235,21 @@ struct ResultsView: View {
           .truncationMode(.tail)
       }
 
-      // Relative timestamp (X / Instagram-style), at the bottom. Computed in the
-      // View off the live clock — formatting stays in the Views layer.
-      Text(
-        ResultsRowFormat.relativeTimestamp(
-          for: item.createdAt, now: Date(), calendar: .current)
-      )
-      .font(.caption)
-      .foregroundStyle(Color.muted)
+      // Relative timestamp (X / Instagram-style) with a trailing viewer-
+      // prediction badge (#915) when this run had an answered prediction.
+      // Computed in the View off the live clock — formatting stays in Views.
+      HStack {
+        Text(
+          ResultsRowFormat.relativeTimestamp(
+            for: item.createdAt, now: Date(), calendar: .current)
+        )
+        .font(.caption)
+        .foregroundStyle(Color.muted)
+        if let prediction = predictionsByRun[item.id] {
+          Spacer()
+          PredictionOutcomeBadge(isHit: prediction.isHit)
+        }
+      }
     }
     // Fill the row width so every row's title/meta left-aligns at the same x.
     // Without this the VStack sizes to its content and the enclosing

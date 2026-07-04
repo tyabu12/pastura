@@ -597,6 +597,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
               .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
+            // Viewer-prediction reward (#915): hit/miss + streak, shown with the
+            // result card when the run had an answered prediction.
+            predictionOutcomeBadge(viewModel: viewModel)
+
             // Bottom sentinel: scrollTo target that stays below every other
             // section (log entries, thinking indicators). Scrolling here
             // reliably reveals whatever just appeared last — anchoring to
@@ -794,6 +798,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       voteResults: viewModel.voteResults,
       eliminationVotes: viewModel.eliminationVotes,
       phases: scenario?.phases ?? [])
+  }
+
+  /// The viewer-prediction reward badge, shown with the result card once the
+  /// run completes and only when the run had an answered prediction (#915).
+  /// Extracted from the timeline body to keep its cyclomatic complexity in
+  /// budget.
+  @ViewBuilder
+  private func predictionOutcomeBadge(viewModel: SimulationViewModel) -> some View {
+    if resultCardVisible, let outcome = viewModel.predictionOutcome {
+      PredictionOutcomeBadge(isHit: outcome.isHit, streak: outcome.streak)
+        .transition(.opacity)
+    }
   }
 
   /// Whether any real score exists — gates the closing card's tap-to-scoreboard
