@@ -19,13 +19,24 @@ Two finding classes:
 Conservatism is deliberate: false positives poison the queue, so each detector
 prefers a miss over a wrong flag. Every shipped detector fires zero false
 positives on the current repo: dependency_version, min_ios, dead_link
-(needs_judgment), and dangling_adr (needs_judgment). Detectors that flood until
-their FP sources are designed out are intentionally deferred — see the SKILL's
-"Deferred detectors" note:
+(needs_judgment), dangling_adr (needs_judgment), and embedded_source_mirror
+(needs_judgment). Detectors that flood until their FP sources are designed out
+are intentionally deferred — see the SKILL's "Deferred detectors" note:
   - file:line citation checks   (docs cite source-root-relative paths, GitHub
                                  org/repo slugs, and property accessors that a
                                  naive repo-root existence check misreads)
   - broken-anchor / `§"..."`    (fragile GitHub-slug matching; ambiguous target)
+
+The embedded_source_mirror detector catches the inverse of the fence-skip blind
+spot: a fenced YAML block that verbatim-copied a real source file (a preset /
+gallery scenario) and then drifted from it — the #921 failure mode, invisible to
+every other detector because scan_doc skips fenced content. It fires only when a
+block is *attributable* (first line `id: <slug>`, resolving to a unique
+`<slug>.yaml`), *substantial* (>= MIRROR_MIN_LINES), and a *drifted near-copy*
+(difflib ratio >= MIRROR_MIN_RATIO, but not identical). No author marker is
+needed, so it can flag a marker-less mirror like #921; an in-sync embed stays
+silent (surfaces only once it drifts). needs_judgment — the fix (link vs resync
+vs intentional abridgement) is a human call.
 
 The dangling_adr detector neutralizes intentionally-absent ADRs via a canonical
 reserved set parsed from CLAUDE.md's Reference Documents table (not a per-line
@@ -42,6 +53,7 @@ usage:
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import re
@@ -68,7 +80,30 @@ IOS_VER = re.compile(r"\b\d+\.\d+\b")
 MINIOS_LABEL = re.compile(r"(?i)min(?:imum)?\s+ios")
 MD_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 RESERVED = re.compile(r"(?i)reserved|not[\s-]?yet[\s-]?written")
-FENCE = re.compile(r"^\s*(```|~~~)")
+# Fence with capture groups: (indent, delimiter-run, info-string). The delimiter
+# run length + char lets us close on a *matching* fence only, so a ``` or ~~~
+# line that appears *inside* a mirrored block's content can't close it early.
+FENCE_DELIM = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
+# A mirrored preset/gallery YAML block is identified by its first line being a
+# scalar `id:` key — the exact shape that drifted in #921. Scoping the mirror
+# detector to `id:`-keyed YAML keeps candidate resolution unambiguous (basename
+# = `<id>.yaml`) and excludes illustrative swift/prose snippets by construction.
+YAML_ID = re.compile(r"^id:\s*([A-Za-z0-9_./-]+)\s*$")
+# A block counts as a mirror only when it is a *near-complete* drifted copy of
+# the resolved source. The primary discriminator is completeness (block length /
+# source length): a real mirror is essentially the whole file (#921's presets.md
+# blocks were 55/78 and 64/80 ≈ 0.7–0.8), whereas an intentional illustration is
+# an abridged excerpt (the MVP-spec's `id: prisoners_dilemma` example is 33/78 ≈
+# 0.42, two of five personas). Completeness separates these with a far healthier
+# margin than an ordered-line similarity ratio would (0.44 vs 0.34 is a knife
+# edge). MIN_LINES kills tiny schema snippets (the 4-line gallery-README `id: … /
+# name: ...`); MIN_RATIO is a secondary anti-coincidence floor so a long block
+# that merely shares a real id but no content stays silent. needs_judgment, so a
+# borderline miss is preferred to a false flag (Output Contract: conservative
+# wins).
+MIRROR_MIN_LINES = 8
+MIRROR_MIN_COMPLETENESS = 0.6
+MIRROR_MIN_RATIO = 0.3
 # Repo convention: ADRs are always ADR-NNN (three digits). Word-bounded so a
 # longer token can't produce a spurious match.
 ADR_REF = re.compile(r"\bADR-(\d{3})\b")
@@ -154,8 +189,124 @@ def load_reserved_adrs(claude_md: Path) -> set[str]:
     return reserved
 
 
+def build_yaml_index(root: Path) -> dict[str, list[str]]:
+    """basename -> [repo-relative paths] for every tracked-ish YAML under root.
+    Used to resolve which source file an embedded `id:`-keyed block mirrors.
+    Prunes the same trees `excluded` skips (`.git`, DerivedData, node_modules,
+    sibling worktrees, the audit's own fixtures) so a fixture YAML can never be
+    resolved as the mirror target of a real doc."""
+    index: dict[str, list[str]] = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        kept = []
+        for d in dirnames:
+            crel = os.path.relpath(os.path.join(dirpath, d), root).replace(os.sep, "/")
+            if d in EXCLUDE_PARTS or crel.startswith(".claude/worktrees") \
+                    or "/tests/fixtures" in "/" + crel:
+                continue
+            kept.append(d)
+        dirnames[:] = kept
+        for fn in filenames:
+            if fn.endswith((".yaml", ".yml")):
+                rel = os.path.relpath(os.path.join(dirpath, fn), root).replace(os.sep, "/")
+                if not excluded(rel):
+                    index.setdefault(fn, []).append(rel)
+    return index
+
+
+def _normalize_lines(lines: list[str]) -> list[str]:
+    """rstrip each line and drop trailing blank lines. Leading whitespace is
+    preserved (YAML is indentation-sensitive); only trailing/blank drift is
+    collapsed so a cosmetic newline difference is not read as content drift."""
+    out = [ln.rstrip() for ln in lines]
+    while out and not out[-1]:
+        out.pop()
+    return out
+
+
+def _dedent_block(block_lines: list[str], indent: int) -> list[str]:
+    """Strip up to `indent` leading spaces from each collected block line before
+    normalizing. A fenced block nested in a list/blockquote carries the fence's
+    base indentation; without dedent every line would diff against a flush-left
+    source file (Axis d false-drift)."""
+    dedented = []
+    for ln in block_lines:
+        i = 0
+        while i < indent and i < len(ln) and ln[i] == " ":
+            i += 1
+        dedented.append(ln[i:])
+    return _normalize_lines(dedented)
+
+
+def _read_source_lines(path: Path) -> list[str] | None:
+    try:
+        return _normalize_lines(path.read_text(encoding="utf-8").splitlines())
+    except (OSError, ValueError):
+        # ValueError covers UnicodeDecodeError on a non-UTF-8 source — skip it
+        # conservatively rather than crash the whole audit (cf. load_resolved).
+        return None
+
+
+_MIRROR_COUNTER_EVIDENCE = (
+    "The block may be an intentionally abridged illustration the author never "
+    "meant to keep in sync, or it may share an id with a different source file. "
+    "A human confirms whether to resync, replace it with a link, or leave it.")
+_MIRROR_SUGGESTED_ACTION = (
+    "Replace the embedded block with a link/pointer to the source file "
+    "(preferred — embedding full source copies drifts silently, see #921), or "
+    "resync it to match.")
+
+
+def mirror_finding(block_lines: list[str], indent: int, open_line: int,
+                   rel: str, root: Path,
+                   yaml_index: dict[str, list[str]]) -> dict | None:
+    """A fenced YAML block whose first line is `id: <slug>` and which is a
+    substantial near-copy of `<slug>.yaml` — but has *drifted* from it — is an
+    embedded source mirror at risk (#921). Returns a needs_judgment finding, or
+    None when the block is not an attributable, drifted mirror.
+
+    Deliberately silent when the block is identical to the source: an in-sync
+    embed is not a current inconsistency, and flagging it would be style-nagging
+    (a false-positive under 'conservative wins'). It surfaces once it drifts."""
+    block = _dedent_block(block_lines, indent)
+    if len(block) < MIRROR_MIN_LINES:
+        return None
+    m = YAML_ID.match(block[0])
+    if not m:
+        return None
+    slug = m.group(1)
+    cands: list[str] = []
+    for base in (f"{slug}.yaml", f"{slug}.yml"):
+        cands = yaml_index.get(base, [])
+        if cands:
+            break
+    if len(cands) != 1:  # 0 = unattributable, >1 = ambiguous -> conservative skip
+        return None
+    src_rel = cands[0]
+    src = _read_source_lines(root / src_rel)
+    if src is None or block == src:
+        return None
+    if not src or len(block) < MIRROR_MIN_COMPLETENESS * len(src):
+        return None  # abridged excerpt / illustration, not a full mirror
+    if difflib.SequenceMatcher(None, block, src).ratio() < MIRROR_MIN_RATIO:
+        return None  # coincidental id match, not a real mirror
+    # target == key so dedup_judgment (type, key) and the SKILL's Step 4
+    # `<target> in:title` cross-run dedup agree — the same source mirrored in two
+    # docs keeps distinct keys (docfile differs), so neither finding is dropped.
+    key = f"{rel}::{src_rel}"
+    return {
+        "type": "embedded_source_mirror",
+        "target": key, "key": key,
+        "source": src_rel,
+        "confidence": "medium",
+        "counter_evidence": _MIRROR_COUNTER_EVIDENCE,
+        "suggested_action": _MIRROR_SUGGESTED_ACTION,
+        "file": rel, "line": open_line,
+    }
+
+
 def scan_doc(path: Path, root: Path, resolved: dict[str, str],
-             min_ios: str | None, reserved_adrs: set[str]):
+             min_ios: str | None, reserved_adrs: set[str],
+             yaml_index: dict[str, list[str]]):
     """Return (auto_fixable, judgment) finding lists for one doc file."""
     rel = os.path.relpath(path, root).replace(os.sep, "/")
     try:
@@ -166,12 +317,46 @@ def scan_doc(path: Path, root: Path, resolved: dict[str, str],
     judg: list[dict] = []
     doc_dir = path.parent
     in_fence = False
+    fence_delim = ""          # delimiter char ('`'/'~') of the open fence
+    collecting = False        # inside a YAML block we may mirror-check
+    block_lines: list[str] = []
+    block_open = 0
+    block_indent = 0
 
     for lineno, line in enumerate(lines, 1):
-        if FENCE.match(line):
-            in_fence = not in_fence
+        fm = FENCE_DELIM.match(line)
+        if fm:
+            indent, ticks, info = fm.group(1), fm.group(2), fm.group(3).strip()
+            if not in_fence:
+                # Opening fence. Only YAML blocks are collected for mirror
+                # checking; every other fence toggles exactly as before.
+                in_fence = True
+                fence_delim = ticks[0]
+                lang = info.split()[0].lower() if info else ""
+                collecting = lang in ("yaml", "yml")
+                block_lines = []
+                block_open = lineno
+                block_indent = len(indent)
+                continue
+            if ticks[0] == fence_delim:
+                # Matching closing fence: run the mirror check on the block.
+                if collecting:
+                    f = mirror_finding(block_lines, block_indent, block_open,
+                                       rel, root, yaml_index)
+                    if f:
+                        judg.append(f)
+                in_fence = False
+                fence_delim = ""
+                collecting = False
+                block_lines = []
+                continue
+            # A different-delimiter fence line inside the block is content.
+            if collecting:
+                block_lines.append(line)
             continue
         if in_fence:
+            if collecting:
+                block_lines.append(line)
             continue
 
         # --- auto_fixable: dependency version drift ---
@@ -343,11 +528,12 @@ def main() -> int:
     resolved = load_resolved(resolved_path)
     min_ios = load_min_ios(pbxproj_path)
     reserved_adrs = load_reserved_adrs(root / "CLAUDE.md")
+    yaml_index = build_yaml_index(root)
 
     auto: list[dict] = []
     judg: list[dict] = []
     for doc in discover_docs(root):
-        a, j = scan_doc(doc, root, resolved, min_ios, reserved_adrs)
+        a, j = scan_doc(doc, root, resolved, min_ios, reserved_adrs, yaml_index)
         auto.extend(a)
         judg.extend(j)
 
