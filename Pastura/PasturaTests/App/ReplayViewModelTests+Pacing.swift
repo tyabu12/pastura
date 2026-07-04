@@ -159,6 +159,17 @@ extension ReplayViewModelTests {
         for: .assignment(agent: "Alice", value: "abc"), script: Self.demoScript) == 480)
   }
 
+  /// The shared お題 (`sharedAssignment`, #939) reserves the SAME reading dwell
+  /// as the per-agent assignment — it IS the context-critical topic line #932's
+  /// dwell exists for. Guards the silent `codePhaseFloorMs` `default: return 0`
+  /// gap: a missed `.sharedAssignment` arm would flash the topic too fast.
+  @Test func codePhaseFloorIsReadingDwellForSharedAssignment() throws {
+    let viewModel = try Self.makeDemoPacedVM()  // .normal speed, cps 10
+    #expect(
+      viewModel.codePhaseFloorMs(
+        for: .sharedAssignment(value: "abc"), script: Self.demoScript) == 480)
+  }
+
   /// `.instant` → nil cps → no reading floor (symmetric with `introFloorMs` /
   /// `typingFloorMs` opt-out).
   @Test func codePhaseFloorIsZeroAtInstantSpeed() throws {

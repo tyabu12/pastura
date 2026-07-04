@@ -144,12 +144,11 @@ code_phase_events:
 - round: 1
   phase_index: 0
   phase_type: assign
-  summary: '熱血コーチ先生 assigned: お悩み:「冷蔵庫を開けるたびに、奥にあるプリンが私のことをじっと見ている 気がして、夜も眠れません。どうすればいいですか？」
+  summary: 'お悩み:「冷蔵庫を開けるたびに、奥にあるプリンが私のことをじっと見ている 気がして、夜も眠れません。どうすればいいですか？」
 
     '
   payload:
-    kind: assignment
-    agent: 熱血コーチ先生
+    kind: sharedAssignment
     value: 'お悩み:「冷蔵庫を開けるたびに、奥にあるプリンが私のことをじっと見ている 気がして、夜も眠れません。どうすればいいですか？」
 
       '
@@ -188,12 +187,11 @@ code_phase_events:
 - round: 2
   phase_index: 0
   phase_type: assign
-  summary: '熱血コーチ先生 assigned: お悩み:「会社のコピー機が、なぜか私が使うときだけ必ず紙詰まりします。 機械に嫌われているのでしょうか？」
+  summary: 'お悩み:「会社のコピー機が、なぜか私が使うときだけ必ず紙詰まりします。 機械に嫌われているのでしょうか？」
 
     '
   payload:
-    kind: assignment
-    agent: 熱血コーチ先生
+    kind: sharedAssignment
     value: 'お悩み:「会社のコピー機が、なぜか私が使うときだけ必ず紙詰まりします。 機械に嫌われているのでしょうか？」
 
       '

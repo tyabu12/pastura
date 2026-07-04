@@ -144,10 +144,9 @@ code_phase_events:
 - round: 1
   phase_index: 0
   phase_type: assign
-  summary: '国際派ジョージ assigned: やらかし「大事な会議に2時間遅刻した」'
+  summary: やらかし「大事な会議に2時間遅刻した」
   payload:
-    kind: assignment
-    agent: 国際派ジョージ
+    kind: sharedAssignment
     value: やらかし「大事な会議に2時間遅刻した」
 - round: 1
   phase_index: 2
@@ -183,10 +182,9 @@ code_phase_events:
 - round: 2
   phase_index: 0
   phase_type: assign
-  summary: '国際派ジョージ assigned: やらかし「同僚の机に置いてあったプリンを食べてしまった」'
+  summary: やらかし「同僚の机に置いてあったプリンを食べてしまった」
   payload:
-    kind: assignment
-    agent: 国際派ジョージ
+    kind: sharedAssignment
     value: やらかし「同僚の机に置いてあったプリンを食べてしまった」
 - round: 2
   phase_index: 2

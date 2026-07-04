@@ -285,6 +285,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       lines.append("      kind: assignment")
       lines.append("      agent: \(Self.yamlValue(agent))")
       lines.append("      value: \(Self.yamlValue(filter.filter(value)))")
+    case .sharedAssignment(let value):
+      // Shared お題 for the whole round (#939) — no agent attribution.
+      lines.append("      kind: sharedAssignment")
+      lines.append("      value: \(Self.yamlValue(filter.filter(value)))")
     case .eventInjected(let event):
       lines.append("      kind: eventInjected")
       // Distinguishing miss (nil) from hit-with-empty-string is meaningful
@@ -490,6 +494,9 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       return String(
         format: String(localized: "%@ was assigned: %@"),
         agent, filter.filter(value))
+    case .sharedAssignment(let value):
+      // The shared お題 is self-framing; the summary is just the value (#939).
+      return filter.filter(value)
     case .eventInjected(let event):
       // Match Markdown exporter wording so the timeline reads the same
       // way regardless of channel.

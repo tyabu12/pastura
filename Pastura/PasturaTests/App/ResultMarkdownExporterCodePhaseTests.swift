@@ -179,6 +179,21 @@ struct ResultMarkdownExporterCodePhaseTests {  // swiftlint:disable:this type_bo
     #expect(result.text.contains("**Alice** was assigned: wolf"))
   }
 
+  @Test func rendersSharedAssignmentEventAsTopicLineWithoutAgent() throws {
+    // The shared お題 (#939) renders as one topic line, value verbatim, no
+    // agent attribution and no "assigned:" phrasing.
+    let exporter = makeExporter()
+    let event = makeCodePhaseEvent(
+      phaseType: "assign", seq: 1,
+      payload: .sharedAssignment(value: "やらかし「会議に遅刻した」"))
+
+    let result = try exporter.export(input(events: [event]))
+
+    #expect(result.text.contains("#### Phase: assign"))
+    #expect(result.text.contains("- 📋 やらかし「会議に遅刻した」"))
+    #expect(!result.text.contains("assigned:"))
+  }
+
   // MARK: - Merge-sort ordering
 
   @Test func mergesTurnsAndEventsBySequenceNumber() throws {

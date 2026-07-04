@@ -393,6 +393,10 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// scope"). `assignment.value` / `summary.text` arrive already-filtered.
   nonisolated enum CodePhaseLine: Sendable, Equatable {
     case assignment(agent: String, value: String)
+    /// The round's shared お題 assigned to every agent (`assign` target: all,
+    /// #939). One line, no agent attribution — the value arrives
+    /// already-filtered like `assignment.value` / `summary.text`.
+    case sharedAssignment(value: String)
     case summary(text: String)
     case voteResults(tallies: [String: Int])
     case scoreUpdate(scores: [String: Int])
@@ -1095,6 +1099,15 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
           id: UUID(),
           line: .assignment(agent: agent, value: contentFilter.filter(value))))
 
+    case .sharedAssignment(let value):
+      // The round's shared お題 that grounds every agent response (#939) — one
+      // line, no agent attribution. Render-time ContentFilter on the value per
+      // the header § "ContentFilter scope" (defense-in-depth; the live VM
+      // appends raw).
+      chatItems.append(
+        .codePhaseLine(
+          id: UUID(), line: .sharedAssignment(value: contentFilter.filter(value))))
+
     case .summary(let text):
       // Round summary / narrator line (#932). Filtered per the header scope.
       chatItems.append(
@@ -1249,6 +1262,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     let text: String
     switch event {
     case .assignment(_, let value): text = value
+    case .sharedAssignment(let value): text = value
     case .summary(let summaryText): text = summaryText
     case .eventInjected(let injected): text = injected ?? ""
     default: return 0

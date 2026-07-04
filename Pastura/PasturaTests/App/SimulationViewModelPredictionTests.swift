@@ -118,6 +118,28 @@ struct SimulationViewModelPredictionTests {
     #expect(env.sut.predictionOutcome?.streak == 1)
   }
 
+  @Test func sharedAssignmentDoesNotPolluteWolfGroundTruth() async throws {
+    // #939 / critic axis 5: `.sharedAssignment` must NOT feed
+    // `predictionAssignments` — a shared topic has no minority holder, and if it
+    // leaked into the wolf frequency map it could shift the derived wolf. Here
+    // the shared value equals the wolf's minority ("orange"); if it polluted the
+    // map, "orange" would no longer be unique and the wolf would resolve to nil.
+    // The wolf must still resolve to "Eve".
+    FeatureFlags.setViewerPredictionEnabled(true)
+    defer { UserDefaults.standard.removeObject(forKey: Self.flagKey) }
+    let env = try makeEnv(phases: wolfPhases)
+    // Interleave shared-topic events among the per-agent wolf assignments.
+    env.sut.handleEvent(.sharedAssignment(value: "orange"), scenario: env.scenario)
+    feedWolfAssignments(env.sut, scenario: env.scenario)
+    env.sut.handleEvent(.sharedAssignment(value: "orange"), scenario: env.scenario)
+
+    await runPrediction(env, resolve: .predicted("Eve"), tallies: [:])
+
+    let record = try env.repo.fetchBySimulationId("sim1")
+    #expect(record?.actualAgent == "Eve")
+    #expect(record?.isHit == true)
+  }
+
   @Test func wolfWrongGuessPersistsMiss() async throws {
     FeatureFlags.setViewerPredictionEnabled(true)
     defer { UserDefaults.standard.removeObject(forKey: Self.flagKey) }
