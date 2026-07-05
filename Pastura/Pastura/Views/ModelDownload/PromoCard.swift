@@ -189,26 +189,33 @@ struct PromoCard: View {
     .accessibilityAddTraits(.updatesFrequently)
   }
 
-  /// Full-width "Stop download" link at the card's bottom edge, shown only
-  /// when `onCancel` is set. Replaces the former trailing-edge chip: living
-  /// in its own fixed-geometry row — not the meta row that rebuilds on every
-  /// progress update — keeps the hit region stable, and the full-width target
-  /// is easier to hit. Neutral styling (`inkSecondary` text, `rule` hairline
-  /// divider, no fill) per `design-system.md` §2.6 "Cancel ボタンは赤くしない";
-  /// the visible text is self-describing, so no separate accessibility label.
+  /// Full-width "Stop download" action bar at the card's bottom edge, shown
+  /// only when `onCancel` is set. Its own fixed-geometry row (not the
+  /// per-progress-rebuilt meta row) keeps the hit region stable and the
+  /// full-width target easy to hit. Styled as a filled footer button (a plain
+  /// link didn't read as tappable on-device): `stop.fill` glyph + subtle
+  /// neutral fill (`rule` @0.45, so the full-opacity `rule` top hairline stays
+  /// visible) — still neutral per `design-system.md` §2.6 (never red; the fill
+  /// is a low-opacity neutral, not `danger`). Text self-describes; no a11y label.
   private func cancelLinkRow(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Text(String(localized: "Stop download"))
-        .textStyle(Typography.metaLabel)
-        .foregroundStyle(Color.inkSecondary)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 9)
-        .contentShape(Rectangle())
-        .overlay(alignment: .top) {
-          Rectangle()
-            .fill(Color.rule)
-            .frame(height: 1)
-        }
+      HStack(spacing: 5) {
+        Image(systemName: "stop.fill")
+          .font(.system(size: 10))
+          .foregroundStyle(Color.inkSecondary)
+        Text(String(localized: "Stop download"))
+          .textStyle(Typography.metaLabel)
+          .foregroundStyle(Color.inkSecondary)
+      }
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 10)
+      .background(Color.rule.opacity(0.45))
+      .overlay(alignment: .top) {
+        Rectangle()
+          .fill(Color.rule)
+          .frame(height: 1)
+      }
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
   }
