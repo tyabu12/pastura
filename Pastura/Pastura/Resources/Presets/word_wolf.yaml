@@ -75,6 +75,18 @@ phases:
       inner_thought: string
     rounds: 2
 
+  - type: reflect
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      これまでに出た clue を踏まえ、誰が怪しいか・自分は多数派と少数派の
+      どちららしいか・投票までにどう動くかを、自分用のメモとして更新してください。
+    output:
+      note: string
+
   - type: event_inject
     source: mid_game_announcements
     probability: 0.5
