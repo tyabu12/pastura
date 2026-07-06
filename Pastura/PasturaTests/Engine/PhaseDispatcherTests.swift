@@ -32,6 +32,8 @@ struct PhaseDispatcherTests {
         #expect(try dispatcher.handler(for: phaseType) is EventInjectHandler)
       case .reflect:
         #expect(try dispatcher.handler(for: phaseType) is ReflectHandler)
+      case .whisper:
+        #expect(try dispatcher.handler(for: phaseType) is WhisperHandler)
       }
     }
   }

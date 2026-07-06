@@ -66,6 +66,11 @@ extension PhaseEditorSheet {
         localized:
           "Use `note` for the agent's private memo. This is the reflect phase's only output field."
       )
+    case .whisper:
+      return String(
+        localized:
+          "Use `statement` for the whispered text. Whispers stay private to the pair and never enter the public conversation log."
+      )
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return nil
     }

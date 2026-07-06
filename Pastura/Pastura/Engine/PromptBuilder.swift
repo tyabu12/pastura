@@ -61,6 +61,27 @@ nonisolated struct PromptBuilder: Sendable {
     variables["my_notes"] = variables["notes_\(personaName)"] ?? ""
   }
 
+  /// Injects the current speaker's `whisper`-phase channel under the
+  /// `{my_whispers}` key.
+  ///
+  /// ``WhisperHandler`` stores each participant's private view of their pair's
+  /// exchange under a per-persona key `whispers_<name>` (#908); this reads that
+  /// back for the speaker so custom user-prompt templates can reference
+  /// `{my_whispers}`. The `whispers_` prefix is a reserved namespace, mirroring
+  /// `notes_` (see ``injectNotes(into:personaName:)``).
+  ///
+  /// Missing channel resolves to empty string (not a literal placeholder),
+  /// matching `injectNotes`'s miss posture.
+  ///
+  /// - Note: the privacy guarantee covers the conversation-log, system-prompt,
+  ///   and `{my_whispers}` paths. Raw `whispers_<other>` keys remain resolvable
+  ///   by a template that hand-references them (`{whispers_Bob}`) — same
+  ///   accepted residual exposure as the `notes_<name>` namespace, kept for
+  ///   pattern consistency.
+  func injectWhispers(into variables: inout [String: String], personaName: String) {
+    variables["my_whispers"] = variables["whispers_\(personaName)"] ?? ""
+  }
+
   // MARK: - Scoreboard
 
   /// Serializes a score dictionary into a compact JSON-like string for template injection.
@@ -171,6 +192,22 @@ nonisolated struct PromptBuilder: Sendable {
         """)
     }
 
+    // Private whisper channel (#908): surface the agent's own pair-private
+    // exchange back to itself only. Everyone except the whisper partner is
+    // blind to it (it never enters the conversation log), so the header
+    // stresses that scope.
+    if let whispers = state.variables["whispers_\(persona.name)"], !whispers.isEmpty {
+      let whispersHeader = pickLanguage(
+        language,
+        ja: "## あなたの密談（密談相手以外には見えません）",
+        en: "## Your Private Whispers (invisible to everyone except your whisper partner)")
+      sections.append(
+        """
+        \(whispersHeader)
+        \(whispers)
+        """)
+    }
+
     sections.append(
       buildAnswerRules(scenario: scenario, persona: persona, phase: phase, state: state))
 
@@ -234,6 +271,11 @@ nonisolated struct PromptBuilder: Sendable {
       rules += reflectBrevityRule(language: language)
     }
 
+    // Whisper turns get partner-directed privacy guidance (see `whisperRule`).
+    if phase.type == .whisper {
+      rules += whisperRule(language: language)
+    }
+
     if phase.type == .choose, let options = phase.options {
       let optionsList = options.joined(separator: ", ")
       rules += pickLanguage(
@@ -279,6 +321,19 @@ nonisolated struct PromptBuilder: Sendable {
       language,
       ja: "\n- メモ（note）は2文以内で簡潔に書くこと（長文・箇条書きの羅列は禁止）",
       en: "\n- Keep your note to at most 2 sentences (no long paragraphs or bullet lists).")
+  }
+
+  /// The #908 privacy guidance appended for `whisper` phases only. A whisper is
+  /// a secret one-to-one exchange: nobody except the partner can hear it, so the
+  /// agent should address the partner directly, stay candid/strategic, and keep
+  /// it conversational. Keep ja/en scope-parallel when editing.
+  private func whisperRule(language: String) -> String {
+    pickLanguage(
+      language,
+      ja: "\n- これは密談相手ひとりだけへの秘密の耳打ちです（他の参加者には聞こえません）。相手に直接呼びかけ、本音で戦略的に、短い会話として話すこと",
+      en:
+        "\n- This is a private whisper to your one partner only (no one else can hear). Address them directly, be candid and strategic, and keep it conversational."
+    )
   }
 
   /// The #911 address rule appended for turn-based `speak_each` phases only.

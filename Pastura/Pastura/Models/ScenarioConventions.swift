@@ -48,6 +48,8 @@ nonisolated public enum ScenarioConventions {
       return "vote"
     case .reflect:
       return "note"
+    case .whisper:
+      return "statement"
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return nil
     }
@@ -84,7 +86,7 @@ nonisolated public enum ScenarioConventions {
     switch phaseType {
     case .vote:
       return "reason"
-    case .speakAll, .speakEach, .choose:
+    case .speakAll, .speakEach, .choose, .whisper:
       return "inner_thought"
     // `.reflect`'s canonical `note` output is itself the private reasoning, so
     // it declares no secondary thought field (single-field `{ note }` schema).
