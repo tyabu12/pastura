@@ -17,10 +17,11 @@ struct PhaseTypeTests {
     #expect(PhaseType.conditional.rawValue == "conditional")
     #expect(PhaseType.eventInject.rawValue == "event_inject")
     #expect(PhaseType.reflect.rawValue == "reflect")
+    #expect(PhaseType.whisper.rawValue == "whisper")
   }
 
   @Test func allCasesCount() {
-    #expect(PhaseType.allCases.count == 11)
+    #expect(PhaseType.allCases.count == 12)
   }
 
   @Test func llmPhasesRequireLLM() {
@@ -30,6 +31,8 @@ struct PhaseTypeTests {
     #expect(PhaseType.choose.requiresLLM)
     // reflect is an LLM phase: each agent privately updates a `note`.
     #expect(PhaseType.reflect.requiresLLM)
+    // whisper is an LLM phase: pairs privately exchange statements.
+    #expect(PhaseType.whisper.requiresLLM)
   }
 
   @Test func codePhasesDoNotRequireLLM() {
