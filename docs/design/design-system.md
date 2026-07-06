@@ -42,6 +42,7 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--page` | `#F3EFE7` | 外側（ワークベンチ・Safe Area 外） |
 | `--screen-bg` | `#FCFAF4` | アプリ本体の背景（crisp な羊毛色） |
 | `--bubble-bg` | `#FFFFFF` | 発言バブル |
+| `--whisper-bubble` | `#EBEEE1` | 密談（whisper）バブル — moss ティントの控えめな off-white で公開発言と区別（#908 PR2） |
 | `--promo-bg` | `#FBFAF2` | プロモ/バナー |
 | `--promo-border` | `#E4E7D2` | 同上のボーダー |
 
@@ -148,6 +149,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `nightBackground` | `#1B1D17` | `screenBackground` |
 | `nightSurface` | `#232620` | `bubbleBackground` |
 | `nightBubble` | `#2C2F28` | `bubbleBackground` |
+| `nightWhisperBubble` | `#2F3626` | `whisperBubble`（密談バブルのダーク対。#908 PR2） |
 | `nightInk` | `#E8E5D8` | `ink` |
 | `nightInkSecondary` | `#B0AC9C` | `inkSecondary` |
 | `nightMuted` | `#7A7768` | `muted` |

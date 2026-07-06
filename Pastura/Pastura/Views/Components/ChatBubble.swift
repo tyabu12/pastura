@@ -68,12 +68,18 @@ struct BubbleBackground: ViewModifier {
   /// Inner vertical padding — same source.
   static let verticalPadding: CGFloat = 8
 
+  /// Bubble fill. Defaults to the public `bubbleBackground` token; the
+  /// whisper (密談) variant passes `whisperBubble` for a hushed, moss-tinted
+  /// fill (#908 PR2). The `rule`-tinted stroke is intentionally unchanged so
+  /// the variant reads as the same bubble family, just quieter.
+  var fill: Color = .bubbleBackground
+
   func body(content: Content) -> some View {
     content
       .padding(.horizontal, Self.horizontalPadding)
       .padding(.vertical, Self.verticalPadding)
       .background(
-        BubbleShape().fill(Color.bubbleBackground)
+        BubbleShape().fill(fill)
       )
       .overlay(
         // 1pt soft border tinted from `Color.rule`. Reference HTML uses
@@ -187,9 +193,10 @@ extension View {
 
   /// Paints the chat-bubble background + stroke + inner padding.
   /// Apply to the primary speech `Text`; pairs with ``thoughtLeftRule``
-  /// on the sibling thought view.
-  func bubbleBackground() -> some View {
-    modifier(BubbleBackground())
+  /// on the sibling thought view. Pass `fill:` to override the default
+  /// public-bubble token (the whisper variant passes `.whisperBubble`, #908 PR2).
+  func bubbleBackground(fill: Color = .bubbleBackground) -> some View {
+    modifier(BubbleBackground(fill: fill))
   }
 
   /// Paints the moss-soft left rule + 8pt gutter used for inner-thought

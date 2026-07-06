@@ -13,6 +13,7 @@ extension Color {
   static let page = PasturaPalette.page.color
   static let screenBackground = PasturaPalette.screenBackground.color
   static let bubbleBackground = PasturaPalette.bubbleBackground.color
+  static let whisperBubble = PasturaPalette.whisperBubble.color
   static let promoBackground = PasturaPalette.promoBackground.color
   static let promoBorder = PasturaPalette.promoBorder.color
 
@@ -98,6 +99,7 @@ extension Color {
   static let nightBackground = PasturaPalette.nightBackground.color
   static let nightSurface = PasturaPalette.nightSurface.color
   static let nightBubble = PasturaPalette.nightBubble.color
+  static let nightWhisperBubble = PasturaPalette.nightWhisperBubble.color
   static let nightInk = PasturaPalette.nightInk.color
   static let nightInkSecondary = PasturaPalette.nightInkSecondary.color
   static let nightMuted = PasturaPalette.nightMuted.color

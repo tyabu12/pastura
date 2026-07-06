@@ -346,12 +346,28 @@ struct AgentOutputRow: View {
           Spacer()
         }
 
+        // Whisper (密談) pair-attribution header: "speaker → partner"
+        // (#908 PR2). The PR1 `PhaseTypeLabel(.whisper)` badge already
+        // carries the whisper glyph, so this line is iconless and only
+        // names the recipient. Absent during streaming (`whisper_to`
+        // arrives on the committed `.agentOutput`), so it pops in at
+        // commit — a one-shot height delta strictly outside the reveal
+        // path, never re-typed.
+        if let attribution = whisperAttribution {
+          Text(attribution)
+            .textStyle(Typography.captionName)
+            .foregroundStyle(Color.mossDark)
+        }
+
         // Primary text — pre-measured concat so line wraps don't shift.
         // Bubble background applied here (not around the whole row) so
         // the tail-corner shape hugs the text, not the name/avatar.
+        // Whisper rows get the hushed `whisperBubble` fill; the tint is
+        // gated on the phase alone (not `whisper_to`) so streaming whisper
+        // rows are already tinted before the partner name arrives.
         if let text = primaryText {
           primaryView(fullText: text)
-            .bubbleBackground()
+            .bubbleBackground(fill: isWhisperPhase ? .whisperBubble : .bubbleBackground)
         }
 
         // Thought: three branches depending on show-mode.
@@ -752,6 +768,34 @@ extension AgentOutputRow {
   /// key to ``PartialOutputExtractor``), so live + committed stay consistent.
   var resolvedThought: String? {
     streamingThought ?? output.secondaryText(for: phaseType)
+  }
+
+  /// True for whisper (密談) rows — drives the hushed `whisperBubble` fill.
+  /// Gated on the phase alone (not the partner name) so a streaming whisper
+  /// row is tinted before `whisper_to` arrives at commit (#908 PR2).
+  var isWhisperPhase: Bool { phaseType == .whisper }
+
+  /// Pair-attribution header text for a whisper row (`"speaker → partner"`),
+  /// or `nil` when this isn't a whisper row / the partner is absent — the
+  /// caller then renders no header and falls back to the plain name row.
+  var whisperAttribution: String? {
+    Self.whisperAttribution(phaseType: phaseType, speaker: agent, fields: output.fields)
+  }
+
+  /// Pure resolver for the whisper pair-attribution header. Returns `nil`
+  /// unless the row is a whisper AND the reserved `whisper_to` field holds a
+  /// non-blank partner name — streaming rows carry no `whisper_to` yet, and a
+  /// malformed / blocklist-redacted commit could blank it, so both fall back
+  /// to the iconless plain row rather than rendering a dangling `"speaker → "`.
+  /// Extracted for `AgentOutputRowContractTests` (ADR-009 pure-logic surface).
+  static func whisperAttribution(
+    phaseType: PhaseType, speaker: String, fields: [String: String]
+  ) -> String? {
+    guard phaseType == .whisper else { return nil }
+    let partner = (fields["whisper_to"] ?? "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !partner.isEmpty else { return nil }
+    return String(format: String(localized: "%@ → %@"), speaker, partner)
   }
 
   /// Per-row thought-toggle VoiceOver label. Singular form, intentionally

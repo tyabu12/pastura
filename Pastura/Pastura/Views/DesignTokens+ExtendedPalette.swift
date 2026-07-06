@@ -100,6 +100,10 @@ extension PasturaPalette {
   static let nightSurface = PasturaColorValue(hex: 0x232620)
   /// Speech bubble fill under dark mode.
   static let nightBubble = PasturaColorValue(hex: 0x2C2F28)
+  /// Whisper (密談) speech bubble fill under dark mode — a touch mossier
+  /// than `nightBubble` so the hushed variant stays legible on the dark
+  /// surface. Dark counterpart of `whisperBubble` (#908 PR2).
+  static let nightWhisperBubble = PasturaColorValue(hex: 0x2F3626)
   /// Primary body text under dark mode.
   static let nightInk = PasturaColorValue(hex: 0xE8E5D8)
   /// Subtext / section labels under dark mode.
