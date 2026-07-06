@@ -159,7 +159,7 @@ nonisolated struct WhisperHandler: PhaseHandler {
   // MARK: - Formatting
 
   /// A single whisper line, `name` + spoken `statement`.
-  private struct Utterance {
+  nonisolated private struct Utterance {
     let name: String
     let statement: String
   }
