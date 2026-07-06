@@ -33,11 +33,7 @@ struct PhaseDispatcherTests {
       case .reflect:
         #expect(try dispatcher.handler(for: phaseType) is ReflectHandler)
       case .whisper:
-        // Intentionally not registered yet — the WhisperHandler dispatch entry
-        // is wired in a later change. Dispatch throws until then.
-        #expect(throws: SimulationError.self) {
-          _ = try dispatcher.handler(for: phaseType)
-        }
+        #expect(try dispatcher.handler(for: phaseType) is WhisperHandler)
       }
     }
   }

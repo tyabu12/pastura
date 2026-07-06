@@ -142,6 +142,29 @@ struct ScenarioValidatorTests {
     _ = try validator.validate(scenario)
   }
 
+  // MARK: - whisper (#908)
+
+  @Test func rejectsWhisperWithoutStatementOutputAtRunGate() {
+    // Like reflect, a whisper without its canonical `statement` output burns
+    // one inference per participant and stores nothing user-visible, so
+    // `validate` (the run gate, not just `validateForCommit`) requires it.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .whisper)]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func acceptsWhisperWithStatementOutput() throws {
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .whisper, outputSchema: ["statement": "string"])]
+    )
+    _ = try validator.validate(scenario)
+  }
+
   @Test func rejectsPersonaCountMismatch() {
     // Constructed directly because makeScenario auto-generates matching personas
     let scenario = Scenario(

@@ -30,6 +30,11 @@ nonisolated struct ConditionalHandler: PhaseHandler {
   /// handler, including `ConditionalHandler`, which would build another
   /// `PhaseDispatcher` in turn, forever.
   ///
+  /// Also omits `.reflect` and `.whisper` — both are private-channel LLM
+  /// phases that are not supported inside a conditional branch in v1
+  /// (`ScenarioValidator.validateBranch` rejects them at load time; the
+  /// omission here is the runtime backstop).
+  ///
   /// `event_inject` is included so curators can gate event injection on
   /// scenario state (e.g., "only inject in round 3+"). The validator
   /// applies the same shape-check it does at the top level.

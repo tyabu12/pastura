@@ -397,6 +397,22 @@
         }
       }
     },
+    "%@ is a whisper phase, which is not allowed inside a conditional." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is a whisper phase, which is not allowed inside a conditional."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は whisper フェーズであり、conditional の中では許可されていません。"
+          }
+        }
+      }
+    },
     "%@ is another conditional, which is not allowed (depth-1 rule)." : {
       "localizations" : {
         "en" : {

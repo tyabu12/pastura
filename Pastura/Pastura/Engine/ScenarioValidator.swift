@@ -126,9 +126,9 @@ nonisolated struct ScenarioValidator: Sendable {
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
       case .reflect:
         try validateReflectShape(phase, label: "Phase \(index + 1)")
-      // `whisper`-specific validation (min-2-agents, output shape) lands in a
-      // later change; the minimal compiling arm keeps existing scenarios valid.
-      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize, .whisper:
+      case .whisper:
+        try validateWhisperShape(phase, label: "Phase \(index + 1)")
+      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
       case .eventInject:
         try validateEventInjectShape(
@@ -197,8 +197,8 @@ nonisolated struct ScenarioValidator: Sendable {
 
   /// Recursively validates each sub-phase in a conditional branch.
   ///
-  /// Rejects nested `.conditional` (depth-1 rule) and `.reflect` (not
-  /// supported inside a branch in v1), and applies the same semantic checks
+  /// Rejects nested `.conditional` (depth-1 rule), `.reflect`, and `.whisper`
+  /// (neither supported inside a branch in v1), and applies the same semantic checks
   /// we run at the top level — e.g., an `assign` phase with mismatched
   /// target/source shape still errors when buried inside a `then:` or
   /// `else:` branch. `event_inject` is allowed inside a branch (consistent
@@ -221,6 +221,14 @@ nonisolated struct ScenarioValidator: Sendable {
       if subPhase.type == .reflect {
         throw validationError(
           String(localized: "%@ is a reflect phase, which is not allowed inside a conditional."),
+          subLabel)
+      }
+      // `whisper` is likewise not supported inside a conditional branch in v1
+      // (mirrors the reflect rejection above) — it fails here at load-time
+      // validation rather than at `ConditionalHandler` dispatch.
+      if subPhase.type == .whisper {
+        throw validationError(
+          String(localized: "%@ is a whisper phase, which is not allowed inside a conditional."),
           subLabel)
       }
       if subPhase.type == .assign {
@@ -246,6 +254,21 @@ nonisolated struct ScenarioValidator: Sendable {
       throw validationError(
         String(localized: "%@ (%@) requires field '%@' in output."),
         label, phase.type.rawValue, "note")
+    }
+  }
+
+  /// Requires whisper phases to declare the canonical `statement` output at the
+  /// RUN gate (`validate`), mirroring `validateReflectShape`'s rationale.
+  ///
+  /// A whisper without `statement` burns one inference per participant per pair
+  /// per round and stores nothing user-visible — the same no-op-inference
+  /// failure mode reflect guards against, so it fails fast here at the run gate
+  /// rather than degrading silently. Reuses the shared missing-field message.
+  private func validateWhisperShape(_ phase: Phase, label: String) throws {
+    if (phase.outputSchema ?? [:])["statement"] == nil {
+      throw validationError(
+        String(localized: "%@ (%@) requires field '%@' in output."),
+        label, phase.type.rawValue, "statement")
     }
   }
 
