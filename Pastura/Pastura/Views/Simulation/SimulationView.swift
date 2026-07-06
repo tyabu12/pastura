@@ -1034,49 +1034,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     _ entry: LogEntry, viewModel: SimulationViewModel, proxy: ScrollViewProxy
   ) -> some View {
     switch entry.kind {
-    case .agentOutput(let agent, let output, let phaseType):
-      let isLatest = viewModel.latestAgentOutputId == entry.id
-      AgentOutputRow(
-        agent: agent, output: output, phaseType: phaseType,
-        showAllThoughts: viewModel.showAllThoughts,
-        isLatest: isLatest,
-        // Display timing is a VM decision. A streamed row is NOT snapped —
-        // it animates from its handoff seed (see `initialVisibleChars`).
-        charsPerSecond: viewModel.effectiveCharsPerSecond(forEntryId: entry.id),
-        // Only the latest row drives the typing-state gate; older rows
-        // never animate so their callbacks would be no-ops, but we guard
-        // here anyway to keep the signal unambiguous.
-        onAnimatingChange: { animating in
-          guard isLatest else { return }
-          latestRowIsAnimating = animating
-        },
-        // Follow the latest row's growth while it types its tail / thought
-        // from the handoff seed (the bubble grows under `growsWithReveal`).
-        // Gated to the latest row so scrolling up through history never
-        // yanks back to the bottom.
-        onRevealProgress: {
-          if isLatest { scrollToBottom(proxy) }
-        },
-        // Record the latest row's reveal completion on the VM so an ADR-017
-        // Phase B adopt re-projection renders it static instead of re-typing
-        // (#934). Guarded to the latest row; the VM re-guards on entry id.
-        onRevealCompleted: {
-          if isLatest { viewModel.markLatestRowRevealCompleted(entryId: entry.id) }
-        },
-        // Grow the bubble with the revealed prefix so the handoff from the
-        // streaming row is seamless (self-gates: only the latest animating
-        // row grows; older rows reserve full layout via shouldReserveHiddenTail).
-        growsWithReveal: true,
-        // Continue typing from where the stream left off instead of snapping
-        // (reveal-position handoff, bug 2); 0 for a non-streamed row.
-        initialVisibleChars: viewModel.handoffSeed(forEntryId: entry.id),
-        agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
-        debugRowID: entry.id.uuidString,
-        onAvatarTap: { selectedPersona = personaItem(for: $0) },
-        // Freeze the latest row's typewriter while the persona sheet is up
-        // (#942 PR2). Live per-tick read — see AgentOutputRow.isTypingParked.
-        isTypingParked: { viewModel.isPlaybackHeldForSheet }
-      )
+    case .agentOutput:
+      agentOutputEntry(entry, viewModel: viewModel, proxy: proxy)
     case .phaseStarted(let phaseType):
       // LLM phases (speak / vote / choose) become full-width separators
       // so the transcript chunks into phase "chapters" (#882); code
@@ -1104,6 +1063,66 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   @ViewBuilder
+  private func agentOutputEntry(
+    _ entry: LogEntry, viewModel: SimulationViewModel, proxy: ScrollViewProxy
+  ) -> some View {
+    if case .agentOutput(let agent, let output, let phaseType) = entry.kind {
+      let isLatest = viewModel.latestAgentOutputId == entry.id
+      // The row is ALWAYS wrapped in this VStack so the badge flipping in
+      // later (#916, at choose-phase completion) is a conditional sibling,
+      // not a structural identity change — AgentOutputRow keeps its
+      // position-based identity and its typing @State is untouched.
+      VStack(alignment: .leading, spacing: 4) {
+        AgentOutputRow(
+          agent: agent, output: output, phaseType: phaseType,
+          showAllThoughts: viewModel.showAllThoughts,
+          isLatest: isLatest,
+          // Display timing is a VM decision. A streamed row is NOT snapped —
+          // it animates from its handoff seed (see `initialVisibleChars`).
+          charsPerSecond: viewModel.effectiveCharsPerSecond(forEntryId: entry.id),
+          // Only the latest row drives the typing-state gate; older rows
+          // never animate so their callbacks would be no-ops, but we guard
+          // here anyway to keep the signal unambiguous.
+          onAnimatingChange: { animating in
+            guard isLatest else { return }
+            latestRowIsAnimating = animating
+          },
+          // Follow the latest row's growth while it types its tail / thought
+          // from the handoff seed (the bubble grows under `growsWithReveal`).
+          // Gated to the latest row so scrolling up through history never
+          // yanks back to the bottom.
+          onRevealProgress: {
+            if isLatest { scrollToBottom(proxy) }
+          },
+          // Record the latest row's reveal completion on the VM so an ADR-017
+          // Phase B adopt re-projection renders it static instead of re-typing
+          // (#934). Guarded to the latest row; the VM re-guards on entry id.
+          onRevealCompleted: {
+            if isLatest { viewModel.markLatestRowRevealCompleted(entryId: entry.id) }
+          },
+          // Grow the bubble with the revealed prefix so the handoff from the
+          // streaming row is seamless (self-gates: only the latest animating
+          // row grows; older rows reserve full layout via shouldReserveHiddenTail).
+          growsWithReveal: true,
+          // Continue typing from where the stream left off instead of snapping
+          // (reveal-position handoff, bug 2); 0 for a non-streamed row.
+          initialVisibleChars: viewModel.handoffSeed(forEntryId: entry.id),
+          agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
+          debugRowID: entry.id.uuidString,
+          onAvatarTap: { selectedPersona = personaItem(for: $0) },
+          // Freeze the latest row's typewriter while the persona sheet is up
+          // (#942 PR2). Live per-tick read — see AgentOutputRow.isTypingParked.
+          isTypingParked: { viewModel.isPlaybackHeldForSheet }
+        )
+        if viewModel.contradictionBadgedEntryIDs.contains(entry.id) {
+          ContradictionBadge()
+            .padding(.leading, ChatBubbleLayout.avatarSize + ChatBubbleLayout.avatarTextGap)
+        }
+      }
+    }
+  }
+
+  @ViewBuilder
   private func secondaryLogEntryView(_ entry: LogEntry) -> some View {
     switch entry.kind {
     case .elimination(let agent, let voteCount):
@@ -1120,6 +1139,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       pairingResultEntry(agent1: agent1, act1: act1, agent2: agent2, act2: act2)
     case .eventInjected(let event):
       eventInjectedEntry(event: event)
+    case .contradictionRevealed(let agent):
+      contradictionRevealedEntry(agent: agent)
     default:
       EmptyView()
     }
