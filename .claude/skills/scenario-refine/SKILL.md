@@ -77,7 +77,10 @@ Actually changing a shipped scenario is a SEPARATE, human-driven step (see
 2. `command -v jq` — required by the run wrapper and the helper scripts.
 3. `ls .claude/skills/scenario-factory/scripts/run_scenario.sh .claude/skills/scenario-factory/scripts/format_transcript.py`
    — abort if the borrowed factory scripts are gone (cross-skill dependency).
-4. `swift build` once to warm the harness build (incremental afterwards). A
+4. `ls .claude/skills/scenario-factory/PLAYBOOK.md` — abort if missing
+   (cross-skill dependency, same posture as the borrowed scripts above; Step 4
+   reads it for v2 authoring).
+5. `swift build` once to warm the harness build (incremental afterwards). A
    build failure aborts the cycle — report it, do not run.
 
 ## Step 1 — Select the rotation slice
@@ -200,10 +203,14 @@ For each chosen baseline:
 
 1. Read the baseline YAML (read-only). Diagnose the weakest axis from the
    transcript.
-2. Write a v2 targeting that axis to
+2. Read `.claude/skills/scenario-factory/PLAYBOOK.md` first — the v2 MUST
+   comply with its `[validated]` rules. A `[hypothesis]` rule is a legitimate
+   v2 lever (note in the candidate's comment when one is exercised, so the
+   journal can attribute a win/loss to it).
+3. Write a v2 targeting that axis to
    `data/factory/improvements/<DATE>/<id>__v2.yaml` with `id: <id>__v2`. Vary
    *mechanics* (persona differentiation, output-field constraints, round/topic
-   structure — see the factory's generation learnings), not just topic
+   structure — see the PLAYBOOK), not just topic
    strings. Keep the inference estimate ≤ 50 (the wrapper hard-blocks > 100).
    When varying `output` fields, keep the **canonical** names: primary =
    `statement`/`action`/`vote`, private-thought = `reason` for `vote` and
@@ -215,9 +222,9 @@ For each chosen baseline:
    `conditional` branch. Full authoring detail: the factory SKILL.md Step 2.
    **This is the only YAML the skill writes, and it goes under
    `data/factory/` — never next to the baseline.**
-3. Run it (Step 2 shape, into `audit-runs/<DATE>/<id>__v2.jsonl`) and judge it
+4. Run it (Step 2 shape, into `audit-runs/<DATE>/<id>__v2.jsonl`) and judge it
    (Step 3) with the baseline's `payoff_axis`.
-4. Record the candidate result with `candidate_of: "<baseline id>"` so the
+5. Record the candidate result with `candidate_of: "<baseline id>"` so the
    journal computes the A/B delta vs the same-run baseline (`vs base +N ✅`
    when it wins).
 
@@ -240,14 +247,28 @@ promotion — it stays in `improvements/`. See § Promotion.
 3. Verify: `grep -c 'audit-digest:' data/factory/audit-digest.md` prints `2`
    (both markers survived) and the new `## <DATE>` section exists.
 
+## Step 5.5 — Propose lessons (inbox)
+
+An A/B result is evidence too: it validates or refutes a design lesson, not
+just a scenario. If this cycle's A/B outcome (Step 4) confirms or refutes a
+lesson not already covered by a PLAYBOOK rule — or changes a rule's status
+(e.g. a `[hypothesis]` lever that won becomes `[validated]`) — append a dated,
+concept-level entry to `data/factory/lessons-inbox.md`, using the SAME entry
+shape and grep-before-append rule as `/scenario-factory` Step 5.5 (one-line
+reminder: `- <DATE> [candidate-status] <one-two sentence rule> (evidence:
+<ids>)`; see that section for the full spec). The inbox is a proposal queue
+only — refine never edits `PLAYBOOK.md`; promotion is the factory SKILL's
+§ Lessons promotion.
+
 ## Step 6 — Report
 
 Summarize for the user: per-scenario status + scores, **regressions (`⚠️`)
 called out first**, A/B candidate wins (`vs base +N ✅`) with where the YAML
 lives, failures with one-line causes, and where the artifacts are
-(`audit-runs/<DATE>/`, `improvements/<DATE>/`, the appended journal section).
-The journal is a gitignored local log — not committed or pushed. Only
-*promoting* a winner (§ Promotion) goes through `/orchestrate`.
+(`audit-runs/<DATE>/`, `improvements/<DATE>/`, the appended journal section,
+the `lessons-inbox.md` entries if any were proposed in Step 5.5). The journal
+is a gitignored local log — not committed or pushed. Only *promoting* a
+winner (§ Promotion) goes through `/orchestrate`.
 
 ## Promotion
 

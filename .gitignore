@@ -79,8 +79,10 @@ data/factory/improvements/
 # checkout's working tree stays clean; each skill's append_digest.py
 # bootstraps the file from a scaffold if absent.
 data/factory/digest.md
+data/factory/digest-index.jsonl
 data/factory/audit-digest.md
 data/queue/digest.md
+data/factory/lessons-inbox.md
 
 # Design-review screenshots — generated on demand by scripts/ui-tour.sh
 # (see docs/design/screenshots/README.md). Only the README is tracked.
