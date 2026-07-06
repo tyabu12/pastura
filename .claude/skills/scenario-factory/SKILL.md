@@ -51,11 +51,31 @@ Non-goals:
 
 ## Step 1 — Read prior scenarios (dedup)
 
-Read `data/factory/digest.md`. Collect every past scenario **id, name,
-theme, and comment** from the section tables. The new batch must not
-repeat: same premise, same persona cast, or a theme judged ≤2 on humor
-twice in a row. Low-scoring past entries are signals about what NOT to
-generate again; high scorers indicate directions worth varying further.
+Read three sources, in order:
+
+- **(a) The PLAYBOOK first** — `.claude/skills/scenario-factory/PLAYBOOK.md`
+  (repo-tracked), in full. It is the **GENERATION GATE**: every generated
+  scenario must comply with its `[validated]` rules; `[hypothesis]` rules are
+  levers to test deliberately (note in the Step 5 digest comment when one is
+  exercised). Its "Saturated premise families" section is dedup input.
+- **(b) `data/factory/digest-index.jsonl`** for FULL-history dedup — one line
+  per past scenario (id / name / theme / axis / status / scores, no comments;
+  ~19 KB vs the ~97 KB digest). Collect every past **id, name, theme** here.
+- **(c) Only the NEWEST 2 sections of `data/factory/digest.md`** for the
+  freshest nuance — last nights' comments, lessons, and axis-rotation context.
+  **NEVER read the whole digest** (it exceeds the session Read cap, ~39k
+  tokens): read with `offset`/`limit`, or stop at the 2nd `## <date>` heading.
+
+Dedup semantics (sourced from (a)+(b)+(c)): the new batch must not repeat same
+premise, same persona cast, or a theme judged ≤2 on humor twice in a row.
+Low-scoring past entries are signals about what NOT to generate again; high
+scorers indicate directions worth varying further.
+
+**Missing-index fallback**: if `digest-index.jsonl` is absent, do NOT read the
+full digest to compensate. Proceed with newest-2-sections dedup plus a cheap
+`grep`-based id/slug collision check against `digest.md`, and include a notice
+in the Step 6 report: `index missing — full-history dedup degraded; run
+append_digest.py --digest data/factory/digest.md --rebuild-index`.
 
 Also collect the **`name` + `description`** of every already-shipped
 scenario, so generation can avoid colliding with the inventory it might
@@ -263,11 +283,33 @@ the comment). The judge is a quality filter, not a safety screen.
 3. Verify: `grep -c 'factory-digest:' data/factory/digest.md` must print
    `2` (both markers survived), and the new `## <DATE>` section exists.
 
+## Step 5.5 — Propose lessons (inbox)
+
+If the night **VALIDATED** or **REFUTED** a design lesson not already covered
+by a PLAYBOOK rule — or produced strong new evidence that should change a
+rule's status — append a dated, concept-level entry to
+`data/factory/lessons-inbox.md` (gitignored; create it with a one-line header
+if absent). Entry shape:
+
+```
+- <DATE> [candidate-status] <one-two sentence rule> (evidence: <ids>)
+```
+
+**Grep-before-append**: if an entry for the same lesson *concept* already
+exists, append `re-observed: <DATE>` to that entry's line instead of
+duplicating. Plain Read / Grep / Write — no helper script.
+
+The inbox is a **PROPOSAL queue only** — the nightly cycle NEVER edits
+`PLAYBOOK.md`. Promotion is human-driven (§ Lessons promotion).
+
 ## Step 6 — Report
 
 Summarize for the user: per-scenario status + scores + best line of the
 night, failures with one-line causes, and where the artifacts live
-(`scenarios/<DATE>/`, `runs/<DATE>/`, the appended digest section).
+(`scenarios/<DATE>/`, `runs/<DATE>/`, the appended digest section; the
+`lessons-inbox.md` entries if any were proposed in Step 5.5). If the index was
+missing (Step 1 fallback), surface the degraded-dedup notice with the
+`--rebuild-index` command.
 `data/factory/digest.md` is a gitignored local log — the new section is
 appended in place and is NOT committed or pushed. Only *promoting* a
 winning scenario (bundled preset or shared-scenario gallery; see
@@ -292,6 +334,19 @@ via an `/orchestrate` PR either way:
   low-coherence / low-humor runs). Full bridge: `docs/gallery/README.md`
   § "Promoting from the scenario factory".
 
+## Lessons promotion
+
+`data/factory/lessons-inbox.md` (Step 5.5) → `PLAYBOOK.md` happens in a
+human-driven `/orchestrate` PR — same pattern as scenario promotion. The PR:
+
+- **Compresses** each promoted entry to PLAYBOOK's concept-level register
+  (invariant + why + evidence pointer; see the PLAYBOOK header discipline,
+  soft cap ~150 lines) — never paste inbox prose verbatim.
+- After merge, an **operator step** CLEARS promoted / duplicate / stale entries
+  from the local inbox. The PR itself can't do this — the inbox is a gitignored
+  local file, invisible to the merge — mirroring how the gitignored digest is
+  maintained locally rather than by the PR.
+
 ## Scheduling (how the unattended run works)
 
 - **The skill never self-registers** (see Non-goals "No scheduled
@@ -305,9 +360,10 @@ via an `/orchestrate` PR either way:
   A *manual* `/scenario-factory` behaves identically. (Promoting a winning
   scenario is a separate `/orchestrate` PR — see § Promotion.)
 - **Run in the user's main checkout — not a throwaway worktree.** The
-  gitignored digest, `scenarios/<DATE>/`, and `runs/<DATE>/` must persist
-  between nights so Step 1 dedup reads the full history; a fresh per-run
-  worktree would start with an empty bootstrapped digest and lose that
+  gitignored digest, its `digest-index.jsonl` sidecar, `scenarios/<DATE>/`,
+  and `runs/<DATE>/` must persist between nights so the full history stays
+  available — Step 1 dedup reads the index (rebuilt from the digest); a fresh
+  per-run worktree would start with an empty bootstrapped digest and lose that
   history. The digest being gitignored is what keeps the main working tree
   clean despite running there.
 - **Routine recipe** (Desktop → Routines → New routine):
