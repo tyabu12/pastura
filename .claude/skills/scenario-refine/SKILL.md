@@ -94,7 +94,7 @@ the inventory with the journal), each with `id`, `path`, `channel`
 
 - **Rotation**: never-evaluated and oldest scenarios come first. en siblings
   are a lower tier (ja/non-en primaries are evaluated first; en is sampled).
-- **`payoff_axis`** tells the judge which 4th axis to score (Step 3).
+- **`payoff_axis`** tells the judge which 5th axis to score (Step 3).
 - First run (absent journal) treats everything as never-evaluated — expected.
 
 Read the array; this is the cycle's worklist.
@@ -131,7 +131,7 @@ python3 .claude/skills/scenario-factory/scripts/format_transcript.py \
 ```
 
 Read the transcript and score the rubric — each axis 1–5 plus a one-line
-comment. The **first three axes are universal**; the **4th
+comment. The **first four axes are universal**; the **5th
 (`payoff_axis` from Step 1) depends on the scenario's category**:
 
 | Axis (key) | What 5 looks like | What 1 looks like |
@@ -139,9 +139,17 @@ comment. The **first three axes are universal**; the **4th
 | (a) `coherence` | Outputs consistently honor premise & personas | Agents ignore the setting |
 | (b) `interaction` | Agents react to each other; votes track content | Parallel monologues |
 | (c) `breakdown_free` | No format breaks, language drift, or nonsense loops | Frequent breakdowns |
-| (d) `payoff` — category-specific | (see below) | flat / absent |
+| (d) `development` | The situation, relationships, or choices genuinely move across rounds — late rounds couldn't be predicted from round 1 | Each round replays round 1 (one-note gimmick repetition) |
+| (e) `payoff` — category-specific | (see below) | flat / absent |
 
-4th-axis (`payoff`) meaning by category:
+`development` (d) is universal but may be `null` **only for a single-round
+scenario** (nothing can develop across one round; the journal renders `–`, and
+`append_audit.py`'s total treats null as 0). Here `development` is (d) *before*
+payoff; the sibling `/scenario-factory` digest renders it as (e) *after* humor
+— the axes are keyed by NAME (`development`), not by letter, so the two orders
+are intentionally different.
+
+5th-axis (`payoff`) meaning by category:
 
 | category | `payoff_axis` | A 5 looks like |
 |---|---|---|
@@ -162,14 +170,17 @@ crash never reads as a quality regression.
 
 Regression awareness: `select_inventory.py`'s `last_evaluated` and the
 journal's prior scores let you see whether a scenario is being re-checked. The
-actual Δ (vs the prior same-id+model ok run) is computed by `append_audit.py`
-and flagged `⚠️` when the 4-axis total drops by ≥ 2 — call out any such
-regression in Step 6.
+actual Δ (vs the prior same-id+model ok run) is computed over the 5-axis total
+(max 25) by `append_audit.py` and flagged `⚠️` when it drops by ≥ 2 — call out
+any such regression in Step 6. Journal entries written before the development
+axis are skipped as Δ baselines (the appender emits a single aggregated
+`missing score axes` notice), so the FIRST re-evaluation of each scenario after
+this change shows `Δ –` — a one-time reset, by design.
 
 ## Step 4 — Improve (A/B), bounded
 
 For low scorers, generate ONE v2 candidate and A/B-test it. A scenario is an
-**improvement candidate** when, this cycle, its total (max 20) ≤ 12, OR
+**improvement candidate** when, this cycle, its total (max 25) ≤ 15, OR
 `coherence` ≤ 2, OR `breakdown_free` ≤ 2, OR it regressed (`⚠️`). **Cap at 3
 candidates per cycle** (inference budget) — pick the lowest scorers; log any
 skipped over the cap (no silent truncation).
@@ -198,6 +209,10 @@ For each chosen baseline:
    `statement`/`action`/`vote`, private-thought = `reason` for `vote` and
    `inner_thought` for `speak_all`/`speak_each`/`choose`. A choose/speak phase
    with `reason` streams live but goes blank on the committed row (#760).
+   `reflect`'s primary is `note`; `whisper`'s primary is `statement` (+ optional
+   `inner_thought`), and its exchanges-per-pair use the phase-level `rounds:` key
+   (same as `speak_each`). Neither `reflect` nor `whisper` is allowed inside a
+   `conditional` branch. Full authoring detail: the factory SKILL.md Step 2.
    **This is the only YAML the skill writes, and it goes under
    `data/factory/` — never next to the baseline.**
 3. Run it (Step 2 shape, into `audit-runs/<DATE>/<id>__v2.jsonl`) and judge it
@@ -214,7 +229,8 @@ promotion — it stays in `improvements/`. See § Promotion.
 1. Compose the results JSON (schema in `append_audit.py`'s docstring: date /
    model / notes / per-scenario id, name, channel, category, yaml, run_log,
    status, attempts, duration_sec, scores {coherence, interaction,
-   breakdown_free, payoff}, payoff_axis, comment, error, candidate_of). Write
+   breakdown_free, development, payoff}, payoff_axis, comment, error,
+   candidate_of). Write
    it to a temp file.
 2. ```bash
    python3 .claude/skills/scenario-refine/scripts/append_audit.py \
