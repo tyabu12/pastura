@@ -728,6 +728,32 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
+  /// Set by the host `SimulationView` while the persona-detail sheet is up
+  /// (#942 PR2). One signal drives both playback layers: the consume loops in
+  /// ``run(scenario:llm:scenarioCategorySnapshot:)`` / ``resume(record:scenario:llm:)``
+  /// (Layer B) poll it via ``awaitPlaybackUnheld()``, and `AgentOutputRow`'s
+  /// reveal loop (Layer C) reads it live through its `isTypingParked` closure —
+  /// so both the event stream and the visible typewriter freeze coherently.
+  ///
+  /// `@ObservationIgnored`: Tasks/closures read it per-tick and no view renders
+  /// from it, so `@Observable` tracking would be pure churn. Engine keeps
+  /// running while held (ADR-017-untouched Option A) — the unbounded
+  /// `AsyncStream` buffers ahead, the same bounded trade-off as the
+  /// viewer-prediction wait. Defensively reset at each run/resume start so a
+  /// stale `true` (a sheet dismissed across an ADR-017 re-projection, or a
+  /// dropped `onDismiss`) can never start a fresh run frozen.
+  @ObservationIgnored var isPlaybackHeldForSheet = false
+
+  /// Suspend the consume loop while ``isPlaybackHeldForSheet`` holds playback.
+  /// Poll form (not a continuation) mirrors `AgentOutputRow`'s reveal park and
+  /// keeps the producer buffering under Option A; the enclosing `for await`
+  /// still tears down promptly on cancellation. #942 PR2.
+  private func awaitPlaybackUnheld() async {
+    while isPlaybackHeldForSheet && !Task.isCancelled {
+      try? await Task.sleep(for: .milliseconds(50))
+    }
+  }
+
   /// Holds the currently running simulation task for cancellation support.
   /// Set by the caller (SimulationView) after launching `run()` in a Task.
   /// Memory warning or explicit user action can cancel via `cancelSimulation()`.
@@ -1040,6 +1066,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   func run(  // swiftlint:disable:this function_body_length
     scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil
   ) async {
+    // Defensive: a fresh run must never start frozen. The persona sheet's
+    // dismiss normally clears this, but a hold left stale across an ADR-017
+    // re-projection (or a dropped `onDismiss`) would otherwise stall Layer B
+    // before the first event. #942 PR2.
+    isPlaybackHeldForSheet = false
     let controller = await prepareRunInfrastructure(llm: llm)
     scores = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, 0) })
     eliminated = Dictionary(uniqueKeysWithValues: scenario.personas.map { ($0.name, false) })
@@ -1124,6 +1155,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     for await event in runner.run(
       scenario: scenario, llm: llm, suspendController: controller
     ) {
+      // Playback park (#942 PR2): stop consuming while the persona sheet is up
+      // so the on-screen log freezes coherently with AgentOutputRow's own
+      // reveal park. The producer keeps running (Option A); the AsyncStream
+      // buffers ahead — the same bounded trade-off as the viewer-prediction
+      // wait below — so nothing deadlocks.
+      await awaitPlaybackUnheld()
+
       if case .agentOutput = event {
         // Reveal is paced by AgentOutputRow's typing animation, not an
         // inter-event sleep; the reading pause is applied AFTER dispatch
@@ -1292,6 +1330,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       return
     }
 
+    // Defensive: mirror run()'s stale-hold clear so a resumed run never starts
+    // frozen (#942 PR2).
+    isPlaybackHeldForSheet = false
     let controller = await prepareRunInfrastructure(llm: llm)
     simulationId = simId
     isResumedRun = true
@@ -1381,6 +1422,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       scenario: scenario, llm: llm, suspendController: controller,
       resumingFrom: state, startRound: startRound
     ) {
+      // Playback park (#942 PR2): mirror run()'s consume-loop gate.
+      await awaitPlaybackUnheld()
+
       if case .agentOutput = event {
         // Reveal is paced by AgentOutputRow's typing animation, not an
         // inter-event sleep; the reading pause is applied AFTER dispatch
