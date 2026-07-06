@@ -129,4 +129,31 @@ struct EditablePhaseTests {
     #expect(
       parent.thenPhases.first?.outputFields == ["statement": "string", "inner_thought": "string"])
   }
+
+  // MARK: - relationship_update config round-trip (#910)
+
+  /// The editor has no visual UI for `vote_against` / `action_deltas`, so the
+  /// only thing keeping them alive across a visual→YAML materialization is
+  /// EditablePhase modelling + `toPhase()`. Without this round-trip a user who
+  /// merely opens a relationship_update scenario in visual mode would drop its
+  /// affinity rules on re-serialization.
+  @Test func relationshipUpdateConfigSurvivesRoundTrip() {
+    let phase = Phase(
+      type: .relationshipUpdate,
+      voteAgainst: -1,
+      actionDeltas: ["cooperate": 1, "betray": -2]
+    )
+    let restored = EditablePhase(from: phase).toPhase()
+    #expect(restored.type == .relationshipUpdate)
+    #expect(restored.voteAgainst == -1)
+    #expect(restored.actionDeltas == ["cooperate": 1, "betray": -2])
+  }
+
+  @Test func relationshipUpdateEmptyRulesRoundTripAsNil() {
+    // Absent rules → EditablePhase holds `nil` / `[:]` → toPhase() emits `nil`
+    // (empty map is not serialized), matching the loader's absent-field shape.
+    let restored = EditablePhase(from: Phase(type: .relationshipUpdate)).toPhase()
+    #expect(restored.voteAgainst == nil)
+    #expect(restored.actionDeltas == nil)
+  }
 }

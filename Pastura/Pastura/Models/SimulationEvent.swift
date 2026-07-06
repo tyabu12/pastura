@@ -81,6 +81,14 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// A summary text was generated (from `summarize` phase).
   case summary(text: String)
 
+  /// The per-agent affinity matrix was updated (from a `relationship_update`
+  /// phase). `relationships[perceiver][other]` is the accumulated affinity
+  /// score `perceiver` holds toward `other` (positive = warmth, negative =
+  /// wariness). This is the raw matrix — not the natural-language summary
+  /// injected into prompts — so the Phase-3 relationship-graph visualization
+  /// can consume it directly. Emitted once per phase invocation. See #910.
+  case relationshipUpdate(relationships: [String: [String: Int]])
+
   // MARK: - Vote Results
 
   /// Vote results after a `vote` phase completes.

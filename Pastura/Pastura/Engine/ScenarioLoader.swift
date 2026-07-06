@@ -101,7 +101,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return (agents / 2) * (phase.subRounds ?? 1) * 2
     case .choose:
       return phase.pairing == .roundRobin ? agents * 2 : agents
-    case .scoreCalc, .assign, .eliminate, .summarize, .eventInject:
+    case .scoreCalc, .assign, .eliminate, .summarize, .eventInject, .relationshipUpdate:
       return 0
     case .conditional:
       let thenCost = (phase.thenPhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
@@ -352,6 +352,11 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     let probability = try parseOptionalDoubleAcceptingInt(dict, key: "probability", label: label)
     let eventVariable: String? = try parseOptional(dict, key: "as", label: label)
 
+    // relationship_update-specific fields (#910). Both YAML-only — no visual
+    // editing UI in v1 — but they round-trip through the editor's dual buffer.
+    let voteAgainst: Int? = try parseOptional(dict, key: "vote_against", label: label)
+    let actionDeltas = try parseActionDeltas(dict, label: label)
+
     return Phase(
       type: phaseType,
       prompt: prompt,
@@ -368,8 +373,35 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       thenPhases: thenPhases,
       elsePhases: elsePhases,
       probability: probability,
-      eventVariable: eventVariable
+      eventVariable: eventVariable,
+      voteAgainst: voteAgainst,
+      actionDeltas: actionDeltas
     )
+  }
+
+  /// Parses the `action_deltas:` map for `relationship_update` phases — a
+  /// dict of choose-action value → affinity delta (Int). Strict per #130:
+  /// a non-Int value (`cooperate: "one"`) throws rather than silently
+  /// coercing, and `Bool` is excluded because `as? Int` launders it.
+  private func parseActionDeltas(
+    _ dict: [String: Any], label: String
+  ) throws -> [String: Int]? {
+    guard let raw = dict["action_deltas"] else { return nil }
+    guard let map = raw as? [String: Any] else {
+      throw validationError(
+        String(localized: "%@: field 'action_deltas' must be a dictionary of Int values, got %@"),
+        label, String(describing: type(of: raw)))
+    }
+    var result: [String: Int] = [:]
+    for (key, value) in map {
+      guard let intValue = value as? Int, !(value is Bool) else {
+        throw validationError(
+          String(localized: "%@: action_deltas value for '%@' must be Int, got %@"),
+          label, key, String(describing: type(of: value)))
+      }
+      result[key] = intValue
+    }
+    return result
   }
 
   private func parsePhaseType(

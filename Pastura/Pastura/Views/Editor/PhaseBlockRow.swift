@@ -41,7 +41,9 @@ struct PhaseBlockRow: View {
       let src = phase.source.isEmpty ? "?" : phase.source
       let dst = phase.target.isEmpty ? "?" : phase.target
       return String(format: String(localized: "%@ → %@"), src, dst)
-    case .eliminate:
+    case .eliminate, .relationshipUpdate:
+      // relationship_update carries no prompt/template; its affinity rules
+      // are YAML-only config (#910), so no per-instance summary here.
       return ""
     case .summarize:
       return phase.template.prefix(50).trimmingCharacters(in: .whitespacesAndNewlines)

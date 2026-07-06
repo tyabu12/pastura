@@ -96,6 +96,7 @@ package struct EventLine: Codable, Sendable, Equatable {
   package var detected: String?
   package var expected: String?
   package var error: String?
+  package var relationships: [String: [String: Int]]?
 
   package init(
     t: Double, attempt: Int, event: String,
@@ -107,7 +108,8 @@ package struct EventLine: Codable, Sendable, Equatable {
     agent2: String? = nil, action1: String? = nil, action2: String? = nil,
     voteCount: Int? = nil, condition: String? = nil, result: Bool? = nil,
     durationSeconds: Double? = nil, tokenCount: Int? = nil,
-    detected: String? = nil, expected: String? = nil, error: String? = nil
+    detected: String? = nil, expected: String? = nil, error: String? = nil,
+    relationships: [String: [String: Int]]? = nil
   ) {
     self.t = t
     self.attempt = attempt
@@ -134,6 +136,7 @@ package struct EventLine: Codable, Sendable, Equatable {
     self.detected = detected
     self.expected = expected
     self.error = error
+    self.relationships = relationships
   }
 }
 

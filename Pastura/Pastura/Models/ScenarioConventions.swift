@@ -23,8 +23,8 @@ import Foundation
 /// ``TurnOutput/primaryText(for:)``.
 ///
 /// Code phases (`.scoreCalc`, `.assign`, `.eliminate`, `.summarize`,
-/// `.conditional`, `.eventInject`) emit no LLM output and therefore have no
-/// primary field — ``primaryField(for:)`` returns `nil`.
+/// `.conditional`, `.eventInject`, `.relationshipUpdate`) emit no LLM output
+/// and therefore have no primary field — ``primaryField(for:)`` returns `nil`.
 ///
 /// This convention is enforced at scenario-commit time by
 /// ``ScenarioValidator/validateForCommit(_:)``; it is not re-checked at
@@ -50,7 +50,8 @@ nonisolated public enum ScenarioConventions {
       return "note"
     case .whisper:
       return "statement"
-    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
+      .relationshipUpdate:
       return nil
     }
   }
@@ -90,7 +91,8 @@ nonisolated public enum ScenarioConventions {
       return "inner_thought"
     // `.reflect`'s canonical `note` output is itself the private reasoning, so
     // it declares no secondary thought field (single-field `{ note }` schema).
-    case .reflect, .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+    case .reflect, .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
+      .relationshipUpdate:
       return nil
     }
   }

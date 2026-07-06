@@ -79,6 +79,23 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// prompt phases can reference it via `{current_event}`.
   public let eventVariable: String?
 
+  /// Affinity delta applied by `relationship_update` phases (the YAML
+  /// `vote_against:` key) when another agent voted for the perceiver.
+  ///
+  /// `nil` means votes are not scored by this phase. Typically negative
+  /// (e.g. `-1`) — the perceiver grows wary of whoever voted against them.
+  /// Read from `state.lastOutputs[voter].vote` (#910).
+  public let voteAgainst: Int?
+
+  /// Per-action affinity deltas for `relationship_update` phases (the YAML
+  /// `action_deltas:` map, e.g. `{cooperate: 1, betray: -2}`).
+  ///
+  /// `nil` means choose actions are not scored by this phase. The key is a
+  /// partner's `choose`-phase action value toward the perceiver; the value
+  /// is the delta the perceiver applies to that partner. Read from
+  /// `Pairing.action1/action2` (#910).
+  public let actionDeltas: [String: Int]?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -95,7 +112,9 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     thenPhases: [Phase]? = nil,
     elsePhases: [Phase]? = nil,
     probability: Double? = nil,
-    eventVariable: String? = nil
+    eventVariable: String? = nil,
+    voteAgainst: Int? = nil,
+    actionDeltas: [String: Int]? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -113,6 +132,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.elsePhases = elsePhases
     self.probability = probability
     self.eventVariable = eventVariable
+    self.voteAgainst = voteAgainst
+    self.actionDeltas = actionDeltas
   }
 
   /// The schema's required keys as a `Set`, or an empty set when the

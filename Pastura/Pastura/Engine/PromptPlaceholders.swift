@@ -35,6 +35,7 @@ nonisolated enum PromptPlaceholders {
     "assigned_topic",  // AssignHandler (all mode — shared value)
     "vote_results",  // VoteHandler → Summarize
     "wolf_name",  // AssignHandler (random_one mode) → Summarize
-    "current_event"  // EventInjectHandler (default event variable)
+    "current_event",  // EventInjectHandler (default event variable)
+    "relationships"  // RelationshipUpdateHandler → the 5 per-persona LLM sites (#910)
   ]
 }

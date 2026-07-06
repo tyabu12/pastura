@@ -1160,6 +1160,12 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         .codePhaseLine(
           id: UUID(), line: .eventInjected(event: event.map(contentFilter.filter))))
 
+    case .relationshipUpdate:
+      // Affinity matrix (#910) has no demo-replay render surface in v1
+      // (relationship-graph viz is Phase 3); the natural-language summary the
+      // agents saw is prompt-side only, so replay skips the raw numbers.
+      return
+
     case .roundCompleted, .phaseCompleted, .simulationCompleted,
       .roundCheckpoint, .simulationPaused, .conditionalEvaluated,
       .agentOutputStream, .inferenceStarted, .inferenceCompleted, .error,

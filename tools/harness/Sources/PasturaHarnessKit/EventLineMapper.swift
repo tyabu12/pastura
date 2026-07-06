@@ -38,7 +38,10 @@ package enum EventLineMapper {
     }
   }
 
-  // Split from `map` to respect function_body_length under --strict.
+  // Split from `map` to respect function_body_length under --strict. Flat
+  // one-arm-per-event dispatch (no nested logic), so the cyclomatic-complexity
+  // waiver matches the same shape allowed in `PhaseGlyph` / `PhaseDisplayName`.
+  // swiftlint:disable:next cyclomatic_complexity
   private static func mapCodeAndLifecycle(
     _ event: SimulationEvent, t: Double, attempt: Int
   ) -> EventLine? {
@@ -60,6 +63,11 @@ package enum EventLineMapper {
         t: t, attempt: attempt, event: "shared_assignment", value: value)
     case .summary(let text):
       return EventLine(t: t, attempt: attempt, event: "summary", value: text)
+    case .relationshipUpdate(let relationships):
+      // Raw affinity matrix (#910) — the natural-language summary the agents
+      // see is prompt-side only, so the transcript carries the numbers.
+      return EventLine(
+        t: t, attempt: attempt, event: "relationship_update", relationships: relationships)
     case .voteResults(let votes, let tallies):
       return EventLine(
         t: t, attempt: attempt, event: "vote_results", votes: votes,
@@ -108,8 +116,8 @@ package enum EventLineMapper {
       return nil
     case .roundStarted, .roundCompleted, .phaseStarted, .phaseCompleted,
       .agentOutput, .agentOutputStream, .scoreUpdate, .elimination,
-      .assignment, .sharedAssignment, .summary, .voteResults, .pairingResult,
-      .conditionalEvaluated, .eventInjected:
+      .assignment, .sharedAssignment, .summary, .relationshipUpdate, .voteResults,
+      .pairingResult, .conditionalEvaluated, .eventInjected:
       // Handled by the earlier tiers; unreachable here. Listed explicitly
       // (no `default:`) so a NEW SimulationEvent case breaks compilation in
       // this switch — the compile-time canary the upstream tiers' `default:`

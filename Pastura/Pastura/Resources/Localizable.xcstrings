@@ -210,6 +210,22 @@
         }
       }
     },
+    "%@ (%@) requires at least one affinity rule: 'vote_against' and/or 'action_deltas'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) requires at least one affinity rule: 'vote_against' and/or 'action_deltas'."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@（%2$@）には少なくとも1つの好感度ルール（'vote_against' および/または 'action_deltas'）が必要です。"
+          }
+        }
+      }
+    },
     "%@ (%@) requires field '%@' in output." : {
       "localizations" : {
         "en" : {
@@ -393,6 +409,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ は reflect フェーズであり、conditional の中では許可されていません。"
+          }
+        }
+      }
+    },
+    "%@ is a relationship_update phase, which is not allowed inside a conditional." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is a relationship_update phase, which is not allowed inside a conditional."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は relationship_update フェーズであり、conditional の中では許可されていません。"
           }
         }
       }
@@ -633,6 +665,22 @@
         }
       }
     },
+    "%@: action_deltas value for '%@' must be Int, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: action_deltas value for '%2$@' must be Int, got %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: action_deltas の '%2$@' の値は Int である必要がありますが、%3$@ が指定されました"
+          }
+        }
+      }
+    },
     "%@: field '%@' must be %@, got %@" : {
       "localizations" : {
         "en" : {
@@ -661,6 +709,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: フィールド '%2$@' は Double または Int である必要がありますが、%3$@ が指定されました"
+          }
+        }
+      }
+    },
+    "%@: field 'action_deltas' must be a dictionary of Int values, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field 'action_deltas' must be a dictionary of Int values, got %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド 'action_deltas' は Int 値の辞書である必要がありますが、%2$@ が指定されました"
           }
         }
       }
@@ -5092,6 +5156,22 @@
         }
       }
     },
+    "Relationships" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relationships"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人間関係"
+          }
+        }
+      }
+    },
     "Reloading model..." : {
       "localizations" : {
         "ja" : {
@@ -6496,6 +6576,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更新"
+          }
+        }
+      }
+    },
+    "Update affinity matrix from vote/action history (code, no LLM)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update affinity matrix from vote/action history (code, no LLM)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票・行動の履歴から好感度行列を更新（コード、LLM なし）"
           }
         }
       }

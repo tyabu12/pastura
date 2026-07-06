@@ -78,6 +78,15 @@ struct RunLogTests {
     #expect(votes.tallies == ["B": 1])
   }
 
+  @Test func mapsRelationshipUpdate() throws {
+    let line = try #require(
+      EventLineMapper.map(
+        .relationshipUpdate(relationships: ["A": ["B": -1], "B": ["A": 2]]),
+        t: 6.0, attempt: 1))
+    #expect(line.event == "relationship_update")
+    #expect(line.relationships == ["A": ["B": -1], "B": ["A": 2]])
+  }
+
   @Test func everyEventKindExceptStreamAndCheckpointProducesALine() {
     // Completeness canary: if SimulationEvent gains a case, the mapper's
     // switch breaks compilation; this test documents the two deliberate nils
@@ -94,6 +103,7 @@ struct RunLogTests {
       .elimination(agent: "A", voteCount: 2),
       .assignment(agent: "A", value: "wolf"),
       .summary(text: "round over"),
+      .relationshipUpdate(relationships: ["A": ["B": -1]]),
       .pairingResult(agent1: "A", action1: "c", agent2: "B", action2: "d"),
       .conditionalEvaluated(condition: "max_score >= 10", result: false),
       .eventInjected(event: "storm"),

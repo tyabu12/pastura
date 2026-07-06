@@ -16,7 +16,7 @@ import Foundation
 /// (swift-isolation.md Pattern 5).
 public enum PhaseGlyph {
 
-  // Pure name-mapping switch (one line per phase type). The 12-case count
+  // Pure name-mapping switch (one line per phase type). The 13-case count
   // exceeds SwiftLint's cyclomatic threshold but carries no branching logic.
   // swiftlint:disable cyclomatic_complexity
   /// SF Symbol name for `phase`'s glyph badge.
@@ -34,6 +34,7 @@ public enum PhaseGlyph {
     case .summarize: return "list.bullet.rectangle"
     case .conditional: return "diamond"
     case .eventInject: return "bolt.fill"
+    case .relationshipUpdate: return "person.2"
     }
   }
   // swiftlint:enable cyclomatic_complexity

@@ -165,6 +165,48 @@ struct ScenarioValidatorTests {
     _ = try validator.validate(scenario)
   }
 
+  // MARK: - relationship_update (#910)
+
+  @Test func rejectsRelationshipUpdateWithNoRuleAtRunGate() {
+    // A relationship_update with neither `vote_against` nor `action_deltas` is
+    // a pure no-op (reads signals, applies zero deltas, injects nothing), so
+    // the run gate requires at least one rule — like reflect/whisper shape.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .relationshipUpdate)]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
+  @Test func acceptsRelationshipUpdateWithVoteRuleOnly() throws {
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .relationshipUpdate, voteAgainst: -1)]
+    )
+    _ = try validator.validate(scenario)
+  }
+
+  @Test func acceptsRelationshipUpdateWithActionRuleOnly() throws {
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .relationshipUpdate, actionDeltas: ["cooperate": 1])]
+    )
+    _ = try validator.validate(scenario)
+  }
+
+  @Test func rejectsRelationshipUpdateWithEmptyActionDeltas() {
+    // An empty `action_deltas: {}` map counts as no rule — same no-op shape.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .relationshipUpdate, actionDeltas: [:])]
+    )
+    #expect(throws: SimulationError.self) {
+      try validator.validate(scenario)
+    }
+  }
+
   @Test func rejectsPersonaCountMismatch() {
     // Constructed directly because makeScenario auto-generates matching personas
     let scenario = Scenario(
