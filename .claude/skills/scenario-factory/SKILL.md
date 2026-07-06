@@ -82,7 +82,7 @@ python3 .claude/skills/scenario-factory/scripts/gallery_census.py
 
 The census is **deterministic and gallery-only** — it counts phase-*type*
 presence (does a scenario contain a `vote` phase at all?), not mechanical
-depth, and ranks 8 structural mechanic axes + the 6 categories by rarity.
+depth, and ranks 10 structural mechanic axes + the 6 categories by rarity.
 Read its `Suggested targets` block and **assign each of the 3 scenarios a
 DISTINCT under-represented axis** (a mechanic axis, a category, or both),
 avoiding the `crowded` ones. Valid categories: `social_psychology`,
@@ -94,6 +94,16 @@ scan the digest's recent `axis` column (Step 5) and, if a suggested axis was
 already targeted in the last 1–2 nights but is **not yet promoted** to the
 gallery, rotate to the next gap so the same hole isn't refilled before
 promotion catches up.
+
+The census also prints a `⚠️ NEW ENGINE MECHANICS not yet in the census axes`
+warning when `PhaseType` gains a phase no axis covers (the auto-follow
+tripwire). When it fires, treat the listed phase(s) as the **TOP-priority** axis
+assignment for the batch — they are by definition 0-represented. BEFORE
+authoring with an unfamiliar phase, read
+`Pastura/Pastura/Engine/Phases/<X>Handler.swift` (its header docs give the
+semantics, output-field contract, and cost) and tracking issue #906 (the
+interestingness umbrella — design considerations for every recent / planned
+phase).
 
 ## Step 2 — Generate 3 scenario YAMLs
 
@@ -130,6 +140,29 @@ Schema requirements (ScenarioLoader — all required):
   `reason` for `vote`, `inner_thought` for `speak_all` / `speak_each` /
   `choose`. Do NOT author `reason` on a choose/speak phase — it streams live
   but goes blank on the committed row, and the commit gate rejects it (#760).
+- `reflect` (per-agent private memo, #907) — output field `note` (canonical,
+  required; no secondary thought field). The memo is stored under the reserved
+  `notes_<name>` namespace and re-injected into that agent's OWN later prompts
+  only (system-prompt section + `{my_notes}`) — never into the shared
+  conversation log. NOT allowed inside a `conditional` branch. Inference cost =
+  agents per round. Reference preset:
+  `Pastura/Pastura/Resources/Presets/word_wolf.yaml`.
+- `whisper` (pair-private conversation, #908) — `prompt` optional (a
+  language-aware default exists); phase-level `rounds:` optional (default 1;
+  the same key speak_each uses — it maps to sub_rounds, the exchanges per
+  pair). Output: `statement` (canonical primary, required) + optional
+  `inner_thought`. Active agents pair off in persona order, rotated per round
+  (an odd agent sits out); exchanges NEVER enter the shared conversation log —
+  viewers see them (dramatic irony), other agents don't. Each participant's
+  latest exchange is surfaced back only to them via the reserved
+  `whispers_<name>` key (overwrite — latest only) + `{my_whispers}`. NOT
+  allowed inside a `conditional` branch. Inference cost =
+  (agents ÷ 2) × sub_rounds × 2 (integer division; odd agent sits out).
+- `log_window: N` (scenario-level top-level key, int ≥ 1, #907) — trims the
+  conversation log passed to PROMPTS to the last N entries; persistence, replay,
+  and export keep the full log. This is the **information-asymmetry lever**: it is
+  the retry lever for the 2026-07-06 digest lesson that a telephone-game decay
+  experiment needs predecessor-only visibility (`log_window: 1` approximates it).
 - Plain YAML only — no markdown fences in the file.
 
 Inference budget — compute BEFORE writing each file:
@@ -137,6 +170,7 @@ Inference budget — compute BEFORE writing each file:
 ```
 per round: speak_all = agents | speak_each = agents × sub_rounds
            vote = agents     | choose = agents × 2 (round_robin) / agents
+           reflect = agents  | whisper = (agents/2) × sub_rounds × 2
            code phases (assign / score_calc / eliminate / summarize /
            event_inject) = 0 | conditional = max(then, else)
 total = per-round sum × rounds   →  target ≤ 50 (hard block > 100)
@@ -190,15 +224,24 @@ comment per scenario:
 | (b) interaction | Agents react to each other; votes track content | Parallel monologues |
 | (c) breakdown_free | No format breaks, language drift, or nonsense loops | Frequent breakdowns |
 | (d) humor | Genuinely funny lines a human would quote | Flat or incoherent |
+| (e) development | The situation, relationships, or choices genuinely move across rounds; late rounds couldn't be predicted from round 1 | Each round replays round 1 (one-note gimmick repetition) |
+
+**Development (e) is UNIVERSAL** — score it for *every* scenario (unlike humor,
+which is category-gated below), on the same 1–5 scale. `null` is allowed only
+for a single-round scenario (nothing can develop across one round; the digest
+renders `–`). In this skill development is column **(e) after humor**; the
+sibling `/scenario-refine` journal renders it as **(d) before payoff** — the
+axes are keyed by NAME (`development`), not by letter, so the two orders are
+intentionally different.
 
 **Category-aware (d):** humor is the right axis for a comedy-family
 scenario, but a scenario whose Step 1.5 axis rotated to a non-`creative`
 category (`game_theory` / `experimental` / `social_psychology` / `ethics`)
 should NOT be penalized for not being funny — that would teach the loop to
 avoid the diversity the census requested. For those, score (d) `null` (the
-digest renders `–`) and judge the scenario on (a)–(c) plus whether it
-delivers its category's intended payoff (a real dilemma, a believable
-experiment). Note this in the comment.
+digest renders `–`) and judge the scenario on (a)–(c) + (e) development plus
+whether it delivers its category's intended payoff (a real dilemma, a
+believable experiment). Note this in the comment.
 
 Failed runs get **no scores** — record the status and the wrapper's
 `error` (skim the partial transcript only to classify the failure for
@@ -208,7 +251,8 @@ the comment). The judge is a quality filter, not a safety screen.
 
 1. Write the results JSON (schema documented in `append_digest.py`'s
    docstring: date / model / notes / per-scenario id, name, theme, **axis**,
-   yaml, run_log, status, attempts, duration_sec, scores, comment, error) to
+   yaml, run_log, status, attempts, duration_sec, scores (5 axes: coherence /
+   interaction / breakdown_free / humor / development), comment, error) to
    a temp file. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
    `"elimination / creative"`) so cross-night rotation can read it back.
 2. ```bash
