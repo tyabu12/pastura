@@ -210,6 +210,22 @@
         }
       }
     },
+    "%@ (%@) requires at least one affinity rule: 'vote_against' and/or 'action_deltas'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) requires at least one affinity rule: 'vote_against' and/or 'action_deltas'."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@（%2$@）には少なくとも1つの好感度ルール（'vote_against' および/または 'action_deltas'）が必要です。"
+          }
+        }
+      }
+    },
     "%@ (%@) requires field '%@' in output." : {
       "localizations" : {
         "en" : {
@@ -393,6 +409,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ は reflect フェーズであり、conditional の中では許可されていません。"
+          }
+        }
+      }
+    },
+    "%@ is a relationship_update phase, which is not allowed inside a conditional." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is a relationship_update phase, which is not allowed inside a conditional."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は relationship_update フェーズであり、conditional の中では許可されていません。"
           }
         }
       }

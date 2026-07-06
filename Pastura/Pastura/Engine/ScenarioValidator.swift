@@ -128,11 +128,10 @@ nonisolated struct ScenarioValidator: Sendable {
         try validateReflectShape(phase, label: "Phase \(index + 1)")
       case .whisper:
         try validateWhisperShape(phase, label: "Phase \(index + 1)")
-      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize,
-        .relationshipUpdate:
-        // `relationshipUpdate` shape check (require ≥1 rule) + conditional-branch
-        // disallow land in a follow-up commit (#910); no-op here for now.
+      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
         break
+      case .relationshipUpdate:
+        try validateRelationshipUpdateShape(phase, label: "Phase \(index + 1)")
       case .eventInject:
         try validateEventInjectShape(
           phase, label: "Phase \(index + 1) (event_inject)", scenario: scenario)
@@ -200,8 +199,8 @@ nonisolated struct ScenarioValidator: Sendable {
 
   /// Recursively validates each sub-phase in a conditional branch.
   ///
-  /// Rejects nested `.conditional` (depth-1 rule), `.reflect`, and `.whisper`
-  /// (neither supported inside a branch in v1), and applies the same semantic checks
+  /// Rejects nested `.conditional` (depth-1 rule), `.reflect`, `.whisper`, and
+  /// `.relationshipUpdate` (none supported inside a branch in v1), and applies the same semantic checks
   /// we run at the top level — e.g., an `assign` phase with mismatched
   /// target/source shape still errors when buried inside a `then:` or
   /// `else:` branch. `event_inject` is allowed inside a branch (consistent
@@ -232,6 +231,16 @@ nonisolated struct ScenarioValidator: Sendable {
       if subPhase.type == .whisper {
         throw validationError(
           String(localized: "%@ is a whisper phase, which is not allowed inside a conditional."),
+          subLabel)
+      }
+      // `relationship_update` is likewise not supported inside a conditional
+      // branch in v1 (mirrors the reflect/whisper rejections above); it is also
+      // omitted from `ConditionalHandler.subHandlers` as a structural backstop.
+      if subPhase.type == .relationshipUpdate {
+        throw validationError(
+          String(
+            localized:
+              "%@ is a relationship_update phase, which is not allowed inside a conditional."),
           subLabel)
       }
       if subPhase.type == .assign {
@@ -272,6 +281,26 @@ nonisolated struct ScenarioValidator: Sendable {
       throw validationError(
         String(localized: "%@ (%@) requires field '%@' in output."),
         label, phase.type.rawValue, "statement")
+    }
+  }
+
+  /// Requires relationship_update phases to declare at least one affinity rule
+  /// (`vote_against` and/or a non-empty `action_deltas`) at the RUN gate.
+  ///
+  /// A phase with neither rule is a pure no-op: it reads its vote / choose
+  /// signals, applies zero deltas, and injects an empty summary — burning a
+  /// phase slot with no user-visible effect (the same no-op failure mode
+  /// `validateReflectShape` guards against). Failing fast here surfaces the
+  /// authoring mistake instead of a silently inert phase (#910).
+  private func validateRelationshipUpdateShape(_ phase: Phase, label: String) throws {
+    let hasVoteRule = phase.voteAgainst != nil
+    let hasActionRule = !(phase.actionDeltas ?? [:]).isEmpty
+    if !hasVoteRule && !hasActionRule {
+      throw validationError(
+        String(
+          localized:
+            "%@ (%@) requires at least one affinity rule: 'vote_against' and/or 'action_deltas'."),
+        label, phase.type.rawValue)
     }
   }
 
