@@ -23,6 +23,7 @@
   --page: #F3EFE7;
   --screen-bg: #FCFAF4;
   --bubble-bg: #FFFFFF;
+  --whisper-bubble: #EBEEE1;
   --promo-bg: #FBFAF2;
   --promo-border: #E4E7D2;
 
@@ -95,6 +96,7 @@
   --night-bg: #1B1D17;
   --night-surface: #232620;
   --night-bubble: #2C2F28;
+  --night-whisper-bubble: #2F3626;
   --night-ink: #E8E5D8;
   --night-ink-2: #B0AC9C;
   --night-muted: #7A7768;
