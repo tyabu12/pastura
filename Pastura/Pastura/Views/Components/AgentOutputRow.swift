@@ -917,6 +917,11 @@ extension AgentOutputRow {
   /// host-VM flip is observed mid-reveal (a stored `Bool` would freeze in the
   /// task's struct snapshot). Returns on unpark *or* cancellation — the caller
   /// re-checks `Task.isCancelled` after its next sleep. #942 PR2.
+  ///
+  /// The 50 ms poll here mirrors the Layer-B consume-loop gates
+  /// `SimulationViewModel.awaitPlaybackUnheld()` and
+  /// `ReplayViewModel.awaitPlaybackUnheld()` — keep the interval in step if
+  /// tuning one (they span the Views/ and App/ layers, so no shared constant).
   private func awaitUnparked() async {
     while (isTypingParked?() ?? false) && !Task.isCancelled {
       try? await Task.sleep(nanoseconds: 50_000_000)

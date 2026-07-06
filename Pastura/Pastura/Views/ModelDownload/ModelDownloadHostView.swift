@@ -173,6 +173,9 @@ struct ModelDownloadHostView: View {
         // `onDismiss` above. Gating on the *presented* transition (not the tap)
         // makes a persona-not-found tap — which leaves `selectedPersona` nil and
         // never shows a sheet — a no-op instead of a frozen demo with no sheet.
+        // Same scrim-dependency caveat as SimulationView's site (a direct A→B
+        // swap wouldn't re-fire this true→true) — unreachable unless background
+        // interaction is enabled on the sheet. #942 PR2.
         if isPresented { replayVM?.isPlaybackHeldForSheet = true }
       }
   }

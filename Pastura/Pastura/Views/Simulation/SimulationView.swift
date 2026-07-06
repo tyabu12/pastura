@@ -712,6 +712,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           .deepLinkGated()
       }
     )
+    // Invariant "sheet visible ⟺ park held" depends on the parked rows behind
+    // the sheet being non-interactive: the `.medium` detent's default scrim
+    // blocks avatar taps, so a direct A→B `selectedPersona` swap (which fires
+    // `onDismiss`→park-false but NOT this `!= nil` change, true→true being no
+    // transition) is unreachable. If `.presentationBackgroundInteraction(.enabled)`
+    // is ever added, switch this to gate on `selectedPersona` identity. #942 PR2.
     .onChange(of: selectedPersona != nil) { _, isPresented in
       parkPlayback(viewModel, whileSheetPresented: isPresented)
     }
