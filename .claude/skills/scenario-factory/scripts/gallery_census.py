@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Gallery novelty census — rank under-represented scenario formats & categories.
 
-usage: gallery_census.py [path/to/gallery.json]   (default: docs/gallery/gallery.json)
+usage: gallery_census.py [path/to/gallery.json] [--phase-types path/to/PhaseType.swift]
+       (defaults: docs/gallery/gallery.json, Pastura/Pastura/Models/PhaseType.swift)
 
 Reads the shared-scenario gallery and reports, deterministically, which
 STRUCTURAL MECHANIC AXES and CATEGORIES are under-represented, so a
@@ -18,7 +19,9 @@ Exit 0 always (an empty/unreadable gallery prints a notice, never crashes the
 overnight cycle).
 """
 
+import argparse
 import json
+import re
 import sys
 
 # Structural novelty axes: (label, predicate over the phase-type set). The
@@ -27,7 +30,7 @@ import sys
 # tie-break for equally-rare axes (a stable sort on count preserves it).
 # NOTE: `scoring_free` is a NEGATION axis — a scenario counts toward it
 # precisely because it lacks vote AND score_calc, so it is anti-correlated
-# with peer_vote/scored by construction (the 8 axes are not all orthogonal).
+# with peer_vote/scored by construction (the axes are not all orthogonal).
 AXES = [
     ("peer_vote", lambda p: "vote" in p),
     ("scored", lambda p: "score_calc" in p),
@@ -36,8 +39,27 @@ AXES = [
     ("branching", lambda p: "conditional" in p),
     ("reactive_event", lambda p: "event_inject" in p),
     ("sequential_build", lambda p: "speak_each" in p),
+    ("pair_whisper", lambda p: "whisper" in p),
+    ("reflection", lambda p: "reflect" in p),
     ("scoring_free", lambda p: "vote" not in p and "score_calc" not in p),
 ]
+
+# Phase-type strings the AXES lambdas key on. Lambda bodies can't be
+# introspected, so this set is maintained by hand — it MUST be updated
+# alongside AXES whenever an axis is added/removed. It powers the PhaseType
+# drift tripwire (compute_engine_phases + the NEW-mechanic warning below):
+# any Engine phase absent from AXIS_PHASES ∪ SCAFFOLDING_PHASES surfaces as an
+# uncovered mechanic. (`scoring_free` is a negation axis over vote/score_calc,
+# already listed.)
+AXIS_PHASES = {
+    "vote", "score_calc", "choose", "eliminate", "conditional",
+    "event_inject", "speak_each", "whisper", "reflect",
+}
+
+# Scaffolding phases deliberately NOT modeled as axes (see the AXES comment):
+# they structure a scenario but don't define its format. Listed here so the
+# drift tripwire treats them as covered rather than flagging them as new.
+SCAFFOLDING_PHASES = {"assign", "summarize", "speak_all"}
 
 # Valid gallery categories — mirror of GalleryCategory in
 # Pastura/Pastura/Models/GalleryScenario.swift (snake_case raw values). Kept
@@ -70,8 +92,53 @@ def line(label, count, n):
     return f"  {label:<18} {count:>2}/{n}{tag}"
 
 
+# Matches a Swift enum `case <name>` line, optionally with an explicit raw
+# value (`case foo = "bar"`). The leading `case\s+(?![.])` guards against
+# switch-statement patterns like `case .speakAll, .futurePhase:` (identifiers
+# there are dot-prefixed) and `default:` (no identifier). ASSUMES ONE CASE PER
+# LINE, matching the current PhaseType.swift shape: a future comma-joined
+# `case a, b` would under-parse (b silently dropped). That direction HIDES a
+# phase — an unparsed phase can't trip the NEW-mechanic warning — so if the
+# real file ever adopts comma-joined cases this regex must be widened.
+_CASE_RE = re.compile(r'^\s*case\s+(?![.])([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*"([^"]+)")?')
+
+
+def compute_engine_phases(path):
+    """Parse PhaseType.swift as TEXT → the set of phase raw-value strings.
+
+    The raw value is the explicit `= "..."` string when present, else the case
+    identifier verbatim (Swift's default RawRepresentable value). Returns None
+    on any read error so the caller can fail-open and skip the drift check.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except OSError as exc:
+        print(f"gallery_census: cannot read {path}: {exc} — "
+              "skipping PhaseType drift check", file=sys.stderr)
+        return None
+    phases = set()
+    for raw_line in text.splitlines():
+        m = _CASE_RE.match(raw_line)
+        if m:
+            phases.add(m.group(2) or m.group(1))
+    return phases  # already deduped (a set)
+
+
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "docs/gallery/gallery.json"
+    parser = argparse.ArgumentParser(
+        description="Gallery novelty census — rank under-represented formats.")
+    parser.add_argument(
+        "gallery", nargs="?", default="docs/gallery/gallery.json",
+        help="path to gallery.json (default: docs/gallery/gallery.json)")
+    parser.add_argument(
+        # This default path breaks SILENTLY (fail-open) if Models/ is ever
+        # extracted to an SPM package — the repo-root existence assertion in
+        # tests/run_tests.sh is the tripwire that catches that move.
+        "--phase-types", default="Pastura/Pastura/Models/PhaseType.swift",
+        help="path to PhaseType.swift for the drift tripwire")
+    args = parser.parse_args()
+    path = args.gallery
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -143,6 +210,22 @@ def main():
     print(f"  categories:    {', '.join(cat_targets) or '(none)'}")
     if crowded_axes:
         print(f"  avoid piling onto crowded axes: {', '.join(crowded_axes)}")
+
+    # PhaseType drift tripwire — surface Engine phases that shipped without a
+    # census axis, so a future phase becomes a MAXIMAL-RARITY target instead of
+    # going unnoticed. Fail-open: unreadable/missing file skips silently (a
+    # stderr notice is printed inside compute_engine_phases), mirroring the
+    # gallery-read fail-open above — never crash the overnight cycle.
+    engine_phases = compute_engine_phases(args.phase_types)
+    if engine_phases is not None:
+        uncovered = engine_phases - AXIS_PHASES - SCAFFOLDING_PHASES
+        if uncovered:
+            print()
+            print("⚠️ NEW ENGINE MECHANICS not yet in the census axes: "
+                  f"{', '.join(sorted(uncovered))}")
+            print("   Treat these as MAXIMAL-RARITY targets. Before authoring, read")
+            print("   Pastura/Pastura/Engine/Phases/<X>Handler.swift and tracking issue #906.")
+
     print()
     print("Assign each of the 3 generated scenarios a DISTINCT axis from the rare end.")
     return 0

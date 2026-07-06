@@ -6,25 +6,25 @@
       "id": "bal_one_v1",
       "title": "Balanced one",
       "category": "creative",
-      "phases": ["vote", "score_calc", "choose", "eliminate"]
+      "phases": ["vote", "score_calc", "choose", "eliminate", "whisper"]
     },
     {
       "id": "bal_two_v1",
       "title": "Balanced two",
       "category": "ethics",
-      "phases": ["vote", "score_calc", "conditional", "event_inject", "speak_each"]
+      "phases": ["vote", "score_calc", "conditional", "event_inject", "speak_each", "reflect"]
     },
     {
       "id": "bal_three_v1",
       "title": "Balanced three",
       "category": "roleplay",
-      "phases": ["choose", "eliminate", "conditional", "event_inject", "speak_each"]
+      "phases": ["choose", "eliminate", "conditional", "event_inject", "speak_each", "whisper"]
     },
     {
       "id": "bal_four_v1",
       "title": "Balanced four",
       "category": "game_theory",
-      "phases": ["summarize"]
+      "phases": ["summarize", "reflect"]
     }
   ]
 }
