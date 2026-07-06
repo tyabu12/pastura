@@ -11,11 +11,13 @@ import SwiftUI
 /// 3. Inline retry affordance when `.error` arrives *after* replay has
 ///    started, per ADR-007 §3.3 (b) — the progress area swaps to an
 ///    error message + retry button while the body copy keeps rotating.
-/// 4. Optional inline Cancel: when `onCancel` is non-nil, a small `X`
-///    sits on the trailing edge of the progress / retry row. The card
-///    is the natural home for it because the action targets the DL
-///    that the card is rendering — colocating destructive intent with
-///    its target. The host owns the confirmation dialog.
+/// 4. Optional Cancel: when `onCancel` is non-nil, a full-width "Stop
+///    download" link sits at the card's bottom edge. The card is the
+///    natural home for it because the action targets the DL that the
+///    card is rendering. Its own fixed-geometry row (not the
+///    per-progress-rebuilt meta row) keeps the tap target stable — the
+///    former trailing chip could drop a first tap under that churn. The
+///    host owns the confirmation dialog.
 struct PromoCard: View {
 
   let modelState: ModelState
@@ -28,8 +30,8 @@ struct PromoCard: View {
   /// or over-reported for any non-Gemma model.
   let totalBytes: Int64
   let onRetry: () -> Void
-  /// When set, renders a small `X` button at the trailing edge of the
-  /// progress / retry row. When `nil`, no cancel affordance is shown
+  /// When set, renders a full-width "Stop download" link at the card's
+  /// bottom edge. When `nil`, no cancel affordance is shown
   /// (first-launch DL is uncancellable per the slot's contract).
   let onCancel: (() -> Void)?
 
@@ -73,10 +75,18 @@ struct PromoCard: View {
     VStack(alignment: .leading, spacing: 0) {
       metaRow
       bodyRow
+      if let onCancel {
+        cancelLinkRow(action: onCancel)
+      }
     }
     .background(cardBackground)
-    .clipShape(RoundedRectangle(cornerRadius: Radius.promo))
+    // `leftAccent` is overlaid BEFORE the clip so the card's rounded corner
+    // trims the 3pt bar's top/bottom to follow the curve. Overlaying after
+    // the clip (the prior form) left the bar unclipped, and its own
+    // `UnevenRoundedRectangle(radius: Radius.promo)` self-clip can't round
+    // inside a 3pt-wide frame — so the square ends poked past the corners.
     .overlay(alignment: .leading) { leftAccent }
+    .clipShape(RoundedRectangle(cornerRadius: Radius.promo))
     .overlay {
       RoundedRectangle(cornerRadius: Radius.promo)
         .strokeBorder(Color.promoBorder, lineWidth: 1)
@@ -163,10 +173,6 @@ struct PromoCard: View {
           .foregroundStyle(Color.metaBaseL3)
 
         Spacer(minLength: 0)
-
-        if let onCancel {
-          cancelButton(action: onCancel)
-        }
       }
 
       if pct < 100, let etaText = Self.formatEta(minutes: etaMinutes) {
@@ -183,33 +189,35 @@ struct PromoCard: View {
     .accessibilityAddTraits(.updatesFrequently)
   }
 
-  /// Trailing-edge "Cancel" button for the progress / retry row
-  /// (renders as "キャンセル" via the existing "Cancel" xcstrings ja key).
-  /// Neutral styling — `inkSecondary` text + `rule` 1pt border + clear
-  /// fill — per `design-system.md` §2.6 "Cancel ボタンは赤くしない".
-  /// The pastoral voice rejects red here; `danger` is reserved for
-  /// the destructive-confirmation primary button instead.
-  ///
-  /// Tap target meets the HIG floor by stretching the button frame
-  /// past the visible bordered chip via padding + `contentShape`,
-  /// so the surrounding content area registers taps without inflating
-  /// the visible chrome.
-  private func cancelButton(action: @escaping () -> Void) -> some View {
+  /// Full-width "Stop download" action bar at the card's bottom edge, shown
+  /// only when `onCancel` is set. Its own fixed-geometry row (not the
+  /// per-progress-rebuilt meta row) keeps the hit region stable and the
+  /// full-width target easy to hit. Styled as a filled footer button (a plain
+  /// link didn't read as tappable on-device): `stop.fill` glyph + subtle
+  /// neutral fill (`rule` @0.45, so the full-opacity `rule` top hairline stays
+  /// visible) — still neutral per `design-system.md` §2.6 (never red; the fill
+  /// is a low-opacity neutral, not `danger`). Text self-describes; no a11y label.
+  private func cancelLinkRow(action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Text(String(localized: "Cancel"))
-        .textStyle(Typography.metaLabel)
-        .foregroundStyle(Color.inkSecondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .overlay {
-          RoundedRectangle(cornerRadius: Radius.button)
-            .strokeBorder(Color.rule, lineWidth: 1)
-        }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
+      HStack(spacing: 5) {
+        Image(systemName: "stop.fill")
+          .font(.system(size: 10))
+          .foregroundStyle(Color.inkSecondary)
+        Text(String(localized: "Stop download"))
+          .textStyle(Typography.metaLabel)
+          .foregroundStyle(Color.inkSecondary)
+      }
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 10)
+      .background(Color.rule.opacity(0.45))
+      .overlay(alignment: .top) {
+        Rectangle()
+          .fill(Color.rule)
+          .frame(height: 1)
+      }
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-    .accessibilityLabel(String(localized: "Cancel download"))
   }
 
   @ViewBuilder
@@ -236,9 +244,6 @@ struct PromoCard: View {
               .fill(Color.moss))
       }
       .buttonStyle(.plain)
-      if let onCancel {
-        cancelButton(action: onCancel)
-      }
     }
     .padding(.horizontal, 14)
     .padding(.top, 8)
@@ -289,13 +294,11 @@ struct PromoCard: View {
   }
 
   private var leftAccent: some View {
+    // Plain full-height 3pt bar — the card's `.clipShape` (applied after this
+    // overlay in `body`) rounds its ends to the corner curve. No self-clip.
     Rectangle()
       .fill(Color.moss)
       .frame(width: 3)
-      .clipShape(
-        UnevenRoundedRectangle(
-          topLeadingRadius: Radius.promo,
-          bottomLeadingRadius: Radius.promo))
   }
 
   // MARK: - Behavior
@@ -307,11 +310,22 @@ struct PromoCard: View {
       lastAnchor: lastForegroundAnchor,
       now: now,
       slotDuration: Self.slotDuration)
+    // Guard every write: `computeSlotState` returns `foregroundElapsed` /
+    // `lastAnchor` UNCHANGED on non-slot-advancing ticks (19 of every 20 —
+    // the accumulation rides on the live `now − anchor` inflight term, not on
+    // growing `foregroundElapsed`). A `@State` write invalidates `body` even
+    // when the value is equal, so writing these unconditionally re-rendered
+    // the whole card every second — churn that could drop the first tap on a
+    // control living in the re-laid-out subtree. Assign only on real change.
     if next.slot != currentSlot {
       currentSlot = next.slot
     }
-    foregroundElapsed = next.foregroundElapsed
-    lastForegroundAnchor = next.lastAnchor
+    if next.foregroundElapsed != foregroundElapsed {
+      foregroundElapsed = next.foregroundElapsed
+    }
+    if next.lastAnchor != lastForegroundAnchor {
+      lastForegroundAnchor = next.lastAnchor
+    }
   }
 
   private func handleScenePhase(_ phase: ScenePhase) {
