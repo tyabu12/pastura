@@ -230,25 +230,6 @@ nonisolated struct ScenarioValidator: Sendable {
     }
   }
 
-  /// Shared shape-check for event_inject phases, callable from both the
-  /// top-level path and from inside a conditional branch.
-  ///
-  /// Enforces:
-  /// - `source` must be present and non-empty (the handler's no-op
-  ///   fallback exists for the case where extraData lookup fails at
-  ///   runtime, but a curator who wrote `event_inject` clearly meant
-  ///   to fire — failing fast at validation is friendlier).
-  /// - `extraData[source]` must be `.array` (a list of strings).
-  ///   v1 deliberately narrows to this shape; `[String:String]` /
-  ///   `.string` etc. would have natural meanings (per-event metadata,
-  ///   single fixed event for testing) but expand the type surface
-  ///   without curator demand. The error message points at the v1
-  ///   workaround so curators don't get stuck.
-  /// - `probability` (when set) must lie in `[0.0, 1.0]`. The handler
-  ///   would still produce well-defined behavior outside this range
-  ///   (`< 0` never fires, `>= 1.0` always fires), but a curator who
-  ///   wrote `probability: 1.5` almost certainly mistyped — surfacing
-  ///   it early is friendlier than silent over-fire.
   /// Requires reflect phases to declare the canonical `note` output at the
   /// RUN gate (`validate`), not just the commit gate.
   ///
@@ -263,58 +244,6 @@ nonisolated struct ScenarioValidator: Sendable {
       throw validationError(
         String(localized: "%@ (%@) requires field '%@' in output."),
         label, phase.type.rawValue, "note")
-    }
-  }
-
-  private func validateEventInjectShape(
-    _ phase: Phase, label: String, scenario: Scenario
-  ) throws {
-    let sourceKey = (phase.source ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !sourceKey.isEmpty else {
-      throw validationError(
-        String(
-          localized:
-            "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings."
-        ),
-        label)
-    }
-    guard let sourceValue = scenario.extraData[sourceKey] else {
-      throw validationError(
-        String(
-          localized:
-            "%@: source '%@' not found in scenario data. Add a top-level '%@' field to the scenario YAML."
-        ),
-        label, sourceKey, sourceKey)
-    }
-    switch sourceValue {
-    case .array(let entries):
-      // Empty array silently produces probability-miss-equivalent output
-      // at runtime (handler writes "" and emits .eventInjected(nil)),
-      // which a curator cannot distinguish from a string of unlucky rolls.
-      // Reject early so the misconfiguration surfaces at scenario load.
-      guard !entries.isEmpty else {
-        throw validationError(
-          String(
-            localized:
-              "%@: source '%@' is empty. event_inject requires at least one string in the list; for a single fixed event use ['only_event']."
-          ),
-          label, sourceKey)
-      }
-    case .string, .dictionary, .arrayOfDictionaries:
-      throw validationError(
-        String(
-          localized:
-            "%@: source '%@' must be a list of strings. v1 of event_inject only supports the [String] shape; for a single fixed event use ['only_event']."
-        ),
-        label, sourceKey)
-    }
-    if let probability = phase.probability {
-      guard (0.0...1.0).contains(probability) else {
-        throw validationError(
-          String(
-            localized: "%@: probability %@ is out of range. Must be between 0.0 and 1.0 inclusive."),
-          label, String(probability))
-      }
     }
   }
 

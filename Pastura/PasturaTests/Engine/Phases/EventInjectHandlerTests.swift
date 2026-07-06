@@ -191,4 +191,111 @@ struct EventInjectHandlerTests {
     // If you rename one, this test catches the divergence.
     #expect(EventInjectHandler.defaultVariableName == "current_event")
   }
+
+  // MARK: - Dict-shaped events + companion favored variable (#931)
+
+  private func favoredKey(_ variableName: String = "current_event") -> String {
+    EventInjectHandler.favoredVariableName(for: variableName)
+  }
+
+  @Test func dictEventWritesTextAndFavoredVariable() async throws {
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      phases: [Phase(type: .eventInject, source: "events", probability: 1.0)],
+      extraData: ["events": .arrayOfDictionaries([["text": "抜け駆けが得", "favors": "betray"]])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    let mock = MockLLMService(responses: [])
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(state.variables["current_event"] == "抜け駆けが得")
+    #expect(state.variables[favoredKey()] == "betray")
+    #expect(injectedEvents(collector) == ["抜け駆けが得"])
+  }
+
+  @Test func dictEventWithoutFavorsWritesEmptyFavoredVariable() async throws {
+    // A dict entry carrying no `favors` tag must clear the companion var to
+    // "" (not leave a prior round's value) so `event_reactive` scores nothing.
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      phases: [Phase(type: .eventInject, source: "events", probability: 1.0)],
+      extraData: ["events": .arrayOfDictionaries([["text": "ただの出来事"]])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    // Pre-seed a stale favored value to prove it gets cleared, not preserved.
+    state.variables[favoredKey()] = "betray"
+    let mock = MockLLMService(responses: [])
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(state.variables["current_event"] == "ただの出来事")
+    #expect(state.variables[favoredKey()] == "")
+  }
+
+  @Test func dictEventMissClearsFavoredVariable() async throws {
+    // Probability miss on a dict source must clear BOTH vars — no ghosting of
+    // a prior round's favored action into this round's scoring.
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      phases: [Phase(type: .eventInject, source: "events", probability: 0.0)],
+      extraData: ["events": .arrayOfDictionaries([["text": "x", "favors": "betray"]])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.variables[favoredKey()] = "betray"
+    let mock = MockLLMService(responses: [])
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(state.variables["current_event"] == "")
+    #expect(state.variables[favoredKey()] == "")
+    #expect(injectedEvents(collector) == [nil])
+  }
+
+  @Test func stringListNeverWritesFavoredVariable() async throws {
+    // Backward-compat: a plain-string list must not grow a companion var —
+    // existing scenarios stay byte-for-byte in their variable surface.
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      phases: [Phase(type: .eventInject, source: "events", probability: 1.0)],
+      extraData: ["events": .array(["突然停電"])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    let mock = MockLLMService(responses: [])
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(state.variables["current_event"] == "突然停電")
+    #expect(state.variables[favoredKey()] == nil)
+  }
+
+  @Test func dictEventHonorsCustomVariableNameForFavoredKey() async throws {
+    // The companion var suffix must follow the custom `as:` name so the
+    // producer/consumer convention holds for non-default event variables.
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      phases: [
+        Phase(type: .eventInject, source: "events", probability: 1.0, eventVariable: "biz_event")
+      ],
+      extraData: ["events": .arrayOfDictionaries([["text": "x", "favors": "cooperate"]])]
+    )
+    var state = SimulationState.initial(for: scenario)
+    let mock = MockLLMService(responses: [])
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(state.variables["biz_event"] == "x")
+    #expect(state.variables[favoredKey("biz_event")] == "cooperate")
+    #expect(state.variables[favoredKey()] == nil)
+  }
 }
