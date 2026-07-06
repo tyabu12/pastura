@@ -27,6 +27,7 @@ includes them.
 | vote         | LLM        | All agents vote for one agent        |
 | choose       | LLM        | Choose from options                  |
 | reflect      | LLM        | Each agent privately updates a short memo (`note`) |
+| whisper      | LLM        | Pairs privately whisper — viewer-visible, hidden from other agents (#908) |
 | score_calc   | Code       | Calculate scores                     |
 | assign       | Code       | Distribute info to agents            |
 | eliminate    | Code       | Remove most-voted agent              |
@@ -48,6 +49,23 @@ output is itself the private reasoning, so reflect declares no secondary
 thought field. `reflect` is NOT allowed inside `conditional` branches —
 `ScenarioValidator.validateBranch` rejects it at load time and
 `ConditionalHandler.subHandlers` omits it.
+
+`whisper` is an LLM phase: active agents pair off (adjacent disjoint
+pairs in persona order, rotated by round; an odd agent sits out) and each
+pair runs `sub_rounds` back-and-forth exchanges producing `{ statement }`
+(canonical, required at the run gate) with optional `inner_thought`.
+Every utterance is emitted as a normal `.agentOutput` carrying a reserved
+`whisper_to` field naming the partner — viewer-visible, but never written
+to the conversation log or `lastOutputs`, so other agents' prompts can't
+see it. Each participant's view of the exchange is stored under the
+reserved `whispers_<name>` key (overwrite — latest exchange only; a
+sat-out agent's stale key is cleared) and surfaced back to only that
+agent (system-prompt section + `{my_whispers}` template variable).
+`{whisper_partner}` / `{whisper_exchange}` are resolvable inside the
+whisper phase's own prompt template; the handler also always appends a
+partner-naming context block, so placeholder-free templates still work.
+Like `reflect`, `whisper` is NOT allowed inside `conditional` branches
+(same two enforcement points).
 
 ### PhaseHandler Protocol
 
@@ -128,6 +146,8 @@ speak_all:  agentCount per round
 speak_each: agentCount × subRounds per round
 vote:       agentCount per round
 reflect:    agentCount per round
+whisper:    (agentCount / 2) × subRounds × 2 per round
+            (integer division — pair count × exchanges × 2 speakers)
 choose:     agentCount × 2 for round_robin (N adjacent pairs, 2 calls each)
             agentCount for individual (no pairing)
 score_calc/assign/eliminate/summarize/event_inject: 0 (code phases)
