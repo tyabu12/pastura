@@ -156,8 +156,24 @@ struct ModelDownloadHostView: View {
               "The partial download will be deleted. Resuming later means starting over from the beginning."
           ))
       }
-      .sheet(item: $selectedPersona) { item in
-        PersonaDetailSheet(persona: item.persona, position: item.position)
+      .sheet(
+        item: $selectedPersona,
+        onDismiss: {
+          // Unpark on ANY dismissal (swipe / tap-away / programmatic). Bound to
+          // the sheet's lifecycle — not `.onChange(→false)` — so a stuck-true =
+          // frozen demo playback can never outlive the sheet. #942 PR2.
+          replayVM?.isPlaybackHeldForSheet = false
+        },
+        content: { item in
+          PersonaDetailSheet(persona: item.persona, position: item.position)
+        }
+      )
+      .onChange(of: selectedPersona != nil) { _, isPresented in
+        // Park demo playback only on present; the unpark is the sheet's
+        // `onDismiss` above. Gating on the *presented* transition (not the tap)
+        // makes a persona-not-found tap — which leaves `selectedPersona` nil and
+        // never shows a sheet — a no-op instead of a frozen demo with no sheet.
+        if isPresented { replayVM?.isPlaybackHeldForSheet = true }
       }
   }
 
