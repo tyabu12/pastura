@@ -150,18 +150,25 @@ def index_path_for(digest_path):
 def build_index_lines(date, scenarios):
     """One index object per scenario. `comment` omitted by design; `axis` /
     `scores` are absent-safe (null when the scenario has none)."""
-    return [
-        {
+    lines = []
+    for s in scenarios:
+        scores = s.get("scores")
+        if isinstance(scores, dict):
+            # Fill any RUBRIC_KEYS missing from the results dict with None
+            # (present-but-null keys are left as-is) — keeps this incremental
+            # path provably identical to --rebuild-index, which always
+            # materializes every table column from the header.
+            scores = {**scores, **{k: scores.get(k) for k in RUBRIC_KEYS if k not in scores}}
+        lines.append({
             "date": date,
             "id": s.get("id"),
             "name": s.get("name"),
             "theme": s.get("theme"),
             "axis": s.get("axis"),
             "status": s.get("status"),
-            "scores": s.get("scores"),
-        }
-        for s in scenarios
-    ]
+            "scores": scores,
+        })
+    return lines
 
 
 def write_index_incremental(digest_path, results):

@@ -106,6 +106,43 @@ python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$IDX_DIR/digest.md" >/dev/null 2>&1
 [ "$(grep -c . "$IDX")" -eq 3 ] || fail "index: same-date re-run duplicated lines"
 
+# incremental multi-date accumulation: appending a SECOND date's results must
+# keep the first date's index lines (not just replace-by-date).
+MD="$TMP/multidate"; mkdir -p "$MD"
+cp fixtures/digest_seed.md "$MD/digest.md"
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$MD/digest.md" >/dev/null
+jq '.date = "2026-06-14"
+    | .scenarios = [.scenarios[0]]
+    | .scenarios[0].id = "factory_20260614_test_ok"
+    | .scenarios[0].scores = {"coherence": 5, "interaction": 4}' \
+  fixtures/results_sample.json > "$MD/results_day2.json"
+python3 "$SCRIPTS/append_digest.py" \
+  --results "$MD/results_day2.json" --digest "$MD/digest.md" >/dev/null
+MDIDX="$MD/digest-index.jsonl"
+[ "$(jq -es 'map(select(.date=="2026-06-13")) | length' "$MDIDX")" -eq 3 ] \
+  || fail "index: day-1 lines lost after day-2 append"
+[ "$(jq -es 'map(select(.date=="2026-06-14")) | length' "$MDIDX")" -eq 1 ] \
+  || fail "index: day-2 line missing"
+# partial scores dict (missing rubric keys) normalized with null-filled
+# keys — matches what --rebuild-index would materialize for the same row
+jq -es 'map(select(.date=="2026-06-14"))[0].scores
+    == {"coherence":5,"interaction":4,"breakdown_free":null,"humor":null,"development":null}' \
+  "$MDIDX" >/dev/null || fail "index: partial scores dict not normalized with null rubric keys"
+
+# corrupt existing index line (malformed JSON) must fail-open like the
+# unwritable-index case above: append still succeeds, warning names
+# --rebuild-index. Pins the ValueError branch of write_index_incremental's
+# `except (OSError, ValueError)`.
+CI="$TMP/corrupt_idx"; mkdir -p "$CI"
+cp fixtures/digest_seed.md "$CI/digest.md"
+echo '{not json' > "$CI/digest-index.jsonl"
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$CI/digest.md" >/dev/null 2>"$CI/warn" \
+  || fail "index: corrupt existing index line must not fail the append"
+grep -q "^## 2026-06-13$" "$CI/digest.md" || fail "index: digest not updated on corrupt index line"
+grep -q -- "--rebuild-index" "$CI/warn" || fail "index: corrupt-line warning must name --rebuild-index"
+
 # round-trip: --rebuild-index off the produced digest == the incremental index
 cp "$IDX" "$IDX_DIR/index-incremental.jsonl"
 python3 "$SCRIPTS/append_digest.py" \
@@ -152,6 +189,16 @@ if python3 "$SCRIPTS/append_digest.py" \
   fail "bogus: unrecognized rubric column should hard-fail"
 fi
 [ ! -f "$BG/digest-index.jsonl" ] || fail "bogus: index written despite hard-fail"
+
+# rebuild-index on a digest with both markers but ZERO `## <date>` sections
+# (e.g. the bootstrap scaffold before any append) must exit 0 and write an
+# EMPTY index file — not error, not skip the write.
+ZS="$TMP/zero_sections"; mkdir -p "$ZS"
+cp fixtures/digest_seed.md "$ZS/digest.md"
+python3 "$SCRIPTS/append_digest.py" \
+  --digest "$ZS/digest.md" --rebuild-index >/dev/null || fail "zero-section rebuild failed"
+[ -f "$ZS/digest-index.jsonl" ] || fail "zero-section rebuild: index file not created"
+[ ! -s "$ZS/digest-index.jsonl" ] || fail "zero-section rebuild: index file not empty"
 
 # non-fatal index failure: a directory at the index path blocks the write;
 # the append still succeeds (digest is the source of truth)

@@ -13,12 +13,11 @@ Discipline (this header is the contract):
 - **Status per rule**: `[validated]` (reproduced or fix-confirmed on the
   harness), `[hypothesis]` (proposed / one weak datapoint), `[refuted]`
   (tried, did not work — prune to a one-line tombstone so it isn't retried).
-- **Evidence dates** refer to the operator-local factory journal
-  (`data/factory/digest.md`, gitignored — not readable from a fresh clone;
-  the dates are provenance, not required reading).
+- **Evidence dates** are provenance pointers into the operator-local factory
+  journal (`data/factory/digest.md`, gitignored) — not required reading.
 - **Additions** come from `data/factory/lessons-inbox.md` via a human
-  `/orchestrate` PR (see SKILL.md § Lessons promotion) — the nightly cycle
-  never edits this file.
+  `/orchestrate` PR (SKILL.md § Lessons promotion) — the nightly cycle never
+  edits this file.
 
 ## Language & breakdown (Gemma 4 E2B)
 
@@ -31,10 +30,9 @@ Discipline (this header is the contract):
    grammar-constrained generations raise #253 sampler-crash exposure.
    (07-01 uncapped failed both attempts; 07-03/07-06 capped ran clean)
 3. **[validated]** `choose` output = `action` + `inner_thought` ONLY (#760);
-   keep option strings short and unambiguous (free-text action wobble recurs),
-   and push reasoning into a preceding speak phase — structured choose decode
-   is the suspected #253 trigger, and fewer rounds shrink exposure.
-   (06-21/22 prisoners_dilemma repro + v2 fix)
+   keep option strings short and unambiguous (free-text wobble recurs), push
+   reasoning into a preceding speak phase — structured choose decode is the
+   suspected #253 trigger; fewer rounds shrink exposure. (06-21/22 repro + v2)
 4. **[validated]** Stray trailing `」}` shapes appear ~1/30 outputs and
    self-recover via parse-retry — judging noise, not a design signal.
 
@@ -122,10 +120,9 @@ Discipline (this header is the contract):
 
 ## Comedy / format
 
-26. **[validated]** Form-differentiated knockouts go one-note by R3–R4 (each
-    persona repeats its gimmick). The main lever: rotate a per-round お題 via
-    `assign source:topics` (the "seriffu recipe"); keep such formats ≤4 rounds.
-    (06-29 recipe; 07-01/07-03/07-06 transfers + staleness)
+26. **[validated]** Form-differentiated knockouts go one-note by R3–R4. Main
+    lever: rotate a per-round お題 via `assign source:topics` (the "seriffu
+    recipe"); keep such formats ≤4 rounds. (06-29 recipe; 3 later transfers)
 27. **[validated]** Avoid constrained-wordplay formats (nazokake, homophone
     puns) — E2B produces the skeleton without the wordplay payload. (06-25)
 28. **[validated]** Keep one comedy scenario per batch so the night retains a
@@ -134,24 +131,22 @@ Discipline (this header is the contract):
 
 ## Saturated premise families (dedup: do not regenerate as-is)
 
-The full id-level history lives in `digest-index.jsonl`; these are the
-FAMILIES already characterized — new instances need a genuinely new mechanic
-angle (e.g. whisper/reflect/log_window), not a new topic skin:
+Id-level history lives in `digest-index.jsonl`; these FAMILIES are already
+characterized — new instances need a new mechanic angle (e.g.
+whisper/reflect/log_window), not a new topic skin:
 
 - Form-differentiated knockout comedy (seriffu / yusha / yokai / shazai /
-  haiboku) — format + its one-note limit fully mapped.
-- Public-declare-then-secret-choose prisoners_dilemma variants (cartel /
-  warikan / preset) — bluff + "defector dominates" outcome exhausted.
-- Free-rider public/private-gap dilemmas (kyoyu_gyojo, kasei_sanso).
+  haiboku) — format and its one-note limit fully mapped.
+- Declare-then-secret-choose prisoners_dilemma variants (cartel / warikan /
+  preset); free-rider public/private-gap dilemmas (kyoyu, kasei).
 - Hard-binary ethics splits (saigo / kokuhatsu / manbiki / enjou / ai_teishi)
   — mechanic settled; only a genuinely fresh dilemma domain adds signal.
 - Cognitive-bias panels with a numerate control (anchoring / framing /
-  kakusho / sunk_cost / bousai) — open problem is rule 20, not new bias topics.
+  kakusho / sunk_cost / bousai) — open problem is rule 20, not new topics.
 - Scoring-free social-psych observations (zenin / bystander / risky_shift /
   sokuho / kuuki) — same "inner_thought reveals mechanism, no arc" shape.
-- Improv sequential_build relays (jidaigeki / uchujin / chinjiken).
-- Anthropomorphic-grievance / reformed-villain venting (kaden_rousai /
-  moto_akuyaku).
+- Improv sequential_build relays (jidaigeki / uchujin / chinjiken);
+  anthropomorphic-grievance venting (kaden_rousai, moto_akuyaku).
 - Rumor distortion (dengon) — parallel panel works; chain decay = rules 22/23.
 
 No validated rules exist yet for `whisper` / `reflect` / `log_window`-based
