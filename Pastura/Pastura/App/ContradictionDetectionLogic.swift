@@ -22,6 +22,23 @@ import Foundation
 ///   therefore disqualifies the whole round instead.
 nonisolated enum ContradictionDetectionLogic {
 
+  /// The reserved speak-phase output field carrying an agent's public stance
+  /// (#916). Presence of this field is what opts a scenario into detection —
+  /// no scenario-id keying.
+  static let declaredIntentField = "declared_intent"
+
+  /// The option vocabulary declarations are checked against: the first
+  /// choose phase carrying options, searched through depth-1 conditional
+  /// branches (the engine caps conditional nesting at depth 1, mirroring
+  /// `ViewerPredictionLogic.flattened`). Scenarios with several differently
+  /// -optioned choose phases per round are out of scope until one exists.
+  static func chooseOptions(in phases: [Phase]) -> [String] {
+    let all = phases.flatMap { phase in
+      [phase] + (phase.thenPhases ?? []) + (phase.elsePhases ?? [])
+    }
+    return all.first { $0.type == .choose && !($0.options ?? []).isEmpty }?.options ?? []
+  }
+
   /// Whether `declared` (a speak-phase `declared_intent` value) is
   /// contradicted by every entry in `actions` (the same agent's raw parsed
   /// choose actions from the same round), given the choose phase's `options`.

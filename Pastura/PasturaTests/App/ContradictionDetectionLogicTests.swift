@@ -97,4 +97,30 @@ struct ContradictionDetectionLogicTests {
       !ContradictionDetectionLogic.isContradiction(
         declared: "cooperate", actions: ["betray"], options: []))
   }
+
+  // MARK: chooseOptions(in:)
+
+  @Test func chooseOptionsReadsFirstOptionedChoosePhase() {
+    let phases = [
+      Phase(type: .speakAll),
+      Phase(type: .choose, options: ["cooperate", "betray"])
+    ]
+    #expect(
+      ContradictionDetectionLogic.chooseOptions(in: phases) == ["cooperate", "betray"])
+  }
+
+  @Test func chooseOptionsSearchesConditionalBranches() {
+    let phases = [
+      Phase(
+        type: .conditional,
+        thenPhases: [Phase(type: .choose, options: ["cooperate", "betray"])])
+    ]
+    #expect(
+      ContradictionDetectionLogic.chooseOptions(in: phases) == ["cooperate", "betray"])
+  }
+
+  @Test func chooseOptionsIsEmptyWithoutAnOptionedChoose() {
+    let phases = [Phase(type: .speakAll), Phase(type: .choose)]
+    #expect(ContradictionDetectionLogic.chooseOptions(in: phases).isEmpty)
+  }
 }

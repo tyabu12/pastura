@@ -31,6 +31,10 @@ struct LogEntry: Identifiable {
     /// probability roll missed; the live log renders this as a muted "no
     /// event this time" line so users can observe the dice did roll.
     case eventInjected(event: String?)
+    /// A declaration/action contradiction detected at choose-phase completion
+    /// (#916): `agent`'s `declared_intent` was contradicted by every one of
+    /// their choose actions this round. Rendered as the 🃏 reveal line.
+    case contradictionRevealed(agent: String)
     case error(String)
   }
 }
@@ -558,6 +562,28 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// answer; resumed exactly once by `resolvePrediction`.
   private var predictionContinuation: CheckedContinuation<ViewerPredictionSheet.Resolution, Never>?
 
+  // MARK: Contradiction badge (#916)
+
+  /// Ids of committed declaration rows (`.agentOutput` entries carrying
+  /// `declared_intent`) whose declaration was contradicted by every one of
+  /// that agent's choose actions in the same round. Views decorate those
+  /// rows retroactively by membership lookup. VM-owned (not row `@State`)
+  /// so an ADR-017 Phase B adopt re-projection neither loses nor replays
+  /// the badges (`.claude/rules/swiftui-traps.md` § Re-projection). Grows
+  /// monotonically over the run; reset per run.
+  private(set) var contradictionBadgedEntryIDs: Set<UUID> = []
+
+  /// Current round's `declared_intent` per agent, with the id of the
+  /// committed declaration row for retroactive badging. Raw parsed values
+  /// (pre-`ContentFilter`) — detection compares machine tokens, not
+  /// display text. Reset each round.
+  private var declaredIntents: [String: (value: String, entryID: UUID)] = [:]
+
+  /// Current round's raw parsed choose actions per agent (both round-robin
+  /// appearances). Raw, not `validateAction`-coerced — see
+  /// `ContradictionDetectionLogic`. Reset each round.
+  private var chooseRawActions: [String: [String]] = [:]
+
   #if DEBUG
     // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
     // Shared across VM + `AgentOutputRow`; filter Console.app with
@@ -1010,6 +1036,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // inherit the previous run's assignments or the once-per-run latch.
     predictionAssignments = [:]
     hasAttemptedPrediction = false
+    // Contradiction-badge accumulators (#916) — reset so a re-used VM does
+    // not badge rows of a previous run (the ids would be stale anyway).
+    contradictionBadgedEntryIDs = []
+    declaredIntents = [:]
+    chooseRawActions = [:]
     predictionPrompt = nil
     predictionOutcome = nil
     pendingPrediction = nil
@@ -1460,7 +1491,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       currentPhaseType = phaseType
       currentPhasePath = phasePath
       logEntries.append(LogEntry(kind: .phaseStarted(phaseType: phaseType)))
-    case .phaseCompleted(_, let phasePath):
+    case .phaseCompleted(let phaseType, let phasePath):
       // Pop `currentPhasePath` back one level when the inner sub-phase's
       // completion arrives (path matches AND count > 1) — so a subsequent
       // event fired before the next `.phaseStarted` isn't mis-attributed to
@@ -1469,6 +1500,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // read the event's own `phaseType` per `.claude/rules/engine.md`.
       if currentPhasePath == phasePath, phasePath.count > 1 {
         currentPhasePath?.removeLast()
+      }
+      // Contradiction badge (#916): evaluate only once the whole choose
+      // phase has completed — every action of the round is then in the
+      // buffers, so a first-appearance action can never fire a premature
+      // full-contradiction verdict. Event consumption is paced by the
+      // reading-hold loop, so this beat is also the display beat: the last
+      // pairing row is already on screen and the reveal spoils nothing.
+      if phaseType == .choose {
+        revealContradictions(scenario: scenario)
       }
     case .simulationPaused, .conditionalEvaluated:
       // No-op — `.simulationPaused` is a runner-side acknowledgement of the
@@ -1643,12 +1683,37 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   private func handleRoundStarted(round: Int, total: Int) {
     currentRound = round
     totalRounds = total
+    // A declaration only ever contradicts actions of its own round (#916).
+    declaredIntents = [:]
+    chooseRawActions = [:]
     logEntries.append(LogEntry(kind: .roundStarted(round: round, totalRounds: total)))
   }
 
   private func handleRoundCompleted(round: Int, scores newScores: [String: Int]) {
     scores = newScores
     logEntries.append(LogEntry(kind: .roundCompleted(round: round, scores: newScores)))
+  }
+
+  /// Runs the #916 contradiction check for every agent that declared this
+  /// round, badges the declaration row, and appends the 🃏 reveal line.
+  /// Persona-roster iteration keeps multi-agent reveal order deterministic.
+  /// Idempotent per declaration row (badged ids are skipped), so a second
+  /// choose phase in the same round cannot double-reveal.
+  private func revealContradictions(scenario: Scenario) {
+    guard !declaredIntents.isEmpty else { return }
+    let options = ContradictionDetectionLogic.chooseOptions(in: scenario.phases)
+    guard !options.isEmpty else { return }
+    for persona in scenario.personas {
+      guard let declaration = declaredIntents[persona.name],
+        !contradictionBadgedEntryIDs.contains(declaration.entryID),
+        ContradictionDetectionLogic.isContradiction(
+          declared: declaration.value,
+          actions: chooseRawActions[persona.name] ?? [],
+          options: options)
+      else { continue }
+      contradictionBadgedEntryIDs.insert(declaration.entryID)
+      logEntries.append(LogEntry(kind: .contradictionRevealed(agent: persona.name)))
+    }
   }
 
   private func handleAgentOutput(agent: String, output: TurnOutput, phaseType: PhaseType) {
@@ -1720,6 +1785,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     let entry = LogEntry(
       kind: .agentOutput(agent: agent, output: filtered, phaseType: phaseType))
     logEntries.append(entry)
+    // Contradiction detection (#916) records from the RAW output, not
+    // `filtered`: declared_intent / action are machine tokens the filter
+    // could in principle rewrite, and detection must match what the agent
+    // actually produced. Neither token is displayed from these buffers.
+    if let declared = output.fields[ContradictionDetectionLogic.declaredIntentField] {
+      declaredIntents[agent] = (value: declared, entryID: entry.id)
+    }
+    if phaseType == .choose, let action = output.action {
+      chooseRawActions[agent, default: []].append(action)
+    }
     // Track the newest agentOutput so AgentOutputRow can gate the typing
     // animation to only the latest row — older rows snap to full text when
     // this id flips.
