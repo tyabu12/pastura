@@ -106,4 +106,42 @@ echo '{"version":1,"scenarios":[{"id":"x","category":"made_up_cat","phases":["vo
 python3 "$SCRIPTS/gallery_census.py" "$TMP/drift.json" 2>"$TMP/drift.err" >/dev/null
 grep -q "unrecognized categories" "$TMP/drift.err" || fail "census: category drift not warned"
 
+# --- gallery_census.py: new structural axes (whisper / reflect) --------------
+# whisper 2/4 (whisper_reflect + whisper_only), reflect 2/4 (whisper_reflect +
+# reflect_only) — proves the two Engine-phase axes count presence correctly.
+NP=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_newphases.json)
+echo "$NP" | grep "pair_whisper" | grep -q "2/4" || fail "census: pair_whisper axis count wrong"
+echo "$NP" | grep "reflection" | grep -q "2/4" || fail "census: reflection axis count wrong"
+
+# --- gallery_census.py: PhaseType drift tripwire ----------------------------
+# (b) a fixture enum carrying a fake `future_phase` case (plus dot-prefixed
+# switch patterns the parser must ignore) surfaces the NEW-mechanic warning.
+D=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json \
+  --phase-types fixtures/phase_types_drifted.swift)
+echo "$D" | grep -q "NEW ENGINE MECHANICS" || fail "census: drift warning not printed"
+echo "$D" | grep "NEW ENGINE MECHANICS" | grep -q "future_phase" \
+  || fail "census: drifted phase not surfaced in warning"
+# (c) a fixture mirroring the real 12 cases → no warning (all axis/scaffolding-covered)
+CUR=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json \
+  --phase-types fixtures/phase_types_current.swift)
+echo "$CUR" | grep -q "NEW ENGINE MECHANICS" && fail "census: false drift on current phase types"
+# (d) unreadable phase-types file → fail-open: exit 0, stderr notice, targets intact
+if ! python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json \
+  --phase-types /nonexistent/phase_types.swift 2>"$TMP/fo.err" >"$TMP/fo.out"; then
+  fail "census: missing phase-types file should fail-open (exit 0)"
+fi
+grep -q "skipping PhaseType drift check" "$TMP/fo.err" || fail "census: fail-open notice missing"
+grep -q "Suggested targets" "$TMP/fo.out" || fail "census: fail-open lost suggested targets"
+
+# (e) repo-root reality check — the REAL PhaseType.swift must exist at its
+# documented path, so a future Models/ SPM extraction fails CI here instead of
+# silently disabling the tripwire (fail-open would swallow the moved path).
+REPO_ROOT=$(git rev-parse --show-toplevel)
+[ -f "$REPO_ROOT/Pastura/Pastura/Models/PhaseType.swift" ] \
+  || fail "census: real PhaseType.swift not found (Models/ SPM move? see --phase-types comment)"
+REAL=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json \
+  --phase-types "$REPO_ROOT/Pastura/Pastura/Models/PhaseType.swift")
+echo "$REAL" | grep -q "NEW ENGINE MECHANICS" \
+  && fail "census: unexpected drift against real PhaseType.swift (new phase needs a census axis)"
+
 echo "ALL TESTS PASSED"
