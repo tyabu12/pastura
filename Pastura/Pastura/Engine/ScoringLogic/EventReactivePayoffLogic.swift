@@ -41,7 +41,7 @@ nonisolated struct EventReactivePayoffLogic: Sendable {
     // seeded for every agent at `SimulationState.initial`, so a live agent
     // is always present.
     for (name, output) in state.lastOutputs where state.scores[name] != nil {
-      guard let action = output.fields["action"] else { continue }
+      guard let action = output.action else { continue }
       if Self.normalize(action) == normalizedFavored {
         state.scores[name, default: 0] += Self.matchReward
       }
