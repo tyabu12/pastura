@@ -120,6 +120,8 @@ def prior_ok_scores(journal_text, model, exclude_date):
     An ok record missing any of the 5 score axes is skipped as a baseline — an
     old pre-`development` record carries only 4 axes, a different total scale,
     so folding it in would corrupt the Δ; skipping is a one-time Δ reset to –.
+    The same guard also catches a malformed CURRENT compose that drops an axis
+    (the two are indistinguishable here), so the warning names both causes.
     The skips are AGGREGATED into a single summary stderr line for the whole
     run (rather than one line per record) so a journal full of legacy 4-axis
     entries does not flood stderr on every nightly append.
@@ -149,8 +151,8 @@ def prior_ok_scores(journal_text, model, exclude_date):
         # Keep the exact substring "missing score axes" — the self-test greps
         # for it.
         print(f"append_audit: {skipped} prior record(s) skipped as baselines "
-              "— missing score axes (pre-development journal entries; "
-              "one-time Δ reset)", file=sys.stderr)
+              "— missing score axes (legacy pre-development entries or a "
+              "malformed compose; Δ resets to –)", file=sys.stderr)
     return {sid: s for sid, (_, s) in best.items()}
 
 
