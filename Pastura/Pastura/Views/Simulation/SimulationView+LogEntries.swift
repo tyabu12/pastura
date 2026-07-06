@@ -112,6 +112,13 @@ extension SimulationView {
     }
   }
 
+  /// Reveal line for a #916 declaration/action contradiction, appended at
+  /// choose-phase completion. The matching compact badge sits on the
+  /// declaration row itself (see `logEntryView`'s `.agentOutput` case).
+  func contradictionRevealedEntry(agent: String) -> some View {
+    ContradictionBadge(agent: agent)
+  }
+
   /// Full-width phase-boundary separator for LLM phases (speak / vote /
   /// choose). Mirrors `roundSeparator`'s rule + centered-content + rule
   /// structure so the transcript reads as phase "chapters" (#882), but
