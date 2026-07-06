@@ -1493,6 +1493,22 @@
         }
       }
     },
+    "- 🤫 **%@** → **%@**: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🤫 **%1$@** → **%2$@**: %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 🤫 **%1$@** → **%2$@**：%3$@"
+          }
+        }
+      }
+    },
     "1 day ago" : {
       "localizations" : {
         "ja" : {

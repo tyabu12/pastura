@@ -326,7 +326,20 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     }
     let output = decodeOutput(turn)
     let content = formatOutput(output, phaseType: turn.phaseType)
-    var line = String(format: String(localized: "- **%@**: %@"), agent, content)
+    var line: String
+    // Whisper (密談) turns name both ends of the private exchange, mirroring
+    // the `pairingResult` "**A** ↔ **B**" attribution style (#908 PR2). Gated
+    // on a non-blank reserved `whisper_to`; a stray / blocklist-blanked field
+    // falls back to the plain speaker line rather than a dangling arrow.
+    if turn.phaseType == PhaseType.whisper.rawValue,
+      let partner = output.fields["whisper_to"]?
+        .trimmingCharacters(in: .whitespacesAndNewlines),
+      !partner.isEmpty {
+      line = String(
+        format: String(localized: "- 🤫 **%@** → **%@**: %@"), agent, partner, content)
+    } else {
+      line = String(format: String(localized: "- **%@**: %@"), agent, content)
+    }
     // Include the phase's private-thought field as a nested bullet — the gap
     // between outward behavior and inner reasoning is often the most analyzable
     // signal in a multi-agent run (e.g. Asch-style conformity). For vote turns
