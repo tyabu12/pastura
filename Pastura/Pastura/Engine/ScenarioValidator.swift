@@ -128,7 +128,10 @@ nonisolated struct ScenarioValidator: Sendable {
         try validateReflectShape(phase, label: "Phase \(index + 1)")
       case .whisper:
         try validateWhisperShape(phase, label: "Phase \(index + 1)")
-      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
+      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize,
+        .relationshipUpdate:
+        // `relationshipUpdate` shape check (require ≥1 rule) + conditional-branch
+        // disallow land in a follow-up commit (#910); no-op here for now.
         break
       case .eventInject:
         try validateEventInjectShape(

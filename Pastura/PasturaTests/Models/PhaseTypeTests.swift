@@ -18,10 +18,11 @@ struct PhaseTypeTests {
     #expect(PhaseType.eventInject.rawValue == "event_inject")
     #expect(PhaseType.reflect.rawValue == "reflect")
     #expect(PhaseType.whisper.rawValue == "whisper")
+    #expect(PhaseType.relationshipUpdate.rawValue == "relationship_update")
   }
 
   @Test func allCasesCount() {
-    #expect(PhaseType.allCases.count == 12)
+    #expect(PhaseType.allCases.count == 13)
   }
 
   @Test func llmPhasesRequireLLM() {
@@ -44,6 +45,8 @@ struct PhaseTypeTests {
     #expect(!PhaseType.conditional.requiresLLM)
     // eventInject is a code phase; picks a random string from extraData.
     #expect(!PhaseType.eventInject.requiresLLM)
+    // relationshipUpdate is a code phase; updates an affinity matrix (#910).
+    #expect(!PhaseType.relationshipUpdate.requiresLLM)
   }
 
   @Test func decodableFromJSON() throws {

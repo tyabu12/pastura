@@ -5060,6 +5060,22 @@
         }
       }
     },
+    "Relationships" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relationships"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人間関係"
+          }
+        }
+      }
+    },
     "Reloading model..." : {
       "localizations" : {
         "ja" : {
@@ -6448,6 +6464,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更新"
+          }
+        }
+      }
+    },
+    "Update affinity matrix from vote/action history (code, no LLM)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update affinity matrix from vote/action history (code, no LLM)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票・行動の履歴から好感度行列を更新（コード、LLM なし）"
           }
         }
       }

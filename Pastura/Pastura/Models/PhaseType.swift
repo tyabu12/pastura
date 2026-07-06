@@ -4,9 +4,10 @@ import Foundation
 ///
 /// LLM phases (`speakAll`, `speakEach`, `vote`, `choose`, `reflect`,
 /// `whisper`) require LLM inference. Code phases (`scoreCalc`, `assign`,
-/// `eliminate`, `summarize`, `eventInject`) are processed deterministically
-/// by the engine. `conditional` is a control-flow phase: the handler itself
-/// does no inference, but its sub-phases may be of any type.
+/// `eliminate`, `summarize`, `eventInject`, `relationshipUpdate`) are
+/// processed deterministically by the engine. `conditional` is a
+/// control-flow phase: the handler itself does no inference, but its
+/// sub-phases may be of any type.
 nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   case speakAll = "speak_all"
   case speakEach = "speak_each"
@@ -20,6 +21,7 @@ nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   case summarize
   case conditional
   case eventInject = "event_inject"
+  case relationshipUpdate = "relationship_update"
 
   /// Whether this phase type requires LLM inference.
   ///
@@ -42,11 +44,16 @@ nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   /// `whisper` returns `true`: pairs of active agents privately exchange
   /// statements (hidden from other agents' prompts), each utterance costing
   /// one LLM inference.
+  ///
+  /// `relationshipUpdate` returns `false`: the handler deterministically
+  /// updates a per-agent affinity matrix from vote / choose history and
+  /// injects a natural-language summary — no LLM call (#910).
   public var requiresLLM: Bool {
     switch self {
     case .speakAll, .speakEach, .vote, .choose, .reflect, .whisper:
       return true
-    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
+    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
+      .relationshipUpdate:
       return false
     }
   }

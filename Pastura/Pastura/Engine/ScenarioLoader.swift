@@ -101,7 +101,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return (agents / 2) * (phase.subRounds ?? 1) * 2
     case .choose:
       return phase.pairing == .roundRobin ? agents * 2 : agents
-    case .scoreCalc, .assign, .eliminate, .summarize, .eventInject:
+    case .scoreCalc, .assign, .eliminate, .summarize, .eventInject, .relationshipUpdate:
       return 0
     case .conditional:
       let thenCost = (phase.thenPhases ?? []).reduce(0) { $0 + estimatePhase($1, agents: agents) }
