@@ -563,6 +563,9 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     guard !sources.isEmpty else { return }
     let startIndex = 0
     chatItems = []
+    // Defensive: never start a demo frozen if a prior sheet's hold leaked
+    // (the sheet's own dismiss normally clears it). #942 PR2.
+    isPlaybackHeldForSheet = false
     appendIntroCard(forSourceIndex: startIndex)
     resetPerDemoState(forSourceIndex: startIndex)
     state = .playing(sourceIndex: startIndex, eventCursor: 0)
@@ -767,6 +770,11 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       ? introFloorMs(forSourceIndex: sourceIndex, script: script) : 0
     while cursor < plan.count {
       if Task.isCancelled { return }
+      // Playback park (#942 PR2): freeze demo playback while the persona sheet
+      // is up, coherent with AgentOutputRow's reveal park. No producer to
+      // buffer — simply not advancing the cursor holds the demo in place.
+      await awaitPlaybackUnheld()
+      if Task.isCancelled { return }
       let paced = plan[cursor]
       let delayMs = overrideMs ?? scaledDelay(for: paced.kind, floorMs: pendingFloorMs)
       overrideMs = nil
@@ -805,6 +813,27 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       currentSleepDeadline = nil
     } else {
       await Task.yield()
+    }
+  }
+
+  /// Set by the demo host while the persona-detail sheet is up (#942 PR2). The
+  /// ``playSource(sourceIndex:startCursor:firstSleepOverrideMs:)`` loop polls it
+  /// via ``awaitPlaybackUnheld()`` (Layer B) and `AgentOutputRow`'s reveal loop
+  /// reads it live via its `isTypingParked` closure (Layer C), so the demo's
+  /// cursor advance and the visible typewriter freeze coherently. The demo is
+  /// time-driven (no producer to buffer), so holding simply stops advancing.
+  ///
+  /// `@ObservationIgnored`: read per-tick by the playback Task / reveal closure,
+  /// never rendered — `@Observable` tracking would be churn.
+  @ObservationIgnored var isPlaybackHeldForSheet = false
+
+  /// Suspend demo playback while ``isPlaybackHeldForSheet`` holds it. Poll form
+  /// mirrors `SimulationViewModel.awaitPlaybackUnheld()` and `AgentOutputRow`'s
+  /// reveal park; the enclosing loop's own `Task.isCancelled` checks tear it
+  /// down promptly on stop. #942 PR2.
+  private func awaitPlaybackUnheld() async {
+    while isPlaybackHeldForSheet && !Task.isCancelled {
+      try? await Task.sleep(for: .milliseconds(50))
     }
   }
 

@@ -113,7 +113,10 @@ extension ModelDownloadHostView {
       },
       growsWithReveal: true,
       agentPosition: agentPosition(for: entry.agent, viewModel: viewModel),
-      onAvatarTap: { selectedPersona = personaItem(for: $0, viewModel: viewModel) }
+      onAvatarTap: { selectedPersona = personaItem(for: $0, viewModel: viewModel) },
+      // Freeze this row's typewriter while the persona sheet is up (#942 PR2).
+      // Live per-tick read — see AgentOutputRow.isTypingParked.
+      isTypingParked: { viewModel.isPlaybackHeldForSheet }
     )
     .id(entry.id)
     .transition(reduceMotion ? .identity : .opacity)

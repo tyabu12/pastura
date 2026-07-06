@@ -170,6 +170,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       if let adopted = session.adoptIfMatching(source: source) {
         viewModel = adopted
         scenario = session.scenario
+        // Clear any stale sheet-park on the re-projected VM — the OPPOSITE of
+        // the reveal-state latches below (#934), which must survive. The park
+        // signal is transient playback control and this fresh view's sheet is
+        // closed, so a lingering `true` would freeze the resumed playback. #942
+        adopted.isPlaybackHeldForSheet = false
         // Deliberately NO reveal-state reset here: the adopted VM carries
         // `introRevealHasBegun` / `latestRowRevealCompleted` from the original
         // mount, and that survival is exactly what keeps the premise + latest
@@ -210,6 +215,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       // Leaving the screen resolves any pending prediction sheet as a skip so
       // it doesn't resurface stale on return (#915).
       viewModel?.setViewVisible(false)
+      // Belt-and-suspenders: clear the sheet-park so a run parked-away while the
+      // persona sheet was up (ADR-017 Phase B) can't stay frozen on return. The
+      // sheet's own `onDismiss` normally fires first; this covers the leave. #942
+      viewModel?.isPlaybackHeldForSheet = false
       let session = dependencies.simulationSession
       switch Self.disappearAction(
         leaveHandled: leaveHandled,
@@ -568,7 +577,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 growsWithReveal: true,
                 agentPosition: scenario?.personas.firstIndex(where: { $0.name == snapshot.agent }),
                 debugRowID: "stream-\(snapshot.agent)",
-                onAvatarTap: { selectedPersona = personaItem(for: $0) }
+                onAvatarTap: { selectedPersona = personaItem(for: $0) },
+                // Freeze this row's typewriter while the persona sheet is up
+                // (#942 PR2). Live per-tick read — see AgentOutputRow.isTypingParked.
+                isTypingParked: { viewModel.isPlaybackHeldForSheet }
               )
               .id("streaming-\(snapshot.agent)")
             }
@@ -687,9 +699,27 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .presentationDetents([.medium])
         .deepLinkGated()
     }
-    .sheet(item: $selectedPersona) { item in
-      PersonaDetailSheet(persona: item.persona, position: item.position)
-        .deepLinkGated()
+    .sheet(
+      item: $selectedPersona,
+      onDismiss: {
+        // Unpark on ANY dismissal (swipe-down / tap-away / programmatic). Bound
+        // to the sheet's lifecycle — not `.onChange(→false)` — so a stuck-true =
+        // frozen-playback can never outlive the sheet. #942 PR2.
+        viewModel.isPlaybackHeldForSheet = false
+      },
+      content: { item in
+        PersonaDetailSheet(persona: item.persona, position: item.position)
+          .deepLinkGated()
+      }
+    )
+    // Invariant "sheet visible ⟺ park held" depends on the parked rows behind
+    // the sheet being non-interactive: the `.medium` detent's default scrim
+    // blocks avatar taps, so a direct A→B `selectedPersona` swap (which fires
+    // `onDismiss`→park-false but NOT this `!= nil` change, true→true being no
+    // transition) is unreachable. If `.presentationBackgroundInteraction(.enabled)`
+    // is ever added, switch this to gate on `selectedPersona` identity. #942 PR2.
+    .onChange(of: selectedPersona != nil) { _, isPresented in
+      parkPlayback(viewModel, whileSheetPresented: isPresented)
     }
     // The model-busy scrim (initial load + BG reload) now lives at `body`
     // level as a single persistent overlay so the spinner stays continuous
@@ -987,6 +1017,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       position: scenario.personas.firstIndex { $0.name == agent })
   }
 
+  /// Park playback the instant the persona sheet presents; the unpark is the
+  /// sheet's `onDismiss` (lifecycle-bound). Set-only-on-present — gating on the
+  /// *presented* transition (not the tap) makes a persona-not-found tap, which
+  /// leaves `selectedPersona` nil and never shows a sheet, a no-op instead of a
+  /// frozen playback with no sheet. Extracted from the `simulationContent`
+  /// modifier chain to keep it under the cyclomatic-complexity cap. #942 PR2.
+  private func parkPlayback(
+    _ viewModel: SimulationViewModel, whileSheetPresented isPresented: Bool
+  ) {
+    if isPresented { viewModel.isPlaybackHeldForSheet = true }
+  }
+
   @ViewBuilder
   private func logEntryView(
     _ entry: LogEntry, viewModel: SimulationViewModel, proxy: ScrollViewProxy
@@ -1030,7 +1072,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         initialVisibleChars: viewModel.handoffSeed(forEntryId: entry.id),
         agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         debugRowID: entry.id.uuidString,
-        onAvatarTap: { selectedPersona = personaItem(for: $0) }
+        onAvatarTap: { selectedPersona = personaItem(for: $0) },
+        // Freeze the latest row's typewriter while the persona sheet is up
+        // (#942 PR2). Live per-tick read — see AgentOutputRow.isTypingParked.
+        isTypingParked: { viewModel.isPlaybackHeldForSheet }
       )
     case .phaseStarted(let phaseType):
       // LLM phases (speak / vote / choose) become full-width separators

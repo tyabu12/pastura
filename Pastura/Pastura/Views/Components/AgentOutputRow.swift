@@ -211,6 +211,19 @@ struct AgentOutputRow: View {
   /// (that would flush the load-bearing `@State`; see the `body` note).
   var onAvatarTap: ((String) -> Void)?
 
+  /// Playback-park probe. `nil` (default) = zero impact; a non-nil closure is
+  /// evaluated once per reveal tick and, while it returns `true`, the reveal
+  /// loop spins in place without advancing ``visibleChars`` — used to freeze
+  /// the typewriter while the persona sheet is up (#942 PR2).
+  ///
+  /// **Closure form is load-bearing** — a *stored* `Bool` would be captured in
+  /// the reveal `Task`'s struct snapshot at creation and freeze at its
+  /// creation-time value. The closure dereferences the reference-type host VM
+  /// for a live per-tick read, mirroring the ``targetLength`` re-read rationale
+  /// on ``startAnimationIfNeeded``. Cancel-free and never nils `charsPerSecond`,
+  /// so it does not reopen the #133 / #134 / #147 / #150 cancel-race surface.
+  var isTypingParked: (() -> Bool)?
+
   /// Per-row thought visibility. Default `false` only when no init value
   /// is provided; the custom init below seeds this from `showAllThoughts`
   /// so a row constructed in "auto-expand" mode starts expanded, and a
@@ -270,7 +283,8 @@ struct AgentOutputRow: View {
     showAvatar: Bool = true,
     agentPosition: Int? = nil,
     debugRowID: String? = nil,
-    onAvatarTap: ((String) -> Void)? = nil
+    onAvatarTap: ((String) -> Void)? = nil,
+    isTypingParked: (() -> Bool)? = nil
   ) {
     self.agent = agent
     self.output = output
@@ -290,6 +304,7 @@ struct AgentOutputRow: View {
     self.agentPosition = agentPosition
     self.debugRowID = debugRowID
     self.onAvatarTap = onAvatarTap
+    self.isTypingParked = isTypingParked
     self._showInnerThought = State(initialValue: showAllThoughts)
     // Seed the reveal counter from the handoff position so the first frame
     // already shows the streamed prefix (no 0→seed flicker). `showInnerThought`
@@ -608,84 +623,6 @@ struct AgentOutputRow: View {
   // body to stay under swiftlint's `type_body_length` cap while remaining
   // unit-test reachable per ADR-009.
 
-  // MARK: - Animation control
-
-  private func startAnimationIfNeeded() {
-    let target = targetLength
-    guard shouldAnimate, let cps = charsPerSecond, cps > 0 else {
-      // Not animating (non-latest row OR instant speed) — snap to full.
-      visibleChars = target
-      return
-    }
-    if visibleChars >= target { return }  // already finished
-
-    animationTask?.cancel()
-    let delayNanos = UInt64(1_000_000_000.0 / cps)
-
-    // Bump generation so the task's `defer` can tell whether it is still
-    // the "current" task when it completes. Without this, a naturally
-    // finishing old task could null out `animationTask` after a newer
-    // task was assigned to it.
-    animationGeneration += 1
-    let myGeneration = animationGeneration
-
-    onAnimatingChange?(true)
-    animationTask = Task { @MainActor in
-      defer {
-        // Gated on generation so a superseded task doesn't clobber the
-        // newer task's reference or animating-state signal.
-        if animationGeneration == myGeneration {
-          onAnimatingChange?(false)
-          animationTask = nil
-        }
-      }
-      // Re-read `targetLength`, `primaryText`, and `resolvedThought`
-      // every tick. `targetLength` covers any mid-typing thought-
-      // visibility flip — both global mode toggle (`showAllThoughts`)
-      // and per-row chevron tap mutate ``showInnerThought``, which
-      // shifts target. The other two cover live streaming growth:
-      // under ``streamingPrimary`` / ``streamingThought``, those
-      // values grow token-by-token, and a one-shot capture at task
-      // creation would leave punctuation lookup and the
-      // statement→thought boundary check running against stale text.
-      while !Task.isCancelled && visibleChars < targetLength {
-        try? await Task.sleep(nanoseconds: delayNanos)
-        if Task.isCancelled { return }
-        let newPosition = min(visibleChars + 1, targetLength)
-        visibleChars = newPosition
-
-        let currentPrimaryLen = primaryText?.count ?? 0
-        let currentFullContent = (primaryText ?? "") + (resolvedThought ?? "")
-
-        // Punctuation-aware pause: after revealing a sentence terminator or
-        // comma, wait a little longer so the reader registers the beat.
-        let revealed = characterAt(index: newPosition - 1, in: currentFullContent)
-        let extraMs = revealed.map(punctuationPauseMs(after:)) ?? 0
-        if extraMs > 0 {
-          try? await Task.sleep(nanoseconds: UInt64(extraMs) * 1_000_000)
-          if Task.isCancelled { return }
-        }
-
-        // Statement → thought boundary beat: when we've just finished the
-        // primary text and there's thought still to type, insert a rhetorical
-        // pause before switching to italic thought reveal.
-        if newPosition == currentPrimaryLen && currentPrimaryLen < targetLength {
-          try? await Task.sleep(
-            nanoseconds: UInt64(statementToThoughtPauseMs) * 1_000_000)
-          if Task.isCancelled { return }
-        }
-      }
-      // Natural completion: the loop exited because the reveal reached the
-      // target, NOT via a cancellation `return` above. Record it so a later
-      // View re-projection (ADR-017 Phase B adopt) renders this row static
-      // instead of re-typing (#934). Deliberately here, not in the `defer` —
-      // the `defer` also runs on the cancellation paths.
-      if !Task.isCancelled && visibleChars >= targetLength {
-        onRevealCompleted?()
-      }
-    }
-  }
-
   /// React to a mid-stream primary / thought update.
   ///
   /// The reveal task re-reads `targetLength`, `primaryText`, and
@@ -881,6 +818,114 @@ extension AgentOutputRow {
   func snapToFull() {
     animationTask?.cancel()
     visibleChars = targetLength
+  }
+
+  // MARK: - Reveal animation state machine
+
+  /// Kick off (or restart) the character-reveal task. The task re-reads
+  /// `targetLength`, `primaryText`, and `resolvedThought` every tick so it
+  /// absorbs mid-typing thought-visibility flips and live streaming growth
+  /// without a cancel/restart (the cancel-race surface #133 / #134 / #147 /
+  /// #150 was introduced to close). Lives in this same-file extension —
+  /// alongside ``snapToFull`` — to keep the primary struct body under
+  /// swiftlint's `type_body_length` cap while retaining `private`-member
+  /// access (a sibling *file* would not).
+  private func startAnimationIfNeeded() {
+    let target = targetLength
+    guard shouldAnimate, let cps = charsPerSecond, cps > 0 else {
+      // Not animating (non-latest row OR instant speed) — snap to full.
+      visibleChars = target
+      return
+    }
+    if visibleChars >= target { return }  // already finished
+
+    animationTask?.cancel()
+    let delayNanos = UInt64(1_000_000_000.0 / cps)
+
+    // Bump generation so the task's `defer` can tell whether it is still
+    // the "current" task when it completes. Without this, a naturally
+    // finishing old task could null out `animationTask` after a newer
+    // task was assigned to it.
+    animationGeneration += 1
+    let myGeneration = animationGeneration
+
+    onAnimatingChange?(true)
+    animationTask = Task { @MainActor in
+      defer {
+        // Gated on generation so a superseded task doesn't clobber the
+        // newer task's reference or animating-state signal.
+        if animationGeneration == myGeneration {
+          onAnimatingChange?(false)
+          animationTask = nil
+        }
+      }
+      // Re-read `targetLength`, `primaryText`, and `resolvedThought`
+      // every tick. `targetLength` covers any mid-typing thought-
+      // visibility flip — both global mode toggle (`showAllThoughts`)
+      // and per-row chevron tap mutate ``showInnerThought``, which
+      // shifts target. The other two cover live streaming growth:
+      // under ``streamingPrimary`` / ``streamingThought``, those
+      // values grow token-by-token, and a one-shot capture at task
+      // creation would leave punctuation lookup and the
+      // statement→thought boundary check running against stale text.
+      while !Task.isCancelled && visibleChars < targetLength {
+        // Park gate: freeze the typewriter in place while the persona
+        // sheet holds playback (#942 PR2), resuming exactly where it
+        // stopped. Cancellation while parked is caught by the existing
+        // post-sleep `Task.isCancelled` guard below (a cancelled sleep
+        // throws immediately), so this stays branch-free for complexity.
+        await awaitUnparked()
+        try? await Task.sleep(nanoseconds: delayNanos)
+        if Task.isCancelled { return }
+        let newPosition = min(visibleChars + 1, targetLength)
+        visibleChars = newPosition
+
+        let currentPrimaryLen = primaryText?.count ?? 0
+        let currentFullContent = (primaryText ?? "") + (resolvedThought ?? "")
+
+        // Punctuation-aware pause: after revealing a sentence terminator or
+        // comma, wait a little longer so the reader registers the beat.
+        let revealed = characterAt(index: newPosition - 1, in: currentFullContent)
+        let extraMs = revealed.map(punctuationPauseMs(after:)) ?? 0
+        if extraMs > 0 {
+          try? await Task.sleep(nanoseconds: UInt64(extraMs) * 1_000_000)
+          if Task.isCancelled { return }
+        }
+
+        // Statement → thought boundary beat: when we've just finished the
+        // primary text and there's thought still to type, insert a rhetorical
+        // pause before switching to italic thought reveal.
+        if newPosition == currentPrimaryLen && currentPrimaryLen < targetLength {
+          try? await Task.sleep(
+            nanoseconds: UInt64(statementToThoughtPauseMs) * 1_000_000)
+          if Task.isCancelled { return }
+        }
+      }
+      // Natural completion: the loop exited because the reveal reached the
+      // target, NOT via a cancellation `return` above. Record it so a later
+      // View re-projection (ADR-017 Phase B adopt) renders this row static
+      // instead of re-typing (#934). Deliberately here, not in the `defer` —
+      // the `defer` also runs on the cancellation paths.
+      if !Task.isCancelled && visibleChars >= targetLength {
+        onRevealCompleted?()
+      }
+    }
+  }
+
+  /// Spin (without advancing ``visibleChars``) while the host holds playback
+  /// via ``isTypingParked``. The closure is re-evaluated per poll so a live
+  /// host-VM flip is observed mid-reveal (a stored `Bool` would freeze in the
+  /// task's struct snapshot). Returns on unpark *or* cancellation — the caller
+  /// re-checks `Task.isCancelled` after its next sleep. #942 PR2.
+  ///
+  /// The 50 ms poll here mirrors the Layer-B consume-loop gates
+  /// `SimulationViewModel.awaitPlaybackUnheld()` and
+  /// `ReplayViewModel.awaitPlaybackUnheld()` — keep the interval in step if
+  /// tuning one (they span the Views/ and App/ layers, so no shared constant).
+  private func awaitUnparked() async {
+    while (isTypingParked?() ?? false) && !Task.isCancelled {
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
   }
 
   /// Whether this row should run the character-reveal animation. The
