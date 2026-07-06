@@ -2,17 +2,18 @@ import Foundation
 
 /// The type of a simulation phase, determining how it is processed.
 ///
-/// LLM phases (`speakAll`, `speakEach`, `vote`, `choose`, `reflect`) require
-/// LLM inference. Code phases (`scoreCalc`, `assign`, `eliminate`,
-/// `summarize`, `eventInject`) are processed deterministically by the engine.
-/// `conditional` is a control-flow phase: the handler itself does no
-/// inference, but its sub-phases may be of any type.
+/// LLM phases (`speakAll`, `speakEach`, `vote`, `choose`, `reflect`,
+/// `whisper`) require LLM inference. Code phases (`scoreCalc`, `assign`,
+/// `eliminate`, `summarize`, `eventInject`) are processed deterministically
+/// by the engine. `conditional` is a control-flow phase: the handler itself
+/// does no inference, but its sub-phases may be of any type.
 nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   case speakAll = "speak_all"
   case speakEach = "speak_each"
   case vote
   case choose
   case reflect
+  case whisper
   case scoreCalc = "score_calc"
   case assign
   case eliminate
@@ -37,9 +38,13 @@ nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   /// `reflect` returns `true`: each agent runs an LLM inference to privately
   /// update a short note about the situation (canonical `note` output field),
   /// so it costs one inference per agent per round like `speakAll` / `vote`.
+  ///
+  /// `whisper` returns `true`: pairs of active agents privately exchange
+  /// statements (hidden from other agents' prompts), each utterance costing
+  /// one LLM inference.
   public var requiresLLM: Bool {
     switch self {
-    case .speakAll, .speakEach, .vote, .choose, .reflect:
+    case .speakAll, .speakEach, .vote, .choose, .reflect, .whisper:
       return true
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject:
       return false

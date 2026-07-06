@@ -2,8 +2,9 @@ import Foundation
 
 /// Routes ``PhaseType`` values to their corresponding ``PhaseHandler`` implementations.
 ///
-/// All 10 phase types are registered at initialization. Used by ``SimulationRunner``
-/// to dispatch each phase in the simulation loop.
+/// All phase types except `.whisper` (whose handler is wired in a follow-up
+/// change) are registered at initialization — 11 of the 12 ``PhaseType`` cases.
+/// Used by ``SimulationRunner`` to dispatch each phase in the simulation loop.
 nonisolated struct PhaseDispatcher: Sendable {
   private let handlers: [PhaseType: any PhaseHandler]
 

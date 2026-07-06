@@ -4483,6 +4483,22 @@
         }
       }
     },
+    "Pairs of agents privately whisper to each other (hidden from others)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairs of agents privately whisper to each other (hidden from others)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェント同士がペアで密談します（他の参加者には見えません）"
+          }
+        }
+      }
+    },
     "Past Results" : {
       "localizations" : {
         "ja" : {
@@ -6478,6 +6494,22 @@
         }
       }
     },
+    "Use `statement` for the whispered text. Whispers stay private to the pair and never enter the public conversation log." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use `statement` for the whispered text. Whispers stay private to the pair and never enter the public conversation log."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密談の内容は `statement` フィールドに書いてください。密談はペア内だけの秘密で、公開の会話ログには残りません。"
+          }
+        }
+      }
+    },
     "Use `vote` for the target name." : {
       "localizations" : {
         "en" : {
@@ -6652,6 +6684,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "進行の流れ"
+          }
+        }
+      }
+    },
+    "Whisper" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whisper"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密談"
           }
         }
       }

@@ -126,7 +126,9 @@ nonisolated struct ScenarioValidator: Sendable {
         try validateConditionalPhase(phase, index: index, scenario: scenario, depth: 0)
       case .reflect:
         try validateReflectShape(phase, label: "Phase \(index + 1)")
-      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
+      // `whisper`-specific validation (min-2-agents, output shape) lands in a
+      // later change; the minimal compiling arm keeps existing scenarios valid.
+      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize, .whisper:
         break
       case .eventInject:
         try validateEventInjectShape(

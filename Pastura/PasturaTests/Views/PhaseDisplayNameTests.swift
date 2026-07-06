@@ -60,6 +60,6 @@ struct PhaseDisplayNameTests {
     // cheap non-render guard (ADR-009) against a future `requiresLLM`
     // change silently altering the transcript's separator layout.
     let llmPhases = PhaseType.allCases.filter(\.requiresLLM)
-    #expect(Set(llmPhases) == [.speakAll, .speakEach, .vote, .choose, .reflect])
+    #expect(Set(llmPhases) == [.speakAll, .speakEach, .vote, .choose, .reflect, .whisper])
   }
 }

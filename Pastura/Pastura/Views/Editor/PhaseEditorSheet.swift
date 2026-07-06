@@ -100,18 +100,20 @@ struct PhaseEditorSheet: View {
         }
       }
       .sheet(item: $editingSubPhase) { context in
-        // Nested editor — filter `.conditional` (depth-1 rule) and `.reflect`
-        // (not supported inside a conditional in v1) out of the picker so both
-        // rules are enforced at the UI layer (the validator + loader also
-        // reject them as defense in depth). The validator is forwarded so
-        // nested Save runs against the same blocklist instance the outer sheet
-        // uses (#261).
+        // Nested editor — filter `.conditional` (depth-1 rule), `.reflect`,
+        // and `.whisper` (neither supported inside a conditional in v1) out of
+        // the picker so the rules are enforced at the UI layer (the validator +
+        // loader also reject them as defense in depth). The validator is
+        // forwarded so nested Save runs against the same blocklist instance the
+        // outer sheet uses (#261).
         PhaseEditorSheet(
           phase: context.phase,
           onSave: { edited in
             writeBackSubPhase(edited, context: context)
           },
-          availableTypes: PhaseType.allCases.filter { $0 != .conditional && $0 != .reflect },
+          availableTypes: PhaseType.allCases.filter {
+            $0 != .conditional && $0 != .reflect && $0 != .whisper
+          },
           validator: validator
         )
         .deepLinkGated()
@@ -220,9 +222,9 @@ struct PhaseEditorSheet: View {
       assignSection
     case .summarize:
       summarizeSection
-    case .speakAll, .reflect, .eliminate:
-      // reflect is a prompt-based LLM phase with no extra config beyond the
-      // shared prompt + output-fields sections (like speak_all).
+    case .speakAll, .reflect, .eliminate, .whisper:
+      // reflect / whisper are prompt-based LLM phases with no extra config
+      // beyond the shared prompt + output-fields sections (like speak_all).
       EmptyView()
     case .conditional:
       conditionalSection
@@ -379,6 +381,9 @@ struct PhaseEditorSheet: View {
     case .choose: return String(localized: "Choose from predefined options")
     case .reflect:
       return String(localized: "Each agent privately updates a short memo about the situation")
+    case .whisper:
+      return String(
+        localized: "Pairs of agents privately whisper to each other (hidden from others)")
     case .scoreCalc: return String(localized: "Calculate scores (code, no LLM)")
     case .assign: return String(localized: "Distribute info to agents (code)")
     case .eliminate: return String(localized: "Remove most-voted agent (code)")

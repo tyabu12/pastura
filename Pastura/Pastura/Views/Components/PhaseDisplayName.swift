@@ -23,7 +23,7 @@ import Foundation
 /// separators stay snake_case-free and localized (#882).
 public enum PhaseDisplayName {
 
-  // Pure name-mapping switch (one line per phase type). The 11-case count
+  // Pure name-mapping switch (one line per phase type). The 12-case count
   // exceeds SwiftLint's cyclomatic threshold but carries no branching logic.
   // swiftlint:disable cyclomatic_complexity
   /// Compact display label for `phase`. The English source string is
@@ -37,6 +37,7 @@ public enum PhaseDisplayName {
     case .vote: return String(localized: "Vote")
     case .choose: return String(localized: "Choose")
     case .reflect: return String(localized: "Reflect")
+    case .whisper: return String(localized: "Whisper")
     case .scoreCalc: return String(localized: "Score Calc")
     case .assign: return String(localized: "Assign")
     case .eliminate: return String(localized: "Eliminate")
