@@ -334,7 +334,7 @@ struct ScenarioValidatorTests {
       Issue.record("Expected validation to throw")
     } catch let SimulationError.scenarioValidationFailed(message) {
       #expect(message.contains("Phase 1 (event_inject)"))
-      #expect(message.contains("must be a list of strings"))
+      #expect(message.contains("must be a list of event strings"))
       #expect(message.contains("['only_event']"))  // workaround hint
     } catch {
       Issue.record("Unexpected error: \(error)")
@@ -393,7 +393,32 @@ struct ScenarioValidatorTests {
       _ = try validator.validate(scenario)
       Issue.record("Expected validation to throw")
     } catch let SimulationError.scenarioValidationFailed(message) {
-      #expect(message.contains("must be a list of strings"))
+      #expect(message.contains("must be a list of event strings"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test func acceptsEventInjectWithDictSource() throws {
+    // #931: dict-shaped events `{ text, favors }` are a valid source shape.
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.0,
+      extraData: ["events": .arrayOfDictionaries([["text": "抜け駆けが得", "favors": "betray"]])])
+    // Must NOT throw.
+    _ = try validator.validate(scenario)
+  }
+
+  @Test func rejectsEventInjectDictEntryMissingText() {
+    // A dict entry without a non-empty `text` injects "" (silent no-op) — reject.
+    let scenario = makeEventInjectScenario(
+      source: "events", probability: 1.0,
+      extraData: ["events": .arrayOfDictionaries([["favors": "betray"]])])
+    do {
+      _ = try validator.validate(scenario)
+      Issue.record("Expected validation to throw")
+    } catch let SimulationError.scenarioValidationFailed(message) {
+      #expect(message.contains("Phase 1 (event_inject)"))
+      #expect(message.contains("'text'"))
     } catch {
       Issue.record("Unexpected error: \(error)")
     }

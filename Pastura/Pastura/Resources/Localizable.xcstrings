@@ -793,6 +793,38 @@
         }
       }
     },
+    "%@: source '%@' has an event entry missing a non-empty 'text'. Dict-shaped events require 'text' (and may add 'favors')." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' has an event entry missing a non-empty 'text'. Dict-shaped events require 'text' (and may add 'favors')."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' に 'text' が空のイベント要素があります。辞書形式のイベントには 'text' が必要です（'favors' は任意）。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' is empty. event_inject requires at least one event in the list; for a single fixed event use ['only_event']." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' is empty. event_inject requires at least one event in the list; for a single fixed event use ['only_event']."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' が空です。event_inject にはリストに少なくとも1つのイベントが必要です。単一の固定イベントには ['only_event'] を使用してください。"
+          }
+        }
+      }
+    },
     "%@: source '%@' is empty. event_inject requires at least one string in the list; for a single fixed event use ['only_event']." : {
       "localizations" : {
         "en" : {
@@ -805,6 +837,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: source '%2$@' が空です。event_inject にはリストに少なくとも1つの文字列が必要です。単一の固定イベントには ['only_event'] を使用してください。"
+          }
+        }
+      }
+    },
+    "%@: source '%@' must be a list of event strings or {text, favors} mappings; for a single fixed event use ['only_event']." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' must be a list of event strings or {text, favors} mappings; for a single fixed event use ['only_event']."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: source '%2$@' は文字列イベントまたは {text, favors} 形式のリストである必要があります。単一の固定イベントには ['only_event'] を使用してください。"
           }
         }
       }
@@ -826,6 +874,7 @@
       }
     },
     "%@: source '%@' must be a list of strings. v1 of event_inject only supports the [String] shape; for a single fixed event use ['only_event']." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
