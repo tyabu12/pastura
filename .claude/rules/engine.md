@@ -34,6 +34,7 @@ includes them.
 | summarize    | Code       | Format round summary                 |
 | conditional  | Control    | Branch on state DSL; nests sub-phases |
 | event_inject | Code       | Inject random extraData string into state.variables (#256) |
+| relationship_update | Code | Deterministic affinity matrix → `{relationships}` prompt injection, zero inference (#910) |
 
 `event_inject` is allowed inside `conditional` branches (consistent with
 assign / score_calc nesting) — `ConditionalHandler.subHandlers` includes
@@ -66,6 +67,30 @@ whisper phase's own prompt template; the handler also always appends a
 partner-naming context block, so placeholder-free templates still work.
 Like `reflect`, `whisper` is NOT allowed inside `conditional` branches
 (same two enforcement points).
+
+`relationship_update` is a zero-inference **code** phase (#910): it
+deterministically maintains a per-agent affinity matrix and injects a
+natural-language summary. Update rules are generic YAML config (no
+per-scenario Swift) — `vote_against: Int` (delta on a target's view of
+whoever voted for them, read from `state.lastOutputs[voter].vote`) and
+`action_deltas: [String: Int]` (delta on each partner's view of the other's
+`choose` action, read from `Pairing.action1/action2`). The raw matrix
+accumulates across rounds in the reserved `relationships_raw_<name>`
+`state.variables` key (JSON); `RelationshipVerbalizer` renders each row as
+prose (|score| ≥ 2 threshold, ja/en) into `relationships_<name>`, surfaced
+to only that agent (system-prompt section + `{relationships}` template
+variable). Emits `.relationshipUpdate(relationships:)` carrying the raw
+matrix (Phase-3 visualization source; App/UI does not consume it in v1).
+`ScenarioValidator` requires ≥1 rule (`validateRelationshipUpdateShape`).
+**Ordering constraints** (documented, not enforced — a violation is a
+*silent no-op*): place this phase after the vote/choose phase that produces
+its signals and **before `score_calc`** (`PrisonersDilemmaLogic` clears
+`state.pairings` after scoring); a `lastOutputs`-writing LLM phase
+(speak/vote/choose) between a vote and this phase loses the vote signal,
+while `reflect`/`whisper` are safe to interleave. The handler logs a
+`.debug` diagnostic when no vote/pairing signal is present. Like
+`reflect`/`whisper`, it is NOT allowed inside `conditional` branches
+(validator rejection + `ConditionalHandler.subHandlers` omission).
 
 ### PhaseHandler Protocol
 
@@ -150,7 +175,7 @@ whisper:    (agentCount / 2) × subRounds × 2 per round
             (integer division — pair count × exchanges × 2 speakers)
 choose:     agentCount × 2 for round_robin (N adjacent pairs, 2 calls each)
             agentCount for individual (no pairing)
-score_calc/assign/eliminate/summarize/event_inject: 0 (code phases)
+score_calc/assign/eliminate/summarize/event_inject/relationship_update: 0 (code phases)
 conditional: max(sum(thenPhases), sum(elsePhases))  — only one branch
              runs per invocation, so `max` matches execution semantics
              and doesn't artificially block asymmetric-branch designs
