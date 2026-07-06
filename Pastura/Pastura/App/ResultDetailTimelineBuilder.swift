@@ -97,4 +97,49 @@ nonisolated enum ResultDetailTimelineBuilder {
     guard let data = record.payloadJSON.data(using: .utf8) else { return nil }
     return try? JSONDecoder().decode(CodePhaseEventPayload.self, from: data)
   }
+
+  /// Ids of declaration `TurnRecord`s whose `declared_intent` was
+  /// contradicted by every one of that agent's choose actions in the same
+  /// round (#916) — the Past Results twin of the live VM's
+  /// `contradictionBadgedEntryIDs`, recomputed at display time from the
+  /// persisted records (no schema change; runs recorded before the field
+  /// existed simply never match). `options` comes from the run's resolved
+  /// scenario snapshot; pass `[]` when the snapshot failed to parse — the
+  /// timeline then renders unbadged, mirroring the avatar-order degrade.
+  ///
+  /// Detection matches the live rule: per (round, agent), the last
+  /// declaration wins, and actions accumulate across the round in
+  /// `sequenceNumber` order (`turns` arrives so ordered from the
+  /// repository).
+  static func contradictionBadgedTurnIDs(
+    turns: [TurnRecord], options: [String]
+  ) -> Set<String> {
+    guard !options.isEmpty else { return [] }
+    struct AgentRound: Hashable {
+      let round: Int
+      let agent: String
+    }
+    var declarations: [AgentRound: (value: String, turnID: String)] = [:]
+    var actions: [AgentRound: [String]] = [:]
+    for turn in turns {
+      guard let agent = turn.agentName,
+        let data = turn.parsedOutputJSON.data(using: .utf8),
+        let output = try? JSONDecoder().decode(TurnOutput.self, from: data)
+      else { continue }
+      let key = AgentRound(round: turn.roundNumber, agent: agent)
+      if let declared = output.fields[ContradictionDetectionLogic.declaredIntentField] {
+        declarations[key] = (value: declared, turnID: turn.id)
+      }
+      if turn.phaseType == PhaseType.choose.rawValue, let action = output.action {
+        actions[key, default: []].append(action)
+      }
+    }
+    var badged: Set<String> = []
+    for (key, declaration) in declarations
+    where ContradictionDetectionLogic.isContradiction(
+      declared: declaration.value, actions: actions[key] ?? [], options: options) {
+      badged.insert(declaration.turnID)
+    }
+    return badged
+  }
 }

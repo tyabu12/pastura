@@ -8,7 +8,9 @@ struct ResultDetailTimelineBuilderTests {
 
   // MARK: - Fixtures
 
-  private func makeTurn(
+  // internal (not private) — the +Contradiction sibling-file extension
+  // calls it, and `private` is invisible across files (testing.md split rule).
+  func makeTurn(
     id: String = UUID().uuidString,
     round: Int,
     seq: Int,
