@@ -56,6 +56,10 @@ grep -q '設定は一貫、ボケの幅 \\| は狭め' "$TMP/digest.md" || fail 
 grep -q 'elimination / creative' "$TMP/digest.md" || fail "digest: axis column not rendered"
 # scenario without an axis renders the em-dash (backward-compat via cell())
 grep -q 'クラッシュ再現 | 大喜利 | – |' "$TMP/digest.md" || fail "digest: missing axis not em-dashed"
+# 5th rubric axis: header column present, null development renders em-dash
+# alongside sibling rubric scores rendered as integers
+grep -q '(e) development' "$TMP/digest.md" || fail "digest: development header column missing"
+grep -q '| 1 | 2 | 3 | 4 | – |' "$TMP/digest.md" || fail "digest: null development not em-dashed"
 grep -q "factory-digest:promotion" "$TMP/digest.md" || fail "digest: promotion marker lost"
 tail -1 "$TMP/digest.md" | grep -q "^Promotion:" || fail "digest: promotion line no longer last"
 
