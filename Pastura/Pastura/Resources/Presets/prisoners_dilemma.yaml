@@ -49,8 +49,13 @@ phases:
       {conversation_log}
 
       全員に向けて宣言してください。協力を呼びかけても、ブラフをかけてもOKです。
+
+      declared_intent には、いま全員に見せた宣言の表向きの立場を
+      cooperate / betray / unclear のいずれか1語で示してください。
+      これは宣言のラベルであり、本心と一致していなくてもかまいません。
     output:
       statement: string
+      declared_intent: string
       inner_thought: string
 
   - type: choose

@@ -64,8 +64,14 @@ phases:
       {conversation_log}
 
       Address everyone. Call for cooperation, bluff — either is fine.
+
+      In declared_intent, label the public stance of the statement you
+      just made as exactly one of: cooperate / betray / unclear.
+      This labels your public declaration only — it does not have to
+      match your true intentions.
     output:
       statement: string
+      declared_intent: string
       inner_thought: string
 
   - type: choose
