@@ -43,9 +43,15 @@ nonisolated struct RelationshipUpdateHandler: PhaseHandler {
       if !row.isEmpty { matrix[persona.name] = row }
     }
 
-    let sawSignal =
-      applyVotes(context: context, state: state, activeNames: activeNames, into: &matrix)
-      || applyActions(context: context, state: state, activeNames: activeNames, into: &matrix)
+    // Evaluate BOTH before combining — each mutates `matrix` via `inout`, so a
+    // short-circuiting `||` would drop the action signal whenever a vote signal
+    // is also present (a phase may declare both rules; e.g. choose → vote →
+    // relationship_update leaves pairings AND lastOutputs.vote populated).
+    let sawVotes = applyVotes(
+      context: context, state: state, activeNames: activeNames, into: &matrix)
+    let sawActions = applyActions(
+      context: context, state: state, activeNames: activeNames, into: &matrix)
+    let sawSignal = sawVotes || sawActions
 
     if !sawSignal {
       // Most likely a placement mistake: this phase ran with no fresh vote /
@@ -55,7 +61,8 @@ nonisolated struct RelationshipUpdateHandler: PhaseHandler {
     }
 
     persist(
-      active: active, matrix: matrix, language: context.scenario.engineLanguage, state: &state)
+      active: active, activeNames: activeNames, matrix: matrix,
+      language: context.scenario.engineLanguage, state: &state)
     context.emitter(.relationshipUpdate(relationships: matrix))
   }
 
@@ -104,15 +111,20 @@ nonisolated struct RelationshipUpdateHandler: PhaseHandler {
 
   /// Writes each active perceiver's non-empty row back as the accumulated raw
   /// matrix plus its prose summary.
+  ///
+  /// The raw matrix keeps the full history (cross-round accumulation + the event
+  /// payload / Phase-3 viz), but the injected prose mentions only agents still in
+  /// play — an eliminated agent should not surface in "you are wary of X".
   private func persist(
-    active: [Persona], matrix: [String: [String: Int]], language: String,
+    active: [Persona], activeNames: Set<String>, matrix: [String: [String: Int]], language: String,
     state: inout SimulationState
   ) {
     for persona in active {
       guard let row = matrix[persona.name], !row.isEmpty else { continue }
       state.variables["relationships_raw_\(persona.name)"] = encodeRow(row)
+      let visibleRow = row.filter { activeNames.contains($0.key) }
       state.variables["relationships_\(persona.name)"] =
-        RelationshipVerbalizer.summarize(row, language: language)
+        RelationshipVerbalizer.summarize(visibleRow, language: language)
     }
   }
 

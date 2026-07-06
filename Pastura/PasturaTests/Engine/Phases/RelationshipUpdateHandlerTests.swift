@@ -145,4 +145,51 @@ struct RelationshipUpdateHandlerTests {
     let matrix = try #require(emittedMatrix(collector))
     #expect(matrix.isEmpty)
   }
+
+  @Test func appliesBothVoteAndActionSignalsInSamePhase() async throws {
+    // Regression: a short-circuiting `||` over the two side-effecting apply
+    // helpers dropped the action signal whenever a vote was also present. A
+    // phase may declare both rules and both signals may be live at once.
+    var (scenario, state) = makeSUT(
+      voteAgainst: -1, actionDeltas: ["cooperate": 1, "betray": -2])
+    state.lastOutputs["Alice"] = TurnOutput(fields: ["vote": "Bob"])
+    state.lastOutputs["Bob"] = TurnOutput(fields: ["vote": "Alice"])
+    state.pairings = [
+      Pairing(agent1: "Alice", agent2: "Bob", action1: "cooperate", action2: "betray")
+    ]
+    let collector = EventCollector()
+    let context = makePhaseContext(
+      scenario: scenario, llm: MockLLMService(responses: []), collector: collector)
+
+    try await handler.execute(context: context, state: &state)
+
+    let matrix = try #require(emittedMatrix(collector))
+    // Alice: vote (-1) + Bob's betray action (-2) = -3. A `||` short-circuit
+    // would drop the action term and leave -1.
+    #expect(matrix["Alice"]?["Bob"] == -3)
+    // Bob: vote (-1) + Alice's cooperate action (+1) = 0.
+    #expect(matrix["Bob"]?["Alice"] == 0)
+  }
+
+  @Test func prunesEliminatedAgentFromProseButKeepsRawHistory() async throws {
+    var (scenario, state) = makeSUT(voteAgainst: -2)
+    // Round 1: Bob votes Alice, so Alice grows wary of Bob (|2| crosses threshold).
+    state.lastOutputs["Bob"] = TurnOutput(fields: ["vote": "Alice"])
+    let context1 = makePhaseContext(
+      scenario: scenario, llm: MockLLMService(responses: []), collector: EventCollector())
+    try await handler.execute(context: context1, state: &state)
+    #expect(state.variables["relationships_Alice"]?.contains("Bob") == true)
+
+    // Bob is eliminated; re-run with no fresh signal.
+    state.eliminated["Bob"] = true
+    state.lastOutputs = [:]
+    let context2 = makePhaseContext(
+      scenario: scenario, llm: MockLLMService(responses: []), collector: EventCollector())
+    try await handler.execute(context: context2, state: &state)
+
+    // Prose no longer mentions the eliminated agent, but the raw matrix keeps
+    // the accumulated history (for the event payload / Phase-3 viz).
+    #expect(state.variables["relationships_Alice"] == "")
+    #expect(state.variables["relationships_raw_Alice"]?.contains("Bob") == true)
+  }
 }

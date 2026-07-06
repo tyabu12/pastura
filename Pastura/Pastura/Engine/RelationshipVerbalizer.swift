@@ -32,7 +32,9 @@ nonisolated enum RelationshipVerbalizer {
   }
 
   private static func clause(other: String, score: Int, language: String) -> String {
-    if score >= mentionThreshold {
+    // `summarize` has already filtered to `abs(score) >= mentionThreshold`; the
+    // warmth/wariness split is a pure sign test, decoupled from the magnitude gate.
+    if score > 0 {
       return String(
         format: pickLanguage(
           language, ja: "%@ には好感を持っている。", en: "You feel warmly toward %@."),
