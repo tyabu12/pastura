@@ -22,6 +22,7 @@ Phase 2 progress:
 - **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667, confirm-on-leave pause for in-flight runs #673)
 - **Viewer prediction** — pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking; Engine-untouched App/ViewModel event buffering, ground truth scored at the reveal moment (#906 umbrella / #915)
 - **Reflect phase + log window** — per-agent private memo (`reflect` LLM phase, reserved `notes_<name>` namespace, own-prompt re-injection) + opt-in `log_window` prompt-side log trimming; presets unchanged pending per-scenario tuning (#906 umbrella / #907)
+- **Contradiction badge** — 🃏 declaration/action lie detection in prisoners_dilemma: reserved `declared_intent` speak-output field machine-compared against same-round choose actions (full contradiction only, raw-action precision-first); reveal at choose completion in the live transcript + display-time recompute in Past Results, Engine untouched (#906 umbrella / #916)
 
 ## Language Rules
 

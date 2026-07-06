@@ -471,6 +471,22 @@
         }
       }
     },
+    "%@ said one thing, did another" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ said one thing, did another"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@、宣言と行動が矛盾"
+          }
+        }
+      }
+    },
     "%@ was assigned: %@" : {
       "localizations" : {
         "en" : {
@@ -5434,6 +5450,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ストレージ"
+          }
+        }
+      }
+    },
+    "Said one thing, did another" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Said one thing, did another"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宣言と行動が矛盾"
           }
         }
       }

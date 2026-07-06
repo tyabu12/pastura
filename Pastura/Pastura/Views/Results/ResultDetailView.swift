@@ -26,17 +26,23 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   /// scenario YAML couldn't be decoded (legacy data, YAML drift); in
   /// that case `AgentOutputRow` falls back to name-based avatar
   /// resolution.
-  @State private var agentOrder: [String] = []
+  @State var agentOrder: [String] = []  // not private — see note above
   /// Personas in scenario-declared order, decoded from the run's scenario
   /// snapshot alongside ``agentOrder``. Drives the tap-to-view-persona sheet
   /// (#942). Empty for runs whose scenario YAML couldn't be decoded (pre-v7
   /// deleted scenario, YAML drift) — in that case the turn rows stay
   /// non-tappable (``turnRow`` passes `onAvatarTap: nil`).
-  @State private var personas: [Persona] = []
+  @State var personas: [Persona] = []  // not private — see note above
   /// The persona shown when the user taps an agent's avatar / name (#942).
-  @State private var selectedPersona: PersonaSheetItem?
+  @State var selectedPersona: PersonaSheetItem?  // not private — see note above
+  /// Ids of declaration turns to decorate with the 🃏 contradiction badge
+  /// (#916), recomputed off-main at load from the persisted records. Empty
+  /// for pre-#916 runs (no `declared_intent` fields) and for runs whose
+  /// scenario snapshot couldn't be parsed (no choose options to compare
+  /// against) — both degrade to an unbadged timeline.
+  @State var contradictionBadgedTurnIDs: Set<String> = []  // not private — see note above
   @State private var isLoading = true
-  @State private var showAllThoughts = true
+  @State var showAllThoughts = true  // not private — see note above
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var isExporting = false
   @State private var exportError: String?
@@ -216,54 +222,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     .accessibilityIdentifier("resultDetail.timeline")
   }
 
-  /// Resolves a tapped agent name to its persona for the detail sheet
-  /// (#942). Only reached when ``personas`` is non-empty (``turnRow`` gates
-  /// the tap out otherwise); returns `nil` defensively for an unmatched name.
-  private func personaItem(for agentName: String) -> PersonaSheetItem? {
-    guard let persona = personas.first(where: { $0.name == agentName }) else { return nil }
-    return PersonaSheetItem(
-      persona: persona,
-      position: agentOrder.firstIndex(of: agentName))
-  }
-
-  @ViewBuilder
-  private func turnRow(_ turn: TurnRecord) -> some View {
-    if let agentName = turn.agentName, let phaseType = PhaseType(rawValue: turn.phaseType) {
-      let output = decodeTurnOutput(turn)
-      AgentOutputRow(
-        agent: agentName,
-        output: output,
-        phaseType: phaseType,
-        showAllThoughts: showAllThoughts,
-        agentPosition: agentOrder.firstIndex(of: agentName),
-        // Gate at the run level, not per-tap: a run whose scenario couldn't
-        // be decoded (pre-v7 deleted scenario, YAML drift) has no personas,
-        // so the rows stay non-tappable rather than showing a dead affordance.
-        onAvatarTap: personas.isEmpty ? nil : { selectedPersona = personaItem(for: $0) }
-      )
-    } else {
-      // Pre-#92 fallback: TurnRecord without agentName. Newer code phases
-      // emit CodePhaseEventRecord rows instead, so this path is only hit
-      // by legacy data.
-      HStack(spacing: 4) {
-        Text(turn.phaseType)
-          .textStyle(Typography.metaValue)
-          .foregroundStyle(Color.inkSecondary)
-        Text(String(format: String(localized: "Round %lld"), turn.roundNumber))
-          .textStyle(Typography.metaValue)
-          .foregroundStyle(Color.inkSecondary)
-      }
-    }
-  }
-
-  private func decodeTurnOutput(_ turn: TurnRecord) -> TurnOutput {
-    guard let data = turn.parsedOutputJSON.data(using: .utf8),
-      let output = try? JSONDecoder().decode(TurnOutput.self, from: data)
-    else {
-      return TurnOutput(fields: ["raw": turn.rawOutput])
-    }
-    return output
-  }
+  // turnRow / personaItem / decodeTurnOutput live in
+  // ResultDetailView+TurnRows.swift (file_length split). The @State they
+  // read is internal (not private) for the same reason as `simulation`.
 
   /// Bundle returned from the single `offMain` DB hop — struct avoids an N-tuple.
   /// Pre-builds `items` inside the off-main task so the view never decodes
@@ -283,6 +244,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     /// decoded from the same parse. Empty on decode failure — drives the
     /// tap-to-view-persona degrade (#942).
     let personas: [Persona]
+    /// Declaration-turn ids to decorate with the 🃏 badge (#916), computed
+    /// off-main from the fetched turns + the snapshot's choose options.
+    let contradictionBadgedTurnIDs: Set<String>
   }
 
   private func loadData() async {
@@ -311,18 +275,23 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         // render, just with name-based avatars.
         let agentOrder: [String]
         let personas: [Persona]
+        let chooseOptions: [String]
         if let scenarioRecord = scenario,
           let parsed = try? ScenarioLoader().load(yaml: scenarioRecord.yamlDefinition) {
           agentOrder = parsed.personas.map(\.name)
           personas = parsed.personas
+          chooseOptions = ContradictionDetectionLogic.chooseOptions(in: parsed.phases)
         } else {
           agentOrder = []
           personas = []
+          chooseOptions = []
         }
         return LoadedData(
           turns: turns, events: events, items: items,
           simulation: sim, scenario: scenario, agentOrder: agentOrder,
-          personas: personas)
+          personas: personas,
+          contradictionBadgedTurnIDs: ResultDetailTimelineBuilder.contradictionBadgedTurnIDs(
+            turns: turns, options: chooseOptions))
       }
       self.turns = fetched.turns
       self.events = fetched.events
@@ -331,6 +300,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       self.scenario = fetched.scenario
       self.agentOrder = fetched.agentOrder
       self.personas = fetched.personas
+      self.contradictionBadgedTurnIDs = fetched.contradictionBadgedTurnIDs
     } catch {
       self.turns = []
       self.events = []

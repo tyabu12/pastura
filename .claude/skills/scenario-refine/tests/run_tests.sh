@@ -94,12 +94,20 @@ CAND_ROW=$(grep '^| bokete__v2 ' "$TMP/journal.md")
 echo "$CAND_ROW" | grep -q "vs base +2" || fail "audit: A/B delta 'vs base +2' missing"
 echo "$CAND_ROW" | grep -q "✅" || fail "audit: A/B win ✅ missing"
 
-# bokete itself has no prior baseline → Δ em-dash, not a number. Field 10
-# (split on " | ") is the Δ cell; reverting the "if base is None: return –"
-# arm would make this a spurious number and fail here.
+# bokete itself has no prior baseline → Δ em-dash, not a number. Field 11
+# (split on " | ") is the Δ cell — the development column shifted it from 10 to
+# 11; reverting the "if base is None: return –" arm would make this a spurious
+# number and fail here.
 BK_ROW=$(grep '^| bokete ' "$TMP/journal.md")
-BK_DELTA=$(echo "$BK_ROW" | awk -F' \\| ' '{print $10}')
+BK_DELTA=$(echo "$BK_ROW" | awk -F' \\| ' '{print $11}')
 [ "$BK_DELTA" = "–" ] || fail "audit: no-prior-baseline Δ must be em-dash, got '$BK_DELTA'"
+
+# header carries the new universal (d) development column, and the payoff
+# column still renders the per-scenario payoff_axis name (word_wolf →
+# strategic_tension), not a static "payoff" label.
+grep -q "(d) development" "$TMP/journal.md" || fail "audit: (d) development header column missing"
+echo "$WW_ROW" | grep -q "strategic_tension" \
+  || fail "audit: payoff column lost per-scenario payoff_axis name"
 
 # failed run: no scores, Δ em-dash, error surfaced in comment
 DET_ROW=$(grep '^| detective_scene_v1 ' "$TMP/journal.md")
@@ -171,5 +179,57 @@ python3 "$SCRIPTS/append_audit.py" \
   >/dev/null 2>"$TMP/mwarn"
 grep -q "missing score axes" "$TMP/mwarn" \
   || fail "audit: malformed prior ok record should warn, not silently skip"
+# the warning is AGGREGATED — a single summary line for the whole run, not one
+# line per skipped record.
+MWARN_COUNT=$(grep -c "missing score axes" "$TMP/mwarn")
+[ "$MWARN_COUNT" -eq 1 ] || fail "audit: skip warning should be a single aggregated line, got $MWARN_COUNT"
+
+# --- append_audit.py: old-4-key (pre-development) baseline migration --------
+# A prior ok record from before `development` existed (4 keys) is a different
+# total scale, so it is skipped as a baseline and the Δ one-time-resets to –
+# (em-dash) — never a bogus number. The skip must not crash the append, and it
+# emits exactly one aggregated warning containing "missing score axes".
+cat > "$TMP/migrate.md" <<'EOF'
+# seed
+<!-- audit-digest:sections -->
+## 2026-06-19
+
+<!-- audit-data: {"date": "2026-06-19", "model": "gemma-4-E2B-it-Q4_K_M", "scenarios": {"word_wolf": {"coherence": 4, "interaction": 4, "breakdown_free": 5, "payoff": 3, "payoff_axis": "strategic_tension", "status": "ok"}}} -->
+
+<!-- audit-digest:promotion -->
+Promotion: x
+EOF
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$TMP/migrate.md" \
+  >/dev/null 2>"$TMP/migwarn" || fail "migration: old-4-key prior must not crash append"
+MIG_WW=$(grep '^| word_wolf ' "$TMP/migrate.md")
+MIG_DELTA=$(echo "$MIG_WW" | awk -F' \\| ' '{print $11}')
+[ "$MIG_DELTA" = "–" ] || fail "migration: old-4-key prior must reset Δ to em-dash, got '$MIG_DELTA'"
+MIG_COUNT=$(grep -c "missing score axes" "$TMP/migwarn")
+[ "$MIG_COUNT" -eq 1 ] || fail "migration: aggregated warning should appear exactly once, got $MIG_COUNT"
+
+# --- append_audit.py: null development (single-round scenario) --------------
+# `development` (cross-round development / surprise) is null for single-round
+# scenarios. total() must not crash on the present-but-null key, and the (d)
+# column renders – via the null-cell path.
+cat > "$TMP/nulldev.json" <<'EOF'
+{
+  "date": "2026-06-22",
+  "model": "gemma-4-E2B-it-Q4_K_M",
+  "scenarios": [
+    {"id": "single_round_v1", "name": "SR", "channel": "preset",
+     "category": "creative", "status": "ok",
+     "scores": {"coherence": 4, "interaction": 4, "breakdown_free": 4,
+                "development": null, "payoff": 3},
+     "payoff_axis": "humor", "comment": "single round", "candidate_of": null}
+  ]
+}
+EOF
+python3 "$SCRIPTS/append_audit.py" \
+  --results "$TMP/nulldev.json" --journal "$TMP/nulldev.md" >/dev/null 2>&1 \
+  || fail "null development must not crash append_audit"
+ND_ROW=$(grep '^| single_round_v1 ' "$TMP/nulldev.md")
+ND_DEV=$(echo "$ND_ROW" | awk -F' \\| ' '{print $9}')
+[ "$ND_DEV" = "–" ] || fail "null development must render em-dash in (d) column, got '$ND_DEV'"
 
 echo "ALL TESTS PASSED"

@@ -35,13 +35,15 @@ Results JSON schema (composed by the /scenario-factory session):
       "run_log": "data/factory/runs/2026-06-13/....jsonl",
       "status": "ok|failed|config_error",
       "attempts": 1, "duration_sec": 123.4,
-      "scores": {"coherence": 4, "interaction": 3,
-                 "breakdown_free": 5, "humor": 2},   // null when not ok
+      "scores": {"coherence": 4, "interaction": 3, "breakdown_free": 5,
+                 "humor": 2, "development": 3},   // null when not ok
       "comment": "one-line judge comment",
       "error": null
     }
   ]
 }
+
+`development` = cross-round development/surprise, universal across categories; null allowed for single-round scenarios (renders as `–`, same as the existing null-humor handling).
 """
 
 import argparse
@@ -52,7 +54,7 @@ import sys
 
 SECTIONS_MARKER = "<!-- factory-digest:sections -->"
 PROMOTION_MARKER = "<!-- factory-digest:promotion -->"
-RUBRIC_KEYS = ["coherence", "interaction", "breakdown_free", "humor"]
+RUBRIC_KEYS = ["coherence", "interaction", "breakdown_free", "humor", "development"]
 # Bootstrap scaffold for a fresh local log (the digest is gitignored, so a
 # clean clone / first run has nothing to append to). Carries BOTH markers
 # and a `Promotion:`-prefixed pointer line so the dual-marker validator and
@@ -92,8 +94,8 @@ def render_section(results):
         f"config_error {counts['config_error']})",
         "",
         "| id | name | theme | axis | status | (a) coherence | (b) interaction "
-        "| (c) breakdown-free | (d) humor | comment |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| (c) breakdown-free | (d) humor | (e) development | comment |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for s in scenarios:
         scores = s.get("scores") or {}
