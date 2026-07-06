@@ -6,13 +6,13 @@
       "id": "bal_one_v1",
       "title": "Balanced one",
       "category": "creative",
-      "phases": ["vote", "score_calc", "choose", "eliminate", "whisper"]
+      "phases": ["vote", "score_calc", "choose", "eliminate", "whisper", "relationship_update"]
     },
     {
       "id": "bal_two_v1",
       "title": "Balanced two",
       "category": "ethics",
-      "phases": ["vote", "score_calc", "conditional", "event_inject", "speak_each", "reflect"]
+      "phases": ["vote", "score_calc", "conditional", "event_inject", "speak_each", "reflect", "relationship_update"]
     },
     {
       "id": "bal_three_v1",
