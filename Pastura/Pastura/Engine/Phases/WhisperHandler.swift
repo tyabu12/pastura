@@ -122,7 +122,16 @@ nonisolated struct WhisperHandler: PhaseHandler {
     variables["whisper_exchange"] = formatTranscript(transcript)
     promptBuilder.injectAssigned(into: &variables, personaName: speaker.name)
     promptBuilder.injectNotes(into: &variables, personaName: speaker.name)
-    let userPrompt = promptBuilder.expandTemplate(run.promptTemplate, variables: variables)
+    promptBuilder.injectWhispers(into: &variables, personaName: speaker.name)
+    // ALWAYS append a partner-naming context block after expanding the user
+    // template: the default template never names the partner, and a custom
+    // author prompt may omit `{whisper_partner}` / `{whisper_exchange}`. The
+    // template still keeps those placeholders resolvable for authors who DO
+    // reference them; this block guarantees the partner + running exchange
+    // reach the model regardless of template content.
+    let userPrompt =
+      promptBuilder.expandTemplate(run.promptTemplate, variables: variables)
+      + whisperContextBlock(partner: partner, transcript: transcript, language: language)
 
     let output = try await llmCaller.call(
       llm: context.llm, system: systemPrompt, user: userPrompt,
@@ -160,6 +169,23 @@ nonisolated struct WhisperHandler: PhaseHandler {
   /// content` style.
   private func formatTranscript(_ transcript: [Utterance]) -> String {
     transcript.map { "  \($0.name): \($0.statement)" }.joined(separator: "\n")
+  }
+
+  /// A language-aware block appended to every whisper turn prompt so the model
+  /// always knows who its partner is — and, once the pair has spoken, what was
+  /// said so far — no matter what the (possibly partner-agnostic) user template
+  /// contains. The exchange section is omitted on the opening utterance (empty
+  /// transcript) to avoid an empty header.
+  private func whisperContextBlock(
+    partner: Persona, transcript: [Utterance], language: String
+  ) -> String {
+    let partnerLine = pickLanguage(
+      language,
+      ja: "\n\n密談相手: \(partner.name)（この相手だけにこっそり話しかけてください）",
+      en: "\n\nWhisper partner: \(partner.name) (speak privately to them only).")
+    guard !transcript.isEmpty else { return partnerLine }
+    let exchangeHeader = pickLanguage(language, ja: "これまでの密談:", en: "Whisper so far:")
+    return "\(partnerLine)\n\(exchangeHeader)\n\(formatTranscript(transcript))"
   }
 
   /// A participant's stored channel view: a partner-identifying header line

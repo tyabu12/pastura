@@ -94,6 +94,7 @@ nonisolated struct ChooseHandler: PhaseHandler {
       window: context.scenario.logWindow)
     promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
     promptBuilder.injectNotes(into: &variables, personaName: persona.name)
+    promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
     let output = try await llmCaller.call(

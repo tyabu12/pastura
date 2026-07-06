@@ -221,6 +221,33 @@ struct WhisperHandlerTests {
     #expect(secondSpeakerPrompt.contains("B1"))
   }
 
+  /// Prompt hardening (#908): even with the DEFAULT template (which never names
+  /// the partner or references `{whisper_exchange}`), the handler appends a
+  /// context block so the partner name and the running exchange reach the model.
+  @Test func defaultTemplateAlwaysNamesPartnerAndExchange() async throws {
+    let mock = MockLLMService(responses: [stmt("A to B"), stmt("B to A")])
+    try await mock.loadModel()
+
+    // `prompt: nil` → the handler's built-in default template (no placeholders).
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      phases: [whisperPhase(prompt: nil)])
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    // Alice speaks first — her prompt names Bob even without a template token.
+    let alicePrompt = mock.capturedPrompts[0].user
+    #expect(alicePrompt.contains("Bob"))
+    // Bob speaks second — his prompt names Alice AND carries the exchange so far.
+    let bobPrompt = mock.capturedPrompts[1].user
+    #expect(bobPrompt.contains("Alice"))
+    #expect(bobPrompt.contains("A to B"))
+  }
+
   @Test func eliminatedAgentsNeverPaired() async throws {
     let mock = MockLLMService(responses: [
       stmt("A to C"), stmt("C to A")
