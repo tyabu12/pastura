@@ -10,7 +10,6 @@ import Testing
 /// 1-of-2 partial case never occurred in those runs, so this suite is its
 /// only coverage.
 @Suite(.timeLimit(.minutes(1)))
-@MainActor
 struct ContradictionDetectionLogicTests {
 
   private let options = ["cooperate", "betray"]

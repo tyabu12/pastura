@@ -1789,7 +1789,11 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // `filtered`: declared_intent / action are machine tokens the filter
     // could in principle rewrite, and detection must match what the agent
     // actually produced. Neither token is displayed from these buffers.
-    if let declared = output.fields[ContradictionDetectionLogic.declaredIntentField] {
+    // Speak-phase gate: declared_intent is a speak-phase declaration; a
+    // different phase emitting the reserved field must not re-key the
+    // badge onto a non-declaration row.
+    if phaseType == .speakAll || phaseType == .speakEach,
+      let declared = output.fields[ContradictionDetectionLogic.declaredIntentField] {
       declaredIntents[agent] = (value: declared, entryID: entry.id)
     }
     if phaseType == .choose, let action = output.action {

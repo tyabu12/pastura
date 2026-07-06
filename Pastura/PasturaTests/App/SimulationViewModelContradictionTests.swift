@@ -9,7 +9,7 @@ import Testing
 /// beat, per-round resets, and the reveal log line. The pure decision rule is
 /// covered separately in `ContradictionDetectionLogicTests`; these tests pin
 /// the VM plumbing around it.
-@Suite(.timeLimit(.minutes(1))) @MainActor
+@Suite(.serialized, .timeLimit(.minutes(1))) @MainActor
 struct SimulationViewModelContradictionTests {
 
   private func makeSut() throws -> SimulationViewModel {

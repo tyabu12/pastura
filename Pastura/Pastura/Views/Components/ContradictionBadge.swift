@@ -13,6 +13,9 @@ struct ContradictionBadge: View {
     HStack(spacing: 5) {
       Text(verbatim: "🃏")
         .font(.caption)
+        // Decorative — without this the combined element announces
+        // "joker" before the meaningful phrase.
+        .accessibilityHidden(true)
       Text(label)
         .font(.caption.weight(.semibold))
     }

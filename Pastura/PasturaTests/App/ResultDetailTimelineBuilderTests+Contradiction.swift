@@ -55,6 +55,23 @@ extension ResultDetailTimelineBuilderTests {
   }
 
   @Test
+  func lastDeclarationInTheRoundWins() {
+    // Two declarations by the same agent in one round: only the later one
+    // is the badge anchor — a first-wins refactor must fail this.
+    let turns = [
+      declarationTurn(id: "early", round: 1, seq: 1, agent: "Alice", intent: "betray"),
+      declarationTurn(id: "late", round: 1, seq: 2, agent: "Alice", intent: "cooperate"),
+      chooseTurn(round: 1, seq: 3, agent: "Alice", action: "betray"),
+      chooseTurn(round: 1, seq: 4, agent: "Alice", action: "betray")
+    ]
+
+    let badged = ResultDetailTimelineBuilder.contradictionBadgedTurnIDs(
+      turns: turns, options: pdOptions)
+
+    #expect(badged == ["late"])
+  }
+
+  @Test
   func emptyOptionsProduceNoBadges() {
     let turns = [
       declarationTurn(id: "lie", round: 1, seq: 1, agent: "Alice", intent: "cooperate"),

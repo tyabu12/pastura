@@ -108,9 +108,9 @@ nonisolated enum ResultDetailTimelineBuilder {
   /// timeline then renders unbadged, mirroring the avatar-order degrade.
   ///
   /// Detection matches the live rule: per (round, agent), the last
-  /// declaration wins, and actions accumulate across the round in
-  /// `sequenceNumber` order (`turns` arrives so ordered from the
-  /// repository).
+  /// declaration wins (which is why `turns` must arrive in
+  /// `sequenceNumber` order — the repository guarantees it), and all of
+  /// the round's actions are compared as a set.
   static func contradictionBadgedTurnIDs(
     turns: [TurnRecord], options: [String]
   ) -> Set<String> {
