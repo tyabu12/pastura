@@ -6,13 +6,14 @@ v2 candidates. Read by `/scenario-factory` Step 1 (generation gate) and
 
 Discipline (this header is the contract):
 
-- **Soft cap ~150 lines.** This file is read every night — it exists to
-  SHRINK generation context, so entries stay concept-level (invariant + why +
-  evidence pointer, per `.claude/rules/context-budget.md`), never incident
-  prose. If an addition would blow the cap, compress or merge first.
+- **Soft cap ~150 lines.** Read every night — it exists to SHRINK generation
+  context: entries stay concept-level (invariant + why + evidence pointer, per
+  `.claude/rules/context-budget.md`); compress or merge before adding.
 - **Status per rule**: `[validated]` (reproduced or fix-confirmed on the
   harness), `[hypothesis]` (proposed / one weak datapoint), `[refuted]`
   (tried, did not work — prune to a one-line tombstone so it isn't retried).
+  A `[hypothesis]` lever MAY ride inline inside a `[validated]` rule when it
+  probes that rule's boundary (e.g. rule 17).
 - **Evidence dates** are provenance pointers into the operator-local factory
   journal (`data/factory/digest.md`, gitignored) — not required reading.
 - **Additions** come from `data/factory/lessons-inbox.md` via a human
@@ -69,8 +70,8 @@ Discipline (this header is the contract):
 ## Persona design
 
 13. **[validated]** Differentiate comedy personas by FORM (deadpan / operatic /
-    groveling / …), not backstory, in naturally form-diverse domains —
-    backstory-only casts converge to one register. (06-28 failure; 4 transfers)
+    groveling / …), not backstory, in form-diverse domains (apology styles,
+    defeat speeches) — backstory-only casts converge. (06-28; 4 transfers)
 14. **[hypothesis]** A gimmick the model can't reliably produce dissolves into
     the shared register (and gets gang-eliminated first) — swap in forms E2B
     demonstrably lands; reinforce signature gags. (07-01/06-30; fix untested)
@@ -141,7 +142,7 @@ characterized — new instances need a new mechanic angle, not a topic skin:
 - Declare-then-secret-choose prisoners_dilemma variants (cartel / warikan /
   preset); free-rider public/private-gap dilemmas (kyoyu, kasei).
 - Hard-binary ethics splits (saigo / kokuhatsu / manbiki / enjou / ai_teishi)
-  — mechanic settled (rule 12).
+  — mechanic settled (rule 12); only a fresh dilemma domain adds signal.
 - Cognitive-bias panels with a numerate control (anchoring / framing /
   kakusho / sunk_cost / bousai) — open problem is rule 21, not new topics.
 - Scoring-free social-psych observations (zenin / bystander / risky_shift /
