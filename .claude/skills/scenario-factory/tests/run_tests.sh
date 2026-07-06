@@ -86,6 +86,84 @@ grep -q "factory-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promo
 grep -q "^## 2026-06-13$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
 
+# --- append_digest.py: sidecar index ----------------------------------------
+# The index (digest-index.jsonl) is a machine-readable dedup cache written
+# alongside the digest; digest.md stays the source of truth.
+IDX_DIR="$TMP/idx"; mkdir -p "$IDX_DIR"
+cp fixtures/digest_seed.md "$IDX_DIR/digest.md"
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$IDX_DIR/digest.md" >/dev/null
+IDX="$IDX_DIR/digest-index.jsonl"
+[ -f "$IDX" ] || fail "index: sidecar not created next to digest"
+# one line per scenario (results_sample has 3)
+[ "$(grep -c . "$IDX")" -eq 3 ] || fail "index: expected 3 lines, got $(grep -c . "$IDX")"
+# comment is deliberately excluded (it is the bulk of digest size)
+if jq -es 'map(has("comment")) | any' "$IDX" >/dev/null; then
+  fail "index: comment key must be excluded"
+fi
+# same-date re-run replaces, never duplicates
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$IDX_DIR/digest.md" >/dev/null 2>&1
+[ "$(grep -c . "$IDX")" -eq 3 ] || fail "index: same-date re-run duplicated lines"
+
+# round-trip: --rebuild-index off the produced digest == the incremental index
+cp "$IDX" "$IDX_DIR/index-incremental.jsonl"
+python3 "$SCRIPTS/append_digest.py" \
+  --digest "$IDX_DIR/digest.md" --rebuild-index >/dev/null || fail "index: rebuild failed"
+python3 - "$IDX_DIR/index-incremental.jsonl" "$IDX" <<'PY' || fail "index: round-trip mismatch"
+import json, sys
+def norm(path):
+    with open(path, encoding="utf-8") as f:
+        objs = [json.loads(l) for l in f if l.strip()]
+    return sorted(json.dumps(o, sort_keys=True, ensure_ascii=False) for o in objs)
+sys.exit(0 if norm(sys.argv[1]) == norm(sys.argv[2]) else 1)
+PY
+
+# 3-shape rebuild: pre-axis / 4-axis / 5-axis sections, incl. an escaped pipe
+SH="$TMP/shapes"; mkdir -p "$SH"
+cp fixtures/digest_shapes.md "$SH/digest.md"
+python3 "$SCRIPTS/append_digest.py" \
+  --digest "$SH/digest.md" --rebuild-index >/dev/null || fail "shapes: rebuild failed"
+SHIDX="$SH/digest-index.jsonl"
+[ "$(grep -c . "$SHIDX")" -eq 4 ] || fail "shapes: expected 4 scenario lines, got $(grep -c . "$SHIDX")"
+# escaped \| round-trips into the JSON value unescaped
+grep -q 'テスト | 大喜利' "$SHIDX" || fail "shapes: escaped pipe not unescaped in index"
+# pre-axis-column row carries a null axis
+jq -es 'map(select(.id=="shape_c_ok"))[0].axis == null' "$SHIDX" >/dev/null \
+  || fail "shapes: pre-axis-column row axis not null"
+
+# unrecognized table shape → rebuild hard-fails (non-zero) and writes nothing
+BG="$TMP/bogus"; mkdir -p "$BG"
+cat > "$BG/digest.md" <<'EOF'
+# Digest
+<!-- factory-digest:sections -->
+
+## 2026-06-13
+
+| id | name | theme | axis | status | (a) coherence | (z) bogus | comment |
+|---|---|---|---|---|---|---|---|
+| x | n | t | – | ok | 4 | 9 | c |
+
+<!-- factory-digest:promotion -->
+Promotion: x
+EOF
+if python3 "$SCRIPTS/append_digest.py" \
+  --digest "$BG/digest.md" --rebuild-index 2>/dev/null; then
+  fail "bogus: unrecognized rubric column should hard-fail"
+fi
+[ ! -f "$BG/digest-index.jsonl" ] || fail "bogus: index written despite hard-fail"
+
+# non-fatal index failure: a directory at the index path blocks the write;
+# the append still succeeds (digest is the source of truth)
+UW="$TMP/unwr"; mkdir -p "$UW"
+cp fixtures/digest_seed.md "$UW/digest.md"
+mkdir "$UW/digest-index.jsonl"   # a directory can't be overwritten by a file
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$UW/digest.md" >/dev/null 2>"$UW/warn" \
+  || fail "index: unwritable index must not fail the append"
+grep -q "^## 2026-06-13$" "$UW/digest.md" || fail "index: digest not updated when index write fails"
+grep -q -- "--rebuild-index" "$UW/warn" || fail "index: failure warning must name --rebuild-index"
+
 # --- gallery_census.py ------------------------------------------------------
 C=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json)
 echo "$C" | grep -q "Suggested targets" || fail "census: suggested-targets section missing"
