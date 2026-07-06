@@ -32,6 +32,19 @@ struct DesignTokensTests {
     #expect(approxEqual(token.blue, 1.0))
   }
 
+  /// Whisper bubble is a moss-tinted off-white, distinct from the pure-white
+  /// public bubble (#908 PR2). Change-detector: a failure means the hushed
+  /// tint drifted — confirm the change passed review, then update the value.
+  @Test func whisperBubbleMatchesSpec() {
+    let token = PasturaPalette.whisperBubble
+    #expect(approxEqual(token.red, 0xEB / 255.0))
+    #expect(approxEqual(token.green, 0xEE / 255.0))
+    #expect(approxEqual(token.blue, 0xE1 / 255.0))
+    #expect(approxEqual(token.opacity, 1.0))
+    // It must not collapse back to the pure-white public bubble.
+    #expect(token.green < 1.0)
+  }
+
   // MARK: - §2.2 Ink
 
   @Test func inkPrimaryIsNotPureBlack() {
@@ -186,6 +199,21 @@ struct DesignTokensTests {
     #expect(approxEqual(token.green, 1.0))
     #expect(approxEqual(token.blue, 1.0))
     #expect(approxEqual(token.opacity, 0.6))
+  }
+
+  // MARK: - §2.9 Dark Mode
+
+  /// Dark whisper bubble stays distinct from `nightBubble` (mossier) so the
+  /// hushed variant reads on the dark surface (#908 PR2). Change-detector.
+  @Test func nightWhisperBubbleMatchesSpec() {
+    let token = PasturaPalette.nightWhisperBubble
+    #expect(approxEqual(token.red, 0x2F / 255.0))
+    #expect(approxEqual(token.green, 0x36 / 255.0))
+    #expect(approxEqual(token.blue, 0x26 / 255.0))
+    #expect(approxEqual(token.opacity, 1.0))
+    // It must not collapse onto the public dark bubble.
+    let publicBubble = PasturaPalette.nightBubble
+    #expect(!approxEqual(token.green, publicBubble.green))
   }
 
   // MARK: - §4.3 Shadow

@@ -13,7 +13,7 @@
       "status": "ok",
       "attempts": 1,
       "duration_sec": 9.4,
-      "scores": {"coherence": 4, "interaction": 3, "breakdown_free": 5, "humor": 2},
+      "scores": {"coherence": 4, "interaction": 3, "breakdown_free": 5, "humor": 2, "development": 3},
       "comment": "設定は一貫、ボケの幅 | は狭め",
       "error": null
     },
@@ -29,6 +29,20 @@
       "scores": null,
       "comment": "",
       "error": "run_end line missing — process died mid-run (#253)"
+    },
+    {
+      "id": "factory_20260613_test_devnull",
+      "name": "単発シナリオ",
+      "theme": "単発",
+      "axis": "single-round test",
+      "yaml": "data/factory/scenarios/2026-06-13/factory_20260613_test_devnull.yaml",
+      "run_log": "data/factory/runs/2026-06-13/factory_20260613_test_devnull.jsonl",
+      "status": "ok",
+      "attempts": 1,
+      "duration_sec": 5.0,
+      "scores": {"coherence": 1, "interaction": 2, "breakdown_free": 3, "humor": 4, "development": null},
+      "comment": "single round, development N/A",
+      "error": null
     }
   ]
 }

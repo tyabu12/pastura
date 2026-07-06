@@ -40,7 +40,12 @@ Results JSON schema (composed by the /scenario-refine session):
       "status": "ok|failed|config_error",
       "attempts": 1, "duration_sec": 123.4,
       "scores": {"coherence": 4, "interaction": 3,
-                 "breakdown_free": 5, "payoff": 2},   // null when not ok
+                 "breakdown_free": 5, "development": 3,
+                 "payoff": 2},   // null (the whole dict) when not ok
+      // Column order (d) development / (e) payoff: `development` is a UNIVERSAL
+      // axis (cross-round development / surprise), so it precedes the
+      // category-specific `payoff`. `development` may itself be null for a
+      // single-round scenario — total() treats null as 0 and the cell renders –.
       "payoff_axis": "humor",
       "comment": "one-line judge comment",
       "error": null,
@@ -59,9 +64,15 @@ import sys
 SECTIONS_MARKER = "<!-- audit-digest:sections -->"
 PROMOTION_MARKER = "<!-- audit-digest:promotion -->"
 COMMON_AXES = ["coherence", "interaction", "breakdown_free"]
-SCORE_KEYS = COMMON_AXES + ["payoff"]
+# `development` is a UNIVERSAL axis (cross-round development / surprise), so it
+# slots BEFORE the category-specific `payoff`: columns are (a) coherence /
+# (b) interaction / (c) breakdown_free / (d) development / (e) payoff, max 25.
+# This deliberately DIFFERS from factory's append_digest.py, where development
+# is (e) after humor — scores are keyed by NAME, not letter, so the two orders
+# never collide.
+SCORE_KEYS = COMMON_AXES + ["development", "payoff"]
 # Δtotal at or below this flags a regression (⚠️). A drop of 2 across the
-# 4-axis total is the smallest change unlikely to be sampling noise.
+# 5-axis total is the smallest change unlikely to be sampling noise.
 REGRESSION_THRESHOLD = -2
 
 # Must stay byte-identical to select_inventory.py's copy — the writer and
@@ -93,7 +104,10 @@ def cell(value):
 def total(scores):
     if not scores:
         return None
-    return sum(scores.get(k, 0) for k in SCORE_KEYS)
+    # `scores.get(k) or 0`, not `.get(k, 0)`: `development` may be present with
+    # a null (None) value for single-round scenarios, and sum() over a None
+    # raises TypeError. The nightly append must never crash.
+    return sum(scores.get(k) or 0 for k in SCORE_KEYS)
 
 
 def prior_ok_scores(journal_text, model, exclude_date):
@@ -103,12 +117,17 @@ def prior_ok_scores(journal_text, model, exclude_date):
     Returns {id: scores_dict}. A re-run on the same date excludes that date
     so the section being replaced never becomes its own baseline.
 
-    An ok record missing any of the 4 score axes is skipped as a baseline AND
-    a `warning:` is emitted — an ok run should always carry a full score set,
-    so an incomplete one signals a malformed compose rather than being
-    silently treated as "no prior baseline".
+    An ok record missing any of the 5 score axes is skipped as a baseline — an
+    old pre-`development` record carries only 4 axes, a different total scale,
+    so folding it in would corrupt the Δ; skipping is a one-time Δ reset to –.
+    The same guard also catches a malformed CURRENT compose that drops an axis
+    (the two are indistinguishable here), so the warning names both causes.
+    The skips are AGGREGATED into a single summary stderr line for the whole
+    run (rather than one line per record) so a journal full of legacy 4-axis
+    entries does not flood stderr on every nightly append.
     """
     best = {}  # id -> (date, scores)
+    skipped = 0
     for blob in AUDIT_DATA_RE.findall(journal_text):
         try:
             data = json.loads(blob)
@@ -124,12 +143,16 @@ def prior_ok_scores(journal_text, model, exclude_date):
                 continue
             scores = {k: rec.get(k) for k in SCORE_KEYS if rec.get(k) is not None}
             if len(scores) < len(SCORE_KEYS):
-                print(f"warning: ok record {sid!r} on {date} is missing score "
-                      f"axes {sorted(set(SCORE_KEYS) - set(scores))} — skipped "
-                      "as a baseline (malformed compose?)", file=sys.stderr)
+                skipped += 1
                 continue
             if sid not in best or date > best[sid][0]:
                 best[sid] = (date, scores)
+    if skipped:
+        # Keep the exact substring "missing score axes" — the self-test greps
+        # for it.
+        print(f"append_audit: {skipped} prior record(s) skipped as baselines "
+              "— missing score axes (legacy pre-development entries or a "
+              "malformed compose; Δ resets to –)", file=sys.stderr)
     return {sid: s for sid, (_, s) in best.items()}
 
 
@@ -198,8 +221,8 @@ def render_section(results, journal_text):
         audit_data_comment(results),
         "",
         "| id | name | channel | category | status | (a) | (b) | (c) "
-        "| (d) payoff | Δ | comment |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "| (d) development | (e) payoff | Δ | comment |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for s in scenarios:
         scores = s.get("scores") or {}
@@ -213,7 +236,8 @@ def render_section(results, journal_text):
             cell(s.get("id")), cell(s.get("name")), cell(s.get("channel")),
             cell(s.get("category")), cell(s.get("status")),
             cell(scores.get("coherence")), cell(scores.get("interaction")),
-            cell(scores.get("breakdown_free")), cell(payoff_cell),
+            cell(scores.get("breakdown_free")),
+            cell(scores.get("development")), cell(payoff_cell),
             cell(delta_cell(s, this_run_ok, prior)), cell(comment),
         ]
         lines.append("| " + " | ".join(row) + " |")

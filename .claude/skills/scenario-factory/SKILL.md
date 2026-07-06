@@ -51,11 +51,31 @@ Non-goals:
 
 ## Step 1 — Read prior scenarios (dedup)
 
-Read `data/factory/digest.md`. Collect every past scenario **id, name,
-theme, and comment** from the section tables. The new batch must not
-repeat: same premise, same persona cast, or a theme judged ≤2 on humor
-twice in a row. Low-scoring past entries are signals about what NOT to
-generate again; high scorers indicate directions worth varying further.
+Read three sources, in order:
+
+- **(a) The PLAYBOOK first** — `.claude/skills/scenario-factory/PLAYBOOK.md`
+  (repo-tracked), in full. It is the **GENERATION GATE**: every generated
+  scenario must comply with its `[validated]` rules; `[hypothesis]` rules are
+  levers to test deliberately (note in the Step 5 digest comment when one is
+  exercised). Its "Saturated premise families" section is dedup input.
+- **(b) `data/factory/digest-index.jsonl`** for FULL-history dedup — one line
+  per past scenario (id / name / theme / axis / status / scores, no comments;
+  ~19 KB vs the ~97 KB digest). Collect every past **id, name, theme** here.
+- **(c) Only the NEWEST 2 sections of `data/factory/digest.md`** for the
+  freshest nuance — last nights' comments, lessons, and axis-rotation context.
+  **NEVER read the whole digest** (it exceeds the session Read cap, ~39k
+  tokens): read with `offset`/`limit`, or stop at the 2nd `## <date>` heading.
+
+Dedup semantics (sourced from (a)+(b)+(c)): the new batch must not repeat same
+premise, same persona cast, or a theme judged ≤2 on humor twice in a row.
+Low-scoring past entries are signals about what NOT to generate again; high
+scorers indicate directions worth varying further.
+
+**Missing-index fallback**: if `digest-index.jsonl` is absent, do NOT read the
+full digest to compensate. Proceed with newest-2-sections dedup plus a cheap
+`grep`-based id/slug collision check against `digest.md`, and include a notice
+in the Step 6 report: `index missing — full-history dedup degraded; run
+append_digest.py --digest data/factory/digest.md --rebuild-index`.
 
 Also collect the **`name` + `description`** of every already-shipped
 scenario, so generation can avoid colliding with the inventory it might
@@ -82,7 +102,7 @@ python3 .claude/skills/scenario-factory/scripts/gallery_census.py
 
 The census is **deterministic and gallery-only** — it counts phase-*type*
 presence (does a scenario contain a `vote` phase at all?), not mechanical
-depth, and ranks 8 structural mechanic axes + the 6 categories by rarity.
+depth, and ranks 10 structural mechanic axes + the 6 categories by rarity.
 Read its `Suggested targets` block and **assign each of the 3 scenarios a
 DISTINCT under-represented axis** (a mechanic axis, a category, or both),
 avoiding the `crowded` ones. Valid categories: `social_psychology`,
@@ -94,6 +114,16 @@ scan the digest's recent `axis` column (Step 5) and, if a suggested axis was
 already targeted in the last 1–2 nights but is **not yet promoted** to the
 gallery, rotate to the next gap so the same hole isn't refilled before
 promotion catches up.
+
+The census also prints a `⚠️ NEW ENGINE MECHANICS not yet in the census axes`
+warning when `PhaseType` gains a phase no axis covers (the auto-follow
+tripwire). When it fires, treat the listed phase(s) as the **TOP-priority** axis
+assignment for the batch — they are by definition 0-represented. BEFORE
+authoring with an unfamiliar phase, read
+`Pastura/Pastura/Engine/Phases/<X>Handler.swift` (its header docs give the
+semantics, output-field contract, and cost) and tracking issue #906 (the
+interestingness umbrella — design considerations for every recent / planned
+phase).
 
 ## Step 2 — Generate 3 scenario YAMLs
 
@@ -130,6 +160,29 @@ Schema requirements (ScenarioLoader — all required):
   `reason` for `vote`, `inner_thought` for `speak_all` / `speak_each` /
   `choose`. Do NOT author `reason` on a choose/speak phase — it streams live
   but goes blank on the committed row, and the commit gate rejects it (#760).
+- `reflect` (per-agent private memo, #907) — output field `note` (canonical,
+  required; no secondary thought field). The memo is stored under the reserved
+  `notes_<name>` namespace and re-injected into that agent's OWN later prompts
+  only (system-prompt section + `{my_notes}`) — never into the shared
+  conversation log. NOT allowed inside a `conditional` branch. Inference cost =
+  agents per round. Reference preset:
+  `Pastura/Pastura/Resources/Presets/word_wolf.yaml`.
+- `whisper` (pair-private conversation, #908) — `prompt` optional (a
+  language-aware default exists); phase-level `rounds:` optional (default 1;
+  the same key speak_each uses — it maps to sub_rounds, the exchanges per
+  pair). Output: `statement` (canonical primary, required) + optional
+  `inner_thought`. Active agents pair off in persona order, rotated per round
+  (an odd agent sits out); exchanges NEVER enter the shared conversation log —
+  viewers see them (dramatic irony), other agents don't. Each participant's
+  latest exchange is surfaced back only to them via the reserved
+  `whispers_<name>` key (overwrite — latest only) + `{my_whispers}`. NOT
+  allowed inside a `conditional` branch. Inference cost =
+  (agents ÷ 2) × sub_rounds × 2 (integer division; odd agent sits out).
+- `log_window: N` (scenario-level top-level key, int ≥ 1, #907) — trims the
+  conversation log passed to PROMPTS to the last N entries; persistence, replay,
+  and export keep the full log. This is the **information-asymmetry lever**: it is
+  the retry lever for the 2026-07-06 digest lesson that a telephone-game decay
+  experiment needs predecessor-only visibility (`log_window: 1` approximates it).
 - Plain YAML only — no markdown fences in the file.
 
 Inference budget — compute BEFORE writing each file:
@@ -137,6 +190,7 @@ Inference budget — compute BEFORE writing each file:
 ```
 per round: speak_all = agents | speak_each = agents × sub_rounds
            vote = agents     | choose = agents × 2 (round_robin) / agents
+           reflect = agents  | whisper = (agents/2) × sub_rounds × 2
            code phases (assign / score_calc / eliminate / summarize /
            event_inject) = 0 | conditional = max(then, else)
 total = per-round sum × rounds   →  target ≤ 50 (hard block > 100)
@@ -190,15 +244,24 @@ comment per scenario:
 | (b) interaction | Agents react to each other; votes track content | Parallel monologues |
 | (c) breakdown_free | No format breaks, language drift, or nonsense loops | Frequent breakdowns |
 | (d) humor | Genuinely funny lines a human would quote | Flat or incoherent |
+| (e) development | The situation, relationships, or choices genuinely move across rounds; late rounds couldn't be predicted from round 1 | Each round replays round 1 (one-note gimmick repetition) |
+
+**Development (e) is UNIVERSAL** — score it for *every* scenario (unlike humor,
+which is category-gated below), on the same 1–5 scale. `null` is allowed only
+for a single-round scenario (nothing can develop across one round; the digest
+renders `–`). In this skill development is column **(e) after humor**; the
+sibling `/scenario-refine` journal renders it as **(d) before payoff** — the
+axes are keyed by NAME (`development`), not by letter, so the two orders are
+intentionally different.
 
 **Category-aware (d):** humor is the right axis for a comedy-family
 scenario, but a scenario whose Step 1.5 axis rotated to a non-`creative`
 category (`game_theory` / `experimental` / `social_psychology` / `ethics`)
 should NOT be penalized for not being funny — that would teach the loop to
 avoid the diversity the census requested. For those, score (d) `null` (the
-digest renders `–`) and judge the scenario on (a)–(c) plus whether it
-delivers its category's intended payoff (a real dilemma, a believable
-experiment). Note this in the comment.
+digest renders `–`) and judge the scenario on (a)–(c) + (e) development plus
+whether it delivers its category's intended payoff (a real dilemma, a
+believable experiment). Note this in the comment.
 
 Failed runs get **no scores** — record the status and the wrapper's
 `error` (skim the partial transcript only to classify the failure for
@@ -208,7 +271,8 @@ the comment). The judge is a quality filter, not a safety screen.
 
 1. Write the results JSON (schema documented in `append_digest.py`'s
    docstring: date / model / notes / per-scenario id, name, theme, **axis**,
-   yaml, run_log, status, attempts, duration_sec, scores, comment, error) to
+   yaml, run_log, status, attempts, duration_sec, scores (5 axes: coherence /
+   interaction / breakdown_free / humor / development), comment, error) to
    a temp file. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
    `"elimination / creative"`) so cross-night rotation can read it back.
 2. ```bash
@@ -219,11 +283,33 @@ the comment). The judge is a quality filter, not a safety screen.
 3. Verify: `grep -c 'factory-digest:' data/factory/digest.md` must print
    `2` (both markers survived), and the new `## <DATE>` section exists.
 
+## Step 5.5 — Propose lessons (inbox)
+
+If the night **VALIDATED** or **REFUTED** a design lesson not already covered
+by a PLAYBOOK rule — or produced strong new evidence that should change a
+rule's status — append a dated, concept-level entry to
+`data/factory/lessons-inbox.md` (gitignored; create it with a one-line header
+if absent). Entry shape:
+
+```
+- <DATE> [candidate-status] <one-two sentence rule> (evidence: <ids>)
+```
+
+**Grep-before-append**: if an entry for the same lesson *concept* already
+exists, append `re-observed: <DATE>` to that entry's line instead of
+duplicating. Plain Read / Grep / Write — no helper script.
+
+The inbox is a **PROPOSAL queue only** — the nightly cycle NEVER edits
+`PLAYBOOK.md`. Promotion is human-driven (§ Lessons promotion).
+
 ## Step 6 — Report
 
 Summarize for the user: per-scenario status + scores + best line of the
 night, failures with one-line causes, and where the artifacts live
-(`scenarios/<DATE>/`, `runs/<DATE>/`, the appended digest section).
+(`scenarios/<DATE>/`, `runs/<DATE>/`, the appended digest section; the
+`lessons-inbox.md` entries if any were proposed in Step 5.5). If the index was
+missing (Step 1 fallback), surface the degraded-dedup notice with the
+`--rebuild-index` command.
 `data/factory/digest.md` is a gitignored local log — the new section is
 appended in place and is NOT committed or pushed. Only *promoting* a
 winning scenario (bundled preset or shared-scenario gallery; see
@@ -248,6 +334,19 @@ via an `/orchestrate` PR either way:
   low-coherence / low-humor runs). Full bridge: `docs/gallery/README.md`
   § "Promoting from the scenario factory".
 
+## Lessons promotion
+
+`data/factory/lessons-inbox.md` (Step 5.5) → `PLAYBOOK.md` happens in a
+human-driven `/orchestrate` PR — same pattern as scenario promotion. The PR:
+
+- **Compresses** each promoted entry to PLAYBOOK's concept-level register
+  (invariant + why + evidence pointer; see the PLAYBOOK header discipline,
+  soft cap ~150 lines) — never paste inbox prose verbatim.
+- After merge, an **operator step** CLEARS promoted / duplicate / stale entries
+  from the local inbox. The PR itself can't do this — the inbox is a gitignored
+  local file, invisible to the merge — mirroring how the gitignored digest is
+  maintained locally rather than by the PR.
+
 ## Scheduling (how the unattended run works)
 
 - **The skill never self-registers** (see Non-goals "No scheduled
@@ -261,9 +360,10 @@ via an `/orchestrate` PR either way:
   A *manual* `/scenario-factory` behaves identically. (Promoting a winning
   scenario is a separate `/orchestrate` PR — see § Promotion.)
 - **Run in the user's main checkout — not a throwaway worktree.** The
-  gitignored digest, `scenarios/<DATE>/`, and `runs/<DATE>/` must persist
-  between nights so Step 1 dedup reads the full history; a fresh per-run
-  worktree would start with an empty bootstrapped digest and lose that
+  gitignored digest, its `digest-index.jsonl` sidecar, `scenarios/<DATE>/`,
+  and `runs/<DATE>/` must persist between nights so the full history stays
+  available — Step 1 dedup reads the index (rebuilt from the digest); a fresh
+  per-run worktree would start with an empty bootstrapped digest and lose that
   history. The digest being gitignored is what keeps the main working tree
   clean despite running there.
 - **Routine recipe** (Desktop → Routines → New routine):

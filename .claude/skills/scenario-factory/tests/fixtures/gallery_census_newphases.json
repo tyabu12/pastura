@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-06T00:00:00Z",
+  "scenarios": [
+    {
+      "id": "whisper_reflect_v1",
+      "title": "Whisper and reflect",
+      "category": "social_psychology",
+      "phases": ["assign", "whisper", "reflect", "vote", "summarize"]
+    },
+    {
+      "id": "whisper_only_v1",
+      "title": "Whisper only",
+      "category": "roleplay",
+      "phases": ["assign", "whisper", "speak_all", "summarize"]
+    },
+    {
+      "id": "reflect_only_v1",
+      "title": "Reflect only",
+      "category": "ethics",
+      "phases": ["speak_each", "reflect", "summarize"]
+    },
+    {
+      "id": "plain_v1",
+      "title": "Plain vote",
+      "category": "creative",
+      "phases": ["assign", "speak_all", "vote", "score_calc"]
+    }
+  ]
+}
