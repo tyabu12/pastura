@@ -35,9 +35,7 @@ struct PhaseDispatcherTests {
       case .whisper:
         #expect(try dispatcher.handler(for: phaseType) is WhisperHandler)
       case .relationshipUpdate:
-        // Handler + registration land in a later #910 commit; this arm is
-        // filled in then. Placeholder keeps the exhaustive switch compiling.
-        break
+        #expect(try dispatcher.handler(for: phaseType) is RelationshipUpdateHandler)
       }
     }
   }
