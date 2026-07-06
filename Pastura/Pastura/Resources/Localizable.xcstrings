@@ -617,6 +617,22 @@
         }
       }
     },
+    "%@: action_deltas value for '%@' must be Int, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: action_deltas value for '%2$@' must be Int, got %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: action_deltas の '%2$@' の値は Int である必要がありますが、%3$@ が指定されました"
+          }
+        }
+      }
+    },
     "%@: field '%@' must be %@, got %@" : {
       "localizations" : {
         "en" : {
@@ -645,6 +661,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: フィールド '%2$@' は Double または Int である必要がありますが、%3$@ が指定されました"
+          }
+        }
+      }
+    },
+    "%@: field 'action_deltas' must be a dictionary of Int values, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field 'action_deltas' must be a dictionary of Int values, got %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド 'action_deltas' は Int 値の辞書である必要がありますが、%2$@ が指定されました"
           }
         }
       }

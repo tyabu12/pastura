@@ -158,6 +158,18 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append("    as: \(yamlScalar(eventVariable))")
     }
 
+    // relationship_update-specific fields (#910). action_deltas keys are
+    // sorted for deterministic output (same convention as `output:`).
+    if let voteAgainst = phase.voteAgainst {
+      lines.append("    vote_against: \(voteAgainst)")
+    }
+    if let actionDeltas = phase.actionDeltas {
+      lines.append("    action_deltas:")
+      for (key, value) in actionDeltas.sorted(by: { $0.key < $1.key }) {
+        lines.append("      \(key): \(value)")
+      }
+    }
+
     return lines
   }
 

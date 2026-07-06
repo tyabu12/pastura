@@ -28,6 +28,11 @@ struct EditablePhase: Identifiable, Sendable {
   var elsePhases: [EditablePhase]
   var probability: Double?
   var eventVariable: String
+  // relationship_update config (#910). YAML-only for v1 (no editing UI in
+  // `PhaseEditorSheet`), but modelled here so a visual→YAML round-trip
+  // preserves them instead of dropping them on re-serialization.
+  var voteAgainst: Int?
+  var actionDeltas: [String: Int]
 
   // swiftlint:disable:next function_default_parameter_at_end
   init(
@@ -46,7 +51,9 @@ struct EditablePhase: Identifiable, Sendable {
     thenPhases: [EditablePhase] = [],
     elsePhases: [EditablePhase] = [],
     probability: Double? = nil,
-    eventVariable: String = ""
+    eventVariable: String = "",
+    voteAgainst: Int? = nil,
+    actionDeltas: [String: Int] = [:]
   ) {
     self.type = type
     self.prompt = prompt
@@ -64,6 +71,8 @@ struct EditablePhase: Identifiable, Sendable {
     self.elsePhases = elsePhases
     self.probability = probability
     self.eventVariable = eventVariable
+    self.voteAgainst = voteAgainst
+    self.actionDeltas = actionDeltas
   }
 
   init(from phase: Phase) {
@@ -83,6 +92,8 @@ struct EditablePhase: Identifiable, Sendable {
     self.elsePhases = phase.elsePhases?.map { EditablePhase(from: $0) } ?? []
     self.probability = phase.probability
     self.eventVariable = phase.eventVariable ?? ""
+    self.voteAgainst = phase.voteAgainst
+    self.actionDeltas = phase.actionDeltas ?? [:]
   }
 
   /// Identifies which branch of a conditional phase to target.
@@ -178,7 +189,9 @@ struct EditablePhase: Identifiable, Sendable {
       thenPhases: thenPhases.isEmpty ? nil : thenPhases.map { $0.toPhase() },
       elsePhases: elsePhases.isEmpty ? nil : elsePhases.map { $0.toPhase() },
       probability: probability,
-      eventVariable: eventVariable.isEmpty ? nil : eventVariable
+      eventVariable: eventVariable.isEmpty ? nil : eventVariable,
+      voteAgainst: voteAgainst,
+      actionDeltas: actionDeltas.isEmpty ? nil : actionDeltas
     )
   }
 }

@@ -142,4 +142,50 @@ extension ScenarioSerializerTests {
     let yaml = serializeWithDescription(description)
     #expect(try loader.load(yaml: yaml).description == description)
   }
+
+  // MARK: - relationship_update round-trip (#910)
+
+  @Test func roundTripRelationshipUpdateFullSpec() throws {
+    let scenario = Scenario(
+      id: "ru", name: "RU", description: "RU",
+      language: "ja",
+      agentCount: 2, rounds: 1, context: "C",
+      personas: [
+        Persona(name: "A", description: "A"),
+        Persona(name: "B", description: "B")
+      ],
+      phases: [
+        Phase(
+          type: .relationshipUpdate,
+          voteAgainst: -1,
+          actionDeltas: ["cooperate": 1, "betray": -2]
+        )
+      ]
+    )
+    let yaml = serializer.serialize(scenario)
+    let reloaded = try loader.load(yaml: yaml)
+    let phase = reloaded.phases[0]
+    #expect(phase.type == .relationshipUpdate)
+    #expect(phase.voteAgainst == -1)
+    #expect(phase.actionDeltas == ["cooperate": 1, "betray": -2])
+  }
+
+  @Test func omitsRelationshipUpdateRulesWhenNil() throws {
+    let scenario = Scenario(
+      id: "ru", name: "RU", description: "RU",
+      language: "ja",
+      agentCount: 2, rounds: 1, context: "C",
+      personas: [
+        Persona(name: "A", description: "A"),
+        Persona(name: "B", description: "B")
+      ],
+      phases: [Phase(type: .relationshipUpdate)]
+    )
+    let yaml = serializer.serialize(scenario)
+    #expect(!yaml.contains("vote_against"))
+    #expect(!yaml.contains("action_deltas"))
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.phases[0].voteAgainst == nil)
+    #expect(reloaded.phases[0].actionDeltas == nil)
+  }
 }

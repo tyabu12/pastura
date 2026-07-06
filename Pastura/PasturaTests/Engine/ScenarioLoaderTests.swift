@@ -550,6 +550,54 @@ struct ScenarioLoaderTests {
     }
   }
 
+  // MARK: - relationship_update phase parsing (#910)
+
+  @Test func parsesRelationshipUpdateFullSpec() throws {
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: relationship_update
+            vote_against: -1
+            action_deltas:
+              cooperate: 1
+              betray: -2
+        """)
+    let scenario = try loader.load(yaml: yaml)
+    let phase = scenario.phases[0]
+    #expect(phase.type == .relationshipUpdate)
+    #expect(phase.voteAgainst == -1)
+    #expect(phase.actionDeltas == ["cooperate": 1, "betray": -2])
+  }
+
+  @Test func parsesRelationshipUpdateMinimalSpec() throws {
+    // Both rule fields are optional at parse time; the shape check that
+    // requires ≥1 rule lives at the validator gate (#910 later commit).
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: relationship_update
+        """)
+    let scenario = try loader.load(yaml: yaml)
+    let phase = scenario.phases[0]
+    #expect(phase.type == .relationshipUpdate)
+    #expect(phase.voteAgainst == nil)
+    #expect(phase.actionDeltas == nil)
+  }
+
+  @Test func throwsOnNonIntActionDeltaValue() {
+    // Strict per #130: a String delta value is a typo, not a coercion.
+    let yaml = makeMinimalYAML(
+      phasesBlock: """
+        phases:
+          - type: relationship_update
+            action_deltas:
+              cooperate: "one"
+        """)
+    #expect(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+  }
+
   // MARK: - Test Helpers
 
   func makeYAMLWithAssignTarget(_ target: String) -> String {
