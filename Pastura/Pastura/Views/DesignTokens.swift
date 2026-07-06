@@ -73,6 +73,11 @@ enum PasturaPalette {
   static let screenBackground = PasturaColorValue(hex: 0xFCFAF4)
   /// Speech bubble background.
   static let bubbleBackground = PasturaColorValue(hex: 0xFFFFFF)
+  /// Whisper (密談) speech bubble background — a hushed, moss-tinted
+  /// off-white that reads as distinct from the pure-white public bubble
+  /// without shouting. Paired with the pair-attribution header in
+  /// `AgentOutputRow`'s `.whisper` variant (#908 PR2).
+  static let whisperBubble = PasturaColorValue(hex: 0xEBEEE1)
   /// Promo / banner background.
   static let promoBackground = PasturaColorValue(hex: 0xFBFAF2)
   /// Promo / banner border.
