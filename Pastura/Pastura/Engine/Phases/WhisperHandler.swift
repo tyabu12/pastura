@@ -123,6 +123,7 @@ nonisolated struct WhisperHandler: PhaseHandler {
     promptBuilder.injectAssigned(into: &variables, personaName: speaker.name)
     promptBuilder.injectNotes(into: &variables, personaName: speaker.name)
     promptBuilder.injectWhispers(into: &variables, personaName: speaker.name)
+    promptBuilder.injectRelationships(into: &variables, personaName: speaker.name)
     // ALWAYS append a partner-naming context block after expanding the user
     // template: the default template never names the partner, and a custom
     // author prompt may omit `{whisper_partner}` / `{whisper_exchange}`. The

@@ -82,6 +82,20 @@ nonisolated struct PromptBuilder: Sendable {
     variables["my_whispers"] = variables["whispers_\(personaName)"] ?? ""
   }
 
+  /// Injects the current speaker's `relationship_update` affinity summary under
+  /// the `{relationships}` key.
+  ///
+  /// ``RelationshipUpdateHandler`` stores each agent's prose read on the others
+  /// under a per-persona key `relationships_<name>` (#910); this reads that back
+  /// for the speaker so custom user-prompt templates can reference
+  /// `{relationships}`. The `relationships_` prefix is a reserved namespace,
+  /// mirroring `notes_` (see ``injectNotes(into:personaName:)``). Missing summary
+  /// resolves to empty string (not a literal placeholder), matching
+  /// `injectNotes`'s miss posture.
+  func injectRelationships(into variables: inout [String: String], personaName: String) {
+    variables["relationships"] = variables["relationships_\(personaName)"] ?? ""
+  }
+
   // MARK: - Scoreboard
 
   /// Serializes a score dictionary into a compact JSON-like string for template injection.
@@ -177,36 +191,11 @@ nonisolated struct PromptBuilder: Sendable {
       \(persona.description)
       """)
 
-    // Private reflect memo (#907): surface the agent's own prior-round note back
-    // to itself only. Other agents never see it (it is not in the conversation
-    // log), so the header stresses its privacy.
-    if let note = state.variables["notes_\(persona.name)"], !note.isEmpty {
-      let notesHeader = pickLanguage(
-        language,
-        ja: "## あなたの内心メモ（他の参加者には見えません）",
-        en: "## Your Private Notes (invisible to other participants)")
-      sections.append(
-        """
-        \(notesHeader)
-        \(note)
-        """)
-    }
-
-    // Private whisper channel (#908): surface the agent's own pair-private
-    // exchange back to itself only. Everyone except the whisper partner is
-    // blind to it (it never enters the conversation log), so the header
-    // stresses that scope.
-    if let whispers = state.variables["whispers_\(persona.name)"], !whispers.isEmpty {
-      let whispersHeader = pickLanguage(
-        language,
-        ja: "## あなたの密談（密談相手以外には見えません）",
-        en: "## Your Private Whispers (invisible to everyone except your whisper partner)")
-      sections.append(
-        """
-        \(whispersHeader)
-        \(whispers)
-        """)
-    }
+    // Private self-knowledge sections (reflect note #907, whisper channel #908,
+    // relationship read #910) — each surfaced to only that agent. Extracted to
+    // `PromptBuilder+PrivateSections.swift` to keep this function under the
+    // body-length cap.
+    appendPrivateSections(to: &sections, persona: persona, state: state, language: language)
 
     sections.append(
       buildAnswerRules(scenario: scenario, persona: persona, phase: phase, state: state))
