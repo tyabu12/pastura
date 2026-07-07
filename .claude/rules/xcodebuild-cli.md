@@ -68,16 +68,19 @@ own `-destination` (from `sim-dest.sh`, default iPhone 17 Pro), so appending a
 second one runs the tests on **both** devices — and a failure on the extra
 device aborts the whole run (exit 65). Do **not** re-pass `-destination` to
 "override" the wrapper's simulator. To pin a **single** simulator, set the
-`PASTURA_SIM_NAME` env var (added to `sim-dest.sh` in #977), which replaces the
+`PASTURA_SIM_NAME` env var (honored by `sim-dest.sh`), which replaces the
 priority list with that one device so the wrapper emits the right lone
-`-destination`:
+`-destination`. `export` it on its own line — the leading-assignment form
+(`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips the allowlist approval
+prompt, per § "Canonical invocation":
 
 ```bash
-PASTURA_SIM_NAME="iPhone 17 Pro Max" scripts/xcodebuild.sh test …
+export PASTURA_SIM_NAME="iPhone 17 Pro Max"
+scripts/xcodebuild.sh test …
 ```
 
-(`scripts/store-shots.sh` uses this to force the 6.9″ device for App Store
-screenshots.)
+(`scripts/store-shots.sh` uses this `export` form to force the 6.9″ device for
+App Store screenshots.)
 
 ## When to use what
 
