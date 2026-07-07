@@ -83,6 +83,26 @@ struct ScenarioValidationMessageTests {
     )
   }
 
+  // MARK: Long assign-path literals (most truncation-prone in a future edit)
+
+  @Test func assignSourceGroupedForAllRendersLongLiteral() {
+    #expect(
+      ScenarioValidationMessage.assignSourceGroupedForAll(label: "Phase 7", source: "teams")
+        .localized
+        == "Phase 7: source 'teams' contains grouped values (e.g., majority/minority pairs). "
+        + "Use target: random_one to distribute these. Use target: all only for a flat list "
+        + "of strings or a single string.")
+  }
+
+  @Test func assignSourceNotGroupedForRandomOneRendersLongLiteral() {
+    #expect(
+      ScenarioValidationMessage.assignSourceNotGroupedForRandomOne(
+        label: "Phase 8", source: "roles"
+      ).localized
+        == "Phase 8: source 'roles' must be a list of grouped values "
+        + "(e.g., majority/minority pairs) when target is random_one.")
+  }
+
   // MARK: No-arg case renders via String(localized:) directly
 
   @Test func invalidYAMLFormatRendersNoArgLiteral() {
