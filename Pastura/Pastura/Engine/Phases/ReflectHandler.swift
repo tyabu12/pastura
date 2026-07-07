@@ -16,12 +16,13 @@ import Foundation
 /// identical to the other LLM phases.
 nonisolated struct ReflectHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
-  private let llmCaller = LLMCaller()
 
   func execute(
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
+    // Construct per run with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(

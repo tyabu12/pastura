@@ -39,6 +39,15 @@ nonisolated public struct PhaseContext: Sendable {
   /// `context.scenario.engineLanguage`.
   public let detector: (any LanguageDetector)?
 
+  /// Injected logging seam. Handlers emit diagnostics through this instead
+  /// of importing OSLog directly, keeping the Engine portable for the KMP
+  /// migration (#501 S0.2). Defaults to ``NoopEngineLogger`` so Engine unit
+  /// tests and the ADR-013 harness construct contexts without wiring OSLog;
+  /// production injects the OSLog-backed logger at the `SimulationRunner`
+  /// boundary (see `SimulationView`). Handlers running nested sub-phases must
+  /// forward it into the sub-context (`ConditionalHandler`).
+  public let logger: any EngineLogger
+
   public init(
     scenario: Scenario, phase: Phase,
     llm: LLMService,
@@ -46,7 +55,8 @@ nonisolated public struct PhaseContext: Sendable {
     emitter: @escaping @Sendable (SimulationEvent) -> Void,
     pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool,
     phasePath: [Int],
-    detector: (any LanguageDetector)? = nil
+    detector: (any LanguageDetector)? = nil,
+    logger: any EngineLogger = NoopEngineLogger()
   ) {
     self.scenario = scenario
     self.phase = phase
@@ -56,6 +66,7 @@ nonisolated public struct PhaseContext: Sendable {
     self.pauseCheck = pauseCheck
     self.phasePath = phasePath
     self.detector = detector
+    self.logger = logger
   }
 }
 

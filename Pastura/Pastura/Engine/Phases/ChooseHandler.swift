@@ -14,7 +14,6 @@ import Foundation
 /// the prompt, so the fallback is rare in practice.
 nonisolated struct ChooseHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
-  private let llmCaller = LLMCaller()
 
   func execute(
     context: PhaseContext,
@@ -98,6 +97,8 @@ nonisolated struct ChooseHandler: PhaseHandler {
     promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
+    // Construct per run with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
     let output = try await llmCaller.call(
       llm: context.llm, system: systemPrompt, user: userPrompt,
       agentName: persona.name,
@@ -135,6 +136,8 @@ nonisolated struct ChooseHandler: PhaseHandler {
       promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
+      // Construct per run with the injected logger (stateless value — cheap).
+      let llmCaller = LLMCaller(logger: context.logger)
       let output = try await llmCaller.call(
         llm: context.llm, system: systemPrompt, user: userPrompt,
         agentName: persona.name,
