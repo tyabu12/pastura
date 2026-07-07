@@ -113,7 +113,7 @@ AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,
 
 | # | Screen | Caption |
 |---|---|---|
-| 1 | Simulation running (speech + inner voice + live typing) | Watch agents think in real time |
+| 1 | Observation transcript (speech + inner-voice bubbles) | Every word, and the thought behind it |
 | 2 | Home — scenario list | A pasture of scenarios to run |
 | 3 | Visual scenario editor | Write your own world, no code needed |
 | 4 | Vote / score results | Votes, scores, and the reveal |
