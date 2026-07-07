@@ -1,3 +1,8 @@
+---
+paths:
+  - "Pastura/Pastura/**/*.swift"
+---
+
 # Navigation Rules
 
 The app's root is a **four-tab bottom bar** (`RootTabView`, inside
