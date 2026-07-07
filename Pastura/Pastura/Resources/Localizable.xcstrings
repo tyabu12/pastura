@@ -7148,6 +7148,36 @@
         }
       }
     },
+    "assign-source-nonempty: this 'assign' phase's source resolves to an empty list, so nothing is assigned (or every agent gets an empty value) — add at least one entry to the referenced source data." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "assign-source-nonempty: この 'assign' フェーズのソースが空のリストに解決されるため、何も割り当てられません（またはすべてのエージェントが空の値になります）— 参照元データに少なくとも1件のエントリを追加してください。"
+          }
+        }
+      }
+    },
+    "bare-identifier-looks-like-literal: the operand '%@' matches a persona name but is unquoted, so the condition evaluator reads it as an undefined identifier and the comparison is always false — wrap it in double quotes to compare against the name." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bare-identifier-looks-like-literal: オペランド '%@' はペルソナ名と一致しますが引用符で囲まれていないため、条件評価器はこれを未定義の識別子として読み取り、比較は常に false になります — 名前と比較するにはダブルクォートで囲んでください。"
+          }
+        }
+      }
+    },
+    "choose-should-declare-options: this 'choose' phase has no 'options' list, so the agent's action is unconstrained free text — add an 'options' list to steer the choice." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "choose-should-declare-options: この 'choose' フェーズには 'options' リストがないため、エージェントの行動は制約のない自由記述になります — 選択を誘導するために 'options' リストを追加してください。"
+          }
+        }
+      }
+    },
     "disabled" : {
       "localizations" : {
         "ja" : {
@@ -7164,6 +7194,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "例: max_score >= 10 && active_count > 1"
+          }
+        }
+      }
+    },
+    "eliminate-after-vote: this 'eliminate' runs before every 'vote' phase, so it acts on the previous round's stale tally — move it after the 'vote' phase." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eliminate-after-vote: この 'eliminate' はすべての 'vote' フェーズより前に実行されるため、前のラウンドの古い集計に基づいて動作します — 'vote' フェーズの後に移動してください。"
+          }
+        }
+      }
+    },
+    "eliminate-needs-vote: an 'eliminate' phase does nothing without a 'vote' phase in the same round — add a 'vote' phase before it." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eliminate-needs-vote: 'eliminate' フェーズは同じラウンドに 'vote' フェーズがないと何もしません — その前に 'vote' フェーズを追加してください。"
           }
         }
       }
@@ -7194,6 +7244,16 @@
         }
       }
     },
+    "event-reactive-needs-event-inject: 'event_reactive' scoring needs an earlier 'event_inject' phase with a dictionary event source and the default 'as: current_event', or the favored action is never scored — fix the 'event_inject' before this 'score_calc'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "event-reactive-needs-event-inject: 'event_reactive' スコアリングには、辞書型のイベントソースとデフォルトの 'as: current_event' を持つ、より前の 'event_inject' フェーズが必要です。ないと優先行動が採点されません — この 'score_calc' より前の 'event_inject' を修正してください。"
+          }
+        }
+      }
+    },
     "llama_decode failed (error %lld)" : {
       "localizations" : {
         "en" : {
@@ -7206,6 +7266,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "llama_decode に失敗しました（エラー %lld）"
+          }
+        }
+      }
+    },
+    "log-window-below-agent-count: 'log_window' is smaller than the agent count while a 'speak_each' phase is present, so same-round earlier speakers vanish from the addressee pool — raise 'log_window' to at least the agent count." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "log-window-below-agent-count: 'speak_each' フェーズが存在するのに 'log_window' がエージェント数より小さいため、同一ラウンド内の先行発言者が宛先候補から消えてしまいます — 'log_window' をエージェント数以上に引き上げてください。"
+          }
+        }
+      }
+    },
+    "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pd-needs-round-robin-choose: 'prisoners_dilemma' スコアリングには、ペアリングを埋めるためラウンド内のより前にラウンドロビン形式の 'choose' フェーズが必要です。ないとスコアが変化しません — この 'score_calc' より前に追加してください。"
+          }
+        }
+      }
+    },
+    "per-persona-placeholder-in-summarize: the per-persona placeholder '{%@}' is never populated in a 'summarize' phase (summaries aren't per-agent), so it leaks literally — remove it or move it to an LLM phase." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per-persona-placeholder-in-summarize: エージェントごとのプレースホルダー '{%@}' は 'summarize' フェーズでは決して埋められないため（サマリーはエージェント単位ではありません）、そのままリークします — 削除するか LLM フェーズに移動してください。"
+          }
+        }
+      }
+    },
+    "placeholder-phase-availability: the placeholder '{%@}' is only populated by a producing phase, but none runs earlier in the phase list, so it resolves to an empty value — move the producing phase before this one." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "placeholder-phase-availability: プレースホルダー '{%@}' は生成元フェーズによってのみ埋められますが、フェーズリスト内でそれより前に実行されるものがないため、空の値に解決されます — 生成元フェーズをこのフェーズより前に移動してください。"
+          }
+        }
+      }
+    },
+    "single-quoted-literal-in-condition: the operand %@ is single-quoted, but the condition evaluator treats only double quotes as string literals — it is read as an undefined identifier and the comparison is always false. Use double quotes instead." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "single-quoted-literal-in-condition: オペランド %@ はシングルクォートで囲まれていますが、条件評価器はダブルクォートのみを文字列リテラルとして扱います — 未定義の識別子として読み取られ、比較は常に false になります。代わりにダブルクォートを使用してください。"
+          }
+        }
+      }
+    },
+    "summarize-pairing-placeholders: this 'summarize' template references {agent1}-family placeholders, but no round-robin 'choose' phase runs earlier in the round, so the placeholders leak literally into the summary — add a round-robin 'choose' phase before this 'summarize', or remove the pairing placeholders." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "summarize-pairing-placeholders: この 'summarize' テンプレートは {agent1} 系のプレースホルダーを参照していますが、ラウンド内のより前にラウンドロビン形式の 'choose' フェーズが実行されないため、プレースホルダーがそのままサマリーにリークします — この 'summarize' より前にラウンドロビン形式の 'choose' フェーズを追加するか、ペアリング用プレースホルダーを削除してください。"
           }
         }
       }
@@ -7226,12 +7346,52 @@
         }
       }
     },
+    "unknown-condition-identifier: '%@' is not a known condition variable (a derived variable, score, persona, extraData key, or engine-injected name), so it resolves to no value at runtime — check for a typo." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unknown-condition-identifier: '%@' は既知の条件変数（派生変数、スコア、ペルソナ、extraData キー、エンジン注入名のいずれか）ではないため、実行時に値が解決されません — タイプミスがないか確認してください。"
+          }
+        }
+      }
+    },
+    "unresolvable-placeholder: the placeholder '{%@}' is supplied by no phase, so it leaks into the LLM prompt verbatim — check for a typo or remove it." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unresolvable-placeholder: プレースホルダー '{%@}' はどのフェーズからも供給されないため、そのまま LLM プロンプトにリークします — タイプミスがないか確認するか削除してください。"
+          }
+        }
+      }
+    },
+    "vote-tally-needs-vote: 'vote_tally' scoring has no 'vote' phase earlier in the round, so it scores nothing or re-adds a stale tally — add a 'vote' phase before this 'score_calc'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vote-tally-needs-vote: 'vote_tally' スコアリングにはラウンド内のより前に 'vote' フェーズがないため、何も採点しないか古い集計を再加算します — この 'score_calc' より前に 'vote' フェーズを追加してください。"
+          }
+        }
+      }
+    },
     "vs" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "vs"
+          }
+        }
+      }
+    },
+    "wordwolf-needs-assign-and-vote: 'wordwolf_judge' scoring needs both an 'assign' phase with target 'random_one' and a 'vote' phase earlier in the round, or it judges nothing — add the missing phase(s) before this 'score_calc'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wordwolf-needs-assign-and-vote: 'wordwolf_judge' スコアリングには、ラウンド内のより前にターゲット 'random_one' を持つ 'assign' フェーズと 'vote' フェーズの両方が必要です。ないと何も判定しません — 不足しているフェーズをこの 'score_calc' より前に追加してください。"
           }
         }
       }
