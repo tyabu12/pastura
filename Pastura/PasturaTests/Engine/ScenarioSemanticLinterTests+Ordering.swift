@@ -34,6 +34,18 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.lint(scenario).isEmpty)
   }
 
+  @Test func sameConditionalVoteBeforeEliminatePassesOrdering() {
+    // Regression for the ordering rules' `<=` may-run leniency: a vote and its
+    // eliminate consumer ordered inside ONE conditional branch both anchor to
+    // the conditional's top-level index. Reverting `<=` to `<` in
+    // eliminateFindings would false-fire R1b here.
+    let conditional = Phase(
+      type: .conditional, condition: "current_round >= 1",
+      thenPhases: [Phase(type: .vote), Phase(type: .eliminate)])
+    let scenario = makeScenario(agents: 2, rounds: 1, phases: [conditional])
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
   // MARK: - R1b eliminate-after-vote (warning)
 
   @Test func eliminateBeforeVoteFiresWarning() {

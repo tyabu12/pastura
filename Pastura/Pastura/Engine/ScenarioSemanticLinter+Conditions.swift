@@ -173,7 +173,7 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for a condition `ruleID`, naming the
-  /// offending operand. Catalog `ja` fill is a later item.
+  /// offending operand.
   private func conditionMessage(_ ruleID: String, token: String) -> String {
     switch ruleID {
     case "single-quoted-literal-in-condition":

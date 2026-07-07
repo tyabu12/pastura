@@ -141,7 +141,7 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for a config `ruleID` (one sentence
-  /// naming the rule + a concrete fix). Catalog `ja` fill is a later item.
+  /// naming the rule + a concrete fix).
   private func configMessage(_ ruleID: String) -> String {
     switch ruleID {
     case "choose-should-declare-options":

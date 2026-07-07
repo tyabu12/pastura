@@ -197,7 +197,7 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for an ordering `ruleID` (one sentence
-  /// naming the rule + a concrete fix). Catalog `ja` fill is a later item.
+  /// naming the rule + a concrete fix).
   private func orderingMessage(_ ruleID: String) -> String {
     switch ruleID {
     case "eliminate-needs-vote":

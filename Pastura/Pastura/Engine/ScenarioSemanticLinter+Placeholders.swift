@@ -141,6 +141,10 @@ nonisolated extension ScenarioSemanticLinter {
   /// Whether `phase`'s own type produces `token` (self-supply): a `whisper`
   /// referencing `{my_whispers}` or a `reflect` referencing `{my_notes}` reads
   /// its own in-phase value, so R11 must not gate it on an *earlier* producer.
+  ///
+  /// Belt-and-suspenders, not load-bearing: the producing phase's own index is
+  /// already in `producerIndicesForToken`, so the `<=` comparison would
+  /// self-satisfy anyway — this guard only states the intent explicitly.
   private func producerTypeMatchesPhase(_ token: String, _ phase: Phase) -> Bool {
     PlaceholderAvailability.producers(of: token)?.contains(phase.type) ?? false
   }
@@ -191,7 +195,7 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for a placeholder `ruleID`, naming the
-  /// offending `{token}`. Catalog `ja` fill is a later item.
+  /// offending `{token}`.
   private func placeholderMessage(_ ruleID: String, token: String) -> String {
     switch ruleID {
     case "unresolvable-placeholder":
