@@ -151,7 +151,8 @@ log "Planned release: version $VERSION, build $BUILD, tag $TAG"
 
 if [ "$DRY_RUN" -eq 1 ]; then
   log "--dry-run: stopping before ASC query / archive / upload (these need the"
-  log "one-time bootstrap: distribution cert + ASC app record + API key)."
+  log "one-time bootstrap: ASC app record + API key + a signed-in Xcode Apple"
+  log "ID that can sign for distribution (cloud-managed signing))."
   printf '\n--- What to Test (preview) ---\n%s\n' "$NOTES"
   exit 0
 fi
@@ -182,8 +183,8 @@ log "Archiving (Release, build $BUILD)"
 # refresh via Xcode → Settings → Accounts). A future non-interactive CI run has
 # no Xcode session and would additionally need -authenticationKeyID /
 # -authenticationKeyIssuerID / -authenticationKeyPath pointing at an ASC key
-# with App Manager+ role (the upload-only .p8 may not qualify) — out of scope
-# for the local-first flow (ADR-014).
+# with App Manager+ role (the project's pastura-release key already qualifies)
+# — out of scope for the local-first flow (ADR-014).
 xcodebuild archive \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
