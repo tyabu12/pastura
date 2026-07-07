@@ -84,6 +84,6 @@ nonisolated public struct ScenarioSemanticLinter: Sendable {
   // Placeholder-resolution rules R10–R12 live in
   // `ScenarioSemanticLinter+Placeholders.swift` (`placeholderFindings(in:)`).
 
-  // Condition-expression rules R13–R16 (later moved to a sibling file).
-  func conditionFindings(in scenario: Scenario) -> [LintFinding] { [] }
+  // Condition-expression rules R13–R16 live in
+  // `ScenarioSemanticLinter+Conditions.swift` (`conditionFindings(in:)`).
 }
