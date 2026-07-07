@@ -23,7 +23,8 @@ struct ConditionalHandlerTests {
       suspendController: SuspendController(),
       emitter: collector.emit,
       pauseCheck: pauseCheck,
-      phasePath: [0]
+      phasePath: [0],
+      turnGate: TurnFailureGate()
     )
   }
 

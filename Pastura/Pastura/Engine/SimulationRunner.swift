@@ -172,6 +172,10 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).
     let startRound: Int
     let emitter: @Sendable (SimulationEvent) -> Void
+    /// One gate per run (ADR-021): the consecutive-skip counter must span
+    /// every phase of the run, so the single instance is threaded into
+    /// every `PhaseContext`. A resumed run gets a fresh gate by design.
+    let turnGate: TurnFailureGate
   }
 
   // swiftlint:disable:next function_parameter_count
@@ -202,7 +206,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
       pauseState: pauseState, suspendController: suspendController,
-      detector: detector, logger: logger, startRound: startRound, emitter: emitter
+      detector: detector, logger: logger, startRound: startRound, emitter: emitter,
+      turnGate: TurnFailureGate()
     )
 
     // Resume from the persisted state when seeded; otherwise start fresh.
@@ -365,6 +370,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
             await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
           },
           phasePath: phasePath,
+          turnGate: ctx.turnGate,
           detector: ctx.detector,
           logger: ctx.logger
         )
