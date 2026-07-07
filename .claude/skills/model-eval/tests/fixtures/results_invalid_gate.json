@@ -1,0 +1,15 @@
+{
+  "date": "2026-07-07",
+  "model": {"profile_id": "qwen-3-4b-q4-k-m", "gguf": "Qwen3-4B-Q4_K_M"},
+  "battery": [
+    {
+      "scenario_id": "bokete", "language": "ja", "status": "ok",
+      "attempts": 1, "language_mismatches": 0, "tok_per_sec": 15.0,
+      "rubric": {"coherence": 4, "interaction": 4, "breakdown_free": 5,
+                 "development": 3, "payoff": 4, "payoff_axis": "humor"},
+      "comment": "invalid gate fixture"
+    }
+  ],
+  "differentiation": "test differentiation note",
+  "verdict": {"gate": "maybe", "notes": "invalid gate"}
+}

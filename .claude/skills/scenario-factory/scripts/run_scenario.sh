@@ -2,8 +2,13 @@
 # Crash-tolerant single-scenario runner for the /scenario-factory skill.
 #
 # usage:
-#   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec]
+#   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
 #   run_scenario.sh --classify <out.jsonl> <exit_code>
+#
+# [profile_id], when non-empty, is passed through to the harness as
+# `--profile "$PROFILE"` (selects the harness's prompt-format hints; default
+# "gemma"). Positional args, so passing a profile requires also passing
+# timeout_sec explicitly.
 #
 # Run from the repository root (Package.swift must be in the cwd).
 # Emits exactly one JSON status line on stdout. Harness stderr goes to
@@ -28,6 +33,13 @@
 #
 # --classify reruns only the classification against an existing JSONL +
 # exit code; used by tests/run_tests.sh (no Swift toolchain, no model).
+#
+# Test seam: PASTURA_HARNESS_BIN, when set, skips `swift build` entirely and
+# uses that path as BIN instead of the `.build/...` show-bin-path lookup —
+# used by the /model-eval self-tests to canary this script's harness argv
+# (e.g. the `--profile` passthrough above) with a fake shell "harness" and no
+# Swift toolchain. The BIN-not-executable guard still applies against the
+# overridden path.
 
 set -u
 
@@ -36,7 +48,7 @@ RUN_START_WAIT_SEC=90   # run_start poll budget; build is done beforehand
 
 usage() {
   cat >&2 <<'EOF'
-usage: run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec]
+usage: run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
        run_scenario.sh --classify <out.jsonl> <exit_code>
 EOF
   exit 2
@@ -108,11 +120,12 @@ if [ "${1:-}" = "--classify" ]; then
   exit 0
 fi
 
-[ $# -ge 3 ] && [ $# -le 4 ] || usage
+[ $# -ge 3 ] && [ $# -le 5 ] || usage
 SCENARIO=$1
 MODEL=$2
 OUT=$3
 TIMEOUT=${4:-600}
+PROFILE="${5:-}"
 [ -f Package.swift ] || { echo "run from the repository root (Package.swift not found)" >&2; exit 2; }
 
 mkdir -p "$(dirname "$OUT")"
@@ -120,12 +133,17 @@ STDERR_LOG="${OUT%.jsonl}.stderr.log"
 
 # Build first so the run_start poll below measures the harness, not the
 # compiler. A build failure is an environment problem, not a run failure.
-if ! BUILD_OUT=$(swift build 2>&1); then
-  emit "config_error" 1 "$SCENARIO" "$OUT" null null \
-    "swift build failed: $(printf '%s' "$BUILD_OUT" | tail -3 | tr '\n' ' ')"
-  exit 0
+# Skipped entirely under the PASTURA_HARNESS_BIN test seam (see header).
+if [ -n "${PASTURA_HARNESS_BIN:-}" ]; then
+  BIN="$PASTURA_HARNESS_BIN"
+else
+  if ! BUILD_OUT=$(swift build 2>&1); then
+    emit "config_error" 1 "$SCENARIO" "$OUT" null null \
+      "swift build failed: $(printf '%s' "$BUILD_OUT" | tail -3 | tr '\n' ' ')"
+    exit 0
+  fi
+  BIN="$(swift build --show-bin-path)/pastura-harness"
 fi
-BIN="$(swift build --show-bin-path)/pastura-harness"
 if [ ! -x "$BIN" ]; then
   # Guard against bin-path/config drift — a missing binary must read as an
   # environment problem, not get misattributed to a #253 crash.
@@ -134,8 +152,9 @@ if [ ! -x "$BIN" ]; then
   exit 0
 fi
 
-"$BIN" --scenario "$SCENARIO" --model "$MODEL" --out "$OUT" \
-  --timeout "$TIMEOUT" --quiet 2>"$STDERR_LOG" &
+ARGS=(--scenario "$SCENARIO" --model "$MODEL" --out "$OUT" --timeout "$TIMEOUT" --quiet)
+if [ -n "$PROFILE" ]; then ARGS+=(--profile "$PROFILE"); fi
+"$BIN" "${ARGS[@]}" 2>"$STDERR_LOG" &
 PID=$!
 
 # Fast-abort: run_start (with the inference estimate) is written before

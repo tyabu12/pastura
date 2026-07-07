@@ -1,0 +1,3 @@
+{"type":"run_start","run_id":"20260707-000001-bbbb","scenario_id":"word_wolf","language":"ja","model":"qwen-3-4b-q4-k-m","estimated_inferences":3}
+{"type":"event","event":"inference_started","agent":"A","t":0.5}
+{"type":"event","event":"inference_comp

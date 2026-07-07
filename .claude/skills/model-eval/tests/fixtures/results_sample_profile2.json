@@ -1,0 +1,15 @@
+{
+  "date": "2026-07-07",
+  "model": {"profile_id": "gemma-4-e2b-q4-k-m", "gguf": "gemma-4-E2B-it-Q4_K_M"},
+  "battery": [
+    {
+      "scenario_id": "bokete", "language": "ja", "status": "ok",
+      "attempts": 1, "language_mismatches": 0, "tok_per_sec": 9.5,
+      "rubric": {"coherence": 5, "interaction": 4, "breakdown_free": 5,
+                 "development": 4, "payoff": 5, "payoff_axis": "humor"},
+      "comment": "second profile fixture"
+    }
+  ],
+  "differentiation": "second profile differentiation",
+  "verdict": {"gate": "borderline", "notes": "second profile verdict"}
+}

@@ -1,0 +1,5 @@
+{"type":"run_start","run_id":"20260707-000000-aaaa","scenario_id":"bokete","language":"ja","model":"qwen-3-4b-q4-k-m","estimated_inferences":2}
+{"type":"event","event":"inference_completed","agent":"A","token_count":100,"duration_seconds":5.0,"t":5.0}
+{"type":"event","event":"inference_completed","agent":"B","token_count":50,"duration_seconds":5.0,"t":10.0}
+{"type":"event","event":"language_mismatch","agent":"A","t":10.5}
+{"type":"run_end","run_id":"20260707-000000-aaaa","status":"ok","attempts":2,"duration_sec":11.0,"error":null}
