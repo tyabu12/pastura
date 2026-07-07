@@ -39,7 +39,7 @@ Copy is ready; these are the gates around it. Not all are in this repo's scope.
 
 ### Ordering / verification gates (this task surfaced these)
 
-- [ ] **`TARGETED_DEVICE_FAMILY` narrowed `"1,2"` → `"1"` (iPhone-only) — merged BEFORE the release archive.** Otherwise ASC still requires 13″ iPad screenshots. (Separate Swift PR, via `/orchestrate`.)
+- [x] **`TARGETED_DEVICE_FAMILY` narrowed `"1,2"` → `"1"` (iPhone-only) — merged BEFORE the release archive.** Otherwise ASC still requires 13″ iPad screenshots. (Separate Swift PR, via `/orchestrate` — #984.)
 - [ ] After the first build upload, confirm the ASC-computed device list matches the description's "(iPhone 15 Pro and newer)" parenthetical; adjust the copy if the real `UIRequiredDeviceCapabilities` list differs (#233).
 - [ ] LP requirement drift fixed on the `web/` side before submission — LP currently says iOS 17 / 8 GB, contradicting the store listing's iOS 18 / 6.5 GB (#966).
 
