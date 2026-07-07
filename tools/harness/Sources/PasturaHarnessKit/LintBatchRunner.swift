@@ -86,7 +86,8 @@ package struct LintFileReport: Sendable {
         case .warning: sev = "warning"
         case .info: sev = "info"
         }
-        lines.append("    [\(sev)] \(finding.ruleID): \(finding.message)")
+        // finding.message already leads with the ruleID — don't print it twice.
+        lines.append("    [\(sev)] \(finding.message)")
       }
     }
     return lines.joined(separator: "\n")

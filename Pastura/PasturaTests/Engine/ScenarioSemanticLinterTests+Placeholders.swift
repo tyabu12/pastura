@@ -40,6 +40,26 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.lint(scenario).isEmpty)
   }
 
+  @Test func sameConditionalProducerBeforeConsumerPassesR11() {
+    // Regression (gallery kasei_sanso_touban): an `event_inject` and its
+    // consumer sit in the SAME conditional branch, producer first. Both anchor
+    // to the conditional's top-level index, so R11's comparison must accept
+    // same-index producers (`<=`, may-run leniency) or this false-positives.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .vote, prompt: "Vote"),
+        Phase(
+          type: .conditional, condition: "current_round >= 1",
+          thenPhases: [Phase(type: .summarize, template: "done")],
+          elsePhases: [
+            Phase(type: .eventInject),
+            Phase(type: .speakAll, prompt: "It got worse: {current_event}")
+          ])
+      ])
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
   @Test func customEventVariableReferencedDownstreamPassesR10() {
     // A custom `event_inject` `as:` name is resolvable downstream — known (no
     // R10) and, placed before the consumer, ordered correctly (no R11).

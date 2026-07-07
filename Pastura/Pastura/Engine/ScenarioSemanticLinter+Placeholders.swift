@@ -74,9 +74,14 @@ nonisolated extension ScenarioSemanticLinter {
     // R11: known, but producer-gated and no producer runs at an earlier index.
     // Self-supplied tokens (a whisper's `{my_whispers}`, a reflect's
     // `{my_notes}`) are in the phase's own supplied set → never ordered-wrong.
+    // `<=` (not `<`): a producer nested in a `conditional` branch anchors to the
+    // conditional's index, so a consumer sub-phase ordered after it in the SAME
+    // conditional shares that index (gallery kasei_sanso_touban: event_inject →
+    // speak_all inside one else-branch). Same-index counts as satisfied — the
+    // may-run leniency the ordering rules already apply (`<= idx` there).
     if let producers = producerIndicesForToken(token, in: scenario),
       !producerTypeMatchesPhase(token, phase),
-      !producers.contains(where: { $0 < index }) {
+      !producers.contains(where: { $0 <= index }) {
       return placeholderLintFinding("placeholder-phase-availability", .warning, token, index)
     }
     return nil

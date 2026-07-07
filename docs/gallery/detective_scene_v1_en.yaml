@@ -75,8 +75,8 @@ phases:
     then:
       - type: summarize
         template: >
-          🔎 Decisive evidence! At least 3 of the 5 named {vote_winner}
-          ({vote_results}). By majority agreement, {vote_winner} is declared
+          🔎 Decisive evidence! The votes converged ({vote_results}).
+          By majority agreement, the top-voted suspect is declared
           the culprit.
     else:
       - type: speak_each
@@ -90,5 +90,5 @@ phases:
       - type: summarize
         template: >
           ⚖️ Not quite conclusive... The first vote split ({vote_results}),
-          and even after rebuttals the leading suspicion still points to
-          {vote_winner}. The truth remains in the dark...
+          and even after rebuttals the suspicion still points at the
+          top-voted suspect. The truth remains in the dark...
