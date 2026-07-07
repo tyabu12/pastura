@@ -123,11 +123,17 @@ struct ScenarioSummaryRow: View {
 
 /// The badge shown next to a scenario title. Each tab surfaces a subset:
 /// Home shows ``preset`` / ``update``; Shared Scenarios shows ``installed`` /
-/// ``update``.
-nonisolated enum ScenarioBadge {
+/// ``update`` / ``updateRequired``.
+nonisolated enum ScenarioBadge: Equatable {
   case preset
   case installed
   case update
+  /// The scenario needs a newer engine than this build provides (ADR-020
+  /// D2/D3) — surfaced by Browse on an incompatible, non-tappable (dimmed)
+  /// card in place of the install/update badges. A distinct warning colour +
+  /// an App Store deep-link are deferred to the first post-baseline release
+  /// that can actually grey a row (ADR-020 § deferred scope).
+  case updateRequired
 
   /// Localized badge label.
   var label: String {
@@ -135,15 +141,17 @@ nonisolated enum ScenarioBadge {
     case .preset: return String(localized: "Preset")
     case .installed: return String(localized: "Installed")
     case .update: return String(localized: "Update")
+    case .updateRequired: return String(localized: "Update app")
     }
   }
 
-  /// Visual emphasis. The "this scenario changed" `update` badge uses the
-  /// accent tint; the provenance badges (`preset` / `installed`) are quieter.
+  /// Visual emphasis. The "this scenario changed" `update` and the
+  /// "your app is too old" `updateRequired` badges use the accent tint; the
+  /// provenance badges (`preset` / `installed`) are quieter.
   var style: ScenarioBadgeStyle {
     switch self {
     case .preset, .installed: return .secondary
-    case .update: return .tint
+    case .update, .updateRequired: return .tint
     }
   }
 }

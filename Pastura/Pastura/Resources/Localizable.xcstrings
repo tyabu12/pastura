@@ -4180,6 +4180,16 @@
         }
       }
     },
+    "Needs a newer version of Pastura to run." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行にはより新しいバージョンの Pastura が必要です。"
+          }
+        }
+      }
+    },
     "Network error: %@" : {
       "localizations" : {
         "ja" : {
@@ -6374,6 +6384,16 @@
         }
       }
     },
+    "This scenario needs a newer version of Pastura. Update the app to run it." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このシナリオの実行にはより新しいバージョンの Pastura が必要です。アプリを更新してください。"
+          }
+        }
+      }
+    },
     "Today" : {
       "localizations" : {
         "ja" : {
@@ -6596,12 +6616,32 @@
         }
       }
     },
+    "Update app" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリを更新"
+          }
+        }
+      }
+    },
     "Update available from Shared Scenarios" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "共有シナリオから更新が利用可能"
+          }
+        }
+      }
+    },
+    "Update required" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アップデートが必要です"
           }
         }
       }

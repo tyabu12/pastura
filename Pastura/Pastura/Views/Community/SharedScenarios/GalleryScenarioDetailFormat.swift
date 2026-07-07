@@ -46,4 +46,43 @@ enum GalleryScenarioDetailFormat {
     default: return nil
     }
   }
+
+  /// Alert content for a **non-navigating** install outcome, or `nil` for the
+  /// navigating ones (`.installed` / `.updated`, which push to the local copy
+  /// instead of alerting). Extracted from the View so the copy — including the
+  /// ADR-020 D5 `.updateRequired` forward-guidance (deliberately *not* a
+  /// "download"/"parse" dead-end) — is unit-testable without rendering.
+  static func installAlert(
+    for outcome: SharedScenariosViewModel.TryOutcome
+  ) -> OutcomeAlert? {
+    switch outcome {
+    case .installed, .updated:
+      return nil
+    case .conflict(let existingName, _):
+      return OutcomeAlert(
+        title: String(localized: "Cannot install"),
+        message: String(
+          format: String(
+            localized:
+              "A scenario named “%@” already uses this id. Delete or rename it first, then try again."
+          ),
+          existingName))
+    case .hashMismatch:
+      return OutcomeAlert(
+        title: String(localized: "Integrity check failed"),
+        message: String(
+          localized:
+            "The downloaded scenario does not match its expected signature. The gallery may have been updated. Pull to refresh and try again."
+        ))
+    case .networkError(let description):
+      // description is a runtime error string from the network layer — not wrapped.
+      return OutcomeAlert(title: String(localized: "Download failed"), message: description)
+    case .updateRequired:
+      return OutcomeAlert(
+        title: String(localized: "Update required"),
+        message: String(
+          localized:
+            "This scenario needs a newer version of Pastura. Update the app to run it."))
+    }
+  }
 }

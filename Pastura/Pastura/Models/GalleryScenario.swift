@@ -113,6 +113,22 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   /// break those older installs.
   public let language: String?
 
+  /// The minimum `ENGINE_SCHEMA_VERSION` this scenario's backing YAML
+  /// requires (ADR-020 D3 declared escape hatch), for capability-derived
+  /// gaps the automatic `phases`⊄`PhaseType.allCases` gate can't catch —
+  /// e.g. a semantic change to an existing phase's meaning rather than a
+  /// wholly new phase kind.
+  ///
+  /// Optional + lenient decode (absent → `nil`) for the same forward-compat
+  /// reason as ``agentCount`` / ``rounds`` / ``phases`` / ``language``: an
+  /// old cached `gallery.json` — or an older app reading a newer feed —
+  /// predates this key and must still decode. At baseline every current
+  /// entry decodes to `nil` (unconstrained); the value is only set,
+  /// author-raised or tooling-computed, once a post-baseline feature
+  /// requires a specific engine floor. A future contributor making this
+  /// required would break older installs.
+  public let minEngineVersion: Int?
+
   /// The language to filter / group this entry by, defaulting an absent
   /// ``language`` to `"ja"`.
   ///
@@ -152,7 +168,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     agentCount: Int? = nil,
     rounds: Int? = nil,
     phases: [String]? = nil,
-    language: String? = nil
+    language: String? = nil,
+    minEngineVersion: Int? = nil
   ) {
     self.id = id
     self.title = title
@@ -168,6 +185,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     self.rounds = rounds
     self.phases = phases
     self.language = language
+    self.minEngineVersion = minEngineVersion
   }
 
   // Explicit CodingKeys so the JSON snake_case ↔ Swift camelCase mapping is
@@ -185,6 +203,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     case rounds
     case phases
     case language
+    case minEngineVersion = "min_engine_version"
     case yamlURL = "yaml_url"
     case yamlSHA256 = "yaml_sha256"
     case addedAt = "added_at"

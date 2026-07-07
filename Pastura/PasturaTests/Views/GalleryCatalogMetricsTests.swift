@@ -57,6 +57,8 @@ struct GalleryCatalogMetricsTests {
   @Test func listRhythmUnchanged() {
     #expect(GalleryCatalogMetrics.listSpacing == 12)
     #expect(GalleryCatalogMetrics.listHorizontalMargin == 16)
+    // ADR-020 D4 — the engine-incompatible card dim.
+    #expect(GalleryCatalogMetrics.incompatibleCardOpacity == 0.5)
   }
 
   @Test func bodySpacingUnchanged() {
@@ -201,6 +203,37 @@ struct GalleryCatalogMetricsTests {
     for phase in [PhaseType.assign, .speakAll, .speakEach, .summarize] {
       #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == nil)
     }
+  }
+
+  // MARK: - badge (compatibility-driven, ADR-020 D4)
+
+  @Test func badgeIncompatibleAlwaysUpdateRequired() {
+    // Incompatibility wins over any install/update state — the scenario can't
+    // run on this build, so provenance signals are suppressed.
+    #expect(
+      GalleryCatalogRowFormat.badge(compatible: false, hasUpdate: true, isInstalled: true)
+        == .updateRequired)
+    #expect(
+      GalleryCatalogRowFormat.badge(compatible: false, hasUpdate: false, isInstalled: false)
+        == .updateRequired)
+  }
+
+  @Test func badgeCompatibleUpdateWinsOverInstalled() {
+    #expect(
+      GalleryCatalogRowFormat.badge(compatible: true, hasUpdate: true, isInstalled: true)
+        == .update)
+  }
+
+  @Test func badgeCompatibleInstalledWhenNoUpdate() {
+    #expect(
+      GalleryCatalogRowFormat.badge(compatible: true, hasUpdate: false, isInstalled: true)
+        == .installed)
+  }
+
+  @Test func badgeCompatibleNoneWhenFresh() {
+    #expect(
+      GalleryCatalogRowFormat.badge(compatible: true, hasUpdate: false, isInstalled: false)
+        == nil)
   }
 
   // MARK: - signature glyph mapping (change-detector)
