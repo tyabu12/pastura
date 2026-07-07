@@ -127,8 +127,12 @@ cat /tmp/tf               # 0 → the key works and fastlane read fastlane/.env
 ```
 
 The skill proposes the version bump, synthesizes the "What to Test" notes for
-your review, runs `scripts/release.sh --dry-run` to show the preflight, and —
-after a mandatory confirmation — archives, uploads to TestFlight, and tags.
+your review and writes them to a temp file passed as
+`release.sh --notes-file <path>` (so your reviewed prose — not raw commit
+subjects — becomes the TestFlight changelog; absent the flag it falls back to
+commit subjects), runs `scripts/release.sh --notes-file <path> --dry-run` to
+show the preflight and the notes preview, and — after a mandatory confirmation
+— archives, uploads to TestFlight, and tags.
 
 ---
 

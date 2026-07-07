@@ -97,17 +97,36 @@ go to humans and are not content-safety-screened. Never ship raw commit
 subjects unreviewed (a subject can carry a token, internal URL, or
 unpolished text).
 
+Write the finalized notes to a temp file so `release.sh` ships them
+verbatim as the TestFlight changelog:
+
+```bash
+NOTES_FILE="$(mktemp -t pastura-release-notes)"
+cat > "$NOTES_FILE" <<'NOTES'
+<the reviewed tester-facing prose from above>
+NOTES
+```
+
+Pass `--notes-file "$NOTES_FILE"` to `release.sh` in Steps 4 and 6.
+**Without it**, the script falls back to raw commit subjects
+(`build_notes`) — exactly what this step exists to prevent — so always
+pass the file once notes are prepared. A given-but-empty/missing file is a
+hard error, so the fallback never fires silently mid-release.
+
 ## Step 4 — Dry-run the preflight
 
 ```bash
-scripts/release.sh --version X.Y.Z --dry-run
+scripts/release.sh --version X.Y.Z --notes-file "$NOTES_FILE" --dry-run
 ```
 
 This runs the full preflight (HEAD == origin/main, every required check
 green — the required list is derived from the branch ruleset) and prints
-the planned version / build / tag, then stops before any archive or
-upload. Resolve any preflight failure (usually: `main` not green yet, or
-HEAD not synced) before continuing. `scripts/release.sh` is not in the
+the planned version / build / tag plus a **"What to Test" preview** — with
+`--notes-file` that preview is your reviewed prose, so a missing/empty
+notes file fails here (fail-fast) rather than mid-upload, and the Step 5
+gate reviews the exact text that will ship. It then stops before any
+archive or upload. Resolve any preflight failure (usually: `main` not
+green yet, or HEAD not synced) before continuing. `scripts/release.sh` is not in the
 permission allowlist, so the first invocation prompts for approval — that
 prompt is itself a safety gate for an irreversible action.
 
@@ -126,7 +145,7 @@ upload that follows cannot be undone.
 ## Step 6 — Release
 
 ```bash
-scripts/release.sh --version X.Y.Z
+scripts/release.sh --version X.Y.Z --notes-file "$NOTES_FILE"
 ```
 
 The script archives, re-checks the ADR-005 §8.5 Ollama-symbol guard on
