@@ -75,9 +75,8 @@ shape.
 > below). It renders the *same* `AgentOutputRow` speech + inner-voice bubbles the
 > live sim uses, so the screenshot is faithful — but the caption must not claim
 > "live / real-time" over a replay screen. The softened wording above ("Every
-> word, and the thought behind it") is replay-honest. **`listing-{en,ja}.md`
-> (#967, already merged) still carry the older "…in real time" shot-1 caption —
-> update them to match this wording in the next listing edit before submission.**
+> word, and the thought behind it") is replay-honest. `listing-{en,ja}.md`
+> shot-1 caption + Screen column were updated to match this wording (#985).
 
 Captions are also mirrored in `listing-en.md` / `listing-ja.md`; this table is
 the single source. Overlay text is added in an image editor — ASC accepts raw
