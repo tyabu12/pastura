@@ -142,6 +142,68 @@ struct ScenarioEditorViewModelTests {
     #expect(sut.validationErrors.isEmpty)
   }
 
+  // MARK: - Semantic Lint (ADR-022)
+
+  /// A lint error rule (`eliminate` with no `vote`, R1a) blocks validation —
+  /// its message joins the blocking `validationErrors` array (ADR-022 D5).
+  @Test func validateBlocksOnSemanticLintError() throws {
+    let sut = try makeSUT()
+    sut.yamlText = """
+      id: lint_error_editor
+      language: ja
+      name: Lint Error Editor
+      description: eliminate without a vote phase
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: eliminate
+      """
+    sut.editorMode = .yaml
+
+    sut.validate()
+
+    #expect(!sut.isValid)
+    #expect(!sut.validationErrors.isEmpty)
+  }
+
+  /// A warning-only lint finding (`choose` without `options`, R7) must NOT
+  /// block: warnings/info are unsurfaced in the editor at this stage (PR2
+  /// scope), so the scenario stays valid.
+  @Test func validateAllowsSemanticLintWarningOnly() throws {
+    let sut = try makeSUT()
+    sut.yamlText = """
+      id: lint_warn_editor
+      language: ja
+      name: Lint Warn Editor
+      description: choose without options is a warning, not blocking
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: choose
+          prompt: "Pick"
+          output:
+            action: string
+      """
+    sut.editorMode = .yaml
+
+    sut.validate()
+
+    #expect(sut.isValid)
+    #expect(sut.validationErrors.isEmpty)
+  }
+
   // MARK: - Save
 
   @Test func savePersistsToRepository() async throws {

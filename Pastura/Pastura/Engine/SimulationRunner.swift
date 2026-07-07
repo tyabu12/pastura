@@ -185,6 +185,23 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       return
     }
 
+    // Semantic lint (ADR-022) runs after the structural validator passes:
+    // `.error` findings block the run exactly like a validation error, while
+    // `.warning` findings ride the existing inference-count `.summary("⚠️ …")`
+    // channel. `.info` findings are not surfaced at the run gate. The linter is
+    // a stateless value, so it's built here rather than plumbed through the
+    // parameter list.
+    let findings = ScenarioSemanticLinter().lint(scenario)
+    let lintErrors = findings.filter { $0.severity == .error }
+    if !lintErrors.isEmpty {
+      emitter(
+        .error(.scenarioValidationFailed(lintErrors.map(\.message).joined(separator: "\n"))))
+      return
+    }
+    for finding in findings where finding.severity == .warning {
+      emitter(.summary(text: "⚠️ \(finding.message)"))
+    }
+
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
       pauseState: pauseState, suspendController: suspendController,
