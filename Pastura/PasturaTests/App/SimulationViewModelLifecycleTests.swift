@@ -281,7 +281,11 @@ struct SimulationViewModelLifecycleTests {
       simulationRepository: simRepo, turnRepository: turnRepo)
     sut.speed = .instant
 
+    // ADR-021 D3: a SYSTEMIC error (.notLoaded escapes LLMCaller typed and
+    // the turn gate rethrows) still fails the whole run. A merely-exhausted
+    // mock (transient class) no longer does — see the companion test below.
     let mock = MockLLMService(responses: [])
+    mock.throwErrorOnNextGenerate(.notLoaded)
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
       rounds: 1,
@@ -294,6 +298,40 @@ struct SimulationViewModelLifecycleTests {
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
     #expect(sims.first?.simulationStatus == .failed)
+  }
+
+  @Test func runCompletesWhenTransientFailuresStayUnderBreakerLimit() async throws {
+    // ADR-021 D1: transient turn failures below the 3-consecutive breaker
+    // are skipped, not run-fatal — the run reaches .completed with no
+    // errorMessage (pre-ADR-021 this exact setup marked the run .failed).
+    let db = try DatabaseManager.inMemory()
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "test", name: "Test", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()
+      ))
+
+    let sut = SimulationViewModel(
+      simulationRepository: simRepo, turnRepository: turnRepo)
+    sut.speed = .instant
+
+    // Two agents, both turns exhaust the empty mock queue (transient class):
+    // 2 consecutive skips < the 3-skip breaker, so the run completes.
+    let mock = MockLLMService(responses: [])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+
+    await sut.run(scenario: scenario, llm: mock)
+
+    #expect(sut.errorMessage == nil)
+    let sims = try simRepo.fetchByScenarioId("test")
+    #expect(sims.first?.simulationStatus == .completed)
   }
 
   @Test func runMarksStatusFailedOnLLMLoadFailure() async throws {
