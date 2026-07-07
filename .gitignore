@@ -84,6 +84,14 @@ data/factory/audit-digest.md
 data/queue/digest.md
 data/factory/lessons-inbox.md
 
+# /model-eval raw run logs and scorecard journal — local-only, same
+# untracked-output-channel rationale as the scenario-factory/-refine block
+# above (the skill never commits or pushes; a stray write stays a dirty
+# working tree). append_eval.py bootstraps eval-digest.md from a scaffold
+# if absent.
+data/models/eval-runs/
+data/models/eval-digest.md
+
 # Design-review screenshots — generated on demand by scripts/ui-tour.sh
 # (see docs/design/screenshots/README.md). Only the README is tracked.
 docs/design/screenshots/*.png
