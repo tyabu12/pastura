@@ -111,7 +111,7 @@ nonisolated struct LLMCaller: Sendable {
         if shouldRetryStreamFailure(error, agent: agentName, attempt: attempt) {
           continue
         }
-        throw SimulationError.llmGenerationFailed(description: readableDescription(error))
+        throw streamFailureError(error)  // ADR-021 D3 classification
       }
 
       // Retry inferences contribute to tok/s averages — this reflects real

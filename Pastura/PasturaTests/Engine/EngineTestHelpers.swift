@@ -41,6 +41,7 @@ func makePhaseContext(
   suspendController: SuspendController = SuspendController(),
   collector: EventCollector,
   pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool = { _ in false },
+  turnGate: TurnFailureGate = TurnFailureGate(),
   detector: (any LanguageDetector)? = nil
 ) -> PhaseContext {
   PhaseContext(
@@ -51,6 +52,7 @@ func makePhaseContext(
     emitter: collector.emit,
     pauseCheck: pauseCheck,
     phasePath: [phaseIndex],
+    turnGate: turnGate,
     detector: detector
   )
 }

@@ -50,6 +50,13 @@ struct SimulationErrorTests {
     #expect(error.errorDescription?.contains("cancelled") ?? false)
   }
 
+  @Test func turnFailureLimitReachedDescription() {
+    // ADR-021 D4 circuit breaker — the description must surface the
+    // consecutive-skip count that tripped it.
+    let error = SimulationError.turnFailureLimitReached(consecutiveCount: 3)
+    #expect(error.errorDescription?.contains("3") ?? false)
+  }
+
   // MARK: - jsonParseFailed truncation
 
   @Test func jsonParseFailedTruncatesLongRaw() {

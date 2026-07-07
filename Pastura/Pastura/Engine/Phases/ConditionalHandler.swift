@@ -102,7 +102,9 @@ nonisolated struct ConditionalHandler: PhaseHandler {
       context.emitter(.phaseStarted(phaseType: subPhase.type, phasePath: innerPath))
 
       // Scope each sub-phase's context to itself — the sub-handler sees
-      // the nested path as its own `phasePath`.
+      // the nested path as its own `phasePath`. `turnGate` threads the
+      // PARENT gate (ADR-021 D4): a fresh gate here would reset the
+      // run-scoped consecutive-skip counter inside conditional branches.
       let subContext = PhaseContext(
         scenario: context.scenario,
         phase: subPhase,
@@ -111,6 +113,7 @@ nonisolated struct ConditionalHandler: PhaseHandler {
         emitter: context.emitter,
         pauseCheck: context.pauseCheck,
         phasePath: innerPath,
+        turnGate: context.turnGate,
         detector: context.detector,
         logger: context.logger
       )
