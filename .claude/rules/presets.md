@@ -14,7 +14,7 @@ counts, the `summarize` phase, and the `language:` field. Read the actual file
 instead.
 
 Current inventory (each has an `_en` sibling — see i18n below):
-`prisoners_dilemma`, `bokete`, `target_score_race`, `word_wolf`.
+`prisoners_dilemma`, `bokete`, `target_score_race`, `word_wolf`, `last_fable`.
 
 ## Conventions
 
