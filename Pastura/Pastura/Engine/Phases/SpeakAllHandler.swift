@@ -17,8 +17,6 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    // Construct per run with the injected logger (stateless value — cheap).
-    let llmCaller = LLMCaller(logger: context.logger)
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(
@@ -43,6 +41,8 @@ nonisolated struct SpeakAllHandler: PhaseHandler {
     promptTemplate: String,
     state: inout SimulationState
   ) async throws {
+    // Construct per turn with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
     let systemPrompt = promptBuilder.buildSystemPrompt(
       scenario: context.scenario, persona: persona, phase: context.phase, state: state
     )

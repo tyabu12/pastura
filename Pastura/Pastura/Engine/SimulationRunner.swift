@@ -172,9 +172,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).
     let startRound: Int
     let emitter: @Sendable (SimulationEvent) -> Void
-    /// One gate per run (ADR-021): the consecutive-skip counter must span
-    /// every phase of the run, so the single instance is threaded into
-    /// every `PhaseContext`. A resumed run gets a fresh gate by design.
+    /// One run-scoped gate (ADR-021), threaded into every `PhaseContext`.
     let turnGate: TurnFailureGate
   }
 
