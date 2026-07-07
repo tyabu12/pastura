@@ -160,6 +160,17 @@ private struct RootView: View {
     #endif
     return .cold
   }()
+  #if DEBUG
+    // Store-screenshot capture only (`scripts/store-shots.sh` /
+    // `StoreScreenshotTests`): `--ui-test-open-scoreboard` presents
+    // `ScoreboardSheet` with fixed sample data so the scoreboard — otherwise
+    // reachable only from a completed live run — can be captured
+    // deterministically. Everything below (state + `.sheet`) is `#if DEBUG`
+    // so Release-iphoneos binaries carry no trace of it (ADR-005 §8.5).
+    @State private var isStoreScoreboardPresented: Bool =
+      CommandLine.arguments.contains("--ui-test")
+      && CommandLine.arguments.contains("--ui-test-open-scoreboard")
+  #endif
   @Environment(\.scenePhase) private var scenePhase
 
   /// Maximum extra hold the cold splash allows past `coldDuration` while
@@ -204,6 +215,18 @@ private struct RootView: View {
     // `.environment(gate)` on `HomeView` becomes redundant but is
     // kept until a follow-up cleanup to minimise blast radius.
     .environment(gate)
+    #if DEBUG
+      // Screenshot-only scoreboard (see `isStoreScoreboardPresented`).
+      // Deliberately NOT `.deepLinkGated()`: the store capture queues no deep
+      // link, so this sheet stays invisible to `DeepLinkGate` (critic axis 7).
+      .sheet(isPresented: $isStoreScoreboardPresented) {
+        ScoreboardSheet(
+          scores: ["Alice": 5, "Bob": 3, "Carol": 2, "Dave": 0],
+          eliminated: ["Dave": true]
+        )
+        .presentationDetents([.large])
+      }
+    #endif
   }
 
   // MARK: - Content

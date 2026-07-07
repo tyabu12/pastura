@@ -1,8 +1,8 @@
 # App Store screenshot plan
 
-> Capture plan for the 1.0 submission. PNGs are **not committed** — they render
-> to a gitignored local dir (`docs/store/screenshots/`, added to `.gitignore`).
-> This file is the committed artifact; the capture is a local/manual step.
+> Capture plan + pipeline for the 1.0 submission. PNGs are **not committed** —
+> `scripts/store-shots.sh` renders them into the gitignored
+> `docs/store/screenshots/{en,ja}/`. This file is the committed artifact.
 
 ## Scope decision — iPhone only
 
@@ -22,92 +22,103 @@ smaller devices. iPhone-only ⇒ one size:
 
 | Family | Required source size | Device that renders it |
 |---|---|---|
-| iPhone 6.9″ | **1320 × 2868** px portrait (or 1290 × 2796) | iPhone 16 Pro Max / 17 Pro Max sim → 1320×2868; iPhone 15 Pro Max → 1290×2796 |
+| iPhone 6.9″ | **1320 × 2868** px portrait | `iPhone 17 Pro Max` sim (the only 6.9″ device available locally) |
 | iPad 13″ | — not required (iPhone-only) | — |
 
 Format rules: **PNG or JPEG, RGB, no alpha channel, exact pixel dimensions
-(no off-by-one tolerance), 1–10 per size.** Use **iPhone 16 Pro Max** simulator
-(→ 1320×2868) as the canonical capture device.
+(no off-by-one tolerance), 1–10 per size.** `store-shots.sh` asserts
+1320×2868 + no-alpha on every output (and flattens alpha if a screenshot ever
+carries it).
+
+## The pipeline — `scripts/store-shots.sh`
+
+One command produces the whole set:
+
+```bash
+scripts/store-shots.sh
+```
+
+It pins the 6.9″ sim, runs `PasturaUITests/StoreScreenshotTests`, extracts the
+PNG attachments, routes them into `docs/store/screenshots/{en,ja}/`, and
+verifies each is exactly 1320×2868 with no alpha. Requires `jq` and an available
+`iPhone 17 Pro Max` simulator. The capture is deterministic — the `--ui-test`
+harness (in-memory DB, `MockLLMService`, `StubGalleryService`, seeded content)
+means **no 3 GB model download** is needed.
+
+`StoreScreenshotTests` captures both locales in one run: it relaunches the app
+per locale with `-AppleLanguages`/`-AppleLocale`, and switches tabs by
+`rootTab.*` accessibility identifier (not the localized tab label) so the ja
+walk resolves. Attachments are named `{locale}-NN-screen`; the script routes by
+the `{locale}-` prefix.
+
+### Why not `scripts/ui-tour.sh`
+
+`ui-tour.sh` is the **design-review** tour, reused conceptually but not directly:
+it has no pinned 6.9″ device (`sim-dest.sh` picks a 6.3″ iPhone 17 Pro), no
+locale switching ("single configuration only for now" per its README), and no
+scoreboard/observation capture points. `store-shots.sh` is the ASC-specific
+sibling; both share the `xcresulttool export attachments` + `jq` extraction
+shape.
 
 ## Shots (5 per locale × 2 locales = 10 PNGs)
 
-| # | Screen | What it shows | EN caption | JA caption |
+| # | Screen | Reached via | EN caption | JA caption |
 |---|---|---|---|---|
-| 1 | Simulation running | speech bubbles, inner-voice reveal, live typing | Watch agents think in real time | エージェントの思考を、リアルタイムで |
-| 2 | Home — scenario list | the scenario "pasture" / bottom-tab home | A pasture of scenarios to run | 実行できるシナリオが並ぶ牧場 |
-| 3 | Visual scenario editor | form fields: personas, phases, win conditions | Write your own world, no code needed | コード不要で、自分の世界を書く |
-| 4 | Vote / score results | vote tally + scoreboard + reveal | Votes, scores, and the reveal | 投票、スコア、そして結末 |
-| 5 | Past Results | saved run list / a re-opened transcript | Every run, saved to revisit | すべての実行を、あとから見返す |
+| 01 | Observation transcript (speech + inner-voice bubbles) | Past Results → seeded run's timeline (`resultDetail.timeline`) | Every word, and the thought behind it | 発言と、その裏にある心の声まで |
+| 02 | Home — scenario list | launch root (`home.scenarioListCell.*`) | A pasture of scenarios to run | 実行できるシナリオが並ぶ牧場 |
+| 03 | Visual scenario editor | Home → new scenario (`editor.titleField`) | Write your own world, no code needed | コード不要で、自分の世界を書く |
+| 04 | Scoreboard / vote result | `--ui-test-open-scoreboard` (`scoreboard.list`) | Votes, scores, and the reveal | 投票、スコア、そして結末 |
+| 05 | Past Results list | History tab (`results.list`) | Every run, saved to revisit | すべての実行を、あとから見返す |
 
-Captions are also recorded in `listing-en.md` / `listing-ja.md` (single source is
-this table; the listing files mirror it). Overlay text is added in an image
-editor — ASC accepts raw device screenshots, so overlays are optional polish.
+> **Caption honesty note (critic Axis 8, App Review 2.3).** Shot 01 is the
+> **Past-Results transcript replay**, not a live run (see the design decision
+> below). It renders the *same* `AgentOutputRow` speech + inner-voice bubbles the
+> live sim uses, so the screenshot is faithful — but the caption must not claim
+> "live / real-time" over a replay screen. The softened wording above ("Every
+> word, and the thought behind it") is replay-honest. **`listing-{en,ja}.md`
+> (#967, already merged) still carry the older "…in real time" shot-1 caption —
+> update them to match this wording in the next listing edit before submission.**
 
-## Tooling — why `ui-tour.sh` is not reusable as-is
+Captions are also mirrored in `listing-en.md` / `listing-ja.md`; this table is
+the single source. Overlay text is added in an image editor — ASC accepts raw
+device screenshots, so overlays are optional polish.
 
-`scripts/ui-tour.sh` is a **design-review** tool, not an ASC pipeline. Three gaps:
+## Design decision — transcript replay instead of live `SimulationView`
 
-1. **No pinned 6.9″ device** — `sim-dest.sh` picks the first available from an
-   iPhone priority list (17 Pro / 17 / Air / 17e / 16 / 16e / 15 Pro / 15). Not
-   guaranteed to be a Max-class 6.9″ device, so output pixel size isn't
-   guaranteed to be 1320×2868 / 1290×2796.
-2. **No locale switching** — its README states "single configuration only for
-   now" (ja/dark/Dynamic Type variants explicitly deferred). It can't emit the
-   ja set B-1a requires.
-3. **No iPad target** — moot now (iPhone-only), but noted for completeness.
+The hero "observation" shot is captured from the **Past-Results replay**, not a
+live running `SimulationView`. Reason: under `--ui-test`,
+`MockLLMService(responses: [])` throws on any generate call, so a live run
+cannot be driven to a populated state deterministically; holding it mid-run only
+yields empty bubbles. The replay screen shows the identical bubble components
+with real seeded content (`StubResultSeeder`, which seeds `inner_thought` so the
+▸ THINKING section renders), so it is the faithful, reproducible choice. A live
+`SimulationView` capture would need canned per-turn `MockLLMService` responses
+matched to a scenario's phases — brittle and out of scope for 1.0.
 
-Its deterministic `--ui-test` launch mode (in-memory DB, `MockLLMService`,
-`StubGalleryService`, seeded content) **is** worth reusing — it gives clean,
-reproducible screens without a real 3 GB model. The gap is device-pinning +
-locale, not the content harness.
+## Harness additions this pipeline relies on (all DEBUG-only)
 
-## Capture procedure (manual, 1.0)
+- `StubResultSeeder` seeds `inner_thought` on the fixture turns → the transcript
+  renders speech **and** inner-voice bubbles.
+- `--ui-test-open-scoreboard` (in `PasturaApp.swift`, entirely `#if DEBUG`)
+  presents `ScoreboardSheet` with fixed sample data so the scoreboard —
+  otherwise reachable only from a completed live run — is capturable.
+- `RootTabView` tabs carry `rootTab.*` accessibility identifiers so tab
+  navigation is locale-independent (release-safe; benefits VoiceOver too).
 
-For 10 shots, manual capture is cheaper than extending the tour. Commands:
+## Status-bar chrome (optional polish)
 
-```bash
-# 0. Build+install the app to the sim (deterministic UI-test content, clean chrome).
-#    Easiest: run the ScreenshotTour UI test on the pinned device, OR launch the
-#    app manually with the --ui-test flag from Xcode on "iPhone 16 Pro Max".
-
-DEVICE="iPhone 16 Pro Max"        # renders 1320 x 2868
-xcrun simctl boot "$DEVICE"
-
-# 1. Clean status bar: 9:41, full battery, full bars (App Store convention).
-xcrun simctl status_bar "$DEVICE" override \
-  --time "9:41" --batteryState charged --batteryLevel 100 \
-  --cellularBars 4 --wifiBars 3
-
-# 2a. Launch in ENGLISH, navigate to each screen, capture:
-xcrun simctl launch "$DEVICE" app.pastura.Pastura -AppleLanguages "(en)" -AppleLocale en_US
-mkdir -p docs/store/screenshots/en
-xcrun simctl io "$DEVICE" screenshot docs/store/screenshots/en/01-simulation.png
-#   ...repeat navigate+screenshot for 02..05
-
-# 2b. Terminate, relaunch in JAPANESE, repeat:
-xcrun simctl terminate "$DEVICE" app.pastura.Pastura
-xcrun simctl launch "$DEVICE" app.pastura.Pastura -AppleLanguages "(ja)" -AppleLocale ja_JP
-mkdir -p docs/store/screenshots/ja
-xcrun simctl io "$DEVICE" screenshot docs/store/screenshots/ja/01-simulation.png
-#   ...repeat for 02..05
-```
-
-Verify every PNG is exactly 1320×2868 (or 1290×2796) with no alpha before upload:
+For a clean 9:41 / full-battery status bar, override before capture (not wired
+into the script — the raw simulator status bar is acceptable for ASC):
 
 ```bash
-sips -g pixelWidth -g pixelHeight -g hasAlpha docs/store/screenshots/**/*.png
+xcrun simctl status_bar "iPhone 17 Pro Max" override \
+  --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
 ```
-
-## Durable path (future, optional)
-
-Extending `ui-tour.sh` with a `--locale` flag + a pinned 6.9″ `--device` would
-make the store set reproducible (one command per locale). Worth a follow-up issue
-if store screenshots need regular refresh across releases; skipped for 1.0.
 
 ## Output location
 
-- `docs/store/screenshots/{en,ja}/NN-<screen>.png` — **gitignored**, never committed.
-- `.gitignore` entry `docs/store/screenshots/` is added in this PR.
+- `docs/store/screenshots/{en,ja}/NN-screen.png` — **gitignored**, never committed.
+- `.gitignore` entry `docs/store/screenshots/` is in place.
 
 ## Sources
 

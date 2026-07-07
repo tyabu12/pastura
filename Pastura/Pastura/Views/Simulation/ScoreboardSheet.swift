@@ -42,6 +42,8 @@ struct ScoreboardSheet: View {
           }
         }
       }
+      // Anchor for the store-screenshot capture (StoreScreenshotTests).
+      .accessibilityIdentifier("scoreboard.list")
       .navigationTitle(String(localized: "Scoreboard"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {

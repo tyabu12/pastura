@@ -331,7 +331,9 @@ jobs:
           # See unit-test step for rationale on tee / PIPESTATUS / || true.
           # ScreenshotTourTests is a review-only capture tour (scripts/
           # ui-tour.sh), not a gate — skipped here so it never burns CI
-          # minutes or inherits UI-test infra flakes.
+          # minutes or inherits UI-test infra flakes. StoreScreenshotTests
+          # (scripts/store-shots.sh) is the same class of local-only,
+          # 6.9"-pinned capture and is skipped for the same reason.
           # -test-timeouts-enabled + -default-test-execution-time-allowance cap
           # each test ITERATION at 250s. After the #728 animation fix the
           # flake-prone heavy tests pass in <=149s on CI (observed across runs,
@@ -346,6 +348,7 @@ jobs:
             -destination "$DEST" \
             -only-testing PasturaUITests \
             -skip-testing PasturaUITests/ScreenshotTourTests \
+            -skip-testing PasturaUITests/StoreScreenshotTests \
             -retry-tests-on-failure \
             -test-iterations 2 \
             -test-timeouts-enabled YES \
