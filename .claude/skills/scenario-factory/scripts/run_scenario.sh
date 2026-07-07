@@ -33,6 +33,13 @@
 #
 # --classify reruns only the classification against an existing JSONL +
 # exit code; used by tests/run_tests.sh (no Swift toolchain, no model).
+#
+# Test seam: PASTURA_HARNESS_BIN, when set, skips `swift build` entirely and
+# uses that path as BIN instead of the `.build/...` show-bin-path lookup —
+# used by the /model-eval self-tests to canary this script's harness argv
+# (e.g. the `--profile` passthrough above) with a fake shell "harness" and no
+# Swift toolchain. The BIN-not-executable guard still applies against the
+# overridden path.
 
 set -u
 
@@ -126,12 +133,17 @@ STDERR_LOG="${OUT%.jsonl}.stderr.log"
 
 # Build first so the run_start poll below measures the harness, not the
 # compiler. A build failure is an environment problem, not a run failure.
-if ! BUILD_OUT=$(swift build 2>&1); then
-  emit "config_error" 1 "$SCENARIO" "$OUT" null null \
-    "swift build failed: $(printf '%s' "$BUILD_OUT" | tail -3 | tr '\n' ' ')"
-  exit 0
+# Skipped entirely under the PASTURA_HARNESS_BIN test seam (see header).
+if [ -n "${PASTURA_HARNESS_BIN:-}" ]; then
+  BIN="$PASTURA_HARNESS_BIN"
+else
+  if ! BUILD_OUT=$(swift build 2>&1); then
+    emit "config_error" 1 "$SCENARIO" "$OUT" null null \
+      "swift build failed: $(printf '%s' "$BUILD_OUT" | tail -3 | tr '\n' ' ')"
+    exit 0
+  fi
+  BIN="$(swift build --show-bin-path)/pastura-harness"
 fi
-BIN="$(swift build --show-bin-path)/pastura-harness"
 if [ ! -x "$BIN" ]; then
   # Guard against bin-path/config drift — a missing binary must read as an
   # environment problem, not get misattributed to a #253 crash.
