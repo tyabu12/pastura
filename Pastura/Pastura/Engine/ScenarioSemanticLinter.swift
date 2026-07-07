@@ -81,8 +81,8 @@ nonisolated public struct ScenarioSemanticLinter: Sendable {
   // Silently-inert configuration rules R7/R8/R9/R17 live in
   // `ScenarioSemanticLinter+Config.swift` (`configFindings(in:)`).
 
-  // Placeholder-resolution rules R10–R12 (later moved to a sibling file).
-  func placeholderFindings(in scenario: Scenario) -> [LintFinding] { [] }
+  // Placeholder-resolution rules R10–R12 live in
+  // `ScenarioSemanticLinter+Placeholders.swift` (`placeholderFindings(in:)`).
 
   // Condition-expression rules R13–R16 (later moved to a sibling file).
   func conditionFindings(in scenario: Scenario) -> [LintFinding] { [] }
