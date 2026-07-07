@@ -7310,6 +7310,16 @@
         }
       }
     },
+    "relationship-update-placement: this 'relationship_update' cannot see its vote/choose signals — place it after the producing 'vote'/'choose' phase and before any 'prisoners_dilemma' 'score_calc', with no 'speak'/'choose' phase between the vote and it." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "relationship-update-placement: この 'relationship_update' は vote/choose のシグナルを参照できません — 生成元の 'vote'/'choose' フェーズの後、かつ 'prisoners_dilemma' の 'score_calc' より前に配置し、vote との間に 'speak'/'choose' フェーズを挟まないでください。"
+          }
+        }
+      }
+    },
     "single-quoted-literal-in-condition: the operand %@ is single-quoted, but the condition evaluator treats only double quotes as string literals — it is read as an undefined identifier and the comparison is always false. Use double quotes instead." : {
       "localizations" : {
         "ja" : {

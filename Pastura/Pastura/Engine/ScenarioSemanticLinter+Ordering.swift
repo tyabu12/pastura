@@ -57,7 +57,90 @@ nonisolated extension ScenarioSemanticLinter {
         break
       }
     }
+    findings += relationshipPlacementFindings(in: scenario)
     return findings
+  }
+
+  // MARK: - R4 relationship-update-placement (warning)
+
+  /// R4 `relationship-update-placement` — a top-level `relationship_update`
+  /// whose declared update rules can't see the signals they read.
+  ///
+  /// `relationship_update` is **top-level only** (the validator bans it inside
+  /// conditional branches), so this scans top-level phases. Producers, however,
+  /// may sit inside a `conditional` branch and still count (may-run, `< i` via
+  /// ``producerIndices(in:where:)``).
+  ///
+  /// Predicates derive from `RelationshipUpdateHandler`'s actual reads — each
+  /// declared rule reads a different piece of state, and each is lost by a
+  /// distinct placement mistake:
+  ///
+  /// - **`voteAgainst`** reads `state.lastOutputs[voter].vote`. Broken when
+  ///   (a) no `vote` runs before this phase, or (b) a `lastOutputs`-writing LLM
+  ///   phase overwrites the voter's entry between the last preceding `vote` and
+  ///   this phase. `speak_all` / `speak_each` / `choose` all write `lastOutputs`
+  ///   (verified in their handlers) and carry no `vote` field, so they drop the
+  ///   signal; a *second* `vote` merely rewrites a fresher vote (not a loss) and
+  ///   is excluded; `reflect` / `whisper` never touch `lastOutputs` and are safe
+  ///   interleaves.
+  /// - **`actionDeltas`** reads `state.pairings`, populated only by a
+  ///   round-robin `choose`. Broken when (a) no round-robin `choose` runs before
+  ///   this phase, or (b) a `prisoners_dilemma` `score_calc` clears
+  ///   `state.pairings` (see `PrisonersDilemmaLogic`) between the LAST preceding
+  ///   round-robin `choose` and this phase — a later choose surviving un-cleared
+  ///   satisfies the rule (no false positive).
+  ///
+  /// One finding per phase max. Fires when ANY declared rule's signal is lost:
+  /// a phase declaring both rules where only one is reachable is still a real
+  /// (partial) placement bug the author should see. A phase declaring neither
+  /// rule can't reach here — `ScenarioValidator.validateRelationshipUpdateShape`
+  /// rejects it upstream.
+  private func relationshipPlacementFindings(in scenario: Scenario) -> [LintFinding] {
+    let phases = scenario.phases
+    let votes = producerIndices(in: phases) { $0.type == .vote }
+    let roundRobinChoose = producerIndices(in: phases) {
+      $0.type == .choose && $0.pairing == .roundRobin
+    }
+    let pdScoreCalc = producerIndices(in: phases) {
+      $0.type == .scoreCalc && $0.logic == .prisonersDilemma
+    }
+    // `lastOutputs`-writers that DROP the vote field. A second `vote` rewrites a
+    // fresher vote rather than losing it, so `.vote` is excluded here.
+    let voteSignalLosers = producerIndices(in: phases) {
+      $0.type == .speakAll || $0.type == .speakEach || $0.type == .choose
+    }
+
+    var findings: [LintFinding] = []
+    // Top-level scan: `relationship_update` is never nested in a branch.
+    for (i, phase) in phases.enumerated() where phase.type == .relationshipUpdate {
+      let voteBroken =
+        phase.voteAgainst != nil
+        && voteSignalUnreachable(before: i, votes: votes, losers: voteSignalLosers)
+      let actionBroken =
+        !(phase.actionDeltas ?? [:]).isEmpty
+        && actionSignalUnreachable(before: i, choose: roundRobinChoose, clears: pdScoreCalc)
+      if voteBroken || actionBroken {
+        findings += finding("relationship-update-placement", .warning, at: i)
+      }
+    }
+    return findings
+  }
+
+  /// Whether a `vote_against` rule at top-level index `i` can't read a vote:
+  /// no `vote` precedes it, or a `lastOutputs`-overwriting phase sits between
+  /// the last preceding `vote` and it.
+  private func voteSignalUnreachable(before i: Int, votes: Set<Int>, losers: Set<Int>) -> Bool {
+    guard let lastVote = votes.filter({ $0 < i }).max() else { return true }
+    return losers.contains { $0 > lastVote && $0 < i }
+  }
+
+  /// Whether an `action_deltas` rule at top-level index `i` can't read pairings:
+  /// no round-robin `choose` precedes it, or a pairings-clearing
+  /// `prisoners_dilemma` `score_calc` sits between the last preceding
+  /// round-robin `choose` and it (a later un-cleared choose satisfies the rule).
+  private func actionSignalUnreachable(before i: Int, choose: Set<Int>, clears: Set<Int>) -> Bool {
+    guard let lastChoose = choose.filter({ $0 < i }).max() else { return true }
+    return clears.contains { $0 > lastChoose && $0 < i }
   }
 
   // MARK: - Per-consumer rules
@@ -141,6 +224,11 @@ nonisolated extension ScenarioSemanticLinter {
       return String(
         localized:
           "event-reactive-needs-event-inject: 'event_reactive' scoring needs an earlier 'event_inject' phase with a dictionary event source and the default 'as: current_event', or the favored action is never scored — fix the 'event_inject' before this 'score_calc'."
+      )
+    case "relationship-update-placement":
+      return String(
+        localized:
+          "relationship-update-placement: this 'relationship_update' cannot see its vote/choose signals — place it after the producing 'vote'/'choose' phase and before any 'prisoners_dilemma' 'score_calc', with no 'speak'/'choose' phase between the vote and it."
       )
     default:
       return String(

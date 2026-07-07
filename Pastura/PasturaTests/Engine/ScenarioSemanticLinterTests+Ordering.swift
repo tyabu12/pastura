@@ -177,6 +177,111 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.lint(scenario).isEmpty)
   }
 
+  // MARK: - R4 relationship-update-placement (warning)
+
+  @Test func relationshipUpdateVoteAgainstWithoutVoteFiresWarning() {
+    // voteAgainst declared but no `vote` earlier → the vote signal is never
+    // produced, so the delta silently does nothing.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1, phases: [Phase(type: .relationshipUpdate, voteAgainst: -1)])
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "relationship-update-placement")
+    #expect(findings.first?.severity == .warning)
+    #expect(findings.first?.phaseIndex == 0)
+  }
+
+  @Test func relationshipUpdateActionDeltasWithoutRoundRobinChooseFiresWarning() {
+    // An individual (non-round-robin) choose does NOT populate pairings, so
+    // action_deltas has nothing to read.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"]),
+        Phase(type: .relationshipUpdate, actionDeltas: ["cooperate": 1])
+      ])
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "relationship-update-placement")
+    #expect(findings.first?.severity == .warning)
+    #expect(findings.first?.phaseIndex == 1)
+  }
+
+  @Test func relationshipUpdateWithPrisonersDilemmaBetweenChooseAndItFiresWarning() {
+    // PD score_calc clears pairings between the choose and the relationship_update
+    // → action_deltas reads empty pairings.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .scoreCalc, logic: .prisonersDilemma),
+        Phase(type: .relationshipUpdate, actionDeltas: ["cooperate": 1, "betray": -1])
+      ])
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "relationship-update-placement")
+    #expect(findings.first?.phaseIndex == 2)
+  }
+
+  @Test func relationshipUpdateWithChooseAfterPrisonersDilemmaPasses() {
+    // A fresh round-robin choose after the clearing PD repopulates pairings, so
+    // the un-cleared choose satisfies the action rule.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .scoreCalc, logic: .prisonersDilemma),
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .relationshipUpdate, actionDeltas: ["cooperate": 1])
+      ])
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func relationshipUpdateWithSpeakAllBetweenVoteAndItFiresWarning() {
+    // speak_all overwrites lastOutputs between the vote and the phase, dropping
+    // the `.vote` field the voteAgainst rule reads.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .vote),
+        Phase(type: .speakAll),
+        Phase(type: .relationshipUpdate, voteAgainst: -1)
+      ])
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "relationship-update-placement")
+    #expect(findings.first?.severity == .warning)
+    #expect(findings.first?.phaseIndex == 2)
+  }
+
+  @Test func relationshipUpdateWithReflectBetweenVoteAndItPasses() {
+    // reflect does NOT write lastOutputs, so the vote signal survives.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .vote),
+        Phase(type: .reflect),
+        Phase(type: .relationshipUpdate, voteAgainst: -1)
+      ])
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func relationshipUpdateCorrectlyPlacedPasses() {
+    // round-robin choose → vote → relationship_update (both rules) → PD score_calc:
+    // both signals are readable, and the pairings-clearing PD runs after the phase.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .vote),
+        Phase(
+          type: .relationshipUpdate, voteAgainst: -1,
+          actionDeltas: ["cooperate": 1, "betray": -1]),
+        Phase(type: .scoreCalc, logic: .prisonersDilemma)
+      ])
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
   // MARK: - Helper
 
   // Internal factory for scenarios needing `extraData` (R5); the base
