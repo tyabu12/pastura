@@ -36,8 +36,10 @@ candidate). Gate 2 is the sole gate that can **accept**.
 A candidate from a family not already in `ModelProfile.all` (today: `gemma` /
 `qwen`) needs a prior `tools/harness` PR — landed through `/orchestrate` — adding
 a `ModelProfile` static plus its pin test. The profile mirrors **7** load-bearing
-registry fields (`id`, `name`, `stopSequence`, `systemPromptSuffix`,
-`assistantPrefix`, `expectedFileName`, `expectedSHA256`); `ModelProfileTests`
+registry values under its own field names (`id`, `name`, `stopSequence`,
+`systemPromptSuffix`, `assistantPrefix`, `expectedFileName`, `expectedSHA256`;
+`name` / `expectedFileName` / `expectedSHA256` map to the registry's
+`displayName` / `fileName` / `sha256`); `ModelProfileTests`
 pins them against the future/planned `ModelRegistry` values so the harness and
 app never drift.
 
@@ -111,8 +113,8 @@ Then, in the same `/orchestrate` run:
 - **`LicenseCatalog` entry** — add the model's license block
   (`Pastura/Pastura/Views/Settings/LicenseCatalog.swift`).
 - **README mirror** — update "Supported LLM models" per CLAUDE.md § Reference
-  Documents ("Bundled models (`ModelRegistry.swift`) → README 'Supported LLM
-  models'").
+  Documents (Bundled models (`ModelRegistry.swift`) → README "Supported LLM
+  models").
 - **Real-device QA** — confirm inference on a real device (Metal and
   memory-pressure behavior is not reproduced by the Mac harness or the
   simulator — the reason Gate 2 exists at all, per ADR-011).
