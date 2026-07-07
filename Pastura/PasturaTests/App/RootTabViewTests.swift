@@ -26,4 +26,16 @@ import Testing
     #expect(RootTabView.symbolName(for: .search, isActive: true) == "magnifyingglass")
     #expect(RootTabView.symbolName(for: .search, isActive: false) == "magnifyingglass")
   }
+
+  // MARK: - Tab accessibility identifiers
+
+  @Test func tabAccessibilityIdentifiersAreStable() {
+    // StoreScreenshotTests + scripts/store-shots.sh switch tabs by these
+    // identifiers (locale-independent, unlike the localized labels). A rename
+    // would silently break the App Store screenshot capture, so pin them here.
+    #expect(RootTabView.accessibilityID(for: .home) == "rootTab.home")
+    #expect(RootTabView.accessibilityID(for: .search) == "rootTab.search")
+    #expect(RootTabView.accessibilityID(for: .history) == "rootTab.history")
+    #expect(RootTabView.accessibilityID(for: .settings) == "rootTab.settings")
+  }
 }

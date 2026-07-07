@@ -25,16 +25,25 @@
 _simdest_old_opts=$(set +o)
 set -euo pipefail
 
-SIMULATOR_NAMES=(
-  "iPhone 17 Pro"
-  "iPhone 17"
-  "iPhone Air"
-  "iPhone 17e"
-  "iPhone 16"
-  "iPhone 16e"
-  "iPhone 15 Pro"
-  "iPhone 15"
-)
+# PASTURA_SIM_NAME pins a single simulator by exact name, bypassing the
+# priority list. Used by scripts/store-shots.sh to force the 6.9" device
+# (iPhone 17 Pro Max) for App Store screenshots — appending a second
+# `-destination` to the wrapper would instead run tests on BOTH devices
+# (xcodebuild treats multiple -destination as additive, not last-wins).
+if [ -n "${PASTURA_SIM_NAME:-}" ]; then
+  SIMULATOR_NAMES=("$PASTURA_SIM_NAME")
+else
+  SIMULATOR_NAMES=(
+    "iPhone 17 Pro"
+    "iPhone 17"
+    "iPhone Air"
+    "iPhone 17e"
+    "iPhone 16"
+    "iPhone 16e"
+    "iPhone 15 Pro"
+    "iPhone 15"
+  )
+fi
 
 # Resolve the first matching simulator's UDID, name, and runtime via JSON.
 # python3 is available on all macOS systems with Xcode.

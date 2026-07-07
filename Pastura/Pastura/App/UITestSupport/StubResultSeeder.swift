@@ -26,6 +26,11 @@
       let round: Int
       let agent: String
       let text: String
+      /// Private inner voice for this turn. Seeded so the timeline renders
+      /// the ▸ THINKING section (speech + inner-voice bubbles) for App Store
+      /// screenshots — the transcript replay is the store "observation" shot
+      /// (`StoreScreenshotTests`). `showAllThoughts` defaults `true`.
+      let thought: String
     }
 
     /// Inserts the completed simulation and its turns.
@@ -70,21 +75,25 @@
       let statements: [SeedStatement] = [
         SeedStatement(
           round: 1, agent: "Alice",
-          text: "Hello! I think we should start by sharing what each of us observed this morning."
+          text: "Hello! I think we should start by sharing what each of us observed this morning.",
+          thought: "If I sound organized, the others will follow my lead."
         ),
         SeedStatement(
           round: 1, agent: "Bob",
           text:
-            "Agreed. The pasture by the north fence looked unusually quiet, which worries me a little."
+            "Agreed. The pasture by the north fence looked unusually quiet, which worries me a little.",
+          thought: "I'll flag the north fence early — better than being blamed for it later."
         ),
         SeedStatement(
           round: 2, agent: "Alice",
           text:
-            "Building on that — if the north side stays quiet tomorrow, I suggest we move the flock east."
+            "Building on that — if the north side stays quiet tomorrow, I suggest we move the flock east.",
+          thought: "Moving east keeps my own field clear of the risk. Don't make that obvious."
         ),
         SeedStatement(
           round: 2, agent: "Bob",
-          text: "That sounds reasonable. Let's agree on the east plan and check again at sunrise."
+          text: "That sounds reasonable. Let's agree on the east plan and check again at sunrise.",
+          thought: "Going along for now. I still want to see who benefits most from the east move."
         )
       ]
       return statements.enumerated().map { index, entry in
@@ -94,10 +103,12 @@
           roundNumber: entry.round,
           phaseType: "speak_all",
           agentName: entry.agent,
-          rawOutput: #"{"statement": "\#(entry.text)"}"#,
-          // TurnOutput's Codable shape nests under "fields" — a top-level
-          // {"statement": ...} fails decode and renders an empty bubble.
-          parsedOutputJSON: #"{"fields":{"statement":"\#(entry.text)"}}"#,
+          rawOutput: #"{"statement": "\#(entry.text)", "inner_thought": "\#(entry.thought)"}"#,
+          // TurnOutput's Codable shape nests fields under "fields"; `statement`
+          // renders the speech bubble and `inner_thought` drives the ▸ THINKING
+          // section (`TurnOutput.innerThought` reads `fields["inner_thought"]`).
+          parsedOutputJSON:
+            #"{"fields":{"statement":"\#(entry.text)","inner_thought":"\#(entry.thought)"}}"#,
           sequenceNumber: index,
           createdAt: base.addingTimeInterval(TimeInterval(index))
         )
