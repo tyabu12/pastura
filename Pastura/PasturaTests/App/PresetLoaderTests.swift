@@ -15,10 +15,10 @@ struct PresetLoaderTests {
     )
 
     let all = try repo.fetchAllSummaries()
-    #expect(all.count == 8)
+    #expect(all.count == 10)
 
     let presets = try repo.fetchPresets()
-    #expect(presets.count == 8)
+    #expect(presets.count == 10)
 
     let ids = Set(presets.map(\.id))
     // JA siblings (Phase 1 baseline, retained)
@@ -26,11 +26,13 @@ struct PresetLoaderTests {
     #expect(ids.contains("bokete"))
     #expect(ids.contains("word_wolf"))
     #expect(ids.contains("target_score_race"))
+    #expect(ids.contains("last_fable"))
     // EN siblings (Step D, ADR-010 D3 sibling-files layout)
     #expect(ids.contains("prisoners_dilemma_en"))
     #expect(ids.contains("bokete_en"))
     #expect(ids.contains("word_wolf_en"))
     #expect(ids.contains("target_score_race_en"))
+    #expect(ids.contains("last_fable_en"))
   }
 
   @Test func loadPresetsSkipsExistingRecords() throws {
@@ -53,7 +55,7 @@ struct PresetLoaderTests {
     let second = try repo.fetchById("prisoners_dilemma")
 
     #expect(second?.createdAt == firstDate)
-    #expect(try repo.fetchAllSummaries().count == 8)
+    #expect(try repo.fetchAllSummaries().count == 10)
   }
 
   /// ADR-010 D4: per-language sibling presets share a canonical
@@ -75,12 +77,14 @@ struct PresetLoaderTests {
     #expect(try repo.fetchById("bokete")?.sourceId == "bokete")
     #expect(try repo.fetchById("prisoners_dilemma")?.sourceId == "prisoners_dilemma")
     #expect(try repo.fetchById("target_score_race")?.sourceId == "target_score_race")
+    #expect(try repo.fetchById("last_fable")?.sourceId == "last_fable")
 
     // EN siblings: `_en` suffix stripped to match the JA canonical id.
     #expect(try repo.fetchById("word_wolf_en")?.sourceId == "word_wolf")
     #expect(try repo.fetchById("bokete_en")?.sourceId == "bokete")
     #expect(try repo.fetchById("prisoners_dilemma_en")?.sourceId == "prisoners_dilemma")
     #expect(try repo.fetchById("target_score_race_en")?.sourceId == "target_score_race")
+    #expect(try repo.fetchById("last_fable_en")?.sourceId == "last_fable")
   }
 
   /// ADR-010 D6 denormalization: `PresetLoader` writes each preset's
@@ -97,8 +101,10 @@ struct PresetLoaderTests {
 
     #expect(try repo.fetchById("word_wolf")?.language == "ja")
     #expect(try repo.fetchById("prisoners_dilemma")?.language == "ja")
+    #expect(try repo.fetchById("last_fable")?.language == "ja")
     #expect(try repo.fetchById("word_wolf_en")?.language == "en")
     #expect(try repo.fetchById("prisoners_dilemma_en")?.language == "en")
+    #expect(try repo.fetchById("last_fable_en")?.language == "en")
     // Every bundled preset carries a non-nil language column.
     #expect(try repo.fetchAllSummaries().allSatisfy { $0.language != nil })
   }
@@ -117,7 +123,9 @@ struct PresetLoaderTests {
       bundle: Bundle(for: DatabaseManager.self)
     )
 
-    for canonical in ["word_wolf", "bokete", "prisoners_dilemma", "target_score_race"] {
+    for canonical in [
+      "word_wolf", "bokete", "prisoners_dilemma", "target_score_race", "last_fable"
+    ] {
       let ja = try repo.fetchById(canonical)
       let en = try repo.fetchById("\(canonical)_en")
       #expect(ja?.sourceId == canonical, "JA \(canonical) sourceId")
@@ -185,7 +193,7 @@ struct PresetLoaderTests {
     let loader = ScenarioLoader()
     let bundle = Bundle(for: DatabaseManager.self)
 
-    #expect(PresetLoader.presetFileNames.count >= 8)
+    #expect(PresetLoader.presetFileNames.count >= 10)
 
     for fileName in PresetLoader.presetFileNames {
       guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
@@ -240,7 +248,7 @@ struct PresetLoaderTests {
     // Phantom-pass guard — if `presetFileNames` is ever emptied or the
     // bundle resource group is misnamed, an empty iteration would
     // trivially pass without auditing anything.
-    #expect(PresetLoader.presetFileNames.count >= 8)
+    #expect(PresetLoader.presetFileNames.count >= 10)
 
     for fileName in PresetLoader.presetFileNames {
       guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
