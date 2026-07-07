@@ -43,7 +43,7 @@ nonisolated public final class TurnFailureGate: Sendable {
   ///   `SimulationError.turnFailureLimitReached` when this failure would be
   ///   the ``consecutiveSkipLimit``-th consecutive skip (no `.turnSkipped`
   ///   is emitted for the tripping failure).
-  public func attempt<T>(
+  public func attempt<T: Sendable>(
     agent: String,
     phaseType: PhaseType,
     emitter: @Sendable (SimulationEvent) -> Void,
