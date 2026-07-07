@@ -6,12 +6,13 @@ import Foundation
 /// to the conversation log and stored in `lastOutputs` for subsequent phases.
 nonisolated struct SpeakAllHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
-  private let llmCaller = LLMCaller()
 
   func execute(
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
+    // Construct per run with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(

@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 /// Handles `relationship_update` phases — a zero-inference code phase that
 /// deterministically maintains a per-agent affinity matrix and injects a
@@ -27,8 +26,6 @@ import os
 /// (surfaced to only that agent via `PromptBuilder.injectRelationships`). Eliminated
 /// agents are skipped as perceivers — they neither act nor receive an injected summary.
 nonisolated struct RelationshipUpdateHandler: PhaseHandler {
-  private let logger = Logger(subsystem: "app.pastura.Pastura", category: "RelationshipUpdate")
-
   func execute(
     context: PhaseContext,
     state: inout SimulationState
@@ -57,7 +54,10 @@ nonisolated struct RelationshipUpdateHandler: PhaseHandler {
       // Most likely a placement mistake: this phase ran with no fresh vote /
       // pairing signal in state (e.g. after `score_calc` cleared pairings, or
       // with no preceding vote/choose this round). Not user content.
-      logger.debug("relationship_update found no vote/pairing signal — check phase ordering")
+      context.logger.log(
+        .debug, category: "RelationshipUpdate",
+        "relationship_update found no vote/pairing signal — check phase ordering",
+        privacy: .public)
     }
 
     persist(

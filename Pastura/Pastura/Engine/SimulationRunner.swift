@@ -29,18 +29,28 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private let dispatcher = PhaseDispatcher()
   private let validator = ScenarioValidator()
   private let detector: (any LanguageDetector)?
+  private let logger: any EngineLogger
 
   /// Creates a runner.
   ///
-  /// - Parameter detector: Optional language detector for ADR-010 Step E PR2
-  ///   output-language adherence enforcement. When provided alongside a
-  ///   `Scenario.engineLanguage`, ``LLMCaller`` retries on language drift
-  ///   within its existing budget and emits
-  ///   ``SimulationEvent/languageMismatch(agent:detected:expected:)`` on
-  ///   exhaustion. `nil` (the default) disables the check so existing
-  ///   callers / tests keep their pre-Step E PR2 behaviour.
-  public init(detector: (any LanguageDetector)? = nil) {
+  /// - Parameters:
+  ///   - detector: Optional language detector for ADR-010 Step E PR2
+  ///     output-language adherence enforcement. When provided alongside a
+  ///     `Scenario.engineLanguage`, ``LLMCaller`` retries on language drift
+  ///     within its existing budget and emits
+  ///     ``SimulationEvent/languageMismatch(agent:detected:expected:)`` on
+  ///     exhaustion. `nil` (the default) disables the check so existing
+  ///     callers / tests keep their pre-Step E PR2 behaviour.
+  ///   - logger: Injected logging seam forwarded to every ``PhaseContext``.
+  ///     Defaults to ``NoopEngineLogger`` (silent) so tests and the ADR-013
+  ///     harness run without wiring OSLog; production injects
+  ///     ``OSLogEngineLogger`` at the View boundary (see `SimulationView`).
+  public init(
+    detector: (any LanguageDetector)? = nil,
+    logger: any EngineLogger = NoopEngineLogger()
+  ) {
     self.detector = detector
+    self.logger = logger
   }
 
   /// Whether the simulation is currently paused.
@@ -125,6 +135,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let validator = self.validator
     let pauseState = self.pauseState
     let detector = self.detector
+    let logger = self.logger
 
     return AsyncStream { continuation in
       let task = Task {
@@ -134,6 +145,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           pauseState: pauseState,
           suspendController: suspendController,
           detector: detector,
+          logger: logger,
           seed: seed, startRound: startRound,
           emitter: { continuation.yield($0) }
         )
@@ -156,6 +168,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let pauseState: OSAllocatedUnfairLock<PauseState>
     let suspendController: SuspendController
     let detector: (any LanguageDetector)?
+    let logger: any EngineLogger
     /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).
     let startRound: Int
     let emitter: @Sendable (SimulationEvent) -> Void
@@ -168,6 +181,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     pauseState: OSAllocatedUnfairLock<PauseState>,
     suspendController: SuspendController,
     detector: (any LanguageDetector)?,
+    logger: any EngineLogger,
     seed: SimulationState?, startRound: Int,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
@@ -188,7 +202,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
       pauseState: pauseState, suspendController: suspendController,
-      detector: detector, startRound: startRound, emitter: emitter
+      detector: detector, logger: logger, startRound: startRound, emitter: emitter
     )
 
     // Resume from the persisted state when seeded; otherwise start fresh.
@@ -351,7 +365,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
             await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
           },
           phasePath: phasePath,
-          detector: ctx.detector
+          detector: ctx.detector,
+          logger: ctx.logger
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {
