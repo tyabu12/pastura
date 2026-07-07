@@ -307,4 +307,5 @@ same change:
 | `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
 | `docs/models/onboarding.md`           | Model onboarding two-gate procedure (Stage-0 harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration; intake #979) |
 | `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (scenarios 1–17; extracted from `.claude/rules/navigation.md`) |
+| `docs/ci/xcodebuild-flakes.md`        | CI UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
