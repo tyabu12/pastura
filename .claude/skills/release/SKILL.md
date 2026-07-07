@@ -89,25 +89,57 @@ commit would make `HEAD` diverge from `origin/main` and fail preflight.
 ## Step 3 — Synthesize and review the release notes
 
 Turn the commit subjects (Step 1) into concise **tester-facing "What to
-Test"** prose — group related changes, drop SHAs / internal issue refs /
-implementation jargon. These notes are published to TestFlight testers.
+Test"** prose. These notes are published to TestFlight testers, so:
+
+- **Keep only tester-facing changes** — new features and user-visible
+  fixes. Drop internal-only commits entirely: refactors, chores, docs,
+  tests, CI, tooling. A build of only internal work gets a single
+  "internal improvements" line, not a padded list.
+- **Drop all PR/issue numbers, SHAs, and emoji prefixes** — those live in
+  git history / a GitHub Release, not tester notes.
+- **Write plainly** — no marketing adjectives, no effusive openers /
+  closers, no AI-tell rhythms (rule-of-three triads, em-dash pile-ups).
+  State what changed and what to check, like a short developer note to a
+  peer.
+
+The **first** build is the exception: with no prior release to diff, write
+a brief app intro + what to test rather than a changelog.
 
 **The operator must review the final notes at the gate (Step 5)** — they
 go to humans and are not content-safety-screened. Never ship raw commit
 subjects unreviewed (a subject can carry a token, internal URL, or
 unpolished text).
 
+Write the finalized notes to a temp file so `release.sh` ships them
+verbatim as the TestFlight changelog:
+
+```bash
+NOTES_FILE="$(mktemp -t pastura-release-notes)"
+cat > "$NOTES_FILE" <<'NOTES'
+<the reviewed tester-facing prose from above>
+NOTES
+```
+
+Pass `--notes-file "$NOTES_FILE"` to `release.sh` in Steps 4 and 6.
+**Without it**, the script falls back to raw commit subjects
+(`build_notes`) — exactly what this step exists to prevent — so always
+pass the file once notes are prepared. A given-but-empty/missing file is a
+hard error, so the fallback never fires silently mid-release.
+
 ## Step 4 — Dry-run the preflight
 
 ```bash
-scripts/release.sh --version X.Y.Z --dry-run
+scripts/release.sh --version X.Y.Z --notes-file "$NOTES_FILE" --dry-run
 ```
 
 This runs the full preflight (HEAD == origin/main, every required check
 green — the required list is derived from the branch ruleset) and prints
-the planned version / build / tag, then stops before any archive or
-upload. Resolve any preflight failure (usually: `main` not green yet, or
-HEAD not synced) before continuing. `scripts/release.sh` is not in the
+the planned version / build / tag plus a **"What to Test" preview** — with
+`--notes-file` that preview is your reviewed prose, so a missing/empty
+notes file fails here (fail-fast) rather than mid-upload, and the Step 5
+gate reviews the exact text that will ship. It then stops before any
+archive or upload. Resolve any preflight failure (usually: `main` not
+green yet, or HEAD not synced) before continuing. `scripts/release.sh` is not in the
 permission allowlist, so the first invocation prompts for approval — that
 prompt is itself a safety gate for an irreversible action.
 
@@ -126,7 +158,7 @@ upload that follows cannot be undone.
 ## Step 6 — Release
 
 ```bash
-scripts/release.sh --version X.Y.Z
+scripts/release.sh --version X.Y.Z --notes-file "$NOTES_FILE"
 ```
 
 The script archives, re-checks the ADR-005 §8.5 Ollama-symbol guard on
