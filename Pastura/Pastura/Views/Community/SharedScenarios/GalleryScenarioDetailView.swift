@@ -281,26 +281,13 @@ struct GalleryScenarioDetailView: View {
   private func handle(_ outcome: SharedScenariosViewModel.TryOutcome) {
     switch outcome {
     case .installed(let id), .updated(let id):
+      // The navigating outcomes push to the local copy instead of alerting.
       pushToInstalled(scenarioId: id)
-    case .conflict(let existingName, _):
-      outcomeAlert = OutcomeAlert(
-        title: String(localized: "Cannot install"),
-        message: String(
-          format: String(
-            localized:
-              "A scenario named “%@” already uses this id. Delete or rename it first, then try again."
-          ),
-          existingName))
-    case .hashMismatch:
-      outcomeAlert = OutcomeAlert(
-        title: String(localized: "Integrity check failed"),
-        message: String(
-          localized:
-            "The downloaded scenario does not match its expected signature. The gallery may have been updated. Pull to refresh and try again."
-        ))
-    case .networkError(let description):
-      // description is a runtime error string from the network layer — not wrapped
-      outcomeAlert = OutcomeAlert(title: String(localized: "Download failed"), message: description)
+    default:
+      // Everything else (conflict / hashMismatch / networkError /
+      // updateRequired) maps to alert copy — extracted to the pure Format
+      // helper so the strings are unit-testable (ADR-009).
+      outcomeAlert = GalleryScenarioDetailFormat.installAlert(for: outcome)
     }
   }
 
@@ -324,7 +311,10 @@ struct GalleryScenarioDetailView: View {
   }
 }
 
-private struct OutcomeAlert: Identifiable {
+/// Alert content for a non-navigating install outcome. Internal (not
+/// `private`) so ``GalleryScenarioDetailFormat/installAlert(for:)`` can build
+/// it and its copy is unit-testable (ADR-009).
+struct OutcomeAlert: Identifiable {
   let id = UUID()
   let title: String
   let message: String

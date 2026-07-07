@@ -57,4 +57,24 @@ struct GalleryScenarioDetailFormatTests {
     #expect(GalleryScenarioDetailFormat.languageLabel(code: nil) == nil)
     #expect(GalleryScenarioDetailFormat.languageLabel(code: "fr") == nil)
   }
+
+  // MARK: - installAlert (ADR-020 D5)
+
+  @Test func installAlertNilForNavigatingOutcomes() {
+    // .installed / .updated push to the local copy — no alert.
+    #expect(GalleryScenarioDetailFormat.installAlert(for: .installed(scenarioId: "x")) == nil)
+    #expect(GalleryScenarioDetailFormat.installAlert(for: .updated(scenarioId: "x")) == nil)
+  }
+
+  @Test func installAlertUpdateRequiredGivesForwardGuidance() {
+    let alert = GalleryScenarioDetailFormat.installAlert(for: .updateRequired)
+    #expect(alert?.title == "Update required")
+    // Forward-guidance, not a "download"/"parse" dead-end.
+    #expect(alert?.message.contains("newer version of Pastura") == true)
+  }
+
+  @Test func installAlertNetworkErrorPassesDescriptionThrough() {
+    let alert = GalleryScenarioDetailFormat.installAlert(for: .networkError("boom"))
+    #expect(alert?.message == "boom")
+  }
 }

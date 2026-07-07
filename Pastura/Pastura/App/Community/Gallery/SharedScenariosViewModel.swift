@@ -37,6 +37,11 @@ final class SharedScenariosViewModel {
     case networkError(String)
     /// Downloaded YAML did not match the `yaml_sha256` from the gallery index.
     case hashMismatch
+    /// This build's engine cannot execute the scenario (ADR-020 D5) — the user
+    /// must update the app. The last-line backstop for an incompatible scenario
+    /// that reaches install anyway (e.g. via a deep-linked detail view, past
+    /// the Browse grey-out gate).
+    case updateRequired
   }
 
   private(set) var state: LoadState = .idle
@@ -159,8 +164,15 @@ final class SharedScenariosViewModel {
   // MARK: - Install flow
 
   /// Attempts to install or update `scenario`. See `TryOutcome` for the
-  /// five possible results.
+  /// possible results.
   func tryInstall(_ scenario: GalleryScenario) async -> TryOutcome {
+    // ADR-020 D5: never attempt to install a scenario this build's engine
+    // cannot execute. The Browse grey-out (D4) already blocks the tap for
+    // index-visible incompatibility, but a deep-linked detail view can still
+    // reach here — guide the user to update rather than dead-ending on a
+    // parse/network error. Short-circuits before any DB or network work.
+    guard isCompatible(scenario) else { return .updateRequired }
+
     let existing: ScenarioRecord?
     switch await resolveExisting(scenario) {
     case .conflict(let outcome): return outcome

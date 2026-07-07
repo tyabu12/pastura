@@ -49,4 +49,17 @@ extension SharedScenariosViewModelTests {
       !sut.isCompatible(
         makeScenario(phases: nil, minEngineVersion: EngineSchemaVersion.current + 1)))
   }
+
+  // MARK: - D5 tryInstall backstop
+
+  @Test func tryInstallShortCircuitsIncompatibleToUpdateRequired() async throws {
+    // Reaches tryInstall (e.g. via a deep-linked detail view) despite the
+    // Browse grey-out. The compat guard must return .updateRequired *before*
+    // any fetch — the stub service would fail the download, so a .networkError
+    // here would prove the guard didn't short-circuit.
+    let sut = try makeCompatVM()
+    let outcome = await sut.tryInstall(
+      makeScenario(phases: ["future_phase"], minEngineVersion: nil))
+    #expect(outcome == .updateRequired)
+  }
 }
