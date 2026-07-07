@@ -26,13 +26,7 @@ nonisolated extension ScenarioValidator {
     guard let schema = phase.outputSchema else { return }
     for name in schema.keys.sorted() where !ScenarioConventions.isValidFieldName(name) {
       throw SimulationError.scenarioValidationFailed(
-        String(
-          format: String(
-            localized:
-              "%@: output field name '%@' must be an ASCII identifier (letters, digits, and underscore, not starting with a digit or underscore). Agent text values may be any language."
-          ),
-          label, name)
-      )
+        ScenarioValidationMessage.outputFieldNameInvalid(label: label, name: name).localized)
     }
   }
 }

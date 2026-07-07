@@ -51,8 +51,7 @@ nonisolated extension ScenarioValidator {
     let schema = phase.outputSchema ?? [:]
     if schema[canonical] == nil {
       throw validationError(
-        String(localized: "%@ (%@) requires field '%@' in output."),
-        label, phase.type.rawValue, canonical)
+        .requiresOutputField(label: label, type: phase.type.rawValue, field: canonical))
     }
   }
 
@@ -78,8 +77,8 @@ nonisolated extension ScenarioValidator {
     for key in OutputSchema.knownSecondaryKeys
     where schema[key] != nil && key != canonical {
       throw validationError(
-        String(localized: "%@ (%@) secondary field must be '%@', not '%@'."),
-        label, phase.type.rawValue, canonical, key)
+        .secondaryFieldMismatch(
+          label: label, type: phase.type.rawValue, canonical: canonical, key: key))
     }
   }
 
@@ -96,11 +95,8 @@ nonisolated extension ScenarioValidator {
 
 /// File-scope copy of the main file's `validationError`, kept `private` so it
 /// does not collide with the same-named helpers in `ScenarioValidator.swift`
-/// and `ScenarioLoader.swift` at module scope. Same Form-B i18n contract — the
-/// `String(localized:)` literal stays a single extractable key
-/// (see `.claude/rules/i18n.md`).
-nonisolated private func validationError(
-  _ format: String, _ arguments: CVarArg...
-) -> SimulationError {
-  .scenarioValidationFailed(String(format: format, arguments: arguments))
+/// and `ScenarioLoader.swift` at module scope. Renders the
+/// ``ScenarioValidationMessage`` at the Models layer (#501).
+nonisolated private func validationError(_ message: ScenarioValidationMessage) -> SimulationError {
+  .scenarioValidationFailed(message.localized)
 }
