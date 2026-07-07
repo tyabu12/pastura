@@ -19,9 +19,13 @@ import Foundation
 ///   satisfying the dependency rather than flagged.
 nonisolated extension ScenarioSemanticLinter {
 
-  /// A consumer phase paired with the top-level phase-list index its finding
-  /// anchors to (the enclosing conditional's index when nested in a branch).
-  private struct ConsumerRef {
+  /// A phase paired with the top-level phase-list index its finding anchors
+  /// to (the enclosing conditional's index when nested in a branch).
+  ///
+  /// `internal` (not `private`) — reused by `ScenarioSemanticLinter+Config.swift`
+  /// (R7/R8/R9/R17), which shares this file's traversal semantics rather than
+  /// duplicating them.
+  struct PhaseRef {
     let phase: Phase
     let topLevelIndex: Int
   }
@@ -41,7 +45,7 @@ nonisolated extension ScenarioSemanticLinter {
     }
 
     var findings: [LintFinding] = []
-    for consumer in consumerRefs(in: phases) {
+    for consumer in phaseRefs(in: phases, where: isOrderingConsumer) {
       switch consumer.phase.type {
       case .eliminate:
         findings += eliminateFindings(consumer, votes: votes)
@@ -59,7 +63,7 @@ nonisolated extension ScenarioSemanticLinter {
   // MARK: - Per-consumer rules
 
   /// R1a `eliminate-needs-vote` (error) + R1b `eliminate-after-vote` (warning).
-  private func eliminateFindings(_ consumer: ConsumerRef, votes: Set<Int>) -> [LintFinding] {
+  private func eliminateFindings(_ consumer: PhaseRef, votes: Set<Int>) -> [LintFinding] {
     let idx = consumer.topLevelIndex
     if votes.isEmpty {
       return finding("eliminate-needs-vote", .error, at: idx)
@@ -72,7 +76,7 @@ nonisolated extension ScenarioSemanticLinter {
 
   /// R2/R3/R5/R6 — the `score_calc` logic-specific producer dependencies.
   private func scoreCalcFindings(
-    _ consumer: ConsumerRef, votes: Set<Int>, roundRobinChoose: Set<Int>,
+    _ consumer: PhaseRef, votes: Set<Int>, roundRobinChoose: Set<Int>,
     assignRandomOne: Set<Int>, eventInject: Set<Int>
   ) -> [LintFinding] {
     let idx = consumer.topLevelIndex
@@ -150,7 +154,10 @@ nonisolated extension ScenarioSemanticLinter {
 
   /// Top-level indices at which `predicate` matches — the phase itself, or any
   /// of its `conditional` sub-phases (may-run counts as present).
-  private func producerIndices(
+  ///
+  /// `internal` — shared with `ScenarioSemanticLinter+Config.swift` (R9's
+  /// round-robin-`choose` producer lookup).
+  func producerIndices(
     in phases: [Phase], where predicate: (Phase) -> Bool
   ) -> Set<Int> {
     var result: Set<Int> = []
@@ -161,28 +168,34 @@ nonisolated extension ScenarioSemanticLinter {
     return result
   }
 
-  /// Every `eliminate` / `score_calc` consumer, top-level or nested in a
-  /// `conditional` branch, anchored to its top-level index.
-  private func consumerRefs(in phases: [Phase]) -> [ConsumerRef] {
-    var result: [ConsumerRef] = []
+  /// Every phase matching `predicate`, top-level or nested in a `conditional`
+  /// branch, anchored to its top-level index.
+  ///
+  /// `internal` — shared with `ScenarioSemanticLinter+Config.swift` (R7/R8/R9's
+  /// per-phase-type scans and R17's `speak_each` presence check).
+  func phaseRefs(in phases: [Phase], where predicate: (Phase) -> Bool) -> [PhaseRef] {
+    var result: [PhaseRef] = []
     for (index, phase) in phases.enumerated() {
-      if isConsumer(phase) {
-        result.append(ConsumerRef(phase: phase, topLevelIndex: index))
+      if predicate(phase) {
+        result.append(PhaseRef(phase: phase, topLevelIndex: index))
       }
-      for sub in branchPhases(of: phase) where isConsumer(sub) {
-        result.append(ConsumerRef(phase: sub, topLevelIndex: index))
+      for sub in branchPhases(of: phase) where predicate(sub) {
+        result.append(PhaseRef(phase: sub, topLevelIndex: index))
       }
     }
     return result
   }
 
-  private func isConsumer(_ phase: Phase) -> Bool {
+  private func isOrderingConsumer(_ phase: Phase) -> Bool {
     phase.type == .eliminate || phase.type == .scoreCalc
   }
 
   /// The `then` + `else` sub-phases of a `conditional` (empty for other types).
   /// Depth-1 is enforced upstream, so no recursion is needed.
-  private func branchPhases(of phase: Phase) -> [Phase] {
+  ///
+  /// `internal` — shared with `ScenarioSemanticLinter+Config.swift` (R17's
+  /// nested-`speak_each` check).
+  func branchPhases(of phase: Phase) -> [Phase] {
     (phase.thenPhases ?? []) + (phase.elsePhases ?? [])
   }
 

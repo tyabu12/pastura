@@ -56,9 +56,14 @@ extension ScenarioSemanticLinterTests {
 
   @Test func prisonersDilemmaWithoutRoundRobinChooseFiresError() {
     // An individual (non-round-robin) choose does NOT populate pairings.
+    // `options` set so this fixture doesn't also trip R7
+    // (choose-should-declare-options, ADR-022 D3, orthogonal to ordering).
     let scenario = makeScenario(
       agents: 2, rounds: 1,
-      phases: [Phase(type: .choose), Phase(type: .scoreCalc, logic: .prisonersDilemma)])
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"]),
+        Phase(type: .scoreCalc, logic: .prisonersDilemma)
+      ])
     let findings = linter.lint(scenario)
     #expect(findings.count == 1)
     #expect(findings.first?.ruleID == "pd-needs-round-robin-choose")
@@ -70,7 +75,7 @@ extension ScenarioSemanticLinterTests {
     let scenario = makeScenario(
       agents: 2, rounds: 1,
       phases: [
-        Phase(type: .choose, pairing: .roundRobin),
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
         Phase(type: .scoreCalc, logic: .prisonersDilemma)
       ])
     #expect(linter.lint(scenario).isEmpty)
@@ -79,7 +84,7 @@ extension ScenarioSemanticLinterTests {
   @Test func roundRobinChooseInsideConditionalSatisfiesPrisonersDilemma() {
     let conditional = Phase(
       type: .conditional, condition: "current_round >= 1",
-      thenPhases: [Phase(type: .choose, pairing: .roundRobin)])
+      thenPhases: [Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin)])
     let scenario = makeScenario(
       agents: 2, rounds: 1,
       phases: [conditional, Phase(type: .scoreCalc, logic: .prisonersDilemma)])

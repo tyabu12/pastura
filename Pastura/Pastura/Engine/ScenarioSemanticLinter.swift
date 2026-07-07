@@ -78,8 +78,8 @@ nonisolated public struct ScenarioSemanticLinter: Sendable {
   // Producer–consumer phase-ordering rules R1–R6 live in
   // `ScenarioSemanticLinter+Ordering.swift` (`orderingFindings(in:)`).
 
-  // Silently-inert configuration rules R7/R8/R9/R17 (later moved to a sibling file).
-  func configFindings(in scenario: Scenario) -> [LintFinding] { [] }
+  // Silently-inert configuration rules R7/R8/R9/R17 live in
+  // `ScenarioSemanticLinter+Config.swift` (`configFindings(in:)`).
 
   // Placeholder-resolution rules R10–R12 (later moved to a sibling file).
   func placeholderFindings(in scenario: Scenario) -> [LintFinding] { [] }
