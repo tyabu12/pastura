@@ -137,6 +137,10 @@ struct RootTabView: View {
     Image(systemName: Self.symbolName(for: tab, isActive: coordinator.selectedTab == tab))
       .environment(\.symbolVariants, .none)
       .accessibilityLabel(Text(label))
+      // Locale-independent handle for UI tests to switch tabs by identifier
+      // instead of the localized VoiceOver label (StoreScreenshotTests runs
+      // under en AND ja, where label-based tab queries would not resolve).
+      .accessibilityIdentifier(Self.accessibilityID(for: tab))
   }
 }
 
@@ -156,6 +160,19 @@ extension RootTabView {
     case .search: return "magnifyingglass"
     case .history: return isActive ? "clock.fill" : "clock"
     case .settings: return isActive ? "gearshape.fill" : "gearshape"
+    }
+  }
+
+  /// Stable, locale-independent accessibility identifier for `tab`'s tab-bar
+  /// button. Used by `StoreScreenshotTests` to switch tabs by identifier
+  /// (`app.tabBars.buttons["rootTab.history"]`) so navigation works under any
+  /// locale. Pure + `internal` so the mapping is unit-tested.
+  static func accessibilityID(for tab: AppTab) -> String {
+    switch tab {
+    case .home: return "rootTab.home"
+    case .search: return "rootTab.search"
+    case .history: return "rootTab.history"
+    case .settings: return "rootTab.settings"
     }
   }
 }
