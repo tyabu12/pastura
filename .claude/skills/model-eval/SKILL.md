@@ -147,8 +147,11 @@ It emits one JSON object: per-run `status` / `attempts` / `tok_per_sec` /
 `language_mismatches`, plus an `aggregate` with `runs_ok`, `runs_failed`,
 `language_mismatch_total`, `attempts_mean`, `tok_per_sec_overall`. Note:
 `attempts` (1 first-try, 2 after the Engine retry) is the **only** retry proxy
-— JSON-repair diagnostics never reach the JSONL. Read this object; it feeds the
-scorecard's per-cell metrics and the verdict.
+— JSON-repair diagnostics never reach the JSONL. `aggregate.runs_total` counts
+only cells that produced a log file (a `config_error` before first write leaves
+none) — battery completeness comes from the 6 wrapper status lines, not from
+`runs_total == 6`. Read this object; it feeds the scorecard's per-cell metrics
+and the verdict.
 
 ## Step 3 — Judge each `ok` cell in-session
 

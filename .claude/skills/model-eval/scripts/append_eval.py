@@ -161,6 +161,10 @@ def render_section(results):
     gguf = model.get("gguf", "?")
     battery = results.get("battery", [])
 
+    # Expected status vocab = run_scenario.sh's {ok, failed, config_error}.
+    # An unexpected upstream status is still tallied (counts.get below) but
+    # won't show in the summary line — extend the seed dict if the wrapper
+    # vocab ever grows.
     counts = {"ok": 0, "failed": 0, "config_error": 0}
     for entry in battery:
         st = entry.get("status", "failed")
