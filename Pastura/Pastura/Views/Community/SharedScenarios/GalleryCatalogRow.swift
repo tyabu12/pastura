@@ -179,6 +179,24 @@ nonisolated enum GalleryCatalogRowFormat {
     }
   }
 
+  /// The title-trailing badge for a Browse catalog card, resolved from the
+  /// scenario's engine-compatibility and local install state (ADR-020 D4).
+  ///
+  /// An **incompatible** scenario always shows ``ScenarioBadge/updateRequired``
+  /// — it can't run on this build, so the "installed" / "update-available"
+  /// provenance signals are irrelevant and suppressed. A **compatible**
+  /// scenario surfaces the update-available badge over installed (an updatable
+  /// row is installed too, but the "changed" signal is the more useful one),
+  /// or no badge when it is neither installed nor updatable.
+  static func badge(
+    compatible: Bool, hasUpdate: Bool, isInstalled: Bool
+  ) -> ScenarioBadge? {
+    guard compatible else { return .updateRequired }
+    if hasUpdate { return .update }
+    if isInstalled { return .installed }
+    return nil
+  }
+
   /// Number of sheep the ``ScenarioArtTile`` cluster should draw: clamped to
   /// `[0, maxClusterSheep]`. Unknown (`nil`) or non-positive counts return `0`
   /// — the catalog never fabricates agent data the rest of the app hides

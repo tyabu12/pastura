@@ -4180,6 +4180,16 @@
         }
       }
     },
+    "Needs a newer version of Pastura to run." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行にはより新しいバージョンの Pastura が必要です。"
+          }
+        }
+      }
+    },
     "Network error: %@" : {
       "localizations" : {
         "ja" : {
@@ -6592,6 +6602,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "投票・行動の履歴から好感度行列を更新（コード、LLM なし）"
+          }
+        }
+      }
+    },
+    "Update app" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリを更新"
           }
         }
       }

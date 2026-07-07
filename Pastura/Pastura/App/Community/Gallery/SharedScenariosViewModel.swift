@@ -277,6 +277,18 @@ final class SharedScenariosViewModel {
     return local.sourceHash != scenario.yamlSHA256
   }
 
+  /// Whether this build's engine can execute `scenario` (ADR-020 D2 + D3).
+  ///
+  /// Drives the Browse-tab grey-out: an incompatible entry renders as a
+  /// dimmed, non-tappable card with an "update app" badge instead of a
+  /// `NavigationLink` (see ``SharedScenariosListView``). Delegates to
+  /// ``EngineSchemaVersion`` so the capability comparison stays in the Engine
+  /// layer and drift-proof against `PhaseType` additions.
+  func isCompatible(_ scenario: GalleryScenario) -> Bool {
+    EngineSchemaVersion.isCompatible(
+      phases: scenario.phases, minEngineVersion: scenario.minEngineVersion)
+  }
+
   // MARK: - Private
 
   private func apply(index: GalleryIndex) {
