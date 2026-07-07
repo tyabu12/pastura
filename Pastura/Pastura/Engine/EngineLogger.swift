@@ -7,7 +7,7 @@ import Foundation
 /// platform logger without carrying unused OSLog levels. The OSLog adapter
 /// maps these to the matching `os.Logger` convenience calls (`warning`
 /// resolves to the `.error` OSLog type, unchanged from the pre-seam code).
-nonisolated public enum EngineLogLevel: Sendable {
+nonisolated public enum EngineLogLevel: Sendable, Equatable {
   case debug
   case info
   case warning
@@ -19,7 +19,7 @@ nonisolated public enum EngineLogLevel: Sendable {
 /// Mirrors OSLog's redaction contract at message granularity: `.private`
 /// content renders as `<private>` off-device, `.public` renders verbatim.
 /// The Engine classifies each call site; the OSLog adapter applies it.
-nonisolated public enum EngineLogPrivacy: Sendable {
+nonisolated public enum EngineLogPrivacy: Sendable, Equatable {
   case `public`
   case `private`
 }
