@@ -16,6 +16,8 @@ context: >
   argument best deserves to become its moral. The chosen one is inscribed
   into the book — retold forever, but never able to step outside the
   story again. Those never inscribed stay free, and untold.
+  But the book accepts no self-nomination: whoever longs to be inscribed
+  must win the votes of others.
   Everyone knows this law. Who longs to be inscribed and who longs to
   escape it — none of that needs hiding. Argue according to your wish.
 
@@ -115,8 +117,10 @@ phases:
 
       Vote for the speaker whose argument most deserves to be inscribed
       as tonight's moral. Whoever is inscribed leaves this table.
-      You may follow your own wish — whom to keep, and whom to send away.
-      Your vote must be exactly one of these names: {candidates}
+      The book accepts no self-nomination, so you cannot vote for
+      yourself. You may follow your own wish — whom to keep, and whom to
+      send away — but your vote must be exactly one of these names:
+      {candidates}
     output:
       vote: string
       reason: string
