@@ -204,13 +204,30 @@ YAML_AGENTS="$(python3 -c "import sys, yaml; print(int(yaml.safe_load(open(sys.a
 YAML_ROUNDS="$(python3 -c "import sys, yaml; print(int(yaml.safe_load(open(sys.argv[1]))['rounds']))" "$YAML_PATH")"
 case "$YAML_AGENTS" in ''|*[!0-9]*) echo "ERROR: YAML 'agents' must be a positive integer (got: '$YAML_AGENTS')" >&2; exit 1 ;; esac
 case "$YAML_ROUNDS" in ''|*[!0-9]*) echo "ERROR: YAML 'rounds' must be a positive integer (got: '$YAML_ROUNDS')" >&2; exit 1 ;; esac
-# phases: ordered list of phase-type raw values, a YAML-derived fact like
-# agents/rounds. Drives the Browse art-tile signature glyph; the Swift
-# GallerySeedYAMLTests.galleryPhasesMatchYAML pins it against this same order.
-# Emitted as a JSON array string for jq --argjson below. `|| { … }` turns a
-# malformed `phases:` (not a list, or a phase missing `type`) into a curated
+# phases: the FULLY-FLATTENED ordered list of phase-type raw values, a
+# YAML-derived fact like agents/rounds. `conditional` `then:`/`else:` branch
+# sub-phases are flattened in — depth-first, the conditional's own `conditional`
+# entry first, then its then-branch phases, then its else-branch phases (the
+# order the engine reaches them via mapBranch → mapPhase). Load-bearing for
+# ADR-020 D2a: the capability gate compares this against `PhaseType.allCases`, so
+# a new phase kind appearing ONLY inside a conditional branch must still be
+# visible here. Drives the Browse art-tile signature glyph; the Swift
+# GallerySeedYAMLTests.galleryPhasesMatchYAML pins it against this same flattened
+# order. Emitted as a JSON array string for jq --argjson below. `|| { … }` turns
+# a malformed `phases:` (not a list, or a phase missing `type`) into a curated
 # error matching the agents/rounds style above, not a raw Python traceback.
-YAML_PHASES="$(python3 -c "import sys, yaml, json; print(json.dumps([p['type'] for p in yaml.safe_load(open(sys.argv[1]))['phases']]))" "$YAML_PATH")" \
+YAML_PHASES="$(python3 -c "
+import sys, yaml, json
+def flat(ps):
+    out = []
+    for p in ps:
+        out.append(p['type'])
+        if p['type'] == 'conditional':
+            for branch in ('then', 'else'):
+                out += flat(p.get(branch) or [])
+    return out
+print(json.dumps(flat(yaml.safe_load(open(sys.argv[1]))['phases'])))
+" "$YAML_PATH")" \
   || { echo "ERROR: YAML 'phases' must be a list of mappings each carrying a 'type' key" >&2; exit 1; }
 # language: ISO 639-1 body language (ja/en per ADR-010 D1), a YAML-derived
 # fact like agents/rounds/phases — denormalized into the index so the Browse
