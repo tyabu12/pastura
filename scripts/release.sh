@@ -30,12 +30,19 @@
 #   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH  (see fastlane/Fastfile)
 #
 # Usage:
-#   scripts/release.sh --version X.Y.Z [--dry-run]
+#   scripts/release.sh --version X.Y.Z [--notes-file PATH] [--dry-run]
 #
+#   --notes-file PATH  Use PATH's contents as the TestFlight "What to Test"
+#               changelog — the channel by which the /release skill ships its
+#               reviewed, tester-facing notes. Omitted: the changelog falls
+#               back to commit subjects since the last tag (build_notes). A
+#               given-but-missing or empty file is a hard error, never a
+#               silent fall back to raw subjects.
 #   --dry-run   Run preflight + build-number computation and print the
-#               planned release, then stop BEFORE the ASC query, archive,
-#               and upload (those require the bootstrap above). Safe to run
-#               on any CI-green main checkout.
+#               planned release (including the notes preview, so a bad
+#               --notes-file fails here), then stop BEFORE the ASC query,
+#               archive, and upload (those require the bootstrap above).
+#               Safe to run on any CI-green main checkout.
 #
 # macOS bash 3.2 safe (no mapfile / declare -A / here-strings) so the same
 # script is reusable from a GHA macos-* runner later (ADR-014 Decision 2).
@@ -59,12 +66,15 @@ die()  { err "$*"; exit 1; }
 
 VERSION=""
 DRY_RUN=0
+NOTES_FILE=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --version) VERSION="${2:-}"; shift 2 ;;
     --version=*) VERSION="${1#*=}"; shift ;;
+    --notes-file) NOTES_FILE="${2:-}"; shift 2 ;;
+    --notes-file=*) NOTES_FILE="${1#*=}"; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
-    -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,48p' "$0"; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -129,8 +139,9 @@ preflight() {
 }
 
 # ── release-notes ("What to Test") ───────────────────────────────────────
-# Commit subjects since the previous release tag; passed to TestFlight as
-# the changelog.
+# Commit subjects since the previous release tag — the changelog FALLBACK
+# used when no --notes-file is supplied (the /release skill normally passes
+# reviewed tester-facing notes instead; see the NOTES source block below).
 build_notes() {
   local last_tag
   last_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
@@ -145,7 +156,20 @@ preflight
 
 BUILD="$(git rev-list --count HEAD)"
 TAG="v${VERSION}+${BUILD}"
-NOTES="$(build_notes)"
+
+# NOTES source: an explicit --notes-file (the /release skill's reviewed,
+# tester-facing "What to Test") wins; otherwise fall back to commit subjects.
+# Validated here — BEFORE the --dry-run exit below — so a missing/empty notes
+# file fails fast at dry-run rather than first at the irreversible upload.
+# Guard the post-`cat` value (not just file size): `cat` strips trailing
+# newlines, so a newline-only file collapses to empty and is rejected.
+if [ -n "$NOTES_FILE" ]; then
+  [ -f "$NOTES_FILE" ] || die "--notes-file not found: $NOTES_FILE"
+  NOTES="$(cat "$NOTES_FILE")"
+  [ -n "$NOTES" ] || die "--notes-file is empty: $NOTES_FILE"
+else
+  NOTES="$(build_notes)"
+fi
 
 log "Planned release: version $VERSION, build $BUILD, tag $TAG"
 
