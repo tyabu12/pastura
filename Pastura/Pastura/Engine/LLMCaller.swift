@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 /// Wraps LLM inference calls with retry logic and event emission.
 ///
@@ -17,11 +16,28 @@ nonisolated struct LLMCaller: Sendable {
   static let maxRetries = 2
   private let parser = JSONResponseParser()
   private let extractor = PartialOutputExtractor()
-  private let logger = Logger(subsystem: "app.pastura.Pastura", category: "LLMCaller")
-  // `category: "StreamingDiag"` matches the existing diagnostic channel
-  // (PR #158) so `scripts/analyze-streaming-diag.sh` picks up the new
-  // `repaired ...` lines alongside `retry ...` and `streamReset ...`.
-  private let diagLogger = Logger(subsystem: "app.pastura.Pastura", category: "StreamingDiag")
+
+  /// Injected logging seam. Replaces the former two `os.Logger` instances so
+  /// the Engine no longer imports OSLog (#501 S0.2); the OSLog implementation
+  /// lives in App/ (`OSLogEngineLogger`). Handlers construct
+  /// `LLMCaller(logger: context.logger)`. `internal` (not `private`) so the
+  /// sibling `LLMCaller+Logging` extension can read it.
+  let logger: any EngineLogger
+
+  /// OSLog category for general LLMCaller diagnostics. `internal` so the
+  /// sibling `LLMCaller+Logging` extension can read it.
+  static let logCategory = "LLMCaller"
+  /// OSLog category for the streaming-diagnostic channel that
+  /// `scripts/analyze-streaming-diag.sh` captures (`retryCause` / `repaired` /
+  /// `langCheckSkipped`). Load-bearing — must stay `"StreamingDiag"`.
+  static let diagCategory = "StreamingDiag"
+
+  /// - Parameter logger: The logging seam. Defaults to ``NoopEngineLogger``
+  ///   (silent) so tests / non-App consumers construct `LLMCaller()`;
+  ///   production handlers pass `context.logger`.
+  init(logger: any EngineLogger = NoopEngineLogger()) {
+    self.logger = logger
+  }
 
   // swiftlint:disable function_parameter_count
 
@@ -159,70 +175,13 @@ nonisolated struct LLMCaller: Sendable {
     let completionTokens: Int?
   }
 
-  /// Emit the parse-failure log lines (engineering channel + DEBUG
-  /// console fallback). Extracted to keep `call` under the lint
-  /// `function_body_length` budget.
-  private func logParseFailure(raw: String, attempt: Int) {
-    // `raw` may echo user-authored scenario / persona content via malformed
-    // LLM output, but the same data is already persisted on-device to
-    // `TurnRecord.rawOutput` (ADR-001), so OSLog exposure is consistent with
-    // the existing surface. `.public` is required for diagnostic value in
-    // TestFlight / Release builds.
-    logger.warning(
-      "JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500), privacy: .public)"
-    )
-    #if DEBUG
-      // print() for reliable Xcode console visibility (os.Logger may be filtered)
-      print(
-        "[LLMCaller] JSON parse failed (attempt \(attempt + 1)/\(Self.maxRetries + 1)): raw=\(raw.prefix(500))"
-      )
-    #endif
-  }
-
-  /// Emit the `category:StreamingDiag` `retryCause` line consumed by
-  /// `scripts/analyze-streaming-diag.sh`. Field order
-  /// `agent=… attempt=… cause=…` is load-bearing — analyzer regex
-  /// expects `cause=` to be the last token (#194 PR#a Item 4).
-  ///
-  /// `internal` (not `private`) so the sibling `LLMCaller+StreamFailure`
-  /// extension can emit the `sampler_crash` cause (#885).
-  func emitRetryCause(agent: String, attempt: Int, cause: String) {
-    diagLogger.info(
-      "retryCause agent=\(agent, privacy: .public) attempt=\(attempt) cause=\(cause, privacy: .public)"
-    )
-  }
-
-  /// Emit the `category:StreamingDiag` `repaired` line consumed by the
-  /// analyzer. No-op when the parse didn't trip the repair pipeline.
-  private func logRepairIfNeeded(agent: String, kind: String?) {
-    guard let kind else { return }
-    diagLogger.info(
-      "repaired agent=\(agent, privacy: .public) kind=\(kind, privacy: .public)"
-    )
-  }
-
-  /// Detect chat template token leakage and hallucinated continuations.
-  /// `LlamaCppService`'s streaming path strips `<|im_end|>` before
-  /// emission, so this primarily catches non-streaming backends (Mock
-  /// wrap path, Ollama) where the raw string may still contain template
-  /// tokens.
-  private func logChatTemplateLeakage(in raw: String) {
-    if raw.contains("<|im_start|>") {
-      logger.warning(
-        "Model hallucinated past its turn — continuation truncated at <|im_end|>")
-    } else if raw.contains("<|im_end|>") {
-      logger.debug("Trailing <|im_end|> token stripped from output")
-    }
-  }
+  // Log-emission helpers (`logParseFailure`, `emitRetryCause`,
+  // `logRepairIfNeeded`, `logChatTemplateLeakage`, `logEmptyFields`,
+  // `emitLangCheckSkipped`) live in `LLMCaller+Logging.swift` to keep this
+  // file under SwiftLint's `file_length` budget.
 
   private func hasEmptyFields(_ output: TurnOutput) -> Bool {
     output.fields.values.contains { $0 == "..." || $0.isEmpty }
-  }
-
-  private func logEmptyFields(fields: [String: String], attempt: Int) {
-    logger.debug(
-      "Empty fields detected (attempt \(attempt + 1)/\(Self.maxRetries + 1)): fields=\(fields)"
-    )
   }
 
   // MARK: - Language Adherence (ADR-010 Step E PR2)
@@ -321,16 +280,6 @@ nonisolated struct LLMCaller: Sendable {
     }
   }
 
-  /// Emit a `category:StreamingDiag` `langCheckSkipped` line. Field
-  /// order `agent=… reason=…` matches the existing `retryCause` /
-  /// `repaired` conventions (agent first; trailing key is the cause
-  /// classification). Consumed by `scripts/analyze-streaming-diag.sh`.
-  private func emitLangCheckSkipped(agent: String, reason: String) {
-    diagLogger.info(
-      "langCheckSkipped agent=\(agent, privacy: .public) reason=\(reason, privacy: .public)"
-    )
-  }
-
   /// Drain one `generateStream` cycle, emitting per-snapshot UI events
   /// as chunks arrive. On ``LLMError/suspended``, awaits the controller's
   /// resume and re-issues the stream from scratch — same transparent
@@ -386,8 +335,10 @@ nonisolated struct LLMCaller: Sendable {
         return StreamResult(rawText: rawText, completionTokens: completionTokens)
       } catch LLMError.suspended {
         suspendCount += 1
-        logger.info(
-          "stream: caught .suspended (count=\(suspendCount)), awaiting resume")
+        logger.log(
+          .info, category: Self.logCategory,
+          "stream: caught .suspended (count=\(suspendCount)), awaiting resume",
+          privacy: .public)
         await controller.awaitResume()
         try Task.checkCancellation()
         // Loop: re-issue a fresh stream. Any partial snapshot emitted
