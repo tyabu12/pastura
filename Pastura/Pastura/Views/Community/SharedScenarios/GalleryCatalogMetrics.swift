@@ -103,6 +103,13 @@ nonisolated enum GalleryCatalogMetrics {
   /// list is inset (unlike the full-bleed `.grouped` empty-state band).
   static let listHorizontalMargin: CGFloat = 16
 
+  /// Opacity applied to an **engine-incompatible** catalog card (ADR-020 D4):
+  /// the card greys out to read as disabled while its title / badge stay
+  /// legible for VoiceOver. Rendered as a non-interactive sibling (no
+  /// `NavigationLink`, no `.disabled`) so the whole card keeps accessibility
+  /// focus.
+  static let incompatibleCardOpacity: CGFloat = 0.5
+
   // MARK: Body
 
   /// Description truncation limit (2-line catalog blurb). `Int`, also

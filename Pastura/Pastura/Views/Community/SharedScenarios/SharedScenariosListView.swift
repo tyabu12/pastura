@@ -145,11 +145,7 @@ struct SharedScenariosListView: View {
       // Home compact rows and the Past Results timeline.
       VStack(alignment: .leading, spacing: GalleryCatalogMetrics.listSpacing) {
         ForEach(viewModel.visibleScenarios, id: \.id) { scenario in
-          NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
-            GalleryCatalogRow(model: catalogModel(scenario: scenario, viewModel: viewModel))
-          }
-          .buttonStyle(.plain)
-          .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+          galleryCell(scenario: scenario, viewModel: viewModel)
         }
       }
       .padding(.horizontal, GalleryCatalogMetrics.listHorizontalMargin)
@@ -193,20 +189,46 @@ struct SharedScenariosListView: View {
   // `SharedScenariosListView+CategoryChips.swift` (split out for the
   // type_body_length budget, #731).
 
+  /// One catalog cell. A **compatible** scenario is a tappable
+  /// ``Route/galleryScenarioDetail(scenario:)`` push; an **engine-incompatible**
+  /// one (ADR-020 D4) is a dimmed, non-interactive card — rendered as a plain
+  /// sibling (no `NavigationLink`, no `.disabled`) so the whole card, badge
+  /// included, keeps VoiceOver focus and reads its "update app" state.
+  @ViewBuilder
+  private func galleryCell(
+    scenario: GalleryScenario, viewModel: SharedScenariosViewModel
+  ) -> some View {
+    let compatible = viewModel.isCompatible(scenario)
+    let row = GalleryCatalogRow(
+      model: catalogModel(scenario: scenario, viewModel: viewModel, compatible: compatible))
+    if compatible {
+      NavigationLink(value: Route.galleryScenarioDetail(scenario: scenario)) {
+        row
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+    } else {
+      row
+        .opacity(GalleryCatalogMetrics.incompatibleCardOpacity)
+        .accessibilityHint(
+          Text(String(localized: "Needs a newer version of Pastura to run."))
+        )
+        .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+    }
+  }
+
   /// Maps a ``GalleryScenario`` into the presentation-only
   /// ``GalleryCatalogRow/Model`` (tab-identity PR2, #777). The category moves
   /// to the card's inline chip and `agent_count · rounds` to its footer; the
   /// `~N inferences` caption from the old shared row is dropped under the
   /// catalog layout (matches the approved lookbook).
   private func catalogModel(
-    scenario: GalleryScenario, viewModel: SharedScenariosViewModel
+    scenario: GalleryScenario, viewModel: SharedScenariosViewModel, compatible: Bool
   ) -> GalleryCatalogRow.Model {
-    // hasUpdate wins over isInstalled — an updatable scenario is installed too,
-    // but the "changed" signal is the more useful one to surface.
-    let badge: ScenarioBadge? =
-      viewModel.hasUpdate(for: scenario)
-      ? .update
-      : (viewModel.isInstalled(scenario) ? .installed : nil)
+    let badge = GalleryCatalogRowFormat.badge(
+      compatible: compatible,
+      hasUpdate: viewModel.hasUpdate(for: scenario),
+      isInstalled: viewModel.isInstalled(scenario))
     return GalleryCatalogRow.Model(
       title: scenario.title,
       badge: badge,
