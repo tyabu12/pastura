@@ -15,8 +15,9 @@ import Foundation
 ///
 /// **Layer note (D8 normative):** Engine reads `scenario.engineLanguage`
 /// only, never `Bundle.main.preferredLocalizations`. This helper is
-/// intentionally independent of `String(localized:)`, which would
-/// resolve against device locale and break the cross-language goal.
+/// intentionally independent of any device-locale string lookup, which
+/// would resolve against the device locale and break the cross-language
+/// goal.
 ///
 /// The `ja` / `en` parameter names match the resolved language values
 /// verbatim so callsites read as a Translation Table row

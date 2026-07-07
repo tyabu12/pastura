@@ -39,9 +39,11 @@ verify the checklist below holds before starting:
   auto-loads it via dotenv; do NOT export them in `~/.zshrc`):
   `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH`. Copy from
   `fastlane/.env.example`.
-- A **distribution certificate / provisioning** exists (automatic
-  signing, team `52G26234A3`; the first archive needs an Apple ID
-  signed into Xcode).
+- An **Apple ID signed into Xcode** whose account can sign for
+  distribution (automatic signing, team `52G26234A3`). Distribution
+  signing is cloud-managed — no local distribution cert is needed;
+  `release.sh` passes `-allowProvisioningUpdates` to resolve the App
+  Store profile + cloud cert via that session.
 - `bundle install` has been run once so `Gemfile.lock` pins fastlane.
 
 Confirm with the operator that these hold before continuing. The
