@@ -53,7 +53,7 @@ The wrapper auto-supplies `-scheme`, `-project`, `-destination`, and
 | `-scheme` | **Rejected** — `error: option '-scheme' may only be provided once` |
 | `-project` | **Rejected** — same |
 | `-derivedDataPath` | **Rejected** — same |
-| `-destination` | **Accepted** — last-wins, intentional override per wrapper §"Caller passthrough / flag override" |
+| `-destination` | **Accepted but ADDITIVE, not last-wins** — see below |
 
 xcodebuild prints the rejection error followed by its full usage page
 (exit 64). The error line lands between the wrapper's xtrace and the
@@ -61,6 +61,26 @@ usage page, so it is easy to miss — the failure looks like a wrapper
 bug. Forward only what the wrapper does not supply: typically just
 `-only-testing` / `-skip-testing` / `--tail N` (the last is wrapper-only,
 consumed before xcodebuild is invoked).
+
+**`-destination` is additive for `test`, NOT last-wins.** xcodebuild runs
+the suite on **every** `-destination` given. The wrapper already supplies its
+own `-destination` (from `sim-dest.sh`, default iPhone 17 Pro), so appending a
+second one runs the tests on **both** devices — and a failure on the extra
+device aborts the whole run (exit 65). Do **not** re-pass `-destination` to
+"override" the wrapper's simulator. To pin a **single** simulator, set the
+`PASTURA_SIM_NAME` env var (honored by `sim-dest.sh`), which replaces the
+priority list with that one device so the wrapper emits the right lone
+`-destination`. `export` it on its own line — the leading-assignment form
+(`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips the allowlist approval
+prompt, per § "Canonical invocation":
+
+```bash
+export PASTURA_SIM_NAME="iPhone 17 Pro Max"
+scripts/xcodebuild.sh test …
+```
+
+(`scripts/store-shots.sh` uses this `export` form to force the 6.9″ device for
+App Store screenshots.)
 
 ## When to use what
 
