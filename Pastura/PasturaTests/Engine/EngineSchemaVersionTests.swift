@@ -72,7 +72,7 @@ struct EngineSchemaVersionTests {
         minEngineVersion: EngineSchemaVersion.current + 1))
   }
 
-  // MARK: - OR-composition
+  // MARK: - AND-composition (compatible ⇔ both gates pass)
 
   @Test func bothGatesFailingIsIncompatible() {
     #expect(

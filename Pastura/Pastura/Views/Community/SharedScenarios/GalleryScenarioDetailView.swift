@@ -283,10 +283,10 @@ struct GalleryScenarioDetailView: View {
     case .installed(let id), .updated(let id):
       // The navigating outcomes push to the local copy instead of alerting.
       pushToInstalled(scenarioId: id)
-    default:
-      // Everything else (conflict / hashMismatch / networkError /
-      // updateRequired) maps to alert copy — extracted to the pure Format
-      // helper so the strings are unit-testable (ADR-009).
+    case .conflict, .hashMismatch, .networkError, .updateRequired:
+      // The alerting outcomes map to copy via the pure Format helper (testable,
+      // ADR-009). Exhaustive (no `default:`) so a future TryOutcome case forces
+      // a decision here, not a silent mis-route.
       outcomeAlert = GalleryScenarioDetailFormat.installAlert(for: outcome)
     }
   }
