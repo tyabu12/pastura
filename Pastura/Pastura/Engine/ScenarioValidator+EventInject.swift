@@ -32,20 +32,10 @@ nonisolated extension ScenarioValidator {
   ) throws {
     let sourceKey = (phase.source ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sourceKey.isEmpty else {
-      throw validationError(
-        String(
-          localized:
-            "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings."
-        ),
-        label)
+      throw validationError(.eventInjectMissingSource(label: label))
     }
     guard let sourceValue = scenario.extraData[sourceKey] else {
-      throw validationError(
-        String(
-          localized:
-            "%@: source '%@' not found in scenario data. Add a top-level '%@' field to the scenario YAML."
-        ),
-        label, sourceKey, sourceKey)
+      throw validationError(.sourceNotFound(label: label, source: sourceKey))
     }
     switch sourceValue {
     case .array(let entries):
@@ -54,22 +44,12 @@ nonisolated extension ScenarioValidator {
       // a curator cannot distinguish from a string of unlucky rolls. Reject
       // early so the misconfiguration surfaces at scenario load.
       guard !entries.isEmpty else {
-        throw validationError(
-          String(
-            localized:
-              "%@: source '%@' is empty. event_inject requires at least one string in the list; for a single fixed event use ['only_event']."
-          ),
-          label, sourceKey)
+        throw validationError(.eventInjectSourceEmptyStrings(label: label, source: sourceKey))
       }
     case .arrayOfDictionaries(let entries):
       try validateDictEventEntries(entries, sourceKey: sourceKey, label: label)
     case .string, .dictionary:
-      throw validationError(
-        String(
-          localized:
-            "%@: source '%@' must be a list of event strings or {text, favors} mappings; for a single fixed event use ['only_event']."
-        ),
-        label, sourceKey)
+      throw validationError(.eventInjectSourceWrongShape(label: label, source: sourceKey))
     }
     try validateEventProbability(phase.probability, label: label)
   }
@@ -82,21 +62,11 @@ nonisolated extension ScenarioValidator {
     _ entries: [[String: String]], sourceKey: String, label: String
   ) throws {
     guard !entries.isEmpty else {
-      throw validationError(
-        String(
-          localized:
-            "%@: source '%@' is empty. event_inject requires at least one event in the list; for a single fixed event use ['only_event']."
-        ),
-        label, sourceKey)
+      throw validationError(.eventInjectSourceEmptyEvents(label: label, source: sourceKey))
     }
     for entry in entries
     where (entry["text"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      throw validationError(
-        String(
-          localized:
-            "%@: source '%@' has an event entry missing a non-empty 'text'. Dict-shaped events require 'text' (and may add 'favors')."
-        ),
-        label, sourceKey)
+      throw validationError(.eventInjectEntryMissingText(label: label, source: sourceKey))
     }
   }
 
@@ -106,9 +76,7 @@ nonisolated extension ScenarioValidator {
     guard let probability else { return }
     guard (0.0...1.0).contains(probability) else {
       throw validationError(
-        String(
-          localized: "%@: probability %@ is out of range. Must be between 0.0 and 1.0 inclusive."),
-        label, String(probability))
+        .eventInjectProbabilityOutOfRange(label: label, probability: String(probability)))
     }
   }
 }
@@ -117,8 +85,6 @@ nonisolated extension ScenarioValidator {
 // file's same-named helper, mirroring `ScenarioValidator+CanonicalFields.swift`.
 // A module-scope `internal` version would collide with `ScenarioLoader`'s
 // same-named helper.
-nonisolated private func validationError(
-  _ format: String, _ arguments: CVarArg...
-) -> SimulationError {
-  .scenarioValidationFailed(String(format: format, arguments: arguments))
+nonisolated private func validationError(_ message: ScenarioValidationMessage) -> SimulationError {
+  .scenarioValidationFailed(message.localized)
 }

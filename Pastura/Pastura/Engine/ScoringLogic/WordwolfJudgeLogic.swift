@@ -7,7 +7,7 @@ import Foundation
 /// Engine language (the caller — `ScoreCalcHandler` — passes
 /// `scenario.engineLanguage`, ADR-010 D5 / D6 row 1). ADR-010 D7 / D8 —
 /// scenario-language-bound, so `String(format:)` is used with literal
-/// English / Japanese rather than `String(localized:)`.
+/// English / Japanese rather than a device-locale string lookup.
 nonisolated struct WordwolfJudgeLogic: Sendable {
 
   func calculate(
