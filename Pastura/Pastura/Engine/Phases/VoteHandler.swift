@@ -8,6 +8,13 @@ import Foundation
 /// dropped from the tally so it cannot distort scoring or elimination; the
 /// raw value is still recorded in the per-voter `votes` map for
 /// observability in the `voteResults` event (#524).
+///
+/// A turn-degradable LLM failure is routed through `context.turnGate`
+/// (ADR-021 D1/D2) and treated as an **abstention**: no ballot is recorded
+/// (neither the `votes` map nor the tally), no `.agentOutput` is emitted,
+/// and the voter's stale `lastOutputs` entry is cleared so a decision that
+/// never happened this turn can't leak into consumers keyed on it. The
+/// remaining agents still vote.
 nonisolated struct VoteHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
 
@@ -15,8 +22,6 @@ nonisolated struct VoteHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    // Construct per run with the injected logger (stateless value — cheap).
-    let llmCaller = LLMCaller(logger: context.logger)
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(
@@ -31,37 +36,14 @@ nonisolated struct VoteHandler: PhaseHandler {
     for persona in context.scenario.personas {
       guard state.eliminated[persona.name] != true else { continue }
 
-      let systemPrompt = promptBuilder.buildSystemPrompt(
-        scenario: context.scenario, persona: persona, phase: context.phase, state: state
-      )
-
       let candidates = voteCandidates(
         scenario: context.scenario, voter: persona, excludeSelf: excludeSelf, state: state)
 
-      var variables = state.variables
-      variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
-      variables["conversation_log"] = promptBuilder.formatConversationLog(
-        state.conversationLog, language: context.scenario.engineLanguage,
-        window: context.scenario.logWindow)
-      variables["candidates"] = candidates.joined(separator: ", ")
-      promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
-      promptBuilder.injectNotes(into: &variables, personaName: persona.name)
-      promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
-      promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
-      let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
-
-      let output = try await llmCaller.call(
-        llm: context.llm, system: systemPrompt, user: userPrompt,
-        agentName: persona.name,
-        schema: OutputSchema.from(phase: context.phase),
-        detector: context.detector,
-        expectedLanguage: context.scenario.engineLanguage,
-        suspendController: context.suspendController,
-        emitter: context.emitter
-      )
-
-      context.emitter(
-        .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
+      guard
+        let output = try await voteTurn(
+          context: context, persona: persona,
+          promptTemplate: promptTemplate, candidates: candidates, state: &state)
+      else { continue }  // abstention — gate already emitted .turnSkipped
 
       let votedFor = output.vote ?? ""
       votes[persona.name] = votedFor
@@ -73,8 +55,6 @@ nonisolated struct VoteHandler: PhaseHandler {
       if candidates.contains(votedFor) {
         tallies[votedFor, default: 0] += 1
       }
-
-      state.lastOutputs[persona.name] = output
     }
 
     state.voteResults = tallies
@@ -83,6 +63,65 @@ nonisolated struct VoteHandler: PhaseHandler {
     state.variables["vote_results"] = promptBuilder.formatScoreboard(tallies)
 
     context.emitter(.voteResults(votes: votes, tallies: tallies))
+  }
+
+  /// Runs one voter's turn: builds the prompt, routes the LLM call through
+  /// `context.turnGate` (ADR-021 D1/D2), and on success emits `.agentOutput`
+  /// and records the ballot in `lastOutputs`. On a skipped turn, emits nothing,
+  /// clears any stale `lastOutputs` entry, and returns `nil` (the caller records
+  /// no ballot — an abstention). Split out of `execute` to stay under
+  /// SwiftLint's `function_body_length`.
+  private func voteTurn(
+    context: PhaseContext,
+    persona: Persona,
+    promptTemplate: String,
+    candidates: [String],
+    state: inout SimulationState
+  ) async throws -> TurnOutput? {
+    // Construct per turn with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
+    let systemPrompt = promptBuilder.buildSystemPrompt(
+      scenario: context.scenario, persona: persona, phase: context.phase, state: state
+    )
+
+    var variables = state.variables
+    variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
+    variables["conversation_log"] = promptBuilder.formatConversationLog(
+      state.conversationLog, language: context.scenario.engineLanguage,
+      window: context.scenario.logWindow)
+    variables["candidates"] = candidates.joined(separator: ", ")
+    promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
+    promptBuilder.injectNotes(into: &variables, personaName: persona.name)
+    promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
+    promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
+    let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
+
+    guard
+      let output = try await context.turnGate.attempt(
+        agent: persona.name, phaseType: context.phase.type, emitter: context.emitter,
+        work: {
+          try await llmCaller.call(
+            llm: context.llm, system: systemPrompt, user: userPrompt,
+            agentName: persona.name,
+            schema: OutputSchema.from(phase: context.phase),
+            detector: context.detector,
+            expectedLanguage: context.scenario.engineLanguage,
+            suspendController: context.suspendController,
+            emitter: context.emitter
+          )
+        })
+    else {
+      // Abstention (ADR-021 D2): clear any stale prior-round output so
+      // downstream consumers keyed on `lastOutputs` don't silently read a
+      // decision that never happened this turn.
+      state.lastOutputs[persona.name] = nil
+      return nil
+    }
+
+    context.emitter(
+      .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
+    state.lastOutputs[persona.name] = output
+    return output
   }
 
   /// The valid vote targets for `voter`: all personas minus self (under
