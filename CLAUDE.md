@@ -13,7 +13,7 @@ If a requested feature is listed under Phase 3, do not implement it — referenc
 Phase 2 progress:
 - **Localization (i18n: ja/en)** — *in progress* — App Store launch surface. Step table + PR history: `docs/ROADMAP.md` § "Localization Plan" (#276/#277).
 
-Shipped increments (implementation detail moved to `docs/ROADMAP.md` § "Shipped Phase 2 increments (detail)"): Visual Scenario Editor (#83) · Background execution (#84) · Shared Scenarios (#87/#93) · Simulation result export (#91/#98) · Inference speed display (#99) · Past-results code-phase events (#102/#113) · Launch animation (#412/#415) · Home redesign — bottom-tab IA (ADR-016, #602) · Viewer prediction (#906/#915) · Reflect phase + log window (#906/#907) · Contradiction badge (#906/#916) · Relationship update phase (#906/#910) · Shared-scenario compat gate (ADR-020 baseline, #965).
+Phase 2 increments (implementation detail → `docs/ROADMAP.md` § "Phase 2 increments (detail)"): Visual Scenario Editor (#83) · Background execution (#84) · Shared Scenarios (#87/#93) · Simulation result export (#91/#98) · Inference speed display (#99) · Past-results code-phase events (#102/#113) · Launch animation (#412/#415) · Home redesign — bottom-tab IA (ADR-016, #602) · Viewer prediction (#906/#915) · Reflect phase + log window (#906/#907) · Contradiction badge (#906/#916) · Relationship update phase (#906/#910) · Shared-scenario compat gate (ADR-020 baseline, #965).
 
 ## Language Rules
 

@@ -99,9 +99,9 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 | Viewer prediction (視聴者予想)             | Low      | In progress | Pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking. Engagement mechanic from the #906 interestingness umbrella; Engine-untouched (App/ViewModel event buffering, ground truth scored at the reveal moment) (#915). |
 
-### Shipped Phase 2 increments (detail)
+### Phase 2 increments (detail)
 
-> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `.claude/rules/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Some entries also appear in the Planned Features table above.
+> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `.claude/rules/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Mixed status — most entries are shipped, but a few (e.g. Viewer prediction) remain In progress per the Planned Features table above.
 
 - **Visual Scenario Editor** — dual-mode form + YAML (#83)
 - **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
