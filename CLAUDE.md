@@ -11,20 +11,9 @@ Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
 If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
 
 Phase 2 progress:
-- **Visual Scenario Editor** — dual-mode form + YAML (#83)
-- **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
-- **Shared Scenarios** — read-only curated scenario gallery (#87/#93)
-- **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
-- **Inference speed display** — tok/s + simulation playback UX (#99)
-- **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
-- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, body #367, B-1a public pages #369, responsive-design migration #373, Engine dynamic localization #383, drift script + Past Results compat #386, bundled English presets + EN DL demo replays + locale-driven runtime selection #388, Step E PR1 simulation_language Engine wiring #398, Step E PR2 LLM output-language adherence enforcement #405, Step E follow-up `.languageMismatch` UI toast + completion summary #422, Past Results cross-language aggregation (ADR-010 D4 consumer) #392)
-- **Launch animation** — cold "Pastoral Drift" + warm "Breath" hybrid; per-scene `LaunchPhaseCoordinator` + Reduce Motion fallback (#412/#415)
-- **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667, confirm-on-leave pause for in-flight runs #673)
-- **Viewer prediction** — pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking; Engine-untouched App/ViewModel event buffering, ground truth scored at the reveal moment (#906 umbrella / #915)
-- **Reflect phase + log window** — per-agent private memo (`reflect` LLM phase, reserved `notes_<name>` namespace, own-prompt re-injection) + opt-in `log_window` prompt-side log trimming; presets unchanged pending per-scenario tuning (#906 umbrella / #907)
-- **Contradiction badge** — 🃏 declaration/action lie detection in prisoners_dilemma: reserved `declared_intent` speak-output field machine-compared against same-round choose actions (full contradiction only, raw-action precision-first); reveal at choose completion in the live transcript + display-time recompute in Past Results, Engine untouched (#906 umbrella / #916)
-- **Relationship update phase** — zero-inference `relationship_update` code phase: deterministic affinity matrix from vote/choose history (generic YAML `vote_against` / `action_deltas` rules), accumulated in reserved `relationships_raw_<name>`, verbalized to prose and injected as `{relationships}` + a private system-prompt section; emits `.relationshipUpdate` (Phase-3 viz source). Presets unchanged pending harness A/B Go/No-Go (#906 umbrella / #910)
-- **Shared-scenario compat gate** — ADR-020 baseline (landed pre-first-release while install base is zero): greys out gallery scenarios an older app's engine can't execute. `EngineSchemaVersion.current` (Engine, baseline 1); D2 auto-gate (`phases`⊄`PhaseType.allCases`, index `phases` flattens `conditional` branches, CI-pinned) + D3 declared `min_engine_version` field; disabled Browse card + "Update app" badge (D4); `tryInstall` `.updateRequired` forward-guidance backstop (D5). D3a derived-floor tooling / D7 structural check / App Store deep-link deferred to the first post-baseline PR (ADR-020 §7, #965)
+- **Localization (i18n: ja/en)** — *in progress* — App Store launch surface. Step table + PR history: `docs/ROADMAP.md` § "Localization Plan" (#276/#277).
+
+Phase 2 increments (implementation detail → `docs/ROADMAP.md` § "Phase 2 increments (detail)"): Visual Scenario Editor (#83) · Background execution (#84) · Shared Scenarios (#87/#93) · Simulation result export (#91/#98) · Inference speed display (#99) · Past-results code-phase events (#102/#113) · Launch animation (#412/#415) · Home redesign — bottom-tab IA (ADR-016, #602) · Viewer prediction (#906/#915) · Reflect phase + log window (#906/#907) · Contradiction badge (#906/#916) · Relationship update phase (#906/#910) · Shared-scenario compat gate (ADR-020 baseline, #965).
 
 ## Language Rules
 
@@ -241,6 +230,7 @@ web/                             # The pastura.app site (Astro SSG, deployed via
 - `i18n.md` — Localization workflow: `String(format: String(localized:))` format-string pattern, `xcstringstool` sync output (multi-arg en blocks, state=new + en-only), catalog editing traps (don't `json.dumps` round-trip) (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
 - `lp-content.md` — Public LP content concepts: AIgazing / AI観測 genre-word zoning (Hero + Bigger picture only), em-dash / prose-colon voice rule for new copy (`web/**`)
 - `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
+- `navigation.md` — bottom-tab IA (ADR-016): `TabCoordinator` owns four unmodified per-tab `AppRouter`s; programmatic navigation goes through the current tab's `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto any tab's stack. Sheet-owned NavigationStacks are exempt. Path-scoped to app Swift source — every feature directory (`Views`/`App`) lives under the glob, so view-placement edits still load it. Accepted gaps: planning-before-edit sessions no longer preload it, and test files (incl. `ScreenshotTourTests.swift`, a nav-map input) fall outside — the nav-map pre-commit/CI drift gate backstops the latter (`Pastura/Pastura/**/*.swift`)
 - `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
 - `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via the `currentScenario()` funnel (`Pastura/Pastura/App/ScenarioEditor*`, `Pastura/Pastura/Views/Editor/**`, `Pastura/PasturaTests/App/ScenarioEditorViewModel*`)
 - `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog: toolbar-hide API matrix (iOS 17→26), footguns surfaced during app development; cross-references `navigation.md` for AppRouter mechanics (`Pastura/Pastura/**/*.swift`)
@@ -250,7 +240,6 @@ web/                             # The pastura.app site (Astro SSG, deployed via
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
 - `swift-isolation.md` — `nonisolated` annotation traps (protocol-ext default impls, custom witnesses, sibling-file extensions, reference-type sync methods, auto-synth conformance lookup) under default-MainActor isolation. Diagnostic fires at use site, not declaration — always-loaded so it's visible regardless of which file is being edited.
-- `navigation.md` — bottom-tab IA (ADR-016): `TabCoordinator` owns four unmodified per-tab `AppRouter`s; programmatic navigation goes through the current tab's `router.push(_:)` / `router.pushIfOnTop(expected:next:)`, and `navigationDestination(item:|isPresented:)` is forbidden inside views pushed onto any tab's stack. Sheet-owned NavigationStacks are exempt. Always-loaded because view-placement decisions can originate from any feature directory.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
 - `subagent-usage.md` — Subagent invocation discipline (32K output-token cap, scope budget heuristics, Sonnet override). Always-loaded because subagent calls can originate from `/orchestrate`, slash commands, or any direct `Agent` invocation.
 - `context-budget.md` — Always-loaded budget discipline: each addition must support the agent's next decision, not serve as human reference. Self-applying — additions to CLAUDE.md / agent docs / any no-`paths:` rules file route through this classifier first.
@@ -318,4 +307,5 @@ same change:
 | `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
 | `docs/models/onboarding.md`           | Model onboarding two-gate procedure (Stage-0 harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration; intake #979) |
 | `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (scenarios 1–17; extracted from `.claude/rules/navigation.md`) |
+| `docs/ci/xcodebuild-flakes.md`        | CI UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
