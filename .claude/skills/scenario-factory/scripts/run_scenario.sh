@@ -2,8 +2,13 @@
 # Crash-tolerant single-scenario runner for the /scenario-factory skill.
 #
 # usage:
-#   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec]
+#   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
 #   run_scenario.sh --classify <out.jsonl> <exit_code>
+#
+# [profile_id], when non-empty, is passed through to the harness as
+# `--profile "$PROFILE"` (selects the harness's prompt-format hints; default
+# "gemma"). Positional args, so passing a profile requires also passing
+# timeout_sec explicitly.
 #
 # Run from the repository root (Package.swift must be in the cwd).
 # Emits exactly one JSON status line on stdout. Harness stderr goes to
@@ -36,7 +41,7 @@ RUN_START_WAIT_SEC=90   # run_start poll budget; build is done beforehand
 
 usage() {
   cat >&2 <<'EOF'
-usage: run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec]
+usage: run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
        run_scenario.sh --classify <out.jsonl> <exit_code>
 EOF
   exit 2
@@ -108,11 +113,12 @@ if [ "${1:-}" = "--classify" ]; then
   exit 0
 fi
 
-[ $# -ge 3 ] && [ $# -le 4 ] || usage
+[ $# -ge 3 ] && [ $# -le 5 ] || usage
 SCENARIO=$1
 MODEL=$2
 OUT=$3
 TIMEOUT=${4:-600}
+PROFILE="${5:-}"
 [ -f Package.swift ] || { echo "run from the repository root (Package.swift not found)" >&2; exit 2; }
 
 mkdir -p "$(dirname "$OUT")"
@@ -134,8 +140,9 @@ if [ ! -x "$BIN" ]; then
   exit 0
 fi
 
-"$BIN" --scenario "$SCENARIO" --model "$MODEL" --out "$OUT" \
-  --timeout "$TIMEOUT" --quiet 2>"$STDERR_LOG" &
+ARGS=(--scenario "$SCENARIO" --model "$MODEL" --out "$OUT" --timeout "$TIMEOUT" --quiet)
+if [ -n "$PROFILE" ]; then ARGS+=(--profile "$PROFILE"); fi
+"$BIN" "${ARGS[@]}" 2>"$STDERR_LOG" &
 PID=$!
 
 # Fast-abort: run_start (with the inference estimate) is written before
