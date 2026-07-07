@@ -99,6 +99,24 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
 | Viewer prediction (視聴者予想)             | Low      | In progress | Pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking. Engagement mechanic from the #906 interestingness umbrella; Engine-untouched (App/ViewModel event buffering, ground truth scored at the reveal moment) (#915). |
 
+### Shipped Phase 2 increments (detail)
+
+> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `.claude/rules/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Some entries also appear in the Planned Features table above.
+
+- **Visual Scenario Editor** — dual-mode form + YAML (#83)
+- **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
+- **Shared Scenarios** — read-only curated scenario gallery (#87/#93)
+- **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
+- **Inference speed display** — tok/s + simulation playback UX (#99)
+- **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
+- **Launch animation** — cold "Pastoral Drift" + warm "Breath" hybrid; per-scene `LaunchPhaseCoordinator` + Reduce Motion fallback (#412/#415)
+- **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667, confirm-on-leave pause for in-flight runs #673)
+- **Viewer prediction** — pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking; Engine-untouched App/ViewModel event buffering, ground truth scored at the reveal moment (#906 umbrella / #915)
+- **Reflect phase + log window** — per-agent private memo (`reflect` LLM phase, reserved `notes_<name>` namespace, own-prompt re-injection) + opt-in `log_window` prompt-side log trimming; presets unchanged pending per-scenario tuning (#906 umbrella / #907)
+- **Contradiction badge** — 🃏 declaration/action lie detection in prisoners_dilemma: reserved `declared_intent` speak-output field machine-compared against same-round choose actions (full contradiction only, raw-action precision-first); reveal at choose completion in the live transcript + display-time recompute in Past Results, Engine untouched (#906 umbrella / #916)
+- **Relationship update phase** — zero-inference `relationship_update` code phase: deterministic affinity matrix from vote/choose history (generic YAML `vote_against` / `action_deltas` rules), accumulated in reserved `relationships_raw_<name>`, verbalized to prose and injected as `{relationships}` + a private system-prompt section; emits `.relationshipUpdate` (Phase-3 viz source). Presets unchanged pending harness A/B Go/No-Go (#906 umbrella / #910)
+- **Shared-scenario compat gate** — ADR-020 baseline (landed pre-first-release while install base is zero): greys out gallery scenarios an older app's engine can't execute. `EngineSchemaVersion.current` (Engine, baseline 1); D2 auto-gate (`phases`⊄`PhaseType.allCases`, index `phases` flattens `conditional` branches, CI-pinned) + D3 declared `min_engine_version` field; disabled Browse card + "Update app" badge (D4); `tryInstall` `.updateRequired` forward-guidance backstop (D5). D3a derived-floor tooling / D7 structural check / App Store deep-link deferred to the first post-baseline PR (ADR-020 §7, #965)
+
 ### Technical Debt to Address
 - Evaluate SPM module split (if file count > 100)
 - **Migrate LLM backend from llama.cpp to LiteRT-LM** when Swift SDK + iOS GPU ships (see ADR-002)

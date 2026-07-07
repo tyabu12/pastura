@@ -11,20 +11,9 @@ Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
 If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
 
 Phase 2 progress:
-- **Visual Scenario Editor** — dual-mode form + YAML (#83)
-- **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
-- **Shared Scenarios** — read-only curated scenario gallery (#87/#93)
-- **Simulation result export** — Markdown via Share Sheet, incl. code-phase results (#91/#98)
-- **Inference speed display** — tok/s + simulation playback UX (#99)
-- **Past results — code-phase events** — score_calc / scenario gen events in past-results viewer (#102/#113)
-- **Localization (i18n: ja/en)** — *in progress* — see ROADMAP § "Localization Plan" (#276/#277, ADR-010 stub #279, body #367, B-1a public pages #369, responsive-design migration #373, Engine dynamic localization #383, drift script + Past Results compat #386, bundled English presets + EN DL demo replays + locale-driven runtime selection #388, Step E PR1 simulation_language Engine wiring #398, Step E PR2 LLM output-language adherence enforcement #405, Step E follow-up `.languageMismatch` UI toast + completion summary #422, Past Results cross-language aggregation (ADR-010 D4 consumer) #392)
-- **Launch animation** — cold "Pastoral Drift" + warm "Breath" hybrid; per-scene `LaunchPhaseCoordinator` + Reduce Motion fallback (#412/#415)
-- **Home redesign** — bottom-tab IA (ADR-016, #602) + pause/resume of an interrupted run from the Home card (P3: round-boundary checkpoint producer #662, resume consumer + historical-log replay #667, confirm-on-leave pause for in-flight runs #673)
-- **Viewer prediction** — pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking; Engine-untouched App/ViewModel event buffering, ground truth scored at the reveal moment (#906 umbrella / #915)
-- **Reflect phase + log window** — per-agent private memo (`reflect` LLM phase, reserved `notes_<name>` namespace, own-prompt re-injection) + opt-in `log_window` prompt-side log trimming; presets unchanged pending per-scenario tuning (#906 umbrella / #907)
-- **Contradiction badge** — 🃏 declaration/action lie detection in prisoners_dilemma: reserved `declared_intent` speak-output field machine-compared against same-round choose actions (full contradiction only, raw-action precision-first); reveal at choose completion in the live transcript + display-time recompute in Past Results, Engine untouched (#906 umbrella / #916)
-- **Relationship update phase** — zero-inference `relationship_update` code phase: deterministic affinity matrix from vote/choose history (generic YAML `vote_against` / `action_deltas` rules), accumulated in reserved `relationships_raw_<name>`, verbalized to prose and injected as `{relationships}` + a private system-prompt section; emits `.relationshipUpdate` (Phase-3 viz source). Presets unchanged pending harness A/B Go/No-Go (#906 umbrella / #910)
-- **Shared-scenario compat gate** — ADR-020 baseline (landed pre-first-release while install base is zero): greys out gallery scenarios an older app's engine can't execute. `EngineSchemaVersion.current` (Engine, baseline 1); D2 auto-gate (`phases`⊄`PhaseType.allCases`, index `phases` flattens `conditional` branches, CI-pinned) + D3 declared `min_engine_version` field; disabled Browse card + "Update app" badge (D4); `tryInstall` `.updateRequired` forward-guidance backstop (D5). D3a derived-floor tooling / D7 structural check / App Store deep-link deferred to the first post-baseline PR (ADR-020 §7, #965)
+- **Localization (i18n: ja/en)** — *in progress* — App Store launch surface. Step table + PR history: `docs/ROADMAP.md` § "Localization Plan" (#276/#277).
+
+Shipped increments (implementation detail moved to `docs/ROADMAP.md` § "Shipped Phase 2 increments (detail)"): Visual Scenario Editor (#83) · Background execution (#84) · Shared Scenarios (#87/#93) · Simulation result export (#91/#98) · Inference speed display (#99) · Past-results code-phase events (#102/#113) · Launch animation (#412/#415) · Home redesign — bottom-tab IA (ADR-016, #602) · Viewer prediction (#906/#915) · Reflect phase + log window (#906/#907) · Contradiction badge (#906/#916) · Relationship update phase (#906/#910) · Shared-scenario compat gate (ADR-020 baseline, #965).
 
 ## Language Rules
 
