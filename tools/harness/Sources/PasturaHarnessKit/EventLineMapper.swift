@@ -110,6 +110,14 @@ package enum EventLineMapper {
       return EventLine(
         t: t, attempt: attempt, event: "language_mismatch", agent: agent,
         detected: detected, expected: expected)
+    case .turnSkipped(let agent, let phaseType, let cause):
+      // ADR-021 D1/D2/D5 — a turn's LLM call failed transiently after
+      // retries and was skipped rather than aborting the run. Emit a
+      // visible transcript line so the harness output shows the gap
+      // honestly, mirroring `.languageMismatch`'s explicit routing above.
+      return EventLine(
+        t: t, attempt: attempt, event: "turn_skipped", agent: agent,
+        phaseType: phaseType.rawValue, value: cause)
     case .roundCheckpoint:
       // Internal resume-persistence snapshot (full SimulationState) — not part
       // of the transcript surface, so it produces no line.

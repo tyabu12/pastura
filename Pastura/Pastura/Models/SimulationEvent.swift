@@ -181,6 +181,27 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   ///   - expected: `scenario.engineLanguage` at the time of the call —
   ///     usually `"ja"` or `"en"` per ADR-010 D1.
   case languageMismatch(agent: String, detected: String?, expected: String)
+
+  // MARK: - Turn Degradation (ADR-021)
+
+  /// A turn's LLM call failed transiently after the retry budget was
+  /// exhausted, and the turn was skipped rather than aborting the run
+  /// (ADR-021 D1/D2 — "degrade by omission").
+  ///
+  /// Unlike `.error`, this is informational — the phase continues with
+  /// the remaining agents/pairs and the run is not terminated. Consumers
+  /// can surface a narration line for the gap, but no remediation is
+  /// required at the Engine layer. Per ADR-021 D5, this event is
+  /// live-only: `ReplayViewModel` deliberately no-ops it, since a
+  /// pre-recorded replay cannot regenerate the failure after the fact.
+  ///
+  /// - Parameters:
+  ///   - agent: The agent whose turn was skipped.
+  ///   - phaseType: The phase the skipped turn belonged to.
+  ///   - cause: A diagnostic English description of the failure (same
+  ///     register as `llmGenerationFailed`'s payload) — not user-facing
+  ///     copy; the App layer renders its own localized narration.
+  case turnSkipped(agent: String, phaseType: PhaseType, cause: String)
 }
 
 /// Errors that can occur during simulation execution.
@@ -206,6 +227,13 @@ nonisolated public enum SimulationError: Error, Sendable, Equatable {
 
   /// The simulation was cancelled via Task cancellation.
   case cancelled
+
+  /// The ADR-021 D4 circuit breaker tripped: `consecutiveCount` consecutive
+  /// turns were skipped (see `SimulationEvent.turnSkipped`) without an
+  /// intervening successful turn. Thrown by the turn-degradation gate in
+  /// place of another skip, surfacing through the existing abort path so a
+  /// systemically-dead backend does not grind through the rest of the run.
+  case turnFailureLimitReached(consecutiveCount: Int)
 }
 
 /// Provides human-readable descriptions so UI alert handlers can show
@@ -232,6 +260,12 @@ extension SimulationError: LocalizedError {
       return String(localized: "Model not loaded")
     case .cancelled:
       return String(localized: "Simulation cancelled")
+    case .turnFailureLimitReached(let consecutiveCount):
+      return String(
+        format: String(
+          localized:
+            "Simulation stopped: %lld consecutive turns failed to get a response from the model"),
+        consecutiveCount)
     }
   }
 }
