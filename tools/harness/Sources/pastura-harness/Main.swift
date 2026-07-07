@@ -36,6 +36,9 @@ enum Main {
     guard FileManager.default.fileExists(atPath: config.modelPath) else {
       throw HarnessConfigError("model file not found: \(config.modelPath)")
     }
+    if let warning = config.profile.mismatchWarning(forModelPath: config.modelPath) {
+      FileHandle.standardError.write(Data("\(warning)\n".utf8))
+    }
     let yaml = try String(contentsOfFile: config.scenarioPath, encoding: .utf8)
     let scenario = try ScenarioLoader().load(yaml: yaml)
 
@@ -44,7 +47,7 @@ enum Main {
     let outPath = config.outPath ?? defaultOutPath(runID: runID, at: now)
     let writer = try FileRunLogWriter(path: outPath)
 
-    let profile = ModelProfile.gemma4E2B
+    let profile = config.profile
     let llmFactory = makeLLMFactory(profile: profile, modelPath: config.modelPath)
     let quiet = config.quiet
     // if/else instead of `quiet ? nil : { ... }` — the ternary trips a

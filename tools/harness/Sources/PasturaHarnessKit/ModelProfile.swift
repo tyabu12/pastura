@@ -7,6 +7,9 @@ import Foundation
 /// registry itself is App-layer, outside this package (ADR-013 §4). The
 /// pin test in `ModelProfileTests` guards drift between the two.
 package struct ModelProfile: Sendable, Equatable {
+  /// Registry id. Mirrors `ModelDescriptor.id` — the key accepted by the
+  /// harness `--profile` flag.
+  package let id: String
   /// Human-readable model label, used as `LlamaCppService.modelIdentifier`.
   package let name: String
   /// Stop sequence terminating each generation.
@@ -17,28 +20,78 @@ package struct ModelProfile: Sendable, Equatable {
   /// `<think>...</think>` prefill in the app registry is Qwen-only
   /// (see `.claude/rules/engine.md` § llama.cpp traps).
   package let assistantPrefix: String?
+  /// Expected GGUF file name, mirroring the registry's `fileName`. Used
+  /// ONLY for a non-fatal mismatch warning (`mismatchWarning(forModelPath:)`)
+  /// — never enforced, since operators may rename GGUF files locally.
+  package let expectedFileName: String
   /// Expected SHA-256 of the GGUF file. NOT hashed by the harness at run
   /// time (re-hashing ~3 GB nightly is wasteful); the operator verifies
   /// once via `shasum -a 256` when installing the model file.
   package let expectedSHA256: String
 
   package init(
-    name: String, stopSequence: String, systemPromptSuffix: String?,
-    assistantPrefix: String?, expectedSHA256: String
+    id: String, name: String, stopSequence: String, systemPromptSuffix: String?,
+    assistantPrefix: String?, expectedFileName: String, expectedSHA256: String
   ) {
+    self.id = id
     self.name = name
     self.stopSequence = stopSequence
     self.systemPromptSuffix = systemPromptSuffix
     self.assistantPrefix = assistantPrefix
+    self.expectedFileName = expectedFileName
     self.expectedSHA256 = expectedSHA256
   }
 
   /// Gemma 4 E2B Q4_K_M — the shipping on-device model (ADR-002).
   package static let gemma4E2B = ModelProfile(
+    id: "gemma-4-e2b-q4-k-m",
     name: "Gemma 4 E2B (Q4_K_M)",
     stopSequence: "<|im_end|>",
     systemPromptSuffix: nil,
     assistantPrefix: nil,
+    expectedFileName: "gemma-4-E2B-it-Q4_K_M.gguf",
     expectedSHA256: "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845"
   )
+
+  /// Qwen 3 4B Q4_K_M — second selectable on-device model (ADR-002 update).
+  package static let qwen34B = ModelProfile(
+    id: "qwen-3-4b-q4-k-m",
+    name: "Qwen 3 4B (Q4_K_M)",
+    stopSequence: "<|im_end|>",
+    systemPromptSuffix: "/no_think",
+    // Prefill the assistant turn with the empty-thinking marker so Qwen 3
+    // bypasses thinking mode entirely. Issue #366 — without this, Qwen
+    // emits `<think>` as its first sampled token and the GBNF grammar
+    // sampler crashes on `accept_token` (uncaught C++ exception). The
+    // `/no_think` system suffix above is a soft hint only and does not
+    // prevent the leading `<think>` token; this prefill is the
+    // load-bearing fix.
+    assistantPrefix: "<think>\n\n</think>\n\n",
+    expectedFileName: "Qwen3-4B-Q4_K_M.gguf",
+    expectedSHA256: "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
+  )
+
+  /// Known profiles the harness `--profile` flag can select, gemma first
+  /// as the default.
+  package static let all: [ModelProfile] = [gemma4E2B, qwen34B]
+
+  /// Looks up a known profile by its registry `id`, or `nil` if unknown.
+  package static func named(_ id: String) -> ModelProfile? {
+    all.first { $0.id == id }
+  }
+
+  /// Non-fatal warning when `path`'s file name doesn't match
+  /// `expectedFileName` (case-insensitive) — surfaces model↔profile
+  /// mismatches (the #366 crash class) without blocking renamed files.
+  /// Returns `nil` when the file name matches.
+  package func mismatchWarning(forModelPath path: String) -> String? {
+    let actualFileName = (path as NSString).lastPathComponent
+    guard actualFileName.caseInsensitiveCompare(expectedFileName) != .orderedSame else {
+      return nil
+    }
+    return
+      "Warning: model file \"\(actualFileName)\" does not match profile \"\(id)\"'s "
+      + "expected file name \"\(expectedFileName)\" — prompt-format hints (stop sequence, "
+      + "assistant prefill) may be wrong for this file; pass --profile explicitly to override."
+  }
 }

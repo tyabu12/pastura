@@ -24,10 +24,16 @@ package struct HarnessConfig: Sendable, Equatable {
   package var timeoutSeconds: Int = 1800
   /// Suppress per-event progress on stdout.
   package var quiet = false
+  /// Prompt-format profile applied to the `--model` GGUF. Defaults to
+  /// Gemma so existing callers (`run_scenario.sh`, scenario-refine) stay
+  /// unchanged.
+  package var profile: ModelProfile = .gemma4E2B
 
   package static let usage = """
     usage: pastura-harness --scenario <path.yaml> --model <path.gguf> \
-    [--out <path.jsonl>] [--timeout <seconds>] [--quiet]
+    [--out <path.jsonl>] [--timeout <seconds>] [--quiet] [--profile <id>]
+    --profile selects prompt-format hints and must match the --model file's \
+    model family (default: \(ModelProfile.gemma4E2B.id))
     """
 
   /// Parses CLI arguments (excluding argv[0]).
@@ -37,6 +43,7 @@ package struct HarnessConfig: Sendable, Equatable {
     var out: String?
     var timeout = 1800
     var quiet = false
+    var profile = ModelProfile.gemma4E2B
 
     var iterator = args.makeIterator()
     while let arg = iterator.next() {
@@ -44,13 +51,9 @@ package struct HarnessConfig: Sendable, Equatable {
       case "--scenario": scenario = try value(for: arg, from: &iterator)
       case "--model": model = try value(for: arg, from: &iterator)
       case "--out": out = try value(for: arg, from: &iterator)
-      case "--timeout":
-        let raw = try value(for: arg, from: &iterator)
-        guard let parsed = Int(raw), parsed > 0 else {
-          throw HarnessConfigError("--timeout must be a positive integer, got '\(raw)'")
-        }
-        timeout = parsed
+      case "--timeout": timeout = try parseTimeout(value(for: arg, from: &iterator))
       case "--quiet": quiet = true
+      case "--profile": profile = try parseProfile(value(for: arg, from: &iterator))
       default: throw HarnessConfigError("unknown argument '\(arg)'\n\(usage)")
       }
     }
@@ -59,7 +62,7 @@ package struct HarnessConfig: Sendable, Equatable {
     guard let model else { throw HarnessConfigError("--model is required\n\(usage)") }
     return HarnessConfig(
       scenarioPath: scenario, modelPath: model, outPath: out,
-      timeoutSeconds: timeout, quiet: quiet)
+      timeoutSeconds: timeout, quiet: quiet, profile: profile)
   }
 
   private static func value(
@@ -69,5 +72,21 @@ package struct HarnessConfig: Sendable, Equatable {
       throw HarnessConfigError("missing value for \(flag)\n\(usage)")
     }
     return value
+  }
+
+  private static func parseTimeout(_ raw: String) throws -> Int {
+    guard let parsed = Int(raw), parsed > 0 else {
+      throw HarnessConfigError("--timeout must be a positive integer, got '\(raw)'")
+    }
+    return parsed
+  }
+
+  private static func parseProfile(_ raw: String) throws -> ModelProfile {
+    guard let resolved = ModelProfile.named(raw) else {
+      let knownIDs = ModelProfile.all.map(\.id).joined(separator: ", ")
+      throw HarnessConfigError(
+        "unknown --profile '\(raw)' — known profiles: \(knownIDs)\n\(usage)")
+    }
+    return resolved
   }
 }
