@@ -33,7 +33,7 @@ package struct HarnessConfig: Sendable, Equatable {
     usage: pastura-harness --scenario <path.yaml> --model <path.gguf> \
     [--out <path.jsonl>] [--timeout <seconds>] [--quiet] [--profile <id>]
     --profile selects prompt-format hints and must match the --model file's \
-    model family (default: gemma-4-e2b-q4-k-m)
+    model family (default: \(ModelProfile.gemma4E2B.id))
     """
 
   /// Parses CLI arguments (excluding argv[0]).
