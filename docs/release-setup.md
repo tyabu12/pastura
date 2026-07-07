@@ -148,7 +148,7 @@ completed** — this section is reference for key rotation or a fresh account.
 
 1. https://appstoreconnect.apple.com → **Apps** → **＋** → **New App**
 2. **Platforms**: iOS · **Bundle ID**: `app.pastura.Pastura` · **SKU**:
-   `pastura-ios` · **User Access**: Full Access
+   `pastura-app` · **User Access**: Full Access
 3. **Name**: `Pastura - Local LLMs simulator` — the store Name must be globally
    unique; plain "Pastura" was already taken. The home-screen name stays
    **Pastura** (from `CFBundleName`/`CFBundleDisplayName`, independent of the
@@ -158,6 +158,11 @@ completed** — this section is reference for key rotation or a fresh account.
 > The App Store **subtitle** (`Like stargazing, but for LLMs`) is part of the
 > version's store listing, set later at App Store submission (Phase 3) — not at
 > record creation, and not needed for TestFlight.
+
+> **SKU note** (operator-attested, 2026-07-07): the live record uses SKU
+> `pastura-app`. A SKU is per-record-permanent and internal-only (never shown
+> to users); `pastura-ios` is locked to an obsolete `com.tyabu12.Pastura`
+> record created against the pre-rename bundle ID, so it could not be reused.
 
 ### B3. Generate the API key (`.p8`)
 
