@@ -6,10 +6,13 @@ import Foundation
 /// count (warn >50, error >100), and phase-field semantics (e.g.,
 /// assign-phase target/source compatibility) to prevent runaway or
 /// misconfigured simulations.
-nonisolated struct ScenarioValidator: Sendable {
+nonisolated public struct ScenarioValidator: Sendable {
+
+  /// Creates a validator.
+  public init() {}
 
   /// The result of scenario validation.
-  struct ValidationResult: Sendable {
+  public struct ValidationResult: Sendable {
     /// Non-fatal warnings (e.g., high inference count).
     let warnings: [String]
 
@@ -22,7 +25,7 @@ nonisolated struct ScenarioValidator: Sendable {
   /// - Parameter scenario: The scenario to validate.
   /// - Returns: A ``ValidationResult`` with any warnings and the inference estimate.
   /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` if limits are exceeded.
-  func validate(_ scenario: Scenario) throws -> ValidationResult {
+  public func validate(_ scenario: Scenario) throws -> ValidationResult {
     // Language values (ADR-010 D1 / D5 — programmatic-construction path
     // gate, mirrors `ScenarioLoader`'s YAML-parse path).
     if !Scenario.acceptedLanguages.contains(scenario.language) {

@@ -187,17 +187,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     seed: SimulationState?, startRound: Int,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
-    // Validate scenario
-    do {
-      let result = try validator.validate(scenario)
-      for warning in result.warnings {
-        emitter(.summary(text: "⚠️ \(warning)"))
-      }
-    } catch {
-      emitter(
-        .error(
-          error as? SimulationError
-            ?? .scenarioValidationFailed(readableDescription(error))))
+    // Structural validation + semantic lint (ADR-024) — see
+    // SimulationRunner+SemanticLint.swift.
+    guard preflightGate(scenario: scenario, validator: validator, emitter: emitter) else {
       return
     }
 
