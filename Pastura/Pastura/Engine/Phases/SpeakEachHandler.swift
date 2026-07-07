@@ -6,12 +6,13 @@ import Foundation
 /// so each agent sees what previous agents said in the current sub-round.
 nonisolated struct SpeakEachHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
-  private let llmCaller = LLMCaller()
 
   func execute(
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
+    // Construct per run with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
     let subRounds = context.phase.subRounds ?? 1
     let promptTemplate =
       context.phase.prompt

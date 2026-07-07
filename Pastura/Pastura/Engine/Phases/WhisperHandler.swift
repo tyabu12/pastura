@@ -20,7 +20,6 @@ import Foundation
 /// are simply not participants this round).
 nonisolated struct WhisperHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
-  private let llmCaller = LLMCaller()
 
   /// Per-execution invariants bundled to keep the LLM-call helpers under
   /// SwiftLint's `function_parameter_count`. `state` is a phase-start snapshot:
@@ -134,6 +133,8 @@ nonisolated struct WhisperHandler: PhaseHandler {
       promptBuilder.expandTemplate(run.promptTemplate, variables: variables)
       + whisperContextBlock(partner: partner, transcript: transcript, language: language)
 
+    // Construct per run with the injected logger (stateless value — cheap).
+    let llmCaller = LLMCaller(logger: context.logger)
     let output = try await llmCaller.call(
       llm: context.llm, system: systemPrompt, user: userPrompt,
       agentName: speaker.name,
