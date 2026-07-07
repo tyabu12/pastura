@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import Testing
+import os
 
 @testable import Pastura
 
@@ -97,24 +98,61 @@ extension ResultsViewModelTests {
 
   // MARK: - Re-entrancy
 
-  /// Two concurrent `loadMore()` calls must load exactly one page — the
-  /// `isLoadingMore` guard prevents a double-append at the same cursor.
+  /// Two overlapping `loadMore()` calls must load exactly one page — the
+  /// `isLoadingMore` re-entrancy guard prevents a double-append at the same
+  /// cursor.
+  ///
+  /// The concurrency is made **deterministic** (a `GatedSimulationRepository`
+  /// parks the first `loadMore`'s page read in-flight) rather than relying on
+  /// two `async let` children genuinely overlapping — under scheduler pressure
+  /// (CI + coverage) the children can serialize, and two *sequential*
+  /// `loadMore`s correctly load two pages (5 rows), which flaked this test
+  /// (#1005). Parking guarantees the second call hits the guard while the first
+  /// is still in `fetchNextPage`, so it exercises the real guard:
+  /// reverting `!isLoadingMore` from ``ResultsViewModel/loadMore()`` makes the
+  /// second call fetch the same cursor page, yielding 6 duplicated rows and
+  /// failing both assertions below.
   @Test func aggregateConcurrentLoadMoreLoadsOnePageOnly() async throws {
-    let env = try makePagedSUT(pageSize: 2)
+    let db = try DatabaseManager.inMemory()
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
     for index in 1...5 {
-      try seedPagedScenario(env.scenarioRepo, id: "s\(index)", name: "Scenario \(index)")
-      try seedPagedRun(env.simRepo, id: "r\(index)", scenarioId: "s\(index)", at: Double(index))
+      try seedPagedScenario(scenarioRepo, id: "s\(index)", name: "Scenario \(index)")
+      try seedPagedRun(simRepo, id: "r\(index)", scenarioId: "s\(index)", at: Double(index))
     }
+    let gated = GatedSimulationRepository(base: simRepo)
+    let sut = ResultsViewModel(
+      scenarioRepository: scenarioRepo,
+      simulationRepository: gated,
+      turnRepository: turnRepo,
+      pageSize: 2,
+      now: { resultsTestNow },
+      calendar: resultsTestCalendar)
 
-    await env.sut.load(scope: .aggregate)
-    #expect(rowIds(env.sut).count == 2)
+    await sut.load(scope: .aggregate)
+    #expect(rowIds(sut).count == 2)
+    #expect(sut.hasMore)
 
-    async let first: Void = env.sut.loadMore()
-    async let second: Void = env.sut.loadMore()
-    _ = await (first, second)
+    // Arm the gate so the *next* page read — the first loadMore's fetch — parks
+    // in-flight. The initial load above already ran unparked.
+    gated.armNextFetch()
+
+    // loadMore A sets `isLoadingMore` synchronously (before its first await),
+    // then parks inside `fetchNextPage`.
+    let first = Task { await sut.loadMore() }
+    await gated.awaitFetchEntered()  // A is now genuinely in-flight
+
+    // loadMore B hits the re-entrancy guard synchronously (`isLoadingMore ==
+    // true`) and returns without fetching.
+    await sut.loadMore()
+
+    // Release A so it folds its single page in.
+    gated.releaseParkedFetch()
+    await first.value
 
     // Exactly one extra page (2 rows) — not two pages, no duplicate rows.
-    let ids = rowIds(env.sut)
+    let ids = rowIds(sut)
     #expect(ids.count == 4)
     #expect(Set(ids).count == ids.count)
   }
@@ -234,4 +272,115 @@ private func seedPagedRun(
       currentRound: 1, currentPhaseIndex: 0,
       stateJSON: "{}", configJSON: nil,
       createdAt: when, updatedAt: when))
+}
+
+/// A ``SimulationRepository`` decorator that can hold **one**
+/// ``fetchRecentRunPage(nameQuery:before:limit:)`` call parked mid-flight, so
+/// ``ResultsViewModel/loadMore()``'s `isLoadingMore` re-entrancy guard is
+/// exercised deterministically instead of relying on `async let` children
+/// happening to overlap (#1005). Every other call — and every fetch before
+/// ``armNextFetch()`` — delegates straight to `base`.
+///
+/// Mechanism: `loadMore` sets `isLoadingMore` synchronously and only then hits
+/// its first `await` (the off-main `fetchRecentRunPage` read, which this gate
+/// parks). Parking that read therefore holds `isLoadingMore == true` while a
+/// second `loadMore` runs its guard — mirroring the deterministic-parking
+/// pattern in `.claude/rules/testing.md` § "Parking a run mid-flight". The
+/// synchronous protocol method can't `await`, so the park is a
+/// `DispatchSemaphore` block on the off-main `Task.detached` thread (bounded by
+/// the suite's `.timeLimit`); entry is signalled via a continuation so the test
+/// side never blocks a thread.
+private final class GatedSimulationRepository: SimulationRepository, @unchecked Sendable {
+  private let base: any SimulationRepository
+
+  private struct GateState {
+    var armed = false
+    var parkedOnce = false
+    var didEnter = false
+    var enteredContinuation: CheckedContinuation<Void, Never>?
+  }
+  private let state = OSAllocatedUnfairLock(uncheckedState: GateState())
+  private let releaseGate = DispatchSemaphore(value: 0)
+
+  init(base: any SimulationRepository) {
+    self.base = base
+  }
+
+  /// Arms the gate so the next `fetchRecentRunPage` parks. Call **after** the
+  /// initial page load so only the loadMore fetch is affected.
+  func armNextFetch() {
+    state.withLock { $0.armed = true }
+  }
+
+  /// Suspends until the parked fetch has entered — guaranteeing `isLoadingMore`
+  /// is set, since `loadMore` sets it synchronously before its first await.
+  func awaitFetchEntered() async {
+    await withCheckedContinuation { continuation in
+      let alreadyEntered = state.withLock { gate -> Bool in
+        if gate.didEnter { return true }
+        gate.enteredContinuation = continuation
+        return false
+      }
+      if alreadyEntered { continuation.resume() }
+    }
+  }
+
+  /// Releases the parked fetch so it completes.
+  func releaseParkedFetch() {
+    releaseGate.signal()
+  }
+
+  func fetchRecentRunPage(
+    nameQuery: String?, before: SimulationPageCursor?, limit: Int
+  ) throws -> [PastRunListItem] {
+    let shouldPark = state.withLock { gate -> Bool in
+      guard gate.armed, !gate.parkedOnce else { return false }
+      gate.parkedOnce = true
+      return true
+    }
+    if shouldPark {
+      // Signal entry (resume outside the lock) then block until released.
+      let continuation = state.withLock { gate -> CheckedContinuation<Void, Never>? in
+        gate.didEnter = true
+        defer { gate.enteredContinuation = nil }
+        return gate.enteredContinuation
+      }
+      continuation?.resume()
+      releaseGate.wait()
+    }
+    return try base.fetchRecentRunPage(nameQuery: nameQuery, before: before, limit: limit)
+  }
+
+  // MARK: - Straight delegation
+
+  func save(_ record: SimulationRecord) throws { try base.save(record) }
+  func fetchById(_ id: String) throws -> SimulationRecord? { try base.fetchById(id) }
+  func fetchByScenarioId(_ scenarioId: String) throws -> [SimulationRecord] {
+    try base.fetchByScenarioId(scenarioId)
+  }
+  func fetchRunList(scenarioId: String) throws -> [PastRunListItem] {
+    try base.fetchRunList(scenarioId: scenarioId)
+  }
+  func fetchOrphaned() throws -> [SimulationRecord] { try base.fetchOrphaned() }
+  func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord] {
+    try base.fetchByStatus(status)
+  }
+  func completedRunCountsByScenarioId() throws -> [String: Int] {
+    try base.completedRunCountsByScenarioId()
+  }
+  func updateState(
+    _ id: String, stateJSON: String, currentRound: Int, currentPhaseIndex: Int
+  ) throws {
+    try base.updateState(
+      id, stateJSON: stateJSON, currentRound: currentRound, currentPhaseIndex: currentPhaseIndex)
+  }
+  func updateStatus(_ id: String, status: SimulationStatus) throws {
+    try base.updateStatus(id, status: status)
+  }
+  func totalRunCount(nameQuery: String?) throws -> Int {
+    try base.totalRunCount(nameQuery: nameQuery)
+  }
+  func delete(_ id: String) throws { try base.delete(id) }
+  func deleteAll() throws { try base.deleteAll() }
+  func pastResultsByteCount() throws -> Int64 { try base.pastResultsByteCount() }
 }
