@@ -67,8 +67,8 @@ phases:
     then:
       - type: summarize
         template: >
-          🔎 決定的証拠！ 5人中3票以上が {vote_winner} を指名しました（{vote_results}）。
-          多数の同意により、{vote_winner} が犯人として断定されました。
+          🔎 決定的証拠！ 投票が一点に集中しました（{vote_results}）。
+          多数の同意により、最多得票者が犯人として断定されました。
     else:
       - type: speak_each
         prompt: >
@@ -80,5 +80,5 @@ phases:
       - type: summarize
         template: >
           ⚖️ 決定打に欠ける… 最初の投票は割れ（{vote_results}）、
-          反論を経ても暫定的な最多疑惑は {vote_winner} です。
+          反論を経ても疑惑は最多得票者に向いたままです。
           真相は闇の中…

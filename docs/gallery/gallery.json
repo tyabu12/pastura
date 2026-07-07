@@ -61,7 +61,7 @@
       ],
       "language": "ja",
       "yaml_url": "detective_scene_v1.yaml",
-      "yaml_sha256": "9b01a7ced10853e5e46b036961d9930b10bdfcadd0b3dd89651c0a3d6857bbad",
+      "yaml_sha256": "e9342317554535cafb57ac481bcf97dbc18a7ae8785c83df7234b19c95339e83",
       "added_at": "2026-04-15"
     },
     {
@@ -519,7 +519,7 @@
       ],
       "language": "en",
       "yaml_url": "detective_scene_v1_en.yaml",
-      "yaml_sha256": "1862ed39acddb11c0a37cb2dd7ef599b50e4036727d2cceadd8d58964757c187",
+      "yaml_sha256": "4e7a893f56f18b1dd3ec92ab1f781284a3655626b6eeaba36390a8aa3456b89b",
       "added_at": "2026-07-01"
     },
     {

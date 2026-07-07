@@ -5,6 +5,7 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
+// swiftlint:disable:next type_body_length
 struct ScenarioDetailViewModelTests {
   private static let validYAML = """
     id: test_scenario
@@ -114,6 +115,43 @@ struct ScenarioDetailViewModelTests {
 
     let viewModel = ScenarioDetailViewModel(repository: repo)
     await viewModel.load(scenarioId: "bad")
+
+    #expect(viewModel.scenario != nil)
+    #expect(viewModel.validationError != nil)
+    #expect(viewModel.canRun == false)
+  }
+
+  /// A scenario tripping a lint error rule (`eliminate` with no `vote`, R1a)
+  /// gates `canRun` via `validationError`, same surface as a structural
+  /// validation error (ADR-024 D5).
+  @Test func loadDetectsSemanticLintErrors() async throws {
+    let lintErrorYAML = """
+      id: lint_error
+      language: ja
+      name: Lint Error
+      description: eliminate without a vote phase
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: eliminate
+      """
+
+    let db = try DatabaseManager.inMemory()
+    let repo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try repo.save(
+      ScenarioRecord(
+        id: "lint_error", name: "Lint Error", yamlDefinition: lintErrorYAML,
+        isPreset: false, createdAt: Date(), updatedAt: Date()
+      ))
+
+    let viewModel = ScenarioDetailViewModel(repository: repo)
+    await viewModel.load(scenarioId: "lint_error")
 
     #expect(viewModel.scenario != nil)
     #expect(viewModel.validationError != nil)

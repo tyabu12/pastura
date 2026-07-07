@@ -9,9 +9,17 @@ import PasturaHarnessKit
 @main
 enum Main {
   static func main() async {
+    let args = Array(CommandLine.arguments.dropFirst())
+    // `lint` is an inference-free subcommand (ADR-024 D6) — it never touches
+    // HarnessConfig / --model, so branch before the run-mode arg parse to keep
+    // the existing run CLI contract untouched.
+    if args.first == "lint" {
+      runLint(paths: Array(args.dropFirst()))
+    }
+
     let config: HarnessConfig
     do {
-      config = try HarnessConfig.parse(Array(CommandLine.arguments.dropFirst()))
+      config = try HarnessConfig.parse(args)
     } catch let error as HarnessConfigError {
       FileHandle.standardError.write(Data((error.message + "\n").utf8))
       exit(2)
@@ -30,6 +38,18 @@ enum Main {
       FileHandle.standardError.write(Data("\(error)\n".utf8))
       exit(2)
     }
+  }
+
+  /// Runs the inference-free `lint` subcommand and exits (ADR-024 D6).
+  /// Exit codes: 0 = clean, 1 = errors / failures found, 2 = usage error.
+  private static func runLint(paths: [String]) -> Never {
+    guard !paths.isEmpty else {
+      FileHandle.standardError.write(Data((LintBatchRunner.usage + "\n").utf8))
+      exit(2)
+    }
+    let report = LintBatchRunner.run(paths: paths)
+    print(report.humanReadable())
+    exit(report.hasFailure ? 1 : 0)
   }
 
   private static func run(config: HarnessConfig) async throws -> RunSummary {

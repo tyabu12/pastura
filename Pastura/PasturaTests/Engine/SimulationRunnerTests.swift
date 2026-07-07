@@ -504,4 +504,69 @@ struct SimulationRunnerTests {
         return false
       })
   }
+
+  // MARK: - Semantic lint gate (ADR-024)
+
+  @Test func lintErrorBlocksRunBeforeAnyRound() async throws {
+    // `eliminate` with no `vote` anywhere trips R1a (error): the run must emit
+    // `.scenarioValidationFailed` and execute no rounds. No LLM call is reached
+    // (the gate returns before the round loop), so no mock responses are needed.
+    let mock = MockLLMService(responses: [])
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .eliminate)]
+    )
+
+    let runner = SimulationRunner()
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
+
+    #expect(
+      events.contains {
+        if case .error(.scenarioValidationFailed) = $0 { return true }
+        return false
+      })
+    #expect(
+      !events.contains {
+        if case .roundStarted = $0 { return true }
+        return false
+      })
+  }
+
+  @Test func lintWarningSurfacesSummaryBeforeRounds() async throws {
+    // `choose` without `options` trips R7 (warning): the run proceeds and a
+    // `.summary("⚠️ …")` is emitted before the first round event.
+    let mock = MockLLMService(responses: [
+      #"{"action": "left"}"#,
+      #"{"action": "right"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      rounds: 1,
+      phases: [Phase(type: .choose, prompt: "Pick", outputSchema: ["action": "string"])]
+    )
+
+    let runner = SimulationRunner()
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
+
+    let warningIndex = events.firstIndex {
+      if case .summary(let text) = $0 { return text.contains("⚠️") }
+      return false
+    }
+    let roundIndex = events.firstIndex {
+      if case .roundStarted = $0 { return true }
+      return false
+    }
+    #expect(warningIndex != nil)
+    #expect(roundIndex != nil)
+    if let warningIndex, let roundIndex {
+      #expect(warningIndex < roundIndex)
+    }
+    #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
+  }
 }
