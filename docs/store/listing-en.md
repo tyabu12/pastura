@@ -9,7 +9,11 @@
 > **Final copy review**: a separate Fable session performed the pre-submission
 > pass (2026-07-07); the required accuracy fix (scoping on-device claims to
 > inference / your data, not "zero cloud calls") and term-alignment fixes are
-> applied below.
+> applied below. A later copy-polish pass (2026-07-07) applied a `model → LLM`
+> term-alignment to the two conceptual references (`local LLMs`, "The LLM lives
+> on your phone") to match the Name/Subtitle (`Local LLMs`); the download-artifact
+> references ("pick a model", "before the model finishes downloading") stay
+> `model` on purpose.
 
 ## App name (global, not locale-specific)
 
@@ -55,12 +59,12 @@ WHAT YOU CAN DO
 • Run built-in scenarios like Word Wolf or Prisoner's Dilemma
 • Write your own in a visual editor, or switch to YAML for full control
 • Browse a curated gallery of shared scenarios and import with one tap
-• Swap between local models, and see how the same scenario changes
+• Swap between local LLMs, and see how the same scenario changes
 • Watch speech, inner voice, votes, and scores arrive live
 • Export any run as Markdown to keep, paste, or share
 
 WHY ON-DEVICE
-The model lives on your phone, not on someone else's server. That settles privacy, cost, and latency in one move. Inference never touches a server. Zero monthly bill. Zero telemetry, zero analytics. Your scenarios, transcripts, and results never leave the device.
+The LLM lives on your phone, not on someone else's server. That settles privacy, cost, and latency in one move. Inference never touches a server. Zero monthly bill. Zero telemetry, zero analytics. Your scenarios, transcripts, and results never leave the device.
 
 The first time you pick a model, Pastura downloads it once (around 3 GB, Wi-Fi recommended). After that, it's yours and it's offline. While you wait, a built-in demo run plays so you can see what observation looks like before the model finishes downloading.
 
@@ -70,7 +74,7 @@ Stargazing taught us to look up at the stars. AIgazing teaches us to look at the
 Requires a device with 6.5 GB of RAM or more (iPhone 15 Pro and newer). Free, with no subscription and no in-app purchases.
 ```
 
-**1,995 / 4,000 chars.** ✓ — Pre-fold opener: 46 chars (`AIgazing. Like stargazing, but for local LLMs.`).
+**1,991 / 4,000 chars.** ✓ — Pre-fold opener: 46 chars (`AIgazing. Like stargazing, but for local LLMs.`).
 
 ## Keywords
 
