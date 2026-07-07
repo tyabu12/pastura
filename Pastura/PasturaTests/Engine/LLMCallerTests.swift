@@ -222,9 +222,11 @@ struct LLMCallerTests {
 
     try await Task.sleep(for: .milliseconds(50))
     callTask.cancel()
-    // awaitResume returns on cancel; Task.checkCancellation throws → wrapped
-    // as SimulationError.llmGenerationFailed by LLMCaller.
-    await #expect(throws: SimulationError.self) {
+    // awaitResume returns on cancel; Task.checkCancellation throws.
+    // ADR-021 D3: cancellation is control-flow, not a turn failure — it must
+    // escape typed (NOT wrapped into llmGenerationFailed) so the
+    // turn-degradation gate can rethrow it instead of skipping the turn.
+    await #expect(throws: CancellationError.self) {
       _ = try await callTask.value
     }
   }
@@ -302,12 +304,15 @@ struct LLMCallerTests {
     // fail-fast: LLMCaller must NOT retry it into the following valid
     // response. Guards the "only samplerCrashCaught is retryable"
     // contract, so cancellation / suspension can't be swallowed either.
+    // ADR-021 D3: systemic errors additionally escape TYPED (not wrapped
+    // into SimulationError) so the turn-degradation gate can classify
+    // them run-fatal instead of skipping the turn.
     let mock = MockLLMService(responses: [#"{"statement": "should not be reached"}"#])
     try await mock.loadModel()
     mock.throwErrorOnNextGenerate(.invalidGrammar(description: "boom"))
 
     let collector = EventCollector()
-    await #expect(throws: SimulationError.self) {
+    await #expect(throws: LLMError.invalidGrammar(description: "boom")) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
         suspendController: SuspendController(),
@@ -316,4 +321,5 @@ struct LLMCallerTests {
     // No retry → the valid response was never consumed.
     #expect(mock.generateCallCount == 0)
   }
+
 }

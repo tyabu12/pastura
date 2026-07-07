@@ -5968,6 +5968,22 @@
         }
       }
     },
+    "Simulation stopped: %lld consecutive turns failed to get a response from the model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulation stopped: %lld consecutive turns failed to get a response from the model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シミュレーションを中断しました: %lld ターン連続でモデルから応答を得られませんでした"
+          }
+        }
+      }
+    },
     "Skip" : {
       "localizations" : {
         "ja" : {

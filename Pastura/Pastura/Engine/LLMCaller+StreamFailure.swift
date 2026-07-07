@@ -43,6 +43,26 @@ nonisolated extension LLMCaller {
     return true
   }
 
+  /// The error `call` should throw for a non-retryable stream failure
+  /// (ADR-021 D3).
+  ///
+  /// Systemic errors (`.invalidGrammar` — deterministic engineering bug;
+  /// `.notLoaded` — backend lost its model mid-run) and cancellation are
+  /// returned TYPED so the turn-degradation gate can classify them
+  /// run-fatal / control-flow instead of skipping the turn. Only transient
+  /// stream/generation errors keep the `llmGenerationFailed` wrap — it
+  /// marks them turn-degradable. `.loadFailed` needs no arm: it is thrown
+  /// only from `loadModel`, which the App layer handles before the run
+  /// starts.
+  func streamFailureError(_ error: Error) -> Error {
+    switch error {
+    case LLMError.invalidGrammar, LLMError.notLoaded, is CancellationError:
+      return error
+    default:
+      return SimulationError.llmGenerationFailed(description: readableDescription(error))
+    }
+  }
+
   /// Wall-clock seconds elapsed since `start`, for `inferenceCompleted`
   /// duration reporting.
   func elapsedSeconds(since start: ContinuousClock.Instant) -> Double {
