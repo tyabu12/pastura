@@ -75,23 +75,31 @@ git check-ignore fastlane/.env    # → prints "fastlane/.env" (ignored)
 
 ### 4. Set up code signing in Xcode
 
-`scripts/release.sh` archives headlessly, which needs a distribution
-certificate + App Store provisioning profile present on **this** machine.
+`scripts/release.sh` archives and exports headlessly with automatic signing,
+passing `-allowProvisioningUpdates` so it resolves the App Store provisioning
+profile and the **cloud-managed** distribution certificate from the Developer
+Portal itself. So this machine does **not** need a distribution cert in its
+keychain — it needs a signed-in Xcode Apple ID whose account can sign for
+distribution (the flag authenticates via that session).
 
 1. Open `Pastura/Pastura.xcodeproj`.
 2. **Xcode → Settings → Accounts**: sign in with an Apple ID on team
-   `52G26234A3`.
+   `52G26234A3`. Keep the session live — an expired one makes
+   `-allowProvisioningUpdates` fail with a portal / no-cert error.
 3. Run destination → **Any iOS Device (arm64)** (Archive is disabled for
    simulators).
-4. **Product → Archive**. Automatic signing provisions the distribution
-   certificate + profile on this machine. When the Organizer opens you can
-   stop — `/release` handles real uploads.
+4. **(Optional, recommended before the first release.)** Do one **Product →
+   Archive**, then in the Organizer **Distribute App → Custom → App Store
+   Connect → Export** (not Upload). This provisions the App Store profile +
+   cloud distribution cert and confirms signing resolves — a cheap sanity
+   check, since `release.sh --dry-run` stops before archive and cannot
+   exercise the signing path. `/release` handles the real archive + upload.
 
-> A distribution cert's private key lives in the Mac's keychain, so a new
-> machine needs its own. Letting automatic signing create one (above) is
-> simplest. If you'd rather reuse the existing cert, export it as a `.p12`
-> (Keychain Access → your "Apple Distribution" cert → Export) from the old
-> Mac and import it on the new one before archiving.
+> Distribution signing is **cloud-managed**: the cert's private key lives on
+> Apple's servers, not the Mac's keychain, so there is nothing to export as a
+> `.p12` and a new machine needs no cert of its own — just the signed-in Apple
+> ID + `-allowProvisioningUpdates`. (The `.p12` export route applies only to a
+> traditional, non-cloud "Apple Distribution" certificate.)
 
 ### 5. Install fastlane
 

@@ -22,8 +22,11 @@
 #                upload succeeds (a failed upload leaves no dangling tag)
 #
 # Bootstrap prerequisites (one-time, human; ADR-014 § bootstrap): an ASC
-# app record, a distribution cert, and an API key. The key's identifiers
-# are read from the environment:
+# app record, an API key, and a signed-in Xcode Apple ID whose account can
+# sign for distribution. Modern Xcode uses cloud-managed distribution
+# signing — the cert's private key is NOT in the local keychain — so the
+# archive/export below pass -allowProvisioningUpdates (see their why-notes).
+# The key's identifiers are read from the environment:
 #   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH  (see fastlane/Fastfile)
 #
 # Usage:
@@ -148,7 +151,8 @@ log "Planned release: version $VERSION, build $BUILD, tag $TAG"
 
 if [ "$DRY_RUN" -eq 1 ]; then
   log "--dry-run: stopping before ASC query / archive / upload (these need the"
-  log "one-time bootstrap: distribution cert + ASC app record + API key)."
+  log "one-time bootstrap: ASC app record + API key + a signed-in Xcode Apple"
+  log "ID that can sign for distribution (cloud-managed signing))."
   printf '\n--- What to Test (preview) ---\n%s\n' "$NOTES"
   exit 0
 fi
@@ -171,12 +175,23 @@ LATEST_TF="$(cat "$TF_OUT")"
 # ── archive ──────────────────────────────────────────────────────────────
 ARCHIVE="$WORK/$APP_NAME.xcarchive"
 log "Archiving (Release, build $BUILD)"
+# -allowProvisioningUpdates: distribution signing is cloud-managed (the cert's
+# private key is not in the local keychain), so headless xcodebuild must be
+# allowed to reach the Developer Portal to resolve the App Store profile and
+# cloud cert. It authenticates via the signed-in Xcode Apple ID session, so
+# that session must be live (an expired one fails with a portal/no-cert error;
+# refresh via Xcode → Settings → Accounts). A future non-interactive CI run has
+# no Xcode session and would additionally need -authenticationKeyID /
+# -authenticationKeyIssuerID / -authenticationKeyPath pointing at an ASC key
+# with App Manager+ role (the project's pastura-release key already qualifies)
+# — out of scope for the local-first flow (ADR-014).
 xcodebuild archive \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
+  -allowProvisioningUpdates \
   CURRENT_PROJECT_VERSION="$BUILD"
 
 # Verify the archive's marketing version matches --version (the build uses
@@ -220,10 +235,14 @@ cat > "$PLIST" <<PLIST_EOF
 PLIST_EOF
 
 log "Exporting .ipa (method app-store)"
+# -allowProvisioningUpdates: same reason as the archive step — the export
+# re-signs with the cloud-managed distribution cert, which headless xcodebuild
+# can only resolve when allowed to contact the portal.
 xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportPath "$EXPORT_DIR" \
-  -exportOptionsPlist "$PLIST"
+  -exportOptionsPlist "$PLIST" \
+  -allowProvisioningUpdates
 
 IPA=""
 while IFS= read -r -d '' f; do IPA="$f"; done \
