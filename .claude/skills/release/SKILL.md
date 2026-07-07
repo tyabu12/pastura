@@ -89,8 +89,21 @@ commit would make `HEAD` diverge from `origin/main` and fail preflight.
 ## Step 3 — Synthesize and review the release notes
 
 Turn the commit subjects (Step 1) into concise **tester-facing "What to
-Test"** prose — group related changes, drop SHAs / internal issue refs /
-implementation jargon. These notes are published to TestFlight testers.
+Test"** prose. These notes are published to TestFlight testers, so:
+
+- **Keep only tester-facing changes** — new features and user-visible
+  fixes. Drop internal-only commits entirely: refactors, chores, docs,
+  tests, CI, tooling. A build of only internal work gets a single
+  "internal improvements" line, not a padded list.
+- **Drop all PR/issue numbers, SHAs, and emoji prefixes** — those live in
+  git history / a GitHub Release, not tester notes.
+- **Write plainly** — no marketing adjectives, no effusive openers /
+  closers, no AI-tell rhythms (rule-of-three triads, em-dash pile-ups).
+  State what changed and what to check, like a short developer note to a
+  peer.
+
+The **first** build is the exception: with no prior release to diff, write
+a brief app intro + what to test rather than a changelog.
 
 **The operator must review the final notes at the gate (Step 5)** — they
 go to humans and are not content-safety-screened. Never ship raw commit
