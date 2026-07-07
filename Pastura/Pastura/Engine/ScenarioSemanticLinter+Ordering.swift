@@ -1,6 +1,6 @@
 import Foundation
 
-/// Producer–consumer phase-ordering rules R1–R6 (ADR-022 D3).
+/// Producer–consumer phase-ordering rules R1–R6 (ADR-024 D3).
 ///
 /// Each rule compares **phase-list indices**: a consuming phase
 /// (`eliminate` / `score_calc`) needs its producer (`vote`, round-robin

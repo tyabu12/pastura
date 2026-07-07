@@ -10,7 +10,7 @@ import PasturaHarnessKit
 enum Main {
   static func main() async {
     let args = Array(CommandLine.arguments.dropFirst())
-    // `lint` is an inference-free subcommand (ADR-022 D6) — it never touches
+    // `lint` is an inference-free subcommand (ADR-024 D6) — it never touches
     // HarnessConfig / --model, so branch before the run-mode arg parse to keep
     // the existing run CLI contract untouched.
     if args.first == "lint" {
@@ -40,7 +40,7 @@ enum Main {
     }
   }
 
-  /// Runs the inference-free `lint` subcommand and exits (ADR-022 D6).
+  /// Runs the inference-free `lint` subcommand and exits (ADR-024 D6).
   /// Exit codes: 0 = clean, 1 = errors / failures found, 2 = usage error.
   private static func runLint(paths: [String]) -> Never {
     guard !paths.isEmpty else {

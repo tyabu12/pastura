@@ -1,4 +1,4 @@
-// Placeholder-resolution rules R10/R11/R12 (ADR-022 D3). Extension of the
+// Placeholder-resolution rules R10/R11/R12 (ADR-024 D3). Extension of the
 // existing suite (not a new @Suite) per .claude/rules/testing.md splitting
 // pattern — reuses `linter` / `makeScenario` / `makeEventScenario` from the
 // base file / the Ordering split.
@@ -33,7 +33,7 @@ extension ScenarioSemanticLinterTests {
 
   @Test func declaredExtraDataKeyPassesR10() {
     // An `extraData` key referenced in a prompt is a declared variable — known,
-    // so it must not trip R10 (ADR-022 R10's resolvable set includes extraData).
+    // so it must not trip R10 (ADR-024 R10's resolvable set includes extraData).
     let scenario = makeEventScenario(
       phases: [Phase(type: .speakAll, prompt: "The events are {events}")],
       events: .array(["a", "b"]))
@@ -134,7 +134,7 @@ extension ScenarioSemanticLinterTests {
 
   @Test func candidatesInSpeakAllFiresR10() {
     // `candidates` is vote-supplied only and has no producer entry, so in a
-    // speak_all it is unknown → R10 (classification decision, ADR-022 note).
+    // speak_all it is unknown → R10 (classification decision, ADR-024 note).
     let scenario = makeScenario(
       agents: 2, rounds: 1, phases: [Phase(type: .speakAll, prompt: "Pick from {candidates}")])
     let findings = linter.lint(scenario)

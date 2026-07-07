@@ -505,7 +505,7 @@ struct SimulationRunnerTests {
       })
   }
 
-  // MARK: - Semantic lint gate (ADR-022)
+  // MARK: - Semantic lint gate (ADR-024)
 
   @Test func lintErrorBlocksRunBeforeAnyRound() async throws {
     // `eliminate` with no `vote` anywhere trips R1a (error): the run must emit

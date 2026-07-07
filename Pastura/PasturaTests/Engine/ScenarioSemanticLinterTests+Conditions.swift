@@ -1,4 +1,4 @@
-// Condition-expression rules R13/R14/R15/R16 (ADR-022 D3). Extension of the
+// Condition-expression rules R13/R14/R15/R16 (ADR-024 D3). Extension of the
 // existing suite (not a new @Suite) per .claude/rules/testing.md splitting
 // pattern — reuses `linter` / `makeScenario` / `makeEventScenario` from the
 // base file / the Ordering split. Rule findings are asserted through the

@@ -29,18 +29,28 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private let dispatcher = PhaseDispatcher()
   private let validator = ScenarioValidator()
   private let detector: (any LanguageDetector)?
+  private let logger: any EngineLogger
 
   /// Creates a runner.
   ///
-  /// - Parameter detector: Optional language detector for ADR-010 Step E PR2
-  ///   output-language adherence enforcement. When provided alongside a
-  ///   `Scenario.engineLanguage`, ``LLMCaller`` retries on language drift
-  ///   within its existing budget and emits
-  ///   ``SimulationEvent/languageMismatch(agent:detected:expected:)`` on
-  ///   exhaustion. `nil` (the default) disables the check so existing
-  ///   callers / tests keep their pre-Step E PR2 behaviour.
-  public init(detector: (any LanguageDetector)? = nil) {
+  /// - Parameters:
+  ///   - detector: Optional language detector for ADR-010 Step E PR2
+  ///     output-language adherence enforcement. When provided alongside a
+  ///     `Scenario.engineLanguage`, ``LLMCaller`` retries on language drift
+  ///     within its existing budget and emits
+  ///     ``SimulationEvent/languageMismatch(agent:detected:expected:)`` on
+  ///     exhaustion. `nil` (the default) disables the check so existing
+  ///     callers / tests keep their pre-Step E PR2 behaviour.
+  ///   - logger: Injected logging seam forwarded to every ``PhaseContext``.
+  ///     Defaults to ``NoopEngineLogger`` (silent) so tests and the ADR-013
+  ///     harness run without wiring OSLog; production injects
+  ///     ``OSLogEngineLogger`` at the View boundary (see `SimulationView`).
+  public init(
+    detector: (any LanguageDetector)? = nil,
+    logger: any EngineLogger = NoopEngineLogger()
+  ) {
     self.detector = detector
+    self.logger = logger
   }
 
   /// Whether the simulation is currently paused.
@@ -125,6 +135,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let validator = self.validator
     let pauseState = self.pauseState
     let detector = self.detector
+    let logger = self.logger
 
     return AsyncStream { continuation in
       let task = Task {
@@ -134,6 +145,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           pauseState: pauseState,
           suspendController: suspendController,
           detector: detector,
+          logger: logger,
           seed: seed, startRound: startRound,
           emitter: { continuation.yield($0) }
         )
@@ -156,9 +168,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let pauseState: OSAllocatedUnfairLock<PauseState>
     let suspendController: SuspendController
     let detector: (any LanguageDetector)?
+    let logger: any EngineLogger
     /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).
     let startRound: Int
     let emitter: @Sendable (SimulationEvent) -> Void
+    /// One run-scoped gate (ADR-021), threaded into every `PhaseContext`.
+    let turnGate: TurnFailureGate
   }
 
   // swiftlint:disable:next function_parameter_count
@@ -168,44 +183,21 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     pauseState: OSAllocatedUnfairLock<PauseState>,
     suspendController: SuspendController,
     detector: (any LanguageDetector)?,
+    logger: any EngineLogger,
     seed: SimulationState?, startRound: Int,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
-    // Validate scenario
-    do {
-      let result = try validator.validate(scenario)
-      for warning in result.warnings {
-        emitter(.summary(text: "⚠️ \(warning)"))
-      }
-    } catch {
-      emitter(
-        .error(
-          error as? SimulationError
-            ?? .scenarioValidationFailed(readableDescription(error))))
+    // Structural validation + semantic lint (ADR-024) — see
+    // SimulationRunner+SemanticLint.swift.
+    guard preflightGate(scenario: scenario, validator: validator, emitter: emitter) else {
       return
-    }
-
-    // Semantic lint (ADR-022) runs after the structural validator passes:
-    // `.error` findings block the run exactly like a validation error, while
-    // `.warning` findings ride the existing inference-count `.summary("⚠️ …")`
-    // channel. `.info` findings are not surfaced at the run gate. The linter is
-    // a stateless value, so it's built here rather than plumbed through the
-    // parameter list.
-    let findings = ScenarioSemanticLinter().lint(scenario)
-    let lintErrors = findings.filter { $0.severity == .error }
-    if !lintErrors.isEmpty {
-      emitter(
-        .error(.scenarioValidationFailed(lintErrors.map(\.message).joined(separator: "\n"))))
-      return
-    }
-    for finding in findings where finding.severity == .warning {
-      emitter(.summary(text: "⚠️ \(finding.message)"))
     }
 
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
       pauseState: pauseState, suspendController: suspendController,
-      detector: detector, startRound: startRound, emitter: emitter
+      detector: detector, logger: logger, startRound: startRound, emitter: emitter,
+      turnGate: TurnFailureGate()
     )
 
     // Resume from the persisted state when seeded; otherwise start fresh.
@@ -368,7 +360,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
             await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
           },
           phasePath: phasePath,
-          detector: ctx.detector
+          turnGate: ctx.turnGate,
+          detector: ctx.detector,
+          logger: ctx.logger
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {

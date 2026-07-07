@@ -1368,10 +1368,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// View boundary (not as a VM `init` default) so fixture tests that build the
   /// VM directly keep pre-Step E retry semantics (`.claude/rules/swiftui-traps.md`
   /// § "Production-side-effecting service").
+  ///
+  /// `OSLogEngineLogger` is injected the same way (#501 S0.2): the Engine's
+  /// logger default is `NoopEngineLogger` (silent) so tests / the ADR-013
+  /// harness stay OSLog-free; production wires the OSLog adapter here. Keep the
+  /// default off the VM — moving it back would silence Engine logs in tests.
   private func makeViewModel() -> SimulationViewModel {
     let deps = dependencies
     return SimulationViewModel(
-      runner: SimulationRunner(detector: NLLanguageDetector()),
+      runner: SimulationRunner(detector: NLLanguageDetector(), logger: OSLogEngineLogger()),
       simulationRepository: deps.simulationRepository,
       turnRepository: deps.turnRepository,
       codePhaseEventRepository: deps.codePhaseEventRepository,

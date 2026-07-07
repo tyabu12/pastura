@@ -142,10 +142,10 @@ struct ScenarioEditorViewModelTests {
     #expect(sut.validationErrors.isEmpty)
   }
 
-  // MARK: - Semantic Lint (ADR-022)
+  // MARK: - Semantic Lint (ADR-024)
 
   /// A lint error rule (`eliminate` with no `vote`, R1a) blocks validation —
-  /// its message joins the blocking `validationErrors` array (ADR-022 D5).
+  /// its message joins the blocking `validationErrors` array (ADR-024 D5).
   @Test func validateBlocksOnSemanticLintError() throws {
     let sut = try makeSUT()
     sut.yamlText = """

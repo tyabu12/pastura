@@ -1,5 +1,5 @@
 // Handler-anchored tests for the linter-owned placeholder availability map
-// (ADR-022 D4). Each per-row test names the handler it mirrors so a handler
+// (ADR-024 D4). Each per-row test names the handler it mirrors so a handler
 // change that drifts the map fails here with a legible pointer. The union test
 // is the ADR's phantom/missing-token maintenance guard.
 import Testing
@@ -9,7 +9,7 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct PlaceholderAvailabilityTests {
 
-  // MARK: - Union guard (ADR-022 maintenance point)
+  // MARK: - Union guard (ADR-024 maintenance point)
 
   @Test func unionOfSuppliedEqualsEngineSuppliedPlusDocumentedDelta() {
     var union: Set<String> = []

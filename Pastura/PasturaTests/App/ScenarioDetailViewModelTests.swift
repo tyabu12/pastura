@@ -123,7 +123,7 @@ struct ScenarioDetailViewModelTests {
 
   /// A scenario tripping a lint error rule (`eliminate` with no `vote`, R1a)
   /// gates `canRun` via `validationError`, same surface as a structural
-  /// validation error (ADR-022 D5).
+  /// validation error (ADR-024 D5).
   @Test func loadDetectsSemanticLintErrors() async throws {
     let lintErrorYAML = """
       id: lint_error

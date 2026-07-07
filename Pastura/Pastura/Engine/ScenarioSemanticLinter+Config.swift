@@ -1,6 +1,6 @@
 import Foundation
 
-/// Silently-inert configuration rules R7/R8/R9/R17 (ADR-022 D3).
+/// Silently-inert configuration rules R7/R8/R9/R17 (ADR-024 D3).
 ///
 /// Unlike the ordering rules (`ScenarioSemanticLinter+Ordering.swift`), these
 /// rules don't compare producer/consumer phase indices — each phase (or the
@@ -70,7 +70,7 @@ nonisolated extension ScenarioSemanticLinter {
       case .string:
         // A single-string source is a legitimate `.all` shape — never empty
         // in the "nothing to iterate" sense `AssignHandler.assignAll` cares
-        // about (ADR-022 Rule-precision notes).
+        // about (ADR-024 Rule-precision notes).
         return false
       case .arrayOfDictionaries, .dictionary:
         return false

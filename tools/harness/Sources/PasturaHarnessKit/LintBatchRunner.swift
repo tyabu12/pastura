@@ -1,7 +1,7 @@
 import Foundation
 import PasturaCore
 
-/// The outcome of linting a single scenario YAML file (ADR-022 D6).
+/// The outcome of linting a single scenario YAML file (ADR-024 D6).
 ///
 /// A file passes through three gates in order — parse, validate, lint — and
 /// the outcome records the first blocking gate it hit, or the lint findings
@@ -94,7 +94,7 @@ package struct LintFileReport: Sendable {
   }
 }
 
-/// Aggregate report over a batch of linted files (ADR-022 D6).
+/// Aggregate report over a batch of linted files (ADR-024 D6).
 package struct LintBatchReport: Sendable {
   /// Per-file reports, in the order the files were linted.
   package let files: [LintFileReport]
@@ -121,7 +121,7 @@ package struct LintBatchReport: Sendable {
   }
 }
 
-/// Inference-free batch linter for scenario YAML files (ADR-022 D6).
+/// Inference-free batch linter for scenario YAML files (ADR-024 D6).
 ///
 /// Runs each file through `ScenarioLoader` → `ScenarioValidator` →
 /// `ScenarioSemanticLinter`, mirroring the load-time gate order the app uses,

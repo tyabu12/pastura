@@ -9,7 +9,7 @@ struct LintBatchRunnerTests {
   // MARK: - Fixtures
 
   /// `event_reactive` correctly paired with a dict-shaped `event_inject`
-  /// keeping the default `as:` — R5's passing case (ADR-022 D6 caveat: no
+  /// keeping the default `as:` — R5's passing case (ADR-024 D6 caveat: no
   /// shipped YAML exercises `event_reactive`, so R5 needs synthetic fixtures).
   private static let r5CleanYAML = """
     id: r5_clean

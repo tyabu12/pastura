@@ -1,6 +1,6 @@
 import Foundation
 
-/// Placeholder-resolution rules R10/R11/R12 (ADR-022 D3), reading the
+/// Placeholder-resolution rules R10/R11/R12 (ADR-024 D3), reading the
 /// linter-owned ``PlaceholderAvailability`` map (D4).
 ///
 /// A single scan over each LLM phase's `prompt` (and each `summarize` phase's

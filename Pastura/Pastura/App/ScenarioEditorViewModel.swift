@@ -107,7 +107,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   private let patcher = ScenarioYAMLPatcher()
   private let validator = ScenarioValidator()
   private let contentValidator = ScenarioContentValidator()
-  /// Semantic linter (ADR-022). Its `.error` findings join the blocking
+  /// Semantic linter (ADR-024). Its `.error` findings join the blocking
   /// `validationErrors` array; warnings/info are not surfaced (PR2 scope).
   /// Run on the same `Scenario` the validator sees (the `currentScenario()`
   /// funnel output) — never a fresh visual-state build, per the funnel invariant.
@@ -298,7 +298,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       let contentFindings = contentValidator.validate(scenario)
       validationErrors.append(contentsOf: contentFindings)
       // Semantic-lint errors block commit alongside structural/content errors
-      // (ADR-022). Same `scenario` value the validator received, per the
+      // (ADR-024). Same `scenario` value the validator received, per the
       // `currentScenario()` funnel. Warnings/info stay unsurfaced (PR2 scope).
       let lintErrors = linter.lint(scenario).filter { $0.severity == .error }.map(\.message)
       validationErrors.append(contentsOf: lintErrors)

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Condition-expression rules R13/R14/R15/R16 (ADR-022 D3), applied to every
+/// Condition-expression rules R13/R14/R15/R16 (ADR-024 D3), applied to every
 /// `conditional` phase's **parsed** `if:` string (`phase.condition`) — never
 /// raw YAML, whose scalar quoting (`if: 'current_event != ""'`) is already
 /// stripped by the loader. Every finding anchors to the conditional's

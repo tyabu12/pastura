@@ -1,4 +1,4 @@
-// Silently-inert configuration rules R7/R8/R9/R17 (ADR-022 D3). Extension of
+// Silently-inert configuration rules R7/R8/R9/R17 (ADR-024 D3). Extension of
 // the existing suite (not a new @Suite) per .claude/rules/testing.md
 // splitting pattern — reuses `linter` / `makeScenario` / `makeEventScenario`
 // from the base file / the Ordering split.
@@ -67,7 +67,7 @@ extension ScenarioSemanticLinterTests {
 
   @Test func assignAllWithStringSourcePasses() {
     // A single-string source is a legitimate `.all` shape (never "empty" in
-    // the nothing-to-iterate sense) — must NOT trip, per ADR-022's
+    // the nothing-to-iterate sense) — must NOT trip, per ADR-024's
     // Rule-precision notes.
     let scenario = makeEventScenario(
       phases: [Phase(type: .assign, source: "events", target: .all)],

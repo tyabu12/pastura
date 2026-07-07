@@ -44,7 +44,7 @@ final class ScenarioDetailViewModel {
   private let repository: any ScenarioRepository
   private let loader = ScenarioLoader()
   private let validator = ScenarioValidator()
-  /// Semantic linter (ADR-022). Its `.error` findings gate `canRun` on the
+  /// Semantic linter (ADR-024). Its `.error` findings gate `canRun` on the
   /// same `validationError` surface as structural validation; warnings/info
   /// are not displayed here (PR2 editor-UX scope).
   private let linter = ScenarioSemanticLinter()
@@ -77,7 +77,7 @@ final class ScenarioDetailViewModel {
       // Validate
       do {
         _ = try validator.validate(parsed)
-        // Semantic-lint errors gate `canRun` like structural errors (ADR-022).
+        // Semantic-lint errors gate `canRun` like structural errors (ADR-024).
         let lintErrors = linter.lint(parsed).filter { $0.severity == .error }
         if !lintErrors.isEmpty {
           validationError = lintErrors.map(\.message).joined(separator: "\n")

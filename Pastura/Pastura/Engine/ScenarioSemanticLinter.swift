@@ -1,6 +1,6 @@
 import Foundation
 
-/// Severity tier for a ``LintFinding`` — the three-tier boundary from ADR-022.
+/// Severity tier for a ``LintFinding`` — the three-tier boundary from ADR-024.
 ///
 /// - `error`: statically provable no-op or guaranteed-wrong semantics, with no
 ///   deliberate-authoring reading → **blocking** (treated like a
@@ -17,7 +17,7 @@ nonisolated public enum LintSeverity: Sendable, Equatable, Comparable {
   case error
 }
 
-/// A single semantic-lint finding against a ``Scenario`` (ADR-022).
+/// A single semantic-lint finding against a ``Scenario`` (ADR-024).
 ///
 /// Findings are advisory-to-blocking depending on ``severity`` (see
 /// ``LintSeverity`` for the three-tier contract). Each carries a stable
@@ -52,7 +52,7 @@ nonisolated public struct LintFinding: Sendable, Equatable {
 }
 
 /// Surfaces silent-no-op / guaranteed-wrong scenario authoring at load time
-/// (ADR-022), separate from ``ScenarioValidator``'s fail-fast single-error gate.
+/// (ADR-024), separate from ``ScenarioValidator``'s fail-fast single-error gate.
 ///
 /// Where ``ScenarioValidator`` throws on the first hard-limit / shape violation,
 /// the linter returns a findings array spanning three severity tiers (see

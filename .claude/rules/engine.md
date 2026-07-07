@@ -83,7 +83,7 @@ variable). Emits `.relationshipUpdate(relationships:)` carrying the raw
 matrix (Phase-3 visualization source; App/UI does not consume it in v1).
 `ScenarioValidator` requires ≥1 rule (`validateRelationshipUpdateShape`).
 **Ordering constraints** (enforced at load time as lint warning R4
-`relationship-update-placement`, ADR-022 — the runtime violation is still a
+`relationship-update-placement`, ADR-024 — the runtime violation is still a
 *silent no-op*): place this phase after the vote/choose phase that produces
 its signals and **before `score_calc`** (`PrisonersDilemmaLogic` clears
 `state.pairings` after scoring); a `lastOutputs`-writing LLM phase
@@ -164,7 +164,7 @@ separately, so any **new** YAML-ingest path must call it before use:
   the gate ran upstream at create-time. This is why `load` stays un-validating.
 
 See `ScenarioValidator` for the gate; #665 for the boundary rationale.
-`ScenarioSemanticLinter` (ADR-022) runs at the same gates as `validate`:
+`ScenarioSemanticLinter` (ADR-024) runs at the same gates as `validate`:
 lint errors block like validation errors; warnings surface non-blocking on
 the run-start `.summary` channel. New semantic DSL rules belong in the
 linter, not the validator — the validator's fail-fast contract stays frozen.
@@ -203,7 +203,7 @@ persistence, replay, and export keep the full log. Interaction: the
 window truncates the same log the #911 speak_each address rule reads, so
 keep N ≥ agentCount for accumulating (speak_each) scenarios or same-round
 earlier speakers vanish from the addressee pool (enforced as lint warning
-R17, ADR-022).
+R17, ADR-024).
 
 ### Pairing Data Flow (choose phase)
 

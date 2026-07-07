@@ -1,4 +1,4 @@
-// Producer–consumer ordering rules R1–R6 (ADR-022 D3). Extension of the
+// Producer–consumer ordering rules R1–R6 (ADR-024 D3). Extension of the
 // existing suite (not a new @Suite) per .claude/rules/testing.md splitting
 // pattern — reuses `linter` / `makeScenario` from the base file.
 import Testing
@@ -69,7 +69,7 @@ extension ScenarioSemanticLinterTests {
   @Test func prisonersDilemmaWithoutRoundRobinChooseFiresError() {
     // An individual (non-round-robin) choose does NOT populate pairings.
     // `options` set so this fixture doesn't also trip R7
-    // (choose-should-declare-options, ADR-022 D3, orthogonal to ordering).
+    // (choose-should-declare-options, ADR-024 D3, orthogonal to ordering).
     let scenario = makeScenario(
       agents: 2, rounds: 1,
       phases: [

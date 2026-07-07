@@ -1,7 +1,7 @@
 import Foundation
 
 /// The linter-owned single source of truth for per-phase `{token}` placeholder
-/// availability (ADR-022 D4).
+/// availability (ADR-024 D4).
 ///
 /// Resolves #920's open model-shape question in favor of a **`PhaseType` key
 /// plus one narrow qualifier** (`chooseRoundRobin`) rather than a full

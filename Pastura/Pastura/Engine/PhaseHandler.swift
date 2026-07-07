@@ -39,6 +39,24 @@ nonisolated public struct PhaseContext: Sendable {
   /// `context.scenario.engineLanguage`.
   public let detector: (any LanguageDetector)?
 
+  /// Injected logging seam. Handlers emit diagnostics through this instead
+  /// of importing OSLog directly, keeping the Engine portable for the KMP
+  /// migration (#501 S0.2). Defaults to ``NoopEngineLogger`` so Engine unit
+  /// tests and the ADR-013 harness construct contexts without wiring OSLog;
+  /// production injects the OSLog-backed logger at the `SimulationRunner`
+  /// boundary (see `SimulationView`). Handlers running nested sub-phases must
+  /// forward it into the sub-context (`ConditionalHandler`).
+  public let logger: any EngineLogger
+
+  /// Run-scoped turn-failure containment gate (ADR-021). LLM handlers wrap
+  /// each per-agent `LLMCaller.call` in ``TurnFailureGate/attempt`` so a
+  /// transient failure skips the turn instead of aborting the run.
+  /// Deliberately NO default value: a fresh gate per context would reset
+  /// the run-scoped consecutive-skip counter, so every construction site
+  /// must pass the runner's instance explicitly — sub-phase dispatchers
+  /// (`ConditionalHandler`) thread the parent context's gate.
+  public let turnGate: TurnFailureGate
+
   public init(
     scenario: Scenario, phase: Phase,
     llm: LLMService,
@@ -46,7 +64,9 @@ nonisolated public struct PhaseContext: Sendable {
     emitter: @escaping @Sendable (SimulationEvent) -> Void,
     pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool,
     phasePath: [Int],
-    detector: (any LanguageDetector)? = nil
+    turnGate: TurnFailureGate,
+    detector: (any LanguageDetector)? = nil,
+    logger: any EngineLogger = NoopEngineLogger()
   ) {
     self.scenario = scenario
     self.phase = phase
@@ -55,7 +75,9 @@ nonisolated public struct PhaseContext: Sendable {
     self.emitter = emitter
     self.pauseCheck = pauseCheck
     self.phasePath = phasePath
+    self.turnGate = turnGate
     self.detector = detector
+    self.logger = logger
   }
 }
 
