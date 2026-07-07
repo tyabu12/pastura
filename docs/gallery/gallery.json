@@ -54,7 +54,10 @@
         "speak_each",
         "vote",
         "score_calc",
-        "conditional"
+        "conditional",
+        "summarize",
+        "speak_each",
+        "summarize"
       ],
       "language": "ja",
       "yaml_url": "detective_scene_v1.yaml",
@@ -248,7 +251,15 @@
       "agent_count": 4,
       "rounds": 2,
       "phases": [
-        "conditional"
+        "conditional",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize"
       ],
       "language": "ja",
       "yaml_url": "hissatsu_naming_v1.yaml",
@@ -356,7 +367,10 @@
         "speak_all",
         "vote",
         "score_calc",
-        "conditional"
+        "conditional",
+        "summarize",
+        "event_inject",
+        "speak_all"
       ],
       "language": "ja",
       "yaml_url": "kasei_sanso_touban_v1.yaml",
@@ -498,7 +512,10 @@
         "speak_each",
         "vote",
         "score_calc",
-        "conditional"
+        "conditional",
+        "summarize",
+        "speak_each",
+        "summarize"
       ],
       "language": "en",
       "yaml_url": "detective_scene_v1_en.yaml",
@@ -519,7 +536,10 @@
         "speak_all",
         "vote",
         "score_calc",
-        "conditional"
+        "conditional",
+        "summarize",
+        "event_inject",
+        "speak_all"
       ],
       "language": "en",
       "yaml_url": "kasei_sanso_touban_v1_en.yaml",
@@ -619,7 +639,15 @@
       "agent_count": 4,
       "rounds": 2,
       "phases": [
-        "conditional"
+        "conditional",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize"
       ],
       "language": "en",
       "yaml_url": "hissatsu_naming_v1_en.yaml",

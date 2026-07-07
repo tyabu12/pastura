@@ -276,12 +276,15 @@ import Testing
   }
 
   /// Pins the curation invariant that every `gallery.json` entry's `phases`
-  /// matches the corresponding YAML's ordered phase-type raw values. These
-  /// drive the Browse art-tile signature glyph (the client maps `phases` →
-  /// signature via a fixed priority order); a drifted or omitted array would
-  /// badge the wrong mechanic — or none. `#require` makes an un-populated entry
-  /// a loud failure, catching a future gallery addition that forgets the field
-  /// (mirrors `galleryAgentCountAndRoundsMatchYAML`).
+  /// matches the corresponding YAML's **fully-flattened** ordered phase-type
+  /// raw values — `conditional` `then:`/`else:` branch sub-phases flattened in,
+  /// depth-first, the conditional's own entry first then its then- then
+  /// else-branch (ADR-020 D2a; matches `scripts/add-gallery-entry.sh`). This is
+  /// the CI half of the D2 capability gate: the App compares this array against
+  /// `PhaseType.allCases`, so a new phase kind appearing ONLY inside a
+  /// conditional branch must still be visible here. It also drives the Browse
+  /// art-tile signature glyph. `#require` makes an un-populated entry a loud
+  /// failure, catching a future gallery addition that forgets the field.
   @Test func galleryPhasesMatchYAML() throws {
     let loader = ScenarioLoader()
     let galleryDir = Self.repoRoot().appendingPathComponent("docs/gallery")
@@ -301,12 +304,12 @@ import Testing
       let phases = try #require(
         entry.phases,
         "gallery.json entry id=\(entry.id) is missing phases")
-      let yamlPhases = scenario.phases.map { $0.type.rawValue }
+      let yamlPhases = flattenPhaseKinds(scenario.phases)
       #expect(
         phases == yamlPhases,
         """
         gallery.json entry id=\(entry.id) phases=\(phases) \
-        != yaml phase types=\(yamlPhases)
+        != yaml flattened phase types=\(yamlPhases)
         """)
     }
   }
@@ -359,5 +362,23 @@ import Testing
       }
     }
     return url
+  }
+}
+
+/// Flattens a parsed scenario's phases into the ordered phase-kind raw values
+/// the gallery index denormalizes (ADR-020 D2a): each phase's own type, and —
+/// for a `conditional` — its then-branch then else-branch sub-phases,
+/// depth-first, inserted right after the conditional's own entry. Mirrors the
+/// `flat()` derivation in `scripts/add-gallery-entry.sh`; the two MUST agree.
+/// `nonisolated` so the (default-MainActor) suite and any nonisolated caller
+/// can both use it.
+nonisolated private func flattenPhaseKinds(_ phases: [Phase]) -> [String] {
+  phases.flatMap { phase -> [String] in
+    var out = [phase.type.rawValue]
+    if phase.type == .conditional {
+      out += flattenPhaseKinds(phase.thenPhases ?? [])
+      out += flattenPhaseKinds(phase.elsePhases ?? [])
+    }
+    return out
   }
 }
