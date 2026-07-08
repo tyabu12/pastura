@@ -18,6 +18,15 @@ import Foundation
 /// `whispers_<name>` cleared so a later reader never sees a whisper from a round
 /// they didn't participate in; eliminated agents' keys are left untouched (they
 /// are simply not participants this round).
+///
+/// A turn-degradable LLM failure is routed through `context.turnGate`
+/// (ADR-021 D1/D2): a skipped utterance **ends that pair's exchange early** —
+/// the remaining sub-rounds are not attempted, since a partner replying to a
+/// missing utterance would desync the exchange. Turns already exchanged stand
+/// and overwrite `whispers_<name>` as usual; but a pair whose *first* turn was
+/// skipped produces an empty transcript, and that case leaves the prior round's
+/// channels intact rather than overwriting them with a header-only body (private
+/// memory persists, mirroring ``ReflectHandler``'s non-empty guard).
 nonisolated struct WhisperHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
 
@@ -55,12 +64,18 @@ nonisolated struct WhisperHandler: PhaseHandler {
     while pairIndex + 1 < rotated.count {
       let (first, second) = (rotated[pairIndex], rotated[pairIndex + 1])
       let transcript = try await runPair(first, second, exchanges: exchanges, run: run)
-      // Both members see the same exchange body, each headed by their own
-      // partner-identifying line.
-      state.variables["whispers_\(first.name)"] =
-        formatChannel(transcript, partner: second, language: language)
-      state.variables["whispers_\(second.name)"] =
-        formatChannel(transcript, partner: first, language: language)
+      // Only overwrite the pair's channels when at least one utterance was
+      // exchanged (ADR-021 D2): a first-turn skip yields an empty transcript,
+      // and writing a header-only channel would erase the prior round's whisper
+      // memory. A partial transcript (≥1 utterance) still overwrites as usual.
+      if !transcript.isEmpty {
+        // Both members see the same exchange body, each headed by their own
+        // partner-identifying line.
+        state.variables["whispers_\(first.name)"] =
+          formatChannel(transcript, partner: second, language: language)
+        state.variables["whispers_\(second.name)"] =
+          formatChannel(transcript, partner: first, language: language)
+      }
       pairIndex += 2
     }
 
@@ -90,11 +105,18 @@ nonisolated struct WhisperHandler: PhaseHandler {
   ) async throws -> [Utterance] {
     var transcript: [Utterance] = []
     for _ in 0..<exchanges {
-      let out1 = try await whisperTurn(
-        speaker: first, partner: second, transcript: transcript, run: run)
+      // A skipped utterance ends the exchange early (ADR-021 D2): the remaining
+      // turns for this pair are not attempted, so no partner replies to a
+      // missing utterance. Turns already appended stand.
+      guard
+        let out1 = try await whisperTurn(
+          speaker: first, partner: second, transcript: transcript, run: run)
+      else { break }
       transcript.append(Utterance(name: first.name, statement: out1.statement ?? ""))
-      let out2 = try await whisperTurn(
-        speaker: second, partner: first, transcript: transcript, run: run)
+      guard
+        let out2 = try await whisperTurn(
+          speaker: second, partner: first, transcript: transcript, run: run)
+      else { break }
       transcript.append(Utterance(name: second.name, statement: out2.statement ?? ""))
     }
     return transcript
@@ -104,7 +126,7 @@ nonisolated struct WhisperHandler: PhaseHandler {
 
   private func whisperTurn(
     speaker: Persona, partner: Persona, transcript: [Utterance], run: Run
-  ) async throws -> TurnOutput {
+  ) async throws -> TurnOutput? {
     let context = run.context
     let state = run.state
     let language = context.scenario.engineLanguage
@@ -135,15 +157,24 @@ nonisolated struct WhisperHandler: PhaseHandler {
 
     // Construct per run with the injected logger (stateless value — cheap).
     let llmCaller = LLMCaller(logger: context.logger)
-    let output = try await llmCaller.call(
-      llm: context.llm, system: systemPrompt, user: userPrompt,
-      agentName: speaker.name,
-      schema: OutputSchema.from(phase: context.phase),
-      detector: context.detector,
-      expectedLanguage: context.scenario.engineLanguage,
-      suspendController: context.suspendController,
-      emitter: context.emitter
-    )
+    guard
+      let output = try await context.turnGate.attempt(
+        agent: speaker.name, phaseType: context.phase.type, emitter: context.emitter,
+        work: {
+          try await llmCaller.call(
+            llm: context.llm, system: systemPrompt, user: userPrompt,
+            agentName: speaker.name,
+            schema: OutputSchema.from(phase: context.phase),
+            detector: context.detector,
+            expectedLanguage: context.scenario.engineLanguage,
+            suspendController: context.suspendController,
+            emitter: context.emitter
+          )
+        })
+    else {
+      // Skipped (ADR-021 D2): emit nothing; the caller ends the pair's exchange.
+      return nil
+    }
 
     // Attribute the partner via the reserved `whisper_to` field, preserving the
     // original `rawText` provenance per the design contract.
