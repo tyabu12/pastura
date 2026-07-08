@@ -200,12 +200,12 @@ Pastura/
 │   ├── Simulation/
 │   ├── Results/
 │   ├── Components/    # shared UI building blocks
-│   └── ...            # additional screens (Community, Import, Settings, ModelDownload, ModelSelection)
+│   └── ...            # additional screens (Community, Report, Settings, Splash, ModelDownload, ModelSelection)
 ├── Utilities/
 └── Resources/
     ├── Presets/              # Bundled YAML scenarios
     ├── DemoReplays/          # DL-time demo playback (ADR-007)
-    └── ContentBlocklist.txt  # ADR-005 content safety
+    └── ContentBlocklist.json # ADR-005 content safety
 
 web/                             # The pastura.app site (Astro SSG, deployed via .github/workflows/deploy-pages.yml; #475)
 ├── astro.config.mjs             # i18n (en root / ja prefix), sitemap, trailingSlash
@@ -310,6 +310,6 @@ same change:
 | `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML)             |
 | `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
 | `docs/models/onboarding.md`           | Model onboarding two-gate procedure (Stage-0 harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration; intake #979) |
-| `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (scenarios 1–17; extracted from `.claude/rules/navigation.md`) |
+| `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
 | `docs/ci/xcodebuild-flakes.md`        | CI UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
