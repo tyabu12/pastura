@@ -167,6 +167,74 @@ the signed binary, exports an `app-store` `.ipa`, uploads via fastlane
 creates and pushes the annotated tag `vX.Y.Z+<build>`. Report the result
 and that the build is processing on TestFlight.
 
+## Step 7 — Promote to a public GitHub Release (at App Store publish)
+
+> **Optional and decoupled — NOT part of the per-build flow above.** Steps
+> 1–6 cut one *TestFlight* build and tag it; this step is run separately,
+> by hand, and only when a version actually ships publicly. Do not wire it
+> into `scripts/release.sh` — most TestFlight builds never go public, so a
+> Release per build would be pre-release clutter.
+>
+> **Not yet exercised.** This procedure is defined ahead of Pastura's first
+> App Store publish — a Phase 3 event (ADR-014's scope covers TestFlight
+> upload only). It becomes live once a build is actually approved; until
+> then it is documentation, not an expected per-version deliverable.
+
+**Trigger:** a build has been **approved and released on the App Store** (an
+App Store Connect–side event this repo does not observe). Each `/release`
+run already tagged its build `vX.Y.Z+<build>`; this step attaches a *public*
+GitHub Release to the tag of the build that went live — titled `Pastura
+X.Y.Z` (the public marketing version, no build suffix), marked `--latest`,
+never a pre-release.
+
+**Changelog source.** The GitHub Release carries the developer-facing
+changelog — merged PRs, contributor handles, issue numbers — deliberately
+kept *out* of the tester-facing "What to Test" notes (Step 3). Its base is
+the **previous public release**: because public releases are the only
+GitHub Releases in this design, `gh release list` returns them directly, so
+"previous GitHub Release" == "previous public release" automatically even
+though many TestFlight tags sit in between. Pass `--exclude-drafts` so a
+leftover draft from an aborted run (below) cannot become the base.
+
+**Recipe — draft first, review, then publish.** The draft is both a
+body-assembly mechanism (so the hand-written intro lands *above* the
+auto-generated "What's Changed") and a review pause — a public Release is
+notified to watchers and indexed, so it inherits this skill's
+confirmation-gate discipline (Step 5): never flip `--draft=false` on an
+unreviewed auto-changelog.
+
+```bash
+TAG="vX.Y.Z+<build>"                       # the approved build's tag
+PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
+
+# 1. Create as a DRAFT with the auto-generated changelog.
+gh release create "$TAG" --title "Pastura X.Y.Z" --latest --draft \
+  --generate-notes ${PREV:+--notes-start-tag "$PREV"}
+
+# 2. Prepend a hand-written 2–3 line intro (the release headline) above
+#    the generated "What's Changed".
+BODY="$(mktemp)"
+{ printf '%s\n\n' "<hand-written 2–3 line intro>"; \
+  gh release view "$TAG" --json body -q '.body'; } > "$BODY"
+gh release edit "$TAG" --notes-file "$BODY"
+
+# 3. Review the draft in the GitHub UI (Releases → the draft). Only once
+#    the intro + generated changelog read correctly:
+gh release edit "$TAG" --latest --draft=false
+```
+
+**First public release** (no prior Release exists): `--generate-notes` would
+otherwise pick the most recent *git tag* as its base and truncate the log to
+one build's worth of commits. Instead **drop `--generate-notes`** and
+hand-write the whole body — a short app intro + notable first-release
+capabilities (mirroring the Step 3 first-build guidance) — passing it via
+`--notes-file` at create time. `PREV` is empty, so no base tag is involved.
+
+**Aborted run:** if the flow dies between create and publish, a draft
+Release lingers (and `gh release list` without `--exclude-drafts` would see
+it). Delete it before re-running: `gh release delete "$TAG" --yes` (no
+`--cleanup-tag` — the git tag from `release.sh` must survive).
+
 ## Failure → recovery
 
 Map the failure point to the recovery — the build number is commit-derived,
@@ -177,6 +245,7 @@ so the right move differs by *where* it failed:
 | preflight / archive / export / **upload before ASC ingest** | nothing ingested, no tag (tag is last) | fix the cause and re-run `/release` — the build number is unchanged and that is fine |
 | **upload fails after ASC has ingested the build** | the build number now collides with an ingested build; a naive re-run is **correctly blocked** by release.sh's strict-exceeds guard | land a **new commit on `main`** (a no-op commit or a `MARKETING_VERSION` patch bump) via `/orchestrate`, wait for green, then re-`/release`. This is a new green-main cycle, not an in-place retry — the build number must advance |
 | **tag pushed but the release must be retracted** | tag exists locally + remotely | `git tag -d vX.Y.Z+<build>` and `git push origin :refs/tags/vX.Y.Z+<build>` |
+| **public GitHub Release (Step 7) published then must be retracted** | Release is public; git tag is fine | `gh release delete vX.Y.Z+<build> --yes` (no `--cleanup-tag` — keep the tag). Re-cutting can re-promote it |
 
 ## ASC API key revocation (leak response)
 
