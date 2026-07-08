@@ -13,10 +13,21 @@
 
 ## App name / Subtitle
 
-The store Name (`Pastura - Local LLMs simulator`) and Subtitle
-(`Like stargazing, but for LLMs`) are kept in English across both locales
-(confirmed values, `docs/release-setup.md` Part B2). Localizing them to ja is
-possible in ASC but out of scope for 1.0 — the English wordplay is the brand.
+The store **Name** (`Pastura - Local LLMs simulator`) is kept in English across
+both locales (confirmed value, `docs/release-setup.md` Part B2) — the English
+brand identity plus the global-uniqueness constraint (`Pastura` alone is reserved).
+
+The **Subtitle** is localized per locale (the Subtitle field is per-locale and
+search-indexed in App Store Connect):
+
+| Locale | Subtitle | Chars |
+|---|---|---|
+| en | `Like stargazing, but for LLMs` | 29 / 30 |
+| ja | `天体観測のように、LLM観測` | 14 / 30 |
+
+The ja subtitle reads naturally in Japanese, echoes the Description opener
+(`AI観測。天体観測のように…`), and — since the Subtitle field is search-indexed — adds
+ja keyword surface that an English subtitle would not.
 
 ## Promotional Text
 
@@ -60,8 +71,9 @@ LLM モデルは他人のサーバーではなく、あなたの端末の中に�
 
 ## Keywords
 
-> `AI観測` and `ローカルLLM` are ja search terms; the English Name/Subtitle don't
-> compete with them within the ja keyword field.
+> `AI観測` and `ローカルLLM` are ja search terms; the English Name and the ja
+> Subtitle (`天体観測のように、LLM観測`) add complementary surface, not duplicating
+> these exact keyword tokens.
 
 ```
 AIエージェント,オンデバイス,オフライン,マルチエージェント,ロールプレイ,ローカルLLM,人狼,囚人のジレンマ,シナリオ,AI観測,サンドボックス,Gemma,Qwen
@@ -71,15 +83,18 @@ AIエージェント,オンデバイス,オフライン,マルチエージェン
 
 ## URLs
 
-Same as EN — the site serves ja mirrors at the same paths (`/support/` etc.
-resolve per Accept-Language / locale). ASC URL fields are not per-locale on the
-public host, so reuse:
+Support URL and Marketing URL are set **per App Store locale** — each version
+localization has its own URL fields (confirmed in the ASC UI: the en locale
+holds the root paths, the ja locale the `/ja/`-prefixed pages). The Astro site
+serves both as static locale-prefixed routes; there is no Accept-Language
+redirect. Privacy Policy URL is set in App Information (アプリ情報), not on the
+version page. ja-locale values:
 
-| Field | Value |
+| Field | Value (ja locale) |
 |---|---|
-| Support URL | `https://pastura.app/support/` |
-| Marketing URL | `https://pastura.app/` |
-| Privacy Policy URL | `https://pastura.app/legal/privacy-policy/` |
+| Support URL | `https://pastura.app/ja/support/` |
+| Marketing URL | `https://pastura.app/ja/` |
+| Privacy Policy URL | `https://pastura.app/ja/legal/privacy-policy/` |
 
 ## Screenshot captions (JA)
 
