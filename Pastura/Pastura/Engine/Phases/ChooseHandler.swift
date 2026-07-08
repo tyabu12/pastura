@@ -12,8 +12,24 @@ import Foundation
 /// the runtime check is what keeps the result within the option set. The model
 /// is steered toward valid options by ``PromptBuilder``, which lists them in
 /// the prompt, so the fallback is rare in practice.
+///
+/// A turn-degradable LLM failure is routed through `context.turnGate`
+/// (ADR-021 D1/D2). In **round-robin**, a skipped call drops the *whole
+/// pairing* — a pairing with one real and one absent action would flow into
+/// `PrisonersDilemmaLogic`'s `?? "cooperate"` default, i.e. fabrication — while
+/// the partner's already-emitted `.agentOutput` and `lastOutputs` still stand
+/// (consumed by `EventReactivePayoffLogic`). In **individual** mode a skipped
+/// turn writes nothing and clears the agent's stale `lastOutputs`.
 nonisolated struct ChooseHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
+
+  /// Immutable per-phase invariants for the round-robin call helper, bundled to
+  /// keep ``callAgent(persona:opponent:run:state:succeeded:)`` under SwiftLint's
+  /// `function_parameter_count` (`state` / `succeeded` stay `inout` args).
+  nonisolated private struct Run {
+    let context: PhaseContext
+    let promptTemplate: String
+  }
 
   func execute(
     context: PhaseContext,
@@ -50,21 +66,27 @@ nonisolated struct ChooseHandler: PhaseHandler {
       (active[idx], active[(idx + 1) % active.count])
     }
 
+    // Agents that produced a successful turn somewhere in this phase. Each agent
+    // participates in two adjacency pairs, so a skip on one call must not clear
+    // a valid output the agent produced on its other call (ADR-021 D2).
+    var succeeded: Set<String> = []
+    let run = Run(context: context, promptTemplate: promptTemplate)
     for (persona1, persona2) in pairs {
       let output1 = try await callAgent(
         persona: persona1, opponent: persona2,
-        context: context, state: state, promptTemplate: promptTemplate
+        run: run, state: &state, succeeded: &succeeded
       )
-      let action1 = validateAction(output1.action ?? "", options: options)
-      state.lastOutputs[persona1.name] = output1
-
       let output2 = try await callAgent(
         persona: persona2, opponent: persona1,
-        context: context, state: state, promptTemplate: promptTemplate
+        run: run, state: &state, succeeded: &succeeded
       )
-      let action2 = validateAction(output2.action ?? "", options: options)
-      state.lastOutputs[persona2.name] = output2
 
+      // Drop the whole pairing if either member skipped (ADR-021 D2): a
+      // half-real pairing would fabricate the missing action downstream.
+      guard let out1 = output1, let out2 = output2 else { continue }
+
+      let action1 = validateAction(out1.action ?? "", options: options)
+      let action2 = validateAction(out2.action ?? "", options: options)
       state.pairings.append(
         Pairing(agent1: persona1.name, agent2: persona2.name, action1: action1, action2: action2)
       )
@@ -76,11 +98,17 @@ nonisolated struct ChooseHandler: PhaseHandler {
     }
   }
 
+  /// Runs one member's round-robin call through `context.turnGate`. On success,
+  /// emits `.agentOutput`, records `lastOutputs`, marks the agent in `succeeded`,
+  /// and returns the output. On a skipped turn, emits nothing and clears the
+  /// agent's stale `lastOutputs` **only if it hasn't already succeeded this
+  /// phase** (its other pairing may hold a valid output), then returns `nil`.
   private func callAgent(
     persona: Persona, opponent: Persona,
-    context: PhaseContext, state: SimulationState,
-    promptTemplate: String
-  ) async throws -> TurnOutput {
+    run: Run, state: inout SimulationState,
+    succeeded: inout Set<String>
+  ) async throws -> TurnOutput? {
+    let context = run.context
     let systemPrompt = promptBuilder.buildSystemPrompt(
       scenario: context.scenario, persona: persona, phase: context.phase, state: state
     )
@@ -95,21 +123,32 @@ nonisolated struct ChooseHandler: PhaseHandler {
     promptBuilder.injectNotes(into: &variables, personaName: persona.name)
     promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
     promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
-    let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
+    let userPrompt = promptBuilder.expandTemplate(run.promptTemplate, variables: variables)
 
-    // Construct per run with the injected logger (stateless value — cheap).
+    // Construct per turn with the injected logger (stateless value — cheap).
     let llmCaller = LLMCaller(logger: context.logger)
-    let output = try await llmCaller.call(
-      llm: context.llm, system: systemPrompt, user: userPrompt,
-      agentName: persona.name,
-      schema: OutputSchema.from(phase: context.phase),
-      detector: context.detector,
-      expectedLanguage: context.scenario.engineLanguage,
-      suspendController: context.suspendController,
-      emitter: context.emitter
-    )
+    guard
+      let output = try await context.turnGate.attempt(
+        agent: persona.name, phaseType: context.phase.type, emitter: context.emitter,
+        work: {
+          try await llmCaller.call(
+            llm: context.llm, system: systemPrompt, user: userPrompt,
+            agentName: persona.name,
+            schema: OutputSchema.from(phase: context.phase),
+            detector: context.detector,
+            expectedLanguage: context.scenario.engineLanguage,
+            suspendController: context.suspendController,
+            emitter: context.emitter
+          )
+        })
+    else {
+      if !succeeded.contains(persona.name) { state.lastOutputs[persona.name] = nil }
+      return nil
+    }
+    succeeded.insert(persona.name)
     context.emitter(
       .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
+    state.lastOutputs[persona.name] = output
     return output
   }
 
@@ -138,15 +177,25 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
       // Construct per run with the injected logger (stateless value — cheap).
       let llmCaller = LLMCaller(logger: context.logger)
-      let output = try await llmCaller.call(
-        llm: context.llm, system: systemPrompt, user: userPrompt,
-        agentName: persona.name,
-        schema: OutputSchema.from(phase: context.phase),
-        detector: context.detector,
-        expectedLanguage: context.scenario.engineLanguage,
-        suspendController: context.suspendController,
-        emitter: context.emitter
-      )
+      guard
+        let output = try await context.turnGate.attempt(
+          agent: persona.name, phaseType: context.phase.type, emitter: context.emitter,
+          work: {
+            try await llmCaller.call(
+              llm: context.llm, system: systemPrompt, user: userPrompt,
+              agentName: persona.name,
+              schema: OutputSchema.from(phase: context.phase),
+              detector: context.detector,
+              expectedLanguage: context.scenario.engineLanguage,
+              suspendController: context.suspendController,
+              emitter: context.emitter
+            )
+          })
+      else {
+        // Skipped (ADR-021 D2): write nothing, clear any stale prior-round output.
+        state.lastOutputs[persona.name] = nil
+        continue
+      }
       context.emitter(
         .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
 
