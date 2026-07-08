@@ -8,6 +8,8 @@ always-loaded rule context (`.claude/rules/context-budget.md`).
 **Scenario numbering 1–17 is preserved from the original location** —
 code comments, tests, and ADRs cite these scenarios by integer
 (e.g. "navigation.md QA scenario 2"); those references resolve here.
+Scenarios added after the extraction (18+) continue the sequence in
+this file directly.
 
 ## QA scenarios
 

@@ -307,6 +307,6 @@ definition + standalone tests:
 ## QA scenarios
 
 Moved to [`docs/qa/navigation-qa.md`](../../docs/qa/navigation-qa.md)
-(scenarios 1–17, numbering preserved — external "QA scenario N"
-references resolve there). Run them whenever the navigation surface
+(numbering preserved — external "QA scenario N" references resolve
+there). Run them whenever the navigation surface
 changes in areas the automated tests do not exercise.
