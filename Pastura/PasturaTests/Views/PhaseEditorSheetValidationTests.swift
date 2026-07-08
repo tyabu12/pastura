@@ -139,4 +139,32 @@ struct PhaseEditorSheetValidationTests {
     )
     #expect(subPromptFindings.prompt != nil)
   }
+
+  // MARK: - Prompt variable hint (#920 B, ADR-024 D4)
+
+  /// The prompt-footer hint is now phase-aware (reads the linter-owned
+  /// `PlaceholderAvailability` map) rather than a static list. A speak phase
+  /// lists its handler-injected tokens plus the cross-phase state tokens any
+  /// prompt may read (`{assigned_topic}` / `{current_event}` — the critic Axis-5
+  /// discoverability the static list carried), but NOT the round-robin-choose-
+  /// only `{opponent_name}`.
+  @Test func promptHintForSpeakPhaseListsInjectedAndCrossPhaseTokens() {
+    let hint = PhaseEditorSheet.promptVariableHint(for: EditablePhase(type: .speakAll))
+    #expect(hint.contains("{scoreboard}"))
+    #expect(hint.contains("{my_notes}"))
+    #expect(hint.contains("{assigned_topic}"))
+    #expect(hint.contains("{current_event}"))
+    #expect(!hint.contains("{opponent_name}"))
+  }
+
+  /// The `choose` round-robin qualifier flows through the hint: `{opponent_name}`
+  /// appears only for a round-robin `choose`, not the individual variant.
+  @Test func promptHintForChooseReflectsRoundRobinQualifier() {
+    let roundRobin = PhaseEditorSheet.promptVariableHint(
+      for: EditablePhase(type: .choose, pairing: .roundRobin))
+    let individual = PhaseEditorSheet.promptVariableHint(
+      for: EditablePhase(type: .choose))
+    #expect(roundRobin.contains("{opponent_name}"))
+    #expect(!individual.contains("{opponent_name}"))
+  }
 }

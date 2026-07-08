@@ -173,8 +173,8 @@ struct ScenarioEditorViewModelTests {
   }
 
   /// A warning-only lint finding (`choose` without `options`, R7) must NOT
-  /// block: warnings/info are unsurfaced in the editor at this stage (PR2
-  /// scope), so the scenario stays valid.
+  /// block: it surfaces non-blocking in `lintWarnings` (ADR-024 PR2), so the
+  /// scenario stays valid and `validationErrors` stays empty.
   @Test func validateAllowsSemanticLintWarningOnly() throws {
     let sut = try makeSUT()
     sut.yamlText = """
@@ -202,6 +202,49 @@ struct ScenarioEditorViewModelTests {
 
     #expect(sut.isValid)
     #expect(sut.validationErrors.isEmpty)
+    // ADR-024 PR2: the warning is now surfaced non-blocking in lintWarnings.
+    #expect(sut.lintWarnings.contains { $0.ruleID == "choose-should-declare-options" })
+    #expect(sut.lintWarnings.allSatisfy { $0.severity != .error })
+  }
+
+  /// Regression (ADR-024 PR2, plan critic Axis 4): a warning that populated
+  /// `lintWarnings` on one clean validate must not survive into a later
+  /// early-return validate. Here the second validate flips to visual mode with
+  /// empty fields, so it returns at the "name is required" pre-check *before*
+  /// the linter runs — the reset must live at the top of `validate()`, not only
+  /// at its success point. Reverting that top-of-`validate()` reset fails this.
+  @Test func validateClearsStaleWarningsOnEarlyReturn() throws {
+    let sut = try makeSUT()
+    sut.yamlText = """
+      id: lint_warn_editor
+      language: ja
+      name: Lint Warn Editor
+      description: choose without options is a warning
+      agents: 2
+      rounds: 1
+      context: Context
+      personas:
+        - name: Alice
+          description: Agent A
+        - name: Bob
+          description: Agent B
+      phases:
+        - type: choose
+          prompt: "Pick"
+          output:
+            action: string
+      """
+    sut.editorMode = .yaml
+    sut.validate()
+    #expect(!sut.lintWarnings.isEmpty)  // precondition: warning surfaced
+
+    // Flip to visual mode; the visual fields were never populated, so
+    // validate() early-returns at the empty-name pre-check before the linter.
+    sut.editorMode = .visual
+    sut.validate()
+
+    #expect(!sut.validationErrors.isEmpty)  // blocked on the empty-name error
+    #expect(sut.lintWarnings.isEmpty)  // the stale warning was cleared
   }
 
   // MARK: - Save

@@ -71,6 +71,10 @@ jobs:
       pull-requests: read
     outputs:
       ios: ${{ steps.classify.outputs.ios }}
+      # ADR-024 D6: true when a shipped scenario YAML (bundled preset OR
+      # gallery) changed, so the harness `lint` gate runs even on a
+      # gallery-only PR (which classifies ios=false). See the classify step.
+      scenarios: ${{ steps.classify.outputs.scenarios }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -86,6 +90,11 @@ jobs:
           # can never skip tests on main. (Also keeps push off the API path.)
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
+            # Conservative-by-inversion (ci-workflows.md invariant 1): emit
+            # scenarios=true on every early-exit too, so the harness lint gate
+            # is never left un-triggered by an unset output if the ios arm is
+            # ever narrowed. On non-PR events ios=true already runs harness-build.
+            echo "scenarios=true" >> "$GITHUB_OUTPUT"
             echo "Non-PR event → always run the full iOS suite (main stability)."
             exit 0
           fi
@@ -105,6 +114,7 @@ jobs:
           # file list ⇒ run the full iOS suite.
           if [ -z "$FILES" ]; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "scenarios=true" >> "$GITHUB_OUTPUT"
             echo "No file list resolved → defaulting to the full iOS suite."
             exit 0
           fi
@@ -119,6 +129,7 @@ jobs:
           # real iOS change). Default to the full suite instead.
           if ! TOKENS=$(printf '%s\n' "$FILES" | bash scripts/precommit-gate-classify.sh); then
             echo "ios=true" >> "$GITHUB_OUTPUT"
+            echo "scenarios=true" >> "$GITHUB_OUTPUT"
             echo "Classifier failed → defaulting to the full iOS suite."
             exit 0
           fi
@@ -127,6 +138,20 @@ jobs:
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
             echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # ADR-024 D6: independent of the ios classification, flag whether a
+          # shipped scenario YAML changed so `harness-build` runs its `pastura-
+          # harness lint` gate. This is the ONLY path that re-triggers the gate
+          # on a gallery-only PR (docs/ is build-irrelevant ⇒ ios=false), and it
+          # rides the existing `swift build` rather than the heavy macOS suite.
+          # Presets already force ios=true (Resources/ is non-SAFE); listing them
+          # keeps the output honest about both lint globs. `.ya?ml` matches the
+          # bundled/gallery `.yaml` convention (and any stray `.yml`).
+          if printf '%s\n' "$FILES" | grep -qE '^(Pastura/Pastura/Resources/Presets/|docs/gallery/).+\.ya?ml$'; then
+            echo "scenarios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scenarios=false" >> "$GITHUB_OUTPUT"
           fi
 
   lint-and-test:
@@ -474,7 +499,10 @@ jobs:
   harness-build:
     name: Harness package build + tests (ADR-013)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
+    # Runs on any iOS-relevant change (ios != false) OR when a shipped scenario
+    # YAML changed (scenarios == true) — the latter re-triggers the ADR-024 D6
+    # `lint` gate on a gallery-only PR that would otherwise classify ios=false.
+    if: ${{ !cancelled() && (needs.changes.outputs.ios != 'false' || needs.changes.outputs.scenarios == 'true') }}
     runs-on: macos-26
     timeout-minutes: 15
     env:
@@ -501,6 +529,15 @@ jobs:
 
       - name: Run harness package tests
         run: swift test
+
+      # ADR-024 D6: inference-free zero-regression gate over every shipped
+      # scenario YAML (bundled presets + gallery). Reuses the executable built
+      # by `swift build` above (no rebuild). Exit non-zero on any parse /
+      # validator failure or error-severity lint finding; warnings are listed
+      # but non-fatal. Rides this cheap job so it never extends the ui-test
+      # critical path.
+      - name: Lint shipped scenarios (ADR-024)
+        run: swift run pastura-harness lint Pastura/Pastura/Resources/Presets docs/gallery
 
   # Drift guard for bundled DL-time demo replays (#170, spec §3.3 / §5.2).
   # Re-hashes shipped preset YAMLs and validates each bundled demo's

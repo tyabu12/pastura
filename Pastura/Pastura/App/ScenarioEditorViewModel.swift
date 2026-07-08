@@ -82,6 +82,13 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
 
   var editorMode: EditorMode = .visual
   private(set) var validationErrors: [String] = []
+  /// Non-blocking semantic-lint findings (`.warning` / `.info`) from the most
+  /// recent ``validate()``, surfaced in the editor's suggestions banner
+  /// (ADR-024 PR2). `.error`-severity findings live in ``validationErrors``
+  /// (blocking); these never block Save. Empty except immediately after a
+  /// `validate()` that reached the linter — reset alongside `validationErrors`
+  /// on every mode switch / load so a stale suggestion never outlives its scenario.
+  private(set) var lintWarnings: [LintFinding] = []
   private(set) var isValid = false
   private(set) var isSaving = false
   private(set) var savedScenarioId: String?
@@ -108,9 +115,10 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   private let validator = ScenarioValidator()
   private let contentValidator = ScenarioContentValidator()
   /// Semantic linter (ADR-024). Its `.error` findings join the blocking
-  /// `validationErrors` array; warnings/info are not surfaced (PR2 scope).
-  /// Run on the same `Scenario` the validator sees (the `currentScenario()`
-  /// funnel output) — never a fresh visual-state build, per the funnel invariant.
+  /// `validationErrors` array; `.warning`/`.info` go to the non-blocking
+  /// ``lintWarnings`` suggestions banner. Run on the same `Scenario` the
+  /// validator sees (the `currentScenario()` funnel output) — never a fresh
+  /// visual-state build, per the funnel invariant.
   private let linter = ScenarioSemanticLinter()
 
   /// Top-level YAML keys without a Visual UI, captured by
@@ -133,6 +141,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   ///
   /// Generates a new UUID-based ID to prevent collision with the original.
   func loadFromTemplate(yaml: String) {
+    lintWarnings = []
     do {
       let scenario = try loader.load(yaml: yaml)
       populateFromScenario(scenario)
@@ -149,6 +158,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// Loads an existing scenario for editing (preserves original ID).
   /// Gallery-sourced rows are read-only and refuse to load for editing.
   func loadForEditing(scenarioId: String) async {
+    lintWarnings = []
     do {
       if let record = try await offMain({ [repository] in
         try repository.fetchById(scenarioId)
@@ -184,6 +194,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// ``validate()`` runs so the user sees parse / structural errors right
   /// away.
   func loadFromFile(url: URL) async {
+    lintWarnings = []
     let scoped = url.startAccessingSecurityScopedResource()
     defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
@@ -206,6 +217,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// validation banner. Routed through the same key as `loadFromFile`
   /// since both are file-I/O failures from the user's perspective.
   func surfaceFileImportError(_ error: any Error) {
+    lintWarnings = []
     validationErrors = [
       String(format: String(localized: "Failed to read file: %@"), error.localizedDescription)
     ]
@@ -221,6 +233,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// survive; structural or block-scalar changes (and a blank base) fall back to
   /// canonical serialization.
   func switchToYAMLMode() {
+    lintWarnings = []
     let scenario = buildScenario()
     yamlText = patcher.patch(visual: scenario, base: yamlText)
     editorMode = .yaml
@@ -233,6 +246,7 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// - Returns: `true` if switch succeeded, `false` if YAML is invalid.
   @discardableResult
   func switchToVisualMode() -> Bool {
+    lintWarnings = []
     let trimmed = yamlText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
       validationErrors = [String(localized: "YAML is empty")]
@@ -256,6 +270,10 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
   /// Validates the current editor state (from whichever mode is active).
   func validate() {
     validationErrors = []
+    // Reset here (not only at the success point) so an early return below —
+    // visual field error, empty YAML, parse/validator throw — clears a prior
+    // run's suggestions instead of leaving them under a new blocking error.
+    lintWarnings = []
     isValid = false
 
     // Mode-specific pre-checks (visual: field UX errors, YAML: empty guard).
@@ -299,9 +317,12 @@ final class ScenarioEditorViewModel {  // swiftlint:disable:this type_body_lengt
       validationErrors.append(contentsOf: contentFindings)
       // Semantic-lint errors block commit alongside structural/content errors
       // (ADR-024). Same `scenario` value the validator received, per the
-      // `currentScenario()` funnel. Warnings/info stay unsurfaced (PR2 scope).
-      let lintErrors = linter.lint(scenario).filter { $0.severity == .error }.map(\.message)
-      validationErrors.append(contentsOf: lintErrors)
+      // `currentScenario()` funnel. Warnings/info are non-blocking — routed to
+      // `lintWarnings` for the suggestions banner (ADR-024 PR2).
+      let findings = linter.lint(scenario)
+      validationErrors.append(
+        contentsOf: findings.filter { $0.severity == .error }.map(\.message))
+      lintWarnings = findings.filter { $0.severity != .error }
       if validationErrors.isEmpty {
         isValid = true
       }

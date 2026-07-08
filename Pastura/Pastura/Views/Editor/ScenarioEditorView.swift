@@ -38,6 +38,12 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         validationBanner
       }
 
+      // Non-blocking semantic-lint suggestions (ADR-024 PR2) — shown below any
+      // blocking errors; never gates Save.
+      if !viewModel.lintWarnings.isEmpty {
+        suggestionsBanner
+      }
+
       // Content
       if viewModel.editorMode == .visual {
         visualEditor
@@ -355,25 +361,6 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       .autocorrectionDisabled()
       .textInputAutocapitalization(.never)
       .padding(.horizontal)
-  }
-
-  // MARK: - Validation Banner
-
-  private var validationBanner: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      ForEach(viewModel.validationErrors, id: \.self) { error in
-        HStack(spacing: 6) {
-          Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundStyle(Color.warning)
-          Text(error)
-            .font(.caption)
-        }
-      }
-    }
-    .padding(.horizontal)
-    .padding(.vertical, 8)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.dangerSoft)
   }
 
   // MARK: - Mode Binding
