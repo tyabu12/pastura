@@ -49,6 +49,7 @@
       "Bash(gh issue edit*)",
       "Bash(gh issue comment*)",
       "Bash(gh issue create*)",
+      "Bash(gh issue reopen*)",
       "Bash(gh pr create --draft*)",
       "Bash(gh label list*)",
       "Bash(git cat-file -e origin/main:.github/ISSUE_TEMPLATE/agent-task.yml)",
