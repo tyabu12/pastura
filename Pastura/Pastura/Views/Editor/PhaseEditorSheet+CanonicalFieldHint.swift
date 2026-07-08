@@ -76,4 +76,22 @@ extension PhaseEditorSheet {
       return nil
     }
   }
+
+  /// The phase-aware `{token}` hint listed under an LLM phase's prompt editor
+  /// (#920 B, ADR-024 D4). Reads the linter-owned ``PlaceholderAvailability``
+  /// map instead of a static hardcoded list: the tokens this phase's handler
+  /// injects (``PlaceholderAvailability/supplied(for:chooseRoundRobin:)`` — so a
+  /// round-robin `choose` gains `{opponent_name}` and the whisper channel, and
+  /// `vote` gains `{candidates}`) unioned with the cross-phase state tokens any
+  /// prompt may read (``PlaceholderAvailability/crossPhaseStateReadable``),
+  /// sorted and brace-wrapped. `static` so it is unit-testable without rendering
+  /// the sheet.
+  static func promptVariableHint(for phase: EditablePhase) -> String {
+    PlaceholderAvailability
+      .supplied(for: phase.type, chooseRoundRobin: phase.pairing == .roundRobin)
+      .union(PlaceholderAvailability.crossPhaseStateReadable)
+      .sorted()
+      .map { "{\($0)}" }
+      .joined(separator: ", ")
+  }
 }

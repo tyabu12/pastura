@@ -6170,6 +6170,16 @@
         }
       }
     },
+    "Suggestions" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提案"
+          }
+        }
+      }
+    },
     "Summarize" : {
       "localizations" : {
         "ja" : {
@@ -6772,22 +6782,22 @@
         }
       }
     },
+    "Variables: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変数: %@"
+          }
+        }
+      }
+    },
     "Variables: {current_round}, {scoreboard}, {vote_results}" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "変数: {current_round}, {scoreboard}, {vote_results}"
-          }
-        }
-      }
-    },
-    "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned}, {assigned_word}, {current_event}" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "変数: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned}, {assigned_word}, {current_event}"
           }
         }
       }

@@ -165,6 +165,26 @@ nonisolated public enum PlaceholderAvailability {
     "agent1", "action1", "agent2", "action2", "score1", "score2"
   ]
 
+  /// Tokens a producer phase writes into `state.variables` and that ANY later
+  /// LLM phase's prompt can read via generic `{token}` expansion — the
+  /// cross-phase-readable complement of the per-persona `inject*` tokens (whose
+  /// availability is phase-type-specific and already modeled by
+  /// ``supplied(for:chooseRoundRobin:)``). Derived as the producer-gated tokens
+  /// minus the per-persona / whisper injected forms so it stays in lockstep with
+  /// ``producerMap``: `{assigned_topic, wolf_name, vote_results, current_event}`.
+  ///
+  /// The editor's phase-aware prompt hint (#920 B) unions this into every LLM
+  /// phase's supplied set, so an author still discovers `{assigned_topic}` /
+  /// `{current_event}` — usable when an upstream `assign` / `event_inject` ran,
+  /// and permitted by the R10/R11 linter's global known-token set. Whether a
+  /// producer actually runs earlier stays R11's lane, not the hint's. A custom
+  /// `event_inject` `as:` name is scenario-specific and intentionally absent
+  /// (the editor sheet has no scenario context; only the default is listed).
+  static let crossPhaseStateReadable: Set<String> =
+    Set(producerMap.keys)
+    .subtracting(perPersonaInjected)
+    .subtracting(whisperSelfInjected)
+
   /// Producer-gated token → producing phase type(s). Cross-checked against
   /// ``supplied(for:chooseRoundRobin:)`` in tests: every producer's output token
   /// is also in that producer's supplied set.
