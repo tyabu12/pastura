@@ -17,11 +17,14 @@ the copy that a human pastes into App Store Connect.
 ## Fixed values (do not change)
 
 - **Name**: `Pastura - Local LLMs simulator` (globally unique; `release-setup.md` B2)
-- **Subtitle**: `Like stargazing, but for LLMs` (29/30 chars)
+- **Subtitle** (per-locale): en `Like stargazing, but for LLMs` (29/30) · ja `天体観測のように、LLM観測` (14/30)
 - **Primary category**: Developer Tools · **Secondary**: Entertainment (per-version editable, not a one-way door)
 - **Age rating**: 13+ (ADR-005 §3.2; 16+ pre-planned fallback)
 - **Primary locale**: en (Go criterion = English submission Approved)
-- **URLs**: Support `https://pastura.app/support/` · Marketing `https://pastura.app/` · Privacy `https://pastura.app/legal/privacy-policy/`
+- **URLs** (Support/Marketing are per-locale; Privacy Policy is set in App Information):
+  - en — Support `https://pastura.app/support/` · Marketing `https://pastura.app/`
+  - ja — Support `https://pastura.app/ja/support/` · Marketing `https://pastura.app/ja/`
+  - Privacy Policy `https://pastura.app/legal/privacy-policy/` (ja: `https://pastura.app/ja/legal/privacy-policy/`)
 
 ## Pre-submission checklist (operator)
 
@@ -52,8 +55,8 @@ Copy is ready; these are the gates around it. Not all are in this repo's scope.
 
 | Field | Limit | en | ja |
 |---|---|---|---|
-| Subtitle | 30 | 29 | (English, shared) |
-| Description | 4,000 | 1,995 | 1,080 |
+| Subtitle | 30 | 29 | 14 |
+| Description | 4,000 | 1,995 | 1,070 |
 | Keywords | 100 | 97 | 86 |
 | Promotional Text | 170 | 164 | 93 |
 
