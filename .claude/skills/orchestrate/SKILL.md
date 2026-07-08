@@ -39,7 +39,7 @@ After fetching the issue, check for an existing plan comment:
    - Parse checkboxes: count `- [x]` (done) vs `- [ ]` (remaining). Identify `NEXT_ITEM` (first unchecked item number).
    - Extract `TASK_TYPE`, branch name, and `REVIEWER_MODEL` from the `## Metadata` section in the comment. **Normalize `REVIEWER_MODEL` to lowercase** (`opus` / `sonnet`) when binding — Metadata records it title-case (`Opus` / `Sonnet`) for readability, but downstream Agent calls use lowercase. If `Reviewer` is absent from Metadata (e.g., older plan comment pre-dating this field), default `REVIEWER_MODEL=opus`.
    - Derive `SLUG` from the branch name.
-   - **Coupling re-check**: if the resumed plan contains any `🔴` item but `REVIEWER_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: orchestrator-implemented items should never be Sonnet-reviewed.
+   - **Coupling re-check**: if the resumed plan contains any `🎭` item but `REVIEWER_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: orchestrator-implemented items should never be Sonnet-reviewed.
    - If **all items are already checked**: ensure you are on the feature branch or in the correct worktree, then report "All {TOTAL} items already complete. Proceeding to review." and **skip to Step 4** directly.
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
@@ -59,15 +59,15 @@ After fetching the issue, check for an existing plan comment:
 1. Read `CLAUDE.md` for current phase and conventions.
 2. If phase-related, read ONLY the relevant Phase section from `docs/ROADMAP.md`.
 3. Format the plan as a numbered checkbox list (each item = one planned commit).
-   Assign a **complexity label** to each item:
-   - 🟢 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
-   - 🔴 **complex** — Implemented by the orchestrator (session model) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
-   - **When in doubt, classify as 🔴.** Misclassifying a complex item as simple wastes a Sonnet attempt + orchestrator fallback; the reverse just costs extra orchestrator tokens.
-   - **Skip delegation when overhead exceeds the work.** Promote a 🟢 item to 🔴 when subagent prompt + verify overhead likely exceeds the implementation itself — e.g. single-line edits, short doc tweaks. This forces Opus reviewer via the Coupling Rule below — intended, since the orchestrator is implementing the item directly.
+   Assign a **complexity label** to each item — the icon matches the model tier that implements it (🎵 Sonnet subagent, 🎭 Opus session):
+   - 🎵 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
+   - 🎭 **complex** — Implemented by the orchestrator (session model) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
+   - **When in doubt, classify as 🎭.** Misclassifying a complex item as simple wastes a Sonnet attempt + orchestrator fallback; the reverse just costs extra orchestrator tokens.
+   - **Skip delegation when overhead exceeds the work.** Promote a 🎵 item to 🎭 when subagent prompt + verify overhead likely exceeds the implementation itself — e.g. single-line edits, short doc tweaks. This forces Opus reviewer via the Coupling Rule below — intended, since the orchestrator is implementing the item directly.
 
    ```
-   - [ ] 1. 🟢 <description> (`<primary-file-path>`)
-   - [ ] 2. 🔴 <description> (`<primary-file-path>`)
+   - [ ] 1. 🎵 <description> (`<primary-file-path>`)
+   - [ ] 2. 🎭 <description> (`<primary-file-path>`)
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
@@ -86,14 +86,14 @@ After fetching the issue, check for an existing plan comment:
    - LLM backend code or prompt templates
    - Design system foundations (`docs/design/design-system.md`, `DesignTokens*.swift`)
 
-   **Sonnet reviewer acceptable** — the change must be strictly a subset of the 🟢 simple-item criteria above (existing pattern reuse, test-only changes following an existing pattern, type/error case additions, doc comments, minor fixes), AND none of the items match the Opus-required list. Concretely, the most common Sonnet-acceptable shapes are:
+   **Sonnet reviewer acceptable** — the change must be strictly a subset of the 🎵 simple-item criteria above (existing pattern reuse, test-only changes following an existing pattern, type/error case additions, doc comments, minor fixes), AND none of the items match the Opus-required list. Concretely, the most common Sonnet-acceptable shapes are:
    - New `@Test` cases in an **existing** suite following the file's existing pattern (not new suites, new helpers, or trait changes like `.timeLimit` / `.serialized`)
    - Documentation updates (`docs/ROADMAP.md`, `docs/examples/**`, `docs/gallery/**`, `docs/prototype/**`, doc comments)
    - Simple refactor within a single file without crossing layer boundaries
    - Design token **application** (existing token to existing View only — new token additions are Opus-required)
    - Fix-only PRs where the cause is already diagnosed and localized
 
-   **Coupling rule:** If **any** plan item is labeled 🔴, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🟢-plus-Sonnet-reviewer" configuration from putting orchestrator-implemented work through a Sonnet review.
+   **Coupling rule:** If **any** plan item is labeled 🎭, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🎵-plus-Sonnet-reviewer" configuration from putting orchestrator-implemented work through a Sonnet review.
 
    **When in doubt, pick Opus.** Subtle convention violations (ShapeStyle+Color token trap, `nonisolated` gaps, i18n `String(localized:)` omissions, missing `@Suite(.timeLimit(.minutes(1)))` on new test suites) cost more than an over-zealous Opus review.
 
@@ -202,9 +202,9 @@ Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING
 
 For each unit of work (let `K` = the current plan item number), check the item's complexity label:
 
-### 🔴 Complex items — Orchestrator implements directly
+### 🎭 Complex items — Orchestrator implements directly
 
-1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🟢 branch's escape at the Sonnet prompt below).
+1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🎵 branch's escape at the Sonnet prompt below).
 2. Run targeted tests — confirm failure:
    ```bash
    scripts/xcodebuild.sh test -only-testing PasturaTests/<CurrentTestClass>
@@ -221,7 +221,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
    ```
    If `gh` fails, **warn and continue** — never block implementation on a sync failure.
 
-### 🟢 Simple items — Delegate to Sonnet subagent
+### 🎵 Simple items — Delegate to Sonnet subagent
 
 Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares the orchestrator's worktree). Subagents execute **sequentially, one at a time** — never in parallel. The subagent should have access to: `Read, Grep, Glob, Bash, Write, Edit` — do NOT include `EnterWorktree` or `ExitWorktree`.
 
@@ -267,7 +267,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 
 **Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **the orchestrator takes over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted. Then handle partial changes:
 - Run `git stash -u` to save all of Sonnet's work including untracked new files (recoverable via `git stash pop` if needed later).
-- Complete the item directly using the 🔴 complex-item flow.
+- Complete the item directly using the 🎭 complex-item flow.
 
 Note: `git commit` is allowlisted (since #411); the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build + blocklist/gallery gates per CLAUDE.md), which runs on every commit — not a per-commit approval prompt.
 
