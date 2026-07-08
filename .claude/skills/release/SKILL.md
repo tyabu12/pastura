@@ -207,12 +207,19 @@ unreviewed auto-changelog.
 TAG="vX.Y.Z+<build>"                       # the approved build's tag
 PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
 
-# 1. Create as a DRAFT with the auto-generated changelog.
+# 1. Create as a DRAFT with the auto-generated changelog. Build the
+#    optional flag as an array — an unquoted ${PREV:+--notes-start-tag …}
+#    is NOT word-split under zsh (the default macOS shell) and would
+#    collapse into one bad argument that gh rejects.
+notes_args=()
+[ -n "$PREV" ] && notes_args=(--notes-start-tag "$PREV")
 gh release create "$TAG" --title "Pastura X.Y.Z" --latest --draft \
-  --generate-notes ${PREV:+--notes-start-tag "$PREV"}
+  --generate-notes "${notes_args[@]}"
 
 # 2. Prepend a hand-written 2–3 line intro (the release headline) above
-#    the generated "What's Changed".
+#    the generated "What's Changed". (gh resolves a draft by tag via a
+#    list-and-match fallback, so view/edit by "$TAG" work here — confirm
+#    on the first live run, since this flow is not yet exercised.)
 BODY="$(mktemp)"
 { printf '%s\n\n' "<hand-written 2–3 line intro>"; \
   gh release view "$TAG" --json body -q '.body'; } > "$BODY"
@@ -221,6 +228,7 @@ gh release edit "$TAG" --notes-file "$BODY"
 # 3. Review the draft in the GitHub UI (Releases → the draft). Only once
 #    the intro + generated changelog read correctly:
 gh release edit "$TAG" --latest --draft=false
+rm -f "$BODY"
 ```
 
 **First public release** (no prior Release exists): `--generate-notes` would
