@@ -192,10 +192,7 @@ struct PhaseEditorSheet: View {
     } footer: {
       VStack(alignment: .leading, spacing: 4) {
         Text(
-          String(
-            localized:
-              "Variables: {scoreboard}, {conversation_log}, {opponent_name}, {assigned_topic}, {assigned}, {assigned_word}, {current_event}"
-          )
+          String(format: String(localized: "Variables: %@"), Self.promptVariableHint(for: phase))
         )
         .font(.caption)
         if let promptError {

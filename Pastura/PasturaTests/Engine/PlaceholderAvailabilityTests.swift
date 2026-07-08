@@ -39,6 +39,18 @@ struct PlaceholderAvailabilityTests {
         .isDisjoint(with: PromptPlaceholders.engineSupplied))
   }
 
+  // MARK: - Cross-phase readable set (#920 B editor-hint source)
+
+  /// `crossPhaseStateReadable` is the producer-gated tokens minus the
+  /// per-persona / whisper injected forms — the state-variable tokens any LLM
+  /// phase's prompt can read. Pins the derived value so a `producerMap` /
+  /// `perPersonaInjected` change that shifts it fails here.
+  @Test func crossPhaseStateReadableIsProducerTokensMinusPerPersona() {
+    #expect(
+      PlaceholderAvailability.crossPhaseStateReadable
+        == ["assigned_topic", "wolf_name", "vote_results", "current_event"])
+  }
+
   // MARK: - Vote (VoteHandler)
 
   @Test func candidatesSuppliedByVoteOnly() {
