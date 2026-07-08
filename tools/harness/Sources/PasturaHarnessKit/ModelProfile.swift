@@ -76,6 +76,16 @@ package struct ModelProfile: Sendable, Equatable {
   /// `App/ModelRegistry` entry yet: it is a candidate under the `/model-eval`
   /// Mac-filter gate, not a shipped model. Registration (a `ModelDescriptor`)
   /// happens only after the ADR-011 real-device accept gate.
+  ///
+  /// Gate-1 result (2026-07-08): **NO-GO**, blocked (not a clean quality
+  /// reject). 3 of 6 battery cells hard-failed with "Model generated no
+  /// output tokens" — the #366-class trap (the GBNF grammar sampler does not
+  /// mask special tokens, so this 3B intermittently samples `</s>`/EOS as a
+  /// turn's first token → empty generation → run abort). The values below are
+  /// correct (the failure is the harness trap, not a wrong field); the profile
+  /// is retained as the reproduction case + reusable instrument for the #371
+  /// fix (post-sample `llama_vocab_is_special` resample) and a re-eval after it
+  /// lands. See the `data/models/eval-digest.md` scorecard and #979.
   package static let sarashina223B = ModelProfile(
     id: "sarashina-2-2-3b-q4-k-m",
     name: "Sarashina 2.2 3B (Q4_K_M)",
