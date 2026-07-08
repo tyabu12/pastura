@@ -79,13 +79,16 @@ package struct ModelProfile: Sendable, Equatable {
   ///
   /// Gate-1 result (2026-07-08): **NO-GO**, blocked (not a clean quality
   /// reject). 3 of 6 battery cells hard-failed with "Model generated no
-  /// output tokens" — the #366-class trap (the GBNF grammar sampler does not
-  /// mask special tokens, so this 3B intermittently samples `</s>`/EOS as a
-  /// turn's first token → empty generation → run abort). The values below are
-  /// correct (the failure is the harness trap, not a wrong field); the profile
-  /// is retained as the reproduction case + reusable instrument for the #371
-  /// fix (post-sample `llama_vocab_is_special` resample) and a re-eval after it
-  /// lands. See the `data/models/eval-digest.md` scorecard and #979.
+  /// output tokens": this 3B intermittently samples EOG/EOS at position 0
+  /// under the GBNF grammar, yielding an empty generation. The shipped
+  /// SafeSampler crash-hardening (#253/#371) holds — it does NOT crash — but
+  /// the empty output exhausts the retry budget and aborts the run. That is
+  /// the deferred, inference-side #751 sub-class 2 (empty-output / EOG-at-0),
+  /// NOT the #366 crash class. Stochastic + cumulative: simple/short scenarios
+  /// (bokete) complete, longer/reflect-heavy ones (word_wolf, PD) fail. The
+  /// values below are correct (the failure is this inference-side interaction,
+  /// not a wrong field); the profile is retained as the reproduction case for
+  /// #751 and a re-eval after it lands. See `data/models/eval-digest.md` + #979.
   package static let sarashina223B = ModelProfile(
     id: "sarashina-2-2-3b-q4-k-m",
     name: "Sarashina 2.2 3B (Q4_K_M)",
