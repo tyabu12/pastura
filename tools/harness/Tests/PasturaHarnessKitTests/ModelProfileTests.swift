@@ -39,9 +39,30 @@ struct ModelProfileTests {
         == "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5")
   }
 
+  /// Pins the Sarashina 2.2 3B Stage-0 candidate's investigated fields.
+  /// Unlike the gemma/qwen tests above, there is **no** `App/ModelRegistry`
+  /// entry to guard against yet — Sarashina is a candidate under the
+  /// `/model-eval` Mac-filter gate, not a shipped model. This pins the
+  /// values investigated at Stage 0; reconcile them with the eventual
+  /// `ModelDescriptor` at Gate-2 registration (see #979).
+  @Test func sarashinaProfilePinsFields() {
+    let profile = ModelProfile.sarashina223B
+    #expect(profile.id == "sarashina-2-2-3b-q4-k-m")
+    #expect(profile.name == "Sarashina 2.2 3B (Q4_K_M)")
+    // Plain eos stop; no thinking-mode workaround (contrast Qwen #366).
+    #expect(profile.stopSequence == "</s>")
+    #expect(profile.systemPromptSuffix == nil)
+    #expect(profile.assistantPrefix == nil)
+    #expect(profile.expectedFileName == "sarashina2.2-3b-instruct-v0.1-Q4_K_M.gguf")
+    #expect(
+      profile.expectedSHA256
+        == "d96f4d98eb528df26e8bc09ab81a1d165be4fce67616739e65980bed9038f0f2")
+  }
+
   @Test func namedLooksUpKnownProfilesByID() {
     #expect(ModelProfile.named("gemma-4-e2b-q4-k-m") == .gemma4E2B)
     #expect(ModelProfile.named("qwen-3-4b-q4-k-m") == .qwen34B)
+    #expect(ModelProfile.named("sarashina-2-2-3b-q4-k-m") == .sarashina223B)
     #expect(ModelProfile.named("bogus") == nil)
   }
 

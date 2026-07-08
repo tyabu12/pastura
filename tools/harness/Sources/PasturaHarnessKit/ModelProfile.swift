@@ -71,9 +71,42 @@ package struct ModelProfile: Sendable, Equatable {
     expectedSHA256: "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
   )
 
+  /// Sarashina 2.2 3B Q4_K_M — Stage-0 evaluation candidate (model-validation
+  /// pipeline, intake #979). Unlike `gemma4E2B` / `qwen34B`, this has **no**
+  /// `App/ModelRegistry` entry yet: it is a candidate under the `/model-eval`
+  /// Mac-filter gate, not a shipped model. Registration (a `ModelDescriptor`)
+  /// happens only after the ADR-011 real-device accept gate.
+  ///
+  /// Gate-1 result (2026-07-08): **NO-GO**, blocked (not a clean quality
+  /// reject). 3 of 6 battery cells hard-failed with "Model generated no
+  /// output tokens": this 3B intermittently samples EOG/EOS at position 0
+  /// under the GBNF grammar, yielding an empty generation. The shipped
+  /// SafeSampler crash-hardening (#253/#371) holds — it does NOT crash — but
+  /// the empty output exhausts the retry budget and aborts the run. That is
+  /// the deferred, inference-side #751 sub-class 2 (empty-output / EOG-at-0),
+  /// NOT the #366 crash class. Stochastic + cumulative: simple/short scenarios
+  /// (bokete) complete, longer/reflect-heavy ones (word_wolf, PD) fail. The
+  /// values below are correct (the failure is this inference-side interaction,
+  /// not a wrong field); the profile is retained as the reproduction case for
+  /// #751 and a re-eval after it lands. See `data/models/eval-digest.md` + #979.
+  package static let sarashina223B = ModelProfile(
+    id: "sarashina-2-2-3b-q4-k-m",
+    name: "Sarashina 2.2 3B (Q4_K_M)",
+    // Sarashina 2.2 (SB Intuitions, MIT) formats turns as
+    // `<|system|>…</s><|user|>…</s><|assistant|>…</s>` with eos `</s>`, and
+    // has no thinking mode — so, unlike Qwen (#366), it needs neither a
+    // `/no_think` suffix nor a `<think>` assistant prefill. The stop sequence
+    // is the plain eos `</s>`; suffix and prefix are nil.
+    stopSequence: "</s>",
+    systemPromptSuffix: nil,
+    assistantPrefix: nil,
+    expectedFileName: "sarashina2.2-3b-instruct-v0.1-Q4_K_M.gguf",
+    expectedSHA256: "d96f4d98eb528df26e8bc09ab81a1d165be4fce67616739e65980bed9038f0f2"
+  )
+
   /// Known profiles the harness `--profile` flag can select, gemma first
   /// as the default.
-  package static let all: [ModelProfile] = [gemma4E2B, qwen34B]
+  package static let all: [ModelProfile] = [gemma4E2B, qwen34B, sarashina223B]
 
   /// Looks up a known profile by its registry `id`, or `nil` if unknown.
   package static func named(_ id: String) -> ModelProfile? {
