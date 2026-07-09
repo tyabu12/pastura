@@ -164,7 +164,7 @@ extension LlamaCppService {
   ///   grammar there is nothing for an EOG accept to abort, and the bundled
   ///   path reuses llama's internal candidate buffer.
   /// - Grammar active (`candidates != nil`): delegates to the two-pass
-  ///   ``grammarConstrainedSample(chain:grammar:context:vocab:candidates:diag:)``,
+  ///   ``grammarConstrainedSample(handles:context:vocab:candidates:diag:)``,
   ///   which keeps the #253 EOG-accept skip and adds the #751 sub-class 2
   ///   grammar-first resample.
   ///

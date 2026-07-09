@@ -88,11 +88,22 @@ extension LlamaCppService {
       chain: chain, grammarFirst: grammar, context: context, base: base, count: count)
 
     // Terminal: even the grammar-first pass selected a masked token → dead
-    // grammar. Stop at EOS (no accept — EOS ends generation).
+    // grammar. Stop generation (no accept). Return EOS so
+    // `nextContentTokenOrStop`'s `is_eog` check maps it to a clean stop.
+    // Guard the vocab-has-no-EOS case: `llama_vocab_eos` returns
+    // `LLAMA_TOKEN_NULL` (< 0) then, and `is_eog(-1)` is false — a raw -1
+    // would leak into the decode path as a "content" token. Route that
+    // (doubly-unreachable: dead grammar AND no EOS) through the graceful
+    // stop channel instead. All shipped profiles define an EOS.
     if resampled.logit == -Float.infinity {
       emitMaskedSelectionDiagnostic(
         token: resampled.id, curP: resampled.array, vocab: vocab, diag: diag)
-      return llama_vocab_eos(vocab)
+      let eos = llama_vocab_eos(vocab)
+      guard eos >= 0 else {
+        throw LLMError.samplerCrashCaught(
+          description: "grammar admits no token and vocab defines no EOS")
+      }
+      return eos
     }
 
     try acceptSampledToken(
