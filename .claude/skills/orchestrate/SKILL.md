@@ -317,7 +317,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 > **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
 **Review-verify-fix loop:**
-1. If the code-reviewer returns **PASS** → proceed directly to "Create PR?" gate.
+1. If the code-reviewer returns **PASS** → proceed directly to Step 5 (PR creation).
 2. If the code-reviewer returns **FAIL**:
    a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt).
    b. Build the **Review Action Summary** (see below) and present it to the user.
@@ -336,9 +336,9 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 | 3 | Missing Sendable on `Bar` | Warning | Confirmed | Fixed | Added Sendable conformance |
 ```
 
-Show the final review report. **Ask: "Create PR?"**
+Show the final review report, then proceed to Step 5 (PR creation).
 
-## Step 5: PR Creation — Gate G4
+## Step 5: PR Creation
 
 Derive base branch: `gh repo view --json defaultBranchRef -q '.defaultBranchRef.name'`
 
@@ -357,12 +357,20 @@ Determine label from the commit prefix (TASK_TYPE or dominant commit type):
 
 Additionally, if the changes are security-related, add the `security` label alongside the prefix-based label.
 
-Present PR draft (title + body + label) for user review:
+**Determine device-QA need.** Manual on-device QA is required when the diff touches a surface the iOS Simulator build cannot exercise:
+- `#if !targetEnvironment(simulator)` blocks (e.g. `SettingsView` model-management UI, `ModelSettingsRow`) — excluded from the simulator build entirely.
+- Metal / llama.cpp on-device inference (`LlamaCppService`, GGUF model load, GPU paths).
+- Layout / visual regressions inside those device-only blocks (the simulator never renders them).
+- Pattern-6 executor-inheritance UI freezes (`.claude/rules/swift-isolation.md`) — reproduce only on a real device.
+
+Config / docs / shell / test-only changes with no such surface do **not** need device QA.
+
+Present the PR draft (title + body + label) for visibility — this is informational; the PR is created automatically, with no confirmation gate:
 - Title: Emoji prefix + Conventional format, under 70 chars (same emoji convention as CLAUDE.md commits)
-- Body: Summary bullets + test plan + `Closes #N` (always present — Issue is always created)
+- Body: Summary bullets + test plan + a `## Device QA` section + `Closes #N` (always present — Issue is always created). The `## Device QA` section lists the concrete on-device steps a reviewer must run, or a single `実機QA不要` line with the one-line reason when none apply.
 - Label: from the table above
 
-**Ask: "Create this PR?"**
+Push the branch first: `git push -u origin <branch>`. Then create the PR directly:
 
 ```bash
 gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
@@ -371,11 +379,11 @@ gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
 ...
 ## Test plan
 ...
+## Device QA
+<concrete on-device steps, or `実機QA不要` + one-line reason>
 IMPLEMENT_PR_BODY
 )"
 ```
-
-Push the branch first: `git push -u origin <branch>`. Then create the PR.
 
 After creation:
 - Print the PR URL.
