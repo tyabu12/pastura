@@ -617,6 +617,22 @@
         }
       }
     },
+    "%@'s turn was skipped (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@'s turn was skipped (%2$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ のターンをスキップしました（%2$@）"
+          }
+        }
+      }
+    },
     "%@(%@)" : {
       "localizations" : {
         "en" : {
