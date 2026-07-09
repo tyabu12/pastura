@@ -72,6 +72,7 @@ nonisolated extension DatabaseManager {
     registerV9(&migrator)
     registerV10(&migrator)
     registerV11(&migrator)
+    registerV12(&migrator)
   }
 
   private static func registerV11(_ migrator: inout DatabaseMigrator) {
@@ -101,6 +102,17 @@ nonisolated extension DatabaseManager {
         on: "prediction_records",
         columns: ["simulationId"],
         options: [.unique])
+    }
+  }
+
+  private static func registerV12(_ migrator: inout DatabaseMigrator) {
+    // Degraded-turn count per run (ADR-021 D6). Additive, `NOT NULL DEFAULT 0`
+    // — pre-v12 rows and runs with no skips read as 0. The status taxonomy is
+    // unchanged; this is a quality-annotation column, not a lifecycle state.
+    migrator.registerMigration("v12_addDegradedTurnCountToSimulations") { db in
+      try db.alter(table: "simulations") { t in
+        t.add(column: "degradedTurnCount", .integer).notNull().defaults(to: 0)
+      }
     }
   }
 

@@ -78,6 +78,14 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// - Throws: `DataError.recordNotFound` if no record with the given ID exists.
   func updateStatus(_ id: String, status: SimulationStatus) throws
 
+  /// Updates only the `degradedTurnCount` field (ADR-021 D6). Called at run
+  /// completion to record how many LLM turns degraded to a skip. Additive to
+  /// the status write — the taxonomy is unchanged; this is a quality
+  /// annotation surfaced as a Results/History badge.
+  ///
+  /// - Throws: `DataError.recordNotFound` if no record with the given ID exists.
+  func updateDegradedTurnCount(_ id: String, count: Int) throws
+
   /// Returns the total number of runs matching the same name filter used by
   /// ``fetchRecentRunPage(nameQuery:before:limit:)`` — but with no keyset
   /// cursor and no row limit. Powers the Past Results screen-title subtitle
@@ -325,32 +333,9 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
     }
   }
 
-  public func updateState(
-    _ id: String, stateJSON: String,
-    currentRound: Int, currentPhaseIndex: Int
-  ) throws {
-    try dbWriter.write { db in
-      guard var record = try SimulationRecord.fetchOne(db, key: id) else {
-        throw DataError.recordNotFound(type: "SimulationRecord", id: id)
-      }
-      record.stateJSON = stateJSON
-      record.currentRound = currentRound
-      record.currentPhaseIndex = currentPhaseIndex
-      record.updatedAt = Date()
-      try record.update(db)
-    }
-  }
-
-  public func updateStatus(_ id: String, status: SimulationStatus) throws {
-    try dbWriter.write { db in
-      guard var record = try SimulationRecord.fetchOne(db, key: id) else {
-        throw DataError.recordNotFound(type: "SimulationRecord", id: id)
-      }
-      record.status = status.rawValue
-      record.updatedAt = Date()
-      try record.update(db)
-    }
-  }
+  // `updateState`, `updateStatus`, `updateDegradedTurnCount` (single-column
+  // read-modify-write mutators) live in `SimulationRepository+Mutations.swift`
+  // to keep this file under the file_length cap.
 
   public func totalRunCount(nameQuery: String?) throws -> Int {
     try dbWriter.read { db in

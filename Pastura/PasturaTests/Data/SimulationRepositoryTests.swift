@@ -204,6 +204,26 @@ import Testing
     }
   }
 
+  @Test func updateDegradedTurnCountChangesOnlyThatColumn() throws {
+    let (_, simRepo) = try makeRepos()
+    try simRepo.save(makeSimRecord(status: .completed, stateJSON: #"{"scores":{}}"#))
+
+    try simRepo.updateDegradedTurnCount("sim1", count: 4)
+
+    let fetched = try simRepo.fetchById("sim1")
+    #expect(fetched?.degradedTurnCount == 4)
+    // Status and state remain untouched.
+    #expect(fetched?.simulationStatus == .completed)
+    #expect(fetched?.stateJSON == #"{"scores":{}}"#)
+  }
+
+  @Test func updateDegradedTurnCountThrowsForMissingRecord() throws {
+    let (_, simRepo) = try makeRepos()
+    #expect(throws: DataError.self) {
+      try simRepo.updateDegradedTurnCount("nonexistent", count: 1)
+    }
+  }
+
   @Test func deleteRemovesRecord() throws {
     let (_, simRepo) = try makeRepos()
     try simRepo.save(makeSimRecord())
