@@ -189,19 +189,22 @@ struct GalleryCatalogMetricsTests {
   }
 
   @Test func signatureMappingTracksPhaseTypeRawValues() {
-    // The Views-layer enum hardcodes phase raw-value literals (deliberate
-    // decoupling from PhaseType). Pin them against the real PhaseType raw
-    // values so the literals can't silently drift.
-    let mapped: [(PhaseType, ScenarioSignaturePhase)] = [
-      (.eliminate, .eliminate), (.choose, .choose), (.conditional, .conditional),
-      (.eventInject, .eventInject), (.vote, .vote), (.scoreCalc, .scoreCalc)
+    // `ScenarioSignaturePhase.init?(phaseRawValue:)` is now a no-default
+    // exhaustive switch over `PhaseType` (ADR-022 D2), so the compiler is the
+    // primary guard that every phase kind gets a headline decision. This test
+    // is the `allCases`-driven backstop: it partitions the FULL `PhaseType`
+    // set into the six signature kinds and the seven signature-less kinds and
+    // asserts both sides, so it can never silently lag the enum the way a
+    // hand-listed nil-side did (it previously covered only 4 of 7).
+    let expected: [PhaseType: ScenarioSignaturePhase] = [
+      .eliminate: .eliminate, .choose: .choose, .conditional: .conditional,
+      .eventInject: .eventInject, .vote: .vote, .scoreCalc: .scoreCalc
     ]
-    for (phase, signature) in mapped {
-      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == signature)
-    }
-    // Scaffolding phases carry no headline → nil.
-    for phase in [PhaseType.assign, .speakAll, .speakEach, .summarize] {
-      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == nil)
+    for phase in PhaseType.allCases {
+      // `expected[phase]` is `nil` for the signature-less kinds, which is
+      // exactly the mapping we assert — no headline for scaffolding /
+      // interaction phases.
+      #expect(ScenarioSignaturePhase(phaseRawValue: phase.rawValue) == expected[phase])
     }
   }
 
