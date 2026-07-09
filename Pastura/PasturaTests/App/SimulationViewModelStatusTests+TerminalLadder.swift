@@ -83,11 +83,13 @@ extension SimulationViewModelStatusTests {
   }
 
   @Test func terminalStatusBreakerAbortMapsToFailed() {
-    // ADR-021 D4/D6 — a circuit-breaker abort (3 consecutive skips) throws
-    // `SimulationError.turnFailureLimitReached`, which surfaces through the
-    // existing error path and sets `errorMessage`. That maps to `.failed`
-    // exactly as any other run-fatal error — the breaker introduces no new
-    // terminal status.
+    // ADR-021 D4/D6 — this pins the terminal-status mapping only: a run whose
+    // `errorMessage` is set (for ANY run-fatal cause) maps to `.failed`, the
+    // breaker introducing no new terminal status. A circuit-breaker abort
+    // (3 consecutive skips) reaches this via `errorMessage` being set from the
+    // thrown `SimulationError.turnFailureLimitReached` — that the breaker
+    // actually throws it is covered in the Engine's `TurnFailureGateTests`
+    // (PR1). The literal here stands in for any such non-nil errorMessage.
     #expect(
       SimulationViewModel.terminalStatus(
         didPersistPaused: false, errorMessage: "Too many turns were skipped in a row",

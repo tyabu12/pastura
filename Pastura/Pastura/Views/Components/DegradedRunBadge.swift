@@ -6,7 +6,7 @@ import Foundation
 /// unit-testable without rendering the View (ADR-009). The localized
 /// rendering lives at the call sites (Results row / detail); this type
 /// intentionally holds no user-facing string.
-public enum DegradedRunBadge {
+enum DegradedRunBadge {
   /// The skip count to display, or `nil` when the badge must be hidden.
   ///
   /// Shown only for a **completed** run with a positive count — the badge
@@ -14,7 +14,7 @@ public enum DegradedRunBadge {
   /// `.running` / `.cancelled` run (or a `nil`/unrecognized status) and a
   /// zero count both yield `nil`. `degradedTurnCount` is clamped implicitly
   /// by the `> 0` gate, so a negative value (never expected) also hides.
-  public static func skippedTurnCount(
+  static func skippedTurnCount(
     status: SimulationStatus?, degradedTurnCount: Int
   ) -> Int? {
     guard status == .completed, degradedTurnCount > 0 else { return nil }

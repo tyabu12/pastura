@@ -1574,11 +1574,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // and narrate it live, one line per skip. `cause` is the engine's
       // English diagnostic (same register as `.error`); it is NOT rendered
       // (the log line is localized from `agent` + `phaseType`), only logged
-      // for diagnostics. `.debug` is redacted in Release and exempt from the
-      // OSLog privacy-annotation rule, so interpolating `cause` here is safe.
+      // for diagnostics. The `.debug` line interpolates only the phase enum
+      // and the engine diagnostic — no user content (the persona name is
+      // deliberately omitted per the "don't Logger-interpolate agent
+      // content" rule); `.debug` is also redacted in Release regardless.
       degradedTurnCount += 1
       lifecycleLogger.debug(
-        "turn skipped: \(agent) in \(phaseType.rawValue) — \(cause)")
+        "turn skipped in \(phaseType.rawValue) — \(cause)")
       logEntries.append(
         LogEntry(kind: .turnSkipped(agent: agent, phaseType: phaseType)))
     case .agentOutput(let agent, let output, let phaseType):
