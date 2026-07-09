@@ -1287,6 +1287,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       didPersistPaused: didPersistPaused, errorMessage: errorMessage,
       isCancelled: isCancelled, isCompleted: isCompleted) {
       await persistStatus(status)
+      // ADR-021 D6 — record the aggregate skip count only for a run that
+      // reached the end. The column already holds 0 from run-creation, so a
+      // no-skip run needs no write; a breaker/error abort stays at 0 (D6:
+      // a `.failed` run persists exactly as today).
+      if status == .completed, degradedTurnCount > 0 {
+        await persistDegradedTurnCount(degradedTurnCount)
+      }
     } else {
       lifecycleLogger.info("run exited while paused; leaving .paused for resume")
     }
@@ -2552,6 +2559,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     } catch {
       lifecycleLogger.error(
         "Failed to update simulation status: \(String(describing: error), privacy: .public)")
+    }
+  }
+
+  /// Persists the run's aggregate `.turnSkipped` count (ADR-021 D6). Called
+  /// once at completion; mirrors ``persistStatus(_:)``. A write failure is
+  /// non-fatal — the badge simply reads the DEFAULT 0 for this run.
+  private func persistDegradedTurnCount(_ count: Int) async {
+    guard let simId = simulationId else { return }
+    do {
+      try await offMain { [simulationRepository] in
+        try simulationRepository.updateDegradedTurnCount(simId, count: count)
+      }
+    } catch {
+      lifecycleLogger.error(
+        "Failed to persist degradedTurnCount: \(String(describing: error), privacy: .public)")
     }
   }
 }

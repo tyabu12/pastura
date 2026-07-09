@@ -94,4 +94,37 @@ struct SimulationViewModelTurnSkippedTests {
     sut.cancelSimulation()
     await runTask.value
   }
+
+  // MARK: - Persistence at completion (ADR-021 D6)
+
+  @Test func completedRunWithSkipPersistsDegradedTurnCount() async throws {
+    let db = try DatabaseManager.inMemory()
+    let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+    let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
+    let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+    try scenarioRepo.save(
+      ScenarioRecord(
+        id: "test", name: "Test", yamlDefinition: "",
+        isPreset: false, createdAt: Date(), updatedAt: Date()))
+
+    let sut = SimulationViewModel(
+      simulationRepository: simRepo, turnRepository: turnRepo)
+    sut.speed = .instant
+
+    // Alice's turn fails transiently (one skip, < breaker threshold); Bob
+    // speaks, so the run still reaches `.completed`.
+    let mock = MockLLMService(responses: [#"{"statement": "hello from Bob"}"#])
+    mock.throwErrorOnNextGenerate(.generationFailed(description: "transient"), count: 1)
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"], rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])])
+
+    await sut.run(scenario: scenario, llm: mock)
+
+    #expect(sut.degradedTurnCount == 1)
+    let sims = try simRepo.fetchByScenarioId("test")
+    #expect(sims.first?.simulationStatus == .completed)
+    #expect(sims.first?.degradedTurnCount == 1)
+  }
 }
