@@ -51,6 +51,7 @@
       "Bash(gh issue create*)",
       "Bash(gh issue reopen*)",
       "Bash(gh pr create --draft*)",
+      "Bash(gh pr create --base*)",
       "Bash(gh label list*)",
       "Bash(git cat-file -e origin/main:.github/ISSUE_TEMPLATE/agent-task.yml)",
       "Bash(python3 .claude/skills/queue-consumer/scripts/*)",
@@ -98,11 +99,11 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "ExitWorktree",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Before exiting: (1) Check if any memory files need to be created or updated based on this session. (2) Share any concerns, observations, or suggestions you noticed during this session but did not have a chance to mention.\"}}'"
+            "command": "cd $(git rev-parse --show-toplevel) && bash scripts/hooks/gated-runner.sh 'gh pr create --base' -- bash scripts/hooks/pr-created-reflection.sh"
           }
         ]
       },
