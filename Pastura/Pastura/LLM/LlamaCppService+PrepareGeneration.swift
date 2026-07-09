@@ -5,16 +5,17 @@ import LlamaSwift
 
 /// Outputs of ``LlamaCppService/prepareGeneration(model:context:system:user:schema:)``.
 /// `vocab` is needed in the autoregressive loop (`llama_vocab_is_eog`,
-/// piece decoding); `sampler` is the configured chain (penalties → top_k →
-/// top_p → grammar → temperature → dist). The caller owns the sampler's
-/// lifetime — see the precondition note on the helper itself.
+/// piece decoding); `handles` bundles the configured chain (penalties →
+/// top_k → top_p → temperature → dist) and the optional grammar handle held
+/// separately from it (see ``SamplerHandles``). The caller owns both
+/// handles' lifetimes — see the precondition note on the helper itself.
 nonisolated struct PreparedGeneration {
   /// Optional to match the upstream `llama_model_get_vocab` return type
   /// and the existing `tokenize` / `decodePiece` / `decodePieceRaw`
   /// signatures, which all accept `OpaquePointer?` directly without a
   /// nil check at the use site.
   let vocab: OpaquePointer?
-  let sampler: UnsafeMutablePointer<llama_sampler>
+  let handles: SamplerHandles
 }
 
 extension LlamaCppService {
@@ -35,12 +36,15 @@ extension LlamaCppService {
   ///    helper accepts the captured pointers directly because the
   ///    private storage is not visible to sibling-file extensions.
   ///
-  /// **Sampler ownership** — the returned `sampler` is owned by the
+  /// **Sampler ownership** — the returned `handles` are owned by the
   /// caller. Pair every successful return with
-  /// `defer { llama_sampler_free(prepared.sampler) }` in the caller's
-  /// scope. The helper does NOT install its own defer because Swift's
-  /// `defer` only fires at the helper's scope exit, which would free
-  /// the sampler before the caller's inference loop runs.
+  /// `defer { llama_sampler_free(prepared.handles.chain) }` AND
+  /// `defer { prepared.handles.grammar.map { llama_sampler_free($0) } }`
+  /// in the caller's scope. The helper does NOT install its own defer
+  /// because Swift's `defer` only fires at the helper's scope exit, which
+  /// would free the handles before the caller's inference loop runs.
+  /// The split-out grammar is a separate allocation — freeing the chain
+  /// does not reach it (see ``SamplerHandles``).
   ///
   /// **Grammar wire-up** — both calling paths get grammar through this
   /// single seam when `schema` is non-nil. If a third call path is
@@ -82,13 +86,12 @@ extension LlamaCppService {
     // Build grammar once per call when a schema is requested.
     let grammarString = try schema.map { try GBNFGrammarBuilder().build(from: $0) }
 
-    // Keep `createSampler` as the LAST step in this helper. The sampler
-    // is freed by the caller's `defer { llama_sampler_free(...) }`; any
-    // step added after this and before the return would leak the sampler
-    // if it throws.
-    let sampler = try createSampler(grammarString: grammarString, vocab: vocab)
+    // Keep `createSampler` as the LAST step in this helper. The handles
+    // are freed by the caller's `defer`s; any step added after this and
+    // before the return would leak the chain / grammar if it throws.
+    let handles = try createSampler(grammarString: grammarString, vocab: vocab)
 
-    return PreparedGeneration(vocab: vocab, sampler: sampler)
+    return PreparedGeneration(vocab: vocab, handles: handles)
   }
 
   /// Shared empty-output postcondition for both `runGeneration` paths.

@@ -521,12 +521,13 @@ extension LlamaCppService {
     let prepared = try prepareGeneration(
       model: model, context: context,
       system: system, user: user, schema: schema)
-    defer { llama_sampler_free(prepared.sampler) }
+    defer { llama_sampler_free(prepared.handles.chain) }
+    defer { prepared.handles.grammar.map { llama_sampler_free($0) } }
     let vocab = prepared.vocab
-    let sampler = prepared.sampler
+    let handles = prepared.handles
 
-    // #253 EOG-guard scratch buffer (nil when no grammar is active — that
-    // path uses the bundled sampler). See `makeCandidateBuffer`.
+    // Grammar-constrained scratch buffer (nil when no grammar is active —
+    // that path uses the bundled sampler). See `makeCandidateBuffer`.
     let candidateBuffer = makeCandidateBuffer(schema: schema, vocab: vocab)
     defer { candidateBuffer?.deallocate() }
 
@@ -563,8 +564,9 @@ extension LlamaCppService {
       // appended, exactly as an EOG break did before.
       guard
         let newTokenId = try nextContentTokenOrStop(
-          sampler: sampler, context: context, vocab: vocab,
-          candidates: candidateBuffer, mode: "non-stream")
+          handles: handles, context: context, vocab: vocab,
+          candidates: candidateBuffer,
+          diag: SamplerDiagContext(mode: "non-stream", position: generatedTokens))
       else { break }
 
       generatedTokens += 1
@@ -631,16 +633,16 @@ extension LlamaCppService {
   ///    parse and retries as before. All other errors propagate. See
   ///    ``handleSamplerCatch(_:mode:)``.
   fileprivate func nextContentTokenOrStop(
-    sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
+    handles: SamplerHandles, context: OpaquePointer,
     vocab: OpaquePointer?,
     candidates: UnsafeMutableBufferPointer<llama_token_data>?,
-    mode: String
+    diag: SamplerDiagContext
   ) throws -> Int32? {
     let token: Int32
     do {
       token = try safeSample(
-        sampler: sampler, context: context, vocab: vocab,
-        candidates: candidates, mode: mode)
+        handles: handles, context: context, vocab: vocab,
+        candidates: candidates, diag: diag)
     } catch LLMError.samplerCrashCaught {
       return nil
     }
@@ -729,12 +731,13 @@ extension LlamaCppService {
     let prepared = try prepareGeneration(
       model: model, context: context,
       system: system, user: user, schema: schema)
-    defer { llama_sampler_free(prepared.sampler) }
+    defer { llama_sampler_free(prepared.handles.chain) }
+    defer { prepared.handles.grammar.map { llama_sampler_free($0) } }
     let vocab = prepared.vocab
-    let sampler = prepared.sampler
+    let handles = prepared.handles
 
-    // #253 EOG-guard scratch buffer (nil when no grammar is active — that
-    // path uses the bundled sampler). See `makeCandidateBuffer`.
+    // Grammar-constrained scratch buffer (nil when no grammar is active —
+    // that path uses the bundled sampler). See `makeCandidateBuffer`.
     let candidateBuffer = makeCandidateBuffer(schema: schema, vocab: vocab)
     defer { candidateBuffer?.deallocate() }
 
@@ -764,8 +767,9 @@ extension LlamaCppService {
       // runs the post-loop held-back flush below, matching the EOG break.
       guard
         let newTokenId = try nextContentTokenOrStop(
-          sampler: sampler, context: context, vocab: vocab,
-          candidates: candidateBuffer, mode: "stream")
+          handles: handles, context: context, vocab: vocab,
+          candidates: candidateBuffer,
+          diag: SamplerDiagContext(mode: "stream", position: generatedTokens))
       else { break }
 
       generatedTokens += 1

@@ -277,10 +277,18 @@ Max 2 retries. Retry on:
 - JSON parse failure
 - Empty fields ("..." or empty string)
 
-**Deferred (#751 sub-class 2):** completely-empty model output (EOG-at-
-position-0 suspected) exhausts the retry budget. It is inference-side, not
-parser-recoverable — root-cause on-device per the issue before adding any
-retry-budget change. Tracked under #751.
+**Empty-output → grammar-first resample (#751 sub-class 2, FIXED).**
+Completely-empty model output was NOT a retry-budget problem: b8694's
+`llama_sampler_dist_apply` silently selected a grammar-masked (`-inf`)
+token when the grammar (as a chain member, applied after top_k) masked the
+sorted top candidate — the pick is RNG-independent, so all retries
+reproduced it identically and the budget could never recover. Fixed by
+splitting the grammar out of the sampler chain and resampling grammar-first
+on a miss (`LlamaCppService.grammarConstrainedSample`, mirroring llama.cpp's
+`common_sampler_sample`) — see ADR-002 § "Grammar-all-rejected dist
+fallthrough". The retry budget itself is unchanged; the failure is gone at
+the sampler. Diagnostic `samplerGrammarResample` (position-0) measures the
+residual rescue rate as a model-onboarding fragility signal.
 
 **Grammar-accept crash after object completion → graceful stop (#907).** For
 single-field grammars (e.g. `reflect`'s `{ note }`) Gemma 4 E2B frequently
@@ -459,13 +467,17 @@ grammar mode, split the chain into two samplers, or build a
 grammar. (PR #480 commit eb26153, reverted in 4ffaf6f; ADR-011.)
 
 The **EOG-path** variant of this abort (#253 — EOG sampled mid-generation,
-not prompt-token accept) is now mitigated with exactly that
-"control-the-accept-explicitly" technique: `LlamaCppService.safeSample`
-splits the grammar-active step into `llama_sampler_apply` + a guarded
-`llama_sampler_accept`, skipping the accept for EOG tokens (whose post-EOG
-grammar state is never read). Non-EOG selection is byte-identical to the
-bundled `llama_sampler_sample`, so the distribution is unchanged. SafeSampler
-still cannot *catch* a `SIGABRT`; the EOG abort is *avoided*, not caught.
+not prompt-token accept) is mitigated with exactly that
+"control-the-accept-explicitly" technique. As of #751 the grammar is held
+**outside** the sampler chain (`SamplerHandles`) and driven by
+`LlamaCppService.grammarConstrainedSample`: `llama_sampler_apply` masks,
+the chain selects, and the accept is taken on the grammar handle for
+**non-EOG tokens only** (whose post-EOG grammar state is never read).
+Non-EOG selection matches the bundled `common_sampler_sample`, so the
+distribution is unchanged. SafeSampler still cannot *catch* a `SIGABRT`;
+the EOG abort is *avoided*, not caught. The same split-out grammar also
+fixes #751 sub-class 2 (grammar-first resample) — see ADR-002
+§ "Grammar-all-rejected dist fallthrough" and § "Retry Policy" above.
 (ADR-002 §12.9 Mitigation, #253.)
 
 ### Grammar must not enumerate values — structure only
