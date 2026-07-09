@@ -255,18 +255,32 @@ nonisolated enum ScenarioSignaturePhase: CaseIterable {
     .eliminate, .choose, .conditional, .eventInject, .vote, .scoreCalc
   ]
 
-  /// Maps a ``PhaseType`` raw value to its signature kind, or `nil` for
-  /// scaffolding phases (`assign` / `speak_all` / `speak_each` / `summarize`)
-  /// and any unknown future kind — neither contributes a headline.
+  /// Maps a ``PhaseType`` to its signature kind, or `nil` for the
+  /// signature-less scaffolding / interaction kinds (`speak_all` /
+  /// `speak_each` / `reflect` / `whisper` / `assign` / `summarize` /
+  /// `relationship_update`) — none of which contribute a headline.
+  ///
+  /// `raw` is parsed through ``PhaseType`` first, so an unknown raw value (a
+  /// gallery feed newer than this build) returns `nil` and the caller's
+  /// `compactMap` drops it — preserving ADR-020's forward-compat grey-out
+  /// posture. The `switch` is then **no-default exhaustive over `PhaseType`**
+  /// (ADR-022 D2): a future phase kind breaks this file's compile until its
+  /// headline decision is made here, instead of silently falling through to
+  /// `nil`.
   init?(phaseRawValue raw: String) {
-    switch raw {
-    case "eliminate": self = .eliminate
-    case "choose": self = .choose
-    case "conditional": self = .conditional
-    case "event_inject": self = .eventInject
-    case "vote": self = .vote
-    case "score_calc": self = .scoreCalc
-    default: return nil
+    guard let phaseType = PhaseType(rawValue: raw) else { return nil }
+    switch phaseType {
+    case .eliminate: self = .eliminate
+    case .choose: self = .choose
+    case .conditional: self = .conditional
+    case .eventInject: self = .eventInject
+    case .vote: self = .vote
+    case .scoreCalc: self = .scoreCalc
+    // Signature-less kinds — no headline glyph; a scenario carrying only these
+    // falls back to `discuss` in `signaturePhase(phases:)`.
+    case .speakAll, .speakEach, .reflect, .whisper, .assign, .summarize,
+      .relationshipUpdate:
+      return nil
     }
   }
 
