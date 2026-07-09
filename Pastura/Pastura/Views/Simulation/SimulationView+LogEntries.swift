@@ -119,6 +119,26 @@ extension SimulationView {
     ContradictionBadge(agent: agent)
   }
 
+  /// Live narration for a degraded (skipped) LLM turn (ADR-021 D5). One
+  /// muted line per skip, naming the agent and phase where the turn was
+  /// omitted so the transcript stays self-explanatory at the gap — the
+  /// engine's English `cause` is intentionally not shown (the App owns
+  /// the localized copy). Live-only; the aggregate count drives the
+  /// post-hoc Results/History badge.
+  func turnSkippedEntry(agent: String, phaseType: PhaseType) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: "exclamationmark.triangle")
+        .foregroundStyle(Color.muted)
+      Text(
+        String(
+          format: String(localized: "%@'s turn was skipped (%@)"),
+          agent, PhaseDisplayName.label(for: phaseType))
+      )
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
+    }
+  }
+
   /// Full-width phase-boundary separator for LLM phases (speak / vote /
   /// choose). Mirrors `roundSeparator`'s rule + centered-content + rule
   /// structure so the transcript reads as phase "chapters" (#882), but

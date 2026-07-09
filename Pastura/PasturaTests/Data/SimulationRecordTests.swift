@@ -70,6 +70,48 @@ import Testing
     #expect(fetched?.simulationStatus == .paused)
   }
 
+  @Test func degradedTurnCountRoundTrips() throws {
+    let manager = try makeManagerWithScenario()
+    let now = Date()
+    var record = SimulationRecord(
+      id: "sim1", scenarioId: "s1",
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 3, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: now, updatedAt: now,
+      degradedTurnCount: 5)
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try SimulationRecord.fetchOne(db, key: "sim1")
+    }
+    #expect(fetched?.degradedTurnCount == 5)
+  }
+
+  @Test func degradedTurnCountDefaultsToZero() throws {
+    let manager = try makeManagerWithScenario()
+    let now = Date()
+    // Omit the trailing default param — a run with no degradation persists 0.
+    var record = SimulationRecord(
+      id: "sim1", scenarioId: "s1",
+      status: SimulationStatus.completed.rawValue,
+      currentRound: 0, currentPhaseIndex: 0,
+      stateJSON: "{}", configJSON: nil,
+      createdAt: now, updatedAt: now)
+
+    try manager.dbWriter.write { db in
+      try record.insert(db)
+    }
+
+    let fetched = try manager.dbWriter.read { db in
+      try SimulationRecord.fetchOne(db, key: "sim1")
+    }
+    #expect(fetched?.degradedTurnCount == 0)
+  }
+
   @Test func modelIdentifierAndLLMBackendRoundTrip() throws {
     let manager = try makeManagerWithScenario()
     let now = Date()

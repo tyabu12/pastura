@@ -51,6 +51,13 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
   /// run-launch callsite's `ScenarioRecord`. Nil for runs of local / self-made
   /// scenarios (no category) and for rows created before the v10 migration.
   public var scenarioCategorySnapshot: String?
+  /// Number of LLM turns that degraded to a skip during this run (ADR-021
+  /// D6). Persisted at completion; drives the Results/History
+  /// "N turns skipped" badge. `0` for runs with no degradation and for
+  /// rows created before the v12 migration (additive, `NOT NULL DEFAULT 0`).
+  /// Counts skips in the completed run segment only — see
+  /// `SimulationViewModel.degradedTurnCount`.
+  public var degradedTurnCount: Int
 
   public init(
     id: String,
@@ -66,7 +73,8 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
     llmBackend: String? = nil,
     scenarioYamlSnapshot: String? = nil,
     scenarioNameSnapshot: String? = nil,
-    scenarioCategorySnapshot: String? = nil
+    scenarioCategorySnapshot: String? = nil,
+    degradedTurnCount: Int = 0
   ) {
     self.id = id
     self.scenarioId = scenarioId
@@ -82,6 +90,7 @@ nonisolated public struct SimulationRecord: Codable, Sendable, Equatable,
     self.scenarioYamlSnapshot = scenarioYamlSnapshot
     self.scenarioNameSnapshot = scenarioNameSnapshot
     self.scenarioCategorySnapshot = scenarioCategorySnapshot
+    self.degradedTurnCount = degradedTurnCount
   }
 
   /// Type-safe accessor for the simulation status.

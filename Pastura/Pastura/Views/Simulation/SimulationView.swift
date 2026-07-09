@@ -1141,6 +1141,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       eventInjectedEntry(event: event)
     case .contradictionRevealed(let agent):
       contradictionRevealedEntry(agent: agent)
+    case .turnSkipped(let agent, let phaseType):
+      turnSkippedEntry(agent: agent, phaseType: phaseType)
     default:
       EmptyView()
     }

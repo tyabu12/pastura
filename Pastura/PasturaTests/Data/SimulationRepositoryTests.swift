@@ -5,7 +5,7 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1))) struct SimulationRepositoryTests {
 
-  private func makeRepos() throws -> (
+  func makeRepos() throws -> (
     scenario: GRDBScenarioRepository, simulation: GRDBSimulationRepository
   ) {
     let manager = try DatabaseManager.inMemory()
@@ -21,7 +21,7 @@ import Testing
     return (scenarioRepo, simRepo)
   }
 
-  private func makeSimRecord(
+  func makeSimRecord(
     id: String = "sim1",
     status: SimulationStatus = .running,
     currentRound: Int = 0,

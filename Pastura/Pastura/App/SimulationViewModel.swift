@@ -35,6 +35,14 @@ struct LogEntry: Identifiable {
     /// (#916): `agent`'s `declared_intent` was contradicted by every one of
     /// their choose actions this round. Rendered as the 🃏 reveal line.
     case contradictionRevealed(agent: String)
+    /// A degraded (skipped) LLM turn — ADR-021 D5. One live-log line per
+    /// skip, narrating *which* agent's turn was omitted and *where*
+    /// (the phase). Live-only: the durable post-hoc signal is the
+    /// aggregate `degradedTurnCount` (D6), not a per-line persistence.
+    /// The engine event's `cause` (English diagnostic) is deliberately
+    /// NOT carried here — the App renders its own localized narration
+    /// from `agent` + `phaseType`.
+    case turnSkipped(agent: String, phaseType: PhaseType)
     case error(String)
   }
 }
@@ -266,6 +274,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   func dismissLanguageMismatchToast() {
     pendingLanguageMismatchToast = nil
   }
+
+  // MARK: - Turn degradation (ADR-021 D5/D6 / #992)
+
+  /// Cumulative count of `.turnSkipped` events in the current `run()`
+  /// cycle — the App-side aggregate that mirrors ``languageMismatchCount``.
+  /// Reset on `run()` entry. Persisted to the run's `SimulationRecord`
+  /// (`degradedTurnCount` column) at completion and surfaced as a
+  /// Results/History badge (D6). Unlike ``languageMismatchCount`` this
+  /// counter is durable, so its reset semantics are load-bearing:
+  /// **final-segment** — a resumed run starts from 0, so the persisted
+  /// badge counts skips in the completed segment only, consistent with
+  /// ADR-021 D4's breaker counter (also reset on resume). A lifetime
+  /// count across resume would require persisting on pause too, which is
+  /// out of PR3 scope.
+  private(set) var degradedTurnCount: Int = 0
 
   // Running totals for weighted tok/s. See `averageTokensPerSecond`.
   private var totalCompletionTokens = 0
@@ -1059,6 +1082,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // pending or accumulated count.
     pendingLanguageMismatchToast = nil
     languageMismatchCount = 0
+    // ADR-021 D6 — reset per run so a re-used (or resumed) VM does not
+    // inherit the previous segment's skip count. Final-segment semantics:
+    // see the ``degradedTurnCount`` doc-comment.
+    degradedTurnCount = 0
     // Defense against VM reuse: today production creates a fresh VM per view
     // load, but that is not a documented invariant. A VM reused after a
     // pause-then-cancel sequence would otherwise start the next run with
@@ -1260,6 +1287,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       didPersistPaused: didPersistPaused, errorMessage: errorMessage,
       isCancelled: isCancelled, isCompleted: isCompleted) {
       await persistStatus(status)
+      // ADR-021 D6 — record the aggregate skip count only for a run that
+      // reached the end. The column already holds 0 from run-creation, so a
+      // no-skip run needs no write; a breaker/error abort stays at 0 (D6:
+      // a `.failed` run persists exactly as today).
+      if status == .completed, degradedTurnCount > 0 {
+        await persistDegradedTurnCount(degradedTurnCount)
+      }
     } else {
       lifecycleLogger.info("run exited while paused; leaving .paused for resume")
     }
@@ -1535,6 +1569,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         pendingLanguageMismatchToast = LanguageMismatchToast(
           agent: agent, detected: detected, expected: expected)
       }
+    case .turnSkipped(let agent, let phaseType, let cause):
+      // ADR-021 D5 — a contained LLM turn failure. Count it (D6 aggregate)
+      // and narrate it live, one line per skip. `cause` is the engine's
+      // English diagnostic (same register as `.error`); it is NOT rendered
+      // (the log line is localized from `agent` + `phaseType`), only logged
+      // for diagnostics. The `.debug` line interpolates only the phase enum
+      // and the engine diagnostic — no user content (the persona name is
+      // deliberately omitted per the "don't Logger-interpolate agent
+      // content" rule); `.debug` is also redacted in Release regardless.
+      degradedTurnCount += 1
+      lifecycleLogger.debug(
+        "turn skipped in \(phaseType.rawValue) — \(cause)")
+      logEntries.append(
+        LogEntry(kind: .turnSkipped(agent: agent, phaseType: phaseType)))
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):
@@ -2513,6 +2561,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     } catch {
       lifecycleLogger.error(
         "Failed to update simulation status: \(String(describing: error), privacy: .public)")
+    }
+  }
+
+  /// Persists the run's aggregate `.turnSkipped` count (ADR-021 D6). Called
+  /// once at completion; mirrors ``persistStatus(_:)``. A write failure is
+  /// non-fatal — the badge simply reads the DEFAULT 0 for this run.
+  private func persistDegradedTurnCount(_ count: Int) async {
+    guard let simId = simulationId else { return }
+    do {
+      try await offMain { [simulationRepository] in
+        try simulationRepository.updateDegradedTurnCount(simId, count: count)
+      }
+    } catch {
+      lifecycleLogger.error(
+        "Failed to persist degradedTurnCount: \(String(describing: error), privacy: .public)")
     }
   }
 }

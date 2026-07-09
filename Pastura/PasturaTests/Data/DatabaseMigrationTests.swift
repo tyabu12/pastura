@@ -223,6 +223,52 @@ import Testing
     #expect(fetched?.language == "en")
   }
 
+  @Test func v12AddsDegradedTurnCountDefaultingExistingRowsToZero() throws {
+    let queue = try makeQueue()
+    let migrator = DatabaseManager.makeMigrator()
+
+    // Migrate up to v11 — mimics an on-device DB before the degraded-turn
+    // column. Seed a scenario + a run with raw SQL (the struct now knows the
+    // v12 column the v11 schema lacks).
+    try migrator.migrate(queue, upTo: "v11_createPredictionRecordsTable")
+    let now = Date()
+    try queue.write { db in
+      try db.execute(
+        sql: """
+          INSERT INTO scenarios (id, name, yamlDefinition, isPreset, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["s1", "Legacy", "yaml", false, now, now])
+      try db.execute(
+        sql: """
+          INSERT INTO simulations
+            (id, scenarioId, status, currentRound, currentPhaseIndex, stateJSON, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          """,
+        arguments: ["legacy", "s1", "completed", 3, 0, "{}", now, now])
+    }
+
+    // Apply v12 — additive NOT NULL DEFAULT 0. The pre-existing row is not
+    // backfilled with a real count (there was none); it reads as 0.
+    try migrator.migrate(queue)
+
+    let legacy = try queue.read { db in try SimulationRecord.fetchOne(db, key: "legacy") }
+    #expect(legacy != nil)
+    #expect(legacy?.degradedTurnCount == 0)
+
+    // New rows persist the column from the struct.
+    try queue.write { db in
+      var record = SimulationRecord(
+        id: "new_run", scenarioId: "s1",
+        status: "completed", currentRound: 3, currentPhaseIndex: 0,
+        stateJSON: "{}", configJSON: nil,
+        createdAt: now, updatedAt: now, degradedTurnCount: 2)
+      try record.insert(db)
+    }
+    let fetched = try queue.read { db in try SimulationRecord.fetchOne(db, key: "new_run") }
+    #expect(fetched?.degradedTurnCount == 2)
+  }
+
   @Test func allMigrationsApplyIdempotently() throws {
     // Applying the full migrator twice must not fail and must not duplicate work.
     let queue = try makeQueue()

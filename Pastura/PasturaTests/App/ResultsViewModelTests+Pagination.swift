@@ -377,6 +377,9 @@ private final class GatedSimulationRepository: SimulationRepository, @unchecked 
   func updateStatus(_ id: String, status: SimulationStatus) throws {
     try base.updateStatus(id, status: status)
   }
+  func updateDegradedTurnCount(_ id: String, count: Int) throws {
+    try base.updateDegradedTurnCount(id, count: count)
+  }
   func totalRunCount(nameQuery: String?) throws -> Int {
     try base.totalRunCount(nameQuery: nameQuery)
   }
