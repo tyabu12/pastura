@@ -152,12 +152,13 @@ extension LlamaCppService {
   ///   - candidates: caller-owned, `n_vocab`-sized scratch buffer reused
   ///     across the token loop (avoids a per-token allocation). `nil` selects
   ///     the bundled fast path (no grammar active).
-  ///   - mode: `non-stream` / `stream` tag for the diagnostic line, so the
-  ///     analyzer can attribute catches to the calling loop.
+  ///   - diag: per-token diagnostic context (`mode` loop tag + generation
+  ///     `position`) for the always-on sampler telemetry; see
+  ///     ``SamplerDiagContext``.
   /// Allocate the reused per-generation candidate scratch buffer for the
   /// EOG-guarded sampling path, or `nil` when no grammar is active.
   ///
-  /// When a grammar is active, ``safeSample(sampler:context:vocab:candidates:mode:)``
+  /// When a grammar is active, ``safeSample(sampler:context:vocab:candidates:diag:)``
   /// replicates `llama_sampler_sample` so it can skip the abort-prone EOG
   /// accept, which needs an `n_vocab` candidate buffer. Allocated once per
   /// generation and reused across the token loop. Returns `nil` when
@@ -180,14 +181,14 @@ extension LlamaCppService {
     sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
     vocab: OpaquePointer?,
     candidates: UnsafeMutableBufferPointer<llama_token_data>?,
-    mode: String
+    diag: SamplerDiagContext
   ) throws -> Int32 {
     guard let candidates else {
       // No grammar active: the bundled sample+accept cannot hit the #253
       // grammar abort (no grammar to accept into), and reuses llama's
       // internal candidate buffer — keep the simpler, allocation-free path.
       let outcome = SafeSampler.sample(sampler: sampler, context: context, idx: -1)
-      try handleSamplerCatch(outcome.errorMessage, mode: mode)
+      try handleSamplerCatch(outcome.errorMessage, mode: diag.mode)
       return outcome.token
     }
 
@@ -221,60 +222,25 @@ extension LlamaCppService {
     }
     let token = selected[Int(curP.selected)].id
 
+    // #751 sub-class 2: a grammar-masked (-inf) selection means b8694's
+    // dist sampler degenerated (all-rejected NaN fallthrough, or a masked
+    // top candidate poisoning the sorted-flag softmax) — see
+    // `emitMaskedSelectionDiagnostic` for the mechanism. Telemetry only;
+    // behavior is intentionally unchanged here. The 2-pass grammar
+    // resample fix lands separately under #751.
+    if selected[Int(curP.selected)].logit == -Float.infinity {
+      emitMaskedSelectionDiagnostic(token: token, curP: curP, vocab: vocab, diag: diag)
+    }
+
     // #253: skip the accept for EOG. Accepting an EOG token advances the
     // grammar into the never-used post-EOG state whose all-non-empty-stack
     // case fires `GGML_ABORT`. Every non-EOG token accepts as the bundled
     // path would, so the distribution is unchanged.
     if !llama_vocab_is_eog(vocab, token) {
       let outcome = SafeSampler.accept(sampler: sampler, token: token)
-      try handleSamplerCatch(outcome.errorMessage, mode: mode)
+      try handleSamplerCatch(outcome.errorMessage, mode: diag.mode)
     }
     return token
-  }
-
-  /// Shared catch handling for both ``safeSample(sampler:context:vocab:candidates:mode:)``
-  /// branches. On a caught C++ exception from the bridge:
-  ///   1. Truncate the captured `what()` to ~160 chars so the OSLog and
-  ///      `LLMError.description` carriers stay readable.
-  ///   2. Emit a `samplerCrashCaught` structured line on
-  ///      `category:StreamingDiag` (always-on; see `samplerCatchDiagLogger`)
-  ///      so the analyzer pipeline can aggregate occurrence rates across builds.
-  ///      This line MUST keep firing once per catch — it is the
-  ///      occurrence-rate telemetry — regardless of how callers handle the
-  ///      thrown error.
-  ///   3. Throw `LLMError.samplerCrashCaught`. As of #907 the generation
-  ///      loops (`runGeneration` / `runStreamGeneration`) catch this error
-  ///      and end generation gracefully instead of failing: the crash's
-  ///      common trigger is the model continuing past a completed JSON
-  ///      object with a token outside the grammar's ASCII trailing set, so
-  ///      the completed object is already in the accumulated text — the
-  ///      completed-object case wins outright, and the incomplete case
-  ///      falls through to the parser's parse-failure retry (`LLMCaller`).
-  ///      `LLMCaller` still routes the error through its retry budget (#885)
-  ///      as defense in depth for any other surfacer, but the loops now
-  ///      intercept the common case. The diagnostic above fires once per
-  ///      catch so occurrence rates stay accurate.
-  private func handleSamplerCatch(_ errorMessage: String?, mode: String) throws {
-    guard let errorMessage else { return }
-    let truncated = String(errorMessage.prefix(160))
-    // `truncated` is llama.cpp's grammar-accept `what()`; its canonical form
-    // includes the just-sampled piece (`"after accepting piece: <piece> (<id>)"`),
-    // which can be a mid-string fragment of model-generated content — keep it
-    // `<private>` in TestFlight / Release per CLAUDE.md "Logger privacy". The
-    // structured `mode` + `model` fields stay `.public` as postmortem pivot keys.
-    Self.samplerCatchDiagLogger.error(
-      """
-      samplerCrashCaught what="\(truncated)" \
-      mode=\(mode, privacy: .public) \
-      model=\(self.modelIdentifier, privacy: .public)
-      """)
-    // Graceful stop, not fail-fast: the generation loops catch this and
-    // end generation (the completed-object case wins; #907). The raw
-    // `what()` rides in the associated value so any OTHER surfacer still
-    // gets `LLMCaller`'s retry budget (#885) as defense in depth, and
-    // `LLMError.errorDescription` formats it for display via the same
-    // "Sampler crash caught: %@" catalog key.
-    throw LLMError.samplerCrashCaught(description: truncated)
   }
 
   /// Call `llama_sampler_init_grammar` with stderr redirected to a `Pipe`

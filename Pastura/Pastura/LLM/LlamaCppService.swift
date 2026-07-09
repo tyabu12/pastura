@@ -564,7 +564,8 @@ extension LlamaCppService {
       guard
         let newTokenId = try nextContentTokenOrStop(
           sampler: sampler, context: context, vocab: vocab,
-          candidates: candidateBuffer, mode: "non-stream")
+          candidates: candidateBuffer,
+          diag: SamplerDiagContext(mode: "non-stream", position: generatedTokens))
       else { break }
 
       generatedTokens += 1
@@ -634,13 +635,13 @@ extension LlamaCppService {
     sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
     vocab: OpaquePointer?,
     candidates: UnsafeMutableBufferPointer<llama_token_data>?,
-    mode: String
+    diag: SamplerDiagContext
   ) throws -> Int32? {
     let token: Int32
     do {
       token = try safeSample(
         sampler: sampler, context: context, vocab: vocab,
-        candidates: candidates, mode: mode)
+        candidates: candidates, diag: diag)
     } catch LLMError.samplerCrashCaught {
       return nil
     }
@@ -765,7 +766,8 @@ extension LlamaCppService {
       guard
         let newTokenId = try nextContentTokenOrStop(
           sampler: sampler, context: context, vocab: vocab,
-          candidates: candidateBuffer, mode: "stream")
+          candidates: candidateBuffer,
+          diag: SamplerDiagContext(mode: "stream", position: generatedTokens))
       else { break }
 
       generatedTokens += 1
