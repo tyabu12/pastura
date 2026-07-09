@@ -93,6 +93,57 @@ while `reflect`/`whisper` are safe to interleave. The handler logs a
 `reflect`/`whisper`, it is NOT allowed inside `conditional` branches
 (validator rejection + `ConditionalHandler.subHandlers` omission).
 
+### Adding a new `PhaseType`
+
+A new `PhaseType` case ripples to many sites in two classes: the Swift
+compiler force-catches one (ADR-022's no-default-exhaustive contract — see
+§ "SimulationEvent & the projection contract"), while the other only fails a
+specific CI job or ships a silent gap. Touch **both** classes.
+
+**Compiler-caught** — no-default exhaustive `switch` over `PhaseType`; omit one
+and the build fails:
+
+- `Models/PhaseType.swift` — the case + `requiresLLM`.
+- `Models/ScenarioConventions.swift` — `primaryField` + `thoughtField`.
+- `Engine/ScenarioLoader.swift` — `estimatePhase` (inference count).
+- `Engine/ScenarioValidator.swift` — `validatePhases` arm (+ a
+  `validateRelationshipUpdateShape`-style shape check if the phase needs one).
+- `Views/Components/PhaseGlyph.swift`, `PhaseDisplayName.swift`;
+  `Views/Editor/PhaseBlockRow.swift`, `PhaseEditorSheet.swift` (×2 switches) +
+  `PhaseEditorSheet+CanonicalFieldHint.swift`.
+- `Views/Community/SharedScenarios/GalleryCatalogRow.swift` —
+  `ScenarioSignaturePhase.init?(phaseRawValue:)` (signature-glyph decision;
+  parse-then-exhaustive since ADR-022 PR-B).
+- Test switches: `PasturaTests/Engine/PhaseDispatcherTests.swift`,
+  `PasturaTests/Views/PhaseTypeLabelTests.swift`, and the
+  `PhaseType.allCases.count` pin in `PasturaTests/Models/PhaseTypeTests.swift`.
+
+**NOT compiler-caught** — green iOS build (+ unit suite + pre-commit), red
+elsewhere or a silent gap:
+
+- **`.claude/skills/scenario-factory/scripts/gallery_census.py`** — add the
+  phase to `AXES` + `AXIS_PHASES` (a distinctive mechanic) OR
+  `SCAFFOLDING_PHASES` (structural), else the Ubuntu **"Shell gate tests"** CI
+  job fails (`census: unexpected drift`). Also update both connected fixtures
+  under `.claude/skills/scenario-factory/tests/fixtures/`:
+  `gallery_census_balanced.json` (keep the new axis at 2/4 so the
+  fallback-rarest-3 test still fires) and `phase_types_current.swift` (mirror
+  the new case count).
+- YAML config fields → `App/EditablePhase.swift` (`init(from:)` + `toPhase()`)
+  and `Engine/ScenarioSerializer.swift` — neither is a `switch`, so a miss
+  silently drops the field on the visual→YAML round-trip.
+- A new `SimulationEvent` (if the phase emits one) has two *silent* sinks:
+  `tools/harness/Sources/PasturaHarnessKit/EventLineMapper.swift` — a no-default
+  canary, but caught by `swift build` only, **not** the iOS build / pre-commit
+  (see `xcodebuild-cli.md`); and `SimulationViewModel.handleEvent` /
+  `handleOutputEvent`, which still use `default:` (pending ADR-022 PR-A) so a
+  new case is silently dropped. No-default `SimulationEvent` switches like
+  `App/ReplayViewModel.apply` *do* break the iOS build — those are
+  compiler-caught, not silent.
+
+Motivating incident: PR #959 (`relationship_update`, #910) — every iOS build /
+unit / lint gate green, "Shell gate tests" red on the missing census axis.
+
 ### PhaseHandler Protocol
 
 ```swift
@@ -325,83 +376,33 @@ MVP includes exactly 3 scoring logics:
 
 Custom logic is Phase 2 scope.
 
-## SimulationEvent Definition
+## SimulationEvent & the projection contract
 
-This enum is the contract between Engine, App, and Views. Define it early —
-all three layers depend on it.
+`SimulationEvent` (and its `.error` payload `SimulationError`) is the contract
+between Engine, App, and Views — all three layers depend on it. **Single source
+of truth: `Pastura/Pastura/Models/SimulationEvent.swift`.** Do not re-enumerate
+the cases here — per `context-budget.md`, grep-findable enumerations don't
+belong in rules files, and this listing drifted twice before deletion.
 
-```swift
-nonisolated public enum SimulationEvent: Sendable, Equatable {
-    // Round lifecycle
-    case roundStarted(round: Int, totalRounds: Int)
-    case roundCompleted(round: Int, scores: [String: Int])
+**Projection contract (ADR-022) — new code.** Every production `switch` over
+`SimulationEvent`, `PhaseType`, or `CodePhaseEventPayload` must be **no-default
+exhaustive over the enum type**:
 
-    // Phase lifecycle. `phasePath` is `[K]` for top-level phase K; nested
-    // sub-phases carry `[K, N]` so future phase types with nested
-    // sub-phases share one identifier shape.
-    case phaseStarted(phaseType: PhaseType, phasePath: [Int])
-    case phaseCompleted(phaseType: PhaseType, phasePath: [Int])
+- **No `default:`.** A case a surface intentionally ignores goes in an
+  explicitly-listed arm with a why-comment, so a new case lands in *no* arm and
+  the compiler rejects the file (the `ReplayViewModel.apply` pattern).
+- **Tiered switches are allowed iff the terminal tier is no-default
+  exhaustive** (the `EventLineMapper` pattern: earlier tiers may `default:`-
+  forward, the last one lists every remaining case).
+- **No raw-string switching over phase/event kinds.** Parse
+  `PhaseType(rawValue:)` first, then switch exhaustively over the enum (the
+  `ScenarioSignaturePhase.init?(phaseRawValue:)` pattern).
 
-    // Agent outputs (LLM phases)
-    case agentOutput(agent: String, output: TurnOutput, phaseType: PhaseType)
+Full contract + rationale: `docs/decisions/ADR-022.md` § D2.
 
-    // Code phase results
-    case scoreUpdate(scores: [String: Int])
-    case elimination(agent: String, voteCount: Int)
-    case assignment(agent: String, value: String)
-    case summary(text: String)
-
-    // Vote results (after vote phase completes)
-    case voteResults(votes: [String: String], tallies: [String: Int])
-
-    // Pairing results (choose phase with round_robin)
-    case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
-
-    // Simulation lifecycle
-    case simulationCompleted
-    // Emitted only by `SimulationRunner.checkPaused`; handlers must not
-    // emit this case directly. Nested handlers invoke pause through
-    // `PhaseContext.pauseCheck`, which routes back to the single runner-
-    // owned emit point.
-    case simulationPaused(round: Int, phasePath: [Int])
-    case error(SimulationError)
-
-    // Progress (for UI feedback during long inferences)
-    case inferenceStarted(agent: String)
-    case inferenceCompleted(agent: String, durationSeconds: Double)
-}
-
-nonisolated public enum SimulationError: Error, Sendable, Equatable {
-    case scenarioValidationFailed(String)
-    /// Stores description as String (not Error) for Sendable + Equatable conformance.
-    case llmGenerationFailed(description: String)
-    case jsonParseFailed(raw: String)
-    case retriesExhausted
-    case modelNotLoaded
-    case cancelled
-}
-```
-
-### Usage Pattern in Views
-
-```swift
-// In SimulationView
-.task {
-    for await event in runner.run(scenario: scenario, config: config) {
-        switch event {
-        case .agentOutput(let agent, let output, _):
-            viewModel.appendOutput(agent: agent, output: output)
-        case .roundCompleted(_, let scores):
-            viewModel.updateScores(scores)
-        case .inferenceStarted(let agent):
-            viewModel.showThinking(agent: agent)
-        case .error(let error):
-            viewModel.showError(error)
-        // ...
-        }
-    }
-}
-```
+**Known pre-conversion carve-out (pending ADR-022 PR-A):**
+`SimulationViewModel.handleEvent` / `handleOutputEvent` still use `default:`.
+New switches follow the contract regardless.
 
 ## llama.cpp Backend Traps
 
