@@ -264,7 +264,8 @@ nonisolated public final class GRDBSimulationRepository: SimulationRepository, S
       scenarioNameSnapshot: record.scenarioNameSnapshot,
       scenarioYamlSnapshot: record.scenarioYamlSnapshot,
       scenarioCategorySnapshot: record.scenarioCategorySnapshot,
-      topScores: topScores(fromStateJSON: record.stateJSON))
+      topScores: topScores(fromStateJSON: record.stateJSON),
+      degradedTurnCount: record.degradedTurnCount)
   }
 
   /// A minimal decodable view over `stateJSON` — only `scores` is read, so

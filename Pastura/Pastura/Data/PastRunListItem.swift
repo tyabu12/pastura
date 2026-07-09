@@ -58,6 +58,12 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
   public let scenarioCategorySnapshot: String?
   /// The run's highest-scoring agents (highest-first, at most three).
   public let topScores: [PastRunScore]
+  /// Number of LLM turns that degraded to a skip during this run (ADR-021
+  /// D6). `0` for runs with no degradation and for pre-v12 rows. Drives the
+  /// row's "Turns skipped ×N" badge for completed runs (see
+  /// ``DegradedRunBadge``). Non-defaulted so the projection is forced to
+  /// carry it (a missing projection would silently render 0).
+  public let degradedTurnCount: Int
 
   public init(
     id: String,
@@ -68,7 +74,8 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
     scenarioNameSnapshot: String?,
     scenarioYamlSnapshot: String?,
     scenarioCategorySnapshot: String?,
-    topScores: [PastRunScore]
+    topScores: [PastRunScore],
+    degradedTurnCount: Int
   ) {
     self.id = id
     self.scenarioId = scenarioId
@@ -79,6 +86,7 @@ nonisolated public struct PastRunListItem: Sendable, Equatable, Identifiable {
     self.scenarioYamlSnapshot = scenarioYamlSnapshot
     self.scenarioCategorySnapshot = scenarioCategorySnapshot
     self.topScores = topScores
+    self.degradedTurnCount = degradedTurnCount
   }
 
   /// Type-safe accessor for the run status.

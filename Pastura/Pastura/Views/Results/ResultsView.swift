@@ -206,6 +206,7 @@ struct ResultsView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
         resultPill(pill)
       }
+      degradedRunCaption(for: item)
       // Gallery category caption (#748) — a small scenario-type label under the
       // title, part of the scenario-context block (category · sheep ·
       // description) beneath the name+result header. Omitted (nil) for local /
@@ -259,6 +260,19 @@ struct ResultsView: View {
     // `resultRow` HStack (no Spacer) centers the group, so each row's left edge
     // drifts with its content width. The chevron then rides the trailing edge.
     .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  /// Degraded-run annotation (ADR-021 D6) — a muted "Turns skipped ×N"
+  /// caption for a completed run that omitted one or more LLM turns. Gated to
+  /// completed + count > 0 by `DegradedRunBadge`; renders nothing otherwise.
+  @ViewBuilder
+  func degradedRunCaption(for item: PastRunListItem) -> some View {
+    if let skipped = DegradedRunBadge.skippedTurnCount(
+      status: item.simulationStatus, degradedTurnCount: item.degradedTurnCount) {
+      Text(String(format: String(localized: "Turns skipped ×%lld"), skipped))
+        .font(.caption)
+        .foregroundStyle(Color.muted)
+    }
   }
 
   /// The trailing result status pill (#747) — one capsule for every run state,

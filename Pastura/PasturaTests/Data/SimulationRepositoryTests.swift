@@ -5,7 +5,7 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1))) struct SimulationRepositoryTests {
 
-  private func makeRepos() throws -> (
+  func makeRepos() throws -> (
     scenario: GRDBScenarioRepository, simulation: GRDBSimulationRepository
   ) {
     let manager = try DatabaseManager.inMemory()
@@ -21,7 +21,7 @@ import Testing
     return (scenarioRepo, simRepo)
   }
 
-  private func makeSimRecord(
+  func makeSimRecord(
     id: String = "sim1",
     status: SimulationStatus = .running,
     currentRound: Int = 0,
@@ -201,26 +201,6 @@ import Testing
     let (_, simRepo) = try makeRepos()
     #expect(throws: DataError.self) {
       try simRepo.updateStatus("nonexistent", status: .paused)
-    }
-  }
-
-  @Test func updateDegradedTurnCountChangesOnlyThatColumn() throws {
-    let (_, simRepo) = try makeRepos()
-    try simRepo.save(makeSimRecord(status: .completed, stateJSON: #"{"scores":{}}"#))
-
-    try simRepo.updateDegradedTurnCount("sim1", count: 4)
-
-    let fetched = try simRepo.fetchById("sim1")
-    #expect(fetched?.degradedTurnCount == 4)
-    // Status and state remain untouched.
-    #expect(fetched?.simulationStatus == .completed)
-    #expect(fetched?.stateJSON == #"{"scores":{}}"#)
-  }
-
-  @Test func updateDegradedTurnCountThrowsForMissingRecord() throws {
-    let (_, simRepo) = try makeRepos()
-    #expect(throws: DataError.self) {
-      try simRepo.updateDegradedTurnCount("nonexistent", count: 1)
     }
   }
 

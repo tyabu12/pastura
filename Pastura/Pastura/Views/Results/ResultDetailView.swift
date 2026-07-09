@@ -199,6 +199,20 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   private var timelineLog: some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
+        // Degraded-run annotation (ADR-021 D6) — a muted summary banner when
+        // this completed run omitted one or more LLM turns. Gated to
+        // completed + count > 0 by `DegradedRunBadge`.
+        if let skipped = DegradedRunBadge.skippedTurnCount(
+          status: simulation?.simulationStatus,
+          degradedTurnCount: simulation?.degradedTurnCount ?? 0) {
+          Label(
+            String(format: String(localized: "Turns skipped ×%lld"), skipped),
+            systemImage: "exclamationmark.triangle"
+          )
+          .font(.caption)
+          .foregroundStyle(Color.muted)
+          .accessibilityIdentifier("resultDetail.degradedBadge")
+        }
         ForEach(items) { item in
           switch item {
           case .roundSeparator(let round):

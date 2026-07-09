@@ -6540,6 +6540,16 @@
         }
       }
     },
+    "Turns skipped ×%lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキップされたターン ×%lld"
+          }
+        }
+      }
+    },
     "Type" : {
       "localizations" : {
         "ja" : {
