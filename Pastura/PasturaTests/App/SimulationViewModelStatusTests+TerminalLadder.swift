@@ -66,4 +66,31 @@ extension SimulationViewModelStatusTests {
         didPersistPaused: false, errorMessage: nil,
         isCancelled: false, isCompleted: true) == .completed)
   }
+
+  // MARK: - ADR-021 D6: status taxonomy unchanged by turn degradation
+
+  @Test func terminalStatusIgnoresDegradationARunWithSkipsStaysCompleted() {
+    // ADR-021 D6 — a run that reached `.simulationCompleted` with skipped
+    // turns persists as `.completed`; the skip count is metadata
+    // (`degradedTurnCount`), NOT a lifecycle state. `terminalStatus` takes no
+    // degradation input, so this is a taxonomy-invariance pin: if a future
+    // change routed skips into a new status (e.g. `completedWithGaps`), the
+    // no-error completed path must still resolve to `.completed` here.
+    #expect(
+      SimulationViewModel.terminalStatus(
+        didPersistPaused: false, errorMessage: nil,
+        isCancelled: false, isCompleted: true) == .completed)
+  }
+
+  @Test func terminalStatusBreakerAbortMapsToFailed() {
+    // ADR-021 D4/D6 — a circuit-breaker abort (3 consecutive skips) throws
+    // `SimulationError.turnFailureLimitReached`, which surfaces through the
+    // existing error path and sets `errorMessage`. That maps to `.failed`
+    // exactly as any other run-fatal error — the breaker introduces no new
+    // terminal status.
+    #expect(
+      SimulationViewModel.terminalStatus(
+        didPersistPaused: false, errorMessage: "Too many turns were skipped in a row",
+        isCancelled: false, isCompleted: false) == .failed)
+  }
 }
