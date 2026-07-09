@@ -4,33 +4,53 @@ import os
 
 // MARK: - Sampler
 
+/// Chain + optional grammar handles produced by
+/// ``LlamaCppService/createSampler(grammarString:vocab:)``.
+///
+/// The grammar is held **separately** from the chain (rather than as a
+/// chain member) so ``LlamaCppService/safeSample(handles:context:vocab:candidates:diag:)``
+/// can run the upstream `common_sampler_sample` two-pass strategy: sample
+/// from the grammar-free chain, and only when the pick violates the
+/// grammar, resample with the grammar applied FIRST. That split is what
+/// avoids the b8694 dist-sampler degeneracy (#751 sub-class 2) — a grammar
+/// mask applied after top_k's truncation can leave the sorted top
+/// candidate at `-inf`, poisoning the softmax so the sampler picks a masked
+/// token (empty output at position 0).
+///
+/// **Ownership**: both handles are caller-owned. Free `chain` **always**
+/// and `grammar` when non-nil. Freeing the chain does NOT free the
+/// split-out grammar — it is no longer a chain member, so llama.cpp's
+/// chain-free does not reach it.
+nonisolated struct SamplerHandles {
+  let chain: UnsafeMutablePointer<llama_sampler>
+  /// `nil` when no schema was supplied (unconstrained generation). Present
+  /// iff the caller's `candidates` scratch buffer is present — the two are
+  /// wired from the same `schema != nil` condition and must not drift.
+  let grammar: UnsafeMutablePointer<llama_sampler>?
+}
+
 extension LlamaCppService {
-  /// Build the llama.cpp sampler chain, optionally constrained by a GBNF
-  /// grammar string.
+  /// Build the llama.cpp sampler chain, plus an optional GBNF grammar
+  /// handle held separately from the chain (see ``SamplerHandles``).
   ///
   /// - Parameters:
   ///   - grammarString: Pre-built GBNF from ``GBNFGrammarBuilder``. When
-  ///     non-nil, a `llama_sampler_init_grammar` stage is inserted into
-  ///     the chain to mask the logits to grammar-valid tokens before
-  ///     temperature smoothing.
+  ///     non-nil, a `llama_sampler_init_grammar` handle is built and
+  ///     returned alongside the chain (NOT inserted into it).
   ///   - vocab: The model's vocabulary pointer. Required iff
   ///     `grammarString` is non-nil — the grammar parser needs it to
   ///     resolve token IDs.
   ///
-  /// **Chain order**: `penalties → top_k → top_p → grammar → temperature → dist`.
-  /// Grammar is placed BEFORE temperature per llama.cpp upstream
-  /// convention (see `common/sampling.cpp`): hard-constraint masking on
-  /// the raw logits first, then temperature smoothing on the narrowed
-  /// distribution, then distribution sampling. Putting grammar after
-  /// temperature would re-weight grammar-invalid tokens the masker
-  /// already zeroed out — correct but wasteful.
+  /// **Chain order**: `penalties → top_k → top_p → temperature → dist`.
+  /// The grammar is applied outside the chain by `safeSample` (grammar-first
+  /// only on a resample), matching llama.cpp's `common_sampler_sample`.
   ///
   /// **Call sites**: both `runGeneration` (non-streaming) and
-  /// `runStreamGeneration` (streaming) call this. If you add a third
-  /// caller, wire the `grammarString` / `vocab` pair or explicitly pass
-  /// `nil` for both — missing one side silently bypasses grammar on the
-  /// path the new caller exercises, the exact regression this plan's
-  /// Critic Axis 3 flagged.
+  /// `runStreamGeneration` (streaming) call this via `prepareGeneration`.
+  /// If you add a third caller, wire the `grammarString` / `vocab` pair or
+  /// explicitly pass `nil` for both — missing one side silently bypasses
+  /// grammar on the path the new caller exercises, the exact regression
+  /// this plan's Critic Axis 3 flagged.
   ///
   /// - Throws: ``LLMError/invalidGrammar(description:)`` if
   ///   `llama_sampler_init_grammar` returns NULL (unparseable GBNF —
@@ -38,16 +58,20 @@ extension LlamaCppService {
   func createSampler(
     grammarString: String? = nil,
     vocab: OpaquePointer? = nil
-  ) throws -> UnsafeMutablePointer<llama_sampler> {
+  ) throws -> SamplerHandles {
     let sparams = llama_sampler_chain_default_params()
     guard let chain = llama_sampler_chain_init(sparams) else {
       throw LLMError.generationFailed(description: "Failed to initialize sampler chain")
     }
 
-    // Order: penalties → top_k → top_p → grammar → temperature → dist
-    // Penalties on full vocab first, then narrow, then grammar mask,
-    // then temperature, then selection. See llama.cpp upstream
-    // `common/sampling.cpp` for reference chains.
+    // Chain order: penalties → top_k → top_p → temperature → dist. The
+    // grammar is deliberately NOT a chain member — it is returned as a
+    // separate handle so `safeSample` can run the upstream
+    // `common_sampler_sample` two-pass strategy (sample from the chain,
+    // grammar-check the pick, resample grammar-first only on a miss). A
+    // grammar stage inside the chain would run AFTER top_k's truncation,
+    // reintroducing the b8694 dist-degeneracy that masks the sorted top
+    // candidate and poisons the softmax (#751 sub-class 2).
     llama_sampler_chain_add(
       chain,
       llama_sampler_init_penalties(
@@ -58,113 +82,69 @@ extension LlamaCppService {
       ))
     llama_sampler_chain_add(chain, llama_sampler_init_top_k(Self.topK))
     llama_sampler_chain_add(chain, llama_sampler_init_top_p(Self.topP, 1))
-
-    if let grammarString {
-      guard let vocab else {
-        // Defensive: if the caller supplies grammar but forgets vocab, we
-        // can't wire the grammar sampler. This is a programming bug,
-        // surface it loudly via the same fail-fast path as a NULL return.
-        llama_sampler_free(chain)
-        throw LLMError.invalidGrammar(
-          description: "createSampler: grammar supplied without vocab")
-      }
-      // `llama_sampler_init_grammar` returns NULL when the grammar
-      // string itself fails to parse. GBNFGrammarBuilder golden tests
-      // should prevent this reaching production, but if it does we
-      // want fail-fast, NOT the 3x-retry charade `.generationFailed`
-      // would trigger via LLMCaller (Critic Axis 11).
-      let (grammarSamplerOpt, capturedStderr) = grammarString.withCString { cStr in
-        initGrammarCapturingStderr(vocab: vocab, grammarCString: cStr)
-      }
-      guard let grammarSampler = grammarSamplerOpt else {
-        llama_sampler_free(chain)
-        // Log the FULL grammar at error level so Console.app captures it
-        // verbatim — the `invalidGrammar` error's description field is
-        // rendered in iOS alerts where backslashes / quotes are mangled.
-        // Append captured stderr (the parser-internal detail from
-        // llama-grammar.cpp:713) wrapped in sentinel markers so unrelated
-        // process-level stderr writes during the capture window are
-        // visually attributable rather than mistaken for grammar errors.
-        // Filter:  subsystem:app.pastura.Pastura category:LlamaCppService
-        //          message contains "GBNF grammar parse failed"
-        logger.error(
-          """
-          GBNF grammar parse failed — llama_sampler_init_grammar returned NULL.
-          <<<BEGIN GBNF>>>
-          \(grammarString, privacy: .public)
-          <<<END GBNF>>>
-          --- BEGIN llama.cpp stderr capture (process-wide window — may include unrelated writers) ---
-          \(capturedStderr, privacy: .public)
-          --- END capture ---
-          """)
-        let snippet = grammarString.prefix(200)
-        throw LLMError.invalidGrammar(
-          description: String(
-            format: String(localized: "GBNF grammar parse failed: %@"), String(snippet)))
-      }
-      llama_sampler_chain_add(chain, grammarSampler)
-    }
-
     llama_sampler_chain_add(chain, llama_sampler_init_temp(Self.temperature))
     llama_sampler_chain_add(
       chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
 
-    return chain
+    guard let grammarString else {
+      return SamplerHandles(chain: chain, grammar: nil)
+    }
+    guard let vocab else {
+      // Defensive: if the caller supplies grammar but forgets vocab, we
+      // can't wire the grammar sampler. This is a programming bug,
+      // surface it loudly via the same fail-fast path as a NULL return.
+      llama_sampler_free(chain)
+      throw LLMError.invalidGrammar(
+        description: "createSampler: grammar supplied without vocab")
+    }
+    // `llama_sampler_init_grammar` returns NULL when the grammar
+    // string itself fails to parse. GBNFGrammarBuilder golden tests
+    // should prevent this reaching production, but if it does we
+    // want fail-fast, NOT the 3x-retry charade `.generationFailed`
+    // would trigger via LLMCaller (Critic Axis 11).
+    let (grammarSamplerOpt, capturedStderr) = grammarString.withCString { cStr in
+      initGrammarCapturingStderr(vocab: vocab, grammarCString: cStr)
+    }
+    guard let grammarSampler = grammarSamplerOpt else {
+      llama_sampler_free(chain)
+      // Log the FULL grammar at error level so Console.app captures it
+      // verbatim — the `invalidGrammar` error's description field is
+      // rendered in iOS alerts where backslashes / quotes are mangled.
+      // Append captured stderr (the parser-internal detail from
+      // llama-grammar.cpp:713) wrapped in sentinel markers so unrelated
+      // process-level stderr writes during the capture window are
+      // visually attributable rather than mistaken for grammar errors.
+      // Filter:  subsystem:app.pastura.Pastura category:LlamaCppService
+      //          message contains "GBNF grammar parse failed"
+      logger.error(
+        """
+        GBNF grammar parse failed — llama_sampler_init_grammar returned NULL.
+        <<<BEGIN GBNF>>>
+        \(grammarString, privacy: .public)
+        <<<END GBNF>>>
+        --- BEGIN llama.cpp stderr capture (process-wide window — may include unrelated writers) ---
+        \(capturedStderr, privacy: .public)
+        --- END capture ---
+        """)
+      let snippet = grammarString.prefix(200)
+      throw LLMError.invalidGrammar(
+        description: String(
+          format: String(localized: "GBNF grammar parse failed: %@"), String(snippet)))
+    }
+    return SamplerHandles(chain: chain, grammar: grammarSampler)
   }
 
-  /// Sample the next token, guarding the grammar accept against the #253
-  /// EOG-path `GGML_ABORT`.
-  ///
-  /// `llama_sampler_sample` does apply (logit mask + selection) then
-  /// `llama_sampler_accept` in one call. The #253 abort
-  /// (`llama-grammar.cpp:1435`) fires inside that accept when the sampled
-  /// token is EOG and no grammar stack is empty. Generation ends at EOG, so
-  /// the grammar's post-EOG state is never read again — accepting EOG is
-  /// pointless. POSIX `SIGABRT` cannot be caught (it bypasses `try/catch`),
-  /// so the only fix is to NOT take that accept.
-  ///
-  /// - When a grammar is active (`candidates != nil`) this replicates the
-  ///   sample path — build `cur_p` from the logits → `llama_sampler_apply`
-  ///   (runs the full chain incl. the dist selection) → read `selected` —
-  ///   and then accepts ONLY non-EOG tokens via
-  ///   ``SafeSampler/accept(sampler:token:)``. Non-EOG tokens accept exactly
-  ///   as the bundled call would, so the sampling distribution is unchanged;
-  ///   only the never-used EOG accept is skipped.
-  /// - When no grammar is active (`candidates == nil`) the bundled
-  ///   ``SafeSampler/sample(sampler:context:idx:)`` runs unchanged: with no
-  ///   grammar there is nothing for an EOG accept to abort, and the bundled
-  ///   path reuses llama's internal candidate buffer.
-  ///
-  /// Catch path (both branches): the grammar `accept_token`
-  /// `std::runtime_error` (#334 / #366 / #371) surfaces as
-  /// ``SafeSampler/Outcome/errorMessage`` and is routed through
-  /// ``handleSamplerCatch(_:mode:)`` (diagnostic + `LLMError.samplerCrashCaught`).
-  /// See `LLM/SafeSampler/SafeSampler.h` for the catch scope. The grammar
-  /// `apply` does not throw `std::exception` (only `GGML_ASSERT` /
-  /// `GGML_ABORT` signals), so the Swift-side `apply` here loses no coverage.
-  ///
-  /// The generation loops catch the thrown `LLMError.samplerCrashCaught` as
-  /// end-of-generation (`nextContentTokenOrStop`, #907); the diagnostic
-  /// still fires once per catch for occurrence-rate telemetry.
-  ///
-  /// - Parameters:
-  ///   - vocab: model vocab pointer, for EOG classification.
-  ///   - candidates: caller-owned, `n_vocab`-sized scratch buffer reused
-  ///     across the token loop (avoids a per-token allocation). `nil` selects
-  ///     the bundled fast path (no grammar active).
-  ///   - diag: per-token diagnostic context (`mode` loop tag + generation
-  ///     `position`) for the always-on sampler telemetry; see
-  ///     ``SamplerDiagContext``.
   /// Allocate the reused per-generation candidate scratch buffer for the
-  /// EOG-guarded sampling path, or `nil` when no grammar is active.
+  /// grammar-constrained sampling path, or `nil` when no grammar is active.
   ///
-  /// When a grammar is active, ``safeSample(sampler:context:vocab:candidates:diag:)``
-  /// replicates `llama_sampler_sample` so it can skip the abort-prone EOG
-  /// accept, which needs an `n_vocab` candidate buffer. Allocated once per
+  /// When a grammar is active,
+  /// ``safeSample(handles:context:vocab:candidates:diag:)`` rebuilds a
+  /// full-vocab `cur_p` from the raw logits each token (twice on a
+  /// resample), which needs an `n_vocab`-sized buffer. Allocated once per
   /// generation and reused across the token loop. Returns `nil` when
   /// `schema == nil` (no grammar built — the bundled path needs no buffer),
-  /// mirroring the `createSampler` grammar-build condition so the two call
-  /// sites (`runGeneration` / `runStreamGeneration`) cannot drift.
+  /// mirroring the `createSampler` grammar-build condition so the buffer and
+  /// the ``SamplerHandles/grammar`` handle cannot drift.
   ///
   /// - Important: ownership stays with the caller — the buffer's lifetime is
   ///   the whole generation, so the caller MUST `deallocate()` it (via
@@ -177,8 +157,34 @@ extension LlamaCppService {
     return .allocate(capacity: Int(llama_vocab_n_tokens(vocab)))
   }
 
+  /// Sample the next token, dispatching on whether a grammar is active.
+  ///
+  /// - No grammar (`candidates == nil`): the bundled
+  ///   ``SafeSampler/sample(sampler:context:idx:)`` runs unchanged — with no
+  ///   grammar there is nothing for an EOG accept to abort, and the bundled
+  ///   path reuses llama's internal candidate buffer.
+  /// - Grammar active (`candidates != nil`): delegates to the two-pass
+  ///   ``grammarConstrainedSample(chain:grammar:context:vocab:candidates:diag:)``,
+  ///   which keeps the #253 EOG-accept skip and adds the #751 sub-class 2
+  ///   grammar-first resample.
+  ///
+  /// Catch path: the grammar `accept_token` `std::runtime_error`
+  /// (#334 / #366 / #371) surfaces as ``SafeSampler/Outcome/errorMessage``
+  /// and is routed through ``handleSamplerCatch(_:mode:)`` (diagnostic +
+  /// `LLMError.samplerCrashCaught`). The generation loops catch that as
+  /// end-of-generation (`nextContentTokenOrStop`, #907).
+  ///
+  /// - Parameters:
+  ///   - handles: chain + optional grammar handle from `createSampler`.
+  ///     `handles.grammar` is non-nil iff `candidates` is non-nil.
+  ///   - vocab: model vocab pointer, for EOG classification.
+  ///   - candidates: caller-owned, `n_vocab`-sized scratch buffer reused
+  ///     across the token loop. `nil` selects the bundled fast path.
+  ///   - diag: per-token diagnostic context (`mode` loop tag + generation
+  ///     `position`) for the always-on sampler telemetry; see
+  ///     ``SamplerDiagContext``.
   func safeSample(
-    sampler: UnsafeMutablePointer<llama_sampler>, context: OpaquePointer,
+    handles: SamplerHandles, context: OpaquePointer,
     vocab: OpaquePointer?,
     candidates: UnsafeMutableBufferPointer<llama_token_data>?,
     diag: SamplerDiagContext
@@ -187,60 +193,13 @@ extension LlamaCppService {
       // No grammar active: the bundled sample+accept cannot hit the #253
       // grammar abort (no grammar to accept into), and reuses llama's
       // internal candidate buffer — keep the simpler, allocation-free path.
-      let outcome = SafeSampler.sample(sampler: sampler, context: context, idx: -1)
+      let outcome = SafeSampler.sample(sampler: handles.chain, context: context, idx: -1)
       try handleSamplerCatch(outcome.errorMessage, mode: diag.mode)
       return outcome.token
     }
-
-    // Grammar active: replicate `llama_sampler_sample` so the EOG accept can
-    // be skipped. Mirrors the upstream CPU path (b8694
-    // `src/llama-sampler.cpp`) — our chain uses no backend sampler, so the
-    // plain logits branch is the one that runs.
-    guard let logits = llama_get_logits_ith(context, -1) else {
-      throw LLMError.generationFailed(
-        description: String(localized: "Sampler produced no logits"))
-    }
-    guard let base = candidates.baseAddress, !candidates.isEmpty else {
-      throw LLMError.generationFailed(
-        description: String(localized: "Sampler candidate buffer is empty"))
-    }
-    let count = candidates.count
-    for i in 0..<count {
-      base[i] = llama_token_data(id: Int32(i), logit: logits[i], p: 0)
-    }
-    // Rebuild `cur_p` each token with `selected = -1` so a stale selection
-    // index cannot leak across the reused buffer; `llama_sampler_apply` sets
-    // it (the chain's terminal dist sampler selects).
-    var curP = llama_token_data_array(
-      data: base, size: count, selected: -1, sorted: false)
-    llama_sampler_apply(sampler, &curP)
-    guard curP.selected >= 0, curP.selected < Int64(curP.size),
-      let selected = curP.data
-    else {
-      throw LLMError.generationFailed(
-        description: String(localized: "Sampler produced no selection"))
-    }
-    let token = selected[Int(curP.selected)].id
-
-    // #751 sub-class 2: a grammar-masked (-inf) selection means b8694's
-    // dist sampler degenerated (all-rejected NaN fallthrough, or a masked
-    // top candidate poisoning the sorted-flag softmax) — see
-    // `emitMaskedSelectionDiagnostic` for the mechanism. Telemetry only;
-    // behavior is intentionally unchanged here. The 2-pass grammar
-    // resample fix lands separately under #751.
-    if selected[Int(curP.selected)].logit == -Float.infinity {
-      emitMaskedSelectionDiagnostic(token: token, curP: curP, vocab: vocab, diag: diag)
-    }
-
-    // #253: skip the accept for EOG. Accepting an EOG token advances the
-    // grammar into the never-used post-EOG state whose all-non-empty-stack
-    // case fires `GGML_ABORT`. Every non-EOG token accepts as the bundled
-    // path would, so the distribution is unchanged.
-    if !llama_vocab_is_eog(vocab, token) {
-      let outcome = SafeSampler.accept(sampler: sampler, token: token)
-      try handleSamplerCatch(outcome.errorMessage, mode: diag.mode)
-    }
-    return token
+    return try grammarConstrainedSample(
+      handles: handles, context: context,
+      vocab: vocab, candidates: candidates, diag: diag)
   }
 
   /// Call `llama_sampler_init_grammar` with stderr redirected to a `Pipe`

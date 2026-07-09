@@ -74,7 +74,38 @@ extension LlamaCppService {
       stderr)
   }
 
-  /// Shared catch handling for both ``safeSample(sampler:context:vocab:candidates:diag:)``
+  /// #751: fires when pass 1 (grammar-free chain) picked a token the grammar
+  /// rejects, so ``grammarConstrainedSample`` had to resample grammar-first.
+  ///
+  /// Emitted only at `position == 0` — a nonzero position-0 resample rate is
+  /// the empty-output fragility signal for the model-onboarding pipeline (a
+  /// weak JSON prior that would, pre-fix, have produced "Model generated no
+  /// output tokens"). Post-fix these are *rescued*, not failures, so this is
+  /// a health metric, not an error. Off the hot path (only when a resample
+  /// is actually needed) and position-gated to stay low-volume. Token ID
+  /// only — never the decoded piece (CLAUDE.md "Logger privacy").
+  func emitGrammarResampleDiagnostic(
+    rejectedToken: Int32, vocab: OpaquePointer?, diag: SamplerDiagContext
+  ) {
+    guard diag.position == 0 else { return }
+    let isEOG = llama_vocab_is_eog(vocab, rejectedToken)
+    Self.samplerCatchDiagLogger.error(
+      """
+      samplerGrammarResample rejectedTokenId=\(rejectedToken, privacy: .public) \
+      isEOG=\(isEOG, privacy: .public) \
+      position=\(diag.position, privacy: .public) \
+      mode=\(diag.mode, privacy: .public) \
+      model=\(self.modelIdentifier, privacy: .public)
+      """)
+    // Mirror to stderr for the macOS harness (ADR-013), same rationale as
+    // `emitMaskedSelectionDiagnostic`.
+    fputs(
+      "samplerGrammarResample rejectedTokenId=\(rejectedToken) isEOG=\(isEOG) "
+        + "position=\(diag.position) mode=\(diag.mode) model=\(modelIdentifier)\n",
+      stderr)
+  }
+
+  /// Shared catch handling for both ``safeSample(handles:context:vocab:candidates:diag:)``
   /// branches. On a caught C++ exception from the bridge:
   ///   1. Truncate the captured `what()` to ~160 chars so the OSLog and
   ///      `LLMError.description` carriers stay readable.
