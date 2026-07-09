@@ -15,6 +15,17 @@
 # sail through. This hook is the mechanical guard behind the skill's
 # hard rules (never force push, PRs stay Draft).
 #
+# Draft-invariant residual (#1026): the allowlist now also carries
+# `Bash(gh pr create --base*)` for the attended `/orchestrate` ready-PR
+# path, so a non-draft `gh pr create --base …` is no longer mechanically
+# blocked for ANY session. This hook still blocks `gh pr ready`, so a
+# *created* Draft cannot be flipped — but the "unattended skills only
+# ever open Draft PRs" guarantee now rests on those skills leading their
+# create with `--draft` (a SKILL.md convention: queue-consumer,
+# consistency-audit), not on the allowlist excluding a non-draft create.
+# A mechanical block cannot tell an attended `/orchestrate` create from
+# an unattended bug, so this residual is documented rather than blocked.
+#
 # Scope of the force-flag scan (#616): the unambiguous `--force*` long
 # form is matched against the WHOLE command. The ambiguous shapes
 # (`-f` short-flag clusters, `+refspec`) are scanned ONLY within a

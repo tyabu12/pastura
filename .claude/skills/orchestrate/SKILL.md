@@ -370,7 +370,7 @@ Present the PR draft (title + body + label) for visibility — this is informati
 - Body: Summary bullets + test plan + a `## Device QA` section + `Closes #N` (always present — Issue is always created). The `## Device QA` section lists the concrete on-device steps a reviewer must run, or a single `実機QA不要` line with the one-line reason when none apply.
 - Label: from the table above
 
-Push the branch first: `git push -u origin <branch>`. Then create the PR directly:
+Push the branch first as its **own** Bash tool call: `git push -u origin <branch>`. Then create the PR as a **separate** call — never combine the two with `&&`, or the `gh pr create --base`-gated PreToolUse (`check-claude-md`) and PostToolUse (`pr-created-reflection`) hooks won't fire (their prefix gate is anchored at position 0, so a leading `git push` breaks the match):
 
 ```bash
 gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
