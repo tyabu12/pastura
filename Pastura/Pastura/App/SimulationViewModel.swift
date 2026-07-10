@@ -1650,6 +1650,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       thinkingAgents.remove(agent)
       handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
     default:
+      // Lifecycle tier-1 forward: the D2 no-default exhaustiveness pin lives in
+      // `handleOutputEvent` (ADR-022 §D2 tiered pattern), NOT this arm — a new
+      // SimulationEvent case compile-breaks there, not here.
       handleOutputEvent(event)
     }
   }

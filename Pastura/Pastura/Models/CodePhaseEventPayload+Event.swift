@@ -9,7 +9,9 @@ import Foundation
 // `CodePhaseEventPayload` iff it yields a `defaultCodePhaseType`. Keep them in
 // lockstep. Both are no-default exhaustive over `SimulationEvent` (ADR-022 D2),
 // so a newly added event case fails to compile here until its projection —
-// a payload, or an explicit `nil` — is decided.
+// a payload, or an explicit `nil` — is decided. A broken pairing (one half
+// non-nil, the other nil) is caught by the D5 executable backstop
+// `CrossVMEventParityTests.bothVMsProjectTheSameCodePhaseSemantics`.
 
 nonisolated extension CodePhaseEventPayload {
   /// Projects a `SimulationEvent` to its durable code-phase payload, or `nil`
