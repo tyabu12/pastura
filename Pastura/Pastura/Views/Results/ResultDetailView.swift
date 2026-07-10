@@ -42,6 +42,11 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   /// against) — both degrade to an unbadged timeline.
   @State var contradictionBadgedTurnIDs: Set<String> = []  // not private — see note above
   @State private var isLoading = true
+  /// Cached D8 resume-affordance gate, computed once in ``loadData()`` so the
+  /// banner never re-decodes `stateJSON` on every `body` pass (mirrors the
+  /// view's decode-once-then-cache convention). Read by the `+ResumeBanner`
+  /// sibling extension — not `private`.
+  @State var isResumable = false
   @State var showAllThoughts = true  // not private — see note above
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var isExporting = false
@@ -319,10 +324,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       self.agentOrder = fetched.agentOrder
       self.personas = fetched.personas
       self.contradictionBadgedTurnIDs = fetched.contradictionBadgedTurnIDs
+      // ADR-021 D8: resolve the resume gate once at load (see resolveIsResumable).
+      self.isResumable = resolveIsResumable(fetched.simulation)
     } catch {
       self.turns = []
       self.events = []
       self.items = []
+      self.isResumable = false
     }
     self.isLoading = false
   }
@@ -353,7 +361,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   }
 
   // Not `private`: read by the `+ResumeBanner.swift` sibling extension (D8
-  // resume gate), which can't see `private` members (same-file only).
+  // resume gate — `decodeState` + `resolveIsResumable` live there), which
+  // can't see `private` members (same-file only).
   func decodeState(from record: SimulationRecord) -> SimulationState? {
     guard let data = record.stateJSON.data(using: .utf8) else { return nil }
     return try? JSONDecoder().decode(SimulationState.self, from: data)
