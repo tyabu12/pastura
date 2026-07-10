@@ -1650,82 +1650,93 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       thinkingAgents.remove(agent)
       handleInferenceCompleted(durationSeconds: seconds, tokenCount: tokens)
     default:
+      // Lifecycle tier-1 forward: the D2 no-default exhaustiveness pin lives in
+      // `handleOutputEvent` (ADR-022 §D2 tiered pattern), NOT this arm — a new
+      // SimulationEvent case compile-breaks there, not here.
       handleOutputEvent(event)
     }
   }
 
-  /// Handles score, vote, and other code-phase result events. Each branch
-  /// updates UI state AND persists a `CodePhaseEventRecord` so exports can
-  /// reconstruct per-phase outcomes.
+  /// Terminal tier of the `handleEvent` → `handleOutputEvent` two-tier switch
+  /// (ADR-022 P1/D2). Each code-phase arm updates UI state; **persistence is
+  /// collapsed** into the single post-switch `persistCodePhaseEventIfNeeded`
+  /// call (ADR-022 P4/D3) instead of a per-arm construction.
   ///
-  /// The persisted `phaseType` column uses `currentPhaseType` (tracked from
-  /// `.phaseStarted`) with a per-event fallback. This is essential for
-  /// `.summary`, which fires from both `SummarizeHandler` and scoring logics
-  /// like `wordwolf_judge` inside `ScoreCalcHandler` — hard-coding would
-  /// bucket the judge verdict into the wrong phase in exports.
+  /// **No-default exhaustive** over `SimulationEvent` (ADR-022 D2): the
+  /// non-code-phase remainder is an explicitly-listed `break` arm, so a new
+  /// event case fails to compile here until a decision is made — replacing the
+  /// former `default: break` that let a new case silently no-op.
   private func handleOutputEvent(_ event: SimulationEvent) {
     switch event {
     case .scoreUpdate(let newScores):
       handleScoreUpdate(scores: newScores)
-      persistCodePhaseEvent(
-        phaseType: currentPhaseType?.rawValue ?? PhaseType.scoreCalc.rawValue,
-        payload: .scoreUpdate(scores: newScores))
     case .elimination(let agent, let voteCount):
       handleElimination(agent: agent, voteCount: voteCount)
-      persistCodePhaseEvent(
-        phaseType: currentPhaseType?.rawValue ?? PhaseType.eliminate.rawValue,
-        payload: .elimination(agent: agent, voteCount: voteCount))
     case .assignment(let agent, let value):
       // Accumulate for the wolf ground-truth derivation at the first vote
       // reveal (#915). Assign phases run before any vote, so this is populated
       // by the time the prediction is scored.
       predictionAssignments[agent] = value
       logEntries.append(LogEntry(kind: .assignment(agent: agent, value: value)))
-      persistCodePhaseEvent(
-        phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
-        payload: .assignment(agent: agent, value: value))
     case .sharedAssignment(let value):
       handleSharedAssignment(value: value)
     case .summary(let text):
       logEntries.append(LogEntry(kind: .summary(text: text)))
-      // `.summary` also fires for validator warnings (before the first round
-      // starts, currentRound == 0) and early-termination (after the round
-      // loop exits). Export intentionally drops pre-round warnings — they
-      // are diagnostic, not part of the scenario's narrative.
-      if currentRound > 0 {
-        persistCodePhaseEvent(
-          phaseType: currentPhaseType?.rawValue ?? PhaseType.summarize.rawValue,
-          payload: .summary(text: text))
-      }
     case .voteResults(let votes, let tallies):
       // Keep the latest tallies for the final-ranking card's vote-only
       // ranking (#868); last-wins matches `scores`' full-replace semantics.
       voteResults = tallies
       logEntries.append(LogEntry(kind: .voteResults(votes: votes, tallies: tallies)))
-      persistCodePhaseEvent(
-        phaseType: currentPhaseType?.rawValue ?? PhaseType.vote.rawValue,
-        payload: .voteResults(votes: votes, tallies: tallies))
     case .pairingResult(let agent1, let act1, let agent2, let act2):
       logEntries.append(
         LogEntry(
           kind: .pairingResult(
             agent1: agent1, action1: act1, agent2: agent2, action2: act2
           )))
-      persistCodePhaseEvent(
-        phaseType: currentPhaseType?.rawValue ?? PhaseType.choose.rawValue,
-        payload: .pairingResult(
-          agent1: agent1, action1: act1, agent2: agent2, action2: act2))
-    case .eventInjected(let event):
-      // Persist + log even on miss (`event == nil`) so past-results
-      // timelines and Markdown export distinguish "phase didn't run"
-      // from "phase ran and rolled a miss".
-      logEntries.append(LogEntry(kind: .eventInjected(event: event)))
-      persistCodePhaseEvent(
-        phaseType: currentPhaseType?.rawValue ?? PhaseType.eventInject.rawValue,
-        payload: .eventInjected(event: event))
-    default:
+    case .eventInjected(let injected):
+      // Log even on miss (`injected == nil`) so past-results timelines and
+      // Markdown export distinguish "phase didn't run" from "phase ran and
+      // rolled a miss". Persistence of the miss is handled by the collapse.
+      logEntries.append(LogEntry(kind: .eventInjected(event: injected)))
+    // Non-code-phase events: handled upstream in `handleEvent`'s lifecycle
+    // tier (they never reach here via the `default:` forward) or intentionally
+    // not projected by this surface (`relationshipUpdate` has no live display
+    // in v1). Listed explicitly — no `default:` — so a new case forces a
+    // decision (ADR-022 D2).
+    case .roundStarted, .roundCompleted, .phaseStarted, .phaseCompleted,
+      .agentOutput, .agentOutputStream, .relationshipUpdate,
+      .conditionalEvaluated, .simulationCompleted, .roundCheckpoint,
+      .simulationPaused, .error, .inferenceStarted, .inferenceCompleted,
+      .languageMismatch, .turnSkipped:
       break
     }
+    persistCodePhaseEventIfNeeded(event)
+  }
+
+  /// The single `SimulationEvent` → `code_phase_events` persist path (ADR-022
+  /// P4/D3), replacing the eight ad-hoc constructions previously scattered
+  /// across `handleOutputEvent` arms and `handleSharedAssignment`.
+  ///
+  /// The payload and its fallback phase are non-nil for exactly the same case
+  /// set (the paired-nil invariant of ``CodePhaseEventPayload/init(event:)`` /
+  /// ``SimulationEvent/defaultCodePhaseType``), so both bind — the fallback is
+  /// never force-unwrapped. The persisted `phaseType` prefers the live
+  /// `currentPhaseType` (tracked from `.phaseStarted`); the per-event fallback
+  /// matters for `.summary`, which fires from both `SummarizeHandler` and
+  /// scoring logics like `wordwolf_judge` — a hard-coded phase would mis-bucket
+  /// the judge verdict in exports.
+  private func persistCodePhaseEventIfNeeded(_ event: SimulationEvent) {
+    guard let payload = CodePhaseEventPayload(event: event),
+      let fallbackPhase = event.defaultCodePhaseType
+    else { return }
+    // `.summary` also fires for validator warnings (before the first round
+    // starts, currentRound == 0) and early-termination (after the round loop
+    // exits). Export intentionally drops the pre-round warnings — they are
+    // diagnostic, not part of the scenario's narrative.
+    if case .summary = event, currentRound == 0 { return }
+    persistCodePhaseEvent(
+      phaseType: currentPhaseType?.rawValue ?? fallbackPhase.rawValue,
+      payload: payload)
   }
 
   private func handleRoundStarted(round: Int, total: Int) {
@@ -2043,10 +2054,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // line, no agent attribution. Deliberately NOT written to
     // `predictionAssignments`: that is word-wolf per-agent ground truth (#915),
     // and a shared topic has no minority holder to derive a wolf from.
+    // Persistence is handled by `handleOutputEvent`'s post-switch collapse.
     logEntries.append(LogEntry(kind: .sharedAssignment(value: value)))
-    persistCodePhaseEvent(
-      phaseType: currentPhaseType?.rawValue ?? PhaseType.assign.rawValue,
-      payload: .sharedAssignment(value: value))
   }
 
   private func handleElimination(agent: String, voteCount: Int) {

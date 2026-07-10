@@ -403,6 +403,41 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case elimination(agent: String, voteCount: Int)
     case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
     case eventInjected(event: String?)
+
+    /// Derives the replay line from the shared ADR-022 D3 semantic core
+    /// (`CodePhaseEventPayload`) so the demo stream and the live
+    /// `SimulationViewModel` project the same discriminator/values from one
+    /// source. No-default exhaustive over `CodePhaseEventPayload` — a new
+    /// payload case forces a decision here.
+    ///
+    /// Replay-only concern folded in: defense-in-depth ContentFilter is applied
+    /// to the free-text values (`value` / `text` / chosen `action`s / injected
+    /// `event`) per the header §"ContentFilter scope" — the live VM trusts its
+    /// own filter placement and appends raw. Structured identifiers (persona
+    /// names, `scoreUpdate`/`voteResults` keys) are carried verbatim; `votes`
+    /// (who voted for whom) has no visible surface and is dropped.
+    init(payload: CodePhaseEventPayload, filter: ContentFilter) {
+      switch payload {
+      case .assignment(let agent, let value):
+        self = .assignment(agent: agent, value: filter.filter(value))
+      case .sharedAssignment(let value):
+        self = .sharedAssignment(value: filter.filter(value))
+      case .summary(let text):
+        self = .summary(text: filter.filter(text))
+      case .voteResults(_, let tallies):
+        self = .voteResults(tallies: tallies)
+      case .scoreUpdate(let scores):
+        self = .scoreUpdate(scores: scores)
+      case .elimination(let agent, let voteCount):
+        self = .elimination(agent: agent, voteCount: voteCount)
+      case .pairingResult(let agent1, let action1, let agent2, let action2):
+        self = .pairingResult(
+          agent1: agent1, action1: filter.filter(action1),
+          agent2: agent2, action2: filter.filter(action2))
+      case .eventInjected(let event):
+        self = .eventInjected(event: event.map { filter.filter($0) })
+      }
+    }
   }
 
   // MARK: - Dependencies
@@ -1062,7 +1097,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
   /// live VM's `handleEvent`: restoring the per-event code-phase lines and the
   /// lifecycle chapter separators (#932) split combined cases into individual
   /// arms — a flat dispatch, not nested logic.
-  private func apply(_ event: SimulationEvent) {  // swiftlint:disable:this cyclomatic_complexity function_body_length
+  private func apply(_ event: SimulationEvent) {
     switch event {
     case .roundStarted(let round, let totalRounds):
       currentRound = round
@@ -1090,75 +1125,30 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
           AgentOutputEntry(agent: agent, output: filtered, phaseType: phaseType)))
 
     case .scoreUpdate(let newScores):
-      // Full-replace, matching ``SimulationViewModel/handleScoreUpdate``.
-      // Feeds the closing card's ranking (#884) AND renders an inline score
-      // summary line (#932). No ContentFilter — the keys are persona names
-      // (structured identifiers); filtering could corrupt a name that happens
-      // to contain a blocklist substring (see header § "ContentFilter scope").
+      // Full-replace, matching ``SimulationViewModel/handleScoreUpdate``,
+      // feeding the closing card's ranking (#884). The inline score line is
+      // derived from the shared payload below (#932).
       scores = newScores
-      chatItems.append(
-        .codePhaseLine(id: UUID(), line: .scoreUpdate(scores: newScores)))
+      appendCodePhaseLine(for: event)
 
     case .voteResults(_, let tallies):
-      // Keep the latest tallies for the closing card's vote-only ranking AND
-      // render an inline tally line (#932). Last-wins matches `scores`'
-      // full-replace semantics. `votes` (who voted for whom) has no visible
-      // surface, so it is dropped here.
+      // Keep the latest tallies for the closing card's vote-only ranking
+      // (#932). Last-wins matches `scores`' full-replace semantics.
       voteResults = tallies
-      chatItems.append(
-        .codePhaseLine(id: UUID(), line: .voteResults(tallies: tallies)))
+      appendCodePhaseLine(for: event)
 
     case .elimination(let agent, let voteCount):
       // Capture the count at elimination time so the card's survival framing
-      // shows each eliminated agent's own round tally (#884) AND render an
-      // inline elimination line (#932). Structured identifiers — unfiltered.
+      // shows each eliminated agent's own round tally (#884).
       eliminated[agent] = true
       eliminationVotes[agent] = voteCount
-      chatItems.append(
-        .codePhaseLine(id: UUID(), line: .elimination(agent: agent, voteCount: voteCount)))
+      appendCodePhaseLine(for: event)
 
-    case .assignment(let agent, let value):
-      // The per-round お題 that grounds every agent response (#932) — the
-      // reported bug was this being a silent no-op. Render-time ContentFilter
-      // on the value per the header § "ContentFilter scope" (defense-in-depth;
-      // the live VM appends raw). The agent name is a structured identifier,
-      // passed through unfiltered.
-      chatItems.append(
-        .codePhaseLine(
-          id: UUID(),
-          line: .assignment(agent: agent, value: contentFilter.filter(value))))
-
-    case .sharedAssignment(let value):
-      // The round's shared お題 that grounds every agent response (#939) — one
-      // line, no agent attribution. Render-time ContentFilter on the value per
-      // the header § "ContentFilter scope" (defense-in-depth; the live VM
-      // appends raw).
-      chatItems.append(
-        .codePhaseLine(
-          id: UUID(), line: .sharedAssignment(value: contentFilter.filter(value))))
-
-    case .summary(let text):
-      // Round summary / narrator line (#932). Filtered per the header scope.
-      chatItems.append(
-        .codePhaseLine(id: UUID(), line: .summary(text: contentFilter.filter(text))))
-
-    case .pairingResult(let agent1, let act1, let agent2, let act2):
-      // `choose`-phase pairing (#932). Filter the chosen actions (LLM text)
-      // per the header scope; agent names are structured identifiers.
-      chatItems.append(
-        .codePhaseLine(
-          id: UUID(),
-          line: .pairingResult(
-            agent1: agent1, action1: contentFilter.filter(act1),
-            agent2: agent2, action2: contentFilter.filter(act2))))
-
-    case .eventInjected(let event):
-      // Injected-event narration (#932). `nil` = the probabilistic phase's
-      // miss; the render arm shows an explicit "no event" marker (mirrors the
-      // live `eventInjectedEntry`). Filter the hit text per the header scope.
-      chatItems.append(
-        .codePhaseLine(
-          id: UUID(), line: .eventInjected(event: event.map(contentFilter.filter))))
+    // Pure narration lines (#932/#939) with no VM-side state update — the
+    // discriminator, values, and defense-in-depth ContentFilter all live in
+    // the shared `CodePhaseLine(payload:filter:)` mapper.
+    case .assignment, .sharedAssignment, .summary, .pairingResult, .eventInjected:
+      appendCodePhaseLine(for: event)
 
     case .relationshipUpdate:
       // Affinity matrix (#910) has no demo-replay render surface in v1
@@ -1181,6 +1171,27 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
       // replay cannot regenerate the failure after the fact.
       return
     }
+  }
+
+  /// Appends the inline code-phase narration line for `event`, derived from the
+  /// shared ADR-022 D3 semantic core so the demo stream projects the same
+  /// discriminator/values as the live `SimulationViewModel` (the single
+  /// extraction source; ContentFilter is applied inside the mapper). Returns
+  /// silently for non-code-phase events — callers only reach it from the
+  /// code-phase arms of ``apply(_:)``.
+  private func appendCodePhaseLine(for event: SimulationEvent) {
+    guard let payload = CodePhaseEventPayload(event: event) else { return }
+    chatItems.append(
+      .codePhaseLine(
+        id: UUID(), line: CodePhaseLine(payload: payload, filter: contentFilter)))
+  }
+
+  /// Test hook (ADR-022 D5): drives the private `apply(_:)` projection directly
+  /// with a synthetic event, so the cross-VM parity suite can feed EVERY
+  /// `SimulationEvent` case — including the group `YAMLReplaySource` never emits
+  /// — without standing up the full playback state machine.
+  func applyEventForTest(_ event: SimulationEvent) {
+    apply(event)
   }
 
   // MARK: - Pacing helpers
