@@ -13,10 +13,6 @@ Running local LLM multi-agent simulations on-device.
 
 </div>
 
-> 🚧 Pastura is under active development. The YAML format and on-device
-> data layout may still change. Not yet on the App Store or TestFlight.
-> Clone and run from Xcode to try it.
-
 ## What is Pastura
 
 Pastura is a closed pasture for AI agents on your device. Watch as the agents act out the scenarios you've written.
