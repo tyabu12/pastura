@@ -63,6 +63,39 @@ CODE_KIND = {
     "pairing_result": "pairingResult",
 }
 
+# ADR-022 §D4 (P8) — the forced-decision contract for this non-Swift consumer.
+# Every event name EventLineMapper.swift emits to JSONL must be classified in
+# exactly one of these two sets:
+#   HANDLED_EVENTS — drives a turn or a code-phase event in the demo output.
+#   IGNORED_EVENTS — reaches JSONL but is deliberately dropped from the demo
+#                    (lifecycle / diagnostic events the replay schema has no
+#                    slot for; moving one here is a reviewed diff).
+# An event in NEITHER set is a HARD ERROR at convert time (see the guard in
+# `main`) — previously a silent drop with no failure mode at all. The
+# `scripts/tests/demo-replay-event-coverage-test.sh` shell gate cross-checks
+# this classification against the Swift emit surface so the two never diverge.
+HANDLED_EVENTS = {
+    "round_started",
+    "phase_started",
+    "agent_output",
+    "shared_assignment",
+    "assignment",
+} | set(CODE_KIND)
+
+IGNORED_EVENTS = {
+    "round_completed",
+    "phase_completed",
+    "relationship_update",  # raw affinity matrix (#910); demo/replay drops it
+    "conditional_evaluated",
+    "simulation_completed",
+    "simulation_paused",
+    "error",
+    "inference_started",
+    "inference_completed",
+    "language_mismatch",
+    "turn_skipped",
+}
+
 # Stable field order for turn `fields` (mirrors existing hand-authored demos:
 # statement before inner_thought, vote before reason). Unknown keys keep
 # their source order after these.
@@ -144,6 +177,15 @@ def main():
         if l.get("type") != "event":
             continue
         e = l.get("event")
+        # ADR-022 §D4 (P8) — force a classification decision. An event name in
+        # neither set is a hard error (was: silent drop). The guard sits after
+        # the `type != event` filter so lifecycle lines (run_start/run_end,
+        # which carry no `event` field) never reach it.
+        if e not in HANDLED_EVENTS and e not in IGNORED_EVENTS:
+            raise SystemExit(
+                f"jsonl_to_demo_replay: unknown event {e!r} in {a.run}. Add it "
+                "to HANDLED_EVENTS or IGNORED_EVENTS (did EventLineMapper's "
+                "emit surface change?) — see ADR-022 §D4.")
         if e == "round_started":
             round_no = l["round"]
         elif e == "phase_started":
