@@ -6,16 +6,18 @@
 #
 # CI-wired: the `*-test.sh` naming convention makes this a gate under the
 # .github/workflows/ci.yml "Shell gate tests" job ("Run scripts/tests/*-test.sh").
-# Pure python3 + git + bash — no Xcode, no PyYAML (the synthetic converter
-# fixtures define only the two sets, so importing them never runs `import yaml`).
-# Run manually: bash scripts/tests/demo-replay-event-coverage-test.sh
+# python3 + git + bash, no Xcode. The synthetic fixtures define only the two
+# sets (no `import yaml`), but the live check (case d) imports the REAL
+# converter, whose module-level `import yaml` means PyYAML IS required for that
+# case — the shell-tests job pre-installs it (ci.yml). Run manually with PyYAML
+# present: bash scripts/tests/demo-replay-event-coverage-test.sh
 #
 # Structure mirrors the census tripwire (the gallery_census.py drift chain in
 # .claude/skills/scenario-factory/tests/run_tests.sh (e), and its
 # phase_types_current.swift fixture): a repo-root existence assertion, a
 # synthetic-drift positive fixture, and a count-floor pin on the real file. The
-# shell scaffold (tempdir + `trap rm EXIT` + `fail=0` accumulator + per-case
-# subshell) follows scripts/tests/p8-precommit-gate-test.sh — note its "P8" is
+# shell scaffold (tempdir + `trap rm EXIT` + `fail=0` accumulator) follows
+# scripts/tests/p8-precommit-gate-test.sh — note its "P8" is
 # ADR-014's App Store `.p8` secret-gate, unrelated to ADR-022's projection
 # site P8; only the scaffold shape is borrowed.
 set -euo pipefail
