@@ -9,6 +9,10 @@ import Foundation
 /// control-flow phase: the handler itself does no inference, but its
 /// sub-phases may be of any type.
 nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
+  // Adding a new phase type? Follow the full checklist in
+  // .claude/rules/engine.md § "Adding a new `PhaseType`" — this enum is the
+  // first edit (new case + `requiresLLM`), but that rule is path-scoped to
+  // Engine/**·LLM/** and won't auto-load here.
   case speakAll = "speak_all"
   case speakEach = "speak_each"
   case vote
