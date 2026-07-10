@@ -25,7 +25,7 @@ moss is Pastura's only brand colour (design-system § 2.3). Direction chosen:
 | `lookbook.html` | 390×844 phone frames, rows = tabs, columns = 現状 / 案C 中庸 (chosen) / 案B 大胆. The approved visual target. |
 
 Open `lookbook.html` in a browser for the full-size comparison, or render a PNG
-via headless Chrome (mirrors `docs/design/home-redesign/README.md`):
+via headless Chrome:
 
 ```sh
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
