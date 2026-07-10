@@ -42,6 +42,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   /// against) — both degrade to an unbadged timeline.
   @State var contradictionBadgedTurnIDs: Set<String> = []  // not private — see note above
   @State private var isLoading = true
+  /// Cached D8 resume gate (resolved once in `loadData` via resolveIsResumable)
+  /// so the banner never re-decodes `stateJSON` per `body`. Not `private` —
+  /// the `+ResumeBanner` sibling reads it.
+  @State var isResumable = false
   @State var showAllThoughts = true  // not private — see note above
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var isExporting = false
@@ -130,6 +134,15 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
                 Label(String(localized: "Export for demo replay"), systemImage: "film")
               }
               .disabled(!canExportYAML)
+              // ADR-021 D8 QA hook — see forceFailedForQA in +ResumeBanner.
+              Button {
+                Task { await forceFailedForQA() }
+              } label: {
+                Label(
+                  String(localized: "Force .failed (D8 resume QA)"),
+                  systemImage: "exclamationmark.octagon")
+              }
+              .disabled(simulation == nil)
             }
           #endif
           Divider()
@@ -199,6 +212,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   private var timelineLog: some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
+        // Failed-run resume affordance (ADR-021 D8) — a `.failed` run holding a
+        // valid round checkpoint offers "resume from round N+1". Mutually
+        // exclusive with the DegradedRunBadge below (`.failed` vs `.completed`).
+        resumeBanner
         // Degraded-run annotation (ADR-021 D6) — a muted summary banner when
         // this completed run omitted one or more LLM turns. Gated to
         // completed + count > 0 by `DegradedRunBadge`.
@@ -315,10 +332,13 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
       self.agentOrder = fetched.agentOrder
       self.personas = fetched.personas
       self.contradictionBadgedTurnIDs = fetched.contradictionBadgedTurnIDs
+      // ADR-021 D8: resolve the resume gate once at load (see resolveIsResumable).
+      self.isResumable = resolveIsResumable(fetched.simulation)
     } catch {
       self.turns = []
       self.events = []
       self.items = []
+      self.isResumable = false
     }
     self.isLoading = false
   }
@@ -348,7 +368,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  private func decodeState(from record: SimulationRecord) -> SimulationState? {
+  // Not `private`: read by the `+ResumeBanner.swift` sibling extension (D8
+  // resume gate — `decodeState` + `resolveIsResumable` live there), which
+  // can't see `private` members (same-file only).
+  func decodeState(from record: SimulationRecord) -> SimulationState? {
     guard let data = record.stateJSON.data(using: .utf8) else { return nil }
     return try? JSONDecoder().decode(SimulationState.self, from: data)
   }

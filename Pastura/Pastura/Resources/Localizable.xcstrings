@@ -5334,6 +5334,16 @@
         }
       }
     },
+    "Resume from round %lld" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラウンド %lld から再開"
+          }
+        }
+      }
+    },
     "Resume playback" : {
       "localizations" : {
         "ja" : {
@@ -6412,6 +6422,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "この結果と会話ログを完全に削除します。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "This run stopped early" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この実行は途中で停止しました"
           }
         }
       }
