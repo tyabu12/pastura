@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-03T00:00:00Z",
+  "updated_at": "2026-07-10T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -831,6 +831,52 @@
       "yaml_url": "shazai_master_v1_en.yaml",
       "yaml_sha256": "b50e9539ef0c5b71332af1fc308fb6a5aff5ad35a62b48427e94d7203f9b91fc",
       "added_at": "2026-07-03"
+    },
+    {
+      "id": "hitsuji_kaigi_v1",
+      "title": "牧場の羊会議",
+      "category": "roleplay",
+      "description": "羊飼いが消えて三日目の夜、門がわずかに開いた。五匹の羊が「柵の外に出るべきか」を月明かりの下で討論する——好奇心・安全・信頼・諦観・絆がぶつかる、自由と安心をめぐる自己言及の一幕。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 25,
+      "agent_count": 5,
+      "rounds": 1,
+      "phases": [
+        "speak_each",
+        "reflect",
+        "speak_each",
+        "choose",
+        "speak_each",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "hitsuji_kaigi_v1.yaml",
+      "yaml_sha256": "8ef95a4abfd3342cfb954325b7577ab252a6e10f2cd1eb3e32c9f5ac2723d9b1",
+      "added_at": "2026-07-10"
+    },
+    {
+      "id": "hitsuji_kaigi_v1_en",
+      "title": "The Pasture Council of Sheep",
+      "category": "roleplay",
+      "description": "Three days after the shepherd vanished, the gate stands ajar. Five sheep hold a moonlit council on one question — should we go beyond the fence? — as curiosity, safety, trust, detachment, and the bond of the flock collide.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 25,
+      "agent_count": 5,
+      "rounds": 1,
+      "phases": [
+        "speak_each",
+        "reflect",
+        "speak_each",
+        "choose",
+        "speak_each",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "hitsuji_kaigi_v1_en.yaml",
+      "yaml_sha256": "d3b654af703156207c87627880efd0e443e5687a22a5525f11f4b43d1987712a",
+      "added_at": "2026-07-10"
     }
   ]
 }
