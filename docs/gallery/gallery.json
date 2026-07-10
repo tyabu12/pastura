@@ -877,6 +877,29 @@
       "yaml_url": "hitsuji_kaigi_v1_en.yaml",
       "yaml_sha256": "d3b654af703156207c87627880efd0e443e5687a22a5525f11f4b43d1987712a",
       "added_at": "2026-07-10"
+    },
+    {
+      "id": "tsuhan_jiko_v1",
+      "title": "通販生放送 事故だらけの90分",
+      "category": "creative",
+      "description": "深夜の生放送テレビ通販に、商品が真っ二つ・客が生電話で激怒・掃除のおばちゃん乱入と予測不能なトラブルが次々降りかかる。プロ司会・新人・毒舌ゲスト・商品擁護一筋の開発者・天然リポーターの5人が、毎回変わる審査基準の下でアドリブ対応の腕を競う生放送崩壊コメディ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 40,
+      "agent_count": 5,
+      "rounds": 4,
+      "phases": [
+        "event_inject",
+        "speak_all",
+        "assign",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "tsuhan_jiko_v1.yaml",
+      "yaml_sha256": "1de60aa82cfe5eb15e9895e70232f8403d05930ad03035289cc974b35b640fda",
+      "added_at": "2026-07-10"
     }
   ]
 }
