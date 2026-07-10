@@ -199,6 +199,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   private var timelineLog: some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: ChatBubbleLayout.bubbleSpacing) {
+        // Failed-run resume affordance (ADR-021 D8) — a `.failed` run holding a
+        // valid round checkpoint offers "resume from round N+1". Mutually
+        // exclusive with the DegradedRunBadge below (`.failed` vs `.completed`).
+        resumeBanner
         // Degraded-run annotation (ADR-021 D6) — a muted summary banner when
         // this completed run omitted one or more LLM turns. Gated to
         // completed + count > 0 by `DegradedRunBadge`.
@@ -348,7 +352,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  private func decodeState(from record: SimulationRecord) -> SimulationState? {
+  // Not `private`: read by the `+ResumeBanner.swift` sibling extension (D8
+  // resume gate), which can't see `private` members (same-file only).
+  func decodeState(from record: SimulationRecord) -> SimulationState? {
     guard let data = record.stateJSON.data(using: .utf8) else { return nil }
     return try? JSONDecoder().decode(SimulationState.self, from: data)
   }
