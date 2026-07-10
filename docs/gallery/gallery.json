@@ -877,6 +877,28 @@
       "yaml_url": "hitsuji_kaigi_v1_en.yaml",
       "yaml_sha256": "d3b654af703156207c87627880efd0e443e5687a22a5525f11f4b43d1987712a",
       "added_at": "2026-07-10"
+    },
+    {
+      "id": "kinoko_takenoko_v2",
+      "title": "きのこの山 vs たけのこの里（大喜利バトル）",
+      "category": "creative",
+      "description": "4人の芸人が持ちキャラの芸風（陰謀論・叙事詩・演歌・捏造データ）で「きのこ派 vs たけのこ派」の至高を主張し合う大喜利バトル。最も笑わせた主張に投票する。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 16,
+      "agent_count": 4,
+      "rounds": 2,
+      "phases": [
+        "assign",
+        "speak_all",
+        "vote",
+        "score_calc",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "kinoko_takenoko_v2.yaml",
+      "yaml_sha256": "e87570435fffe001b7cfeb6629bc0b868780a1b5bbe480809537f413acad0d20",
+      "added_at": "2026-07-10"
     }
   ]
 }
