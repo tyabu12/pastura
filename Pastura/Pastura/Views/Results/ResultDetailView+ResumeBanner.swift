@@ -16,6 +16,29 @@ extension ResultDetailView {
     return decodeState(from: record) != nil
   }
 
+  #if DEBUG
+    /// DEBUG-only QA hook (ADR-021 D8): force the viewed run's status to
+    /// `.failed` so the resume banner surfaces, then re-load so the gate
+    /// re-resolves. Reproducing the real path (circuit breaker) on-device is
+    /// timing-dependent — it needs round 1 to complete, *then* 3 consecutive
+    /// turn skips — so this shortcut sets up the `.failed` + valid-checkpoint
+    /// state directly. Pause a multi-round run first so `currentRound` lands in
+    /// `[1, rounds-1]` and the resume genuinely re-runs from the checkpoint;
+    /// a completed run still shows the banner but resumes into an empty range.
+    /// Never ships — TestFlight/Release exclude `#if DEBUG`.
+    func forceFailedForQA() async {
+      guard var record = simulation else { return }
+      let repo = dependencies.simulationRepository
+      let simId = record.id
+      try? await offMain { try repo.updateStatus(simId, status: .failed) }
+      // Reflect the flip locally so the banner gate re-resolves without a full
+      // reload (a natural `.task` / re-navigation re-fetches the `.failed` row).
+      record.status = SimulationStatus.failed.rawValue
+      simulation = record
+      isResumable = resolveIsResumable(record)
+    }
+  #endif
+
   /// ADR-021 D8 resume banner — shown at the top of the timeline for a
   /// `.failed` run that still holds a valid round checkpoint, offering a
   /// one-tap "resume from the next round". Mutually exclusive with the

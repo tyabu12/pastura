@@ -42,10 +42,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   /// against) — both degrade to an unbadged timeline.
   @State var contradictionBadgedTurnIDs: Set<String> = []  // not private — see note above
   @State private var isLoading = true
-  /// Cached D8 resume-affordance gate, computed once in ``loadData()`` so the
-  /// banner never re-decodes `stateJSON` on every `body` pass (mirrors the
-  /// view's decode-once-then-cache convention). Read by the `+ResumeBanner`
-  /// sibling extension — not `private`.
+  /// Cached D8 resume gate (resolved once in `loadData` via resolveIsResumable)
+  /// so the banner never re-decodes `stateJSON` per `body`. Not `private` —
+  /// the `+ResumeBanner` sibling reads it.
   @State var isResumable = false
   @State var showAllThoughts = true  // not private — see note above
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -135,6 +134,15 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
                 Label(String(localized: "Export for demo replay"), systemImage: "film")
               }
               .disabled(!canExportYAML)
+              // ADR-021 D8 QA hook — see forceFailedForQA in +ResumeBanner.
+              Button {
+                Task { await forceFailedForQA() }
+              } label: {
+                Label(
+                  String(localized: "Force .failed (D8 resume QA)"),
+                  systemImage: "exclamationmark.octagon")
+              }
+              .disabled(simulation == nil)
             }
           #endif
           Divider()
