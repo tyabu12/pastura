@@ -11,7 +11,7 @@ Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
 If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
 
 Phase 2 progress:
-- **Localization (i18n: ja/en)** — *in progress* — App Store launch surface. Step table + PR history: `docs/ROADMAP.md` § "Localization Plan" (#276/#277).
+- **Localization (i18n: ja/en)** — *implementation complete* (ADR-010 Steps A–E merged, umbrella #276 closed). English App Store launch is the remaining Phase 2 → Phase 3 gate. Step table + PR history: `docs/ROADMAP.md` § "Localization Plan".
 
 Phase 2 increments: see `docs/ROADMAP.md` § "Phase 2 increments (detail)".
 

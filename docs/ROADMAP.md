@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-04-25
+> Last updated: 2026-07-10
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -86,9 +86,9 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | Real-time LLM token streaming            | High     | Done        | Token-by-token streaming via `LLMService.generateStream`; `LLMCaller` drains snapshots and emits partial events. ContentFilter applied to streaming snapshots (#119/#132/#140); reveal task kept alive across tokens (#147). |
 | `conditional` phase type                 | Medium   | Done        | Nested-branch phase + Visual Editor support; includes `target_score_race` preset and conditional endings in `word_wolf` / `detective_scene` (#126/#141). |
 | `event_inject` phase type                | Medium   | Done        | Random extraData-string injection into `state.variables` (default key `current_event`); Models→Engine→App→Views→Preset full-stack incl. word_wolf mid-flow showcase + demo replay re-record + bundled-demo phase_index alignment CI test (#256) |
-| `reflect` phase type                     | Medium   | Planned     | Agent self-reflection / memory compaction|
+| `reflect` phase type                     | Medium   | Done        | Agent private memos + opt-in log window (#907/#937); adopted in `word_wolf` presets (#949) |
 | Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
-| Localization (i18n: ja / en)             | High     | Planned     | App Store launch blocker (Steps A / B-1a / B-1b / C-1 / C-2 / D required); Step E is post-release polish. Promoted from Phase 3 on 2026-04-29. See § Localization Plan below. |
+| Localization (i18n: ja / en)             | High     | Done (impl) | ja/en implementation complete — ADR-010 Steps A–E all merged (umbrella #276 closed); `localization-coverage` CI gate live. English App Store launch is the remaining Phase 2 → Phase 3 gate. Promoted from Phase 3 on 2026-04-29. See § Localization Plan below. |
 | Scenario sharing (Shared Scenarios)      | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Scenario deep link (`pastura://` scheme) | Medium   | Done        | 1-tap install from external contexts (SNS, QR, blog). IDs resolved through the curated gallery index only — no arbitrary URL fetch, no auto-execute. Preview via `GalleryScenarioDetailView` with external-link origin banner (#88). Universal Links / QR code generation deferred. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
@@ -97,11 +97,11 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | DL-time demo replay                      | Medium   | Done        | Bundled YAML replays during model download — end-to-end: spec + ADR-007 (#153), VM + Source (#186), host view + UI components (#197), wire into `.needsModelDownload` (#200), bundled YAMLs + CI drift guard (#205). |
 | Multi-model support (Qwen / E4B / other) | Medium   | Done        | Dual-model catalog shipped (Gemma 4 E2B + Qwen 3 4B Q4_K_M) via the `ModelDescriptor` / `ModelRegistry` abstraction over `LLMService` (ADR-001 §7 / ADR-002): plumbing — descriptor, multi-model storage, sequential download, legacy Gemma file auto-recognition (#206); UI — first-run model picker (`AppState.needsModelSelection`), Settings → Models active-model switch + delete, race-prevention via `SimulationActivityRegistry` (#218). Tracking issue #203. E4B and additional models remain forward-looking; add a new `ModelDescriptor` entry to `ModelRegistry` when a model is approved for shipment. |
 | Inference speed display                  | Low      | Done        | tok/s display + simulation playback UX (#99) |
-| Viewer prediction (視聴者予想)             | Low      | In progress | Pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking. Engagement mechanic from the #906 interestingness umbrella; Engine-untouched (App/ViewModel event buffering, ground truth scored at the reveal moment) (#915). |
+| Viewer prediction (視聴者予想)             | Low      | Done        | Pre-vote-reveal prediction sheet ("who is the wolf?" / "who is #1?") + hit / consecutive-streak tracking. Engagement mechanic from the #906 interestingness umbrella; Engine-untouched (App/ViewModel event buffering, ground truth scored at the reveal moment) (#915/#927). |
 
 ### Phase 2 increments (detail)
 
-> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `.claude/rules/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Mixed status — most entries are shipped, but a few (e.g. Viewer prediction) remain In progress per the Planned Features table above.
+> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `.claude/rules/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Statuses track the Planned Features table above.
 
 - **Visual Scenario Editor** — dual-mode form + YAML (#83)
 - **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)
@@ -132,8 +132,8 @@ First App Store submission depends on a set of cross-cutting blockers tracked in
 
 - [x] Draft privacy policy (`pages/legal/privacy-policy/index.html`)
 - [x] Host the policy at `https://pastura.app/legal/privacy-policy/` via GitHub Pages
-- [ ] Register the URL in App Store Connect → App Information → Privacy Policy URL
-- [ ] Answer the App Privacy Details questionnaire ("Data Not Collected", per `PrivacyInfo.xcprivacy`)
+- [x] Register the URL in App Store Connect → App Information → Privacy Policy URL
+- [x] Answer the App Privacy Details questionnaire ("Data Not Collected", per `PrivacyInfo.xcprivacy`)
 - [x] Add in-app Settings → "Privacy Policy" link (Guideline 5.1.1: "easily accessible")
 
 Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) auto-applies; revisit if Phase 3 introduces server-side data flows (gated on ADR-006).
