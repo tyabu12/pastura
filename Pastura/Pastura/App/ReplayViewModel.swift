@@ -1186,6 +1186,14 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         id: UUID(), line: CodePhaseLine(payload: payload, filter: contentFilter)))
   }
 
+  /// Test hook (ADR-022 D5): drives the private `apply(_:)` projection directly
+  /// with a synthetic event, so the cross-VM parity suite can feed EVERY
+  /// `SimulationEvent` case — including the group `YAMLReplaySource` never emits
+  /// — without standing up the full playback state machine.
+  func applyEventForTest(_ event: SimulationEvent) {
+    apply(event)
+  }
+
   // MARK: - Pacing helpers
 
   /// Proportional turn-dwell floor (raw ms, **real wall-clock at the current
