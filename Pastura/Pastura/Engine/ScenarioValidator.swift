@@ -108,6 +108,7 @@ nonisolated public struct ScenarioValidator: Sendable {
   private func validatePhases(_ scenario: Scenario) throws {
     for (index, phase) in scenario.phases.enumerated() {
       try validateOutputFieldNames(in: phase, label: "Phase \(index + 1)")
+      try validateMaxSentences(in: phase, label: "Phase \(index + 1)")
       switch phase.type {
       case .assign:
         try validateAssignPhaseShape(
@@ -126,6 +127,19 @@ nonisolated public struct ScenarioValidator: Sendable {
         try validateEventInjectShape(
           phase, label: "Phase \(index + 1) (event_inject)", scenario: scenario)
       }
+    }
+  }
+
+  /// Enforces the accepted range (1…6) for a phase's `max_sentences` override
+  /// (#881). Called at both traversal sites (`validatePhases` and
+  /// `validateBranch`) so a nested `then:` / `else:` sub-phase is checked too.
+  /// A `nil` override (the common case) is a no-op. The upper bound doubles as
+  /// a latency / JSON-stability guard — the model tops out ~3–4 sentences even
+  /// at cap 6 (#881 Stage-0 spike), so higher values are meaningless.
+  private func validateMaxSentences(in phase: Phase, label: String) throws {
+    guard let value = phase.maxSentences else { return }
+    guard (1...6).contains(value) else {
+      throw validationError(.maxSentencesOutOfRange(label: label, value: value))
     }
   }
 
@@ -196,6 +210,7 @@ nonisolated public struct ScenarioValidator: Sendable {
     for (subIndex, subPhase) in phases.enumerated() {
       let subLabel = "\(parentLabel) \(branchLabel)[\(subIndex + 1)]"
       try validateOutputFieldNames(in: subPhase, label: subLabel)
+      try validateMaxSentences(in: subPhase, label: subLabel)
       if subPhase.type == .conditional {
         throw validationError(.branchNestedConditional(label: subLabel))
       }

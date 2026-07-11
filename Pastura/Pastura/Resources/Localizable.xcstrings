@@ -761,6 +761,22 @@
         }
       }
     },
+    "%@: max_sentences (%lld) must be between 1 and 6" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: max_sentences (%2$lld) must be between 1 and 6"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: max_sentences (%2$lld) は 1〜6 の範囲で指定してください"
+          }
+        }
+      }
+    },
     "%@: missing 'source'. event_inject requires a 'source' key naming a top-level YAML field that lists the event strings." : {
       "localizations" : {
         "en" : {
