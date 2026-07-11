@@ -207,6 +207,10 @@ nonisolated struct PromptBuilder: Sendable {
     return sections.joined(separator: "\n\n")
   }
 
+  /// The global default statement brevity cap (sentences) applied when a
+  /// phase declares no `max_sentences` override (#881, #877).
+  static let defaultStatementMaxSentences = 3
+
   /// Builds the `## 回答ルール / ## Response Rules` block + phase-specific
   /// constraints (choose options, vote candidate list). Extracted from
   /// `buildSystemPrompt` so the Translation Table per-site dispatch fits
@@ -220,6 +224,13 @@ nonisolated struct PromptBuilder: Sendable {
   /// The brevity rule (#877) is a soft cap on the primary statement field
   /// only — inner_thought is intentionally unconstrained. Wording is
   /// harness-A/B-tuned; keep ja/en scope-parallel when editing.
+  ///
+  /// The sentence count is per-phase overridable via `phase.maxSentences`
+  /// (#881), defaulting to ``defaultStatementMaxSentences``. The override
+  /// **replaces** the number in the single brevity bullet (never appends a
+  /// second, contradictory cap); an absent override renders byte-identical to
+  /// the shipped #877 wording. Empirically a ja lever — see
+  /// ``Phase/maxSentences``.
   private func buildAnswerRules(
     scenario: Scenario,
     persona: Persona,
@@ -227,13 +238,19 @@ nonisolated struct PromptBuilder: Sendable {
     state: SimulationState
   ) -> String {
     let language = scenario.engineLanguage
+    // Per-phase statement brevity cap (#881): phase override, else the global
+    // default. The number is interpolated into the single brevity bullet
+    // (REPLACE) so the default (3) renders byte-identical to the #877 wording
+    // and no second, contradictory cap is ever appended.
+    let maxSentences = phase.maxSentences ?? Self.defaultStatementMaxSentences
+    let sentenceNoun = maxSentences == 1 ? "sentence" : "sentences"
     var rules = pickLanguage(
       language,
       ja: """
         ## 回答ルール（厳守）
         - 必ず日本語で回答すること
         - 全フィールドに必ず文章を書くこと（空欄「...」は禁止）
-        - 発言（statement などの本文フィールド）は3文以内で簡潔に書くこと（長い独白は禁止）
+        - 発言（statement などの本文フィールド）は\(maxSentences)文以内で簡潔に書くこと（長い独白は禁止）
         - JSONは必ず1行で書くこと（改行を入れない）
         - JSON以外のテキストやコードブロック(```)は書かないこと
         - JSONに構文エラーがあると失敗扱いになる（カッコ・引用符・カンマを正しく閉じること）
@@ -243,7 +260,7 @@ nonisolated struct PromptBuilder: Sendable {
         ## Response Rules (strict)
         - Respond in English only.
         - Every field must contain a sentence (no empty "..." values).
-        - Keep your statement (the main text field) concise: at most 3 sentences, no long monologues.
+        - Keep your statement (the main text field) concise: at most \(maxSentences) \(sentenceNoun), no long monologues.
         - The JSON output must be a single line (no newlines).
         - Do not include any text or code fences (```) outside the JSON.
         - JSON syntax errors are treated as failure: close every bracket, quote, and comma correctly.

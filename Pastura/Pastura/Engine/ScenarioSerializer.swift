@@ -71,9 +71,9 @@ nonisolated struct ScenarioSerializer: Sendable {
 
   // MARK: - Phase Serialization
 
-  // Each optional field adds one branch — unavoidable for 13 Phase fields
-  // (added probability + as for event_inject in #256). The body length
-  // grows linearly with field count too.
+  // Each optional field adds one branch — unavoidable as the Phase field set
+  // grows (probability + as #256, vote_against + action_deltas #910,
+  // max_sentences #881). The body length grows linearly with field count too.
   // swiftlint:disable:next cyclomatic_complexity function_body_length
   private func serializePhase(_ phase: Phase) -> [String] {
     var lines: [String] = []
@@ -126,6 +126,11 @@ nonisolated struct ScenarioSerializer: Sendable {
     // Phase-level `rounds` key maps to `subRounds`
     if let subRounds = phase.subRounds {
       lines.append("    rounds: \(subRounds)")
+    }
+
+    // Per-phase statement brevity override (#881).
+    if let maxSentences = phase.maxSentences {
+      lines.append("    max_sentences: \(maxSentences)")
     }
 
     // Conditional-specific fields — emitted at the end of the phase block

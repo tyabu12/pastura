@@ -96,6 +96,24 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// `Pairing.action1/action2` (#910).
   public let actionDeltas: [String: Int]?
 
+  /// Per-phase soft cap on the number of sentences in an agent's primary
+  /// `statement` output (the YAML `max_sentences:` key), overriding the
+  /// global default of 3 sentences for this phase only.
+  ///
+  /// `nil` means the phase uses the global default. `ScenarioValidator`
+  /// enforces the accepted range 1…6. Applied by `PromptBuilder` as a
+  /// **prompt-side** brevity rule on the statement field only — it does not
+  /// constrain `inner_thought`, and code phases (which emit no statement)
+  /// simply never surface the rule.
+  ///
+  /// Empirically a **ja lever**: a Stage-0 harness A/B (#881) found ja
+  /// statement length responds bidirectionally to the cap (cap 1/3/6 →
+  /// ~1.0/1.4/1.9 sentences) while en is near-inert (the model already
+  /// writes a single sentence). Complements phase-`prompt` content
+  /// scaffolding — the cap lifts the ceiling so a scaffolded finale is not
+  /// clipped by the global 3-sentence rule.
+  public let maxSentences: Int?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -114,7 +132,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     probability: Double? = nil,
     eventVariable: String? = nil,
     voteAgainst: Int? = nil,
-    actionDeltas: [String: Int]? = nil
+    actionDeltas: [String: Int]? = nil,
+    maxSentences: Int? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -134,6 +153,7 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.eventVariable = eventVariable
     self.voteAgainst = voteAgainst
     self.actionDeltas = actionDeltas
+    self.maxSentences = maxSentences
   }
 
   /// The schema's required keys as a `Set`, or an empty set when the

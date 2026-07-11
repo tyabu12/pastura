@@ -84,6 +84,9 @@ nonisolated public enum ScenarioValidationMessage: Sendable {
 
   // MARK: Output field-name validation (+OutputFieldNames)
   case outputFieldNameInvalid(label: String, name: String)
+
+  // MARK: Per-phase statement brevity override (#881)
+  case maxSentencesOutOfRange(label: String, value: Int)
 }
 
 // `nonisolated` on the extension is load-bearing: the enum is a `nonisolated`
@@ -333,6 +336,10 @@ nonisolated extension ScenarioValidationMessage {
             "%@: output field name '%@' must be an ASCII identifier (letters, digits, and underscore, not starting with a digit or underscore). Agent text values may be any language."
         ),
         label, name)
+    case .maxSentencesOutOfRange(let label, let value):
+      return String(
+        format: String(localized: "%@: max_sentences (%lld) must be between 1 and 6"),
+        label, value)
     }
   }
 }

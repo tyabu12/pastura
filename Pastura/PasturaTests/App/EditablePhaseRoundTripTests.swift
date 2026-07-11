@@ -46,6 +46,34 @@ struct EditablePhaseRoundTripTests {
     }
   }
 
+  /// `max_sentences` (#881) survives BOTH round-trip bridges at the top level
+  /// AND nested inside a conditional branch — the two silent-drop surfaces the
+  /// field could leak through (`EditablePhase.init(from:)`/`toPhase()` and
+  /// `ScenarioSerializer`/`ScenarioLoader`).
+  @Test func maxSentencesRoundTripsTopLevelAndNested() throws {
+    let phase = Phase(
+      type: .conditional, condition: "max_score >= 10",
+      thenPhases: [
+        Phase(
+          type: .speakEach, prompt: "Final defense.",
+          outputSchema: ["statement": "string"], maxSentences: 6)
+      ],
+      elsePhases: [
+        Phase(type: .speakAll, prompt: "Continue.", outputSchema: ["statement": "string"])
+      ],
+      maxSentences: 1)
+
+    // Visual bridge.
+    let viaEditable = EditablePhase(from: phase).toPhase()
+    #expect(viaEditable.maxSentences == 1)
+    #expect(viaEditable.thenPhases?.first?.maxSentences == 6)
+
+    // YAML bridge.
+    let reloaded = try loader.load(yaml: serializer.serialize(wrap(phase)))
+    #expect(reloaded.phases.first?.maxSentences == 1)
+    #expect(reloaded.phases.first?.thenPhases?.first?.maxSentences == 6)
+  }
+
   // One arm per PhaseType, no nested logic. Block disable rather than
   // `disable:next` (which would orphan the doc comment below it); the disable
   // command line must hold only the rule name, so this rationale is separate.

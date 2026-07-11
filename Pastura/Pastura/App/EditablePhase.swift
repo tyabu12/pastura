@@ -33,6 +33,10 @@ struct EditablePhase: Identifiable, Sendable {
   // preserves them instead of dropping them on re-serialization.
   var voteAgainst: Int?
   var actionDeltas: [String: Int]
+  // Per-phase statement brevity override (#881). YAML-only for v1 (no editing
+  // UI in `PhaseEditorSheet`), but modelled here so a visual→YAML round-trip
+  // preserves it instead of dropping it on re-serialization.
+  var maxSentences: Int?
 
   // swiftlint:disable:next function_default_parameter_at_end
   init(
@@ -53,7 +57,8 @@ struct EditablePhase: Identifiable, Sendable {
     probability: Double? = nil,
     eventVariable: String = "",
     voteAgainst: Int? = nil,
-    actionDeltas: [String: Int] = [:]
+    actionDeltas: [String: Int] = [:],
+    maxSentences: Int? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -73,6 +78,7 @@ struct EditablePhase: Identifiable, Sendable {
     self.eventVariable = eventVariable
     self.voteAgainst = voteAgainst
     self.actionDeltas = actionDeltas
+    self.maxSentences = maxSentences
   }
 
   init(from phase: Phase) {
@@ -94,6 +100,7 @@ struct EditablePhase: Identifiable, Sendable {
     self.eventVariable = phase.eventVariable ?? ""
     self.voteAgainst = phase.voteAgainst
     self.actionDeltas = phase.actionDeltas ?? [:]
+    self.maxSentences = phase.maxSentences
   }
 
   /// Identifies which branch of a conditional phase to target.
@@ -191,7 +198,8 @@ struct EditablePhase: Identifiable, Sendable {
       probability: probability,
       eventVariable: eventVariable.isEmpty ? nil : eventVariable,
       voteAgainst: voteAgainst,
-      actionDeltas: actionDeltas.isEmpty ? nil : actionDeltas
+      actionDeltas: actionDeltas.isEmpty ? nil : actionDeltas,
+      maxSentences: maxSentences
     )
   }
 }
