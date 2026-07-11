@@ -128,6 +128,11 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append("    rounds: \(subRounds)")
     }
 
+    // Per-phase statement brevity override (#881).
+    if let maxSentences = phase.maxSentences {
+      lines.append("    max_sentences: \(maxSentences)")
+    }
+
     // Conditional-specific fields — emitted at the end of the phase block
     // with 4-space indentation for nested sub-phase bodies.
     if let condition = phase.condition {

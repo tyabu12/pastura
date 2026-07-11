@@ -345,6 +345,10 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     let voteAgainst: Int? = try parseOptional(dict, key: "vote_against", label: label)
     let actionDeltas = try parseActionDeltas(dict, label: label)
 
+    // Per-phase statement brevity override (#881). Range 1…6 enforced by
+    // `ScenarioValidator`, not here — `load` stays non-validating (#665).
+    let maxSentences: Int? = try parseOptional(dict, key: "max_sentences", label: label)
+
     return Phase(
       type: phaseType,
       prompt: prompt,
@@ -363,7 +367,8 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       probability: probability,
       eventVariable: eventVariable,
       voteAgainst: voteAgainst,
-      actionDeltas: actionDeltas
+      actionDeltas: actionDeltas,
+      maxSentences: maxSentences
     )
   }
 
