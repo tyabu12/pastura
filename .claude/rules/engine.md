@@ -98,7 +98,7 @@ while `reflect`/`whisper` are safe to interleave. The handler logs a
 A new `PhaseType` case ripples to many sites in two classes: the Swift
 compiler force-catches one (ADR-022's no-default-exhaustive contract — see
 § "SimulationEvent & the projection contract"), while the other only fails a
-specific CI job or ships a silent gap. Touch **both** classes.
+specific CI job or unit test, not the compiler. Touch **both** classes.
 
 **Compiler-caught** — no-default exhaustive `switch` over `PhaseType`; omit one
 and the build fails:
@@ -118,28 +118,30 @@ and the build fails:
   `PasturaTests/Views/PhaseTypeLabelTests.swift`, and the
   `PhaseType.allCases.count` pin in `PasturaTests/Models/PhaseTypeTests.swift`.
 
-**NOT compiler-caught** — green iOS build (+ unit suite + pre-commit), red
-elsewhere or a silent gap:
+**NOT compiler-caught** — green iOS build (+ unit-suite compile + pre-commit),
+red on a specific CI job or unit test. After ADR-022 (PR-A–PR-D), two classes
+remain — down from the pre-contract five; the SimulationEvent sinks below folded
+into the compiler-caught contract:
 
-- **`.claude/skills/scenario-factory/scripts/gallery_census.py`** — add the
-  phase to `AXES` + `AXIS_PHASES` (a distinctive mechanic) OR
+- **Census** — **`.claude/skills/scenario-factory/scripts/gallery_census.py`**:
+  add the phase to `AXES` + `AXIS_PHASES` (a distinctive mechanic) OR
   `SCAFFOLDING_PHASES` (structural), else the Ubuntu **"Shell gate tests"** CI
   job fails (`census: unexpected drift`). Also update both connected fixtures
   under `.claude/skills/scenario-factory/tests/fixtures/`:
   `gallery_census_balanced.json` (keep the new axis at 2/4 so the
   fallback-rarest-3 test still fires) and `phase_types_current.swift` (mirror
   the new case count).
-- YAML config fields → `App/EditablePhase.swift` (`init(from:)` + `toPhase()`)
-  and `Engine/ScenarioSerializer.swift` — neither is a `switch`, so a miss
-  silently drops the field on the visual→YAML round-trip.
-- A new `SimulationEvent` (if the phase emits one) has two *silent* sinks:
-  `tools/harness/Sources/PasturaHarnessKit/EventLineMapper.swift` — a no-default
-  canary, but caught by `swift build` only, **not** the iOS build / pre-commit
-  (see `xcodebuild-cli.md`); and `SimulationViewModel.handleEvent` /
-  `handleOutputEvent`, which still use `default:` (pending ADR-022 PR-A) so a
-  new case is silently dropped. No-default `SimulationEvent` switches like
-  `App/ReplayViewModel.apply` *do* break the iOS build — those are
-  compiler-caught, not silent.
+- **Round-trip fixture** — YAML config fields flow through
+  `App/EditablePhase.swift` (`init(from:)` + `toPhase()`) and
+  `Engine/ScenarioSerializer.swift`, neither a `switch`. A dropped field is now
+  **test-caught** by the `PhaseType.allCases`-driven round-trip
+  (`PasturaTests/App/EditablePhaseRoundTripTests.swift`, ADR-022 P11): a phase
+  kind whose fixture is missing fails the test, so the fixture set cannot
+  silently lag.
+
+A new `SimulationEvent` the phase emits is a **separate**, compiler-caught cost
+axis — not a `PhaseType` touch point; see § "SimulationEvent & the projection
+contract".
 
 Motivating incident: PR #959 (`relationship_update`, #910) — every iOS build /
 unit / lint gate green, "Shell gate tests" red on the missing census axis.
@@ -384,7 +386,7 @@ of truth: `Pastura/Pastura/Models/SimulationEvent.swift`.** Do not re-enumerate
 the cases here — per `context-budget.md`, grep-findable enumerations don't
 belong in rules files, and this listing drifted twice before deletion.
 
-**Projection contract (ADR-022) — new code.** Every production `switch` over
+**Projection contract (ADR-022).** Every production `switch` over
 `SimulationEvent`, `PhaseType`, or `CodePhaseEventPayload` must be **no-default
 exhaustive over the enum type**:
 
@@ -400,9 +402,11 @@ exhaustive over the enum type**:
 
 Full contract + rationale: `docs/decisions/ADR-022.md` § D2.
 
-**Known pre-conversion carve-out (pending ADR-022 PR-A):**
-`SimulationViewModel.handleEvent` / `handleOutputEvent` still use `default:`.
-New switches follow the contract regardless.
+The App-layer instance of the tiered rule: `SimulationViewModel.handleEvent`
+keeps a lifecycle-tier `default:` that *forwards* to `handleOutputEvent`, whose
+terminal tier is no-default exhaustive (ADR-022 PR-A) — so a new
+`SimulationEvent` case compile-breaks in `handleOutputEvent`, not silently
+no-ops.
 
 ## llama.cpp Backend Traps
 
