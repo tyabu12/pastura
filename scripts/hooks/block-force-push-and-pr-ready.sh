@@ -57,15 +57,18 @@
 #     guard. Use `--body-file` / `git commit -F file`, split the compound,
 #     or run it manually in a terminal; hooks gate the agent, never the
 #     human.
-#   - Under-block: a push behind an UNKNOWN or arg-form wrapper (`xargs`,
-#     `ssh host …`, `bash -c "…"`, `sudo -u bob …`) stops the wrapper phase
-#     before `git` is reached and falls through UNSCANNED — so even
-#     `--force` is missed there. The old whole-command `--force` arm caught
-#     these, but only by false-firing on ANY prose that mentioned the flag;
-#     tokenizing trades that miss for no false-fire. The real threat model —
-#     an allowlisted `git push -u origin agent/*` prefix with a force flag
-#     appended — is fully covered. Regression coverage (incl. this pinned
-#     residual): scripts/tests/block-force-push-test.sh.
+#   - Under-block: a push behind a wrapper the machine cannot see through —
+#     `ssh host …` (runs on the REMOTE, a different threat model), a
+#     `bash -c "…"` whose push is nested in a quoted string, or an unknown
+#     wrapper — falls through UNSCANNED, so even `--force` is missed there.
+#     (The known wrappers env/sudo/command/nohup/doas ARE seen through,
+#     including their `-u`/`--user`/`-g`/`--group` option+arg.) The old
+#     whole-command `--force` arm caught these, but only by false-firing on
+#     ANY prose that mentioned the flag; tokenizing trades that miss for no
+#     false-fire. The real threat model — an allowlisted `git push -u origin
+#     agent/*` prefix with a force flag appended — is fully covered.
+#     Regression coverage (incl. these pinned residuals):
+#     scripts/tests/block-force-push-test.sh.
 #
 # bash 3.2-safe (ships to a macOS bash 3.2 machine): no here-strings,
 # no `${var^^}` / `${var,,}`, no `mapfile`, no arrays. awk / tr / process
@@ -105,7 +108,8 @@ scan_segment() {
           [A-Za-z_]*=*)                 : ;;              # VAR=value assignment
           env|sudo|command|nohup|doas)  argwrap=0 ;;      # no-arg wrapper
           timeout|nice|ionice|stdbuf)   argwrap=1 ;;      # takes a positional arg
-          -*)                           : ;;              # a wrapper's own option
+          -u|--user|-g|--group)         skip_next=1 ;;    # sudo/env user|group option: consumes a separate arg (so `sudo -u bob git push -f` is still scanned)
+          -*)                           : ;;              # a wrapper's own option (no separate arg)
           *)
             # A bare non-git word: the positional arg of an arg-taking
             # wrapper (`timeout 5`), else a foreign command (`echo`) that
