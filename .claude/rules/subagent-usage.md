@@ -20,7 +20,7 @@ Per-model output cap:
 | Model | Max output tokens |
 |-------|-------------------|
 | Opus 4.x | **32,000** |
-| Sonnet 4.x | **64,000** |
+| Sonnet 4.x / 5 | **64,000** |
 | Haiku 4.x | 8,192 |
 | Fable 5 | **undocumented** — see note below |
 

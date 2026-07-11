@@ -65,6 +65,21 @@ assert_allow "newline-separated sibling with + and -f in body" \
 
 assert_allow "plain push, no force" 'git push -u origin main'
 
+# Tokenized scan drops the old substring false-fire: a foreign command
+# (echo) or a sibling non-push carrying a force-looking token must be
+# ALLOWED — the old whole-command `--force` arm BLOCKED the echo case.
+assert_allow "prose: force flag inside echo" 'echo "git push --force in prose"'
+assert_allow "benign -f in sibling rm" 'git push origin x && rm -f stale.txt'
+
+# Documented under-block residuals: a push the tokenizer cannot see through
+# — run over ssh (executes on the REMOTE) or nested inside a `bash -c`
+# string — falls through UNSCANNED. Pinned so an inconsistent future change
+# is visible; the real threat (an allowlisted push prefix + appended force
+# flag) stays blocked above, and sudo/env `-u`/`-g` wrappers ARE now scanned
+# (see the BLOCK cases below).
+assert_allow "residual: push over ssh (remote)" 'ssh host git push --force'
+assert_allow "residual: push nested in bash -c string" 'bash -c "git push --force"'
+
 assert_allow "empty command" ''
 
 # Malformed JSON falls through to a silent allow (fail-open) — bypass
@@ -78,13 +93,13 @@ fi
 
 # --- BLOCK cases ---------------------------------------------------------
 #
-# Note: the `--force*` long form is matched against the WHOLE command, so
-# the `--force` BLOCK cases below pass on BOTH the old and new hook and do
-# NOT exercise the segment-scoping path. The cases that genuinely exercise
-# the new code are the ALLOW sibling-body cases above (BLOCKED by the old
-# hook) and the prefix-wrapped AMBIGUOUS cases below (env/sudo/command +
-# `-uf`/`+refspec` — these would slip through a naive "first word is git"
-# guard, so they lock in the strip-leading-wrappers logic).
+# Note: detection is now tokenized (a 3-phase per-segment state machine),
+# not a whole-command `--force` substring plus segment-scoping split. The
+# cases that lock in the tokenization are the sibling-body / echo-prose
+# ALLOWs above (BLOCKED by the old substring gate), the prefix-wrapped
+# AMBIGUOUS cases (env/sudo/command + `-uf`/`+refspec`), and the BLOCKs
+# that the old `git push` substring gate let slip — `git -c … push`,
+# `git --no-pager push`, `timeout … git push`, double-space `git  push`.
 
 assert_block "long force flag" 'git push origin x --force'
 assert_block "force-with-lease" 'git push --force-with-lease origin x'
@@ -97,6 +112,18 @@ assert_block "env-prefixed -uf cluster" 'env FOO=bar git push -uf origin x'
 assert_block "sudo-prefixed +refspec" 'sudo git push origin +main'
 assert_block "command-prefixed -uf cluster" 'command git push -uf origin x'
 assert_block "bare VAR=value prefix +refspec" 'FOO=bar git push origin +main'
+# Tokenization closes shapes the old `git push` substring gate let slip:
+assert_block "git global -c then push --force" 'git -c k=v push --force'
+assert_block "git --no-pager push -f" 'git --no-pager push -f'
+assert_block "timeout wrapper then push -f" 'timeout 5 git push -f'
+assert_block "double-space git push --force" 'git  push --force'
+# Lock the newly-added wrapper / separate-arg-global arms:
+assert_block "nohup wrapper then push --force" 'nohup git push --force'
+assert_block "doas wrapper -f cluster" 'doas git push -f origin x'
+assert_block "separate-arg global --git-dir then push -f" 'git --git-dir /x push -f'
+# sudo/env user|group option consumes its arg, so the push is still scanned:
+assert_block "sudo -u user then push -f" 'sudo -u bob git push -f'
+assert_block "env -u NAME then push --force" 'env -u FOO git push --force'
 assert_block "gh pr ready" 'gh pr ready 123'
 
 # --- result --------------------------------------------------------------
