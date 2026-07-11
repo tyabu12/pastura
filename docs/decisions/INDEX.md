@@ -88,7 +88,7 @@ Graceful degradation of LLM turn failures — per-turn containment in the six LL
 
 ## ADR-022 — Phase/event extension contract
 
-Phase/event extension contract — declare once in the two Models enums (no registry; preserves ADR-020 `allCases` gate + ADR-013 `EventLineMapper` canary), every Swift projection no-default exhaustive (tiered switches allowed iff the terminal tier is exhaustive; no raw-string switching), code-phase semantic core = `CodePhaseEventPayload.init?(event:)` + `defaultCodePhaseType` pair in Models, non-Swift consumers get forced-decision CI gates (demo-replay converter hard-errors on unknown events + emit-literal drift gate) or deletion (`engine.md` event listing), cross-VM fixture parity test encodes intentional live/replay asymmetry (Status: Proposed; design #993; implementation deferred until #992's implementation lands)
+Phase/event extension contract — declare once in the two Models enums (no registry; preserves ADR-020 `allCases` gate + ADR-013 `EventLineMapper` canary), every Swift projection no-default exhaustive (tiered switches allowed iff the terminal tier is exhaustive; no raw-string switching), code-phase semantic core = `CodePhaseEventPayload.init?(event:)` + `defaultCodePhaseType` pair in Models, non-Swift consumers get forced-decision CI gates (demo-replay converter hard-errors on unknown events + emit-literal drift gate) or deletion (`engine.md` event listing), cross-VM fixture parity test encodes intentional live/replay asymmetry (Status: Accepted; design #993; implementation shipped as PR-A–PR-D after #992 landed)
 
 ## ADR-023 — KMP Engine migration architecture
 
