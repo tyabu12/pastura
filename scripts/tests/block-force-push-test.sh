@@ -71,6 +71,13 @@ assert_allow "plain push, no force" 'git push -u origin main'
 assert_allow "prose: force flag inside echo" 'echo "git push --force in prose"'
 assert_allow "benign -f in sibling rm" 'git push origin x && rm -f stale.txt'
 
+# Documented under-block residual (code-review Warning-1): a push behind an
+# UNKNOWN / arg-form wrapper falls through UNSCANNED — the deliberate
+# trade-off for dropping the old whole-command --force false-fire. Pinned so
+# an inconsistent future change is visible; the real threat (an allowlisted
+# push prefix with a force flag appended) stays blocked above.
+assert_allow "residual: push behind sudo -u arg-form wrapper" 'sudo -u bob git push -f'
+
 assert_allow "empty command" ''
 
 # Malformed JSON falls through to a silent allow (fail-open) — bypass
@@ -108,6 +115,10 @@ assert_block "git global -c then push --force" 'git -c k=v push --force'
 assert_block "git --no-pager push -f" 'git --no-pager push -f'
 assert_block "timeout wrapper then push -f" 'timeout 5 git push -f'
 assert_block "double-space git push --force" 'git  push --force'
+# Lock the newly-added wrapper / separate-arg-global arms:
+assert_block "nohup wrapper then push --force" 'nohup git push --force'
+assert_block "doas wrapper -f cluster" 'doas git push -f origin x'
+assert_block "separate-arg global --git-dir then push -f" 'git --git-dir /x push -f'
 assert_block "gh pr ready" 'gh pr ready 123'
 
 # --- result --------------------------------------------------------------

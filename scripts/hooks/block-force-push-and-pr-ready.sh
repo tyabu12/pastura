@@ -50,16 +50,22 @@
 # false-fire on prose that merely mentions the flag (`echo "git push
 # --force"` is now ALLOWED).
 #
-# Residuals (conservative — all fail toward a benign over-block, never a
-# missed force-push we could tokenize):
-#   - Segmentation is deliberately quote-blind, so a `git push … --force`
+# Residuals — two kinds, one over-blocking (benign) and one under-blocking
+# (the deliberate trade-off for dropping the old whole-command false-fire):
+#   - Over-block: segmentation is quote-blind, so a `git push … --force`
 #     that lives INSIDE a quoted --body / heredoc payload still trips the
 #     guard. Use `--body-file` / `git commit -F file`, split the compound,
 #     or run it manually in a terminal; hooks gate the agent, never the
 #     human.
-#   - Unusual arg-form wrappers (`sudo -u bob git push -f`, wrappers not in
-#     the known set) stop the wrapper phase early and fall through
-#     unscanned. Regression coverage: scripts/tests/block-force-push-test.sh.
+#   - Under-block: a push behind an UNKNOWN or arg-form wrapper (`xargs`,
+#     `ssh host …`, `bash -c "…"`, `sudo -u bob …`) stops the wrapper phase
+#     before `git` is reached and falls through UNSCANNED — so even
+#     `--force` is missed there. The old whole-command `--force` arm caught
+#     these, but only by false-firing on ANY prose that mentioned the flag;
+#     tokenizing trades that miss for no false-fire. The real threat model —
+#     an allowlisted `git push -u origin agent/*` prefix with a force flag
+#     appended — is fully covered. Regression coverage (incl. this pinned
+#     residual): scripts/tests/block-force-push-test.sh.
 #
 # bash 3.2-safe (ships to a macOS bash 3.2 machine): no here-strings,
 # no `${var^^}` / `${var,,}`, no `mapfile`, no arrays. awk / tr / process
