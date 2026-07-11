@@ -139,10 +139,9 @@ into the compiler-caught contract:
   kind whose fixture is missing fails the test, so the fixture set cannot
   silently lag.
 
-A new `SimulationEvent` emitted by the phase is a **separate** cost axis, not a
-`PhaseType` touch point: its no-default-exhaustive contract and the
-`EventLineMapper` `swift build` canary (ADR-013) are compiler-caught — see
-§ "SimulationEvent & the projection contract".
+A new `SimulationEvent` the phase emits is a **separate**, compiler-caught cost
+axis — not a `PhaseType` touch point; see § "SimulationEvent & the projection
+contract".
 
 Motivating incident: PR #959 (`relationship_update`, #910) — every iOS build /
 unit / lint gate green, "Shell gate tests" red on the missing census axis.
