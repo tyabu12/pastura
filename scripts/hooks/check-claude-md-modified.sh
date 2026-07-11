@@ -66,7 +66,7 @@ if ! printf '%s\n' "$CHANGED" | grep -qE 'CLAUDE\.md|\.claude/rules/'; then
       hookEventName: "PreToolUse",
       additionalContext: "Neither CLAUDE.md nor .claude/rules/ was modified in this branch. If this change adds or alters a convention, trap, or Phase 2 progress entry, record it — CLAUDE.md for project-wide / phase progress, .claude/rules/ for scoped conventions."
     }
-  }'
+  }' || true
   exit 0
 fi
 
@@ -84,10 +84,13 @@ mirror_targets() {
   head_md=$(git show HEAD:CLAUDE.md 2>/dev/null)
   [ -n "$head_md" ] || return 0
   hunks=$(git diff main...HEAD -U0 -- CLAUDE.md 2>/dev/null | grep '^@@')
-  { printf '%s\n' "$hunks"; printf '===CLAUDEMD===\n'; printf '%s\n' "$head_md"; } \
+  # Sentinel separates the hunk headers from the CLAUDE.md body on one
+  # stream. It is deliberately collision-resistant — a CLAUDE.md line equal
+  # to it would corrupt parsing, so it is not a string anyone would type.
+  { printf '%s\n' "$hunks"; printf '%s\n' "@@@PASTURA-CLAUDEMD-BOUNDARY@@@"; printf '%s\n' "$head_md"; } \
     | awk '
       BEGIN { mode=0; nh=0; ln=0; infence=0; cur=""; curlvl=0 }
-      mode==0 && $0=="===CLAUDEMD===" { mode=1; next }
+      mode==0 && $0=="@@@PASTURA-CLAUDEMD-BOUNDARY@@@" { mode=1; next }
       mode==0 {
         i=index($0, "+"); if (i==0) next
         rest=substr($0, i+1); sp=index(rest, " ")
@@ -100,6 +103,8 @@ mirror_targets() {
       }
       {
         ln++; line=$0
+        # Only column-0 fences toggle (matches every fence in the mirrored
+        # sections today); an indented fence inside a list item would not.
         if (line ~ /^(```|~~~)/) { infence=1-infence }
         else if (infence==0 && line ~ /^#+ /) {
           lvl=0; while (substr(line,lvl+1,1)=="#") lvl++
@@ -128,18 +133,29 @@ mirror_targets() {
     '
 }
 
-if printf '%s\n' "$CHANGED" | grep -Fxq 'CLAUDE.md' \
-   && ! printf '%s\n' "$CHANGED" | grep -Fxq -e README.md -e CONTRIBUTING.md; then
+if printf '%s\n' "$CHANGED" | grep -Fxq 'CLAUDE.md'; then
   TARGETS=$(mirror_targets || true)
   TARGETS=$(printf '%s' "$TARGETS" | tr -s ' ' | sed 's/^ //; s/ $//')
-  if [ -n "$TARGETS" ]; then
-    FILES=$(printf '%s' "$TARGETS" | sed 's/ / and /')
+  # Subtract mirror files already updated on this branch. A dual-mirror
+  # section (## Architecture / Hard Rules / Dependency Rules -> README AND
+  # CONTRIBUTING) must still nudge for the half that is stale when only one
+  # mirror was synced — a coarse "any mirror changed -> silent" guard would
+  # miss exactly the drift this hook exists to catch.
+  REMAIN=""
+  for f in $TARGETS; do
+    if ! printf '%s\n' "$CHANGED" | grep -Fxq "$f"; then
+      REMAIN="${REMAIN:+$REMAIN }$f"
+    fi
+  done
+  if [ -n "$REMAIN" ]; then
+    FILES=$(printf '%s' "$REMAIN" | sed 's/ / and /')
+    # `|| true`: jq failure must not exit non-zero — this is a PreToolUse hook.
     jq -n --arg files "$FILES" '{
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         additionalContext: ("CLAUDE.md changed in a section the \"Reference Documents\" table mirrors to " + $files + ", but " + $files + " was not updated on this branch. Before opening the PR, verify whether the mirror needs the same change.")
       }
-    }'
+    }' || true
   fi
 fi
 

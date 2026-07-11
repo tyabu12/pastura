@@ -55,6 +55,12 @@ Layer diagram here.
 | Language | Swift 6.x |
 | Min iOS | 18.0 |
 
+```
+# fenced comment that looks like a level-1 heading but is inside a fence
+```
+
+Post-fence tech note here.
+
 ## Directory Structure
 
 Directory tree here.
@@ -210,6 +216,36 @@ assert_rc0 h
 assert_contains h "$out" "$MIRROR"
 assert_contains h "$out" "CONTRIBUTING.md"
 assert_absent h "$out" "README.md"
+
+# --- (i) dual-mirror section (Architecture) w/o either mirror → both named --
+d="$TMP/i"; new_repo "$d"
+( cd "$d"; sed -i.bak 's/Layer diagram here./Layer diagram v2./' CLAUDE.md; rm -f CLAUDE.md.bak; git commit -qam "arch" )
+out="$(run_hook "$d")"
+assert_rc0 i
+assert_contains i "$out" "$MIRROR"
+assert_contains i "$out" "README.md and CONTRIBUTING.md"
+
+# --- (j) dual-mirror w/ ONE mirror synced → nudge only the stale half -------
+# Locks in the dual-mirror subtraction: editing Architecture + README (but not
+# CONTRIBUTING) must still nudge for the stale CONTRIBUTING.md, not go silent.
+d="$TMP/j"; new_repo "$d"
+( cd "$d"; sed -i.bak 's/Layer diagram here./Layer diagram v2./' CLAUDE.md; rm -f CLAUDE.md.bak
+  printf 'Updated architecture.\n' >> README.md; git commit -qam "arch+readme" )
+out="$(run_hook "$d")"
+assert_rc0 j
+assert_contains j "$out" "$MIRROR"
+assert_contains j "$out" "CONTRIBUTING.md"
+assert_absent j "$out" "README.md"
+
+# --- (k) edit inside Tech Stack AFTER a fenced `#` line → nudge still fires --
+# Proves fence-awareness: the `# ...` line inside the code fence must NOT be
+# read as a level-1 heading that prematurely terminates the Tech Stack section.
+d="$TMP/k"; new_repo "$d"
+( cd "$d"; sed -i.bak 's/Post-fence tech note here./Post-fence tech note updated./' CLAUDE.md; rm -f CLAUDE.md.bak; git commit -qam "postfence" )
+out="$(run_hook "$d")"
+assert_rc0 k
+assert_contains k "$out" "$MIRROR"
+assert_contains k "$out" "README.md"
 
 if [ "$fail" -eq 0 ]; then
   echo "check-claude-md-modified: all cases passed"
