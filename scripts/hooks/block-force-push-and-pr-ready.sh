@@ -2,10 +2,11 @@
 #
 # block-force-push-and-pr-ready.sh — PreToolUse(Bash) guard.
 #
-# Blocks (exit 2) any Bash tool call whose command contains
-#   - a `git push` together with a force flag (--force,
-#     --force-with-lease, --force-if-includes, or short -f), or
-#   - `gh pr ready` (flips a Draft PR to reviewable).
+# Blocks (exit 2) any Bash tool call that
+#   - force-pushes: a `git push` carrying a force flag (--force,
+#     --force-with-lease, --force-if-includes, short -f/-uf/-fv cluster,
+#     or a +refspec), or
+#   - runs `gh pr ready` (flips a Draft PR to reviewable).
 #
 # Why: the queue-consumer skill runs unattended at night with allowlist
 # entries like `Bash(git push -u origin agent/*)` and
@@ -26,28 +27,44 @@
 # A mechanical block cannot tell an attended `/orchestrate` create from
 # an unattended bug, so this residual is documented rather than blocked.
 #
-# Scope of the force-flag scan (#616): the unambiguous `--force*` long
-# form is matched against the WHOLE command. The ambiguous shapes
-# (`-f` short-flag clusters, `+refspec`) are scanned ONLY within a
-# `git push` sub-command segment, so a `+`-leading or `-f`-clustered
-# token in a sibling `gh pr create --body "…"` or a heredoc payload no
-# longer false-fires. A segment counts as a push after a leading run of
-# `VAR=value` assignments and `env`/`sudo`/`command` wrappers is
-# stripped, so `env X=y git push -uf` / `sudo git push +x` (which the
-# old whole-command scan blocked) are still caught. Example now
-# ALLOWED: `git push origin x && rm -f y`.
+# Force-flag detection is TOKENIZED, not substring-based. The command is
+# split into segments (`; & | && || newline`, backslash-continuations
+# rejoined) and each segment is walked token by token as a small state
+# machine:
+#   1. wrapper phase — skip a leading run of `VAR=value` assignments and
+#      command wrappers (`env`/`sudo`/`command`/`nohup`/`doas`, and the
+#      arg-taking `timeout`/`nice`/`ionice`/`stdbuf` with one positional
+#      arg). Any other bare word (e.g. `echo`) means this segment is not a
+#      git invocation → stop, so quoted/heredoc prose mentioning
+#      "git push" is never scanned.
+#   2. subcommand phase — first word is `git`; skip git GLOBAL options,
+#      including separate-arg ones (`-c k=v`, `-C dir`, `--git-dir dir`,
+#      `--work-tree dir`, `--namespace x`, `--super-prefix x`,
+#      `--config-env x`). Scan for force only if the subcommand is `push`.
+#   3. force phase — any `--force*`, an `-*f*` short cluster, or a
+#      `+refspec` in the push args → block.
+# Tokenizing (not the old literal `git push` substring gate) closes
+# `git -c k=v push --force`, `git --no-pager push -f`, `timeout 5 git push
+# -f`, and double-space `git␠␠push --force` — standard shapes an agent
+# emits that the substring gate let sail through — and it also drops the
+# false-fire on prose that merely mentions the flag (`echo "git push
+# --force"` is now ALLOWED).
 #
-# Residual (still conservative): the `--force*` literal anywhere in the
-# command still blocks — so a PR/commit body that must contain the text
-# `--force` trips the guard. Use `--body-file` / `git commit -F file`,
-# or split the compound, or run it manually in a terminal; hooks only
-# gate Claude's tool calls, never the human. Regression coverage:
-# scripts/tests/block-force-push-test.sh.
+# Residuals (conservative — all fail toward a benign over-block, never a
+# missed force-push we could tokenize):
+#   - Segmentation is deliberately quote-blind, so a `git push … --force`
+#     that lives INSIDE a quoted --body / heredoc payload still trips the
+#     guard. Use `--body-file` / `git commit -F file`, split the compound,
+#     or run it manually in a terminal; hooks gate the agent, never the
+#     human.
+#   - Unusual arg-form wrappers (`sudo -u bob git push -f`, wrappers not in
+#     the known set) stop the wrapper phase early and fall through
+#     unscanned. Regression coverage: scripts/tests/block-force-push-test.sh.
 #
 # bash 3.2-safe (ships to a macOS bash 3.2 machine): no here-strings,
-# no `${var^^}` / `${var,,}`, no `mapfile`. awk / tr / process
-# substitution are all 3.2-safe. The CI self-test runs on ubuntu bash
-# 5+, so it CANNOT catch a 3.2 regression — keep new constructs 3.2-clean.
+# no `${var^^}` / `${var,,}`, no `mapfile`, no arrays. awk / tr / process
+# substitution are all 3.2-safe. The CI self-test runs on ubuntu bash 5+,
+# so it CANNOT catch a 3.2 regression — keep new constructs 3.2-clean.
 #
 # Mirrors gated-runner.sh's input handling (PR #407): malformed JSON
 # falls through to a silent allow (exit 0), matching its fail-open
@@ -66,91 +83,84 @@ block() {
   exit 2
 }
 
-# Inspect ONE command segment that is a `git push` invocation for the
-# AMBIGUOUS force shapes only — short-flag clusters containing `f`
-# (-f / -uf / -fv) and `+refspec` pushes. The unambiguous `--force*`
-# long form is caught globally by the caller, before segmentation.
-# `set -f` stops the unquoted expansion from globbing against cwd.
-scan_push_segment() {
+# scan_segment — tokenize ONE command segment and block if it is a
+# force-push. Walks words in a single pass with a 3-phase state machine
+# (wrapper -> subcmd -> force); see the header for the phase contract.
+# `set -f` stops the unquoted `for word in $1` from globbing against cwd.
+scan_segment() {
   set -f
+  local state=wrapper skip_next=0 argwrap=0 word
   for word in $1; do
-    case "$word" in
-      --*) : ;;  # long options handled by the global --force arm
-      -[A-Za-z]*)
+    if [ "$skip_next" = 1 ]; then skip_next=0; continue; fi
+    case "$state" in
+      wrapper)
         case "$word" in
-          *f*) block "force push (-f, possibly bundled as $word) is forbidden for Claude sessions." ;;
+          git)                          state=subcmd ;;
+          [A-Za-z_]*=*)                 : ;;              # VAR=value assignment
+          env|sudo|command|nohup|doas)  argwrap=0 ;;      # no-arg wrapper
+          timeout|nice|ionice|stdbuf)   argwrap=1 ;;      # takes a positional arg
+          -*)                           : ;;              # a wrapper's own option
+          *)
+            # A bare non-git word: the positional arg of an arg-taking
+            # wrapper (`timeout 5`), else a foreign command (`echo`) that
+            # means this segment is not a git invocation — stop scanning.
+            if [ "$argwrap" = 1 ]; then argwrap=0
+            else set +f; return 0; fi
+            ;;
         esac
         ;;
-      +*) block "force push via +refspec ($word) is forbidden for Claude sessions." ;;
+      subcmd)
+        case "$word" in
+          -c|-C|--git-dir|--work-tree|--namespace|--super-prefix|--config-env)
+                    skip_next=1 ;;                        # global opt + separate arg
+          -*)       : ;;                                  # other global opt (--no-pager, -p, =-attached)
+          push)     state=force ;;
+          *)        set +f; return 0 ;;                   # some other subcommand — not a push
+        esac
+        ;;
+      force)
+        case "$word" in
+          --force*)     set +f; block "force push (--force*) is forbidden for agent sessions." ;;
+          -[A-Za-z]*)   case "$word" in *f*) set +f; block "force push (-f cluster: $word) is forbidden for agent sessions." ;; esac ;;
+          +*)           set +f; block "force push via +refspec ($word) is forbidden for agent sessions." ;;
+        esac
+        ;;
     esac
   done
   set +f
+  return 0
 }
 
+# `gh pr ready` block — independent of the push scan (a ready-making
+# command carries no `push`, so it must be checked separately, NOT behind
+# the force scan's push fast-path).
 case "$COMMAND" in
-  *"git push"*)
-    # Unambiguous long force flag — matched against the WHOLE command so
-    # an `env FOO=bar git push --force` / `sudo git push --force` (first
-    # word not `git`) is still blocked.
-    case "$COMMAND" in
-      *--force*) block "force push (--force*) is forbidden for Claude sessions." ;;
-    esac
+  *"gh pr ready"*)
+    block "PRs opened by agents stay Draft; ready-for-review is a human action."
+    ;;
+esac
 
-    # Ambiguous shapes (-f clusters, +refspec) cannot be matched against
-    # the whole command without false-firing on a sibling subcommand's
-    # body or a heredoc payload (#616). Scope the scan to the `git push`
-    # segment(s) only:
-    #   1. awk joins `\`-continued lines so a push whose force flag is on
-    #      the next physical line stays in one segment.
-    #   2. tr splits the joined text on `; & |` (so `&&` / `||` break too);
-    #      embedded newlines are themselves command separators. The split
-    #      is deliberately quote-blind — a `;`/`&`/`|` inside a quoted
-    #      body splits too, but over-splitting only ever shrinks a
-    #      segment's word set, never lets a push flag escape its segment.
-    #   3. `while read` over PROCESS SUBSTITUTION (not a pipe) keeps the
-    #      loop in the current shell so block()'s `exit 2` propagates.
-    #   4. A segment is scanned only if it contains `git push` AND —
-    #      after stripping leading VAR=value assignments and the
-    #      env/sudo/command wrappers — its first word is `git`, so
-    #      quoted/heredoc prose mentioning "git push" is not scanned.
+# Force-push tokenized scan — only when `push` appears anywhere (keeps the
+# common Bash call cheap). Split COMMAND into segments and scan each:
+#   1. awk rejoins `\`-continued lines so a push whose force flag is on the
+#      next physical line stays in one segment.
+#   2. tr splits on `; & |` (so `&&` / `||` break too); embedded newlines
+#      are themselves separators. Quote-blind by design — over-splitting a
+#      quoted body only ever shrinks a segment's word set, never lets a
+#      push flag escape its segment.
+#   3. `while read` over PROCESS SUBSTITUTION (not a pipe) keeps the loop in
+#      the current shell so block()'s `exit 2` propagates.
+#   4. The `*git*` pre-filter skips non-git segments cheaply; scan_segment
+#      itself bails on any segment whose command is not `git`.
+case "$COMMAND" in
+  *push*)
     while IFS= read -r seg; do
       case "$seg" in
-        *"git push"*)
-          # Strip a leading run of `VAR=value` assignments and the
-          # wrappers env/sudo/command so a prefix-wrapped push
-          # (`env X=y git push -uf`, `sudo git push +x`, `FOO=bar git
-          # push -uf`) is still scanned. Wrappers that take their own
-          # args (`timeout 5 …`, `nice -n 10 …`, `env -i …`) stop the
-          # strip early and fall through unscanned — a conservative
-          # residual of the same class as the heredoc-prose case.
-          rest=${seg#"${seg%%[![:space:]]*}"}
-          while :; do
-            w=${rest%%[[:space:]]*}
-            case "$w" in
-              env|sudo|command) : ;;  # command wrapper — drop
-              [A-Za-z_]*=*) : ;;      # VAR=value assignment — drop
-              *) break ;;             # `git` or anything else — stop
-            esac
-            rest=${rest#"$w"}
-            rest=${rest#"${rest%%[![:space:]]*}"}
-          done
-          case "$rest" in
-            # Pass the full $seg, NOT $rest — the strip loop only gates
-            # whether to scan; the scan itself must see every arg so a
-            # force flag after the wrapper run is never hidden.
-            git\ *|git) scan_push_segment "$seg" ;;
-          esac
-          ;;
+        *git*) scan_segment "$seg" ;;
       esac
     done < <(printf '%s' "$COMMAND" \
       | awk '{ if (sub(/\\$/, "")) printf "%s ", $0; else print }' \
       | tr ';&|' '\n\n\n')
-    ;;
-esac
-
-case "$COMMAND" in
-  *"gh pr ready"*)
-    block "PRs opened by agents stay Draft; ready-for-review is a human action."
     ;;
 esac
 
