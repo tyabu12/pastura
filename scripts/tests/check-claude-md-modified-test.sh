@@ -87,7 +87,11 @@ CLAUDE_MD
 # `feature` branch ready for the case-specific edits.
 new_repo() {
   local d="$1"
-  git init -q "$d"
+  # `-b main` pins the baseline branch name the hook diffs against
+  # (`git diff main...HEAD`), independent of the runner's
+  # init.defaultBranch — CI ubuntu defaults to `master`, which would leave
+  # `main` unresolved and silently break every case. (git 2.28+.)
+  git init -q -b main "$d"
   (
     cd "$d"
     git config user.email test@example.com
