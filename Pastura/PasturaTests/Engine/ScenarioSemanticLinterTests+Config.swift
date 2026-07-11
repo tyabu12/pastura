@@ -136,6 +136,55 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.lint(scenario).isEmpty)
   }
 
+  // MARK: - R18 max-sentences-no-op (warning)
+
+  @Test func maxSentencesOnCodePhaseFiresWarning() {
+    // `max_sentences` only reaches the prompt for `requiresLLM` phases (via
+    // `PromptBuilder.buildAnswerRules`); on a code phase it is parsed +
+    // serialized but never surfaced — a silent no-op.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [Phase(type: .summarize, template: "Round complete.", maxSentences: 3)])
+    let findings = linter.lint(scenario).filter { $0.ruleID == "max-sentences-no-op" }
+    #expect(findings.count == 1)
+    #expect(findings.first?.severity == .warning)
+    #expect(findings.first?.phaseIndex == 0)
+  }
+
+  @Test func maxSentencesOnLLMPhasesDoesNotFire() {
+    // All 6 `requiresLLM` phases surface the brevity cap in-prompt, so R18 must
+    // never fire for them. Guards against a `primaryField == "statement"`
+    // over-narrowing that would false-flag vote/choose/reflect (whose brevity
+    // bullet IS still emitted).
+    for llmType in [PhaseType.speakAll, .speakEach, .vote, .choose, .reflect, .whisper] {
+      let scenario = makeScenario(
+        agents: 2, rounds: 1, phases: [Phase(type: llmType, maxSentences: 2)])
+      #expect(!linter.lint(scenario).contains { $0.ruleID == "max-sentences-no-op" })
+    }
+  }
+
+  @Test func maxSentencesNilOnCodePhaseDoesNotFire() {
+    let scenario = makeScenario(
+      agents: 2, rounds: 1, phases: [Phase(type: .summarize, template: "Round complete.")])
+    #expect(!linter.lint(scenario).contains { $0.ruleID == "max-sentences-no-op" })
+  }
+
+  @Test func maxSentencesOnCodePhaseNestedInConditionalFiresAtConditionalIndex() {
+    // `phaseRefs` anchors a branch sub-phase to its enclosing conditional's
+    // top-level index (matches R7/R9 nesting semantics).
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .speakAll, prompt: "Go"),
+        Phase(
+          type: .conditional, condition: "current_round >= 1",
+          thenPhases: [Phase(type: .summarize, template: "Done.", maxSentences: 4)])
+      ])
+    let findings = linter.lint(scenario).filter { $0.ruleID == "max-sentences-no-op" }
+    #expect(findings.count == 1)
+    #expect(findings.first?.phaseIndex == 1)
+  }
+
   // MARK: - Helper
 
   // Internal factory for scenarios needing `logWindow` (R17); the base
