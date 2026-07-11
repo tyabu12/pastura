@@ -1,23 +1,25 @@
 import Foundation
 
-/// Silently-inert configuration rules R7/R8/R9/R17 (ADR-024 D3).
+/// Silently-inert configuration rules R7/R8/R9/R17/R18 (ADR-024 D3).
 ///
 /// Unlike the ordering rules (`ScenarioSemanticLinter+Ordering.swift`), these
 /// rules don't compare producer/consumer phase indices — each phase (or the
 /// scenario as a whole, for R17) is inert on its own terms because of a
-/// missing/empty field, or because a *different* producer relation (a
-/// round-robin `choose` gating pairing-placeholder resolution, for R9) never
-/// ran earlier. R9 reuses the same "producer inside a `conditional` branch
-/// counts as present at the conditional's index" imprecision documented on
-/// the ordering rules.
+/// missing/empty field, an out-of-place field (a `max_sentences` on a code
+/// phase, for R18), or because a *different* producer relation (a round-robin
+/// `choose` gating pairing-placeholder resolution, for R9) never ran earlier.
+/// R9/R18 reuse the same "producer inside a `conditional` branch counts as
+/// present at the conditional's index" imprecision documented on the ordering
+/// rules.
 nonisolated extension ScenarioSemanticLinter {
 
-  /// Silently-inert-configuration findings (R7/R8/R9/R17).
+  /// Silently-inert-configuration findings (R7/R8/R9/R17/R18).
   func configFindings(in scenario: Scenario) -> [LintFinding] {
     chooseOptionsFindings(in: scenario.phases)
       + assignSourceFindings(in: scenario.phases, scenario: scenario)
       + summarizePairingFindings(in: scenario.phases)
       + logWindowFindings(in: scenario)
+      + maxSentencesNoOpFindings(in: scenario.phases)
   }
 
   // MARK: - R7 choose-should-declare-options (warning)
@@ -130,6 +132,25 @@ nonisolated extension ScenarioSemanticLinter {
     !phaseRefs(in: phases, where: { $0.type == .speakEach }).isEmpty
   }
 
+  // MARK: - R18 max-sentences-no-op (warning)
+
+  /// A `max_sentences` set on a phase that emits no LLM statement is a silent
+  /// no-op: it is parsed, round-tripped, and serialized, but never reaches a
+  /// prompt. The brevity bullet it feeds is emitted only by
+  /// `PromptBuilder.buildAnswerRules`, which is called from `buildSystemPrompt`
+  /// — reached solely by the six `requiresLLM` handlers. So `requiresLLM`
+  /// is exactly the "cap reaches the prompt" predicate, and its inverse is the
+  /// provable no-op set. Reusing the existing no-default exhaustive switch
+  /// (`PhaseType.requiresLLM`) keeps a single source of truth: a new phase type
+  /// forces a decision there and R18 follows automatically. `reflect` is
+  /// **excluded** (it is `requiresLLM`) even though its cap semantics are fuzzy
+  /// (it emits a `note`, not a `statement`) — the bullet is still emitted, so
+  /// it is not a *silent* no-op. Uniformly `.warning` — never blocks a run.
+  private func maxSentencesNoOpFindings(in phases: [Phase]) -> [LintFinding] {
+    phaseRefs(in: phases, where: { $0.maxSentences != nil && !$0.type.requiresLLM })
+      .map { configFinding("max-sentences-no-op", .warning, at: $0.topLevelIndex) }
+  }
+
   // MARK: - Shared
 
   /// Builds the single-element findings array for a config `ruleID`,
@@ -158,6 +179,11 @@ nonisolated extension ScenarioSemanticLinter {
       return String(
         localized:
           "summarize-pairing-placeholders: this 'summarize' template references {agent1}-family placeholders, but no round-robin 'choose' phase runs earlier in the round, so the placeholders leak literally into the summary — add a round-robin 'choose' phase before this 'summarize', or remove the pairing placeholders."
+      )
+    case "max-sentences-no-op":
+      return String(
+        localized:
+          "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' cap never reaches a prompt and has no effect — remove it, or move it to a speaking phase (speak_all / speak_each / vote / choose / reflect / whisper)."
       )
     default:
       return String(

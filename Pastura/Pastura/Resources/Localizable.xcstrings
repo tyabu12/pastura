@@ -7368,6 +7368,16 @@
         }
       }
     },
+    "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' cap never reaches a prompt and has no effect — remove it, or move it to a speaking phase (speak_all / speak_each / vote / choose / reflect / whisper)." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "max-sentences-no-op: このフェーズは LLM の発言を生成しないため、'max_sentences' の上限はプロンプトに届かず効果がありません — 削除するか、発話フェーズ（speak_all / speak_each / vote / choose / reflect / whisper）に移動してください。"
+          }
+        }
+      }
+    },
     "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'." : {
       "localizations" : {
         "ja" : {
