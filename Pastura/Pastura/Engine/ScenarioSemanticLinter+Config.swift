@@ -183,7 +183,7 @@ nonisolated extension ScenarioSemanticLinter {
     case "max-sentences-no-op":
       return String(
         localized:
-          "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' cap never reaches a prompt and has no effect — remove it, or move it to a speaking phase (speak_all / speak_each / vote / choose / reflect / whisper)."
+          "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' cap never reaches a prompt and has no effect — remove it, or move it to a phase that emits a statement (speak_all / speak_each / whisper)."
       )
     default:
       return String(
