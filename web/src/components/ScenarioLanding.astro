@@ -10,15 +10,7 @@
 // reaches the non-matching locale path. That is intentional: the title is
 // user content, and the share card links to the sharer's own locale path.
 import BaseLayout from '../layouts/BaseLayout.astro';
-
-interface GalleryScenario {
-  id: string;
-  title: string;
-  description: string;
-  agent_count: number;
-  rounds: number;
-  language: string;
-}
+import type { GalleryScenario } from '../types/gallery';
 
 interface Props {
   locale: 'en' | 'ja';

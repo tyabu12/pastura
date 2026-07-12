@@ -8,10 +8,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ScenarioLanding from '../../../components/ScenarioLanding.astro';
+import type { GalleryIndex } from '../../../types/gallery';
 
 export function getStaticPaths() {
   const galleryPath = resolve(process.cwd(), '../docs/gallery/gallery.json');
-  const gallery = JSON.parse(readFileSync(galleryPath, 'utf-8'));
+  const gallery: GalleryIndex = JSON.parse(readFileSync(galleryPath, 'utf-8'));
   return gallery.scenarios.map((scenario) => ({
     params: { id: scenario.id },
     props: { scenario },
