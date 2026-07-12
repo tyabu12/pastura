@@ -1,0 +1,78 @@
+---
+// Generic not-found page. GitHub Pages serves /404.html for any unresolved
+// path, so this is the fallback for a shared /s/<id> whose scenario is not in
+// the curated gallery (e.g. a user-authored scenario). It cannot know the
+// visitor's locale (served for arbitrary paths), so it is bilingual with an
+// English shell (#1071, Growth A-2). The App Store badge reuses the site's
+// "coming soon" disabled-button treatment until launch.
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  locale="en"
+  title="Not found · Pastura"
+  description="This page isn’t available. Pastura is an app for running AI multi-agent scenarios fully on-device."
+  enPath="/404.html"
+  jaPath="/404.html"
+  variant="prose"
+>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="page-shell">
+    <header role="banner" class="lp-header">
+      <a href="/" class="brand">
+        <img class="icon" src="/img/app-icon.png" alt="" aria-hidden="true" width="36" height="36" />
+        <span class="brand-name">Pastura</span>
+      </a>
+    </header>
+
+    <main id="main" class="page-main">
+      <div class="page-prose">
+        <h1>Page not found</h1>
+        <p class="lead">
+          This scenario or page isn’t available here. It may not be part of
+          Pastura’s Shared Scenarios.
+        </p>
+        <p lang="ja">
+          このシナリオ、またはページは見つかりませんでした。Pastura の「みんなのシナリオ」に含まれていない可能性があります。
+        </p>
+
+        <p class="open-cta-row">
+          <a class="open-cta" href="/">Go to pastura.app</a>
+        </p>
+
+        <div class="badges">
+          <button type="button" aria-disabled="true" class="appstore-cta" aria-label="Pastura on the App Store — coming soon">
+            <img class="appstore-img" src="/img/app-store-badge-en.svg" alt="" aria-hidden="true" width="120" height="40" />
+            <span class="appstore-status">Coming soon</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <footer role="contentinfo" class="lp-footer">
+      <div class="foot-base">
+        <span class="foot-copy">© 2026 Pastura</span>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>
+
+<style>
+  .open-cta-row {
+    margin: 1.75rem 0 0.75rem;
+  }
+  .open-cta {
+    display: inline-block;
+    padding: 0.7rem 1.4rem;
+    border-radius: 999px;
+    background: var(--moss, #4f6d3a);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .open-cta:hover,
+  .open-cta:focus-visible {
+    background: var(--moss-dark, #3d5a2b);
+  }
+</style>
