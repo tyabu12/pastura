@@ -63,8 +63,35 @@ struct EliminateHandlerTests {
     let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
     try await handler.execute(context: context, state: &state)
 
-    // One agent should be eliminated (deterministic: sorted by name)
-    let eliminatedCount = state.eliminated.values.filter { $0 }.count
-    #expect(eliminatedCount == 1)
+    // Canonical tie-break: (count desc, name desc) — Bob sorts before Alice,
+    // matching ConditionEvaluator's `vote_winner` derivation (#1056).
+    #expect(state.eliminated["Bob"] == true)
+    #expect(state.eliminated["Alice"] != true)
+    #expect(state.eliminated.values.filter { $0 }.count == 1)
+  }
+
+  /// The agent `EliminateHandler` removes on a tie must be the SAME agent
+  /// `ConditionEvaluator` resolves `vote_winner` to — otherwise an
+  /// `eliminate` phase and a `conditional` phase reading `vote_winner` in the
+  /// same round silently disagree about who won (#1056).
+  @Test func tieWinnerMatchesVoteWinner() async throws {
+    let mock = MockLLMService(responses: [])
+    let scenario = makeTestScenario(phases: [Phase(type: .eliminate)])
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 2]
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    // EliminateHandler eliminates Bob (canonical tie-break).
+    #expect(state.eliminated["Bob"] == true)
+
+    // ConditionEvaluator resolves `vote_winner` to the same agent (Bob).
+    let evaluator = ConditionEvaluator()
+    #expect(
+      try evaluator.evaluate("vote_winner == \"Bob\"", state: state, scenario: scenario).value)
+    #expect(
+      try !evaluator.evaluate("vote_winner == \"Alice\"", state: state, scenario: scenario).value)
   }
 }

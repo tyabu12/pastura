@@ -22,7 +22,14 @@ nonisolated struct WordwolfJudgeLogic: Sendable {
       return
     }
 
-    let mostVoted = state.voteResults.max { $0.value < $1.value }?.key ?? ""
+    // Deterministic tie-break: (count desc, name desc) — the canonical order
+    // shared with ConditionEvaluator / EliminateHandler. `max(by:)` alone
+    // left ties resolved by hash-seeded dictionary order, so a tied word-wolf
+    // game reported "wolf found" vs "wolf escaped" differently per launch (#1057).
+    let mostVoted =
+      state.voteResults
+      .sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) })
+      .first?.key ?? ""
     let wolf = state.variables["wolf_name"] ?? "?"
     let voteCount = state.voteResults[mostVoted] ?? 0
 
