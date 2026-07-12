@@ -17,7 +17,11 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
     context: PhaseContext,
     state: inout SimulationState
   ) async throws {
-    let subRounds = context.phase.subRounds ?? 1
+    // `subRounds` is untrusted (any un-vetted YAML ingest can set `rounds: 0`
+    // or a negative); clamp to ≥1 so `1...subRounds` below can't form an
+    // invalid ClosedRange and trap. Mirrors WhisperHandler's guard on the
+    // same "sub-rounds" input.
+    let subRounds = max(1, context.phase.subRounds ?? 1)
     let promptTemplate =
       context.phase.prompt
       ?? pickLanguage(
