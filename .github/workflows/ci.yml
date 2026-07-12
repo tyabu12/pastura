@@ -715,12 +715,19 @@ jobs:
       - name: Compile native klib (compile-only — per-PR default)
         if: steps.kmp-changes.outputs.full_native != 'true'
         timeout-minutes: 8
-        run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
+        # `:shared:engine` (empty scaffold, #501 PR-2) compiles here too so
+        # future engine-source-only PRs (Stage 2-pre onward) are covered on the
+        # per-PR default path. The `:shared:engine` task token is identical to
+        # the full-native step below, so the two stay divergence-safe.
+        run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 :shared:engine:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
 
       - name: Full native build + XCFramework (build-config touch)
         if: steps.kmp-changes.outputs.full_native == 'true'
         timeout-minutes: 18
-        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework --no-daemon --stacktrace
+        # `:shared:engine` has no XCFramework task yet (export deferred to
+        # Stage 5), so it is compiled alongside the models XCFramework assembly
+        # in the same Gradle invocation — one process, no second cold start.
+        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework :shared:engine:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
 
       - name: Upload Gradle reports (on failure)
         if: failure()
