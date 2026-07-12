@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["52G26234A3.app.pastura.Pastura"],
+        "components": [
+          {
+            "/": "/s/*",
+            "comment": "Shared scenario landing pages (English root). Opens the installed app to the gallery scenario detail; the app resolves <id> against the curated gallery index."
+          },
+          {
+            "/": "/ja/s/*",
+            "comment": "Shared scenario landing pages (Japanese mirror). Same resolution as /s/*; the app strips the /ja prefix."
+          }
+        ]
+      }
+    ]
+  }
+}

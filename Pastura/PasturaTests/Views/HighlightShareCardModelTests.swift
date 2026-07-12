@@ -29,7 +29,8 @@ struct HighlightShareCardModelTests {
     HighlightShareCard.Model(
       agent: agent, agentPosition: agentPosition, rawUtterance: rawUtterance,
       rawThought: rawThought, scenarioTitle: scenarioTitle, modelName: modelName,
-      linkURL: HighlightShareCard.shareLink, contentFilter: contentFilter)
+      linkURL: LocalizedPublicPages.sharedScenario(id: "asch_conformity_v1"),
+      contentFilter: contentFilter)
   }
 
   @Test("ContentFilter is applied to the utterance")

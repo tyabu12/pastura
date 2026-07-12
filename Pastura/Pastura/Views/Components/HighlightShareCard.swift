@@ -122,12 +122,6 @@ struct HighlightShareCard: View {
   /// renderer's `proposedSize` agree.
   static let side: CGFloat = 360
 
-  /// The provisional burned-in share link. Universal-Links deep linking
-  /// (#1069 A-2) will later swap this for `pastura.app/s/<scenario-id>`; until
-  /// then every card points at the site root. Optional by construction so a
-  /// future malformed string can never force-unwrap.
-  static let shareLink: URL? = URL(string: "https://pastura.app")
-
   private var palette: Palette { colorScheme == .dark ? .dark : .light }
 
   var body: some View {
@@ -339,7 +333,8 @@ struct HighlightShareContextMenu: ViewModifier {
       rawUtterance: "正直に言うと、僕は最初から君を裏切るつもりだったんだ。でも今は…少しだけ後悔しているよ。",
       rawThought: "本当は協力したかった。でも先に裏切られるのが怖くて、こちらから裏切ってしまった。",
       scenarioTitle: "囚人のジレンマ", modelName: "Gemma 4 E2B",
-      linkURL: HighlightShareCard.shareLink, contentFilter: filter) {
+      linkURL: LocalizedPublicPages.sharedScenario(id: "prisoners_dilemma"),
+      contentFilter: filter) {
       HighlightShareCard(model: model, colorScheme: .light)
     }
     if let model = HighlightShareCard.Model(
@@ -347,7 +342,8 @@ struct HighlightShareContextMenu: ViewModifier {
       rawUtterance: "Honestly? I planned to betray you from the very first round.",
       rawThought: "I keep telling myself it was just strategy. It wasn’t.",
       scenarioTitle: "The Prisoner’s Dilemma", modelName: "Gemma 4 E2B",
-      linkURL: HighlightShareCard.shareLink, contentFilter: filter) {
+      linkURL: LocalizedPublicPages.sharedScenario(id: "prisoners_dilemma"),
+      contentFilter: filter) {
       HighlightShareCard(model: model, colorScheme: .dark)
     }
   }

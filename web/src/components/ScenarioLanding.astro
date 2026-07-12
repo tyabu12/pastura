@@ -1,0 +1,180 @@
+---
+// Per-scenario share landing page body, shared by the English (`/s/<id>/`)
+// and Japanese (`/ja/s/<id>/`) route files so the markup can never drift
+// between locales. Each route passes the gallery entry + its own `locale`;
+// the two routes are hreflang-paired by BaseLayout (#1071, Growth A-2).
+//
+// The scenario title/description are rendered in the entry's own `language`
+// (the gallery has no cross-language translations — one entry, one language),
+// so a page may show a Japanese title under English chrome when a viewer
+// reaches the non-matching locale path. That is intentional: the title is
+// user content, and the share card links to the sharer's own locale path.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import type { GalleryScenario } from '../types/gallery';
+
+interface Props {
+  locale: 'en' | 'ja';
+  scenario: GalleryScenario;
+}
+
+const { locale, scenario } = Astro.props;
+const isJa = locale === 'ja';
+
+const enPath = `/s/${scenario.id}/`;
+const jaPath = `/ja/s/${scenario.id}/`;
+
+// Custom-scheme deep link — NOT the https Universal Link. A same-domain https
+// link tapped inside Safari does not hand off to the app; the custom scheme
+// reliably opens the installed app from a user gesture. Non-installed users
+// simply get a no-op, then reach for the App Store badge below.
+const openURL = `pastura://scenario/${scenario.id}`;
+
+const t = isJa
+  ? {
+      titleSuffix: '｜Pastura',
+      intro: 'このシナリオは Pastura の「みんなのシナリオ」の一つです。',
+      openInApp: 'Pastura で開く',
+      badgeAria: 'Pastura を App Store で、近日公開',
+      badgeStatus: '近日公開',
+      badgeImg: '/img/app-store-badge-ja.svg',
+      meta: `${scenario.agent_count}エージェント · ${scenario.rounds}ラウンド`,
+      skip: '本文へスキップ',
+      navLabel: '主要',
+      langGroup: '言語',
+      productH: 'プロダクト',
+      resourcesH: 'リソース',
+      usage: '使い方',
+      features: '特徴',
+      faq: 'FAQ',
+      privacy: 'プライバシーポリシー',
+      guide: 'シナリオガイド',
+    }
+  : {
+      titleSuffix: ' · Pastura',
+      intro: 'This scenario is one of Pastura’s Shared Scenarios.',
+      openInApp: 'Open in Pastura',
+      badgeAria: 'Pastura on the App Store — coming soon',
+      badgeStatus: 'Coming soon',
+      badgeImg: '/img/app-store-badge-en.svg',
+      meta: `${scenario.agent_count} agents · ${scenario.rounds} rounds`,
+      skip: 'Skip to content',
+      navLabel: 'Primary',
+      langGroup: 'Language',
+      productH: 'Product',
+      resourcesH: 'Resources',
+      usage: 'Usage',
+      features: 'Features',
+      faq: 'FAQ',
+      privacy: 'Privacy Policy',
+      guide: 'Scenario guide',
+    };
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${scenario.title}${t.titleSuffix}`}
+  description={scenario.description}
+  enPath={enPath}
+  jaPath={jaPath}
+  variant="prose"
+>
+  <a class="skip-link" href="#main">{t.skip}</a>
+
+  <div class="page-shell">
+    <header role="banner" class="lp-header">
+      <a href="/" class="brand">
+        <img class="icon" src="/img/app-icon.png" alt="" aria-hidden="true" width="36" height="36" />
+        <span class="brand-name">Pastura</span>
+      </a>
+      <nav aria-label={t.navLabel} class="lp-nav">
+        <div class="lang-toggle" role="group" aria-label={t.langGroup}>
+          <a lang="en" hreflang="en" href={enPath} class={locale === 'en' ? 'on' : undefined} aria-current={locale === 'en' ? 'page' : undefined}>EN</a>
+          <a lang="ja" hreflang="ja" href={jaPath} class={locale === 'ja' ? 'on' : undefined} aria-current={locale === 'ja' ? 'page' : undefined}>JA</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main" class="page-main">
+      <div class="page-prose">
+        <p class="scenario-eyebrow">{t.intro}</p>
+        <h1 lang={scenario.language}>{scenario.title}</h1>
+        <p class="scenario-meta">{t.meta}</p>
+        <p class="lead" lang={scenario.language}>{scenario.description}</p>
+
+        <p class="open-cta-row">
+          <a class="open-cta" href={openURL}>{t.openInApp}</a>
+        </p>
+
+        <div class="badges">
+          <button type="button" aria-disabled="true" class="appstore-cta" aria-label={t.badgeAria}>
+            <img class="appstore-img" src={t.badgeImg} alt="" aria-hidden="true" width="120" height="40" />
+            <span class="appstore-status">{t.badgeStatus}</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <footer role="contentinfo" class="lp-footer">
+      <div class="foot-grid">
+        <div>
+          <a href="/" class="brand">
+            <img class="icon" src="/img/app-icon.png" alt="" aria-hidden="true" width="36" height="36" />
+            <span class="brand-name">Pastura</span>
+          </a>
+        </div>
+        <div>
+          <h3 class="foot-h">{t.productH}</h3>
+          <a class="foot-link" href="/#usage">{t.usage}</a>
+          <a class="foot-link" href="/#features">{t.features}</a>
+          <a class="foot-link" href="/#faq">{t.faq}</a>
+        </div>
+        <div>
+          <h3 class="foot-h">{t.resourcesH}</h3>
+          <a class="foot-link" href={isJa ? '/ja/legal/privacy-policy/' : '/legal/privacy-policy/'}>{t.privacy}</a>
+          <a class="foot-link" href={isJa ? '/ja/docs/scenario/' : '/docs/scenario/'}>{t.guide}</a>
+          <a class="foot-link" href="https://github.com/tyabu12/pastura" rel="noopener">GitHub</a>
+        </div>
+      </div>
+      <div class="foot-base">
+        <span class="foot-copy">© 2026 Pastura</span>
+        <div class="lang-toggle" role="group" aria-label={t.langGroup}>
+          <a lang="en" hreflang="en" href={enPath} class={locale === 'en' ? 'on' : undefined} aria-current={locale === 'en' ? 'page' : undefined}>EN</a>
+          <a lang="ja" hreflang="ja" href={jaPath} class={locale === 'ja' ? 'on' : undefined} aria-current={locale === 'ja' ? 'page' : undefined}>JA</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>
+
+<style>
+  /* Scoped to the landing page — a primary "open in app" action that reads as
+     the page's hero CTA, above the (disabled) App Store badge. Mirrors the
+     design-system moss accent without pulling in the full lp.css. */
+  .scenario-eyebrow {
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    color: var(--ink-secondary, #5b6152);
+    margin-bottom: 0.5rem;
+  }
+  .scenario-meta {
+    font-size: 0.9rem;
+    color: var(--ink-secondary, #5b6152);
+    margin-top: -0.25rem;
+  }
+  .open-cta-row {
+    margin: 1.75rem 0 0.75rem;
+  }
+  .open-cta {
+    display: inline-block;
+    padding: 0.7rem 1.4rem;
+    border-radius: 999px;
+    background: var(--moss, #4f6d3a);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .open-cta:hover,
+  .open-cta:focus-visible {
+    background: var(--moss-dark, #3d5a2b);
+  }
+</style>
