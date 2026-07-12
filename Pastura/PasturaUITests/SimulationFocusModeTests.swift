@@ -59,26 +59,24 @@ final class SimulationFocusModeTests: XCTestCase {
     // confirm-on-leave dialog by design, so this is robust to the mock run's
     // completion timing. Coordinate-based drag is required;
     // swipeRight() does not trigger interactivePopGestureRecognizer on iOS 17+
-    // (mirrors BackGestureTests).
-    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
-    let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-    start.press(forDuration: 0.15, thenDragTo: end)
-
+    // (mirrors BackGestureTests). `edgeSwipeBack` retries a dropped gesture
+    // once (#1053).
+    //
     // Popping the sim lands on ScenarioDetail, which ALSO hides the tab bar
     // (contextual action bar, ADR-016 § Amendment 2026-07-01) — so the bar is
     // still gone here. Pop once more to leave the run-focused screens and reach
     // GalleryScenarioDetail, where the tab bar restores.
-    let backOnDetail = app.scrollViews["scenarioDetail.list"]
-    XCTAssertTrue(
-      backOnDetail.waitForExistence(timeout: 5),
-      "Popping the simulation did not return to ScenarioDetail.")
-    start.press(forDuration: 0.15, thenDragTo: end)
+    edgeSwipeBack(
+      in: app,
+      until: app.scrollViews["scenarioDetail.list"],
+      message: "Popping the simulation did not return to ScenarioDetail.")
 
     // The tab bar must restore once past the run-focused screens.
-    XCTAssertTrue(
-      browseTab.waitForExistence(timeout: 5),
-      "Tab bar did not restore after leaving the run-focused screens — the"
-        + " focus-mode / ScenarioDetail tab-bar hide did not reverse.")
+    edgeSwipeBack(
+      in: app,
+      until: browseTab,
+      message: "Tab bar did not restore after leaving the run-focused screens —"
+        + " the focus-mode / ScenarioDetail tab-bar hide did not reverse.")
   }
 
   /// Navigates the `--ui-test` harness Home → Browse → gallery → install →

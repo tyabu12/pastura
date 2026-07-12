@@ -34,10 +34,16 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
     // Opt out of the ci.yml per-test execution-time cap (#728): this test is
     // slow by design — it holds the run in-flight via --ui-test-slow-llm and
     // exercises the park/return flow, taking ~125-225s on CI. That legit range
-    // overlaps the infra-flake stall the cap targets, so it gets a generous
-    // dedicated allowance instead of the tighter default. No-op locally where
+    // overlaps the infra-flake stall the cap targets, so it gets a dedicated
+    // allowance instead of the tighter default. No-op locally where
     // -test-timeouts-enabled is not passed.
-    executionTimeAllowance = 600
+    //
+    // 300 (was 600): once ui-test serialized (#1053), this test's allowance is
+    // additive to the sequential run rather than overlapped with other clones,
+    // so a stalled run burning ~2×600s could breach the job's 30-min ceiling
+    // (a timed_out conclusion is NOT retried by ci-retry.yml). 300 still clears
+    // the observed 225s max with margin while bounding the stall tail.
+    executionTimeAllowance = 300
   }
 
   override func tearDownWithError() throws {
@@ -91,16 +97,13 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
 
     // Leave with "keep running" (Setting on → silent park) via the interactive
     // edge-swipe (bypasses the dialog; coordinate drag required on iOS 17+).
-    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
-    let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-    start.press(forDuration: 0.15, thenDragTo: end)
-
     // Confirm the swipe-back actually popped to ScenarioDetail (its ScrollView
     // is the sentinel), so a failure to pop can't silently pass on a lingering
-    // indicator.
-    XCTAssertTrue(
-      app.scrollViews["scenarioDetail.list"].waitForExistence(timeout: 5),
-      "Leaving the sim did not return to ScenarioDetail.")
+    // indicator. `edgeSwipeBack` retries a dropped gesture once (#1053).
+    edgeSwipeBack(
+      in: app,
+      until: app.scrollViews["scenarioDetail.list"],
+      message: "Leaving the sim did not return to ScenarioDetail.")
 
     // ScenarioDetail hides the tab bar (contextual action bar, ADR-016
     // § Amendment 2026-07-01), so the tab bar stays hidden here — but the
