@@ -87,4 +87,65 @@ import Testing
     let url = URL(string: "pastura://scenario/\(id)")!
     #expect(DeepLinkURL.parse(url) == nil)
   }
+
+  // MARK: - Universal Link (https) accept cases
+
+  @Test func acceptUniversalLinkCases() {
+    let cases: [(String, DeepLinkURL)] = [
+      ("https://pastura.app/s/foo", .scenario(id: "foo")),
+      // Trailing slash — Astro serves the canonical URL as /s/<id>/
+      // (trailingSlash: 'always'), so this is the primary real-world shape.
+      ("https://pastura.app/s/foo/", .scenario(id: "foo")),
+      ("https://pastura.app/s/asch_conformity_v1/", .scenario(id: "asch_conformity_v1")),
+      // Japanese mirror — the /ja prefix is stripped to the same id.
+      ("https://pastura.app/ja/s/foo", .scenario(id: "foo")),
+      ("https://pastura.app/ja/s/foo/", .scenario(id: "foo")),
+      // Social platforms append tracking params — ignore query/fragment
+      // for the https shape (unlike the strict pastura:// arm).
+      ("https://pastura.app/s/foo?utm_source=x", .scenario(id: "foo")),
+      ("https://pastura.app/s/foo/?fbclid=abc", .scenario(id: "foo")),
+      ("https://pastura.app/s/foo#section", .scenario(id: "foo")),
+      // Scheme + host are both case-insensitive.
+      ("HTTPS://pastura.app/s/foo", .scenario(id: "foo")),
+      ("https://PASTURA.APP/s/foo", .scenario(id: "foo"))
+    ]
+    for (urlString, expected) in cases {
+      // swiftlint:disable:next force_unwrapping
+      let url = URL(string: urlString)!
+      let result = DeepLinkURL.parse(url)
+      #expect(result == expected, "Expected \(expected) for \(urlString)")
+    }
+  }
+
+  // MARK: - Universal Link (https) reject cases
+
+  @Test func rejectUniversalLinkCases() {
+    let urlStrings: [String] = [
+      // Wrong host — the trust boundary: only pastura.app.
+      "https://evil.com/s/foo",
+      "https://pastura.app.evil.com/s/foo",
+      // http (not https)
+      "http://pastura.app/s/foo",
+      // Wrong path prefix
+      "https://pastura.app/x/foo",
+      "https://pastura.app/foo",
+      "https://pastura.app/ja/foo",
+      // Empty / missing id
+      "https://pastura.app/s/",
+      "https://pastura.app/s",
+      "https://pastura.app/",
+      "https://pastura.app/ja/s/",
+      // Extra path segments
+      "https://pastura.app/s/foo/bar",
+      "https://pastura.app/ja/s/foo/bar",
+      // Id charset violations
+      "https://pastura.app/s/Asch",
+      "https://pastura.app/s/asch-v1"
+    ]
+    for urlString in urlStrings {
+      let url = URL(string: urlString)
+      let result = url.flatMap { DeepLinkURL.parse($0) }
+      #expect(result == nil, "Expected nil for \(urlString)")
+    }
+  }
 }
