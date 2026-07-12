@@ -16,7 +16,7 @@ extension ResultDetailView {
         rawThought: output.secondaryText(for: phaseType),
         scenarioTitle: scenario?.name,
         modelName: ModelRegistry.shortDisplayName(forIdentifier: simulation?.modelIdentifier),
-        linkURL: HighlightShareCard.shareLink,
+        linkURL: LocalizedPublicPages.sharedScenario(id: scenario?.id),
         contentFilter: contentFilter)
     else { return }
     highlightShareItem = HighlightCardImageRenderer.makeShareItem(model, colorScheme: colorScheme)

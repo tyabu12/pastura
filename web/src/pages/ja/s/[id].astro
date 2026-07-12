@@ -1,0 +1,25 @@
+---
+// Japanese-mirror share landing route: /ja/s/<id>/. Same static generation
+// as the English /s/<id>/ route (both read the one gallery index), with
+// Japanese chrome. hreflang-paired with the English variant by BaseLayout
+// (#1071, Growth A-2).
+// gallery.json read from process.cwd() (web/ during build) — see the English
+// /s/[id].astro route for why import.meta.url is unsafe here.
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import ScenarioLanding from '../../../components/ScenarioLanding.astro';
+import type { GalleryIndex } from '../../../types/gallery';
+
+export function getStaticPaths() {
+  const galleryPath = resolve(process.cwd(), '../docs/gallery/gallery.json');
+  const gallery: GalleryIndex = JSON.parse(readFileSync(galleryPath, 'utf-8'));
+  return gallery.scenarios.map((scenario) => ({
+    params: { id: scenario.id },
+    props: { scenario },
+  }));
+}
+
+const { scenario } = Astro.props;
+---
+
+<ScenarioLanding locale="ja" scenario={scenario} />

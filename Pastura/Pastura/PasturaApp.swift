@@ -185,6 +185,14 @@ private struct RootView: View {
       splashOverlay  // z-order above mainContent AND toast per critic axis 7
     }
     .onOpenURL { handleOpenURL($0) }
+    // Universal Links (https://pastura.app/s/<id>) arrive as a browsing-web
+    // user activity, NOT via onOpenURL (that fires only for the pastura://
+    // custom scheme). Route the webpageURL through the same handleOpenURL
+    // pipeline — DeepLinkURL.parse accepts both shapes and the gallery-index
+    // trust boundary is unchanged (#1071).
+    .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
+      if let url = userActivity.webpageURL { handleOpenURL(url) }
+    }
     // Drain triggers: fire whenever any signal that gates navigability
     // changes. `tryDrain` itself re-checks all preconditions, so spurious
     // triggers are cheap.

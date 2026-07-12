@@ -1,0 +1,30 @@
+---
+// English-root share landing route: /s/<id>/ for every curated gallery
+// scenario (#1071, Growth A-2). Statically generated at build time from the
+// repo-committed gallery index so each page carries the scenario's real
+// title/description + OGP. Unknown ids fall through to 404.astro.
+//
+// gallery.json lives outside the Astro project root (repo docs/), so it is
+// read via node:fs at build time rather than an ESM import — Vite's dev
+// fs.allow would otherwise reject an out-of-root import. Resolved from
+// process.cwd() (the web/ project root during `astro build`, per
+// deploy-pages.yml's working-directory) — NOT import.meta.url, which the
+// build bundler rewrites to an unstable depth.
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import ScenarioLanding from '../../components/ScenarioLanding.astro';
+import type { GalleryIndex } from '../../types/gallery';
+
+export function getStaticPaths() {
+  const galleryPath = resolve(process.cwd(), '../docs/gallery/gallery.json');
+  const gallery: GalleryIndex = JSON.parse(readFileSync(galleryPath, 'utf-8'));
+  return gallery.scenarios.map((scenario) => ({
+    params: { id: scenario.id },
+    props: { scenario },
+  }));
+}
+
+const { scenario } = Astro.props;
+---
+
+<ScenarioLanding locale="en" scenario={scenario} />

@@ -86,4 +86,40 @@ struct LocalizedPublicPagesTests {
     let url = LocalizedPublicPages.supportedDevices(preferredLocalizations: ["en"])
     #expect(url?.absoluteString == "https://pastura.app/support/#supported-devices")
   }
+
+  // MARK: - Shared scenario (#1071)
+
+  @Test func enLocaleResolvesToSharedScenarioLinkThatRoundTripsThroughDeepLinkParse() throws {
+    let url = try #require(
+      LocalizedPublicPages.sharedScenario(
+        id: "asch_conformity_v1", preferredLocalizations: ["en"]))
+    #expect(url.absoluteString == "https://pastura.app/s/asch_conformity_v1/")
+    #expect(DeepLinkURL.parse(url) == .scenario(id: "asch_conformity_v1"))
+  }
+
+  @Test func jaLocaleResolvesToSharedScenarioLinkThatRoundTripsThroughDeepLinkParse() throws {
+    let url = try #require(
+      LocalizedPublicPages.sharedScenario(
+        id: "asch_conformity_v1", preferredLocalizations: ["ja"]))
+    #expect(url.absoluteString == "https://pastura.app/ja/s/asch_conformity_v1/")
+    #expect(DeepLinkURL.parse(url) == .scenario(id: "asch_conformity_v1"))
+  }
+
+  @Test func nilScenarioIdFallsBackToLocalizedSiteRootNotASlashSPath() {
+    let enURL = LocalizedPublicPages.sharedScenario(id: nil, preferredLocalizations: ["en"])
+    #expect(enURL?.absoluteString == "https://pastura.app/")
+    #expect(enURL?.absoluteString.contains("/s/") == false)
+
+    let jaURL = LocalizedPublicPages.sharedScenario(id: nil, preferredLocalizations: ["ja"])
+    #expect(jaURL?.absoluteString == "https://pastura.app/ja/")
+    #expect(jaURL?.absoluteString.contains("/s/") == false)
+  }
+
+  @Test func emptyScenarioIdFallsBackToLocalizedSiteRoot() {
+    let enURL = LocalizedPublicPages.sharedScenario(id: "", preferredLocalizations: ["en"])
+    #expect(enURL?.absoluteString == "https://pastura.app/")
+
+    let jaURL = LocalizedPublicPages.sharedScenario(id: "  ", preferredLocalizations: ["ja"])
+    #expect(jaURL?.absoluteString == "https://pastura.app/ja/")
+  }
 }
