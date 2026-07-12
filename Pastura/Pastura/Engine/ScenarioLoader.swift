@@ -339,6 +339,10 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     // variable name written by the handler.
     let probability = try parseOptionalDoubleAcceptingInt(dict, key: "probability", label: label)
     let eventVariable: String? = try parseOptional(dict, key: "as", label: label)
+    // Draw-without-replacement opt-in (#1006). Generic Bool path like
+    // `exclude_self`; no validation needed — a bool is always well-formed, and
+    // `no_repeat` on a short/1-element source is harmless (resets each round).
+    let noRepeat: Bool? = try parseOptional(dict, key: "no_repeat", label: label)
 
     // relationship_update-specific fields (#910). Both YAML-only — no visual
     // editing UI in v1 — but they round-trip through the editor's dual buffer.
@@ -368,7 +372,8 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       eventVariable: eventVariable,
       voteAgainst: voteAgainst,
       actionDeltas: actionDeltas,
-      maxSentences: maxSentences
+      maxSentences: maxSentences,
+      noRepeat: noRepeat
     )
   }
 

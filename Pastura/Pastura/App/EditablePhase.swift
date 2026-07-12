@@ -37,6 +37,11 @@ struct EditablePhase: Identifiable, Sendable {
   // UI in `PhaseEditorSheet`), but modelled here so a visual→YAML round-trip
   // preserves it instead of dropping it on re-serialization.
   var maxSentences: Int?
+  // event_inject draw-without-replacement opt-in (#1006). YAML-only for v1 (no
+  // editing UI), modelled here so the visual→YAML round-trip preserves it.
+  // `Bool` (not `Bool?`) mirrors `excludeSelf`: false and nil are semantically
+  // identical, and `toPhase()` collapses false back to nil.
+  var noRepeat: Bool
 
   // swiftlint:disable:next function_default_parameter_at_end
   init(
@@ -58,7 +63,8 @@ struct EditablePhase: Identifiable, Sendable {
     eventVariable: String = "",
     voteAgainst: Int? = nil,
     actionDeltas: [String: Int] = [:],
-    maxSentences: Int? = nil
+    maxSentences: Int? = nil,
+    noRepeat: Bool = false
   ) {
     self.type = type
     self.prompt = prompt
@@ -79,6 +85,7 @@ struct EditablePhase: Identifiable, Sendable {
     self.voteAgainst = voteAgainst
     self.actionDeltas = actionDeltas
     self.maxSentences = maxSentences
+    self.noRepeat = noRepeat
   }
 
   init(from phase: Phase) {
@@ -101,6 +108,7 @@ struct EditablePhase: Identifiable, Sendable {
     self.voteAgainst = phase.voteAgainst
     self.actionDeltas = phase.actionDeltas ?? [:]
     self.maxSentences = phase.maxSentences
+    self.noRepeat = phase.noRepeat ?? false
   }
 
   /// Identifies which branch of a conditional phase to target.
@@ -214,7 +222,8 @@ struct EditablePhase: Identifiable, Sendable {
       eventVariable: eventVariable.isEmpty ? nil : eventVariable,
       voteAgainst: voteAgainst,
       actionDeltas: actionDeltas.isEmpty ? nil : actionDeltas,
-      maxSentences: maxSentences
+      maxSentences: maxSentences,
+      noRepeat: noRepeat ? true : nil
     )
   }
 }
