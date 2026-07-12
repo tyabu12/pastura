@@ -167,4 +167,48 @@ struct PhaseEditorSheetValidationTests {
     #expect(roundRobin.contains("{opponent_name}"))
     #expect(!individual.contains("{opponent_name}"))
   }
+
+  // MARK: - max_sentences control logic (#881 Stage 2 PR-B)
+
+  /// The control is shown for exactly the 6 LLM phases — the same set the R18
+  /// `max-sentences-no-op` linter treats as effective — and hidden for the 7
+  /// code / control phases, so an author can't author a silent no-op override.
+  @Test func showsMaxSentencesControlOnlyForLLMPhases() {
+    let shown = PhaseType.allCases.filter { PhaseEditorSheet.showsMaxSentencesControl(for: $0) }
+    #expect(Set(shown) == Set([.speakAll, .speakEach, .vote, .choose, .reflect, .whisper]))
+    #expect(shown.count == 6)
+    #expect(PhaseType.allCases.count - shown.count == 7)
+  }
+
+  @Test func maxSentencesToggledOnSeedsGlobalDefault() {
+    // Toggling the override on seeds the global default so the result is
+    // byte-identical to the unset (nil) prompt until the author adjusts it.
+    #expect(
+      PhaseEditorSheet.maxSentencesToggled(enabled: true) == PromptBuilder.defaultStatementMaxSentences)
+  }
+
+  @Test func maxSentencesToggledOffClearsOverride() {
+    #expect(PhaseEditorSheet.maxSentencesToggled(enabled: false) == nil)
+  }
+
+  @Test func maxSentencesToggleRoundTripsNilToValueToNil() {
+    var value: Int?
+    value = PhaseEditorSheet.maxSentencesToggled(enabled: true)
+    #expect(value == PhaseEditorSheet.defaultMaxSentences)
+    value = PhaseEditorSheet.maxSentencesToggled(enabled: false)
+    #expect(value == nil)
+  }
+
+  @Test func clampedMaxSentencesBoundsToAcceptedRange() {
+    #expect(PhaseEditorSheet.clampedMaxSentences(0) == 1)
+    #expect(PhaseEditorSheet.clampedMaxSentences(7) == 6)
+    #expect(PhaseEditorSheet.clampedMaxSentences(4) == 4)
+    #expect(PhaseEditorSheet.clampedMaxSentences(1) == 1)
+    #expect(PhaseEditorSheet.clampedMaxSentences(6) == 6)
+  }
+
+  @Test func maxSentencesDisplayValueFallsBackToDefault() {
+    #expect(PhaseEditorSheet.maxSentencesDisplayValue(nil) == PhaseEditorSheet.defaultMaxSentences)
+    #expect(PhaseEditorSheet.maxSentencesDisplayValue(5) == 5)
+  }
 }
