@@ -108,6 +108,60 @@ struct SpeakEachHandlerTests {
     #expect(mock.generateCallCount == 1)
   }
 
+  // MARK: - subRounds clamp (untrusted YAML guard, #1064)
+
+  // `subRounds: 0` would form the invalid ClosedRange `1...0` and trap the
+  // app pre-fix. The clamp (`max(1, …)`) makes it behave as one sub-round —
+  // exactly one pass over the personas. Reverting the clamp line must crash
+  // this test, not merely change its pass mode.
+  @Test func zeroSubRoundsRunsOncePerPersona() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "A1"}"#,
+      #"{"statement": "B1"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      phases: [
+        Phase(type: .speakEach, prompt: "Talk", outputSchema: ["statement": "string"], subRounds: 0)
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    // 2 agents × 1 clamped sub-round = 2 calls (no trap).
+    #expect(mock.generateCallCount == 2)
+  }
+
+  @Test func negativeSubRoundsRunsOncePerPersona() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "A1"}"#,
+      #"{"statement": "B1"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      phases: [
+        Phase(
+          type: .speakEach, prompt: "Talk", outputSchema: ["statement": "string"], subRounds: -1)
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(mock.generateCallCount == 2)
+  }
+
   // MARK: - simulationLanguage override (ADR-010 Step E)
 
   @Test func speakEachHonorsSimulationLanguageOverride_jaToEn() async throws {
