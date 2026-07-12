@@ -33,7 +33,7 @@ if auto-retry exhausted.
 
 | Class | Failure message | Distinguishing signal | xcodebuild built-in retry recovers? |
 |---|---|---|---|
-| **Within-process clone cascade** | 200-330 tests "failed (0.000 seconds)" same simulator clone PID | Single-PID, no assertion output, no wall-clock | Yes (passes on retry) |
+| **Within-process clone cascade** _(retired post-#1053 — serialization removed clones)_ | 200-330 tests "failed (0.000 seconds)" same simulator clone PID | Single-PID, no assertion output, no wall-clock | Yes (passes on retry) |
 | **App-launch timeout** | `Failed to launch ...: Timed out while launching application via Xcode` / `Timed out while requesting launch progress` | Other UI tests in same run launched the same `Pastura.app` and passed | **No** — retry exhausts at launch phase; xcresult shows "Failed after 2 retries" |
 | **Runner-init Accessibility** | `Test runner failed to initialize ... Timed out while loading Accessibility` | xcresult: 0 test cases executed (runner never booted); zero `Test case ... passed` lines | **No** — `-retry-tests-on-failure -test-iterations 2` presupposes runner booted |
 

@@ -237,8 +237,9 @@ Distinct from the harness `swift build` entry above (that's the SwiftPM *harness
 ## CI flake catalog
 
 CI UI-test failures cluster into known flake classes — within-process
-clone cascade, app-launch timeout, runner-init Accessibility, and
-XCUITest idle-stall — auto-retried by `.github/workflows/ci-retry.yml`
+clone cascade (retired post-#1053, see below), app-launch timeout,
+runner-init Accessibility, and XCUITest idle-stall — auto-retried by
+`.github/workflows/ci-retry.yml`
 (max 3 attempts on main / 2 on PR, ui-test-failure-gated).
 **Check `run_attempt` on the failed run before intervening**: if 1, let
 auto-retry fire; only after it exhausts do `gh run rerun --failed <run_id>`

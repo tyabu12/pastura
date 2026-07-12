@@ -11,6 +11,11 @@ extension XCTestCase {
   /// if `sentinel` has not appeared within `timeout`, then asserts. Bounded at
   /// two attempts: a genuinely-broken pop still fails within ~2×`timeout`
   /// rather than hanging, keeping the red signal fast (#1053).
+  ///
+  /// Assumes `timeout` comfortably exceeds a legitimate-but-slow pop, so the
+  /// retry fires only on a truly-dropped gesture. If a pop actually started but
+  /// was merely slow (> `timeout`), the second drag over-pops one screen
+  /// further — safe only where the caller's assertion still holds one level up.
   @MainActor
   func edgeSwipeBack(
     in app: XCUIApplication,

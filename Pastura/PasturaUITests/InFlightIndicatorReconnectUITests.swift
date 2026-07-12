@@ -74,7 +74,7 @@ final class InFlightIndicatorReconnectUITests: XCTestCase {
     // (app-launch infra-flake class — see .claude/rules/xcodebuild-cli.md
     // § CI flake catalog). waitForExistence returns on appearance, so the
     // sub-second success path is unchanged; this only widens tolerance for the
-    // cold-start stall, matching this test's executionTimeAllowance = 600.
+    // cold-start stall, within this test's dedicated executionTimeAllowance.
     XCTAssertTrue(detailList.waitForExistence(timeout: 30), "ScenarioDetailView did not appear.")
     let runSimulation = app.buttons["scenarioDetail.runSimulationButton"]
     var scrollAttempts = 0
