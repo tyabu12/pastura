@@ -14,16 +14,17 @@ import kotlin.test.assertTrue
  * those cases pass identically in both languages and mask the two primitives
  * that genuinely diverge:
  *
- * 1. **Numeric detection.** Swift `Double(String)` and Kotlin
- *    `String.toDoubleOrNull()` disagree on `"Infinity"`, `"NaN"`, hex-float
- *    (`"0x10"`), and type-suffixed (`"1f"`) literals. The port sidesteps both by
- *    matching a fixed decimal-literal regex (`ConditionEvaluator.numericLiteralRegex`),
- *    so a token is numeric iff it is a plain optionally-signed decimal with
- *    optional fraction / exponent — identical in both languages. The tests below
- *    pin: clean decimals / exponents / negatives ARE numeric; `Infinity` / hex /
- *    suffix are NOT (treated as strings — the accepted, documented divergence
- *    from Swift, which is out-of-domain since real scenario operands are
- *    integers or names).
+ * 1. **Numeric detection.** Neither raw parser is a stable cross-language
+ *    predicate: Kotlin `String.toDoubleOrNull()` accepts `"Infinity"` / `"NaN"` /
+ *    type-suffixed literals (`"1f"`) that are not plain decimals, while Swift
+ *    `Double(String)` in turn accepts hex-floats (`"0x1p4"`) Kotlin rejects. The
+ *    port sidesteps both by matching a fixed decimal-literal regex
+ *    (`ConditionEvaluator.numericLiteralRegex`), so a token is numeric iff it is a
+ *    plain optionally-signed decimal with optional fraction / exponent — identical
+ *    in both languages. The tests below pin: clean decimals / exponents / negatives
+ *    ARE numeric; `Infinity` / suffixed literals are NOT (treated as strings —
+ *    normalizing Kotlin's laxer acceptance to the strict grammar). Out-of-domain
+ *    for real scenario operands, which are integers or names.
  * 2. **String ordering.** Kotlin `String.compareTo` is UTF-16 code-unit order;
  *    Swift `String <` is Unicode-scalar order. They agree across the entire BMP
  *    (all CJK/kana), diverging only on supplementary-plane code points and
@@ -75,16 +76,18 @@ class ConditionEvaluatorParityTests {
     }
 
     @Test
-    fun hexLiteralTreatedAsStringNotNumber_acceptedDivergenceFromSwift() {
+    fun typeSuffixedLiteralTreatedAsStringNotNumber() {
         val scenario = makeTestScenario(agentNames = listOf("A", "B"))
-        val state = SimulationState.initial(scenario).copy(variables = mapOf("hex" to "0x10"))
-        // ACCEPTED DIVERGENCE: Swift `Double("0x10") == 16` → `hex == 16` would be
-        // TRUE in Swift. The Kotlin port treats "0x10" as a string (decimal regex
-        // rejects hex), so `hex == 16` is FALSE. Out-of-domain (no real scenario
-        // uses hex operands); pinned here so the divergence is deliberate, not silent.
-        assertFalse(evaluator.evaluate("hex == 16", state, scenario).value)
+        val state = SimulationState.initial(scenario).copy(variables = mapOf("v" to "1f"))
+        // Kotlin's `"1f".toDoubleOrNull()` == 1.0 (Java accepts the trailing
+        // `f`/`d` suffix), so RAW numeric detection would make `v == 1` TRUE. The
+        // port's decimal regex rejects "1f" → string path → `v == 1` is FALSE.
+        // This is the regex's core job: normalize Kotlin's laxer `toDoubleOrNull`
+        // to a strict decimal grammar. Out-of-domain (real operands are integers
+        // or names); pinned so the behaviour is deliberate, not silent.
+        assertFalse(evaluator.evaluate("v == 1", state, scenario).value)
         // It IS equal to itself as a string:
-        assertTrue(evaluator.evaluate("hex == \"0x10\"", state, scenario).value)
+        assertTrue(evaluator.evaluate("v == \"1f\"", state, scenario).value)
     }
 
     // MARK: - String ordering — in-domain BMP parity (UTF-16 == scalar order)

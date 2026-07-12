@@ -58,14 +58,16 @@ import com.pastura.models.SimulationState
  * never appear.
  *
  * **Cross-language numeric parity.** Numeric detection uses a fixed decimal-literal
- * regex ([numericLiteralRegex]) rather than raw `String.toDoubleOrNull()`, which
- * would accept `"Infinity"` / `"NaN"` / type-suffixed literals Swift's
- * `Double(String)` does not, and reject the hex-floats Swift accepts. A token is
- * numeric iff it is a plain optionally-signed decimal with optional fraction /
- * exponent — identical in Swift and Kotlin on that grammar. Accepted, documented
- * divergences (out-of-domain — real operands are integers or names): `Infinity` /
- * `NaN` / hex (`0x10`) / suffix (`1f`) take the string path here; Swift's
- * `Double()` would treat some as numbers. Pinned by `ConditionEvaluatorParityTests`.
+ * regex ([numericLiteralRegex]) rather than raw `String.toDoubleOrNull()`. Neither
+ * raw parser is a stable cross-language predicate: Kotlin `toDoubleOrNull` accepts
+ * `"Infinity"` / `"NaN"` / type-suffixed literals (`"1f"`) that are not plain
+ * decimals, while Swift `Double(String)` accepts hex-floats (`"0x1p4"`) Kotlin
+ * rejects. The regex accepts a token iff it is a plain optionally-signed decimal
+ * with optional fraction / exponent — identical in Swift and Kotlin on that
+ * grammar. Everything else (`Infinity` / `NaN` / suffixed `1f` — normalizing
+ * Kotlin's laxer acceptance; hex-floats — the one Swift accepts) takes the string
+ * path. All out-of-domain: real operands are integers or names. Pinned by
+ * `ConditionEvaluatorParityTests`.
  */
 public class ConditionEvaluator {
 
