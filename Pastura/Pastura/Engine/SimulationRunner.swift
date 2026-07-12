@@ -1,5 +1,5 @@
 import Foundation
-import os
+import Synchronization
 
 /// Orchestrates simulation execution, emitting events via `AsyncStream`.
 ///
@@ -7,25 +7,10 @@ import os
 /// dispatching each phase to the appropriate handler. Supports pause/resume via
 /// `isPaused` flag and cancellation via Swift `Task` cancellation.
 nonisolated public final class SimulationRunner: @unchecked Sendable {
-  // @unchecked Sendable: mutable pauseState is protected by OSAllocatedUnfairLock.
+  // @unchecked Sendable: mutable pauseState is protected by the PauseGate's Mutex.
+  // `PauseState` + `PauseGate` (the Mutex box) live in SimulationRunner+PauseState.swift.
 
-  /// Bundles the pause flag and an optional resume continuation in a single lock,
-  /// so the setter can atomically detect "unpaused while someone is waiting" and
-  /// resume the continuation without a race.
-  ///
-  /// Sendable: all access is serialized through the enclosing `OSAllocatedUnfairLock`.
-  private struct PauseState: Sendable {
-    var isPaused = false
-    var resumeContinuation: CheckedContinuation<Void, Never>?
-    /// Set by `resumeOnce()` whenever no continuation is currently stored.
-    /// The next store attempt inside `checkPaused` consumes this flag and
-    /// short-circuits without suspending — mirrors the existing
-    /// `Task.isCancelled` race handling. Covers both the emit-before-store
-    /// window and any pre-arm from outside an active pause cycle.
-    var pendingResume = false
-  }
-
-  private let pauseState = OSAllocatedUnfairLock(initialState: PauseState())
+  private let pauseState = PauseGate()
   private let dispatcher = PhaseDispatcher()
   private let validator = ScenarioValidator()
   private let detector: (any LanguageDetector)?
@@ -165,7 +150,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let scenario: Scenario
     let llm: LLMService
     let dispatcher: PhaseDispatcher
-    let pauseState: OSAllocatedUnfairLock<PauseState>
+    let pauseState: PauseGate
     let suspendController: SuspendController
     let detector: (any LanguageDetector)?
     let logger: any EngineLogger
@@ -180,7 +165,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private static func executeSimulation(
     scenario: Scenario, llm: LLMService,
     dispatcher: PhaseDispatcher, validator: ScenarioValidator,
-    pauseState: OSAllocatedUnfairLock<PauseState>,
+    pauseState: PauseGate,
     suspendController: SuspendController,
     detector: (any LanguageDetector)?,
     logger: any EngineLogger,
@@ -265,7 +250,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
 
     // Why withTaskCancellationHandler + withCheckedContinuation:
     // We need to resume the continuation on EITHER unpause (via isPaused setter)
-    // or task cancellation (via onCancel). The OSAllocatedUnfairLock serializes
+    // or task cancellation (via onCancel). The Mutex serializes
     // all three resume paths (setter, onCancel, and the in-closure isCancelled
     // check) so the continuation is resumed exactly once.
     //
