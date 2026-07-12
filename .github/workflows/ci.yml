@@ -705,7 +705,11 @@ jobs:
 
       - name: Run JVM tests
         timeout-minutes: 8
-        run: ./gradlew :shared:models:jvmTest --no-daemon --stacktrace
+        # `:shared:engine:jvmTest` runs here too since Stage 2-pre (#501) — the
+        # ported ConditionEvaluator commonTest is the cross-language executable
+        # spec and must run per-PR on JVM, not only nightly-native. Before it,
+        # `:shared:engine` had no commonTest (jvmTest was NO-SOURCE).
+        run: ./gradlew :shared:models:jvmTest :shared:engine:jvmTest --no-daemon --stacktrace
 
       # The per-PR budget tripwire lives HERE, on the compile-only step, so a
       # silently-growing compile-only (Gradle pulling in link deps, or native
