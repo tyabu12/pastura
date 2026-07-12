@@ -51,4 +51,50 @@ extension PhaseEditorSheet {
   static func maxSentencesDisplayValue(_ value: Int?) -> Int {
     value ?? defaultMaxSentences
   }
+
+  // MARK: - Section view
+
+  /// The `max_sentences` override control. Shown only inside the
+  /// `requiresLLM` block of `body` — the same gate ``showsMaxSentencesControl(for:)``
+  /// encodes for the unit test. A Toggle switches between the global default
+  /// (off → nil) and an explicit per-phase cap (on → Stepper, 1…6).
+  var maxSentencesSection: some View {
+    Section {
+      Toggle(String(localized: "Override sentence limit"), isOn: maxSentencesOverrideBinding)
+      if phase.maxSentences != nil {
+        Stepper(value: maxSentencesValueBinding, in: Self.maxSentencesRange) {
+          Text(
+            String(
+              format: String(localized: "Max sentences: %lld"),
+              Self.maxSentencesDisplayValue(phase.maxSentences)))
+        }
+      }
+    } header: {
+      Text(String(localized: "Statement Length"))
+    } footer: {
+      Text(
+        String(
+          format: String(
+            localized: "When off, statements use the global default (%lld sentences)."),
+          Self.defaultMaxSentences)
+      )
+      .font(.caption)
+    }
+  }
+
+  // MARK: - Bindings
+
+  private var maxSentencesOverrideBinding: Binding<Bool> {
+    Binding(
+      get: { phase.maxSentences != nil },
+      set: { phase.maxSentences = Self.maxSentencesToggled(enabled: $0) }
+    )
+  }
+
+  private var maxSentencesValueBinding: Binding<Int> {
+    Binding(
+      get: { Self.maxSentencesDisplayValue(phase.maxSentences) },
+      set: { phase.maxSentences = Self.clampedMaxSentences($0) }
+    )
+  }
 }

@@ -60,8 +60,10 @@ struct PhaseEditorSheet: View {
       Form {
         typeSection
         if phase.type.requiresLLM {
+          // `requiresLLM` == `showsMaxSentencesControl(for:)` (unit-tested).
           promptSection
           outputFieldsSection
+          maxSentencesSection
         }
         typeSpecificSection
       }
@@ -84,6 +86,7 @@ struct PhaseEditorSheet: View {
         // (#802). Drives authors onto the convention so a phase doesn't ship
         // without its `inner_thought` thought bubble (the #799 gap).
         phase.reconcileCanonicalOutputFields(from: oldType)
+        phase.reconcileMaxSentences()  // clear a stale override on switch to non-LLM (#881)
       }
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
