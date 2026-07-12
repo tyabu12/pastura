@@ -211,6 +211,11 @@ struct AgentOutputRow: View {
   /// (that would flush the load-bearing `@State`; see the `body` note).
   var onAvatarTap: ((String) -> Void)?
 
+  /// Invoked when the user picks "Share as Card" from the row's context menu
+  /// (#1070). `nil` (default) omits the menu entirely, so rows without a share
+  /// handler carry no long-press affordance.
+  var onShareHighlight: (() -> Void)?
+
   /// Playback-park probe. `nil` (default) = zero impact; a non-nil closure is
   /// evaluated once per reveal tick and, while it returns `true`, the reveal
   /// loop spins in place without advancing ``visibleChars`` — used to freeze
@@ -284,6 +289,7 @@ struct AgentOutputRow: View {
     agentPosition: Int? = nil,
     debugRowID: String? = nil,
     onAvatarTap: ((String) -> Void)? = nil,
+    onShareHighlight: (() -> Void)? = nil,
     isTypingParked: (() -> Bool)? = nil
   ) {
     self.agent = agent
@@ -304,6 +310,7 @@ struct AgentOutputRow: View {
     self.agentPosition = agentPosition
     self.debugRowID = debugRowID
     self.onAvatarTap = onAvatarTap
+    self.onShareHighlight = onShareHighlight
     self.isTypingParked = isTypingParked
     self._showInnerThought = State(initialValue: showAllThoughts)
     // Seed the reveal counter from the handoff position so the first frame
@@ -394,6 +401,7 @@ struct AgentOutputRow: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .fixedSize(horizontal: false, vertical: true)
     .padding(.vertical, 4)
+    .modifier(HighlightShareContextMenu(action: onShareHighlight))
     .onAppear {
       #if DEBUG
         logDebugLifecycle(event: "onAppear")

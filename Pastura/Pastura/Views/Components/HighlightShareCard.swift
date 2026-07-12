@@ -238,6 +238,26 @@ private struct Palette {
     muted: .nightMuted, rule: .nightRule, moss: .nightMoss)
 }
 
+/// Adds a "Share as Card" context menu when `action` is non-nil; a nil action
+/// leaves the view untouched (no empty long-press menu on rows without a share
+/// handler). Shared by both highlight entry points (#1070): the live transcript
+/// row and the past-results row.
+struct HighlightShareContextMenu: ViewModifier {
+  let action: (() -> Void)?
+
+  func body(content: Content) -> some View {
+    if let action {
+      content.contextMenu {
+        Button(action: action) {
+          Label(String(localized: "Share as Card"), systemImage: "square.and.arrow.up")
+        }
+      }
+    } else {
+      content
+    }
+  }
+}
+
 #Preview("Highlight card — light / dark") {
   let filter = ContentFilter()
   return HStack(spacing: 20) {

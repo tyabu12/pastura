@@ -85,6 +85,21 @@ struct AgentOutputRowContractTests {
     )
   }
 
+  @Test func agentOutputRowAcceptsShareHighlightCallSite() {
+    // Matches the SimulationView / ResultDetailView committed-row call sites
+    // that wire the highlight-share context menu (#1070). The closure is
+    // optional (defaults nil); pin it so both entry points keep compiling.
+    _ = AgentOutputRow(
+      agent: "Alice",
+      output: TurnOutput(fields: ["statement": "a line worth sharing"]),
+      phaseType: .speakAll,
+      showAllThoughts: false,
+      agentPosition: 0,
+      onAvatarTap: { _ in },
+      onShareHighlight: {}
+    )
+  }
+
   // MARK: - targetLength — pure computed
 
   @Test func targetLengthCoversPrimaryWhenThoughtHidden() {

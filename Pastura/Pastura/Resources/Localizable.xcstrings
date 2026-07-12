@@ -5962,6 +5962,22 @@
         }
       }
     },
+    "Share as Card" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share as Card"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カードで共有"
+          }
+        }
+      }
+    },
     "Show all thoughts" : {
       "localizations" : {
         "ja" : {
