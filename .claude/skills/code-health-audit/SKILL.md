@@ -1,6 +1,6 @@
 ---
 name: code-health-audit
-description: Run one code-health-audit cycle — sweep a code layer (Engine/LLM) with category-weighted read-only finders, Vet every finding against the layer's by-design conventions, dedup against the finding ledger, and write a ranked digest (files no issues, schedules nothing). Use when the user asks to run code-health-audit, audit code health, sweep for latent code improvements, or find latent code-quality issues a diff review can't see.
+description: Run one code-health-audit cycle — sweep a code layer (Engine/LLM) with category-weighted read-only finders, Vet each finding, and write a ranked digest (files no issues, schedules nothing). Use when the user asks to run code-health-audit, audit code health, or sweep for latent code-quality issues a diff review can't see.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 ---
 
