@@ -414,6 +414,28 @@ jobs:
 
           exit ${TEST_EXIT:-0}
 
+      # Surface the failing-test summary inline in the run's Step Summary so a
+      # red ui-test can be triaged without downloading the ~130 MB xcresult
+      # artifact (#1053). Guarded: a timeout-kill (SIGTERM at timeout-minutes)
+      # can leave UITestResults.xcresult absent or half-written — exactly the
+      # case this step exists for — so the bundle check + `|| true` degrade to
+      # a note instead of adding a second red step to an already-red job.
+      # xcresulttool defaults to JSON on Xcode 26; jq renders the failures.
+      - name: Summarize UI test failures
+        if: failure()
+        run: |
+          {
+            echo "### UI test failures"
+            if [ -d UITestResults.xcresult ]; then
+              xcrun xcresulttool get test-results summary \
+                --path UITestResults.xcresult 2>/dev/null \
+                | jq -r '"Result: \(.result) — \(.passedTests) passed, \(.failedTests) failed", "", ((.testFailures // []) | map("- **\(.testIdentifierString // .testName // .targetName)**: \(.failureText)") | .[])' \
+                2>/dev/null || echo "_Could not parse the xcresult summary._"
+            else
+              echo "_No UITestResults.xcresult — likely a timeout-kill before the bundle was written._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload UI Test Results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
