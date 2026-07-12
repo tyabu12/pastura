@@ -14,7 +14,7 @@ evaluates and polishes the existing *UI*. Run from the repository root of the
 [`docs/design/ui-refine/README.md`](../../../docs/design/ui-refine/README.md).
 
 This is a member of the "brush-up automation" family (siblings: `consistency-audit`,
-`triage-guardian`, `scenario-refine`). It proposes UI **improvements** against the
+`triage-guardian`, `scenario-refine`, `code-health-audit`). It proposes UI **improvements** against the
 *current* UI — it is **not** regression detection and does **not** diff against a
 baseline. The whole point is to surface latent improvements a diff gate can't see,
 while five anti-flood mechanisms keep an open-ended critique pass from drowning the
