@@ -143,6 +143,9 @@
       case .guardrailViolation:
         return .generationFailed(
           description: "Foundation Models guardrail refusal — \(error.localizedDescription)")
+      // Plain `default:` (not `@unknown default` like `describe`): the spike
+      // only distinguishes the two prefixed classes above; every other
+      // GenerationError case intentionally shares the generic message.
       default:
         return .generationFailed(
           description: "Foundation Models generation failed — \(error.localizedDescription)")
