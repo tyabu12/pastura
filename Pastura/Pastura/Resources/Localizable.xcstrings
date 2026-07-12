@@ -7406,6 +7406,22 @@
         }
       }
     },
+    "from “%@”" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "from “%@”"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シナリオ「%@」より"
+          }
+        }
+      }
+    },
     "llama_decode failed (error %lld)" : {
       "localizations" : {
         "en" : {
