@@ -70,6 +70,11 @@ phases:
     template: "{current_event}"
 
   - type: speak_all
+    # #881: lift the global ≤3-sentence brevity cap for the nightly plea so a
+    # scaffolded closing argument isn't clipped. Harness A/B (gemma-4-E2B, ja)
+    # showed cap 6 ~doubles cross-agent engagement over the ≤3 default at no
+    # latency cost; en is inert but mirrors for structural parity (presets.md).
+    max_sentences: 6
     prompt: >
       {current_event}
 

@@ -81,6 +81,11 @@ phases:
     template: "{current_event}"
 
   - type: speak_all
+    # #881: lift the global ≤3-sentence brevity cap for the nightly plea so a
+    # scaffolded closing argument isn't clipped. The lever is empirically
+    # ja-only (en statements stay ~1 sentence regardless); mirrored here for
+    # structural ja/en parity (presets.md), not for an en effect.
+    max_sentences: 6
     prompt: >
       {current_event}
 
