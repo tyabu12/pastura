@@ -65,6 +65,9 @@ phases:
   - type: event_inject
     source: trials
     # probability omitted -> defaults to 1.0: a retrial opens every night.
+    # Draw without replacement so a 3-night run never re-opens the same trial
+    # (with-replacement had a ~44% chance of an in-run repeat; #1006).
+    no_repeat: true
 
   - type: summarize
     template: "{current_event}"
