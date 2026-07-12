@@ -37,7 +37,7 @@ import Foundation
 /// | `min_score`        | `state.scores.values.min()`                 |
 /// | `eliminated_count` | count of `state.eliminated.values == true`  |
 /// | `active_count`     | count of `state.eliminated.values == false` |
-/// | `vote_winner`      | most-voted name in `state.voteResults` (ties broken like `EliminateHandler`) |
+/// | `vote_winner`      | most-voted name in `state.voteResults` (ties broken by count desc, name desc) |
 /// | `scores.<Name>`    | `state.scores["<Name>"]`                    |
 ///
 /// Any other identifier is resolved from `state.variables`.
@@ -280,8 +280,8 @@ nonisolated public struct ConditionEvaluator: Sendable {
       return resolveScoreExtremum(
         state.scores.values.min(), label: "min_score", warnings: &warnings)
     case "vote_winner":
-      // Deterministic tie-break mirrors EliminateHandler: sort by
-      // (count desc, name desc) and take the first.
+      // Canonical deterministic tie-break: sort by (count desc, name desc)
+      // and take the first. EliminateHandler shares this order (#1056).
       let top =
         state.voteResults
         .sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) })
