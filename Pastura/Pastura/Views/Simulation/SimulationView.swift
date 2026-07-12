@@ -1153,6 +1153,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         agent: agent,
         agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
         rawUtterance: text,
+        rawThought: output.secondaryText(for: phaseType),
         scenarioTitle: scenario?.name,
         modelName: activeModelName,
         linkURL: HighlightShareCard.shareLink,

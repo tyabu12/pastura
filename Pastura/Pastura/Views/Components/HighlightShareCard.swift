@@ -41,6 +41,10 @@ struct HighlightShareCard: View {
     let character: SheepAvatar.Character
     /// The quoted line — filtered and edge-trimmed, guaranteed non-empty.
     let utterance: String
+    /// The agent's inner thought (心の声), filtered and edge-trimmed, or `nil`
+    /// when absent / filtered-to-empty so the card drops the INNER VOICE
+    /// section rather than rendering an empty ornament (#1080).
+    let thought: String?
     /// Scenario name, or `nil` to omit the "from …" line.
     let scenarioTitle: String?
     /// Inference model label (e.g. "Gemma 4 E2B"), or `nil` to omit the line.
@@ -54,12 +58,19 @@ struct HighlightShareCard: View {
     /// - Parameters:
     ///   - rawUtterance: the display text as read at the call site; it is
     ///     re-filtered here unconditionally.
+    ///   - rawThought: the inner-thought text as read at the call site
+    ///     (`nil` for phases without a thought). Re-filtered here — like
+    ///     `rawUtterance`, persisted thought text is *unfiltered* (#1075), so
+    ///     it must be re-filtered before it is burned into a public share
+    ///     image (ADR-005). A thought that filters to empty collapses to `nil`
+    ///     (utterance-only card); it never drops the whole model.
     ///   - contentFilter: injected so the applied filtering is testable
     ///     (mirrors the production `ContentFilter()` the call sites hold).
     init?(
       agent: String,
       agentPosition: Int?,
       rawUtterance: String,
+      rawThought: String?,
       scenarioTitle: String?,
       modelName: String?,
       linkURL: URL?,
@@ -71,6 +82,7 @@ struct HighlightShareCard: View {
       self.agent = agent
       self.character = SheepAvatar.Character.forAgent(agent, position: agentPosition)
       self.utterance = filtered
+      self.thought = Self.filteredNonEmpty(rawThought, filter: contentFilter)
       self.scenarioTitle = Self.nonEmpty(scenarioTitle)
       self.modelName = Self.nonEmpty(modelName)
       self.linkURL = linkURL
@@ -84,6 +96,19 @@ struct HighlightShareCard: View {
         !trimmed.isEmpty
       else { return nil }
       return trimmed
+    }
+
+    /// Runs an optional raw thought through the content filter and collapses a
+    /// blocked-to-empty / whitespace-only result to `nil`. Same `ContentFilter`
+    /// pass as the utterance (a redaction to visible content like "***" is
+    /// kept — only whitespace-emptiness drops the thought), so the card takes
+    /// the utterance-only layout rather than rendering an empty INNER VOICE
+    /// section.
+    private static func filteredNonEmpty(_ raw: String?, filter: ContentFilter) -> String? {
+      guard let raw else { return nil }
+      let filtered = filter.filter(raw)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      return filtered.isEmpty ? nil : filtered
     }
   }
 
@@ -155,24 +180,61 @@ struct HighlightShareCard: View {
   }
 
   private var quote: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      // Serif open-quote ornament — a deliberate off-note against the sans
-      // body, marking "this is a quotation". Fixed height so it doesn't pad
-      // the utterance below it.
-      Text(verbatim: "\u{201C}")
-        .font(.system(size: 52, design: .serif))
-        .foregroundStyle(palette.moss.opacity(0.45))
-        .frame(height: 26, alignment: .top)
-      Text(model.utterance)
-        .font(.system(size: 20, weight: .medium))
-        .foregroundStyle(palette.ink)
-        .lineSpacing(6)
-        // Long utterances are quoted as a *fragment*: cap at 5 lines and
-        // ellipsize (#1070 truncation rule) rather than burning the whole
-        // speech into the card.
-        .lineLimit(5)
-        .truncationMode(.tail)
-        .fixedSize(horizontal: false, vertical: true)
+    VStack(alignment: .leading, spacing: 14) {
+      VStack(alignment: .leading, spacing: 4) {
+        // Serif open-quote ornament — a deliberate off-note against the sans
+        // body, marking "this is a quotation". Fixed height so it doesn't pad
+        // the utterance below it.
+        Text(verbatim: "\u{201C}")
+          .font(.system(size: 52, design: .serif))
+          .foregroundStyle(palette.moss.opacity(0.45))
+          .frame(height: 26, alignment: .top)
+        Text(model.utterance)
+          .font(.system(size: 20, weight: .medium))
+          .foregroundStyle(palette.ink)
+          .lineSpacing(6)
+          // Long utterances are quoted as a *fragment* and ellipsize (#1070
+          // truncation rule). With a thought below, cap the spoken line
+          // tighter so both blocks fit the 360pt square; utterance-only keeps
+          // the original 5-line budget. Over-budget content clips gracefully
+          // via the card's `.clipped()` — the card is a highlight, not a full
+          // transcript.
+          .lineLimit(model.thought == nil ? 5 : 3)
+          .truncationMode(.tail)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      if let thought = model.thought {
+        thoughtSection(thought)
+      }
+    }
+  }
+
+  /// The 心の声 (INNER VOICE) block beneath the utterance (#1080). Echoes the
+  /// transcript row's inner-voice visual language (design-system §5.2 — moss
+  /// left rule + mono UPPER tag + muted italic body) so the shared card reads
+  /// in the same idiom as the app. Line-capped for the square; long thoughts
+  /// ellipsize.
+  private func thoughtSection(_ thought: String) -> some View {
+    HStack(alignment: .top, spacing: 10) {
+      RoundedRectangle(cornerRadius: 1.25, style: .continuous)
+        .fill(palette.moss.opacity(0.5))
+        .frame(width: 2.5)
+      VStack(alignment: .leading, spacing: 4) {
+        // Reuses the transcript row's "INNER VOICE" catalog key (see
+        // `AgentOutputRow.thoughtToggleHeader`) — same literal, no new key.
+        Text(String(localized: "INNER VOICE"))
+          .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+          .tracking(0.6)
+          .foregroundStyle(palette.moss)
+        Text(thought)
+          .font(.system(size: 15, weight: .regular))
+          .italic()
+          .foregroundStyle(palette.inkSecondary)
+          .lineSpacing(4)
+          .lineLimit(3)
+          .truncationMode(.tail)
+          .fixedSize(horizontal: false, vertical: true)
+      }
     }
   }
 
@@ -238,19 +300,30 @@ private struct Palette {
     muted: .nightMuted, rule: .nightRule, moss: .nightMoss)
 }
 
+/// The long-press menu content for the highlight share affordance — currently a
+/// single "Share as Card" action, factored out so that if more per-row actions
+/// arrive, ``AgentOutputRow``'s visible affordance can switch from its direct
+/// share button to a `Menu` rendering this same builder without the two
+/// surfaces drifting.
+@ViewBuilder
+func highlightShareMenuItems(action: @escaping () -> Void) -> some View {
+  Button(action: action) {
+    Label(String(localized: "Share as Card"), systemImage: "square.and.arrow.up")
+  }
+}
+
 /// Adds a "Share as Card" context menu when `action` is non-nil; a nil action
 /// leaves the view untouched (no empty long-press menu on rows without a share
 /// handler). Shared by both highlight entry points (#1070): the live transcript
-/// row and the past-results row.
+/// row and the past-results row. ``AgentOutputRow`` (#1080) pairs this
+/// long-press menu with a visible direct share button for discoverability.
 struct HighlightShareContextMenu: ViewModifier {
   let action: (() -> Void)?
 
   func body(content: Content) -> some View {
     if let action {
       content.contextMenu {
-        Button(action: action) {
-          Label(String(localized: "Share as Card"), systemImage: "square.and.arrow.up")
-        }
+        highlightShareMenuItems(action: action)
       }
     } else {
       content
@@ -264,6 +337,7 @@ struct HighlightShareContextMenu: ViewModifier {
     if let model = HighlightShareCard.Model(
       agent: "Bob", agentPosition: 1,
       rawUtterance: "正直に言うと、僕は最初から君を裏切るつもりだったんだ。でも今は…少しだけ後悔しているよ。",
+      rawThought: "本当は協力したかった。でも先に裏切られるのが怖くて、こちらから裏切ってしまった。",
       scenarioTitle: "囚人のジレンマ", modelName: "Gemma 4 E2B",
       linkURL: HighlightShareCard.shareLink, contentFilter: filter) {
       HighlightShareCard(model: model, colorScheme: .light)
@@ -271,6 +345,7 @@ struct HighlightShareContextMenu: ViewModifier {
     if let model = HighlightShareCard.Model(
       agent: "Carol", agentPosition: 2,
       rawUtterance: "Honestly? I planned to betray you from the very first round.",
+      rawThought: "I keep telling myself it was just strategy. It wasn’t.",
       scenarioTitle: "The Prisoner’s Dilemma", modelName: "Gemma 4 E2B",
       linkURL: HighlightShareCard.shareLink, contentFilter: filter) {
       HighlightShareCard(model: model, colorScheme: .dark)
