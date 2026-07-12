@@ -65,6 +65,29 @@ nonisolated enum LocalizedPublicPages {
     url(path: "docs/scenario/", preferredLocalizations: preferredLocalizations)
   }
 
+  /// Per-scenario share landing page (`web/src/pages/s/[id].astro`) — the
+  /// Universal Link a `HighlightShareCard` burns in, closing the share loop
+  /// (#1071). Locale-routed like the other pages here. The `id` must be a
+  /// curated gallery scenario id to resolve on the site; a non-gallery id
+  /// degrades to the site's 404 page rather than a broken link.
+  ///
+  /// - Parameters:
+  ///   - id: the scenario id, or `nil`/empty when unavailable — falls back
+  ///     to the localized site root so the card never points at a
+  ///     malformed `/s/` path.
+  ///   - preferredLocalizations: Injectable for unit tests.
+  ///     Production callers pass `Bundle.main.preferredLocalizations`
+  ///     (the default).
+  static func sharedScenario(
+    id: String?,
+    preferredLocalizations: [String] = Bundle.main.preferredLocalizations
+  ) -> URL? {
+    guard let id, !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return url(path: "", preferredLocalizations: preferredLocalizations)
+    }
+    return url(path: "s/\(id)/", preferredLocalizations: preferredLocalizations)
+  }
+
   private static func url(
     path: String, preferredLocalizations: [String]
   ) -> URL? {

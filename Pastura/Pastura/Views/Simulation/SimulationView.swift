@@ -1156,7 +1156,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         rawThought: output.secondaryText(for: phaseType),
         scenarioTitle: scenario?.name,
         modelName: activeModelName,
-        linkURL: HighlightShareCard.shareLink,
+        linkURL: LocalizedPublicPages.sharedScenario(id: scenario?.id),
         contentFilter: contentFilter)
     else { return }
     highlightShareItem = HighlightCardImageRenderer.makeShareItem(model, colorScheme: colorScheme)
