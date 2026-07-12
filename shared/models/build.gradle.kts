@@ -80,13 +80,14 @@ kotlin {
     }
 }
 
-// W4 PR-C: the cross-language YAML-fidelity harness (`YamlFidelityEquivalenceTests`,
-// jvmTest) reads the LIVE bundled preset YAML — the single source of truth that
-// Swift's Yams dump (`yaml-baselines/*.yaml.json`) was generated from. Inject the
-// absolute presets path so the read is independent of Gradle's test working
-// directory (which differs between local and CI invocations). No raw-YAML copy is
-// kept in the module; only the Swift-Yams JSON baseline lives under
-// `commonTest/resources/yaml-baselines/`.
+// Inject the LIVE bundled-preset directory for `LivePresetParseSmokeTests`
+// (jvmTest) — the drift-immune parser-health smoke that asserts snakeyaml-engine-kmp
+// can parse every CURRENT preset (#501 Stage 1). The absolute path keeps the read
+// independent of Gradle's test working directory (differs local vs CI).
+// NOTE: the cross-language fidelity harness (`YamlFidelityEquivalenceTests`) does
+// NOT use this — Stage 1 froze it to `jvmTest/resources/frozen-presets/` copies of
+// `f73bc48`, since its Swift-Yams baseline can't be regenerated without the
+// (stripped) Swift Roundtrip harness. See that class's doc for the rationale.
 tasks.named<Test>("jvmTest") {
     systemProperty(
         "pastura.presetsDir",

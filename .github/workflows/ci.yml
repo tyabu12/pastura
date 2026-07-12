@@ -565,6 +565,13 @@ jobs:
     # (8 min) — this job budget is not that tripwire. Do not read 20 as "the
     # per-PR budget"; the per-PR budget is the 8-min compile-only step.
     timeout-minutes: 20
+    # Job-scoped (overrides the top-level `contents: read`): the classify step's
+    # PR-files endpoint needs `pull-requests: read`. Explicit so the compile-only
+    # fast path can't silently degrade to full-native if a tightened default ever
+    # 403s the API (the `|| FILES=""` fail-safe would then promote every PR).
+    permissions:
+      contents: read
+      pull-requests: read
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
     steps:
@@ -583,21 +590,21 @@ jobs:
       #   ~/.gradle/caches — resolved Maven artifacts + Gradle plugin classpath.
       #   ~/.gradle/wrapper — bootstrapped Gradle distribution zip.
       - name: Cache Kotlin/Native (~/.konan)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Gradle dependencies (~/.gradle/caches)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches
           key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
           restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Gradle wrapper (~/.gradle/wrapper)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/wrapper
           key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
@@ -657,6 +664,7 @@ jobs:
           fi
 
       - name: Run JVM tests
+        timeout-minutes: 8
         run: ./gradlew :shared:models:jvmTest --no-daemon --stacktrace
 
       # The per-PR budget tripwire lives HERE, on the compile-only step, so a
