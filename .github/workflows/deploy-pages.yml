@@ -99,6 +99,11 @@ jobs:
           # Action input path is relative to the repo root, not the
           # `defaults.run.working-directory` above (that only affects `run`).
           path: web/dist
+          # Without this, the action's internal tar adds `--exclude=.[^/]*`,
+          # dropping every dot-prefixed entry — which silently excluded
+          # `.well-known/apple-app-site-association` (Universal Links AASA) and
+          # `.nojekyll` from the deploy (origin 404). See actions/upload-pages-artifact#129.
+          include-hidden-files: true
 
       - name: Deploy to GitHub Pages
         id: deployment
