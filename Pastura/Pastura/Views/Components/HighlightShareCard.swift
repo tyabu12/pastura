@@ -300,11 +300,11 @@ private struct Palette {
     muted: .nightMuted, rule: .nightRule, moss: .nightMoss)
 }
 
-/// The shared menu content for the highlight share affordance — currently a
-/// single "Share as Card" action. Rendered by BOTH the long-press
-/// ``HighlightShareContextMenu`` and the visible `•••` `Menu` in
-/// ``AgentOutputRow`` (#1080), so the two surfaces present an identical menu
-/// and can never drift as actions are added.
+/// The long-press menu content for the highlight share affordance — currently a
+/// single "Share as Card" action, factored out so that if more per-row actions
+/// arrive, ``AgentOutputRow``'s visible affordance can switch from its direct
+/// share button to a `Menu` rendering this same builder without the two
+/// surfaces drifting.
 @ViewBuilder
 func highlightShareMenuItems(action: @escaping () -> Void) -> some View {
   Button(action: action) {
@@ -315,9 +315,8 @@ func highlightShareMenuItems(action: @escaping () -> Void) -> some View {
 /// Adds a "Share as Card" context menu when `action` is non-nil; a nil action
 /// leaves the view untouched (no empty long-press menu on rows without a share
 /// handler). Shared by both highlight entry points (#1070): the live transcript
-/// row and the past-results row. The visible `•••` menu in ``AgentOutputRow``
-/// (#1080) renders the same ``highlightShareMenuItems`` so long-press and tap
-/// stay in lockstep.
+/// row and the past-results row. ``AgentOutputRow`` (#1080) pairs this
+/// long-press menu with a visible direct share button for discoverability.
 struct HighlightShareContextMenu: ViewModifier {
   let action: (() -> Void)?
 

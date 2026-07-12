@@ -398,7 +398,7 @@ struct AgentOutputRow: View {
       // trailing edge is empty (the `Spacer` above).
       .overlay(alignment: .topTrailing) {
         if let onShareHighlight {
-          shareMenuButton(action: onShareHighlight)
+          shareButton(action: onShareHighlight)
         }
       }
     }
@@ -458,13 +458,15 @@ struct AgentOutputRow: View {
 
   // MARK: - Subviews
 
-  /// Visible per-row share affordance (#1080): a quiet "•••" `Menu` that
-  /// surfaces the same "Share as Card" action as the long-press
+  /// Visible per-row share affordance (#1080): a quiet share glyph that
+  /// triggers the same "Share as Card" action as the long-press
   /// ``HighlightShareContextMenu`` — the long-press alone was undiscoverable.
-  /// Both render ``highlightShareMenuItems`` from one builder so they can't
-  /// drift. Rendered only when `onShareHighlight` is non-nil (same nil-omission
-  /// as the context menu — appears on committed Sim + Results rows, not the
-  /// streaming in-flight row nor the DL-demo replay).
+  /// A **direct button** (not a `•••` menu) because share is the only per-row
+  /// action today: burying a sole action behind a menu costs a needless extra
+  /// tap (HIG). If more per-row actions arrive, switch this to a `Menu`
+  /// rendering ``highlightShareMenuItems``. Rendered only when `onShareHighlight`
+  /// is non-nil (same nil-omission as the context menu — appears on committed
+  /// Sim + Results rows, not the streaming in-flight row nor the DL-demo replay).
   ///
   /// `.buttonStyle(.borderless)` isolates the tap so it doesn't activate the
   /// enclosing row inside a `List`/`LazyVStack`, and the `.contentShape` on a
@@ -472,18 +474,16 @@ struct AgentOutputRow: View {
   /// stays pinned to the corner. The INNER VOICE expand chevron lives far
   /// below-left, so the two hit regions don't collide.
   @ViewBuilder
-  private func shareMenuButton(action: @escaping () -> Void) -> some View {
-    Menu {
-      highlightShareMenuItems(action: action)
-    } label: {
-      Image(systemName: "ellipsis")
+  private func shareButton(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Image(systemName: "square.and.arrow.up")
         .font(.system(size: 13, weight: .semibold))
         .foregroundStyle(Color.muted)
         .frame(width: 44, height: 28, alignment: .trailing)
         .contentShape(Rectangle())
     }
     .buttonStyle(.borderless)
-    .accessibilityLabel(String(localized: "Share options"))
+    .accessibilityLabel(String(localized: "Share as Card"))
   }
 
   /// Renders the primary text. Default: the concat trick so the final

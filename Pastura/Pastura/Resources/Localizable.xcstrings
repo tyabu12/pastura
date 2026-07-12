@@ -5978,22 +5978,6 @@
         }
       }
     },
-    "Share options" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share options"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有オプション"
-          }
-        }
-      }
-    },
     "Show all thoughts" : {
       "localizations" : {
         "ja" : {
