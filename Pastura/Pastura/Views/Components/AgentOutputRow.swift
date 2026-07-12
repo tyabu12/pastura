@@ -392,6 +392,15 @@ struct AgentOutputRow: View {
           ? dim[.top] - SheepAvatar.visibleTopInset(forSize: ChatBubbleLayout.avatarSize)
           : dim[.top]
       }
+      // Visible share affordance (#1080). Placed as an overlay OUTSIDE the
+      // `.firstTextBaseline` name row so its 44pt hit target never inflates
+      // the name/phase baseline; pinned top-trailing where the name row's
+      // trailing edge is empty (the `Spacer` above).
+      .overlay(alignment: .topTrailing) {
+        if let onShareHighlight {
+          shareMenuButton(action: onShareHighlight)
+        }
+      }
     }
     // Layout-stability trio (applied unconditionally; see type doc-comment
     // §"Reflow-stable rendering"). Streaming growth re-runs the text
@@ -448,6 +457,34 @@ struct AgentOutputRow: View {
   }
 
   // MARK: - Subviews
+
+  /// Visible per-row share affordance (#1080): a quiet "•••" `Menu` that
+  /// surfaces the same "Share as Card" action as the long-press
+  /// ``HighlightShareContextMenu`` — the long-press alone was undiscoverable.
+  /// Both render ``highlightShareMenuItems`` from one builder so they can't
+  /// drift. Rendered only when `onShareHighlight` is non-nil (same nil-omission
+  /// as the context menu — appears on committed Sim + Results rows, not the
+  /// streaming in-flight row nor the DL-demo replay).
+  ///
+  /// `.buttonStyle(.borderless)` isolates the tap so it doesn't activate the
+  /// enclosing row inside a `List`/`LazyVStack`, and the `.contentShape` on a
+  /// 44pt-wide, trailing-aligned label gives a HIG hit target while the glyph
+  /// stays pinned to the corner. The INNER VOICE expand chevron lives far
+  /// below-left, so the two hit regions don't collide.
+  @ViewBuilder
+  private func shareMenuButton(action: @escaping () -> Void) -> some View {
+    Menu {
+      highlightShareMenuItems(action: action)
+    } label: {
+      Image(systemName: "ellipsis")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Color.muted)
+        .frame(width: 44, height: 28, alignment: .trailing)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.borderless)
+    .accessibilityLabel(String(localized: "Share options"))
+  }
 
   /// Renders the primary text. Default: the concat trick so the final
   /// layout is established on first frame and the revealed prefix grows in
