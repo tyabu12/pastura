@@ -293,10 +293,17 @@ jobs:
     runs-on: macos-26
     # UI tests are far slower on the GPU-less CI simulator than locally
     # (~25s/suite locally either way). With continuous animations suppressed
-    # under --ui-test (#728) a clean CI run is ~12-13 min. The per-test
-    # execution-time cap in the test step below bounds a first-clone infra-flake
-    # stall so even a flake-struck run stays comfortably under this budget.
-    timeout-minutes: 25
+    # under --ui-test (#728) and the suite now serialized (see the test step's
+    # -parallel-testing-enabled NO), a clean CI run lands ~16-24 min with high
+    # run-to-run variance. Parallel clones used to inflate that further —
+    # 2 simulators contending on the ~7 GB GPU-less runner stalled transitions
+    # for tens of seconds and broke test waits (#1053) — so serial is expected
+    # comparable-or-tighter, not slower. 30 (was 25) buys headroom over the
+    # observed 24-min tail: a timeout produces a `timed_out` conclusion, which
+    # ci-retry.yml deliberately does NOT retry, so the ceiling must clear the
+    # worst legitimate run. The per-test execution-time cap in the test step
+    # bounds a first-clone infra-flake stall on top of that.
+    timeout-minutes: 30
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
@@ -359,14 +366,24 @@ jobs:
           # minutes or inherits UI-test infra flakes. StoreScreenshotTests
           # (scripts/store-shots.sh) is the same class of local-only,
           # 6.9"-pinned capture and is skipped for the same reason.
+          # -parallel-testing-enabled NO serializes onto the single pre-booted
+          # simulator instead of spawning per-suite clones. lint-and-test
+          # already does this (#189 OOM mitigation); the UI job kept clones
+          # until #1053, where 2 simulators + 2 apps + 2 runners contending on
+          # the ~7 GB GPU-less runner stalled transitions for tens of seconds
+          # and broke test waits (a run that PASSED still took 3m for one
+          # suite). Serial removes that contention and makes the Pre-boot step
+          # above load-bearing (the booted device is used directly, not cloned
+          # away); it also retires the within-process clone-cascade flake class.
           # -test-timeouts-enabled + -default-test-execution-time-allowance cap
           # each test ITERATION at 250s. After the #728 animation fix the
           # flake-prone heavy tests pass in <=149s on CI (observed across runs,
           # high variance), so 250s clears them with margin while killing a
           # first-clone infra-flake stall (which otherwise crawls to ~350-380s)
-          # early enough for the fast retry to keep the job under its 25-min
-          # budget. InFlightIndicatorReconnectUITests is slow by design (~225s)
-          # and opts out with its own executionTimeAllowance in setUp.
+          # early enough for the fast retry to keep the job under its 30-min
+          # budget. InFlightIndicatorReconnectUITests is slow by design and,
+          # now that serial makes its allowance additive rather than overlapped,
+          # opts out with a tightened executionTimeAllowance in setUp (#1053).
           xcodebuild test \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
@@ -374,6 +391,7 @@ jobs:
             -only-testing PasturaUITests \
             -skip-testing PasturaUITests/ScreenshotTourTests \
             -skip-testing PasturaUITests/StoreScreenshotTests \
+            -parallel-testing-enabled NO \
             -retry-tests-on-failure \
             -test-iterations 2 \
             -test-timeouts-enabled YES \
@@ -395,6 +413,28 @@ jobs:
           fi
 
           exit ${TEST_EXIT:-0}
+
+      # Surface the failing-test summary inline in the run's Step Summary so a
+      # red ui-test can be triaged without downloading the ~130 MB xcresult
+      # artifact (#1053). Guarded: a timeout-kill (SIGTERM at timeout-minutes)
+      # can leave UITestResults.xcresult absent or half-written — exactly the
+      # case this step exists for — so the bundle check + `|| true` degrade to
+      # a note instead of adding a second red step to an already-red job.
+      # xcresulttool defaults to JSON on Xcode 26; jq renders the failures.
+      - name: Summarize UI test failures
+        if: failure()
+        run: |
+          {
+            echo "### UI test failures"
+            if [ -d UITestResults.xcresult ]; then
+              xcrun xcresulttool get test-results summary \
+                --path UITestResults.xcresult 2>/dev/null \
+                | jq -r '"Result: \(.result) — \(.passedTests) passed, \(.failedTests) failed", "", ((.testFailures // []) | map("- **\(.testIdentifierString // .testName // .targetName)**: \(.failureText)") | .[])' \
+                2>/dev/null || echo "_Could not parse the xcresult summary._"
+            else
+              echo "_No UITestResults.xcresult — likely a timeout-kill before the bundle was written._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload UI Test Results
         if: always()

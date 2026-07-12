@@ -237,8 +237,9 @@ Distinct from the harness `swift build` entry above (that's the SwiftPM *harness
 ## CI flake catalog
 
 CI UI-test failures cluster into known flake classes — within-process
-clone cascade, app-launch timeout, runner-init Accessibility, and
-XCUITest idle-stall — auto-retried by `.github/workflows/ci-retry.yml`
+clone cascade (retired post-#1053, see below), app-launch timeout,
+runner-init Accessibility, and XCUITest idle-stall — auto-retried by
+`.github/workflows/ci-retry.yml`
 (max 3 attempts on main / 2 on PR, ui-test-failure-gated).
 **Check `run_attempt` on the failed run before intervening**: if 1, let
 auto-retry fire; only after it exhausts do `gh run rerun --failed <run_id>`
@@ -248,3 +249,7 @@ regressions do not self-recover). Flake signatures, distinguishing signals,
 the idle-stall `--ui-test` suppression, and the full escalation tree:
 [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md).
 Runner-pressure tracking: [#189](https://github.com/tyabu12/pastura/issues/189).
+Post-#1053 the `ui-test` job runs serialized (`-parallel-testing-enabled NO`,
+like `lint-and-test`), which retires the clone-dependent classes
+(within-process clone cascade + contention stall) — a recurrence of either
+means the flag was dropped, not a new flake.
