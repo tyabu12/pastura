@@ -27,9 +27,14 @@ import Foundation
 /// an old app produces a *different* simulation. **Do not** bump for a truly
 /// inert additive-optional string swept harmlessly into `extraData`.
 nonisolated public enum EngineSchemaVersion {
-  /// The current build's engine capability version. Baseline is `1`
-  /// (set before the first App Store release, ADR-020 §5).
-  public static let current: Int = 1
+  /// The current build's engine capability version. Baseline was `1` (set
+  /// before the first App Store release, ADR-020 §5).
+  ///
+  /// `2` — `event_inject`'s `no_repeat` opt-in (#1006). An old app that ignores
+  /// the key silently runs with-replacement, a *different* simulation than a
+  /// no_repeat-honoring app, so §4's semantic-equivalence proviso is not met and
+  /// the ⚠️ silent-wrong-run rule requires a bump. See ADR-020 §8.
+  public static let current: Int = 2
 
   /// Whether a gallery scenario described by its index metadata can be
   /// executed by this build's engine (ADR-020 D2 + D3).

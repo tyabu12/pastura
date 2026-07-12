@@ -6,10 +6,12 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct EngineSchemaVersionTests {
 
-  // MARK: - Baseline constant
+  // MARK: - Current version constant
 
-  @Test func baselineIsOne() {
-    #expect(EngineSchemaVersion.current == 1)
+  @Test func currentVersionIsTwo() {
+    // Bumped 1→2 for event_inject no_repeat (#1006, ADR-020 §8). Update in
+    // lockstep with any further EngineSchemaVersion.current bump.
+    #expect(EngineSchemaVersion.current == 2)
   }
 
   // MARK: - D2 (phase-capability) branch
