@@ -162,6 +162,12 @@ nonisolated struct ScenarioSerializer: Sendable {
     if let eventVariable = phase.eventVariable {
       lines.append("    as: \(yamlScalar(eventVariable))")
     }
+    // Draw-without-replacement opt-in (#1006). Only emit the truthy case — the
+    // default (nil/false) stays absent so existing scenarios round-trip byte
+    // for byte, matching the `exclude_self` "only-when-true" convention.
+    if phase.noRepeat == true {
+      lines.append("    no_repeat: true")
+    }
 
     // relationship_update-specific fields (#910). action_deltas keys are
     // sorted for deterministic output (same convention as `output:`).

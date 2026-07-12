@@ -124,7 +124,7 @@ struct EditablePhaseRoundTripTests {
     case .eventInject:
       return Phase(
         type: .eventInject, source: "trials", probability: 0.5,
-        eventVariable: "current_event")
+        eventVariable: "current_event", noRepeat: true)
     case .relationshipUpdate:
       return Phase(
         type: .relationshipUpdate, voteAgainst: -1,

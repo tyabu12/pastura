@@ -114,6 +114,20 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// clipped by the global 3-sentence rule.
   public let maxSentences: Int?
 
+  /// Whether `event_inject` draws **without replacement** across a run (the
+  /// YAML `no_repeat:` key).
+  ///
+  /// `nil` / `false` keeps the default with-replacement behavior
+  /// (`randomElement()` each round, so a multi-round scenario can re-draw the
+  /// same event). `true` tracks already-drawn events per event variable in
+  /// ``SimulationState/drawnEvents`` and draws from the remainder, resetting to
+  /// the full pool once every entry has been drawn — a late repeat after
+  /// exhaustion beats silently blanking `{current_event}` mid-scenario.
+  ///
+  /// Opt-in so existing scenarios (e.g. word_wolf `mid_game_announcements`,
+  /// probability < 1.0) are byte-for-byte unaffected. See #1006.
+  public let noRepeat: Bool?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -133,7 +147,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     eventVariable: String? = nil,
     voteAgainst: Int? = nil,
     actionDeltas: [String: Int]? = nil,
-    maxSentences: Int? = nil
+    maxSentences: Int? = nil,
+    noRepeat: Bool? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -154,6 +169,7 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.voteAgainst = voteAgainst
     self.actionDeltas = actionDeltas
     self.maxSentences = maxSentences
+    self.noRepeat = noRepeat
   }
 
   /// The schema's required keys as a `Set`, or an empty set when the

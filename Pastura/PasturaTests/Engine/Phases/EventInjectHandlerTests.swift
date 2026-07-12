@@ -17,7 +17,7 @@ struct EventInjectHandlerTests {
   /// preserving `nil` payloads. Manual loop instead of `compactMap` —
   /// `compactMap { _ -> String? in ... }` would silently drop the
   /// "miss" cases (`.eventInjected(nil)`) that we want to assert on.
-  private func injectedEvents(_ collector: EventCollector) -> [String?] {
+  func injectedEvents(_ collector: EventCollector) -> [String?] {
     var result: [String?] = []
     for event in collector.events {
       if case .eventInjected(let value) = event {
@@ -194,7 +194,7 @@ struct EventInjectHandlerTests {
 
   // MARK: - Dict-shaped events + companion favored variable (#931)
 
-  private func favoredKey(_ variableName: String = "current_event") -> String {
+  func favoredKey(_ variableName: String = "current_event") -> String {
     EventInjectHandler.favoredVariableName(for: variableName)
   }
 

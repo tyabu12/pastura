@@ -23,6 +23,12 @@ import Foundation
 ///   substitution well-defined.
 /// - On hit, picks a random element via `randomElement()` and writes it
 ///   to `state.variables[as]`, emitting `.eventInjected(event)`.
+/// - `no_repeat: true` (#1006) draws **without replacement** across the run:
+///   already-drawn events are tracked per variable in `state.drawnEvents` and
+///   the pick is taken from the remainder, resetting to the full pool once
+///   every entry has been drawn. Default is with-replacement. A miss never
+///   consumes the pool. Identical-text entries collapse in the drawn `Set`, so
+///   a curator relying on strict no-repeat should keep event texts distinct.
 ///
 /// RNG is not injected. The probability boundaries (0.0 / 1.0) make the
 /// fire/miss decision deterministically testable, and a single-element
@@ -111,14 +117,45 @@ nonisolated struct EventInjectHandler: PhaseHandler {
       return
     }
 
-    // randomElement() on a non-empty array always returns Some — the
-    // guard above guarantees `events.isEmpty == false`. The `??` is a
-    // no-op safety net rather than a real fallback path.
-    let chosen = events.randomElement() ?? (text: "", favors: nil)
+    // `no_repeat` (#1006) draws from the not-yet-drawn remainder and records
+    // the pick; the default path keeps plain with-replacement selection.
+    // randomElement() on a non-empty array always returns Some — the guard
+    // above guarantees `events.isEmpty == false` — so the `??` is a no-op
+    // safety net. Both branches funnel the chosen tuple through the SAME
+    // variable / favored-var writes below, so dict-shaped `{text,favors}`
+    // scoring (#931) is preserved regardless of draw mode.
+    let chosen: (text: String, favors: String?) =
+      context.phase.noRepeat == true
+      ? pickWithoutRepeat(events, variableName: variableName, state: &state)
+      : (events.randomElement() ?? (text: "", favors: nil))
+
     state.variables[variableName] = chosen.text
     // Write "" (not absent) for a dict entry with no `favors` tag, so an
     // earlier round's favored action never ghosts into `event_reactive`.
     if carriesFavors { state.variables[favoredName] = chosen.favors ?? "" }
     context.emitter(.eventInjected(event: chosen.text))
+  }
+
+  /// Draws an event not yet chosen this run (`no_repeat`), recording the pick
+  /// in `state.drawnEvents[variableName]`. When every entry has already been
+  /// drawn the pool is reset and a fresh full draw is taken — a late repeat is
+  /// preferable to blanking the variable mid-scenario (#1006). `events` is
+  /// guaranteed non-empty by the caller, so the `??` is an unreachable safety
+  /// net mirroring the default path.
+  private func pickWithoutRepeat(
+    _ events: [(text: String, favors: String?)],
+    variableName: String,
+    state: inout SimulationState
+  ) -> (text: String, favors: String?) {
+    let drawn = state.drawnEvents[variableName] ?? []
+    var remaining = events.filter { !drawn.contains($0.text) }
+    if remaining.isEmpty {
+      // Pool exhausted — reset so the next draw sees the full list again.
+      state.drawnEvents[variableName] = []
+      remaining = events
+    }
+    let chosen = remaining.randomElement() ?? (text: "", favors: nil)
+    state.drawnEvents[variableName, default: []].insert(chosen.text)
+    return chosen
   }
 }
