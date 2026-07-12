@@ -20,7 +20,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   @State private var events: [CodePhaseEventRecord] = []
   @State private var items: [ResultDetailTimelineBuilder.Item] = []
   @State var simulation: SimulationRecord?  // not private — see note above
-  @State private var scenario: ScenarioRecord?
+  @State var scenario: ScenarioRecord?  // not private — see note above
   /// Agent names in scenario-declared order, used to drive position-
   /// based avatar color assignment on turn rows. Empty when the
   /// scenario YAML couldn't be decoded (legacy data, YAML drift); in
@@ -62,6 +62,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   // ContentFilter is `nonisolated Sendable` and effectively immutable, so a
   // per-view instance is cheap.
   let contentFilter = ContentFilter()
+  // Non-private + explicit colorScheme: the `+Share.swift` sibling composes and
+  // presents these (ImageRenderer ignores ambient appearance). (#1070)
+  @State var highlightShareItem: HighlightShareItem?
+  @Environment(\.colorScheme) var colorScheme
 
   private var canExport: Bool {
     !isExporting && simulation?.simulationStatus == .completed
@@ -174,6 +178,9 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     }
     .sheet(item: $selectedPersona) { item in
       PersonaDetailSheet(persona: item.persona, position: item.position)
+    }
+    .sheet(item: $highlightShareItem) { item in
+      ShareSheet(activityItems: item.activityItems)
     }
     .alert(
       String(localized: "Export failed"),
@@ -366,14 +373,6 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     } catch {
       self.exportError = error.localizedDescription
     }
-  }
-
-  // Not `private`: read by the `+ResumeBanner.swift` sibling extension (D8
-  // resume gate — `decodeState` + `resolveIsResumable` live there), which
-  // can't see `private` members (same-file only).
-  func decodeState(from record: SimulationRecord) -> SimulationState? {
-    guard let data = record.stateJSON.data(using: .utf8) else { return nil }
-    return try? JSONDecoder().decode(SimulationState.self, from: data)
   }
 
   /// Runs the demo-replay YAML exporter and hands the result to a

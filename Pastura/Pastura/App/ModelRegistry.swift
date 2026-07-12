@@ -156,3 +156,17 @@ enum ModelRegistry {
     )
   }
 }
+
+extension ModelRegistry {
+  /// Resolves a persisted `SimulationRecord.modelIdentifier` (stored as a
+  /// descriptor's `displayName`, e.g. "Gemma 4 E2B (Q4_K_M)") to its short
+  /// label ("Gemma 4 E2B") for the highlight share card (#1070), so the
+  /// past-results card shows the same model name as the live card (which reads
+  /// `shortDisplayName` directly). Falls back to the raw identifier when it
+  /// matches no catalog descriptor (a superseded model), and `nil` when absent.
+  nonisolated static func shortDisplayName(forIdentifier identifier: String?) -> String? {
+    guard let identifier, !identifier.isEmpty else { return nil }
+    let match = catalog.first { $0.displayName == identifier }
+    return match?.shortDisplayName ?? match?.displayName ?? identifier
+  }
+}

@@ -301,3 +301,21 @@ Reference: #934 — the premise card + latest conversation row re-typed from Vie
 `introHasTyped` / row `visibleChars` `@State`; moved to
 `SimulationViewModel.introRevealHasBegun` / `latestRowRevealCompleted` (see the
 adopt early-return comment in `SimulationView`).
+
+## `ImageRenderer` does not inherit the ambient environment
+
+`ImageRenderer` rasterizes its content in a **default** environment — it does
+NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
+diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
+Compounds with the fact that `PasturaPalette` tokens are static sRGB (light-only
+— the app does not adapt), so a token-styled view rasterizes in one fixed
+appearance regardless of the device.
+
+**Apply**: pass the appearance in **explicitly** — capture
+`@Environment(\.colorScheme)` at the call site, drive the view's palette from
+that value (an explicit `colorScheme` parameter, since static tokens won't
+switch on the environment alone), and also set `.environment(\.colorScheme, …)`
+on the rendered content for any system-colored subviews (SF Symbols, asset
+images). Real-device dark-mode QA required — the simulator misleads.
+
+Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).

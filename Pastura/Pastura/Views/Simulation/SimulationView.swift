@@ -40,6 +40,13 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // returning to a parked-away run (ADR-017). Focus mode pins the run to whatever
   // tab is selected at start, so `selectedTab` here *is* the host tab.
   @Environment(TabCoordinator.self) private var tabCoordinator
+  // Read for the highlight share card's model label (#1070). Injected at the
+  // app root (PasturaApp), so this resolves on any tab-stack descendant.
+  @Environment(ModelManager.self) private var modelManager
+  // The share card rasterizes in a default ImageRenderer environment (it does
+  // not inherit ambient appearance), so capture the current scheme here and
+  // pass it in explicitly.
+  @Environment(\.colorScheme) private var colorScheme
   @State private var viewModel: SimulationViewModel?
   /// `true` while the back-button confirm-on-leave dialog is showing (#673).
   @State private var pendingBackLeave = false
@@ -67,6 +74,13 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
   @State private var exportError: String?
+  /// The rendered highlight card awaiting the share sheet (#1070).
+  @State private var highlightShareItem: HighlightShareItem?
+  /// Re-applies content filtering when composing a share card. A View-local
+  /// instance (mirrors `ResultDetailView`) — the live log text is already
+  /// filtered, but re-filtering is idempotent and keeps the card path
+  /// self-contained.
+  private let contentFilter = ContentFilter()
   @State private var isExporting = false
   /// Whether the latest agent-output row is still typing. Used to suppress
   /// "X is thinking..." indicators so they don't appear above text that's
@@ -283,6 +297,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
     .sheet(item: $exportPayload) { payload in
       ShareSheet(activityItems: [payload.text, payload.fileURL])
+    }
+    .sheet(item: $highlightShareItem) { item in
+      ShareSheet(activityItems: item.activityItems)
     }
     .alert(
       String(localized: "Export failed"),
@@ -1110,6 +1127,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
           debugRowID: entry.id.uuidString,
           onAvatarTap: { selectedPersona = personaItem(for: $0) },
+          onShareHighlight: {
+            shareHighlight(agent: agent, output: output, phaseType: phaseType)
+          },
           // Freeze the latest row's typewriter while the persona sheet is up
           // (#942 PR2). Live per-tick read — see AgentOutputRow.isTypingParked.
           isTypingParked: { viewModel.isPlaybackHeldForSheet }
@@ -1120,6 +1140,31 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         }
       }
     }
+  }
+
+  /// Composes a highlight share card from a committed transcript row and
+  /// presents the share sheet (#1070). Re-filters the display text, resolves
+  /// the avatar slot / scenario / active model, and no-ops if the utterance is
+  /// empty or rendering fails.
+  private func shareHighlight(agent: String, output: TurnOutput, phaseType: PhaseType) {
+    guard let text = output.primaryText(for: phaseType) else { return }
+    guard
+      let model = HighlightShareCard.Model(
+        agent: agent,
+        agentPosition: scenario?.personas.firstIndex(where: { $0.name == agent }),
+        rawUtterance: text,
+        scenarioTitle: scenario?.name,
+        modelName: activeModelName,
+        linkURL: HighlightShareCard.shareLink,
+        contentFilter: contentFilter)
+    else { return }
+    highlightShareItem = HighlightCardImageRenderer.makeShareItem(model, colorScheme: colorScheme)
+  }
+
+  /// The active inference model's short label for the share card, or `nil` when
+  /// no model is resolvable (the card then omits the line).
+  private var activeModelName: String? {
+    modelManager.activeDescriptor?.shortDisplayName ?? modelManager.activeDescriptor?.displayName
   }
 
   @ViewBuilder
