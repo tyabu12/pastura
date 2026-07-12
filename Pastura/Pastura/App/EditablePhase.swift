@@ -166,6 +166,21 @@ struct EditablePhase: Identifiable, Sendable {
     }
   }
 
+  /// Clears a `max_sentences` override when the current `type` no longer emits
+  /// an LLM statement (#881). Called on the same `.onChange(of: type)` event as
+  /// ``reconcileCanonicalOutputFields(from:)`` so that switching an LLM phase
+  /// (with an override set) to a code / control phase does not leave a hidden,
+  /// no-longer-editable value behind — such a value would round-trip into the
+  /// code phase and silently trip the R18 `max-sentences-no-op` linter (a
+  /// warning that never blocks, ADR-024), defeating the editor's LLM-only
+  /// display gate. Idempotent: a no-op when `type` still requires LLM or the
+  /// override is already nil.
+  mutating func reconcileMaxSentences() {
+    if !type.requiresLLM {
+      maxSentences = nil
+    }
+  }
+
   /// The canonical primary + thought output field names for `type`
   /// (empty for code phases that emit no LLM output).
   private func canonicalFieldNames(for type: PhaseType) -> [String] {

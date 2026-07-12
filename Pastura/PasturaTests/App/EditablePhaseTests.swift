@@ -156,4 +156,29 @@ struct EditablePhaseTests {
     #expect(restored.voteAgainst == nil)
     #expect(restored.actionDeltas == nil)
   }
+
+  // MARK: - reconcileMaxSentences (#881 Stage 2 PR-B — switch-away no-op guard)
+
+  /// Switching an LLM phase with a `max_sentences` override to a code phase must
+  /// clear the override — otherwise the value stays hidden (the editor gates the
+  /// control to LLM phases) yet round-trips into the code phase and trips R18.
+  @Test func reconcileMaxSentencesClearsOverrideOnSwitchToCodePhase() {
+    var sut = EditablePhase(type: .speakAll, maxSentences: 4)
+    sut.type = .scoreCalc
+    sut.reconcileMaxSentences()
+    #expect(sut.maxSentences == nil)
+  }
+
+  @Test func reconcileMaxSentencesPreservesOverrideOnLLMToLLMSwitch() {
+    var sut = EditablePhase(type: .speakAll, maxSentences: 4)
+    sut.type = .vote
+    sut.reconcileMaxSentences()
+    #expect(sut.maxSentences == 4)
+  }
+
+  @Test func reconcileMaxSentencesIsNoOpWhenAlreadyNil() {
+    var sut = EditablePhase(type: .eliminate)
+    sut.reconcileMaxSentences()
+    #expect(sut.maxSentences == nil)
+  }
 }
