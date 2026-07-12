@@ -3,9 +3,10 @@ language: ja
 name: 囚人のジレンマ
 description: >
   5人のプレイヤーが「協力」か「裏切り」を選ぶ戦略ゲーム。
-  隣接ペアで総当たり対戦し、得点を競う。宣言でブラフも可能。
+  隣接ペアで総当たり対戦し、得点を競う。宣言でブラフも、
+  密談で同盟や裏切りの相談も可能。
 agents: 5
-rounds: 3
+rounds: 2
 context: >
   あなたはゲーム番組「囚人のジレンマ」の出場者です。
   対戦相手と「協力(cooperate)」か「裏切り(betray)」を選びます。
@@ -58,6 +59,23 @@ phases:
       declared_intent: string
       inner_thought: string
 
+  - type: whisper
+    prompt: >
+      現在のスコア: {scoreboard}
+
+      これまでの宣言:
+      {conversation_log}
+
+      いまは相手とふたりだけの密談です（他の人には聞こえません）。
+      このあとの対戦で協力するか裏切るか、率直に相手とすり合わせてください。
+      公開の宣言とは違う本音を出して構いません。「一緒に協力しよう」と
+      同盟を持ちかけても、あとで裏切るつもりで調子を合わせてもOKです。
+      具体的に、誰を狙うか・この相手とどうするかを相手に伝えてください。
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 1
+
   - type: choose
     prompt: >
       現在のスコア: {scoreboard}
@@ -65,6 +83,9 @@ phases:
 
       これまでの宣言:
       {conversation_log}
+
+      密談での相手とのやり取り:
+      {my_whispers}
 
       「cooperate（協力）」か「betray（裏切り）」を選んでください。
     output:

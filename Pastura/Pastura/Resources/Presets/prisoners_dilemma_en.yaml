@@ -14,10 +14,10 @@ language: en
 name: Prisoner's Dilemma
 description: >
   Five players choose "cooperate" or "betray" in a strategic game.
-  Round-robin pairwise matches with score accumulation. Bluffing
-  during the declaration phase is allowed.
+  Round-robin pairwise matches with score accumulation. Bluff in the
+  open, and scheme alliances or betrayals in private whispers.
 agents: 5
-rounds: 3
+rounds: 2
 context: >
   You are a contestant on the game show "Prisoner's Dilemma".
   Against each opponent you choose "cooperate" or "betray".
@@ -74,6 +74,25 @@ phases:
       declared_intent: string
       inner_thought: string
 
+  - type: whisper
+    prompt: >
+      Current score: {scoreboard}
+
+      Declarations so far:
+      {conversation_log}
+
+      This is a private whisper — just you and your partner, no one
+      else can hear. Be candid about whether you will cooperate or
+      betray in the matches ahead, and line up your plan together. You
+      can say things here you would not say in the open. Propose an
+      alliance ("let's both cooperate"), or play along now while
+      planning to betray later — either is fine. Tell your partner
+      specifically who you will target and what you will do with them.
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 1
+
   - type: choose
     prompt: >
       Current score: {scoreboard}
@@ -81,6 +100,9 @@ phases:
 
       Declarations so far:
       {conversation_log}
+
+      Whispered exchange with your partner:
+      {my_whispers}
 
       Choose "cooperate" or "betray".
     output:
