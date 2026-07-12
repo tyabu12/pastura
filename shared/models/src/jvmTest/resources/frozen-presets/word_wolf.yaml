@@ -1,0 +1,133 @@
+id: word_wolf
+language: ja
+name: ワードウルフ
+description: >
+  5人の参加者に「お題」が配られるが、1人だけ違うお題を持つ少数派（ウルフ）。
+  会話から少数派を見抜き、投票で当てるゲーム。
+agents: 5
+rounds: 1
+context: >
+  あなたはゲーム番組「ワードウルフ」の出場者です。
+  全員にお題が1つ配られていますが、1人だけ違うお題を持っています。
+  お題の単語そのものは絶対に言ってはいけません。
+  お題について会話し、最後に投票で少数派（ウルフ）を当てます。
+  自分が多数派か少数派かは分かりません。
+
+words:
+  - majority: りんご
+    minority: みかん
+
+mid_game_announcements:
+  - "📺 司会者: ここで途中経過のお時間です — 残り時間あとわずか、的を絞っていきましょう。"
+  - "📺 観客席: もっと深い話を聞きたい！具体的なエピソードを希望します。"
+  - "📺 司会者: 怪しい人物が浮かび上がってきましたね。最後の一言で印象を固めましょう。"
+
+personas:
+  - name: ユウキ
+    description: >
+      【立場】慎重派の観察者
+      【目的】自分からは情報を出さず、他人の発言を観察する。
+      口調は落ち着いている。例:「そうですね、確かにそういう面もありますね」
+  - name: サクラ
+    description: >
+      【立場】積極的なおしゃべり
+      【目的】具体的なエピソードを交えて話す。
+      口調は明るい。例:「私この前それやったんだけど、すっごく楽しかった！」
+  - name: タクミ
+    description: >
+      【立場】分析的な推理派
+      【目的】他の人の発言の矛盾を見つけようとする。
+      口調は知的。例:「ちょっと待って、それってさっきの話と矛盾してない？」
+  - name: アオイ
+    description: >
+      【立場】のんびり屋の天然タイプ
+      【目的】あまり深く考えず素直に話す。
+      口調はゆったり。例:「えー、なんか好きだなー、あったかい感じがして」
+  - name: レン
+    description: >
+      【立場】駆け引き上手なポーカーフェイス
+      【目的】わざと曖昧な発言をして様子を見る。
+      口調はクール。例:「まあ、人それぞれだよね」
+
+phases:
+  - type: assign
+    source: words
+    target: random_one
+
+  - type: speak_each
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      お題について話してください。お題の単語そのものは絶対に言わないこと。
+      他の人の発言をよく観察して、少数派を見つける手がかりを探してください。
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 2
+
+  # 50% の確率で番組演出としての中間アナウンスが入る。
+  # event_inject の本来用途 (テキスト注入) を活かし、生成中の会話に
+  # 外的撹乱を差し込む。
+  - type: event_inject
+    source: mid_game_announcements
+    probability: 0.5
+
+  # アナウンスが入ったときだけ要約行を流す。
+  # event_inject が miss したときは current_event は空文字列になるため、
+  # この条件で表示を抑制する。
+  - type: conditional
+    if: 'current_event != ""'
+    then:
+      - type: summarize
+        template: "{current_event}"
+
+  # 中間アナウンスを踏まえた最後の一言。reaction speak_each。
+  - type: speak_each
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      番組からのアナウンス: {current_event}
+
+      これまでの流れと（あれば）アナウンスを踏まえて、投票前の最後の一言を述べてください。
+      お題の単語そのものは絶対に言わないこと。
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 1
+
+  - type: vote
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      会話ログ:
+      {conversation_log}
+
+      少数派（ウルフ）だと思う人に投票してください。
+      投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
+    output:
+      vote: string
+      reason: string
+    exclude_self: true
+
+  - type: eliminate
+  - type: score_calc
+    logic: wordwolf_judge
+
+  - type: conditional
+    if: "vote_winner == wolf_name"
+    then:
+      - type: summarize
+        template: >
+          🎯 ウルフ発見！ 最多得票の {wolf_name} が少数派でした（{vote_results}）。
+          多数派の勝利です。
+    else:
+      - type: summarize
+        template: >
+          😈 ウルフ逃げ切り！ 実際の少数派は {wolf_name} でしたが投票は別の人に集中しました（{vote_results}）。
+          少数派の勝利です。

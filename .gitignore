@@ -119,3 +119,9 @@ web/node_modules/
 web/dist/
 web/.astro/
 
+# Gradle / Kotlin (KMP integration — Issue #220 / #501 Stage 1). `build/` is
+# already ignored above (Xcode rule), which also covers `shared/<module>/build/`
+# for Gradle module outputs.
+.gradle/
+local.properties
+

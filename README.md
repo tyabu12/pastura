@@ -145,6 +145,7 @@ pastura/
 │   ├── design/              # Design system, reference assets
 │   ├── i18n/                # Localization workflow
 │   └── blocklist/           # ContentBlocklist source + build script
+├── shared/                  # KMP shared modules (Phase 3.0 / ADR-023); `models` landed as infra, not yet wired
 ├── web/                     # The pastura.app site (Astro SSG, deployed via GitHub Pages)
 └── scripts/                 # Build, lint, content-blocklist helpers
 ```

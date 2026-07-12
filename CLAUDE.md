@@ -218,6 +218,11 @@ web/                             # The pastura.app site (Astro SSG, deployed via
         └── legal/privacy-policy.astro  # /legal/privacy-policy/ (App Store privacy policy URL)
 ```
 
+```
+shared/                          # KMP shared modules (#501 / ADR-023). Gradle/Kotlin Multiplatform.
+└── models/                      #   `shared/models` — landed Stage 1 as INFRA (not production-wired; mirrors Swift Models/, depends on nothing). `shared/engine` port + iOS consumption are Phase 3.0.
+```
+
 ## Context-Specific Rules
 
 `.claude/rules/` contains detailed rules with two loading modes:

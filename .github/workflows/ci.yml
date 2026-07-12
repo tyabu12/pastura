@@ -539,6 +539,157 @@ jobs:
       - name: Lint shipped scenarios (ADR-024)
         run: swift run pastura-harness lint Pastura/Pastura/Resources/Presets docs/gallery
 
+  # ---------------------------------------------------------------------------
+  # KMP Models layer build & test (#501 Stage 1, ADR-023). Validates that the
+  # `shared/models` Kotlin Multiplatform module lands green and stays green.
+  #
+  # NO job-level `if:` — the workflow `on:` triggers already restrict CI to
+  # main-targeted events (push→main / PR base=main / daily `schedule` /
+  # `workflow_dispatch`), so a gate-free job runs on ALL of them, including the
+  # daily green-main canary. This is the discharge of the #501 §9.7 landmine
+  # (a): the retired spike gate skipped on `base_ref == main`; a job with no
+  # gate cannot fail to fire. (The T11 spike-branch `on:` triggers are NOT
+  # carried — landmine (c).)
+  #
+  # Runs as a parallel job to the iOS xcodebuild jobs. The default path (JVM
+  # tests + a single-target native klib COMPILE-ONLY) stays shorter than the
+  # iOS build, so it is never the per-PR long-pole. Full native build +
+  # XCFramework assembly are the nightly workflow's job (#501 PR-3); this job
+  # only promotes to full-native on PRs that touch the KMP build config (see
+  # the classify step).
+  kmp-build-test:
+    name: KMP build & test (#501)
+    runs-on: macos-26
+    # Headroom for the rare cold full-native PROMOTION path (build-config PRs).
+    # The compile-only DEFAULT is tripwired far tighter at the step level below
+    # (8 min) — this job budget is not that tripwire. Do not read 20 as "the
+    # per-PR budget"; the per-PR budget is the 8-min compile-only step.
+    timeout-minutes: 20
+    # Job-scoped (overrides the top-level `contents: read`): the classify step's
+    # PR-files endpoint needs `pull-requests: read`. Explicit so the compile-only
+    # fast path can't silently degrade to full-native if a tightened default ever
+    # 403s the API (the `|| FILES=""` fail-safe would then promote every PR).
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Three caches, different invalidation rates (#220 D5):
+      #   ~/.konan         — Kotlin/Native compiler + LLVM toolchain; flips on a
+      #                      Kotlin version bump (gradle/libs.versions.toml).
+      #   ~/.gradle/caches — resolved Maven artifacts + Gradle plugin classpath.
+      #   ~/.gradle/wrapper — bootstrapped Gradle distribution zip.
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      # Supply-chain guard on the checked-in gradle-wrapper.jar. "Author fresh"
+      # must not drop this.
+      - name: Validate Gradle wrapper integrity
+        uses: gradle/actions/wrapper-validation@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+
+      # Step-level path promotion (#501 D-B). A PR that touches the KMP build
+      # config (Gradle build scripts / version catalog / wrapper / cinterop
+      # `.def`) promotes from compile-only to a FULL native build + XCFramework
+      # assembly, because link / XCFramework breakage is localized to those
+      # files and the compile-only default would miss it. Every OTHER case —
+      # the common one, incl. all Swift-only PRs, docs PRs, and non-PR events —
+      # runs JVM tests + single-target klib compile-only (full-native on main is
+      # owned by the nightly workflow, #501 PR-3).
+      #
+      # Decided HERE at STEP level, never via `on.<event>.paths`: a job-level
+      # path filter leaves a required status check stuck "Pending" forever when
+      # the paths do not match (ci-workflows.md "Long-lived branch gating").
+      # Conservative-by-inversion (ci-workflows.md invariant 1): an unresolved /
+      # errored PR file list PROMOTES rather than under-builds.
+      - name: Classify KMP build-config touch
+        id: kmp-changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            # Non-PR (push→main / schedule / dispatch): compile-only default.
+            # Deep full-native coverage on main is the nightly's job (PR-3);
+            # keeping main pushes on compile-only avoids a cold-native tax on
+            # every merge.
+            echo "full_native=false" >> "$GITHUB_OUTPUT"
+            echo "Non-PR event → JVM + klib compile-only (nightly owns full-native)."
+            exit 0
+          fi
+          # `|| FILES=""` keeps GHA's default `set -e` from aborting on a
+          # transient API failure; the empty-list branch below is the fail-safe.
+          FILES=$(gh api --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename') || FILES=""
+          if [ -z "$FILES" ]; then
+            echo "full_native=true" >> "$GITHUB_OUTPUT"
+            echo "No file list resolved → full native build (conservative)."
+            exit 0
+          fi
+          # Anything that can change link / XCFramework output. Line-anchored
+          # tokens; `.def` = a K/N cinterop def file (none yet, future-proofed).
+          if printf '%s\n' "$FILES" | grep -qE '(^|/)(build\.gradle\.kts|settings\.gradle\.kts)$|^gradle/libs\.versions\.toml$|^gradle/wrapper/|\.def$'; then
+            echo "full_native=true" >> "$GITHUB_OUTPUT"
+            echo "KMP build-config touched → full native build + XCFramework."
+          else
+            echo "full_native=false" >> "$GITHUB_OUTPUT"
+            echo "No KMP build-config touch → JVM + klib compile-only."
+          fi
+
+      - name: Run JVM tests
+        timeout-minutes: 8
+        run: ./gradlew :shared:models:jvmTest --no-daemon --stacktrace
+
+      # The per-PR budget tripwire lives HERE, on the compile-only step, so a
+      # silently-growing compile-only (Gradle pulling in link deps, or native
+      # test execution sneaking onto this target) fails loudly. Do NOT loosen it
+      # if a one-off cold-cache run trips it — that is a first-run artifact, not
+      # a budget regression (#501 D-B).
+      - name: Compile native klib (compile-only — per-PR default)
+        if: steps.kmp-changes.outputs.full_native != 'true'
+        timeout-minutes: 8
+        run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
+
+      - name: Full native build + XCFramework (build-config touch)
+        if: steps.kmp-changes.outputs.full_native == 'true'
+        timeout-minutes: 18
+        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework --no-daemon --stacktrace
+
+      - name: Upload Gradle reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kmp-gradle-reports
+          path: shared/models/build/reports/
+          retention-days: 7
+
   # Drift guard for bundled DL-time demo replays (#170, spec §3.3 / §5.2).
   # Re-hashes shipped preset YAMLs and validates each bundled demo's
   # `preset_ref.yaml_sha256` + curation-quality floors (turns, language,
