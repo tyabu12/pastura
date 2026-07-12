@@ -36,6 +36,7 @@ nonisolated enum PromptPlaceholders {
     "vote_results",  // VoteHandler → Summarize
     "wolf_name",  // AssignHandler (random_one mode) → Summarize
     "current_event",  // EventInjectHandler (default event variable)
-    "relationships"  // RelationshipUpdateHandler → the 5 per-persona LLM sites (#910)
+    "relationships",  // RelationshipUpdateHandler → the 5 per-persona LLM sites (#910)
+    "my_whispers"  // WhisperHandler → participants' later-phase prompts (#908 / #957 PD adoption)
   ]
 }

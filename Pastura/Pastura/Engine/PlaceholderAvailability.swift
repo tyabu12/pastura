@@ -160,7 +160,7 @@ nonisolated public enum PlaceholderAvailability {
   /// Named here so the union-equality maintenance test can state the delta
   /// explicitly instead of hiding it.
   static let tokensBeyondEngineSupplied: Set<String> = [
-    "my_notes", "my_whispers",
+    "my_notes",  // reflect's channel — promote to engineSupplied when a bundled preset first references {my_notes}
     "whisper_partner", "whisper_exchange",
     "agent1", "action1", "agent2", "action2", "score1", "score2"
   ]
