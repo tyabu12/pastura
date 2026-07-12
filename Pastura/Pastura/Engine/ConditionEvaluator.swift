@@ -280,13 +280,9 @@ nonisolated public struct ConditionEvaluator: Sendable {
       return resolveScoreExtremum(
         state.scores.values.min(), label: "min_score", warnings: &warnings)
     case "vote_winner":
-      // Canonical deterministic tie-break: sort by (count desc, name desc)
-      // and take the first. EliminateHandler shares this order (#1056).
-      let top =
-        state.voteResults
-        .sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) })
-        .first
-      if let winner = top {
+      // Shared canonical tie-break (count desc, name desc). EliminateHandler
+      // and WordwolfJudgeLogic resolve the same winner (#1056).
+      if let winner = VoteTally.winner(state.voteResults) {
         return .value(winner.key)
       }
       warnings.append("vote_winner has no value (no vote phase has run this round)")
