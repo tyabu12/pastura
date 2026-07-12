@@ -90,4 +90,54 @@ struct HarnessConfigTests {
       ])
     }
   }
+
+  @Test func defaultsBackendToLlamaCpp() throws {
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--model", "m.gguf"
+    ])
+    #expect(config.backend == .llamaCpp)
+  }
+
+  @Test func parsesFoundationModelsBackendWithoutModel() throws {
+    // Foundation Models has no GGUF file — --model is optional and modelPath
+    // stays empty.
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models"
+    ])
+    #expect(config.backend == .foundationModels)
+    #expect(config.modelPath == "")
+  }
+
+  @Test func llamaCppBackendRequiresModel() {
+    // The default (llama-cpp) backend still requires --model — guards the
+    // pre-existing contract that `missingModelThrows` also covers.
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--backend", "llama-cpp"
+      ])
+    }
+  }
+
+  @Test func unknownBackendThrows() {
+    do {
+      _ = try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--backend", "bogus"
+      ])
+      Issue.record("expected HarnessConfigError")
+    } catch let error as HarnessConfigError {
+      #expect(error.message.contains("bogus"))
+      #expect(error.message.contains("foundation-models"))
+      #expect(error.message.contains("llama-cpp"))
+    } catch {
+      Issue.record("expected HarnessConfigError, got \(error)")
+    }
+  }
+
+  @Test func missingBackendValueThrows() {
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--backend"
+      ])
+    }
+  }
 }
