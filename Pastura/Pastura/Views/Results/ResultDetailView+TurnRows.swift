@@ -33,7 +33,10 @@ extension ResultDetailView {
           // Gate at the run level, not per-tap: a run whose scenario couldn't
           // be decoded (pre-v7 deleted scenario, YAML drift) has no personas,
           // so the rows stay non-tappable rather than showing a dead affordance.
-          onAvatarTap: personas.isEmpty ? nil : { selectedPersona = personaItem(for: $0) }
+          onAvatarTap: personas.isEmpty ? nil : { selectedPersona = personaItem(for: $0) },
+          onShareHighlight: {
+            shareHighlight(agent: agentName, output: output, phaseType: phaseType)
+          }
         )
         if contradictionBadgedTurnIDs.contains(turn.id) {
           ContradictionBadge()
@@ -62,5 +65,13 @@ extension ResultDetailView {
       return TurnOutput(fields: ["raw": turn.rawOutput])
     }
     return output
+  }
+
+  // Not `private`: read by the `+ResumeBanner.swift` sibling extension (D8
+  // resume gate) and `triggerYAMLExport` — cross-file callers can't see
+  // `private` members. Co-located with `decodeTurnOutput` as a decode helper.
+  func decodeState(from record: SimulationRecord) -> SimulationState? {
+    guard let data = record.stateJSON.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(SimulationState.self, from: data)
   }
 }
