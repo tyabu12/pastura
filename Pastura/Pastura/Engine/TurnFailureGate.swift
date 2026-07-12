@@ -1,5 +1,5 @@
 import Foundation
-import os
+import Synchronization
 
 /// Run-scoped containment gate for LLM turn failures (ADR-021 D1–D4).
 ///
@@ -15,7 +15,7 @@ import os
 /// (`ConditionalHandler`) must thread the parent context's gate into the
 /// sub-phase contexts — a fresh gate inside a branch would silently reset
 /// the consecutive-skip counter. The reference semantics plus the
-/// `OSAllocatedUnfairLock` are what make the counter run-scoped;
+/// `Mutex` are what make the counter run-scoped;
 /// `PhaseContext` itself is a value type rebuilt per phase. The counter is
 /// deliberately NOT part of `SimulationState`: a resumed run starts at 0.
 nonisolated public final class TurnFailureGate: Sendable {
@@ -25,7 +25,7 @@ nonisolated public final class TurnFailureGate: Sendable {
   /// through the rest of the scenario — not a per-model tuning contract.
   public static let consecutiveSkipLimit = 3
 
-  private let consecutiveSkips = OSAllocatedUnfairLock<Int>(initialState: 0)
+  private let consecutiveSkips = Mutex<Int>(0)
 
   public init() {}
 
