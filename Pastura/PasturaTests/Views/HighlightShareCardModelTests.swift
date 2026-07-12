@@ -21,13 +21,14 @@ struct HighlightShareCardModelTests {
     agent: String = "Bob",
     agentPosition: Int? = 1,
     rawUtterance: String = "A memorable line.",
+    rawThought: String? = nil,
     scenarioTitle: String? = "Prisoner's Dilemma",
     modelName: String? = "Gemma 4 E2B",
     contentFilter: ContentFilter = ContentFilter(blockedPatterns: [])
   ) -> HighlightShareCard.Model? {
     HighlightShareCard.Model(
       agent: agent, agentPosition: agentPosition, rawUtterance: rawUtterance,
-      scenarioTitle: scenarioTitle, modelName: modelName,
+      rawThought: rawThought, scenarioTitle: scenarioTitle, modelName: modelName,
       linkURL: HighlightShareCard.shareLink, contentFilter: contentFilter)
   }
 
@@ -82,5 +83,47 @@ struct HighlightShareCardModelTests {
   func utteranceEdgeTrimmed() throws {
     let sut = try #require(model(rawUtterance: "  keep  the   gaps  "))
     #expect(sut.utterance == "keep  the   gaps")
+  }
+
+  // MARK: - Inner thought (心の声, #1080)
+
+  @Test("ContentFilter is applied to the inner thought")
+  func filterAppliedToThought() throws {
+    let filter = ContentFilter(blockedPatterns: ["betray"], replacement: "***")
+    let sut = try #require(model(rawThought: "I will betray them.", contentFilter: filter))
+    let thought = try #require(sut.thought)
+    #expect(!thought.contains("betray"))
+    #expect(thought.contains("***"))
+  }
+
+  @Test("Nil raw thought yields a nil thought (utterance-only card)")
+  func nilThoughtYieldsNil() throws {
+    let sut = try #require(model(rawThought: nil))
+    #expect(sut.thought == nil)
+  }
+
+  @Test("A thought that filters/trims to empty collapses to nil; model still builds")
+  func emptyThoughtCollapsesToNil() throws {
+    // Whitespace-only thought → dropped, but the card is still produced.
+    let blank = try #require(model(rawThought: "   \n\t "))
+    #expect(blank.thought == nil)
+    #expect(blank.utterance == "A memorable line.")
+    // Thought fully removed by the filter (empty replacement) → dropped.
+    let filter = ContentFilter(blockedPatterns: ["secret"], replacement: "")
+    let redacted = try #require(model(rawThought: "secret", contentFilter: filter))
+    #expect(redacted.thought == nil)
+  }
+
+  @Test("A thought redacted to visible content is kept (redaction is visible content)")
+  func redactedThoughtKept() throws {
+    let filter = ContentFilter(blockedPatterns: ["x"], replacement: "***")
+    let sut = try #require(model(rawThought: "x", contentFilter: filter))
+    #expect(sut.thought == "***")
+  }
+
+  @Test("Inner thought is edge-trimmed; internal spacing preserved")
+  func thoughtEdgeTrimmed() throws {
+    let sut = try #require(model(rawThought: "  I have   doubts  "))
+    #expect(sut.thought == "I have   doubts")
   }
 }

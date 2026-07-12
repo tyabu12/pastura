@@ -13,6 +13,7 @@ extension ResultDetailView {
         agent: agent,
         agentPosition: agentOrder.firstIndex(of: agent),
         rawUtterance: text,
+        rawThought: output.secondaryText(for: phaseType),
         scenarioTitle: scenario?.name,
         modelName: ModelRegistry.shortDisplayName(forIdentifier: simulation?.modelIdentifier),
         linkURL: HighlightShareCard.shareLink,
