@@ -64,8 +64,8 @@ filing phase. Do not inline the ceiling literal here.
 
 ## Step 0 — Preflight (abort, don't degrade)
 
-1. Confirm the working directory is the repository root (`Pastura/Pastura/Engine`,
-   `docs/code-health/ledger.md` both exist).
+1. Confirm the working directory is the repository root (`Pastura/Pastura/Engine`
+   exists).
 2. Confirm `docs/code-health/ledger.md` exists (the dedup memory). Abort if
    missing — a run without dedup memory re-floods.
 3. Resolve `layer` (arg or default `engine-llm`) and the category set (Step 2).
