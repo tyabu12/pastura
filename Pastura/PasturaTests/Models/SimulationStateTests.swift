@@ -23,6 +23,7 @@ struct SimulationStateTests {
     original.pairings = [Pairing(agent1: "Alice", agent2: "Bob")]
     original.variables = ["assigned_topic": "Test topic"]
     original.currentRound = 2
+    original.drawnEvents = ["current_event": ["retrial", "power_cut"]]
 
     let encoder = JSONEncoder()
     let data = try encoder.encode(original)
@@ -36,6 +37,35 @@ struct SimulationStateTests {
     #expect(decoded.pairings == original.pairings)
     #expect(decoded.variables == original.variables)
     #expect(decoded.currentRound == original.currentRound)
+    #expect(decoded.drawnEvents == original.drawnEvents)
+  }
+
+  /// Backward-compat: a `stateJSON` persisted before #1006 (no `drawnEvents`
+  /// key) must still decode — a paused run resumed across the update boundary
+  /// (ADR-003 / ADR-021 D8) would otherwise throw `keyNotFound` and break
+  /// resume. Drives the exact unguarded path: this JSON omits `drawnEvents`,
+  /// so reverting the custom `init(from:)`'s `decodeIfPresent ?? [:]` makes
+  /// this test fail. `drawnEvents` decodes to empty.
+  @Test func decodesLegacyStateWithoutDrawnEvents() throws {
+    let legacyJSON = """
+      {
+        "scores": {"Alice": 1},
+        "eliminated": {"Alice": false},
+        "conversationLog": [],
+        "lastOutputs": {},
+        "voteResults": {},
+        "pairings": [],
+        "variables": {"current_event": "retrial"},
+        "currentRound": 3
+      }
+      """
+    let data = try #require(legacyJSON.data(using: .utf8))
+    let decoded = try JSONDecoder().decode(SimulationState.self, from: data)
+
+    #expect(decoded.drawnEvents.isEmpty)
+    #expect(decoded.scores == ["Alice": 1])
+    #expect(decoded.currentRound == 3)
+    #expect(decoded.variables == ["current_event": "retrial"])
   }
 
   @Test func initialStateFromScenario() {
@@ -74,5 +104,6 @@ struct SimulationStateTests {
     #expect(state.pairings.isEmpty)
     #expect(state.variables.isEmpty)
     #expect(state.currentRound == 0)
+    #expect(state.drawnEvents.isEmpty)
   }
 }

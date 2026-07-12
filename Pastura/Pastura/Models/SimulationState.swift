@@ -34,6 +34,14 @@ nonisolated public struct SimulationState: Codable, Sendable, Equatable {
   /// The current round number (1-based). Updated by SimulationRunner.
   public var currentRound: Int
 
+  /// Per-event-variable set of already-drawn event strings, tracked only for
+  /// `event_inject` phases opted into `no_repeat` (draw-without-replacement).
+  /// Keyed by the event variable name (`current_event` or the phase's `as:`);
+  /// the value is the set of chosen `text` values drawn so far this run.
+  /// Persisted so a pause/resume mid-run preserves the no-repeat pool. Empty
+  /// for every other scenario. See #1006 and ``Phase/noRepeat``.
+  public var drawnEvents: [String: Set<String>]
+
   public init(
     scores: [String: Int] = [:],
     eliminated: [String: Bool] = [:],
@@ -42,7 +50,8 @@ nonisolated public struct SimulationState: Codable, Sendable, Equatable {
     voteResults: [String: Int] = [:],
     pairings: [Pairing] = [],
     variables: [String: String] = [:],
-    currentRound: Int = 0
+    currentRound: Int = 0,
+    drawnEvents: [String: Set<String>] = [:]
   ) {
     self.scores = scores
     self.eliminated = eliminated
@@ -52,6 +61,31 @@ nonisolated public struct SimulationState: Codable, Sendable, Equatable {
     self.pairings = pairings
     self.variables = variables
     self.currentRound = currentRound
+    self.drawnEvents = drawnEvents
+  }
+
+  /// Custom decoder so a `drawnEvents`-less `stateJSON` — any run persisted
+  /// before #1006 shipped — still resumes instead of throwing `keyNotFound`.
+  /// Pause/resume across an app update is a real path (ADR-003 background
+  /// execution, ADR-021 D8 resume), so the new field must decode leniently.
+  ///
+  /// Only `drawnEvents` is optional-on-decode; the eight original fields keep
+  /// required `decode` so a genuinely-corrupt blob still fails loudly rather
+  /// than silently resuming with zeroed state. Encoding stays synthesized
+  /// (the synthesized `CodingKeys` covers all nine fields, so the round-trip
+  /// is symmetric).
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    scores = try container.decode([String: Int].self, forKey: .scores)
+    eliminated = try container.decode([String: Bool].self, forKey: .eliminated)
+    conversationLog = try container.decode([ConversationEntry].self, forKey: .conversationLog)
+    lastOutputs = try container.decode([String: TurnOutput].self, forKey: .lastOutputs)
+    voteResults = try container.decode([String: Int].self, forKey: .voteResults)
+    pairings = try container.decode([Pairing].self, forKey: .pairings)
+    variables = try container.decode([String: String].self, forKey: .variables)
+    currentRound = try container.decode(Int.self, forKey: .currentRound)
+    drawnEvents =
+      try container.decodeIfPresent([String: Set<String>].self, forKey: .drawnEvents) ?? [:]
   }
 
   /// Creates an initial state for the given scenario with all agents at score 0.
