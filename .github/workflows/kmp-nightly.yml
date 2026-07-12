@@ -1,0 +1,223 @@
+# Nightly full-native backstop for the KMP shared modules (#501 Stage 1 PR-3).
+#
+# The per-PR counterpart is ci.yml's `kmp-build-test` job, which runs
+# JVM tests + a single-target klib COMPILE-ONLY on non-PR events (and on
+# most PRs) to stay off the per-PR critical path. That leaves the expensive
+# rungs — full native LINK, the Kotlin/Native test-runtime execution of the
+# shared `commonTest` suite on the iOS simulator, and XCFramework assembly —
+# unverified on `main` until something downstream trips over them. This
+# workflow closes that gap as the deferred-verification backstop
+# (#501 §"D-B" plan / ADR-023 §6): it exercises the full native rung once a
+# day so a K/N-only regression surfaces within 24h instead of at the next
+# iOS-consumption attempt.
+#
+# NOT a required status check. It is a backstop, not a merge gate — adding it
+# to the `main` branch-protection ruleset would block every PR until a
+# scheduled run happened to exist, which never fits a `schedule`-triggered
+# workflow (ci-workflows.md §"Required-check-safe path gating"). Keep it out
+# of the ruleset's required-checks list.
+name: KMP nightly (#501)
+
+on:
+  # Daily full-native run. 01:41 UTC = 10:41 JST sits in the same low-load
+  # JST-morning trough ci.yml's daily canary targets (see ci.yml `on.schedule`
+  # comment), offset off both existing schedules — ci.yml `11 1` and
+  # codeql.yml `5 18` — so the three never contend for a scheduling slot.
+  # NOTE: GitHub auto-disables a scheduled workflow after 60 days with no
+  # repository activity — harmless for an active repo, the silent stop-firing
+  # failure mode otherwise.
+  schedule:
+    - cron: '41 1 * * *'
+  # Manual trigger for on-demand verification (first-run validation of the
+  # native rung, and re-checking `main` after a suspected K/N regression).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize runs (a manual dispatch during a scheduled run queues rather than
+  # runs concurrently) so two overlapping failures cannot race on the
+  # dedupe-by-label issue step below. Non-cancelling: a backstop run should
+  # always finish, never be pre-empted.
+  group: kmp-nightly
+  cancel-in-progress: false
+
+jobs:
+  kmp-nightly:
+    name: KMP nightly full-native (#501)
+    runs-on: macos-26
+    # Headroom over the observed cold full-native cost (~6m30s compile+assemble
+    # on PR-1) plus the native test-runtime execution this job adds. Generous
+    # because it is off any critical path.
+    timeout-minutes: 30
+    # Job-scoped (overrides the top-level `contents: read`): the failure step
+    # opens/updates a tracking issue, which needs `issues: write`.
+    permissions:
+      contents: read
+      issues: write
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+    steps:
+      - name: Checkout
+        # fetch-depth 50 (not the default shallow 1) so the failure step can
+        # list the recent commits on `main` as triage starting points.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 50
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Three caches, same invalidation model as ci.yml's kmp-build-test (#220
+      # D5): ~/.konan (K/N compiler + LLVM toolchain), ~/.gradle/caches
+      # (resolved artifacts + plugin classpath), ~/.gradle/wrapper (Gradle
+      # distribution zip). Identical key expressions so this job shares the
+      # per-PR job's cache entries rather than maintaining a parallel set.
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      # Supply-chain guard on the checked-in gradle-wrapper.jar (mirrors the
+      # per-PR job — "author fresh" must not drop it).
+      - name: Validate Gradle wrapper integrity
+        uses: gradle/actions/wrapper-validation@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+
+      # The full native rung, one Gradle invocation (no second cold start):
+      #   :shared:engine:build ............ compiles engine on every target
+      #                                     (jvm + iosArm64 + iosSimulatorArm64
+      #                                     + iosX64), pulling :shared:models
+      #                                     klibs as its upstream dep. Engine
+      #                                     tests are NO-SOURCE (empty scaffold),
+      #                                     so no simulator boot for them.
+      #   :shared:models:jvmTest .......... runs the Models suite on the JVM.
+      #   :shared:models:iosSimulatorArm64Test .. runs the shared `commonTest`
+      #                                     suite on the Kotlin/Native
+      #                                     test-runtime on the arm64 iOS
+      #                                     simulator — the native execution rung
+      #                                     the per-PR compile-only path never
+      #                                     reaches. This is an EARLY iOS-target
+      #                                     native rung (the actual deployment
+      #                                     triple), not the ADR-023 §6 Stage-4
+      #                                     `macosArm64` rung / cross-language
+      #                                     parity harness, which are separate
+      #                                     later deliverables.
+      #   :shared:models:assemblePasturaSharedXCFramework .. links + bundles the
+      #                                     XCFramework across all three iOS
+      #                                     targets (so iosArm64 device + iosX64
+      #                                     are compiled and linked here even
+      #                                     though only arm64-sim is test-run).
+      #
+      # `iosX64Test` is deliberately NOT invoked: on this arm64 runner it would
+      # execute an x86_64 test binary on the x86_64 iOS simulator under Rosetta
+      # (slow / boot-flaky), and iosX64 is a dev-only slice, not a deployment
+      # target — arm64-sim is the representative native rung. iosX64 is still
+      # compiled and linked via the XCFramework assembly above, so a native
+      # link regression on it is caught.
+      - name: Full native build + test + XCFramework
+        run: >-
+          ./gradlew
+          :shared:engine:build
+          :shared:models:jvmTest
+          :shared:models:iosSimulatorArm64Test
+          :shared:models:assemblePasturaSharedXCFramework
+          --no-daemon --stacktrace
+
+      # Backstop alarm: a silently-red nightly rots. On failure, open (or, if
+      # one is already open, comment on) a single tracking issue with the recent
+      # commits as triage starting points.
+      #
+      # `GH_TOKEN` is REQUIRED even with `permissions: issues: write` above:
+      # the permission grants the token its scope, but `gh` reads the token from
+      # the environment, so every gh-using step in this repo sets it explicitly
+      # (mirrors ci.yml's `classify` / `kmp-changes` steps).
+      - name: File or update failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          LABEL="kmp-nightly-failure"
+          # Idempotent on the marker label: create it on the first-ever failure,
+          # tolerate the already-exists error on every later one.
+          gh label create "$LABEL" \
+            --color B60205 \
+            --description "Automated: KMP nightly full-native workflow failed" \
+            2>/dev/null || true
+          # `main` is squash-merged (linear history), so each recent commit IS a
+          # merged PR — plain `git log` (not `--merges`, which finds nothing) is
+          # the right list. fetch-depth 50 guarantees >10 commits are present.
+          COMMITS="$(git log -10 --pretty=format:'- %h %s (%an)' || true)"
+          if [ -z "$COMMITS" ]; then
+            COMMITS="- (commit history unavailable)"
+          fi
+          # printf-built body (bash 3.2 on the macOS runner; printf sidesteps
+          # heredoc escaping of backticks / \$ — ci-workflows.md Rule 1).
+          BODY_FILE="$(mktemp)"
+          {
+            printf 'The **KMP nightly full-native** workflow failed.\n\n'
+            printf -- '- Run: %s\n' "$RUN_URL"
+            printf -- '- Trigger: %s\n' "$EVENT_NAME"
+            printf -- '- Commit: %s\n\n' "$HEAD_SHA"
+            printf 'This workflow is the deferred-verification backstop for '
+            printf '#501 Stage 1: it runs the full Kotlin/Native rung '
+            printf '(iOS-simulator native tests + XCFramework assembly) that the '
+            printf 'per-PR CI runs compile-only. A red run here points at a '
+            printf 'native-path regression the per-PR job could not catch.\n\n'
+            printf '### Recent commits on main (triage starting points)\n'
+            printf '%s\n\n' "$COMMITS"
+            printf -- '---\n'
+            # Backticks below are literal markdown and `%s` is a printf
+            # directive (filled by "$LABEL") — single quotes are deliberate.
+            # shellcheck disable=SC2016
+            printf 'Filed automatically by `kmp-nightly.yml`. Deduped by the '
+            # shellcheck disable=SC2016
+            printf '`%s` label — reruns comment here instead of opening a new ' "$LABEL"
+            printf 'issue. Close once the nightly is green again.\n'
+          } > "$BODY_FILE"
+          EXISTING="$(gh issue list --state open --label "$LABEL" --limit 1 \
+            --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+            echo "Updated existing failure issue #$EXISTING"
+          else
+            URL="$(gh issue create \
+              --title '🌙 KMP nightly full-native failed' \
+              --label "$LABEL" \
+              --body-file "$BODY_FILE")"
+            echo "Opened failure issue: $URL"
+          fi
+
+      - name: Upload Gradle reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kmp-nightly-gradle-reports
+          path: |
+            shared/models/build/reports/
+            shared/engine/build/reports/
+          retention-days: 7
+          if-no-files-found: ignore
