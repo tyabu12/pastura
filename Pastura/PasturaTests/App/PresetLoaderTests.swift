@@ -262,4 +262,36 @@ struct PresetLoaderTests {
       }
     }
   }
+
+  /// #881 Stage 3 change-detector: the demonstrated brevity-override gain lives
+  /// entirely in `last_fable`'s `speak_all` `max_sentences: 6`. Value-level
+  /// preset content is otherwise unguarded (`presets.md` — the fixture suites
+  /// key on ids / schema shape / placeholder tokens, not scalar values), so a
+  /// future `git add -A` catalog re-serialization or an editor round-trip could
+  /// silently drop the key with every other gate green. A failure here is NOT a
+  /// bug: it means the override drifted — confirm the change was intended, then
+  /// update the expected value. (`view-testing.md` § change-detector tripwire.)
+  @Test func lastFableSpeakAllPinsMaxSentencesOverride() throws {
+    let loader = ScenarioLoader()
+    let bundle = Bundle(for: DatabaseManager.self)
+
+    // Both ja + en siblings carry the mechanic (presets.md ja/en parity),
+    // though the lever is empirically ja-only.
+    for fileName in ["last_fable", "last_fable_en"] {
+      guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
+        Issue.record("Missing preset: \(fileName).yaml")
+        continue
+      }
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      guard let speakAll = scenario.phases.first(where: { $0.type == .speakAll }) else {
+        Issue.record("\(fileName).yaml: no speak_all phase")
+        continue
+      }
+      #expect(
+        speakAll.maxSentences == 6,
+        "\(fileName).yaml speak_all max_sentences drifted from 6 (got \(speakAll.maxSentences.map(String.init) ?? "nil")) — see #881 Stage 3"
+      )
+    }
+  }
 }
