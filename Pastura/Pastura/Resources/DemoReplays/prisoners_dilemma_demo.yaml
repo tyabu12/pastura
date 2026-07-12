@@ -1,0 +1,454 @@
+# Demo replay for the DL-time loop (#1076), captured from a pastura-harness
+# run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+# First whisper-carrying demo (#908 密談 phase): prisoners_dilemma is the only
+# shipped preset that runs a `whisper` phase (#957 / PR #1074), so its replay
+# exercises the whisperBubble fill + `A → B` attribution header (#908 PR2) on
+# the DL-time surface. whisper reuses `.agentOutput` (ADR-007 §2.4 — no new
+# SimulationEvent), and the reserved `whisper_to` field rides the generic
+# turn `fields` map end-to-end, so no replay-format change was needed.
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# was scanned against Pastura/Pastura/Resources/ContentBlocklist.json (all 89
+# outputPatterns, case/diacritic-insensitive substring — the same match
+# semantics as ContentFilter.filter) on 2026-07-12 — zero matches. Setting
+# metadata.content_filter_applied: true per demo-replay-spec.md §3.4 (the
+# runtime filter also re-checks at render time, exercised by
+# ContentBlocklistFalsePositiveTests). Final content/visual sign-off rides the
+# device-QA gate on this PR.
+schema_version: 1
+preset_ref:
+  id: prisoners_dilemma
+  version: '1.0'
+  yaml_sha256: eb2aa0fac995d9fdec095a81e32276d118e75648c8ba8807074550889a601d6b
+metadata:
+  title: 囚人のジレンマ
+  description: 5人のプレイヤーが「協力」か「裏切り」を選ぶ戦略ゲーム。 隣接ペアで総当たり対戦し、得点を競う。宣言でブラフも、 密談で同盟や裏切りの相談も可能。
+  language: ja
+  recorded_at: '2026-07-12T12:31:18Z'
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 38
+  estimated_duration_ms: 15000
+  captured_by: tyabu12
+turns:
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: アキラ
+  fields:
+    statement: データ分析に基づき、全員が互いに協力することが最も期待値の高い戦略です。
+    inner_thought: 相手の行動パターンを予測し、高得点を狙うためには協調性を装うのが合理的です。
+    declared_intent: cooperate
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: ミサキ
+  fields:
+    statement: みんな、今日は最高のチームワークを見せてくれると信じてるよ！
+    inner_thought: 協力すれば全員で良い結果が出せるはず！少しだけハッタリを効かせて、皆の気持ちを良くしたいな。
+    declared_intent: cooperate
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: リュウジ
+  fields:
+    statement: おい、みんな、手加減はねえぜ。協力だ、って言う奴は引っ込んでろ。
+    inner_thought: 協力を呼びかけるのは面倒だが、いつ誰が裏切るか見極めるのが俺のやり方だ。
+    declared_intent: betray
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: ハルカ
+  fields:
+    statement: 皆様、私たちはこのゲームを個々の能力で勝負するのではなく、一つのチームとして勝利を目指すべきだと考えます。
+    inner_thought: 私はすぐにでも誰かと手を組んで、安全なポジションを取りたいです。宣言で皆を協力的な雰囲気に誘導するのが私の得意分野です。
+    declared_intent: cooperate
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: ケンタ
+  fields:
+    statement: さーて、今回はどうしよっかなー？俺はどっちでもいいけどさ。
+    inner_thought: 退屈しのぎに予測不能な行動をしたい気分だ。みんなが真面目すぎるのが面白いね。
+    declared_intent: unclear
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: アキラ
+  fields:
+    statement: ミサキさん、公開の宣言とは別に、私はあなたと協力するつもりです。
+    inner_thought: ミサキは協調的で、彼女を味方につけることで全体の期待値を最大化できると判断しました。短期的な利益よりも長期的なチームワークを優先すべきです。
+    whisper_to: ミサキ
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: ミサキ
+  fields:
+    statement: アキラ、私はあなたと協力して3点をゲットしたいな！
+    inner_thought: アキラは優しいから、一緒に協力すればきっと良い結果になるはずだ。たとえ裏切られても、次は必ずチャンスはあるよ！
+    whisper_to: アキラ
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: リュウジ
+  fields:
+    statement: ハルカ、お前は協力的だろうが、俺は自分の利益だけ見てるぜ。
+    inner_thought: ハルカの協調性を利用して、彼女を狙って裏切るのが一番楽だ。協力者として振る舞うフリをして、最終的に5点を掴むのが俺のやり方だ。
+    whisper_to: ハルカ
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: ハルカ
+  fields:
+    statement: リュウジさん、公開の宣言とは別に、私はあなたと協力して得点を最大化したいと考えています。
+    inner_thought: リュウジは自分の利益しか見ていないので、まずは協力的だとアピールしつつも、彼の裏切りを誘うことで私の戦略に誘導したいです。最終的には彼を信用して、他のメンバーとの連携に利用するつもりです。
+    whisper_to: リュウジ
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: アキラ
+  fields:
+    inner_thought: ミサキさんは私と協力したい意向を示しており、データ上、協力の期待値が最も高いため、この選択が最適です。
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: ミサキ
+  fields:
+    inner_thought: アキラは協力してくれると言ってくれたから、私は彼と協力して3点をゲットしたいな！みんなで協力すればきっとうまくいく！
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: ミサキ
+  fields:
+    inner_thought: 私は人を信じているから、リュウジの挑発に負けずに協力するべきだ。みんなで力を合わせればきっと良い結果になるよ！
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: リュウジ
+  fields:
+    inner_thought: 協力なんて馬鹿げてる。俺が裏切ってでも点数を稼ぐ方がマシだ。ミサキの甘い期待を打ち砕いてやるぜ。
+    action: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: リュウジ
+  fields:
+    inner_thought: ハルカが協力的だと主張するなら、そこを逆手に取るのが一番だ。俺の利益だけ見てるってことを証明してやる必要がある。
+    action: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: ハルカ
+  fields:
+    inner_thought: リュウジさんは自分の利益を優先しているようですが、私は同盟を組むことで全体の得点を最大化したいと考えます。協力すれば全員が3点を得られるのが一番良いでしょう。
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: ハルカ
+  fields:
+    inner_thought: ケンタは協力的だから、同盟を組むことで全員の得点を最大化できると考えます。社交的な性格として、まずは穏やかなアプローチで協力体制を提案したいです。
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: ケンタ
+  fields:
+    inner_thought: ハルカが真面目そうだから、今回は皆で協力して綺麗な3点をゲットするのが一番退屈しない方法だね。
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: ケンタ
+  fields:
+    inner_thought: アキラの堅すぎる戦略は退屈だ。俺が勝って、場をめちゃくちゃにしてやるのが一番楽しいぜ！
+    action: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: アキラ
+  fields:
+    inner_thought: ケンタの行動パターンは予測が難しいため、まずは期待値の高い協力を選択します。データ上、協力による平均スコアが最も高くなります。
+    action: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: アキラ
+  fields:
+    statement: 皆様、今回のゲームはデータに基づいて最適な戦略を選択します。
+    inner_thought: 過去の履歴がないため、期待値計算に基づき協力が最も合理的であると判断します。
+    declared_intent: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: ミサキ
+  fields:
+    statement: みんな、今回は思いっきり協力して3点をゲットしようよ！
+    inner_thought: よし、みんなで力を合わせればきっとうまくいくはず！たとえ裏切られたとしても、次こそはきっとチャンスがあるよ！
+    declared_intent: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: リュウジ
+  fields:
+    statement: おい、見てろよ。俺は自分の利益だけ見てるから、協力なんてクソ食らわねえ。
+    inner_thought: 協力を呼びかけても相手が甘いことを言うのがオチだ。このゲームは力で決めるべきだ。
+    declared_intent: betray
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: ハルカ
+  fields:
+    statement: 皆様、今回はお互いに信頼し合うことが大切だと私は思います。どうか協力して良い結果を目指しませんか？
+    inner_thought: リュウジさんのような利己的な人たちを説得できれば、皆で協力して高いスコアを達成したいです。
+    declared_intent: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: ケンタ
+  fields:
+    statement: さーて、今回は誰が一番面白いことをするかな？俺は適当に選ぶぜ！
+    inner_thought: 退屈しのぎに予測不能な動きを見せてやろう。
+    declared_intent: unclear
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: ミサキ
+  fields:
+    statement: リュウジ、公開の宣言とは違って、私はあなたと協力して3点を狙いたいな！
+    inner_thought: リュウジは自分の利益だけを考えているから、少し甘いところを見せてみよう。協力的な態度を見せれば、彼も少しは安心するはずだ。でも、最終的には自分の勝ち方を守るのがミサキの流儀だからね！
+    whisper_to: リュウジ
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: リュウジ
+  fields:
+    statement: ミサキ、俺は別に協力なんて考えてねえよ。お前が協力的であろうとどうでもいい。
+    inner_thought: ミサキが協力を望んでいるのは甘いことだ。俺は自分の得点だけを追求するつもりだ。彼女の協調性は信用できない。
+    whisper_to: ミサキ
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: ハルカ
+  fields:
+    statement: ケンタさん、私はあなたと協力して得点を最大化したいと思っています。
+    inner_thought: ケンタは適当に選ぶと言っているので、彼の自由奔放さに乗っかって、一緒に大きなリターンを狙うのが良さそうです。
+    whisper_to: ケンタ
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: ケンタ
+  fields:
+    statement: ハルカ、今回は二人で協力して3点を狙うのが一番楽だろ？
+    inner_thought: ハルカは協力的だから、まずは彼女を味方につけて点数を稼ごう。ただし、もし彼女が甘い奴なら、後でトリッキーな動きで他の奴らを攪乱するつもりだ。
+    whisper_to: ハルカ
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: アキラ
+  fields:
+    inner_thought: ミサキの宣言は協調性を促しており、データ上、協力が最も安定した期待値をもたらします。感情的な判断を排除し、この戦略を採用します。
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: ミサキ
+  fields:
+    inner_thought: ミサキは人を信じる性格なので、今回はみんなで協力して3点を狙うのが一番楽しいと思う！アキラに対しても協力することで、良い雰囲気を作りたいな！
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: ミサキ
+  fields:
+    inner_thought: リュウジは冷たいけど、私は人を信じるタイプだから、やはり協力で3点を狙いたいな！みんなでうまくいくと信じてみよう！
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: リュウジ
+  fields:
+    inner_thought: ミサキが協力なんて言うから、俺が裏切って5点を取るのが一番だ。甘いこと言ってると痛い目見るぜ。
+    action: betray
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: リュウジ
+  fields:
+    inner_thought: ハルカは協力的な態度を取っているが、俺は自分の利益しか見ない。裏切って相手をゼロにすれば5点取れるから、報復の心配なんてクソ食らわねえ。
+    action: betray
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: ハルカ
+  fields:
+    inner_thought: リュウジはスコアが一番高いので、協力して3点を取るのが最も安全で、同盟を組む絶好の機会だと考えます。
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: ハルカ
+  fields:
+    inner_thought: ケンタさんは楽な道を選んでいて、私自身も同盟を組むことで全員の満足度を高められると考えます。
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: ケンタ
+  fields:
+    inner_thought: ハルカは協力したいと言っているし、二人で3点を狙うのが一番手っ取り早いだろう。退屈しのぎには、誰とでも仲良くするのが一番だね！
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: ケンタ
+  fields:
+    inner_thought: ハルカが協力したいと言っているから、今回は二人で安全に3点を取るのが一番手っ取り早いだろう。予測不能な行動は後回しにして、まずは安定した得点を稼ごうぜ！
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: アキラ
+  fields:
+    inner_thought: ケンタのスコアが8点と高いが、協力による期待値の計算に基づくと、全体的な安定性が高まるため協力を選択する。データ上、ケンタとの協調はリスクを最小化すると判断する。
+    action: cooperate
+code_phase_events:
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: アキラ(cooperate) vs ミサキ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: アキラ
+    action1: cooperate
+    agent2: ミサキ
+    action2: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: ミサキ(cooperate) vs リュウジ(betray)
+  payload:
+    kind: pairingResult
+    agent1: ミサキ
+    action1: cooperate
+    agent2: リュウジ
+    action2: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: リュウジ(betray) vs ハルカ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: リュウジ
+    action1: betray
+    agent2: ハルカ
+    action2: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: ハルカ(cooperate) vs ケンタ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: ハルカ
+    action1: cooperate
+    agent2: ケンタ
+    action2: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: ケンタ(betray) vs アキラ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: ケンタ
+    action1: betray
+    agent2: アキラ
+    action2: cooperate
+- round: 1
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — アキラ: 3, ケンタ: 8, ハルカ: 3, ミサキ: 3, リュウジ: 10'
+  payload:
+    kind: scoreUpdate
+    scores:
+      アキラ: 3
+      ケンタ: 8
+      ハルカ: 3
+      ミサキ: 3
+      リュウジ: 10
+- round: 1
+  phase_index: 4
+  phase_type: summarize
+  summary: 'ラウンド1結果: {"アキラ": 3, "ケンタ": 8, "ハルカ": 3, "ミサキ": 3, "リュウジ": 10}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: アキラ(cooperate) vs ミサキ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: アキラ
+    action1: cooperate
+    agent2: ミサキ
+    action2: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: ミサキ(cooperate) vs リュウジ(betray)
+  payload:
+    kind: pairingResult
+    agent1: ミサキ
+    action1: cooperate
+    agent2: リュウジ
+    action2: betray
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: リュウジ(betray) vs ハルカ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: リュウジ
+    action1: betray
+    agent2: ハルカ
+    action2: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: ハルカ(cooperate) vs ケンタ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: ハルカ
+    action1: cooperate
+    agent2: ケンタ
+    action2: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: ケンタ(cooperate) vs アキラ(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: ケンタ
+    action1: cooperate
+    agent2: アキラ
+    action2: cooperate
+- round: 2
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — アキラ: 9, ケンタ: 14, ハルカ: 6, ミサキ: 6, リュウジ: 20'
+  payload:
+    kind: scoreUpdate
+    scores:
+      アキラ: 9
+      ケンタ: 14
+      ハルカ: 6
+      ミサキ: 6
+      リュウジ: 20
+- round: 2
+  phase_index: 4
+  phase_type: summarize
+  summary: 'ラウンド2結果: {"アキラ": 9, "ケンタ": 14, "ハルカ": 6, "ミサキ": 6, "リュウジ": 20}'
+  payload:
+    kind: summary

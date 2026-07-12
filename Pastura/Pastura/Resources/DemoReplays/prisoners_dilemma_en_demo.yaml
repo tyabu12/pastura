@@ -1,0 +1,454 @@
+# Demo replay for the DL-time loop (#1076), captured from a pastura-harness
+# run (real local Gemma 4 E2B inference) via scripts/jsonl_to_demo_replay.py.
+# First whisper-carrying demo (#908 密談 phase): prisoners_dilemma is the only
+# shipped preset that runs a `whisper` phase (#957 / PR #1074), so its replay
+# exercises the whisperBubble fill + `A → B` attribution header (#908 PR2) on
+# the DL-time surface. whisper reuses `.agentOutput` (ADR-007 §2.4 — no new
+# SimulationEvent), and the reserved `whisper_to` field rides the generic
+# turn `fields` map end-to-end, so no replay-format change was needed.
+#
+# ContentFilter audit: every fields.* string and code_phase_events[].summary
+# was scanned against Pastura/Pastura/Resources/ContentBlocklist.json (all 89
+# outputPatterns, case/diacritic-insensitive substring — the same match
+# semantics as ContentFilter.filter) on 2026-07-12 — zero matches. Setting
+# metadata.content_filter_applied: true per demo-replay-spec.md §3.4 (the
+# runtime filter also re-checks at render time, exercised by
+# ContentBlocklistFalsePositiveTests). Final content/visual sign-off rides the
+# device-QA gate on this PR.
+schema_version: 1
+preset_ref:
+  id: prisoners_dilemma_en
+  version: '1.0'
+  yaml_sha256: 9578ccc392ce3315e97d182c37415e950bcfaddddbf023f4287308d936233266
+metadata:
+  title: Prisoner's Dilemma
+  description: Five players choose "cooperate" or "betray" in a strategic game. Round-robin pairwise matches with score accumulation. Bluff in the open, and scheme alliances or betrayals in private whispers.
+  language: en
+  recorded_at: '2026-07-12T12:49:42Z'
+  recorded_with_model: gemma4_e2b_q4km
+  content_filter_applied: true
+  total_turns: 38
+  estimated_duration_ms: 15000
+  captured_by: tyabu12
+turns:
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: Alex
+  fields:
+    statement: Given the lack of historical data, I recommend we begin with a strategy of cooperation for this initial round.
+    inner_thought: Starting cooperatively allows for data collection on opponents' baseline behavior without exposing my hand prematurely.
+    declared_intent: cooperate
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: Mia
+  fields:
+    statement: I really think we should all try to cooperate in this game; I have a feeling if we stick together, things are going to turn out positively.
+    inner_thought: I hope everyone is nice and we can all get those 3 points by being kind.
+    declared_intent: cooperate
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: Ryan
+  fields:
+    statement: Listen up, soft-heads, I'm not here to play nice.
+    inner_thought: They think cooperation is the answer; they are fools if they don't understand the real game.
+    declared_intent: betray
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: Harper
+  fields:
+    statement: I feel that a unified approach of cooperation would serve us best as we navigate this initial phase.
+    inner_thought: Cooperation seems like the safest way to start and build some friendly connections with everyone.
+    declared_intent: cooperate
+- round: 1
+  phase_index: 0
+  phase_type: speak_all
+  agent: Kai
+  fields:
+    statement: Well, let's just go with cooperation for now; it keeps things simple while we see what kind of chaos emerges.
+    inner_thought: Cooperation seems dull, but I need to watch how these predictable types react to my ambiguity.
+    declared_intent: cooperate
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: Alex
+  fields:
+    statement: Mia, I will cooperate in this first round to gather baseline data on the payoffs.
+    inner_thought: Cooperating is the most logical initial move to establish a known baseline before I start calculating optimal betrayal vectors.
+    whisper_to: Mia
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: Mia
+  fields:
+    statement: Alex, I'm going to cooperate in this round because I really believe we should start by building a foundation of trust.
+    inner_thought: I need to play the people-pleaser and show everyone that I am trustworthy right away, even if it means taking a small risk for our collective good.
+    whisper_to: Alex
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: Ryan
+  fields:
+    statement: I'm going to betray everyone, because sitting around and hoping for luck is pathetic.
+    inner_thought: I need to secure those high scores by taking advantage of every weak player. Harper is the most naive, so she's an easy mark to take down early.
+    whisper_to: Harper
+- round: 1
+  phase_index: 1
+  phase_type: whisper
+  agent: Harper
+  fields:
+    statement: Ryan, I think we should focus on building a solid alliance with Mia for now to ensure we maximize our points in the early rounds.
+    inner_thought: Ryan is being too aggressive and his plan to betray everyone seems risky, so aligning with Mia seems like a safer initial move for me.
+    whisper_to: Ryan
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Alex
+  fields:
+    inner_thought: Cooperation is the statistically sound initial move to establish a baseline data set.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Mia
+  fields:
+    inner_thought: I'm choosing to cooperate because building trust is the most optimistic path forward for everyone.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Mia
+  fields:
+    inner_thought: I'm going to cooperate because I genuinely believe that building trust is the best path forward for everyone.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Ryan
+  fields:
+    inner_thought: Mia is talking soft, so she'll make the first mistake and get burned for trusting this weakling.
+    action: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Ryan
+  fields:
+    inner_thought: Harper is too soft; I need to take a big hit now to show everyone I mean business.
+    action: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Harper
+  fields:
+    inner_thought: I will cooperate with Ryan to maintain a positive image and see if we can establish a basic level of trust.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Harper
+  fields:
+    inner_thought: I will cooperate with Kai to build a stable start and maintain my diplomatic image.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Kai
+  fields:
+    inner_thought: Cooperation seems too predictable right now; I'll play nice to lull Harper into a false sense of security before pulling a surprise later.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Kai
+  fields:
+    inner_thought: Cooperating seems fine for now; I want to see how everyone else reacts before I start messing things up.
+    action: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  agent: Alex
+  fields:
+    inner_thought: Cooperation is the statistically sound initial move to establish baseline data, aligning with my objective of gathering necessary information.
+    action: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: Alex
+  fields:
+    statement: Given the current data, I recommend we all start by cooperating to establish a baseline for expected returns.
+    inner_thought: I need to gather initial data without making any premature commitments on my part.
+    declared_intent: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: Mia
+  fields:
+    statement: I think we should all cooperate in this round to build a strong foundation of trust among everyone.
+    inner_thought: I really hope this approach works out because I believe that if we all work together, things will turn out positively for us.
+    declared_intent: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: Ryan
+  fields:
+    statement: Listen up, losers, we're playing to win, not playing nice.
+    inner_thought: I need to look strong and intimidating to set the tone for aggression immediately.
+    declared_intent: betray
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: Harper
+  fields:
+    statement: I suggest we all cooperate in this round to ensure a stable outcome for everyone.
+    inner_thought: Cooperating seems like the safest initial move to maintain my diplomatic image and see how the group dynamics evolve.
+    declared_intent: cooperate
+- round: 2
+  phase_index: 0
+  phase_type: speak_all
+  agent: Kai
+  fields:
+    statement: Alright everyone, let's just go with cooperation this time; it keeps things simple for now.
+    inner_thought: Cooperation sounds too boring, I secretly hope someone messes up so I can get a chance to be unpredictable.
+    declared_intent: cooperate
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: Mia
+  fields:
+    statement: I am going to cooperate in this round because I genuinely believe that working together is the best way forward for us all.
+    inner_thought: I am cooperating now, but I feel like I need to keep an eye on Ryan; his aggressive stance might lead to some interesting future opportunities.
+    whisper_to: Ryan
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: Ryan
+  fields:
+    statement: I'm going to betray everyone because cooperating is a waste of time.
+    inner_thought: Betraying everyone will secure my points quickly, and I need to see who folds under pressure.
+    whisper_to: Mia
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: Harper
+  fields:
+    statement: I believe cooperation is the wisest path forward for this round to maintain goodwill.
+    inner_thought: I need to keep my diplomatic facade intact while secretly working towards a better alliance later on.
+    whisper_to: Kai
+- round: 2
+  phase_index: 1
+  phase_type: whisper
+  agent: Kai
+  fields:
+    statement: I'll cooperate with everyone just to keep things interesting for now, but I'm definitely plotting how to snatch Ryan's points later.
+    inner_thought: Cooperating seems too dull right now, so I need to observe who is the biggest target before I start mixing things up.
+    whisper_to: Harper
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Alex
+  fields:
+    inner_thought: Cooperating is the statistically optimal move given the current distribution of scores and the desire to avoid the risk associated with immediate betrayal.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Mia
+  fields:
+    inner_thought: I feel good about cooperating because I genuinely believe that working together is the best way forward for us all.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Mia
+  fields:
+    inner_thought: I am going to cooperate because I genuinely believe that working together is the best way forward for us all.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Ryan
+  fields:
+    inner_thought: Cooperation is a waste of time; I'm going to take the 5 points and see who bleeds first.
+    action: betray
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Ryan
+  fields:
+    inner_thought: Harper is too soft and I need to take the points now.
+    action: betray
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Harper
+  fields:
+    inner_thought: Cooperating seems like the best diplomatic approach right now to maintain a good standing with Ryan and keep the peace.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Harper
+  fields:
+    inner_thought: I will cooperate to maintain a positive atmosphere and build potential alliances with Kai.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Kai
+  fields:
+    inner_thought: I'm sticking to cooperation for now, but I'll keep my eyes peeled for some chaos later.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Kai
+  fields:
+    inner_thought: Cooperating keeps the pressure low, which is perfect for my chaotic nature right now.
+    action: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  agent: Alex
+  fields:
+    inner_thought: Cooperating with Kai maintains a stable equilibrium, which aligns with my objective of computing optimal moves from the current data.
+    action: cooperate
+code_phase_events:
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: Alex(cooperate) vs Mia(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Alex
+    action1: cooperate
+    agent2: Mia
+    action2: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: Mia(cooperate) vs Ryan(betray)
+  payload:
+    kind: pairingResult
+    agent1: Mia
+    action1: cooperate
+    agent2: Ryan
+    action2: betray
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: Ryan(betray) vs Harper(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Ryan
+    action1: betray
+    agent2: Harper
+    action2: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: Harper(cooperate) vs Kai(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Harper
+    action1: cooperate
+    agent2: Kai
+    action2: cooperate
+- round: 1
+  phase_index: 2
+  phase_type: choose
+  summary: Kai(cooperate) vs Alex(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Kai
+    action1: cooperate
+    agent2: Alex
+    action2: cooperate
+- round: 1
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Alex: 6, Harper: 3, Kai: 6, Mia: 3, Ryan: 10'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Alex: 6
+      Harper: 3
+      Kai: 6
+      Mia: 3
+      Ryan: 10
+- round: 1
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 1 result: {"Alex": 6, "Harper": 3, "Kai": 6, "Mia": 3, "Ryan": 10}'
+  payload:
+    kind: summary
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: Alex(cooperate) vs Mia(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Alex
+    action1: cooperate
+    agent2: Mia
+    action2: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: Mia(cooperate) vs Ryan(betray)
+  payload:
+    kind: pairingResult
+    agent1: Mia
+    action1: cooperate
+    agent2: Ryan
+    action2: betray
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: Ryan(betray) vs Harper(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Ryan
+    action1: betray
+    agent2: Harper
+    action2: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: Harper(cooperate) vs Kai(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Harper
+    action1: cooperate
+    agent2: Kai
+    action2: cooperate
+- round: 2
+  phase_index: 2
+  phase_type: choose
+  summary: Kai(cooperate) vs Alex(cooperate)
+  payload:
+    kind: pairingResult
+    agent1: Kai
+    action1: cooperate
+    agent2: Alex
+    action2: cooperate
+- round: 2
+  phase_index: 3
+  phase_type: score_calc
+  summary: 'Scores — Alex: 12, Harper: 6, Kai: 12, Mia: 6, Ryan: 20'
+  payload:
+    kind: scoreUpdate
+    scores:
+      Alex: 12
+      Harper: 6
+      Kai: 12
+      Mia: 6
+      Ryan: 20
+- round: 2
+  phase_index: 4
+  phase_type: summarize
+  summary: 'Round 2 result: {"Alex": 12, "Harper": 6, "Kai": 12, "Mia": 6, "Ryan": 20}'
+  payload:
+    kind: summary
