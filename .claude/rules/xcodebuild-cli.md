@@ -248,3 +248,7 @@ regressions do not self-recover). Flake signatures, distinguishing signals,
 the idle-stall `--ui-test` suppression, and the full escalation tree:
 [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md).
 Runner-pressure tracking: [#189](https://github.com/tyabu12/pastura/issues/189).
+Post-#1053 the `ui-test` job runs serialized (`-parallel-testing-enabled NO`,
+like `lint-and-test`), which retires the clone-dependent classes
+(within-process clone cascade + contention stall) — a recurrence of either
+means the flag was dropped, not a new flake.
