@@ -19,7 +19,11 @@ nonisolated public struct TurnRecord: Codable, Sendable, Equatable,
   public var agentName: String?
   /// Unfiltered LLM response. ContentFilter is applied in the App layer.
   public var rawOutput: String
-  /// Parsed `TurnOutput.fields` serialized as JSON.
+  /// Parsed `TurnOutput.fields` serialized as JSON. Stored UNFILTERED (a
+  /// structured mirror of the raw emission, like `rawOutput`) — any display
+  /// surface reconstructing a turn from this MUST route through
+  /// `PersistedTurnDecoder.decodeFiltered` so ContentFilter is applied at read
+  /// time (ADR-005 §5.1; #1075). Do not decode it directly for display.
   public var parsedOutputJSON: String
   /// Monotonically increasing per simulation — the canonical ordering key.
   /// Pre-migration rows default to `0` and fall back to `createdAt` ordering.
