@@ -19,6 +19,15 @@ extension ResultDetailView {
         linkURL: LocalizedPublicPages.sharedScenario(id: scenario?.id),
         contentFilter: contentFilter)
     else { return }
-    highlightShareItem = HighlightCardImageRenderer.makeShareItem(model, colorScheme: colorScheme)
+    // Offer the custom story-share sheet only when Instagram Stories is
+    // actually available (installed + App ID configured); otherwise fall
+    // straight through to the system share sheet — no UX change until the
+    // feature is live (#1083).
+    if InstagramStoriesSharer.isAvailableNow {
+      highlightShareContext = HighlightShareContext(model: model, colorScheme: colorScheme)
+    } else {
+      highlightShareItem = HighlightCardImageRenderer.makeShareItem(
+        model, colorScheme: colorScheme)
+    }
   }
 }

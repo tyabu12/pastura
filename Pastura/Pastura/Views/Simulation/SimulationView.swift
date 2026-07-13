@@ -76,6 +76,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   @State private var exportError: String?
   /// The rendered highlight card awaiting the share sheet (#1070).
   @State private var highlightShareItem: HighlightShareItem?
+  /// Custom story-share sheet context (#1083). Set instead of
+  /// highlightShareItem when Instagram Stories is available.
+  @State private var highlightShareContext: HighlightShareContext?
   /// Re-applies content filtering when composing a share card. A View-local
   /// instance (mirrors `ResultDetailView`) — the live log text is already
   /// filtered, but re-filtering is idempotent and keeps the card path
@@ -298,9 +301,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .sheet(item: $exportPayload) { payload in
       ShareSheet(activityItems: [payload.text, payload.fileURL])
     }
-    .sheet(item: $highlightShareItem) { item in
-      ShareSheet(activityItems: item.activityItems)
-    }
+    .highlightShareSurfaces(item: $highlightShareItem, context: $highlightShareContext)
     .alert(
       String(localized: "Export failed"),
       isPresented: Binding(
@@ -1159,7 +1160,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         linkURL: LocalizedPublicPages.sharedScenario(id: scenario?.id),
         contentFilter: contentFilter)
     else { return }
-    highlightShareItem = HighlightCardImageRenderer.makeShareItem(model, colorScheme: colorScheme)
+    // Offer the custom story-share sheet only when Instagram Stories is
+    // actually available (installed + App ID configured); otherwise fall
+    // straight through to the system share sheet — no UX change until the
+    // feature is live (#1083).
+    if InstagramStoriesSharer.isAvailableNow {
+      highlightShareContext = HighlightShareContext(model: model, colorScheme: colorScheme)
+    } else {
+      highlightShareItem = HighlightCardImageRenderer.makeShareItem(
+        model, colorScheme: colorScheme)
+    }
   }
 
   /// The active inference model's short label for the share card, or `nil` when

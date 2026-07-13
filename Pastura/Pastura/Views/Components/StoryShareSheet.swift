@@ -153,4 +153,17 @@ extension View {
   ) -> some View {
     modifier(HighlightStoryShareModifier(context: context, onSystemShare: onSystemShare))
   }
+
+  /// Mounts both highlight share surfaces: the system-share `ShareSheet`
+  /// (`item`, #1070) and the custom ``StoryShareSheet`` (`context`, #1083),
+  /// wired so the story sheet's "Share via…" dismisses and falls back to the
+  /// system sheet. Applied by ResultDetailView and SimulationView.
+  func highlightShareSurfaces(
+    item: Binding<HighlightShareItem?>,
+    context: Binding<HighlightShareContext?>
+  ) -> some View {
+    self
+      .sheet(item: item) { ShareSheet(activityItems: $0.activityItems) }
+      .highlightStoryShare(context: context, onSystemShare: { item.wrappedValue = $0 })
+  }
 }
