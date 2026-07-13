@@ -16,8 +16,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   @Environment(AppDependencies.self) var dependencies
   // Used to pop back to the results list after this run is deleted.
   @Environment(AppRouter.self) var router
-  @State private var turns: [TurnRecord] = []
-  @State private var events: [CodePhaseEventRecord] = []
+  @State var turns: [TurnRecord] = []  // not private — read by +Export sibling
+  @State var events: [CodePhaseEventRecord] = []  // not private — read by +Export sibling
   @State private var items: [ResultDetailTimelineBuilder.Item] = []
   @State var simulation: SimulationRecord?  // not private — see note above
   @State var scenario: ScenarioRecord?  // not private — see note above
@@ -47,14 +47,23 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   /// the `+ResumeBanner` sibling reads it.
   @State var isResumable = false
   @State var showAllThoughts = true  // not private — see note above
-  @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
-  @State private var isExporting = false
-  @State private var exportError: String?
-  @State private var yamlExportPayload: YAMLReplayExporter.ExportedResult?
-  @State private var isExportingYAML = false
-  @State private var yamlExportError: String?
+  // Export state — not private: written by the `+Export.swift` sibling's
+  // `triggerExport` / `triggerYAMLExport` (sibling extensions can't see private).
+  @State var exportPayload: ResultMarkdownExporter.ExportedResult?
+  @State var isExporting = false
+  @State var exportError: String?
+  @State var yamlExportPayload: YAMLReplayExporter.ExportedResult?
+  @State var isExportingYAML = false
+  @State var yamlExportError: String?
   @State var isShowingDeleteConfirm = false  // not private — see note above
   @State var deleteError: String?  // not private — see note above
+  /// Final scoreboard for a run with rankable scores, decoded once from the
+  /// persisted `SimulationState` in `loadData` (see `resolveScoreboard`) so the
+  /// toolbar gate + sheet never re-decode `stateJSON` per `body`. `nil` for a
+  /// vote-only / score-empty run — the scoreboard affordance stays hidden
+  /// (parity with the live `SimulationView` card gate).
+  @State var scoreboard: ScoreboardSnapshot?  // not private — read by +Scoreboard sibling
+  @State var showScoreboard = false  // not private — set by +Scoreboard sibling's toolbar item
 
   // Per-view filter for code-phase row rendering. Mirrors the exporter's
   // whole-string Markdown sweep (`ResultMarkdownExporter.export` filters the
@@ -112,6 +121,10 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         ThoughtVisibilityToggle(isOn: $showAllThoughts)
       }
       .hidingPasturaSharedBackground()
+      // Scoreboard affordance — parity with the live SimulationView control-bar
+      // button. Gated on a rankable score so a vote-only run shows no button
+      // (see resolveScoreboard / +Scoreboard sibling).
+      scoreboardToolbarItem
       // Export (Markdown / demo replay) + delete consolidated into one
       // overflow Menu: the two icon-only export buttons were
       // indistinguishable at a glance, and the crowded trailing cluster
@@ -181,6 +194,17 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     }
     .sheet(item: $highlightShareItem) { item in
       ShareSheet(activityItems: item.activityItems)
+    }
+    .sheet(isPresented: $showScoreboard) {
+      // `showScoreboard` is only reachable via the gated toolbar button, which
+      // is present only when `scoreboard != nil` — the `?? [:]` is a defensive
+      // fallback, never hit in practice.
+      ScoreboardSheet(
+        scores: scoreboard?.scores ?? [:],
+        eliminated: scoreboard?.eliminated ?? [:]
+      )
+      .presentationDetents([.medium])
+      .deepLinkGated()
     }
     .alert(
       String(localized: "Export failed"),
@@ -331,69 +355,31 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
           contradictionBadgedTurnIDs: ResultDetailTimelineBuilder.contradictionBadgedTurnIDs(
             turns: turns, options: chooseOptions))
       }
-      self.turns = fetched.turns
-      self.events = fetched.events
-      self.items = fetched.items
-      self.simulation = fetched.simulation
-      self.scenario = fetched.scenario
-      self.agentOrder = fetched.agentOrder
-      self.personas = fetched.personas
-      self.contradictionBadgedTurnIDs = fetched.contradictionBadgedTurnIDs
-      // ADR-021 D8: resolve the resume gate once at load (see resolveIsResumable).
-      self.isResumable = resolveIsResumable(fetched.simulation)
+      apply(fetched)
     } catch {
       self.turns = []
       self.events = []
       self.items = []
       self.isResumable = false
+      self.scoreboard = nil
     }
     self.isLoading = false
   }
 
-  private func triggerExport() async {
-    guard let simulation, let scenario else { return }
-    isExporting = true
-    defer { isExporting = false }
-
-    let env = ResultMarkdownExporter.ExportEnvironment(
-      deviceModel: UIDevice.current.model,
-      osVersion: ResultMarkdownExporter.ExportEnvironment.normalizeOSVersion(
-        ProcessInfo.processInfo.operatingSystemVersionString))
-    let exporter = ResultMarkdownExporter(
-      contentFilter: contentFilter,
-      environment: env)
-    let state = decodeState(from: simulation) ?? SimulationState()
-    let input = ResultDetailExportAssembler.assemble(
-      simulation: simulation, scenario: scenario,
-      turns: turns, events: events, state: state)
-
-    do {
-      let result = try exporter.export(input)
-      self.exportPayload = result
-    } catch {
-      self.exportError = error.localizedDescription
-    }
-  }
-
-  /// Runs the demo-replay YAML exporter and hands the result to a
-  /// separate Share Sheet. Parallel to ``triggerExport`` (Markdown)
-  /// but emits `docs/specs/demo-replay-spec.md` §3.2 schema for
-  /// curator ingestion into `Resources/DemoReplays/`.
-  private func triggerYAMLExport() async {
-    guard let simulation, let scenario else { return }
-    isExportingYAML = true
-    defer { isExportingYAML = false }
-
-    let exporter = YAMLReplayExporter(contentFilter: contentFilter)
-    let input = YAMLReplayExporter.Input(
-      simulation: simulation, scenario: scenario,
-      turns: turns, codePhaseEvents: events)
-
-    do {
-      let result = try exporter.export(input)
-      self.yamlExportPayload = result
-    } catch {
-      self.yamlExportError = error.localizedDescription
-    }
+  /// Applies a successful load to view state, including the load-once gates —
+  /// the ADR-021 D8 resume banner (``resolveIsResumable(_:)``) and the final
+  /// scoreboard (``resolveScoreboard(_:)``) — each a single main-thread decode
+  /// cached here so `body` never re-decodes `stateJSON`.
+  private func apply(_ fetched: LoadedData) {
+    self.turns = fetched.turns
+    self.events = fetched.events
+    self.items = fetched.items
+    self.simulation = fetched.simulation
+    self.scenario = fetched.scenario
+    self.agentOrder = fetched.agentOrder
+    self.personas = fetched.personas
+    self.contradictionBadgedTurnIDs = fetched.contradictionBadgedTurnIDs
+    self.isResumable = resolveIsResumable(fetched.simulation)
+    self.scoreboard = resolveScoreboard(fetched.simulation)
   }
 }
