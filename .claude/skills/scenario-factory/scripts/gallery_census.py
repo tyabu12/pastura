@@ -42,6 +42,7 @@ AXES = [
     ("pair_whisper", lambda p: "whisper" in p),
     ("reflection", lambda p: "reflect" in p),
     ("relationship_memory", lambda p: "relationship_update" in p),
+    ("live_narration", lambda p: "narrate" in p),
     ("scoring_free", lambda p: "vote" not in p and "score_calc" not in p),
 ]
 
@@ -55,6 +56,7 @@ AXES = [
 AXIS_PHASES = {
     "vote", "score_calc", "choose", "eliminate", "conditional",
     "event_inject", "speak_each", "whisper", "reflect", "relationship_update",
+    "narrate",
 }
 
 # Scaffolding phases deliberately NOT modeled as axes (see the AXES comment):
