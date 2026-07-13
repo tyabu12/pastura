@@ -74,6 +74,8 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
   // Non-private + explicit colorScheme: the `+Share.swift` sibling composes and
   // presents these (ImageRenderer ignores ambient appearance). (#1070)
   @State var highlightShareItem: HighlightShareItem?
+  // Custom story-share sheet context (#1083); +Share.swift composes it.
+  @State var highlightShareContext: HighlightShareContext?
   @Environment(\.colorScheme) var colorScheme
 
   private var canExport: Bool {
@@ -192,9 +194,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
     .sheet(item: $selectedPersona) { item in
       PersonaDetailSheet(persona: item.persona, position: item.position)
     }
-    .sheet(item: $highlightShareItem) { item in
-      ShareSheet(activityItems: item.activityItems)
-    }
+    .highlightShareSurfaces(item: $highlightShareItem, context: $highlightShareContext)
     .sheet(isPresented: $showScoreboard) {
       // `showScoreboard` is only reachable via the gated toolbar button, which
       // is present only when `scoreboard != nil` — the `?? [:]` is a defensive

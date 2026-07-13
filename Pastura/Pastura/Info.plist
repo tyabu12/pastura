@@ -17,6 +17,21 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Facebook App ID for "Share to Instagram Stories" (#1083).
+	     Required by Instagram since Jan 2023: passed as the
+	     `source_application` query param of `instagram-stories://share`.
+	     A free, PUBLIC client identifier (NOT a secret) — obtain one at
+	     developers.facebook.com (register → create app → copy the App ID)
+	     and paste it below. While this stays empty the Instagram Stories
+	     share path stays dark: `InstagramStoriesSharer.isAvailable` gates on
+	     a non-empty value, so the share button falls through to the system
+	     share sheet unchanged. -->
+	<key>FacebookAppID</key>
+	<string>4307199252924586</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram-stories</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
