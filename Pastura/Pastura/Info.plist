@@ -32,6 +32,13 @@
 	<array>
 		<string>instagram-stories</string>
 	</array>
+	<!-- Add-only Photos access for the highlight-card "Save Image" share action
+	     (#1096). Purpose string is deliberately specific (App Store Guideline
+	     5.1.1) and localized via InfoPlist.xcstrings - Info.plist strings sit
+	     outside the Localizable.xcstrings automated i18n gate, so the ja
+	     translation lives in that catalog, not the coverage gate. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Pastura saves the highlight card image to your photo library when you tap Save Image.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

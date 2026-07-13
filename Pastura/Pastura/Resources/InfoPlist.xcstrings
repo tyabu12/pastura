@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSPhotoLibraryAddUsageDescription" : {
+      "comment" : "Add-only Photos permission for the highlight-card Save Image share action (#1096). Localized here because Info.plist strings are outside the Localizable.xcstrings automated i18n gate.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastura saves the highlight card image to your photo library when you tap Save Image."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「画像を保存」をタップすると、ハイライトカードの画像を写真ライブラリに保存します。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
