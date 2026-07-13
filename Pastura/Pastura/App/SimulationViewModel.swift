@@ -25,6 +25,12 @@ struct LogEntry: Identifiable {
     /// #939). One line, no agent attribution.
     case sharedAssignment(value: String)
     case summary(text: String)
+    /// Live commentary from a `narrate` phase (#909). Distinct from `.summary`
+    /// so it can carry commentator (📺) styling. The carried text is already
+    /// `ContentFilter`-rewritten at the VM boundary (see `handleOutputEvent`'s
+    /// `.narration` arm) — unlike `.summary`, whose deterministic text is
+    /// rendered raw — because narration is free LLM prose about the agents.
+    case narration(text: String)
     case voteResults(votes: [String: String], tallies: [String: Int])
     case pairingResult(agent1: String, action1: String, agent2: String, action2: String)
     /// Result of an `event_inject` phase. `event == nil` means the
@@ -1682,6 +1688,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       handleSharedAssignment(value: value)
     case .summary(let text):
       logEntries.append(LogEntry(kind: .summary(text: text)))
+    case .narration(let text):
+      // ADR-005 (App Store content safety): narration is free LLM prose about
+      // the agents, so it MUST be `ContentFilter`-rewritten before display —
+      // do NOT copy the `.summary` arm above, which renders raw because its
+      // text is deterministic template / scoring output. Filtered here at the
+      // VM boundary so every live consumer of this `LogEntry` shows safe text.
+      logEntries.append(LogEntry(kind: .narration(text: contentFilter.filter(text))))
     case .voteResults(let votes, let tallies):
       // Keep the latest tallies for the final-ranking card's vote-only
       // ranking (#868); last-wins matches `scores`' full-replace semantics.

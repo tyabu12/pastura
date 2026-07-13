@@ -30,6 +30,8 @@ extension ResultDetailView {
       scoreUpdateRow(scores: scores)
     case .summary(let text):
       summaryRow(text: text)
+    case .narration(let text):
+      narrationRow(text: text)
     case .voteResults(let votes, let tallies):
       voteResultsRow(votes: votes, tallies: tallies)
     case .pairingResult(let agent1, let action1, let agent2, let action2):
@@ -69,6 +71,15 @@ extension ResultDetailView {
 
   private func summaryRow(text: String) -> some View {
     Text(filtered(text))
+      .textStyle(Typography.bodyBubble)
+      .foregroundStyle(Color.inkSecondary)
+  }
+
+  // Narration reuses the `.summary` row shape (already-rendered LLM prose,
+  // same content-safety `filtered(...)` pass) with a 📺 marker so it reads
+  // as commentator copy rather than a code-phase summary.
+  private func narrationRow(text: String) -> some View {
+    Text("📺 \(filtered(text))")
       .textStyle(Typography.bodyBubble)
       .foregroundStyle(Color.inkSecondary)
   }

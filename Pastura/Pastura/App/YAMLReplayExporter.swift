@@ -251,7 +251,7 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
   /// so structured payloads survive round-trip — the bare `summary:`
   /// field would force downstream consumers to parse narrative strings
   /// back into structured data, which is lossy by construction.
-  private func renderPayloadStanza(
+  private func renderPayloadStanza(  // swiftlint:disable:this cyclomatic_complexity
     _ payload: CodePhaseEventPayload?, filter: ContentFilter
   ) -> [String] {
     guard let payload else {
@@ -270,6 +270,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       lines.append("      kind: summary")
       // Text already lives in the top-level `summary:` field; repeating
       // here would bloat the file. Intentionally omitted.
+      _ = text
+    case .narration(let text):
+      lines.append("      kind: narration")
+      // Same as `.summary` — the top-level `summary:` field already carries it.
       _ = text
     case .voteResults(let votes, let tallies):
       lines.append("      kind: voteResults")
@@ -476,6 +480,8 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       let pairs = ordered.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
       return String(format: String(localized: "Scores — %@"), pairs)
     case .summary(let text):
+      return filter.filter(text)
+    case .narration(let text):
       return filter.filter(text)
     case .voteResults(_, let tallies):
       let ordered = tallies.sorted { lhs, rhs in

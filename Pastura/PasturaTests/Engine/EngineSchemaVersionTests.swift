@@ -9,9 +9,10 @@ struct EngineSchemaVersionTests {
   // MARK: - Current version constant
 
   @Test func currentVersionIsTwo() {
-    // Bumped 1→2 for event_inject no_repeat (#1006, ADR-020 §8). Update in
-    // lockstep with any further EngineSchemaVersion.current bump.
-    #expect(EngineSchemaVersion.current == 2)
+    // Bumped 1→2 for event_inject no_repeat (#1006, ADR-020 §8); 2→3 for the
+    // narrate phase. Update in lockstep with any further
+    // EngineSchemaVersion.current bump.
+    #expect(EngineSchemaVersion.current == 3)
   }
 
   // MARK: - D2 (phase-capability) branch

@@ -26,7 +26,7 @@ struct CrossVMEventParityTests {
   private enum EventCase: CaseIterable {
     case roundStarted, roundCompleted, phaseStarted, phaseCompleted
     case agentOutput, agentOutputStream
-    case scoreUpdate, elimination, assignment, sharedAssignment, summary
+    case scoreUpdate, elimination, assignment, sharedAssignment, summary, narration
     case relationshipUpdate, voteResults, pairingResult, conditionalEvaluated
     case eventInjected, simulationCompleted, roundCheckpoint, simulationPaused
     case error, inferenceStarted, inferenceCompleted, languageMismatch, turnSkipped
@@ -50,6 +50,7 @@ struct CrossVMEventParityTests {
     case .assignment: return .assignment(agent: "Alice", value: "wolf")
     case .sharedAssignment: return .sharedAssignment(value: "topic")
     case .summary: return .summary(text: "round summary")
+    case .narration: return .narration(text: "Alice made a bold move")
     case .relationshipUpdate:
       return .relationshipUpdate(relationships: ["Alice": ["Bob": 1]])
     case .voteResults:
@@ -88,6 +89,7 @@ struct CrossVMEventParityTests {
     case .assignment: return .assignment
     case .sharedAssignment: return .sharedAssignment
     case .summary: return .summary
+    case .narration: return .narration
     case .relationshipUpdate: return .relationshipUpdate
     case .voteResults: return .voteResults
     case .pairingResult: return .pairingResult

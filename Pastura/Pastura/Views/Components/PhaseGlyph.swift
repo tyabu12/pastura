@@ -35,6 +35,7 @@ public enum PhaseGlyph {
     case .conditional: return "diamond"
     case .eventInject: return "bolt.fill"
     case .relationshipUpdate: return "person.2"
+    case .narrate: return "megaphone"
     }
   }
   // swiftlint:enable cyclomatic_complexity

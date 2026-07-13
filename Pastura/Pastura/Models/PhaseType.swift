@@ -26,6 +26,7 @@ nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   case conditional
   case eventInject = "event_inject"
   case relationshipUpdate = "relationship_update"
+  case narrate
 
   /// Whether this phase type requires LLM inference.
   ///
@@ -52,9 +53,15 @@ nonisolated public enum PhaseType: String, Codable, Sendable, CaseIterable {
   /// `relationshipUpdate` returns `false`: the handler deterministically
   /// updates a per-agent affinity matrix from vote / choose history and
   /// injects a natural-language summary — no LLM call (#910).
+  ///
+  /// `narrate` returns `true`: a single LLM inference per round makes a
+  /// commentator persona narrate the round's highlight (canonical `commentary`
+  /// output). Unlike the per-agent LLM phases it costs exactly one inference
+  /// per round regardless of agent count — the narrator is not a participant
+  /// (#909).
   public var requiresLLM: Bool {
     switch self {
-    case .speakAll, .speakEach, .vote, .choose, .reflect, .whisper:
+    case .speakAll, .speakEach, .vote, .choose, .reflect, .whisper, .narrate:
       return true
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
       .relationshipUpdate:

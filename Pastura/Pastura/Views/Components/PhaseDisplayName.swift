@@ -45,6 +45,7 @@ public enum PhaseDisplayName {
     case .conditional: return String(localized: "Conditional")
     case .eventInject: return String(localized: "Event")
     case .relationshipUpdate: return String(localized: "Relationships")
+    case .narrate: return String(localized: "Narrate")
     }
   }
   // swiftlint:enable cyclomatic_complexity

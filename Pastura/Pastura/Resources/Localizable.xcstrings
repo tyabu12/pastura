@@ -1635,6 +1635,22 @@
         }
       }
     },
+    "A commentator narrates the round's highlight (one LLM call)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A commentator narrates the round's highlight (one LLM call)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実況者がそのラウンドの見どころを実況します（LLM 1回）"
+          }
+        }
+      }
+    },
     "A scenario named “%@” already uses this id. Delete or rename it first, then try again." : {
       "localizations" : {
         "ja" : {
@@ -4234,6 +4250,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名前に許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Narrate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Narrate"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実況"
           }
         }
       }

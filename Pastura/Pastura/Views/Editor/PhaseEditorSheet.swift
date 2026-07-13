@@ -222,10 +222,8 @@ struct PhaseEditorSheet: View {
       assignSection
     case .summarize:
       summarizeSection
-    case .speakAll, .reflect, .eliminate, .whisper, .relationshipUpdate:
-      // No extra config section. reflect / whisper use only the shared
-      // prompt + output-fields; relationship_update's affinity rules are
-      // YAML-only for v1 (#910), round-tripped via EditablePhase.
+    case .speakAll, .reflect, .eliminate, .whisper, .relationshipUpdate, .narrate:
+      // No bespoke config section. reflect/whisper use only the shared prompt + output-fields; relationship_update's affinity rules (#910) and narrate (#909) are YAML-only in v1, round-tripped via EditablePhase.
       EmptyView()
     case .conditional:
       conditionalSection
@@ -394,6 +392,8 @@ struct PhaseEditorSheet: View {
       return String(localized: "Inject a random event from extraData (code, no LLM)")
     case .relationshipUpdate:
       return String(localized: "Update affinity matrix from vote/action history (code, no LLM)")
+    case .narrate:
+      return String(localized: "A commentator narrates the round's highlight (one LLM call)")
     }
   }
 }

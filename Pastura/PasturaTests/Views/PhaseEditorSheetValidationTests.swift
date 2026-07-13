@@ -170,13 +170,14 @@ struct PhaseEditorSheetValidationTests {
 
   // MARK: - max_sentences control logic (#881 Stage 2 PR-B)
 
-  /// The control is shown for exactly the 6 LLM phases — the same set the R18
+  /// The control is shown for exactly the 7 LLM phases — the same set the R18
   /// `max-sentences-no-op` linter treats as effective — and hidden for the 7
   /// code / control phases, so an author can't author a silent no-op override.
   @Test func showsMaxSentencesControlOnlyForLLMPhases() {
     let shown = PhaseType.allCases.filter { PhaseEditorSheet.showsMaxSentencesControl(for: $0) }
-    #expect(Set(shown) == Set([.speakAll, .speakEach, .vote, .choose, .reflect, .whisper]))
-    #expect(shown.count == 6)
+    #expect(
+      Set(shown) == Set([.speakAll, .speakEach, .vote, .choose, .reflect, .whisper, .narrate]))
+    #expect(shown.count == 7)
     #expect(PhaseType.allCases.count - shown.count == 7)
   }
 
@@ -184,7 +185,8 @@ struct PhaseEditorSheetValidationTests {
     // Toggling the override on seeds the global default so the result is
     // byte-identical to the unset (nil) prompt until the author adjusts it.
     #expect(
-      PhaseEditorSheet.maxSentencesToggled(enabled: true) == PromptBuilder.defaultStatementMaxSentences)
+      PhaseEditorSheet.maxSentencesToggled(enabled: true)
+        == PromptBuilder.defaultStatementMaxSentences)
   }
 
   @Test func maxSentencesToggledOffClearsOverride() {

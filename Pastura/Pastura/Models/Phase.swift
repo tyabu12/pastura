@@ -128,6 +128,18 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// probability < 1.0) are byte-for-byte unaffected. See #1006.
   public let noRepeat: Bool?
 
+  /// Short voice/persona descriptor for a `narrate` phase's commentator (the
+  /// YAML `narrator:` key, e.g. `"熱血なスポーツ実況"`).
+  ///
+  /// `nil` falls back to the Engine-owned default commentator voice. This
+  /// shapes only the narrator's *voice* — it is injected into a fixed
+  /// Engine-owned system-prompt template that always carries the factuality +
+  /// brevity guardrails, so an author cannot override those guardrails through
+  /// this field. YAML-only (no visual editor field in v1), but round-trips
+  /// through the editor's dual buffer like `vote_against` / `action_deltas`.
+  /// See #909.
+  public let narrator: String?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -148,7 +160,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     voteAgainst: Int? = nil,
     actionDeltas: [String: Int]? = nil,
     maxSentences: Int? = nil,
-    noRepeat: Bool? = nil
+    noRepeat: Bool? = nil,
+    narrator: String? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -170,6 +183,7 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.actionDeltas = actionDeltas
     self.maxSentences = maxSentences
     self.noRepeat = noRepeat
+    self.narrator = narrator
   }
 
   /// The schema's required keys as a `Set`, or an empty set when the
