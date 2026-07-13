@@ -53,12 +53,13 @@ enum Main {
   }
 
   private static func run(config: HarnessConfig) async throws -> RunSummary {
-    guard FileManager.default.fileExists(atPath: config.modelPath) else {
-      throw HarnessConfigError("model file not found: \(config.modelPath)")
-    }
-    if let warning = config.profile.mismatchWarning(forModelPath: config.modelPath) {
-      FileHandle.standardError.write(Data("\(warning)\n".utf8))
-    }
+    // Resolve the backend factory + run-log model name FIRST. The
+    // `LLMFactory` closure can neither throw nor return nil, so every
+    // backend-availability rejection (missing GGUF, Foundation Models
+    // unavailable or not built into this binary) must surface here, upstream
+    // of the factory.
+    let (llmFactory, modelName) = try resolveBackend(config)
+
     let yaml = try String(contentsOfFile: config.scenarioPath, encoding: .utf8)
     let scenario = try ScenarioLoader().load(yaml: yaml)
 
@@ -67,8 +68,6 @@ enum Main {
     let outPath = config.outPath ?? defaultOutPath(runID: runID, at: now)
     let writer = try FileRunLogWriter(path: outPath)
 
-    let profile = config.profile
-    let llmFactory = makeLLMFactory(profile: profile, modelPath: config.modelPath)
     let quiet = config.quiet
     // if/else instead of `quiet ? nil : { ... }` — the ternary trips a
     // "failed to produce diagnostic" compiler bug (Swift 6.3.2) when
@@ -90,7 +89,7 @@ enum Main {
     let summary = await runner.execute(
       scenario: scenario, runID: runID,
       startDate: ISO8601DateFormatter().string(from: now),
-      modelName: profile.name)
+      modelName: modelName)
     print(
       "[pastura-harness] \(summary.status.rawValue) after \(summary.attempts) attempt(s) "
         + "in \(String(format: "%.1f", summary.durationSec))s"
@@ -98,16 +97,47 @@ enum Main {
     return summary
   }
 
-  private static func makeLLMFactory(
-    profile: ModelProfile, modelPath: String
-  ) -> HarnessRunner.LLMFactory {
-    return { () -> any LLMService in
-      LlamaCppService(
-        modelPath: modelPath,
-        stopSequence: profile.stopSequence,
-        modelIdentifier: profile.name,
-        systemPromptSuffix: profile.systemPromptSuffix,
-        assistantPrefix: profile.assistantPrefix)
+  /// Resolves the configured backend into an `LLMFactory` + a run-log model
+  /// name, performing ALL availability rejection here because the factory
+  /// (`@Sendable () -> any LLMService`) can neither throw nor return nil.
+  private static func resolveBackend(
+    _ config: HarnessConfig
+  ) throws -> (factory: HarnessRunner.LLMFactory, modelName: String) {
+    switch config.backend {
+    case .llamaCpp:
+      guard FileManager.default.fileExists(atPath: config.modelPath) else {
+        throw HarnessConfigError("model file not found: \(config.modelPath)")
+      }
+      if let warning = config.profile.mismatchWarning(forModelPath: config.modelPath) {
+        FileHandle.standardError.write(Data("\(warning)\n".utf8))
+      }
+      let profile = config.profile
+      let modelPath = config.modelPath
+      let factory: HarnessRunner.LLMFactory = {
+        LlamaCppService(
+          modelPath: modelPath,
+          stopSequence: profile.stopSequence,
+          modelIdentifier: profile.name,
+          systemPromptSuffix: profile.systemPromptSuffix,
+          assistantPrefix: profile.assistantPrefix)
+      }
+      return (factory, profile.name)
+
+    case .foundationModels:
+      #if canImport(FoundationModels)
+        if #available(macOS 26, *) {
+          let factory: HarnessRunner.LLMFactory = { FoundationModelsService() }
+          return (factory, "Apple Foundation Model")
+        } else {
+          throw HarnessConfigError(
+            "--backend \(HarnessConfig.Backend.foundationModels.rawValue) requires macOS 26 or later"
+          )
+        }
+      #else
+        throw HarnessConfigError(
+          "this pastura-harness was built without FoundationModels support "
+            + "(needs the macOS 26 SDK)")
+      #endif
     }
   }
 

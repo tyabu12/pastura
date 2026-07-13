@@ -111,6 +111,29 @@ mock heavier work, etc.).
 cancel-before-store race in `SuspendController.awaitResume()` silently
 hung one test for 15 minutes on CI. See `memory/project_ci_timeout_investigation.md`.
 
+## Version-gated tests: `@available` on `@Test`, never the `@Suite` type
+
+A suite whose tests exercise a version-gated API (an iOS 26 `FoundationModels`
+type, etc.) must put `@available(iOS 26, macOS 26, *)` on **each `@Test`
+func**, NOT on the `@Suite struct`. The `@Suite` macro rejects an
+`@available`-annotated structure:
+
+```
+error: Attribute 'Suite' cannot be applied to this structure because it has
+been marked '@available(iOS 26, macOS 26, *)' (from macro 'Suite')
+```
+
+Swift Testing skips an `@available` `@Test` below the runtime version, so
+per-`@Test` annotation both compiles and runtime-gates correctly. Canonical:
+`FoundationModelsServiceTests` (#1072).
+
+This is **separate** from `#if canImport(<Framework>)`: `canImport` is an
+**SDK** check (compile the file out on a toolchain that lacks the framework),
+while `@available` is a **runtime** check. A test file for an SDK-gated
+framework needs BOTH — wrap the file in `#if canImport(...)` and annotate each
+`@Test` with `@available(...)`. (Same dual gating as the production type — see
+`FoundationModelsService`.)
+
 ## `-only-testing` and Swift Testing
 
 When using `-only-testing` with `xcodebuild`, prefer **suite-level** targeting
