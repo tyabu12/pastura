@@ -9,7 +9,12 @@ struct NarrateHandlerTests {
   let handler = NarrateHandler()
 
   private func scenarioWithNarrate(narrator: String? = nil) -> Scenario {
-    makeTestScenario(phases: [Phase(type: .narrate, narrator: narrator)])
+    // Pin 3 agents explicitly: `singleInferenceRegardlessOfAgentCount` relies on
+    // agentCount > 1 to prove per-round (not per-agent) inference, so it must not
+    // silently weaken to 1 == 1 if `makeTestScenario`'s default ever changes.
+    makeTestScenario(
+      agentNames: ["Alice", "Bob", "Charlie"],
+      phases: [Phase(type: .narrate, narrator: narrator)])
   }
 
   /// A state whose conversation log is non-empty (so narrate has facts to

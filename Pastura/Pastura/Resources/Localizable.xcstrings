@@ -397,6 +397,22 @@
         }
       }
     },
+    "%@ is a narrate phase, which is not allowed inside a conditional." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is a narrate phase, which is not allowed inside a conditional."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は narrate フェーズであり、conditional の中では許可されていません。"
+          }
+        }
+      }
+    },
     "%@ is a reflect phase, which is not allowed inside a conditional." : {
       "localizations" : {
         "en" : {

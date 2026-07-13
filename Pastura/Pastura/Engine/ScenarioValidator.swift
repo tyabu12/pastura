@@ -235,6 +235,13 @@ nonisolated public struct ScenarioValidator: Sendable {
       if subPhase.type == .relationshipUpdate {
         throw validationError(.branchRelationshipUpdateNotAllowed(label: subLabel))
       }
+      // `narrate` is likewise not supported inside a conditional branch in v1
+      // (#909): it is omitted from `ConditionalHandler.subHandlers`, so without
+      // this load-gate rejection a branch-nested narrate would pass all
+      // validation and then throw mid-run at dispatch (deferred failure).
+      if subPhase.type == .narrate {
+        throw validationError(.branchNarrateNotAllowed(label: subLabel))
+      }
       if subPhase.type == .assign {
         try validateAssignPhaseShape(subPhase, label: subLabel, scenario: scenario)
       }
