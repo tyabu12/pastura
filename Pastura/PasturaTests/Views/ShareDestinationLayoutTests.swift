@@ -12,7 +12,7 @@ import Testing
 /// value below.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
-struct StoryShareSheetLayoutTests {
+struct ShareDestinationLayoutTests {
 
   @Test("Destination-row layout tokens hold their reviewed values")
   func layoutTokens() {
