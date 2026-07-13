@@ -238,11 +238,21 @@ struct StoryShareSheet: View {
       dismiss()
       return
     }
-    PHPhotoLibrary.shared().performChanges {
-      PHAssetChangeRequest.creationRequestForAsset(from: image)
-    } completionHandler: { success, _ in
-      Task { @MainActor in
-        UINotificationFeedbackGenerator().notificationOccurred(success ? .success : .error)
+    // Request **add-only** access explicitly. Reaching `performChanges` with an
+    // undetermined status makes Photos prompt for full read-write access, which
+    // requires `NSPhotoLibraryUsageDescription` — absent here (we ship only the
+    // add-only key), so that path crashes. `.addOnly` uses the key we declare.
+    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+      guard status == .authorized || status == .limited else {
+        Task { @MainActor in UINotificationFeedbackGenerator().notificationOccurred(.error) }
+        return
+      }
+      PHPhotoLibrary.shared().performChanges {
+        PHAssetChangeRequest.creationRequestForAsset(from: image)
+      } completionHandler: { success, _ in
+        Task { @MainActor in
+          UINotificationFeedbackGenerator().notificationOccurred(success ? .success : .error)
+        }
       }
     }
     dismiss()
