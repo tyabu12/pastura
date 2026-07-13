@@ -63,6 +63,10 @@ package enum EventLineMapper {
         t: t, attempt: attempt, event: "shared_assignment", value: value)
     case .summary(let text):
       return EventLine(t: t, attempt: attempt, event: "summary", value: text)
+    case .narration(let text):
+      // Live commentary (#909) — distinct event name from `summary` so the
+      // transcript preserves narrate vs template-summarize provenance.
+      return EventLine(t: t, attempt: attempt, event: "narration", value: text)
     case .relationshipUpdate(let relationships):
       // Raw affinity matrix (#910) — the natural-language summary the agents
       // see is prompt-side only, so the transcript carries the numbers.
@@ -124,8 +128,8 @@ package enum EventLineMapper {
       return nil
     case .roundStarted, .roundCompleted, .phaseStarted, .phaseCompleted,
       .agentOutput, .agentOutputStream, .scoreUpdate, .elimination,
-      .assignment, .sharedAssignment, .summary, .relationshipUpdate, .voteResults,
-      .pairingResult, .conditionalEvaluated, .eventInjected:
+      .assignment, .sharedAssignment, .summary, .narration, .relationshipUpdate,
+      .voteResults, .pairingResult, .conditionalEvaluated, .eventInjected:
       // Handled by the earlier tiers; unreachable here. Listed explicitly
       // (no `default:`) so a NEW SimulationEvent case breaks compilation in
       // this switch — the compile-time canary the upstream tiers' `default:`

@@ -62,6 +62,15 @@ extension SimulationView {
       .foregroundStyle(Color.inkSecondary)
   }
 
+  // Narration reuses the `.summary` row shape (already content-filtered at
+  // the VM boundary — no re-filtering here) with a 📺 marker so it reads as
+  // commentator copy rather than a code-phase summary.
+  func narrationEntry(text: String) -> some View {
+    Text("📺 \(text)")
+      .textStyle(Typography.bodyBubble)
+      .foregroundStyle(Color.inkSecondary)
+  }
+
   func voteResultsEntry(tallies: [String: Int]) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       // `metaLabel` (9pt semibold mono, non-upper) instead of `tagPhase`

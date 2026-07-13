@@ -42,6 +42,7 @@ nonisolated public enum ScenarioValidationMessage: Sendable {
   case branchReflectNotAllowed(label: String)
   case branchWhisperNotAllowed(label: String)
   case branchRelationshipUpdateNotAllowed(label: String)
+  case branchNarrateNotAllowed(label: String)
 
   // MARK: Canonical / required output fields (shared: ScenarioValidator + +CanonicalFields)
   case requiresOutputField(label: String, type: String, field: String)
@@ -177,6 +178,11 @@ nonisolated extension ScenarioValidationMessage {
         format: String(
           localized:
             "%@ is a relationship_update phase, which is not allowed inside a conditional."),
+        label)
+    case .branchNarrateNotAllowed(let label):
+      return String(
+        format: String(
+          localized: "%@ is a narrate phase, which is not allowed inside a conditional."),
         label)
     case .requiresOutputField(let label, let type, let field):
       return String(

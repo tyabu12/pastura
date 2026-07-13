@@ -129,6 +129,8 @@ struct EditablePhaseRoundTripTests {
       return Phase(
         type: .relationshipUpdate, voteAgainst: -1,
         actionDeltas: ["cooperate": 1, "betray": -2])
+    case .narrate:
+      return Phase(type: .narrate, prompt: "Narrate.", maxSentences: 3, narrator: "Loud caster")
     }
   }
   // swiftlint:enable cyclomatic_complexity

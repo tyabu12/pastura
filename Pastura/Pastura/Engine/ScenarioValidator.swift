@@ -119,7 +119,10 @@ nonisolated public struct ScenarioValidator: Sendable {
         try validateReflectShape(phase, label: "Phase \(index + 1)")
       case .whisper:
         try validateWhisperShape(phase, label: "Phase \(index + 1)")
-      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize:
+      // `.narrate` needs no shape check: its output schema is Engine-fixed
+      // (`{ commentary }`, built by `NarrateHandler`), not author-declared, so
+      // there is no `output:` block or `logic`/`source`/`target` to validate.
+      case .speakAll, .speakEach, .vote, .choose, .scoreCalc, .eliminate, .summarize, .narrate:
         break
       case .relationshipUpdate:
         try validateRelationshipUpdateShape(phase, label: "Phase \(index + 1)")
@@ -231,6 +234,13 @@ nonisolated public struct ScenarioValidator: Sendable {
       // omitted from `ConditionalHandler.subHandlers` as a structural backstop.
       if subPhase.type == .relationshipUpdate {
         throw validationError(.branchRelationshipUpdateNotAllowed(label: subLabel))
+      }
+      // `narrate` is likewise not supported inside a conditional branch in v1
+      // (#909): it is omitted from `ConditionalHandler.subHandlers`, so without
+      // this load-gate rejection a branch-nested narrate would pass all
+      // validation and then throw mid-run at dispatch (deferred failure).
+      if subPhase.type == .narrate {
+        throw validationError(.branchNarrateNotAllowed(label: subLabel))
       }
       if subPhase.type == .assign {
         try validateAssignPhaseShape(subPhase, label: subLabel, scenario: scenario)

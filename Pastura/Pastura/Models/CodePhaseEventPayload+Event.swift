@@ -32,6 +32,8 @@ nonisolated extension CodePhaseEventPayload {
       self = .sharedAssignment(value: value)
     case .summary(let text):
       self = .summary(text: text)
+    case .narration(let text):
+      self = .narration(text: text)
     case .voteResults(let votes, let tallies):
       self = .voteResults(votes: votes, tallies: tallies)
     case .pairingResult(let agent1, let action1, let agent2, let action2):
@@ -69,6 +71,7 @@ nonisolated extension SimulationEvent {
     case .elimination: return .eliminate
     case .assignment, .sharedAssignment: return .assign
     case .summary: return .summarize
+    case .narration: return .narrate
     case .voteResults: return .vote
     case .pairingResult: return .choose
     case .eventInjected: return .eventInject

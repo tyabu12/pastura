@@ -1174,7 +1174,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   }
 
   @ViewBuilder
-  private func secondaryLogEntryView(_ entry: LogEntry) -> some View {
+  private func secondaryLogEntryView(_ entry: LogEntry) -> some View {  // swiftlint:disable:this cyclomatic_complexity
     switch entry.kind {
     case .elimination(let agent, let voteCount):
       eliminationEntry(agent: agent, voteCount: voteCount)
@@ -1184,6 +1184,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       sharedAssignmentEntry(value: value)
     case .summary(let text):
       summaryEntry(text: text)
+    case .narration(let text):
+      narrationEntry(text: text)
     case .voteResults(_, let tallies):
       voteResultsEntry(tallies: tallies)
     case .pairingResult(let agent1, let act1, let agent2, let act2):

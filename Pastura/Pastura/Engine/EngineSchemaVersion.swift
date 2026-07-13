@@ -34,7 +34,12 @@ nonisolated public enum EngineSchemaVersion {
   /// the key silently runs with-replacement, a *different* simulation than a
   /// no_repeat-honoring app, so §4's semantic-equivalence proviso is not met and
   /// the ⚠️ silent-wrong-run rule requires a bump. See ADR-020 §8.
-  public static let current: Int = 2
+  ///
+  /// `3` — the `narrate` phase (#909), a new `PhaseType` case. §4's first bump
+  /// trigger fires directly; the D2 `allCases` phase gate already greys out a
+  /// `narrate` scenario on an old app, and this bump is the belt-and-suspenders
+  /// D3 side so a scenario may also declare `min_engine_version: 3`.
+  public static let current: Int = 3
 
   /// Whether a gallery scenario described by its index metadata can be
   /// executed by this build's engine (ADR-020 D2 + D3).

@@ -52,7 +52,7 @@ nonisolated public enum PlaceholderAvailability {
   ///     asymmetry — no `{my_whispers}`). Ignored for every other phase type.
   /// - Returns: The supplied token set (may be empty for pure code phases that
   ///   neither expand a template nor write a consumer-facing variable).
-  public static func supplied(for phaseType: PhaseType, chooseRoundRobin: Bool) -> Set<String> {
+  public static func supplied(for phaseType: PhaseType, chooseRoundRobin: Bool) -> Set<String> {  // swiftlint:disable:this cyclomatic_complexity
     switch phaseType {
     case .speakAll, .speakEach, .reflect:
       // SpeakAll/SpeakEach/Reflect handlers all call inject{Assigned,Notes,Whispers,Relationships}.
@@ -98,6 +98,15 @@ nonisolated public enum PlaceholderAvailability {
       // RelationshipUpdateHandler writes relationships_<name>, surfaced downstream
       // as {relationships} via PromptBuilder.injectRelationships.
       return ["relationships"]
+
+    case .narrate:
+      // NarrateHandler never calls the inject* helpers (it is not a
+      // participant handler) — it only explicitly injects
+      // {conversation_log}/{scoreboard} into its own template expansion, and
+      // {current_round} is already present in state.variables (written
+      // per-round by SimulationRunner regardless of handler). No per-persona
+      // or pairing tokens.
+      return baseInjected
 
     case .scoreCalc, .eliminate, .conditional:
       // Pure control / scoring code phases: no template expansion, no

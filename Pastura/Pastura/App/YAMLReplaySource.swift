@@ -400,7 +400,7 @@ extension YAMLReplaySource {
   /// Returns `nil` when the `kind` discriminator is absent or unknown
   /// — callers fall back to `.summary(text:)` so the replay keeps
   /// playing instead of stalling on unfamiliar data.
-  private static func decodePayloadStanza(
+  private static func decodePayloadStanza(  // swiftlint:disable:this cyclomatic_complexity
     _ payload: [String: Any], summary: String
   ) throws -> SimulationEvent? {
     guard let kind = payload["kind"] as? String else { return nil }
@@ -408,6 +408,7 @@ extension YAMLReplaySource {
     case "elimination": return try decodeElimination(payload)
     case "scoreUpdate": return try decodeScoreUpdate(payload)
     case "summary": return .summary(text: summary)
+    case "narration": return .narration(text: summary)
     case "voteResults": return try decodeVoteResults(payload)
     case "pairingResult": return try decodePairingResult(payload)
     case "assignment": return try decodeAssignment(payload)

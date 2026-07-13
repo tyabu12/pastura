@@ -398,6 +398,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     /// already-filtered like `assignment.value` / `summary.text`.
     case sharedAssignment(value: String)
     case summary(text: String)
+    case narration(text: String)
     case voteResults(tallies: [String: Int])
     case scoreUpdate(scores: [String: Int])
     case elimination(agent: String, voteCount: Int)
@@ -424,6 +425,8 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
         self = .sharedAssignment(value: filter.filter(value))
       case .summary(let text):
         self = .summary(text: filter.filter(text))
+      case .narration(let text):
+        self = .narration(text: filter.filter(text))
       case .voteResults(_, let tallies):
         self = .voteResults(tallies: tallies)
       case .scoreUpdate(let scores):
@@ -1147,7 +1150,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     // Pure narration lines (#932/#939) with no VM-side state update — the
     // discriminator, values, and defense-in-depth ContentFilter all live in
     // the shared `CodePhaseLine(payload:filter:)` mapper.
-    case .assignment, .sharedAssignment, .summary, .pairingResult, .eventInjected:
+    case .assignment, .sharedAssignment, .summary, .narration, .pairingResult, .eventInjected:
       appendCodePhaseLine(for: event)
 
     case .relationshipUpdate:
@@ -1312,6 +1315,7 @@ final class ReplayViewModel {  // swiftlint:disable:this type_body_length
     case .assignment(_, let value): text = value
     case .sharedAssignment(let value): text = value
     case .summary(let summaryText): text = summaryText
+    case .narration(let narrationText): text = narrationText
     case .eventInjected(let injected): text = injected ?? ""
     default: return 0
     }

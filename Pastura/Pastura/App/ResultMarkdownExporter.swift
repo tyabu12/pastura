@@ -374,6 +374,9 @@ struct ResultMarkdownExporter {  // swiftlint:disable:this type_body_length
     case .summary(let text):
       // `text` is already-rendered prose from the engine; passed through verbatim.
       return "- \(text)"
+    case .narration(let text):
+      // Same as `.summary` — already-rendered, already content-filtered prose.
+      return "- \(text)"
     case .voteResults(let votes, let tallies):
       var lines: [String] = []
       lines.append(String(localized: "- Tallies:"))

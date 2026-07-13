@@ -64,6 +64,8 @@ enum ResumeLogReplayMapper {
       return .scoreUpdate(scores: scores)
     case .summary(let text):
       return .summary(text: text)
+    case .narration(let text):
+      return .narration(text: text)
     case .voteResults(let votes, let tallies):
       return .voteResults(votes: votes, tallies: tallies)
     case .pairingResult(let agent1, let action1, let agent2, let action2):

@@ -60,6 +60,12 @@ extension ModelDownloadHostView {
       Text(text)
         .textStyle(Typography.bodyBubble)
         .foregroundStyle(Color.inkSecondary)
+    case .narration(let text):
+      // Mirrors `ResultDetailView.narrationRow` — same `.summary` shape with
+      // a 📺 marker so it reads as commentator copy.
+      Text("📺 \(text)")
+        .textStyle(Typography.bodyBubble)
+        .foregroundStyle(Color.inkSecondary)
     case .voteResults(let tallies):
       voteResultsContent(tallies)
     case .scoreUpdate(let scores):

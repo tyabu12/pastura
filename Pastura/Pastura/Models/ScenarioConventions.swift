@@ -50,8 +50,13 @@ nonisolated public enum ScenarioConventions {
       return "note"
     case .whisper:
       return "statement"
+    // `.narrate` is an LLM phase, but its output shape is **Engine-fixed**
+    // (a single `{ commentary }` schema built by `NarrateHandler`), not
+    // author-declared — so there is no canonical author `output:` field to
+    // enforce here. Returning `nil` keeps `validateForCommit`'s
+    // canonical-field check off narrate (it needs no `output:` block).
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
-      .relationshipUpdate:
+      .relationshipUpdate, .narrate:
       return nil
     }
   }
@@ -91,8 +96,10 @@ nonisolated public enum ScenarioConventions {
       return "inner_thought"
     // `.reflect`'s canonical `note` output is itself the private reasoning, so
     // it declares no secondary thought field (single-field `{ note }` schema).
+    // `.narrate` is a single-field `{ commentary }` schema (Engine-fixed) with
+    // no secondary thought field either.
     case .reflect, .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
-      .relationshipUpdate:
+      .relationshipUpdate, .narrate:
       return nil
     }
   }

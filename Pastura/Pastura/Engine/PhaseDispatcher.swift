@@ -2,7 +2,7 @@ import Foundation
 
 /// Routes ``PhaseType`` values to their corresponding ``PhaseHandler`` implementations.
 ///
-/// All 13 ``PhaseType`` cases are registered at initialization. Used by
+/// All 14 ``PhaseType`` cases are registered at initialization. Used by
 /// ``SimulationRunner`` to dispatch each phase in the simulation loop.
 nonisolated struct PhaseDispatcher: Sendable {
   private let handlers: [PhaseType: any PhaseHandler]
@@ -21,7 +21,8 @@ nonisolated struct PhaseDispatcher: Sendable {
       .eventInject: EventInjectHandler(),
       .reflect: ReflectHandler(),
       .whisper: WhisperHandler(),
-      .relationshipUpdate: RelationshipUpdateHandler()
+      .relationshipUpdate: RelationshipUpdateHandler(),
+      .narrate: NarrateHandler()
     ]
   }
 
