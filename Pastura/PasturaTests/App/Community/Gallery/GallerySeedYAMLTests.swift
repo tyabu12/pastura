@@ -355,7 +355,8 @@ import Testing
   ///
   /// Internal (not `private`) so sibling-file extensions of this suite can
   /// reuse it — `private` members are invisible to extensions declared in
-  /// other files (see `.claude/rules/testing.md` § "Splitting a Suite").
+  /// other files (see `.claude/rules/testing.md`
+  /// § "Splitting a Suite Across Files").
   static func repoRoot() -> URL {
     var url = URL(fileURLWithPath: #filePath)
     while url.path != "/" {
