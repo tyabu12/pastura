@@ -1,3 +1,4 @@
+import Photos
 import SwiftUI
 
 /// Identity wrapper for presenting ``StoryShareSheet`` via `.sheet(item:)` —
@@ -160,6 +161,9 @@ struct StoryShareSheet: View {
           .font(.caption2)
           .foregroundStyle(Color.ink)
           .lineLimit(1)
+          // Degrade gracefully at large Dynamic Type instead of truncating the
+          // longer labels ("Post to X" / "Save Image") inside the fixed tab.
+          .minimumScaleFactor(0.85)
       }
       .frame(width: ShareDestinationLayout.tabWidth)
     }
@@ -222,8 +226,10 @@ struct StoryShareSheet: View {
 
   /// Writes the opaque card image to the photo library (add-only —
   /// `NSPhotoLibraryAddUsageDescription`). Guards the render-nil step with a
-  /// silent no-op; a success haptic confirms the write, matching the
-  /// fire-and-forget UX (no completion selector on a value type).
+  /// silent no-op. Uses `PHPhotoLibrary.performChanges` rather than
+  /// `UIImageWriteToSavedPhotosAlbum(_:nil,nil,nil)` so the haptic reflects the
+  /// **real** outcome — the nil-completion form fires no callback, so a
+  /// "success" haptic would also sound when the user denies add-only access.
   private func saveImage() {
     guard
       let image = HighlightCardImageRenderer.render(
@@ -232,8 +238,13 @@ struct StoryShareSheet: View {
       dismiss()
       return
     }
-    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-    UINotificationFeedbackGenerator().notificationOccurred(.success)
+    PHPhotoLibrary.shared().performChanges {
+      PHAssetChangeRequest.creationRequestForAsset(from: image)
+    } completionHandler: { success, _ in
+      Task { @MainActor in
+        UINotificationFeedbackGenerator().notificationOccurred(success ? .success : .error)
+      }
+    }
     dismiss()
   }
 
