@@ -57,6 +57,16 @@ struct PasturaColorValue: Sendable, Equatable {
   var color: Color {
     Color(.sRGB, red: red, green: green, blue: blue, opacity: opacity)
   }
+
+  /// The `#RRGGBB` sRGB hex string (opacity dropped). Rounds each 0...1
+  /// component to the nearest 8-bit value. Used to hand solid gradient
+  /// colors to Instagram Stories' background contract (#1083).
+  var hexString: String {
+    let r = Int((red * 255).rounded())
+    let g = Int((green * 255).rounded())
+    let b = Int((blue * 255).rounded())
+    return String(format: "#%02X%02X%02X", r, g, b)
+  }
 }
 
 /// Canonical Pastura color palette. See `design-system.md` §2.
