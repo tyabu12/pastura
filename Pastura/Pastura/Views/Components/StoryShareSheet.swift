@@ -10,21 +10,41 @@ struct HighlightShareContext: Identifiable {
   let colorScheme: ColorScheme
 }
 
-/// A Pastura-branded share sheet (#1083) offering a card preview and explicit
-/// share destinations — the "Spotify pattern" for story-share discoverability,
-/// preferred over burying the story path in the system sheet's action row.
+/// Layout constants for the horizontal destination row. Extracted as a named
+/// enum so a change-detector unit test can pin them (ADR-009 view-testing
+/// rule): the row is a visual-only surface with no manual test trigger, so
+/// drift is caught by asserting these values rather than rendering the View.
+enum ShareDestinationLayout {
+  /// Diameter of each circular destination icon.
+  static let iconDiameter: CGFloat = 56
+  /// SF Symbol / glyph point size inside the icon circle.
+  static let iconGlyphSize: CGFloat = 24
+  /// Fixed width of one icon-plus-label tab (drives the horizontal scroll).
+  static let tabWidth: CGFloat = 76
+  /// On-screen size of the (down-scaled) 360 pt card preview.
+  static let previewSide: CGFloat = 176
+}
+
+/// A Pastura-branded share sheet (#1083, #1096) offering a card preview and a
+/// horizontal row of circular destination icons — the Instagram/X native
+/// share-sheet pattern, preferred over burying share paths in the system
+/// sheet's action row.
 ///
-/// - **Instagram Stories** (shown only when ``InstagramStoriesSharer/isAvailableNow``)
-///   rasterizes the square card and hands it to Instagram as a sticker on the
-///   moss gradient 9:16 background — Instagram composites the two, so the app
-///   never renders a 9:16 image.
-/// - **Share via…** routes to the system share sheet through the host's
-///   `onSystemShare` closure. The host dismisses this sheet first, then presents
-///   `ShareSheet` (dismiss-then-present — see ``HighlightStoryShareModifier`` —
-///   so a nested `.sheet` can never stall presentation).
+/// Destinations, each routed to its medium-native form:
+/// - **Share** → the system share sheet (card **image** + caption + link) via
+///   the host's `onSystemShare` closure. The host dismisses this sheet first,
+///   then presents `ShareSheet` (dismiss-then-present — see
+///   ``HighlightStoryShareModifier`` — so a nested `.sheet` can never stall
+///   presentation). X-with-image lives here (X has no image deep link).
+/// - **Stories** (shown only when ``InstagramStoriesSharer/isAvailableNow``)
+///   hands the square card to Instagram as a sticker on the moss gradient 9:16
+///   background — Instagram composites the two, so the app never renders 9:16.
+/// - **Post to X** → the ``XPostSharer`` web intent (caption + link, no image).
+/// - **Save Image** → writes the rasterized card to the photo library.
+/// - **Copy Link** → copies the scenario link (shown only when a link exists).
 ///
 /// The preview is a **live** ``HighlightShareCard`` (not the rasterized image),
-/// so a rasterization failure on the Instagram path can never blank it.
+/// so a rasterization failure on any destination can never blank it.
 struct StoryShareSheet: View {
   let context: HighlightShareContext
   /// Invoked with the ready-to-share item when the user picks the system share
@@ -34,15 +54,12 @@ struct StoryShareSheet: View {
 
   @Environment(\.dismiss) private var dismiss
 
-  /// On-screen size of the (down-scaled) 360 pt card preview.
-  private let previewSide: CGFloat = 200
-
   var body: some View {
-    VStack(spacing: Spacing.xl) {
+    VStack(spacing: Spacing.l) {
       preview
-      destinations
+      Divider()
+      destinationRow
     }
-    .padding(.horizontal, Spacing.l)
     .padding(.top, Spacing.xl)
     .padding(.bottom, Spacing.l)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -63,30 +80,119 @@ struct StoryShareSheet: View {
           cornerRadius: HighlightCardImageRenderer.storyStickerCornerRadius,
           style: .continuous)
       )
-      .scaleEffect(previewSide / HighlightShareCard.side)
-      .frame(width: previewSide, height: previewSide)
-      // Decorative preview — the destination buttons carry the actions.
+      .scaleEffect(ShareDestinationLayout.previewSide / HighlightShareCard.side)
+      .frame(
+        width: ShareDestinationLayout.previewSide,
+        height: ShareDestinationLayout.previewSide
+      )
+      // Decorative preview — the destination icons carry the actions.
       .accessibilityHidden(true)
   }
 
-  private var destinations: some View {
-    VStack(spacing: Spacing.s) {
-      if InstagramStoriesSharer.isAvailableNow {
-        Button(action: shareToInstagram) {
-          Label(String(localized: "Instagram Stories"), systemImage: "camera.circle.fill")
+  /// Horizontal, scrollable row of destination icons. Scrolls on the narrowest
+  /// devices (5 tabs at 76 pt exceed the SE width) — matching how Instagram/X
+  /// present their own app rows.
+  private var destinationRow: some View {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack(spacing: Spacing.xs) {
+        destinationTab(
+          label: String(localized: "Share"),
+          fill: AnyShapeStyle(mossGradient), action: requestSystemShare
+        ) {
+          icon("square.and.arrow.up", tint: .white)
         }
-        .buttonStyle(PasturaPrimaryButtonStyle())
-        .frame(maxWidth: .infinity)
+        if InstagramStoriesSharer.isAvailableNow {
+          destinationTab(
+            label: String(localized: "Stories"),
+            fill: AnyShapeStyle(instagramGradient), action: shareToInstagram
+          ) {
+            icon("camera.fill", tint: .white)
+          }
+        }
+        destinationTab(
+          label: String(localized: "Post to X"),
+          fill: AnyShapeStyle(Color.black), action: postToX
+        ) {
+          // The double-struck 𝕏 (U+1D54F) stands in for the X wordmark; the
+          // "Post to X" label carries the meaning, so the glyph is decorative.
+          Text(verbatim: "𝕏")
+            .font(.system(size: ShareDestinationLayout.iconGlyphSize, weight: .bold))
+            .foregroundStyle(.white)
+        }
+        destinationTab(
+          label: String(localized: "Save Image"),
+          fill: AnyShapeStyle(neutralFill), action: saveImage
+        ) {
+          icon("square.and.arrow.down", tint: Color.ink)
+        }
+        if context.model.linkURL != nil {
+          destinationTab(
+            label: String(localized: "Copy Link"),
+            fill: AnyShapeStyle(neutralFill), action: copyLink
+          ) {
+            icon("link", tint: Color.ink)
+          }
+        }
       }
-      Button(action: requestSystemShare) {
-        Label(String(localized: "Share via…"), systemImage: "square.and.arrow.up")
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundStyle(Color.ink)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 15)
-      }
+      .padding(.horizontal, Spacing.l)
     }
   }
+
+  /// One icon-over-label destination tab: a circular tinted icon with a caption
+  /// beneath, sized to ``ShareDestinationLayout/tabWidth``.
+  private func destinationTab(
+    label: String,
+    fill: AnyShapeStyle,
+    action: @escaping () -> Void,
+    @ViewBuilder icon: () -> some View
+  ) -> some View {
+    Button(action: action) {
+      VStack(spacing: Spacing.xs) {
+        ZStack {
+          Circle()
+            .fill(fill)
+            .frame(
+              width: ShareDestinationLayout.iconDiameter,
+              height: ShareDestinationLayout.iconDiameter)
+          icon()
+        }
+        Text(label)
+          .font(.caption2)
+          .foregroundStyle(Color.ink)
+          .lineLimit(1)
+      }
+      .frame(width: ShareDestinationLayout.tabWidth)
+    }
+    .buttonStyle(.plain)
+  }
+
+  /// An SF Symbol sized for the icon circle.
+  private func icon(_ systemName: String, tint: Color) -> some View {
+    Image(systemName: systemName)
+      .font(.system(size: ShareDestinationLayout.iconGlyphSize, weight: .semibold))
+      .foregroundStyle(tint)
+  }
+
+  /// Moss brand gradient for the primary (system share) destination.
+  private var mossGradient: LinearGradient {
+    LinearGradient(
+      colors: [Color.moss, Color.mossDark], startPoint: .topLeading,
+      endPoint: .bottomTrailing)
+  }
+
+  /// Instagram-recognizable warm→violet gradient. Raw RGB (not palette tokens)
+  /// because it deliberately evokes Instagram's brand ramp, not Pastura's moss.
+  private var instagramGradient: LinearGradient {
+    LinearGradient(
+      colors: [
+        Color(red: 0.98, green: 0.55, blue: 0.12),
+        Color(red: 0.84, green: 0.16, blue: 0.46),
+        Color(red: 0.35, green: 0.36, blue: 0.84)
+      ], startPoint: .topLeading, endPoint: .bottomTrailing)
+  }
+
+  /// Neutral chip fill for the utility (save / copy) destinations.
+  private var neutralFill: Color { Color.ink.opacity(0.08) }
 
   /// Rasterizes the card and hands it to Instagram Stories. Guards the two
   /// nil-producing steps (`render` → `UIImage?`, `pngData()` → `Data?`) with a
@@ -103,6 +209,44 @@ struct StoryShareSheet: View {
       topColorHex: StoryBackgroundGradient.topHex,
       bottomColorHex: StoryBackgroundGradient.bottomHex,
       appID: appID)
+    dismiss()
+  }
+
+  /// Opens the X composer pre-filled with the shared caption + scenario link
+  /// (no image — X has no image deep link; ``XPostSharer``). Reuses the same
+  /// caption as the system-sheet path so the two can't drift across ja/en.
+  private func postToX() {
+    XPostSharer.share(text: HighlightShareItem.caption, link: context.model.linkURL)
+    dismiss()
+  }
+
+  /// Writes the opaque card image to the photo library (add-only —
+  /// `NSPhotoLibraryAddUsageDescription`). Guards the render-nil step with a
+  /// silent no-op; a success haptic confirms the write, matching the
+  /// fire-and-forget UX (no completion selector on a value type).
+  private func saveImage() {
+    guard
+      let image = HighlightCardImageRenderer.render(
+        context.model, colorScheme: context.colorScheme)
+    else {
+      dismiss()
+      return
+    }
+    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+    UINotificationFeedbackGenerator().notificationOccurred(.success)
+    dismiss()
+  }
+
+  /// Copies the scenario link to the pasteboard. Guarded on a non-nil link (the
+  /// tab is hidden when nil), so the guard is defensive; a success haptic
+  /// confirms the copy.
+  private func copyLink() {
+    guard let link = context.model.linkURL else {
+      dismiss()
+      return
+    }
+    UIPasteboard.general.url = link
+    UINotificationFeedbackGenerator().notificationOccurred(.success)
     dismiss()
   }
 

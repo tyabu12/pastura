@@ -2387,6 +2387,16 @@
         }
       }
     },
+    "Copy Link" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リンクをコピー"
+          }
+        }
+      }
+    },
     "Correct!" : {
       "localizations" : {
         "ja" : {
@@ -3719,6 +3729,7 @@
       }
     },
     "Instagram Stories" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -5024,6 +5035,16 @@
         }
       }
     },
+    "Post to X" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "X にポスト"
+          }
+        }
+      }
+    },
     "Predict the outcome" : {
       "localizations" : {
         "ja" : {
@@ -5694,6 +5715,16 @@
         }
       }
     },
+    "Save Image" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像を保存"
+          }
+        }
+      }
+    },
     "Save failed: %@" : {
       "localizations" : {
         "ja" : {
@@ -5972,6 +6003,16 @@
         }
       }
     },
+    "Share" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シェア"
+          }
+        }
+      }
+    },
     "Share as Card" : {
       "localizations" : {
         "en" : {
@@ -5989,6 +6030,7 @@
       }
     },
     "Share via…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -6272,6 +6314,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用容量: %@"
+          }
+        }
+      }
+    },
+    "Stories" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ストーリーズ"
           }
         }
       }
