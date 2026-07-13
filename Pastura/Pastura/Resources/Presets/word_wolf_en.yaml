@@ -133,6 +133,21 @@ phases:
       inner_thought: string
     rounds: 1
 
+  # Live commentary before the vote (#909). The narrator sees the full round
+  # of clues + the final remarks and calls the round's highlight. Factuality
+  # was harness-verified on this exact placement (3 ja + 3 en runs on
+  # gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary).
+  - type: narrate
+    narrator: an enthusiastic play-by-play commentator
+    prompt: >
+      Recent exchange:
+      {conversation_log}
+
+      Based on the clashes among the clues raised so far, call out the most
+      suspicious player and the decisive mismatch, as a short piece of show
+      commentary. Ground it only on clues that were actually raised.
+    max_sentences: 3
+
   - type: vote
     prompt: >
       Your topic: {assigned_word}
