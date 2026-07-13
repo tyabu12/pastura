@@ -44,19 +44,33 @@ enum HighlightCardImageRenderer {
 
 /// A rendered highlight card packaged for `.sheet(item:)` + ``ShareSheet``.
 ///
-/// Centralizes the `activityItems` composition so the image is always shared
-/// and the link is appended only when present — the optional link means a
-/// missing URL can never force-unwrap.
+/// Centralizes the `activityItems` composition so the image and caption are
+/// always shared and the link is appended only when present — the optional
+/// link means a missing URL can never force-unwrap.
 struct HighlightShareItem: Identifiable {
   let id = UUID()
   let image: UIImage
   let linkURL: URL?
 
-  /// Heterogeneous payload for `UIActivityViewController`: the card image plus
-  /// the burned-in link (when set) so messaging targets also get a tappable URL.
+  /// Heterogeneous payload for `UIActivityViewController`: the card image, a
+  /// short caption for context, then the burned-in link (when set) so
+  /// messaging targets also get a tappable URL.
+  ///
+  /// Order is image → caption → URL. The caption is a **separate** activity
+  /// item from the URL and never embeds it — the link is already its own item
+  /// (issue #1082), so folding it into the caption would duplicate it. The
+  /// caption is unconditional (shared even when `linkURL` is nil) so a
+  /// URL-less share still carries the app pointer as context.
   var activityItems: [Any] {
-    var items: [Any] = [image]
+    var items: [Any] = [image, caption]
     if let linkURL { items.append(linkURL) }
     return items
+  }
+
+  /// Short marketing caption giving share targets minimal context about what
+  /// the image is, plus an app pointer. Static (model-independent) and
+  /// localized; kept URL-free per the ordering note on ``activityItems``.
+  private var caption: String {
+    String(localized: "Watching AI agents play out a scenario in Pastura 🐑")
   }
 }
