@@ -82,7 +82,11 @@ enum InstagramStoriesSharer {
   static func share(
     stickerImagePNG: Data, topColorHex: String, bottomColorHex: String, appID: String
   ) -> Bool {
-    guard let url = shareURL(appID: appID) else { return false }
+    // Check openability BEFORE writing the pasteboard — a failed open must not
+    // leave the sticker image on the user's clipboard for the 5-min expiry.
+    guard let url = shareURL(appID: appID), UIApplication.shared.canOpenURL(url) else {
+      return false
+    }
     let options: [UIPasteboard.OptionsKey: Any] = [
       // 5-minute window matches Instagram's documented expectation; the
       // pasteboard payload is transient hand-off state, not a lasting copy.
@@ -95,7 +99,6 @@ enum InstagramStoriesSharer {
           topColorHex: topColorHex, bottomColorHex: bottomColorHex)
       ],
       options: options)
-    guard UIApplication.shared.canOpenURL(url) else { return false }
     UIApplication.shared.open(url, options: [:], completionHandler: nil)
     return true
   }
