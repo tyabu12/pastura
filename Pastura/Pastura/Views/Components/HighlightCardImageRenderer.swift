@@ -31,6 +31,33 @@ enum HighlightCardImageRenderer {
     return renderer.uiImage
   }
 
+  /// Corner radius in the card's 360 pt space (×3 at export → 120 px on the
+  /// 1080 px sticker) for the Instagram Stories sticker. Rounded like X's
+  /// share-to-Stories card — a visual sign-off knob, tweak freely. (#1083)
+  static let storyStickerCornerRadius: CGFloat = 40
+
+  /// Rounded-corner, transparent-background variant for the Instagram Stories
+  /// sticker (#1083). Clips the square card to a rounded rectangle and renders
+  /// with alpha so the corners fall away to transparency — Instagram then
+  /// composites the *rounded* card onto the moss gradient background (à la X),
+  /// instead of a hard square. Distinct from ``render`` (opaque square), which
+  /// stays the system-share card.
+  static func renderStorySticker(
+    _ model: HighlightShareCard.Model, colorScheme: ColorScheme
+  ) -> UIImage? {
+    let card = HighlightShareCard(model: model, colorScheme: colorScheme)
+      .clipShape(
+        RoundedRectangle(cornerRadius: storyStickerCornerRadius, style: .continuous)
+      )
+      .environment(\.colorScheme, colorScheme)
+    let renderer = ImageRenderer(content: card)
+    renderer.scale = scale
+    // Alpha ON (unlike `render`): the corners outside the rounded rect must be
+    // transparent so Instagram's gradient shows through them.
+    renderer.isOpaque = false
+    return renderer.uiImage
+  }
+
   /// Builds a ready-to-share item, or `nil` when rendering fails — the call
   /// site then simply does not present the share sheet (a silent no-op is the
   /// intended UX for the rare render failure).

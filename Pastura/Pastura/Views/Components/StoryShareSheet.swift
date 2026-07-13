@@ -56,9 +56,15 @@ struct StoryShareSheet: View {
     // layout size, so the outer `.frame` reserves the scaled footprint.
     HighlightShareCard(model: context.model, colorScheme: context.colorScheme)
       .frame(width: HighlightShareCard.side, height: HighlightShareCard.side)
+      // Clip in card space (before scaling) at the same radius as the exported
+      // sticker, so the preview shows the rounded corners the user will get.
+      .clipShape(
+        RoundedRectangle(
+          cornerRadius: HighlightCardImageRenderer.storyStickerCornerRadius,
+          style: .continuous)
+      )
       .scaleEffect(previewSide / HighlightShareCard.side)
       .frame(width: previewSide, height: previewSide)
-      .clipShape(RoundedRectangle(cornerRadius: Radius.bubbleBody, style: .continuous))
       // Decorative preview — the destination buttons carry the actions.
       .accessibilityHidden(true)
   }
@@ -88,7 +94,7 @@ struct StoryShareSheet: View {
   private func shareToInstagram() {
     guard
       let appID = StoryShareConfig.facebookAppID,
-      let image = HighlightCardImageRenderer.render(
+      let image = HighlightCardImageRenderer.renderStorySticker(
         context.model, colorScheme: context.colorScheme),
       let png = image.pngData()
     else { return }
