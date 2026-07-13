@@ -250,7 +250,7 @@ D=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json \
 echo "$D" | grep -q "NEW ENGINE MECHANICS" || fail "census: drift warning not printed"
 echo "$D" | grep "NEW ENGINE MECHANICS" | grep -q "future_phase" \
   || fail "census: drifted phase not surfaced in warning"
-# (c) a fixture mirroring the real 12 cases → no warning (all axis/scaffolding-covered)
+# (c) a fixture mirroring the real 14 cases → no warning (all axis/scaffolding-covered)
 CUR=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json \
   --phase-types fixtures/phase_types_current.swift)
 echo "$CUR" | grep -q "NEW ENGINE MECHANICS" && fail "census: false drift on current phase types"

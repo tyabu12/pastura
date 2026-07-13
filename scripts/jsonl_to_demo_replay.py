@@ -86,6 +86,8 @@ IGNORED_EVENTS = {
     "round_completed",
     "phase_completed",
     "relationship_update",  # raw affinity matrix (#910); demo/replay drops it
+    "narration",  # live commentary (#909); curated demos don't use narrate yet
+    # — teletop demo integration is a follow-up. Reviewed drop per ADR-022 §D4.
     "conditional_evaluated",
     "simulation_completed",
     "simulation_paused",

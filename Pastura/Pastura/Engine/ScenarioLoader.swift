@@ -95,6 +95,10 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       return agents * (phase.subRounds ?? 1)
     case .vote, .reflect:
       return agents
+    case .narrate:
+      // Single commentator inference per round — the narrator is not a
+      // participant, so the cost is independent of agent count (#909).
+      return 1
     case .whisper:
       // Active agents pair off (integer division drops the odd one out) and
       // each pair runs `subRounds` exchanges of 2 utterances (both speakers).
@@ -353,6 +357,12 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     // `ScenarioValidator`, not here — `load` stays non-validating (#665).
     let maxSentences: Int? = try parseOptional(dict, key: "max_sentences", label: label)
 
+    // narrate-specific field (#909): a short voice/persona descriptor for the
+    // commentator. Optional — absent falls back to the Engine-owned default
+    // commentator template (`NarrateHandler`). YAML-only, round-trips through
+    // the editor's dual buffer like `vote_against` / `action_deltas`.
+    let narrator: String? = try parseOptional(dict, key: "narrator", label: label)
+
     return Phase(
       type: phaseType,
       prompt: prompt,
@@ -373,7 +383,8 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       voteAgainst: voteAgainst,
       actionDeltas: actionDeltas,
       maxSentences: maxSentences,
-      noRepeat: noRepeat
+      noRepeat: noRepeat,
+      narrator: narrator
     )
   }
 

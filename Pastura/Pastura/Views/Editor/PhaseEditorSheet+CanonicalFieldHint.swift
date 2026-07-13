@@ -72,7 +72,7 @@ extension PhaseEditorSheet {
           "Use `statement` for the whispered text. Whispers stay private to the pair and never enter the public conversation log."
       )
     case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
-      .relationshipUpdate:
+      .relationshipUpdate, .narrate:
       return nil
     }
   }

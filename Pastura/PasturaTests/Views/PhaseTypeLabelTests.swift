@@ -22,7 +22,7 @@ struct PhaseTypeLabelTests {
     // this exact predicate, so the invariant is the badge's contract.
     for phase in PhaseType.allCases {
       switch phase {
-      case .speakAll, .speakEach, .vote, .choose, .reflect, .whisper:
+      case .speakAll, .speakEach, .vote, .choose, .reflect, .whisper, .narrate:
         #expect(phase.requiresLLM, "\(phase) is an LLM-driven phase")
       case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
         .relationshipUpdate:

@@ -119,9 +119,10 @@ and the build fails:
   `PhaseType.allCases.count` pin in `PasturaTests/Models/PhaseTypeTests.swift`.
 
 **NOT compiler-caught** — green iOS build (+ unit-suite compile + pre-commit),
-red on a specific CI job or unit test. After ADR-022 (PR-A–PR-D), two classes
-remain — down from the pre-contract five; the SimulationEvent sinks below folded
-into the compiler-caught contract:
+red on a specific CI job or unit test, or (the conditional-branch policy) only
+at run time. After ADR-022 (PR-A–PR-D) the CI-gate classes are census +
+round-trip fixture; the conditional-branch policy below is a manual decision
+neither compiler nor CI catches:
 
 - **Census** — **`.claude/skills/scenario-factory/scripts/gallery_census.py`**:
   add the phase to `AXES` + `AXIS_PHASES` (a distinctive mechanic) OR
@@ -138,6 +139,14 @@ into the compiler-caught contract:
   (`PasturaTests/App/EditablePhaseRoundTripTests.swift`, ADR-022 P11): a phase
   kind whose fixture is missing fails the test, so the fixture set cannot
   silently lag.
+- **Conditional-branch policy** — `Engine/ScenarioValidator.swift`
+  `validateBranch` (an `if type == …` chain) + `Engine/ConditionalHandler.swift`
+  `subHandlers` (a dict). **Neither is `PhaseType`-exhaustive**, so a new phase
+  is not compiler-caught: decide *allow* (register in `subHandlers`) or *reject*
+  (add a `validateBranch` throw + a `ScenarioValidationMessage` case). Skip both
+  and a branch-nested use passes every load gate then throws mid-run at dispatch
+  (deferred failure). reflect / whisper / relationship_update / narrate all
+  **reject** (#909); add a `ConditionalValidatorTests+<Phase>` test either way.
 
 A new `SimulationEvent` the phase emits is a **separate**, compiler-caught cost
 axis — not a `PhaseType` touch point; see § "SimulationEvent & the projection

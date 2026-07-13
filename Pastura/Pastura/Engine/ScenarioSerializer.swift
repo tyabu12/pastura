@@ -181,6 +181,11 @@ nonisolated struct ScenarioSerializer: Sendable {
       }
     }
 
+    // narrate voice descriptor (#909).
+    if let narrator = phase.narrator {
+      lines.append("    narrator: \(yamlScalar(narrator))")
+    }
+
     return lines
   }
 

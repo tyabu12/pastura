@@ -22,7 +22,7 @@ struct PhaseTypeTests {
   }
 
   @Test func allCasesCount() {
-    #expect(PhaseType.allCases.count == 13)
+    #expect(PhaseType.allCases.count == 14)
   }
 
   @Test func llmPhasesRequireLLM() {

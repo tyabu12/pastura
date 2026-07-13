@@ -279,7 +279,7 @@ nonisolated enum ScenarioSignaturePhase: CaseIterable {
     // Signature-less kinds — no headline glyph; a scenario carrying only these
     // falls back to `discuss` in `signaturePhase(phases:)`.
     case .speakAll, .speakEach, .reflect, .whisper, .assign, .summarize,
-      .relationshipUpdate:
+      .relationshipUpdate, .narrate:
       return nil
     }
   }

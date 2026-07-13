@@ -1,11 +1,18 @@
 import Foundation
 
-/// Serializable payload for a code-phase event persisted in `code_phase_events`.
+/// Serializable payload for a non-agent-attributed durable event persisted in
+/// `code_phase_events`.
 ///
-/// Mirrors the code-phase cases of `SimulationEvent` for durable storage.
+/// Mostly mirrors the code-phase cases of `SimulationEvent`, but the channel is
+/// really "round-level events with no per-agent `TurnRecord`", not strictly
+/// code phases: `.summary` also fires from scoring logics, `.voteResults` /
+/// `.pairingResult` derive from the LLM `vote` / `choose` phases, and
+/// `.narration` (#909) is produced by the LLM `narrate` phase. What unifies
+/// them is durable, non-`agentName`-keyed storage — so the exporter, replay,
+/// and past-results timeline can reconstruct per-round results without
+/// replaying events.
 /// The App layer consumes `SimulationEvent`s from the Engine and maps them
-/// into this type before writing to the database, so the exporter and other
-/// consumers can reconstruct per-phase results without replaying events.
+/// into this type before writing to the database.
 ///
 /// Wire-format stability: adding new cases is backward-compatible under
 /// Swift's default `Codable` synthesis for enums (new outer keys are
@@ -22,6 +29,12 @@ nonisolated public enum CodePhaseEventPayload: Codable, Sendable, Equatable {
   /// A textual summary was produced by `summarize` or a scoring logic
   /// (e.g., `wordwolf_judge` verdicts surface here).
   case summary(text: String)
+
+  /// Live commentary produced by a `narrate` phase (#909). Additive case —
+  /// old rows keep decoding, so no data migration is required (see the
+  /// type-level wire-format note). Kept distinct from ``summary(text:)`` so
+  /// consumers can style it as commentator teletop and filter it as LLM prose.
+  case narration(text: String)
 
   /// Voting concluded. `votes` maps voter → target; `tallies` maps
   /// candidate → received vote count.
