@@ -27,7 +27,7 @@
 	     a non-empty value, so the share button falls through to the system
 	     share sheet unchanged. -->
 	<key>FacebookAppID</key>
-	<string></string>
+	<string>4307199252924586</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>instagram-stories</string>
