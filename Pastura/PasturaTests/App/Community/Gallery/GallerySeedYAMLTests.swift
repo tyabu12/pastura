@@ -352,7 +352,12 @@ import Testing
   /// Resolve the repo root relative to this test file. `#filePath` expands
   /// at compile time to the absolute source path; we walk up until we find
   /// the directory that contains `docs/gallery`.
-  private static func repoRoot() -> URL {
+  ///
+  /// Internal (not `private`) so sibling-file extensions of this suite can
+  /// reuse it — `private` members are invisible to extensions declared in
+  /// other files (see `.claude/rules/testing.md`
+  /// § "Splitting a Suite Across Files").
+  static func repoRoot() -> URL {
     var url = URL(fileURLWithPath: #filePath)
     while url.path != "/" {
       url.deleteLastPathComponent()
