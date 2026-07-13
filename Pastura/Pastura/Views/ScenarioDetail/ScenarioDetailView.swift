@@ -21,6 +21,9 @@ struct ScenarioDetailView: View {
   @Environment(AppRouter.self) var router
   @State private var viewModel: ScenarioDetailViewModel?
   @State private var showDeleteConfirm = false
+  /// Drives the scenario-level share sheet (link + X post + copy) from the
+  /// toolbar. Distinct from the per-utterance card share on Results/Simulation.
+  @State private var scenarioShareContext: ScenarioShareContext?
 
   /// Drives the content scroll position so a cross-language swap can reset
   /// to the top edge (see `scenarioContent`'s `.onChange`).
@@ -73,7 +76,25 @@ struct ScenarioDetailView: View {
         PasturaBackButton()
       }
       .hidingPasturaSharedBackground()
+      // Scenario-level share (link) — only once the scenario has loaded, so the
+      // link/name are available. The per-utterance card share lives elsewhere.
+      if let scenario = viewModel?.scenario {
+        ToolbarItem(placement: .primaryAction) {
+          Button {
+            scenarioShareContext = ScenarioShareContext(
+              scenarioName: scenario.name,
+              link: LocalizedPublicPages.sharedScenario(id: scenario.id))
+          } label: {
+            Label(String(localized: "Share Scenario"), systemImage: "square.and.arrow.up")
+          }
+          .labelStyle(.iconOnly)
+          .buttonStyle(PasturaToolbarButtonStyle(variant: .secondary))
+          .accessibilityIdentifier("scenarioDetail.shareButton")
+        }
+        .hidingPasturaSharedBackground()
+      }
     }
+    .scenarioShareSheet(context: $scenarioShareContext)
     // `.alert` (not `.confirmationDialog`): iOS 26 renders a body-attached
     // confirmationDialog as a popover whose arrow anchors to the body
     // centre, not the triggering control. A centred alert avoids that.

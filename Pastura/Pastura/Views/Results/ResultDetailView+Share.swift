@@ -19,15 +19,10 @@ extension ResultDetailView {
         linkURL: LocalizedPublicPages.sharedScenario(id: scenario?.id),
         contentFilter: contentFilter)
     else { return }
-    // Offer the custom story-share sheet only when Instagram Stories is
-    // actually available (installed + App ID configured); otherwise fall
-    // straight through to the system share sheet — no UX change until the
-    // feature is live (#1083).
-    if InstagramStoriesSharer.isAvailableNow {
-      highlightShareContext = HighlightShareContext(model: model, colorScheme: colorScheme)
-    } else {
-      highlightShareItem = HighlightCardImageRenderer.makeShareItem(
-        model, colorScheme: colorScheme)
-    }
+    // Always present the custom share sheet as the default surface (#1096); it
+    // gates the Instagram destination internally on `isAvailableNow`. Its live
+    // card preview means a rasterization failure can't blank the sheet — unlike
+    // the old direct-to-system-sheet fallback, which presented nothing on nil.
+    highlightShareContext = HighlightShareContext(model: model, colorScheme: colorScheme)
   }
 }

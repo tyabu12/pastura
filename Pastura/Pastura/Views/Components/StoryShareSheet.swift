@@ -1,3 +1,4 @@
+import Photos
 import SwiftUI
 
 /// Identity wrapper for presenting ``StoryShareSheet`` via `.sheet(item:)` —
@@ -10,21 +11,27 @@ struct HighlightShareContext: Identifiable {
   let colorScheme: ColorScheme
 }
 
-/// A Pastura-branded share sheet (#1083) offering a card preview and explicit
-/// share destinations — the "Spotify pattern" for story-share discoverability,
-/// preferred over burying the story path in the system sheet's action row.
+/// A Pastura-branded share sheet (#1083, #1096) offering a card preview and a
+/// horizontal row of circular destination icons — the Instagram/X native
+/// share-sheet pattern, preferred over burying share paths in the system
+/// sheet's action row.
 ///
-/// - **Instagram Stories** (shown only when ``InstagramStoriesSharer/isAvailableNow``)
-///   rasterizes the square card and hands it to Instagram as a sticker on the
-///   moss gradient 9:16 background — Instagram composites the two, so the app
-///   never renders a 9:16 image.
-/// - **Share via…** routes to the system share sheet through the host's
-///   `onSystemShare` closure. The host dismisses this sheet first, then presents
-///   `ShareSheet` (dismiss-then-present — see ``HighlightStoryShareModifier`` —
-///   so a nested `.sheet` can never stall presentation).
+/// This sheet shares the specific **utterance card** (an agent's line). Scenario
+/// -level sharing (X post / copy link) lives on ``ScenarioShareSheet`` instead,
+/// reached from the Scenario Detail screen — a scenario link is not about one
+/// utterance. Destinations here, each routed to its medium-native form:
+/// - **Share** → the system share sheet (card **image** + caption + link) via
+///   the host's `onSystemShare` closure. The host dismisses this sheet first,
+///   then presents `ShareSheet` (dismiss-then-present — see
+///   ``HighlightStoryShareModifier`` — so a nested `.sheet` can never stall
+///   presentation). X-with-image lives here (X has no image deep link).
+/// - **Stories** (shown only when ``InstagramStoriesSharer/isAvailableNow``)
+///   hands the square card to Instagram as a sticker on the moss gradient 9:16
+///   background — Instagram composites the two, so the app never renders 9:16.
+/// - **Save Image** → writes the rasterized card to the photo library.
 ///
 /// The preview is a **live** ``HighlightShareCard`` (not the rasterized image),
-/// so a rasterization failure on the Instagram path can never blank it.
+/// so a rasterization failure on any destination can never blank it.
 struct StoryShareSheet: View {
   let context: HighlightShareContext
   /// Invoked with the ready-to-share item when the user picks the system share
@@ -34,15 +41,12 @@ struct StoryShareSheet: View {
 
   @Environment(\.dismiss) private var dismiss
 
-  /// On-screen size of the (down-scaled) 360 pt card preview.
-  private let previewSide: CGFloat = 200
-
   var body: some View {
-    VStack(spacing: Spacing.xl) {
+    VStack(spacing: Spacing.l) {
       preview
-      destinations
+      Divider()
+      destinationRow
     }
-    .padding(.horizontal, Spacing.l)
     .padding(.top, Spacing.xl)
     .padding(.bottom, Spacing.l)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -63,28 +67,43 @@ struct StoryShareSheet: View {
           cornerRadius: HighlightCardImageRenderer.storyStickerCornerRadius,
           style: .continuous)
       )
-      .scaleEffect(previewSide / HighlightShareCard.side)
-      .frame(width: previewSide, height: previewSide)
-      // Decorative preview — the destination buttons carry the actions.
+      .scaleEffect(ShareDestinationLayout.previewSide / HighlightShareCard.side)
+      .frame(
+        width: ShareDestinationLayout.previewSide,
+        height: ShareDestinationLayout.previewSide
+      )
+      // Decorative preview — the destination icons carry the actions.
       .accessibilityHidden(true)
   }
 
-  private var destinations: some View {
-    VStack(spacing: Spacing.s) {
-      if InstagramStoriesSharer.isAvailableNow {
-        Button(action: shareToInstagram) {
-          Label(String(localized: "Instagram Stories"), systemImage: "camera.circle.fill")
+  /// Horizontal, scrollable row of destination icons. Scrolls on the narrowest
+  /// devices (5 tabs at 76 pt exceed the SE width) — matching how Instagram/X
+  /// present their own app rows.
+  private var destinationRow: some View {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack(spacing: Spacing.xs) {
+        ShareDestinationTab(
+          label: String(localized: "Share"),
+          fill: ShareDestinationFill.moss, action: requestSystemShare
+        ) {
+          ShareTabSymbol(systemName: "square.and.arrow.up", tint: .white)
         }
-        .buttonStyle(PasturaPrimaryButtonStyle())
-        .frame(maxWidth: .infinity)
+        if InstagramStoriesSharer.isAvailableNow {
+          ShareDestinationTab(
+            label: String(localized: "Stories"),
+            fill: ShareDestinationFill.instagram, action: shareToInstagram
+          ) {
+            ShareTabSymbol(systemName: "camera.fill", tint: .white)
+          }
+        }
+        ShareDestinationTab(
+          label: String(localized: "Save Image"),
+          fill: ShareDestinationFill.neutral, action: saveImage
+        ) {
+          ShareTabSymbol(systemName: "square.and.arrow.down", tint: Color.ink)
+        }
       }
-      Button(action: requestSystemShare) {
-        Label(String(localized: "Share via…"), systemImage: "square.and.arrow.up")
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundStyle(Color.ink)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 15)
-      }
+      .padding(.horizontal, Spacing.l)
     }
   }
 
@@ -103,6 +122,40 @@ struct StoryShareSheet: View {
       topColorHex: StoryBackgroundGradient.topHex,
       bottomColorHex: StoryBackgroundGradient.bottomHex,
       appID: appID)
+    dismiss()
+  }
+
+  /// Writes the opaque card image to the photo library (add-only —
+  /// `NSPhotoLibraryAddUsageDescription`). Guards the render-nil step with a
+  /// silent no-op. Uses `PHPhotoLibrary.performChanges` rather than
+  /// `UIImageWriteToSavedPhotosAlbum(_:nil,nil,nil)` so the haptic reflects the
+  /// **real** outcome — the nil-completion form fires no callback, so a
+  /// "success" haptic would also sound when the user denies add-only access.
+  private func saveImage() {
+    guard
+      let image = HighlightCardImageRenderer.render(
+        context.model, colorScheme: context.colorScheme)
+    else {
+      dismiss()
+      return
+    }
+    // Request **add-only** access explicitly. Reaching `performChanges` with an
+    // undetermined status makes Photos prompt for full read-write access, which
+    // requires `NSPhotoLibraryUsageDescription` — absent here (we ship only the
+    // add-only key), so that path crashes. `.addOnly` uses the key we declare.
+    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+      guard status == .authorized || status == .limited else {
+        Task { @MainActor in UINotificationFeedbackGenerator().notificationOccurred(.error) }
+        return
+      }
+      PHPhotoLibrary.shared().performChanges {
+        PHAssetChangeRequest.creationRequestForAsset(from: image)
+      } completionHandler: { success, _ in
+        Task { @MainActor in
+          UINotificationFeedbackGenerator().notificationOccurred(success ? .success : .error)
+        }
+      }
+    }
     dismiss()
   }
 
