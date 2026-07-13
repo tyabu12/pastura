@@ -99,6 +99,11 @@ jobs:
           # Action input path is relative to the repo root, not the
           # `defaults.run.working-directory` above (that only affects `run`).
           path: web/dist
+          # Without this, the action's internal tar adds `--exclude=.[^/]*`,
+          # dropping every dot-prefixed entry — which silently excluded
+          # `.well-known/apple-app-site-association` (Universal Links AASA) and
+          # `.nojekyll` from the deploy (origin 404). See actions/upload-pages-artifact#129.
+          include-hidden-files: true
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -111,10 +116,18 @@ jobs:
         # failure. `--retry` covers the short propagation window after
         # `deploy-pages` returns. Covers both sitemap files: the index
         # references the child, so a 404 child is a silent SEO break.
+        #
+        # The AASA (.well-known/apple-app-site-association) is included as a
+        # dedicated regression guard: it is a dot-path that upload-pages-artifact
+        # silently drops without `include-hidden-files` (#1071 / upstream #129),
+        # so a 404 here means Universal Links are broken. We assert 200 only —
+        # Content-Type is informational (GitHub Pages serves it as
+        # application/octet-stream, which Apple's AASA CDN accepts, per #1071).
         run: |
           set -euo pipefail
           for url in \
             "https://pastura.app/" \
+            "https://pastura.app/.well-known/apple-app-site-association" \
             "https://pastura.app/css/base.css" \
             "https://pastura.app/css/lp.css" \
             "https://pastura.app/css/page.css" \
