@@ -38,11 +38,14 @@ enum ResumeLogReplayMapper {
         guard let agentName = record.agentName,
           let phaseType = PhaseType(rawValue: record.phaseType)
         else { return nil }
-        let output = decodeTurnOutput(record)
+        // `parsedOutputJSON` is persisted unfiltered; `decodeFiltered` applies
+        // ContentFilter at read time (ADR-005 §5.1), single-sourcing the
+        // invariant with the past-results viewer (#1075).
         return LogEntry(
           kind: .agentOutput(
             agent: agentName,
-            output: contentFilter.filter(output),
+            output: PersistedTurnDecoder.decodeFiltered(
+              record, contentFilter: contentFilter),
             phaseType: phaseType))
       case .codePhase(_, let payload):
         return LogEntry(kind: logEntryKind(for: payload))
@@ -73,17 +76,5 @@ enum ResumeLogReplayMapper {
     case .eventInjected(let event):
       return .eventInjected(event: event)
     }
-  }
-
-  /// Decodes a `TurnRecord`'s persisted `parsedOutputJSON` back to `TurnOutput`.
-  /// Mirrors `ResultDetailView.decodeTurnOutput` — falls back to a `raw` field
-  /// so a malformed payload still renders something rather than dropping the row.
-  private static func decodeTurnOutput(_ turn: TurnRecord) -> TurnOutput {
-    guard let data = turn.parsedOutputJSON.data(using: .utf8),
-      let output = try? JSONDecoder().decode(TurnOutput.self, from: data)
-    else {
-      return TurnOutput(fields: ["raw": turn.rawOutput])
-    }
-    return output
   }
 }

@@ -58,13 +58,12 @@ extension ResultDetailView {
     }
   }
 
+  // Applies ContentFilter at read time: `parsedOutputJSON` is persisted
+  // UNFILTERED, so the past-results display surface must filter on read to
+  // honour ADR-005 §5.1 (#1075). Delegates to the shared `PersistedTurnDecoder`
+  // so the invariant stays single-sourced with the resume-replay path.
   func decodeTurnOutput(_ turn: TurnRecord) -> TurnOutput {
-    guard let data = turn.parsedOutputJSON.data(using: .utf8),
-      let output = try? JSONDecoder().decode(TurnOutput.self, from: data)
-    else {
-      return TurnOutput(fields: ["raw": turn.rawOutput])
-    }
-    return output
+    PersistedTurnDecoder.decodeFiltered(turn, contentFilter: contentFilter)
   }
 
   // Not `private`: read by the `+ResumeBanner.swift` sibling extension (D8
