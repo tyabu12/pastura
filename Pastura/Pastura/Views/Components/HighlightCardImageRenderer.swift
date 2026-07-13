@@ -89,15 +89,20 @@ struct HighlightShareItem: Identifiable {
   /// caption is unconditional (shared even when `linkURL` is nil) so a
   /// URL-less share still carries the app pointer as context.
   var activityItems: [Any] {
-    var items: [Any] = [image, caption]
+    var items: [Any] = [image, Self.caption]
     if let linkURL { items.append(linkURL) }
     return items
   }
 
   /// Short marketing caption giving share targets minimal context about what
-  /// the image is, plus an app pointer. Static (model-independent) and
-  /// localized; kept URL-free per the ordering note on ``activityItems``.
-  private var caption: String {
+  /// the image is, plus an app pointer. Model-independent and localized; kept
+  /// URL-free per the ordering note on ``activityItems``.
+  ///
+  /// Exposed as a single shared source (not a private instance property) so the
+  /// X web-intent post (``XPostSharer``) reuses the exact same localized string
+  /// — a duplicated literal would drift between the system-sheet caption and
+  /// the X post text across ja/en (#1096).
+  static var caption: String {
     String(localized: "Watching AI agents play out a scenario in Pastura 🐑")
   }
 }
