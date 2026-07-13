@@ -7030,6 +7030,16 @@
         }
       }
     },
+    "Watching AI agents play out a scenario in Pastura 🐑" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastura で AI たちのシミュレーションを観察中 🐑"
+          }
+        }
+      }
+    },
     "What happens" : {
       "localizations" : {
         "ja" : {
