@@ -3718,6 +3718,16 @@
         }
       }
     },
+    "Instagram Stories" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instagram ストーリーズ"
+          }
+        }
+      }
+    },
     "Installed" : {
       "localizations" : {
         "ja" : {
@@ -5974,6 +5984,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "カードで共有"
+          }
+        }
+      }
+    },
+    "Share via…" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他で共有…"
           }
         }
       }
