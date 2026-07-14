@@ -43,8 +43,10 @@ struct SimulationResultCardTests {
       voteResults: [:],
       eliminationVotes: [:],
       phases: [Phase(type: .scoreCalc, logic: .voteTally)])
-    // Alice < Bob lexically → Alice takes rank 1 regardless of dictionary order.
-    #expect(model?.entries.map(\.name) == ["Alice", "Bob", "Carol"])
+    // Bob > Alice lexically → Bob takes rank 1 regardless of dictionary order.
+    // Name-descending is the canonical `RankingOrder` tie-break shared with the
+    // engine's vote winner so the card can't contradict the eliminated agent (#1087).
+    #expect(model?.entries.map(\.name) == ["Bob", "Alice", "Carol"])
     #expect(model?.entries.map(\.rank) == [1, 2, 3])
   }
 

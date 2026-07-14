@@ -113,11 +113,12 @@ struct ViewerPredictionLogicTests {
     #expect(ViewerPredictionLogic.topVote(tallies: tallies, roster: roster) == "Bob")
   }
 
-  @Test func topVoteBreaksTiesByNameAscending() {
-    // Bob and Carol tie at 3 → name-ascending picks Bob, matching the card.
+  @Test func topVoteBreaksTiesByNameDescending() {
+    // Bob and Carol tie at 3 → name-descending picks Carol, matching the card
+    // and the engine's vote tie-break (#1087).
     let tallies = ["Alice": 1, "Bob": 3, "Carol": 3]
     let roster = ["Alice", "Bob", "Carol"]
-    #expect(ViewerPredictionLogic.topVote(tallies: tallies, roster: roster) == "Bob")
+    #expect(ViewerPredictionLogic.topVote(tallies: tallies, roster: roster) == "Carol")
   }
 
   @Test func topVoteTreatsMissingTallyAsZero() {
