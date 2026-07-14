@@ -641,6 +641,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
             // result card when the run had an answered prediction.
             predictionOutcomeBadge(viewModel: viewModel)
 
+            // Automatic share-highlight candidates (#1070 Stage 2): notable
+            // moments (🃏 contradiction / 🎯 reveal) offered as one-tap share
+            // cards, shown with the result card at completion.
+            highlightCandidatesSection(viewModel: viewModel)
+
             // Bottom sentinel: scrollTo target that stays below every other
             // section (log entries, thinking indicators). Scrolling here
             // reliably reveals whatever just appeared last — anchoring to
@@ -871,6 +876,26 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     if resultCardVisible, let outcome = viewModel.predictionOutcome {
       PredictionOutcomeBadge(isHit: outcome.isHit, streak: outcome.streak)
         .transition(.opacity)
+    }
+  }
+
+  /// The automatic share-highlight candidate list (#1070 Stage 2), shown with
+  /// the result card at completion. `HighlightCandidatesSection` self-guards on
+  /// an empty list; `resultCardVisible` keeps it hidden mid-run even as
+  /// contradiction candidates accumulate. Each tap reuses `shareHighlight` — the
+  /// same path as the per-row context menu — so no new share plumbing.
+  @ViewBuilder
+  private func highlightCandidatesSection(viewModel: SimulationViewModel) -> some View {
+    if resultCardVisible {
+      HighlightCandidatesSection(
+        candidates: viewModel.highlightCandidates,
+        onShare: { candidate in
+          shareHighlight(
+            agent: candidate.agent, output: candidate.output,
+            phaseType: candidate.phaseType)
+        }
+      )
+      .transition(.opacity)
     }
   }
 
