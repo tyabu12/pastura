@@ -105,8 +105,10 @@ extension SimulationResultCard {
       return nil
     }
 
-    /// Sorts by `value` descending, then by name ascending as a deterministic
+    /// Sorts by `value` descending, then by name descending as a deterministic
     /// tiebreak so a top tie never picks a run-to-run-unstable "winner".
+    /// Name-descending is the canonical `RankingOrder` order shared with the
+    /// engine's vote winner so the card can't contradict the eliminated agent (#1087).
     private static func ranked(
       roster: [String], value: (String) -> Int, eliminated: [String: Bool],
       valueKind: ValueKind
