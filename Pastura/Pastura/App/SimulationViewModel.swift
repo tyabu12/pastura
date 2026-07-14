@@ -66,6 +66,11 @@ struct ViewerPredictionPrompt: Identifiable {
 struct PredictionOutcome: Equatable, Sendable {
   let isHit: Bool
   let streak: Int
+  /// The ground-truth answer that was revealed — the wolf or the top
+  /// vote-getter. Carried so the share-highlight section (#1070 Stage 2) can
+  /// surface that agent's utterance as the 🎯 reveal candidate, regardless of
+  /// whether the viewer guessed correctly.
+  let actualAgent: String
 }
 
 /// ViewModel for the live simulation execution screen.
@@ -2365,7 +2370,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       question: pending.question, predicted: pending.picked, actual: actual)
     predictionOutcome = PredictionOutcome(
       isHit: ViewerPredictionLogic.isHit(predicted: pending.picked, actual: actual),
-      streak: streak)
+      streak: streak,
+      actualAgent: actual)
   }
 
   /// Active (non-eliminated) agent names — the choosable roster. At the first

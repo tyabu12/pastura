@@ -116,6 +116,8 @@ struct SimulationViewModelPredictionTests {
     // The end-of-run reward surface (#915) reflects the same result + streak.
     #expect(env.sut.predictionOutcome?.isHit == true)
     #expect(env.sut.predictionOutcome?.streak == 1)
+    // The revealed ground truth is carried for the #1070 Stage 2 reveal candidate.
+    #expect(env.sut.predictionOutcome?.actualAgent == "Eve")
   }
 
   @Test func sharedAssignmentDoesNotPolluteWolfGroundTruth() async throws {
@@ -153,6 +155,8 @@ struct SimulationViewModelPredictionTests {
     #expect(record?.predictedAgent == "Alice")
     #expect(record?.actualAgent == "Eve")
     #expect(env.sut.predictionOutcome?.isHit == false)
+    // Reveal ground truth is carried even on a miss (#1070 Stage 2).
+    #expect(env.sut.predictionOutcome?.actualAgent == "Eve")
   }
 
   @Test func topVoteScoresAgainstTallyLeader() async throws {
