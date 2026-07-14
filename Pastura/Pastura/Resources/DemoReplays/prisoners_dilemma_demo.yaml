@@ -19,7 +19,7 @@ schema_version: 1
 preset_ref:
   id: prisoners_dilemma
   version: '1.0'
-  yaml_sha256: eb2aa0fac995d9fdec095a81e32276d118e75648c8ba8807074550889a601d6b
+  yaml_sha256: '0287b3d802fd26784fe20acf732382d3c76ac2fff04e83321b214e084188badf'
 metadata:
   title: 囚人のジレンマ
   description: 5人のプレイヤーが「協力」か「裏切り」を選ぶ戦略ゲーム。 隣接ペアで総当たり対戦し、得点を競う。宣言でブラフも、 密談で同盟や裏切りの相談も可能。
