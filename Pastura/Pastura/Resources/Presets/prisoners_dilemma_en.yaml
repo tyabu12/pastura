@@ -17,6 +17,10 @@ description: >
   Round-robin pairwise matches with score accumulation. Bluff in the
   open, and scheme alliances or betrayals in private whispers.
 agents: 5
+# Total round count. Coupled to the literal "/ 2" and "all 2 rounds" in the
+# speak_all / whisper / choose / context text ({total_rounds} is not a
+# registered prompt placeholder — it is condition-only). Update those literals
+# whenever this value changes.
 rounds: 2
 context: >
   You are a contestant on the game show "Prisoner's Dilemma".
@@ -24,6 +28,9 @@ context: >
   Both cooperate = each gets 3 points. You alone betray = 5 points,
   opponent 0. Both betray = each gets 1 point.
   Before matches you address everyone (bluffing and feints welcome).
+  The game runs for all 2 rounds. Scores are locked in at the end of the
+  final round, and choices made in the final round cannot be retaliated
+  against — there is no round after it.
   Play in line with your personality.
 
 personas:
@@ -58,6 +65,8 @@ personas:
 phases:
   - type: speak_all
     prompt: >
+      Current round: {current_round} / 2
+
       Current score: {scoreboard}
 
       Match history so far:
@@ -76,6 +85,8 @@ phases:
 
   - type: whisper
     prompt: >
+      Current round: {current_round} / 2
+
       Current score: {scoreboard}
 
       Declarations so far:
@@ -95,6 +106,8 @@ phases:
 
   - type: choose
     prompt: >
+      Current round: {current_round} / 2
+
       Current score: {scoreboard}
       Opponent: {opponent_name}
 
