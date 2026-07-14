@@ -113,6 +113,20 @@ phases:
       inner_thought: string
     rounds: 1
 
+  # Live commentary before the vote (#909). The narrator sees the full round
+  # of clues + the final remarks and calls the round's highlight. Factuality
+  # was harness-verified on this exact placement (3 ja + 3 en runs on
+  # gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary).
+  - type: narrate
+    narrator: 熱のこもった実況アナウンサー
+    prompt: >
+      直近のやり取り:
+      {conversation_log}
+
+      ここまでに出た clue の食い違いを踏まえ、最も怪しい人物と決定的なズレを、
+      番組の実況として短く伝えてください。実際に出た clue だけを根拠にすること。
+    max_sentences: 3
+
   - type: vote
     prompt: >
       あなたのお題: {assigned_word}

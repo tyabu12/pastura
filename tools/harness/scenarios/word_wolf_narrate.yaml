@@ -1,14 +1,20 @@
-# Harness-only Go/No-Go fixture for the `narrate` phase (#909). NOT a shipping
-# preset or gallery seed — it exists to feed `pastura-harness --scenario` so the
-# commentary's factuality can be judged (hallucination ≤ 1 / 3 runs). Based on
-# the bundled word_wolf.yaml with a single `narrate` phase inserted before the
-# vote, so the narrator has a full round of clues to ground its commentary on.
+# Harness-only factuality fixture for the `narrate` phase (#909). NOT a shipping
+# preset or gallery seed — it feeds `pastura-harness --scenario` so the
+# commentary's factuality can be judged (Go criterion: hallucination ≤ 1 / 3 runs).
+#
+# This mirrors the FULL production word_wolf.yaml phase sequence (reflect +
+# event_inject + conditional-summarize + the final pre-vote speak_each round)
+# with a single `narrate` phase inserted immediately before the vote — i.e. the
+# exact flow a real user gets now that narrate is applied to the bundled preset.
+# Keeping the full flow (not a reduced proxy) means the narrator sees the same
+# noisy {conversation_log} production emits, so the Go verdict is reproducible.
+# EN sibling: word_wolf_narrate_en.yaml. Verified 3 ja + 3 en runs on
+# gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary.
 id: word_wolf_narrate
 language: ja
-name: ワードウルフ（実況つき）
+name: ワードウルフ（実況・本番フロー検証）
 description: >
-  ワードウルフに実況フェーズ（narrate）を追加した検証用シナリオ。
-  投票直前に実況者が「このラウンドの見どころ」を1推論で語る。
+  本番 word_wolf に narrate を vote 直前へ挿入した適用検証用シナリオ。
 agents: 5
 rounds: 1
 context: >
@@ -23,6 +29,11 @@ context: >
 words:
   - majority: りんご
     minority: みかん
+
+mid_game_announcements:
+  - "📺 司会者: ここで途中経過のお時間です — 残り時間あとわずか、的を絞っていきましょう。"
+  - "📺 観客席: 抽象論はもう十分！色や味や食べ方の具体的な話が聞きたい！"
+  - "📺 司会者: 怪しい人物が浮かび上がってきましたね。最後の一言で印象を固めましょう。"
 
 personas:
   - name: ユウキ
@@ -75,9 +86,47 @@ phases:
       inner_thought: string
     rounds: 2
 
-  # The narrate phase under test (#909). Placed before the vote so the narrator
-  # has the full round of clues to reference — the Go/No-Go judges whether the
-  # commentary sticks to what actually appears in {conversation_log}.
+  - type: reflect
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      これまでに出た clue を踏まえ、誰が怪しいか・自分は多数派と少数派の
+      どちららしいか・投票までにどう動くかを、自分用のメモとして更新してください。
+    output:
+      note: string
+
+  - type: event_inject
+    source: mid_game_announcements
+    probability: 0.5
+
+  - type: conditional
+    if: 'current_event != ""'
+    then:
+      - type: summarize
+        template: "{current_event}"
+
+  - type: speak_each
+    prompt: >
+      あなたのお題: {assigned_word}
+
+      これまでの会話:
+      {conversation_log}
+
+      番組からのアナウンス: {current_event}
+
+      これまでに出た clue を踏まえ、誰の手がかりが他とズレているかに触れつつ、
+      投票前の最後の一言を述べてください。お題の単語そのものは言わないこと。
+    output:
+      statement: string
+      inner_thought: string
+    rounds: 1
+
+  # The narrate phase under application test (#909). Inserted right before the
+  # vote so the narrator has the full production log (2 clue rounds + reflect +
+  # any injected announcement + the final statements) to ground its commentary.
   - type: narrate
     narrator: 熱のこもった実況アナウンサー
     prompt: >

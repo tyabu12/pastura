@@ -1,24 +1,17 @@
-# Translation notes (ADR-010 D3 sibling-file authoring):
-# - Personas use neutral EN unisex first names (Avery / Riley / Morgan /
-#   Casey / Jordan). Names carry no comedic load in word_wolf — the
-#   game is gameplay-driven, not persona-archetype-driven.
-# - v2 clue mechanic ported from the JA sibling: each speak turn must emit
-#   a concrete `clue` field, and personas are anchored to distinct clue
-#   axes (appearance / taste / how-eaten / season / touch) so the topic
-#   difference surfaces instead of degenerating into vague meta-talk.
-#   Persona descriptions are natural-EN equivalents of the JA axes, NOT
-#   literal translations.
-# - The word pair stays apple / orange (りんご / みかん) — both are
-#   archetypal "round fruit" referents in EN identical to JA, so the
-#   gameplay obfuscation (similar shape/season cues) carries over.
-
-id: word_wolf_en
+# Harness-only factuality fixture for the `narrate` phase (#909) — EN sibling of
+# word_wolf_narrate.yaml. NOT a shipping preset or gallery seed; it feeds
+# `pastura-harness --scenario` so the EN commentary's factuality can be judged
+# (Go criterion: hallucination ≤ 1 / 3 runs). Mirrors the FULL production
+# word_wolf_en.yaml phase sequence with a single `narrate` inserted before the
+# vote — the exact flow a real EN user gets. Committed so the ja→en
+# non-transfer risk is covered by a reproducible EN run, not just the ja fixture.
+# Verified 3 EN runs on gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary.
+id: word_wolf_narrate_en
 language: en
-name: Word Wolf
+name: Word Wolf (narrate, production-flow verification)
 description: >
-  Five players each receive a "topic word", but one is given a different
-  word — the minority (the wolf). Discuss the topic, then vote to expose
-  the wolf.
+  Production word_wolf_en with a narrate phase inserted before the vote,
+  for application-verification of #909 factuality on the EN preset.
 agents: 5
 rounds: 1
 context: >
@@ -133,10 +126,9 @@ phases:
       inner_thought: string
     rounds: 1
 
-  # Live commentary before the vote (#909). The narrator sees the full round
-  # of clues + the final remarks and calls the round's highlight. Factuality
-  # was harness-verified on this exact placement (3 ja + 3 en runs on
-  # gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary).
+  # The narrate phase under application test (#909). Inserted right before the
+  # vote so the narrator has the full production log (2 clue rounds + reflect +
+  # any injected announcement + the final statements) to ground its commentary.
   - type: narrate
     narrator: an enthusiastic play-by-play commentator
     prompt: >
