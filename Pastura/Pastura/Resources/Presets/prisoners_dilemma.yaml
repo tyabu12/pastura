@@ -6,12 +6,17 @@ description: >
   隣接ペアで総当たり対戦し、得点を競う。宣言でブラフも、
   密談で同盟や裏切りの相談も可能。
 agents: 5
+# 総ラウンド数。プロンプト内の「/ 2」「全2ラウンド」直書きと結合している
+# （{total_rounds} はプロンプト用プレースホルダ未登録・条件式専用のため）。
+# ここを変えるときは speak_all / whisper / choose / context の直書きも要更新。
 rounds: 2
 context: >
   あなたはゲーム番組「囚人のジレンマ」の出場者です。
   対戦相手と「協力(cooperate)」か「裏切り(betray)」を選びます。
   両方協力=各3点 / 自分だけ裏切り=5点(相手は0点) / 両方裏切り=各1点。
   対戦前に全員に向けて宣言できます（嘘やハッタリもOK）。
+  ゲームは全2ラウンド。得点は最終ラウンド終了時に確定します。
+  最終ラウンドの選択には、あとに続くラウンドがないため報復の機会がありません。
   あなたの性格に合った判断をしてください。
 
 personas:
@@ -44,6 +49,8 @@ personas:
 phases:
   - type: speak_all
     prompt: >
+      現在のラウンド: {current_round} / 2
+
       現在のスコア: {scoreboard}
 
       これまでの対戦履歴:
@@ -61,6 +68,8 @@ phases:
 
   - type: whisper
     prompt: >
+      現在のラウンド: {current_round} / 2
+
       現在のスコア: {scoreboard}
 
       これまでの宣言:
@@ -78,6 +87,8 @@ phases:
 
   - type: choose
     prompt: >
+      現在のラウンド: {current_round} / 2
+
       現在のスコア: {scoreboard}
       対戦相手: {opponent_name}
 
