@@ -2,35 +2,33 @@ import Testing
 
 @testable import Pastura
 
-/// Pure-logic tests for `SimulationView`'s completion-transition timing
-/// (`.claude/rules/view-testing.md` rule 1 — extract View logic to unit tests;
-/// the animation timing itself stays code-review / manual-QA gated per rule 4).
+/// Pure-logic tests for the Simulation completion-transition timing
+/// (`.claude/rules/view-testing.md` rule 1 — extract logic to unit tests; the
+/// animation timing itself stays code-review / manual-QA gated per rule 4).
 @Suite("SimulationViewCompletionChrome", .timeLimit(.minutes(1)))
 @MainActor
 struct SimulationViewCompletionChromeTests {
 
   @Test func completionChromeReadyTruthTable() {
     // The completion chrome (Export control + result card) is ready only once
-    // the run has completed AND the final row's typewriter reveal (inner voice
-    // included) has settled. `isCompleted` alone fires a beat early because it
-    // is driven off a predicted typing hold, so gate on the ground-truth
-    // `latestRowIsAnimating` signal too.
+    // the run has completed AND the final row's typewriter reveal has settled
+    // (`latestRowRevealCompleted`). `isCompleted` alone fires a beat early on
+    // long / multi-sentence / retried rows because the turn-pacing hold is a
+    // predicted duration the real reveal outlasts.
     #expect(
-      SimulationView.completionChromeReady(
-        isCompleted: false, latestRowIsAnimating: false) == false)
+      SimulationViewModel.completionChromeReady(
+        isCompleted: false, latestRowRevealCompleted: false) == false)
     #expect(
-      SimulationView.completionChromeReady(
-        isCompleted: false, latestRowIsAnimating: true) == false)
-    // Completed but the last inner voice is still typing → hold chrome back.
+      SimulationViewModel.completionChromeReady(
+        isCompleted: false, latestRowRevealCompleted: true) == false)
+    // Completed but the last row's reveal has not settled → hold chrome back.
     #expect(
-      SimulationView.completionChromeReady(
-        isCompleted: true, latestRowIsAnimating: true) == false)
-    // Completed and the reveal has settled → show chrome. (Instant speed and
-    // empty rows never set `latestRowIsAnimating` true, so this branch also
-    // covers their immediate-show case.)
+      SimulationViewModel.completionChromeReady(
+        isCompleted: true, latestRowRevealCompleted: false) == false)
+    // Completed and the reveal has settled → show chrome.
     #expect(
-      SimulationView.completionChromeReady(
-        isCompleted: true, latestRowIsAnimating: false) == true)
+      SimulationViewModel.completionChromeReady(
+        isCompleted: true, latestRowRevealCompleted: true) == true)
   }
 
   @Test func sharedFadeDurationPinned() {

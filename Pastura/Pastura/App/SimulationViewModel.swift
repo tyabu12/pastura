@@ -377,6 +377,31 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     Self.focusedOpacity(isRunning: isRunning, isCurrent: entryId == latestAgentOutputId)
   }
 
+  /// Whether `SimulationView`'s completion chrome (the Export control + the
+  /// closing result card) may appear: the run has completed AND the final
+  /// row's typewriter reveal has actually settled.
+  ///
+  /// Gating on ``isCompleted`` alone shows the chrome a beat early on long /
+  /// multi-sentence / retried rows: the turn-pacing hold
+  /// (``holdAfterAgentOutput(script:)``) is a *predicted* duration that the
+  /// real reveal — per-character `Task.sleep` scheduling overshoot — outlasts,
+  /// so `isCompleted` can flip while the last row is still visibly typing.
+  /// ``latestRowRevealCompleted`` is the authoritative signal instead: cleared
+  /// at every commit (retry included) and set true only when the on-screen
+  /// reveal finishes (or latched at commit for a snap-to-full row). Pure static
+  /// core (`completionChromeReady`) so the decision is unit-testable.
+  var isCompletionChromeReady: Bool {
+    Self.completionChromeReady(
+      isCompleted: isCompleted, latestRowRevealCompleted: latestRowRevealCompleted)
+  }
+
+  /// Pure decision behind ``isCompletionChromeReady`` (extracted for
+  /// deterministic unit testing per `.claude/rules/view-testing.md`).
+  static func completionChromeReady(isCompleted: Bool, latestRowRevealCompleted: Bool)
+    -> Bool {
+    isCompleted && latestRowRevealCompleted
+  }
+
   /// Read-only view of the runner's pause state. Views observe this to drive
   /// the pause-button label and "Paused" pill. **Mutation must go through
   /// ``pauseSimulation(reason:)`` / ``resumeSimulation()``** — those methods
@@ -1875,10 +1900,6 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // animation to only the latest row — older rows snap to full text when
     // this id flips.
     latestAgentOutputId = entry.id
-    // The new latest row has not revealed yet — clear the completion latch so
-    // an adopt re-projection mid-reveal doesn't wrongly treat it as static
-    // (ADR-017 Phase B; see ``latestRowRevealCompleted``).
-    latestRowRevealCompleted = false
     if wasStreamed { streamingHandoffChars[entry.id] = handoffSeed }
     // Capture the reveal inputs so `holdAfterAgentOutput` can hold the next
     // turn until this row finishes typing from `handoffSeed` (bug 2). Uses
@@ -1888,6 +1909,16 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       for: phaseType, includeThought: showAllThoughts)
     lastAgentOutputReveal = AgentOutputReveal(
       seed: handoffSeed, primary: segments.primary, thought: segments.thought)
+    // Latch the reveal state for the new latest row — drives the completion
+    // chrome gate (``isCompletionChromeReady``) and the ADR-017 Phase B adopt
+    // re-projection. A row with nothing left to type (instant speed, empty
+    // output, or one the streaming reveal already surfaced in full at commit)
+    // snaps to full WITHOUT firing `AgentOutputRow.onRevealCompleted`, so latch
+    // it revealed now; otherwise clear it and let `markLatestRowRevealCompleted`
+    // set it true when the on-screen typewriter actually finishes. Re-evaluated
+    // on EVERY commit (retry re-commits included), so a stale `true` from the
+    // prior row can never leak the completion chrome onto a row still typing.
+    latestRowRevealCompleted = (pendingTypingHold == .zero)
     // The reveal handoff has been recorded; clear the running counter so the
     // next agent's row can never inherit this one's position.
     streamingRevealedChars = 0
@@ -1915,7 +1946,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// next inference commits and flips this row off `isLatest`. The remaining
   /// typing is sized by ``remainingTypingDurationMs(seed:primary:thought:charsPerSecond:)``
   /// from the segments captured at commit (``lastAgentOutputReveal``) — it
-  /// mirrors `AgentOutputRow`'s reveal loop exactly, so the two cannot drift.
+  /// mirrors `AgentOutputRow`'s reveal loop's **ideal** per-tick timing exactly.
+  /// (It cannot model real per-character `Task.sleep` scheduling overshoot, so
+  /// the on-screen reveal still runs slightly longer than this estimate on long
+  /// lines — which is why the completion chrome waits on the actual
+  /// ``latestRowRevealCompleted`` signal, not this hold; see
+  /// ``isCompletionChromeReady``.)
   /// On long lines this paces the whole Sim to the typing rate; the cost is
   /// accepted (the user chose a slow cps for readability).
   ///

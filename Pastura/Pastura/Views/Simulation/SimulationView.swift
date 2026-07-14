@@ -67,9 +67,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// (no scenario yet, or an unmatched name) simply doesn't present.
   @State private var selectedPersona: PersonaSheetItem?
   /// Drives the final-ranking card's animated insertion at run completion
-  /// (#868). Mirrors `viewModel.isCompleted`, but flipped inside `withAnimation`
-  /// so the card fades/slides in — `isCompleted` is set on the VM outside any
-  /// animation transaction, so gating the card on it directly would pop it in.
+  /// (#868). Mirrors `viewModel.isCompletionChromeReady` (run done AND the last
+  /// row's reveal settled), but flipped inside `withAnimation` so the card
+  /// fades/slides in — the VM signal is set outside any animation transaction,
+  /// so gating the card on it directly would pop it in.
   @State private var resultCardVisible = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -672,7 +673,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .onChange(of: viewModel.logEntries.count) { _, _ in
           scrollToBottom(proxy)
         }
-        .onChange(of: isCompletionChromeReady(viewModel)) { _, ready in
+        .onChange(of: viewModel.isCompletionChromeReady) { _, ready in
           // Reveal the closing card once the run has completed AND the final
           // row's typewriter reveal has settled — gating on raw `isCompleted`
           // popped the card in a beat before the last inner voice finished
@@ -690,7 +691,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .onAppear {
           // Mounting onto an already-completed run (no isCompleted transition
           // to observe) — show the card without the entrance animation.
-          if viewModel.isCompleted { resultCardVisible = true }
+          if viewModel.isCompletionChromeReady { resultCardVisible = true }
         }
         .onChange(of: viewModel.thinkingAgents) { _, _ in
           // New or cleared thinking agent — when the sentinel is currently
@@ -1237,26 +1238,6 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// signal); pinned by `SimulationViewCompletionChromeTests`.
   static let sharedFadeDuration: Double = 0.35
 
-  /// Whether the completion chrome (Export control + result card) may show: the
-  /// run has completed AND the final row's typewriter reveal has settled.
-  /// Gating on `isCompleted` alone shows chrome a beat early, because
-  /// `isCompleted` is set off a *predicted* typing hold that runs slightly short
-  /// of the on-screen reveal; `latestRowIsAnimating` is the ground-truth signal.
-  /// Pure/static for unit testing (`.claude/rules/view-testing.md` rule 1).
-  static func completionChromeReady(isCompleted: Bool, latestRowIsAnimating: Bool)
-    -> Bool {
-    isCompleted && !latestRowIsAnimating
-  }
-
-  /// Instance bridge to ``completionChromeReady(isCompleted:latestRowIsAnimating:)``
-  /// reading the live `latestRowIsAnimating` view state. `latestRowIsAnimating`
-  /// is false for instant speed and empty rows (they snap to full without an
-  /// animating callback), so chrome shows for those at once — no regression.
-  private func isCompletionChromeReady(_ viewModel: SimulationViewModel) -> Bool {
-    Self.completionChromeReady(
-      isCompleted: viewModel.isCompleted, latestRowIsAnimating: latestRowIsAnimating)
-  }
-
   private func scrollToBottom(_ proxy: ScrollViewProxy) {
     withAnimation {
       proxy.scrollTo(Self.bottomSentinelID, anchor: .bottom)
@@ -1265,7 +1246,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   @ViewBuilder
   private func speedOrExportControl(viewModel: SimulationViewModel) -> some View {
-    if isCompletionChromeReady(viewModel) {
+    if viewModel.isCompletionChromeReady {
       Button {
         Task { await triggerExport(viewModel: viewModel) }
       } label: {
