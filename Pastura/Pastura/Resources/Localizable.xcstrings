@@ -2399,6 +2399,16 @@
         }
       }
     },
+    "Contradiction" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "矛盾"
+          }
+        }
+      }
+    },
     "Copy & Edit" : {
       "localizations" : {
         "ja" : {
@@ -5521,6 +5531,16 @@
         }
       }
     },
+    "Revealed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正体判明"
+          }
+        }
+      }
+    },
     "Roleplay" : {
       "localizations" : {
         "ja" : {
@@ -6061,12 +6081,32 @@
         }
       }
     },
+    "Share %@'s highlight" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の見どころを共有"
+          }
+        }
+      }
+    },
     "Share Scenario" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "シナリオを共有"
+          }
+        }
+      }
+    },
+    "Share a highlight" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この瞬間をシェア"
           }
         }
       }
@@ -6766,6 +6806,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このシナリオを試す"
+          }
+        }
+      }
+    },
+    "Turn a standout moment into a card. Tap to open the share card." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今回の見どころを一枚絵で。タップして共有カードを開きます。"
           }
         }
       }
