@@ -91,4 +91,28 @@ extension SimulationViewModelStreamingTests {
       scenario: scenario)
     #expect(sut.latestRowRevealCompleted == true)
   }
+
+  @Test func revealLatchNotSetAtCommitForFullyStreamedNormalSpeedRow() throws {
+    // A normal-speed row the stream already surfaced in full (handoff seed ≥
+    // target) must NOT latch revealed at commit — it latches via the View's
+    // `onRevealCompleted` once the row mounts. The earlier predicted proxy
+    // (`pendingTypingHold == .zero`) latched it `true` here, so a stale
+    // `streamingRevealedChars` high-water mark (e.g. after a silent stream
+    // re-issue) leaked the completion chrome onto a still-typing row. This pins
+    // the deterministic latch: reverting to the proxy fails this test.
+    let (sut, scenario) = try makeSUT()
+    sut.speed = .normal
+    sut.handleEvent(
+      .phaseStarted(phaseType: .speakAll, phasePath: [0]), scenario: scenario)
+    sut.handleEvent(
+      .agentOutputStream(agent: "Alice", primary: "hello world", thought: nil),
+      scenario: scenario)
+    sut.reportStreamingReveal(100)  // stale high-water mark past the row length
+    sut.handleEvent(
+      .agentOutput(
+        agent: "Alice", output: TurnOutput(fields: ["statement": "hello world"]),
+        phaseType: .speakAll),
+      scenario: scenario)
+    #expect(sut.latestRowRevealCompleted == false)
+  }
 }

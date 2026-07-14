@@ -922,11 +922,23 @@ extension AgentOutputRow {
   private func startAnimationIfNeeded() {
     let target = targetLength
     guard shouldAnimate, let cps = charsPerSecond, cps > 0 else {
-      // Not animating (non-latest row OR instant speed) — snap to full.
+      // Not animating (non-latest row OR instant speed) — snap to full. The row
+      // IS fully revealed at this instant, so signal completion too: the
+      // animated loop's `onRevealCompleted` (below) never runs on this path, and
+      // the completion chrome must not wait on a callback that will never come.
+      // Idempotent, and the SimulationView closure guards `if isLatest`, so a
+      // non-latest / history snap is a safe no-op.
       visibleChars = target
+      onRevealCompleted?()
       return
     }
-    if visibleChars >= target { return }  // already finished
+    if visibleChars >= target {
+      // Seeded already fully-revealed (e.g. a streamed prefix that covered the
+      // whole row by commit) — same reasoning as the snap branch: no loop runs,
+      // so signal completion here rather than never.
+      onRevealCompleted?()
+      return
+    }
 
     animationTask?.cancel()
     let delayNanos = UInt64(1_000_000_000.0 / cps)

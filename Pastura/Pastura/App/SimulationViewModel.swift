@@ -388,8 +388,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// so `isCompleted` can flip while the last row is still visibly typing.
   /// ``latestRowRevealCompleted`` is the authoritative signal instead: cleared
   /// at every commit (retry included) and set true only when the on-screen
-  /// reveal finishes (or latched at commit for a snap-to-full row). Pure static
-  /// core (`completionChromeReady`) so the decision is unit-testable.
+  /// reveal actually finishes (via `AgentOutputRow.onRevealCompleted`, which
+  /// fires on its snap paths too) — plus a deterministic commit-time latch for
+  /// the instant-speed / empty-output rows whose snap could beat that callback.
+  /// Pure static core (`completionChromeReady`) so the decision is unit-testable.
   var isCompletionChromeReady: Bool {
     Self.completionChromeReady(
       isCompleted: isCompleted, latestRowRevealCompleted: latestRowRevealCompleted)
@@ -1911,14 +1913,20 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       seed: handoffSeed, primary: segments.primary, thought: segments.thought)
     // Latch the reveal state for the new latest row — drives the completion
     // chrome gate (``isCompletionChromeReady``) and the ADR-017 Phase B adopt
-    // re-projection. A row with nothing left to type (instant speed, empty
-    // output, or one the streaming reveal already surfaced in full at commit)
-    // snaps to full WITHOUT firing `AgentOutputRow.onRevealCompleted`, so latch
-    // it revealed now; otherwise clear it and let `markLatestRowRevealCompleted`
-    // set it true when the on-screen typewriter actually finishes. Re-evaluated
-    // on EVERY commit (retry re-commits included), so a stale `true` from the
-    // prior row can never leak the completion chrome onto a row still typing.
-    latestRowRevealCompleted = (pendingTypingHold == .zero)
+    // re-projection. DETERMINISTIC, never a predicted duration: only the two
+    // zero-work cases knowable at commit are latched here — instant speed and
+    // empty output — because those snap so fast the View's
+    // `AgentOutputRow.onRevealCompleted` might not fire before `isCompleted` in
+    // the commit→mount render gap. EVERY animated row (streamed or not, any
+    // handoff seed, even one the stream already surfaced in full) instead
+    // latches solely via that callback — immune to `streamingRevealedChars`
+    // staleness on a silent stream re-issue and to per-char Task.sleep
+    // overshoot. `AgentOutputRow` fires `onRevealCompleted` on its snap paths
+    // too, so a fully-streamed row still latches promptly on mount. Re-evaluated
+    // every commit (retry re-commits included) → no stale `true` leaks the
+    // chrome onto a row still typing.
+    latestRowRevealCompleted =
+      speed.charsPerSecond == nil || (segments.primary.isEmpty && segments.thought.isEmpty)
     // The reveal handoff has been recorded; clear the running counter so the
     // next agent's row can never inherit this one's position.
     streamingRevealedChars = 0
