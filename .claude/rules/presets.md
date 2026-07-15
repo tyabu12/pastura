@@ -76,3 +76,21 @@ bias toward *adding* fields/phases — this section is the brake.)
   the `vote → score_calc → summarize` spine when the payoff is the phenomenon
   itself — `scoring_free` observation and a `narrate` (#909) score-free ending
   are first-class.
+
+## The register-dominance law (#958)
+
+Gemma 4 E2B's behavior follows a persona's **register** — its tone, archetype,
+and the phase structure around it — **not** the persona's stated goal or the
+wording of its instructions. A "scheming" goal reaches `inner_thought` but rarely
+changes what the agent *does* (#958); a per-turn state field like `mood` fixates
+on its seed value and echoes it mechanically rather than tracking events (#913 — a
+seeded mood token was copied verbatim across four turns while the agent was under
+direct attack).
+
+**Apply:** to change agent *behavior*, change **structure** — phase design, forced
+events, hard-binary choices, non-mappable persona values — not goal prose or "be
+dynamic" nudges. Wording-only levers move flavor, not action; confirmed by #911
+(framing > instruction), #957 (whisper pays off only where game structure fits it),
+#958 / #913 (goal/mood wording inert). This is *why* the subtract-by-default and
+scaffold-over-improv defaults above hold: the model rides structure, so give it
+structure, not more words.
