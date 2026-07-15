@@ -669,8 +669,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           // The no-drift completion path appends no logEntry (the count-driven
           // scroll above never fires), so drive the closing card's animated
           // reveal + a scroll here (#868).
-          withAnimation(.easeOut(duration: 0.35)) { resultCardVisible = done }
-          if done { scrollToBottom(proxy) }
+          //
+          // Scroll in the animation-completion closure, NOT synchronously: the
+          // result card, prediction badge, and share-highlight section (#1070
+          // Stage 2) all mount the instant `resultCardVisible` flips, so an
+          // immediate `scrollToBottom` runs before they lay out and stops at
+          // the result card — leaving the section below the fold (device-QA
+          // #1108). Scrolling once the reveal settles lands on the true bottom.
+          withAnimation(.easeOut(duration: 0.35)) {
+            resultCardVisible = done
+          } completion: {
+            if done { scrollToBottom(proxy) }
+          }
         }
         .onAppear {
           // Mounting onto an already-completed run (no isCompleted transition
