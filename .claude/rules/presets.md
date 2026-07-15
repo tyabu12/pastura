@@ -51,3 +51,28 @@ Current inventory (each has an `_en` sibling — see i18n below):
   must read as a complete self-framing statement (e.g. `やらかし「…」`,
   `Your blunder: …`, `お悩み:「…」`, `Problem: …`) — a bare noun would render
   contextless.
+
+## Scenario design defaults — bias toward "subtract" (#919)
+
+Default a new scenario to the SMALLER shape; each addition trades against 2B
+breakdown rate, tokens, and on-device latency, so additions need a stated
+reason. These are **defaults for NEW scenarios** — the shipped presets (4 of 5
+run 5 agents) predate the guideline, not violations of it. Guides with a
+reason-for-deviation, not hard rules. (The interestingness proposals in #906
+bias toward *adding* fields/phases — this section is the brake.)
+
+- **Output fields: 2 (`statement` + `inner_thought`).** Each extra output field
+  is another grammar-constrained value per turn — more JSON-parse-failure
+  exposure, tokens, and wait. Add a third only with a reason (canonical field
+  names in Conventions above / `ScenarioConventions`).
+- **Agents: 3–4.** Five agents × several rounds is a long on-device wait
+  (inference target ≤50 — scenario-factory SKILL Step 2); a triangle also reads
+  clearer than a pentagon (general drama-design rule). An axis that genuinely
+  needs more (elimination bracket) is a reasoned exception.
+- **Log growth: design for 2B long-context decay.** Long transcripts degrade the
+  model — cap rounds, or scope prompt visibility with `log_window: N` (#907);
+  don't assume a clean full log in a long run.
+- **Scoring is optional.** Not every scenario must end as a game-show tally. Drop
+  the `vote → score_calc → summarize` spine when the payoff is the phenomenon
+  itself — `scoring_free` observation and a `narrate` (#909) score-free ending
+  are first-class.

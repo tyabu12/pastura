@@ -20,6 +20,10 @@ Discipline (this header is the contract):
   `/orchestrate` PR (SKILL.md § Lessons promotion) — the nightly cycle never
   edits this file.
 
+**Subtract by default (#919):** smaller shape wins (fewer fields / agents /
+rounds; scoring optional) unless the axis needs it — full guidelines in
+`.claude/rules/presets.md` § "Scenario design defaults".
+
 ## Language & breakdown (Gemma 4 E2B)
 
 1. **[validated]** Low-content speech (agreeable filler, pressured accusation)
@@ -151,5 +155,4 @@ characterized — new instances need a new mechanic angle, not a topic skin:
   anthropomorphic-grievance venting (kaden_rousai, moto_akuyaku).
 - Rumor distortion (dengon) — parallel panel works; chain decay = rules 23/24.
 
-`whisper` and `log_window` now carry first HYPOTHESES (rules 20 / 24);
-`reflect` still has none. Field results land here via the lessons-inbox.
+New field/mechanic results land here via the lessons-inbox.

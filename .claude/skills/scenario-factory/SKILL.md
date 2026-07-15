@@ -143,6 +143,15 @@ non-comedy scenario is judged on its own terms — see Step 4. Each of the 3
 must differ from the other 2 AND from digest history in premise or
 mechanics, not merely in topic strings.
 
+**Design defaults — subtract by default (#919):** author the SMALLER shape
+unless the assigned axis needs more. Concretely: **2 output fields**
+(`statement` + `inner_thought`), **3–4 agents**, and **no mandatory scoring**
+(a `narrate` score-free ending or `scoring_free` observation is fine — drop
+`vote → score_calc → summarize` when the payoff is the phenomenon). Each
+addition trades against 2B breakdown rate, tokens, and latency — justify it.
+Canonical guidelines (the numbers live here): `.claude/rules/presets.md`
+§ "Scenario design defaults".
+
 Schema requirements (ScenarioLoader — all required):
 
 - `id`, `name`, `description`, `language: ja`, `agents`, `rounds`,
