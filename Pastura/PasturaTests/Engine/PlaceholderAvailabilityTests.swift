@@ -113,7 +113,7 @@ struct PlaceholderAvailabilityTests {
   // MARK: - Per-persona tokens absent from summarize / code phases (rule R12)
 
   @Test func perPersonaTokensAbsentFromSummarizeAndCodePhases() {
-    let perPersona = ["assigned", "my_notes", "my_whispers", "relationships"]
+    let perPersona = ["assigned", "my_notes", "my_whispers", "relationships", "my_mood"]
     // summarize + every non-LLM phase except the producers that write these vars
     // downstream (assign → assigned, relationship_update → relationships).
     let codeLike: [PhaseType] = [.summarize, .scoreCalc, .eliminate, .conditional, .eventInject]
@@ -140,7 +140,7 @@ struct PlaceholderAvailabilityTests {
     // The four inject{Assigned,Notes,Relationships}-always phases plus vote.
     for phaseType in [PhaseType.speakAll, .speakEach, .vote, .reflect, .whisper] {
       let supplied = PlaceholderAvailability.supplied(for: phaseType, chooseRoundRobin: true)
-      for token in ["assigned", "my_notes", "relationships"] {
+      for token in ["assigned", "my_notes", "relationships", "my_mood"] {
         #expect(supplied.contains(token), "\(token) missing from \(phaseType)")
       }
     }
@@ -172,6 +172,16 @@ struct PlaceholderAvailabilityTests {
 
   @Test func eventInjectProducesCurrentEvent() {
     #expect(PlaceholderAvailability.producers(of: "current_event") == [.eventInject])
+  }
+
+  // #913: mood is an intentional over-approximation — any LLM phase can declare
+  // a `mood` output field, so all six are listed as producers (unlike the
+  // single-producer entries above). This asserts the full set so a future edit
+  // that narrows or drops one is caught.
+  @Test func moodProducedByAllLLMPhases() {
+    #expect(
+      PlaceholderAvailability.producers(of: "my_mood")
+        == [.speakAll, .speakEach, .vote, .choose, .reflect, .whisper])
   }
 
   @Test func nonProducerGatedTokensReturnNil() {
