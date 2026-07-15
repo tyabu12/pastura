@@ -133,8 +133,10 @@ Fields you can set on a phase, beyond `type`, `prompt`, and `output`:
 - `target` (for `assign`): `all` gives every agent the same value, `random_one`
   gives a single random agent the value (used for the odd-one-out in word-wolf
   style games).
-- `source` (for `assign`): the list of values to distribute. It must be
-  non-empty.
+- `source` (for `assign` and `event_inject`): the name of a top-level list key
+  holding the values to distribute or inject. You add that key yourself (for
+  example `words:` or `topics:`) alongside the required top-level keys, and it
+  must be non-empty.
 - `rounds` (for `speak_each` and `whisper`): how many sub-rounds of speaking
   happen within the phase.
 - `logic` (for `score_calc`): one of the scoring logics above.
@@ -198,42 +200,71 @@ blocking ones, but it is easier to get them right the first time.
 
 ## A complete example
 
-The Prisoner's Dilemma preset, with prompt text trimmed for brevity:
+The Word Wolf preset, with personas and prompt text trimmed for brevity:
 
 ```yaml
-id: prisoners_dilemma_en
+id: word_wolf_en
 language: en
-name: Prisoner's Dilemma
-description: Five contestants weigh cooperation against betrayal.
+name: Word Wolf
+description: Players discuss a topic word, but one holds a different word.
 agents: 5
-rounds: 3
+rounds: 1
 context: |
-  You are a contestant on the game show "Prisoner's Dilemma".
-  Against each opponent you choose to cooperate or betray.
-  Both cooperate scores 3 each. Betraying alone scores 5.
+  You are a contestant on the game show "Word Wolf".
+  Everyone has a topic word, but one player's word differs.
+  Never say the word itself. Describe concrete features that
+  evoke it, then vote to expose the minority.
+words:                          # custom top-level list, referenced by source
+  - majority: apple
+    minority: orange
+mid_game_announcements:
+  - "Host: Time is short. Narrow it down."
 personas:
-  - name: Alex
-    description: A calm strategist who computes the optimal move.
-  - name: Mia
-    description: An optimist who trusts people even after being burned.
+  - name: Avery
+    description: A calm observer who leads with colour and shape.
+  - name: Riley
+    description: An outgoing talker who describes taste and texture.
   # ...three more personas...
 phases:
-  - type: speak_all
-    prompt: Address the group before the round.
+  - type: assign                # give one player the minority word
+    source: words
+    target: random_one
+  - type: speak_each
+    prompt: Describe your topic without ever naming it.
     output:
       statement: string
       inner_thought: string
-  - type: choose
-    prompt: For each opponent, cooperate or betray.
-    options:
-      - cooperate
-      - betray
-    pairing: round_robin
+    rounds: 2
+  - type: reflect
+    prompt: Who seems suspicious? Update your private note.
     output:
-      action: string
-      inner_thought: string
+      note: string
+  - type: event_inject          # maybe interrupt with a show announcement
+    source: mid_game_announcements
+    probability: 0.5
+  - type: conditional
+    if: 'current_event != ""'
+    then:
+      - type: summarize
+        template: "{current_event}"
+  - type: narrate
+    narrator: an enthusiastic play-by-play commentator
+    prompt: Call out the most suspicious player and the decisive mismatch.
+    max_sentences: 3
+  - type: vote
+    prompt: Vote for the minority whose clues are out of step.
+    output:
+      vote: string
+      reason: string
+  - type: eliminate
   - type: score_calc
-    logic: prisoners_dilemma
-  - type: summarize
-    template: "Round {current_round}: {scoreboard}"
+    logic: wordwolf_judge
+  - type: conditional           # branch on whether the group caught the wolf
+    if: "vote_winner == wolf_name"
+    then:
+      - type: summarize
+        template: "Wolf found. {wolf_name} was the minority. The majority wins."
+    else:
+      - type: summarize
+        template: "Wolf escapes. The minority was {wolf_name}. The votes went elsewhere."
 ```
