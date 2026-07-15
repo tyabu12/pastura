@@ -140,32 +140,73 @@ struct PhaseEditorSheetValidationTests {
     #expect(subPromptFindings.prompt != nil)
   }
 
-  // MARK: - Prompt variable hint (#920 B, ADR-024 D4)
+  // MARK: - Prompt variable groups (#920 B, ADR-024 D4)
 
-  /// The prompt-footer hint is now phase-aware (reads the linter-owned
-  /// `PlaceholderAvailability` map) rather than a static list. A speak phase
-  /// lists its handler-injected tokens plus the cross-phase state tokens any
-  /// prompt may read (`{assigned_topic}` / `{current_event}` — the critic Axis-5
-  /// discoverability the static list carried), but NOT the round-robin-choose-
-  /// only `{opponent_name}`.
-  @Test func promptHintForSpeakPhaseListsInjectedAndCrossPhaseTokens() {
-    let hint = PhaseEditorSheet.promptVariableHint(for: EditablePhase(type: .speakAll))
-    #expect(hint.contains("{scoreboard}"))
-    #expect(hint.contains("{my_notes}"))
-    #expect(hint.contains("{assigned_topic}"))
-    #expect(hint.contains("{current_event}"))
-    #expect(!hint.contains("{opponent_name}"))
+  /// The variable-insert groups are phase-aware (read the linter-owned
+  /// `PlaceholderAvailability` map). A speak phase lists its handler-injected
+  /// tokens under `thisPhase` plus the cross-phase state tokens any prompt may
+  /// read (`assigned_topic` / `current_event`) under `crossPhase`, but never the
+  /// round-robin-choose-only `opponent_name`.
+  @Test func promptVariableGroupsForSpeakPhaseSplitInjectedAndCrossPhase() {
+    let groups = PhaseEditorSheet.promptVariableGroups(for: EditablePhase(type: .speakAll))
+    #expect(groups.thisPhase.contains("scoreboard"))
+    #expect(groups.thisPhase.contains("my_notes"))
+    #expect(groups.crossPhase.contains("assigned_topic"))
+    #expect(groups.crossPhase.contains("current_event"))
+    #expect(!groups.thisPhase.contains("opponent_name"))
+    #expect(!groups.crossPhase.contains("opponent_name"))
   }
 
-  /// The `choose` round-robin qualifier flows through the hint: `{opponent_name}`
-  /// appears only for a round-robin `choose`, not the individual variant.
-  @Test func promptHintForChooseReflectsRoundRobinQualifier() {
-    let roundRobin = PhaseEditorSheet.promptVariableHint(
+  /// A token this phase already supplies is not duplicated into `crossPhase`:
+  /// `vote` supplies `vote_results`, so it appears only under `thisPhase`.
+  @Test func promptVariableGroupsDoNotDuplicateAcrossGroups() {
+    let groups = PhaseEditorSheet.promptVariableGroups(for: EditablePhase(type: .vote))
+    #expect(groups.thisPhase.contains("vote_results"))
+    #expect(!groups.crossPhase.contains("vote_results"))
+  }
+
+  /// The `choose` round-robin qualifier flows through: `opponent_name` appears in
+  /// `thisPhase` only for a round-robin `choose`, not the individual variant.
+  @Test func promptVariableGroupsForChooseReflectRoundRobinQualifier() {
+    let roundRobin = PhaseEditorSheet.promptVariableGroups(
       for: EditablePhase(type: .choose, pairing: .roundRobin))
-    let individual = PhaseEditorSheet.promptVariableHint(
+    let individual = PhaseEditorSheet.promptVariableGroups(
       for: EditablePhase(type: .choose))
-    #expect(roundRobin.contains("{opponent_name}"))
-    #expect(!individual.contains("{opponent_name}"))
+    #expect(roundRobin.thisPhase.contains("opponent_name"))
+    #expect(!individual.thisPhase.contains("opponent_name"))
+  }
+
+  // MARK: - Variable insertion (caret splice + append fallback)
+
+  @Test func insertingAtCaretSplicesBracedToken() {
+    let text = "abXcd"
+    let caret = text.index(text.startIndex, offsetBy: 2)  // between "b" and "X"
+    let result = PhaseEditorSheet.inserting(token: "scoreboard", into: text, at: caret..<caret)
+    #expect(result == "ab{scoreboard}Xcd")
+  }
+
+  @Test func insertingOverSelectionReplacesRange() {
+    let text = "abXXcd"
+    let start = text.index(text.startIndex, offsetBy: 2)
+    let end = text.index(text.startIndex, offsetBy: 4)  // selects "XX"
+    let result = PhaseEditorSheet.inserting(token: "vote", into: text, at: start..<end)
+    #expect(result == "ab{vote}cd")
+  }
+
+  @Test func insertingWithNilRangeAppends() {
+    let result = PhaseEditorSheet.inserting(token: "current_round", into: "abc", at: nil)
+    #expect(result == "abc{current_round}")
+  }
+
+  /// A stale selection — indices into a since-mutated (longer) string — is out
+  /// of bounds for the shorter current text, so `inserting` appends rather than
+  /// trapping `replaceSubrange`.
+  @Test func insertingWithOutOfBoundsRangeAppends() {
+    let stale = "abcdefgh"
+    let staleRange =
+      stale.index(stale.startIndex, offsetBy: 6)..<stale.index(stale.startIndex, offsetBy: 8)
+    let result = PhaseEditorSheet.inserting(token: "vote", into: "abc", at: staleRange)
+    #expect(result == "abc{vote}")
   }
 
   // MARK: - max_sentences control logic (#881 Stage 2 PR-B)

@@ -2519,6 +2519,16 @@
         }
       }
     },
+    "Current scoreboard for all agents" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全エージェントの現在の得点表"
+          }
+        }
+      }
+    },
     "DL" : {
       "comment" : "Status abbreviation in PromoCard meta row. Intentionally identical en/ja — kept short to fit the dot-progress strip.",
       "localizations" : {
@@ -2745,6 +2755,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "エージェントへ情報を配布（コード）"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了"
           }
         }
       }
@@ -3486,6 +3506,36 @@
         }
       }
     },
+    "First agent of the pair" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアの1人目"
+          }
+        }
+      }
+    },
+    "First agent's chosen action" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペア1人目の選択"
+          }
+        }
+      }
+    },
+    "First agent's score" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペア1人目のスコア"
+          }
+        }
+      }
+    },
     "Format round summary (code)" : {
       "localizations" : {
         "ja" : {
@@ -3518,6 +3568,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共有シナリオから取得（読み取り専用）"
+          }
+        }
+      }
+    },
+    "From other phases" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "他フェーズの状態"
           }
         }
       }
@@ -3710,6 +3770,16 @@
         }
       }
     },
+    "How this agent feels about the others" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントから見た他者への感情"
+          }
+        }
+      }
+    },
     "ID: %@" : {
       "localizations" : {
         "ja" : {
@@ -3730,12 +3800,32 @@
         }
       }
     },
+    "In this phase" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このフェーズ"
+          }
+        }
+      }
+    },
     "Inference was suspended and will retry" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "推論が中断されました。再試行します"
+          }
+        }
+      }
+    },
+    "Info assigned to this agent (from an assign phase)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントに割り当てられた情報（assign フェーズ由来）"
           }
         }
       }
@@ -3766,6 +3856,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "extraData からランダムイベントを注入（コード、LLM 不使用）"
+          }
+        }
+      }
+    },
+    "Insert variable" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変数を挿入"
           }
         }
       }
@@ -5160,6 +5260,16 @@
         }
       }
     },
+    "Primary" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主フィールド"
+          }
+        }
+      }
+    },
     "Privacy Policy" : {
       "localizations" : {
         "ja" : {
@@ -6025,6 +6135,46 @@
         }
       }
     },
+    "Search variables" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変数を検索"
+          }
+        }
+      }
+    },
+    "Second agent of the pair" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアの2人目"
+          }
+        }
+      }
+    },
+    "Second agent's chosen action" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペア2人目の選択"
+          }
+        }
+      }
+    },
+    "Second agent's score" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペア2人目のスコア"
+          }
+        }
+      }
+    },
     "See supported devices" : {
       "localizations" : {
         "ja" : {
@@ -6562,12 +6712,132 @@
         }
       }
     },
+    "The agent's mood, carried into their next prompt (opt-in inertia)." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの気分。次回の自分のプロンプトに引き継がれる（opt-in の感情慣性）"
+          }
+        }
+      }
+    },
+    "The agent's private memo (reflect only). Never shown to others." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの内心メモ（reflect 専用）。他者には見えない"
+          }
+        }
+      }
+    },
+    "The agent's private thought. Shown as a thought bubble, never in the public log." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの内心の思考。思考バブルで表示され、公開ログには残らない"
+          }
+        }
+      }
+    },
+    "The chosen value. Restricted to the phase's options." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択された値。フェーズの options に制限される"
+          }
+        }
+      }
+    },
+    "The conversation log so far" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これまでの会話ログ"
+          }
+        }
+      }
+    },
+    "The current round number" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在のラウンド番号"
+          }
+        }
+      }
+    },
     "The downloaded scenario does not match its expected signature. The gallery may have been updated. Pull to refresh and try again." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダウンロードしたシナリオが想定のシグネチャと一致しません。ギャラリーが更新されている可能性があります。プルして更新後、再試行してください。"
+          }
+        }
+      }
+    },
+    "The event currently in play" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在発生中のイベント"
+          }
+        }
+      }
+    },
+    "The list of vote candidates" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票の候補者一覧"
+          }
+        }
+      }
+    },
+    "The main spoken text. Shown in the UI and the conversation log." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発言の本文。UI と会話ログに表示される"
+          }
+        }
+      }
+    },
+    "The most recent vote results" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "直近の投票結果"
+          }
+        }
+      }
+    },
+    "The name of the agent being voted for." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票先のエージェント名"
+          }
+        }
+      }
+    },
+    "The paired opponent's name (round-robin choose)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアの対戦相手の名前（round-robin choose）"
           }
         }
       }
@@ -6588,6 +6858,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "あらすじ"
+          }
+        }
+      }
+    },
+    "The private reason behind the vote." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票の内心の理由"
+          }
+        }
+      }
+    },
+    "The shared topic assigned to everyone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全体に割り当てられた共通のお題"
+          }
+        }
+      }
+    },
+    "The whisper exchange this round" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今回の密談でのやり取り"
+          }
+        }
+      }
+    },
+    "The whispers this agent exchanged" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントが交わした密談の内容"
+          }
+        }
+      }
+    },
+    "The wolf's name (assigned to one agent)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウルフ役の名前（1人に割り当て）"
+          }
+        }
+      }
+    },
+    "The word or topic assigned to this agent" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントに割り当てられたお題・ワード"
           }
         }
       }
@@ -6618,6 +6948,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今週"
+          }
+        }
+      }
+    },
+    "This agent's current mood" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントの現在の気分"
+          }
+        }
+      }
+    },
+    "This agent's own private reflection notes" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェント自身のふりかえりメモ"
           }
         }
       }
@@ -6692,6 +7042,16 @@
         }
       }
     },
+    "This round's whisper partner" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今回の密談相手"
+          }
+        }
+      }
+    },
     "This run stopped early" : {
       "localizations" : {
         "ja" : {
@@ -6718,6 +7078,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このシナリオの実行にはより新しいバージョンの Pastura が必要です。アプリを更新してください。"
+          }
+        }
+      }
+    },
+    "Thought" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内心"
           }
         }
       }
@@ -7105,6 +7475,7 @@
       }
     },
     "Variables: %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -7115,6 +7486,7 @@
       }
     },
     "Variables: {current_round}, {scoreboard}, {vote_results}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
