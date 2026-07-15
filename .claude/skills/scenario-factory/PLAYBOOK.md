@@ -136,6 +136,17 @@ rounds; scoring optional) unless the axis needs it — full guidelines in
 29. **[validated]** Keep one comedy scenario per batch so the night retains a
     `(d) humor` datapoint (null categories don't score it). (since 06-27)
 
+## Votes & prohibition-following
+
+30. **[validated]** In vote-ELIMINATION scenarios where some personas WANT to
+    be chosen, self-voting is their rational move and `exclude_self` discards
+    it SILENTLY — one night was decided by a single valid vote. Fix with an
+    **in-world rule** ("本は自薦を認めない / the book accepts no self-nomination")
+    in BOTH context and the vote prompt, not a bare mechanical instruction.
+    ja Gemma follows such prohibitions markedly worse than en (field-measured
+    E2B: en invalid votes 5/12→2/12, ja only 6/12→5/12) — judge ja/en
+    separately. (07-08 last_fable / #1003)
+
 ## Saturated premise families (dedup: do not regenerate as-is)
 
 Id-level history lives in `digest-index.jsonl`; these FAMILIES are already
