@@ -946,6 +946,31 @@
       "yaml_url": "ijin_kaigi_v1_en.yaml",
       "yaml_sha256": "c18c31b73f854beb7828211c20aa7e1e243a1adba7c1b56f292fc541799669f2",
       "added_at": "2026-07-15"
+    },
+    {
+      "id": "share_house_v1",
+      "title": "深夜のシェアハウス",
+      "category": "roleplay",
+      "description": "勝ち負けはない、五人で暮らすシェアハウスの三日間。山積みの洗い物、世話役リクがめずらしくこぼした本音、そして最終夜に届く大家からの一通——誰も裁かず、五人ぶんの暮らしとその小さな関係の変化を眺める観察劇。同じ三日間でも、五人の答えは毎回すこしずつ変わる。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 20,
+      "agent_count": 5,
+      "rounds": 1,
+      "phases": [
+        "summarize",
+        "speak_each",
+        "summarize",
+        "speak_each",
+        "summarize",
+        "choose",
+        "speak_each",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "share_house_v1.yaml",
+      "yaml_sha256": "1ddbc0c1bb96b25c332d9b60ffce39d1d117ad2a5357ad36c4d04ae433ee71b7",
+      "added_at": "2026-07-15"
     }
   ]
 }
