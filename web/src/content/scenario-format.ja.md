@@ -176,7 +176,9 @@ phases:                       # 必須。何が起きるかを順に並べたリ
 比較演算子は `==`、`!=`、`<`、`<=`、`>`、`>=` です。参照できる変数には
 `current_round`、`total_rounds`、`max_score`、`min_score`、
 `eliminated_count`、`active_count`、`vote_winner`、特定のエージェントを
-指す `scores.<Name>` があります。
+指す `scores.<Name>` があります。スコアリングロジックはシナリオ固有の追加変数を
+公開することがあります。例えば `wordwolf_judge` は少数派の単語を持つエージェントを
+`wolf_name` に設定し、下のワードウルフの例は最後の `conditional` でこれを使います。
 
 **文字列値はダブルクォートで囲んでください。** `name == "Alex"` は
 テキスト `Alex` と比較します。シングルクォートの `'Alex'` は未定義の

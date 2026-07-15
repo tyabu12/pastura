@@ -174,7 +174,9 @@ comparisons with `&&`, `||`, and parentheses.
 Comparison operators are `==`, `!=`, `<`, `<=`, `>`, `>=`. Variables you can
 reference include `current_round`, `total_rounds`, `max_score`, `min_score`,
 `eliminated_count`, `active_count`, `vote_winner`, and `scores.<Name>` for a
-named agent.
+named agent. Scoring logics can expose extra scenario-specific variables. For
+example, `wordwolf_judge` sets `wolf_name` to the agent holding the minority
+word, which the Word Wolf example below uses in its final `conditional`.
 
 **Quote string values with double quotes.** `name == "Alex"` compares against
 the text `Alex`. A single-quoted `'Alex'` is read as an undefined identifier, so
