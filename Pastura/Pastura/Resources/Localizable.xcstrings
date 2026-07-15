@@ -4427,6 +4427,22 @@
         }
       }
     },
+    "New" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新着"
+          }
+        }
+      }
+    },
     "New Persona" : {
       "localizations" : {
         "ja" : {

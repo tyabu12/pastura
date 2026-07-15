@@ -307,6 +307,7 @@ same change:
 | `docs/decisions/ADR-022.md`           | Phase/event extension contract — declare once in the two Models enums (no registry); every Swift projection no-default exhaustive; forced-decision CI gates for non-Swift consumers (Status: Accepted; #993) |
 | `docs/decisions/ADR-023.md`           | KMP Engine migration (Phase 3.0) — run-path Engine port to `commonMain`, callback-only K/N boundaries; Stage-2 vertical slice = GO/NO-GO gate; Data stays Swift/GRDB (Status: Accepted; #501) |
 | `docs/decisions/ADR-024.md`           | Scenario semantic lint layer — `ScenarioSemanticLinter` (Engine) flags silent-no-op DSL traps at load time (error blocks, warning never blocks; R1–R17); `pastura-harness lint` gate (Status: Accepted; #994) |
+| `docs/decisions/ADR-025.md`           | Gallery scenario ordering — client-side sort in `GalleryScenarioSearch.filter`: curator-pinned `featured` (nil last) → `added_at` desc (String compare) → `id`; New badge <14d; popularity/DL ranking deferred (telemetry backend vs offline/privacy positioning; revisit >150 items, opt-in); shuffle rejected (Status: Accepted; #1117) |
 | `docs/decisions/INDEX.md`             | Full ADR decision summaries (one-line index above; full paragraphs there) |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |

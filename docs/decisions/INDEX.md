@@ -97,3 +97,7 @@ KMP Engine migration architecture (Phase 3.0) — run-path Engine port to `commo
 ## ADR-024 — Scenario semantic lint layer
 
 Scenario semantic lint layer — `ScenarioSemanticLinter` (Engine) fires silent-no-op DSL traps at load time as findings (error blocks commit/run, warning never blocks; rule catalog R1–R17; linter-owned `PlaceholderAvailability` map absorbs #920's model; `pastura-harness lint` batch gate, shipped preset+gallery inventory zero-FP; warn-first promotion policy for post-v1 error rules) (Status: Accepted; #994)
+
+## ADR-025 — Gallery scenario ordering
+
+Gallery scenario ordering — replace the no-sort raw-JSON-array order (which sank newly-added scenarios to the bottom) with a client-side sort in `GalleryScenarioSearch.filter` (after category/language/query filtering): curator-pinned optional `featured` rank ascending (nil last) → `added_at` descending (raw String compare — date-only fixed-width `YYYY-MM-DD`, no `Date` parse) → `id` tie-break (total/deterministic); "New" (新着) badge for entries added <14 days, filling the Browse card's single badge slot only when install-state doesn't; popularity/DL-count ranking deferred indefinitely (needs a telemetry backend contradicting the offline/zero-cost/on-device-privacy positioning, and at ~44 items the signal ≈ list position via position bias — revisit trigger: catalog >150 via community submissions, opt-in only); random/shuffle rejected as list order (destroys spatial memory), serendipity belongs in a date-seeded / curator-driven Home surface (#89) (Status: Accepted; #1117)

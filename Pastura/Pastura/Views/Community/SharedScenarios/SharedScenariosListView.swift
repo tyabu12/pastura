@@ -228,7 +228,11 @@ struct SharedScenariosListView: View {
     let badge = GalleryCatalogRowFormat.badge(
       compatible: compatible,
       hasUpdate: viewModel.hasUpdate(for: scenario),
-      isInstalled: viewModel.isInstalled(scenario))
+      isInstalled: viewModel.isInstalled(scenario),
+      // `Date()` here is the "now" source; the pure recency logic lives in
+      // `isNew(addedAt:referenceDate:)`, which the unit tests drive with a
+      // fixed reference date.
+      isNew: GalleryCatalogRowFormat.isNew(addedAt: scenario.addedAt, referenceDate: Date()))
     return GalleryCatalogRow.Model(
       title: scenario.title,
       badge: badge,

@@ -122,8 +122,8 @@ struct ScenarioSummaryRow: View {
 }
 
 /// The badge shown next to a scenario title. Each tab surfaces a subset:
-/// Home shows ``preset`` / ``update``; Shared Scenarios shows ``installed`` /
-/// ``update`` / ``updateRequired``.
+/// Home shows ``preset`` / ``update``; Shared Scenarios shows ``new`` /
+/// ``installed`` / ``update`` / ``updateRequired``.
 nonisolated enum ScenarioBadge: Equatable {
   case preset
   case installed
@@ -134,6 +134,12 @@ nonisolated enum ScenarioBadge: Equatable {
   /// an App Store deep-link are deferred to the first post-baseline release
   /// that can actually grey a row (ADR-020 § deferred scope).
   case updateRequired
+  /// Recently added to the gallery (within
+  /// ``GalleryCatalogRowFormat/newBadgeWindowDays``) — a discovery highlight
+  /// on the Browse catalog card (ADR-025). Fills the single badge slot only
+  /// when the entry is otherwise unbadged (install-state wins), so it never
+  /// competes with `installed` / `update`.
+  case new
 
   /// Localized badge label.
   var label: String {
@@ -142,16 +148,18 @@ nonisolated enum ScenarioBadge: Equatable {
     case .installed: return String(localized: "Installed")
     case .update: return String(localized: "Update")
     case .updateRequired: return String(localized: "Update app")
+    case .new: return String(localized: "New")
     }
   }
 
-  /// Visual emphasis. The "this scenario changed" `update` and the
-  /// "your app is too old" `updateRequired` badges use the accent tint; the
-  /// provenance badges (`preset` / `installed`) are quieter.
+  /// Visual emphasis. The "this scenario changed" `update`, the "your app is
+  /// too old" `updateRequired`, and the "recently added" `new` discovery
+  /// highlight use the accent tint; the provenance badges (`preset` /
+  /// `installed`) are quieter.
   var style: ScenarioBadgeStyle {
     switch self {
     case .preset, .installed: return .secondary
-    case .update, .updateRequired: return .tint
+    case .update, .updateRequired, .new: return .tint
     }
   }
 }

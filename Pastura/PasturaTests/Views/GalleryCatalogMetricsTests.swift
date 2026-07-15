@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Testing
 
 @testable import Pastura
@@ -208,35 +209,89 @@ struct GalleryCatalogMetricsTests {
     }
   }
 
-  // MARK: - badge (compatibility-driven, ADR-020 D4)
+  // MARK: - badge (compatibility-driven, ADR-020 D4; New badge ADR-025)
 
   @Test func badgeIncompatibleAlwaysUpdateRequired() {
-    // Incompatibility wins over any install/update state — the scenario can't
-    // run on this build, so provenance signals are suppressed.
+    // Incompatibility wins over any install/update/new state — the scenario
+    // can't run on this build, so provenance signals are suppressed.
     #expect(
-      GalleryCatalogRowFormat.badge(compatible: false, hasUpdate: true, isInstalled: true)
-        == .updateRequired)
+      GalleryCatalogRowFormat.badge(
+        compatible: false, hasUpdate: true, isInstalled: true, isNew: true) == .updateRequired)
     #expect(
-      GalleryCatalogRowFormat.badge(compatible: false, hasUpdate: false, isInstalled: false)
-        == .updateRequired)
+      GalleryCatalogRowFormat.badge(
+        compatible: false, hasUpdate: false, isInstalled: false, isNew: false) == .updateRequired)
   }
 
   @Test func badgeCompatibleUpdateWinsOverInstalled() {
     #expect(
-      GalleryCatalogRowFormat.badge(compatible: true, hasUpdate: true, isInstalled: true)
-        == .update)
+      GalleryCatalogRowFormat.badge(
+        compatible: true, hasUpdate: true, isInstalled: true, isNew: false) == .update)
   }
 
   @Test func badgeCompatibleInstalledWhenNoUpdate() {
     #expect(
-      GalleryCatalogRowFormat.badge(compatible: true, hasUpdate: false, isInstalled: true)
-        == .installed)
+      GalleryCatalogRowFormat.badge(
+        compatible: true, hasUpdate: false, isInstalled: true, isNew: false) == .installed)
   }
 
-  @Test func badgeCompatibleNoneWhenFresh() {
+  @Test func badgeInstallStateWinsOverNew() {
+    // Precedence (ADR-025): install-state occupies the single badge slot; the
+    // New badge only fills it when the entry is otherwise unbadged. A recent
+    // AND installed/updatable scenario shows its install state, not New.
     #expect(
-      GalleryCatalogRowFormat.badge(compatible: true, hasUpdate: false, isInstalled: false)
-        == nil)
+      GalleryCatalogRowFormat.badge(
+        compatible: true, hasUpdate: true, isInstalled: true, isNew: true) == .update)
+    #expect(
+      GalleryCatalogRowFormat.badge(
+        compatible: true, hasUpdate: false, isInstalled: true, isNew: true) == .installed)
+  }
+
+  @Test func badgeNewWhenRecentAndOtherwiseUnbadged() {
+    // The New badge fills the otherwise-empty slot for a compatible, not-yet-
+    // installed, recent scenario.
+    #expect(
+      GalleryCatalogRowFormat.badge(
+        compatible: true, hasUpdate: false, isInstalled: false, isNew: true) == .new)
+  }
+
+  @Test func badgeNoneWhenFreshAndNotNew() {
+    #expect(
+      GalleryCatalogRowFormat.badge(
+        compatible: true, hasUpdate: false, isInstalled: false, isNew: false) == nil)
+  }
+
+  // MARK: - isNew (recency window, ADR-025)
+
+  private func utcDate(_ dateString: String) -> Date {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    // swiftlint:disable:next force_unwrapping
+    return formatter.date(from: dateString)!
+  }
+
+  @Test func isNewTrueOnSameDay() {
+    #expect(
+      GalleryCatalogRowFormat.isNew(addedAt: "2026-07-16", referenceDate: utcDate("2026-07-16")))
+  }
+
+  @Test func isNewTrueAtWindowBoundary() {
+    // 14 days before the reference date is still "new" (inclusive boundary).
+    #expect(
+      GalleryCatalogRowFormat.isNew(addedAt: "2026-07-02", referenceDate: utcDate("2026-07-16")))
+  }
+
+  @Test func isNewFalseJustPastWindow() {
+    // 15 days before → outside the 14-day window.
+    #expect(
+      !GalleryCatalogRowFormat.isNew(addedAt: "2026-07-01", referenceDate: utcDate("2026-07-16")))
+  }
+
+  @Test func isNewFalseForUnparseableDate() {
+    // Never fabricate recency: an unparseable added_at is treated as not-new.
+    #expect(
+      !GalleryCatalogRowFormat.isNew(addedAt: "not-a-date", referenceDate: utcDate("2026-07-16")))
   }
 
   // MARK: - signature glyph mapping (change-detector)

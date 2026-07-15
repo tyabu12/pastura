@@ -220,4 +220,57 @@ struct GalleryScenarioSearchTests {
       allScenariosEmpty: true, category: nil, query: "", language: "en")
     #expect(reason == .galleryEmpty)
   }
+
+  // MARK: - Sort ordering (featured pin → added_at desc → id tie-break)
+
+  private func sortable(
+    id: String, featured: Int? = nil, addedAt: String
+  ) -> GalleryScenario {
+    GalleryScenario(
+      id: id, title: id, category: .socialPsychology,
+      description: "d", author: "Author",
+      recommendedModel: ModelRegistry.gemma4E2B.id, estimatedInferences: 10,
+      // swiftlint:disable:next force_unwrapping
+      yamlURL: URL(string: "https://example.com/\(id).yaml")!,
+      yamlSHA256: "hash", addedAt: addedAt, featured: featured)
+  }
+
+  @Test func unpinnedSortNewestFirst() {
+    // With no featured pins, the default order is added_at descending — the
+    // fix for "new scenarios sink to the bottom of the raw JSON array".
+    let input = [
+      sortable(id: "old", addedAt: "2026-01-01"),
+      sortable(id: "new", addedAt: "2026-07-01"),
+      sortable(id: "mid", addedAt: "2026-04-01")
+    ]
+    let result = GalleryScenarioSearch.filter(input, category: nil, query: "", language: nil)
+    #expect(result.map(\.id) == ["new", "mid", "old"])
+  }
+
+  @Test func featuredPinnedAboveRecencyByAscendingRank() {
+    // Pinned entries sort first by ascending rank and above every unpinned
+    // entry, even when a pinned entry's added_at is older than an unpinned
+    // one's. Within the unpinned group, added_at descending then id.
+    let input = [
+      sortable(id: "c", addedAt: "2026-07-01"),  // newest, unpinned
+      sortable(id: "a", featured: 2, addedAt: "2026-01-01"),
+      sortable(id: "b", featured: 1, addedAt: "2026-01-01"),
+      sortable(id: "d", addedAt: "2026-06-01"),
+      sortable(id: "e", addedAt: "2026-06-01")  // same date as d → id tie-break
+    ]
+    let result = GalleryScenarioSearch.filter(input, category: nil, query: "", language: nil)
+    #expect(result.map(\.id) == ["b", "a", "c", "d", "e"])
+  }
+
+  @Test func sameDateUnpinnedFallsBackToIdTieBreak() {
+    // Stability guard: equal added_at + no featured → ascending id so the
+    // order is deterministic (Swift's sorted(by:) is not guaranteed stable).
+    let input = [
+      sortable(id: "zeta", addedAt: "2026-05-01"),
+      sortable(id: "alpha", addedAt: "2026-05-01"),
+      sortable(id: "mu", addedAt: "2026-05-01")
+    ]
+    let result = GalleryScenarioSearch.filter(input, category: nil, query: "", language: nil)
+    #expect(result.map(\.id) == ["alpha", "mu", "zeta"])
+  }
 }

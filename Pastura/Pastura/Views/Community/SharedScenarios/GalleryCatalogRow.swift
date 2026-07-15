@@ -180,21 +180,47 @@ nonisolated enum GalleryCatalogRowFormat {
   }
 
   /// The title-trailing badge for a Browse catalog card, resolved from the
-  /// scenario's engine-compatibility and local install state (ADR-020 D4).
+  /// scenario's engine-compatibility, local install state (ADR-020 D4), and
+  /// recency (ADR-025).
   ///
   /// An **incompatible** scenario always shows ``ScenarioBadge/updateRequired``
-  /// — it can't run on this build, so the "installed" / "update-available"
-  /// provenance signals are irrelevant and suppressed. A **compatible**
-  /// scenario surfaces the update-available badge over installed (an updatable
-  /// row is installed too, but the "changed" signal is the more useful one),
-  /// or no badge when it is neither installed nor updatable.
+  /// — it can't run on this build, so the other signals are irrelevant and
+  /// suppressed. A **compatible** scenario surfaces the update-available badge
+  /// over installed (an updatable row is installed too, but the "changed"
+  /// signal is the more useful one). The single badge slot is otherwise filled
+  /// by the ``ScenarioBadge/new`` discovery highlight when the entry is recent
+  /// (``isNew(addedAt:referenceDate:)``) — but **install-state wins**: New
+  /// only shows on a not-yet-installed row, where it is the useful signal.
   static func badge(
-    compatible: Bool, hasUpdate: Bool, isInstalled: Bool
+    compatible: Bool, hasUpdate: Bool, isInstalled: Bool, isNew: Bool
   ) -> ScenarioBadge? {
     guard compatible else { return .updateRequired }
     if hasUpdate { return .update }
     if isInstalled { return .installed }
+    if isNew { return .new }
     return nil
+  }
+
+  /// Number of days within which a gallery entry counts as "new" for the
+  /// ``ScenarioBadge/new`` badge.
+  static let newBadgeWindowDays = 14
+
+  /// Whether `addedAt` falls within ``newBadgeWindowDays`` of `referenceDate`.
+  ///
+  /// `addedAt` is the gallery's ISO date-only string (`YYYY-MM-DD`); it is
+  /// parsed with a fixed `yyyy-MM-dd` / `en_US_POSIX` / UTC formatter — **not**
+  /// `ISO8601DateFormatter`, whose default expects a full timestamp and returns
+  /// `nil` on a date-only value. An unparseable value returns `false`: never
+  /// fabricate recency (Hard Rule 1 — no force-unwrap). The 14-day boundary is
+  /// inclusive.
+  static func isNew(addedAt: String, referenceDate: Date) -> Bool {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    guard let added = formatter.date(from: addedAt) else { return false }
+    let window = TimeInterval(newBadgeWindowDays) * 24 * 60 * 60
+    return added >= referenceDate.addingTimeInterval(-window)
   }
 
   /// Number of sheep the ``ScenarioArtTile`` cluster should draw: clamped to

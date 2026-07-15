@@ -129,6 +129,18 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   /// required would break older installs.
   public let minEngineVersion: Int?
 
+  /// Curator-assigned pin rank for gallery ordering (ADR-025). Lower number
+  /// = higher priority (pinned toward the top of the Browse listing);
+  /// `nil` = not pinned, and the entry falls through to the default
+  /// `added_at`-descending recency order.
+  ///
+  /// Optional + lenient decode (absent → `nil`) for the same forward-compat
+  /// reason as ``agentCount`` / ``rounds`` / ``phases`` / ``language`` /
+  /// ``minEngineVersion``: an old cached `gallery.json` — or an older app
+  /// reading a newer feed — predates this key and must still decode. A
+  /// future contributor making this required would break older installs.
+  public let featured: Int?
+
   /// The language to filter / group this entry by, defaulting an absent
   /// ``language`` to `"ja"`.
   ///
@@ -169,7 +181,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     rounds: Int? = nil,
     phases: [String]? = nil,
     language: String? = nil,
-    minEngineVersion: Int? = nil
+    minEngineVersion: Int? = nil,
+    featured: Int? = nil
   ) {
     self.id = id
     self.title = title
@@ -186,6 +199,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     self.phases = phases
     self.language = language
     self.minEngineVersion = minEngineVersion
+    self.featured = featured
   }
 
   // Explicit CodingKeys so the JSON snake_case ↔ Swift camelCase mapping is
@@ -204,6 +218,7 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     case phases
     case language
     case minEngineVersion = "min_engine_version"
+    case featured
     case yamlURL = "yaml_url"
     case yamlSHA256 = "yaml_sha256"
     case addedAt = "added_at"
