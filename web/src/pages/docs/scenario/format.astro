@@ -1,0 +1,81 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { Content } from '../../../content/scenario-format.en.md';
+// Complete scenario YAML format reference (#1120). The prose body is authored
+// once in web/src/content/scenario-format.en.md and rendered here as HTML;
+// the sibling format.md.ts serves the same file raw at /docs/scenario/format.md
+// (the LLM-friendly source the in-app "Copy Gen Prompt" points at). Keeping one
+// Markdown source avoids drift between the HTML and raw views.
+//
+// The phase / logic tables are the human twin of the canonical Swift enums
+// (Models/PhaseType.swift, Models/ScoreCalcLogic.swift). A CI + pre-commit grep
+// gate asserts every enum rawValue appears here as a backtick token, so a new
+// PhaseType cannot ship without landing in this reference. Per
+// .claude/rules/lp-content.md the copy avoids em-dash / prose-colon and does
+// not use the AIgazing genre word.
+---
+
+<BaseLayout
+  locale="en"
+  title="Pastura Scenario Format Reference"
+  description="The complete YAML format reference for Pastura scenarios: phases, output fields, scoring logics, condition expressions, and common pitfalls."
+  enPath="/docs/scenario/format/"
+  jaPath="/ja/docs/scenario/format/"
+  variant="prose"
+>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="page-shell">
+    <header role="banner" class="lp-header">
+      <a href="../../../" class="brand">
+        <img class="icon" src="../../../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+        <span class="brand-name">Pastura</span>
+      </a>
+      <nav aria-label="Primary" class="lp-nav">
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
+          <a lang="ja" hreflang="ja" href="../../../ja/docs/scenario/format/">JA</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main" class="page-main">
+      <div class="page-prose">
+        <p class="lead">
+          <a href="../">Back to the scenario guide</a>
+        </p>
+        <Content />
+      </div>
+    </main>
+
+    <footer role="contentinfo" class="lp-footer">
+      <div class="foot-grid">
+        <div>
+          <a href="../../../" class="brand">
+            <img class="icon" src="../../../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+            <span class="brand-name">Pastura</span>
+          </a>
+        </div>
+        <div>
+          <h3 class="foot-h">Product</h3>
+          <a class="foot-link" href="../../../#usage">Usage</a>
+          <a class="foot-link" href="../../../#features">Features</a>
+          <a class="foot-link" href="../../../#faq">FAQ</a>
+        </div>
+        <div>
+          <h3 class="foot-h">Resources</h3>
+          <a class="foot-link" href="../">Scenario guide</a>
+          <a class="foot-link" href="../../../legal/privacy-policy/">Privacy Policy</a>
+          <a class="foot-link" href="https://github.com/tyabu12/pastura" rel="noopener">GitHub</a>
+        </div>
+      </div>
+      <div class="foot-base">
+        <span class="foot-copy">© 2026 Pastura</span>
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <a lang="en" hreflang="en" aria-current="page" class="on" href="./">EN</a>
+          <a lang="ja" hreflang="ja" href="../../../ja/docs/scenario/format/">JA</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>

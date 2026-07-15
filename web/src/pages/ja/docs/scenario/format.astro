@@ -1,0 +1,80 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { Content } from '../../../../content/scenario-format.ja.md';
+// JA mirror of /docs/scenario/format/ (#1120). 本文は
+// web/src/content/scenario-format.ja.md に一度だけ書き、ここで HTML として
+// レンダリングする。兄弟の format.md.ts が同じファイルを
+// /ja/docs/scenario/format.md として raw 配信する (アプリ内「Copy Gen Prompt」
+// が指す LLM 向けソース)。Markdown を 1 本にして HTML と raw のドリフトを防ぐ。
+//
+// フェーズ／ロジックの表は正典 Swift enum (Models/PhaseType.swift,
+// Models/ScoreCalcLogic.swift) の人間向けミラー。CI + pre-commit の grep ゲートが
+// 全 rawValue のバッククォート出現を検査するため、新 PhaseType はこの
+// リファレンスに載せないと出荷できない。lp-content.md に従い em-dash /
+// prose-colon を避け、AIgazing 系の genre word は使わない。
+---
+
+<BaseLayout
+  locale="ja"
+  title="Pastura シナリオ形式リファレンス"
+  description="Pastura シナリオの YAML 形式の完全リファレンス。フェーズ、出力フィールド、採点ロジック、条件式、よくある落とし穴をまとめています。"
+  enPath="/docs/scenario/format/"
+  jaPath="/ja/docs/scenario/format/"
+  variant="prose"
+>
+  <a class="skip-link" href="#main">本文へスキップ</a>
+
+  <div class="page-shell">
+    <header role="banner" class="lp-header">
+      <a href="../../../" class="brand">
+        <img class="icon" src="../../../../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+        <span class="brand-name">Pastura</span>
+      </a>
+      <nav aria-label="Primary" class="lp-nav">
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <a lang="en" hreflang="en" href="../../../../docs/scenario/format/">EN</a>
+          <a lang="ja" hreflang="ja" aria-current="page" class="on" href="./">JA</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main" class="page-main">
+      <div class="page-prose">
+        <p class="lead">
+          <a href="../">シナリオガイドに戻る</a>
+        </p>
+        <Content />
+      </div>
+    </main>
+
+    <footer role="contentinfo" class="lp-footer">
+      <div class="foot-grid">
+        <div>
+          <a href="../../../" class="brand">
+            <img class="icon" src="../../../../img/app-icon.png" alt="" aria-hidden="true" width="36" height="36">
+            <span class="brand-name">Pastura</span>
+          </a>
+        </div>
+        <div>
+          <h3 class="foot-h">プロダクト</h3>
+          <a class="foot-link" href="../../../#usage">使い方</a>
+          <a class="foot-link" href="../../../#features">特徴</a>
+          <a class="foot-link" href="../../../#faq">FAQ</a>
+        </div>
+        <div>
+          <h3 class="foot-h">リソース</h3>
+          <a class="foot-link" href="../">シナリオガイド</a>
+          <a class="foot-link" href="../../../legal/privacy-policy/">プライバシーポリシー</a>
+          <a class="foot-link" href="https://github.com/tyabu12/pastura" rel="noopener">GitHub</a>
+        </div>
+      </div>
+      <div class="foot-base">
+        <span class="foot-copy">© 2026 Pastura</span>
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <a lang="en" hreflang="en" href="../../../../docs/scenario/format/">EN</a>
+          <a lang="ja" hreflang="ja" aria-current="page" class="on" href="./">JA</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>

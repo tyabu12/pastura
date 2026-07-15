@@ -1,0 +1,60 @@
+# Coverage gate for the public scenario format spec (#1120).
+#
+# The in-app "Copy Gen Prompt" is compiler-gated (no-default switches over
+# PhaseType.allCases / ScoreCalcLogic.allCases in ScenarioGenerationPrompt). The
+# web `format.md` reference is a hand-authored Markdown twin the compiler cannot
+# gate, so this job is its projection gate: every PhaseType / ScoreCalcLogic
+# rawValue must appear as a backtick token in both locale Markdown sources. A new
+# phase type therefore fails here until it lands in the public reference too.
+#
+# Fires on the enum files OR the Markdown OR the checker — either side of the
+# projection changing must re-run the check. Runs on ubuntu (pure python3, no
+# Xcode, no npm; ~seconds). The git pre-commit hook runs the same check locally
+# via scripts/scenario-format-coverage-precommit-gate.sh (defense in depth).
+#
+# Trigger-level `paths:` is safe here: this workflow does not (yet) own a
+# required status check, so the "pending required check" trap in
+# .claude/rules/ci-workflows.md does not apply.
+
+name: Scenario Format Coverage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Pastura/Pastura/Models/PhaseType.swift'
+      - 'Pastura/Pastura/Models/ScoreCalcLogic.swift'
+      - 'web/src/content/scenario-format.en.md'
+      - 'web/src/content/scenario-format.ja.md'
+      - 'scripts/check-scenario-format-coverage.py'
+      - '.github/workflows/scenario-format-coverage.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Pastura/Pastura/Models/PhaseType.swift'
+      - 'Pastura/Pastura/Models/ScoreCalcLogic.swift'
+      - 'web/src/content/scenario-format.en.md'
+      - 'web/src/content/scenario-format.ja.md'
+      - 'scripts/check-scenario-format-coverage.py'
+      - '.github/workflows/scenario-format-coverage.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scenario-format-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Validate the checker (self-test)
+        run: python3 scripts/check-scenario-format-coverage.py --self-test
+
+      - name: Assert format spec covers every DSL enum case
+        run: python3 scripts/check-scenario-format-coverage.py --check
