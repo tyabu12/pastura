@@ -3,9 +3,9 @@ import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { Content } from '../../../../content/scenario-format.ja.md';
 // JA mirror of /docs/scenario/format/ (#1120). 本文は
 // web/src/content/scenario-format.ja.md に一度だけ書き、ここで HTML として
-// レンダリングする。兄弟の format.md.ts が同じファイルを
-// /ja/docs/scenario/format.md として raw 配信する (アプリ内「Copy Gen Prompt」
-// が指す LLM 向けソース)。Markdown を 1 本にして HTML と raw のドリフトを防ぐ。
+// レンダリングする。raw Markdown 配信は EN 版 (/docs/scenario/format.md) のみ。
+// アプリ内「Copy Gen Prompt」が指す LLM 向けソースは EN で足りるため、JA の
+// raw エンドポイントは置かない (#1124)。
 //
 // フェーズ／ロジックの表は正典 Swift enum (Models/PhaseType.swift,
 // Models/ScoreCalcLogic.swift) の人間向けミラー。CI + pre-commit の grep ゲートが
