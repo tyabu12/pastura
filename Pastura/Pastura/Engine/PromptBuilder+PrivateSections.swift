@@ -41,5 +41,17 @@ nonisolated extension PromptBuilder {
         en: "## Your Read on the Others (invisible to other participants)")
       sections.append("\(header)\n\(relationships)")
     }
+
+    // Mood is placed LAST (#913): a transient emotional state carried from the
+    // prior turn, positioned nearest the answer rules for recency, and (unlike
+    // notes/whispers/relationships) surfaced in EVERY phase so the inertia
+    // survives intervening vote/choose phases up to the next speak.
+    if let mood = state.variables["mood_\(persona.name)"], !mood.isEmpty {
+      let header = pickLanguage(
+        language,
+        ja: "## あなたの今の気分",
+        en: "## Your Current Mood")
+      sections.append("\(header)\n\(mood)")
+    }
   }
 }
