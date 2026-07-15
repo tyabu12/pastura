@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-10T00:00:00Z",
+  "updated_at": "2026-07-15T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -900,6 +900,29 @@
       "yaml_url": "tsuhan_jiko_v1.yaml",
       "yaml_sha256": "4169cb7c5e3acfede82007dbf229fa8f68c466b0cbaa6db4973e52a2dff1de72",
       "added_at": "2026-07-10"
+    },
+    {
+      "id": "ijin_kaigi_v1",
+      "title": "偉人会議",
+      "category": "roleplay",
+      "description": "時代も国も超えて集った五人の偉人が、現代のお題「“進歩”を推し進めるべきか、立ち止まるべきか」を真剣に論じ合う。問いのソクラテス、好奇心のダ・ヴィンチ、警句のキュリー、啓蒙の福沢、大胆の龍馬——お題を替えれば何度でも表情を変える、偉人たちの白熱会議。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 25,
+      "agent_count": 5,
+      "rounds": 1,
+      "phases": [
+        "speak_each",
+        "reflect",
+        "speak_each",
+        "choose",
+        "speak_each",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "ijin_kaigi_v1.yaml",
+      "yaml_sha256": "d146928f67b73121f6965ea832d39f1ecb8c23c33a203ccd7a989718afd60687",
+      "added_at": "2026-07-15"
     }
   ]
 }
