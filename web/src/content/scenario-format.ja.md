@@ -12,22 +12,22 @@
 ## トップレベル構造
 
 ```yaml
-id: unique_snake_case_id      # required. Stable identifier, snake_case
-language: en                  # required. Authoring language: `ja` or `en`
-name: My Scenario             # required. Display title
-description: One-line summary  # required
-agents: 5                     # required. Number of agents, 2 to 10
-rounds: 3                     # required. Number of rounds, 1 to 30
-context: |                    # required. Shared briefing every agent sees
-  You are contestants in a game...
-personas:                     # required. One entry per agent (length == agents)
-  - name: Alex
-    description: A calm strategist who plans several moves ahead.
-  - name: Mia
-    description: An optimist who trusts people by default.
-phases:                       # required. The ordered list of what happens
+id: unique_snake_case_id      # 必須。安定した識別子（snake_case）
+language: ja                  # 必須。記述言語: `ja` または `en`
+name: わたしのシナリオ          # 必須。表示タイトル
+description: 一行の概要          # 必須
+agents: 5                     # 必須。エージェント数（2〜10）
+rounds: 3                     # 必須。ラウンド数（1〜30）
+context: |                    # 必須。全エージェントが見る共有の状況説明
+  あなたたちはあるゲームの参加者です...
+personas:                     # 必須。エージェント1体につき1エントリ（数は agents と一致）
+  - name: ユウキ
+    description: 数手先まで読む冷静な戦略家。
+  - name: ミア
+    description: 基本的に人を信じる楽天家。
+phases:                       # 必須。何が起きるかを順に並べたリスト
   - type: speak_all
-    prompt: What do you say to the group?
+    prompt: グループに向けて何を話しますか？
     output:
       statement: string
       inner_thought: string
@@ -92,10 +92,10 @@ phases:                       # required. The ordered list of what happens
 
 ```yaml
 - type: vote
-  prompt: Who do you suspect, and why?
+  prompt: 誰を、なぜ疑いますか？
   output:
-    vote: string      # canonical primary for `vote`
-    reason: string    # canonical private-thought for `vote`
+    vote: string      # `vote` の正式な主フィールド
+    reason: string    # `vote` の正式な内心フィールド
 ```
 
 内心フィールドは表示専用です。他のエージェントには見えないため、モデルが
@@ -135,7 +135,9 @@ phases:                       # required. The ordered list of what happens
 - `target`（`assign` 用）: `all` は全エージェントに同じ値を与え、
   `random_one` はランダムに選んだ 1 人のエージェントだけに値を与えます
   （ワードウルフ形式のゲームで少数派を決めるのに使います）。
-- `source`（`assign` 用）: 配分する値のリスト。空にはできません。
+- `source`（`assign` と `event_inject` 用）: 配分または注入する値を保持する
+  トップレベルのリストキー名。そのキー（例: `words:` や `topics:`）を必須の
+  トップレベルキーと並べて自分で追加します。空にはできません。
 - `rounds`（`speak_each` と `whisper` 用）: フェーズ内で何回の発話サブラウンドを
   行うか。
 - `logic`（`score_calc` 用）: 上記のスコアリングロジックのいずれか。
@@ -162,10 +164,10 @@ phases:                       # required. The ordered list of what happens
   if: current_round == total_rounds && max_score >= 10
   then:
     - type: summarize
-      template: "Final round. {vote_winner} is ahead."
+      template: "最終ラウンド。{vote_winner} がリードしています。"
   else:
     - type: speak_all
-      prompt: The game continues.
+      prompt: ゲームは続きます。
       output:
         statement: string
         inner_thought: string
@@ -203,43 +205,71 @@ phases:                       # required. The ordered list of what happens
 
 ## 完全な例
 
-Prisoner's Dilemma プリセットです。プロンプト文は簡潔さのために省略して
-あります。
+ワードウルフのプリセットです。ペルソナとプロンプト文は簡潔さのために省略しています。
 
 ```yaml
-id: prisoners_dilemma_en
-language: en
-name: Prisoner's Dilemma
-description: Five contestants weigh cooperation against betrayal.
+id: word_wolf
+language: ja
+name: ワードウルフ
+description: 全員にお題の単語が配られるが、1人だけ違う単語を持つ。少数派を会話から見抜く。
 agents: 5
-rounds: 3
+rounds: 1
 context: |
-  You are a contestant on the game show "Prisoner's Dilemma".
-  Against each opponent you choose to cooperate or betray.
-  Both cooperate scores 3 each. Betraying alone scores 5.
+  あなたはゲーム番組「ワードウルフ」の出場者です。
+  全員にお題の単語が配られていますが、1人だけ違う単語を持っています。
+  単語そのものは絶対に言わず、それを連想させる具体的な特徴を語ってください。
+  最後に投票で少数派（ウルフ）を当てます。
+words:                          # source から参照するカスタムなトップレベルリスト
+  - majority: りんご
+    minority: みかん
+mid_game_announcements:
+  - "📺 司会者: 残り時間わずか。的を絞っていきましょう。"
 personas:
-  - name: Alex
-    description: A calm strategist who computes the optimal move.
-  - name: Mia
-    description: An optimist who trusts people even after being burned.
-  # ...three more personas...
+  - name: ユウキ
+    description: 見た目や色から攻める冷静な観察者。
+  - name: サクラ
+    description: 味や食感を具体的に語る明るいおしゃべり。
+  # ...ほか3体のペルソナ...
 phases:
-  - type: speak_all
-    prompt: Address the group before the round.
+  - type: assign                # 1人だけに少数派の単語を配る
+    source: words
+    target: random_one
+  - type: speak_each
+    prompt: 単語そのものは言わずに、お題について話してください。
     output:
       statement: string
       inner_thought: string
-  - type: choose
-    prompt: For each opponent, cooperate or betray.
-    options:
-      - cooperate
-      - betray
-    pairing: round_robin
+    rounds: 2
+  - type: reflect
+    prompt: 誰が怪しいか、自分用のメモを更新してください。
     output:
-      action: string
-      inner_thought: string
+      note: string
+  - type: event_inject          # 番組アナウンスで途中に割り込むことがある
+    source: mid_game_announcements
+    probability: 0.5
+  - type: conditional
+    if: 'current_event != ""'
+    then:
+      - type: summarize
+        template: "{current_event}"
+  - type: narrate
+    narrator: 熱のこもった実況アナウンサー
+    prompt: 最も怪しい人物と決定的なズレを短く伝えてください。
+    max_sentences: 3
+  - type: vote
+    prompt: 特徴が他とズレている少数派（ウルフ）に投票してください。
+    output:
+      vote: string
+      reason: string
+  - type: eliminate
   - type: score_calc
-    logic: prisoners_dilemma
-  - type: summarize
-    template: "Round {current_round}: {scoreboard}"
+    logic: wordwolf_judge
+  - type: conditional           # 少数派を当てられたかで分岐する
+    if: "vote_winner == wolf_name"
+    then:
+      - type: summarize
+        template: "ウルフ発見。{wolf_name} が少数派でした。多数派の勝ちです。"
+    else:
+      - type: summarize
+        template: "ウルフ逃げ切り。少数派は {wolf_name} でしたが票は割れました。"
 ```
