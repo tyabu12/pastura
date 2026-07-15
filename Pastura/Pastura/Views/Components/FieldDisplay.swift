@@ -23,8 +23,13 @@ enum FieldDisplay {
   /// when `field` is not a canonical engine-recognized field.
   static func description(for field: String) -> String? {
     switch field {
+    // Phase-agnostic: speak statements enter the public conversation log,
+    // whisper statements stay private but are still shown in the UI — so the
+    // caption claims only the UI, not the log (which would be wrong for
+    // whisper). The public/private distinction is carried by the phase-type
+    // description under the picker.
     case "statement":
-      return String(localized: "The main spoken text. Shown in the UI and the conversation log.")
+      return String(localized: "The main spoken text, shown in the UI.")
     case "action":
       return String(localized: "The chosen value. Restricted to the phase's options.")
     case "vote":

@@ -1,11 +1,9 @@
 import SwiftUI
 
-// Output-fields section + per-phase canonical primary-field hint.
-// The hint surfaces the convention enforced by
-// `ScenarioValidator.validateForCommit` so curators discover the
-// canonical field name at compose time, not at Save. Split out from
-// `PhaseEditorSheet.swift` to keep that file under SwiftLint's
-// `file_length` limit.
+// Output-fields section: the field-name rows (each with an inline
+// FieldDisplay description + a canonical-role pill) and the add-field
+// control. Split out of `PhaseEditorSheet.swift` to keep that file under
+// SwiftLint's `file_length` limit.
 
 extension PhaseEditorSheet {
   var outputFieldsSection: some View {
@@ -26,9 +24,8 @@ extension PhaseEditorSheet {
             }
             .buttonStyle(.plain)
           }
-          // Inline caption so an author understands seeded fields like
-          // `inner_thought` / `reason` in place — the phase-scoped
-          // `canonicalFieldHint` footer only names the primary field.
+          // Inline caption (FieldDisplay SSOT) so an author understands
+          // seeded fields like `inner_thought` / `reason` in place.
           if let description = FieldDisplay.description(for: key) {
             Text(description)
               .font(.caption)
@@ -53,8 +50,6 @@ extension PhaseEditorSheet {
       }
     } header: {
       Text(String(localized: "Output Fields"))
-    } footer: {
-      canonicalFieldHint.map(Text.init)
     }
   }
 
@@ -77,35 +72,5 @@ extension PhaseEditorSheet {
       .padding(.vertical, 2)
       .background(tint.opacity(0.16), in: Capsule())
       .foregroundStyle(tint)
-  }
-
-  var canonicalFieldHint: String? {
-    switch phase.type {
-    case .speakAll, .speakEach:
-      return String(
-        localized:
-          "Use `statement` for the main spoken text. UI display and conversation log key on this field."
-      )
-    case .choose:
-      return String(
-        localized:
-          "Use `action` for the chosen value. It is restricted to the phase options."
-      )
-    case .vote:
-      return String(localized: "Use `vote` for the target name.")
-    case .reflect:
-      return String(
-        localized:
-          "Use `note` for the agent's private memo. This is the reflect phase's only output field."
-      )
-    case .whisper:
-      return String(
-        localized:
-          "Use `statement` for the whispered text. Whispers stay private to the pair and never enter the public conversation log."
-      )
-    case .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
-      .relationshipUpdate, .narrate:
-      return nil
-    }
   }
 }
