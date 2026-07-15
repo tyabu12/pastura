@@ -123,6 +123,7 @@ nonisolated struct ChooseHandler: PhaseHandler {
     promptBuilder.injectNotes(into: &variables, personaName: persona.name)
     promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
     promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
+    promptBuilder.injectMood(into: &variables, personaName: persona.name)
     let userPrompt = promptBuilder.expandTemplate(run.promptTemplate, variables: variables)
 
     // Construct per turn with the injected logger (stateless value — cheap).
@@ -149,6 +150,8 @@ nonisolated struct ChooseHandler: PhaseHandler {
     context.emitter(
       .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
     state.lastOutputs[persona.name] = output
+    promptBuilder.captureMood(
+      from: output, into: &state.variables, personaName: persona.name)
     return output
   }
 
@@ -173,6 +176,9 @@ nonisolated struct ChooseHandler: PhaseHandler {
       promptBuilder.injectAssigned(into: &variables, personaName: persona.name)
       promptBuilder.injectNotes(into: &variables, personaName: persona.name)
       promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
+      // executeIndividual omits injectWhispers (a real handler asymmetry), but
+      // mood is symmetric — surfaced in every LLM phase (like injectNotes).
+      promptBuilder.injectMood(into: &variables, personaName: persona.name)
       let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
       // Construct per run with the injected logger (stateless value — cheap).
@@ -200,6 +206,8 @@ nonisolated struct ChooseHandler: PhaseHandler {
         .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
 
       state.lastOutputs[persona.name] = output
+      promptBuilder.captureMood(
+        from: output, into: &state.variables, personaName: persona.name)
     }
   }
 

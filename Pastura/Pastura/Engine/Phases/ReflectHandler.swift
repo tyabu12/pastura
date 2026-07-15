@@ -69,6 +69,7 @@ nonisolated struct ReflectHandler: PhaseHandler {
     promptBuilder.injectNotes(into: &variables, personaName: persona.name)
     promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
     promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
+    promptBuilder.injectMood(into: &variables, personaName: persona.name)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
     guard
@@ -102,6 +103,9 @@ nonisolated struct ReflectHandler: PhaseHandler {
     if !note.isEmpty {
       state.variables["notes_\(persona.name)"] = note
     }
+    // Carry the agent's mood forward if this reflect phase opts into it (#913).
+    promptBuilder.captureMood(
+      from: output, into: &state.variables, personaName: persona.name)
 
     // Deliberately NOT appended to `conversationLog`: the note is private, so
     // other agents (whose prompts include the log) must never see it.

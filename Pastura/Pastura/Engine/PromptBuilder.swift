@@ -19,83 +19,6 @@ nonisolated struct PromptBuilder: Sendable {
     return result
   }
 
-  /// Injects the current speaker's `assign`-phase value under the canonical
-  /// `{assigned}` key and its backward-compat alias `{assigned_word}`.
-  ///
-  /// `AssignHandler` stores each agent's value under a per-persona key
-  /// `assigned_<name>`; this reads that back for the speaker so per-persona
-  /// prompt templates resolve (#890 — before this, `{assigned_word}` leaked
-  /// literally and Word Wolf's secret-word mechanic never worked).
-  ///
-  /// Missing assignment resolves to empty string (not a literal placeholder),
-  /// matching `EventInjectHandler`'s miss posture for assign-less scenarios.
-  ///
-  /// - Note: reads from the passed `variables` copy (seeded from
-  ///   `state.variables`), so a persona literally named `word` would produce
-  ///   key `assigned_word` that collides with this alias — the alias then
-  ///   reflects the current speaker's value, not that persona's assignment.
-  ///   Contrived and absent from all bundled presets; the `assigned_` prefix
-  ///   is effectively a reserved namespace.
-  func injectAssigned(into variables: inout [String: String], personaName: String) {
-    let mine = variables["assigned_\(personaName)"] ?? ""
-    variables["assigned"] = mine
-    variables["assigned_word"] = mine
-  }
-
-  /// Injects the current speaker's `reflect`-phase memo under the `{my_notes}`
-  /// key.
-  ///
-  /// ``ReflectHandler`` stores each agent's private note under a per-persona
-  /// key `notes_<name>` (#907); this reads that back for the speaker so custom
-  /// user-prompt templates can reference `{my_notes}`. The `notes_` prefix is a
-  /// reserved namespace, mirroring `assigned_` (see ``injectAssigned(into:personaName:)``).
-  ///
-  /// Missing note resolves to empty string (not a literal placeholder), matching
-  /// `injectAssigned`'s miss posture.
-  ///
-  /// - Note: the privacy guarantee covers the conversation-log, system-prompt,
-  ///   and `{my_notes}` paths. Raw `notes_<other>` keys remain resolvable by a
-  ///   template that hand-references them (`{notes_Bob}`) — same exposure as
-  ///   the `assigned_` namespace, accepted for pattern consistency.
-  func injectNotes(into variables: inout [String: String], personaName: String) {
-    variables["my_notes"] = variables["notes_\(personaName)"] ?? ""
-  }
-
-  /// Injects the current speaker's `whisper`-phase channel under the
-  /// `{my_whispers}` key.
-  ///
-  /// ``WhisperHandler`` stores each participant's private view of their pair's
-  /// exchange under a per-persona key `whispers_<name>` (#908); this reads that
-  /// back for the speaker so custom user-prompt templates can reference
-  /// `{my_whispers}`. The `whispers_` prefix is a reserved namespace, mirroring
-  /// `notes_` (see ``injectNotes(into:personaName:)``).
-  ///
-  /// Missing channel resolves to empty string (not a literal placeholder),
-  /// matching `injectNotes`'s miss posture.
-  ///
-  /// - Note: the privacy guarantee covers the conversation-log, system-prompt,
-  ///   and `{my_whispers}` paths. Raw `whispers_<other>` keys remain resolvable
-  ///   by a template that hand-references them (`{whispers_Bob}`) — same
-  ///   accepted residual exposure as the `notes_<name>` namespace, kept for
-  ///   pattern consistency.
-  func injectWhispers(into variables: inout [String: String], personaName: String) {
-    variables["my_whispers"] = variables["whispers_\(personaName)"] ?? ""
-  }
-
-  /// Injects the current speaker's `relationship_update` affinity summary under
-  /// the `{relationships}` key.
-  ///
-  /// ``RelationshipUpdateHandler`` stores each agent's prose read on the others
-  /// under a per-persona key `relationships_<name>` (#910); this reads that back
-  /// for the speaker so custom user-prompt templates can reference
-  /// `{relationships}`. The `relationships_` prefix is a reserved namespace,
-  /// mirroring `notes_` (see ``injectNotes(into:personaName:)``). Missing summary
-  /// resolves to empty string (not a literal placeholder), matching
-  /// `injectNotes`'s miss posture.
-  func injectRelationships(into variables: inout [String: String], personaName: String) {
-    variables["relationships"] = variables["relationships_\(personaName)"] ?? ""
-  }
-
   // MARK: - Scoreboard
 
   /// Serializes a score dictionary into a compact JSON-like string for template injection.
@@ -294,6 +217,12 @@ nonisolated struct PromptBuilder: Sendable {
       rules += voteCandidateRule(scenario: scenario, persona: persona, phase: phase, state: state)
     }
 
+    // Mood-opting phases (#913) get the mood-writing guidance. Gated on the
+    // schema, not the phase type — any LLM phase can declare `mood`.
+    if phase.outputSchemaKeys.contains("mood") {
+      rules += moodRule(language: language)
+    }
+
     return rules
   }
 
@@ -327,6 +256,24 @@ nonisolated struct PromptBuilder: Sendable {
       language,
       ja: "\n- メモ（note）は2文以内で簡潔に書くこと（長文・箇条書きの羅列は禁止）",
       en: "\n- Keep your note to at most 2 sentences (no long paragraphs or bullet lists).")
+  }
+
+  /// The #913 mood-writing guidance, appended only for phases that opt into a
+  /// `mood` output field (`buildAnswerRules` gates on the schema). A short-word
+  /// cap plus an explicit "change naturally, don't force-maintain or abruptly
+  /// reset" instruction is the primary lever against the two failure modes:
+  /// echo-fixation (the same mood every turn) and unmotivated slashing (random
+  /// flips unrelated to events). Keep ja/en scope-parallel; wording is
+  /// harness-A/B-tunable. The reserved-namespace inject/capture side lives in
+  /// `PromptBuilder+Injection.swift`.
+  private func moodRule(language: String) -> String {
+    pickLanguage(
+      language,
+      ja:
+        "\n- moodには今の気分を短い言葉で書くこと（例: わくわく、苛立ち、不安）。気分は出来事に応じて自然に変化してよく、無理に維持も急変もしないこと",
+      en:
+        "\n- Write your current mood in the mood field as a short phrase (e.g. excited, irritated, uneasy). Let it shift naturally with what happens — neither forced to stay the same nor snapped to something unrelated."
+    )
   }
 
   /// The #908 privacy guidance appended for `whisper` phases only. A whisper is

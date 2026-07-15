@@ -55,7 +55,7 @@ nonisolated public enum PlaceholderAvailability {
   public static func supplied(for phaseType: PhaseType, chooseRoundRobin: Bool) -> Set<String> {  // swiftlint:disable:this cyclomatic_complexity
     switch phaseType {
     case .speakAll, .speakEach, .reflect:
-      // SpeakAll/SpeakEach/Reflect handlers all call inject{Assigned,Notes,Whispers,Relationships}.
+      // SpeakAll/SpeakEach/Reflect handlers all call inject{Assigned,Notes,Whispers,Relationships,Mood}.
       return baseInjected.union(perPersonaInjected).union(whisperSelfInjected)
 
     case .vote:
@@ -70,7 +70,8 @@ nonisolated public enum PlaceholderAvailability {
           .union(["opponent_name"])
       }
       // executeIndividual omits injectWhispers (a real handler asymmetry) → no
-      // {my_whispers}, and never pairs so no {opponent_name}.
+      // {my_whispers}, and never pairs so no {opponent_name}. It DOES call
+      // injectMood, so {my_mood} rides in via perPersonaInjected.
       return baseInjected.union(perPersonaInjected)
 
     case .whisper:
@@ -141,12 +142,12 @@ nonisolated public enum PlaceholderAvailability {
     "scoreboard", "conversation_log", "current_round"
   ]
 
-  /// Per-persona tokens injected by `inject{Assigned,Notes,Relationships}` in
-  /// **every** LLM handler (including `choose` individual). Always written — so
-  /// present even when the producer hasn't run — but absent from
+  /// Per-persona tokens injected by `inject{Assigned,Notes,Relationships,Mood}`
+  /// in **every** LLM handler (including `choose` individual). Always written —
+  /// so present even when the producer hasn't run — but absent from
   /// `summarize`/code phases, which never call the inject* helpers (rule R12).
   static let perPersonaInjected: Set<String> = [
-    "assigned", "assigned_word", "my_notes", "relationships"
+    "assigned", "assigned_word", "my_notes", "relationships", "my_mood"
   ]
 
   /// The whisper-channel token injected by `injectWhispers` — every LLM handler
@@ -170,6 +171,7 @@ nonisolated public enum PlaceholderAvailability {
   /// explicitly instead of hiding it.
   static let tokensBeyondEngineSupplied: Set<String> = [
     "my_notes",  // reflect's channel — promote to engineSupplied when a bundled preset first references {my_notes}
+    "my_mood",  // mood inertia (#913) — promote to engineSupplied when a bundled preset first references {my_mood}
     "whisper_partner", "whisper_exchange",
     "agent1", "action1", "agent2", "action2", "score1", "score2"
   ]
@@ -206,6 +208,13 @@ nonisolated public enum PlaceholderAvailability {
     "my_whispers": [.whisper],
     "relationships": [.relationshipUpdate],
     "vote_results": [.vote],
-    "current_event": [.eventInject]
+    "current_event": [.eventInject],
+    // Over-approximation (#913): unlike every other entry — each with a single
+    // semantically-exact producer — mood can be declared in ANY LLM phase's
+    // output schema, and this phase-type-granular map cannot see per-scenario
+    // schema opt-in. Listing all six keeps R11's producer-gating honest (mood
+    // only resolves after some LLM phase ran) at the cost of lint precision; the
+    // miss→"" posture of `injectMood` makes that imprecision benign.
+    "my_mood": [.speakAll, .speakEach, .vote, .choose, .reflect, .whisper]
   ]
 }

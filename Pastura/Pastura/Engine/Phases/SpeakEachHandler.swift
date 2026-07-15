@@ -64,6 +64,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
     promptBuilder.injectNotes(into: &variables, personaName: persona.name)
     promptBuilder.injectWhispers(into: &variables, personaName: persona.name)
     promptBuilder.injectRelationships(into: &variables, personaName: persona.name)
+    promptBuilder.injectMood(into: &variables, personaName: persona.name)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
     guard
@@ -102,5 +103,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
       )
     )
     state.lastOutputs[persona.name] = output
+    promptBuilder.captureMood(
+      from: output, into: &state.variables, personaName: persona.name)
   }
 }

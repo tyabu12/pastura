@@ -76,6 +76,15 @@ nonisolated struct WhisperHandler: PhaseHandler {
         state.variables["whispers_\(second.name)"] =
           formatChannel(transcript, partner: first, language: language)
       }
+      // Persist each speaker's mood from this pair's exchange (#913). Iterating
+      // in transcript order gives last-write-wins per speaker across sub_rounds;
+      // the shared helper's non-empty guard skips a mood-less utterance so a
+      // prior round's mood isn't erased.
+      for utterance in transcript {
+        promptBuilder.captureMood(
+          from: TurnOutput(fields: ["mood": utterance.mood]),
+          into: &state.variables, personaName: utterance.name)
+      }
       pairIndex += 2
     }
 
@@ -112,12 +121,16 @@ nonisolated struct WhisperHandler: PhaseHandler {
         let out1 = try await whisperTurn(
           speaker: first, partner: second, transcript: transcript, run: run)
       else { break }
-      transcript.append(Utterance(name: first.name, statement: out1.statement ?? ""))
+      transcript.append(
+        Utterance(
+          name: first.name, statement: out1.statement ?? "", mood: out1.fields["mood"] ?? ""))
       guard
         let out2 = try await whisperTurn(
           speaker: second, partner: first, transcript: transcript, run: run)
       else { break }
-      transcript.append(Utterance(name: second.name, statement: out2.statement ?? ""))
+      transcript.append(
+        Utterance(
+          name: second.name, statement: out2.statement ?? "", mood: out2.fields["mood"] ?? ""))
     }
     return transcript
   }
@@ -145,6 +158,7 @@ nonisolated struct WhisperHandler: PhaseHandler {
     promptBuilder.injectNotes(into: &variables, personaName: speaker.name)
     promptBuilder.injectWhispers(into: &variables, personaName: speaker.name)
     promptBuilder.injectRelationships(into: &variables, personaName: speaker.name)
+    promptBuilder.injectMood(into: &variables, personaName: speaker.name)
     // ALWAYS append a partner-naming context block after expanding the user
     // template: the default template never names the partner, and a custom
     // author prompt may omit `{whisper_partner}` / `{whisper_exchange}`. The
@@ -195,6 +209,10 @@ nonisolated struct WhisperHandler: PhaseHandler {
   nonisolated private struct Utterance {
     let name: String
     let statement: String
+    // Carried so `execute` (where `state` is `inout`) can persist mood_<name>
+    // after the pair's exchange — `whisperTurn` reads a frozen state snapshot
+    // and cannot write it itself (#913). Empty when the phase doesn't opt in.
+    var mood: String = ""
   }
 
   /// Formats the exchange body one utterance per line, mirroring

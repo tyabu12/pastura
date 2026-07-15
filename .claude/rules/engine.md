@@ -93,6 +93,35 @@ while `reflect`/`whisper` are safe to interleave. The handler logs a
 `reflect`/`whisper`, it is NOT allowed inside `conditional` branches
 (validator rejection + `ConditionalHandler.subHandlers` omission).
 
+### `mood` output field — emotional inertia (opt-in, #913)
+
+`mood` is NOT a phase type — it is an **opt-in output field**: a scenario
+declares `mood: string` in any LLM phase's `output:` schema. The engine
+convention is "if a turn's `mood` is non-empty, carry it into the same
+agent's next prompt":
+
+- **Capture**: `PromptBuilder.captureMood` writes the non-empty value to the
+  reserved `mood_<name>` `state.variables` key (last-write-wins; non-empty
+  guard so a failed inference doesn't erase the prior mood — mirrors
+  `ReflectHandler`'s note save). Called from all six LLM handlers, including
+  `choose` individual; a no-op where the schema doesn't declare `mood`.
+- **Inject** (two paths, both self-only — an agent never sees another's mood):
+  `injectMood` surfaces `{my_mood}` (miss → `""`), and `appendPrivateSections`
+  emits a "Your Current Mood" section **placed last** (recency) and shown in
+  **every** phase so the inertia survives intervening vote/choose. Inject/capture
+  live in `PromptBuilder+Injection.swift`.
+- **`moodRule`** (short-word + natural-change guidance) is appended by
+  `buildAnswerRules` **only for phases that declare `mood`** — the primary lever
+  against echo-fixation and unmotivated slashing.
+- **Grammar stays structure-only**: `mood` is a plain `.string` field. Do NOT
+  enumerate mood values into the grammar (the CJK sampler-crash trap — see
+  § "Grammar must not enumerate values"). A UI-side loose keyword mapping is the
+  intended path if mood ever drives avatar expressions (a separate, post-Go issue).
+- `mood_<name>` is a doc-only reserved namespace (like `notes_`/`whispers_`);
+  `{my_mood}` is registered in `PlaceholderAvailability` (over-approximated to all
+  six LLM phases as producers). No bundled preset opts in yet — adoption + any UI
+  surfacing are gated on the #913 Go/No-Go.
+
 ### Adding a new `PhaseType`
 
 A new `PhaseType` case ripples to many sites in two classes: the Swift
