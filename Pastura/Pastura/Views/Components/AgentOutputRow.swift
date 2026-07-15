@@ -397,10 +397,19 @@ struct AgentOutputRow: View {
       // the name/phase baseline; pinned top-trailing where the name row's
       // trailing edge is empty (the `Spacer` above).
       .overlay(alignment: .topTrailing) {
-        if let onShareHighlight {
+        // Surface the share glyph only after THIS row's typewriter has fully
+        // settled (statement + any shown inner voice). Rendering it at commit —
+        // while the bubble is still typing — read as the button "popping in
+        // early" (the whole #1080 affordance appears the instant a row commits).
+        // Static / Results rows mount already at target, so it shows at once
+        // there. Fades in (see `.animation` below) rather than hard-popping.
+        if let onShareHighlight, revealHasSettled {
           shareButton(action: onShareHighlight)
+            .transition(.opacity)
         }
       }
+      .animation(
+        .easeOut(duration: Self.shareAffordanceFadeDuration), value: revealHasSettled)
     }
     // Layout-stability trio (applied unconditionally; see type doc-comment
     // §"Reflow-stable rendering"). Streaming growth re-runs the text
@@ -868,6 +877,27 @@ extension AgentOutputRow {
       showInnerThought: showInnerThought)
   }
 
+  /// Fade-in beat for the per-row share affordance once the reveal settles —
+  /// matches the Sim's completion-transition fade so the two read as one moment.
+  /// Code-review-gated timing token; pinned by `AgentOutputRowContractTests`.
+  static let shareAffordanceFadeDuration: Double = 0.35
+
+  /// Whether this row's typewriter has fully revealed its scheduled text
+  /// (`visibleChars` caught up to ``targetLength``). Gates the per-row share
+  /// glyph so it appears only after the bubble finishes typing, never
+  /// mid-reveal. Static / Results rows mount with `visibleChars == targetLength`
+  /// (nothing to animate), so this is `true` from the first render there — the
+  /// glyph is not withheld outside the live Sim.
+  var revealHasSettled: Bool {
+    Self.revealSettled(visibleChars: visibleChars, targetLength: targetLength)
+  }
+
+  /// Pure core of ``revealHasSettled`` (extracted for `AgentOutputRowContractTests`
+  /// per `.claude/rules/view-testing.md` — no host / `@State` needed).
+  static func revealSettled(visibleChars: Int, targetLength: Int) -> Bool {
+    visibleChars >= targetLength
+  }
+
   /// Pure form of ``targetLength`` over raw inputs, so `init` can size the
   /// reveal-handoff seed clamp before `self` is available (and the two can
   /// never drift — the instance property delegates here). Mirrors
@@ -922,11 +952,23 @@ extension AgentOutputRow {
   private func startAnimationIfNeeded() {
     let target = targetLength
     guard shouldAnimate, let cps = charsPerSecond, cps > 0 else {
-      // Not animating (non-latest row OR instant speed) — snap to full.
+      // Not animating (non-latest row OR instant speed) — snap to full. The row
+      // IS fully revealed at this instant, so signal completion too: the
+      // animated loop's `onRevealCompleted` (below) never runs on this path, and
+      // the completion chrome must not wait on a callback that will never come.
+      // Idempotent, and the SimulationView closure guards `if isLatest`, so a
+      // non-latest / history snap is a safe no-op.
       visibleChars = target
+      onRevealCompleted?()
       return
     }
-    if visibleChars >= target { return }  // already finished
+    if visibleChars >= target {
+      // Seeded already fully-revealed (e.g. a streamed prefix that covered the
+      // whole row by commit) — same reasoning as the snap branch: no loop runs,
+      // so signal completion here rather than never.
+      onRevealCompleted?()
+      return
+    }
 
     animationTask?.cancel()
     let delayNanos = UInt64(1_000_000_000.0 / cps)

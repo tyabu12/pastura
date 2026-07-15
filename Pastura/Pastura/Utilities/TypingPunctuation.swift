@@ -47,7 +47,11 @@ nonisolated let statementToThoughtPauseMs: Int = 300
 /// Mirrors `AgentOutputRow.startAnimationIfNeeded`'s loop **exactly**, reusing
 /// the same per-character ``punctuationPauseMs(after:)`` walk and the same
 /// ``statementToThoughtPauseMs`` boundary beat (not just the same constants),
-/// so the estimate and the animation cannot drift:
+/// so the estimate matches the loop's **ideal** per-tick timing (the formula,
+/// not the wall clock — real per-character `Task.sleep` scheduling overshoot
+/// still makes the on-screen reveal run slightly longer; a caller that must not
+/// act before the reveal *actually* ends waits on the completion signal, not
+/// this estimate):
 /// - `ceil(totalChars / cps * 1000)` base reveal time (one tick per grapheme),
 /// - plus `punctuationPauseMs` summed over every revealed character,
 /// - plus one `statementToThoughtPauseMs` beat iff **both** `primary` and
