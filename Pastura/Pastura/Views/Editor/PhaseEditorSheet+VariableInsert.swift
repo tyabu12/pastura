@@ -30,11 +30,19 @@ extension PhaseEditorSheet {
   /// caret), replacing any selected text, or appends it when `range` is `nil`
   /// (no known selection). Pure + `static` so it is unit-testable without the
   /// live `TextEditor`. Returns the new text.
+  ///
+  /// Defensive: also appends when `range` is out of bounds for `text` (a stale
+  /// selection whose `String.Index`es point into a since-mutated string), so a
+  /// future caller can't trap `replaceSubrange`. `String.Index` comparison is
+  /// offset-based and never traps, so the guard itself is safe to evaluate.
   static func inserting(
     token: String, into text: String, at range: Range<String.Index>?
   ) -> String {
     let braced = "{\(token)}"
-    guard let range else { return text + braced }
+    guard let range,
+      range.lowerBound >= text.startIndex,
+      range.upperBound <= text.endIndex
+    else { return text + braced }
     var result = text
     result.replaceSubrange(range, with: braced)
     return result

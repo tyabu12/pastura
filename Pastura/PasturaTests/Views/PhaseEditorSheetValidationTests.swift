@@ -198,6 +198,17 @@ struct PhaseEditorSheetValidationTests {
     #expect(result == "abc{current_round}")
   }
 
+  /// A stale selection — indices into a since-mutated (longer) string — is out
+  /// of bounds for the shorter current text, so `inserting` appends rather than
+  /// trapping `replaceSubrange`.
+  @Test func insertingWithOutOfBoundsRangeAppends() {
+    let stale = "abcdefgh"
+    let staleRange =
+      stale.index(stale.startIndex, offsetBy: 6)..<stale.index(stale.startIndex, offsetBy: 8)
+    let result = PhaseEditorSheet.inserting(token: "vote", into: "abc", at: staleRange)
+    #expect(result == "abc{vote}")
+  }
+
   // MARK: - max_sentences control logic (#881 Stage 2 PR-B)
 
   /// The control is shown for exactly the 7 LLM phases — the same set the R18
