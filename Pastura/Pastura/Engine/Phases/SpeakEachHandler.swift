@@ -67,6 +67,17 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
     promptBuilder.injectMood(into: &variables, personaName: persona.name)
     let userPrompt = promptBuilder.expandTemplate(promptTemplate, variables: variables)
 
+    let mainField = promptBuilder.getMainField(phase: context.phase)
+    // Anti-repetition seed (#1105): this agent's own most-recent statement,
+    // still in `lastOutputs` because it's overwritten only after this turn
+    // succeeds. Seeded into the DRY sampler (content-only, value text) so a
+    // token-level penalty spans the turn boundary — the register-dominant
+    // cross-round verbatim echo that prompt-side fixes couldn't suppress
+    // (#912 No-Go). Empty when there's no prior statement (first round).
+    let antiRepetitionSeeds = [state.lastOutputs[persona.name]?.fields[mainField]]
+      .compactMap { $0 }
+      .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
     guard
       let output = try await context.turnGate.attempt(
         agent: persona.name, phaseType: context.phase.type, emitter: context.emitter,
@@ -77,6 +88,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
             schema: OutputSchema.from(phase: context.phase),
             detector: context.detector,
             expectedLanguage: context.scenario.engineLanguage,
+            antiRepetitionSeeds: antiRepetitionSeeds,
             suspendController: context.suspendController,
             emitter: context.emitter
           )
@@ -93,8 +105,8 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
     context.emitter(
       .agentOutput(agent: persona.name, output: output, phaseType: context.phase.type))
 
-    // Accumulate conversation within sub-rounds
-    let mainField = promptBuilder.getMainField(phase: context.phase)
+    // Accumulate conversation within sub-rounds (`mainField` hoisted above
+    // for the anti-repetition seed).
     let content = output.fields[mainField] ?? ""
     state.conversationLog.append(
       ConversationEntry(

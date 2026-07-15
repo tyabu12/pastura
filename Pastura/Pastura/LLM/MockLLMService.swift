@@ -79,8 +79,11 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   public let backendIdentifier = "mock"
 
   public func generate(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> String {
+    // `antiRepetitionSeeds` is ignored: the mock replays scripted responses,
+    // so sampler-side repetition suppression (#1105) has nothing to act on.
     // Park on the block gate OUTSIDE the lock (can't `await` inside a
     // synchronous `withLock`). Disabled by default — a pure no-op for existing
     // tests. When armed, the run is held in-flight until unblock or
@@ -158,8 +161,10 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   ///   a single terminal chunk — same observable behaviour as the
   ///   protocol default wrap.
   public func generateStream(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    // `antiRepetitionSeeds` ignored — see the note on `generate(…)` above.
     AsyncThrowingStream { continuation in
       let task = Task { [weak self] in
         guard let self else {

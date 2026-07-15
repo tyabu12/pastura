@@ -444,9 +444,13 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // `schema` is accepted but unused in Item 2 — GBNF grammar wiring
   // lands with Item 4 (plumbed through `runGeneration` → `createSampler`).
   public func generate(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> String {
-    try await runGeneration(system: system, user: user, schema: schema).text
+    try await runGeneration(
+      system: system, user: user, schema: schema,
+      antiRepetitionSeeds: antiRepetitionSeeds
+    ).text
   }
 
 }
@@ -458,9 +462,12 @@ extension LlamaCppService {
   /// same inference path and returns the generated token count for tok/s
   /// throughput reporting.
   public func generateWithMetrics(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> GenerationResult {
-    try await runGeneration(system: system, user: user, schema: schema)
+    try await runGeneration(
+      system: system, user: user, schema: schema,
+      antiRepetitionSeeds: antiRepetitionSeeds)
   }
 
   /// Shared implementation for `generate` and `generateWithMetrics`.
@@ -471,11 +478,14 @@ extension LlamaCppService {
   /// `decodeFailureError` covers the narrow window where denial races the
   /// next iteration.
   ///
-  /// `schema` reaches here via `generate` / `generateWithMetrics`; it
-  /// is unused in Item 2 but kept in the signature so Item 4 can wire
-  /// `createSampler` without reshaping the call chain again.
+  /// `schema` reaches here via `generate` / `generateWithMetrics` and wires
+  /// the GBNF grammar through `prepareGeneration`. `antiRepetitionSeeds`
+  /// (#1105) rides the same path to `createSampler`, which seeds the DRY
+  /// sampler with them (content-only) so a token-level penalty spans the
+  /// turn boundary; `[]` disables it.
   fileprivate func runGeneration(  // swiftlint:disable:this function_body_length
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> GenerationResult {
     // Debug trace of generate() preconditions — kept at debug level so
     // load/reload race investigations can re-enable it without code edits.
@@ -520,9 +530,11 @@ extension LlamaCppService {
     // for the load-bearing precondition / sampler-ownership notes — issue #428).
     let prepared = try prepareGeneration(
       model: model, context: context,
-      system: system, user: user, schema: schema)
+      system: system, user: user, schema: schema,
+      antiRepetitionSeeds: antiRepetitionSeeds)
     defer { llama_sampler_free(prepared.handles.chain) }
     defer { prepared.handles.grammar.map { llama_sampler_free($0) } }
+    defer { prepared.handles.dry.map { llama_sampler_free($0) } }
     let vocab = prepared.vocab
     let handles = prepared.handles
 
@@ -679,13 +691,15 @@ extension LlamaCppService {
   ///   honored only after the wait completes — intentional; it preserves
   ///   the use-after-free guarantee on `_model` / `_context` (Issue #221).
   public func generateStream(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task {
         do {
           try await runStreamGeneration(
             system: system, user: user, schema: schema,
+            antiRepetitionSeeds: antiRepetitionSeeds,
             continuation: continuation)
           continuation.finish()
         } catch {
@@ -700,11 +714,13 @@ extension LlamaCppService {
   /// cancel, suspend, or inference failure. Caller wraps via
   /// `finish(throwing:)` so errors propagate through the async sequence.
   ///
-  /// `schema` reaches here via `generateStream`; it is unused in Item 2
-  /// but kept in the signature so Item 4 can wire `createSampler`
-  /// without reshaping the call chain again.
+  /// `schema` reaches here via `generateStream` and wires the GBNF grammar
+  /// through `prepareGeneration`. `antiRepetitionSeeds` (#1105) rides the same
+  /// path to `createSampler` for DRY seeding — this streaming path is the one
+  /// the Engine actually drives, so it is where the seeding takes effect.
   fileprivate func runStreamGeneration(  // swiftlint:disable:this function_body_length
     system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String],
     continuation: AsyncThrowingStream<LLMStreamChunk, Error>.Continuation
   ) async throws {
     try await throttleIfOverheating()
@@ -730,9 +746,11 @@ extension LlamaCppService {
     // a previous Critic Axis 3 flagged on the streaming path (issue #428).
     let prepared = try prepareGeneration(
       model: model, context: context,
-      system: system, user: user, schema: schema)
+      system: system, user: user, schema: schema,
+      antiRepetitionSeeds: antiRepetitionSeeds)
     defer { llama_sampler_free(prepared.handles.chain) }
     defer { prepared.handles.grammar.map { llama_sampler_free($0) } }
+    defer { prepared.handles.dry.map { llama_sampler_free($0) } }
     let vocab = prepared.vocab
     let handles = prepared.handles
 

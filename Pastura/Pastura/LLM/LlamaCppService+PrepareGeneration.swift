@@ -57,12 +57,13 @@ extension LlamaCppService {
   ///   prompt token count exceeds the context size; whatever
   ///   ``applyChatTemplate``, ``tokenize``, ``prefill``, or
   ///   ``createSampler`` throw.
-  func prepareGeneration(
+  func prepareGeneration(  // swiftlint:disable:this function_parameter_count
     model: OpaquePointer,
     context: OpaquePointer,
     system: String,
     user: String,
-    schema: OutputSchema?
+    schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) throws -> PreparedGeneration {
     let vocab = llama_model_get_vocab(model)
 
@@ -88,8 +89,10 @@ extension LlamaCppService {
 
     // Keep `createSampler` as the LAST step in this helper. The handles
     // are freed by the caller's `defer`s; any step added after this and
-    // before the return would leak the chain / grammar if it throws.
-    let handles = try createSampler(grammarString: grammarString, vocab: vocab)
+    // before the return would leak the chain / grammar / dry if it throws.
+    let handles = try createSampler(
+      grammarString: grammarString, vocab: vocab, model: model,
+      antiRepetitionSeeds: antiRepetitionSeeds)
 
     return PreparedGeneration(vocab: vocab, handles: handles)
   }

@@ -17,16 +17,28 @@ import os
 /// candidate at `-inf`, poisoning the softmax so the sampler picks a masked
 /// token (empty output at position 0).
 ///
-/// **Ownership**: both handles are caller-owned. Free `chain` **always**
-/// and `grammar` when non-nil. Freeing the chain does NOT free the
-/// split-out grammar — it is no longer a chain member, so llama.cpp's
-/// chain-free does not reach it.
+/// **Ownership**: all three handles are caller-owned. Free `chain` **always**,
+/// and `grammar` / `dry` when non-nil. Freeing the chain does NOT free the
+/// split-out grammar or dry handles — they are not chain members, so
+/// llama.cpp's chain-free does not reach them.
 nonisolated struct SamplerHandles {
   let chain: UnsafeMutablePointer<llama_sampler>
   /// `nil` when no schema was supplied (unconstrained generation). Present
   /// iff the caller's `candidates` scratch buffer is present — the two are
   /// wired from the same `schema != nil` condition and must not drift.
   let grammar: UnsafeMutablePointer<llama_sampler>?
+  /// DRY repetition sampler (#1105), seeded content-only with the agent's
+  /// own prior statement so a token-level penalty spans the turn boundary
+  /// (the chain's own `penalties` member resets per `generate()` and never
+  /// sees prior turns — a structural no-op for cross-turn echo). Held as a
+  /// SEPARATE handle (like `grammar`, not a chain member) so seeding it via
+  /// `llama_sampler_accept` does NOT feed the chain's `penalties` ring buffer
+  /// — that would silently blend a second penalty into an A/B arm. Also
+  /// `nil` unless a grammar is active: DRY is gated on `schema != nil` (same
+  /// condition as `grammar` / `candidates`), so the bundled no-grammar path
+  /// never carries it. Applied in ``fillApplyAndSelect`` and advanced in
+  /// ``acceptSampledToken``.
+  let dry: UnsafeMutablePointer<llama_sampler>?
 }
 
 extension LlamaCppService {
@@ -40,10 +52,19 @@ extension LlamaCppService {
   ///   - vocab: The model's vocabulary pointer. Required iff
   ///     `grammarString` is non-nil — the grammar parser needs it to
   ///     resolve token IDs.
+  ///   - model: The model pointer, used only to read `n_ctx_train` when
+  ///     building the DRY sampler (#1105). Optional; DRY is skipped when nil.
+  ///   - antiRepetitionSeeds: Prior text spans to seed the DRY sampler with
+  ///     (content-only — the value text, never JSON scaffold). Empty (or the
+  ///     `PASTURA_DRY_MULTIPLIER` env toggle unset) leaves DRY off, so the
+  ///     sampler is byte-for-byte the pre-#1105 configuration.
   ///
   /// **Chain order**: `penalties → top_k → top_p → temperature → dist`.
-  /// The grammar is applied outside the chain by `safeSample` (grammar-first
-  /// only on a resample), matching llama.cpp's `common_sampler_sample`.
+  /// The grammar and DRY are applied outside the chain by `safeSample`
+  /// (grammar-first only on a resample; DRY every pass), matching llama.cpp's
+  /// `common_sampler_sample`. DRY is a SOFT penalty (never `-inf`), so
+  /// applying it before top_k cannot manufacture the b8694 all-masked
+  /// degeneracy that motivated splitting the grammar out (#751).
   ///
   /// **Call sites**: both `runGeneration` (non-streaming) and
   /// `runStreamGeneration` (streaming) call this via `prepareGeneration`.
@@ -57,7 +78,9 @@ extension LlamaCppService {
   ///   a caller-side / builder bug; see ``LLMError/invalidGrammar``).
   func createSampler(
     grammarString: String? = nil,
-    vocab: OpaquePointer? = nil
+    vocab: OpaquePointer? = nil,
+    model: OpaquePointer? = nil,
+    antiRepetitionSeeds: [String] = []
   ) throws -> SamplerHandles {
     let sparams = llama_sampler_chain_default_params()
     guard let chain = llama_sampler_chain_init(sparams) else {
@@ -87,7 +110,12 @@ extension LlamaCppService {
       chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
 
     guard let grammarString else {
-      return SamplerHandles(chain: chain, grammar: nil)
+      // No grammar → no DRY (gated on `schema != nil`, mirroring
+      // `makeCandidateBuffer`). The bundled no-grammar path samples through
+      // `llama_sampler_sample`, which builds `cur_p` internally with no seam
+      // to apply a separate DRY handle — and no seeded caller reaches it
+      // (seeds flow only from schema-bearing LLM phases). See #1105.
+      return SamplerHandles(chain: chain, grammar: nil, dry: nil)
     }
     guard let vocab else {
       // Defensive: if the caller supplies grammar but forgets vocab, we
@@ -131,7 +159,12 @@ extension LlamaCppService {
         description: String(
           format: String(localized: "GBNF grammar parse failed: %@"), String(snippet)))
     }
-    return SamplerHandles(chain: chain, grammar: grammarSampler)
+    // DRY repetition sampler (#1105), built here so it shares the grammar's
+    // `schema != nil` gate. Off by default (env toggle unset / no seeds);
+    // when off, `dry` is nil and the sampler is the pre-#1105 configuration.
+    let drySampler = buildAndSeedDrySampler(
+      vocab: vocab, model: model, seeds: antiRepetitionSeeds)
+    return SamplerHandles(chain: chain, grammar: grammarSampler, dry: drySampler)
   }
 
   /// Allocate the reused per-generation candidate scratch buffer for the
