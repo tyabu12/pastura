@@ -55,6 +55,14 @@ struct PhaseEditorSheet: View {
   @State private var templateError: String?
   @State var conditionError: String?
 
+  // Selection bindings for the prompt / template editors, read by the
+  // variable-insert caret splice (`PhaseEditorSheet+VariableInsert`). Non-
+  // private so that sibling extension can reset them after an insert.
+  @State var promptSelection: TextSelection?
+  @State var templateSelection: TextSelection?
+  @State private var showPromptVariables = false
+  @State private var showTemplateVariables = false
+
   var body: some View {
     NavigationStack {
       Form {
@@ -190,22 +198,28 @@ struct PhaseEditorSheet: View {
 
   private var promptSection: some View {
     Section {
-      TextEditor(text: $phase.prompt)
+      TextEditor(text: $phase.prompt, selection: $promptSelection)
         .frame(minHeight: 88)
         .font(.body.monospaced())
     } header: {
       Text(String(localized: "Prompt"))
     } footer: {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(
-          String(format: String(localized: "Variables: %@"), Self.promptVariableHint(for: phase))
-        )
+      VStack(alignment: .leading, spacing: 6) {
+        Button {
+          showPromptVariables = true
+        } label: {
+          Label(String(localized: "Insert variable"), systemImage: "curlybraces")
+        }
         .font(.caption)
+        .buttonStyle(.borderless)
         if let promptError {
           Text(promptError)
             .font(.caption)
             .foregroundStyle(Color.danger)
         }
+      }
+      .sheet(isPresented: $showPromptVariables) {
+        variablePicker(for: phase, insert: insertPromptVariable)
       }
     }
   }
@@ -328,20 +342,28 @@ struct PhaseEditorSheet: View {
 
   private var summarizeSection: some View {
     Section {
-      TextEditor(text: $phase.template)
+      TextEditor(text: $phase.template, selection: $templateSelection)
         .frame(minHeight: 66)
         .font(.body.monospaced())
     } header: {
       Text(String(localized: "Template"))
     } footer: {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(String(localized: "Variables: {current_round}, {scoreboard}, {vote_results}"))
-          .font(.caption)
+      VStack(alignment: .leading, spacing: 6) {
+        Button {
+          showTemplateVariables = true
+        } label: {
+          Label(String(localized: "Insert variable"), systemImage: "curlybraces")
+        }
+        .font(.caption)
+        .buttonStyle(.borderless)
         if let templateError {
           Text(templateError)
             .font(.caption)
             .foregroundStyle(Color.danger)
         }
+      }
+      .sheet(isPresented: $showTemplateVariables) {
+        variablePicker(for: phase, insert: insertTemplateVariable)
       }
     }
   }
