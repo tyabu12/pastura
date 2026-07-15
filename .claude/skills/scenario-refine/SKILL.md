@@ -212,14 +212,12 @@ For each chosen baseline:
    *mechanics* (persona differentiation, output-field constraints, round/topic
    structure — see the PLAYBOOK), not just topic
    strings. Keep the inference estimate ≤ 50 (the wrapper hard-blocks > 100).
-   When varying `output` fields, keep the **canonical** names: primary =
-   `statement`/`action`/`vote`, private-thought = `reason` for `vote` and
-   `inner_thought` for `speak_all`/`speak_each`/`choose`. A choose/speak phase
-   with `reason` streams live but goes blank on the committed row (#760).
-   `reflect`'s primary is `note`; `whisper`'s primary is `statement` (+ optional
-   `inner_thought`), and its exchanges-per-pair use the phase-level `rounds:` key
-   (same as `speak_each`). Neither `reflect` nor `whisper` is allowed inside a
-   `conditional` branch. Full authoring detail: the factory SKILL.md Step 2.
+   When varying `output` fields, keep the canonical per-phase names from
+   `web/src/content/scenario-format.en.md` — the gate-enforced list (#1120).
+   Two traps that reference does not call out: a choose/speak phase with
+   `reason` streams live but goes blank on the committed row (#760), and neither
+   `reflect` nor `whisper` is allowed inside a `conditional` branch. Full
+   authoring detail: the factory SKILL.md Step 2.
    **This is the only YAML the skill writes, and it goes under
    `data/factory/` — never next to the baseline.**
 4. Run it (Step 2 shape, into `audit-runs/<DATE>/<id>__v2.jsonl`) and judge it
