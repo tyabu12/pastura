@@ -5244,6 +5244,16 @@
         }
       }
     },
+    "Primary" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主フィールド"
+          }
+        }
+      }
+    },
     "Privacy Policy" : {
       "localizations" : {
         "ja" : {
@@ -6686,6 +6696,46 @@
         }
       }
     },
+    "The agent's mood, carried into their next prompt (opt-in inertia)." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの気分。次回の自分のプロンプトに引き継がれる（opt-in の感情慣性）"
+          }
+        }
+      }
+    },
+    "The agent's private memo (reflect only). Never shown to others." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの内心メモ（reflect 専用）。他者には見えない"
+          }
+        }
+      }
+    },
+    "The agent's private thought. Shown as a thought bubble, never in the public log." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントの内心の思考。思考バブルで表示され、公開ログには残らない"
+          }
+        }
+      }
+    },
+    "The chosen value. Restricted to the phase's options." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択された値。フェーズの options に制限される"
+          }
+        }
+      }
+    },
     "The conversation log so far" : {
       "localizations" : {
         "ja" : {
@@ -6736,12 +6786,32 @@
         }
       }
     },
+    "The main spoken text. Shown in the UI and the conversation log." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発言の本文。UI と会話ログに表示される"
+          }
+        }
+      }
+    },
     "The most recent vote results" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "直近の投票結果"
+          }
+        }
+      }
+    },
+    "The name of the agent being voted for." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票先のエージェント名"
           }
         }
       }
@@ -6772,6 +6842,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "あらすじ"
+          }
+        }
+      }
+    },
+    "The private reason behind the vote." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投票の内心の理由"
           }
         }
       }
@@ -6982,6 +7062,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このシナリオの実行にはより新しいバージョンの Pastura が必要です。アプリを更新してください。"
+          }
+        }
+      }
+    },
+    "Thought" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内心"
           }
         }
       }

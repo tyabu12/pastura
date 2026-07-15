@@ -11,18 +11,29 @@ extension PhaseEditorSheet {
   var outputFieldsSection: some View {
     Section {
       ForEach(phase.outputFields.keys.sorted(), id: \.self) { key in
-        HStack {
-          Text(key)
-            .font(.body.monospaced())
-          Spacer()
-          Text(phase.outputFields[key] ?? "string")
-            .foregroundStyle(.secondary)
-          Button(role: .destructive) {
-            phase.outputFields.removeValue(forKey: key)
-          } label: {
-            Image(systemName: "minus.circle.fill")
+        VStack(alignment: .leading, spacing: 4) {
+          HStack {
+            Text(key)
+              .font(.body.monospaced())
+            fieldRolePill(for: key)
+            Spacer()
+            Text(phase.outputFields[key] ?? "string")
+              .foregroundStyle(.secondary)
+            Button(role: .destructive) {
+              phase.outputFields.removeValue(forKey: key)
+            } label: {
+              Image(systemName: "minus.circle.fill")
+            }
+            .buttonStyle(.plain)
           }
-          .buttonStyle(.plain)
+          // Inline caption so an author understands seeded fields like
+          // `inner_thought` / `reason` in place — the phase-scoped
+          // `canonicalFieldHint` footer only names the primary field.
+          if let description = FieldDisplay.description(for: key) {
+            Text(description)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
         }
       }
 
@@ -45,6 +56,27 @@ extension PhaseEditorSheet {
     } footer: {
       canonicalFieldHint.map(Text.init)
     }
+  }
+
+  /// A capsule tag marking the row's canonical role — primary field (moss) or
+  /// private-thought field (ink). Renders nothing for a custom / non-canonical
+  /// key (e.g. narrate, whose primary and thought fields are both nil).
+  @ViewBuilder
+  private func fieldRolePill(for key: String) -> some View {
+    if key == ScenarioConventions.primaryField(for: phase.type) {
+      fieldPill(String(localized: "Primary"), tint: Color.mossDark)
+    } else if key == ScenarioConventions.thoughtField(for: phase.type) {
+      fieldPill(String(localized: "Thought"), tint: Color.inkSecondary)
+    }
+  }
+
+  private func fieldPill(_ text: String, tint: Color) -> some View {
+    Text(text)
+      .font(.caption2.weight(.semibold))
+      .padding(.horizontal, 7)
+      .padding(.vertical, 2)
+      .background(tint.opacity(0.16), in: Capsule())
+      .foregroundStyle(tint)
   }
 
   var canonicalFieldHint: String? {
