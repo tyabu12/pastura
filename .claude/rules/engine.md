@@ -35,6 +35,7 @@ includes them.
 | conditional  | Control    | Branch on state DSL; nests sub-phases |
 | event_inject | Code       | Inject random extraData string into state.variables (#256) |
 | relationship_update | Code | Deterministic affinity matrix → `{relationships}` prompt injection, zero inference (#910) |
+| narrate      | LLM        | Commentator persona narrates the round highlight, one inference per round regardless of agent count; engine-fixed `{commentary}` output (#909) |
 
 `event_inject` is allowed inside `conditional` branches (consistent with
 assign / score_calc nesting) — `ConditionalHandler.subHandlers` includes
@@ -143,6 +144,9 @@ and the build fails:
 - `Views/Community/SharedScenarios/GalleryCatalogRow.swift` —
   `ScenarioSignaturePhase.init?(phaseRawValue:)` (signature-glyph decision;
   parse-then-exhaustive since ADR-022 PR-B).
+- `App/ScenarioGenerationPrompt.swift` — the `phaseDescription` no-default
+  switch that generates the "Copy Gen Prompt" phase list (#1120). Canonical
+  fields come from `ScenarioConventions`, so only the one-line description is new.
 - Test switches: `PasturaTests/Engine/PhaseDispatcherTests.swift`,
   `PasturaTests/Views/PhaseTypeLabelTests.swift`, and the
   `PhaseType.allCases.count` pin in `PasturaTests/Models/PhaseTypeTests.swift`.
@@ -176,6 +180,12 @@ neither compiler nor CI catches:
   and a branch-nested use passes every load gate then throws mid-run at dispatch
   (deferred failure). reflect / whisper / relationship_update / narrate all
   **reject** (#909); add a `ConditionalValidatorTests+<Phase>` test either way.
+- **Web format-spec coverage** — the public reference at
+  `web/src/content/scenario-format.{en,ja}.md` must list the new phase as a
+  backtick token, or `scripts/check-scenario-format-coverage.py` fails the
+  **"Scenario Format Coverage"** CI job and the local pre-commit sub-gate
+  (#1120). The same gate covers new `ScoreCalcLogic` cases. Add the phase to
+  both locale specs; the in-app prompt itself is compiler-caught (above).
 
 A new `SimulationEvent` the phase emits is a **separate**, compiler-caught cost
 axis — not a `PhaseType` touch point; see § "SimulationEvent & the projection
@@ -409,12 +419,13 @@ via a separate developer-only debug inspection UI (not the main simulation view)
 
 ## score_calc Built-in Logic
 
-MVP includes exactly 3 scoring logics:
+Built-in scoring logics (single source of truth: `Models/ScoreCalcLogic.swift`):
 - `prisoners_dilemma`: cooperate/cooperate=3,3 | cooperate/betray=0,5 | betray/betray=1,1
 - `vote_tally`: count votes per agent, add to scores
 - `wordwolf_judge`: check if most-voted matches the minority agent
+- `event_reactive`: reward agents whose last `choose` matched the injected event's favored action; needs a prior `event_inject` (#931)
 
-Custom logic is Phase 2 scope.
+Custom (author-supplied) logic is Phase 2 scope.
 
 ## SimulationEvent & the projection contract
 

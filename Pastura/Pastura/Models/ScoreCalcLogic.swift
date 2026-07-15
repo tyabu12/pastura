@@ -2,8 +2,10 @@ import Foundation
 
 /// Identifier for a built-in scoring logic used by `score_calc` phases.
 ///
-/// MVP includes exactly 3 scoring logics. The actual implementations
-/// live in `Engine/ScoringLogic/`. Custom logic is Phase 2 scope.
+/// The actual implementations live in `Engine/ScoringLogic/`. Custom
+/// (author-supplied) logic is Phase 2 scope. This enum is the single source of
+/// truth for the built-in set; the web format spec is grep-gated against it
+/// (`scripts/check-scenario-format-coverage.py`).
 nonisolated public enum ScoreCalcLogic: String, Codable, Sendable, CaseIterable {
   /// Prisoner's dilemma payoff matrix.
   /// cooperate/cooperate = 3,3 | cooperate/betray = 0,5 | betray/betray = 1,1
