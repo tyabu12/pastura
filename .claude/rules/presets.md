@@ -91,6 +91,6 @@ direct attack).
 events, hard-binary choices, non-mappable persona values — not goal prose or "be
 dynamic" nudges. Wording-only levers move flavor, not action; confirmed by #911
 (framing > instruction), #957 (whisper pays off only where game structure fits it),
-#958 / #913 (goal/mood wording inert). This is *why* the subtract-by-default and
-scaffold-over-improv defaults above hold: the model rides structure, so give it
-structure, not more words.
+#958 / #913 (goal/mood wording inert). This is *why* the subtract-by-default
+default above holds: the model rides structure, so give it structure, not more
+words.
