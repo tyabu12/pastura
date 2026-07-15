@@ -26,6 +26,16 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
+  markdown: {
+    // Markdown code fences (the `<Content />`-rendered scenario-format pages)
+    // default to Shiki's `github-dark`, whose light tokens wash out on the
+    // light `--page` background the prose shell forces. Pin `github-light` so
+    // fences match the scenario guide, which highlights its YAML with an
+    // explicit `<Code theme="github-light">` (#1120 follow-up).
+    shikiConfig: {
+      theme: 'github-light',
+    },
+  },
   integrations: [
     sitemap({
       // Preserve the deliberately-minimal `<url><loc>…</loc></url>` form the
