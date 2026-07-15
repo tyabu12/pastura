@@ -66,6 +66,11 @@ struct ViewerPredictionPrompt: Identifiable {
 struct PredictionOutcome: Equatable, Sendable {
   let isHit: Bool
   let streak: Int
+  /// The ground-truth answer that was revealed — the wolf or the top
+  /// vote-getter. Carried so the share-highlight section (#1070 Stage 2) can
+  /// surface that agent's utterance as the 🎯 reveal candidate, regardless of
+  /// whether the viewer guessed correctly.
+  let actualAgent: String
 }
 
 /// ViewModel for the live simulation execution screen.
@@ -612,6 +617,43 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// appearances). Raw, not `validateAction`-coerced — see
   /// `ContradictionDetectionLogic`. Reset each round.
   private var chooseRawActions: [String: [String]] = [:]
+
+  // MARK: Share-highlight candidates (#1070 Stage 2)
+
+  /// Automatic share-highlight candidates for the end-of-run "Share a
+  /// highlight" section — derived, not stored. Projects the live transcript
+  /// to `HighlightCandidateLogic` descriptors (only entries whose primary
+  /// text is non-empty, so a shown card can never dead-tap the failable
+  /// `HighlightShareCard.Model` init), applies the two zero-inference signals
+  /// (contradiction badges, prediction reveal), and rehydrates the selected
+  /// ids back into full candidates carrying the filtered `TurnOutput`. Reads
+  /// only `@Observable` state (`logEntries`, `contradictionBadgedEntryIDs`,
+  /// `predictionOutcome`), so the View re-renders when the run completes.
+  var highlightCandidates: [HighlightCandidate] {
+    var descriptors: [HighlightCandidateLogic.Entry] = []
+    var entryByID: [UUID: LogEntry] = [:]
+    for entry in logEntries {
+      guard case .agentOutput(let agent, let output, let phaseType) = entry.kind,
+        let primary = output.primaryText(for: phaseType), !primary.isEmpty
+      else { continue }
+      descriptors.append(
+        HighlightCandidateLogic.Entry(
+          id: entry.id, agent: agent, phaseType: phaseType,
+          isContradiction: contradictionBadgedEntryIDs.contains(entry.id)))
+      entryByID[entry.id] = entry
+    }
+    let selections = HighlightCandidateLogic.candidates(
+      entries: descriptors, actualAgent: predictionOutcome?.actualAgent)
+    return selections.compactMap { selection in
+      guard
+        case .agentOutput(let agent, let output, let phaseType) =
+          entryByID[selection.id]?.kind
+      else { return nil }
+      return HighlightCandidate(
+        id: selection.id, agent: agent, output: output,
+        phaseType: phaseType, reason: selection.reason)
+    }
+  }
 
   #if DEBUG
     // Streaming-display diagnostic logger for #133 PR#4 device-run sessions.
@@ -2365,7 +2407,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       question: pending.question, predicted: pending.picked, actual: actual)
     predictionOutcome = PredictionOutcome(
       isHit: ViewerPredictionLogic.isHit(predicted: pending.picked, actual: actual),
-      streak: streak)
+      streak: streak,
+      actualAgent: actual)
   }
 
   /// Active (non-eliminated) agent names — the choosable roster. At the first
