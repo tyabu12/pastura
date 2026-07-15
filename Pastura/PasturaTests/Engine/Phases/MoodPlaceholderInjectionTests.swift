@@ -211,6 +211,36 @@ struct MoodPlaceholderInjectionTests {
     #expect(state.variables["mood_Bob"] == "angry")
   }
 
+  /// Privacy: an agent never sees another agent's mood. Alice's prompt must
+  /// carry her own mood and NOT Bob's — the injection is keyed by personaName,
+  /// but a regression anchor for the "self-only" guarantee (mirrors the
+  /// notes/whispers privacy posture).
+  @Test func agentNeverSeesAnotherAgentsMood() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "a", "mood": "x"}"#, #"{"statement": "b", "mood": "y"}"#
+    ])
+    try await mock.loadModel()
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      phases: [
+        Phase(
+          type: .speakAll, prompt: Self.template,
+          outputSchema: ["statement": "string", "mood": "string"])
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    state.variables["mood_Alice"] = "MOOD_ALICE"
+    state.variables["mood_Bob"] = "MOOD_BOB"
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: EventCollector())
+
+    try await SpeakAllHandler().execute(context: context, state: &state)
+
+    let alicePrompt = mock.capturedPrompts[0].user + mock.capturedPrompts[0].system
+    #expect(alicePrompt.contains("MOOD_ALICE"))
+    #expect(!alicePrompt.contains("MOOD_BOB"))
+  }
+
   /// No prior mood → `{my_mood}` resolves to empty string, never a literal
   /// leak (matches the injectAssigned miss posture).
   @Test func missingMoodResolvesToEmptyNotLiteral() async throws {
