@@ -923,6 +923,29 @@
       "yaml_url": "ijin_kaigi_v1.yaml",
       "yaml_sha256": "d146928f67b73121f6965ea832d39f1ecb8c23c33a203ccd7a989718afd60687",
       "added_at": "2026-07-15"
+    },
+    {
+      "id": "ijin_kaigi_v1_en",
+      "title": "The Council of Great Minds",
+      "category": "roleplay",
+      "description": "Five who carved their names into history debate a modern question in earnest. Socrates' questions, da Vinci's curiosity, Curie's quiet warning, Fukuzawa's enlightenment, Ryoma's daring — tonight's motion: should we press \"progress\" onward, or pause? Swap the topic and the council wears a new face every time.",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 25,
+      "agent_count": 5,
+      "rounds": 1,
+      "phases": [
+        "speak_each",
+        "reflect",
+        "speak_each",
+        "choose",
+        "speak_each",
+        "summarize"
+      ],
+      "language": "en",
+      "yaml_url": "ijin_kaigi_v1_en.yaml",
+      "yaml_sha256": "c18c31b73f854beb7828211c20aa7e1e243a1adba7c1b56f292fc541799669f2",
+      "added_at": "2026-07-15"
     }
   ]
 }
