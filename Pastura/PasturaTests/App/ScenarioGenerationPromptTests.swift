@@ -37,6 +37,16 @@ struct ScenarioGenerationPromptTests {
     }
   }
 
+  @Test func mentionsCanonicalThoughtFields() {
+    let text = ScenarioGenerationPrompt.text
+    for phase in PhaseType.allCases {
+      guard let thought = ScenarioConventions.thoughtField(for: phase) else { continue }
+      #expect(
+        text.contains(thought),
+        "gen prompt is missing canonical thought field \(thought) for \(phase.rawValue)")
+    }
+  }
+
   @Test func referencesFullFormatSpec() {
     #expect(ScenarioGenerationPrompt.text.contains("pastura.app/docs/scenario/format.md"))
   }

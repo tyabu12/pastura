@@ -97,12 +97,13 @@ nonisolated enum ScenarioGenerationPrompt {
       }
       return " (output: \(primary))"
     }
-    // narrate is an LLM phase whose output shape is engine-fixed (no author
-    // `output:` block); every other fieldless phase is a code phase.
-    if phase == .narrate {
-      return " (LLM; engine-fixed output, declare no output block)"
-    }
-    return " (code phase, no output block)"
+    // No canonical author field. An LLM phase here (narrate today) has an
+    // engine-fixed output shape and declares no author `output:` block; a
+    // non-LLM phase is a code phase. Deriving from `requiresLLM` (not a
+    // hardcoded `.narrate`) keeps a future engine-fixed LLM phase correct.
+    return phase.requiresLLM
+      ? " (LLM; engine-fixed output, declare no output block)"
+      : " (code phase, no output block)"
   }
 
   // Pure name-mapping switch (one line per phase type). The 14-case count
