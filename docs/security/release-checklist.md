@@ -201,6 +201,31 @@ gh api repos/tyabu12/pastura/secret-scanning/alerts \
 Should return an empty array. Investigate any non-empty result the same
 day.
 
+### 3.4 Minor-safety / age-assurance legislation watch
+
+State App Store Accountability Acts (ASAAs) impose age verification and
+parental-consent duties. These are **marketplace-side** obligations — Apple
+and Google verify age at account creation and expose only an age *bracket* to
+developers via Apple's Declared Age Range API (under 13 / 13–15 / 16–17 /
+18+) — **not** App Review submission gates. No action is required to submit a
+build; track them because a live ASAA can change what a minor may download or
+purchase in that state, and a future Pastura feature may need the Declared Age
+Range API.
+
+Status as of 2026-07 (re-verify the current effective date before any
+public-release decision — every date below has already slipped once):
+
+| State | Law | Status |
+|-------|-----|--------|
+| Texas | SB 2420 | **Live** — effective 2026-06-04; SCOTUS declined to block (2026-07) |
+| Utah | ASAA | Effective 2027-05-07 (delayed from 2026-05-06) |
+| Louisiana | ASAA | Effective 2027-07-01 (delayed from 2026-07-01; HB 977 signed 2026-05-15) |
+| Alabama | ASAA | Effective 2027-01-01; existing-account verification by 2027-10-01 |
+
+At each public release, confirm whether Pastura's distribution footprint
+touches these states and whether any Declared Age Range integration is
+required.
+
 ---
 
 ## 4. Release execution (TestFlight)
