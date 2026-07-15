@@ -1,0 +1,239 @@
+# Pastura scenario format reference
+
+This page is the complete reference for the YAML format Pastura scenarios use.
+It is written for both people and language models. If you are asking an LLM to
+draft a scenario, you can point it at the raw Markdown version of this page at
+`https://pastura.app/docs/scenario/format.md`.
+
+A scenario is a single YAML file. Pastura runs it by having a local LLM play
+each agent, round by round, following the phases you declare. Nothing in a
+scenario is sent to a server.
+
+## Top-level structure
+
+```yaml
+id: unique_snake_case_id      # required. Stable identifier, snake_case
+language: en                  # required. Authoring language: `ja` or `en`
+name: My Scenario             # required. Display title
+description: One-line summary  # required
+agents: 5                     # required. Number of agents, 2 to 10
+rounds: 3                     # required. Number of rounds, 1 to 30
+context: |                    # required. Shared briefing every agent sees
+  You are contestants in a game...
+personas:                     # required. One entry per agent (length == agents)
+  - name: Alex
+    description: A calm strategist who plans several moves ahead.
+  - name: Mia
+    description: An optimist who trusts people by default.
+phases:                       # required. The ordered list of what happens
+  - type: speak_all
+    prompt: What do you say to the group?
+    output:
+      statement: string
+      inner_thought: string
+```
+
+Write every human-facing string (`name`, `description`, `context`, each
+`prompt`, each `template`, and every persona `name` / `description`) in the
+language named by `language`. That value drives how the engine prompts the
+model.
+
+Optional top-level keys:
+
+- `simulation_language` sets the language the agents speak when it differs from
+  the authoring language. Omit it to speak in `language`.
+- `log_window` sets how many recent conversation entries each prompt carries.
+  It must be at least the agent count when a `speak_each` phase is present, or
+  earlier speakers in the same round drop out of later prompts.
+
+Do not add a top-level `min_engine_version` key. It is not part of the scenario
+YAML schema, and a bare integer value fails to load. Compatibility is handled
+by the gallery index, not by the scenario file.
+
+## Phases
+
+Phases run top to bottom, once per round. There are two families.
+
+**LLM phases** run one model inference per agent (or one per round for
+`narrate`). Each declares an `output` block naming the fields the model fills
+in.
+
+| Phase | What it does | Primary field | Private-thought field |
+|-------|--------------|---------------|-----------------------|
+| `speak_all` | Every agent addresses the group at once | `statement` | `inner_thought` |
+| `speak_each` | Agents speak one at a time, each seeing the last | `statement` | `inner_thought` |
+| `vote` | Each agent names another agent | `vote` | `reason` |
+| `choose` | Each agent picks from declared `options` | `action` | `inner_thought` |
+| `reflect` | Each agent privately updates a short note | `note` | (none) |
+| `whisper` | Pairs of agents exchange a private line | `statement` | `inner_thought` |
+| `narrate` | A commentator narrates the round highlight | (engine-fixed) | (none) |
+
+**Code phases** run deterministically with no model call, so they declare no
+`output` block.
+
+| Phase | What it does |
+|-------|--------------|
+| `score_calc` | Applies a built-in scoring `logic` to update scores |
+| `assign` | Distributes values from a `source` list to agents |
+| `eliminate` | Removes the most-voted agent from later rounds |
+| `summarize` | Emits a recap line from a `template` string |
+| `conditional` | Runs one branch of sub-phases based on an `if` expression |
+| `event_inject` | Injects a random event string into the run state |
+| `relationship_update` | Updates an affinity matrix from vote and choose history |
+
+### Output fields and canonical names
+
+The `output` block names are not free-form. Each LLM phase has one canonical
+primary field and, for most, one canonical private-thought field, shown in the
+table above. Use those exact names. A scenario that saves with a different name
+(for example `message` instead of `statement`) is rejected when you commit it in
+the editor.
+
+```yaml
+- type: vote
+  prompt: Who do you suspect, and why?
+  output:
+    vote: string      # canonical primary for `vote`
+    reason: string    # canonical private-thought for `vote`
+```
+
+The private-thought field is display-only. Other agents never see it, so it is
+where a model can reason honestly before it speaks.
+
+Two rules on the names themselves:
+
+- Field names must be ASCII letters, digits, and underscores, starting with a
+  letter. A non-ASCII field name can crash on-device inference. Field *values*
+  may be any language.
+- `narrate` is special. Its output shape is fixed by the engine, so a `narrate`
+  phase declares no `output` block at all.
+
+## Scoring logics
+
+A `score_calc` phase names one built-in `logic`:
+
+| Logic | What it rewards |
+|-------|-----------------|
+| `prisoners_dilemma` | The cooperate / betray payoff matrix, per pairing |
+| `vote_tally` | One point per vote received |
+| `wordwolf_judge` | Whether the group voted out the odd-one-out |
+| `event_reactive` | Agents whose last `choose` matched the injected event |
+
+Each logic expects specific phases earlier in the round. See the pitfalls
+section below.
+
+## Phase field reference
+
+Fields you can set on a phase, beyond `type`, `prompt`, and `output`:
+
+- `options` (for `choose`): the list the action must come from. Without it, the
+  action is unconstrained free text.
+- `pairing` (for `choose` and some scoring): `round_robin` pairs every agent
+  with every other, `individual` gives each agent an independent decision.
+- `target` (for `assign`): `all` gives every agent the same value, `random_one`
+  gives a single random agent the value (used for the odd-one-out in word-wolf
+  style games).
+- `source` (for `assign`): the list of values to distribute. It must be
+  non-empty.
+- `rounds` (for `speak_each` and `whisper`): how many sub-rounds of speaking
+  happen within the phase.
+- `logic` (for `score_calc`): one of the scoring logics above.
+- `template` (for `summarize`): the recap string, which may contain `{...}`
+  placeholders such as `{scoreboard}` or `{current_round}`.
+- `if`, `then`, `else` (for `conditional`): a condition expression and the
+  sub-phase lists for each branch.
+- `probability`, `as`, `no_repeat` (for `event_inject`): the chance of firing,
+  the variable name the event is stored under (default `current_event`), and
+  whether to avoid repeating a previous event.
+- `narrator` (for `narrate`): the persona that delivers the commentary.
+- `mood` is an optional private-thought output field you can add to any LLM
+  phase to let a model carry emotional momentum between rounds.
+- `max_sentences` caps a spoken phase's length. It only affects LLM phases.
+
+## Condition expressions
+
+A `conditional` phase branches on an `if` expression. Expressions combine
+comparisons with `&&`, `||`, and parentheses.
+
+```yaml
+- type: conditional
+  if: current_round == total_rounds && max_score >= 10
+  then:
+    - type: summarize
+      template: "Final round. {vote_winner} is ahead."
+  else:
+    - type: speak_all
+      prompt: The game continues.
+      output:
+        statement: string
+        inner_thought: string
+```
+
+Comparison operators are `==`, `!=`, `<`, `<=`, `>`, `>=`. Variables you can
+reference include `current_round`, `total_rounds`, `max_score`, `min_score`,
+`eliminated_count`, `active_count`, `vote_winner`, and `scores.<Name>` for a
+named agent.
+
+**Quote string values with double quotes.** `name == "Alex"` compares against
+the text `Alex`. A single-quoted `'Alex'` is read as an undefined identifier, so
+the comparison is always false and the branch silently never runs.
+
+## Common pitfalls
+
+These are silent no-ops. The scenario loads, but a phase does nothing useful
+because a dependency is missing or misplaced. The in-app editor flags the
+blocking ones, but it is easier to get them right the first time.
+
+- `eliminate` needs a `vote` earlier in the same round. Without it, there is no
+  tally to eliminate from.
+- `prisoners_dilemma` needs a `round_robin` `choose` phase before it, which is
+  what creates the pairings it scores.
+- `wordwolf_judge` needs both an `assign` with `target: random_one` (to pick the
+  odd-one-out) and a `vote` before it.
+- `event_reactive` needs an `event_inject` before it, storing the event under a
+  variable the scoring reads.
+- `assign` needs a non-empty `source`. An empty list distributes nothing.
+- In a condition, compare text with double quotes, and make sure a bare word on
+  either side of `==` is a real variable, not a persona name you meant to quote.
+
+## A complete example
+
+The Prisoner's Dilemma preset, with prompt text trimmed for brevity:
+
+```yaml
+id: prisoners_dilemma_en
+language: en
+name: Prisoner's Dilemma
+description: Five contestants weigh cooperation against betrayal.
+agents: 5
+rounds: 3
+context: |
+  You are a contestant on the game show "Prisoner's Dilemma".
+  Against each opponent you choose to cooperate or betray.
+  Both cooperate scores 3 each. Betraying alone scores 5.
+personas:
+  - name: Alex
+    description: A calm strategist who computes the optimal move.
+  - name: Mia
+    description: An optimist who trusts people even after being burned.
+  # ...three more personas...
+phases:
+  - type: speak_all
+    prompt: Address the group before the round.
+    output:
+      statement: string
+      inner_thought: string
+  - type: choose
+    prompt: For each opponent, cooperate or betray.
+    options:
+      - cooperate
+      - betray
+    pairing: round_robin
+    output:
+      action: string
+      inner_thought: string
+  - type: score_calc
+    logic: prisoners_dilemma
+  - type: summarize
+    template: "Round {current_round}: {scoreboard}"
+```
