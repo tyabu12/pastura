@@ -28,13 +28,36 @@ nonisolated enum GalleryScenarioSearch {
     language: String?
   ) -> [GalleryScenario] {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-    return scenarios.filter { scenario in
+    let matched = scenarios.filter { scenario in
       if let category, scenario.category != category { return false }
       if let language, scenario.effectiveLanguage != language { return false }
       guard !trimmed.isEmpty else { return true }
       return scenario.title.localizedStandardContains(trimmed)
         || scenario.description.localizedStandardContains(trimmed)
     }
+    return matched.sorted(by: ordersBefore)
+  }
+
+  /// Total ordering for the Browse listing, applied after filtering (ADR-025):
+  ///
+  /// 1. Curator-pinned `featured` first, ascending rank (`nil` sorts **last** —
+  ///    an unpinned entry never outranks a pinned one).
+  /// 2. Then newest first by `added_at`. The field is a fixed-width
+  ///    `YYYY-MM-DD` string, so a raw **string** comparison is
+  ///    lexicographically == chronological — no `Date` parse (and no
+  ///    `ISO8601DateFormatter`, whose default expects a full timestamp and
+  ///    returns `nil` on a date-only value).
+  /// 3. Then `id` ascending as a stable tie-break — `id` is unique, so this
+  ///    makes the order total and deterministic (Swift's `sorted(by:)` is not
+  ///    guaranteed stable).
+  private static func ordersBefore(_ lhs: GalleryScenario, _ rhs: GalleryScenario) -> Bool {
+    // `nil` featured → sort last: map to `Int.max` so pinned ranks float up
+    // and today's all-`nil` corpus falls straight through to the date order.
+    let lRank = lhs.featured ?? Int.max
+    let rRank = rhs.featured ?? Int.max
+    if lRank != rRank { return lRank < rRank }
+    if lhs.addedAt != rhs.addedAt { return lhs.addedAt > rhs.addedAt }
+    return lhs.id < rhs.id
   }
 
   /// Why the filtered list came back empty — selects the empty-card copy.
