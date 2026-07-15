@@ -67,9 +67,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// (no scenario yet, or an unmatched name) simply doesn't present.
   @State private var selectedPersona: PersonaSheetItem?
   /// Drives the final-ranking card's animated insertion at run completion
-  /// (#868). Mirrors `viewModel.isCompleted`, but flipped inside `withAnimation`
-  /// so the card fades/slides in — `isCompleted` is set on the VM outside any
-  /// animation transaction, so gating the card on it directly would pop it in.
+  /// (#868). Mirrors `viewModel.isCompletionChromeReady` (run done AND the last
+  /// row's reveal settled), but flipped inside `withAnimation` so the card
+  /// fades/slides in — the VM signal is set outside any animation transaction,
+  /// so gating the card on it directly would pop it in.
   @State private var resultCardVisible = false
   @State private var loadError: String?
   @State private var exportPayload: ResultMarkdownExporter.ExportedResult?
@@ -556,6 +557,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
                 // eye settles on the line being revealed. Full opacity once the
                 // run ends. The latest .agentOutput stays current; see VM.
                 .opacity(viewModel.opacity(forEntryId: entry.id))
+                // Fade the per-speaker dim (1.0 → pastFocusOpacity) instead of a
+                // hard cut when the next speaker starts — the abrupt snap read as
+                // jarring. Scoped to `isRunning` so the whole-log opacity restore
+                // at completion (isRunning flips false in the same transaction
+                // that un-dims every past row) stays an instant snap, coinciding
+                // with the other completion chrome rather than cross-fading the
+                // log. Same beat as the result-card fade-in (`sharedFadeDuration`).
+                .animation(
+                  viewModel.isRunning
+                    ? .easeOut(duration: Self.sharedFadeDuration) : nil,
+                  value: viewModel.opacity(forEntryId: entry.id)
+                )
                 .id(entry.id)
             }
 
@@ -665,10 +678,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
         .onChange(of: viewModel.logEntries.count) { _, _ in
           scrollToBottom(proxy)
         }
-        .onChange(of: viewModel.isCompleted) { _, done in
-          // The no-drift completion path appends no logEntry (the count-driven
-          // scroll above never fires), so drive the closing card's animated
-          // reveal + a scroll here (#868).
+        .onChange(of: viewModel.isCompletionChromeReady) { _, ready in
+          // Reveal the closing card once the run has completed AND the final
+          // row's typewriter reveal has settled — gating on raw `isCompleted`
+          // popped the card in a beat before the last inner voice finished
+          // typing (`isCompleted` is set off a predicted hold that runs short of
+          // the on-screen reveal). Observe the DERIVED chrome-ready value, not
+          // raw `isCompleted` with a gated body: a body-only gate would write
+          // false and never re-fire when the reveal later settles, hiding the
+          // card permanently. The no-drift completion path appends no logEntry
+          // (the count-driven scroll never fires), so also drive the scroll here.
           //
           // Scroll in the animation-completion closure, NOT synchronously: the
           // result card, prediction badge, and share-highlight section (#1070
@@ -676,16 +695,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           // immediate `scrollToBottom` runs before they lay out and stops at
           // the result card — leaving the section below the fold (device-QA
           // #1108). Scrolling once the reveal settles lands on the true bottom.
-          withAnimation(.easeOut(duration: 0.35)) {
-            resultCardVisible = done
+          withAnimation(.easeOut(duration: Self.sharedFadeDuration)) {
+            resultCardVisible = ready
           } completion: {
-            if done { scrollToBottom(proxy) }
+            if ready { scrollToBottom(proxy) }
           }
         }
         .onAppear {
           // Mounting onto an already-completed run (no isCompleted transition
           // to observe) — show the card without the entrance animation.
-          if viewModel.isCompleted { resultCardVisible = true }
+          if viewModel.isCompletionChromeReady { resultCardVisible = true }
         }
         .onChange(of: viewModel.thinkingAgents) { _, _ in
           // New or cleared thinking agent — when the sentinel is currently
@@ -1246,6 +1265,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// Identifier for the invisible bottom sentinel used by auto-scroll.
   private static let bottomSentinelID = "pastura.simulation.log.bottom"
 
+  /// Shared fade duration for the completion transition — the result-card
+  /// fade-in and the past-utterance focus dim use the same beat so the moment
+  /// reads as one settle. Code-review-gated timing token (no automated firing
+  /// signal); pinned by `SimulationViewCompletionChromeTests`.
+  static let sharedFadeDuration: Double = 0.35
+
   private func scrollToBottom(_ proxy: ScrollViewProxy) {
     withAnimation {
       proxy.scrollTo(Self.bottomSentinelID, anchor: .bottom)
@@ -1254,7 +1279,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
 
   @ViewBuilder
   private func speedOrExportControl(viewModel: SimulationViewModel) -> some View {
-    if viewModel.isCompleted {
+    if viewModel.isCompletionChromeReady {
       Button {
         Task { await triggerExport(viewModel: viewModel) }
       } label: {
