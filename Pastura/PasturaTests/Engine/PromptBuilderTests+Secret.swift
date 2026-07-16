@@ -69,8 +69,11 @@ extension PromptBuilderTests {
     #expect(prompt.contains("You may reference it freely in your inner_thought"))
   }
 
-  @Test func systemPromptOmitsSecretSectionWhenNil() {
-    let prompt = systemPrompt(for: 2)  // Charlie has no secret
+  /// Charlie has no secret. Checked in both languages — asserting the EN header
+  /// is absent from a `ja` prompt would pass no matter what the code did.
+  @Test(arguments: ["ja", "en"])
+  func systemPromptOmitsSecretSectionWhenNil(_ language: String) {
+    let prompt = systemPrompt(for: 2, language: language)
     #expect(!prompt.contains("## あなたの秘密"))
     #expect(!prompt.contains("Your Secret"))
   }
@@ -128,7 +131,15 @@ extension PromptBuilderTests {
     #expect(secret.lowerBound < notes.lowerBound)
   }
 
-  // MARK: - Secrecy invariant (cross-agent negative)
+  // MARK: - Cross-agent structural invariant
+  //
+  // `appendSecretSection` takes a single `persona` and never reads
+  // `scenario.personas`, so today this holds by signature rather than by a
+  // guard — there is no fix line to revert. It is kept as a structural pin: it
+  // would catch a future refactor that renders a participant roster with
+  // per-persona fields into the system prompt. The load-bearing regression gate
+  // for the secrecy invariant is the handler-driven test in
+  // `SecrecyInvariantTests`, which drives the real user-prompt assembly.
 
   @Test func systemPromptNeverContainsAnotherAgentsSecret() {
     let alice = systemPrompt(for: 0)
@@ -140,31 +151,5 @@ extension PromptBuilderTests {
     let charlie = systemPrompt(for: 2)
     #expect(!charlie.contains(Self.aliceSecret))
     #expect(!charlie.contains(Self.bobSecret))
-  }
-
-  @Test func secretNeverReachesUserPromptTemplateExpansion() {
-    let scenario = makeSecretScenario()
-    var state = SimulationState.initial(for: scenario)
-    // A representative populated run state: another agent has spoken and the
-    // secret-bearing agent's own private channels are live.
-    state.conversationLog.append(
-      ConversationEntry(
-        agentName: "Alice", content: "I say nothing of consequence.", phaseType: .speakAll,
-        round: 1))
-    state.variables["notes_Alice"] = "Stay guarded."
-
-    var variables: [String: String] = [
-      "conversation_log": builder.formatConversationLog(
-        state.conversationLog, language: scenario.engineLanguage),
-      "scoreboard": builder.formatScoreboard(state.scores)
-    ]
-    builder.injectNotes(into: &variables, personaName: "Bob")
-
-    let expanded = builder.expandTemplate(
-      "Log: {conversation_log}\nScore: {scoreboard}\nNotes: {my_notes}", variables: variables)
-    // Neither agent's secret exists in any shared/user-prompt surface — the
-    // secret lives only in the owning agent's system prompt.
-    #expect(!expanded.contains(Self.aliceSecret))
-    #expect(!expanded.contains(Self.bobSecret))
   }
 }

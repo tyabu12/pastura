@@ -124,8 +124,28 @@ extension ScenarioYAMLPatcherTests {
     let visual = mutated(baseScenario, personas: personas)
     let out = patcher.patch(visual: visual, base: Self.secretBase)
 
+    // Byte-equality with the canonical serialize is what actually pins the
+    // fallback: the three assertions below hold equally if a future change
+    // handled removal with a format-preserving line-delete splice.
+    #expect(out == serializer.serialize(visual))
     #expect(!out.contains("She sold the house"))
     #expect(!out.contains("secret:"))
+    #expect(try loader.load(yaml: out) == visual)
+  }
+
+  /// The splice path renders through `YAMLScalarFormatter.quote`, so a secret
+  /// containing YAML-significant characters must survive it. `#` is the natural
+  /// adjacent case: `secretBase` puts a real inline comment on the same line.
+  @Test func secretContainingYAMLSignificantCharactersSurvivesPatch() throws {
+    let baseScenario = try loader.load(yaml: Self.secretBase)
+    let tricky = "She sold #3 Oak Street: the deed says so  # not a comment"
+    var personas = baseScenario.personas
+    personas[0] = Persona(
+      name: personas[0].name, description: personas[0].description, secret: tricky)
+    let visual = mutated(baseScenario, personas: personas)
+    let out = patcher.patch(visual: visual, base: Self.secretBase)
+
+    #expect(try loader.load(yaml: out).personas[0].secret == tricky)
     #expect(try loader.load(yaml: out) == visual)
   }
 }

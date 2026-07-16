@@ -217,6 +217,39 @@ extension ScenarioLoaderTests {
     #expect(try loader.load(yaml: yaml).personas[0].secret == "She sold the house")
   }
 
+  /// A bare `secret:` with no value is a plausible hand-authoring shape. Yams
+  /// yields NSNull, which fails `parseOptional<String>`'s cast — so it is a
+  /// type error, not a silent nil. Pinned so the behavior is a decision rather
+  /// than an accident.
+  @Test func bareSecretKeyWithNoValueIsATypeError() throws {
+    let yaml = """
+      id: t
+      language: ja
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+          secret:
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'secret'"))
+  }
+
   @Test func throwsOnWrongTypeForPersonaSecret() throws {
     let yaml = """
       id: t

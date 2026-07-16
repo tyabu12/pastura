@@ -84,6 +84,13 @@ struct PersonaDetailSheet: View {
   /// text" affordances read as one family; the tinted triangle carries the
   /// accent and the tag stays muted (moss-for-prefix / muted-for-body, per the
   /// design system).
+  ///
+  /// The family resemblance stops at the hit target: this uses a plain
+  /// `.frame(minHeight: 44)`, where `AgentOutputRow` needs the `+16 / -16`
+  /// negative-padding trick (a 44pt frame was tried and rolled back there in
+  /// #171 for inflating visible whitespace). Deliberate — a `.medium`-detent
+  /// sheet has no density pressure, so the plain frame buys the same HIG target
+  /// without that trick's load-bearing-comment tax. Do NOT "reconcile" the two.
   @ViewBuilder
   private func secretSection(_ secret: String) -> some View {
     VStack(alignment: .leading, spacing: 12) {

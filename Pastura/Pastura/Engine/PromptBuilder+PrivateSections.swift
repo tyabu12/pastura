@@ -20,6 +20,13 @@ nonisolated extension PromptBuilder {
   /// found a blanket "don't say it" wording also suppressed the inner monologue,
   /// which is the dramatic-irony payoff surface the secret should reach. Phases
   /// with no `inner_thought` field degrade gracefully (the license line is inert).
+  ///
+  /// `whisper` was considered and is covered: its canonical field is also
+  /// `statement`, so "anything the other participants can hear" forbids reveal
+  /// there too. But note the two rules pull opposite ways on a 2B-class model —
+  /// `whisperRule` tells the agent to be candid and strategic with its partner,
+  /// while this one forbids naming the secret. Field-test a secret × whisper
+  /// scenario before any preset ships both (#914 follow-up).
   func appendSecretSection(to sections: inout [String], persona: Persona, language: String) {
     // Non-nil implies non-empty (every ingest path normalizes empty → nil).
     guard let secret = persona.secret else { return }
