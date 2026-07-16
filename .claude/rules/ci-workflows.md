@@ -29,27 +29,37 @@ Alternative: `shell: /opt/homebrew/bin/bash` on the step (pre-installed on runne
 
 Linux runners (`ubuntu-*`) have bash 5+ — the gotcha is macOS-specific.
 
-### Rule 2 — `cmd | tee file || true` + `PIPESTATUS[0]` is broken
+### Rule 2 — a `run:` step has NO pipefail, so `cmd | tee file` masks failure
+
+A `run:` step without an explicit `shell:` key executes as **`bash -e {0}`** — `-e` only. The `-eo pipefail` form is what `shell: bash` *selects*; it is not the default. Per [GitHub's workflow-syntax reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsshell), verbatim: default → `bash -e {0}`; `shell: bash` → `bash --noprofile --norc -eo pipefail {0}`.
+
+So this **silently passes** a failed build — the pipeline's exit code is `tee`'s 0:
 
 ```bash
+xcodebuild … 2>&1 | tee /tmp/log     # ✗ `** BUILD FAILED **` reports the step GREEN
+```
+
+Pick one, by whether the step must survive the failure:
+
+```bash
+# (a) Die on failure — the common case. `set -o pipefail` above the pipe.
+set -o pipefail
+xcodebuild … 2>&1 | tee /tmp/log
+
+# (b) Continue past failure (e.g. to parse the log for a PR comment), then
+#     decide explicitly. Correct ONLY without pipefail — see the trap below.
 xcodebuild … 2>&1 | tee /tmp/log || true
 TEST_EXIT=${PIPESTATUS[0]}
-exit ${TEST_EXIT:-0}
 ```
 
-**Does not capture xcodebuild's exit.** `|| true` consumes the pipeline's failure **and** resets PIPESTATUS, so `PIPESTATUS[0]` reads 0 even when xcodebuild failed.
+**The trap: (a) and (b) don't compose.** Adding `set -o pipefail` (or `shell: bash`) to a step shaped like (b) **breaks it silently**. Without pipefail the pipeline exits 0 (tee's status), so `|| true` never fires and `PIPESTATUS[0]` holds xcodebuild's real status. Turn pipefail on and the pipeline exits non-zero, `|| true` fires, and `PIPESTATUS` is reset to that of `true` → `PIPESTATUS[0]` reads 0 and **every failing test run reports green**. Verified on bash 3.2 (the macOS-runner version):
 
-GHA's default shell runs with `set -eo pipefail`. Just write:
-
-```bash
-xcodebuild … 2>&1 | tee /tmp/log
+```
+$ bash -e -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'            # → 1  (correct)
+$ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  # → 0  (broken)
 ```
 
-xcodebuild's non-zero exit propagates through the pipe and fails the step. No `|| true`, no PIPESTATUS dance.
-
-Only reach for `|| true` + `PIPESTATUS` when you genuinely need to capture pipe-head exit without failing the step — rare. Verify empirically that PIPESTATUS survives in your shell; don't assume.
-
-When replicating an existing CI pattern into a new job, inspect it for this bug first.
+**Apply:** when adding a pipe to an existing step, check which shape it is before touching its exit handling — and never add pipefail to a `|| true` + PIPESTATUS step without also removing the `|| true`. Motivating incident: the Release-build step followed this rule's *earlier* advice ("just write `cmd | tee log`, GHA defaults to pipefail") and masked a `** BUILD FAILED **` as green; the failure surfaced one step later as a misleading "Expected exactly 1 Release binary, found 0" (#1141).
 
 ## Long-lived branch gating — two layers × two directions
 
@@ -171,4 +181,4 @@ discipline.
 
 ## Related
 
-`.claude/rules/xcodebuild-cli.md` covers the agent-session analogue (`xcodebuild | tail` exit-code masking when invoked from Claude Code). The CI form here is `|| true` defeating `pipefail`; same root family.
+`.claude/rules/xcodebuild-cli.md` covers the agent-session analogue (`xcodebuild | tail` exit-code masking when invoked from Claude Code). Same root family — a pipe hides the head's exit status — but note the two contexts differ in their default: `scripts/xcodebuild.sh` sets its own `pipefail`, whereas a GHA `run:` step has none (Rule 2).

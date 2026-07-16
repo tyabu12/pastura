@@ -212,10 +212,16 @@ jobs:
           # are visible live (command substitution would buffer until exit,
           # losing all output on timeout-kill). Trailing `|| true` prevents
           # `-e` (a `run:` without `shell:` runs as `bash -e {0}`) from aborting
-          # the script before PIPESTATUS is captured. PIPESTATUS is what makes
-          # this correct either way — it reads xcodebuild's own status, so the
-          # absence of pipefail here is not load-bearing (cf. the Release-build
-          # step, where it was).
+          # the script before PIPESTATUS is captured.
+          #
+          # ⚠️ Do NOT add `set -o pipefail` (or `shell: bash`) to this step. The
+          # absence of pipefail is LOAD-BEARING here: without it the pipeline
+          # exits 0 (tee's status), `|| true` never fires, and PIPESTATUS[0]
+          # holds xcodebuild's real status. With pipefail the pipeline exits
+          # non-zero, `|| true` fires and RESETS PIPESTATUS to true's — so
+          # PIPESTATUS[0] would read 0 and every failing test run would report
+          # green. The Release-build step below is the opposite shape and does
+          # need pipefail — see .claude/rules/ci-workflows.md Rule 2.
           #
           # `-parallel-testing-enabled NO` — workaround for CI OOM cascade
           # first observed on `main` post-#186 (sha e650f13). Multiple
