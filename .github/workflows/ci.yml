@@ -605,11 +605,17 @@ jobs:
     # (8 min) — this job budget is not that tripwire. Do not read 26 as "the
     # per-PR budget"; the per-PR budget is the 8-min compile-only step.
     #
-    # THIS is the binding constraint on the promotion path, not the step
-    # timeouts under it: JVM 8 + full-native 22 already exceed it, so the job
-    # cap is what actually kills a run. Raised 20 -> 26 in #1135, when the
-    # full-native step gained the `PasturaSharedEngine` umbrella assembly (an
-    # extra 4 framework links) on top of the models umbrella it already built.
+    # This cap CAN bind before either step cap does — JVM 8 + full-native 22 =
+    # 30 exceeds it, so a promotion run that hit both step ceilings would die
+    # here first. (On a typical run the step caps bind first; JVM tests are
+    # ~2 min, not 8.) Raise this alongside the step timeouts, not instead of
+    # them.
+    #
+    # Raised 20 -> 26 in #1135, when the full-native step gained the
+    # `PasturaSharedEngine` umbrella (4 debug framework links, plus the
+    # `:shared:models` macosArm64 klib compile they pull in — which the
+    # iOS-only models umbrella never builds) on top of the models umbrella it
+    # already assembled.
     timeout-minutes: 26
     # Job-scoped (overrides the top-level `contents: read`): the classify step's
     # PR-files endpoint needs `pull-requests: read`. Explicit so the compile-only

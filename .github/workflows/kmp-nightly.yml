@@ -200,9 +200,17 @@ jobs:
       #   - workflow_dispatch only: the answer is wanted once, not nightly. A
       #     daily re-measure of a number nobody reads costs ~10 min/night and
       #     can only produce false alarms.
-      #   - continue-on-error: a probe failure is not a regression signal.
+      #   - continue-on-error: a probe failure is not a regression signal. (A
+      #     continue-on-error step's failure sets its *outcome* to failure but
+      #     its *conclusion* to success, so `failure()` below stays false.)
       #   - step timeout: without it a hung probe burns the job cap, and a job
       #     timeout is not something continue-on-error can catch.
+      #
+      # ⚠️ Do NOT add `always()` / `failure()` to this step's `if:`. An `if:`
+      # with no status-check function carries an implicit `success()`, and that
+      # implicit gate is the ONLY thing stopping the `clean` below from wiping
+      # `build/reports/` out from under the `if: failure()` report upload when
+      # the main build has already failed.
       #
       # Validity: no `gradle.properties` exists in this repo, so Gradle's build
       # cache and configuration cache are both OFF by default — `clean` really
