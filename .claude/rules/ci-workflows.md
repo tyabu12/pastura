@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Four concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, and the script unit-test suite that runs in CI only.
+Six concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, and rename/namespace-sweep completion gates.
 
 ## Shell scripting gotchas (macOS GHA runners)
 
@@ -95,6 +95,14 @@ Load-bearing invariants when adding/changing such gating:
 3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
+
+## Step-level `if:` — the implicit `success()` can be load-bearing
+
+A **step** `if:` with no status-check function carries an implicit `success()`; adding `always()` / `failure()` / `!cancelled()` **removes** it, letting the step run after an earlier one failed. (Job-level contrast: § "Required-check-safe path gating" invariants 1 and 4 drop the implicit gate *deliberately*. Same mechanism, opposite valence — don't conflate the two scopes.)
+
+**Apply** — before adding a status function to a step `if:`, check what the implicit gate was doing. Live case: `kmp-nightly.yml`'s **"Measure warm-cache assembly (Stage-5 sizing)"** step — its implicit `success()` is the only thing stopping its `clean` from wiping the reports that the `if: failure()` upload below it collects. Full rationale is inline above that step.
+
+Related, on the same step: a `continue-on-error: true` step's failure sets `outcome`=failure but `conclusion`=success, and status functions read `conclusion` — so a later `failure()` stays false. `continue-on-error` does not cover a **job** timeout, which is why that step also carries its own `timeout-minutes`.
 
 ## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
 
