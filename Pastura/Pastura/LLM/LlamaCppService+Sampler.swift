@@ -32,9 +32,10 @@ nonisolated struct SamplerHandles {
   /// Why a second sampler at all: the chain's own `penalties` member is
   /// **within-generation only** — `createSampler` allocates a fresh chain per
   /// `generate()`, so its ring buffer starts empty and cannot see a prior turn.
-  /// (It is live and load-bearing *inside* a generation — `acceptSampledToken`
-  /// feeds it every accepted token — so do not remove it; it just cannot reach
-  /// across the turn boundary, which is the scope #1105 targets.) Held as a
+  /// (It is live and load-bearing *inside* a generation — on this grammar path
+  /// `acceptSampledToken` feeds it every accepted token — so do not remove it;
+  /// it just cannot reach across the turn boundary, which is the scope #1105
+  /// targets.) Held as a
   /// SEPARATE handle (like `grammar`, not a chain member) so seeding it via
   /// `llama_sampler_accept` does NOT feed the chain's `penalties` ring buffer
   /// — that would silently blend a second penalty into an A/B arm. Also
@@ -164,8 +165,9 @@ extension LlamaCppService {
           format: String(localized: "GBNF grammar parse failed: %@"), String(snippet)))
     }
     // DRY repetition sampler (#1105), built here so it shares the grammar's
-    // `schema != nil` gate. Off by default (env toggle unset / no seeds);
-    // when off, `dry` is nil and the sampler is the pre-#1105 configuration.
+    // `schema != nil` gate. `nil` when no seeds are supplied; enablement
+    // otherwise is `DryConfig`'s call — do not restate it here. When `dry` is
+    // nil the sampler is the pre-#1105 configuration.
     let drySampler = buildAndSeedDrySampler(
       vocab: vocab, model: model, seeds: antiRepetitionSeeds)
     return SamplerHandles(chain: chain, grammar: grammarSampler, dry: drySampler)

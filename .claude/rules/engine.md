@@ -592,18 +592,20 @@ the reference implementation rather than re-deriving the fd plumbing.
 
 A sampler's history is **per-sampler-object**, and `createSampler` allocates a
 fresh chain on every `generate()` — so the `penalties` member's ring buffer
-starts empty each call. It is live and **load-bearing within** a generation
-(`acceptSampledToken` feeds it every accepted token — do not remove it), but it
-is structurally blind **across** generations: an agent echoing its own prior
-statement, or cross-agent template collapse, is out of its reach no matter how
-high `repeatPenalty` / `penalty_last_n` go. Silent — no crash, no diagnostic;
-the knob simply moves nothing.
+starts empty each call. It is live and **load-bearing within** a generation (fed
+every accepted token — via `acceptSampledToken` on the grammar path, internally
+by `llama_sampler_sample` on the bundled no-grammar path — so do not remove it),
+but it is structurally blind **across** generations: an agent echoing its own
+prior statement, or cross-agent template collapse, is out of its reach no matter
+how high `repeatPenalty` / `penalty_last_n` go. Silent — no crash, no
+diagnostic; the knob simply moves nothing.
 
 Cross-turn anti-repetition therefore needs a **separately seeded** handle, not a
 chain-penalty tweak — that is what the #1105 DRY sampler is.
 
 **Apply**: before proposing any repetition fix, name the scope it targets —
-within one generation (the chain already covers it) or across generations (needs
-seeding). Detail + the seeding contract live at `SamplerHandles.dry` and
+within one generation (the chain covers the last `penalty_last_n`=64 tokens of
+up to `maxTokens`=1000, so even here it is not total) or across generations
+(needs seeding). Detail + the seeding contract live at `SamplerHandles.dry` and
 `buildAndSeedDrySampler` (`LlamaCppService+DrySampler.swift`); keep the depth
 there, not here.

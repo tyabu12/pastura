@@ -83,7 +83,8 @@ nonisolated struct DryConfig {
 nonisolated extension LlamaCppService {
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
-  /// enhancement, so any missing precondition (env toggle off, no seeds, no
+  /// enhancement, so any missing precondition (the explicit base arm
+  /// `PASTURA_DRY_MULTIPLIER=0`, no seeds, no
   /// model, NULL sampler) degrades to `nil` rather than failing the whole
   /// generation. Ownership: the returned handle is caller-owned (freed in the
   /// run-loop `defer`s alongside `grammar`).
