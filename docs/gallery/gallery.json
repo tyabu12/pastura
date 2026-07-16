@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-15T00:00:00Z",
+  "updated_at": "2026-07-16T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -37,7 +37,7 @@
       ],
       "language": "ja",
       "yaml_url": "trolley_dilemma_v1.yaml",
-      "yaml_sha256": "4f4068e49cef3fc6d0903cdb1da017b5d2884d00f3ce527c7e08f464f20393ab",
+      "yaml_sha256": "59a0427f44375d1f56b96ae25c9498da19e936faa93764ae6ae47bdbb560f81f",
       "added_at": "2026-04-15"
     },
     {
@@ -852,7 +852,7 @@
       ],
       "language": "ja",
       "yaml_url": "hitsuji_kaigi_v1.yaml",
-      "yaml_sha256": "8ef95a4abfd3342cfb954325b7577ab252a6e10f2cd1eb3e32c9f5ac2723d9b1",
+      "yaml_sha256": "b2a6051859f8ea72b74ec8652a7ef1c14bfdfd3c3ee14282b5f1c549ad549e1b",
       "added_at": "2026-07-10"
     },
     {
@@ -921,7 +921,7 @@
       ],
       "language": "ja",
       "yaml_url": "ijin_kaigi_v1.yaml",
-      "yaml_sha256": "d146928f67b73121f6965ea832d39f1ecb8c23c33a203ccd7a989718afd60687",
+      "yaml_sha256": "d4267289c4329b213fbce7a16b773430155d95ad52ebe114c489325c4cd2ca60",
       "added_at": "2026-07-15"
     },
     {
@@ -969,7 +969,7 @@
       ],
       "language": "ja",
       "yaml_url": "share_house_v1.yaml",
-      "yaml_sha256": "1ddbc0c1bb96b25c332d9b60ffce39d1d117ad2a5357ad36c4d04ae433ee71b7",
+      "yaml_sha256": "17cf7dd34b2cad4076e50170d77d9f159d10691899cc89307db0e577932d12e0",
       "added_at": "2026-07-15"
     }
   ]

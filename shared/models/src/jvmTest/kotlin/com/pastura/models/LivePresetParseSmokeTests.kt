@@ -22,7 +22,10 @@ import kotlin.test.fail
  * only when a preset uses YAML that the Kotlin parser genuinely cannot handle —
  * a true-positive the Kotlin Models layer must know about before Stage 2+ runs
  * the Engine on that content. Full CURRENT-preset cross-language re-validation
- * (against a regenerated Swift baseline) returns at Stage 2/5 with the harness.
+ * (against a regenerated Swift baseline) returns at Stage 5 with the harness —
+ * #1135's B′ decision made the Stage-2 gate consumer a new detached package
+ * rather than a revival of the spike's Swift wiring, so the baseline cannot be
+ * regenerated until the Stage-5 merge-back.
  */
 class LivePresetParseSmokeTests {
 
