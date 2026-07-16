@@ -21,6 +21,14 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     /// so tests can assert the handler layer passes the right schema for
     /// each phase. `nil` entries record unconstrained calls.
     var capturedSchemas: [OutputSchema?] = []
+    /// Per-call `antiRepetitionSeeds` observed by
+    /// ``generate(system:user:schema:antiRepetitionSeeds:)`` and
+    /// ``generateStream(system:user:schema:antiRepetitionSeeds:)``, appended
+    /// in call order. The mock does not act on seeds (no real sampler), but
+    /// recording them lets Engine tests assert a handler threads the agent's
+    /// prior statement into the DRY seam (#1105). An empty inner array records
+    /// a seed-less call (first round / other handlers).
+    var capturedAntiRepetitionSeeds: [[String]] = []
     /// Number of upcoming generate calls that should throw `.suspended` instead of
     /// returning a response. Decremented on each suspended throw.
     var pendingSuspendCount: Int = 0
@@ -82,8 +90,10 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     system: String, user: String, schema: OutputSchema?,
     antiRepetitionSeeds: [String]
   ) async throws -> String {
-    // `antiRepetitionSeeds` is ignored: the mock replays scripted responses,
-    // so sampler-side repetition suppression (#1105) has nothing to act on.
+    // The mock replays scripted responses, so sampler-side repetition
+    // suppression (#1105) has nothing to act on — but the seeds are recorded
+    // (`capturedAntiRepetitionSeeds`) so Engine tests can assert the handler
+    // threaded the right prior statement.
     // Park on the block gate OUTSIDE the lock (can't `await` inside a
     // synchronous `withLock`). Disabled by default — a pure no-op for existing
     // tests. When armed, the run is held in-flight until unblock or
@@ -117,6 +127,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       mutableState.callIndex += 1
       mutableState.capturedPrompts.append((system: system, user: user))
       mutableState.capturedSchemas.append(schema)
+      mutableState.capturedAntiRepetitionSeeds.append(antiRepetitionSeeds)
       return response
     }
   }
@@ -164,7 +175,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     system: String, user: String, schema: OutputSchema?,
     antiRepetitionSeeds: [String]
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
-    // `antiRepetitionSeeds` ignored — see the note on `generate(…)` above.
+    // Seeds recorded, not acted upon — see the note on `generate(…)` above.
     AsyncThrowingStream { continuation in
       let task = Task { [weak self] in
         guard let self else {
@@ -173,7 +184,8 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
         }
         do {
           let deltas = try self.consumeStreamChunks(
-            system: system, user: user, schema: schema)
+            system: system, user: user, schema: schema,
+            antiRepetitionSeeds: antiRepetitionSeeds)
           if let deltas {
             for delta in deltas {
               try Task.checkCancellation()
@@ -187,7 +199,8 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
             continuation.finish()
           } else {
             let text = try await self.generate(
-              system: system, user: user, schema: schema)
+              system: system, user: user, schema: schema,
+              antiRepetitionSeeds: antiRepetitionSeeds)
             continuation.yield(
               LLMStreamChunk(
                 delta: text, isFinal: true, completionTokens: nil))
@@ -210,7 +223,8 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   /// schema — so the streaming-wrap path records exactly once, not
   /// twice.
   private func consumeStreamChunks(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) throws -> [String]? {
     try state.withLock { mutableState in
       guard mutableState.isModelLoaded else { throw LLMError.notLoaded }
@@ -239,6 +253,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       mutableState.streamCallIndex += 1
       mutableState.capturedPrompts.append((system: system, user: user))
       mutableState.capturedSchemas.append(schema)
+      mutableState.capturedAntiRepetitionSeeds.append(antiRepetitionSeeds)
       return deltas
     }
   }
@@ -263,6 +278,14 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
     state.withLock { $0.capturedSchemas }
   }
 
+  /// The `antiRepetitionSeeds` argument passed to each
+  /// ``generate(system:user:schema:antiRepetitionSeeds:)`` and
+  /// ``generateStream(system:user:schema:antiRepetitionSeeds:)`` call, in
+  /// call order. An empty inner array is a seed-less call (#1105).
+  public var capturedAntiRepetitionSeeds: [[String]] {
+    state.withLock { $0.capturedAntiRepetitionSeeds }
+  }
+
   /// Reset the service to its initial state, rewinding the response sequence.
   public func reset() {
     state.withLock { locked in
@@ -270,6 +293,7 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
       locked.streamCallIndex = 0
       locked.capturedPrompts = []
       locked.capturedSchemas = []
+      locked.capturedAntiRepetitionSeeds = []
       locked.pendingSuspendCount = 0
       locked.pendingGenerateErrors = []
     }

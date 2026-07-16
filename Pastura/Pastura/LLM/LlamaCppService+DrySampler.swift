@@ -4,15 +4,27 @@ import os
 
 // MARK: - DRY anti-repetition sampler (#1105)
 
-/// DRY-sampler tuning for the #1105 anti-repetition A/B, read from the
-/// environment so a single build can run both arms (base = unset, arm =
-/// `PASTURA_DRY_MULTIPLIER` set). The LLM layer cannot import
-/// `App/FeatureFlags` (dependency rule), and env vars are unreachable in
-/// TestFlight/Release — so this is a **harness-only A/B lever**, NOT the
-/// shipped control. On a Go, relocate the toggle to a Models-layer tunable /
-/// `ModelDescriptor` field / unconditional-with-tuned-constants. Precedent
-/// for env-driven LLM-layer config: `PASTURA_TRACE_LLM`
+/// DRY-sampler tuning for #1105 anti-repetition. Ships **unconditional** with
+/// the tuned constants below — DRY is on by default in every build. The
+/// environment is now an optional **A/B override lever**: it is unreachable in
+/// TestFlight/Release (env vars aren't set there), so it never affects
+/// production, but it lets the ADR-013 harness sweep alternative constants or
+/// run the base arm — `PASTURA_DRY_MULTIPLIER=0` disables DRY. This keeps the
+/// config in the LLM layer where it belongs (a llama.cpp sampler knob, not a
+/// backend-agnostic domain model — Models/ would be the wrong home; the LLM
+/// layer also can't import `App/FeatureFlags` per the dependency rule).
+/// Precedent for env-driven LLM-layer config: `PASTURA_TRACE_LLM`
 /// (`LlamaCppService+Trace.swift`).
+///
+/// **ja/en divergence (#1105 word_wolf mult sweep, Gemma 4 E2B Q4).** DRY
+/// substantially cuts self-echo in ja (char-3gram self-echo 0.34→0.20 at
+/// `mult=0.8`, verbatim echoes eliminated) but is weaker in en: it still
+/// eliminates exact echoes and cuts cross-agent similarity, yet char-3gram
+/// self-echo stays ~flat — likely the content-only seed-retokenization
+/// fidelity gap documented on `buildAndSeedDrySampler`. en is not the
+/// launch-critical locale (English App Store is a Phase 2→3 gate) and DRY is
+/// regression-free there (no worse than base), so this ships as-is; the
+/// exact-token-seeding fix is tracked in #1133.
 nonisolated struct DryConfig {
   let multiplier: Float
   let base: Float
@@ -24,10 +36,21 @@ nonisolated struct DryConfig {
   /// for statement-value text.
   let seqBreakers: [String]
 
-  /// Parse the env toggle, or `nil` when disabled (multiplier ≤ 0 / unset).
-  /// Defaults follow the webui/koboldcpp DRY lineage, with `allowedLength`
-  /// nudged to 3 because ja names / topic words tokenize to 2–3 tokens.
-  static func fromEnvironment() -> DryConfig? {
+  /// Shipped default multiplier. The #1105 word_wolf sweep (3 runs/arm) showed
+  /// a monotonic dose curve — 0.5 under-penalizes (self-echo 0.29), 1.1
+  /// over-tightens for marginal gain (0.16); 0.8 sits at a coherent,
+  /// non-aggressive point (0.20) that eliminates verbatim echoes without
+  /// forcing paraphrase collapse, and generalizes more safely across untested
+  /// scenarios/models than the aggressive edge. Values follow the
+  /// webui/koboldcpp DRY lineage.
+  static let defaultMultiplier: Float = 0.8
+
+  /// Resolve the production config, applying any harness A/B env overrides.
+  /// Returns `nil` only for the explicit base arm (`PASTURA_DRY_MULTIPLIER=0`,
+  /// or any non-positive override); otherwise DRY is enabled with the shipped
+  /// constants. `allowedLength` is 3 because ja names / topic words tokenize
+  /// to 2–3 tokens.
+  static func resolve() -> DryConfig? {
     let env = ProcessInfo.processInfo.environment
     func float(_ key: String, _ fallback: Float) -> Float {
       env[key].flatMap(Float.init) ?? fallback
@@ -35,7 +58,7 @@ nonisolated struct DryConfig {
     func int32(_ key: String, _ fallback: Int32) -> Int32 {
       env[key].flatMap(Int32.init) ?? fallback
     }
-    let multiplier = float("PASTURA_DRY_MULTIPLIER", 0.0)
+    let multiplier = float("PASTURA_DRY_MULTIPLIER", defaultMultiplier)
     guard multiplier > 0 else { return nil }
     return DryConfig(
       multiplier: multiplier,
@@ -62,13 +85,14 @@ nonisolated extension LlamaCppService {
   /// retokenizing isolated value text may not byte-match the token boundaries
   /// the model emitted inside a JSON string context, so the penalty can be
   /// slightly weaker than an exact-token seed — a favourable asymmetry
-  /// (under-penalizes, so a positive A/B result is trustworthy; a null result
-  /// does not cleanly rule DRY out). The seeded-token count is logged so the
-  /// #1105 probe can quantify this before a No-Go.
+  /// (under-penalizes, so a positive result is trustworthy; a null result does
+  /// not cleanly rule DRY out). This gap is the leading suspect for the weaker
+  /// en effect (see `DryConfig` doc-comment); the exact-token-seed fix is
+  /// tracked in #1133.
   func buildAndSeedDrySampler(
     vocab: OpaquePointer, model: OpaquePointer?, seeds: [String]
   ) -> UnsafeMutablePointer<llama_sampler>? {
-    guard let config = DryConfig.fromEnvironment(), !seeds.isEmpty, let model
+    guard let config = DryConfig.resolve(), !seeds.isEmpty, let model
     else { return nil }
 
     let dry = withArrayOfCStrings(config.seqBreakers) { breakerPtrs in
@@ -102,17 +126,6 @@ nonisolated extension LlamaCppService {
       base=\(config.base, privacy: .public) allowed=\(config.allowedLength, privacy: .public) \
       lastN=\(config.penaltyLastN, privacy: .public)
       """)
-    // Probe instrumentation (#1105): os_log `.debug` does not surface to a
-    // macOS CLI tool's stderr, so mirror the seeding fact to stderr where the
-    // harness `.log` captures it — this is how the A/B verifies DRY actually
-    // fired and quantifies seed-token fidelity. Only reached when DRY is
-    // enabled (env-gated), so production (env unset) never writes here. On a
-    // Go this becomes a proper os_log-only diagnostic.
-    FileHandle.standardError.write(
-      Data(
-        ("[#1105 DRY] seeded \(seededTokenCount) tok / \(seeds.count) seed(s) "
-          + "mult=\(config.multiplier) allowed=\(config.allowedLength) "
-          + "lastN=\(config.penaltyLastN)\n").utf8))
     return dry
   }
 

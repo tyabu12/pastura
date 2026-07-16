@@ -230,4 +230,67 @@ struct MockLLMServiceTests {
     #expect(result.text == "hello")
     #expect(result.completionTokens == nil)
   }
+
+  // MARK: - Anti-repetition seed recording (#1105)
+
+  // The mock doesn't act on seeds (no real sampler), but records them so
+  // Engine tests can assert the handler threaded the agent's prior statement.
+
+  @Test func capturesAntiRepetitionSeedsFromGenerate() async throws {
+    let mock = MockLLMService(responses: ["a", "b"])
+    try await mock.loadModel()
+
+    _ = try await mock.generate(
+      system: "s", user: "u", schema: nil, antiRepetitionSeeds: ["prior"])
+    _ = try await mock.generate(
+      system: "s", user: "u", schema: nil, antiRepetitionSeeds: [])
+
+    #expect(mock.capturedAntiRepetitionSeeds == [["prior"], []])
+  }
+
+  // The Engine drives `generateStream`; its wrap path (no configured chunks)
+  // forwards to `generate`, which must record the REAL seeds, not `[]`.
+  @Test func capturesAntiRepetitionSeedsFromStreamWrap() async throws {
+    let mock = MockLLMService(responses: ["a"])
+    try await mock.loadModel()
+
+    for try await _ in mock.generateStream(
+      system: "s", user: "u", schema: nil, antiRepetitionSeeds: ["prior"]) {}
+
+    #expect(mock.capturedAntiRepetitionSeeds == [["prior"]])
+  }
+
+  @Test func capturesAntiRepetitionSeedsFromStreamChunks() async throws {
+    let mock = MockLLMService(responses: [])
+    try await mock.loadModel()
+    mock.setStreamChunks([["hel", "lo"]])
+
+    for try await _ in mock.generateStream(
+      system: "s", user: "u", schema: nil, antiRepetitionSeeds: ["prior"]) {}
+
+    #expect(mock.capturedAntiRepetitionSeeds == [["prior"]])
+  }
+
+  // Seam back-compat: the seed-less convenience overload forwards `[]`, so
+  // pre-#1105 call sites (`generate(system:user:schema:)`) record an empty seed.
+  @Test func seedlessConvenienceOverloadForwardsEmpty() async throws {
+    let mock = MockLLMService(responses: ["a"])
+    try await mock.loadModel()
+
+    _ = try await mock.generate(system: "s", user: "u", schema: nil)
+
+    #expect(mock.capturedAntiRepetitionSeeds == [[]])
+  }
+
+  @Test func resetClearsCapturedSeeds() async throws {
+    let mock = MockLLMService(responses: ["a", "b"])
+    try await mock.loadModel()
+
+    _ = try await mock.generate(
+      system: "s", user: "u", schema: nil, antiRepetitionSeeds: ["prior"])
+    #expect(!mock.capturedAntiRepetitionSeeds.isEmpty)
+
+    mock.reset()
+    #expect(mock.capturedAntiRepetitionSeeds.isEmpty)
+  }
 }
