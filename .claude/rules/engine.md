@@ -601,11 +601,20 @@ how high `repeatPenalty` / `penalty_last_n` go. Silent — no crash, no
 diagnostic; the knob simply moves nothing.
 
 Cross-turn anti-repetition therefore needs a **separately seeded** handle, not a
-chain-penalty tweak — that is what the #1105 DRY sampler is.
+chain-penalty tweak — that is what the #1105 DRY sampler is. But mind what the
+shipped seeding does *not* reach: `SpeakEachHandler` is the only seeder in
+Engine and it seeds the agent's **own** prior statement, so cross-agent template
+collapse is uncovered, and so is every phase other than `speak_each`.
 
-**Apply**: before proposing any repetition fix, name the scope it targets —
-within one generation (the chain covers the last `penalty_last_n`=64 tokens of
-up to `maxTokens`=1000, so even here it is not total) or across generations
-(needs seeding). Detail + the seeding contract live at `SamplerHandles.dry` and
+**Apply**: before proposing any repetition fix, name the scope it targets, and
+check it against the three that exist:
+
+1. **Within one generation** — the chain's `penalties`, and only its last
+   `penalty_last_n`=64 tokens of up to `maxTokens`=1000. Not total even here.
+2. **An agent's own prior turns, `speak_each` only** — the #1105 DRY seed.
+3. **Anything else** (cross-agent collapse; any other phase) — currently
+   unreached; needs a new seeder, not a knob.
+
+Detail + the seeding contract live at `SamplerHandles.dry` and
 `buildAndSeedDrySampler` (`LlamaCppService+DrySampler.swift`); keep the depth
 there, not here.
