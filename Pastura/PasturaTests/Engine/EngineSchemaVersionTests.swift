@@ -8,11 +8,13 @@ struct EngineSchemaVersionTests {
 
   // MARK: - Current version constant
 
-  @Test func currentVersionIsThree() {
+  @Test func currentVersionIsFour() {
     // Bumped 1→2 for event_inject no_repeat (#1006, ADR-020 §8); 2→3 for the
-    // narrate phase (#909, ADR-020 §9). Update in lockstep with any further
+    // narrate phase (#909, ADR-020 §9); 3→4 for Persona.secret (#914 — an old
+    // app silently drops the key and runs every agent without its hidden
+    // agenda). Update in lockstep with any further
     // EngineSchemaVersion.current bump.
-    #expect(EngineSchemaVersion.current == 3)
+    #expect(EngineSchemaVersion.current == 4)
   }
 
   // MARK: - D2 (phase-capability) branch

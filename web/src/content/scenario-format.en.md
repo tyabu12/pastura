@@ -23,6 +23,7 @@ context: |                    # required. Shared briefing every agent sees
 personas:                     # required. One entry per agent (length == agents)
   - name: Alex
     description: A calm strategist who plans several moves ahead.
+    secret: You already sold the family house.   # optional. Hidden from the others
   - name: Mia
     description: An optimist who trusts people by default.
 phases:                       # required. The ordered list of what happens
@@ -34,9 +35,17 @@ phases:                       # required. The ordered list of what happens
 ```
 
 Write every human-facing string (`name`, `description`, `context`, each
-`prompt`, each `template`, and every persona `name` / `description`) in the
-language named by `language`. That value drives how the engine prompts the
-model.
+`prompt`, each `template`, and every persona `name` / `description` / `secret`)
+in the language named by `language`. That value drives how the engine prompts
+the model.
+
+A persona may also carry an optional `secret`, its hidden agenda. The engine
+injects it into that agent's own prompt only, so the other agents never learn
+it and cannot react to it. The agent is told to keep it out of anything the
+others can hear, while its `inner_thought` may name it freely. You (the viewer)
+can reveal it from the persona sheet during a run, which is what makes the
+dramatic irony readable. Use `secret` when you want a public face and a private
+motive to differ. Keep the whole persona in `description` when you don't.
 
 Optional top-level keys:
 

@@ -95,8 +95,11 @@ final class ScenarioContentValidator {
   /// empty→nil convention so authors don't see errors for fields they
   /// have not typed in. Returned messages are context-free; see
   /// ``PersonaFindings`` doc-comment.
+  /// `secret` is deliberately **not** defaulted: a default would let a future
+  /// persona-authoring surface skip the ADR-005 check on the field with no
+  /// compiler signal. Pass `""` to mean "this persona has no secret".
   func validate(
-    personaName name: String, description: String, secret: String = ""
+    personaName name: String, description: String, secret: String
   ) -> PersonaFindings {
     PersonaFindings(
       name: shouldFlag(name)

@@ -69,6 +69,52 @@ extension ScenarioYAMLPatcherTests {
     #expect(try loader.load(yaml: out) == visual)
   }
 
+  /// The third fallback arm: a multi-line secret is a `|-` literal-style
+  /// scalar, which `tryEdit` refuses to splice (a scalar patch can't rewrite a
+  /// block). Reachable because the serializer emits `secret: |-` for multi-line
+  /// values.
+  @Test func multilineSecretEditFallsBackToFullSerialize() throws {
+    let blockBase = """
+      # A scenario with a multi-line secret
+      id: block_secret_demo
+      language: en
+      name: Block Secret Demo
+      description: A test scenario
+      agents: 2
+      rounds: 3
+      context: Shared context.
+
+      personas:
+        - name: Alice  # the optimist
+          description: An optimistic agent
+          secret: |-
+            She sold the house.
+            The deed is gone.
+        - name: Bob
+          description: A skeptical agent
+
+      phases:
+        - type: speak_all
+          prompt: |
+            Speak your mind.
+          output:
+            statement: string
+      """
+    let baseScenario = try loader.load(yaml: blockBase)
+    #expect(baseScenario.personas[0].secret == "She sold the house.\nThe deed is gone.")
+
+    var personas = baseScenario.personas
+    personas[0] = Persona(
+      name: personas[0].name, description: personas[0].description,
+      secret: "She burned the deed.\nNobody saw.")
+    let visual = mutated(baseScenario, personas: personas)
+    let out = patcher.patch(visual: visual, base: blockBase)
+
+    #expect(out == serializer.serialize(visual))
+    #expect(!out.contains("# the optimist"))  // fallback: formatting not preserved
+    #expect(try loader.load(yaml: out) == visual)
+  }
+
   /// Removal renders `nil`, which `tryEdit` also refuses — full-serialize
   /// fallback, and the key must be gone from the output.
   @Test func secretRemovalFallsBackToFullSerialize() throws {

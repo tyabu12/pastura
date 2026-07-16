@@ -100,11 +100,10 @@ struct PersonaDetailSheet: View {
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityLabel(String(localized: "Peek at their secret"))
-      .accessibilityHint(
-        showSecret
-          ? String(localized: "Hides this agent's secret")
-          : String(localized: "Reveals this agent's secret"))
+      // State-dependent *label* (not a hint): matches the sibling INNER VOICE
+      // toggle in `AgentOutputRow`, and unlike a hint it can't be suppressed
+      // in VoiceOver settings or announced late.
+      .accessibilityLabel(Self.secretToggleAccessibilityLabel(showSecret: showSecret))
 
       if showSecret {
         Text(secret)
@@ -114,6 +113,15 @@ struct PersonaDetailSheet: View {
           .textSelection(.enabled)
       }
     }
+  }
+
+  /// VoiceOver label for the spoiler toggle, stated as the action the tap
+  /// performs. `static` + pure so it is unit-testable without rendering the
+  /// sheet (ADR-009) — mirrors `AgentOutputRow.thoughtToggleAccessibilityLabel`.
+  static func secretToggleAccessibilityLabel(showSecret: Bool) -> String {
+    showSecret
+      ? String(localized: "Hide secret")
+      : String(localized: "Peek at their secret")
   }
 
   private var header: some View {

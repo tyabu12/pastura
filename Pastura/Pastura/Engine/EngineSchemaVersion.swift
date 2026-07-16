@@ -39,7 +39,15 @@ nonisolated public enum EngineSchemaVersion {
   /// trigger fires directly; the D2 `allCases` phase gate already greys out a
   /// `narrate` scenario on an old app, and this bump is the belt-and-suspenders
   /// D3 side so a scenario may also declare `min_engine_version: 3`.
-  public static let current: Int = 3
+  ///
+  /// `4` — `Persona.secret` (#914). `mapPersona` reads a fixed key set and
+  /// silently drops unknown persona keys (persona-level keys are not swept into
+  /// `extraData`, which is top-level-only), so an old app runs a secret-bearing
+  /// scenario with every agent missing its hidden agenda — a *different*
+  /// simulation, with no throw and no grey-out. D2's `allCases` phase gate
+  /// cannot see it (no new phase), so §4's ⚠️ silent-wrong-run rule requires the
+  /// bump and D3 is the only gate that can fire. Same shape as `2` above.
+  public static let current: Int = 4
 
   /// Whether a gallery scenario described by its index metadata can be
   /// executed by this build's engine (ADR-020 D2 + D3).

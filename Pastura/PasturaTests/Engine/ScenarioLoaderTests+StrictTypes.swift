@@ -165,10 +165,13 @@ extension ScenarioLoaderTests {
     #expect(scenario.personas[1].secret == nil)
   }
 
-  /// Empty ≡ absent (#914): the loader normalizes `secret: ""` to nil so a
-  /// header-only prompt section can never render, and the patcher's
-  /// `reparsed == visual` safety-net can't be pinned to a permanent fallback.
-  @Test func normalizesEmptyPersonaSecretToNil() throws {
+  /// Empty ≡ absent (#914): the loader normalizes an empty — or whitespace-only
+  /// — `secret` to nil so a header-only prompt section can never render, and the
+  /// patcher's `reparsed == visual` safety-net can't be pinned to a permanent
+  /// fallback. Whitespace-only is included so this matches the editor
+  /// boundary's trim-then-check rule exactly.
+  @Test(arguments: ["\"\"", "\"   \""])
+  func normalizesEmptyPersonaSecretToNil(_ authored: String) throws {
     let yaml = """
       id: t
       language: ja
@@ -180,7 +183,7 @@ extension ScenarioLoaderTests {
       personas:
         - name: A
           description: D
-          secret: ""
+          secret: \(authored)
         - name: B
           description: D
       phases:
@@ -188,6 +191,30 @@ extension ScenarioLoaderTests {
           prompt: "Go"
       """
     #expect(try loader.load(yaml: yaml).personas[0].secret == nil)
+  }
+
+  /// Trimming is normalization, not mutation: a secret with incidental
+  /// surrounding whitespace keeps its content.
+  @Test func trimsSurroundingWhitespaceFromPersonaSecret() throws {
+    let yaml = """
+      id: t
+      language: ja
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+          secret: "  She sold the house  "
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    #expect(try loader.load(yaml: yaml).personas[0].secret == "She sold the house")
   }
 
   @Test func throwsOnWrongTypeForPersonaSecret() throws {

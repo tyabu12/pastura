@@ -3724,28 +3724,28 @@
         }
       }
     },
+    "Hide secret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide secret"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秘密を隠す"
+          }
+        }
+      }
+    },
     "Hide thought" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考を隠す"
-          }
-        }
-      }
-    },
-    "Hides this agent's secret" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hides this agent's secret"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このエージェントの秘密を隠します"
           }
         }
       }
@@ -5763,22 +5763,6 @@
         }
       }
     },
-    "Reveals this agent's secret" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reveals this agent's secret"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このエージェントの秘密を表示します"
-          }
-        }
-      }
-    },
     "Roleplay" : {
       "localizations" : {
         "ja" : {
@@ -6947,7 +6931,14 @@
       }
     },
     "The main spoken text, shown in the UI." : {
-
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発言の本文。UI に表示される"
+          }
+        }
+      }
     },
     "The main spoken text. Shown in the UI and the conversation log." : {
       "extractionState" : "stale",
