@@ -93,6 +93,44 @@ struct ScenarioContentValidatorTests {
     }
   }
 
+  // MARK: - Persona secret (#914)
+
+  /// The scenario-wide walk is the backstop for a secret typed in YAML mode,
+  /// which never passes through `PersonaEditorSheet`'s per-field validation.
+  @Test func personaSecretUsesNameWhenNameIsClean() {
+    let validator = ScenarioContentValidator(blockedPatterns: ["forbidden"])
+    let findings = validator.validate(
+      makeScenario(
+        personas: [Persona(name: "Alice", description: "ok", secret: "a forbidden agenda")])
+    )
+    #expect(findings.count == 1)
+    #expect(findings[0].contains("Alice"))
+    #expect(findings[0].contains("secret"))
+    #expect(!findings[0].contains("forbidden agenda"))
+  }
+
+  @Test func personaSecretFallsBackToPositionWhenNameAlsoMatches() {
+    let validator = ScenarioContentValidator(blockedPatterns: ["forbidden"])
+    let findings = validator.validate(
+      makeScenario(
+        personas: [Persona(name: "forbidden", description: "ok", secret: "also forbidden")])
+    )
+    // Two findings — one for name, one for secret.
+    #expect(findings.count == 2)
+    #expect(findings.contains { $0.contains("Persona 1 secret") })
+    for message in findings {
+      #expect(!message.contains("forbidden"), "Finding leaked matched term: '\(message)'")
+    }
+  }
+
+  @Test func absentSecretProducesNoFinding() {
+    let validator = ScenarioContentValidator(blockedPatterns: ["forbidden"])
+    let findings = validator.validate(
+      makeScenario(personas: [Persona(name: "Alice", description: "ok")])
+    )
+    #expect(findings.isEmpty)
+  }
+
   // MARK: - Phase fields
 
   @Test func phasePromptBlockedTermDetected() {

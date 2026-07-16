@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Four concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, and the script unit-test suite that runs in CI only.
+Six concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, and rename/namespace-sweep completion gates.
 
 ## Shell scripting gotchas (macOS GHA runners)
 
@@ -29,27 +29,37 @@ Alternative: `shell: /opt/homebrew/bin/bash` on the step (pre-installed on runne
 
 Linux runners (`ubuntu-*`) have bash 5+ — the gotcha is macOS-specific.
 
-### Rule 2 — `cmd | tee file || true` + `PIPESTATUS[0]` is broken
+### Rule 2 — a `run:` step has NO pipefail, so `cmd | tee file` masks failure
+
+A `run:` step without an explicit `shell:` key executes as **`bash -e {0}`** — `-e` only. The `-eo pipefail` form is what `shell: bash` *selects*; it is not the default. Per [GitHub's workflow-syntax reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsshell), verbatim: default → `bash -e {0}`; `shell: bash` → `bash --noprofile --norc -eo pipefail {0}`.
+
+So this **silently passes** a failed build — the pipeline's exit code is `tee`'s 0:
 
 ```bash
+xcodebuild … 2>&1 | tee /tmp/log     # ✗ `** BUILD FAILED **` reports the step GREEN
+```
+
+Pick one, by whether the step must survive the failure:
+
+```bash
+# (a) Die on failure — the common case. `set -o pipefail` above the pipe.
+set -o pipefail
+xcodebuild … 2>&1 | tee /tmp/log
+
+# (b) Continue past failure (e.g. to parse the log for a PR comment), then
+#     decide explicitly. Correct ONLY without pipefail — see the trap below.
 xcodebuild … 2>&1 | tee /tmp/log || true
 TEST_EXIT=${PIPESTATUS[0]}
-exit ${TEST_EXIT:-0}
 ```
 
-**Does not capture xcodebuild's exit.** `|| true` consumes the pipeline's failure **and** resets PIPESTATUS, so `PIPESTATUS[0]` reads 0 even when xcodebuild failed.
+**The trap: (a) and (b) don't compose.** Adding `set -o pipefail` (or `shell: bash`) to a step shaped like (b) **breaks it silently**. Without pipefail the pipeline exits 0 (tee's status), so `|| true` never fires and `PIPESTATUS[0]` holds xcodebuild's real status. Turn pipefail on and the pipeline exits non-zero, `|| true` fires, and `PIPESTATUS` is reset to that of `true` → `PIPESTATUS[0]` reads 0 and **every failing test run reports green**. Verified on bash 3.2 (the macOS-runner version):
 
-GHA's default shell runs with `set -eo pipefail`. Just write:
-
-```bash
-xcodebuild … 2>&1 | tee /tmp/log
+```
+$ bash -e -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'            # → 1  (correct)
+$ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  # → 0  (broken)
 ```
 
-xcodebuild's non-zero exit propagates through the pipe and fails the step. No `|| true`, no PIPESTATUS dance.
-
-Only reach for `|| true` + `PIPESTATUS` when you genuinely need to capture pipe-head exit without failing the step — rare. Verify empirically that PIPESTATUS survives in your shell; don't assume.
-
-When replicating an existing CI pattern into a new job, inspect it for this bug first.
+**Apply:** when adding a pipe to an existing step, check which shape it is before touching its exit handling — and never add pipefail to a `|| true` + PIPESTATUS step without also removing the `|| true`. Motivating incident: the Release-build step followed this rule's *earlier* advice ("just write `cmd | tee log`, GHA defaults to pipefail") and masked a `** BUILD FAILED **` as green; the failure surfaced one step later as a misleading "Expected exactly 1 Release binary, found 0" (#1141).
 
 ## Long-lived branch gating — two layers × two directions
 
@@ -95,6 +105,14 @@ Load-bearing invariants when adding/changing such gating:
 3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
+
+## Step-level `if:` — the implicit `success()` can be load-bearing
+
+A **step** `if:` with no status-check function carries an implicit `success()`; adding `always()` / `failure()` / `!cancelled()` **removes** it, letting the step run after an earlier one failed. (Job-level contrast: § "Required-check-safe path gating" invariants 1 and 4 drop the implicit gate *deliberately*. Same mechanism, opposite valence — don't conflate the two scopes.)
+
+**Apply** — before adding a status function to a step `if:`, check what the implicit gate was doing. Live case: `kmp-nightly.yml`'s **"Measure warm-cache assembly (Stage-5 sizing)"** step — its implicit `success()` is the only thing stopping its `clean` from wiping the reports that the `if: failure()` upload below it collects. Full rationale is inline above that step.
+
+Related, on the same step: a `continue-on-error: true` step's failure sets `outcome`=failure but `conclusion`=success, and status functions read `conclusion` — so a later `failure()` stays false. `continue-on-error` does not cover a **job** timeout, which is why that step also carries its own `timeout-minutes`.
 
 ## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
 
@@ -171,4 +189,4 @@ discipline.
 
 ## Related
 
-`.claude/rules/xcodebuild-cli.md` covers the agent-session analogue (`xcodebuild | tail` exit-code masking when invoked from Claude Code). The CI form here is `|| true` defeating `pipefail`; same root family.
+`.claude/rules/xcodebuild-cli.md` covers the agent-session analogue (`xcodebuild | tail` exit-code masking when invoked from Claude Code). Same root family — a pipe hides the head's exit status — but note the two contexts differ in their default: `scripts/xcodebuild.sh` sets its own `pipefail`, whereas a GHA `run:` step has none (Rule 2).

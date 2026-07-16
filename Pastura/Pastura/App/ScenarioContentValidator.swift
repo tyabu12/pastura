@@ -72,7 +72,8 @@ final class ScenarioContentValidator {
   struct PersonaFindings: Sendable {
     let name: String?
     let description: String?
-    var hasIssue: Bool { name != nil || description != nil }
+    let secret: String?
+    var hasIssue: Bool { name != nil || description != nil || secret != nil }
   }
 
   /// Per-field findings for inline validation in `PhaseEditorSheet`.
@@ -94,13 +95,21 @@ final class ScenarioContentValidator {
   /// empty→nil convention so authors don't see errors for fields they
   /// have not typed in. Returned messages are context-free; see
   /// ``PersonaFindings`` doc-comment.
-  func validate(personaName name: String, description: String) -> PersonaFindings {
+  /// `secret` is deliberately **not** defaulted: a default would let a future
+  /// persona-authoring surface skip the ADR-005 check on the field with no
+  /// compiler signal. Pass `""` to mean "this persona has no secret".
+  func validate(
+    personaName name: String, description: String, secret: String
+  ) -> PersonaFindings {
     PersonaFindings(
       name: shouldFlag(name)
         ? String(localized: "Name contains a term that is not allowed")
         : nil,
       description: shouldFlag(description)
         ? String(localized: "Description contains a term that is not allowed")
+        : nil,
+      secret: shouldFlag(secret)
+        ? String(localized: "Secret contains a term that is not allowed")
         : nil
     )
   }
@@ -165,6 +174,24 @@ final class ScenarioContentValidator {
           String(
             format: String(
               localized: "Persona %lld description contains a term that is not allowed"),
+            position)
+        )
+      }
+    }
+    if let secret = persona.secret, containsBlockedPattern(secret) {
+      // Same ADR-005 §4.7 no-echo fallback as `description` above: a blocked
+      // persona name must not be interpolated into the message.
+      if nameIsClean {
+        findings.append(
+          String(
+            format: String(
+              localized: "Persona '%@' secret contains a term that is not allowed"),
+            persona.name)
+        )
+      } else {
+        findings.append(
+          String(
+            format: String(localized: "Persona %lld secret contains a term that is not allowed"),
             position)
         )
       }

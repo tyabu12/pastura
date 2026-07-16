@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// A modal sheet for creating or editing a single persona's name and description.
+/// A modal sheet for creating or editing a single persona's name, description,
+/// and optional hidden agenda (`secret`, #914).
 ///
-/// On Save tap, runs `ScenarioContentValidator` against the current `name`
-/// and `description`. If either field contains a blocked pattern, the
+/// On Save tap, runs `ScenarioContentValidator` against the current `name`,
+/// `description`, and `secret`. If any field contains a blocked pattern, the
 /// sheet sets per-field error state and stays presented; otherwise the
 /// existing `onSave` callback fires and the sheet dismisses (#261).
 /// Per ADR-005 §4.7, error messages do not echo the matched term.
@@ -11,19 +12,23 @@ struct PersonaEditorSheet: View {
   @Environment(\.dismiss) private var dismiss
   @State var name: String
   @State var description: String
+  @State var secret: String
   @State private var nameError: String?
   @State private var descriptionError: String?
-  let onSave: (String, String) -> Void
+  @State private var secretError: String?
+  let onSave: (String, String, String) -> Void
   let validator: ScenarioContentValidator
 
   init(
     name: String,
     description: String,
+    secret: String = "",
     validator: ScenarioContentValidator = ScenarioContentValidator(),
-    onSave: @escaping (String, String) -> Void
+    onSave: @escaping (String, String, String) -> Void
   ) {
     self._name = State(initialValue: name)
     self._description = State(initialValue: description)
+    self._secret = State(initialValue: secret)
     self.validator = validator
     self.onSave = onSave
   }
@@ -55,6 +60,24 @@ struct PersonaEditorSheet: View {
               .foregroundStyle(Color.danger)
           }
         }
+
+        Section {
+          TextEditor(text: $secret)
+            .frame(minHeight: 88)
+        } header: {
+          Text(String(localized: "Secret (optional)"))
+        } footer: {
+          if let secretError {
+            Text(secretError)
+              .font(.caption)
+              .foregroundStyle(Color.danger)
+          } else {
+            Text(
+              String(
+                localized:
+                  "Other agents never see this. Viewers can peek at it from the persona sheet."))
+          }
+        }
       }
       .navigationTitle(
         name.isEmpty
@@ -73,14 +96,16 @@ struct PersonaEditorSheet: View {
           Button(String(localized: "Save")) {
             let findings = validator.validate(
               personaName: name,
-              description: description
+              description: description,
+              secret: secret
             )
             if findings.hasIssue {
               nameError = findings.name
               descriptionError = findings.description
+              secretError = findings.secret
               return
             }
-            onSave(name, description)
+            onSave(name, description, secret)
             dismiss()
           }
           .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

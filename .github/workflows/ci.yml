@@ -211,8 +211,17 @@ jobs:
           # Stream xcodebuild output to the job log via tee so per-test lines
           # are visible live (command substitution would buffer until exit,
           # losing all output on timeout-kill). Trailing `|| true` prevents
-          # `set -eo pipefail` (GHA default) from aborting the script before
-          # PIPESTATUS is captured.
+          # `-e` (a `run:` without `shell:` runs as `bash -e {0}`) from aborting
+          # the script before PIPESTATUS is captured.
+          #
+          # ⚠️ Do NOT add `set -o pipefail` (or `shell: bash`) to this step. The
+          # absence of pipefail is LOAD-BEARING here: without it the pipeline
+          # exits 0 (tee's status), `|| true` never fires, and PIPESTATUS[0]
+          # holds xcodebuild's real status. With pipefail the pipeline exits
+          # non-zero, `|| true` fires and RESETS PIPESTATUS to true's — so
+          # PIPESTATUS[0] would read 0 and every failing test run would report
+          # green. The Release-build step below is the opposite shape and does
+          # need pipefail — see .claude/rules/ci-workflows.md Rule 2.
           #
           # `-parallel-testing-enabled NO` — workaround for CI OOM cascade
           # first observed on `main` post-#186 (sha e650f13). Multiple
@@ -476,14 +485,23 @@ jobs:
       # Deliberately NO `|| true` / PIPESTATUS dance here, unlike the
       # unit/UI test steps above. Those steps must continue past xcodebuild
       # failure to parse log output for the sticky PR comment; this step
-      # only needs the binary for the symbol grep. With GHA's default
-      # `bash -eo pipefail`, a non-zero xcodebuild exit short-circuits the
-      # `tee` pipeline naturally — that is the intended behaviour here.
+      # only needs the binary for the symbol grep, so it should just die on a
+      # failed build.
+      #
+      # `set -o pipefail` is LOAD-BEARING and must stay above the pipe. A `run:`
+      # without an explicit `shell:` key executes as `bash -e {0}` — `-e` only,
+      # NOT `-eo pipefail` (that form is what `shell: bash` selects). So without
+      # this line the pipeline's exit code is `tee`'s 0, and a `** BUILD FAILED
+      # **` reports the step GREEN — the failure then resurfaces one step later
+      # as the guard's misleading "Expected exactly 1 Release binary, found 0".
+      # Observed on PR #1141.
+      #
       # -sdk iphoneos (not iphonesimulator) because Release-simulator still
       # defines targetEnvironment(simulator), which would pull OllamaService
       # back in and make the guard fire vacuously.
       - name: Release build
         run: |
+          set -o pipefail
           xcodebuild build \
             -scheme Pastura \
             -project Pastura/Pastura.xcodeproj \
@@ -838,8 +856,9 @@ jobs:
       # Regression tests for the repo's shell gates (p8 secret-gate,
       # gallery tooling, …). Pure git + bash, so ubuntu — no Xcode needed.
       # The `*-test.sh` naming convention is the contract: any matching
-      # file becomes a CI gate. GHA's default shell runs `set -eo pipefail`,
-      # so a non-zero test exit fails the job (no `|| true` wrapper).
+      # file becomes a CI gate. A `run:` without `shell:` executes as
+      # `bash -e {0}`, so a non-zero test exit fails the job (no `|| true`
+      # wrapper). No pipe here, so `-e` alone is sufficient.
       - name: Run scripts/tests/*-test.sh
         run: |
           for f in scripts/tests/*-test.sh; do

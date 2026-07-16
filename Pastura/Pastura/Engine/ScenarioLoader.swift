@@ -264,7 +264,18 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     let description: String =
       try parseOptional(
         dict, key: "description", label: "Persona") ?? ""
-    return Persona(name: name, description: description)
+    // Empty ≡ absent everywhere (#914): normalizing here keeps the patcher's
+    // `reparsed == visual` safety-net from permanently falling back on a
+    // scenario authored with `secret: ""`. Trim before the check so this
+    // matches the editor boundary's rule byte-for-byte
+    // (`EditablePersona.toPersona()`) — a whitespace-only secret would
+    // otherwise survive here but map to nil there, rendering a header-only
+    // prompt section and forcing a spurious patcher fallback on round-trip.
+    let rawSecret: String? = try parseOptional(dict, key: "secret", label: "Persona")
+    let secret = rawSecret?.trimmingCharacters(in: .whitespacesAndNewlines)
+    return Persona(
+      name: name, description: description,
+      secret: (secret?.isEmpty ?? true) ? nil : secret)
   }
 
   /// Strict-throw on unknown, mirroring PhaseType. See issue #108 / #211.

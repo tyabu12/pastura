@@ -137,6 +137,14 @@ nonisolated public struct ScenarioYAMLPatcher: Sendable {
         tryEdit(
           basePersona.description != visualPersona.description,
           nestedScalar(root, "personas", index, "description"), quote(visualPersona.description),
+          &edits),
+        // Same patch-vs-fallback contract as `description` (#914): an edit of an
+        // existing single-line secret splices in place; a first-time add (node
+        // nil), a removal (rendered nil), or a multi-line `|-` secret (literal
+        // style) fails `tryEdit` and drops to the full-serialize fallback.
+        tryEdit(
+          basePersona.secret != visualPersona.secret,
+          nestedScalar(root, "personas", index, "secret"), visualPersona.secret.map(quote),
           &edits)
       else { return false }
     }

@@ -12,8 +12,33 @@ nonisolated public struct Persona: Codable, Sendable, Equatable {
   /// Character description injected into the LLM system prompt.
   public let description: String
 
-  public init(name: String, description: String) {
+  /// Hidden agenda known only to this agent (and the viewer).
+  ///
+  /// Injected into the owning agent's system prompt as a private section and
+  /// never shown to other agents. `nil` means the persona has no secret.
+  ///
+  /// **Secrecy invariant (load-bearing).** The engine never copies this text
+  /// into the conversation log, `lastOutputs`, or a shared / `assigned_*` state
+  /// variable — it is written only into the owning agent's system prompt.
+  ///
+  /// Note what this does *not* claim: the prompt deliberately licenses the model
+  /// to reference the secret in its `inner_thought`, and the speak handlers
+  /// store the whole `TurnOutput` (inner_thought included) into `lastOutputs`.
+  /// So secret-*derived* text does reach `lastOutputs`. It stays private only
+  /// because no consumer surfaces another agent's non-primary fields — today
+  /// they read `.vote`, `.action`, or the agent's own main field. Preserve that
+  /// when adding a `lastOutputs` reader.
+  ///
+  /// Both ingest paths — the YAML loader and the editor boundary — normalize
+  /// empty (after trimming) to `nil`, so in practice a non-nil value is
+  /// non-empty. That is a convention those two paths keep, not an invariant this
+  /// type enforces: `init` does not normalize, so a direct caller can construct
+  /// `secret: ""`. Preserve the convention in any new ingest path.
+  public let secret: String?
+
+  public init(name: String, description: String, secret: String? = nil) {
     self.name = name
     self.description = description
+    self.secret = secret
   }
 }
