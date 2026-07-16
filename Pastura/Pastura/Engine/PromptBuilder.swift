@@ -114,6 +114,10 @@ nonisolated struct PromptBuilder: Sendable {
       \(persona.description)
       """)
 
+    // Static hidden agenda (#914) — author-time persona text, so it precedes the
+    // per-round state sections below.
+    appendSecretSection(to: &sections, persona: persona, language: language)
+
     // Private self-knowledge sections (reflect note #907, whisper channel #908,
     // relationship read #910) — each surfaced to only that agent. Extracted to
     // `PromptBuilder+PrivateSections.swift` to keep this function under the

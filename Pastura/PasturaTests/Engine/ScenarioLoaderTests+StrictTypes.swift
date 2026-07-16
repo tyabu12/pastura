@@ -138,6 +138,88 @@ extension ScenarioLoaderTests {
     #expect(msg.contains("String"))
   }
 
+  // MARK: - Persona secret (#914)
+
+  @Test func parsesPersonaSecret() throws {
+    let yaml = """
+      id: t
+      language: ja
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+          secret: You already sold the house.
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let scenario = try loader.load(yaml: yaml)
+    #expect(scenario.personas[0].secret == "You already sold the house.")
+    // Absent key → nil (backward compatible: existing scenarios are unchanged).
+    #expect(scenario.personas[1].secret == nil)
+  }
+
+  /// Empty ≡ absent (#914): the loader normalizes `secret: ""` to nil so a
+  /// header-only prompt section can never render, and the patcher's
+  /// `reparsed == visual` safety-net can't be pinned to a permanent fallback.
+  @Test func normalizesEmptyPersonaSecretToNil() throws {
+    let yaml = """
+      id: t
+      language: ja
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+          secret: ""
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    #expect(try loader.load(yaml: yaml).personas[0].secret == nil)
+  }
+
+  @Test func throwsOnWrongTypeForPersonaSecret() throws {
+    let yaml = """
+      id: t
+      language: ja
+      name: T
+      description: T
+      agents: 2
+      rounds: 1
+      context: C
+      personas:
+        - name: A
+          description: D
+          secret: 42
+        - name: B
+          description: D
+      phases:
+        - type: speak_all
+          prompt: "Go"
+      """
+    let error = try #require(throws: SimulationError.self) {
+      try loader.load(yaml: yaml)
+    }
+    guard case .scenarioValidationFailed(let msg) = error else {
+      Issue.record("Expected scenarioValidationFailed, got \(error)")
+      return
+    }
+    #expect(msg.contains("'secret'"))
+    #expect(msg.contains("String"))
+  }
+
   // MARK: - Assign target parsing (strict)
 
   /// Typo'd target string is rejected at parse time (was a silent `.all` default

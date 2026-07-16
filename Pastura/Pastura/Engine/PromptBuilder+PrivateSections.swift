@@ -6,6 +6,37 @@ import Foundation
 // from a nonisolated context.
 nonisolated extension PromptBuilder {
 
+  /// Appends the persona's static hidden agenda (`Persona/secret`, #914) to
+  /// `sections`, when it has one.
+  ///
+  /// Unlike the dynamic per-round sections below, this is **author-time static
+  /// text** that belongs to the persona itself — so it is placed right after the
+  /// character section and before any per-round state.
+  ///
+  /// The anti-leak guidance lives inside the section (not `buildAnswerRules`) so
+  /// it is present exactly when a secret is. Its scope is deliberately
+  /// **channel-based**: the prohibition covers only what other agents can hear
+  /// (`statement`), and `inner_thought` is explicitly licensed — the harness A/B
+  /// found a blanket "don't say it" wording also suppressed the inner monologue,
+  /// which is the dramatic-irony payoff surface the secret should reach. Phases
+  /// with no `inner_thought` field degrade gracefully (the license line is inert).
+  func appendSecretSection(to sections: inout [String], persona: Persona, language: String) {
+    // Non-nil implies non-empty (every ingest path normalizes empty → nil).
+    guard let secret = persona.secret else { return }
+    let header = pickLanguage(
+      language,
+      ja: "## あなたの秘密（他の参加者は知りません）",
+      en: "## Your Secret (the other participants do not know this)")
+    let guidance = pickLanguage(
+      language,
+      ja:
+        "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。内心（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
+      en:
+        "Never reveal this secret in anything the other participants can hear (your statement). You may reference it freely in your inner_thought, and let it shape your decisions and demeanor."
+    )
+    sections.append("\(header)\n\(secret)\n\(guidance)")
+  }
+
   /// Appends each agent's private self-knowledge sections to `sections`:
   /// the reflect note (`notes_<name>`, #907), the whisper channel
   /// (`whispers_<name>`, #908), and the relationship read
