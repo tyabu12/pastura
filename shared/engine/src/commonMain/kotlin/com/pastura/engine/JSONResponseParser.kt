@@ -215,11 +215,11 @@ internal class JSONResponseParser {
      * `"1"`). Replicating it would cement an unintended Foundation quirk as a
      * *cross-language contract*, in a language that has no `NSNumber`.
      *
-     * Pinned by `JSONResponseParserParityTests` and reported on #501 as a
-     * suspected Swift-side bug for its own fix, per ADR-023 §10 ("Engine behavior
-     * gets a second, cross-language executable spec, which also hardens the Swift
-     * side against accidental semantic drift"). If Swift is fixed, this divergence
-     * closes with no change here.
+     * Pinned by `JSONResponseParserParityTests` and filed as **#1150** with a
+     * verified fix, per ADR-023 §10 ("Engine behavior gets a second,
+     * cross-language executable spec, which also hardens the Swift side against
+     * accidental semantic drift"). When #1150 lands the divergence closes with **no
+     * change here** — this side is already correct.
      *
      * ## Nested values
      *

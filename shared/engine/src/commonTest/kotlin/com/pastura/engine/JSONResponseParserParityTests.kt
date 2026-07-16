@@ -35,8 +35,12 @@ import kotlin.test.assertEquals
  *
  * Replicating it would cement an unintended Foundation bridging quirk as a
  * **cross-language contract**, in a language with no `NSNumber` to justify it.
- * Reported on #501 as a suspected Swift-side bug; if Swift is fixed, this
- * divergence closes with no change here.
+ *
+ * **Tracked as #1150** (with a verified fix: discriminate on `CFBooleanGetTypeID`
+ * rather than on cast success). When that lands, the four divergence tests below
+ * become *agreement* tests — Swift will return `"1"` / `"0"` too. Update this
+ * doc-comment and their names then; **do not** change the expectations, which are
+ * already the correct values.
  *
  * ## Reachability
  *
