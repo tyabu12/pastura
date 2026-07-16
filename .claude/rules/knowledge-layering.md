@@ -22,15 +22,19 @@ Memory `feedback_*` / `project_*` / `reference_*` entries belong in `.claude/rul
 
 **User-preference carve-out**: feedback flavored as personal preference (e.g., "this user wants critic limited to 2/PR") stays in memory regardless of Pastura-specificity — it's `user_*`-flavored even when the trigger event was project work.
 
-## Promotion: memory → rules
+## Promotion & retirement
 
-Three triggers for considering promotion, ordered by fire-rate reliability:
+Three triggers for a triage pass (promotion **and** retirement), ordered by fire-rate reliability:
 
-1. **Periodic triage** (most reliable, user-initiated) — when MEMORY.md size warning fires (>24.4KB index) or every several months, run a full memory triage. Top-N largest memories become promotion candidates.
+1. **Periodic triage** (most reliable, user-initiated) — run a full triage when total memory files >80 or total memory content >~250KB (`cat memory/*.md | wc -c`; the built-in MEMORY.md *index*-size warning fires far too late — index lines are one-liners, so it badly understates true content — don't wait for it), or every several months. Top-N largest memories → promotion candidates; SHIPPED trackers → retire candidates. A persistent `feedback_*>40` signals a *promotion* backlog specifically (retirement never deletes `feedback_*`).
 2. **During `/orchestrate`** (rule-aware bundling) — if the current session created new feedback memories and the active PR is already touching `.claude/rules/`, bundle the rule addition in. Cheaper than a separate cleanup PR.
 3. **At memory-save time** (best-effort nudge, expect drift) — for new `feedback_*` saves, apply the quick test above. If it routes to rules, prefer creating a `.claude/rules/` PR alongside (and optionally instead of) the memory entry. The memory is the rapid-capture form; the rule is the durable form.
 
+**Retire, don't only promote.** A triage pass also *removes* memory. A `project_*` tracker whose work has fully SHIPPED — no open follow-ups, outcome now derivable from code/git/docs — is **DELETED**; one with a shipped bulk plus a few live items is **TRIMMED** to the open-tracking stub. Promotion and retirement compose: run the quick test **first** to promote any durable lesson, then delete/trim the residue — a memory can be promoted *and* deleted the same round. **Prefer deletion**: when promoting, or when tracked work completes, actively check whether the memory can go rather than keeping it. (Operational classification: `promote-memories` § "Step 1: Triage".)
+
 ## Procedure
+
+This procedure is for **PROMOTE**; retirement (DELETE / TRIM) is memory-direct and needs no PR.
 
 File a rolling tracking issue collecting candidate sections, then `/orchestrate` a PR that:
 
