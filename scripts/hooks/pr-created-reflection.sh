@@ -19,7 +19,9 @@
 #      + reason) to match the PR body's `## Device QA` section.
 #   2. Surface any observations / concerns / suggestions noticed during
 #      the session.
-#   3. Note any memory files worth creating or updating.
+#   3. Note any memory to create/update — and whether this change lets you
+#      retire one (trim/delete a SHIPPED project_* tracker, or a lesson now
+#      promoted to rules).
 #
 # Reads no stdin (static reminder). The tool-input data is available via
 # the env vars gated-runner.sh exports ($CLAUDE_HOOK_INPUT,
@@ -35,7 +37,7 @@ set -euo pipefail
 jq -n '{
   hookSpecificOutput: {
     hookEventName: "PostToolUse",
-    additionalContext: "PR created. Before moving on: (1) Device QA — restate the on-device QA steps this change needs (or state 実機QA不要 with the reason), matching the ## Device QA section in the PR body. (2) Observations — share any concerns, surprises, or suggestions you noticed during this session. (3) Memory — note any memory files worth creating or updating from this session."
+    additionalContext: "PR created. Before moving on: (1) Device QA — restate the on-device QA steps this change needs (or state 実機QA不要 with the reason), matching the ## Device QA section in the PR body. (2) Observations — share any concerns, surprises, or suggestions you noticed during this session. (3) Memory — note any memory files worth creating or updating from this session, and whether this change now lets you retire one: trim or delete a SHIPPED project_* tracker, or a memory whose lesson you just promoted to rules (per .claude/rules/knowledge-layering.md § Promotion & retirement)."
   }
 }'
 
