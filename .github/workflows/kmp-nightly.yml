@@ -47,22 +47,31 @@ jobs:
   kmp-nightly:
     name: KMP nightly full-native (#501)
     runs-on: macos-26
-    # Sizing, measured rather than estimated (so the next editor re-derives it
-    # instead of guessing). Anchor on THIS job's own history, not on ci.yml's:
-    # the Stage-1 DoD run measured this job at 3m21s.
+    # Sizing, MEASURED on run 29509388191 (workflow_dispatch, green, #1135's
+    # merge commit). All figures are JOB time — what `timeout-minutes` counts.
+    # ⚠️ The Actions page for that run reads 23.8 min: 9.2 min of it was QUEUE,
+    # which the cap does not count. Never size against the run page.
     #
-    # #1135 adds: macosArm64 klibs on both modules + `:shared:models:macosArm64Test`;
-    # the `PasturaSharedEngine` both-config umbrella (4 targets x 2 configs);
-    # and `:shared:engine:build` now also LINKS every engine framework
-    # (build -> assemble) and runs engine `macosArm64Test` (build -> check ->
-    # allTests) — both no-ops when this job was written against an empty
-    # scaffold. Running #1135's exact invocation locally: 6m24s, i.e. ~2x the
-    # 3m21s baseline, so ~7-8 min on CI, not the ~30 an earlier draft of this
-    # comment estimated off ci.yml's unrelated 6m30s figure.
+    #   scheduled path .... 9m06s   (546s)
+    #   + probe step ...... 5m30s   (330s, workflow_dispatch only)
+    #   = dispatch path ... 14m36s  (876s)
+    #   of which "Full native build + test + XCFramework" .. 7m59s (479s)
     #
-    # 30 kept unchanged: ~4x headroom on the new workload, off any critical
-    # path. The probe step below carries its own 15-min cap and fires only on
-    # workflow_dispatch, so it does not drive this number.
+    # 30 holds by COMPOSITION, not a headroom ratio: the probe below carries
+    # its own `timeout-minutes: 15`, so the dispatch path is bounded at
+    # 9m06s + 15 = ~24 min even if the probe degrades to its cap. That is also
+    # why 30 is not over-sized. If the cap ever needs raising, relocating the
+    # probe to its own workflow is the first lever — the only term the
+    # scheduled path does not pay.
+    #
+    # NOT covered: a konan cache MISS (this run had an exact-key hit).
+    # `restore-keys` prefix-fallback bounds it; nothing here quantifies it, and
+    # no margin is invented for it. The scheduled path would have to triple.
+    #
+    # ⚠️ Sizing trap, learned here: an earlier draft estimated "~7-8 min" and
+    # was wrong on UNITS, not optimism — it scaled `6m24s` (a local Gradle run
+    # = STEP-equivalent) against `3m21s` (a JOB figure). The local number was
+    # fine: 6m24s x 1.25 ~= the 7m59s step measured. Keep step with step.
     timeout-minutes: 30
     # Job-scoped (overrides the top-level `contents: read`): the failure step
     # opens/updates a tracking issue, which needs `issues: write`.
