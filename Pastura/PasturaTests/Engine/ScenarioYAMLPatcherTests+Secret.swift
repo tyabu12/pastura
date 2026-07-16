@@ -145,6 +145,10 @@ extension ScenarioYAMLPatcherTests {
     let visual = mutated(baseScenario, personas: personas)
     let out = patcher.patch(visual: visual, base: Self.secretBase)
 
+    // Pin the SPLICE arm: a round-trip assertion alone would also pass on the
+    // full-serialize fallback, leaving `quote()` unexercised.
+    #expect(out.contains("# the twist"))
+    #expect(out != serializer.serialize(visual))
     #expect(try loader.load(yaml: out).personas[0].secret == tricky)
     #expect(try loader.load(yaml: out) == visual)
   }

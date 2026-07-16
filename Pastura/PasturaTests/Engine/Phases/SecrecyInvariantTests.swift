@@ -26,20 +26,31 @@ import Testing
 ///
 /// **Known blind spot — keep in mind when extending.** A write to the handler's
 /// **local** `variables` copy is NOT caught unless some placeholder in the phase
-/// template resolves it. That case is per-persona (the local dict is rebuilt per
-/// agent), so it cannot leak *across* agents — which is why these tests target
-/// the shared surfaces instead. If a `{secret}`-style engine-supplied
-/// placeholder is ever added, extend `Self.template` to reference it so the
-/// expansion assertions cover it.
+/// template resolves it. That is benign because the local dict is
+/// **write-then-discard**: its only consumer is `expandTemplate` for that same
+/// turn (`captureMood` writes `&state.variables`, not the copy), so an entry no
+/// placeholder resolves has no observable effect anywhere. Note the reason is
+/// *not* "the dict is per-agent" — a `variables["others_secrets"] = …` write
+/// would be a real cross-agent leak living in a per-agent dict; what saves it is
+/// that nothing reads the dict but the template expansion.
+///
+/// So coverage rests entirely on `Self.template` referencing every injected
+/// placeholder. Keep it exhaustive: if an `inject*` helper or a `{secret}`-style
+/// engine-supplied placeholder is added, add it to the template too.
 @Suite(.timeLimit(.minutes(1)))
 struct SecrecyInvariantTests {
   private static let aliceSecret = "ALICE_SECRET_SOLD_THE_HOUSE"
   private static let bobSecret = "BOB_SECRET_FORGED_THE_WILL"
 
-  /// A template pulling every channel a handler injects, so a secret leaking
-  /// through any of them surfaces in the expansion.
-  private static let template =
-    "LOG={conversation_log} SCORE={scoreboard} MINE={assigned} NOTES={my_notes} MOOD={my_mood}"
+  /// A template pulling **every** key the handlers inject — the two built
+  /// in-line (`scoreboard`, `conversation_log`) plus all six written by the
+  /// `inject*` helpers — so a secret leaking through any of them surfaces in the
+  /// expansion. Exhaustiveness is load-bearing (see the blind spot above): keep
+  /// this in sync with the handlers' injection block.
+  private static let template = """
+    LOG={conversation_log} SCORE={scoreboard} MINE={assigned} WORD={assigned_word} \
+    NOTES={my_notes} WHISPERS={my_whispers} REL={relationships} MOOD={my_mood}
+    """
 
   private func secretScenario(phases: [Phase]) -> Scenario {
     let base = makeTestScenario(agentNames: ["Alice", "Bob"], phases: phases)
@@ -70,6 +81,9 @@ struct SecrecyInvariantTests {
 
     try await SpeakAllHandler().execute(context: context, state: &state)
 
+    // Both loops below pass vacuously on an empty collection — pin the count so
+    // a handler that never calls the LLM fails loudly instead.
+    #expect(mock.capturedPrompts.count == 2)
     for captured in mock.capturedPrompts {
       #expect(!captured.user.contains(Self.aliceSecret))
       #expect(!captured.user.contains(Self.bobSecret))
@@ -100,6 +114,7 @@ struct SecrecyInvariantTests {
 
     try await SpeakAllHandler().execute(context: context, state: &state)
 
+    #expect(mock.capturedPrompts.count == 2)  // same vacuous-loop guard
     for (key, value) in state.variables {
       #expect(!value.contains(Self.aliceSecret), "secret leaked into state.variables['\(key)']")
       #expect(!value.contains(Self.bobSecret), "secret leaked into state.variables['\(key)']")

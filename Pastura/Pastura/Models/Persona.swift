@@ -29,8 +29,11 @@ nonisolated public struct Persona: Codable, Sendable, Equatable {
   /// they read `.vote`, `.action`, or the agent's own main field. Preserve that
   /// when adding a `lastOutputs` reader.
   ///
-  /// Every ingest path normalizes empty (after trimming) to `nil`, so a non-nil
-  /// value is non-empty.
+  /// Both ingest paths — the YAML loader and the editor boundary — normalize
+  /// empty (after trimming) to `nil`, so in practice a non-nil value is
+  /// non-empty. That is a convention those two paths keep, not an invariant this
+  /// type enforces: `init` does not normalize, so a direct caller can construct
+  /// `secret: ""`. Preserve the convention in any new ingest path.
   public let secret: String?
 
   public init(name: String, description: String, secret: String? = nil) {
