@@ -34,6 +34,8 @@ Three triggers for a triage pass (promotion **and** retirement), ordered by fire
 
 ## Procedure
 
+This procedure is for **PROMOTE**; retirement (DELETE / TRIM) is memory-direct and needs no PR.
+
 File a rolling tracking issue collecting candidate sections, then `/orchestrate` a PR that:
 
 1. Lands additions to `.claude/rules/` (or `CLAUDE.md` for project-wide rules).

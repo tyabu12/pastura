@@ -1,6 +1,6 @@
 ---
 name: promote-memories
-description: Triage per-user memory — promote durable entries into .claude/rules/ AND retire (delete/trim) SHIPPED trackers — select candidates, classify, draft at concept level, self-check, hand off to /orchestrate for the promotion PR.
+description: Triage per-user memory — promote durable entries into .claude/rules/ AND retire (delete/trim) SHIPPED trackers — select candidates, classify, draft at concept level, self-check, hand off to /orchestrate for any promotion PR (retirement is memory-direct, no PR).
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit, Agent
 argument-hint: "[focus cluster | (empty for full triage)]"
 ---
