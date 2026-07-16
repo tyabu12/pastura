@@ -602,9 +602,15 @@ jobs:
     runs-on: macos-26
     # Headroom for the rare cold full-native PROMOTION path (build-config PRs).
     # The compile-only DEFAULT is tripwired far tighter at the step level below
-    # (8 min) — this job budget is not that tripwire. Do not read 20 as "the
+    # (8 min) — this job budget is not that tripwire. Do not read 26 as "the
     # per-PR budget"; the per-PR budget is the 8-min compile-only step.
-    timeout-minutes: 20
+    #
+    # THIS is the binding constraint on the promotion path, not the step
+    # timeouts under it: JVM 8 + full-native 22 already exceed it, so the job
+    # cap is what actually kills a run. Raised 20 -> 26 in #1135, when the
+    # full-native step gained the `PasturaSharedEngine` umbrella assembly (an
+    # extra 4 framework links) on top of the models umbrella it already built.
+    timeout-minutes: 26
     # Job-scoped (overrides the top-level `contents: read`): the classify step's
     # PR-files endpoint needs `pull-requests: read`. Explicit so the compile-only
     # fast path can't silently degrade to full-native if a tightened default ever
@@ -719,19 +725,38 @@ jobs:
       - name: Compile native klib (compile-only — per-PR default)
         if: steps.kmp-changes.outputs.full_native != 'true'
         timeout-minutes: 8
-        # `:shared:engine` (empty scaffold, #501 PR-2) compiles here too so
-        # future engine-source-only PRs (Stage 2-pre onward) are covered on the
-        # per-PR default path. The `:shared:engine` task token is identical to
-        # the full-native step below, so the two stay divergence-safe.
+        # `:shared:engine` compiles here too so engine-source-only PRs
+        # (Stage 2-pre onward) are covered on the per-PR default path.
+        #
+        # The `:shared:engine` token is NO LONGER identical to the full-native
+        # step's (it was, until #1135 gave that step the umbrella assembly).
+        # That divergence is safe by SUBSUMPTION, not by matching: the umbrella
+        # task depends on `link<Config>Framework<Target>`, which depends on this
+        # very `compileKotlinIosSimulatorArm64`. The full-native step is a
+        # strict superset — it cannot skip what this step checks.
         run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 :shared:engine:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
 
       - name: Full native build + XCFramework (build-config touch)
         if: steps.kmp-changes.outputs.full_native == 'true'
-        timeout-minutes: 18
-        # `:shared:engine` has no XCFramework task yet (export deferred to
-        # Stage 5), so it is compiled alongside the models XCFramework assembly
-        # in the same Gradle invocation — one process, no second cold start.
-        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework :shared:engine:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
+        timeout-minutes: 22
+        # Both umbrellas assemble here since #1135 gave `:shared:engine` its own
+        # export. A build-config PR is exactly the PR that can break a framework
+        # link, and this step is the only per-PR path that links at all — a PR
+        # adding the export must not merge with the export unverified.
+        #
+        # DEBUG-only for the engine umbrella (`…EngineDebugXCFramework`), while
+        # models keeps the both-config `assemblePasturaSharedXCFramework` it has
+        # always run: K/N release links run full LLVM optimization and dominate
+        # the step's cost, and the `export`/API-dependency errors this step
+        # exists to catch fire identically on debug. The both-config engine
+        # umbrella runs nightly, off the critical path.
+        #
+        # Task name has the config infix AFTER the umbrella name — verified via
+        # `./gradlew :shared:engine:tasks --all`, not inferred. The intuitive
+        # `assembleDebugPasturaSharedEngineXCFramework` does NOT exist; Gradle
+        # rejects it as an ambiguous abbreviation of the per-platform
+        # `assembleDebug<Platform>FatFrameworkFor…` tasks.
+        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework :shared:engine:assemblePasturaSharedEngineDebugXCFramework --no-daemon --stacktrace
 
       - name: Upload Gradle reports (on failure)
         if: failure()
