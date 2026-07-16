@@ -208,6 +208,37 @@ public sealed class SimulationEvent {
     public object SimulationCompleted : SimulationEvent()
 
     /**
+     * A resumable snapshot of the full simulation state, emitted at each round
+     * boundary (after the round completes).
+     *
+     * The carried `state.currentRound` is the last *completed* round — the App
+     * layer persists this so a paused run can resume from `currentRound + 1`
+     * (round-boundary continuation; partial progress within the next,
+     * interrupted round is discarded and re-run). Emitted only by the
+     * simulation runner; handlers must not emit this event directly.
+     *
+     * **Why this is in the ADR-023 §6 Stage-2 gate slice.** It carries
+     * [SimulationState] — nested maps of [TurnOutput] and lists of
+     * [ConversationEntry] — making it the fattest single payload the §5.1 event
+     * boundary relays. Gate measurement (iii) re-measures the K/N shim budget on
+     * the Engine-consuming surface precisely because the #220 spike exercised
+     * only 8 of 21 Models types (ADR-004 §9.3 Q9), so omitting the heaviest
+     * crossing would under-sample the measurement and bias a GO optimistic.
+     *
+     * **Known payload gap:** Kotlin [SimulationState] still lacks Swift's
+     * `drawnEvents` (see its own doc). Not on the speak_all path — no event_inject
+     * phase runs in the slice — so it stays empty at gate runtime; tracked in the
+     * #501 drift ledger for Stage 3.
+     *
+     * Swift original: `Pastura/Pastura/Models/SimulationEvent.swift`.
+     */
+    @Serializable
+    @SerialName("roundCheckpoint")
+    public data class RoundCheckpoint(
+        public val state: SimulationState,
+    ) : SimulationEvent()
+
+    /**
      * The simulation has been paused at the given position.
      *
      * Emitted only by the simulation runner; handlers must not emit
