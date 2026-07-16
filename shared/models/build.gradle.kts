@@ -34,8 +34,14 @@ kotlin {
     // Umbrella XCFramework export (D6 in #220). The three iOS targets each
     // produce a framework binary named `PasturaShared`; the aggregate
     // `XCFramework("PasturaShared")` task bundles them into
-    // `PasturaShared.xcframework`. Task name:
-    // `assemblePasturaSharedXCFramework` (also: `assemble<Debug|Release>PasturaSharedXCFramework`).
+    // `PasturaShared.xcframework`. Task names (verified against
+    // `./gradlew :shared:models:tasks --all`, #1135): both-config
+    // `assemblePasturaSharedXCFramework`, single-config
+    // `assemblePasturaShared<Debug|Release>XCFramework` — the config infix goes
+    // AFTER the umbrella name, not before it. (This comment previously claimed
+    // `assemble<Debug|Release>PasturaSharedXCFramework`, which does not exist:
+    // Gradle rejects it as an ambiguous abbreviation of the per-platform
+    // `assemble<Config><Platform>FatFrameworkFor…` tasks.)
     // Swift consumption (`import PasturaShared`) lands in W3 (H8); W1 only
     // validates that the toolchain produces a valid XCFramework directory.
     val xcf = XCFramework("PasturaShared")

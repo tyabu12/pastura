@@ -1,26 +1,26 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 // `shared/engine` — Kotlin Multiplatform port target for Pastura's `Engine/`
-// Swift layer (Issue #501 / ADR-023). Landed here (Stage 1 PR-2) as an EMPTY
-// scaffold: it registers the module and its target set so the Stage 2-pre
-// `ConditionEvaluator` port has a compiling landing pad to drop into. No engine
-// logic ports in this PR (Stage 1 = infrastructure only).
+// Swift layer (Issue #501 / ADR-023). Landed as an empty scaffold in Stage 1
+// (PR-2); Stage 2-pre put the first real logic in it (`ConditionEvaluator`).
 //
 // Deliberately minimal vs `shared/models`:
 //   - No `kotlin-serialization` plugin and no `snakeyaml-engine-kmp` — the
 //     engine run-path does not declare its own `@Serializable` types or parse
 //     YAML (that is Models' `YamlCodec`). Added in a later stage only if a
 //     ported handler actually needs them.
-//   - No framework/XCFramework export block — Swift consumption of the engine
-//     module is Stage 5 (iOS consumption switch, ADR-023 §6). Stage 1 only
-//     needs the module to compile (jvm + native klib).
 //
 // The `shared/models` dependency (Engine→Models, a CLAUDE.md hard rule) is
-// pulled forward from Stage 2-pre so this PR validates the Gradle module graph
-// + the models klib building as an upstream dependency. It is `implementation`
-// (matching the models module's own dep-scope convention) — promote to `api`
-// in Stage 2-pre only if `ConditionEvaluator`'s public API re-exports Models
-// types to a consumer.
+// `api`, not `implementation`. Two independent reasons, either sufficient:
+//   1. `export(project(":shared:models"))` below requires it — the Kotlin
+//      Gradle plugin fails the framework link with "Following dependencies
+//      exported in the framework are not specified as API-dependencies".
+//   2. It is semantically correct regardless of export: `ConditionEvaluator`'s
+//      public API already re-exports Models types (`Scenario`, `SimulationError`,
+//      `SimulationState`). This discharges the condition the Stage-1 version of
+//      this comment pre-registered ("promote to `api` … only if the public API
+//      re-exports Models types to a consumer") — one stage later than predicted.
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -35,33 +35,82 @@ kotlin {
         }
     }
 
-    // iOS target triple mirrors `shared/models` so the eventual XCFramework
-    // (Stage 5) covers the same device + simulator + x64 set. No framework
-    // binary is declared here yet — Stage 1 only compiles the native klib.
-    iosArm64()
-    iosSimulatorArm64()
-    iosX64()
+    // Umbrella XCFramework for Swift consumption of the engine module.
+    //
+    // Needed at Stage 2-gate, NOT Stage 5 as this file previously asserted: the
+    // gate's acceptance criterion (ADR-023 §6) requires a Swift-side scripted
+    // streaming `LLMBackend` actual driving a real `AsyncThrowingStream` through
+    // the §5.2 adapter — "a Kotlin-side mock alone does NOT satisfy the gate" —
+    // so Swift must link a real framework before the GO/NO-GO call, not after.
+    //
+    // `export(project(":shared:models"))` makes this a single umbrella: Models
+    // types cross both §5 boundaries (`SimulationEvent`, `Scenario`), so the
+    // Swift consumer must see them through this framework rather than linking a
+    // second one.
+    //
+    // ⚠️ INVARIANT: `PasturaShared` (models-only) and `PasturaSharedEngine` must
+    // never be linked into the same binary — this umbrella statically embeds
+    // every models symbol, so the pair means duplicate symbols and two copies of
+    // the K/N runtime. Safe today (nothing on `main` links either), but the
+    // retained `feature/kmp-spike-models` branch embeds `PasturaShared` into the
+    // app target, and ADR-023 §6 Stage 5 merges that wiring back — it must be
+    // retargeted to this umbrella or dropped at merge-back. Recorded as a §9.7
+    // landmine in ADR-023 §6.
+    val xcf = XCFramework("PasturaSharedEngine")
 
-    // macOS host target (#501 Stage 2-gate) — mirrors `shared/models`. Pulled
-    // forward of the ADR-023 §6 Stage-4 parity harness (which names `macosArm64`
-    // as its Kotlin/Native rung) because the Stage-2-gate Swift spike consumer
-    // is a detached macOS SwiftPM package (host decision B′, #1135). The target
-    // registration moves; the Stage-4 harness does not.
-    macosArm64()
+    // iOS target triple mirrors `shared/models` so the umbrella covers the same
+    // device + simulator + x64 set.
+    iosArm64 {
+        binaries.framework {
+            baseName = "PasturaSharedEngine"
+            export(project(":shared:models"))
+            xcf.add(this)
+        }
+    }
+    iosSimulatorArm64 {
+        binaries.framework {
+            baseName = "PasturaSharedEngine"
+            export(project(":shared:models"))
+            xcf.add(this)
+        }
+    }
+    iosX64 {
+        binaries.framework {
+            baseName = "PasturaSharedEngine"
+            export(project(":shared:models"))
+            xcf.add(this)
+        }
+    }
+
+    // macOS host target (#501 Stage 2-gate). Pulled forward of the ADR-023 §6
+    // Stage-4 parity harness, which names `macosArm64` as its Kotlin/Native
+    // rung: the Stage-2-gate Swift spike consumer is a detached macOS SwiftPM
+    // package (host decision B′, #1135) and binary-targets this slice. Only the
+    // TARGET registration moves — the Stage-4 parity harness lands on schedule.
+    //
+    // This is the one slice with a live Swift consumer, which is why the macOS
+    // framework lives in THIS umbrella and `shared/models` deliberately keeps
+    // macosArm64 out of its own `PasturaShared` (nothing consumes a macOS
+    // models-only framework — see that file's comment).
+    macosArm64 {
+        binaries.framework {
+            baseName = "PasturaSharedEngine"
+            export(project(":shared:models"))
+            xcf.add(this)
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
-            // Engine→Models layer edge. Inert at Stage 1 (no engine sources
-            // reference Models yet); present so the module graph is validated
-            // now rather than at the first ported symbol in Stage 2-pre.
-            implementation(project(":shared:models"))
+            // Engine→Models layer edge. `api` — see the header comment for why.
+            api(project(":shared:models"))
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
-            // `commonMain` uses `implementation` for the models edge, so it is
-            // not transitively on the test compile classpath — add it explicitly
-            // so Stage 2-pre's `ConditionEvaluator` tests can reference Models
-            // types the moment they land (mirrors `shared/models`'s pattern).
+            // Redundant while commonMain uses `api` (which does put models on
+            // the test compile classpath). Kept deliberately, mirroring
+            // `shared/models`'s own commonTest: it makes the test compile
+            // contract robust to future commonMain dep-scope changes.
             implementation(project(":shared:models"))
         }
     }
