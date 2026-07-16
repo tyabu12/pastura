@@ -463,9 +463,11 @@ llama.cpp is the active TestFlight backend; the LiteRT-LM migration
 trigger has fired and evaluation is in progress (ADR-002 §8, #496) —
 revisit this section if/when `LlamaCppService` is replaced.
 
-Five trap classes from prior incidents. The first four share a crash
+Seven trap classes from prior incidents. The first four share a crash
 signature (`Unexpected empty grammar stack` → SIGABRT) but have
 **different root causes and different fixes** — diagnose before fixing.
+The fifth is a distinct GGML-level compute abort. The last two never
+crash at all: one loses diagnostics, one silently limits a knob's reach.
 
 ### Grammar sampler does not mask special tokens
 
@@ -585,3 +587,34 @@ the failing call. The capture details are load-bearing — the `Pipe()` drain or
 matters and `defer` does NOT work (the read needs all writers closed before scope
 exit) — so reuse `LlamaCppService+Sampler.swift` `initGrammarCapturingStderr` as
 the reference implementation rather than re-deriving the fd plumbing.
+
+### The chain's `penalties` cannot reach across a `generate()`
+
+A sampler's history is **per-sampler-object**, and `createSampler` allocates a
+fresh chain on every `generate()` — so the `penalties` member's ring buffer
+starts empty each call. It is live and **load-bearing within** a generation (fed
+every accepted token — via `acceptSampledToken` on the grammar path, internally
+by `llama_sampler_sample` on the bundled no-grammar path — so do not remove it),
+but it is structurally blind **across** generations: an agent echoing its own
+prior statement, or cross-agent template collapse, is out of its reach no matter
+how high `repeatPenalty` / `penalty_last_n` go. Silent — no crash, no
+diagnostic; the knob simply moves nothing.
+
+Cross-turn anti-repetition therefore needs a **separately seeded** handle, not a
+chain-penalty tweak — that is what the #1105 DRY sampler is. But mind what the
+shipped seeding does *not* reach: `SpeakEachHandler` is the only seeder in
+Engine and it seeds the agent's **own** prior statement, so cross-agent template
+collapse is uncovered, and so is every phase other than `speak_each`.
+
+**Apply**: before proposing any repetition fix, name the scope it targets, and
+check it against the three that exist:
+
+1. **Within one generation** — the chain's `penalties`, and only its last
+   `penalty_last_n`=64 tokens of up to `maxTokens`=1000. Not total even here.
+2. **An agent's own prior turns, `speak_each` only** — the #1105 DRY seed.
+3. **Anything else** (cross-agent collapse; any other phase) — currently
+   unreached; needs a new seeder, not a knob.
+
+Detail + the seeding contract live at `SamplerHandles.dry` and
+`buildAndSeedDrySampler` (`LlamaCppService+DrySampler.swift`); keep the depth
+there, not here.
