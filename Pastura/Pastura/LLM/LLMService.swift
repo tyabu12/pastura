@@ -31,13 +31,20 @@ nonisolated public protocol LLMService: Sendable {
   ///     Mock: recorded for tests). `nil` falls back to unconstrained
   ///     generation — same behaviour as before PR#b for existing
   ///     callers.
+  ///   - antiRepetitionSeeds: Prior text spans (e.g. the agent's own previous
+  ///     statement) a backend may down-weight at sampling time to suppress
+  ///     cross-turn repetition — see ``antiRepetitionSeeds`` discussion on
+  ///     the seam below. Only ``LlamaCppService`` acts on it (via a DRY
+  ///     sampler seeded content-only, #1105); all other backends ignore it.
+  ///     `[]` (the convenience-overload default) reproduces prior behaviour.
   /// - Returns: The raw text response from the LLM.
   /// - Throws: ``LLMError/notLoaded`` if model is not loaded,
   ///           ``LLMError/generationFailed(description:)`` on inference failure,
   ///           ``LLMError/suspended`` if a ``SuspendController`` interrupted
   ///           the call (caller should await resume and retry).
   func generate(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> String
 
   /// Generate a completion and return it with optional token-count metrics.
@@ -52,11 +59,14 @@ nonisolated public protocol LLMService: Sendable {
   ///   - system: The system prompt defining the agent's persona and rules.
   ///   - user: The user prompt with context and instructions for this turn.
   ///   - schema: Optional output schema — same semantics as on
-  ///     ``generate(system:user:schema:)``.
+  ///     ``generate(system:user:schema:antiRepetitionSeeds:)``.
+  ///   - antiRepetitionSeeds: Same semantics as on
+  ///     ``generate(system:user:schema:antiRepetitionSeeds:)``.
   /// - Returns: A ``GenerationResult`` with the text and optional token count.
-  /// - Throws: Same error domain as ``generate(system:user:schema:)``.
+  /// - Throws: Same error domain as ``generate(system:user:schema:antiRepetitionSeeds:)``.
   func generateWithMetrics(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> GenerationResult
 
   /// Attach a ``SuspendController`` so an in-flight inference can be
@@ -112,13 +122,18 @@ nonisolated public protocol LLMService: Sendable {
   ///   - system: The system prompt defining the agent's persona and rules.
   ///   - user: The user prompt with context and instructions for this turn.
   ///   - schema: Optional output schema — same semantics as on
-  ///     ``generate(system:user:schema:)``.
+  ///     ``generate(system:user:schema:antiRepetitionSeeds:)``.
+  ///   - antiRepetitionSeeds: Same semantics as on
+  ///     ``generate(system:user:schema:antiRepetitionSeeds:)``. This is the
+  ///     path the Engine actually drives (``LLMCaller`` consumes the stream),
+  ///     so it is where ``LlamaCppService``'s DRY seeding takes effect (#1105).
   /// - Returns: An `AsyncThrowingStream` of ``LLMStreamChunk`` values.
   /// - Throws: Errors from the underlying `generate` call propagate
   ///   through the stream via `finish(throwing:)` — same error domain as
-  ///   ``generate(system:user:schema:)``.
+  ///   ``generate(system:user:schema:antiRepetitionSeeds:)``.
   func generateStream(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) -> AsyncThrowingStream<LLMStreamChunk, Error>
 }
 
@@ -127,9 +142,12 @@ extension LLMService {
   /// no token count. Backends that have cheap access to the generation
   /// token count override this.
   public func generateWithMetrics(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) async throws -> GenerationResult {
-    let text = try await generate(system: system, user: user, schema: schema)
+    let text = try await generate(
+      system: system, user: user, schema: schema,
+      antiRepetitionSeeds: antiRepetitionSeeds)
     return GenerationResult(text: text, completionTokens: nil)
   }
 
@@ -148,13 +166,15 @@ extension LLMService {
   /// impl inherits MainActor isolation and blocks the nonisolated
   /// ``LlamaCppService`` conformance.
   nonisolated public func generateStream(
-    system: String, user: String, schema: OutputSchema?
+    system: String, user: String, schema: OutputSchema?,
+    antiRepetitionSeeds: [String]
   ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
     AsyncThrowingStream { continuation in
       let task = Task {
         do {
           let result = try await generateWithMetrics(
-            system: system, user: user, schema: schema)
+            system: system, user: user, schema: schema,
+            antiRepetitionSeeds: antiRepetitionSeeds)
           continuation.yield(
             LLMStreamChunk(
               delta: result.text,
@@ -175,15 +195,46 @@ extension LLMService {
   }
 }
 
-// MARK: - Convenience (schema-less) overloads
+// MARK: - Convenience overloads (schema-less, and seed-less)
 
-/// The 3-arg forms above are the protocol requirements. Callers that do
-/// not need schema-constrained decoding use the 2-arg convenience methods
-/// below — they forward to the 3-arg forms with `schema: nil`, preserving
-/// the pre-#194-PR#b call shape (`llm.generate(system:, user:)`). This
-/// keeps Engine, replay, and test call sites unchanged while letting the
-/// handler layer opt into schema constraints incrementally (Item 5).
+/// The 4-arg forms above (`…schema:antiRepetitionSeeds:`) are the protocol
+/// requirements. Two families of convenience overloads keep existing call
+/// sites unchanged:
+///
+/// - **Seed-less 3-arg** (`…schema:`) forwards to the 4-arg requirement with
+///   `antiRepetitionSeeds: []` — the anti-repetition seeding (#1105) is opt-in,
+///   so every caller that doesn't pass seeds gets the prior behaviour. Swift
+///   protocol requirements cannot declare a default argument, so this overload
+///   supplies the `[]` default the requirement can't.
+/// - **Schema-less 2-arg** (`system:user:`) forwards to the 3-arg form with
+///   `schema: nil`, preserving the pre-#194-PR#b call shape
+///   (`llm.generate(system:, user:)`).
+///
+/// This keeps Engine, replay, and test call sites unchanged while letting the
+/// handler layer opt into schema constraints and anti-repetition seeds
+/// incrementally.
 extension LLMService {
+  public func generate(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> String {
+    try await generate(
+      system: system, user: user, schema: schema, antiRepetitionSeeds: [])
+  }
+
+  public func generateWithMetrics(
+    system: String, user: String, schema: OutputSchema?
+  ) async throws -> GenerationResult {
+    try await generateWithMetrics(
+      system: system, user: user, schema: schema, antiRepetitionSeeds: [])
+  }
+
+  nonisolated public func generateStream(
+    system: String, user: String, schema: OutputSchema?
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    generateStream(
+      system: system, user: user, schema: schema, antiRepetitionSeeds: [])
+  }
+
   public func generate(
     system: String, user: String
   ) async throws -> String {

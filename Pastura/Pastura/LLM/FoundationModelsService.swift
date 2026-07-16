@@ -99,8 +99,11 @@
     /// `LlamaCppService`.
     @concurrent
     public func generate(
-      system: String, user: String, schema: OutputSchema?
+      system: String, user: String, schema: OutputSchema?,
+      antiRepetitionSeeds: [String]
     ) async throws -> String {
+      // `antiRepetitionSeeds` is ignored — the Foundation Models session API
+      // exposes no per-request sampler seeding hook (#1105).
       guard isModelLoaded else { throw LLMError.notLoaded }
 
       let session = LanguageModelSession(instructions: system)

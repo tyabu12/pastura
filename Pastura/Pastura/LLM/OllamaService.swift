@@ -71,8 +71,12 @@
     public let backendIdentifier = "Ollama"
 
     public func generate(
-      system: String, user: String, schema: OutputSchema?
+      system: String, user: String, schema: OutputSchema?,
+      antiRepetitionSeeds: [String]
     ) async throws -> String {
+      // `antiRepetitionSeeds` is ignored — the Ollama HTTP API exposes no
+      // per-request DRY / seeding hook, so sampler-side repetition
+      // suppression (#1105) is a no-op for this dev backend.
       guard isModelLoaded else { throw LLMError.notLoaded }
 
       let request = try buildRequest(system: system, user: user, schema: schema)
@@ -193,8 +197,10 @@
     /// `JSONResponseParser`'s schema-aware repair guard for the
     /// field-level contract.
     public func generateWithMetrics(
-      system: String, user: String, schema: OutputSchema?
+      system: String, user: String, schema: OutputSchema?,
+      antiRepetitionSeeds: [String]
     ) async throws -> GenerationResult {
+      // `antiRepetitionSeeds` ignored — see the note on `generate(…)` above.
       guard isModelLoaded else { throw LLMError.notLoaded }
 
       let request = try buildRequest(system: system, user: user, schema: schema)

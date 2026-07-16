@@ -69,10 +69,12 @@ extension LlamaCppService {
 
     // Pass 1: grammar-free chain sample.
     let firstPick = try fillApplyAndSelect(
-      chain: chain, grammarFirst: nil, context: context, base: base, count: count)
+      chain: chain, grammarFirst: nil, dry: handles.dry, context: context,
+      base: base, count: count)
     if tokenSatisfiesGrammar(firstPick.id, grammar: grammar) {
       try acceptSampledToken(
-        firstPick.id, chain: chain, grammar: grammar, vocab: vocab, mode: diag.mode)
+        firstPick.id, chain: chain, grammar: grammar, dry: handles.dry,
+        vocab: vocab, mode: diag.mode)
       return firstPick.id
     }
 
@@ -85,7 +87,8 @@ extension LlamaCppService {
 
     // Pass 2: grammar FIRST, then the chain.
     let resampled = try fillApplyAndSelect(
-      chain: chain, grammarFirst: grammar, context: context, base: base, count: count)
+      chain: chain, grammarFirst: grammar, dry: handles.dry, context: context,
+      base: base, count: count)
 
     // Terminal: even the grammar-first pass selected a masked token → dead
     // grammar. Stop generation (no accept). Return EOS so
@@ -107,7 +110,8 @@ extension LlamaCppService {
     }
 
     try acceptSampledToken(
-      resampled.id, chain: chain, grammar: grammar, vocab: vocab, mode: diag.mode)
+      resampled.id, chain: chain, grammar: grammar, dry: handles.dry,
+      vocab: vocab, mode: diag.mode)
     return resampled.id
   }
 
@@ -124,9 +128,10 @@ extension LlamaCppService {
   /// the grammar first (when `grammarFirst` is non-nil), then the chain, and
   /// return the selected token. Fills `base[0..<count]` fresh each call so a
   /// prior pass's truncation/reordering can't leak across the reused buffer.
-  private func fillApplyAndSelect(
+  private func fillApplyAndSelect(  // swiftlint:disable:this function_parameter_count
     chain: UnsafeMutablePointer<llama_sampler>,
     grammarFirst: UnsafeMutablePointer<llama_sampler>?,
+    dry: UnsafeMutablePointer<llama_sampler>?,
     context: OpaquePointer,
     base: UnsafeMutablePointer<llama_token_data>,
     count: Int
@@ -141,9 +146,18 @@ extension LlamaCppService {
     // `selected = -1` so a stale index can't leak; the chain's terminal dist
     // sampler sets it. `apply` never mutates grammar state (only `accept`
     // does), so applying the grammar here is side-effect-free.
+    //
+    // Order: grammar (hard `-inf` mask) → DRY (soft repetition penalty) →
+    // chain (penalties → top_k → … → dist). DRY runs before top_k like the
+    // chain's own `penalties` member; because it is a SOFT penalty it never
+    // produces `-inf`, so it cannot manufacture the b8694 all-masked
+    // degeneracy — that hazard is grammar-only (#751 / #1105).
     var curP = llama_token_data_array(data: base, size: count, selected: -1, sorted: false)
     if let grammarFirst {
       llama_sampler_apply(grammarFirst, &curP)
+    }
+    if let dry {
+      llama_sampler_apply(dry, &curP)
     }
     llama_sampler_apply(chain, &curP)
     guard curP.selected >= 0, curP.selected < Int64(curP.size), let data = curP.data else {
@@ -172,10 +186,11 @@ extension LlamaCppService {
   /// Advance the grammar (non-EOG only — #253) and the chain (always, for
   /// penalties continuity) on the accepted token. Routes the grammar accept
   /// through the C++ catch shim (#334); the chain accept cannot throw.
-  private func acceptSampledToken(
+  private func acceptSampledToken(  // swiftlint:disable:this function_parameter_count
     _ token: Int32,
     chain: UnsafeMutablePointer<llama_sampler>,
     grammar: UnsafeMutablePointer<llama_sampler>,
+    dry: UnsafeMutablePointer<llama_sampler>?,
     vocab: OpaquePointer?,
     mode: String
   ) throws {
@@ -184,5 +199,12 @@ extension LlamaCppService {
       try handleSamplerCatch(outcome.errorMessage, mode: mode)
     }
     _ = SafeSampler.accept(sampler: chain, token: token)
+    // Advance DRY too so its running n-gram context tracks the emitted
+    // tokens (continuing from the seeded prior statement). A DRY accept is a
+    // ring-buffer push with no grammar member — it cannot throw the #334
+    // crash, so no SafeSampler wrapping / EOG guard is needed.
+    if let dry {
+      llama_sampler_accept(dry, token)
+    }
   }
 }

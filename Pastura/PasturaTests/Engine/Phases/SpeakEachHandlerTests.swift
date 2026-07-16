@@ -222,4 +222,74 @@ struct SpeakEachHandlerTests {
     #expect(prompt.contains("これまでの会話"))
     #expect(!prompt.contains("Conversation so far"))
   }
+
+  // MARK: - Anti-repetition seed plumbing (#1105)
+
+  // The DRY seam: each agent's turn seeds the sampler with its OWN most-recent
+  // statement — still in `lastOutputs` because that's overwritten only after
+  // the turn succeeds. First sub-round has no prior → empty seed; the second
+  // sub-round seeds each agent with its first-sub-round statement (per agent,
+  // not the globally-last one). The DRY sampler body itself is llama.cpp-only
+  // and unrunnable in the simulator (PR #463); this pins the Engine-side
+  // plumbing that decides WHAT gets seeded, which is where the #912 prompt-side
+  // No-Go is actually addressed.
+  @Test func seedsOwnPriorStatementPerAgentAcrossSubRounds() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "alice-r1"}"#,
+      #"{"statement": "bob-r1"}"#,
+      #"{"statement": "alice-r2"}"#,
+      #"{"statement": "bob-r2"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      phases: [
+        Phase(type: .speakEach, prompt: "Talk", outputSchema: ["statement": "string"], subRounds: 2)
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    // Call order: Alice-r1, Bob-r1, Alice-r2, Bob-r2.
+    #expect(mock.capturedAntiRepetitionSeeds.count == 4)
+    #expect(mock.capturedAntiRepetitionSeeds[0].isEmpty)  // Alice — no prior yet
+    #expect(mock.capturedAntiRepetitionSeeds[1].isEmpty)  // Bob — no prior yet
+    #expect(mock.capturedAntiRepetitionSeeds[2] == ["alice-r1"])  // Alice's own
+    #expect(mock.capturedAntiRepetitionSeeds[3] == ["bob-r1"])  // Bob's own
+  }
+
+  // A whitespace-only prior statement must NOT seed — the handler's
+  // `.filter { !trimmingCharacters(...).isEmpty }` drops it (an empty/"..."
+  // statement is already caught upstream by the empty-field retry, but a
+  // blank-but-nonempty one like "   " slips through to `lastOutputs`).
+  // Reverting the filter makes this seed `["   "]` and fails the test.
+  @Test func whitespaceOnlyPriorDoesNotSeed() async throws {
+    let mock = MockLLMService(responses: [
+      #"{"statement": "   "}"#,
+      #"{"statement": "alice-r2"}"#
+    ])
+    try await mock.loadModel()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice"],
+      phases: [
+        Phase(type: .speakEach, prompt: "Talk", outputSchema: ["statement": "string"], subRounds: 2)
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    #expect(mock.capturedAntiRepetitionSeeds.count == 2)
+    #expect(mock.capturedAntiRepetitionSeeds[0].isEmpty)  // no prior
+    #expect(mock.capturedAntiRepetitionSeeds[1].isEmpty)  // blank prior filtered out
+  }
 }

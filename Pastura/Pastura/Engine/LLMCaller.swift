@@ -6,7 +6,7 @@ import Foundation
 /// Emits `inferenceStarted` / `inferenceCompleted` events plus per-chunk
 /// `agentOutputStream` snapshots for UI progress feedback.
 ///
-/// Consumes the streaming ``LLMService/generateStream(system:user:schema:)`` path.
+/// Consumes the streaming ``LLMService/generateStream(system:user:schema:antiRepetitionSeeds:)`` path.
 /// Backends that don't stream (MockLLMService without configured chunks,
 /// OllamaService) yield a single terminal chunk via the protocol's default
 /// wrap — this caller handles both shapes uniformly.
@@ -83,6 +83,7 @@ nonisolated struct LLMCaller: Sendable {
     schema: OutputSchema? = nil,
     detector: (any LanguageDetector)? = nil,
     expectedLanguage: String? = nil,
+    antiRepetitionSeeds: [String] = [],
     suspendController: SuspendController,
     emitter: @Sendable (SimulationEvent) -> Void
   ) async throws -> TurnOutput {
@@ -100,6 +101,7 @@ nonisolated struct LLMCaller: Sendable {
       do {
         streamResult = try await consumeStreamWithSuspendRetry(
           llm: llm, system: system, user: user, schema: schema,
+          antiRepetitionSeeds: antiRepetitionSeeds,
           controller: suspendController, agentName: agentName,
           emitter: emitter)
       } catch {
@@ -303,6 +305,7 @@ nonisolated struct LLMCaller: Sendable {
     system: String,
     user: String,
     schema: OutputSchema?,
+    antiRepetitionSeeds: [String],
     controller: SuspendController,
     agentName: String,
     emitter: @Sendable (SimulationEvent) -> Void
@@ -316,7 +319,9 @@ nonisolated struct LLMCaller: Sendable {
     while true {
       var rawText = ""
       var completionTokens: Int?
-      let stream = llm.generateStream(system: system, user: user, schema: schema)
+      let stream = llm.generateStream(
+        system: system, user: user, schema: schema,
+        antiRepetitionSeeds: antiRepetitionSeeds)
       do {
         for try await chunk in stream {
           if !chunk.delta.isEmpty {
