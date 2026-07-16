@@ -100,7 +100,9 @@ Load-bearing invariants when adding/changing such gating:
 
 A **step** `if:` with no status-check function carries an implicit `success()`; adding `always()` / `failure()` / `!cancelled()` **removes** it, letting the step run after an earlier one failed. (Job-level contrast: § "Required-check-safe path gating" invariants 1 and 4 drop the implicit gate *deliberately*. Same mechanism, opposite valence — don't conflate the two scopes.)
 
-**Apply** — before adding a status function to a step `if:`, check what the implicit gate was doing. Live case: `kmp-nightly.yml`'s **"Measure warm-cache assembly (Stage-5 sizing)"** step — its implicit `success()` is the only thing stopping its `clean` from wiping the reports that the `if: failure()` upload below it collects. Full rationale is inline above that step. Related: a `continue-on-error: true` step's failure sets `outcome`=failure but `conclusion`=success, so a later `failure()` stays false — and it does not cover a **job** timeout (hence that step's own `timeout-minutes`).
+**Apply** — before adding a status function to a step `if:`, check what the implicit gate was doing. Live case: `kmp-nightly.yml`'s **"Measure warm-cache assembly (Stage-5 sizing)"** step — its implicit `success()` is the only thing stopping its `clean` from wiping the reports that the `if: failure()` upload below it collects. Full rationale is inline above that step.
+
+Related, on the same step: a `continue-on-error: true` step's failure sets `outcome`=failure but `conclusion`=success, and status functions read `conclusion` — so a later `failure()` stays false. `continue-on-error` does not cover a **job** timeout, which is why that step also carries its own `timeout-minutes`.
 
 ## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
 
