@@ -39,6 +39,7 @@ import kotlinx.serialization.Serializable
  * @property target        Target specification for `assign` phases. `null` defaults to [AssignTarget.ALL].
  * @property excludeSelf   Whether agents are excluded from voting for themselves in `vote` phases.
  * @property subRounds     Number of sub-rounds for `speak_each` phases. Defaults to 1 if not specified.
+ * @property maxSentences  Per-phase soft cap on statement length. `null` uses the global default.
  * @property condition     Boolean condition expression for `conditional` phases.
  *                         Single-comparison primitive (`Identifier(.Identifier)? OP Operand`)
  *                         composed with `&&` / `||` and parenthesized grouping. Precedence:
@@ -71,6 +72,30 @@ public data class Phase(
     public val target: AssignTarget? = null,
     public val excludeSelf: Boolean? = null,
     public val subRounds: Int? = null,
+    /**
+     * Per-phase soft cap on the number of sentences in an agent's primary
+     * `statement` output (the YAML `max_sentences:` key), overriding the global
+     * default of 3 for this phase only.
+     *
+     * `null` means the phase uses the global default. Applied by `PromptBuilder`
+     * as a **prompt-side** brevity rule on the statement field only — it does not
+     * constrain `inner_thought`, and code phases (which emit no statement) never
+     * surface the rule.
+     *
+     * Empirically a **ja lever**: a Stage-0 harness A/B (#881) found ja statement
+     * length responds bidirectionally to the cap (cap 1/3/6 -> ~1.0/1.4/1.9
+     * sentences) while en is near-inert.
+     *
+     * **The 1..6 range is not enforced here.** Swift's `ScenarioValidator` owns
+     * that gate and is a Stage-3 port (ADR-023 §4), so no Kotlin gate rejects an
+     * out-of-range value yet — the ported `PromptBuilder` must not assume one.
+     * Re-point this note at the Kotlin validator when it lands.
+     *
+     * Slice-path prerequisite for the ADR-023 §6 Stage-2 gate: `buildAnswerRules`
+     * reads it on the speak_all path. Swift original:
+     * `Pastura/Pastura/Models/Phase.swift`.
+     */
+    public val maxSentences: Int? = null,
     public val condition: String? = null,
     public val thenPhases: List<Phase>? = null,
     public val elsePhases: List<Phase>? = null,
