@@ -6,10 +6,13 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 // (PR-2); Stage 2-pre put the first real logic in it (`ConditionEvaluator`).
 //
 // Deliberately minimal vs `shared/models`:
-//   - No `kotlin-serialization` plugin and no `snakeyaml-engine-kmp` — the
-//     engine run-path does not declare its own `@Serializable` types or parse
-//     YAML (that is Models' `YamlCodec`). Added in a later stage only if a
-//     ported handler actually needs them.
+//   - No `kotlin-serialization` PLUGIN and no `snakeyaml-engine-kmp` — the engine
+//     run-path declares no `@Serializable` types of its own and does not parse
+//     YAML (that is Models' `YamlCodec`). The plugin is codegen for
+//     `@Serializable`; `JSONResponseParser` only needs the RUNTIME library to
+//     walk a `JsonElement`, so the library is a dependency and the plugin stays
+//     out. Models' own dep is `implementation`, so it does not reach here
+//     transitively — hence the explicit declaration below.
 //
 // `kotlinx-coroutines-core` is `implementation`, NOT `api`, and is deliberately
 // NOT exported into the framework. This encodes ADR-023 Decision 2: structured
@@ -128,6 +131,9 @@ kotlin {
             api(project(":shared:models"))
             // `implementation`, never `api`/`export` — see the header comment.
             implementation(libs.kotlinx.coroutines.core)
+            // Runtime only (no plugin): `JSONResponseParser` walks a JsonElement.
+            // Also `implementation` — no serialization type is on the boundary.
+            implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
