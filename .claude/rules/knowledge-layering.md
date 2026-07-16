@@ -26,7 +26,7 @@ Memory `feedback_*` / `project_*` / `reference_*` entries belong in `.claude/rul
 
 Three triggers for a triage pass (promotion **and** retirement), ordered by fire-rate reliability:
 
-1. **Periodic triage** (most reliable, user-initiated) — run a full triage when total memory files >80 or total memory content >~250KB (`cat memory/*.md | wc -c`; the built-in >24.4KB *index* warning understates true size, since index lines are one-liners — treat it as a late secondary signal), or every several months. Top-N largest memories → promotion candidates; SHIPPED trackers → retire candidates. A persistent `feedback_*>40` signals a *promotion* backlog specifically (retirement never deletes `feedback_*`).
+1. **Periodic triage** (most reliable, user-initiated) — run a full triage when total memory files >80 or total memory content >~250KB (`cat memory/*.md | wc -c`; the built-in MEMORY.md *index*-size warning fires far too late — index lines are one-liners, so it badly understates true content — don't wait for it), or every several months. Top-N largest memories → promotion candidates; SHIPPED trackers → retire candidates. A persistent `feedback_*>40` signals a *promotion* backlog specifically (retirement never deletes `feedback_*`).
 2. **During `/orchestrate`** (rule-aware bundling) — if the current session created new feedback memories and the active PR is already touching `.claude/rules/`, bundle the rule addition in. Cheaper than a separate cleanup PR.
 3. **At memory-save time** (best-effort nudge, expect drift) — for new `feedback_*` saves, apply the quick test above. If it routes to rules, prefer creating a `.claude/rules/` PR alongside (and optionally instead of) the memory entry. The memory is the rapid-capture form; the rule is the durable form.
 

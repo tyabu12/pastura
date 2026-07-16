@@ -90,8 +90,9 @@ checklist — never execute the deletions yourself:
    `rm -i` and silently no-ops in non-interactive shells). Show the list
    for confirmation before the operator runs it.
 2. Shorten remaining over-long MEMORY.md index lines (one line,
-   <200 chars each) — this relieves the built-in >24.4KB *index* warning
-   specifically; the primary triage triggers, though, are file-count +
+   <200 chars each) — this relieves the built-in MEMORY.md *index*-size
+   warning specifically (which fires far too late to rely on); the primary
+   triage triggers, though, are file-count +
    content-size (knowledge-layering § Promotion & retirement), which
    retirement (DELETE / TRIM) addresses directly.
 3. Re-check the triage triggers (file-count / content-size). If still over,
