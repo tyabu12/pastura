@@ -46,7 +46,9 @@ struct ScenarioYAMLPatcherTests {
 
   // MARK: - Helpers
 
-  private func mutated(
+  // Internal (not private) so the sibling-file extensions can reach it — same
+  // convention as `PromptBuilderTests`' shared helpers.
+  func mutated(
     _ scenario: Scenario, name: String? = nil, description: String? = nil, rounds: Int? = nil,
     personas: [Persona]? = nil, phases: [Phase]? = nil
   ) -> Scenario {

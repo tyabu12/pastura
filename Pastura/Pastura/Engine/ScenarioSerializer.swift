@@ -57,6 +57,11 @@ nonisolated struct ScenarioSerializer: Sendable {
       // (marker at column 4, content at column 6); with the default `indent: 0`
       // a multi-line persona description would break the persona mapping (#752).
       lines.append(yamlReadableBlockScalar("description", persona.description, indent: 4))
+      if let secret = persona.secret {
+        // Same `indent: 4` nesting rationale as `description` above (#752).
+        // Non-nil implies non-empty (every ingest path normalizes empty → nil).
+        lines.append(yamlReadableBlockScalar("secret", secret, indent: 4))
+      }
     }
 
     // Phases

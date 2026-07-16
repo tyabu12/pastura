@@ -26,7 +26,12 @@ extension ScenarioSerializerTests {
       rounds: 1,
       context: "A single-line context.",
       personas: [
-        Persona(name: "Alice", description: "A strategist"),
+        // Alice carries every persona field at once — the field-interaction
+        // case: a multi-line `description` (block scalar) beside a single-line
+        // `secret` (inline scalar) on the same list item (#914).
+        Persona(
+          name: "Alice", description: "A strategist.\nPlays the long game.",
+          secret: "She already sold the house."),
         Persona(name: "Bob", description: "An optimist")
       ],
       phases: [
@@ -42,8 +47,68 @@ extension ScenarioSerializerTests {
     let reloaded = try loader.load(yaml: yaml)
 
     #expect(reloaded.description == scenario.description)
+    #expect(reloaded.personas[0].description == "A strategist.\nPlays the long game.")
+    #expect(reloaded.personas[0].secret == "She already sold the house.")
+    #expect(reloaded.personas[1].secret == nil)
     #expect(reloaded.extraData["note"] == .string("line one\nline two"))
     #expect(reloaded.extraData["topics"] == .array(["plain", "trailing space "]))
+  }
+
+  // MARK: - Persona secret (#914)
+
+  // A multi-line secret takes the same `|-` block-scalar path as a multi-line
+  // persona `description`, with the same `indent: 4` nesting (#752) — a
+  // default-indent block would break the persona mapping on reload.
+  @Test func multilineSecretRoundTripsAsIndentedBlockScalar() throws {
+    let secret = "You forged the will.\nOnly the notary suspects."
+    let scenario = Scenario(
+      id: "secret_block",
+      name: "Secret",
+      description: "d",
+      language: "en",
+      agentCount: 2,
+      rounds: 1,
+      context: "c",
+      personas: [
+        Persona(name: "Alice", description: "A strategist", secret: secret),
+        Persona(name: "Bob", description: "An optimist")
+      ],
+      phases: [
+        Phase(type: .speakAll, prompt: "Speak.", outputSchema: ["statement": "string"])
+      ]
+    )
+
+    let yaml = serializer.serialize(scenario)
+    #expect(yaml.contains("    secret: |-"))
+
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.personas[0].secret == secret)
+    #expect(reloaded.personas[1].secret == nil)
+  }
+
+  // Empty ≡ absent: a nil secret emits no key at all, so no reader (nor the
+  // patcher's `reparsed == visual` safety-net) ever sees `secret: ""`.
+  @Test func nilSecretEmitsNoKey() throws {
+    let scenario = Scenario(
+      id: "plain_personas",
+      name: "None",
+      description: "d",
+      language: "en",
+      agentCount: 2,
+      rounds: 1,
+      context: "c",
+      personas: [
+        Persona(name: "Alice", description: "A strategist"),
+        Persona(name: "Bob", description: "An optimist")
+      ],
+      phases: [
+        Phase(type: .speakAll, prompt: "Speak.", outputSchema: ["statement": "string"])
+      ]
+    )
+
+    let yaml = serializer.serialize(scenario)
+    #expect(!yaml.contains("secret:"))
+    #expect(try loader.load(yaml: yaml).personas[0].secret == nil)
   }
 
   // Readability follow-up to #749 (#752): a multi-line `description` or persona

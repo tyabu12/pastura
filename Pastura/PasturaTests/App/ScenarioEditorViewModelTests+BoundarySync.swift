@@ -27,6 +27,7 @@ extension ScenarioEditorViewModelTests {
     personas:
       - name: Alice  # first agent
         description: An agent
+        secret: She sold the house  # the twist
       - name: Bob
         description: Another agent
     phases:
@@ -53,12 +54,32 @@ extension ScenarioEditorViewModelTests {
     #expect(sut.editorMode == .visual)
 
     sut.scenarioName = "Renamed Title"  // a scalar-only visual edit
+    // An existing single-line secret is scalar-patchable too (#914) — edited
+    // alongside the name so this case covers the field interaction, not just
+    // each field in isolation.
+    sut.personas[0].secret = "She burned the deed"
     sut.switchToYAMLMode()
 
     #expect(sut.yamlText.contains("# Scenario header comment"))
     #expect(sut.yamlText.contains("name: Renamed Title  # the display name"))
     #expect(sut.yamlText.contains("# first agent"))  // persona comment kept
+    #expect(sut.yamlText.contains("# the twist"))  // secret's inline comment kept
+    #expect(sut.yamlText.contains("She burned the deed"))
     #expect(!sut.yamlText.contains("Original Title"))
+    #expect(!sut.yamlText.contains("She sold the house"))
+  }
+
+  /// The editor boundary's half of the empty ≡ absent rule (#914): clearing the
+  /// field emits no `secret:` key rather than `secret: ""`.
+  @Test func clearedSecretIsOmittedFromYAML() async throws {
+    let (sut, _) = try await loadedEditor()
+    #expect(sut.personas[0].secret == "She sold the house")
+
+    sut.personas[0].secret = "   "  // whitespace-only → trimmed to empty → nil
+    sut.switchToYAMLMode()
+
+    #expect(!sut.yamlText.contains("secret:"))
+    #expect(!sut.yamlText.contains("She sold the house"))
   }
 
   @Test func visualScalarEditSavePersistsPreservedComments() async throws {

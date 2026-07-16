@@ -65,8 +65,9 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
     .toolbar(.hidden, for: .tabBar)
     .toolbar { toolbarContent }
     .sheet(isPresented: $showNewPersonaSheet) {
-      PersonaEditorSheet(name: "", description: "") { name, description in
-        viewModel.personas.append(EditablePersona(name: name, description: description))
+      PersonaEditorSheet(name: "", description: "") { name, description, secret in
+        viewModel.personas.append(
+          EditablePersona(name: name, description: description, secret: secret))
         viewModel.agentCount = viewModel.personas.count
       }
       .deepLinkGated()
@@ -74,11 +75,13 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
     .sheet(item: $editingPersona) { persona in
       PersonaEditorSheet(
         name: persona.name,
-        description: persona.description
-      ) { newName, newDescription in
+        description: persona.description,
+        secret: persona.secret
+      ) { newName, newDescription, newSecret in
         if let idx = viewModel.personas.firstIndex(where: { $0.id == persona.id }) {
           viewModel.personas[idx].name = newName
           viewModel.personas[idx].description = newDescription
+          viewModel.personas[idx].secret = newSecret
         }
       }
       .deepLinkGated()

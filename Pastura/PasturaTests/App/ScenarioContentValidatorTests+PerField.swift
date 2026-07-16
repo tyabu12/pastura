@@ -12,7 +12,7 @@ extension ScenarioContentValidatorTests {
 
   @Test func personaPerFieldCleanProducesNoFindings() {
     let validator = ScenarioContentValidator(blockedPatterns: ["forbidden"])
-    let findings = validator.validate(personaName: "Alice", description: "kind soul")
+    let findings = validator.validate(personaName: "Alice", description: "kind soul", secret: "")
     #expect(!findings.hasIssue)
     #expect(findings.name == nil)
     #expect(findings.description == nil)
@@ -22,7 +22,7 @@ extension ScenarioContentValidatorTests {
     // Mirrors the empty→nil convention authors see in the engine; avoids
     // surfacing errors for fields the user never typed in.
     let validator = ScenarioContentValidator(blockedPatterns: ["forbidden"])
-    let findings = validator.validate(personaName: "", description: "")
+    let findings = validator.validate(personaName: "", description: "", secret: "")
     #expect(!findings.hasIssue)
   }
 
@@ -30,7 +30,8 @@ extension ScenarioContentValidatorTests {
     let validator = ScenarioContentValidator(blockedPatterns: ["forbiddenword"])
     let findings = validator.validate(
       personaName: "forbiddenword",
-      description: "kind soul"
+      description: "kind soul",
+      secret: ""
     )
     #expect(findings.hasIssue)
     #expect(findings.name != nil)
@@ -42,7 +43,8 @@ extension ScenarioContentValidatorTests {
     let validator = ScenarioContentValidator(blockedPatterns: ["forbiddenword"])
     let findings = validator.validate(
       personaName: "Alice",
-      description: "forbiddenword vibes"
+      description: "forbiddenword vibes",
+      secret: ""
     )
     #expect(findings.hasIssue)
     #expect(findings.name == nil)
@@ -57,7 +59,8 @@ extension ScenarioContentValidatorTests {
     let validator = ScenarioContentValidator(blockedPatterns: ["forbiddenword"])
     let findings = validator.validate(
       personaName: "forbiddenword",
-      description: "also forbiddenword here"
+      description: "also forbiddenword here",
+      secret: ""
     )
     #expect(findings.name != nil)
     #expect(findings.description != nil)
