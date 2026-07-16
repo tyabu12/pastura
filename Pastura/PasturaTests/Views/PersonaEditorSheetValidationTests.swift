@@ -65,4 +65,47 @@ struct PersonaEditorSheetValidationTests {
     let findings = makeValidator().validate(personaName: "", description: "")
     #expect(!findings.hasIssue)
   }
+
+  // MARK: - Secret field (#914)
+
+  @Test func secretWithBlockedTermBlocksSaveAndExposesSecretError() {
+    let findings = makeValidator().validate(
+      personaName: "Alice",
+      description: "kind soul",
+      secret: "she hides a forbiddenword"
+    )
+    #expect(findings.hasIssue)
+    #expect(findings.name == nil)
+    #expect(findings.description == nil)
+    #expect(findings.secret != nil)
+  }
+
+  @Test func cleanSecretAllowsSave() {
+    let findings = makeValidator().validate(
+      personaName: "Alice",
+      description: "kind soul",
+      secret: "she already sold the house"
+    )
+    #expect(!findings.hasIssue)
+  }
+
+  /// An omitted secret is the back-compatible default and must never flag.
+  @Test func absentSecretSkippedFromValidation() {
+    let findings = makeValidator().validate(personaName: "Alice", description: "kind soul")
+    #expect(findings.secret == nil)
+    #expect(!findings.hasIssue)
+  }
+
+  @Test func violatingSecretDoesNotEchoMatchedTerm() {
+    // ADR-005 §4.7 — the secret's message must not leak the matched term
+    // either, including when every field violates at once.
+    let findings = makeValidator().validate(
+      personaName: "forbiddenword",
+      description: "also forbiddenword present",
+      secret: "and forbiddenword here too"
+    )
+    #expect(!(findings.name ?? "").contains("forbiddenword"))
+    #expect(!(findings.description ?? "").contains("forbiddenword"))
+    #expect(!(findings.secret ?? "").contains("forbiddenword"))
+  }
 }

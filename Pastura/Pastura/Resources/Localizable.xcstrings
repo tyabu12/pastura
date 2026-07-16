@@ -3734,6 +3734,22 @@
         }
       }
     },
+    "Hides this agent's secret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hides this agent's secret"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントの秘密を隠します"
+          }
+        }
+      }
+    },
     "High inference count (%lld). Simulation may take several minutes." : {
       "localizations" : {
         "en" : {
@@ -4765,6 +4781,22 @@
         }
       }
     },
+    "Other agents never see this. Viewers can peek at it from the persona sheet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other agents never see this. Viewers can peek at it from the persona sheet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "他のエージェントには決して見えません。視聴者はペルソナ画面から覗けます。"
+          }
+        }
+      }
+    },
     "Outcome" : {
       "localizations" : {
         "ja" : {
@@ -4850,6 +4882,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "PASTURA · セットアップ"
+          }
+        }
+      }
+    },
+    "PEEK AT THEIR SECRET" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PEEK AT THEIR SECRET"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秘密を覗く"
           }
         }
       }
@@ -5037,6 +5085,22 @@
         }
       }
     },
+    "Peek at their secret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peek at their secret"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秘密を覗く"
+          }
+        }
+      }
+    },
     "Persona" : {
       "localizations" : {
         "ja" : {
@@ -5067,12 +5131,44 @@
         }
       }
     },
+    "Persona %lld secret contains a term that is not allowed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persona %lld secret contains a term that is not allowed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペルソナ %lld の秘密に使用できない語句が含まれています"
+          }
+        }
+      }
+    },
     "Persona '%@' description contains a term that is not allowed" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ペルソナ '%@' の説明に許可されていない用語が含まれています"
+          }
+        }
+      }
+    },
+    "Persona '%@' secret contains a term that is not allowed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persona '%@' secret contains a term that is not allowed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペルソナ「%@」の秘密に使用できない語句が含まれています"
           }
         }
       }
@@ -5667,6 +5763,22 @@
         }
       }
     },
+    "Reveals this agent's secret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveals this agent's secret"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このエージェントの秘密を表示します"
+          }
+        }
+      }
+    },
     "Roleplay" : {
       "localizations" : {
         "ja" : {
@@ -6171,6 +6283,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ペア2人目のスコア"
+          }
+        }
+      }
+    },
+    "Secret (optional)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret (optional)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秘密（任意）"
+          }
+        }
+      }
+    },
+    "Secret contains a term that is not allowed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret contains a term that is not allowed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秘密に使用できない語句が含まれています"
           }
         }
       }
@@ -6802,7 +6946,11 @@
         }
       }
     },
+    "The main spoken text, shown in the UI." : {
+
+    },
     "The main spoken text. Shown in the UI and the conversation log." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -7365,6 +7513,7 @@
       }
     },
     "Use `action` for the chosen value. It is restricted to the phase options." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7381,6 +7530,7 @@
       }
     },
     "Use `note` for the agent's private memo. This is the reflect phase's only output field." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7397,6 +7547,7 @@
       }
     },
     "Use `statement` for the main spoken text. UI display and conversation log key on this field." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7413,6 +7564,7 @@
       }
     },
     "Use `statement` for the whispered text. Whispers stay private to the pair and never enter the public conversation log." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7429,6 +7581,7 @@
       }
     },
     "Use `vote` for the target name." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

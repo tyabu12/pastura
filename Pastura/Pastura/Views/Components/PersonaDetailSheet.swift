@@ -35,11 +35,22 @@ struct PersonaSheetItem: Identifiable {
 /// in the 【立場】【目的】 style, but the sheet imposes no structure so it stays
 /// robust to any description format. Presented at `.medium` detent so the
 /// conversation the user tapped from stays partly visible behind it.
+///
+/// When the persona carries a ``Persona/secret`` (#914), a collapsed-by-default
+/// spoiler section renders below the description. This sheet is the reveal
+/// surface for all three chat contexts at once (Simulation, Past Results, and
+/// the DL demo replay all mount it).
 struct PersonaDetailSheet: View {
   let persona: Persona
   let position: Int?
 
   @Environment(\.dismiss) private var dismiss
+
+  /// Deliberately plain `@State`, NOT hoisted to a ViewModel: the
+  /// re-projection-resets-`@State` trap (`swiftui-traps.md`) is *beneficial*
+  /// here — re-presenting the sheet re-hides the secret, which IS the spoiler
+  /// gate. No persisted reveal state is wanted.
+  @State private var showSecret = false
 
   var body: some View {
     NavigationStack {
@@ -51,6 +62,9 @@ struct PersonaDetailSheet: View {
             .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .textSelection(.enabled)
+          if let secret = persona.secret {
+            secretSection(secret)
+          }
         }
         .padding(20)
       }
@@ -63,6 +77,43 @@ struct PersonaDetailSheet: View {
       }
     }
     .presentationDetents([.medium])
+  }
+
+  /// The collapsed-by-default spoiler. The chevron + mono UPPER tag mirror the
+  /// `INNER VOICE` toggle in ``AgentOutputRow`` so the two "peek at hidden
+  /// text" affordances read as one family; the tinted triangle carries the
+  /// accent and the tag stays muted (moss-for-prefix / muted-for-body, per the
+  /// design system).
+  @ViewBuilder
+  private func secretSection(_ secret: String) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Button {
+        withAnimation(.easeInOut(duration: 0.2)) { showSecret.toggle() }
+      } label: {
+        (Text(verbatim: showSecret ? "▾ " : "▸ ")
+          .foregroundStyle(Color.moss)
+          + Text(String(localized: "PEEK AT THEIR SECRET"))
+          .foregroundStyle(Color.muted))
+          .textStyle(Typography.thinkingTag)
+          .frame(minHeight: 44, alignment: .leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(String(localized: "Peek at their secret"))
+      .accessibilityHint(
+        showSecret
+          ? String(localized: "Hides this agent's secret")
+          : String(localized: "Reveals this agent's secret"))
+
+      if showSecret {
+        Text(secret)
+          .textStyle(Typography.bodyBubble)
+          .foregroundStyle(Color.ink)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .textSelection(.enabled)
+      }
+    }
   }
 
   private var header: some View {
