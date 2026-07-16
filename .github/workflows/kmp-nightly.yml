@@ -84,6 +84,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # Bracket the cache restores with a wall-clock timer. `actions/cache`
+      # exposes no duration output, and the Stage-5 sizing question the probe
+      # step below answers is "can a per-PR job afford this?" — for which
+      # restoring a multi-GB ~/.konan is part of the wall clock, not overhead to
+      # be ignored. Two `date` calls, so this stays unconditional.
+      - name: Start cache-restore timer
+        run: echo "CACHE_RESTORE_START=$(date +%s)" >> "$GITHUB_ENV"
+
       # Three caches, same invalidation model as ci.yml's kmp-build-test (#220
       # D5): ~/.konan (K/N compiler + LLVM toolchain), ~/.gradle/caches
       # (resolved artifacts + plugin classpath), ~/.gradle/wrapper (Gradle
@@ -109,6 +117,9 @@ jobs:
           path: ~/.gradle/wrapper
           key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Stop cache-restore timer
+        run: echo "CACHE_RESTORE_SECONDS=$(( $(date +%s) - CACHE_RESTORE_START ))" >> "$GITHUB_ENV"
 
       # Supply-chain guard on the checked-in gradle-wrapper.jar (mirrors the
       # per-PR job — "author fresh" must not drop it).
@@ -173,6 +184,66 @@ jobs:
           :shared:models:assemblePasturaSharedXCFramework
           :shared:engine:assemblePasturaSharedEngineXCFramework
           --no-daemon --stacktrace
+
+      # Stage-5 sizing probe (#1135) — NOT a regression check.
+      #
+      # ADR-023 §6 Stage 5 must decide whether the iOS app's per-PR CI can
+      # afford to assemble the XCFramework itself, or needs a prebuilt-artifact
+      # scheme. Cold assembly is known (~6m32s, PR-1). The missing number is
+      # WARM: build outputs gone, ~/.konan + ~/.gradle still populated — what a
+      # per-PR job on a warm runner actually faces.
+      #
+      # Three deliberate guards, all for the same reason: this job's `failure()`
+      # issue-filer below is the backstop's alarm channel, and its issue text
+      # asserts a red run means "a native-path regression the per-PR job could
+      # not catch". A MEASUREMENT step must never be able to make that claim.
+      #   - workflow_dispatch only: the answer is wanted once, not nightly. A
+      #     daily re-measure of a number nobody reads costs ~10 min/night and
+      #     can only produce false alarms.
+      #   - continue-on-error: a probe failure is not a regression signal.
+      #   - step timeout: without it a hung probe burns the job cap, and a job
+      #     timeout is not something continue-on-error can catch.
+      #
+      # Validity: no `gradle.properties` exists in this repo, so Gradle's build
+      # cache and configuration cache are both OFF by default — `clean` really
+      # does force a recompile+relink rather than replaying cached outputs.
+      # `--no-daemon` is pinned here, not inherited, so the probe cannot be
+      # flattered by a daemon warmed by the step above.
+      - name: Measure warm-cache assembly (Stage-5 sizing)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          ./gradlew :shared:models:clean :shared:engine:clean --no-daemon
+          START=$(date +%s)
+          ./gradlew \
+            :shared:models:assemblePasturaSharedXCFramework \
+            :shared:engine:assemblePasturaSharedEngineXCFramework \
+            --no-daemon
+          ASSEMBLE=$(( $(date +%s) - START ))
+          {
+            printf '## Stage-5 sizing probe (#1135)\n\n'
+            printf '| Measurement | Seconds |\n|---|---|\n'
+            printf '| Warm-cache assembly (both umbrellas) | %s |\n' "$ASSEMBLE"
+            printf '| Cache restore (~/.konan + ~/.gradle) | %s |\n\n' "${CACHE_RESTORE_SECONDS:-unknown}"
+            printf '**The assembly figure is a LOWER BOUND on per-PR cost.** It excludes:\n\n'
+            printf -- '- Cache-restore wall time (listed separately above; a per-PR job pays it too).\n'
+            # Backticks below are literal markdown, not command substitution —
+            # single quotes are deliberate (mirrors the issue-filer step).
+            # shellcheck disable=SC2016
+            printf -- '- Cache-key MISS. `ci.yml` keys `gradle-caches` on\n'
+            # shellcheck disable=SC2016
+            printf '  `hashFiles(gradle/libs.versions.toml, **/*.gradle.kts)`, so the PRs most\n'
+            printf '  likely to need a full assembly — build-config touches — never get a key\n'
+            # shellcheck disable=SC2016
+            printf '  hit; they fall back to `restore-keys` prefix matching, a strictly worse\n'
+            printf '  cache state than this probe measures.\n'
+            printf -- '- A cold OS page cache. This probe inherits a hot one from the assembly\n'
+            printf '  the same job just did.\n\n'
+            printf 'Compare against the repo CI budget (target <=10 min) only after adding\n'
+            printf 'restore time and a key-miss margin.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Backstop alarm: a silently-red nightly rots. On failure, open (or, if
       # one is already open, comment on) a single tracking issue with the recent
