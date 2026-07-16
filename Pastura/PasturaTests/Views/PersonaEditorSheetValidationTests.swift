@@ -23,7 +23,8 @@ struct PersonaEditorSheetValidationTests {
   @Test func cleanInputAllowsSave() {
     let findings = makeValidator().validate(
       personaName: "Alice",
-      description: "kind soul"
+      description: "kind soul",
+      secret: ""
     )
     #expect(!findings.hasIssue)
   }
@@ -31,7 +32,8 @@ struct PersonaEditorSheetValidationTests {
   @Test func nameWithBlockedTermBlocksSaveAndExposesNameError() {
     let findings = makeValidator().validate(
       personaName: "forbiddenword",
-      description: "kind soul"
+      description: "kind soul",
+      secret: ""
     )
     #expect(findings.hasIssue)
     #expect(findings.name != nil)
@@ -41,7 +43,8 @@ struct PersonaEditorSheetValidationTests {
   @Test func descriptionWithBlockedTermBlocksSaveAndExposesDescriptionError() {
     let findings = makeValidator().validate(
       personaName: "Alice",
-      description: "with forbiddenword inside"
+      description: "with forbiddenword inside",
+      secret: ""
     )
     #expect(findings.hasIssue)
     #expect(findings.name == nil)
@@ -52,7 +55,8 @@ struct PersonaEditorSheetValidationTests {
     // ADR-005 §4.7 — render path must surface neither matched term.
     let findings = makeValidator().validate(
       personaName: "forbiddenword",
-      description: "also forbiddenword present"
+      description: "also forbiddenword present",
+      secret: ""
     )
     #expect(!(findings.name ?? "").contains("forbiddenword"))
     #expect(!(findings.description ?? "").contains("forbiddenword"))
@@ -62,7 +66,55 @@ struct PersonaEditorSheetValidationTests {
     // PersonaEditorSheet's `.disabled(name empty)` already gates the Save
     // button on emptiness; the validator should still no-op for empty
     // strings rather than producing spurious findings if it is reached.
-    let findings = makeValidator().validate(personaName: "", description: "")
+    let findings = makeValidator().validate(personaName: "", description: "", secret: "")
     #expect(!findings.hasIssue)
+  }
+
+  // MARK: - Secret field (#914)
+
+  @Test func secretWithBlockedTermBlocksSaveAndExposesSecretError() {
+    let findings = makeValidator().validate(
+      personaName: "Alice",
+      description: "kind soul",
+      secret: "she hides a forbiddenword"
+    )
+    #expect(findings.hasIssue)
+    #expect(findings.name == nil)
+    #expect(findings.description == nil)
+    #expect(findings.secret != nil)
+  }
+
+  @Test func cleanSecretAllowsSave() {
+    let findings = makeValidator().validate(
+      personaName: "Alice",
+      description: "kind soul",
+      secret: "she already sold the house"
+    )
+    #expect(!findings.hasIssue)
+  }
+
+  /// A persona with no secret passes `""` — the empty buffer must never flag,
+  /// mirroring `emptyFieldsSkippedFromValidation` for the other fields.
+  @Test func absentSecretSkippedFromValidation() {
+    let findings = makeValidator().validate(
+      personaName: "Alice",
+      description: "kind soul",
+      secret: ""
+    )
+    #expect(findings.secret == nil)
+    #expect(!findings.hasIssue)
+  }
+
+  @Test func violatingSecretDoesNotEchoMatchedTerm() {
+    // ADR-005 §4.7 — the secret's message must not leak the matched term
+    // either, including when every field violates at once.
+    let findings = makeValidator().validate(
+      personaName: "forbiddenword",
+      description: "also forbiddenword present",
+      secret: "and forbiddenword here too"
+    )
+    #expect(!(findings.name ?? "").contains("forbiddenword"))
+    #expect(!(findings.description ?? "").contains("forbiddenword"))
+    #expect(!(findings.secret ?? "").contains("forbiddenword"))
   }
 }

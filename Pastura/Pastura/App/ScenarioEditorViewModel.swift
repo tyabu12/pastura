@@ -22,19 +22,27 @@ struct EditablePersona: Identifiable, Sendable {
   let id = UUID()
   var name: String
   var description: String
+  var secret: String
 
-  init(name: String = "", description: String = "") {
+  init(name: String = "", description: String = "", secret: String = "") {
     self.name = name
     self.description = description
+    self.secret = secret
   }
 
   init(from persona: Persona) {
     self.name = persona.name
     self.description = persona.description
+    self.secret = persona.secret ?? ""
   }
 
   func toPersona() -> Persona {
-    Persona(name: name, description: description)
+    // Empty ≡ absent (#914) — the editor boundary's half of the rule the
+    // loader and serializer enforce on the YAML side.
+    let trimmedSecret = secret.trimmingCharacters(in: .whitespacesAndNewlines)
+    return Persona(
+      name: name, description: description,
+      secret: trimmedSecret.isEmpty ? nil : trimmedSecret)
   }
 }
 
