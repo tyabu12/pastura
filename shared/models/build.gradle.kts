@@ -34,8 +34,14 @@ kotlin {
     // Umbrella XCFramework export (D6 in #220). The three iOS targets each
     // produce a framework binary named `PasturaShared`; the aggregate
     // `XCFramework("PasturaShared")` task bundles them into
-    // `PasturaShared.xcframework`. Task name:
-    // `assemblePasturaSharedXCFramework` (also: `assemble<Debug|Release>PasturaSharedXCFramework`).
+    // `PasturaShared.xcframework`. Task names (verified against
+    // `./gradlew :shared:models:tasks --all`, #1135): both-config
+    // `assemblePasturaSharedXCFramework`, single-config
+    // `assemblePasturaShared<Debug|Release>XCFramework` — the config infix goes
+    // AFTER the umbrella name, not before it. (This comment previously claimed
+    // `assemble<Debug|Release>PasturaSharedXCFramework`, which does not exist:
+    // Gradle rejects it as an ambiguous abbreviation of the per-platform
+    // `assemble<Config><Platform>FatFrameworkFor…` tasks.)
     // Swift consumption (`import PasturaShared`) lands in W3 (H8); W1 only
     // validates that the toolchain produces a valid XCFramework directory.
     val xcf = XCFramework("PasturaShared")
@@ -57,6 +63,22 @@ kotlin {
             xcf.add(this)
         }
     }
+
+    // macOS host target (#501 Stage 2-gate). Registered here — one stage ahead
+    // of the ADR-023 §6 Stage-4 parity harness that names `macosArm64` as its
+    // Kotlin/Native rung — because the Stage-2-gate Swift spike consumer is a
+    // detached macOS SwiftPM package (host decision B′, #1135). Registering the
+    // TARGET does not move the Stage-4 parity harness itself; that lands on
+    // schedule.
+    //
+    // Deliberately NOT added to the `PasturaShared` umbrella above: nothing
+    // consumes a macOS `PasturaShared`. The spike links the engine module's
+    // `PasturaSharedEngine` umbrella, which re-exports this module. Adding a
+    // macOS slice here would cost a fourth link target in the nightly and buy
+    // nothing until some Swift consumer wants Models alone. `macosArm64Test`
+    // still runs the shared `commonTest` suite on the K/N host runtime — the
+    // point of the target at this stage.
+    macosArm64()
 
     sourceSets {
         commonMain.dependencies {
