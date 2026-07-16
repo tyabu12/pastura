@@ -45,13 +45,19 @@ nonisolated struct DryConfig {
   /// webui/koboldcpp DRY lineage.
   static let defaultMultiplier: Float = 0.8
 
-  /// Resolve the production config, applying any harness A/B env overrides.
-  /// Returns `nil` only for the explicit base arm (`PASTURA_DRY_MULTIPLIER=0`,
-  /// or any non-positive override); otherwise DRY is enabled with the shipped
-  /// constants. `allowedLength` is 3 because ja names / topic words tokenize
-  /// to 2–3 tokens.
+  /// Resolve the production config from the process environment. Thin wrapper
+  /// over ``resolve(environment:)`` so the pure resolution logic is unit-testable
+  /// without mutating `setenv` (which is process-global and races parallel tests).
   static func resolve() -> DryConfig? {
-    let env = ProcessInfo.processInfo.environment
+    resolve(environment: ProcessInfo.processInfo.environment)
+  }
+
+  /// Pure resolution over an injected environment dict, applying any harness
+  /// A/B overrides on top of the shipped constants. Returns `nil` only for the
+  /// explicit base arm (`PASTURA_DRY_MULTIPLIER=0`, or any non-positive
+  /// override); otherwise DRY is enabled. `allowedLength` is 3 because ja names
+  /// / topic words tokenize to 2–3 tokens.
+  static func resolve(environment env: [String: String]) -> DryConfig? {
     func float(_ key: String, _ fallback: Float) -> Float {
       env[key].flatMap(Float.init) ?? fallback
     }
@@ -118,6 +124,17 @@ nonisolated extension LlamaCppService {
         llama_sampler_accept(dry, token)
         seededTokenCount += 1
       }
+    }
+    if seededTokenCount == 0 {
+      // Reached with a non-empty `seeds` (guarded above) yet nothing seeded —
+      // every seed failed to tokenize. The handle stays valid but degrades to
+      // a within-generation-only penalty, silently defeating the cross-turn
+      // purpose of #1105, so surface it above `.debug`.
+      logger.warning(
+        """
+        DRY seeded 0 tokens from \(seeds.count, privacy: .public) non-empty \
+        seed(s) (#1105) — all tokenized empty; cross-turn penalty inert this turn
+        """)
     }
     logger.debug(
       """

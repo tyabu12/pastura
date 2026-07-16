@@ -25,7 +25,13 @@ Metrics per arm (mean across the arm's runs):
 
 Safety gauges per arm (a No-Go signal if the DRY arm regresses these):
 
-  retries              inference_started events at attempt > 0 (retry pressure).
+  retries              Retry-pressure proxy = completed inferences minus turns
+                       that produced an agent_output or were skipped. Each
+                       parse/empty/language retry adds an extra
+                       inference_completed with no matching agent_output. (The
+                       JSONL `attempt` field is the RUN-level counter, 1..2, so
+                       it can't be used here — see the inline note in
+                       `analyze_run`.)
   errors               `error` + `turn_skipped` event lines.
   tok/s                Aggregate completion tokens / inference seconds.
   DRY fired            If a sibling `<run>.log` exists, the `[#1105 DRY]`
@@ -198,8 +204,6 @@ def aggregate(runs):
         "tok_s",
         "seeded_tokens",
         "seed_events",
-        "self_pairs",
-        "cross_pairs",
     ]
     return {k: mean([r[k] for r in runs]) for k in keys}
 

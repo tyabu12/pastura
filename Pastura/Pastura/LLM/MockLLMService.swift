@@ -271,9 +271,9 @@ nonisolated public final class MockLLMService: LLMService, @unchecked Sendable {
   }
 
   /// The `schema` argument passed to each
-  /// ``generate(system:user:schema:)`` and
-  /// ``generateStream(system:user:schema:)`` call, in call order.
-  /// `nil` entries are unconstrained calls.
+  /// ``generate(system:user:schema:antiRepetitionSeeds:)`` and
+  /// ``generateStream(system:user:schema:antiRepetitionSeeds:)`` call, in call
+  /// order. `nil` entries are unconstrained calls.
   public var capturedSchemas: [OutputSchema?] {
     state.withLock { $0.capturedSchemas }
   }
