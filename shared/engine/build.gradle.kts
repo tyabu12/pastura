@@ -42,6 +42,13 @@ kotlin {
     iosSimulatorArm64()
     iosX64()
 
+    // macOS host target (#501 Stage 2-gate) — mirrors `shared/models`. Pulled
+    // forward of the ADR-023 §6 Stage-4 parity harness (which names `macosArm64`
+    // as its Kotlin/Native rung) because the Stage-2-gate Swift spike consumer
+    // is a detached macOS SwiftPM package (host decision B′, #1135). The target
+    // registration moves; the Stage-4 harness does not.
+    macosArm64()
+
     sourceSets {
         commonMain.dependencies {
             // Engine→Models layer edge. Inert at Stage 1 (no engine sources
