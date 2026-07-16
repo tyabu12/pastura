@@ -60,6 +60,7 @@ Utilities/ → depends on nothing
 
 - Confirm with user before adding new SPM dependencies
 - When uncertain about direction or trade-offs, always ask before proceeding
+  - Safety-prerequisite follow-ups are a trade-off, not a scope-hygiene choice: if deferring a follow-up leaves `main` in a less-safe state until it lands, **bundle it**. Splitting stays correct for *orthogonal* follow-ups; when unsure, surface the trade-off (extra commits vs. the between-merges risk window) rather than deciding silently.
 - Major changes to public protocol signatures require user approval
 - Significant design changes beyond the current scope: stop and report first
 

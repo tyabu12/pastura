@@ -33,3 +33,11 @@ Em-dash (`—`) and `Feature: explanation` colon-as-prose-separator are the most
 - Hyphens (`on-device`, `non-trivial`) and colons before code blocks / bullet lists are not the same trap.
 
 The same voice rule extends to `README.md` / `CONTRIBUTING.md` additions, but this rule auto-loads on LP edits only — apply by writer judgement when editing project-root public docs.
+
+## 3. Source mechanics — .astro authoring traps
+
+Three ways `.astro` source diverges from rendered output. Each fails silently — the build succeeds and the page just looks wrong.
+
+- **A wrapped JA sentence becomes a visible mid-sentence space.** A Japanese sentence split across source lines collapses each newline + indent into a rendered space (Latin-token spaces are unaffected). Keep every JA sentence on one source line. Applies to any JA `.astro` prose, not only the LP.
+- **`{...}` is evaluated as JS even inside `<pre>`.** A code sample containing `{placeholder}` breaks or mis-renders when hand-written into markup. Pass code through the `<Code code={...}>` component, which HTML-escapes the string prop at build time (Shiki). Reference: `web/src/pages/docs/scenario.astro`.
+- **Pin the code highlight theme so fences match `<Code>`.** `<Code>` sets `theme="github-light"` explicitly, but Markdown fences rendered via `<Content />` inherit Shiki's `github-dark` default unless `astro.config.mjs` sets `markdown.shikiConfig.theme`. Both must be `github-light`; the background is already forced to `--page` by `page.css` `.page-prose pre.astro-code`. See #1120 / #1124.

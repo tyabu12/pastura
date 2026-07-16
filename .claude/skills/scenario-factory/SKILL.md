@@ -154,6 +154,12 @@ Canonical guidelines (the numbers live here): `.claude/rules/presets.md`
 
 Schema requirements (ScenarioLoader — all required):
 
+Before writing any phase type, `output` field name, or `score_calc` logic, read
+`web/src/content/scenario-format.en.md` — the gate-enforced canonical list
+(#1120 asserts every `PhaseType` / `ScoreCalcLogic` rawValue appears there, so
+it never drifts from the engine). The bullets below add only the
+generation-specific judgment on top of that reference.
+
 - `id`, `name`, `description`, `language: ja`, `agents`, `rounds`,
   `context`, `personas` (name + description each; count == `agents`),
   `phases`
@@ -163,12 +169,11 @@ Schema requirements (ScenarioLoader — all required):
   `prompt` + `output` field maps; `vote` needs `exclude_self` thought
   through; scoring usually wants a `score_calc` (logic: `vote_tally`)
   and a `summarize`.
-- **Canonical `output` field names** (enforced by
-  `ScenarioValidator.validateForCommit`): primary = `statement` (speak),
-  `action` (choose), `vote` (vote). The optional private-thought field is
-  `reason` for `vote`, `inner_thought` for `speak_all` / `speak_each` /
-  `choose`. Do NOT author `reason` on a choose/speak phase — it streams live
-  but goes blank on the committed row, and the commit gate rejects it (#760).
+- **Canonical `output` field names**: take the per-phase primary /
+  private-thought names from the format reference (enforced at commit by
+  `ScenarioValidator.validateForCommit`). One commit-gate trap the reference
+  does not call out: do NOT author `reason` on a choose/speak phase — it streams
+  live but goes blank on the committed row, and the gate rejects it (#760).
 - `reflect` (per-agent private memo, #907) — output field `note` (canonical,
   required; no secondary thought field). The memo is stored under the reserved
   `notes_<name>` namespace and re-injected into that agent's OWN later prompts
