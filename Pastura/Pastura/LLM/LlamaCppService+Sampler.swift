@@ -28,9 +28,13 @@ nonisolated struct SamplerHandles {
   /// wired from the same `schema != nil` condition and must not drift.
   let grammar: UnsafeMutablePointer<llama_sampler>?
   /// DRY repetition sampler (#1105), seeded content-only with the agent's
-  /// own prior statement so a token-level penalty spans the turn boundary
-  /// (the chain's own `penalties` member resets per `generate()` and never
-  /// sees prior turns — a structural no-op for cross-turn echo). Held as a
+  /// own prior statement so a token-level penalty spans the turn boundary.
+  /// Why a second sampler at all: the chain's own `penalties` member is
+  /// **within-generation only** — `createSampler` allocates a fresh chain per
+  /// `generate()`, so its ring buffer starts empty and cannot see a prior turn.
+  /// (It is live and load-bearing *inside* a generation — `acceptSampledToken`
+  /// feeds it every accepted token — so do not remove it; it just cannot reach
+  /// across the turn boundary, which is the scope #1105 targets.) Held as a
   /// SEPARATE handle (like `grammar`, not a chain member) so seeding it via
   /// `llama_sampler_accept` does NOT feed the chain's `penalties` ring buffer
   /// — that would silently blend a second penalty into an A/B arm. Also
@@ -55,9 +59,9 @@ extension LlamaCppService {
   ///   - model: The model pointer, used only to read `n_ctx_train` when
   ///     building the DRY sampler (#1105). Optional; DRY is skipped when nil.
   ///   - antiRepetitionSeeds: Prior text spans to seed the DRY sampler with
-  ///     (content-only — the value text, never JSON scaffold). Empty (or the
-  ///     `PASTURA_DRY_MULTIPLIER` env toggle unset) leaves DRY off, so the
-  ///     sampler is byte-for-byte the pre-#1105 configuration.
+  ///     (content-only — the value text, never JSON scaffold). Empty leaves DRY
+  ///     off, so the sampler is byte-for-byte the pre-#1105 configuration.
+  ///     Enablement otherwise is `DryConfig`'s call — do not restate it here.
   ///
   /// **Chain order**: `penalties → top_k → top_p → temperature → dist`.
   /// The grammar and DRY are applied outside the chain by `safeSample`

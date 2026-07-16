@@ -85,6 +85,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   static let maxTokens: Int = 1_000
   static let topK: Int32 = 40
   static let topP: Float = 0.95
+  // Scope caveat — this knob is WITHIN-generation only. The chain it feeds is
+  // rebuilt per `generate()`, so its ring buffer starts empty every call and
+  // cannot reach a prior turn. Raising it to fight an agent echoing its own
+  // earlier statement, or cross-agent template collapse, does nothing; that is
+  // the #1105 DRY sampler's job (it is seeded). See `SamplerHandles.dry`.
   static let repeatPenalty: Float = 1.1
   static let contextSize: UInt32 = 8_192
   static let batchSize: Int = 512
