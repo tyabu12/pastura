@@ -47,9 +47,22 @@ jobs:
   kmp-nightly:
     name: KMP nightly full-native (#501)
     runs-on: macos-26
-    # Headroom over the observed cold full-native cost (~6m30s compile+assemble
-    # on PR-1) plus the native test-runtime execution this job adds. Generous
-    # because it is off any critical path.
+    # Sizing, measured rather than estimated (so the next editor re-derives it
+    # instead of guessing). Anchor on THIS job's own history, not on ci.yml's:
+    # the Stage-1 DoD run measured this job at 3m21s.
+    #
+    # #1135 adds: macosArm64 klibs on both modules + `:shared:models:macosArm64Test`;
+    # the `PasturaSharedEngine` both-config umbrella (4 targets x 2 configs);
+    # and `:shared:engine:build` now also LINKS every engine framework
+    # (build -> assemble) and runs engine `macosArm64Test` (build -> check ->
+    # allTests) — both no-ops when this job was written against an empty
+    # scaffold. Running #1135's exact invocation locally: 6m24s, i.e. ~2x the
+    # 3m21s baseline, so ~7-8 min on CI, not the ~30 an earlier draft of this
+    # comment estimated off ci.yml's unrelated 6m30s figure.
+    #
+    # 30 kept unchanged: ~4x headroom on the new workload, off any critical
+    # path. The probe step below carries its own 15-min cap and fires only on
+    # workflow_dispatch, so it does not drive this number.
     timeout-minutes: 30
     # Job-scoped (overrides the top-level `contents: read`): the failure step
     # opens/updates a tracking issue, which needs `issues: write`.
@@ -71,6 +84,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      # Bracket the cache restores with a wall-clock timer. `actions/cache`
+      # exposes no duration output, and the Stage-5 sizing question the probe
+      # step below answers is "can a per-PR job afford this?" — for which
+      # restoring a multi-GB ~/.konan is part of the wall clock, not overhead to
+      # be ignored. Two `date` calls, so this stays unconditional.
+      - name: Start cache-restore timer
+        run: echo "CACHE_RESTORE_START=$(date +%s)" >> "$GITHUB_ENV"
 
       # Three caches, same invalidation model as ci.yml's kmp-build-test (#220
       # D5): ~/.konan (K/N compiler + LLVM toolchain), ~/.gradle/caches
@@ -98,6 +119,9 @@ jobs:
           key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
 
+      - name: Stop cache-restore timer
+        run: echo "CACHE_RESTORE_SECONDS=$(( $(date +%s) - CACHE_RESTORE_START ))" >> "$GITHUB_ENV"
+
       # Supply-chain guard on the checked-in gradle-wrapper.jar (mirrors the
       # per-PR job — "author fresh" must not drop it).
       - name: Validate Gradle wrapper integrity
@@ -105,28 +129,45 @@ jobs:
 
       # The full native rung, one Gradle invocation (no second cold start):
       #   :shared:engine:build ............ compiles engine on every target
-      #                                     (jvm + iosArm64 + iosSimulatorArm64
-      #                                     + iosX64), pulling :shared:models
-      #                                     klibs as its upstream dep. Engine
-      #                                     tests are NO-SOURCE (empty scaffold),
-      #                                     so no simulator boot for them.
+      #                                     (jvm + 3x iOS + macosArm64), pulling
+      #                                     :shared:models klibs as its upstream
+      #                                     dep. Since #1135's framework export
+      #                                     this also LINKS every engine
+      #                                     framework (build -> assemble), and
+      #                                     since Stage 2-pre landed the first
+      #                                     commonTest it RUNS engine tests
+      #                                     (build -> check -> allTests) — both
+      #                                     were no-ops when this job was
+      #                                     written against an empty scaffold.
       #   :shared:models:jvmTest .......... runs the Models suite on the JVM.
       #   :shared:models:iosSimulatorArm64Test .. runs the shared `commonTest`
       #                                     suite on the Kotlin/Native
       #                                     test-runtime on the arm64 iOS
       #                                     simulator — the native execution rung
       #                                     the per-PR compile-only path never
-      #                                     reaches. This is an EARLY iOS-target
-      #                                     native rung (the actual deployment
-      #                                     triple), not the ADR-023 §6 Stage-4
-      #                                     `macosArm64` rung / cross-language
-      #                                     parity harness, which are separate
-      #                                     later deliverables.
+      #                                     reaches. The actual deployment
+      #                                     triple.
+      #   :shared:models:macosArm64Test ... the same commonTest suite on the K/N
+      #                                     macOS host runtime (#1135). Runs
+      #                                     natively — no simulator boot. This is
+      #                                     the target the Stage-2-gate spike
+      #                                     consumer links against; it is NOT the
+      #                                     ADR-023 §6 Stage-4 cross-language
+      #                                     parity harness, which still lands at
+      #                                     Stage 4 (the target registration was
+      #                                     pulled forward; the harness was not).
       #   :shared:models:assemblePasturaSharedXCFramework .. links + bundles the
-      #                                     XCFramework across all three iOS
-      #                                     targets (so iosArm64 device + iosX64
-      #                                     are compiled and linked here even
-      #                                     though only arm64-sim is test-run).
+      #                                     models-only umbrella across all three
+      #                                     iOS targets (so iosArm64 device +
+      #                                     iosX64 are compiled and linked here
+      #                                     even though only arm64-sim is
+      #                                     test-run). No macOS slice by design —
+      #                                     see shared/models/build.gradle.kts.
+      #   :shared:engine:assemblePasturaSharedEngineXCFramework .. the engine
+      #                                     umbrella, BOTH configs (the per-PR
+      #                                     path builds debug only). This is the
+      #                                     artifact the Stage-2-gate spike
+      #                                     consumer binary-targets.
       #
       # `iosX64Test` is deliberately NOT invoked: on this arm64 runner it would
       # execute an x86_64 test binary on the x86_64 iOS simulator under Rosetta
@@ -140,8 +181,78 @@ jobs:
           :shared:engine:build
           :shared:models:jvmTest
           :shared:models:iosSimulatorArm64Test
+          :shared:models:macosArm64Test
           :shared:models:assemblePasturaSharedXCFramework
+          :shared:engine:assemblePasturaSharedEngineXCFramework
           --no-daemon --stacktrace
+
+      # Stage-5 sizing probe (#1135) — NOT a regression check.
+      #
+      # ADR-023 §6 Stage 5 must decide whether the iOS app's per-PR CI can
+      # afford to assemble the XCFramework itself, or needs a prebuilt-artifact
+      # scheme. Cold assembly is known (~6m32s, PR-1). The missing number is
+      # WARM: build outputs gone, ~/.konan + ~/.gradle still populated — what a
+      # per-PR job on a warm runner actually faces.
+      #
+      # Three deliberate guards, all for the same reason: this job's `failure()`
+      # issue-filer below is the backstop's alarm channel, and its issue text
+      # asserts a red run means "a native-path regression the per-PR job could
+      # not catch". A MEASUREMENT step must never be able to make that claim.
+      #   - workflow_dispatch only: the answer is wanted once, not nightly. A
+      #     daily re-measure of a number nobody reads costs ~10 min/night and
+      #     can only produce false alarms.
+      #   - continue-on-error: a probe failure is not a regression signal. (A
+      #     continue-on-error step's failure sets its *outcome* to failure but
+      #     its *conclusion* to success, so `failure()` below stays false.)
+      #   - step timeout: without it a hung probe burns the job cap, and a job
+      #     timeout is not something continue-on-error can catch.
+      #
+      # ⚠️ Do NOT add `always()` / `failure()` to this step's `if:`. An `if:`
+      # with no status-check function carries an implicit `success()`, and that
+      # implicit gate is the ONLY thing stopping the `clean` below from wiping
+      # `build/reports/` out from under the `if: failure()` report upload when
+      # the main build has already failed.
+      #
+      # Validity: no `gradle.properties` exists in this repo, so Gradle's build
+      # cache and configuration cache are both OFF by default — `clean` really
+      # does force a recompile+relink rather than replaying cached outputs.
+      # `--no-daemon` is pinned here, not inherited, so the probe cannot be
+      # flattered by a daemon warmed by the step above.
+      - name: Measure warm-cache assembly (Stage-5 sizing)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          ./gradlew :shared:models:clean :shared:engine:clean --no-daemon
+          START=$(date +%s)
+          ./gradlew \
+            :shared:models:assemblePasturaSharedXCFramework \
+            :shared:engine:assemblePasturaSharedEngineXCFramework \
+            --no-daemon
+          ASSEMBLE=$(( $(date +%s) - START ))
+          {
+            printf '## Stage-5 sizing probe (#1135)\n\n'
+            printf '| Measurement | Seconds |\n|---|---|\n'
+            printf '| Warm-cache assembly (both umbrellas) | %s |\n' "$ASSEMBLE"
+            printf '| Cache restore (~/.konan + ~/.gradle) | %s |\n\n' "${CACHE_RESTORE_SECONDS:-unknown}"
+            printf '**The assembly figure is a LOWER BOUND on per-PR cost.** It excludes:\n\n'
+            printf -- '- Cache-restore wall time (listed separately above; a per-PR job pays it too).\n'
+            # Backticks below are literal markdown, not command substitution —
+            # single quotes are deliberate (mirrors the issue-filer step).
+            # shellcheck disable=SC2016
+            printf -- '- Cache-key MISS. `ci.yml` keys `gradle-caches` on\n'
+            # shellcheck disable=SC2016
+            printf '  `hashFiles(gradle/libs.versions.toml, **/*.gradle.kts)`, so the PRs most\n'
+            printf '  likely to need a full assembly — build-config touches — never get a key\n'
+            # shellcheck disable=SC2016
+            printf '  hit; they fall back to `restore-keys` prefix matching, a strictly worse\n'
+            printf '  cache state than this probe measures.\n'
+            printf -- '- A cold OS page cache. This probe inherits a hot one from the assembly\n'
+            printf '  the same job just did.\n\n'
+            printf 'Compare against the repo CI budget (target <=10 min) only after adding\n'
+            printf 'restore time and a key-miss margin.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Backstop alarm: a silently-red nightly rots. On failure, open (or, if
       # one is already open, comment on) a single tracking issue with the recent
