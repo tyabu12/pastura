@@ -47,10 +47,22 @@ jobs:
   kmp-nightly:
     name: KMP nightly full-native (#501)
     runs-on: macos-26
-    # Headroom over the observed cold full-native cost (~6m30s compile+assemble
-    # on PR-1) plus the native test-runtime execution this job adds. Generous
-    # because it is off any critical path.
-    timeout-minutes: 30
+    # Sizing, rather than a bare number (arithmetic so the next editor can
+    # re-derive it instead of guessing):
+    #   PR-1 measured ~6m30s cold for ONE both-config umbrella over 3 iOS
+    #   targets (6 links) + a klib compile. #1135 adds, on top of that:
+    #     - macosArm64 klib on both modules + `:shared:models:macosArm64Test`
+    #     - the `PasturaSharedEngine` both-config umbrella: 4 targets x 2
+    #       configs = 8 links, each statically embedding re-exported models +
+    #       kotlinx-serialization + snakeyaml
+    #     - `:shared:engine:build` now also LINKS every engine framework
+    #       (build -> assemble) and runs engine `macosArm64Test`
+    #       (build -> check -> allTests)
+    #   That is roughly a 2-2.5x workload => ~30 min realistic worst case.
+    # 35 keeps headroom without the timeout becoming decorative. The probe step
+    # below carries its own 15-min cap and only fires on workflow_dispatch, so
+    # it does not drive this number.
+    timeout-minutes: 35
     # Job-scoped (overrides the top-level `contents: read`): the failure step
     # opens/updates a tracking issue, which needs `issues: write`.
     permissions:
@@ -105,28 +117,45 @@ jobs:
 
       # The full native rung, one Gradle invocation (no second cold start):
       #   :shared:engine:build ............ compiles engine on every target
-      #                                     (jvm + iosArm64 + iosSimulatorArm64
-      #                                     + iosX64), pulling :shared:models
-      #                                     klibs as its upstream dep. Engine
-      #                                     tests are NO-SOURCE (empty scaffold),
-      #                                     so no simulator boot for them.
+      #                                     (jvm + 3x iOS + macosArm64), pulling
+      #                                     :shared:models klibs as its upstream
+      #                                     dep. Since #1135's framework export
+      #                                     this also LINKS every engine
+      #                                     framework (build -> assemble), and
+      #                                     since Stage 2-pre landed the first
+      #                                     commonTest it RUNS engine tests
+      #                                     (build -> check -> allTests) — both
+      #                                     were no-ops when this job was
+      #                                     written against an empty scaffold.
       #   :shared:models:jvmTest .......... runs the Models suite on the JVM.
       #   :shared:models:iosSimulatorArm64Test .. runs the shared `commonTest`
       #                                     suite on the Kotlin/Native
       #                                     test-runtime on the arm64 iOS
       #                                     simulator — the native execution rung
       #                                     the per-PR compile-only path never
-      #                                     reaches. This is an EARLY iOS-target
-      #                                     native rung (the actual deployment
-      #                                     triple), not the ADR-023 §6 Stage-4
-      #                                     `macosArm64` rung / cross-language
-      #                                     parity harness, which are separate
-      #                                     later deliverables.
+      #                                     reaches. The actual deployment
+      #                                     triple.
+      #   :shared:models:macosArm64Test ... the same commonTest suite on the K/N
+      #                                     macOS host runtime (#1135). Runs
+      #                                     natively — no simulator boot. This is
+      #                                     the target the Stage-2-gate spike
+      #                                     consumer links against; it is NOT the
+      #                                     ADR-023 §6 Stage-4 cross-language
+      #                                     parity harness, which still lands at
+      #                                     Stage 4 (the target registration was
+      #                                     pulled forward; the harness was not).
       #   :shared:models:assemblePasturaSharedXCFramework .. links + bundles the
-      #                                     XCFramework across all three iOS
-      #                                     targets (so iosArm64 device + iosX64
-      #                                     are compiled and linked here even
-      #                                     though only arm64-sim is test-run).
+      #                                     models-only umbrella across all three
+      #                                     iOS targets (so iosArm64 device +
+      #                                     iosX64 are compiled and linked here
+      #                                     even though only arm64-sim is
+      #                                     test-run). No macOS slice by design —
+      #                                     see shared/models/build.gradle.kts.
+      #   :shared:engine:assemblePasturaSharedEngineXCFramework .. the engine
+      #                                     umbrella, BOTH configs (the per-PR
+      #                                     path builds debug only). This is the
+      #                                     artifact the Stage-2-gate spike
+      #                                     consumer binary-targets.
       #
       # `iosX64Test` is deliberately NOT invoked: on this arm64 runner it would
       # execute an x86_64 test binary on the x86_64 iOS simulator under Rosetta
@@ -140,7 +169,9 @@ jobs:
           :shared:engine:build
           :shared:models:jvmTest
           :shared:models:iosSimulatorArm64Test
+          :shared:models:macosArm64Test
           :shared:models:assemblePasturaSharedXCFramework
+          :shared:engine:assemblePasturaSharedEngineXCFramework
           --no-daemon --stacktrace
 
       # Backstop alarm: a silently-red nightly rots. On failure, open (or, if
