@@ -19,16 +19,17 @@ import os
 /// **ja/en divergence (#1105 word_wolf mult sweep, Gemma 4 E2B Q4).** DRY
 /// substantially cuts self-echo in ja (char-3gram self-echo 0.34→0.20 at
 /// `mult=0.8`, verbatim echoes eliminated) but is weaker in en: exact echoes
-/// still go to zero, yet char-3gram self-echo stays ~flat. **Not a seeding
-/// gap** — measured and falsified (see `buildAndSeedDrySampler`). The ramp is
-/// the suspect: the penalty opens at `multiplier`, needs ~5 matched tokens to
-/// bite, and resets on each forced divergence — so en buys one word-swap per
-/// clause (exact echo → 0) with the clause otherwise intact (char-3gram flat),
-/// while ja diverts early (max penalty 4.3 vs en's 23.0). **Indicative, not
-/// established**: one word_wolf run per locale; en's decisive behaviour rests
-/// on 4 positions — re-measure before tuning the ramp. Stage-0 record: #1133.
-/// en is not the launch-critical locale (English App Store is a Phase 2→3
-/// gate) and DRY is regression-free there, so this ships as-is.
+/// still go to zero, yet char-3gram self-echo stays ~flat. Two things are
+/// **measured**: it is not a seeding gap (see `buildAndSeedDrySampler`), and the
+/// wiring fires — observed penalties land exactly on
+/// `multiplier * base^(L - allowedLength)`. Why en differs is **indicative
+/// only**: the ramp opens at `multiplier`, needs ~5 matched tokens to bite, and
+/// resets on each forced divergence — so ja diverts early (max penalty 4.3)
+/// where en runs long before it bites (23.0). One word_wolf run per locale, and
+/// en's decisive behaviour rests on 4 positions — re-measure before tuning the
+/// ramp. Stage-0 record: #1133. en is not the launch-critical locale (English
+/// App Store is a Phase 2→3 gate) and DRY is regression-free there, so this
+/// ships as-is.
 nonisolated struct DryConfig {
   let multiplier: Float
   let base: Float
@@ -93,11 +94,13 @@ nonisolated extension LlamaCppService {
   /// are absent from the seed, so DRY cannot form a match against them and
   /// cannot fight the grammar at structural positions. Retokenization fidelity
   /// is **measured, not assumed** (#1133): the re-tokenized seed reproduces the
-  /// tokens the model actually emitted except for the leading one (SentencePiece's
-  /// dummy prefix — `▁I` vs `I`), identically in ja and en, leaving contiguous
-  /// runs of 12–38 tokens ≫ `allowedLength`. So the boundary drift does not gate
-  /// DRY, is not larger in en, and does not explain the weaker en effect (see
-  /// `DryConfig`) — seeding an exact-token span would buy nothing.
+  /// tokens the model actually emitted to within 1 token in en (uniformly, 10/10
+  /// seeded turns) and 3 in ja, leaving contiguous runs of 12–38 tokens ≫
+  /// `allowedLength`. The en uniformity is consistent with a single systematic
+  /// difference on the seed's leading token (SentencePiece's dummy prefix —
+  /// `▁I` vs `I`). So the boundary drift does not gate DRY, is not larger in en,
+  /// and does not explain the weaker en effect (see `DryConfig`) — an
+  /// exact-token seed would recover a token or three, not a mechanism.
   func buildAndSeedDrySampler(
     vocab: OpaquePointer, model: OpaquePointer?, seeds: [String]
   ) -> UnsafeMutablePointer<llama_sampler>? {
