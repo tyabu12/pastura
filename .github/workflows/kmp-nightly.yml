@@ -47,22 +47,23 @@ jobs:
   kmp-nightly:
     name: KMP nightly full-native (#501)
     runs-on: macos-26
-    # Sizing, rather than a bare number (arithmetic so the next editor can
-    # re-derive it instead of guessing):
-    #   PR-1 measured ~6m30s cold for ONE both-config umbrella over 3 iOS
-    #   targets (6 links) + a klib compile. #1135 adds, on top of that:
-    #     - macosArm64 klib on both modules + `:shared:models:macosArm64Test`
-    #     - the `PasturaSharedEngine` both-config umbrella: 4 targets x 2
-    #       configs = 8 links, each statically embedding re-exported models +
-    #       kotlinx-serialization + snakeyaml
-    #     - `:shared:engine:build` now also LINKS every engine framework
-    #       (build -> assemble) and runs engine `macosArm64Test`
-    #       (build -> check -> allTests)
-    #   That is roughly a 2-2.5x workload => ~30 min realistic worst case.
-    # 35 keeps headroom without the timeout becoming decorative. The probe step
-    # below carries its own 15-min cap and only fires on workflow_dispatch, so
-    # it does not drive this number.
-    timeout-minutes: 35
+    # Sizing, measured rather than estimated (so the next editor re-derives it
+    # instead of guessing). Anchor on THIS job's own history, not on ci.yml's:
+    # the Stage-1 DoD run measured this job at 3m21s.
+    #
+    # #1135 adds: macosArm64 klibs on both modules + `:shared:models:macosArm64Test`;
+    # the `PasturaSharedEngine` both-config umbrella (4 targets x 2 configs);
+    # and `:shared:engine:build` now also LINKS every engine framework
+    # (build -> assemble) and runs engine `macosArm64Test` (build -> check ->
+    # allTests) — both no-ops when this job was written against an empty
+    # scaffold. Running #1135's exact invocation locally: 6m24s, i.e. ~2x the
+    # 3m21s baseline, so ~7-8 min on CI, not the ~30 an earlier draft of this
+    # comment estimated off ci.yml's unrelated 6m30s figure.
+    #
+    # 30 kept unchanged: ~4x headroom on the new workload, off any critical
+    # path. The probe step below carries its own 15-min cap and fires only on
+    # workflow_dispatch, so it does not drive this number.
+    timeout-minutes: 30
     # Job-scoped (overrides the top-level `contents: read`): the failure step
     # opens/updates a tracking issue, which needs `issues: write`.
     permissions:
