@@ -1,21 +1,24 @@
 ---
 name: promote-memories
-description: Triage per-user memory and promote durable entries into .claude/rules/ — select candidates, draft at concept level, self-check, and hand off to /orchestrate for the PR.
+description: Triage per-user memory — promote durable entries into .claude/rules/ AND retire (delete/trim) SHIPPED trackers — select candidates, classify, draft at concept level, self-check, hand off to /orchestrate for the promotion PR.
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit, Agent
 argument-hint: "[focus cluster | (empty for full triage)]"
 ---
 
 # /promote-memories
 
-Run a memory → rules promotion round. The **canonical procedure lives in
-`.claude/rules/knowledge-layering.md`** (§ Where knowledge belongs,
-§ Promotion, § Procedure, § Rule-writing self-check) — read it first and
-follow it as the source of truth. This skill adds only the operational
-steps around that procedure; if the two ever disagree, the rule wins.
+Run a memory triage round — **promote** durable lessons to rules and
+**retire** (delete/trim) SHIPPED trackers. The **canonical procedure lives
+in `.claude/rules/knowledge-layering.md`** (§ Where knowledge belongs,
+§ Promotion & retirement, § Procedure, § Rule-writing self-check) — read it
+first and follow it as the source of truth. This skill adds only the
+operational steps around that procedure; if the two ever disagree, the rule
+wins.
 
-Typical trigger: the MEMORY.md size warning (>24.4KB index), or a
-user-requested periodic triage. `$ARGUMENTS` may name a focus cluster
-(e.g. "xcstrings", "kmp") to skip the full triage.
+Typical trigger: total memory files >80 or total content >~250KB (see
+knowledge-layering § Promotion & retirement), or a user-requested periodic
+triage. `$ARGUMENTS` may name a focus cluster (e.g. "xcstrings", "kmp") to
+skip the full triage.
 
 ## Step 1: Triage
 
@@ -26,14 +29,26 @@ user-requested periodic triage. `$ARGUMENTS` may name a focus cluster
 2. For each candidate, apply knowledge-layering.md's quick test
    ("would a new contributor re-derive this?") and its user-preference
    carve-out (`user_*`-flavored feedback stays in memory).
-3. Cluster candidates by target rules file. Prefer path-scoped targets;
-   additions to always-loaded files route through
-   `.claude/rules/context-budget.md`'s classifier first.
-4. **Grep the target rules file before drafting** — entries may already be
-   partially covered; promote only the delta. Defer clusters whose natural
-   target file does not exist yet (e.g. a layer that hasn't landed on main).
-5. Present the slate to the user: promote now / defer (with the reason and
-   a tracking-issue note) / keep in memory. Wait for approval.
+3. **Classify each into a disposition** — run the promotion quick-test
+   *first*, so one memory can be both promoted and then retired:
+   - **PROMOTE** — durable, non-derivable lesson → extract to rules (Steps 2-4).
+   - **DELETE** — a `project_*` tracker whose work has fully SHIPPED (no open
+     items, outcome now derivable from code/git/docs) → retire the file.
+     Extract any durable lesson via PROMOTE first, then delete the residue.
+   - **TRIM** — shipped bulk plus a few live items → rewrite to the
+     open-tracking stub, keeping only the open work.
+   - **KEEP** — active tracking with open work → leave as-is.
+4. For **PROMOTE** candidates: cluster by target rules file (prefer
+   path-scoped; always-loaded targets route through
+   `.claude/rules/context-budget.md`'s classifier first), and **grep the
+   target before drafting** — entries may already be partially covered;
+   promote only the delta. Defer clusters whose target file does not exist yet.
+5. Present the disposition slate to the user (PROMOTE / DELETE / TRIM / KEEP,
+   with reasons; defer + tracking-issue note where relevant). Wait for
+   approval. Then: **PROMOTE** → Steps 2-4 (rules PR); **DELETE / TRIM** →
+   operate on memory directly in-session (per-user, no PR needed; on DELETE,
+   prune the file's MEMORY.md index line and fix any `[[wikilink]]` that
+   pointed to it).
 
 ## Step 2: Draft
 
@@ -75,7 +90,9 @@ checklist — never execute the deletions yourself:
    `rm -i` and silently no-ops in non-interactive shells). Show the list
    for confirmation before the operator runs it.
 2. Shorten remaining over-long MEMORY.md index lines (one line,
-   <200 chars each) — index-line length, not file count, drives the
-   >24.4KB warning, so this is the primary size-relief action.
-3. Re-check MEMORY.md size. If still over the limit, queue the next round
-   from the deferred clusters recorded in the tracking issue.
+   <200 chars each) — this relieves the built-in >24.4KB *index* warning
+   specifically; the primary triage triggers, though, are file-count +
+   content-size (knowledge-layering § Promotion & retirement), which
+   retirement (DELETE / TRIM) addresses directly.
+3. Re-check the triage triggers (file-count / content-size). If still over,
+   queue the next round from the deferred clusters recorded in the tracking issue.
