@@ -131,7 +131,7 @@ nonisolated struct LLMCaller: Sendable {
       // bucket repair effects against pre-PR baselines.
       guard let parseResult = try? parser.parse(raw, expectedKeys: expectedKeys)
       else {
-        logParseFailure(raw: raw, attempt: attempt)
+        logParseFailure(agent: agentName, raw: raw, attempt: attempt)
         if attempt < Self.maxRetries {
           emitRetryCause(agent: agentName, attempt: attempt + 1, cause: "parse_failed")
           continue

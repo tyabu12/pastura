@@ -169,4 +169,55 @@ if grep -q -- "--profile" "$ARGV2"; then
   fail "run_scenario: --profile should NOT be passed without the 5th arg"
 fi
 
+# --- run_scenario.sh --backend / --guardrails canary (#1072) ----------------
+# The foundation-models re-run drives these; they are trailing FLAGS, so they
+# must be reachable without a profile placeholder, and `-` must suppress
+# --model (FM has no GGUF file).
+ARGV3="$TMP/argv3.log"
+STATUS3=$(
+  cd "$REPO_ROOT" && \
+  PASTURA_HARNESS_BIN="$FAKE_BIN" FAKE_ARGV_CAPTURE="$ARGV3" \
+  bash .claude/skills/scenario-factory/scripts/run_scenario.sh \
+    "$DUMMY_YAML" - "$TMP/out3.jsonl" 60 --backend foundation-models --guardrails permissive
+)
+printf '%s' "$STATUS3" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='ok', d" \
+  || fail "run_scenario: fm canary expected status ok, got: $STATUS3"
+grep -q -- "--backend foundation-models" "$ARGV3" \
+  || fail "run_scenario: --backend not passed through argv"
+grep -q -- "--guardrails permissive" "$ARGV3" \
+  || fail "run_scenario: --guardrails not passed through argv"
+if grep -q -- "--model" "$ARGV3"; then
+  fail "run_scenario: --model must be omitted when the model arg is '-'"
+fi
+if grep -q -- "--profile" "$ARGV3"; then
+  fail "run_scenario: --profile should NOT be passed when only trailing flags follow timeout"
+fi
+
+# trailing flags must not disturb the llama-cpp default path
+ARGV4="$TMP/argv4.log"
+STATUS4=$(
+  cd "$REPO_ROOT" && \
+  PASTURA_HARNESS_BIN="$FAKE_BIN" FAKE_ARGV_CAPTURE="$ARGV4" \
+  bash .claude/skills/scenario-factory/scripts/run_scenario.sh \
+    "$DUMMY_YAML" "$DUMMY_GGUF" "$TMP/out4.jsonl" 60 gemma-4-e2b --guardrails permissive
+)
+printf '%s' "$STATUS4" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='ok', d" \
+  || fail "run_scenario: profile+flag canary expected status ok, got: $STATUS4"
+grep -q -- "--model $DUMMY_GGUF" "$ARGV4" \
+  || fail "run_scenario: --model must still pass through alongside trailing flags"
+grep -q -- "--profile gemma-4-e2b" "$ARGV4" \
+  || fail "run_scenario: --profile must still pass through alongside trailing flags"
+grep -q -- "--guardrails permissive" "$ARGV4" \
+  || fail "run_scenario: --guardrails not passed through after a profile positional"
+
+# an unknown trailing flag is a usage error (exit 2), not a silent drop
+if (
+  cd "$REPO_ROOT" && \
+  PASTURA_HARNESS_BIN="$FAKE_BIN" FAKE_ARGV_CAPTURE="$TMP/argv5.log" \
+  bash .claude/skills/scenario-factory/scripts/run_scenario.sh \
+    "$DUMMY_YAML" - "$TMP/out5.jsonl" 60 --bogus x >/dev/null 2>&1
+); then
+  fail "run_scenario: unknown trailing flag should exit non-zero"
+fi
+
 echo "ALL TESTS PASSED"
