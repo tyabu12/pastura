@@ -41,16 +41,24 @@ import kotlinx.serialization.json.JsonPrimitive
 internal class JSONResponseParser {
 
     private companion object {
+        // These patterns must match across newlines (a model's thinking block or
+        // a fenced JSON body spans many lines). The idiomatic flag for that,
+        // `RegexOption.DOT_MATCHES_ALL`, is NOT in the Kotlin *common* stdlib —
+        // it is a platform-specific entry present only on JVM and Native, so
+        // commonMain fails to resolve it (`compileCommonMainKotlinMetadata`).
+        // We therefore encode "any character including newline" directly in the
+        // pattern as `[\s\S]`, which is pure regex syntax with no flag
+        // dependence and identical semantics on every target.
         /** Gemma 4 channel thinking: `<|channel>thought...<channel|>`. */
-        val CHANNEL_THINKING = Regex("""<\|channel>thought\s*.*?<channel\|>""", RegexOption.DOT_MATCHES_ALL)
+        val CHANNEL_THINKING = Regex("""<\|channel>thought\s*[\s\S]*?<channel\|>""")
 
         /** Common thinking-model format: `<think>...</think>` (DeepSeek, Qwen). */
-        val THINK_TAG = Regex("""<think>.*?</think>""", RegexOption.DOT_MATCHES_ALL)
+        val THINK_TAG = Regex("""<think>[\s\S]*?</think>""")
 
         /** Chat-template token — truncate everything from the first occurrence. */
-        val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>.*""", RegexOption.DOT_MATCHES_ALL)
+        val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>[\s\S]*""")
 
-        val CODE_BLOCK = Regex("""```(?:json)?\s*\n?(.*?)\n?```""", RegexOption.DOT_MATCHES_ALL)
+        val CODE_BLOCK = Regex("""```(?:json)?\s*\n?([\s\S]*?)\n?```""")
 
         /**
          * `allowTrailingComma`: Swift's `JSONSerialization.jsonObject` accepts
