@@ -2,13 +2,23 @@
 # Crash-tolerant single-scenario runner for the /scenario-factory skill.
 #
 # usage:
-#   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
+#   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] \
+#                   [profile_id] [--backend <id>] [--guardrails <id>]
 #   run_scenario.sh --classify <out.jsonl> <exit_code>
 #
 # [profile_id], when non-empty, is passed through to the harness as
 # `--profile "$PROFILE"` (selects the harness's prompt-format hints; default
 # "gemma"). Positional args, so passing a profile requires also passing
 # timeout_sec explicitly.
+#
+# --backend / --guardrails are TRAILING FLAGS, not further positionals: making
+# them positional #6/#7 would force every foundation-models caller to also
+# supply a timeout and a meaningless profile_id just to reach them.
+#
+# <model.gguf> accepts `-` (or an empty string) for backends that have no GGUF
+# file — `--model` is then omitted from the harness argv entirely, so the
+# harness's own backend-aware check stays the single authority: required for
+# llama-cpp (exit 2 -> config_error), ignored for foundation-models.
 #
 # Run from the repository root (Package.swift must be in the cwd).
 # Emits exactly one JSON status line on stdout. Harness stderr goes to
@@ -49,7 +59,10 @@ RUN_START_WAIT_SEC=90   # run_start poll budget; build is done beforehand
 usage() {
   cat >&2 <<'EOF'
 usage: run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
+                       [--backend <id>] [--guardrails <id>]
        run_scenario.sh --classify <out.jsonl> <exit_code>
+
+<model.gguf> may be `-` for a backend with no GGUF file (e.g. foundation-models).
 EOF
   exit 2
 }
@@ -120,12 +133,28 @@ if [ "${1:-}" = "--classify" ]; then
   exit 0
 fi
 
-[ $# -ge 3 ] && [ $# -le 5 ] || usage
+[ $# -ge 3 ] || usage
 SCENARIO=$1
 MODEL=$2
 OUT=$3
-TIMEOUT=${4:-600}
-PROFILE="${5:-}"
+shift 3
+
+# Optional positionals come first and stop at the first `--`-prefixed token,
+# so the trailing flags below stay reachable without dummy placeholders.
+TIMEOUT=600
+PROFILE=""
+if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then TIMEOUT="${1:-600}"; shift; fi
+if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then PROFILE="$1"; shift; fi
+
+BACKEND=""
+GUARDRAILS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --backend) [ $# -ge 2 ] || usage; BACKEND=$2; shift 2 ;;
+    --guardrails) [ $# -ge 2 ] || usage; GUARDRAILS=$2; shift 2 ;;
+    *) usage ;;
+  esac
+done
 [ -f Package.swift ] || { echo "run from the repository root (Package.swift not found)" >&2; exit 2; }
 
 mkdir -p "$(dirname "$OUT")"
@@ -152,8 +181,17 @@ if [ ! -x "$BIN" ]; then
   exit 0
 fi
 
-ARGS=(--scenario "$SCENARIO" --model "$MODEL" --out "$OUT" --timeout "$TIMEOUT" --quiet)
+ARGS=(--scenario "$SCENARIO" --out "$OUT" --timeout "$TIMEOUT" --quiet)
+# `-` / empty means "this backend has no GGUF file" — omit the flag rather than
+# passing `--model ""`, so the harness's backend-aware requirement check is the
+# one that speaks (see header).
+case "$MODEL" in
+  ""|-) ;;
+  *) ARGS+=(--model "$MODEL") ;;
+esac
 if [ -n "$PROFILE" ]; then ARGS+=(--profile "$PROFILE"); fi
+if [ -n "$BACKEND" ]; then ARGS+=(--backend "$BACKEND"); fi
+if [ -n "$GUARDRAILS" ]; then ARGS+=(--guardrails "$GUARDRAILS"); fi
 "$BIN" "${ARGS[@]}" 2>"$STDERR_LOG" &
 PID=$!
 
