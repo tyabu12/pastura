@@ -8238,12 +8238,32 @@
         }
       }
     },
+    "pairwise-payoff-dead-row: one or more 'payoff' rows use 'when' tokens that aren't in the round-robin 'choose' options, so those rows never fire — fix the tokens to match the 'choose' options, or remove the unused rows." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pairwise-payoff-dead-row: 一部の 'payoff' 行の 'when' トークンがラウンドロビン形式の 'choose' の選択肢に含まれていないため、それらの行は決して発火しません — トークンを 'choose' の選択肢に合わせるか、使われない行を削除してください。"
+          }
+        }
+      }
+    },
     "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' スコアリングには、ペアリングを埋めるためラウンド内のより前にラウンドロビン形式の 'choose' フェーズが必要です。ないとスコアが変化しません — この 'score_calc' より前に追加してください。"
+          }
+        }
+      }
+    },
+    "pairwise-payoff-no-scorable-row: no 'payoff' row's 'when' tokens match the round-robin 'choose' options, so no pairing is ever scored — add a 'payoff' table whose 'when' rows use the 'choose' option tokens." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pairwise-payoff-no-scorable-row: どの 'payoff' 行の 'when' トークンもラウンドロビン形式の 'choose' の選択肢と一致しないため、どのペアリングも採点されません — 'when' 行が 'choose' の選択肢トークンを使う 'payoff' テーブルを追加してください。"
           }
         }
       }
