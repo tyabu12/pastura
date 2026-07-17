@@ -6,6 +6,8 @@ import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
 import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -75,27 +77,38 @@ class SimulationEngineTests {
         calls[index].callbacks.onTerminal(TerminalStatus.Completed)
     }
 
-    /** Collects events until a terminal one arrives, or fails on timeout. */
+    /**
+     * Collects events off the engine's worker thread.
+     *
+     * **Thread-safety is not optional here** — that is the §5.1 threading clause:
+     * `onEvent` fires from a Kotlin worker context, while the test body reads from
+     * `runBlockingTest`'s thread. An unsynchronized `MutableList` across those two
+     * is a genuine data race: torn reads on the JVM, and undefined behaviour on
+     * Kotlin/Native, where it can surface as a crash rather than a wrong value.
+     *
+     * `Mutex.withLock` is not usable: [record] is called from the non-suspending
+     * `onEvent` callback. `AtomicReference` over an immutable list gives
+     * lock-free, allocation-per-event correctness — fine at test volumes, and it
+     * makes [snapshot] trivially consistent (it reads one immutable value rather
+     * than copying a mutating list).
+     */
+    @OptIn(ExperimentalAtomicApi::class)
     private class Collector {
-        val events = mutableListOf<SimulationEvent>()
-        private val lock = Any()
+        private val ref = AtomicReference<List<SimulationEvent>>(emptyList())
 
         fun record(event: SimulationEvent) {
-            // onEvent fires from a worker thread — the collector must tolerate that,
-            // which is itself the §5.1 threading clause in miniature.
-            synchronizedAppend(event)
-        }
-
-        private fun synchronizedAppend(event: SimulationEvent) {
-            events.add(event)
+            while (true) {
+                val current = ref.load()
+                if (ref.compareAndSet(current, current + event)) return
+            }
         }
 
         val isTerminal: Boolean
-            get() = events.lastOrNull().let {
+            get() = ref.load().lastOrNull().let {
                 it is SimulationEvent.SimulationCompleted || it is SimulationEvent.ErrorEvent
             }
 
-        fun snapshot(): List<SimulationEvent> = events.toList()
+        fun snapshot(): List<SimulationEvent> = ref.load()
     }
 
     private suspend fun awaitTerminal(collector: Collector, timeoutMillis: Long = 5_000) {

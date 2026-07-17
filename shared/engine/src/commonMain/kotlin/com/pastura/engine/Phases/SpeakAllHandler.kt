@@ -44,8 +44,10 @@ internal class SpeakAllHandler : PhaseHandler {
 
         var current = state
         for (persona in context.scenario.personas) {
-            // `!= true` rather than `== false`: an agent absent from the map is
-            // active, matching Swift's `state.eliminated[persona.name] != true`.
+            // `== true` to SKIP: an agent absent from the map reads `null`, which
+            // is not `true`, so it speaks — matching Swift's
+            // `guard state.eliminated[persona.name] != true else { continue }`.
+            // `!= false` would wrongly skip every agent the map never mentioned.
             if (current.eliminated[persona.name] == true) continue
             current = speakTurn(context, persona, promptTemplate, current)
         }

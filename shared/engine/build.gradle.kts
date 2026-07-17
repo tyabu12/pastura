@@ -160,10 +160,28 @@ kotlin {
 // carries the full surface, and the same target the Stage-2-gate Swift consumer
 // binary-targets (host decision B′, #1135).
 //
+// TWO offender patterns, because they catch different leaks — measured on this
+// branch, both against deliberately-leaking probes:
+//
+//   1. `coroutin` — a coroutine TYPE on the surface. A `public val` of
+//      CompletableDeferred pulled in 48 symbol lines
+//      (`PSEKotlinx_coroutines_coreCompletableDeferred`, `...coreJob`,
+//      `PSEKotlinCoroutineContext`). Flow / Deferred / Job all carry the token.
+//   2. `completionHandler:` — a `suspend fun` on the surface. K/N exports one as a
+//      plain completion-handler-taking Obj-C method and pulls in NO
+//      kotlinx_coroutines symbol at all, so pattern 1 misses it entirely. A
+//      `public suspend fun` probe linked green AND passed a pattern-1-only guard —
+//      while Decision 2 names `suspend` FIRST. Measured false-positive risk: the
+//      clean header contains zero `completionHandler` occurrences.
+//
 // Comment-stripping is load-bearing, not defensive: K/N copies Kotlin KDoc into
 // the generated header, and this module's boundary docs legitimately *discuss*
 // `CompletableDeferred` and `suspendCancellableCoroutine`. A naive grep scores 10
 // hits on a perfectly clean header. Only CODE lines are evidence.
+//
+// The state machine is calibrated to K/N's emitted shape (KDoc as leading
+// `/** … */` blocks), NOT to general Obj-C: a block comment opened mid-line is not
+// recognised. Fine here; do not reuse it as a general stripper.
 val verifyEngineFrameworkSurface by tasks.registering {
     group = "verification"
     description = "Fails if a coroutine type leaked into the exported PasturaSharedEngine surface."
@@ -179,10 +197,13 @@ val verifyEngineFrameworkSurface by tasks.registering {
 
     doLast {
         val header = headerFile.get().asFile
+        // Defense in depth only — `inputs.file(headerFile)` above already fails the
+        // task if the header is missing, and `outputs.upToDateWhen { false }` is
+        // what actually prevents a vacuous pass. Do not relax either believing this
+        // branch covers them.
         if (!header.isFile) {
             throw GradleException(
                 "Framework header not found at ${header.path}. " +
-                    "The surface guard cannot pass vacuously — a missing header means " +
                     "linkDebugFrameworkMacosArm64 did not produce the expected layout.",
             )
         }
@@ -196,7 +217,9 @@ val verifyEngineFrameworkSurface by tasks.registering {
                 line.startsWith("/*") -> if (!line.contains("*/")) inBlockComment = true
                 line.startsWith("*") || line.startsWith("//") -> Unit
                 line.contains("coroutin", ignoreCase = true) ->
-                    offenders += "  ${index + 1}: $line"
+                    offenders += "  ${index + 1}: [coroutine type] $line"
+                line.contains("completionHandler:") ->
+                    offenders += "  ${index + 1}: [exported suspend fun] $line"
             }
         }
 
@@ -220,11 +243,20 @@ val verifyEngineFrameworkSurface by tasks.registering {
     }
 }
 
-// Runs wherever a framework surface is actually produced: the per-PR full-native
-// path (`assemblePasturaSharedEngineDebugXCFramework`, tripped by any
-// build.gradle.kts / libs.versions.toml touch) and the nightly's both-config
-// assembly. The normal per-PR path assembles no framework, so there is no surface
-// to check and this correctly does not run.
+// Wired to the macosArm64 debug LINK, not just to XCFramework assembly.
+//
+// Assembly-only wiring left a real hole: per `.github/workflows/ci.yml`, CI runs
+// `assemblePasturaSharedEngineDebugXCFramework` ONLY when a PR touches build
+// config. So a PR adding `public val handle: CompletableDeferred<Unit>` to
+// `RunHandle` — pure Kotlin, no build-file touch — would be green at PR time and
+// caught up to 24h later by the nightly. That is exactly the shape of PR this
+// module will now receive, since this PR is the one introducing the boundary types.
+//
+// Attaching to the link means any lane that produces a surface checks it, and adds
+// one macosArm64 debug link (~15s warm) to a lane that already compiles K/N.
+tasks.named("linkDebugFrameworkMacosArm64") {
+    finalizedBy(verifyEngineFrameworkSurface)
+}
 tasks.matching {
     it.name.startsWith("assemblePasturaSharedEngine") && it.name.endsWith("XCFramework")
 }.configureEach {

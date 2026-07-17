@@ -2,6 +2,7 @@ package com.pastura.engine
 
 import com.pastura.models.SimulationError
 import com.pastura.models.TurnOutput
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -51,7 +52,21 @@ internal class JSONResponseParser {
 
         val CODE_BLOCK = Regex("""```(?:json)?\s*\n?(.*?)\n?```""", RegexOption.DOT_MATCHES_ALL)
 
-        val JSON = Json { ignoreUnknownKeys = true }
+        /**
+         * `allowTrailingComma`: Swift's `JSONSerialization.jsonObject` accepts
+         * `{"a":1,}` / `[1,2,]` on the HAPPY path (iOS 17+) — the Swift parse doc
+         * says so explicitly, which is why it has no trailing-comma repair. Kotlin
+         * defaults to rejecting them, which would have been an undocumented
+         * divergence in a step this slice DOES port (not one of the deferred
+         * repairs). Opting in keeps the two parsers agreeing.
+         *
+         * `ignoreUnknownKeys` is deliberately absent: it only affects
+         * `@Serializable`-driven decoding and is a no-op for `parseToJsonElement`,
+         * which is all this parser uses. The untyped `JsonObject` walk already
+         * tolerates extra LLM fields.
+         */
+        @OptIn(ExperimentalSerializationApi::class)
+        val JSON = Json { allowTrailingComma = true }
     }
 
     /**
@@ -214,6 +229,12 @@ internal class JSONResponseParser {
      * test's name ("Numeric values normalized to String" — `1` does not become
      * `"1"`). Replicating it would cement an unintended Foundation quirk as a
      * *cross-language contract*, in a language that has no `NSNumber`.
+     *
+     * **This is not the only normalization divergence** — exponent/float FORMATTING
+     * also differs (`1e3` -> Swift `"1000"` vs Kotlin `"1e3"`). That one is a
+     * formatting choice with no correct side, so it has no issue; see
+     * `JSONResponseParserParityTests` § "Known Kotlin-side literal-preservation
+     * differences". The same applies to numbers nested inside [canonicalJson].
      *
      * Pinned by `JSONResponseParserParityTests` and filed as **#1150** with a
      * verified fix, per ADR-023 §10 ("Engine behavior gets a second,

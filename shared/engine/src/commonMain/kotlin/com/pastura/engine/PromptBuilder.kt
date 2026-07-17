@@ -97,6 +97,11 @@ internal class PromptBuilder {
      * | `🍎`, `U+FFFD`, `Zed` | `Zed, U+FFFD, 🍎` | `Zed, 🍎, U+FFFD` |
      * | `éclair` (NFC), `éclair` (NFD), `zebra` | `zebra, éclair, éclair` | `éclair, zebra, éclair` |
      *
+     * The last row is measured on an array sort. Through a `Map` the gap is wider
+     * still: Swift's `[String: Int]` COLLAPSES the two éclairs into one key
+     * (last-write-wins) so its scoreboard emits 2 pairs, while Kotlin emits 3.
+     * `PromptBuilderParityTests` pins the Map behaviour.
+     *
      * BMP names — every bundled preset, and any ASCII or kana persona — agree.
      * The divergence needs a supplementary-plane (emoji) or decomposed-Unicode
      * persona name, and **it is reachable**: persona names carry no charset
@@ -181,8 +186,11 @@ internal class PromptBuilder {
         scenario: Scenario,
         persona: Persona,
         phase: Phase,
-        state: SimulationState,
+        @Suppress("UNUSED_PARAMETER") state: SimulationState,
     ): String {
+        // `state` is unused HERE but kept for signature parity: Swift threads it
+        // into appendPrivateSections and voteCandidateRule, both Stage-3 units in
+        // the absence table. Do not delete — Stage 3 needs it back.
         val language = scenario.engineLanguage
         val sections = mutableListOf<String>()
 
@@ -246,7 +254,14 @@ internal class PromptBuilder {
      * Stage-3 units; see the class doc.
      */
     private fun buildAnswerRules(language: String, phase: Phase): String {
-        val maxSentences = phase.maxSentences ?: DEFAULT_STATEMENT_MAX_SENTENCES
+        // coerceIn: the THIRD site inheriting a Swift validator guarantee that does
+        // not exist on this side yet. `ScenarioValidator.swift:136-145` enforces
+        // `max_sentences` in 1..6; that validator is a Stage-3 port, so nothing
+        // rejects `max_sentences: 0` here — and un-clamped it renders "at most 0
+        // sentences" / "0文以内", an unsatisfiable instruction handed to the model.
+        // Same class as the `log_window: 0` guard in formatConversationLog.
+        val maxSentences =
+            (phase.maxSentences ?: DEFAULT_STATEMENT_MAX_SENTENCES).coerceIn(1, 6)
         val sentenceNoun = if (maxSentences == 1) "sentence" else "sentences"
         return pickLanguage(
             language,
@@ -282,7 +297,7 @@ internal class PromptBuilder {
      * behaviour verbatim, and it is deliberate rather than a simplification: the
      * grammar constrains *structure only*, never value enumerations, because
      * enumerated literals crash llama.cpp's sampler at accept-time on
-     * multi-byte / CJK values (ADR-002 §12.9). Closed-set values are constrained
+     * multi-byte / CJK values (ADR-002 § Amendment 2026-06-14, #599). Closed-set values are constrained
      * at runtime by their handlers instead. A port that "improved" this by
      * emitting option literals would reintroduce that crash class.
      */

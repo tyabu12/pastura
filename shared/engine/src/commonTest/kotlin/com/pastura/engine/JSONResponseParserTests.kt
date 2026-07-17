@@ -127,6 +127,16 @@ class JSONResponseParserTests {
         assertEquals("false", out.fields["eliminated"])
     }
 
+    @Test
+    fun trailingCommasParseMatchingSwiftsHappyPath() {
+        // Swift's JSONSerialization accepts these on iOS 17+ — its own parse doc
+        // cites that as why it needs no trailing-comma repair. Kotlin rejects them
+        // by default, so `allowTrailingComma` is what keeps the two agreeing. This
+        // is step 5 of the pipeline, which this slice DOES port — not a deferred repair.
+        assertEquals("hi", parser.parse("""{"statement": "hi",}""").fields["statement"])
+        assertEquals("[1,2]", parser.parse("""{"data": [1, 2,]}""").fields["data"])
+    }
+
     // MARK: - 8. Nulls
 
     @Test

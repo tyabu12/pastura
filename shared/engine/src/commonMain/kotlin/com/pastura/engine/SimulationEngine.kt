@@ -4,7 +4,8 @@ import com.pastura.models.Scenario
 import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import com.pastura.models.SimulationState
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -108,10 +109,9 @@ private class RunHandleImpl(
     override fun resume() = gate.setPaused(false)
 
     override fun cancel() {
-        // Release the pause gate FIRST. A run parked on the gate would otherwise
-        // observe cancellation only when something resumed it — and nothing would.
-        // `ensureActive()` at the checkpoint then converts this into the standard
-        // cancellation path.
+        // Release the gate first so a paused run stops at a checkpoint rather than
+        // inside `await`. NOT required for correctness — see
+        // `PauseGate.releaseForCancellation`, which records the measurement.
         gate.releaseForCancellation()
         job.cancel()
     }
@@ -129,32 +129,63 @@ private class RunHandleImpl(
  * `await` is a no-op when not paused and a park when paused. Zero CPU either way —
  * matching Swift's "no polling" property.
  *
- * `@Volatile` for cross-thread visibility: written by the platform thread calling
- * [RunHandle.pause] / [RunHandle.resume], read by the run coroutine.
+ * **The transition must be ATOMIC, not merely visible.** `@Volatile` alone gives
+ * visibility; the check-then-act in [setPaused] also needs atomicity, and Swift's
+ * equivalent is fully serialized under its lock — so a plain `@Volatile` field
+ * would be a fidelity regression, not just a Kotlin nit. The lost-update it admits:
+ * T1 `setPaused(false)` reads `d1` and stalls; T2 `setPaused(true)` sees non-null
+ * and no-ops; T1 writes `null`. Net — the last call was `pause()`, the gate ends
+ * UNPAUSED, and the user's pause is silently dropped. Reachable in production:
+ * [RunHandleImpl.cancel] calls `setPaused(false)` from a different thread than the
+ * adapter's `pause()`. A CAS loop closes it; two `pause()` racers dropping a
+ * redundant deferred is harmless, a dropped `pause()` is not.
  */
+@OptIn(ExperimentalAtomicApi::class)
 private class PauseGate {
 
-    @Volatile
-    private var paused: CompletableDeferred<Unit>? = null
+    private val paused = AtomicReference<CompletableDeferred<Unit>?>(null)
 
-    val isPaused: Boolean get() = paused != null
+    val isPaused: Boolean get() = paused.load() != null
 
     fun setPaused(value: Boolean) {
-        if (value) {
-            if (paused == null) paused = CompletableDeferred()
-        } else {
-            val current = paused
-            paused = null
-            current?.complete(Unit)
+        while (true) {
+            val current = paused.load()
+            if (value) {
+                if (current != null) return // already paused — idempotent
+                if (paused.compareAndSet(null, CompletableDeferred())) return
+            } else {
+                if (current == null) return // already running — idempotent
+                if (paused.compareAndSet(current, null)) {
+                    current.complete(Unit)
+                    return
+                }
+            }
         }
     }
 
-    /** Unblock a parked run so its next checkpoint can observe cancellation. */
+    /**
+     * Unblock a parked run before cancelling it.
+     *
+     * **NOT load-bearing — measured.** An earlier comment here claimed a run parked
+     * on the gate would otherwise never observe cancellation. That is false:
+     * `CompletableDeferred.await()` is a cancellable suspension point, so
+     * `job.cancel()` alone unparks it. Verified by deleting this call and re-running
+     * `cancelWhilePausedDoesNotDeadlock` — still green. Kept as ordering robustness
+     * (it stops the run at a checkpoint rather than relying on `await`'s
+     * cancellability), not as a deadlock fix.
+     */
     fun releaseForCancellation() = setPaused(false)
 
-    /** Park until resumed. Returns immediately when not paused. */
+    /**
+     * Park until resumed. Returns immediately when not paused.
+     *
+     * Not a park-forever TOCTOU against a concurrent resume: [setPaused] clears the
+     * reference BEFORE completing the deferred, so a resume landing between the
+     * `isPaused` check and here makes this read `null` and return. A resume landing
+     * after this read completes the deferred it is already awaiting.
+     */
     suspend fun awaitResume() {
-        paused?.await()
+        paused.load()?.await()
     }
 }
 
@@ -239,8 +270,33 @@ private class RunLoop(
                     ),
                     state = state,
                 )
+            } catch (e: CancellationException) {
+                // Must precede the Throwable arm — CancellationException IS a
+                // Throwable, and swallowing it would break cancellation.
+                throw e
             } catch (e: SimulationException) {
                 onEvent(SimulationEvent.ErrorEvent(error = e.error))
+                return null
+            } catch (e: Throwable) {
+                // Mirrors Swift's catch-all: `error as? SimulationError ??
+                // .llmGenerationFailed(description: readableDescription(error))`.
+                //
+                // Load-bearing despite nothing in commonMain throwing anything else:
+                // `LLMBackend` / `StreamCallbacks` are PLATFORM-implemented, so a
+                // throw out of a Swift/ObjC adapter lands exactly here. Without this
+                // arm it would escape RunLoop, miss the launch boundary's
+                // CancellationException-only catch, and reach a scope with no
+                // CoroutineExceptionHandler — which on Kotlin/Native TERMINATES THE
+                // PROCESS (an app crash where Swift emits an ErrorEvent), and would
+                // also break run()'s "the final event is always SimulationCompleted
+                // or ErrorEvent" contract, hanging PR-C's AsyncStream forever.
+                onEvent(
+                    SimulationEvent.ErrorEvent(
+                        error = SimulationError.LlmGenerationFailed(
+                            description = e.message ?: e.toString(),
+                        ),
+                    ),
+                )
                 return null
             }
 
@@ -256,7 +312,9 @@ private class RunLoop(
      * SOLE emitter of that event — handlers reach this only through
      * [PhaseContext.pauseCheck], never by emitting it themselves.
      *
-     * @return `true` when the run was cancelled and the caller must stop.
+     * Cancellation surfaces as a thrown `CancellationException` (from
+     * [ensureActive]), not as a return value — see [PhaseContext.pauseCheck] for
+     * why the Swift `Bool` does not port.
      */
     private suspend fun checkPaused(round: Int, phasePath: List<Int>) {
         // Throws CancellationException, which the run boundary turns into

@@ -265,9 +265,12 @@ class LLMCallerTests {
     }
 
     @Test
-    fun cancellationWhileParkedOnASuspendAlsoCancelsTheStream() = runTest {
-        // Cancelling a backgrounded run: the caller is parked on the relay, not on
-        // the stream. The most recent stream still must not be left running.
+    fun cancellationWhileParkedOnASuspendUnwindsCleanlyWithNothingLeftRunning() = runTest {
+        // Renamed from "...AlsoCancelsTheStream", which named an invariant that is
+        // structurally FALSE: the suspended stream already delivered its terminal,
+        // so its continuation resumed and `invokeOnCancellation` can never fire for
+        // that handle. The correct semantics is that there is nothing left to
+        // cancel — per LLMBackend clauses 1-2 the stream ended at its terminal.
         val relay = SuspensionRelay()
         val backend = ManualLLMBackend()
         val job = launch { call(backend, relay) }
@@ -280,12 +283,41 @@ class LLMCallerTests {
         advanceUntilIdle()
         job.join()
         assertTrue(job.isCancelled)
+        assertFalse(
+            backend.latest!!.cancelled,
+            "the suspended stream already terminated — there is nothing to cancel",
+        )
+        assertEquals(1, backend.calls.size, "and no doomed re-issue was started")
     }
 
     @Test
-    fun aTerminalArrivingAfterCancellationIsIgnoredNotACrash() = runTest {
-        // A backend is allowed to deliver a terminal it already had in flight.
-        // Resuming an already-cancelled continuation would throw.
+    fun aCancelledParkWithAnAlreadyLatchedResumeDoesNotIssueADoomedStream() = runTest {
+        // Swift has `try Task.checkCancellation()` right after `awaitResume()`.
+        // Without the matching `ensureActive()`, `Deferred.await()` on an ALREADY
+        // completed deferred returns without suspending — so it never observes
+        // cancellation, and the loop would `continue`, re-arm, and kick off a real
+        // llama_decode before the cancellation was noticed. Delete the
+        // `coroutineContext.ensureActive()` and this fires.
+        val relay = SuspensionRelay()
+        val backend = ManualLLMBackend()
+        val job = launch { call(backend, relay) }
+        advanceUntilIdle()
+
+        backend.latest!!.callbacks.onTerminal(TerminalStatus.Suspended)
+        relay.notifyResumed() // latches BEFORE the caller reaches awaitResume
+        job.cancel()
+        advanceUntilIdle()
+
+        assertEquals(1, backend.calls.size, "a cancelled run must not issue a second stream")
+    }
+
+    @Test
+    fun aDuplicateTerminalAfterCancellationIsIgnoredNotACrash() = runTest {
+        // Non-vacuous version. The FIRST post-cancel resume is already a silent
+        // no-op in kotlinx (`CancelledContinuation -> if (state.makeResumed())
+        // return`), so a single terminal proves nothing — the guard exists for the
+        // DUPLICATE, which would otherwise hit `alreadyResumedError`. Both are
+        // legal inputs, because clause 3 makes cancel() best-effort.
         val backend = ManualLLMBackend()
         val job = launch { call(backend) }
         advanceUntilIdle()
@@ -293,8 +325,58 @@ class LLMCallerTests {
         advanceUntilIdle()
 
         backend.latest!!.callbacks.onTerminal(TerminalStatus.Completed)
+        backend.latest!!.callbacks.onTerminal(TerminalStatus.Completed)
         advanceUntilIdle()
         assertTrue(job.isCancelled)
+    }
+
+    @Test
+    fun aNonFinalChunksTokenCountIsIgnored() = runTest {
+        // Pins the `if (isFinal)` guard, which ScriptedLLMBackend structurally
+        // cannot exercise (it welds isFinal onto the last chunk). Deleting the
+        // guard would otherwise pass every test in this file.
+        val events = mutableListOf<SimulationEvent>()
+        val backend = ManualLLMBackend()
+        val job = launch { call(backend, events = events) }
+        advanceUntilIdle()
+
+        val cb = backend.latest!!.callbacks
+        cb.onChunk(delta = "{\"statement\":", isFinal = false, completionTokens = 7)
+        cb.onChunk(delta = " \"hi\"}", isFinal = true, completionTokens = null)
+        cb.onTerminal(TerminalStatus.Completed)
+        advanceUntilIdle()
+        job.join()
+
+        assertNull(
+            events.filterIsInstance<SimulationEvent.InferenceCompleted>().single().tokenCount,
+            "only the FINAL chunk's count counts — a non-final 7 must not leak through",
+        )
+    }
+
+    @Test
+    fun anEmptyFinalDeltaStillCarriesItsTokenCount() = runTest {
+        // The llama.cpp shape: many non-final chunks, then a final chunk carrying
+        // ONLY the token count with an empty delta (LLMCaller.swift:298-302).
+        // ScriptedLLMBackend can only express the wrap shape, so this — the
+        // production path — was untested.
+        val events = mutableListOf<SimulationEvent>()
+        val backend = ManualLLMBackend()
+        val job = launch { call(backend, events = events) }
+        advanceUntilIdle()
+
+        val cb = backend.latest!!.callbacks
+        cb.onChunk(delta = "{\"statement\": \"hi\"}", isFinal = false, completionTokens = null)
+        cb.onChunk(delta = "", isFinal = true, completionTokens = 12)
+        cb.onTerminal(TerminalStatus.Completed)
+        advanceUntilIdle()
+        job.join()
+
+        assertEquals(12, events.filterIsInstance<SimulationEvent.InferenceCompleted>().single().tokenCount)
+        assertEquals(
+            1,
+            events.filterIsInstance<SimulationEvent.AgentOutputStream>().size,
+            "the empty final delta emits no snapshot",
+        )
     }
 
     // MARK: - Events

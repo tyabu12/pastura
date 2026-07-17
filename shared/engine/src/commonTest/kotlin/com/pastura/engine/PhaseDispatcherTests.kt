@@ -2,6 +2,7 @@ package com.pastura.engine
 
 import com.pastura.models.PhaseType
 import com.pastura.models.SimulationError
+import kotlinx.serialization.serializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -61,17 +62,18 @@ class PhaseDispatcherTests {
 
     @Test
     fun wireNamesResolveFromTheSerialDescriptorForEveryCase() {
-        // The dispatcher derives its message token from @SerialName rather than
-        // from `name.lowercase()`. Both happen to agree today — this asserts the
-        // authoritative source is what's read, so a future case whose SerialName
-        // is NOT its lowercased name stays correct.
+        // Asserts against the DESCRIPTOR, not against `name.lowercase()`. The
+        // earlier version asserted the lowercase derivation — i.e. exactly the
+        // coincidence the implementation deliberately rejects — so it passed
+        // identically against a `name.lowercase()` impl and pinned nothing.
         for (type in PhaseType.entries) {
             val error = runCatching { dispatcher.handler(type) }.exceptionOrNull()
             if (error !is SimulationException) continue // SPEAK_ALL resolves
             val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
+            val fromDescriptor = PhaseType.serializer().descriptor.getElementName(type.ordinal)
             assertTrue(
-                message.contains(type.name.lowercase()),
-                "wire name for $type missing from: $message",
+                message.contains(fromDescriptor),
+                "expected @SerialName '$fromDescriptor' for $type in: $message",
             )
         }
     }

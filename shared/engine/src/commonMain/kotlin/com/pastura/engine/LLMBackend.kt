@@ -41,13 +41,30 @@ public interface LLMBackend {
      *
      * **Callback contract** (the backend must honour all four):
      * 1. Zero or more [StreamCallbacks.onChunk] calls, then **exactly one**
-     *    [StreamCallbacks.onTerminal].
+     *    [StreamCallbacks.onTerminal]. A [TerminalStatus.Completed] stream
+     *    additionally carries exactly one `isFinal = true` chunk, always last; a
+     *    [TerminalStatus.Suspended] or [TerminalStatus.Failed] stream carries none
+     *    (it was cut off). So "zero or more" bounds the *non-final* chunks.
      * 2. No callback fires after [StreamCallbacks.onTerminal].
-     * 3. No callback fires after [StreamHandle.cancel] returns — a backend that
-     *    cannot guarantee this must drop late callbacks itself, because
-     *    [LLMCaller] treats cancellation as final.
-     * 4. Callbacks may arrive on any thread. Kotlin does not assume the caller's
-     *    context.
+     * 3. **[StreamHandle.cancel] is a best-effort request to stop, not a
+     *    barrier.** It does not retract callbacks already in flight, and late
+     *    callbacks MAY still arrive — Kotlin ignores them. This is deliberately
+     *    weaker than "nothing fires after `cancel()` returns", because that is not
+     *    implementable by the intended iOS actual: Swift `Task.cancel()` is
+     *    asynchronous and cannot retract a `continuation.yield` already in flight
+     *    on another thread. A backend needing stricter behaviour would have to own
+     *    an atomic gate; none is required to.
+     * 4. **Callbacks are delivered SERIALLY — never concurrently — and each
+     *    callback happens-before the next.** They may arrive on any thread, and
+     *    Kotlin does not assume the caller's context; but it does assume this
+     *    ordering and does **not** lock. [LLMCaller] accumulates chunk deltas into
+     *    plain fields, so a backend forwarding from two threads at once (e.g.
+     *    deltas from a sampling thread and the terminal from a completion handler)
+     *    would corrupt the accumulated text or lose the token count — a data race
+     *    that K/N will not diagnose. The intended iOS actual satisfies this for
+     *    free: one `Task` per call draining one `AsyncThrowingStream` is serial by
+     *    construction. The clause therefore costs nothing and closes the hole for
+     *    every future adapter.
      *
      * @param request   The prompts + optional output schema for this call.
      * @param callbacks Where chunks and the terminal status are delivered.
@@ -60,8 +77,9 @@ public interface LLMBackend {
  * One inference request crossing the §5.2 boundary.
  *
  * **Deliberately omits `antiRepetitionSeeds`** (#1105). Swift's
- * `LLMService.generateStream` carries it, but `SpeakEachHandler` is the Engine's
- * only seeder and that handler is Stage-3 freight — so a seeds field on this
+ * `LLMService.generateStream` carries it, but `SpeakEachHandler.swift:77` is the
+ * Engine's ONLY seeder (every other reference plumbs the parameter through `LLM/`
+ * or is the `= []` default), and that handler is Stage-3 freight — so a seeds field on this
  * gate slice would be dead weight the Swift adapter must map for nothing. Add it
  * with its consumer.
  *
@@ -90,11 +108,15 @@ public interface StreamCallbacks {
      *
      * @param delta            Text generated since the previous chunk. May be
      *   empty — Kotlin skips empty deltas rather than treating them as a signal.
-     * @param isFinal          `true` on the last chunk of this stream. Mirrors
-     *   Swift `LLMStreamChunk.isFinal`: exactly one chunk per stream carries it,
-     *   and it is always the last observed. Backends without true streaming
-     *   (Ollama, a non-chunked mock) satisfy the contract by emitting a single
-     *   `isFinal = true` chunk carrying the whole response.
+     * @param isFinal          `true` on the last chunk of a **completed** stream.
+     *   Mirrors Swift `LLMStreamChunk.isFinal`: exactly one chunk carries it and
+     *   it is always the last observed. A suspended or failed stream carries no
+     *   final chunk — see clause 1. Backends without true streaming (Ollama, a
+     *   non-chunked mock) satisfy the contract by emitting a single
+     *   `isFinal = true` chunk carrying the whole response; llama.cpp instead
+     *   emits many non-final chunks plus a final chunk carrying **only** the token
+     *   count with an empty delta (`LLMCaller.swift:298-302`). Both shapes are
+     *   legal and [LLMCaller] handles them uniformly.
      * @param completionTokens Token count, populated only on the final chunk and
      *   only when the backend can report it cheaply. `null` means "unknown
      *   throughput" — consumers exclude such calls from rolling averages rather
@@ -139,8 +161,16 @@ public sealed interface TerminalStatus {
      * deferred work is most likely to reshape. Ratify the shape when
      * `StreamFailure` lands, not here.
      *
-     * @param errorCode Backend-scoped identifier. Diagnostic only — do not
-     *   branch on it; the taxonomy that would make that safe does not exist yet.
+     *   Migration path, so the deferral stays cheap: Stage 3 adds a `kind` field
+     *   with a default; `errorCode` / `message` stay. Source-additive on both
+     *   sides.
+     *
+     * @param errorCode Backend-scoped identifier. **Diagnostic only — never
+     *   display verbatim, and do not branch on it**; the taxonomy that would make
+     *   branching safe does not exist yet. Note [LLMCaller] currently formats it
+     *   into `SimulationError.LlmGenerationFailed(description:)`, whose Swift
+     *   counterpart is a `LocalizedError` that can reach the UI — Stage 3's
+     *   taxonomy is what should terminate that leak.
      * @param message   Human-readable detail, when the backend has one.
      */
     public data class Failed(
@@ -163,11 +193,13 @@ public sealed interface TerminalStatus {
  */
 public interface StreamHandle {
     /**
-     * Cancel this call. Idempotent, and safe to call after the stream already
-     * ended (the common case: a cancelled coroutine whose stream had completed).
+     * Request cancellation of this call. Idempotent, and safe to call after the
+     * stream already ended (the common case: a cancelled coroutine whose stream
+     * had completed).
      *
-     * Per [LLMBackend.generateStream]'s contract clause 3, no callback may fire
-     * after this returns.
+     * **Best-effort, per [LLMBackend.generateStream]'s clause 3** — it does not
+     * retract callbacks already in flight. Kotlin ignores late callbacks rather
+     * than requiring backends to gate them.
      */
     public fun cancel()
 }

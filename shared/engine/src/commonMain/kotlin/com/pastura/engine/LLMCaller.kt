@@ -4,9 +4,11 @@ import com.pastura.models.OutputSchema
 import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import com.pastura.models.TurnOutput
+import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
@@ -143,6 +145,17 @@ internal class LLMCaller(
                 is TerminalStatus.Completed -> return result
                 is TerminalStatus.Suspended -> {
                     relay.awaitResume()
+                    // Mirrors Swift's `try Task.checkCancellation()` right after
+                    // `await controller.awaitResume()`. Load-bearing, not
+                    // ceremony: `Deferred.await()` on an ALREADY-completed
+                    // deferred (the sticky-latch fast path) returns without
+                    // suspending, so it never observes cancellation. Without this,
+                    // a run cancelled while parked — whose resume had already
+                    // latched — would `continue`, re-arm, and kick off a real
+                    // llama_decode before `suspendCancellableCoroutine` noticed and
+                    // called `handle.cancel()`. Self-healing, but exactly the waste
+                    // §5.2's cancellation clause exists to prevent.
+                    coroutineContext.ensureActive()
                     // Loop: re-issue from scratch. Any snapshot emitted before the
                     // suspend is naturally replaced by the new stream's snapshots
                     // on the consumer side, so no reset event is needed.
@@ -175,6 +188,11 @@ internal class LLMCaller(
             private var tokens: Int? = null
 
             override fun onChunk(delta: String, isFinal: Boolean, completionTokens: Int?) {
+                // Symmetric with onTerminal's guard. `cancel()` is best-effort
+                // (LLMBackend clause 3), so a late chunk is legal — but emitting
+                // its snapshot would push an AgentOutputStream event into a run
+                // the user already cancelled.
+                if (!continuation.isActive) return
                 if (delta.isNotEmpty()) {
                     accumulated.append(delta)
                     emitSnapshot(agentName, accumulated.toString(), emitter)
@@ -185,9 +203,14 @@ internal class LLMCaller(
             }
 
             override fun onTerminal(status: TerminalStatus) {
-                // `isActive` guard: the coroutine may already be cancelled, and a
-                // backend is allowed to deliver a terminal it had in flight.
-                // Resuming a cancelled continuation would throw.
+                // What this guard actually buys — measured, not assumed. Resuming
+                // a CANCELLED continuation does NOT throw: kotlinx's
+                // `CancellableContinuationImpl.resumeImpl` hits
+                // `is CancelledContinuation -> if (state.makeResumed()) return`,
+                // i.e. the FIRST post-cancel resume is a silent no-op. The guard
+                // covers the DUPLICATE-terminal case, which would otherwise hit
+                // `alreadyResumedError`. Both are reachable because clause 3 makes
+                // cancel() best-effort, so late callbacks are legal.
                 if (continuation.isActive) {
                     continuation.resume(StreamResult(accumulated.toString(), tokens) to status)
                 }
@@ -213,6 +236,8 @@ internal class LLMCaller(
      * honest absence, and PR-C's consumer only counts and times these.
      */
     private fun emitSnapshot(agentName: String, raw: String, emitter: (SimulationEvent) -> Unit) {
+        // TODO(#501 Stage 3): `primary` is RAW accumulated text. PartialOutputExtractor
+        // supplies the real primary/thought split — do NOT render this to users as-is.
         emitter(SimulationEvent.AgentOutputStream(agent = agentName, primary = raw, thought = null))
     }
 

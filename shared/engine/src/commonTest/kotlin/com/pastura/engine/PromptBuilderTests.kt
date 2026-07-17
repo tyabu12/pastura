@@ -230,6 +230,21 @@ class PromptBuilderTests {
     // MARK: - maxSentences (#881)
 
     @Test
+    fun anOutOfRangeBrevityCapIsClampedNotRenderedVerbatim() {
+        // Swift's validator enforces 1..6; it is a Stage-3 port, so `max_sentences:
+        // 0` reaches here. Un-clamped it renders "at most 0 sentences" — an
+        // unsatisfiable instruction handed to the model. Same class as log_window: 0.
+        val s = scenario()
+        val zero = Phase(type = PhaseType.SPEAK_ALL, outputSchema = mapOf("statement" to "string"), maxSentences = 0)
+        val p = builder.buildSystemPrompt(s, alice, zero, SimulationState.initial(s))
+        assertTrue(p.contains("at most 1 sentence,"), "expected clamp to the 1 floor, got: $p")
+        assertFalse(p.contains("at most 0"))
+
+        val huge = Phase(type = PhaseType.SPEAK_ALL, outputSchema = mapOf("statement" to "string"), maxSentences = 99)
+        assertTrue(builder.buildSystemPrompt(s, alice, huge, SimulationState.initial(s)).contains("at most 6 sentences"))
+    }
+
+    @Test
     fun defaultBrevityCapIsThree() {
         val s = scenario()
         val p = builder.buildSystemPrompt(s, alice, speakAll, SimulationState.initial(s))
@@ -284,6 +299,16 @@ class PromptBuilderTests {
         )
         val p = builder.buildSystemPrompt(s, alice, choose, SimulationState.initial(s))
         assertTrue(p.contains("""{"action": "string"}"""))
-        assertFalse(p.contains("cooperate"), "option literals must never reach the prompt's format spec")
+        // Scoped to the FORMAT BLOCK, not the whole prompt. Swift's buildAnswerRules
+        // deliberately appends "The action field must be one of: cooperate, betray"
+        // — OutputSchema.Kind.choice's doc says the model learns the options FROM
+        // the prompt. Asserting absence prompt-wide goes red when Stage 3 lands that
+        // rule, with a message inviting deletion of the rule that makes `choose` work.
+        // What must never carry literals is the grammar-shaped spec.
+        val formatBlock = p.substringAfter("## Output Format (JSON)")
+        assertFalse(
+            formatBlock.contains("cooperate"),
+            "option literals must never reach the format spec (ADR-002 § Amendment 2026-06-14)",
+        )
     }
 }
