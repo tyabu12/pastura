@@ -371,30 +371,4 @@ nonisolated public struct JSONResponseParser: Sendable {
     // Unclosed — let the repair pipeline handle it.
     return text
   }
-
-  /// Normalize all JSON values to `String`. Null values are omitted.
-  private func normalizeValues(_ dictionary: [String: Any]) -> [String: String] {
-    var result: [String: String] = [:]
-    for (key, value) in dictionary {
-      if value is NSNull {
-        // Null values are omitted
-        continue
-      } else if let stringValue = value as? String {
-        result[key] = stringValue
-      } else if let boolValue = value as? Bool {
-        // Check Bool before NSNumber — Bool bridges to NSNumber in ObjC
-        result[key] = boolValue ? "true" : "false"
-      } else if let numberValue = value as? NSNumber {
-        result[key] = numberValue.stringValue
-      } else if JSONSerialization.isValidJSONObject(value) {
-        // Nested object or array → serialize back to JSON string
-        if let jsonData = try? JSONSerialization.data(
-          withJSONObject: value, options: [.sortedKeys]),
-          let jsonString = String(data: jsonData, encoding: .utf8) {
-          result[key] = jsonString
-        }
-      }
-    }
-    return result
-  }
 }
