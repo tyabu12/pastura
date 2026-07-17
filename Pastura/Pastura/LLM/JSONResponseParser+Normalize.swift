@@ -3,10 +3,15 @@ import Foundation
 /// Value normalization — the final step of ``JSONResponseParser/parse(_:)``.
 ///
 /// Split out of `JSONResponseParser.swift`, which sits at the 400-line
-/// `file_length` cap. `nonisolated` is load-bearing on the extension itself:
-/// methods in a plain `extension` inherit MainActor under the project's
-/// default-actor-isolation setting, which breaks the `nonisolated` callers in
-/// the main file (see `.claude/rules/swift-isolation.md` Pattern 3).
+/// `file_length` cap.
+///
+/// `nonisolated` on the extension is load-bearing — verified, not assumed:
+/// dropping it fails the build with `call to main actor-isolated instance
+/// method 'normalizeValues' in a synchronous nonisolated context` at the
+/// `tryParse` callsite. Methods in a plain `extension` inherit MainActor under
+/// the project's default-actor-isolation setting (`.claude/rules/swift-isolation.md`
+/// Pattern 3). Most `LlamaCppService+*.swift` siblings here need no annotation
+/// because their callers are `async`; this one is reached synchronously.
 nonisolated extension JSONResponseParser {
   /// Normalize all JSON values to `String`. Null values are omitted.
   ///

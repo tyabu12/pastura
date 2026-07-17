@@ -106,11 +106,9 @@ A 30-second self-check prevents 1–2 extra critic / code-reviewer rounds. Motiv
 
 ### Claims you author are assertions too
 
-The table above covers claims you *lean on*, checked before plan-lock. A **why-comment you write** is the same kind of claim — it asserts runtime or library behaviour as the reason a mechanism exists — but it is authored at implementation time and no reviewer executes it. Reviewers check whether the *code* is correct, not whether the *stated reason* is true, so a false why-comment ships and the next reader inherits it as fact: they keep a useless mechanism forever, or delete a load-bearing one whose recorded reason didn't survive scrutiny.
+A **why-comment you write** asserts runtime or library behaviour as the reason a mechanism exists — the same kind of claim as the table's, but authored at implementation time and executed by nobody. Reviewers check whether the *code* is correct, not whether the *stated reason* is true, so a false one ships and the next reader inherits it as fact. Two shapes, neither expressible as a `Verify by` lookup:
 
-Two shapes, neither expressible as a `Verify by` lookup:
+- **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is false, or the tests never covered it.
+- **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A guard's success case proves nothing; only a negative control does.
 
-- **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is false, or the tests never covered it. Both are worth knowing before you commit the comment.
-- **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A guard is the one artifact whose success case proves nothing — only a negative control does.
-
-Motivating incident: PR #1152 shipped five such claims to review; all five were false, each with a mechanical check that was never run.
+Motivating incident: PR #1152 round-1 review.

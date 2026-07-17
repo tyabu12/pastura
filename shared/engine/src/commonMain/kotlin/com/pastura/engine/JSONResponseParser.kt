@@ -223,11 +223,12 @@ internal class JSONResponseParser {
      *
      * **Why Kotlin did not replicate it.** Replicating it would have cemented an
      * unintended Foundation quirk as a *cross-language contract*, in a language
-     * that has no `NSNumber`. Surfacing it here is ADR-023 §10 working as intended
-     * ("Engine behavior gets a second, cross-language executable spec, which also
-     * hardens the Swift side against accidental semantic drift"): it was filed as
-     * **#1150** and fixed there — Swift now discriminates on `CFBooleanGetTypeID`
-     * rather than on cast success. **No change was needed here.**
+     * that has no `NSNumber`. Porting the parser is what surfaced it at all —
+     * the hardening ADR-023 §10 anticipates from a cross-language spec, arriving
+     * early from the port itself rather than from the Stage-4 harness that
+     * section scopes it to. It was filed as **#1150** and fixed there: Swift now
+     * discriminates on `CFBooleanGetTypeID` rather than on cast success.
+     * **No change was needed here.**
      *
      * **The integer rows closed; the float rows did not.** #1150 makes Swift return
      * `"1"` / `"0"` for `1` / `0` — agreeing with this side. But for `1.0` / `0.0`
