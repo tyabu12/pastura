@@ -10,8 +10,15 @@ import Foundation
 /// method 'normalizeValues' in a synchronous nonisolated context` at the
 /// `tryParse` callsite. Methods in a plain `extension` inherit MainActor under
 /// the project's default-actor-isolation setting (`.claude/rules/swift-isolation.md`
-/// Pattern 3). Most `LlamaCppService+*.swift` siblings here need no annotation
-/// because their callers are `async`; this one is reached synchronously.
+/// Pattern 3).
+///
+/// Don't generalize that to "any sibling-file extension needs it": most
+/// `LlamaCppService+*.swift` siblings are plain extensions and build fine, and
+/// `LlamaCppService+Tokenization.swift`'s sync `tokenize` is even reached from a
+/// sync `nonisolated` caller (`buildAndSeedDrySampler`) without one. What makes
+/// this file differ was not isolated — `JSONResponseParser` is a `struct` and
+/// `LlamaCppService` a `final class`, but that was never tested as the cause.
+/// Measure before assuming either way.
 nonisolated extension JSONResponseParser {
   /// Normalize all JSON values to `String`. Null values are omitted.
   ///
