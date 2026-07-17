@@ -749,7 +749,11 @@ jobs:
       # silently-growing compile-only (Gradle pulling in link deps, or native
       # test execution sneaking onto this target) fails loudly. Do NOT loosen it
       # if a one-off cold-cache run trips it — that is a first-run artifact, not
-      # a budget regression (#501 D-B).
+      # a budget regression (#501 D-B). The `compileCommonMainKotlinMetadata`
+      # tasks are now part of the budgeted set; they are Kotlin-frontend-only
+      # (no LLVM), so they add negligible time (~a few seconds) and the 8-min
+      # cap holds — the addition is intentional gate coverage, not the silent
+      # growth this tripwire targets.
       - name: Compile native klib (compile-only — per-PR default)
         if: steps.kmp-changes.outputs.full_native != 'true'
         timeout-minutes: 8
@@ -762,7 +766,17 @@ jobs:
         # task depends on `link<Config>Framework<Target>`, which depends on this
         # very `compileKotlinIosSimulatorArm64`. The full-native step is a
         # strict superset — it cannot skip what this step checks.
-        run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 :shared:engine:compileKotlinIosSimulatorArm64 --no-daemon --stacktrace
+        #
+        # `compileCommonMainKotlinMetadata` compiles commonMain against the
+        # COMMON stdlib only, catching platform-specific-API leaks (e.g.
+        # `RegexOption.DOT_MATCHES_ALL`, which resolves on JVM+Native but not in
+        # common — #1157) that every per-target compile above silently accepts.
+        # Before #1157 this task ran ONLY in the KMP nightly (via
+        # `:shared:engine:build`), so the class escaped per-PR CI for a full
+        # nightly cycle. It is NOT reachable from the XCFramework assembly, so
+        # the full-native step must list it EXPLICITLY too to keep that step a
+        # strict superset of this one.
+        run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 :shared:engine:compileKotlinIosSimulatorArm64 :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
 
       - name: Full native build + XCFramework (build-config touch)
         if: steps.kmp-changes.outputs.full_native == 'true'
@@ -789,14 +803,27 @@ jobs:
         # `assembleDebugPasturaSharedEngineXCFramework` does NOT exist; Gradle
         # rejects it as an ambiguous abbreviation of the per-platform
         # `assembleDebug<Platform>FatFrameworkFor…` tasks.
-        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework :shared:engine:assemblePasturaSharedEngineDebugXCFramework --no-daemon --stacktrace
+        #
+        # The two `compileCommonMainKotlinMetadata` tasks are listed EXPLICITLY,
+        # mirroring the compile-only step: the XCFramework assembly does NOT
+        # depend on the common-metadata klib (it links per-target native
+        # compiles), so without them a common-stdlib API leak (#1157) would slip
+        # this step too — breaking the strict-superset invariant that the
+        # full-native step covers everything the compile-only step does. Both
+        # task tokens verified present via `:shared:{models,engine}:tasks --all`.
+        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework :shared:engine:assemblePasturaSharedEngineDebugXCFramework :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
 
       - name: Upload Gradle reports (on failure)
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kmp-gradle-reports
-          path: shared/models/build/reports/
+          # Both modules' reports — matches kmp-nightly.yml. `:shared:engine`
+          # now runs its own gate tasks on this path (metadata compile + tests),
+          # so an engine-side failure must be diagnosable from the per-PR run.
+          path: |
+            shared/models/build/reports/
+            shared/engine/build/reports/
           retention-days: 7
 
   # Drift guard for bundled DL-time demo replays (#170, spec §3.3 / §5.2).
