@@ -80,6 +80,13 @@
       loadedState.withLock { $0 }
     }
 
+    /// - Note: Guardrail-blind by construction — `SystemLanguageModel` exposes
+    ///   no `guardrails` accessor, so this cannot reflect the injected model's
+    ///   mode. The harness threads its own guardrail-bearing label instead
+    ///   (`Main.swift`'s run-log name); prefer that when attributing a run.
+    ///   `SimulationViewModel` persists this into `SimulationRecord`, so wiring
+    ///   this service past spike scope means every record carries a
+    ///   guardrail-blind identifier — solve that then, not now.
     public var modelIdentifier: String { "Apple Foundation Model" }
     public let backendIdentifier = "FoundationModels"
 
@@ -132,7 +139,21 @@
       // exposes no per-request sampler seeding hook (#1105).
       guard isModelLoaded else { throw LLMError.notLoaded }
 
-      let session = LanguageModelSession(instructions: system)
+      // `model:` is LOAD-BEARING and easy to lose: the SDK initializer is
+      // `init(model: SystemLanguageModel = .default, tools:, instructions:)`,
+      // so omitting it silently builds the session over `.default` and the
+      // injected model reaches only `loadModel()`'s availability check — never
+      // generation. #1156 shipped exactly that: a 6-cell battery ran with
+      // `--guardrails permissive`, logged "(permissive)" for every cell, and
+      // produced guardrail-refusal counts byte-identical to the default-
+      // guardrails run (word_wolf-ja 9, bokete-en 4), because every session was
+      // a default one.
+      // As of the Xcode 26.6 SDK no test can reach this: `LanguageModelSession`
+      // exposes no `model` accessor, so the session's model is unobservable.
+      // Re-check on SDK bumps. Until then the control is the battery — a
+      // permissive run that still throws `guardrailViolation` means this
+      // argument went missing.
+      let session = LanguageModelSession(model: self.model, instructions: system)
       do {
         let response = try await session.respond(to: user)
         return response.content
@@ -164,6 +185,13 @@
     /// the harness JSONL run log — without adding an ``LLMError`` case (which
     /// would ripple through its no-default-exhaustive `errorDescription`
     /// switch and add i18n catalog keys).
+    ///
+    /// The prefix is what carries the classification — do NOT rely on the
+    /// SDK's `localizedDescription` to disambiguate. Its text for
+    /// `unsupportedLanguageOrLocale` ("An unsupported language or locale was
+    /// used") reads exactly like a hand-written prefix would, so a
+    /// substring-matching consumer cannot tell the prefixed arm from the
+    /// generic one.
     static func map(_ error: LanguageModelSession.GenerationError) -> LLMError {
       switch error {
       case .exceededContextWindowSize:
@@ -172,8 +200,16 @@
       case .guardrailViolation:
         return .generationFailed(
           description: "Foundation Models guardrail refusal — \(error.localizedDescription)")
+      case .unsupportedLanguageOrLocale:
+        // Observed 4× in `prisoners_dilemma_en` where #1072's earlier run of
+        // the same effective config saw 0 — i.e. this class is the corrected
+        // battery's run-to-run noise floor, so the digest has to count it
+        // apart from everything else in the generic bucket.
+        return .generationFailed(
+          description:
+            "Foundation Models unsupported language or locale — \(error.localizedDescription)")
       // Plain `default:` (not `@unknown default` like `describe`): the spike
-      // only distinguishes the two prefixed classes above; every other
+      // only distinguishes the three prefixed classes above; every other
       // GenerationError case intentionally shares the generic message.
       default:
         return .generationFailed(

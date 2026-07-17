@@ -66,6 +66,43 @@
       // Distinct messages so loadModel()'s error surfaces the real cause.
       #expect(Set([device, notEnabled, notReady]).count == 3)
     }
+
+    /// The three prefixed classes must stay mutually distinguishable by grep:
+    /// the harness JSONL carries `map`'s description verbatim as a
+    /// `turn_skipped` cause, and the #1072 digest counts them separately.
+    ///
+    /// `unsupportedLanguageOrLocale` earns a prefix because the corrected
+    /// battery observed 4 of them in `prisoners_dilemma_en` where #1072's run
+    /// observed 0 — it is the digest's run-to-run noise floor, and it cannot
+    /// be counted while it shares the generic bucket with every other error.
+    @available(iOS 26, macOS 26, *)
+    @Test func mapsGenerationErrorsToDistinctPrefixes() {
+      let context = LanguageModelSession.GenerationError.Context(debugDescription: "probe")
+      let ctxExceeded = FoundationModelsService.map(.exceededContextWindowSize(context))
+      let guardrail = FoundationModelsService.map(.guardrailViolation(context))
+      let locale = FoundationModelsService.map(.unsupportedLanguageOrLocale(context))
+      let other = FoundationModelsService.map(.rateLimited(context))
+
+      // Assert the PREFIX, not `.contains` — the SDK's own
+      // `localizedDescription` for `unsupportedLanguageOrLocale` reads "An
+      // unsupported language or locale was used", so a `.contains` check
+      // passes on the generic arm too and pins nothing. (It did: this test was
+      // green before the arm existed.)
+      #expect(
+        description(of: ctxExceeded).hasPrefix("Foundation Models context window exceeded — "))
+      #expect(description(of: guardrail).hasPrefix("Foundation Models guardrail refusal — "))
+      #expect(
+        description(of: locale).hasPrefix("Foundation Models unsupported language or locale — "))
+      // Unprefixed classes still share the generic bucket by design.
+      #expect(description(of: other).hasPrefix("Foundation Models generation failed — "))
+    }
+
+    /// Unwraps the description `map` builds — the whole point is the string,
+    /// since `map` deliberately adds no `LLMError` case.
+    private func description(of error: LLMError) -> String {
+      guard case .generationFailed(let description) = error else { return "" }
+      return description
+    }
   }
 
 #endif
