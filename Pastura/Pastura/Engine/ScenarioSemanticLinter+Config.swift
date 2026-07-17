@@ -156,8 +156,14 @@ nonisolated extension ScenarioSemanticLinter {
 
   /// R20a/R20b (ADR-024 § Amendment 2026-07-17): a `pairwise_payoff` `payoff`
   /// table whose `when` tokens are checked against the round-robin `choose`
-  /// options that populate its pairings. A `when` token outside the option set
-  /// can never match a real (canonicalized) action, so its row is dead.
+  /// options that populate its pairings. `ChooseHandler.validateAction`
+  /// canonicalizes every action to an **exact** option string (on-menu verbatim,
+  /// else `options[0]`) — no case/whitespace folding — and `PairwisePayoffLogic`
+  /// matches rows by exact `==`, so a `when` token outside the option set can
+  /// never match a real action and its row is dead. The exact `Set.contains`
+  /// below mirrors that runtime exactly; if a future change (ADR-021 § Amendment,
+  /// PR2.5) adds folding to `validateAction`, fold both sides here too, or this
+  /// blocking `.error` rule becomes stricter than the runtime it models.
   ///
   /// - **R20a** (`.error`): *no* row is satisfiable (incl. an absent/empty
   ///   `payoff:`) → every pairing scores nothing, a guaranteed no-op.

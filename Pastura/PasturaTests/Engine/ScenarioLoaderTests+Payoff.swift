@@ -78,7 +78,9 @@ extension ScenarioLoaderTests {
       Issue.record("Expected scenarioValidationFailed, got \(error)")
       return
     }
-    #expect(msg.contains("when"))
+    // The message template names both fields, so assert the discriminating
+    // detail suffix, not a bare "when" substring.
+    #expect(msg.contains("'when' must be 2 strings"))
   }
 
   @Test func throwsOnPointsArityNotTwo() throws {
@@ -98,7 +100,7 @@ extension ScenarioLoaderTests {
       Issue.record("Expected scenarioValidationFailed, got \(error)")
       return
     }
-    #expect(msg.contains("points"))
+    #expect(msg.contains("'points' must be 2 ints"))
   }
 
   @Test func throwsOnPayoffNotList() throws {

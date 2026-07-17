@@ -193,7 +193,10 @@ nonisolated struct ScenarioSerializer: Sendable {
 
     // pairwise_payoff table (ADR-027). Flow sequences per row; `when` tokens are
     // quoted for round-trip safety (they may be CJK / contain YAML specials).
-    if let payoff = phase.payoff {
+    // Gate on non-empty: an empty table is a behavioural no-op (like nil), and
+    // emitting a childless `payoff:` line would reload as a null scalar that
+    // `parsePayoff` rejects — so collapse empty→omitted to keep the round-trip.
+    if let payoff = phase.payoff, !payoff.isEmpty {
       lines.append("    payoff:")
       for row in payoff {
         let when = row.when.map { yamlScalar($0) }.joined(separator: ", ")

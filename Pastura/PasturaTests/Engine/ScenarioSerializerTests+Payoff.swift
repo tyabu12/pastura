@@ -44,4 +44,29 @@ extension ScenarioSerializerTests {
     #expect(reloaded.phases[1].payoff == scenario.phases[1].payoff)
     #expect(reloaded.phases[1].logic == .pairwisePayoff)
   }
+
+  /// An empty (non-nil) `payoff` table must not serialize to a childless
+  /// `payoff:` line — that reloads as a null scalar `parsePayoff` rejects,
+  /// breaking the round-trip. Both empty and nil are behavioural no-ops, so the
+  /// serializer collapses empty→omitted (reloads as nil). Revert the
+  /// `!payoff.isEmpty` gate and this test fails with a `.payoffNotList` throw.
+  @Test func emptyPayoffTableOmittedNotEmittedAsNullKey() throws {
+    let scenario = Scenario(
+      id: "empty_payoff",
+      name: "Empty",
+      description: "d",
+      language: "en",
+      agentCount: 2,
+      rounds: 1,
+      context: "c",
+      personas: [Persona(name: "Alice", description: "a"), Persona(name: "Bob", description: "b")],
+      phases: [Phase(type: .scoreCalc, logic: .pairwisePayoff, payoff: [])]
+    )
+
+    let yaml = serializer.serialize(scenario)
+    #expect(!yaml.contains("payoff:"))
+
+    let reloaded = try loader.load(yaml: yaml)
+    #expect(reloaded.phases[0].payoff == nil)
+  }
 }
