@@ -191,6 +191,18 @@ nonisolated struct ScenarioSerializer: Sendable {
       lines.append("    narrator: \(yamlScalar(narrator))")
     }
 
+    // pairwise_payoff table (ADR-027). Flow sequences per row; `when` tokens are
+    // quoted for round-trip safety (they may be CJK / contain YAML specials).
+    if let payoff = phase.payoff {
+      lines.append("    payoff:")
+      for row in payoff {
+        let when = row.when.map { yamlScalar($0) }.joined(separator: ", ")
+        let points = row.points.map(String.init).joined(separator: ", ")
+        lines.append("      - when: [\(when)]")
+        lines.append("        points: [\(points)]")
+      }
+    }
+
     return lines
   }
 

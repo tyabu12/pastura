@@ -65,6 +65,8 @@ nonisolated public enum ScenarioValidationMessage: Sendable {
   case invalidLogic(label: String, value: String, allowed: String)
   case actionDeltasNotDict(label: String, got: String)
   case actionDeltasValueNotInt(label: String, key: String, got: String)
+  case payoffNotList(label: String, got: String)
+  case payoffRowInvalid(label: String, detail: String)
   case phaseMissingType(label: String)
   case phaseInvalidType(label: String, value: String)
   case outputNotDict(label: String, got: String)
@@ -253,6 +255,17 @@ nonisolated extension ScenarioValidationMessage {
       return String(
         format: String(localized: "%@: action_deltas value for '%@' must be Int, got %@"),
         label, key, got)
+    case .payoffNotList(let label, let got):
+      return String(
+        format: String(
+          localized: "%@: field 'payoff' must be a list of {when, points} rows, got %@"),
+        label, got)
+    case .payoffRowInvalid(let label, let detail):
+      return String(
+        format: String(
+          localized:
+            "%@: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — %@"),
+        label, detail)
     case .phaseMissingType(let label):
       return String(format: String(localized: "%@ missing 'type'"), label)
     case .phaseInvalidType(let label, let value):

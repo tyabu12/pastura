@@ -713,6 +713,22 @@
         }
       }
     },
+    "%@: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: 各 'payoff' 行には 'when'（文字列2つ）と 'points'（整数2つ）が必要です — %2$@"
+          }
+        }
+      }
+    },
     "%@: field '%@' must be %@, got %@" : {
       "localizations" : {
         "en" : {
@@ -773,6 +789,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: フィールド 'output' は String 値の辞書である必要がありますが、%2$@ が指定されました"
+          }
+        }
+      }
+    },
+    "%@: field 'payoff' must be a list of {when, points} rows, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field 'payoff' must be a list of {when, points} rows, got %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド 'payoff' は {when, points} 行のリストである必要があります。実際は %2$@"
           }
         }
       }
