@@ -713,6 +713,22 @@
         }
       }
     },
+    "%@: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: 各 'payoff' 行には 'when'（文字列2つ）と 'points'（整数2つ）が必要です — %2$@"
+          }
+        }
+      }
+    },
     "%@: field '%@' must be %@, got %@" : {
       "localizations" : {
         "en" : {
@@ -773,6 +789,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: フィールド 'output' は String 値の辞書である必要がありますが、%2$@ が指定されました"
+          }
+        }
+      }
+    },
+    "%@: field 'payoff' must be a list of {when, points} rows, got %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: field 'payoff' must be a list of {when, points} rows, got %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: フィールド 'payoff' は {when, points} 行のリストである必要があります。実際は %2$@"
           }
         }
       }
@@ -8202,6 +8234,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "max-sentences-no-op: このフェーズは LLM の発言を生成しないため、'max_sentences' の上限はプロンプトに届かず効果がありません — 削除するか、発言を生成するフェーズ（speak_all / speak_each / whisper）に移動してください。"
+          }
+        }
+      }
+    },
+    "pairwise-payoff-dead-row: one or more 'payoff' rows use 'when' tokens that aren't in the round-robin 'choose' options, so those rows never fire — fix the tokens to match the 'choose' options, or remove the unused rows." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pairwise-payoff-dead-row: 一部の 'payoff' 行の 'when' トークンがラウンドロビン形式の 'choose' の選択肢に含まれていないため、それらの行は決して発火しません — トークンを 'choose' の選択肢に合わせるか、使われない行を削除してください。"
+          }
+        }
+      }
+    },
+    "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' スコアリングには、ペアリングを埋めるためラウンド内のより前にラウンドロビン形式の 'choose' フェーズが必要です。ないとスコアが変化しません — この 'score_calc' より前に追加してください。"
+          }
+        }
+      }
+    },
+    "pairwise-payoff-no-scorable-row: no 'payoff' row's 'when' tokens match the round-robin 'choose' options, so no pairing is ever scored — add a 'payoff' table whose 'when' rows use the 'choose' option tokens." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pairwise-payoff-no-scorable-row: どの 'payoff' 行の 'when' トークンもラウンドロビン形式の 'choose' の選択肢と一致しないため、どのペアリングも採点されません — 'when' 行が 'choose' の選択肢トークンを使う 'payoff' テーブルを追加してください。"
           }
         }
       }

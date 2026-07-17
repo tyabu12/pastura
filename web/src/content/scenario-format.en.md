@@ -127,6 +127,7 @@ A `score_calc` phase names one built-in `logic`:
 | `vote_tally` | One point per vote received |
 | `wordwolf_judge` | Whether the group voted out the odd-one-out |
 | `event_reactive` | Agents whose last `choose` matched the injected event |
+| `pairwise_payoff` | A payoff table you author in YAML, scored per pairing |
 
 Each logic expects specific phases earlier in the round. See the pitfalls
 section below.
@@ -149,6 +150,10 @@ Fields you can set on a phase, beyond `type`, `prompt`, and `output`:
 - `rounds` (for `speak_each` and `whisper`): how many sub-rounds of speaking
   happen within the phase.
 - `logic` (for `score_calc`): one of the scoring logics above.
+- `payoff` (for `score_calc` with `pairwise_payoff`): a list of rows, each
+  `{ when: [action1, action2], points: [p1, p2] }`. A pairing is matched against
+  `when` positionally and awards `points` to the two agents. A pairing matching
+  no row scores nothing.
 - `template` (for `summarize`): the recap string, which may contain `{...}`
   placeholders such as `{scoreboard}` or `{current_round}`.
 - `if`, `then`, `else` (for `conditional`): a condition expression and the
@@ -201,6 +206,8 @@ blocking ones, but it is easier to get them right the first time.
   tally to eliminate from.
 - `prisoners_dilemma` needs a `round_robin` `choose` phase before it, which is
   what creates the pairings it scores.
+- `pairwise_payoff` needs the same `round_robin` `choose` before it, plus a
+  `payoff` table whose `when` rows cover the `choose` options.
 - `wordwolf_judge` needs both an `assign` with `target: random_one` (to pick the
   odd-one-out) and a `vote` before it.
 - `event_reactive` needs an `event_inject` before it, storing the event under a

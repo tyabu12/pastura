@@ -47,7 +47,13 @@ nonisolated public enum EngineSchemaVersion {
   /// simulation, with no throw and no grey-out. D2's `allCases` phase gate
   /// cannot see it (no new phase), so §4's ⚠️ silent-wrong-run rule requires the
   /// bump and D3 is the only gate that can fire. Same shape as `2` above.
-  public static let current: Int = 4
+  ///
+  /// `5` — `ScoreCalcLogic.pairwise_payoff` (ADR-027), a new by-name-parsed
+  /// `score_calc` logic. §4's second bump trigger fires directly. D2's `allCases`
+  /// phase gate does not fire (no new `PhaseType`), so D3 (`min_engine_version`)
+  /// is the only proactive gate and D5's parse-throw is the backstop when a
+  /// shared scenario omits the declaration. See ADR-027 § "Blast radius".
+  public static let current: Int = 5
 
   /// Whether a gallery scenario described by its index metadata can be
   /// executed by this build's engine (ADR-020 D2 + D3).

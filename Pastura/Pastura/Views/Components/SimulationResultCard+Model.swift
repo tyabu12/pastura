@@ -80,10 +80,14 @@ extension SimulationResultCard {
         )
       }
 
-      // 2. Pairing — round-robin choose or a prisoner's-dilemma scoring.
+      // 2. Pairing — round-robin choose or a pairwise scoring
+      //    (prisoners_dilemma / pairwise_payoff, ADR-027). This is an `==`
+      //    predicate invisible to ADR-022's compiler gate — hand-maintained.
       let isPairing =
         phases.contains { $0.type == .choose && $0.pairing == .roundRobin }
-        || phases.contains { $0.type == .scoreCalc && $0.logic == .prisonersDilemma }
+        || phases.contains {
+          $0.type == .scoreCalc && ($0.logic == .prisonersDilemma || $0.logic == .pairwisePayoff)
+        }
       if isPairing, hasScores {
         return (.pairing, rankedByScore(roster: roster, scores: scores, eliminated: eliminated))
       }

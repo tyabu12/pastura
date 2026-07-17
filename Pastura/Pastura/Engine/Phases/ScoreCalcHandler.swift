@@ -33,6 +33,11 @@ nonisolated struct ScoreCalcHandler: PhaseHandler {
         favoredVariable: EventInjectHandler.favoredVariableName(
           for: EventInjectHandler.defaultVariableName),
         emitter: context.emitter)
+    case .pairwisePayoff:
+      // An absent `payoff:` is an empty table (all pairings score nothing) —
+      // flagged by the semantic linter (R20a), not a dispatch-time throw.
+      PairwisePayoffLogic().calculate(
+        state: &state, payoff: context.phase.payoff ?? [], emitter: context.emitter)
     }
   }
 }

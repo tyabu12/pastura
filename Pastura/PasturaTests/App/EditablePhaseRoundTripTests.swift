@@ -74,6 +74,27 @@ struct EditablePhaseRoundTripTests {
     #expect(reloaded.phases.first?.thenPhases?.first?.maxSentences == 6)
   }
 
+  /// The `pairwise_payoff` `payoff:` table (ADR-027) survives both round-trip
+  /// bridges. `canonicalPhase(.scoreCalc)` uses the legacy `prisoners_dilemma`
+  /// (no `payoff`), so this dedicated fixture is what exercises the new field.
+  @Test func payoffTableRoundTripsBothBridges() throws {
+    let phase = Phase(
+      type: .scoreCalc, logic: .pairwisePayoff,
+      payoff: [
+        PayoffRule(when: ["協力", "協力"], points: [3, 3]),
+        PayoffRule(when: ["裏切り", "裏切り"], points: [1, 1])
+      ])
+
+    // Visual bridge.
+    let viaEditable = EditablePhase(from: phase).toPhase()
+    #expect(viaEditable.payoff == phase.payoff)
+
+    // YAML bridge.
+    let reloaded = try loader.load(yaml: serializer.serialize(wrap(phase)))
+    #expect(reloaded.phases.first?.payoff == phase.payoff)
+    #expect(reloaded.phases.first?.logic == .pairwisePayoff)
+  }
+
   // One arm per PhaseType, no nested logic. Block disable rather than
   // `disable:next` (which would orphan the doc comment below it); the disable
   // command line must hold only the rule name, so this rationale is separate.

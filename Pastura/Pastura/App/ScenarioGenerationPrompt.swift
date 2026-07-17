@@ -144,6 +144,9 @@ nonisolated enum ScenarioGenerationPrompt {
     case .eventReactive:
       return
         "reward agents whose last choose matched the injected event; needs event_inject before it"
+    case .pairwisePayoff:
+      return
+        "generic two-player payoff table in YAML (payoff: when/points); needs a round_robin choose before it"
     }
   }
 }

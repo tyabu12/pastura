@@ -13,13 +13,14 @@ import Foundation
 /// rules.
 nonisolated extension ScenarioSemanticLinter {
 
-  /// Silently-inert-configuration findings (R7/R8/R9/R17/R18).
+  /// Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b).
   func configFindings(in scenario: Scenario) -> [LintFinding] {
     chooseOptionsFindings(in: scenario.phases)
       + assignSourceFindings(in: scenario.phases, scenario: scenario)
       + summarizePairingFindings(in: scenario.phases)
       + logWindowFindings(in: scenario)
       + maxSentencesNoOpFindings(in: scenario.phases)
+      + payoffTokenFindings(in: scenario.phases)
   }
 
   // MARK: - R7 choose-should-declare-options (warning)
@@ -151,6 +152,72 @@ nonisolated extension ScenarioSemanticLinter {
       .map { configFinding("max-sentences-no-op", .warning, at: $0.topLevelIndex) }
   }
 
+  // MARK: - R20a pairwise-payoff-no-scorable-row (error) / R20b dead-row (warning)
+
+  /// R20a/R20b (ADR-024 § Amendment 2026-07-17): a `pairwise_payoff` `payoff`
+  /// table whose `when` tokens are checked against the round-robin `choose`
+  /// options that populate its pairings. `ChooseHandler.validateAction`
+  /// canonicalizes every action to an **exact** option string (on-menu verbatim,
+  /// else `options[0]`) — no case/whitespace folding — and `PairwisePayoffLogic`
+  /// matches rows by exact `==`, so a `when` token outside the option set can
+  /// never match a real action and its row is dead. The exact `Set.contains`
+  /// below mirrors that runtime exactly; if a future change (ADR-021 § Amendment,
+  /// PR2.5) adds folding to `validateAction`, fold both sides here too, or this
+  /// blocking `.error` rule becomes stricter than the runtime it models.
+  ///
+  /// - **R20a** (`.error`): *no* row is satisfiable (incl. an absent/empty
+  ///   `payoff:`) → every pairing scores nothing, a guaranteed no-op.
+  /// - **R20b** (`.warning`): some rows fire but at least one is dead → the
+  ///   phase still scores; leaving combinations unlisted is a legitimate choice.
+  ///
+  /// Skipped when no options-bearing round-robin `choose` precedes: R19 owns the
+  /// "no round-robin choose" case and R7 owns "choose with no options", so R20
+  /// has no closed set to check and must not double-report.
+  private func payoffTokenFindings(in phases: [Phase]) -> [LintFinding] {
+    let chooseOptions = roundRobinChooseOptions(in: phases)
+    return phaseRefs(in: phases, where: { $0.type == .scoreCalc && $0.logic == .pairwisePayoff })
+      .compactMap { payoffFinding(for: $0, chooseOptions: chooseOptions) }
+  }
+
+  /// Round-robin `choose` phases carrying a non-empty `options` list, paired with
+  /// the top-level index their pairings anchor to (a branch choose counts at its
+  /// conditional's index — the may-run imprecision shared with the ordering rules).
+  private func roundRobinChooseOptions(in phases: [Phase]) -> [(index: Int, options: Set<String>)] {
+    var result: [(index: Int, options: Set<String>)] = []
+    for (index, phase) in phases.enumerated() {
+      for candidate in [phase] + branchPhases(of: phase)
+      where candidate.type == .choose && candidate.pairing == .roundRobin {
+        let options = candidate.options ?? []
+        if !options.isEmpty { result.append((index, Set(options))) }
+      }
+    }
+    return result
+  }
+
+  /// The R20a/R20b finding for one `pairwise_payoff` `score_calc`, or `nil` when
+  /// it has no options-bearing round-robin `choose` producer (R19/R7 territory)
+  /// or every row is satisfiable.
+  private func payoffFinding(
+    for ref: PhaseRef, chooseOptions: [(index: Int, options: Set<String>)]
+  ) -> LintFinding? {
+    let idx = ref.topLevelIndex
+    guard
+      let options = chooseOptions.filter({ $0.index <= idx })
+        .max(by: { $0.index < $1.index })?.options
+    else { return nil }
+    let rows = ref.phase.payoff ?? []
+    let satisfiable = rows.filter {
+      $0.when.count == 2 && options.contains($0.when[0]) && options.contains($0.when[1])
+    }
+    if satisfiable.isEmpty {
+      return configFinding("pairwise-payoff-no-scorable-row", .error, at: idx)
+    }
+    if satisfiable.count < rows.count {
+      return configFinding("pairwise-payoff-dead-row", .warning, at: idx)
+    }
+    return nil
+  }
+
   // MARK: - Shared
 
   /// Builds the single-element findings array for a config `ruleID`,
@@ -184,6 +251,16 @@ nonisolated extension ScenarioSemanticLinter {
       return String(
         localized:
           "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' cap never reaches a prompt and has no effect — remove it, or move it to a phase that emits a statement (speak_all / speak_each / whisper)."
+      )
+    case "pairwise-payoff-no-scorable-row":
+      return String(
+        localized:
+          "pairwise-payoff-no-scorable-row: no 'payoff' row's 'when' tokens match the round-robin 'choose' options, so no pairing is ever scored — add a 'payoff' table whose 'when' rows use the 'choose' option tokens."
+      )
+    case "pairwise-payoff-dead-row":
+      return String(
+        localized:
+          "pairwise-payoff-dead-row: one or more 'payoff' rows use 'when' tokens that aren't in the round-robin 'choose' options, so those rows never fire — fix the tokens to match the 'choose' options, or remove the unused rows."
       )
     default:
       return String(

@@ -23,4 +23,11 @@ nonisolated public enum ScoreCalcLogic: String, Codable, Sendable, CaseIterable 
   /// peer vote (the local judge's conservative prior never credits a bold
   /// read). See `EventReactivePayoffLogic` and #931.
   case eventReactive = "event_reactive"
+
+  /// Generic two-player payoff table authored in scenario YAML (`payoff:`),
+  /// matched positionally against a round-robin `choose`'s pairings. Supersedes
+  /// the hardcoded matrix of ``prisonersDilemma`` (kept as a legacy shim) and
+  /// unblocks localized option tokens + chicken / stag-hunt variants with no
+  /// engine change. See `PairwisePayoffLogic`, `PayoffRule`, and ADR-027.
+  case pairwisePayoff = "pairwise_payoff"
 }

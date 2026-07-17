@@ -85,10 +85,10 @@ nonisolated extension ScenarioSemanticLinter {
   ///   interleaves.
   /// - **`actionDeltas`** reads `state.pairings`, populated only by a
   ///   round-robin `choose`. Broken when (a) no round-robin `choose` runs before
-  ///   this phase, or (b) a `prisoners_dilemma` `score_calc` clears
-  ///   `state.pairings` (see `PrisonersDilemmaLogic`) between the LAST preceding
-  ///   round-robin `choose` and this phase — a later choose surviving un-cleared
-  ///   satisfies the rule (no false positive).
+  ///   this phase, or (b) a pairings-clearing `score_calc` (`prisoners_dilemma`
+  ///   or `pairwise_payoff` — both clear `state.pairings`) sits between the LAST
+  ///   preceding round-robin `choose` and this phase — a later choose surviving
+  ///   un-cleared satisfies the rule (no false positive).
   ///
   /// One finding per phase max. Fires when ANY declared rule's signal is lost:
   /// a phase declaring both rules where only one is reachable is still a real
@@ -101,8 +101,12 @@ nonisolated extension ScenarioSemanticLinter {
     let roundRobinChoose = producerIndices(in: phases) {
       $0.type == .choose && $0.pairing == .roundRobin
     }
-    let pdScoreCalc = producerIndices(in: phases) {
-      $0.type == .scoreCalc && $0.logic == .prisonersDilemma
+    // Both `prisoners_dilemma` and `pairwise_payoff` clear `state.pairings`
+    // after scoring (ADR-027), so both break a later `action_deltas` read. This
+    // is an `==` predicate — invisible to ADR-022's compiler gate, so it must be
+    // hand-maintained when a pairings-clearing logic is added.
+    let pairingsClearingScoreCalc = producerIndices(in: phases) {
+      $0.type == .scoreCalc && ($0.logic == .prisonersDilemma || $0.logic == .pairwisePayoff)
     }
     // `lastOutputs`-writers that DROP the vote field. A second `vote` rewrites a
     // fresher vote rather than losing it, so `.vote` is excluded here.
@@ -118,7 +122,8 @@ nonisolated extension ScenarioSemanticLinter {
         && voteSignalUnreachable(before: i, votes: votes, losers: voteSignalLosers)
       let actionBroken =
         !(phase.actionDeltas ?? [:]).isEmpty
-        && actionSignalUnreachable(before: i, choose: roundRobinChoose, clears: pdScoreCalc)
+        && actionSignalUnreachable(
+          before: i, choose: roundRobinChoose, clears: pairingsClearingScoreCalc)
       if voteBroken || actionBroken {
         findings += finding("relationship-update-placement", .warning, at: i)
       }
@@ -136,11 +141,35 @@ nonisolated extension ScenarioSemanticLinter {
 
   /// Whether an `action_deltas` rule at top-level index `i` can't read pairings:
   /// no round-robin `choose` precedes it, or a pairings-clearing
-  /// `prisoners_dilemma` `score_calc` sits between the last preceding
-  /// round-robin `choose` and it (a later un-cleared choose satisfies the rule).
+  /// `prisoners_dilemma` / `pairwise_payoff` `score_calc` sits between the last
+  /// preceding round-robin `choose` and it (a later un-cleared choose satisfies
+  /// the rule).
   private func actionSignalUnreachable(before i: Int, choose: Set<Int>, clears: Set<Int>) -> Bool {
     guard let lastChoose = choose.filter({ $0 < i }).max() else { return true }
     return clears.contains { $0 > lastChoose && $0 < i }
+  }
+
+  /// Shared R2 (`pd-needs-round-robin-choose`) / R19
+  /// (`pairwise-payoff-needs-round-robin-choose`) predicate: a pairing-consuming
+  /// `score_calc` at top-level index `idx` needs a round-robin `choose` at or
+  /// before it to populate `state.pairings`, or scores never change. `true` ⇒
+  /// the finding fires. Extracted so R2 and R19 share one predicate while
+  /// keeping distinct ruleIDs (ADR-024 § Amendment 2026-07-17).
+  private func needsRoundRobinChoose(at idx: Int, roundRobinChoose: Set<Int>) -> Bool {
+    !roundRobinChoose.contains(where: { $0 <= idx })
+  }
+
+  /// R3 `wordwolf-needs-assign-and-vote` (error): `wordwolf_judge` needs both an
+  /// `assign target: random_one` (to pick the odd-one-out) and a `vote` at or
+  /// before it. Extracted from `scoreCalcFindings` to keep its cyclomatic
+  /// complexity within the lint budget after R19's arm was added.
+  private func wordwolfFindings(
+    at idx: Int, votes: Set<Int>, assignRandomOne: Set<Int>
+  ) -> [LintFinding] {
+    let hasAssign = assignRandomOne.contains { $0 <= idx }
+    let hasVote = votes.contains { $0 <= idx }
+    guard !(hasAssign && hasVote) else { return [] }
+    return finding("wordwolf-needs-assign-and-vote", .error, at: idx)
   }
 
   // MARK: - Per-consumer rules
@@ -157,7 +186,7 @@ nonisolated extension ScenarioSemanticLinter {
     return []
   }
 
-  /// R2/R3/R5/R6 — the `score_calc` logic-specific producer dependencies.
+  /// R2/R3/R5/R6/R19 — the `score_calc` logic-specific producer dependencies.
   private func scoreCalcFindings(
     _ consumer: PhaseRef, votes: Set<Int>, roundRobinChoose: Set<Int>,
     assignRandomOne: Set<Int>, eventInject: Set<Int>
@@ -165,13 +194,16 @@ nonisolated extension ScenarioSemanticLinter {
     let idx = consumer.topLevelIndex
     switch consumer.phase.logic {
     case .prisonersDilemma:
-      guard !roundRobinChoose.contains(where: { $0 <= idx }) else { return [] }
+      guard needsRoundRobinChoose(at: idx, roundRobinChoose: roundRobinChoose) else { return [] }
       return finding("pd-needs-round-robin-choose", .error, at: idx)
+    case .pairwisePayoff:
+      // R19 — semantically identical to R2, but a distinct ruleID (ADR-024 D3
+      // "IDs are stable"): a `pd-needs-…` finding on a scenario with no
+      // prisoner's dilemma names the wrong mechanic. Shares R2's predicate.
+      guard needsRoundRobinChoose(at: idx, roundRobinChoose: roundRobinChoose) else { return [] }
+      return finding("pairwise-payoff-needs-round-robin-choose", .error, at: idx)
     case .wordwolfJudge:
-      let hasAssign = assignRandomOne.contains { $0 <= idx }
-      let hasVote = votes.contains { $0 <= idx }
-      guard !(hasAssign && hasVote) else { return [] }
-      return finding("wordwolf-needs-assign-and-vote", .error, at: idx)
+      return wordwolfFindings(at: idx, votes: votes, assignRandomOne: assignRandomOne)
     case .eventReactive:
       guard !eventInject.contains(where: { $0 <= idx }) else { return [] }
       return finding("event-reactive-needs-event-inject", .error, at: idx)
@@ -214,6 +246,11 @@ nonisolated extension ScenarioSemanticLinter {
       return String(
         localized:
           "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'."
+      )
+    case "pairwise-payoff-needs-round-robin-choose":
+      return String(
+        localized:
+          "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'."
       )
     case "wordwolf-needs-assign-and-vote":
       return String(

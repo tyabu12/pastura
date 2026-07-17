@@ -129,6 +129,7 @@ phases:                       # 必須。何が起きるかを順に並べたリ
 | `vote_tally` | 得票 1 票につき 1 ポイント |
 | `wordwolf_judge` | グループが少数派（正解）を追放できたかどうか |
 | `event_reactive` | 直前の `choose` が注入されたイベントと一致したエージェント |
+| `pairwise_payoff` | YAML で記述した報酬テーブルをペアリングごとに評価する |
 
 各ロジックは同じラウンドの前段に特定のフェーズがあることを前提としています。
 詳しくは下記の落とし穴セクションを参照してください。
@@ -151,6 +152,10 @@ phases:                       # 必須。何が起きるかを順に並べたリ
 - `rounds`（`speak_each` と `whisper` 用）: フェーズ内で何回の発話サブラウンドを
   行うか。
 - `logic`（`score_calc` 用）: 上記のスコアリングロジックのいずれか。
+- `payoff`（`pairwise_payoff` の `score_calc` 用）: 各行が
+  `{ when: [action1, action2], points: [p1, p2] }` のリスト。ペアリングを
+  `when` と位置対応で照合し、`points` を 2 人のエージェントに与えます。
+  どの行にも一致しないペアリングは加点されません。
 - `template`（`summarize` 用）: 要約文字列。`{scoreboard}` や
   `{current_round}` のような `{...}` プレースホルダーを含められます。
 - `if`、`then`、`else`（`conditional` 用）: 条件式と、各分岐のサブフェーズ
@@ -206,6 +211,8 @@ phases:                       # 必須。何が起きるかを順に並べたリ
   除外の対象を集計する票数がありません。
 - `prisoners_dilemma` はその前に `round_robin` の `choose` フェーズが必要です。
   これがスコアリング対象のペアリングを作ります。
+- `pairwise_payoff` も同じく前段に `round_robin` の `choose` が必要で、加えて
+  `choose` の選択肢を網羅する `when` 行を持つ `payoff` テーブルが必要です。
 - `wordwolf_judge` は `target: random_one` を指定した `assign`（少数派を
   選ぶため）と、その前の `vote` の両方が必要です。
 - `event_reactive` はその前に `event_inject` が必要で、スコアリングが読む

@@ -374,6 +374,13 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
     // the editor's dual buffer like `vote_against` / `action_deltas`.
     let narrator: String? = try parseOptional(dict, key: "narrator", label: label)
 
+    // pairwise_payoff table (ADR-027). YAML-only, round-trips through the
+    // editor's dual buffer like `narrator` / `action_deltas`. An absent `payoff:`
+    // is left nil (a guaranteed-no-op phase flagged by the linter, not a load
+    // throw — `load` stays non-validating, #665); only a malformed *present*
+    // table throws here.
+    let payoff = try parsePayoff(dict, label: label)
+
     return Phase(
       type: phaseType,
       prompt: prompt,
@@ -395,8 +402,45 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
       actionDeltas: actionDeltas,
       maxSentences: maxSentences,
       noRepeat: noRepeat,
-      narrator: narrator
+      narrator: narrator,
+      payoff: payoff
     )
+  }
+
+  /// Parses the `payoff:` table for a `pairwise_payoff` `score_calc` phase — a
+  /// list of `{when: [String], points: [Int]}` rows (ADR-027). Strict on arity:
+  /// each `when` / `points` must hold exactly two elements, and `points` must be
+  /// `Int` (Bool excluded, since `as? Int` launders it — same guard as
+  /// `parseActionDeltas`). A malformed row throws rather than silently scoring a
+  /// wrong verdict at runtime.
+  private func parsePayoff(_ dict: [String: Any], label: String) throws -> [PayoffRule]? {
+    guard let raw = dict["payoff"] else { return nil }
+    guard let list = raw as? [[String: Any]] else {
+      throw validationError(.payoffNotList(label: label, got: String(describing: type(of: raw))))
+    }
+    var result: [PayoffRule] = []
+    for (index, row) in list.enumerated() {
+      guard let when = row["when"] as? [String], when.count == 2 else {
+        throw validationError(
+          .payoffRowInvalid(label: label, detail: "row \(index) 'when' must be 2 strings"))
+      }
+      guard let pointsRaw = row["points"] as? [Any], pointsRaw.count == 2 else {
+        throw validationError(
+          .payoffRowInvalid(label: label, detail: "row \(index) 'points' must be 2 ints"))
+      }
+      var points: [Int] = []
+      for value in pointsRaw {
+        guard let intValue = value as? Int, !(value is Bool) else {
+          throw validationError(
+            .payoffRowInvalid(
+              label: label,
+              detail: "row \(index) 'points' has a non-Int value"))
+        }
+        points.append(intValue)
+      }
+      result.append(PayoffRule(when: when, points: points))
+    }
+    return result
   }
 
   /// Parses the `action_deltas:` map for `relationship_update` phases — a
