@@ -134,17 +134,30 @@ enum Main {
           // import — the `SystemLanguageModel` construction stays confined to
           // this `#if canImport` block so the config type keeps compiling on
           // toolchains without the macOS 26 SDK.
+          //
+          // Both arms construct through `init(guardrails:)` and both the model
+          // and the run-log label derive from `config.guardrails`. Two reasons,
+          // both learned from #1156's invalid battery:
+          //
+          // 1. The label used to be a hand-written literal in this tuple,
+          //    independent of what the factory built — which is exactly how six
+          //    cells logged "(permissive)" while every session ran default
+          //    guardrails. A label that cannot disagree with the model is the
+          //    only kind worth logging.
+          // 2. The default arm used to call `FoundationModelsService()`, i.e.
+          //    the STATIC `SystemLanguageModel.default`, while the permissive
+          //    arm called `init(guardrails:)`. That left the A/B differing in
+          //    construction path as well as guardrails. Whether the static and
+          //    the initializer are equivalent is not knowable from the SDK
+          //    interface, so the arms are made symmetric instead of assumed so.
+          let guardrails: SystemLanguageModel.Guardrails
           switch config.guardrails {
-          case .default:
-            let factory: HarnessRunner.LLMFactory = { FoundationModelsService() }
-            return (factory, "Apple Foundation Model")
-          case .permissive:
-            let factory: HarnessRunner.LLMFactory = {
-              FoundationModelsService(
-                model: SystemLanguageModel(guardrails: .permissiveContentTransformations))
-            }
-            return (factory, "Apple Foundation Model (permissive)")
+          case .default: guardrails = .default
+          case .permissive: guardrails = .permissiveContentTransformations
           }
+          let model = SystemLanguageModel(guardrails: guardrails)
+          let factory: HarnessRunner.LLMFactory = { FoundationModelsService(model: model) }
+          return (factory, "Apple Foundation Model (\(config.guardrails.rawValue))")
         } else {
           throw HarnessConfigError(
             "--backend \(HarnessConfig.Backend.foundationModels.rawValue) requires macOS 26 or later"
