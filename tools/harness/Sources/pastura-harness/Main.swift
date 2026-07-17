@@ -135,21 +135,31 @@ enum Main {
           // this `#if canImport` block so the config type keeps compiling on
           // toolchains without the macOS 26 SDK.
           //
-          // Both arms construct through `init(guardrails:)` and both the model
-          // and the run-log label derive from `config.guardrails`. Two reasons,
-          // both learned from #1156's invalid battery:
+          // Both arms construct through `init(guardrails:)`, and the model and
+          // the run-log label derive from the same `config.guardrails` value.
+          // Two reasons, both learned from #1156's invalid battery:
           //
           // 1. The label used to be a hand-written literal in this tuple,
           //    independent of what the factory built — which is exactly how six
           //    cells logged "(permissive)" while every session ran default
-          //    guardrails. A label that cannot disagree with the model is the
-          //    only kind worth logging.
+          //    guardrails. Deriving both from one value means neither can drift
+          //    from the *request* on its own. It is not a guarantee the label
+          //    matches the model: `SystemLanguageModel` exposes no `guardrails`
+          //    accessor, so a model-derived label is unreachable, and the
+          //    `switch` below stays an unverified mapping — miswire it and the
+          //    label lies again, one hop upstream. The battery remains its only
+          //    control.
           // 2. The default arm used to call `FoundationModelsService()`, i.e.
           //    the STATIC `SystemLanguageModel.default`, while the permissive
           //    arm called `init(guardrails:)`. That left the A/B differing in
           //    construction path as well as guardrails. Whether the static and
           //    the initializer are equivalent is not knowable from the SDK
           //    interface, so the arms are made symmetric instead of assumed so.
+          //
+          // The instance is now built once and shared across `llmFactory()`
+          // calls (i.e. across `HarnessRunner`'s retry attempts) rather than
+          // per-call. That matches the old default arm, whose static `.default`
+          // was always process-shared — so this is more symmetric, not less.
           let guardrails: SystemLanguageModel.Guardrails
           switch config.guardrails {
           case .default: guardrails = .default

@@ -80,6 +80,13 @@
       loadedState.withLock { $0 }
     }
 
+    /// - Note: Guardrail-blind by construction — `SystemLanguageModel` exposes
+    ///   no `guardrails` accessor, so this cannot reflect the injected model's
+    ///   mode. The harness threads its own guardrail-bearing label instead
+    ///   (`Main.swift`'s run-log name); prefer that when attributing a run.
+    ///   `SimulationViewModel` persists this into `SimulationRecord`, so wiring
+    ///   this service past spike scope means every record carries a
+    ///   guardrail-blind identifier — solve that then, not now.
     public var modelIdentifier: String { "Apple Foundation Model" }
     public let backendIdentifier = "FoundationModels"
 
@@ -139,11 +146,14 @@
       // generation. #1156 shipped exactly that: a 6-cell battery ran with
       // `--guardrails permissive`, logged "(permissive)" for every cell, and
       // produced guardrail-refusal counts byte-identical to the default-
-      // guardrails run (9 and 4), because every session was a default one.
-      // No test can catch a regression here — `LanguageModelSession` exposes no
-      // `model` accessor — so the control is the battery: a permissive run that
-      // still throws `guardrailViolation` means this argument went missing.
-      let session = LanguageModelSession(model: model, instructions: system)
+      // guardrails run (word_wolf-ja 9, bokete-en 4), because every session was
+      // a default one.
+      // As of the Xcode 26.6 SDK no test can reach this: `LanguageModelSession`
+      // exposes no `model` accessor, so the session's model is unobservable.
+      // Re-check on SDK bumps. Until then the control is the battery — a
+      // permissive run that still throws `guardrailViolation` means this
+      // argument went missing.
+      let session = LanguageModelSession(model: self.model, instructions: system)
       do {
         let response = try await session.respond(to: user)
         return response.content
