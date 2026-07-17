@@ -69,7 +69,8 @@ private final class Counter: Sendable {
 
 private func makeRunner(
   scripts: ScriptedStreams, writer: InMemoryWriter,
-  timeoutSeconds: Int = 5, factoryCount: Counter? = nil
+  timeoutSeconds: Int = 5, factoryCount: Counter? = nil,
+  diagLogger: StderrEngineLogger? = nil
 ) -> HarnessRunner {
   HarnessRunner(
     llmFactory: {
@@ -79,6 +80,7 @@ private func makeRunner(
     writer: writer,
     timeoutSeconds: timeoutSeconds,
     streamFactory: { _, _, _ in scripts.next() },
+    diagLogger: diagLogger,
     progress: nil)
 }
 
@@ -167,5 +169,47 @@ struct HarnessRunnerTests {
     #expect(summary.status == .error)
     #expect(summary.attempts == 2)
     #expect(summary.error?.contains("timeout") == true)
+  }
+
+  /// A failed attempt replays the whole scenario, so every Engine diagnostic
+  /// is emitted twice. `attempt` is the only field that separates the passes —
+  /// without this the two runs' evidence silently merges and a refusal looks
+  /// twice as common as it is.
+  ///
+  /// Drives the real wiring (`execute` -> the injected logger instance), not a
+  /// hand-called `beginAttempt`: the stamp advancing is exactly what a future
+  /// refactor could drop silently.
+  @Test func stampsDiagnosticsWithTheHarnessAttempt() async throws {
+    let writer = InMemoryWriter()
+    let captured = Mutex<[String]>([])
+    let logger = StderrEngineLogger(sink: { line in captured.withLock { $0.append(line) } })
+
+    // Attempt 1 ends without `.simulationCompleted` -> failure -> rerun.
+    let scripts = ScriptedStreams([
+      [.roundStarted(round: 1, totalRounds: 1)],
+      [.roundStarted(round: 1, totalRounds: 1), .simulationCompleted]
+    ])
+    let runner = makeRunner(scripts: scripts, writer: writer, diagLogger: logger)
+
+    // The scripted streams bypass the Engine, so emit through the same logger
+    // the runner stamps — standing in for `LLMCaller.logParseFailure`.
+    logger.log(.warning, category: "LLMCaller", "before", privacy: .public)
+    let summary = await runner.execute(
+      scenario: try makeScenario(), runID: "test-run", startDate: "2026-06-13T00:00:00Z",
+      modelName: "mock")
+    #expect(summary.attempts == 2)
+
+    // `execute` stamps attempt 1, then 2 — so a record logged after it must
+    // carry the last attempt the runner reached.
+    logger.log(.warning, category: "LLMCaller", "after", privacy: .public)
+
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let lines = captured.withLock { $0 }
+    let decoded = try lines.map { try decoder.decode(DiagLine.self, from: Data($0.utf8)) }
+    let before = try #require(decoded.first { $0.message == "before" })
+    let after = try #require(decoded.first { $0.message == "after" })
+    #expect(before.attempt == 1)
+    #expect(after.attempt == 2)
   }
 }

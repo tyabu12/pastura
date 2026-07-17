@@ -31,15 +31,24 @@ package final class HarnessRunner: Sendable {
   private let timeoutSeconds: Int
   private let streamFactory: StreamFactory
   private let progress: (@Sendable (String) -> Void)?
-  /// `nil` when the caller injected its own `streamFactory` — the attempt
-  /// stamp is only meaningful for the stream this type wired itself.
+  /// The logger `execute` stamps the attempt on. `nil` only when a caller
+  /// injects a `streamFactory` without a logger — i.e. opts out of Engine
+  /// diagnostics.
   private let diagLogger: StderrEngineLogger?
 
+  /// - Parameters:
+  ///   - streamFactory: Overrides the production stream. `nil` builds one over
+  ///     `SimulationRunner` wired to `diagLogger`.
+  ///   - diagLogger: Receives Engine diagnostics. `nil` builds a stderr logger
+  ///     when `streamFactory` is also `nil`. Injectable so a test can hold the
+  ///     same instance `execute` stamps attempts on — otherwise the stamp is
+  ///     unreachable from any test that supplies its own `streamFactory`.
   package init(
     llmFactory: @escaping LLMFactory,
     writer: any RunLogWriting,
     timeoutSeconds: Int,
     streamFactory: StreamFactory? = nil,
+    diagLogger: StderrEngineLogger? = nil,
     progress: (@Sendable (String) -> Void)? = nil
   ) {
     self.llmFactory = llmFactory
@@ -49,13 +58,12 @@ package final class HarnessRunner: Sendable {
 
     // Resolved here rather than as a default argument: the default expression
     // cannot reference instance state, and the production stream must capture
-    // the very logger `execute` stamps attempts on. Callers that inject a
-    // `streamFactory` (tests) opt out of Engine diagnostics entirely.
+    // the very logger `execute` stamps attempts on.
     if let streamFactory {
       self.streamFactory = streamFactory
-      self.diagLogger = nil
+      self.diagLogger = diagLogger
     } else {
-      let logger = StderrEngineLogger()
+      let logger = diagLogger ?? StderrEngineLogger()
       self.diagLogger = logger
       self.streamFactory = { scenario, llm, controller in
         SimulationRunner(logger: logger).run(

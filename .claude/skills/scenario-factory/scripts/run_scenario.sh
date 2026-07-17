@@ -148,10 +148,13 @@ if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then PROFILE="$1"; shift; fi
 
 BACKEND=""
 GUARDRAILS=""
+# An explicitly-empty value is a caller bug, not an intent: `-`/empty carries a
+# deliberate sentinel meaning for <model.gguf> above, so silently dropping an
+# empty flag here would be the one inconsistent reading.
 while [ $# -gt 0 ]; do
   case "$1" in
-    --backend) [ $# -ge 2 ] || usage; BACKEND=$2; shift 2 ;;
-    --guardrails) [ $# -ge 2 ] || usage; GUARDRAILS=$2; shift 2 ;;
+    --backend) [ $# -ge 2 ] && [ -n "$2" ] || usage; BACKEND=$2; shift 2 ;;
+    --guardrails) [ $# -ge 2 ] && [ -n "$2" ] || usage; GUARDRAILS=$2; shift 2 ;;
     *) usage ;;
   esac
 done

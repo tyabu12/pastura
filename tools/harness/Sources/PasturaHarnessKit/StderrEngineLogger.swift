@@ -10,7 +10,8 @@ import Synchronization
 /// different lifetime, so they go to stderr and stay out of the run log the
 /// judge/digest tooling reads.
 package struct DiagLine: Codable, Sendable, Equatable {
-  package var type = "diag"
+  /// Schema discriminator — a constant, never set per-record.
+  package let type = "diag"
   /// Monotonic within one process, starting at 1. The join key: the Engine
   /// runs phases sequentially, so `seq` order IS execution order.
   package let seq: Int
@@ -54,10 +55,14 @@ package struct DiagLine: Codable, Sendable, Equatable {
 /// So the run log alone cannot tell a refusal from a parse failure, and an
 /// A/B across guardrail modes would compare a labelled arm against an
 /// unlabelled one. `LLMCaller.logParseFailure` already hands the raw model
-/// output to this seam; capturing it is what makes the refusal countable.
+/// output to this seam; capturing it is what makes the refusal classifiable.
 /// Classification stays *post-hoc* and evidence-bearing (the raw text is in
 /// the record) rather than being asserted by a locale-fragile prefix match
 /// inside a production service.
+///
+/// - Note: `LLMCaller` truncates the captured output at `raw.prefix(500)`, so
+///   a long response arrives clipped — read a mid-token ending as truncation,
+///   not as the model stopping there. A refusal is short enough to survive.
 ///
 /// ## Reading the output
 ///
@@ -71,24 +76,46 @@ package struct DiagLine: Codable, Sendable, Equatable {
 /// **Never count these records.** One logical failure appears up to
 /// `LLMCaller.maxRetries + 1` times (the retry loop logs every failed
 /// attempt), and a `HarnessRunner` rerun replays the lot — so a `grep -c` over
-/// this channel over-counts by an unstable factor.
+/// this channel over-counts by an unstable factor. The tally lives in the run
+/// log; these records only answer **why**. What duplicates is the evidence,
+/// never the tally.
 ///
-/// The count already exists in the run log: a failed turn emits exactly one
-/// `turn_skipped` line no matter how many retries it burned. So:
+/// The tally is NOT simply `count(turn_skipped)`. Two carve-outs, both of
+/// which bite the #1072 battery:
 ///
-/// - **How many** turns failed → the run log's `turn_skipped` lines.
-/// - **Why** each failed → these records, read as evidence.
+/// 1. **The breaker's tripping turn is never logged.** `TurnFailureGate` throws
+///    `turnFailureLimitReached` at the 3rd *consecutive* skip and returns
+///    before `emitter(.turnSkipped(...))`, so that turn produces evidence here
+///    but no tally line. A run whose `run_end` carries that error therefore
+///    has `count(turn_skipped) + 1` failures — and it is **truncated**, so its
+///    refusal *rate* is a lower bound, not a rate. (The counter resets on every
+///    success, so the tally is not capped at 2: #1072's word_wolf-ja logged 9
+///    skips before three landed back-to-back.)
+/// 2. **`narrate` is outside the tally entirely.** `NarrateHandler` degrades by
+///    omission and deliberately bypasses the gate — no `.turnSkipped`, no
+///    breaker increment (#909) — yet it drives its own `LLMCaller`, so a
+///    narrator refusal DOES appear here. `word_wolf.yaml` / `word_wolf_en.yaml`
+///    both carry a `narrate` phase, so 2 of the 6 battery cells will show
+///    narrator evidence with no matching tally line. Count `agent=` narrator
+///    records separately; do not fold them into the agent-turn rate.
 ///
-/// That split is what makes the retry multiplicity harmless: what duplicates
-/// is the evidence, never the tally.
+/// Both guardrail arms ARE gate-degradable, so their tallies are comparable:
+/// `FoundationModelsService.map` turns `guardrailViolation` into
+/// `LLMError.generationFailed`, which `streamFailureError` wraps as
+/// `SimulationError.llmGenerationFailed` — one of the two cases
+/// `TurnFailureGate.isTurnDegradable` accepts.
 ///
-/// Attribution, for a diagnostic that carries no agent of its own (parse
-/// failures don't): the Engine has **no concurrency** — no `TaskGroup` /
-/// `async let` anywhere under `Pastura/Pastura/Engine/` — so records arrive in
-/// execution order and `seq` orders them against the run log. A turn's
-/// parse-failure records are bracketed by the `retryCause agent=… attempt=…
-/// cause=…` records `LLMCaller` emits around the same retry loop, which is
-/// where the agent name comes from.
+/// ## Attribution
+///
+/// Records self-attribute: `LLMCaller`'s parse-failure line carries
+/// `agent=…`. Do NOT try to recover the agent by scanning neighbouring
+/// `retryCause` records — a turn's *terminal* failure emits no trailing
+/// `retryCause` (`call` throws instead), so the next record on the channel
+/// belongs to the next agent.
+///
+/// Ordering: the Engine has **no concurrency** — no `TaskGroup` / `async let`
+/// anywhere under `Pastura/Pastura/Engine/` — so records arrive in execution
+/// order and `seq` orders them against the run log.
 package final class StderrEngineLogger: EngineLogger {
   private struct State {
     var seq = 0
