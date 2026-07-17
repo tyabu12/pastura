@@ -31,22 +31,37 @@ package final class HarnessRunner: Sendable {
   private let timeoutSeconds: Int
   private let streamFactory: StreamFactory
   private let progress: (@Sendable (String) -> Void)?
+  /// `nil` when the caller injected its own `streamFactory` — the attempt
+  /// stamp is only meaningful for the stream this type wired itself.
+  private let diagLogger: StderrEngineLogger?
 
   package init(
     llmFactory: @escaping LLMFactory,
     writer: any RunLogWriting,
     timeoutSeconds: Int,
-    streamFactory: @escaping StreamFactory = { scenario, llm, controller in
-      SimulationRunner().run(
-        scenario: scenario, llm: llm, suspendController: controller)
-    },
+    streamFactory: StreamFactory? = nil,
     progress: (@Sendable (String) -> Void)? = nil
   ) {
     self.llmFactory = llmFactory
     self.writer = writer
     self.timeoutSeconds = timeoutSeconds
-    self.streamFactory = streamFactory
     self.progress = progress
+
+    // Resolved here rather than as a default argument: the default expression
+    // cannot reference instance state, and the production stream must capture
+    // the very logger `execute` stamps attempts on. Callers that inject a
+    // `streamFactory` (tests) opt out of Engine diagnostics entirely.
+    if let streamFactory {
+      self.streamFactory = streamFactory
+      self.diagLogger = nil
+    } else {
+      let logger = StderrEngineLogger()
+      self.diagLogger = logger
+      self.streamFactory = { scenario, llm, controller in
+        SimulationRunner(logger: logger).run(
+          scenario: scenario, llm: llm, suspendController: controller)
+      }
+    }
   }
 
   /// Runs the scenario, writing `run_start` / `event` / `run_end` lines.
@@ -70,6 +85,9 @@ package final class HarnessRunner: Sendable {
     var attempts = 0
     for attempt in 1...2 {
       attempts = attempt
+      // Stamp before the stream starts: a retried scenario replays every
+      // diagnostic, and only this field separates the two passes.
+      diagLogger?.beginAttempt(attempt)
       switch await runAttempt(scenario: scenario, attempt: attempt) {
       case .completed:
         status = .ok
