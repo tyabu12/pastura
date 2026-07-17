@@ -34,6 +34,13 @@ class JSONResponseParserTests {
 
     // MARK: - 2. Thinking tags
 
+    // The `*AcrossLines` / `*MultiLine*` cases below guard a different failure
+    // class than the #1157 fix itself. That fix's compile failure
+    // (`RegexOption.DOT_MATCHES_ALL` absent from the common stdlib) is caught by
+    // `compileCommonMainKotlinMetadata` in CI — these tests would NOT have
+    // caught it, since they run on JVM where the flag resolves. What they guard
+    // is a future newline-blind *semantic* regression: a swap to a flagless `.`
+    // that compiles everywhere but silently stops matching across newlines.
     @Test
     fun stripsGemmaChannelThinking() {
         val out = parser.parse("""<|channel>thought I should cooperate<channel|>{"statement": "hi"}""")
