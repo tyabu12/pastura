@@ -41,6 +41,16 @@ class JSONResponseParserTests {
     }
 
     @Test
+    fun stripsGemmaChannelThinkingAcrossLines() {
+        // Guards the dot-matches-newline behaviour of CHANNEL_THINKING: the
+        // thought block spans multiple lines, so a swap that drops newline
+        // matching would fail to strip it and the balanced scan would choke.
+        val out = parser.parse("""<|channel>thought I should
+        cooperate with the others<channel|>{"statement": "hi"}""")
+        assertEquals("hi", out.fields["statement"])
+    }
+
+    @Test
     fun stripsThinkTags() {
         val out = parser.parse("""<think>reasoning
         across lines</think>{"statement": "hi"}""")
@@ -57,6 +67,18 @@ class JSONResponseParserTests {
         assertEquals("real", out.fields["statement"])
     }
 
+    @Test
+    fun truncatesAtChatTemplateTokenAcrossLines() {
+        // Guards the dot-matches-newline behaviour of CHAT_TEMPLATE_TOKEN: the
+        // fabricated turn following the token spills onto later lines, which
+        // must still be truncated. A newline-blind swap would leave the second
+        // object in place and the balanced scan could return it.
+        val out = parser.parse("""{"statement": "real"}<|im_end|>
+        {"statement": "fabricated"}
+        more hallucinated text""")
+        assertEquals("real", out.fields["statement"])
+    }
+
     // MARK: - 4. Code fences
 
     @Test
@@ -69,6 +91,17 @@ class JSONResponseParserTests {
     fun extractsFromBareCodeFence() {
         val out = parser.parse("```\n{\"statement\": \"hi\"}\n```")
         assertEquals("hi", out.fields["statement"])
+    }
+
+    @Test
+    fun extractsMultiLineBodyFromCodeFence() {
+        // Guards the dot-matches-newline behaviour of CODE_BLOCK's `(.*?)`
+        // capture group: a pretty-printed JSON body spans several lines inside
+        // the fence. A newline-blind swap would capture only the first line and
+        // the parse would drop every field after it.
+        val out = parser.parse("```json\n{\n  \"statement\": \"hi\",\n  \"inner_thought\": \"hmm\"\n}\n```")
+        assertEquals("hi", out.fields["statement"])
+        assertEquals("hmm", out.fields["inner_thought"])
     }
 
     // MARK: - 5. Surrounding garbage / balanced scan
