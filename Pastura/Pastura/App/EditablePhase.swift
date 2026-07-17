@@ -47,6 +47,11 @@ struct EditablePhase: Identifiable, Sendable {
   // it. `String` (not `String?`) mirrors `eventVariable`/`template`: empty and
   // nil are semantically identical, and `toPhase()` collapses empty back to nil.
   var narrator: String
+  // pairwise_payoff table (ADR-027). YAML-only for v1 (no editing UI in
+  // `PhaseEditorSheet`), modelled here so the visual→YAML round-trip preserves
+  // it. `[PayoffRule]` (not optional) mirrors `actionDeltas`: empty and nil are
+  // semantically identical, and `toPhase()` collapses empty back to nil.
+  var payoff: [PayoffRule]
 
   // swiftlint:disable:next function_default_parameter_at_end
   init(
@@ -70,7 +75,8 @@ struct EditablePhase: Identifiable, Sendable {
     actionDeltas: [String: Int] = [:],
     maxSentences: Int? = nil,
     noRepeat: Bool = false,
-    narrator: String = ""
+    narrator: String = "",
+    payoff: [PayoffRule] = []
   ) {
     self.type = type
     self.prompt = prompt
@@ -93,6 +99,7 @@ struct EditablePhase: Identifiable, Sendable {
     self.maxSentences = maxSentences
     self.noRepeat = noRepeat
     self.narrator = narrator
+    self.payoff = payoff
   }
 
   init(from phase: Phase) {
@@ -117,6 +124,7 @@ struct EditablePhase: Identifiable, Sendable {
     self.maxSentences = phase.maxSentences
     self.noRepeat = phase.noRepeat ?? false
     self.narrator = phase.narrator ?? ""
+    self.payoff = phase.payoff ?? []
   }
 
   /// Identifies which branch of a conditional phase to target.
@@ -232,7 +240,8 @@ struct EditablePhase: Identifiable, Sendable {
       actionDeltas: actionDeltas.isEmpty ? nil : actionDeltas,
       maxSentences: maxSentences,
       noRepeat: noRepeat ? true : nil,
-      narrator: narrator.isEmpty ? nil : narrator
+      narrator: narrator.isEmpty ? nil : narrator,
+      payoff: payoff.isEmpty ? nil : payoff
     )
   }
 }
