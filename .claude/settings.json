@@ -117,5 +117,13 @@
         ]
       }
     ]
+  },
+  "extraKnownMarketplaces": {
+    "claude-kit": {
+      "source": { "source": "github", "repo": "tyabu12/claude-kit" }
+    }
+  },
+  "enabledPlugins": {
+    "claude-kit@claude-kit": true
   }
 }

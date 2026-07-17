@@ -108,7 +108,7 @@ After fetching the issue, check for an existing plan comment:
    - **Any plan item labeled 🎭** → `Session`: **Opus**. The orchestrator implements 🎭 items directly — the judgment-heavy work that needs the Opus tier.
    - **All items 🎵** → `Session`: **Sonnet** (recommended). The orchestrator's remaining work is dispatch, diff spot-check, commit, and PR mechanics. This is the primary cost lever: the long implementation tail runs at Sonnet rates.
 
-   **Why review quality is unaffected:** the reviewer is assigned *independently* of the session model — the Step 1b `critic` is Opus-pinned (frontmatter `model: opus`, no override), and the Step 4 `code-reviewer` runs at `REVIEWER_MODEL` (which the path-based Coupling rule already forces to Opus on sensitive paths). A Sonnet session changes who *dispatches and commits*, not who *reviews*.
+   **Why review quality is unaffected:** the reviewer is assigned *independently* of the session model — the Step 1b critic runs at Opus (`claude-kit:critic` carries no model pin, so Step 1b passes `model: opus` explicitly — no override), and the Step 4 `code-reviewer` runs at `REVIEWER_MODEL` (which the path-based Coupling rule already forces to Opus on sensitive paths). A Sonnet session changes who *dispatches and commits*, not who *reviews*.
 
    **Accepted risk (all-🎵 on a Sonnet-eligible path):** when both session and reviewer are Sonnet, the pre-commit spot-check at Step 3 🎵 also runs on Sonnet — no Opus touches the tail except the pre-code Step 1b critic. Tolerated because all-🎵 means every item is simple-by-label (pattern reuse / test-only / doc / minor fix), and G1 is the human gate: bump `Session` to Opus if a sensitive-but-🎵 change warrants it.
 
@@ -123,7 +123,7 @@ After user approval, proceed to Step 1b (mandatory critic review).
 
 **⚠️ MANDATORY (unless `RESUMING=true`): You MUST complete this step before proceeding to Step 2.**
 
-After the user approves the plan (G1), launch a `critic` subagent via the Agent tool to review the plan for blind spots.
+After the user approves the plan (G1), launch a `claude-kit:critic` subagent via the Agent tool to review the plan for blind spots. The agent comes from the claude-kit plugin (`enabledPlugins` in `.claude/settings.json` — Pastura keeps no local copy); it carries no model pin, so **pass `model: opus` explicitly** at invocation. If the agent type is unavailable (plugin not yet trusted/installed on this machine), stop and surface that instead of silently skipping the critique.
 
 > **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths.
 >
