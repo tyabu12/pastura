@@ -33,8 +33,22 @@
 
     /// Creates a service over a system language model.
     ///
+    /// Guardrail mode is injected through this parameter rather than being a
+    /// setting of its own — pass `SystemLanguageModel(guardrails:)`:
+    ///
+    /// ```swift
+    /// FoundationModelsService(
+    ///   model: SystemLanguageModel(guardrails: .permissiveContentTransformations))
+    /// ```
+    ///
+    /// The default (`.default` guardrails) is what spike #1072's first battery
+    /// measured, and its "Apple offers no guardrail adjustment API" conclusion
+    /// was wrong precisely because no caller ever passed anything else. The
+    /// harness selects the mode via `--guardrails`.
+    ///
     /// - Parameter model: The system model to drive. Defaults to
-    ///   ``SystemLanguageModel/default`` (the general-purpose base model).
+    ///   ``SystemLanguageModel/default`` (the general-purpose base model with
+    ///   default guardrails).
     public init(model: SystemLanguageModel = .default) {
       self.model = model
       self.loadedState = OSAllocatedUnfairLock(initialState: false)
@@ -83,8 +97,20 @@
     /// already instructs JSON and ``JSONResponseParser`` carries the field
     /// contract. Consequence for the #1072 evaluation phase: FM parse-failure
     /// rates are **not** apples-to-apples with the GBNF-grammar-constrained
-    /// ``LlamaCppService`` — guided generation is a defensible follow-up, not
-    /// spike scope.
+    /// ``LlamaCppService``.
+    ///
+    /// - Warning: **Adopting `@Generable` guided generation would silently
+    ///   re-enable the default guardrails**, undoing the permissive mode this
+    ///   backend is being re-evaluated under. Per Apple, permissive guardrails
+    ///   "only work for generating a string value. When you use guided
+    ///   generation, the framework runs the default guardrails against model
+    ///   input and output as usual." This service returns `response.content`
+    ///   (a plain `String`), which is the only shape permissive mode covers.
+    ///   So guided generation is not the free win #1072's first digest called
+    ///   it — it trades JSON-validity assurance (already measured as a
+    ///   non-problem) for the return of the failure that killed the spike.
+    ///   Re-measure guardrails before adopting it.
+    ///   See: https://developer.apple.com/documentation/foundationmodels/improving-the-safety-of-generative-model-output
     ///
     /// - Throws: ``LLMError/notLoaded`` before ``loadModel()``;
     ///   ``LLMError/generationFailed(description:)`` on inference failure. The

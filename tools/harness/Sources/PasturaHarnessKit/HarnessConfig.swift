@@ -42,18 +42,46 @@ package struct HarnessConfig: Sendable, Equatable {
   /// stay unchanged.
   package var backend: Backend = .llamaCpp
 
+  /// Apple Foundation Models guardrail mode (spike #1072 correction: Apple
+  /// exposes an adjustment API — `SystemLanguageModel.Guardrails
+  /// .permissiveContentTransformations` — the original spike wrongly assumed
+  /// there was none). This is a PLAIN enum with no `FoundationModels` import:
+  /// that framework only exists in the macOS 26 SDK, and this file must stay
+  /// buildable on toolchains without it (the CI "Harness package build" job).
+  /// FM type references live only in `Main.swift`'s `#if canImport(FoundationModels)` block.
+  package enum Guardrails: String, Sendable, Equatable, CaseIterable {
+    /// Apple's default content guardrails (unchanged behaviour).
+    case `default`
+    /// `SystemLanguageModel.Guardrails.permissiveContentTransformations`.
+    case permissive
+  }
+
+  /// Foundation Models guardrail mode. Ignored for the
+  /// ``Backend/llamaCpp`` backend, which has no guardrail concept.
+  package var guardrails: Guardrails = .default
+
   package static let usage = """
     usage: pastura-harness --scenario <path.yaml> [--model <path.gguf>] \
-    [--backend <id>] [--out <path.jsonl>] [--timeout <seconds>] [--quiet] [--profile <id>]
+    [--backend <id>] [--out <path.jsonl>] [--timeout <seconds>] [--quiet] [--profile <id>] \
+    [--guardrails <id>]
     --backend selects the inference backend (default: \(Backend.llamaCpp.rawValue); \
     also: \(Backend.foundationModels.rawValue)). --model is required for \
     \(Backend.llamaCpp.rawValue) and ignored for \(Backend.foundationModels.rawValue).
     --profile selects prompt-format hints and must match the --model file's \
     model family (default: \(ModelProfile.gemma4E2B.id))
+    --guardrails selects the Foundation Models guardrail mode (default: \
+    \(Guardrails.default.rawValue); also: \(Guardrails.permissive.rawValue)). \
+    Ignored for the \(Backend.llamaCpp.rawValue) backend.
     """
 
-  /// Parses CLI arguments (excluding argv[0]).
-  package static func parse(_ args: [String]) throws -> HarnessConfig {
+  /// Mutable accumulator for ``parse(_:)``'s argument loop.
+  ///
+  /// The arms are split across two `apply*` methods — paths vs run options —
+  /// rather than living in one switch inside `parse`. A single switch put
+  /// `parse` over the cyclomatic-complexity limit the moment `--guardrails`
+  /// was added, and folding every arm into one helper would sit exactly AT
+  /// the limit, so the next flag would break it again.
+  private struct Accumulator {
     var scenario: String?
     var model: String?
     var out: String?
@@ -61,26 +89,67 @@ package struct HarnessConfig: Sendable, Equatable {
     var quiet = false
     var profile = ModelProfile.gemma4E2B
     var backend = Backend.llamaCpp
+    var guardrails = Guardrails.default
 
-    var iterator = args.makeIterator()
-    while let arg = iterator.next() {
-      switch arg {
-      case "--scenario": scenario = try value(for: arg, from: &iterator)
-      case "--model": model = try value(for: arg, from: &iterator)
-      case "--out": out = try value(for: arg, from: &iterator)
-      case "--timeout": timeout = try parseTimeout(value(for: arg, from: &iterator))
-      case "--quiet": quiet = true
-      case "--profile": profile = try parseProfile(value(for: arg, from: &iterator))
-      case "--backend": backend = try parseBackend(value(for: arg, from: &iterator))
-      default: throw HarnessConfigError("unknown argument '\(arg)'\n\(usage)")
-      }
+    mutating func apply(
+      _ arg: String, from iterator: inout IndexingIterator<[String]>
+    ) throws {
+      if try applyPathFlag(arg, from: &iterator) { return }
+      if try applyOptionFlag(arg, from: &iterator) { return }
+      throw HarnessConfigError("unknown argument '\(arg)'\n\(usage)")
     }
 
-    guard let scenario else { throw HarnessConfigError("--scenario is required\n\(usage)") }
-    let modelPath = try resolveModelPath(model, backend: backend)
+    /// - Returns: `true` when `arg` was a path flag this consumed.
+    private mutating func applyPathFlag(
+      _ arg: String, from iterator: inout IndexingIterator<[String]>
+    ) throws -> Bool {
+      switch arg {
+      case "--scenario": scenario = try HarnessConfig.value(for: arg, from: &iterator)
+      case "--model": model = try HarnessConfig.value(for: arg, from: &iterator)
+      case "--out": out = try HarnessConfig.value(for: arg, from: &iterator)
+      default: return false
+      }
+      return true
+    }
+
+    /// - Returns: `true` when `arg` was a run-option flag this consumed.
+    private mutating func applyOptionFlag(
+      _ arg: String, from iterator: inout IndexingIterator<[String]>
+    ) throws -> Bool {
+      switch arg {
+      case "--timeout":
+        timeout = try HarnessConfig.parseTimeout(HarnessConfig.value(for: arg, from: &iterator))
+      case "--quiet": quiet = true
+      case "--profile":
+        profile = try HarnessConfig.parseProfile(HarnessConfig.value(for: arg, from: &iterator))
+      case "--backend":
+        backend = try HarnessConfig.parseBackend(HarnessConfig.value(for: arg, from: &iterator))
+      case "--guardrails":
+        guardrails = try HarnessConfig.parseGuardrails(
+          HarnessConfig.value(for: arg, from: &iterator))
+      default: return false
+      }
+      return true
+    }
+  }
+
+  /// Parses CLI arguments (excluding argv[0]).
+  package static func parse(_ args: [String]) throws -> HarnessConfig {
+    var accumulator = Accumulator()
+    var iterator = args.makeIterator()
+    while let arg = iterator.next() {
+      try accumulator.apply(arg, from: &iterator)
+    }
+
+    guard let scenario = accumulator.scenario else {
+      throw HarnessConfigError("--scenario is required\n\(usage)")
+    }
+    let modelPath = try resolveModelPath(accumulator.model, backend: accumulator.backend)
     return HarnessConfig(
-      scenarioPath: scenario, modelPath: modelPath, outPath: out,
-      timeoutSeconds: timeout, quiet: quiet, profile: profile, backend: backend)
+      scenarioPath: scenario, modelPath: modelPath, outPath: accumulator.out,
+      timeoutSeconds: accumulator.timeout, quiet: accumulator.quiet,
+      profile: accumulator.profile, backend: accumulator.backend,
+      guardrails: accumulator.guardrails)
   }
 
   /// The effective model path: `--model` is required for the GGUF-backed
@@ -128,6 +197,15 @@ package struct HarnessConfig: Sendable, Equatable {
       let knownIDs = Backend.allCases.map(\.rawValue).joined(separator: ", ")
       throw HarnessConfigError(
         "unknown --backend '\(raw)' — known backends: \(knownIDs)\n\(usage)")
+    }
+    return resolved
+  }
+
+  private static func parseGuardrails(_ raw: String) throws -> Guardrails {
+    guard let resolved = Guardrails(rawValue: raw) else {
+      let knownIDs = Guardrails.allCases.map(\.rawValue).joined(separator: ", ")
+      throw HarnessConfigError(
+        "unknown --guardrails '\(raw)' — known guardrails: \(knownIDs)\n\(usage)")
     }
     return resolved
   }

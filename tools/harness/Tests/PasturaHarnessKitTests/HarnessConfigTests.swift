@@ -140,4 +140,42 @@ struct HarnessConfigTests {
       ])
     }
   }
+
+  @Test func defaultsGuardrailsToDefault() throws {
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--model", "m.gguf"
+    ])
+    #expect(config.guardrails == .default)
+  }
+
+  @Test func parsesPermissiveGuardrails() throws {
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models",
+      "--guardrails", "permissive"
+    ])
+    #expect(config.guardrails == .permissive)
+  }
+
+  @Test func unknownGuardrailsThrows() {
+    do {
+      _ = try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--model", "m.gguf", "--guardrails", "bogus"
+      ])
+      Issue.record("expected HarnessConfigError")
+    } catch let error as HarnessConfigError {
+      #expect(error.message.contains("bogus"))
+      #expect(error.message.contains("default"))
+      #expect(error.message.contains("permissive"))
+    } catch {
+      Issue.record("expected HarnessConfigError, got \(error)")
+    }
+  }
+
+  @Test func missingGuardrailsValueThrows() {
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--model", "m.gguf", "--guardrails"
+      ])
+    }
+  }
 }
