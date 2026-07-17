@@ -72,8 +72,25 @@ struct JSONResponseParserTests {
     #expect(output.fields["ratio"] == "3.14")
   }
 
+  /// The 0/1 window: `NSNumber -> Bool` casting succeeds for exactly 0 and 1,
+  /// so ordering `as? Bool` ahead of `as? NSNumber` swallowed these into
+  /// "false"/"true" (#1150). `1.0` / `0.0` render without the `.0` because
+  /// `NSNumber.stringValue` normalizes the literal — that formatting difference
+  /// from the Kotlin port is a separate divergence, deferred to ADR-023 Stage 4.
+  @Test func normalizesNumbersInsideTheBoolBridgeWindow() throws {
+    let input = #"{"zero": 0, "one": 1, "floatZero": 0.0, "floatOne": 1.0}"#
+    let output = try parser.parse(input)
+    #expect(output.fields["zero"] == "0")
+    #expect(output.fields["one"] == "1")
+    #expect(output.fields["floatZero"] == "0")
+    #expect(output.fields["floatOne"] == "1")
+  }
+
   // MARK: - 7. Boolean values normalized to String
 
+  /// Doubles as the negative control for #1150's `CFBooleanGetTypeID`
+  /// discrimination: dropping the `as? Bool` branch must not regress real
+  /// JSON booleans, which is the branch's original — and still valid — intent.
   @Test func normalizesBooleanValues() throws {
     let input = #"{"alive": true, "eliminated": false}"#
     let output = try parser.parse(input)

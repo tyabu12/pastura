@@ -85,10 +85,11 @@ The same "verify before you lock it" discipline extends past rule assertions to 
 | A header/doc comment asserting cross-file structure ("defined in M", "consumable by Y") | grep the actual symbol/type — comments can be aspirational, not descriptive |
 | A `§"Heading"` cross-doc reference | grep the target for the exact heading **and read under it** to confirm the content matches; add a named heading if absent |
 | "band-aid / hack / dead code" framing of a change | grep ALL producers + consumers across layers (esp. Engine/runtime), not just the layer the issue scopes — the target may be load-bearing |
+| A documented defect framed as **live** ("X `would` flow into Y — i.e. fabrication") | grep every **writer** of the value, not just the reader — an upstream guard may already make it unreachable, in which case the comment is that guard's rationale, not a bug report. Subjunctive mood is the tell (#1151) |
 | An external standard (SEO, RFC, sitemap/robots, OAuth, HTTP semantics) | WebSearch + WebFetch the authority (Google Search Central, the RFC, MDN); verbatim-cite before critic |
 | Vendor feature availability (free/paid/plan tier) | WebFetch the canonical docs; verbatim-quote the "Who can use this feature" box — never infer from search snippets |
 
-### Apply
+### Apply (verification table)
 
 For each load-bearing assertion in the draft:
 
@@ -102,3 +103,12 @@ For each load-bearing assertion in the draft:
 This applies to **non-grep claims** too: cited file paths (`find` to confirm existence), `(PR #N)` claims about PR body content (`gh pr view N` to verify), heading anchors in cross-doc refs (`grep` for the exact heading).
 
 A 30-second self-check prevents 1–2 extra critic / code-reviewer rounds. Motivating incident: PR #462 round-3 critic.
+
+### Claims you author are assertions too
+
+A **why-comment you write** asserts runtime or library behaviour as the reason a mechanism exists — the same kind of claim as the table's, but authored at implementation time and executed by nobody. Reviewers check whether the *code* is correct, not whether the *stated reason* is true, so a false one ships and the next reader inherits it as fact. Two shapes, neither expressible as a `Verify by` lookup:
+
+- **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is false, or the tests never covered it.
+- **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A guard's success case proves nothing; only a negative control does.
+
+Motivating incident: PR #1152 round-1 review.
