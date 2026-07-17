@@ -130,4 +130,8 @@ web/.astro/
 # for Gradle module outputs.
 .gradle/
 local.properties
+# Kotlin 2.x per-project scratch (`sessions/`, `errors/`). Created in the CWD by
+# any `./gradlew` invocation, so it dirties the tree of anyone doing KMP work —
+# routine since the Stage-2 engine slice. Sibling gap to `.gradle/` above.
+.kotlin/
 
