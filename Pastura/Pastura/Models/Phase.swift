@@ -140,6 +140,17 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// See #909.
   public let narrator: String?
 
+  /// Payoff table for a `score_calc` phase whose `logic` is `pairwise_payoff`
+  /// (the YAML `payoff:` key, a list of `{when: [String], points: [Int]}`
+  /// rows). See `PayoffRule` and ADR-027.
+  ///
+  /// `nil` for every other logic. A `pairwise_payoff` phase with no rows (or
+  /// none satisfiable by the `choose` options) is a guaranteed no-op, flagged
+  /// by the semantic linter (R20a). YAML-only (no visual editor field), but
+  /// round-trips through the editor's dual buffer like `narrator` /
+  /// `action_deltas`.
+  public let payoff: [PayoffRule]?
+
   public init(
     type: PhaseType,
     prompt: String? = nil,
@@ -161,7 +172,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     actionDeltas: [String: Int]? = nil,
     maxSentences: Int? = nil,
     noRepeat: Bool? = nil,
-    narrator: String? = nil
+    narrator: String? = nil,
+    payoff: [PayoffRule]? = nil
   ) {
     self.type = type
     self.prompt = prompt
@@ -184,6 +196,7 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
     self.maxSentences = maxSentences
     self.noRepeat = noRepeat
     self.narrator = narrator
+    self.payoff = payoff
   }
 
   /// The schema's required keys as a `Set`, or an empty set when the

@@ -8206,6 +8206,16 @@
         }
       }
     },
+    "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' スコアリングには、ペアリングを埋めるためラウンド内のより前にラウンドロビン形式の 'choose' フェーズが必要です。ないとスコアが変化しません — この 'score_calc' より前に追加してください。"
+          }
+        }
+      }
+    },
     "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'." : {
       "localizations" : {
         "ja" : {

@@ -103,6 +103,47 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.lint(scenario).isEmpty)
   }
 
+  // MARK: - R19 pairwise-payoff-needs-round-robin-choose (error)
+
+  /// A four-row payoff table over `{cooperate, betray}²` — satisfiable by the
+  /// `["cooperate", "betray"]` option set, so R20a (item 3) stays silent and
+  /// these fixtures isolate R19.
+  private var pdPayoff: [PayoffRule] {
+    [
+      PayoffRule(when: ["cooperate", "cooperate"], points: [3, 3]),
+      PayoffRule(when: ["cooperate", "betray"], points: [0, 5]),
+      PayoffRule(when: ["betray", "cooperate"], points: [5, 0]),
+      PayoffRule(when: ["betray", "betray"], points: [1, 1])
+    ]
+  }
+
+  @Test func pairwisePayoffWithoutRoundRobinChooseFiresError() {
+    // R19 mirrors R2 but keeps a distinct ruleID: an individual (non-round-robin)
+    // choose does not populate pairings, so a pairwise_payoff score_calc scores
+    // nothing. A `pd-`-named finding here would name the wrong mechanic.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"]),
+        Phase(type: .scoreCalc, logic: .pairwisePayoff, payoff: pdPayoff)
+      ])
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "pairwise-payoff-needs-round-robin-choose")
+    #expect(findings.first?.severity == .error)
+    #expect(findings.first?.phaseIndex == 1)
+  }
+
+  @Test func pairwisePayoffWithRoundRobinChoosePasses() {
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .scoreCalc, logic: .pairwisePayoff, payoff: pdPayoff)
+      ])
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
   // MARK: - R3 wordwolf-needs-assign-and-vote (error)
 
   @Test func wordwolfWithoutAssignAndVoteFiresError() {
@@ -227,6 +268,23 @@ extension ScenarioSemanticLinterTests {
       phases: [
         Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
         Phase(type: .scoreCalc, logic: .prisonersDilemma),
+        Phase(type: .relationshipUpdate, actionDeltas: ["cooperate": 1, "betray": -1])
+      ])
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "relationship-update-placement")
+    #expect(findings.first?.phaseIndex == 2)
+  }
+
+  @Test func relationshipUpdateWithPairwisePayoffBetweenChooseAndItFiresWarning() {
+    // R4 regression (ADR-027): pairwise_payoff clears state.pairings exactly like
+    // prisoners_dilemma, so it must join the pairings-clearing producer set. If
+    // the `==` predicate omits it, R4 silently stops firing here (false negative).
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .scoreCalc, logic: .pairwisePayoff, payoff: pdPayoff),
         Phase(type: .relationshipUpdate, actionDeltas: ["cooperate": 1, "betray": -1])
       ])
     let findings = linter.lint(scenario)
