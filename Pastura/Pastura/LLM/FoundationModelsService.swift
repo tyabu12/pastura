@@ -132,7 +132,18 @@
       // exposes no per-request sampler seeding hook (#1105).
       guard isModelLoaded else { throw LLMError.notLoaded }
 
-      let session = LanguageModelSession(instructions: system)
+      // `model:` is LOAD-BEARING and easy to lose: the SDK initializer is
+      // `init(model: SystemLanguageModel = .default, tools:, instructions:)`,
+      // so omitting it silently builds the session over `.default` and the
+      // injected model reaches only `loadModel()`'s availability check — never
+      // generation. #1156 shipped exactly that: a 6-cell battery ran with
+      // `--guardrails permissive`, logged "(permissive)" for every cell, and
+      // produced guardrail-refusal counts byte-identical to the default-
+      // guardrails run (9 and 4), because every session was a default one.
+      // No test can catch a regression here — `LanguageModelSession` exposes no
+      // `model` accessor — so the control is the battery: a permissive run that
+      // still throws `guardrailViolation` means this argument went missing.
+      let session = LanguageModelSession(model: model, instructions: system)
       do {
         let response = try await session.respond(to: user)
         return response.content
