@@ -2,6 +2,10 @@ import Foundation
 import PasturaCore
 import PasturaHarnessKit
 
+#if canImport(FoundationModels)
+  import FoundationModels
+#endif
+
 /// Headless simulation harness CLI (ADR-013). Runs one scenario YAML
 /// through the Engine with real llama.cpp inference and writes a JSONL
 /// run log. Exit codes: 0 = run ok, 1 = run failed (recorded in the log),
@@ -126,8 +130,21 @@ enum Main {
     case .foundationModels:
       #if canImport(FoundationModels)
         if #available(macOS 26, *) {
-          let factory: HarnessRunner.LLMFactory = { FoundationModelsService() }
-          return (factory, "Apple Foundation Model")
+          // `HarnessConfig.Guardrails` is a plain enum with no FoundationModels
+          // import — the `SystemLanguageModel` construction stays confined to
+          // this `#if canImport` block so the config type keeps compiling on
+          // toolchains without the macOS 26 SDK.
+          switch config.guardrails {
+          case .default:
+            let factory: HarnessRunner.LLMFactory = { FoundationModelsService() }
+            return (factory, "Apple Foundation Model")
+          case .permissive:
+            let factory: HarnessRunner.LLMFactory = {
+              FoundationModelsService(
+                model: SystemLanguageModel(guardrails: .permissiveContentTransformations))
+            }
+            return (factory, "Apple Foundation Model (permissive)")
+          }
         } else {
           throw HarnessConfigError(
             "--backend \(HarnessConfig.Backend.foundationModels.rawValue) requires macOS 26 or later"
