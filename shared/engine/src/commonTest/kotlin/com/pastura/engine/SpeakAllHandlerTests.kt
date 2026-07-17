@@ -54,7 +54,7 @@ class SpeakAllHandlerTests {
         backend = backend,
         suspensionRelay = SuspensionRelay(),
         emitter = { events += it },
-        pauseCheck = { false },
+        pauseCheck = { },
         phasePath = listOf(0),
     )
 

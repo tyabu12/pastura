@@ -72,15 +72,22 @@ internal class PhaseContext(
      *
      * A narrow bridge onto the runner's internal `checkPaused`, so that
      * `SimulationEvent.SimulationPaused` has exactly one emitter — the runner,
-     * never a handler. Returns `true` when the run was cancelled while paused, in
-     * which case the handler must return early.
+     * never a handler.
+     *
+     * **Returns `Unit`, where Swift returns `Bool`.** Swift's `Bool` means
+     * "cancelled while paused — return early", because Swift polls
+     * `Task.isCancelled` and must hand the verdict back. Kotlin cancellation
+     * *throws*: this call raises `CancellationException`, which unwinds the handler
+     * on its own. A `Bool` here would be vestigial, and worse — a handler could
+     * ignore it and keep running after cancellation, which the throw makes
+     * structurally impossible.
      *
      * Handlers that dispatch nested sub-phases must call this between each one so
      * a pause is honoured at sub-phase granularity. No such handler exists in this
      * slice, so nothing calls it yet — it is part of the contract the runner
-     * loop (item 7) provides and Stage 3's `ConditionalHandler` consumes.
+     * provides and Stage 3's `ConditionalHandler` consumes.
      */
-    val pauseCheck: suspend (phasePath: List<Int>) -> Boolean,
+    val pauseCheck: suspend (phasePath: List<Int>) -> Unit,
     val phasePath: List<Int>,
 )
 

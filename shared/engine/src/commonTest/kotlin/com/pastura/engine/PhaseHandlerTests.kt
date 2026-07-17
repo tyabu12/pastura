@@ -4,9 +4,11 @@ import com.pastura.models.Phase
 import com.pastura.models.PhaseType
 import com.pastura.models.SimulationEvent
 import com.pastura.models.SimulationState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -29,7 +31,7 @@ class PhaseHandlerTests {
 
     private fun context(
         emitter: (SimulationEvent) -> Unit = {},
-        pauseCheck: suspend (List<Int>) -> Boolean = { false },
+        pauseCheck: suspend (List<Int>) -> Unit = { },
     ) = PhaseContext(
         scenario = scenario,
         phase = phase,
@@ -99,14 +101,28 @@ class PhaseHandlerTests {
     }
 
     @Test
-    fun pauseCheckReportsCancellationAndCarriesThePhasePath() {
-        // `true` means "cancelled while paused — return early". A handler that
-        // ignored it would keep running phases after the user cancelled.
+    fun pauseCheckCarriesThePhasePath() {
+        // Sub-phase granularity: a nesting handler passes its inner path so the
+        // runner can attribute the pause. Nothing in this slice nests, but the
+        // contract is what Stage 3's ConditionalHandler consumes.
         runTest {
             val seen = mutableListOf<List<Int>>()
-            val ctx = context(pauseCheck = { path -> seen += path; true })
-            assertTrue(ctx.pauseCheck(listOf(1, 2)))
+            val ctx = context(pauseCheck = { path -> seen += path })
+            ctx.pauseCheck(listOf(1, 2))
             assertEquals(listOf(listOf(1, 2)), seen)
+        }
+    }
+
+    @Test
+    fun pauseCheckSignalsCancellationByThrowingNotByReturning() {
+        // The Swift->Kotlin contract swap. Swift returns `Bool` ("cancelled while
+        // paused — return early") because it polls `Task.isCancelled`. Kotlin
+        // cancellation THROWS, so the handler unwinds on its own and a Bool would
+        // be vestigial — worse, a handler could ignore it and keep running after
+        // cancellation. Throwing makes that structurally impossible; this pins it.
+        runTest {
+            val ctx = context(pauseCheck = { throw CancellationException("cancelled while paused") })
+            assertFailsWith<CancellationException> { ctx.pauseCheck(listOf(0)) }
         }
     }
 
@@ -123,7 +139,7 @@ class PhaseHandlerTests {
                 backend = ScriptedLLMBackend(emptyList()),
                 suspensionRelay = relay,
                 emitter = {},
-                pauseCheck = { false },
+                pauseCheck = { },
                 phasePath = listOf(0),
             )
             assertTrue(ctx.suspensionRelay === relay)
