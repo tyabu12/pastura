@@ -85,10 +85,11 @@ The same "verify before you lock it" discipline extends past rule assertions to 
 | A header/doc comment asserting cross-file structure ("defined in M", "consumable by Y") | grep the actual symbol/type — comments can be aspirational, not descriptive |
 | A `§"Heading"` cross-doc reference | grep the target for the exact heading **and read under it** to confirm the content matches; add a named heading if absent |
 | "band-aid / hack / dead code" framing of a change | grep ALL producers + consumers across layers (esp. Engine/runtime), not just the layer the issue scopes — the target may be load-bearing |
+| A documented defect framed as **live** ("X `would` flow into Y — i.e. fabrication") | grep every **writer** of the value, not just the reader — an upstream guard may already make it unreachable, in which case the comment is that guard's rationale, not a bug report. Subjunctive mood is the tell (#1151) |
 | An external standard (SEO, RFC, sitemap/robots, OAuth, HTTP semantics) | WebSearch + WebFetch the authority (Google Search Central, the RFC, MDN); verbatim-cite before critic |
 | Vendor feature availability (free/paid/plan tier) | WebFetch the canonical docs; verbatim-quote the "Who can use this feature" box — never infer from search snippets |
 
-### Apply
+### Apply (verification table)
 
 For each load-bearing assertion in the draft:
 
