@@ -8,6 +8,18 @@
 [versions]
 kotlin = "2.3.21"
 kotlinx-serialization = "1.7.3"
+# Structured concurrency for `shared/engine` (ADR-023 §5, #501 Stage 2-gate).
+# The K/N boundary itself is deliberately callback-only — no `suspend`, Flow, or
+# Deferred crosses it — so coroutines stay an `implementation` dep, INTERNAL to
+# Kotlin. They back the three §5.2 contract mechanisms: `CompletableDeferred`
+# (suspension relay), `suspendCancellableCoroutine.invokeOnCancellation`
+# (cancellation composition onto `StreamHandle.cancel()`), and `Job` cancellation
+# (`RunHandle.cancel()`).
+#
+# Verified before pinning (the PR-A precedent for snakeyaml): 1.11.0 is the
+# latest stable on Maven Central and its `.module` publishes every target this
+# repo registers — jvm, ios_arm64, ios_simulator_arm64, ios_x64, macos_arm64.
+kotlinx-coroutines = "1.11.0"
 # YAML 1.2 parser for Kotlin Multiplatform (JVM + Native iOS targets).
 # Backs `SnakeYamlEngineCodec` in `shared/models` commonMain — no expect/actual
 # needed because the library's `Load` API is exposed across all KMP targets
@@ -19,5 +31,9 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
 [libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+# Separate artifact from -core; supplies `runTest` for the commonTest suites that
+# exercise the suspension relay and cancellation composition.
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 snakeyaml-engine-kmp = { module = "it.krzeminski:snakeyaml-engine-kmp", version.ref = "snakeyaml-engine-kmp" }

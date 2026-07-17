@@ -38,6 +38,8 @@ import kotlinx.serialization.Serializable
  *                            See ADR-010 D5.
  * @property agentCount       Expected number of agents. Must match `personas.size`.
  * @property rounds           Number of rounds to execute.
+ * @property logWindow        Optional cap on how many recent conversation-log entries reach
+ *                            each LLM prompt. `null` (the default) injects the full log.
  * @property context          Shared context injected into every agent's system prompt.
  * @property personas         Agent persona definitions.
  * @property phases           Ordered list of phases executed each round.
@@ -56,6 +58,26 @@ public data class Scenario(
     public val simulationLanguage: String? = null,
     public val agentCount: Int,
     public val rounds: Int,
+    /**
+     * Optional cap on how many recent conversation-log entries reach each LLM prompt.
+     *
+     * `null` (the default, and every current scenario) means the full log is injected.
+     * When set (must be `>= 1`, enforced Swift-side by `ScenarioValidator`), only the
+     * last N [ConversationEntry] values are formatted into a prompt via
+     * `PromptBuilder.formatConversationLog(entries, language, window)`. This is a
+     * **prompt-side window only** — persistence, replay, and export all keep the
+     * complete log. YAML key: `log_window` (#907).
+     *
+     * **The `>= 1` floor is not enforced here.** `ScenarioValidator` is a Stage-3 port
+     * (ADR-023 §4), so no Kotlin gate rejects `logWindow = 0` yet; the ported
+     * `formatConversationLog` therefore must not assume a positive window. Re-point
+     * this note at the Kotlin validator when it lands.
+     *
+     * Ported for the ADR-023 §6 Stage-2 gate slice: the speak_all path threads this
+     * into `formatConversationLog`, so it is a slice-path prerequisite rather than
+     * Stage-3 freight. Swift original: `Pastura/Pastura/Models/Scenario.swift`.
+     */
+    public val logWindow: Int? = null,
     public val context: String,
     public val personas: List<Persona>,
     public val phases: List<Phase>,

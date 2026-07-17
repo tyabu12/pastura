@@ -6,10 +6,35 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 // (PR-2); Stage 2-pre put the first real logic in it (`ConditionEvaluator`).
 //
 // Deliberately minimal vs `shared/models`:
-//   - No `kotlin-serialization` plugin and no `snakeyaml-engine-kmp` — the
-//     engine run-path does not declare its own `@Serializable` types or parse
-//     YAML (that is Models' `YamlCodec`). Added in a later stage only if a
-//     ported handler actually needs them.
+//   - No `kotlin-serialization` PLUGIN and no `snakeyaml-engine-kmp` — the engine
+//     run-path declares no `@Serializable` types of its own and does not parse
+//     YAML (that is Models' `YamlCodec`). The plugin is codegen for
+//     `@Serializable`; `JSONResponseParser` only needs the RUNTIME library to
+//     walk a `JsonElement`, so the library is a dependency and the plugin stays
+//     out. Models' own dep is `implementation`, so it does not reach here
+//     transitively — hence the explicit declaration below.
+//
+// `kotlinx-coroutines-core` is `implementation`, NOT `api`, and is deliberately
+// NOT exported into the framework. This encodes ADR-023 Decision 2: structured
+// concurrency stays INSIDE each language and the K/N boundary is callback-only —
+// no `suspend` function, Flow, `Deferred`, or `Job` may appear in the exported
+// Obj-C surface. Coroutines back the §5.2 mechanisms internally
+// (`CompletableDeferred` relay, `suspendCancellableCoroutine.invokeOnCancellation`,
+// `Job` cancellation) while `RunHandle` / `LLMBackend` / `StreamCallbacks` stay
+// plain interfaces.
+//
+// ⚠️ A leak does NOT fail the link. Measured on this branch: adding
+// `public val leaked: CompletableDeferred<Unit>` to a commonMain class still
+// produced BUILD SUCCESSFUL — no error, no "not specified as API-dependencies"
+// warning — while silently pulling 48 coroutine symbol lines into the generated
+// header (`PSEKotlinx_coroutines_coreCompletableDeferred`, `...coreJob`,
+// `PSEKotlinCoroutineContext`, and the leaked property itself). So "the build is
+// green" is NOT evidence the boundary is clean. `verifyEngineFrameworkSurface`
+// (below) is the positive check that actually witnesses Decision 2.
+//
+// ⚠️ Do NOT "fix" a surface-check failure by promoting this to `api` + `export(...)`.
+// A failure means a coroutine type reached the public boundary — Decision 2 was
+// violated — and the fix is the leaking declaration, not the dep scope.
 //
 // The `shared/models` dependency (Engine→Models, a CLAUDE.md hard rule) is
 // `api`, not `implementation`. Two independent reasons, either sufficient:
@@ -104,6 +129,11 @@ kotlin {
         commonMain.dependencies {
             // Engine→Models layer edge. `api` — see the header comment for why.
             api(project(":shared:models"))
+            // `implementation`, never `api`/`export` — see the header comment.
+            implementation(libs.kotlinx.coroutines.core)
+            // Runtime only (no plugin): `JSONResponseParser` walks a JsonElement.
+            // Also `implementation` — no serialization type is on the boundary.
+            implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -112,6 +142,123 @@ kotlin {
             // `shared/models`'s own commonTest: it makes the test compile
             // contract robust to future commonMain dep-scope changes.
             implementation(project(":shared:models"))
+            // Supplies `runTest` — a separate artifact from -core, and the first
+            // coroutine-test usage in this repo.
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
+}
+
+// ── ADR-023 Decision 2 surface guard ────────────────────────────────────────
+//
+// Asserts no coroutine type reached the exported Obj-C surface. This is the ONLY
+// mechanism that witnesses the callback-only boundary: a leak links green (see
+// the header comment), so without this check "no `suspend` crosses K/N" would be
+// an unverified claim rather than a tested contract.
+//
+// Reads the macosArm64 debug framework header — the cheapest single link that
+// carries the full surface, and the same target the Stage-2-gate Swift consumer
+// binary-targets (host decision B′, #1135).
+//
+// TWO offender patterns, because they catch different leaks — measured on this
+// branch, both against deliberately-leaking probes:
+//
+//   1. `coroutin` — a coroutine TYPE on the surface. A `public val` of
+//      CompletableDeferred pulled in 48 symbol lines
+//      (`PSEKotlinx_coroutines_coreCompletableDeferred`, `...coreJob`,
+//      `PSEKotlinCoroutineContext`). Flow / Deferred / Job all carry the token.
+//   2. `completionHandler:` — a `suspend fun` on the surface. K/N exports one as a
+//      plain completion-handler-taking Obj-C method and pulls in NO
+//      kotlinx_coroutines symbol at all, so pattern 1 misses it entirely. A
+//      `public suspend fun` probe linked green AND passed a pattern-1-only guard —
+//      while Decision 2 names `suspend` FIRST. Measured false-positive risk: the
+//      clean header contains zero `completionHandler` occurrences.
+//
+// Comment-stripping is load-bearing, not defensive: K/N copies Kotlin KDoc into
+// the generated header, and this module's boundary docs legitimately *discuss*
+// `CompletableDeferred` and `suspendCancellableCoroutine`. A naive grep scores 10
+// hits on a perfectly clean header. Only CODE lines are evidence.
+//
+// The state machine is calibrated to K/N's emitted shape (KDoc as leading
+// `/** … */` blocks), NOT to general Obj-C: a block comment opened mid-line is not
+// recognised. Fine here; do not reuse it as a general stripper.
+val verifyEngineFrameworkSurface by tasks.registering {
+    group = "verification"
+    description = "Fails if a coroutine type leaked into the exported PasturaSharedEngine surface."
+    dependsOn("linkDebugFrameworkMacosArm64")
+
+    val headerFile = layout.buildDirectory.file(
+        "bin/macosArm64/debugFramework/PasturaSharedEngine.framework/Headers/PasturaSharedEngine.h",
+    )
+    inputs.file(headerFile)
+    // No output artifact — re-run whenever the header changes (inputs.file drives
+    // up-to-date checking; the header is regenerated by the link task).
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val header = headerFile.get().asFile
+        // Defense in depth only — `inputs.file(headerFile)` above already fails the
+        // task if the header is missing, and `outputs.upToDateWhen { false }` is
+        // what actually prevents a vacuous pass. Do not relax either believing this
+        // branch covers them.
+        if (!header.isFile) {
+            throw GradleException(
+                "Framework header not found at ${header.path}. " +
+                    "linkDebugFrameworkMacosArm64 did not produce the expected layout.",
+            )
+        }
+
+        var inBlockComment = false
+        val offenders = mutableListOf<String>()
+        header.readLines().forEachIndexed { index, raw ->
+            val line = raw.trim()
+            when {
+                inBlockComment -> if (line.contains("*/")) inBlockComment = false
+                line.startsWith("/*") -> if (!line.contains("*/")) inBlockComment = true
+                line.startsWith("*") || line.startsWith("//") -> Unit
+                line.contains("coroutin", ignoreCase = true) ->
+                    offenders += "  ${index + 1}: [coroutine type] $line"
+                line.contains("completionHandler:") ->
+                    offenders += "  ${index + 1}: [exported suspend fun] $line"
+            }
+        }
+
+        if (offenders.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("ADR-023 Decision 2 violated: coroutine types reached the exported")
+                    appendLine("PasturaSharedEngine surface. The K/N boundary must be callback-only —")
+                    appendLine("no suspend fn, Flow, Deferred, or Job may cross.")
+                    appendLine()
+                    appendLine("Fix the leaking declaration; do NOT promote kotlinx-coroutines to")
+                    appendLine("`api` + `export(...)` to silence this.")
+                    appendLine()
+                    appendLine("Offending header lines (${offenders.size}):")
+                    offenders.take(10).forEach { appendLine(it) }
+                    if (offenders.size > 10) appendLine("  … ${offenders.size - 10} more")
+                },
+            )
+        }
+        logger.lifecycle("ADR-023 Decision 2: exported surface is coroutine-free.")
+    }
+}
+
+// Wired to the macosArm64 debug LINK, not just to XCFramework assembly.
+//
+// Assembly-only wiring left a real hole: per `.github/workflows/ci.yml`, CI runs
+// `assemblePasturaSharedEngineDebugXCFramework` ONLY when a PR touches build
+// config. So a PR adding `public val handle: CompletableDeferred<Unit>` to
+// `RunHandle` — pure Kotlin, no build-file touch — would be green at PR time and
+// caught up to 24h later by the nightly. That is exactly the shape of PR this
+// module will now receive, since this PR is the one introducing the boundary types.
+//
+// Attaching to the link means any lane that produces a surface checks it, and adds
+// one macosArm64 debug link (~15s warm) to a lane that already compiles K/N.
+tasks.named("linkDebugFrameworkMacosArm64") {
+    finalizedBy(verifyEngineFrameworkSurface)
+}
+tasks.matching {
+    it.name.startsWith("assemblePasturaSharedEngine") && it.name.endsWith("XCFramework")
+}.configureEach {
+    finalizedBy(verifyEngineFrameworkSurface)
 }
