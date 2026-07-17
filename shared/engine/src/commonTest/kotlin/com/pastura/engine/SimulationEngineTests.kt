@@ -52,6 +52,29 @@ class SimulationEngineTests {
     private fun says(text: String) =
         ScriptedLLMBackend.Script.completing("""{"statement": "$text"}""")
 
+    /**
+     * Finish call [index] on a [ManualLLMBackend].
+     *
+     * Every pause/cancel test below drives the run through a ManualLLMBackend
+     * rather than a scripted one, because those tests need the run to be provably
+     * **mid-flight** when the handle is used — and a scripted backend completes
+     * synchronously, so the whole run can finish before the test's next line.
+     *
+     * That is not hypothetical: written against ScriptedLLMBackend, these tests
+     * passed on JVM and FAILED on macosArm64, where the run outpaced the poll and
+     * reached SimulationCompleted before cancel() landed. The K/N rung caught a
+     * race the JVM rung hid — which is the concrete case for ADR-023 Decision 5's
+     * "JVM parity alone does not witness the K/N memory model iOS will run".
+     */
+    private fun ManualLLMBackend.finish(index: Int, text: String) {
+        calls[index].callbacks.onChunk(
+            delta = """{"statement": "$text"}""",
+            isFinal = true,
+            completionTokens = null,
+        )
+        calls[index].callbacks.onTerminal(TerminalStatus.Completed)
+    }
+
     /** Collects events until a terminal one arrives, or fails on timeout. */
     private class Collector {
         val events = mutableListOf<SimulationEvent>()
@@ -227,23 +250,40 @@ class SimulationEngineTests {
 
     // MARK: - §5.1 pause / resume
 
+    /**
+     * Drive a 2-round run to the round-2 pause checkpoint with the gate set.
+     *
+     * Deterministic by construction: the run parks on each inference until this
+     * finishes it, so "paused at a checkpoint" is reached by driving, never by
+     * out-racing the engine.
+     */
+    private suspend fun pausedAtRoundTwo(backend: ManualLLMBackend, c: Collector, handle: RunHandle) {
+        await { backend.calls.size == 1 }
+        handle.pause() // takes effect at the NEXT checkpoint, i.e. round 2's
+        backend.finish(0, "a")
+        await { backend.calls.size == 2 }
+        backend.finish(1, "b")
+        await { c.snapshot().any { it is SimulationEvent.SimulationPaused } }
+    }
+
     @Test
     fun pauseHaltsAtACheckpointAndResumeContinues() = runBlockingTest {
-        val s = scenario(rounds = 3)
+        val s = scenario(rounds = 2)
+        val backend = ManualLLMBackend()
         val c = Collector()
-        val handle = SimulationEngine().run(
-            s,
-            ScriptedLLMBackend(List(6) { says("x") }),
-        ) { c.record(it) }
-
-        handle.pause()
-        await { c.snapshot().any { it is SimulationEvent.SimulationPaused } }
+        val handle = SimulationEngine().run(s, backend) { c.record(it) }
+        pausedAtRoundTwo(backend, c, handle)
 
         val atPause = c.snapshot().size
         kotlinx.coroutines.delay(30)
         assertEquals(atPause, c.snapshot().size, "a paused run must emit nothing — zero CPU, no polling")
+        assertEquals(2, backend.calls.size, "and must not start round 2's inference")
 
         handle.resume()
+        await { backend.calls.size == 3 }
+        backend.finish(2, "c")
+        await { backend.calls.size == 4 }
+        backend.finish(3, "d")
         awaitTerminal(c)
         assertIs<SimulationEvent.SimulationCompleted>(c.snapshot().last())
     }
@@ -252,15 +292,19 @@ class SimulationEngineTests {
     fun simulationPausedIsEmittedOncePerPauseCycle() = runBlockingTest {
         // The runner is the SOLE emitter of SimulationPaused; a handler must never
         // emit it. One pause => exactly one event, no matter how many checkpoints
-        // the loop crosses while parked.
-        val s = scenario(rounds = 3)
+        // the loop would cross while parked.
+        val s = scenario(rounds = 2)
+        val backend = ManualLLMBackend()
         val c = Collector()
-        val handle = SimulationEngine().run(s, ScriptedLLMBackend(List(6) { says("x") })) { c.record(it) }
+        val handle = SimulationEngine().run(s, backend) { c.record(it) }
+        pausedAtRoundTwo(backend, c, handle)
 
-        handle.pause()
-        await { c.snapshot().any { it is SimulationEvent.SimulationPaused } }
         kotlinx.coroutines.delay(30)
         handle.resume()
+        await { backend.calls.size == 3 }
+        backend.finish(2, "c")
+        await { backend.calls.size == 4 }
+        backend.finish(3, "d")
         awaitTerminal(c)
 
         assertEquals(1, c.snapshot().count { it is SimulationEvent.SimulationPaused })
@@ -284,15 +328,17 @@ class SimulationEngineTests {
     @Test
     fun cancelEndsTheRunWithCancelled() = runBlockingTest {
         val s = scenario(rounds = 5)
+        val backend = ManualLLMBackend()
         val c = Collector()
-        val handle = SimulationEngine().run(s, ScriptedLLMBackend(List(10) { says("x") })) { c.record(it) }
+        val handle = SimulationEngine().run(s, backend) { c.record(it) }
 
-        await { c.snapshot().any { it is SimulationEvent.RoundStarted } }
+        await { backend.calls.isNotEmpty() } // provably mid-run: parked on inference 1
         handle.cancel()
         awaitTerminal(c)
 
         val error = assertIs<SimulationEvent.ErrorEvent>(c.snapshot().last())
         assertIs<SimulationError.Cancelled>(error.error)
+        assertFalse(c.snapshot().any { it is SimulationEvent.SimulationCompleted })
     }
 
     @Test
@@ -300,13 +346,12 @@ class SimulationEngineTests {
         // THE reason RunHandleImpl.cancel() releases the gate before cancelling the
         // Job: a run parked on the pause gate would otherwise observe cancellation
         // only when something resumed it — and nothing would. Without the release
-        // this test hangs until its timeout.
-        val s = scenario(rounds = 5)
+        // this test hangs to its timeout.
+        val s = scenario(rounds = 2)
+        val backend = ManualLLMBackend()
         val c = Collector()
-        val handle = SimulationEngine().run(s, ScriptedLLMBackend(List(10) { says("x") })) { c.record(it) }
-
-        handle.pause()
-        await { c.snapshot().any { it is SimulationEvent.SimulationPaused } }
+        val handle = SimulationEngine().run(s, backend) { c.record(it) }
+        pausedAtRoundTwo(backend, c, handle) // provably parked ON THE GATE
 
         handle.cancel()
         awaitTerminal(c)
@@ -316,10 +361,11 @@ class SimulationEngineTests {
     @Test
     fun cancelIsIdempotent() = runBlockingTest {
         val s = scenario(rounds = 5)
+        val backend = ManualLLMBackend()
         val c = Collector()
-        val handle = SimulationEngine().run(s, ScriptedLLMBackend(List(10) { says("x") })) { c.record(it) }
+        val handle = SimulationEngine().run(s, backend) { c.record(it) }
 
-        await { c.snapshot().any { it is SimulationEvent.RoundStarted } }
+        await { backend.calls.isNotEmpty() }
         handle.cancel()
         handle.cancel()
         awaitTerminal(c)
