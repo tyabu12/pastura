@@ -198,6 +198,66 @@ class SimulationEventSerializationTests {
     }
 
     @Test
+    fun roundCheckpointRoundtripsWithFullStatePayload() {
+        // The fattest payload the §5.1 event boundary relays (ADR-023 §6
+        // measurement (iii)): nested TurnOutput maps + a ConversationEntry list.
+        // Built non-empty on purpose — an `initial()` state would round-trip
+        // through mostly-empty collections and witness none of the nesting the
+        // K/N shim budget is measured against.
+        val state = SimulationState(
+            scores = mapOf("Alice" to 3, "Bob" to 1),
+            eliminated = mapOf("Alice" to false, "Bob" to false),
+            conversationLog = listOf(
+                ConversationEntry(
+                    agentName = "Alice",
+                    content = "I'll cooperate.",
+                    phaseType = PhaseType.SPEAK_ALL,
+                    round = 1,
+                ),
+            ),
+            lastOutputs = mapOf(
+                "Alice" to TurnOutput(
+                    fields = mapOf("statement" to "I'll cooperate.", "inner_thought" to "Testing."),
+                ),
+            ),
+            variables = mapOf("current_round" to "1"),
+            currentRound = 1,
+        )
+        assertRoundtripAndDiscriminator(
+            SimulationEvent.RoundCheckpoint(state = state),
+            "roundCheckpoint",
+        )
+    }
+
+    @Test
+    fun roundCheckpointCarriesLastCompletedRound() {
+        // Pins the resume contract the App layer depends on: `state.currentRound`
+        // is the last *completed* round, so a paused run resumes from +1. A port
+        // that emitted the checkpoint before the round completed would still pass
+        // the roundtrip test above but break resume.
+        val state = SimulationState.initial(
+            Scenario(
+                id = "t",
+                name = "T",
+                description = "d",
+                language = "en",
+                agentCount = 2,
+                rounds = 5,
+                context = "c",
+                personas = listOf(
+                    Persona(name = "Alice", description = ""),
+                    Persona(name = "Bob", description = ""),
+                ),
+                phases = listOf(Phase(type = PhaseType.SPEAK_ALL, prompt = "Speak.")),
+            ),
+        ).copy(currentRound = 2)
+        val decoded = json.decodeFromString<SimulationEvent>(
+            json.encodeToString<SimulationEvent>(SimulationEvent.RoundCheckpoint(state = state)),
+        )
+        assertEquals(2, (decoded as SimulationEvent.RoundCheckpoint).state.currentRound)
+    }
+
+    @Test
     fun simulationPausedRoundtrip() {
         assertRoundtripAndDiscriminator(
             SimulationEvent.SimulationPaused(round = 2, phasePath = listOf(1)),
