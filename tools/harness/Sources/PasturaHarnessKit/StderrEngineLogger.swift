@@ -73,24 +73,38 @@ package struct DiagLine: Codable, Sendable, Equatable {
 ///
 /// ## Counting rule (load-bearing)
 ///
-/// **Never count these records.** One logical failure appears up to
-/// `LLMCaller.maxRetries + 1` times (the retry loop logs every failed
-/// attempt), and a `HarnessRunner` rerun replays the lot — so a `grep -c` over
-/// this channel over-counts by an unstable factor. The tally lives in the run
-/// log; these records only answer **why**. What duplicates is the evidence,
-/// never the tally.
+/// **One record is one failed SAMPLE, never one failed turn.** A turn burns up
+/// to `LLMCaller.maxRetries + 1` samples and logs each one, and a
+/// `HarnessRunner` rerun replays the lot — so a `grep -c` here answers "how
+/// many samples failed", and answers "how many turns failed" wrong by an
+/// unstable factor. Pick the unit deliberately; both are useful and they are
+/// not interchangeable:
 ///
-/// The tally is NOT simply `count(turn_skipped)`. Two carve-outs, both of
+/// - **Failed turns** → the run log's `turn_skipped` lines, with the two
+///   carve-outs below.
+/// - **Failed samples** → these records, one apiece. This is the unit the two
+///   guardrail arms can actually be compared in — see below.
+/// - **Why any of them failed** → these records' raw text.
+///
+/// Deduplicate by `attempt` first, or a reran scenario counts everything twice
+/// in either unit.
+///
+/// The turn tally is NOT simply `count(turn_skipped)`. Two carve-outs, both of
 /// which bite the #1072 battery:
 ///
 /// 1. **The breaker's tripping turn is never logged.** `TurnFailureGate` throws
 ///    `turnFailureLimitReached` at the 3rd *consecutive* skip and returns
 ///    before `emitter(.turnSkipped(...))`, so that turn produces evidence here
-///    but no tally line. A run whose `run_end` carries that error therefore
-///    has `count(turn_skipped) + 1` failures — and it is **truncated**, so its
-///    refusal *rate* is a lower bound, not a rate. (The counter resets on every
-///    success, so the tally is not capped at 2: #1072's word_wolf-ja logged 9
-///    skips before three landed back-to-back.)
+///    but no tally line. Key the correction **per attempt, not per run**: the
+///    `attempt` whose `event:"error"` line names `turnFailureLimitReached` has
+///    `count(turn_skipped) + 1` failures and is **truncated**, so its refusal
+///    *rate* is a lower bound. Reading `run_end` instead would miss the case
+///    the `attempt` field exists for — `HarnessRunner` reruns a failed attempt,
+///    so a breaker trip on attempt 1 followed by a clean attempt 2 leaves
+///    `run_end` at `status:"ok", error:null` with attempt 1's truncated pass
+///    still sitting in the log. (The counter resets on every success, so the
+///    tally is not capped at 2: #1072's word_wolf-ja logged 9 skips before
+///    three landed back-to-back.)
 /// 2. **`narrate` is outside the tally entirely.** `NarrateHandler` degrades by
 ///    omission and deliberately bypasses the gate — no `.turnSkipped`, no
 ///    breaker increment (#909) — yet it drives its own `LLMCaller`, so a
@@ -99,11 +113,38 @@ package struct DiagLine: Codable, Sendable, Equatable {
 ///    narrator evidence with no matching tally line. Count `agent=` narrator
 ///    records separately; do not fold them into the agent-turn rate.
 ///
-/// Both guardrail arms ARE gate-degradable, so their tallies are comparable:
-/// `FoundationModelsService.map` turns `guardrailViolation` into
-/// `LLMError.generationFailed`, which `streamFailureError` wraps as
-/// `SimulationError.llmGenerationFailed` — one of the two cases
-/// `TurnFailureGate.isTurnDegradable` accepts.
+/// ## Do not compare the two arms' `turn_skipped` counts
+///
+/// Both arms are gate-degradable — `FoundationModelsService.map` turns
+/// `guardrailViolation` into `LLMError.generationFailed`, which
+/// `streamFailureError` wraps as `SimulationError.llmGenerationFailed`, one of
+/// the two cases `TurnFailureGate.isTurnDegradable` accepts — but that only
+/// means both reach the gate. **Their skipped turns do not mean the same
+/// thing**, because the refusal class gets a different retry budget in each:
+///
+/// - **Default arm**: the refusal *throws*. `shouldRetryStreamFailure` retries
+///   only `samplerCrashCaught`, so the turn is skipped after **1** sample.
+///   `turn_skipped` = "the first sample refused".
+/// - **Permissive arm**: the refusal *returns as content*, fails parse, and
+///   rides `for attempt in 0...maxRetries`, so the turn is skipped only after
+///   **3** independent samples all refuse. `turn_skipped` = "three consecutive
+///   samples refused".
+///
+/// So the permissive arm's tally is systematically lower for the same true
+/// refusal rate — and the bias points **toward** the conclusion the #1072
+/// re-run is hoping for. Comparing the two counts directly is how this
+/// experiment produces a second false verdict, this time a Go.
+///
+/// Compare at **sample** granularity instead — the one unit both arms measure
+/// the same way:
+///
+/// - Default arm refused samples = `turn_skipped` lines whose `value` (the
+///   cause) carries the `Foundation Models guardrail refusal` prefix. Each is
+///   exactly one refused sample.
+/// - Permissive arm refused samples = refusal-shaped records on THIS channel,
+///   one per refused sample. This also recovers the refusals that retried into
+///   a success — turns the default arm would have skipped outright, and which
+///   have no `turn_skipped` line at all in the permissive arm.
 ///
 /// ## Attribution
 ///

@@ -31,7 +31,9 @@ struct StderrEngineLoggerTests {
     let logger = StderrEngineLogger(sink: sink.write)
 
     let raw = "Sorry, I can't help with that.\n\nTry a different prompt.\n{\"a\":"
-    logger.log(.warning, category: "LLMCaller", "JSON parse failed: raw=\(raw)", privacy: .public)
+    logger.log(
+      .warning, category: "LLMCaller",
+      "JSON parse failed agent=Alice (attempt 1/3): raw=\(raw)", privacy: .public)
 
     #expect(sink.captured.count == 1)
     let line = try #require(sink.captured.first)
@@ -72,11 +74,12 @@ struct StderrEngineLoggerTests {
     #expect(decoded.map(\.seq) == [1, 2])
   }
 
-  /// A turn burns `LLMCaller.maxRetries + 1` attempts before it is skipped, so
-  /// the evidence channel necessarily repeats. This pins the *documented*
-  /// consequence: the tally must come from the run log's `turn_skipped`, never
-  /// from counting these records. If this ever collapsed to one record per
-  /// turn, the counting rule in the doc comment would be silently wrong.
+  /// Pins the unit: **one record is one failed sample, not one failed turn.**
+  /// A turn burns `LLMCaller.maxRetries + 1` samples and logs each, so a reader
+  /// counting records gets samples — which is the unit the two guardrail arms
+  /// are comparable in, and NOT the turn tally (that lives in `turn_skipped`).
+  /// If this ever collapsed to one record per turn, the doc's counting rule
+  /// would be silently wrong in both units at once.
   @Test func oneTurnEmitsOneRecordPerFailedAttempt() throws {
     let sink = Sink()
     let logger = StderrEngineLogger(sink: sink.write)
@@ -85,7 +88,7 @@ struct StderrEngineLoggerTests {
     for attempt in 0...2 {
       logger.log(
         .warning, category: "LLMCaller",
-        "JSON parse failed (attempt \(attempt + 1)/3): raw=Sorry, I can't help with that.",
+        "JSON parse failed agent=Alice (attempt \(attempt + 1)/3): raw=Sorry, I can't help with that.",
         privacy: .public)
     }
 
@@ -106,7 +109,10 @@ struct StderrEngineLoggerTests {
     let decoded = try sink.captured.map { try decode($0) }
     #expect(decoded.map(\.level) == ["debug", "info", "warning"])
     #expect(decoded.map(\.category) == ["StreamingDiag", "LLMCaller", "LLMCaller"])
-    #expect(decoded.allSatisfy { $0.type == "diag" })
+    // Assert on the raw line, not the decoded value: `type` has an initial
+    // value, so synthesized Decodable never reads it — a decoded check would
+    // pass even if the encoder dropped the field the JSONL consumer keys on.
+    #expect(sink.captured.allSatisfy { $0.contains("\"type\":\"diag\"") })
   }
 
   /// `.private` governs OSLog redaction off-device; this logger is a local
