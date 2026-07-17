@@ -204,15 +204,15 @@ internal class JSONResponseParser {
     /**
      * Normalize every JSON value to `String`. Null values are omitted.
      *
-     * ## Deliberate divergence from Swift — a Swift bug this port does NOT copy
+     * ## The Bool-bridge divergence from Swift — a Swift bug this port never copied
      *
-     * Swift's `normalizeValues` checks `value as? Bool` **before** `as? NSNumber`,
-     * with the comment "Check Bool before NSNumber — Bool bridges to NSNumber in
-     * ObjC". The intent is to catch JSON `true`/`false`. The effect is wider,
-     * because `NSNumber` -> `Bool` bridging succeeds for exactly 0 and 1.
-     * Measured on this branch against the real Swift branch order:
+     * Swift's `normalizeValues` **used to** check `value as? Bool` before
+     * `as? NSNumber`, with the comment "Check Bool before NSNumber — Bool bridges
+     * to NSNumber in ObjC". The intent was to catch JSON `true`/`false`. The
+     * effect was wider, because `NSNumber` -> `Bool` bridging succeeds for exactly
+     * 0 and 1, so the numbers `0` / `1` (and `0.0` / `1.0`) were swallowed:
      *
-     * | JSON | Swift | Kotlin (here) |
+     * | JSON | Swift (pre-#1150) | Kotlin (here) |
      * |---|---|---|
      * | `0` | **`"false"`** | `"0"` |
      * | `1` | **`"true"`** | `"1"` |
@@ -221,26 +221,23 @@ internal class JSONResponseParser {
      * | `2`, `-1`, `0.5` | `"2"`, `"-1"`, `"0.5"` | same |
      * | `true` / `false` | `"true"` / `"false"` | same |
      *
-     * **Why Kotlin does not replicate it.** ADR-023 §6 makes the Swift test files
-     * the executable spec — and that spec does **not** pin this: the only numeric
-     * test uses `{"score": 42, "ratio": 3.14}`, values chosen (by luck) to sidestep
-     * the 0/1 range, and no test anywhere passes a numeric 0 or 1 through the
-     * parser. So the behaviour is untested, incidental, and contradicts its own
-     * test's name ("Numeric values normalized to String" — `1` does not become
-     * `"1"`). Replicating it would cement an unintended Foundation quirk as a
-     * *cross-language contract*, in a language that has no `NSNumber`.
+     * **Why Kotlin did not replicate it.** Replicating it would have cemented an
+     * unintended Foundation quirk as a *cross-language contract*, in a language
+     * that has no `NSNumber`. Surfacing it here is ADR-023 §10 working as intended
+     * ("Engine behavior gets a second, cross-language executable spec, which also
+     * hardens the Swift side against accidental semantic drift"): it was filed as
+     * **#1150** and fixed there — Swift now discriminates on `CFBooleanGetTypeID`
+     * rather than on cast success. **No change was needed here.**
      *
-     * **This is not the only normalization divergence** — exponent/float FORMATTING
-     * also differs (`1e3` -> Swift `"1000"` vs Kotlin `"1e3"`). That one is a
-     * formatting choice with no correct side, so it has no issue; see
+     * **The integer rows closed; the float rows did not.** #1150 makes Swift return
+     * `"1"` / `"0"` for `1` / `0` — agreeing with this side. But for `1.0` / `0.0`
+     * Swift returns `"1"` / `"0"` as well, because `NSNumber.stringValue` drops the
+     * `.0`, so those two only changed divergence class: from the Bool bridge to
+     * exponent/float FORMATTING, which also covers `1e3` -> Swift `"1000"` vs
+     * Kotlin `"1e3"`. That class is a formatting choice with no correct side; see
      * `JSONResponseParserParityTests` § "Known Kotlin-side literal-preservation
-     * differences". The same applies to numbers nested inside [canonicalJson].
-     *
-     * Pinned by `JSONResponseParserParityTests` and filed as **#1150** with a
-     * verified fix, per ADR-023 §10 ("Engine behavior gets a second,
-     * cross-language executable spec, which also hardens the Swift side against
-     * accidental semantic drift"). When #1150 lands the divergence closes with **no
-     * change here** — this side is already correct.
+     * differences", and ADR-023 Stage 4 to decide the rule once for both engines.
+     * The same applies to numbers nested inside [canonicalJson].
      *
      * ## Nested values
      *

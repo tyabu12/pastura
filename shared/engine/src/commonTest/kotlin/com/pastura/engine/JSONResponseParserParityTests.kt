@@ -4,43 +4,33 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Pins the ONE deliberate value-normalization divergence from Swift — a Swift
- * bug this port does not copy.
+ * Pins the value-normalization contract against Swift — where the two engines
+ * agree, and the one place they deliberately still do not.
  *
- * ## What Swift does
+ * ## The Bool-bridge divergence — closed by #1150
  *
- * `JSONResponseParser.normalizeValues` checks `value as? Bool` **before**
- * `as? NSNumber`, commented "Check Bool before NSNumber — Bool bridges to
- * NSNumber in ObjC". The intent is to catch JSON `true`/`false`. The effect is
- * wider: `NSNumber` -> `Bool` bridging succeeds for exactly 0 and 1, so numeric
- * `0` and `1` (and `0.0` / `1.0`) are swallowed by the Bool branch.
+ * Swift's `JSONResponseParser.normalizeValues` used to check `value as? Bool`
+ * **before** `as? NSNumber`, intending to catch JSON `true`/`false`. The guard
+ * was wider than the intent: `NSNumber` -> `Bool` bridging succeeds for exactly
+ * 0 and 1, so the numbers `0` / `1` (and `0.0` / `1.0`) were swallowed and
+ * normalized to `"false"` / `"true"`. This port never replicated it —
+ * replicating an unintended Foundation bridging quirk would have cemented it as
+ * a cross-language contract, in a language with no `NSNumber` to justify it.
  *
- * Measured on this branch, replicating Swift's exact branch order:
+ * #1150 fixed the Swift side (discriminate on `CFBooleanGetTypeID` rather than
+ * on cast success), so the integer cases agree now and are pinned on both
+ * sides — this file is no longer their only coverage.
  *
- * ```
- * 0    -> "false"   (__NSCFNumber)      2    -> "2"
- * 1    -> "true"    (__NSCFNumber)      -1   -> "-1"
- * 0.0  -> "false"   (__NSCFNumber)      0.5  -> "0.5"
- * 1.0  -> "true"    (__NSCFNumber)      true -> "true"   (__NSCFBoolean)
- * ```
+ * ## The residual divergence — float formatting, still open
  *
- * ## Why Kotlin does not replicate it
- *
- * ADR-023 §6 makes the Swift test files the executable spec — and that spec does
- * **not** pin this. The only numeric case is `{"score": 42, "ratio": 3.14}`,
- * values that (by luck) sidestep the 0/1 range, and no test anywhere passes a
- * numeric 0 or 1 through the parser. The behaviour is untested, incidental, and
- * contradicts its own test's name: "Numeric values normalized to String" is
- * exactly what does *not* happen to `1`.
- *
- * Replicating it would cement an unintended Foundation bridging quirk as a
- * **cross-language contract**, in a language with no `NSNumber` to justify it.
- *
- * **Tracked as #1150** (with a verified fix: discriminate on `CFBooleanGetTypeID`
- * rather than on cast success). When that lands, the four divergence tests below
- * become *agreement* tests — Swift will return `"1"` / `"0"` too. Update this
- * doc-comment and their names then; **do not** change the expectations, which are
- * already the correct values.
+ * The fix did NOT make `1.0` / `0.0` agree: Swift yields `"1"` / `"0"` because
+ * `NSNumber.stringValue` normalizes the literal, while kotlinx's
+ * `JsonPrimitive.content` preserves it. Same number, different text — and
+ * `fields` is a `[String: String]`, so the text is what ships. Those two cases
+ * only changed divergence *class*, from the Bool bridge to formatting; they
+ * live under "Known Kotlin-side literal-preservation differences" below,
+ * alongside `1e3`. Out of #1150's scope — ADR-023 Stage 4 should decide the
+ * formatting rule once, for both engines.
  *
  * ## Reachability
  *
@@ -58,32 +48,18 @@ class JSONResponseParserParityTests {
 
     private fun field(raw: String): String? = parser.parse("""{"a":$raw}""").fields["a"]
 
-    // MARK: - The divergent range: numeric 0 and 1
+    // MARK: - The former Bool-bridge window: numeric 0 and 1 (agreeing since #1150)
 
     @Test
-    fun numericOneStaysNumericUnlikeSwift() {
-        // Swift measured: "true".
+    fun numericOneAgreesWithSwift() {
+        // Swift returned "true" before #1150.
         assertEquals("1", field("1"))
     }
 
     @Test
-    fun numericZeroStaysNumericUnlikeSwift() {
-        // Swift measured: "false".
+    fun numericZeroAgreesWithSwift() {
+        // Swift returned "false" before #1150.
         assertEquals("0", field("0"))
-    }
-
-    @Test
-    fun floatOneStaysNumericUnlikeSwift() {
-        // Swift measured: "true". Note Kotlin also preserves the literal `.0`,
-        // where Swift's NSNumber.stringValue would render "1" for 1.0 had the
-        // Bool branch not caught it first.
-        assertEquals("1.0", field("1.0"))
-    }
-
-    @Test
-    fun floatZeroStaysNumericUnlikeSwift() {
-        // Swift measured: "false".
-        assertEquals("0.0", field("0.0"))
     }
 
     // MARK: - The agreeing range — outside the Bool-bridge window
@@ -99,7 +75,8 @@ class JSONResponseParserParityTests {
 
     @Test
     fun realBooleansAgreeWithSwift() {
-        // The branch's actual intent, and the part that is correct on both sides.
+        // The branch's actual intent, and the part that was correct on both sides
+        // all along — #1150 preserved it via the CFBooleanGetTypeID check.
         assertEquals("true", field("true"))
         assertEquals("false", field("false"))
     }
@@ -112,6 +89,21 @@ class JSONResponseParserParityTests {
     }
 
     // MARK: - Known Kotlin-side literal-preservation differences
+
+    @Test
+    fun floatOneDivergesInFormattingNotValue() {
+        // Swift measured post-#1150: "1" — NSNumber.stringValue drops the `.0`.
+        // Before #1150 this case diverged for a different reason (the Bool
+        // branch caught it and returned "true"); the fix moved it into the
+        // formatting class below, it did not close it.
+        assertEquals("1.0", field("1.0"))
+    }
+
+    @Test
+    fun floatZeroDivergesInFormattingNotValue() {
+        // Swift measured post-#1150: "0". Same formatting class as `1.0` above.
+        assertEquals("0.0", field("0.0"))
+    }
 
     @Test
     fun exponentNotationDivergesInFormattingNotValue() {
