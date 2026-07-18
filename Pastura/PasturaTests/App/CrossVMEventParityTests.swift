@@ -30,6 +30,7 @@ struct CrossVMEventParityTests {
     case relationshipUpdate, voteResults, pairingResult, conditionalEvaluated
     case eventInjected, simulationCompleted, roundCheckpoint, simulationPaused
     case error, inferenceStarted, inferenceCompleted, languageMismatch, turnSkipped
+    case actionRejected
   }
 
   /// One canonical `SimulationEvent` instance per fixture case.
@@ -71,6 +72,8 @@ struct CrossVMEventParityTests {
       return .languageMismatch(agent: "Alice", detected: "en", expected: "ja")
     case .turnSkipped:
       return .turnSkipped(agent: "Alice", phaseType: .speakAll, cause: "x")
+    case .actionRejected:
+      return .actionRejected(agent: "Alice", phaseType: .choose, raw: "betray!")
     }
   }
 
@@ -103,6 +106,7 @@ struct CrossVMEventParityTests {
     case .inferenceCompleted: return .inferenceCompleted
     case .languageMismatch: return .languageMismatch
     case .turnSkipped: return .turnSkipped
+    case .actionRejected: return .actionRejected
     }
   }
 

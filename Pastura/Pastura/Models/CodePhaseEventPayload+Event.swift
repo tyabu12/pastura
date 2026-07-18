@@ -48,7 +48,7 @@ nonisolated extension CodePhaseEventPayload {
       .agentOutput, .agentOutputStream, .relationshipUpdate,
       .conditionalEvaluated, .simulationCompleted, .roundCheckpoint,
       .simulationPaused, .error, .inferenceStarted, .inferenceCompleted,
-      .languageMismatch, .turnSkipped:
+      .languageMismatch, .turnSkipped, .actionRejected:
       return nil
     }
   }
@@ -79,7 +79,7 @@ nonisolated extension SimulationEvent {
       .agentOutput, .agentOutputStream, .relationshipUpdate,
       .conditionalEvaluated, .simulationCompleted, .roundCheckpoint,
       .simulationPaused, .error, .inferenceStarted, .inferenceCompleted,
-      .languageMismatch, .turnSkipped:
+      .languageMismatch, .turnSkipped, .actionRejected:
       return nil
     }
   }

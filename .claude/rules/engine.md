@@ -549,8 +549,12 @@ unverified for any other runtime-selectable model or LiteRT-LM. There is
 no model-agnostic "safe enumeration" predicate (one — `isSafeEnumerationOption`
 — was tried and removed in #597).
 
-Constrain closed-set values at **runtime** instead: `choose` → `options[0]`
-fallback in `ChooseHandler.validateAction`; `vote` → tally drop in
+Constrain closed-set values at **runtime** instead: `choose` (round-robin) →
+`ChooseHandler.validateAction` normalizes (trim + lowercase) then canonicalizes
+against `options`, returning `nil` for a genuinely off-menu action so the caller
+**drops the whole pairing** and emits `.actionRejected` (ADR-021 § Amendment
+2026-07-17 / #1151 — this replaced the old `options[0]` fallback, which
+fabricated a cooperate for any off-menu answer); `vote` → tally drop in
 `VoteHandler`. `OutputSchema.Kind.choice` is a payload-free marker so
 option strings never reach a grammar literal. Vote dropped grammar
 enumeration in #597; choose in #599 (ADR-002 §Amendment 2026-06-14).

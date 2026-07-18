@@ -122,6 +122,16 @@ package enum EventLineMapper {
       return EventLine(
         t: t, attempt: attempt, event: "turn_skipped", agent: agent,
         phaseType: phaseType.rawValue, value: cause)
+    case .actionRejected(let agent, let phaseType, let raw):
+      // ADR-021 § Amendment 2026-07-17 — a `choose` action that no
+      // normalization could map to the option set; the pairing was dropped.
+      // `raw` is recorded **verbatim** (no ContentFilter — this is an offline
+      // transcript, not a UI surface) so a harness A/B can measure off-menu
+      // rate against `options:` directly (#1158). It rides the same `value`
+      // field as `.turnSkipped`'s cause.
+      return EventLine(
+        t: t, attempt: attempt, event: "action_rejected", agent: agent,
+        phaseType: phaseType.rawValue, value: raw)
     case .roundCheckpoint:
       // Internal resume-persistence snapshot (full SimulationState) — not part
       // of the transcript surface, so it produces no line.
@@ -130,7 +140,8 @@ package enum EventLineMapper {
       .agentOutput, .agentOutputStream, .scoreUpdate, .elimination,
       .assignment, .sharedAssignment, .summary, .narration, .relationshipUpdate,
       .voteResults, .pairingResult, .conditionalEvaluated, .eventInjected:
-      // Handled by the earlier tiers; unreachable here. Listed explicitly
+      // Handled by the earlier tiers; unreachable here (`.actionRejected` is
+      // handled above in this tier). Listed explicitly
       // (no `default:`) so a NEW SimulationEvent case breaks compilation in
       // this switch — the compile-time canary the upstream tiers' `default:`
       // forwarding would otherwise lose.

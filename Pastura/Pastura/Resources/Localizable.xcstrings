@@ -633,6 +633,22 @@
         }
       }
     },
+    "%@'s choice \"%@\" wasn't an option" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@'s choice \"%2$@\" wasn't an option"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ の選択「%2$@」は選択肢にありません"
+          }
+        }
+      }
+    },
     "%@'s turn was skipped (%@)" : {
       "localizations" : {
         "en" : {

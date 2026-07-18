@@ -220,6 +220,35 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   ///     register as `llmGenerationFailed`'s payload) — not user-facing
   ///     copy; the App layer renders its own localized narration.
   case turnSkipped(agent: String, phaseType: PhaseType, cause: String)
+
+  /// A `choose` (round-robin) agent's LLM call **succeeded** but delivered an
+  /// action outside the phase's option set that no normalization could map
+  /// back (ADR-021 § Amendment 2026-07-17 / #1151). Rather than fabricate a
+  /// decision the agent did not make — the pre-Amendment `options[0]` fallback
+  /// silently scored `betray!` / `"Betray"` / `裏切る` as cooperating — the
+  /// engine **drops the whole pairing** and emits this event.
+  ///
+  /// Distinct from `.turnSkipped`: the turn did **not** skip. The call
+  /// succeeded, `.agentOutput` already rendered the agent's utterance, and this
+  /// only reports that its *action* was unmappable — so reusing `.turnSkipped`
+  /// would both mis-narrate ("Alice said X" then "Alice's turn was skipped")
+  /// and break `.turnSkipped`'s single-emitter invariant.
+  ///
+  /// App-side it folds into the same `degradedTurnCount` aggregate/badge as
+  /// `.turnSkipped` (D6 — "completed with quality loss") without a new column,
+  /// and is live-only like `.turnSkipped` (`ReplayViewModel` no-ops it). The
+  /// ADR-021 D4 breaker is deliberately **not** fed by it — a rejection is
+  /// model menu-discipline, not infrastructure failure.
+  ///
+  /// - Parameters:
+  ///   - agent: The agent whose action was rejected.
+  ///   - phaseType: The phase the rejected action belonged to (always
+  ///     `.choose`, carried for symmetry with `.turnSkipped`).
+  ///   - raw: The exact off-menu string the model emitted. It is **model
+  ///     content** — any UI consumer MUST route it through `ContentFilter`
+  ///     before display (ADR-005), unlike `.turnSkipped`'s engine-generated
+  ///     `cause`. The offline harness transcript records it verbatim (no UI).
+  case actionRejected(agent: String, phaseType: PhaseType, raw: String)
 }
 
 /// Errors that can occur during simulation execution.
