@@ -89,10 +89,10 @@
 
     /// Runs one schema-constrained turn.
     ///
-    /// Returns the raw JSON text rather than a decoded value so
-    /// ``JSONResponseParser`` — which owns the field contract for every backend
-    /// — stays the single parse path. `rawContent.jsonString` is already
-    /// schema-shaped, so the parser's repair pipeline simply has nothing to do.
+    /// Returns JSON text rather than a decoded value so ``JSONResponseParser`` —
+    /// which owns the field contract for every backend — stays the single parse
+    /// path. The text is already schema-shaped, so the parser's repair pipeline
+    /// simply has nothing to do.
     ///
     /// - Returns: The JSON text plus the turn's transcript entries, which the
     ///   caller feeds to the response-side token instrumentation.
@@ -117,12 +117,14 @@
         // failure — attributing a defect in THIS path to the model.
         //
         // Not known to fire: it did not trigger in any smoke run. Empty-output
-        // turns DO occur (parse failures with an empty `raw=` appear in both the
-        // guided and the unguided arm, 9 of 14 in one unguided run), but their
-        // cause was NOT isolated — and since this guard stayed silent while they
-        // occurred, they are reaching the parser from somewhere other than here.
-        // Treat that as an open question for the deferred battery, not as
-        // something this guard explains.
+        // turns DO occur — parse failures with an empty `raw=` appear in the
+        // guided arm as well as the unguided one — but their cause was NOT
+        // isolated. In the GUIDED arm specifically this guard stayed silent
+        // while they occurred, so those reach the parser from somewhere other
+        // than this return; the unguided observations say nothing either way,
+        // since this code is not in that call chain. Treat the whole population
+        // as an open question for the deferred battery, not as something this
+        // guard explains.
         throw LLMError.generationFailed(
           description: "Foundation Models guided generation returned empty content")
       }

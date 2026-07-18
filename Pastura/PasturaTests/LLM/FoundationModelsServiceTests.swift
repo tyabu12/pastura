@@ -172,6 +172,37 @@
       #expect(try canonical(schemaJSON(from: oneField)) != canonical(schemaJSON(from: twoFields)))
     }
 
+    /// The guided path deliberately has NO fallback: a schema-build failure
+    /// throws instead of quietly running the turn unguided. That choice is what
+    /// prevents #1156's failure shape — a build failure is deterministic per
+    /// `OutputSchema` shape, so a silent fallback would run an ENTIRE battery
+    /// unguided while the run log still claimed guided. This pins both the throw
+    /// and the grep-classifiable prefix the harness digest keys on.
+    ///
+    /// Duplicate field names are the reachable failing shape: the SDK rejects
+    /// them with `duplicateProperty`. An EMPTY field list and an empty field
+    /// name were both probed and build fine — which is why the callsite guards
+    /// `!schema.fields.isEmpty` itself rather than relying on a throw.
+    @available(iOS 26, macOS 26, *)
+    @Test func guidedSchemaBuildFailureThrowsWithClassifiablePrefix() {
+      let duplicated = OutputSchema(fields: [
+        .init(name: "statement", kind: .string),
+        .init(name: "statement", kind: .string)
+      ])
+
+      #expect(throws: LLMError.self) {
+        try FoundationModelsService.generationSchema(from: duplicated)
+      }
+      do {
+        _ = try FoundationModelsService.generationSchema(from: duplicated)
+        Issue.record("expected a schema-build failure")
+      } catch {
+        #expect(
+          description(of: error as? LLMError ?? .notLoaded)
+            .hasPrefix("Foundation Models guided schema build failed — "))
+      }
+    }
+
     /// Builds the schema and decodes its `Codable` form into inspectable JSON.
     ///
     /// `GenerationSchema` exposes no property accessors, so its encoded form is

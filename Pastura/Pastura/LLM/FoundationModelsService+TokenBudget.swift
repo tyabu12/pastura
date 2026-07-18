@@ -100,6 +100,9 @@
     func logResponseTokenBudget(
       seq: Int, inputTokens: Int, entries: ArraySlice<Transcript.Entry>
     ) async {
+      // No unavailable-note here, unlike the input side: that pass already
+      // marked this turn, and a second identical line per turn would just
+      // inflate the log.
       guard #available(iOS 26.4, macOS 26.4, *) else { return }
       let contextSize = model.contextSize
       let responseEntries = entries.filter {
@@ -107,7 +110,8 @@
       }
       let responseTokens = (try? await model.tokenCount(for: responseEntries)) ?? -1
       // MEASURED, not assumed: on macOS 26.5 this equals `responseTokens` in
-      // every observed turn (22/22 in the #1154 smoke run), i.e.
+      // every observed turn — 79 of 79 across the #1154 smoke runs, holding in
+      // the plain, guided, and capped arms alike — i.e.
       // `Response.transcriptEntries` carries ONLY the response entry — the
       // `.response` filter above is a no-op and this is NOT a full-conversation
       // occupancy figure. It is kept as a tripwire: if a future SDK starts
@@ -121,7 +125,12 @@
       // occupancy, and `headroom` correspondingly an UPPER bound.
       let occupancy =
         inputTokens >= 0 && responseTokens >= 0 ? inputTokens + responseTokens : -1
-      let headroom = occupancy >= 0 ? contextSize - occupancy : -1
+      // Rendered as text, NOT as a -1 sentinel like its neighbours: headroom is
+      // a derived value that goes legitimately negative once occupancy exceeds
+      // the window, so `occupancy == contextSize + 1` would print `headroom=-1`
+      // and read as "unmeasurable". That collision would land exactly on the
+      // overshoot case this instrumentation exists to catch.
+      let headroom = occupancy >= 0 ? String(contextSize - occupancy) : "unmeasured"
       // ADVISORY, not exact. `responseTokens` counts a `Transcript.Entry`, which
       // carries role/segment framing, while `maximumResponseTokens` bounds the
       // generator's raw output — so near the cap this biases toward FALSE
