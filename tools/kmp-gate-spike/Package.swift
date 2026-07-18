@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 // ADR-023 §6 Stage-2 gate — the Swift consumer of the KMP `shared/engine` slice.
@@ -21,6 +21,28 @@ import PackageDescription
 // the guard in `.github/workflows/kmp-nightly.yml`.
 //
 // The XCFramework is a STAGED artifact — see README.md § "Assemble first".
+
+/// Mirrors the **app target's** concurrency regime, not the root harness
+/// package's. The two differ, and the difference is exactly what this gate has
+/// to reproduce:
+///
+/// - `Pastura.xcodeproj` sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` **and**
+///   `SWIFT_APPROACHABLE_CONCURRENCY = YES`.
+/// - The root `Package.swift` mirrors only the first for `PasturaCore`.
+///
+/// The second is what enables `NonisolatedNonsendingByDefault` (SE-0461), under
+/// which a `nonisolated async` function runs on its *caller's* executor. That is
+/// the whole mechanism behind the Pattern 6 freeze
+/// (`.claude/rules/swift-isolation.md`), and it is the named late-failure risk
+/// for these adapters — so a package that omitted it would compile the adapters
+/// under semantics the app does not use, and the Pattern 6 probe would prove
+/// nothing about the real thing.
+let gateSpikeSwiftSettings: [SwiftSetting] = [
+  .defaultIsolation(MainActor.self),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .swiftLanguageMode(.v6)
+]
+
 let package = Package(
   name: "kmp-gate-spike",
   platforms: [.macOS(.v15)],
@@ -39,18 +61,21 @@ let package = Package(
     // `SuspendController` copy they relay through.
     .target(
       name: "KMPGateSpike",
-      dependencies: ["PasturaSharedEngine"]
+      dependencies: ["PasturaSharedEngine"],
+      swiftSettings: gateSpikeSwiftSettings
     ),
 
     // Gate measurements (i)/(ii)/(iii) — see README § "Gate measurements".
     .executableTarget(
       name: "kmp-gate-bench",
-      dependencies: ["KMPGateSpike"]
+      dependencies: ["KMPGateSpike"],
+      swiftSettings: gateSpikeSwiftSettings
     ),
 
     .testTarget(
       name: "KMPGateSpikeTests",
-      dependencies: ["KMPGateSpike"]
+      dependencies: ["KMPGateSpike"],
+      swiftSettings: gateSpikeSwiftSettings
     )
   ]
 )
