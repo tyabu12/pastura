@@ -114,11 +114,39 @@ the ADR rather than left implicit:
 | (iv) SKIE-vs-vanilla | **documented evaluation only** — no SKIE integration |
 | (v) kotlinx.serialization round-trip parity on `TurnOutput`/`OutputSchema` | **one-sided**, via checked-in golden JSON (see below) |
 
-Measurement (v) is a two-sided parity claim, but the Swift `Codable` types live
-in `Pastura/Pastura/Models/` — unreachable from here for the same path-escape
-reason. It is therefore taken as a Kotlin-side decode of golden JSON produced by
-the ADR-013 harness; the fixtures and their regeneration procedure live with the
-Kotlin test in `shared/engine`.
+### Measurement (v) — golden JSON
+
+(v) is a two-sided parity claim, but the Swift `Codable` types live in
+`Pastura/Pastura/Models/` — unreachable from here for the same path-escape
+reason. It is therefore taken as a Kotlin-side **decode** of golden JSON emitted
+by the ADR-013 harness, which does reuse that directory in place. What stays
+unmeasured is the reverse direction: Swift decoding Kotlin's output. That
+belongs to Stage 3's parity harness.
+
+```bash
+# Regenerate after ANY change to the Swift Models types (from the repo root):
+swift run pastura-harness emit-golden --write
+# Drift gate — the same check CI runs:
+swift run pastura-harness emit-golden --check
+```
+
+The artifacts live with the types they describe, in `shared/models`, not in
+`shared/engine` as the module split might suggest — `TurnOutput` and
+`OutputSchema` are `shared/models` types, and the suite that pins what Kotlin
+*emits* (`OutputSchemaSerializationTests`) is already there. They sit in
+`commonTest` rather than `jvmTest` so the K/N rung is covered too, which is why
+the goldens are a generated Kotlin source file rather than a `.json` resource:
+`commonTest` cannot read resources.
+
+- Generator: `tools/harness/Sources/PasturaHarnessKit/GoldenFixtureEmitter.swift`
+- Generated: `shared/models/src/commonTest/kotlin/com/pastura/models/SwiftGoldenJson.kt`
+- Consumer: `shared/models/src/commonTest/kotlin/com/pastura/models/SwiftGoldenParityTests.kt`
+
+**Result: `TurnOutput` passes, `OutputSchema` does not.** Kotlin cannot decode
+Swift's `OutputSchema` bytes at all — the two sides disagree on enum tagging, on
+the second case's name (`choice` vs `enumeration`), and on whether it carries an
+options payload. The parity suite asserts the rejection rather than skipping the
+type, so the finding cannot decay silently. Detail and consequences: #501.
 
 Per ADR-023 §6, only (ii)'s performance **absolutes** are host-sensitive
 (macOS vs iOS K/N share a Darwin/arm64 runtime and memory model). Figures are
