@@ -30,6 +30,7 @@
 
     private let model: SystemLanguageModel
     private let maximumResponseTokens: Int?
+    private let guidedGeneration: Bool
     private let loadedState: OSAllocatedUnfairLock<Bool>
 
     /// Monotonic turn counter, used solely as a join key across the three
@@ -69,9 +70,18 @@
     ///     *not* a clean win: a cap truncates the JSON object mid-object, which
     ///     converts a context-exceeded failure into a parse failure rather than
     ///     removing it. That conversion is itself the measurement.
-    public init(model: SystemLanguageModel = .default, maximumResponseTokens: Int? = nil) {
+    ///   - guidedGeneration: When `true`, a turn that carries an
+    ///     ``OutputSchema`` runs schema-constrained via
+    ///     ``respondGuided(session:user:schema:options:)`` instead of free-form.
+    ///     Defaults to `false` — see `FoundationModelsService+GuidedGeneration`
+    ///     for what this measures and why it is off by default.
+    public init(
+      model: SystemLanguageModel = .default, maximumResponseTokens: Int? = nil,
+      guidedGeneration: Bool = false
+    ) {
       self.model = model
       self.maximumResponseTokens = maximumResponseTokens
+      self.guidedGeneration = guidedGeneration
       self.loadedState = OSAllocatedUnfairLock(initialState: false)
       self.turnSeq = OSAllocatedUnfairLock(initialState: 0)
     }
@@ -121,21 +131,26 @@
     /// output) — structurally avoiding the cumulative-transcript overflow a
     /// long-lived session would hit.
     ///
-    /// `schema` is intentionally **ignored** in this spike: the model runs
-    /// schema-unconstrained (no `@Generable` guided generation). The prompt
-    /// already instructs JSON and ``JSONResponseParser`` carries the field
-    /// contract. Consequence for the #1072 evaluation phase: FM parse-failure
-    /// rates are **not** apples-to-apples with the GBNF-grammar-constrained
-    /// ``LlamaCppService``.
+    /// `schema` is honoured only when the service was built with
+    /// `guidedGeneration: true` (default `false`). Unconstrained, the model runs
+    /// free-form: the prompt instructs JSON and ``JSONResponseParser`` carries
+    /// the field contract, so FM parse-failure rates are **not** apples-to-apples
+    /// with the GBNF-grammar-constrained ``LlamaCppService``. Constrained, the
+    /// turn decodes against a runtime `GenerationSchema` — see
+    /// `FoundationModelsService+GuidedGeneration`.
     ///
-    /// - Warning: **Adopting `@Generable` guided generation would silently
-    ///   re-enable the default guardrails**, undoing the permissive mode this
-    ///   backend is being re-evaluated under. Per Apple, permissive guardrails
-    ///   "only work for generating a string value. When you use guided
-    ///   generation, the framework runs the default guardrails against model
-    ///   input and output as usual." This service returns `response.content`
-    ///   (a plain `String`), which is the only shape permissive mode covers.
-    ///   So guided generation is not the free win #1072's first digest called
+    /// - Warning: **Guided generation is documented to re-enable the default
+    ///   guardrails**, which would undo the permissive mode this backend was
+    ///   re-evaluated under. Per Apple, permissive guardrails "only work for
+    ///   generating a string value. When you use guided generation, the
+    ///   framework runs the default guardrails against model input and output
+    ///   as usual." The unconstrained path returns `response.content` (a plain
+    ///   `String`), the only shape permissive mode covers; the guided path
+    ///   returns schema-decoded content and so is expected to lose that cover.
+    ///   That expectation is precisely what `guidedGeneration` exists to
+    ///   **measure** (#1072 reversal condition 1) — it is not yet an observed
+    ///   fact, which is why the flag defaults off. Guided generation is
+    ///   therefore not the free win #1072's first digest called
     ///   it — it trades JSON-validity assurance (already measured as a
     ///   non-problem) for the return of the failure that killed the spike.
     ///   Re-measure guardrails before adopting it.
@@ -191,11 +206,26 @@
       // window throws out of `respond`, and the input-side numbers are exactly
       // what blocker 2 needs on that turn. Measuring after the call would
       // condition the whole sample on success and drop the failing population.
-      await logInputTokenBudget(seq: seq, system: system, user: user, schema: nil)
+      // Built here — ahead of the input-budget emission and OUTSIDE the `do` —
+      // for two reasons: `schemaTokens` needs a schema to report, and a
+      // schema-build failure is not a `GenerationError`, so it must not land in
+      // the catch arm below that maps generation errors.
+      var generationSchema: GenerationSchema?
+      if guidedGeneration, let schema, !schema.fields.isEmpty {
+        generationSchema = try Self.generationSchema(from: schema)
+      }
+      await logInputTokenBudget(seq: seq, system: system, user: user, schema: generationSchema)
       do {
-        let response = try await session.respond(to: user, options: options)
-        await logResponseTokenBudget(seq: seq, entries: response.transcriptEntries)
-        return response.content
+        let result: (text: String, entries: ArraySlice<Transcript.Entry>)
+        if let generationSchema {
+          result = try await respondGuided(
+            session: session, user: user, schema: generationSchema, options: options)
+        } else {
+          let response = try await session.respond(to: user, options: options)
+          result = (response.content, response.transcriptEntries)
+        }
+        await logResponseTokenBudget(seq: seq, entries: result.entries)
+        return result.text
       } catch let error as LanguageModelSession.GenerationError {
         if case .exceededContextWindowSize = error {
           // No response exists, so no response-side line is emitted. Without
