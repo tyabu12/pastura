@@ -457,6 +457,14 @@ terminal tier is no-default exhaustive (ADR-022 PR-A) — so a new
 `SimulationEvent` case compile-breaks in `handleOutputEvent`, not silently
 no-ops.
 
+**Not compiler-caught — the demo-replay converter (CI-only).** If the new case
+also gets an `EventLineMapper` line (harness transcript), classify its
+snake-case event name in `scripts/jsonl_to_demo_replay.py`'s `HANDLED_EVENTS`
+or `IGNORED_EVENTS` — a live-only degradation signal (like `turn_skipped` /
+`action_rejected`) goes in `IGNORED_EVENTS`. Miss it and the CI **"Shell gate
+tests"** `demo-replay-event-coverage` gate reddens (ADR-022 §D4); the pre-commit
+hook does **not** run it (#1164).
+
 ## llama.cpp Backend Traps
 
 llama.cpp is the active TestFlight backend; the LiteRT-LM migration
