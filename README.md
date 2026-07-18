@@ -135,20 +135,46 @@ pastura/
 │   │   ├── Models/          # Domain types, depends on nothing
 │   │   ├── Views/           # SwiftUI screens and components
 │   │   ├── Utilities/
-│   │   └── Resources/       # Bundled presets, demo replays, blocklist
+│   │   └── Resources/       # Presets, demo replays, blocklist, .xcstrings catalogs
 │   ├── PasturaTests/        # Unit and integration tests
 │   └── PasturaUITests/      # UI tests
+├── tools/
+│   ├── harness/             # pastura-harness — headless macOS simulation runner (ADR-013)
+│   └── kmp-gate-spike/      # ADR-023 Stage-2 gate spike consumer (builds nightly only)
+├── shared/                  # KMP shared modules (ADR-023)
+│   ├── models/              # Mirrors Swift Models/; landed as infra, not production-wired
+│   └── engine/              # Engine port — Stage-2 gate slice landed, bulk port gated
 ├── docs/
 │   ├── ROADMAP.md           # Phase scope and Go / No-Go criteria
+│   ├── release-setup.md     # TestFlight bootstrap — per-machine + account setup
 │   ├── decisions/           # Architecture Decision Records
 │   ├── specs/               # Feature specifications
 │   ├── design/              # Design system, reference assets
 │   ├── i18n/                # Localization workflow
-│   └── blocklist/           # ContentBlocklist source + build script
-├── shared/                  # KMP shared modules (Phase 3.0 / ADR-023); `models` landed as infra, not yet wired
+│   ├── blocklist/           # ContentBlocklist source + build script
+│   ├── gallery/             # Shared-scenario gallery (gallery.json + YAMLs)
+│   ├── examples/            # Reference scenario YAMLs, not bundled as presets
+│   ├── prototype/           # Python reference implementation
+│   ├── models/              # LLM model onboarding procedure
+│   ├── measurements/        # Measurement protocols (grammar-sampling baseline)
+│   ├── ci/                  # CI flake catalog and recovery walkthroughs
+│   ├── qa/                  # Manual QA walkthroughs
+│   ├── code-health/         # code-health-audit ledger and digests
+│   ├── security/            # Operator security checklist
+│   ├── store/               # App Store listing copy, review notes, screenshot plan
+│   └── phase0/              # Phase 0 assessment (historical)
 ├── web/                     # The pastura.app site (Astro SSG, deployed via GitHub Pages)
-└── scripts/                 # Build, lint, content-blocklist helpers
+├── scripts/                 # Build, lint, release, content-blocklist helpers
+├── fastlane/                # TestFlight release lanes (ADR-014); Gemfile / Gemfile.lock pin it
+├── .github/                 # CI workflows and issue templates
+├── .claude/                 # Agent definitions, rules, skills, hook config
+├── Package.swift            # pastura-harness manifest (+ Package.resolved) — compiles app core for macOS
+└── build.gradle.kts         # Gradle root for shared/ (settings.gradle.kts, gradle/, gradlew*)
 ```
+
+Root-level docs (this file, `CLAUDE.md`, `CONTRIBUTING.md`, `LICENSE`) and
+config dotfiles (`.swiftlint.yml`, `.swift-format`, `.gitignore`) are omitted
+above; every other tracked root entry is listed.
 
 ## Documentation
 
