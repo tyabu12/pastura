@@ -175,6 +175,13 @@ jobs:
           # declared in YAML) would skip the job that validates it — leaving
           # kmp-nightly.yml as the only backstop, ≤24h later and post-merge.
           # `\.gradle\.kts$` covers both root and per-module build scripts.
+          #
+          # `kmp-nightly.yml` is in the token deliberately though it is NOT an
+          # input to kmp-build-test: the nightly runs a superset of the same
+          # Gradle tasks, so a PR editing its task tokens gets a PR-time smoke
+          # of the shared ones instead of waiting a full nightly cycle.
+          # Over-inclusive in the safe direction — it costs one compile-only
+          # run (#1148 is the one real instance in the last 40 merges).
           if printf '%s\n' "$FILES" | grep -qE '^(shared/|gradle/|gradlew|gradle\.properties$)|\.gradle\.kts$|^\.github/workflows/(ci|kmp-nightly)\.yml$'; then
             echo "kmp=true" >> "$GITHUB_OUTPUT"
           else
@@ -629,10 +636,16 @@ jobs:
   # `shared/models` Kotlin Multiplatform module lands green and stays green.
   #
   # Job-level `if:` gated on the `changes` classifier, so a SAFE-only PR
-  # (docs / web / `.claude/` / `*.md`) skips it — measured at 16 of the last 40
-  # merges. Those runs skip every iOS job too, leaving this as the sole macOS
-  # job and the run's long pole; on an iOS-touching PR it finishes well inside
-  # lint-and-test and the gate saves nothing there.
+  # (docs / web / `.claude/` / `*.md`) skips it. Replaying
+  # `scripts/precommit-gate-classify.sh` over the last 40 merges to main: 16
+  # classify SAFE-only, 15 of which also miss the `kmp` arm below and so
+  # actually skip (the 16th is #1148, a `kmp-nightly.yml` edit that the `kmp`
+  # arm deliberately re-arms). On a docs / web / `.claude`-only PR every iOS
+  # job skips too, leaving this the sole macOS job and the run's long pole —
+  # NOT true of a gallery-YAML PR, which is also SAFE-only but keeps
+  # `harness-build` (macos-26) alive via the `scenarios` arm. On an
+  # iOS-touching PR this finishes well inside lint-and-test, so the gate saves
+  # nothing there by design.
   #
   # This does NOT reintroduce #501 §9.7 landmine (a) (a gate that fails to
   # fire). The form is conservative by inversion per ci-workflows.md invariant
@@ -662,7 +675,20 @@ jobs:
   # is caught by the `^shared/` token in the `kmp` predicate anyway.)
   #
   # Cost of the gate: the job now queues behind the ubuntu `changes` job
-  # instead of starting at t=0. Negligible against a 1–3 min job.
+  # instead of starting at t=0. Negligible against the compile-only default
+  # path, measured at 1.9–3.9 min across the five most recent PR runs at the
+  # time of this change.
+  #
+  # ci-workflows.md invariant 5 (verify BOTH directions) is only HALF
+  # discharged here. Because `ci.yml` is in the `kmp` predicate, the PR that
+  # introduced this gate classifies `ios=false, kmp=true` and exercises the
+  # RUN branch on itself. The SKIP branch — where the required check "KMP
+  # build & test (#501)" must report Success, not Pending — cannot be
+  # exercised by that PR at all. It is expected safe per ci-workflows.md
+  # § "Required-check-safe path gating" (job-level `if:` skip reports
+  # Success), but that is reasoning, not verification: confirm it on the first
+  # docs-only PR after this merges, and re-verify the same way if the gate is
+  # ever widened.
   #
   # Runs as a parallel job to the iOS xcodebuild jobs. The default path (JVM
   # tests + a single-target native klib COMPILE-ONLY) stays shorter than the
