@@ -47,8 +47,10 @@ Optional args:
 
 ## Output Contract (inherited from the brush-up family)
 
-Canonical text: `.claude/skills/consistency-audit/SKILL.md` § "Output Contract".
-The two rules that bind a digest-only generator:
+**Canonical text: `.claude/rules/automation-output-contract.md` — read it in
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
+skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+run. The two rules that bind a digest-only generator:
 
 - **Rule 2 — judgment output carries confidence + counter-evidence.** Every
   finding in the digest carries a confidence and an explicit "why this might be

@@ -13,10 +13,12 @@ repository root of the current checkout — a **manual** run from the main
 checkout, or a **scheduled** run from a routine-provided worktree (see
 "Scheduling" below).
 
-This is the first generator of the "nightly brush-up automation" family. Its
-**Output Contract** (below) is the reusable part — later generators (i18n
-parity, code analysis, scenario fuzzing) inherit the same gating so they stay
-safe to run unattended.
+This is the first generator of the "nightly brush-up automation" family. The
+gating that keeps every generator safe to run unattended is the shared
+**Output Contract**, canonical in `.claude/rules/automation-output-contract.md`
+— **read it in full before Step 0.** It is path-scoped to `.claude/skills/**`,
+which fires when a human *edits* a skill, not when this one *runs*, so a run
+that does not read it executes without the contract in context.
 
 ## Non-goals
 
@@ -41,27 +43,29 @@ safe to run unattended.
   second guard). Do not schedule overlapping audit runs, nor run a manual audit
   while a routine one may fire.
 
-## Output Contract (reusable across the brush-up family)
+## Output Contract
 
-1. **Mechanically-verifiable fix → docs-fix Draft PR.** A finding is
-   auto-fixable only when the correct value is *uniquely determined by an
-   authoritative source* (e.g. a dependency version from `Package.resolved`).
-   Batch all such fixes from one run into a **single** `audit/<date>` Draft PR.
-2. **Detected-but-judgment → issue only.** Anything where the fix needs a human
-   decision (which target did a dead link mean?) is filed as an issue, never an
-   auto-fix PR. The issue body MUST carry a **confidence score** and a
-   **counter-evidence / "why this might be wrong"** section.
-3. **The auto-fix path edits authoritative-source-computed values only — never
-   free-form prose — and the edit is spliced at the detected token's exact
-   offset, not by a free-text replace.** This is the bound that makes the
-   omitted code-review (below) safe. Any future detector that wants to auto-fix
-   something non-mechanical re-introduces a mandatory `code-reviewer` pass.
-4. **Backpressure.** Generators must cap their own work-in-progress so the
-   review queue never floods. For the auto-fix path that means **one open
-   `audit/*` Draft PR at a time** — a run that finds one already open skips
-   opening another (Step 2).
-5. **Manual-first.** The detector is dry-run by default; only act after a human
-   has eyeballed the dry-run output at least once for a given repo state.
+**Canonical text: `.claude/rules/automation-output-contract.md` — read it in
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
+skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+run.
+
+How this skill binds itself to each rule:
+
+- **Rule 1** (mechanical fix → one batched Draft PR) — the authoritative source
+  is typically a dependency version from `Package.resolved`; all such fixes from
+  one run batch into a single `audit/<date>` Draft PR.
+- **Rule 2** (judgment → issue with confidence + counter-evidence) — "which
+  target did this dead link mean?" is the canonical judgment case here.
+- **Rule 3** (authoritative values only, spliced at the exact offset) — the
+  bound that makes the omitted code-review below safe.
+- **Rule 4** (backpressure) — this skill's own cap is **one open `audit/*` Draft
+  PR at a time**; a run that finds one already open skips opening another
+  (Step 2). The family-wide ceiling is Step 0.5.
+- **Rule 5** (manual-first) — the detector is dry-run by default; only act after
+  a human has eyeballed the dry-run output at least once for a given repo state.
+- **Rules 0 and 6** — restated operationally as Hard rules below, where an
+  unattended run finds them without following a pointer.
 
 ### Why no `code-reviewer` pass here
 
@@ -83,6 +87,12 @@ relaxed, restore the `code-reviewer` pass.
 - Label: `documentation` (for both PRs and issues)
 
 ## Hard rules (non-negotiable)
+
+Rules 1–3 restate Output Contract **rule 0** (never actuate) and rule 4 restates
+**rule 6** (conservative detection), deliberately duplicated here as the
+operational form: these are the hard-stop invariants an unattended run must not
+have to follow a pointer to find. `.claude/rules/automation-output-contract.md`
+is canonical — change it first, then this restatement.
 
 1. **Never push to main. Never force push.** All pushes are
    `git push -u origin audit/...`. A PreToolUse guard hook also blocks

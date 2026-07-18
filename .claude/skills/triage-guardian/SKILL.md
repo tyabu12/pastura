@@ -45,8 +45,10 @@ of the generators, and the reason O is the lightest family member to run.
 
 ## Output Contract (inherited from the brush-up family)
 
-The reusable Output Contract lives in
-`.claude/skills/consistency-audit/SKILL.md`. The rule that binds O hardest is
+**Canonical text: `.claude/rules/automation-output-contract.md` — read it in
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
+skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+run. The rule that binds O hardest is
 **rule 2: any judgment output must carry a confidence score + a
 counter-evidence ("why this might be wrong") section.** The "Discard candidate"
 bucket is exactly such a judgment output — and the highest-stakes one, because
@@ -167,7 +169,7 @@ of decisive, route down to (3)** (Hard rule 2).
    (all `pass`/`skipping`), `mergeStateStatus` is a non-`UNKNOWN` mergeable state
    (`CLEAN`/`UNSTABLE`), and the PR is from a contract-bounded generator (today:
    `audit/*`, whose auto-fix path edits only an authoritative-source-computed
-   value — see consistency-audit Output Contract rule 3). Present as
+   value — see Output Contract rule 3). Present as
    *"nothing blocks a merge; you decide"* — **never** "auto-merge eligible"
    (Hard rule 3). If CI is pending or mergeability is `UNKNOWN`, it is NOT Ready
    — route to (3).
