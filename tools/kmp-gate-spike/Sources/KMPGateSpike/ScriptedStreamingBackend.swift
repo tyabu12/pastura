@@ -47,6 +47,20 @@ nonisolated public struct ScriptedResponse: Sendable {
     self.ending = ending
     self.chunkDelay = chunkDelay
   }
+
+  /// How many `onChunk` callbacks this response will deliver.
+  ///
+  /// Derived from the response rather than recomputed by callers. The `+1` is
+  /// clause 1's final chunk, which exists only for `.completed` — a caller
+  /// that re-derives the count from its own script parameters has to restate
+  /// that rule and can restate it wrongly. Measurement (ii) divides by this,
+  /// so a wrong denominator silently biases the published per-chunk figure.
+  public var emittedChunkCount: Int {
+    switch ending {
+    case .completed: return deltas.count + 1
+    case .suspended, .failed: return deltas.count
+    }
+  }
 }
 
 /// One chunk crossing the scripted stream.

@@ -62,35 +62,39 @@ public enum RelayBenchmark {
 
   /// Runs both measurements.
   public static func run(iterations: Int = 7) async throws -> Result {
-    let shortChunks = 1
-    let longChunks = 40
+    // One `speak_all` round over two agents = two calls. The scripts are built
+    // once and both timed *and* counted from these same values, so the slope's
+    // denominator cannot drift from what the backend actually emitted.
+    let shortScript = Array(repeating: ScriptedResponse.benchTurn(deltas: 1), count: 2)
+    let longScript = Array(repeating: ScriptedResponse.benchTurn(deltas: 40), count: 2)
 
     let shortTiming = try await time(iterations: iterations) {
-      try await timeOneRun(deltasPerCall: shortChunks)
+      try await timeOneRun(script: shortScript)
     }
     let longTiming = try await time(iterations: iterations) {
-      try await timeOneRun(deltasPerCall: longChunks)
+      try await timeOneRun(script: longScript)
     }
     let suspension = try await time(iterations: iterations) {
       try await timeSuspensionRoundTrip()
     }
 
-    // One `speak_all` round over two agents = two calls, each carrying the
-    // scripted deltas plus the final chunk.
     return Result(
       shortScriptRun: shortTiming,
       longScriptRun: longTiming,
-      chunksPerShortRun: (shortChunks + 1) * 2,
-      chunksPerLongRun: (longChunks + 1) * 2,
+      chunksPerShortRun: chunkCount(of: shortScript),
+      chunksPerLongRun: chunkCount(of: longScript),
       suspensionRoundTrip: suspension
     )
   }
 
-  /// Times one full engine run whose calls each carry `deltasPerCall` chunks.
-  private static func timeOneRun(deltasPerCall: Int) async throws -> Duration {
+  private static func chunkCount(of script: [ScriptedResponse]) -> Int {
+    script.reduce(0) { $0 + $1.emittedChunkCount }
+  }
+
+  /// Times one full engine run over `script`.
+  private static func timeOneRun(script: [ScriptedResponse]) async throws -> Duration {
     let runner = SharedEngineRunner()
-    let backend = ScriptedStreamingBackend(
-      responses: Array(repeating: .benchTurn(deltas: deltasPerCall), count: 2))
+    let backend = ScriptedStreamingBackend(responses: script)
 
     let clock = ContinuousClock()
     let start = clock.now
@@ -171,9 +175,9 @@ public enum RelayBenchmarkError: Error, CustomStringConvertible {
 
   public var description: String {
     {
-    guard case .timedOut(let label) = self else { return "" }
-    return "relay benchmark timed out waiting for \(label)"
-  }()
+      guard case .timedOut(let label) = self else { return "" }
+      return "relay benchmark timed out waiting for \(label)"
+    }()
   }
 }
 
@@ -183,10 +187,22 @@ extension ScriptedResponse {
   /// Unpaced on purpose: `chunkDelay` would measure the sleep, not the
   /// crossing. The JSON is split so the deltas are real accumulation work for
   /// Kotlin's `LLMCaller` rather than discardable noise.
+  /// Emits **exactly** `deltas` non-final chunks. The earlier version built
+  /// `1 + max(0, deltas - 2) + 1` pieces, so `deltas: 1` produced two — and the
+  /// caller, which recomputed the count from `deltas` instead of reading it
+  /// off the script, divided the slope by a denominator two chunks too large.
+  /// The count is now derived (`emittedChunkCount`) *and* the construction
+  /// honours its parameter: either alone would have prevented that, but the
+  /// name being false is what made the arithmetic look right.
   static func benchTurn(deltas: Int) -> ScriptedResponse {
-    var pieces = ["{\"statement\": \""]
-    pieces.append(contentsOf: Array(repeating: "tok ", count: max(0, deltas - 2)))
-    pieces.append("done\"}")
+    let pieces: [String]
+    switch max(1, deltas) {
+    case 1:
+      pieces = ["{\"statement\": \"done\"}"]
+    case let n:
+      pieces =
+        ["{\"statement\": \""] + Array(repeating: "tok ", count: n - 2) + ["done\"}"]
+    }
     return ScriptedResponse(
       deltas: pieces,
       ending: .completed(completionTokens: nil),
