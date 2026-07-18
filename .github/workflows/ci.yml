@@ -962,9 +962,6 @@ jobs:
       - name: Run ScenarioEditor funnel drift guard
         run: bash scripts/scenario-editor-funnel-gate.sh --check
 
-  # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
-  # CSS mirror consumed by the claude.ai Design System project) faithful to
-  # DesignTokens*.swift, and validates @dsCard markers. Pure stdlib.
   # ADR-023 §6 decision B′: "No per-PR lane acquires an XCFramework dependency
   # — not the iOS xcodebuild, not the root Package.swift harness build, not a
   # dev `swift build`." The root manifest is the one that would leak it, since
@@ -1004,6 +1001,9 @@ jobs:
             exit 1
           fi
 
+  # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
+  # CSS mirror consumed by the claude.ai Design System project) faithful to
+  # DesignTokens*.swift, and validates @dsCard markers. Pure stdlib.
   design-tokens-drift:
     name: Design tokens drift guard
     runs-on: ubuntu-latest
