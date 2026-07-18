@@ -17,8 +17,8 @@ import PackageDescription
 //
 // Because the root manifest gives each of its targets an explicit `path:`, this
 // nested package is not swept into the root graph, and a root `swift build` /
-// `swift test` does not recurse into it. The two directions are both checked by
-// the guard in `.github/workflows/kmp-nightly.yml`.
+// `swift test` does not recurse into it. Both directions are checked per-PR by
+// the `kmp-gate-isolation` job in `.github/workflows/ci.yml`.
 //
 // The XCFramework is a STAGED artifact — see README.md § "Assemble first".
 

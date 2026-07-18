@@ -34,8 +34,9 @@ XCFramework — option *(B-root)*, which ADR-023 §6 rejects by name.
 The converse also holds, which is why a nested package is safe: every target in
 the root manifest carries an explicit `path:`, so this directory is not swept
 into the root graph, and a root `swift build` / `swift test` does not recurse
-into it. Both directions are asserted by the guard in
-`.github/workflows/kmp-nightly.yml`.
+into it. Both directions are asserted per-PR by the `kmp-gate-isolation` job in
+`.github/workflows/ci.yml` — ungated, because a gated guard would skip on
+exactly the PRs that only touch the manifest.
 
 **Do not consolidate this into the root manifest.** If a future change makes
 that look attractive, the constraint above is the reason it is not.
@@ -104,7 +105,9 @@ one; the guard exists to make an accidental one-sided edit loud.
 
 `kmp-gate-bench` produces the ADR-023 §6 figures. Two of the five are
 deliberately not measured here, and both carve-outs are recorded on #501 and in
-the ADR rather than left implicit:
+the ADR rather than left implicit. Figures and their reading:
+ADR-023 § "11. Amendment 2026-07-18" and
+[#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5010845072).
 
 ```bash
 # From the repository root — (i)/(iii) resolve source paths against the cwd
@@ -114,9 +117,9 @@ swift run --package-path tools/kmp-gate-spike kmp-gate-bench
 
 | Measurement | Status |
 |---|---|
-| (i) event-boundary ergonomics, incl. the threading clause | measured here |
-| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here |
-| (iii) K/N shim-budget on the Engine-consuming surface | measured here |
+| (i) event-boundary ergonomics, incl. the threading clause | measured here — counted from source; threading clause via the Pattern 6 probe |
+| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — 19.9 µs/chunk, 2.08 ms round trip (macOS host) |
+| (iii) K/N shim-budget on the Engine-consuming surface | measured here — 21 declarations |
 | (iv) SKIE-vs-vanilla | **documented evaluation only** — no SKIE integration |
 | (v) kotlinx.serialization round-trip parity on `TurnOutput`/`OutputSchema` | **one-sided**, via checked-in golden JSON (see below) |
 
