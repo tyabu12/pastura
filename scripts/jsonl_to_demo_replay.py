@@ -96,6 +96,9 @@ IGNORED_EVENTS = {
     "inference_completed",
     "language_mismatch",
     "turn_skipped",
+    "action_rejected",  # off-menu choose action dropped (ADR-021 §Amendment
+    # 2026-07-17); live-only degradation signal, same as turn_skipped — a
+    # curated demo cannot regenerate it, so it never reaches the replay.
 }
 
 # Stable field order for turn `fields` (mirrors existing hand-authored demos:
