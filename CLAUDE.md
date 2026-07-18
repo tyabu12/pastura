@@ -205,7 +205,7 @@ Pastura/
 ├── Utilities/
 └── Resources/
     ├── Presets/              # Bundled YAML scenarios
-    ├── DemoPresets/          # Demo-backing scenarios; the bundle flattens these with Presets/
+    ├── DemoPresets/          # Demo-backing scenarios; bundle-flattened with Presets/ but excluded from PresetLoader.presetFileNames (never in the user picker)
     ├── DemoReplays/          # DL-time demo playback (ADR-007)
     ├── ContentBlocklist.json # ADR-005 content safety
     └── *.xcstrings           # Localizable / InfoPlist string catalogs
@@ -230,7 +230,7 @@ shared/                          # KMP shared modules (#501 / ADR-023). Gradle/K
 ```
 tools/                           # Dev tooling, outside the iOS app build
 ├── harness/                     #   pastura-harness — headless macOS simulation runner (ADR-013). Built by `swift build` via the root Package.swift, not by the pre-commit hook.
-└── kmp-gate-spike/              #   ADR-023 Stage-2 gate spike consumer. No per-PR lane may take an XCFramework dep (ADR-023 §6, decision B′); nightly builds the package, ci.yml runs its own scripts/ guards.
+└── kmp-gate-spike/              #   ADR-023 Stage-2 gate spike consumer. No per-PR lane may take an XCFramework dep (ADR-023 §6, decision B′); the nightly builds the package.
 ```
 
 ## Agent Tooling Dependency

@@ -146,7 +146,7 @@ pastura/
 │   └── engine/              # Engine port — Stage-2 gate slice landed, bulk port gated
 ├── docs/
 │   ├── ROADMAP.md           # Phase scope and Go / No-Go criteria
-│   ├── release-setup.md     # One-time TestFlight release bootstrap (maintainers)
+│   ├── release-setup.md     # TestFlight bootstrap — per-machine + account setup
 │   ├── decisions/           # Architecture Decision Records
 │   ├── specs/               # Feature specifications
 │   ├── design/              # Design system, reference assets
@@ -167,8 +167,8 @@ pastura/
 ├── scripts/                 # Build, lint, release, content-blocklist helpers
 ├── fastlane/                # TestFlight release lanes (ADR-014); Gemfile / Gemfile.lock pin it
 ├── .github/                 # CI workflows and issue templates
-├── .claude/                 # Agent rules, skills, and hooks (see CLAUDE.md)
-├── Package.swift            # SwiftPM manifest for tools/harness (Package.resolved pins it)
+├── .claude/                 # Agent definitions, rules, skills, hook config
+├── Package.swift            # pastura-harness manifest (+ Package.resolved) — compiles app core for macOS
 └── build.gradle.kts         # Gradle root for shared/ (settings.gradle.kts, gradle/, gradlew*)
 ```
 
