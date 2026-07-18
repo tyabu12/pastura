@@ -38,13 +38,25 @@ into it. Both directions are asserted per-PR by the `kmp-gate-isolation` job in
 `.github/workflows/ci.yml` — ungated, because a gated guard would skip on
 exactly the PRs that only touch the manifest.
 
-**What that job does not cover**, stated so the guarantee is not read wider than
-it is: it greps the root `Package.swift`, which is the common cause for two of
-B′'s three lanes (the harness build and a dev `swift build`). The **iOS
-xcodebuild** lane is not checked by it — an XCFramework added to
-`Pastura.xcodeproj` would violate B′ without touching any manifest. The grep
-also strips whole-line comments only, so a trailing `// … .binaryTarget …`
-still trips it. Both gaps are tracked in #1171.
+The guard logic is `scripts/check-b-prime-isolation.sh`, exercised against
+synthetic perturbation fixtures by `scripts/tests/kmp-gate-isolation-test.sh`
+(the CI "Shell gate tests" job). It covers all three of B′'s lanes: the root
+manifest declares no `.binaryTarget` and does not reach into this package (the
+harness build and a dev `swift build`), the pbxproj references no
+`.xcframework`, and no `*.xcframework` is present under `Pastura/` — the last
+because the project uses `PBXFileSystemSynchronizedRootGroup`, so a framework
+dropped inside a synchronized directory joins the iOS target with no pbxproj
+entry to grep. Comment stripping on the manifest is quote-aware, so neither a
+comment mentioning the forbidden token nor a `//`-bearing URL string changes the
+verdict.
+
+**The one lane it cannot cover**, stated so the guarantee is not read wider than
+it is: an SPM **remote** package that itself declares a `.binaryTarget`.
+Resolving one leaves no `.xcframework` text anywhere in the project — only an
+`XCSwiftPackageProductDependency` and an entry in `Package.resolved` — so no
+grep can see it. The project currently resolves Yams, GRDB.swift and
+llama.swift; adding a binary-target-bearing dependency would violate B′
+silently. Check that by hand when adding an SPM dependency.
 
 **Do not consolidate this into the root manifest.** If a future change makes
 that look attractive, the constraint above is the reason it is not.

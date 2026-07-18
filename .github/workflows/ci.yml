@@ -1076,28 +1076,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      # Comment lines are stripped first: a comment EXPLAINING that the root
-      # deliberately has no binary target would otherwise fail this gate — a
-      # false positive found by perturbing the guard with exactly that shape.
-      - name: Root manifest declares no binary target
-        run: |
-          set -euo pipefail
-          if grep -vE '^[[:space:]]*(//|\*|/\*)' Package.swift | grep -n 'binaryTarget'; then
-            echo "::error file=Package.swift::ADR-023 decision B' violated: the root" \
-                 "manifest declares a .binaryTarget, so every per-PR 'swift build'" \
-                 "now requires an assembled XCFramework. Keep the gate consumer in" \
-                 "tools/kmp-gate-spike/Package.swift."
-            exit 1
-          fi
-
-      - name: Gate spike is not reachable from the root package graph
-        run: |
-          set -euo pipefail
-          if grep -vE '^[[:space:]]*(//|\*|/\*)' Package.swift | grep -n 'kmp-gate-spike'; then
-            echo "::error file=Package.swift::ADR-023 decision B' violated: the root" \
-                 "manifest references tools/kmp-gate-spike."
-            exit 1
-          fi
+      # Guard logic lives in the script, not inline here, so that
+      # scripts/tests/kmp-gate-isolation-test.sh can perturb it against
+      # synthetic fixtures — the guard's own success case proves nothing about
+      # whether it would fire. The script's header states what it covers and
+      # the one lane it cannot (an SPM remote package declaring a
+      # .binaryTarget leaves no greppable trace).
+      - name: Run B′ isolation guard
+        run: tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh
 
   # Job-only guard like the drift siblings above, and per-PR rather than
   # nightly on purpose. The check is pure bash/awk/diff over two tracked
