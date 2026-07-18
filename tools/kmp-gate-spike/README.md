@@ -106,6 +106,12 @@ one; the guard exists to make an accidental one-sided edit loud.
 deliberately not measured here, and both carve-outs are recorded on #501 and in
 the ADR rather than left implicit:
 
+```bash
+# From the repository root — (i)/(iii) resolve source paths against the cwd
+# and error out rather than reporting a zero if run from elsewhere.
+swift run --package-path tools/kmp-gate-spike kmp-gate-bench
+```
+
 | Measurement | Status |
 |---|---|
 | (i) event-boundary ergonomics, incl. the threading clause | measured here |
