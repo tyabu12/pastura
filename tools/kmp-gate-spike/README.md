@@ -133,7 +133,7 @@ swift run --package-path tools/kmp-gate-spike kmp-gate-bench
 | Measurement | Status |
 |---|---|
 | (i) event-boundary ergonomics, incl. the threading clause | measured here — counted from source; threading clause via the Pattern 6 probe |
-| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — ≈20 µs/chunk (17.8–25.4), ≈50 µs round trip (47.8–63.1); one macOS host, spreads not bounds |
+| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — ≈20 µs/chunk, ≈50 µs round trip; one macOS host, **`debug` XCFramework** (the staging default), spreads not bounds |
 | (iii) K/N shim-budget on the Engine-consuming surface | measured here — 24 declarations, test-side shims included |
 | (iv) SKIE-vs-vanilla | **documented evaluation only** — no SKIE integration |
 | (v) kotlinx.serialization round-trip parity on `TurnOutput`/`OutputSchema` | **one-sided**, via checked-in golden JSON (see below) |
