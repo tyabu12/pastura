@@ -95,13 +95,20 @@ run_case() {
         return
       fi
       case "$out" in
-        *"decision B' violated"*) echo "ok [$label]" ;;
+        *"decision B' violated"*) ;;
         *)
           echo "FAIL [$label]: exit 1 without a violation message — wrong cause?" >&2
           echo "  guard output: $out" >&2
           fail=1
+          return
           ;;
       esac
+      # NOTE: annotation-path shape is NOT asserted here. Every fixture above
+      # lives under `$TMP`, i.e. outside the repository, so `annotate_path`
+      # returns it verbatim and its relativizing branch is never taken — an
+      # assertion in this loop would exempt every case it saw and pass no
+      # matter what. The in-repo case below is what pins it.
+      echo "ok [$label]"
       ;;
     no)
       if [ "$rc" -ne 0 ]; then
@@ -294,6 +301,63 @@ out="$("$GUARD" --bogus-flag 2>&1)"; rc=$?
 set -e
 if [ "$rc" -eq 2 ]; then echo "ok [unknown argument is exit 2]"; else
   echo "FAIL [unknown argument]: expected exit 2, got $rc — $out" >&2; fail=1
+fi
+
+# ------------------------------------------------- annotation anchoring --
+# GitHub resolves `::error file=` RELATIVE TO THE REPOSITORY ROOT; an absolute
+# path renders as a job-level message with no line linkage, while still LOOKING
+# like a normal annotation in the log. So it must be asserted, and it can only
+# be asserted on a manifest that actually lives inside the repo — every other
+# fixture here is under $TMP, where the relativizing branch is never taken.
+#
+# The fixture goes in `Pastura/DerivedData/` because that path is gitignored
+# (`git check-ignore` confirms), so it is invisible to git and cannot disturb
+# the shared checkout the sibling shell tests run against. Removed immediately.
+anno_dir="$REPO_ROOT/Pastura/DerivedData/.kmp-gate-anno-fixture"
+mkdir -p "$anno_dir"
+cp "$CLEAN_MANIFEST" "$anno_dir/Package.swift"
+echo '    .binaryTarget(name: "X", path: "X.xcframework"),' >>"$anno_dir/Package.swift"
+set +e
+out="$("$GUARD" --manifest "$anno_dir/Package.swift" --pbxproj "$CLEAN_PBXPROJ" \
+  --app-dir "$CLEAN_APPDIR" 2>&1)"; rc=$?
+set -e
+rm -rf "$anno_dir"
+expected_rel="Pastura/DerivedData/.kmp-gate-anno-fixture/Package.swift"
+case "$rc:$out" in
+  1:*"::error file=$expected_rel,line="*)
+    echo "ok [in-repo annotation is repo-relative with a line number]" ;;
+  *)
+    echo "FAIL [annotation anchoring]: expected exit 1 and" >&2
+    echo "  '::error file=$expected_rel,line=<n>', got exit $rc" >&2
+    echo "  guard output: $out" >&2
+    fail=1
+    ;;
+esac
+
+# A stripper that breaks for an unrelated reason must NOT report "could not
+# parse" — that message means "this manifest has a shape I don't model", and
+# conflating it with "I am broken" would make the two indistinguishable in CI.
+# The only guard path with no other coverage.
+broken="$TMP/broken-guard.sh"
+sed 's/BEGIN { in_block = 0; lost = 0 }/BEGIN { in_block = 0; lost = 0; @@syntax@@ }/' \
+  "$GUARD" >"$broken"
+chmod +x "$broken"
+if ! grep -q '@@syntax@@' "$broken"; then
+  echo "FAIL [broken stripper]: mutation did not apply — the anchor moved" >&2
+  fail=1
+else
+  set +e
+  out="$("$broken" --manifest "$CLEAN_MANIFEST" --pbxproj "$CLEAN_PBXPROJ" \
+    --app-dir "$CLEAN_APPDIR" 2>&1)"; rc=$?
+  set -e
+  case "$rc:$out" in
+    4:*"failed unexpectedly"*) echo "ok [broken stripper is exit 4, not exit 3]" ;;
+    *)
+      echo "FAIL [broken stripper]: expected exit 4 + 'failed unexpectedly', got exit $rc" >&2
+      echo "  guard output: $out" >&2
+      fail=1
+      ;;
+  esac
 fi
 
 # ------------------------------------------------------------- the real repo --

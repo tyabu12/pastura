@@ -143,6 +143,22 @@ strip_swift_comments() {
   ' "$1"
 }
 
+# GitHub resolves an annotation's `file=` RELATIVE TO THE REPOSITORY ROOT. An
+# absolute path matches no tracked file, so the annotation silently degrades to
+# a job-level message with no line linkage in the Files-changed view — the
+# annotation still renders, which is why this is easy to ship broken. Every
+# path here is built from `$REPO_ROOT`, so strip that prefix.
+#
+# Falls back to the raw path when the prefix does not strip: that is the
+# perturbation test invoking the guard with `mktemp` paths, where the output is
+# read as plain text anyway.
+annotate_path() {
+  case "$1" in
+    "$REPO_ROOT"/*) printf '%s' "${1#"$REPO_ROOT"/}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
 # Strip once into a file rather than piping into grep.
 #
 # `if strip_swift_comments … | grep -n …` fails OPEN under `set -o pipefail`:
@@ -162,34 +178,52 @@ strip_rc=0
 strip_swift_comments "$MANIFEST" >"$STRIPPED" || strip_rc=$?
 
 if [ "$strip_rc" -eq 3 ]; then
-  echo "::error file=$MANIFEST::ADR-023 decision B' guard could not parse the" \
-       "manifest (unterminated block comment, or a multi-line/raw string" \
-       "literal the scanner does not model). Failing closed rather than" \
-       "reporting a clean result it cannot vouch for."
+  echo "::error file=$(annotate_path "$MANIFEST")::ADR-023 decision B' guard" \
+       "could not parse the manifest: it contains an unterminated block comment," \
+       "or a MULTI-LINE string literal (\"\"\") the scanner does not model." \
+       "(A single-line raw string such as #\"…\"# is handled and is not the" \
+       "cause.) Failing closed rather than reporting a clean result it cannot" \
+       "vouch for. To unblock: rewrite the literal as single-line strings, or" \
+       "teach strip_swift_comments in" \
+       "tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh to model it and" \
+       "add a case to scripts/tests/kmp-gate-isolation-test.sh."
   exit 3
 elif [ "$strip_rc" -ne 0 ]; then
-  echo "::error file=$MANIFEST::ADR-023 decision B' guard's comment stripper" \
-       "failed unexpectedly (exit $strip_rc) — this is a bug in the guard, not" \
-       "a verdict on the manifest."
+  echo "::error file=$(annotate_path "$MANIFEST")::ADR-023 decision B' guard's" \
+       "comment stripper failed unexpectedly (exit $strip_rc) — this is a bug in" \
+       "the guard, not a verdict on the manifest. Reproduce with 'bash -x" \
+       "tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh' and report it" \
+       "against #1171."
   exit 4
 fi
 
+# fail <path> <line-or-empty> <message>
 fail() {
-  # `::error file=…::` renders as a GitHub annotation on the real run; harmless
-  # plain text when the perturbation test invokes this with temp paths.
-  echo "::error file=$1::ADR-023 decision B' violated: $2"
+  local loc="file=$(annotate_path "$1")"
+  [ -n "$2" ] && loc="$loc,line=$2"
+  echo "::error $loc::ADR-023 decision B' violated: $3"
   exit 1
 }
 
 # (1) + (2) — the two manifest-borne lanes.
-if grep -n 'binaryTarget' "$STRIPPED"; then
-  fail "$MANIFEST" "the root manifest declares a .binaryTarget, so every per-PR \
-'swift build' now requires an assembled XCFramework. Keep the gate consumer in \
-tools/kmp-gate-spike/Package.swift."
+#
+# The hits are captured rather than piped so the first line number can go into
+# the annotation. The stripper emits exactly one line per input line, so
+# `$STRIPPED`'s numbering is the manifest's.
+hits="$(grep -n 'binaryTarget' "$STRIPPED" || true)"
+if [ -n "$hits" ]; then
+  echo "$hits"
+  fail "$MANIFEST" "${hits%%:*}" "the root manifest declares a .binaryTarget, so \
+every per-PR 'swift build' now requires an assembled XCFramework. Keep the gate \
+consumer in tools/kmp-gate-spike/Package.swift."
 fi
 
-if grep -n 'kmp-gate-spike' "$STRIPPED"; then
-  fail "$MANIFEST" "the root manifest references tools/kmp-gate-spike."
+hits="$(grep -n 'kmp-gate-spike' "$STRIPPED" || true)"
+if [ -n "$hits" ]; then
+  echo "$hits"
+  fail "$MANIFEST" "${hits%%:*}" "the root manifest references \
+tools/kmp-gate-spike. Depend on it from nowhere — the gate spike is consumed \
+only by its own nested manifest."
 fi
 
 # (3) — the iOS xcodebuild lane, explicit-reference form.
@@ -209,9 +243,13 @@ fi
 # and acted on exactly this text.
 # `-i`: a framework named `Foo.XCFramework` on disk would otherwise slip past,
 # and the extra matches a case-fold admits are all fail-closed.
-if grep -in 'xcframework' "$PBXPROJ"; then
-  fail "$PBXPROJ" "the Xcode project references an .xcframework, so the iOS \
-xcodebuild lane now requires an assembled XCFramework."
+hits="$(grep -in 'xcframework' "$PBXPROJ" || true)"
+if [ -n "$hits" ]; then
+  echo "$hits"
+  fail "$PBXPROJ" "${hits%%:*}" "the Xcode project references an .xcframework, \
+so the iOS xcodebuild lane now requires an assembled XCFramework. Remove the \
+reference, or if it is genuinely needed, reopen ADR-023 decision B' rather than \
+relaxing this gate."
 fi
 
 # (4) — the iOS xcodebuild lane, synchronized-group form.
@@ -237,9 +275,14 @@ if git -C "$APP_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   TRACKED_XCF="$(git -C "$APP_DIR" ls-files -- '*.xcframework' '*.xcframework/*')"
   TRACKED_XCF="${TRACKED_XCF%%$'\n'*}"
   if [ -n "$TRACKED_XCF" ]; then
-    fail "$APP_DIR/$TRACKED_XCF" "a tracked .xcframework is present under $APP_DIR. \
-The project uses PBXFileSystemSynchronizedRootGroup, so this is swept into the \
-target without any pbxproj reference."
+    # `ls-files` already prints paths relative to APP_DIR, so join them through
+    # the repo-relative form of APP_DIR rather than its absolute one — otherwise
+    # `annotate_path` cannot strip the prefix and the annotation floats.
+    fail "$(annotate_path "$APP_DIR")/$TRACKED_XCF" "" \
+      "a tracked .xcframework is committed under $(annotate_path "$APP_DIR"). The \
+project uses PBXFileSystemSynchronizedRootGroup, so this is swept into the target \
+without any pbxproj reference. Untrack it (git rm --cached) and keep frameworks \
+out of the synchronized directories."
   fi
 else
   echo "warning: $APP_DIR is not inside a git work tree — skipping the" \
