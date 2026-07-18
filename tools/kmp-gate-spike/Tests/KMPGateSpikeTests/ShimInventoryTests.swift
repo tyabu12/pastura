@@ -68,23 +68,31 @@ struct ShimInventoryTests {
   private static let nonisolatedLine =
     "nonisolated" + " public enum ShimInventoryError: Error {"
 
-  /// The fixtures above must stay fragmented in source.
+  /// No line of this file's own code may classify as a shim.
   ///
-  /// Pins the invariant directly rather than through a hit count: an exact
-  /// count on the two unpinned buckets would be a tripwire on every unrelated
-  /// `@unchecked Sendable` added to this package, whereas the hazard is
-  /// specifically "a fixture got collapsed back into one literal".
-  @Test("fixture strings are not themselves counted as shims")
+  /// Asserted with the scanner's own predicate rather than by looking for the
+  /// fixture strings: a substring check only catches a fixture re-joined into
+  /// ONE literal, while a *partial* rejoin — `"… @retroactive @" + "unchecked
+  /// Sendable {}"` — leaves the joined string absent from source and still
+  /// matches rule 1, so the fixture would be counted as a real vouch with the
+  /// test green. `classify` is the thing that decides, so `classify` is what
+  /// this asks.
+  ///
+  /// Preferred over pinning per-bucket hit counts: an exact count would be a
+  /// tripwire on every unrelated `@unchecked Sendable` added to this package,
+  /// while the hazard is specifically "this file started counting itself".
+  @Test("no line of this test file is counted as a shim")
   func fixturesAreNotCountedAsShims() throws {
     let source = try String(contentsOfFile: #filePath, encoding: .utf8)
-    let code = source.split(separator: "\n")
-      .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
-      .joined(separator: "\n")
 
-    for fixture in [Self.retroactiveLine, Self.uncheckedLine, Self.nonisolatedLine] {
+    for (index, line) in source.split(separator: "\n", omittingEmptySubsequences: false)
+      .enumerated() {
+      // Same predicate `scan` applies before classifying — comment lines are
+      // exempt, which is why the prose here may name the patterns freely.
+      guard !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") else { continue }
       #expect(
-        !code.contains(fixture),
-        "fixture appears verbatim in code and will be counted as a real shim: \(fixture)")
+        ShimInventory.classify(String(line)) == nil,
+        "line \(index + 1) of this file classifies as a shim: \(line)")
     }
   }
 

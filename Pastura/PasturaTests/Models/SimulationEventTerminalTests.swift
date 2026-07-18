@@ -4,14 +4,21 @@ import Testing
 
 /// Tests for `SimulationEvent.isTerminal` (#1171).
 ///
-/// The no-default `switch` behind the property forces a new case to make *a*
-/// terminality decision, but not the *right* one: dropping a genuinely terminal
-/// case into the `false` list compiles clean and silently reproduces the
-/// never-finishing stream the property exists to prevent. These pins are the
-/// half the compiler cannot cover.
+/// These pin the terminality of the cases that exist **today** — that
+/// `.simulationCompleted` and `.error` stay terminal, and that their nearest
+/// neighbours stay non-terminal.
 ///
-/// Mirrored on the Kotlin side by `SimulationEventTerminalTests.kt` — the two
-/// Models declarations must agree, and nothing else asserts that they do.
+/// What they deliberately do NOT cover, since it would be easy to read them as
+/// covering it: a *newly added* case mis-assigned to the `false` arm. The
+/// no-default `switch` forces a new case to make *a* decision, not the *right*
+/// one, and a new case appears in none of the sample lists below, so nothing
+/// here turns red either. Neither gate catches that; only review does. (Swift
+/// enums with associated values cannot be `CaseIterable`, so there is no cheap
+/// machinery to close it.)
+///
+/// `SimulationEventTerminalTests.kt` declares the same two terminal cases on
+/// the Kotlin mirror. That agreement is maintained by hand — no gate compares
+/// the two files.
 @Suite(.timeLimit(.minutes(1)))
 struct SimulationEventTerminalTests {
   @Test func simulationCompletedIsTerminal() {
@@ -36,9 +43,11 @@ struct SimulationEventTerminalTests {
     #expect(!SimulationEvent.roundCheckpoint(state: .init(currentRound: 1)).isTerminal)
   }
 
-  /// Exactly two cases are terminal. A future case added to the `true` arm
-  /// widens stream termination for every consumer, so it should be a
-  /// deliberate edit here rather than an incidental one.
+  /// Of these ten sampled cases, exactly the two known terminals are terminal.
+  ///
+  /// `sample` is a fixed list, so this does not oblige a visit when a new case
+  /// is added — it pins that the eight non-terminal neighbours stay that way,
+  /// which is the direction a careless `true`-arm edit would break.
   @Test func onlyTwoCasesAreTerminal() {
     let sample: [SimulationEvent] = [
       .roundStarted(round: 1, totalRounds: 1),

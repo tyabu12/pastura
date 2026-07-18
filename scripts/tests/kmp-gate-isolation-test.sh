@@ -117,9 +117,16 @@ run_case() {
         echo "FAIL [$label]: expected fail-closed parse error (exit 3), got exit $rc" >&2
         echo "  guard output: $out" >&2
         fail=1
-      else
-        echo "ok [$label]"
+        return
       fi
+      case "$out" in
+        *"could not parse"*) echo "ok [$label]" ;;
+        *)
+          echo "FAIL [$label]: exit 3 without a parse-failure message — wrong cause?" >&2
+          echo "  guard output: $out" >&2
+          fail=1
+          ;;
+      esac
       ;;
     *)
       echo "FAIL [$label]: unknown expectation '$expect'" >&2
@@ -174,11 +181,16 @@ echo '    .package(url: "https://example.com/pkg"), .binaryTarget(name: "Leak", 
 run_case yes "//-bearing string literal preceding .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
 
 # ------------------------------------------------------- fail-closed parses --
-# The stripper models single-line string literals only. A Swift multi-line
-# (`"""`) literal resets its quote state at each line boundary, so a `/*` inside
-# one is read as a real block-comment opener and everything after it — including
-# a genuine `.binaryTarget` further down — is swallowed. That is a fail-OPEN, so
-# the scanner must instead detect that it lost the thread and refuse to vouch.
+# The stripper models single-line string literals only. Two independent
+# detectors close the resulting fail-open, and each needs its OWN case: an
+# unclosed block comment at EOF (`in_block`), and a line ending inside a string
+# literal (`lost`). Without the third case below, `lost` could be deleted
+# outright and this suite would stay green — verified by mutation.
+
+# The motivating shape: a `"""` block whose interior contains `/*`. The stripper
+# reads that `/*` as a real block-comment opener and swallows every later line,
+# including the genuine `.binaryTarget` below it — a fail-OPEN. Caught by
+# `in_block` (the `*/` never arrives), not by `lost`.
 m="$TMP/e-multiline-string.swift"; cp "$CLEAN_MANIFEST" "$m"
 cat >>"$m" <<'SWIFT'
 let doc = """
@@ -188,10 +200,18 @@ let leak = Package(targets: [ .binaryTarget(name: "X", path: "X.xcframework") ])
 SWIFT
 run_case unparseable "multi-line string literal containing /*" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
 
-# An unterminated block comment is the same class, reached the obvious way.
+# An unterminated block comment reaches `in_block` the obvious way.
 m="$TMP/e-unterminated-block.swift"; cp "$CLEAN_MANIFEST" "$m"
 printf '/* opened and never closed\n' >>"$m"
 run_case unparseable "unterminated block comment" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+
+# The `lost` negative control: a well-formed `"""` block with no `/*` inside, so
+# `in_block` stays 0 and only the end-of-line-inside-a-string detector can fire.
+# A `"""` opener is three quotes, so the line ends with the scanner mid-string.
+m="$TMP/e-multiline-balanced.swift"; cp "$CLEAN_MANIFEST" "$m"
+printf 'let doc = """\nplain multi-line, no block-comment opener\n"""\n' >>"$m"
+run_case unparseable "multi-line string with no /* inside (lost-flag control)" \
+  "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
 
 m="$TMP/p-spike-reference.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .target(name: "Consumer", path: "tools/kmp-gate-spike/Sources/KMPGateSpike"),' >>"$m"

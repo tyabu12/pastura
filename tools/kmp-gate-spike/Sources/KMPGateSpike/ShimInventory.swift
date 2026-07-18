@@ -130,7 +130,7 @@ public struct ShimInventory: Sendable {
   /// Assigns a line to at most one category, most specific first.
   ///
   /// `internal` rather than `private` so `ShimInventoryTests` can pin the
-  /// precedence directly. Going through `scan(roots:)` cannot reach it without
+  /// precedence directly. Going through `scan(roots:)` cannot cleanly reach it without
   /// fabricating one file per ``excluded`` entry: `scan` throws
   /// ``ShimInventoryError/staleExclusion(_:)`` unless every name in that list
   /// appears in the scanned roots, so a fixture directory holding only the

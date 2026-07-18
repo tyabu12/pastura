@@ -53,6 +53,13 @@ output (`Pastura/DerivedData/`, `.build/artifacts/`) holds a vendored
 `llama.xcframework` on any machine that has built, and a worktree walk would go
 red locally while staying green on a fresh CI checkout.
 
+The stripper models **single-line** string literals only. A manifest shape it
+cannot follow — a `"""` or raw literal, or an unterminated block comment —
+**fails the gate (exit 3) rather than passing it**, because a scanner that has
+lost its place cannot tell a clean manifest from a leaking one. If you add such
+a literal to the root `Package.swift` and this job goes red with "could not
+parse", that is the guard declining to vouch, not a detected violation.
+
 **What B′ is protecting**, since the invariant as worded reads wider than it is:
 the cost is *assembling* the KMP XCFramework (~6m32s cold), not depending on any
 binary artifact. `llama.swift` already vendors a prebuilt `llama.xcframework`

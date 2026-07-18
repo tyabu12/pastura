@@ -1062,9 +1062,15 @@ jobs:
 
   # ADR-023 §6 decision B′: "No per-PR lane acquires an XCFramework dependency
   # — not the iOS xcodebuild, not the root Package.swift harness build, not a
-  # dev `swift build`." The root manifest is the one that would leak it, since
+  # dev `swift build`." The root manifest is the commonest leak, since
   # `harness-build` runs a bare `swift build` and that builds every target the
   # root declares. The gate spike therefore lives in its own nested manifest.
+  #
+  # The guard covers the iOS lane too — the pbxproj, and a tracked
+  # `.xcframework` under `Pastura/` that the project's synchronized root groups
+  # would sweep in without any pbxproj entry. Its header states the one lane it
+  # cannot see and what B′ is really protecting; read it before widening or
+  # trusting the scope.
   #
   # Ungated (ubuntu, seconds): a gated guard would skip on exactly the PRs that
   # only touch the manifest.

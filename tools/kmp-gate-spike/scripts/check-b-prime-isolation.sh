@@ -214,8 +214,9 @@ fi
 # after any `swift build`. Neither is in the repository, so a `find` here is
 # green on a fresh CI checkout and red on every developer machine — the worst
 # split, since CI would never show it. `.claude/rules/ci-workflows.md`
-# § "Rename / namespace-sweep completion gate" makes the same call for the
-# same reason.
+# § "Rename / namespace-sweep completion gate" reaches the same tracked-only
+# call for an adjacent reason — there it is the backslash-escaped-form blind
+# spot and `rg` hanging on DerivedData, not this CI-green/local-red split.
 if git -C "$APP_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   # No `| head -1`: git takes SIGPIPE when head closes early, and under
   # `set -o pipefail` that aborts the script with a bare 141 — red with no
