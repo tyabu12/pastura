@@ -101,7 +101,10 @@ relative to the package root and rejects one that escapes it, so
 
 `Sources/KMPGateSpike/SuspendController.swift` is a **verbatim copy** of
 `Pastura/Pastura/LLM/SuspendController.swift`, not a re-implementation, and the
-nightly workflow fails if the two diverge.
+`suspendcontroller-drift` job in `.github/workflows/ci.yml` fails **per-PR** if
+the two diverge. It is a plain bash/awk/diff comparison of two tracked files, so
+it needs neither the XCFramework nor a macOS runner — which is why it does not
+live with the rest of this package's checks in `kmp-nightly.yml` (#1171).
 
 The same SwiftPM path-escape rule that forces the staged framework also forbids
 referencing the real file from this package. A hand-written stand-in was

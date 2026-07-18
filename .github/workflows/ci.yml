@@ -1099,6 +1099,33 @@ jobs:
             exit 1
           fi
 
+  # Job-only guard like the drift siblings above, and per-PR rather than
+  # nightly on purpose. The check is pure bash/awk/diff over two tracked
+  # files (~1s, no build dependency), so it never needed the nightly's
+  # XCFramework rung. Leaving it there had a cost beyond latency: the
+  # nightly's `failure()` issue-filer reports a red run as "a native-path
+  # regression the per-PR job could not catch", which a verbatim-copy
+  # drift is not — a one-sided edit went green on the PR and then
+  # mis-attributed itself overnight.
+  #
+  # Coverage does not regress in the move: ci.yml's triggers (push→main /
+  # pull_request / schedule / workflow_dispatch) are a superset of the
+  # nightly's (schedule / workflow_dispatch).
+  suspendcontroller-drift:
+    name: SuspendController verbatim-copy drift guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # A drifted copy means the gate spike's boundary suite exercises a
+      # different object than the app ships — which silently invalidates the
+      # evidence for ADR-023 §5.2 invariant 3, since that invariant is
+      # defended by the copy being byte-identical rather than by a test.
+      - name: Run SuspendController drift guard
+        run: tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh
+
   # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
   # CSS mirror consumed by the claude.ai Design System project) faithful to
   # DesignTokens*.swift, and validates @dsCard markers. Pure stdlib.
