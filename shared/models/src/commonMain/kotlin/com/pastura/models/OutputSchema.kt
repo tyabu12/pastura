@@ -124,15 +124,22 @@ public data class OutputSchema(
      * "one of these literal string options". Future scenario shapes should prefer
      * an adapter to JSON Schema over extending this sealed class.
      *
-     * **Wire shape divergence from Swift:**
-     * Swift's `OutputSchema.Kind` is `enum Kind: Codable` with auto-synthesized
-     * Codable. The auto-synthesized wire shapes are approximately:
-     * - `.string` → `{"string":{}}` (empty-object form for unit case)
-     * - `.enumeration(["a","b"])` → `{"enumeration":["a","b"]}` (single-assoc-value form)
+     * **Divergence from Swift — SEMANTIC, not merely a wire shape.**
+     * Swift's `OutputSchema.Kind` (`Pastura/Pastura/Models/OutputSchema.swift`)
+     * has exactly two cases, and the second carries **no payload**:
+     * - `case string`
+     * - `case choice` — a marker only
      *
-     * The Kotlin port uses native kotlinx sealed-class polymorphism:
-     * - [StringKind] → `{"type":"string"}` (via `@SerialName`)
-     * - [Enumeration] → `{"type":"enumeration","options":["a","b"]}`
+     * The absence of the payload is deliberate and documented at that
+     * declaration: enumerating choice options into the GBNF grammar crashed
+     * llama.cpp's sampler on CJK / dynamic option values (#597, #599), so the
+     * grammar constrains JSON *structure* only and the options are enforced at
+     * runtime by `ChooseHandler` instead.
+     *
+     * The Kotlin port's [Enumeration] therefore carries a `List<String>` that
+     * has no counterpart on the Swift side. An earlier version of this KDoc
+     * described a Swift `.enumeration(["a","b"])` case that does not exist and
+     * concluded "only the JSON tagging differs" — it does not.
      *
      * **This divergence is intentional and safe for the spike:** [OutputSchema] is
      * NOT JSON-roundtripped in production Pastura flows — it is constructed in-memory
@@ -141,10 +148,11 @@ public data class OutputSchema(
      * via JSON cross-language transfer. The `Codable` conformance in Swift exists for
      * testability + `Sendable`+`Equatable` consistency, NOT as a wire-shape contract.
      *
-     * If PR-B canonicalizer needs cross-language equivalence here, a custom
-     * `KSerializer` can be added to align Kotlin's wire shape with Swift's. The
-     * cross-language semantic invariants hold: a [StringKind] case and an
-     * [Enumeration] case carrying a `List<String>`; only the JSON tagging differs.
+     * If PR-B's canonicalizer ever needs cross-language equivalence here, a
+     * custom `KSerializer` is NOT sufficient on its own — aligning the wire
+     * shape would still leave [Enumeration]'s options with nothing to map to.
+     * Either Kotlin drops the payload to match `case choice`, or Swift gains
+     * one and the #597 sampler constraint is revisited first.
      */
     @Serializable
     public sealed class Kind {
