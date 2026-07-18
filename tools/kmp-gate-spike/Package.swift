@@ -22,13 +22,14 @@ import PackageDescription
 //
 // The XCFramework is a STAGED artifact — see README.md § "Assemble first".
 
-/// Mirrors the **app target's** concurrency regime, not the root harness
-/// package's. The two differ, and the difference is exactly what this gate has
-/// to reproduce:
+/// Mirrors the **app target's** concurrency regime, which this gate has to
+/// reproduce independently — it compiles the K/N boundary adapters, which the
+/// root harness manifest does not build at all:
 ///
 /// - `Pastura.xcodeproj` sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` **and**
 ///   `SWIFT_APPROACHABLE_CONCURRENCY = YES`.
-/// - The root `Package.swift` mirrors only the first for `PasturaCore`.
+/// - The root `Package.swift` mirrors both for `PasturaCore` as of #1169; before
+///   that it carried only the first, and the harness lane was Pattern-6-blind.
 ///
 /// The second is what enables `NonisolatedNonsendingByDefault` (SE-0461), under
 /// which a `nonisolated async` function runs on its *caller's* executor. That is
