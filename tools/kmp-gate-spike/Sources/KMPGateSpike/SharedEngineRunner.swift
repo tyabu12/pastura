@@ -72,11 +72,12 @@ nonisolated public final class SharedEngineRunner: Sendable {
       )
 
       // Installed before `engine.run` for the same reason both boxes latch.
-      // The reachable early path is not a consumer breaking out — `run` has not
-      // returned yet, so no consumer holds the stream — it is `onEvent` firing
-      // from the Kotlin run loop concurrently with the lines below and hitting
-      // `continuation.finish()` on an immediate terminal. That reaches this
-      // handler while both boxes are still empty.
+      // Inside *this* window — before `run` returns — a consumer cannot be the
+      // trigger, because none holds the stream yet; what reaches the handler
+      // here is `onEvent` firing from the Kotlin run loop concurrently with the
+      // lines below and hitting `continuation.finish()` on an immediate
+      // terminal, while both boxes are still empty. (Consumer termination is
+      // the dominant trigger *after* `run` returns — see `RelayTaskBox`.)
       continuation.onTermination = { _ in
         // Fires on normal finish AND on early consumer termination. `cancel()`
         // is idempotent, so the normal path costs a no-op rather than needing
@@ -176,16 +177,22 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
 }
 
 /// Tracks the in-flight relay task so stream termination can cancel a parked
-/// one instead of leaking it.
-/// Tracks the in-flight relay task so stream termination can cancel a parked
 /// one instead of leaking it — and **remembers that termination already
-/// happened**, for the same reason `RunHandleBox` latches.
+/// happened**, so a relay armed after that point is cancelled on arrival.
 ///
-/// Without the flag this box has the identical pre-`store` window: the run loop
-/// can emit a terminal (firing `cancelPending()` on an empty box) and only
-/// afterwards take a `.suspended`, which installs a relay task that nothing is
-/// left to cancel. That task then awaits a resume that will never come — a
-/// permanently parked `Task`, one box over from the bug the handle latch fixes.
+/// The flag is not about the pre-`store` window. The reachable path is
+/// **cooperative cancellation**: a consumer breaks out of its `for await`,
+/// `onTermination` fires `cancelPending()` on a box that holds nothing yet, and
+/// `RunHandle.cancel()` only *requests* the Kotlin job stop — so a backend call
+/// already in flight can still deliver `onTerminal(.suspended)` afterwards.
+/// Without the flag that terminal installs a relay task awaiting a resume that
+/// will never come, and nothing is left to cancel it: a permanently parked
+/// `Task`. `BoundaryContractTests` exercises exactly this shape whenever it
+/// calls `consumer.cancel()` mid-run.
+///
+/// (What cannot happen is the run loop emitting a terminal and *then* taking a
+/// `.suspended` — `onEvent` runs synchronously on the loop's own thread and the
+/// terminal is its last event.)
 nonisolated private final class RelayTaskBox: @unchecked Sendable {
   private struct State {
     var task: Task<Void, Never>?

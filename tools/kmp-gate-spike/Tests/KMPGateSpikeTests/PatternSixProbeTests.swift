@@ -158,11 +158,17 @@ struct PatternSixProbeTests {
       observations.onMainThread == 0,
       "\(observations.onMainThread)/\(observations.total) backend callbacks ran on the MainActor")
 
-    // Liveness, as a fraction of this machine's own idle rate. A real Pattern 6
-    // freeze drives the ratio to ~0 (test 1 establishes that direction), so a
-    // tenth of the control rate is far below any healthy run yet far above a
-    // frozen one. Contention scales both measurements, which is exactly the
-    // property an absolute floor lacked.
+    // Liveness, as a fraction of this machine's own idle rate. Contention
+    // scales both measurements, which is exactly the property an absolute floor
+    // lacked.
+    //
+    // Scope, stated rather than implied: at `/10` this catches a **total**
+    // freeze — the Pattern 6 shape, where a synchronous blocking body holds the
+    // MainActor for the whole call, driving the ratio to ~0 (test 1 pins that
+    // direction). A run stalled for up to ~90% of its duration would still
+    // pass. The threshold is loose on purpose: a healthy run measures ~1x the
+    // control, so the margin absorbs CI contention, and this suite has already
+    // been flaky once from a bound that was too tight for the machine.
     #expect(
       runRate > controlRate / 10,
       """
