@@ -50,8 +50,8 @@ resource the whole brush-up family is built to protect:
    reach the digest.
 
 This inherits the brush-up family's shared **Output Contract** (canonical text:
-[`.claude/skills/consistency-audit/SKILL.md`](../../../.claude/skills/consistency-audit/SKILL.md)
-§ "Output Contract"). The binding rules for a digest-only generator are **rule 2**
+[`.claude/rules/automation-output-contract.md`](../../../.claude/rules/automation-output-contract.md)).
+The binding rules for a digest-only generator are **rule 2**
 (judgment output carries confidence + counter-evidence) and **rule 5**
 (manual-first: eyeball the output before trusting it).
 

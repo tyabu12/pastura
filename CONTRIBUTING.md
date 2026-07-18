@@ -162,6 +162,30 @@ you have Claude Code installed.
   and the Xcode project file is concurrent-edit-hostile.
 - Other skills live in `.claude/skills/`.
 
+### The claude-kit plugin
+
+Some of that tooling is not in this repo. `.claude/settings.json`
+declares a marketplace and enables the
+[`claude-kit`](https://github.com/tyabu12/claude-kit) plugin, which
+supplies the `critic` and `implementer` agents and the
+`/claude-kit:write-adr` skill. Manage it with `/plugin` — that is also
+how you update an already-installed copy.
+
+Without it:
+
+- `/orchestrate` **stops at Step 1b** — its plan-critique gate requires
+  `claude-kit:critic` and refuses to skip silently.
+- `/claude-kit:write-adr` does not resolve, and this repo keeps no local
+  copy — see [`.claude/rules/adr-writing.md`](.claude/rules/adr-writing.md).
+
+The plugin is versioned independently of this repo, so an installed copy
+can lag the kit. If a `claude-kit:*` skill or agent is missing rather
+than misbehaving, update the plugin before investigating further.
+
+Several `.claude/rules/*.md` files are one-way mirrors of kit rules; each
+says so in its own header. Fix those upstream in claude-kit, never in the
+mirror.
+
 If you don't use Claude Code, ignore this section. The fork, branch,
 PR flow above is the canonical contributor path.
 

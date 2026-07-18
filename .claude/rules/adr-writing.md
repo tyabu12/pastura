@@ -5,9 +5,11 @@ paths:
 
 # ADR Writing Concepts
 
-ADRs are dense with fact-claims and decisions that downstream PRs and future ADRs inherit. Two concepts to preserve when drafting.
+ADRs are dense with fact-claims and decisions that downstream PRs and future ADRs inherit. The concepts below are what to preserve when drafting.
 
-For new ADRs (NNN-numbered files), prefer the `/write-adr` skill (`.claude/skills/write-adr/SKILL.md`) — it handles auto-numbering, structure scaffold, and the review loop. The two concepts below apply at draft time inside the skill AND when amending existing ADRs (the skill's scope is new-file creation only).
+For new ADRs (NNN-numbered files), prefer the `/claude-kit:write-adr` skill (from the `claude-kit@claude-kit` plugin, wired in `.claude/settings.json`) — it handles numbering, structure discovery, and the review loop. Pastura keeps no local copy: the kit skill derives the ADR format from this repo's own most recent ADRs rather than hardcoding one, so the house style tracks reality instead of drifting from it. The concepts below apply at draft time inside the skill AND when amending existing ADRs (the skill's scope is new-file creation only).
+
+This file is the skill's `ADR_RULES_PATH` — it discovers `.claude/rules/adr*.md` and passes the path into both reviewer prompts, and what is written here takes precedence over anything the skill infers from a template ADR. Project facts the skill cannot re-derive therefore belong in § 4 below.
 
 ## 1. Verify fact-claims at write time, not at review time
 
@@ -77,3 +79,21 @@ Two recurring variants beyond plain arithmetic:
   framing far beyond the renamed heading, and one decision can fork a single
   term into two axes needing separate replacement vocab — full-doc grep the old
   plan's vocabulary, not just the section you renamed.
+
+## 4. Numbering facts this repo carries
+
+Kept deliberately short: `/claude-kit:write-adr` already handles sentinel ids,
+reservation lookup, the conditional Options table, and the roadmap phase read.
+Restating those here would duplicate kit-canonical text with no reconcile
+header — the drift surface `subagent-usage.md` et al. exist to prevent. Only
+what the skill cannot derive belongs here.
+
+- **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
+  recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
+  with no file on disk. It is a gap in the listing, not a free slot.
+- **A file listing can also *over*-report.** The skill's reservation check
+  covers a listing that under-reports; the inverse also happens here — an ADR
+  draft sitting **untracked** in one checkout is visible to `ls` but absent for
+  every other contributor and in CI. Confirm with `git ls-files` before treating
+  a high-numbered file as evidence about the sequence, and check open PRs and
+  concurrent sessions before claiming a number.
