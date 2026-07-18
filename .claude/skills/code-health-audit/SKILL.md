@@ -47,8 +47,10 @@ Optional args:
 
 ## Output Contract (inherited from the brush-up family)
 
-Canonical text: `.claude/skills/consistency-audit/SKILL.md` § "Output Contract".
-The two rules that bind a digest-only generator:
+**Canonical text: `.claude/rules/automation-output-contract.md` — read it in
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
+skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+run. The two rules that bind a digest-only generator:
 
 - **Rule 2 — judgment output carries confidence + counter-evidence.** Every
   finding in the digest carries a confidence and an explicit "why this might be
@@ -69,6 +71,9 @@ filing phase. Do not inline the ceiling literal here.
 2. Confirm `docs/code-health/ledger.md` exists (the dedup memory). Abort if
    missing — a run without dedup memory re-floods.
 3. Resolve `layer` (arg or default `engine-llm`) and the category set (Step 2).
+4. **Read `.claude/rules/automation-output-contract.md` in full.** It does not
+   auto-load during a run (its `paths:` glob fires on a skill edit), so this is
+   the only step that puts the contract in context.
 
 If any check fails, **abort the cycle** — do not proceed against a partial setup.
 
@@ -166,7 +171,7 @@ If everything dedups away, that is a healthy outcome — write a digest that say
    confidence). Each entry carries: the `file:line` anchor (from your own Vet
    read), what's wrong, impact, effort (S/M/L), confidence, and a
    **counter-evidence / "why a maintainer might reject this"** line (Output
-   Contract rule 2). State explicitly **what was not audited** — every category
+   Contract rule 2 — judgment output carries confidence + counter-evidence). State explicitly **what was not audited** — every category
    capped or skipped, and any package the finders didn't reach.
 2. **Ledger** — append one row per **new** survivor with the next `CH-NNN` id,
    today's date, category, a stable **concept fingerprint** (location-independent —
