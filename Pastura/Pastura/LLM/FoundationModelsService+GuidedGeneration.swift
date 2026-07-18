@@ -103,7 +103,30 @@
       let response = try await session.respond(
         to: user, schema: schema, includeSchemaInPrompt: Self.includeSchemaInPrompt,
         options: options)
-      return (response.rawContent.jsonString, response.transcriptEntries)
+      // `content` rather than `rawContent`: for this overload `Content` IS
+      // `GeneratedContent`, so both compile and the SDK documents no difference
+      // between them. `content` is chosen as the schema-DECODED value, which is
+      // what a guided turn is asking for. This is a semantic preference, not a
+      // measured one — the #1154 smoke runs did not isolate any behavioural
+      // difference between the two accessors.
+      let text = response.content.jsonString
+      guard !text.isEmpty else {
+        // Never hand "" to `JSONResponseParser`: an empty string is
+        // indistinguishable there from a model that generated nothing, so it
+        // burns the retry budget and lands in the run log as an ordinary parse
+        // failure — attributing a defect in THIS path to the model.
+        //
+        // Not known to fire: it did not trigger in any smoke run. Empty-output
+        // turns DO occur (parse failures with an empty `raw=` appear in both the
+        // guided and the unguided arm, 9 of 14 in one unguided run), but their
+        // cause was NOT isolated — and since this guard stayed silent while they
+        // occurred, they are reaching the parser from somewhere other than here.
+        // Treat that as an open question for the deferred battery, not as
+        // something this guard explains.
+        throw LLMError.generationFailed(
+          description: "Foundation Models guided generation returned empty content")
+      }
+      return (text, response.transcriptEntries)
     }
   }
 
