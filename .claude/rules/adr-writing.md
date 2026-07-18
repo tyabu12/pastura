@@ -5,9 +5,11 @@ paths:
 
 # ADR Writing Concepts
 
-ADRs are dense with fact-claims and decisions that downstream PRs and future ADRs inherit. Two concepts to preserve when drafting.
+ADRs are dense with fact-claims and decisions that downstream PRs and future ADRs inherit. The concepts below are what to preserve when drafting.
 
-For new ADRs (NNN-numbered files), prefer the `/write-adr` skill (`.claude/skills/write-adr/SKILL.md`) — it handles auto-numbering, structure scaffold, and the review loop. The two concepts below apply at draft time inside the skill AND when amending existing ADRs (the skill's scope is new-file creation only).
+For new ADRs (NNN-numbered files), prefer the `/claude-kit:write-adr` skill (from the `claude-kit@claude-kit` plugin, wired in `.claude/settings.json`) — it handles numbering, structure discovery, and the review loop. Pastura keeps no local copy: the kit skill derives the ADR format from this repo's own most recent ADRs rather than hardcoding one, so the house style tracks reality instead of drifting from it. The concepts below apply at draft time inside the skill AND when amending existing ADRs (the skill's scope is new-file creation only).
+
+This file is the skill's `ADR_RULES_PATH` — it discovers `.claude/rules/adr*.md` and passes the path into both reviewer prompts, and what is written here takes precedence over anything the skill infers from a template ADR. Project facts the skill cannot re-derive therefore belong in § 4 below.
 
 ## 1. Verify fact-claims at write time, not at review time
 
@@ -77,3 +79,35 @@ Two recurring variants beyond plain arithmetic:
   framing far beyond the renamed heading, and one decision can fork a single
   term into two axes needing separate replacement vocab — full-doc grep the old
   plan's vocabulary, not just the section you renamed.
+
+## 4. Numbering, structure, and phase context (`ADR_RULES_PATH` facts)
+
+Project facts the kit skill's runtime discovery cannot re-derive on its own.
+Folded here when Pastura's local `write-adr` skill was retired in favour of
+`/claude-kit:write-adr`.
+
+**Numbering.** The next number is the highest ADR in the **main sequence** plus
+one, in `ADR-NNN.md` three-digit form. Two things a naive `max + 1` gets wrong:
+
+- **Four-digit sentinels are outside the main sequence.** A parked entry such as
+  `ADR-9999` records a deliberately-unnumbered decision; folding it into the
+  arithmetic yields `ADR-10000` and corrupts the sequence permanently. Exclude
+  any four-digit id.
+- **A file listing is not the repo.** An ADR draft can sit **untracked** in a
+  local checkout — visible to `ls`, absent for every other contributor and in
+  CI. Check `git status` / `git ls-files` before treating a high-numbered file
+  as evidence about the sequence, and before claiming a number: a concurrent
+  session or an open PR may already hold the next one.
+- **`ADR-006` is reserved but unwritten** (Cloud API implementation details —
+  see `CLAUDE.md` and `docs/decisions/INDEX.md`). It is a gap in the file
+  listing, not a free slot. Do not reclaim it.
+
+**Options table — conditional, by design.** Include an Options table when real
+alternatives were genuinely considered, stating why each was rejected; **omit it
+entirely** for a decision with no meaningful alternative. This is a *conditional*
+rule, so reading one template ADR cannot reproduce it — whichever ADR the skill
+picks as template shows only one of the two shapes. A table padded with strawmen
+is worse than no table.
+
+**Phase context.** When the decision is phase-scoped, read the relevant section
+of `docs/ROADMAP.md` — and only that section — before drafting.
