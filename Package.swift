@@ -64,9 +64,20 @@ let package = Package(
       sources: ["Models", "LLM", "Engine"],
       swiftSettings: [
         // Mirrors the app target's SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
-        // so the nonisolated annotations in core sources keep identical
-        // semantics under both build paths.
+        // so the nonisolated annotations in core sources mean the same thing
+        // under both build paths.
         .defaultIsolation(MainActor.self),
+        // The Pattern-6-relevant member of the app target's
+        // SWIFT_APPROACHABLE_CONCURRENCY = YES bundle (SE-0461): a
+        // `nonisolated async` function runs on its *caller's* executor rather
+        // than hopping to the global one. Without it this lane would compile
+        // Engine/LLM under semantics the app does not use, and the
+        // `swift build` gate that `.claude/rules/xcodebuild-cli.md` mandates
+        // after Engine changes would be structurally blind to Pattern 6
+        // (`.claude/rules/swift-isolation.md`). Only this member is mirrored —
+        // the rest of the SWIFT_APPROACHABLE_CONCURRENCY bundle is a separate
+        // decision, deliberately not folded in here (see #1169).
+        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
         .swiftLanguageMode(.v6),
         // Consumed by LLM/SafeSampler.swift to drop the bridging-header-era
         // DEBUG test hooks, whose C declarations the SwiftPM build cannot
